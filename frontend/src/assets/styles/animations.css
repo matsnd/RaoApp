@@ -1,0 +1,28 @@
+.fade-enter-active, .fade-leave-active { transition: opacity var(--transition-normal); }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+
+.slide-up-enter-active, .slide-up-leave-active { transition: all var(--transition-normal); }
+.slide-up-enter-from { opacity: 0; transform: translateY(16px); }
+.slide-up-leave-to   { opacity: 0; transform: translateY(-8px); }
+
+.modal-enter-active, .modal-leave-active { transition: all var(--transition-normal); }
+.modal-enter-from, .modal-leave-to { opacity: 0; }
+.modal-enter-from .modal-box, .modal-leave-to .modal-box { transform: scale(0.95) translateY(20px); }
+.modal-enter-active .modal-box, .modal-leave-active .modal-box { transition: transform var(--transition-normal); }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  width: 20px; height: 20px;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+}
+
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+.skeleton {
+  background: var(--color-bg-light);
+  border-radius: var(--border-radius-sm);
+  animation: pulse 1.5s ease-in-out infinite;
+}

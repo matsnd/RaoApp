@@ -1,0 +1,18 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
+@import './variables.css';
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { height: 100%; font-family: var(--font-family); font-size: var(--font-size-base); color: var(--color-text-body); background: var(--color-bg-light); -webkit-font-smoothing: antialiased; }
+
+#app { height: 100%; display: flex; flex-direction: column; }
+
+a { color: inherit; text-decoration: none; }
+
+button { font-family: var(--font-family); cursor: pointer; }
+
+input, select, textarea { font-family: var(--font-family); }
+
+h1, h2, h3, h4, h5, h6 { color: var(--color-text-heading); font-weight: var(--font-weight-semibold); }
+
+ul, ol { list-style: none; }

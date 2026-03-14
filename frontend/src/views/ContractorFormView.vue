@@ -1,0 +1,332 @@
+<template>
+  <div style="display:flex;flex-direction:column;height:100vh;overflow:hidden;">
+    <div class="toolbar">
+      <button class="toolbar-btn" @click="goBack">←</button>
+      <span class="toolbar-info">{{ isEdit ? `Edycja kontrahenta: ${form.name}` : 'Nowy kontrahent' }}</span>
+      <button class="btn btn-primary btn-sm" @click="handleSave" :disabled="saving">
+        {{ saving ? '...' : 'Zapisz' }}
+      </button>
+    </div>
+
+    <div class="content-area">
+      <div v-if="loading" class="empty-state">Ładowanie...</div>
+      <div v-else class="split-layout wide-left" style="height:calc(100vh - 48px - 32px);">
+        <!-- LEFT: main form -->
+        <div class="panel">
+          <div class="panel-header">Dane kontrahenta</div>
+          <div class="panel-body">
+            <div v-if="errorMsg" style="color:var(--color-danger);font-size:13px;margin-bottom:12px;padding:8px;background:#FED7D7;border-radius:6px;">{{ errorMsg }}</div>
+
+            <div class="form-group">
+              <label class="form-label">Pełna nazwa *</label>
+              <input v-model="form.name" type="text" class="form-control" placeholder="Nazwa firmy lub imię i nazwisko" required />
+            </div>
+            <div class="form-row-2">
+              <div class="form-group">
+                <label class="form-label">Nazwa skrócona</label>
+                <input v-model="form.name_short" type="text" class="form-control" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">NIP
+                  <button type="button" class="btn btn-sm" style="margin-left:8px;padding:2px 10px;font-size:11px;background:var(--color-primary);color:#fff;border-radius:12px;" @click="gusLookup" :disabled="gusLoading">
+                    {{ gusLoading ? '...' : 'GUS' }}
+                  </button>
+                </label>
+                <input v-model="form.nip" type="text" class="form-control" placeholder="0000000000" maxlength="20" />
+              </div>
+            </div>
+            <div class="form-row-2">
+              <div class="form-group">
+                <label class="form-label">REGON</label>
+                <input v-model="form.regon" type="text" class="form-control" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">PESEL</label>
+                <input v-model="form.pesel" type="text" class="form-control" />
+              </div>
+            </div>
+
+            <div class="section-title" style="font-size:13px;margin-top:16px;">Adres główny</div>
+            <div class="form-row-2">
+              <div class="form-group">
+                <label class="form-label">Kod pocztowy</label>
+                <input v-model="form.postal_code" type="text" class="form-control" placeholder="00-000" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Miejscowość</label>
+                <input v-model="form.city" type="text" class="form-control" />
+              </div>
+            </div>
+            <div class="form-row-2">
+              <div class="form-group">
+                <label class="form-label">Ulica</label>
+                <input v-model="form.street" type="text" class="form-control" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Nr lokalu</label>
+                <input v-model="form.unit" type="text" class="form-control" />
+              </div>
+            </div>
+
+            <div class="section-title" style="font-size:13px;margin-top:16px;">Kontakt</div>
+            <div class="form-row-2">
+              <div class="form-group">
+                <label class="form-label">Osoba kontaktowa 1</label>
+                <input v-model="form.contact_person1" type="text" class="form-control" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Telefon 1</label>
+                <input v-model="form.phone1" type="text" class="form-control" />
+              </div>
+            </div>
+            <div class="form-row-2">
+              <div class="form-group">
+                <label class="form-label">Osoba kontaktowa 2</label>
+                <input v-model="form.contact_person2" type="text" class="form-control" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Telefon 2</label>
+                <input v-model="form.phone2" type="text" class="form-control" />
+              </div>
+            </div>
+            <div class="form-row-2">
+              <div class="form-group">
+                <label class="form-label">Email</label>
+                <input v-model="form.email" type="email" class="form-control" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Strona WWW</label>
+                <input v-model="form.website" type="text" class="form-control" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Uwagi</label>
+              <textarea v-model="form.notes" class="form-control" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+              <label class="checkbox-group">
+                <input type="checkbox" v-model="form.is_supplier" />
+                <span>Dostawca (maszyny zewnętrzne)</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: addresses -->
+        <div v-if="isEdit" class="panel">
+          <div class="panel-header">
+            Adresy dostawy
+            <button class="toolbar-btn" style="margin-left:auto;width:24px;height:24px;" @click="addAddress">+</button>
+          </div>
+          <div class="panel-body" style="padding:0;">
+            <div v-if="!contractor?.addresses?.length" class="empty-state">Brak adresów</div>
+            <div
+              v-for="addr in contractor?.addresses"
+              :key="addr.id"
+              :class="['address-item', { selected: selectedAddrId === addr.id }]"
+              @click="selectAddress(addr)"
+            >
+              <div style="font-weight:600;font-size:13px;">{{ addr.name || addr.city || 'Adres' }}</div>
+              <div style="font-size:11px;color:var(--color-text-muted);">{{ [addr.street, addr.postal_code, addr.city].filter(Boolean).join(', ') }}</div>
+              <div style="font-size:11px;margin-top:2px;">
+                <span v-if="addr.is_headquarters" class="badge badge-info" style="font-size:10px;">Siedziba</span>
+                <span v-if="addr.is_default_delivery" class="badge badge-success" style="font-size:10px;margin-left:4px;">Domyślna dostawa</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div v-else class="panel">
+          <div class="panel-header">Adresy dostawy</div>
+          <div class="panel-body empty-state">Zapisz kontrahenta, aby dodać adresy.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Address form modal -->
+    <Transition name="modal">
+      <div v-if="showAddrModal" class="modal-overlay" @click.self="showAddrModal = false">
+        <div class="modal-box" style="min-width:500px;">
+          <div class="modal-title">{{ editingAddr ? 'Edytuj adres' : 'Nowy adres dostawy' }}</div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Nazwa adresu</label>
+              <input v-model="addrForm.name" type="text" class="form-control" placeholder="np. Budowa Warszawa" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Kod pocztowy</label>
+              <input v-model="addrForm.postal_code" type="text" class="form-control" />
+            </div>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Miejscowość</label>
+              <input v-model="addrForm.city" type="text" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Ulica</label>
+              <input v-model="addrForm.street" type="text" class="form-control" />
+            </div>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Kontakt</label>
+              <input v-model="addrForm.contact_person" type="text" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Telefon</label>
+              <input v-model="addrForm.phone" type="text" class="form-control" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="checkbox-group"><input type="checkbox" v-model="addrForm.is_headquarters" /> <span>Siedziba firmy</span></label>
+          </div>
+          <div class="form-group">
+            <label class="checkbox-group"><input type="checkbox" v-model="addrForm.is_default_delivery" /> <span>Domyślna dostawa</span></label>
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-secondary btn-sm" @click="showAddrModal = false">Anuluj</button>
+            <button v-if="editingAddr" class="btn btn-danger btn-sm" @click="deleteAddress">Usuń</button>
+            <button class="btn btn-primary btn-sm" @click="saveAddress" :disabled="savingAddr">
+              {{ savingAddr ? '...' : 'Zapisz' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { useContractorStore } from '@/stores/contractors'
+
+const props = defineProps({ id: String })
+const router = useRouter()
+const store = useContractorStore()
+
+const isEdit = computed(() => !!props.id)
+const loading = ref(false)
+const saving = ref(false)
+const gusLoading = ref(false)
+const errorMsg = ref('')
+const contractor = ref(null)
+const selectedAddrId = ref(null)
+const showAddrModal = ref(false)
+const editingAddr = ref(null)
+const savingAddr = ref(false)
+
+const form = ref({
+  name: '', name_short: '', nip: '', regon: '', pesel: '',
+  postal_code: '', city: '', street: '', unit: '', notes: '',
+  is_supplier: false, email: '', contact_person1: '', phone1: '',
+  contact_person2: '', phone2: '', landline_phone: '', website: '',
+})
+
+const addrForm = ref({ name: '', postal_code: '', city: '', street: '', contact_person: '', phone: '', email: '', is_headquarters: false, is_default_delivery: false, notes: '', country_code: 'PL' })
+
+onMounted(async () => {
+  if (isEdit.value) {
+    loading.value = true
+    try {
+      const data = await store.fetchOne(Number(props.id))
+      contractor.value = data
+      Object.assign(form.value, data)
+    } finally {
+      loading.value = false
+    }
+  }
+})
+
+function goBack() { router.push('/dashboard/contractors') }
+
+async function handleSave() {
+  saving.value = true
+  errorMsg.value = ''
+  try {
+    if (isEdit.value) {
+      await store.update(Number(props.id), form.value)
+      contractor.value = await store.fetchOne(Number(props.id))
+    } else {
+      const result = await store.create(form.value)
+      router.push(`/contractors/${result.id}/edit`)
+    }
+  } catch (e) {
+    errorMsg.value = e.response?.data?.detail || 'Błąd zapisu'
+  } finally {
+    saving.value = false
+  }
+}
+
+async function gusLookup() {
+  if (!form.value.nip || form.value.nip.length !== 10) {
+    alert('Podaj 10-cyfrowy NIP')
+    return
+  }
+  gusLoading.value = true
+  try {
+    const data = await store.gusLookup(form.value.nip)
+    if (data.name) form.value.name = data.name
+    if (data.street) form.value.street = data.street + (data.building_number ? ' ' + data.building_number : '')
+    if (data.postal_code) form.value.postal_code = data.postal_code
+    if (data.city) form.value.city = data.city
+    if (data.regon) form.value.regon = data.regon
+  } catch (e) {
+    alert(e.response?.data?.detail || 'Błąd pobierania danych z GUS')
+  } finally {
+    gusLoading.value = false
+  }
+}
+
+function addAddress() {
+  editingAddr.value = null
+  Object.assign(addrForm.value, { name: '', postal_code: '', city: '', street: '', contact_person: '', phone: '', email: '', is_headquarters: false, is_default_delivery: false, notes: '', country_code: 'PL' })
+  showAddrModal.value = true
+}
+
+function selectAddress(addr) {
+  selectedAddrId.value = addr.id
+  editingAddr.value = addr
+  Object.assign(addrForm.value, addr)
+  showAddrModal.value = true
+}
+
+async function saveAddress() {
+  savingAddr.value = true
+  try {
+    if (editingAddr.value) {
+      await store.updateAddress(Number(props.id), editingAddr.value.id, addrForm.value)
+    } else {
+      await store.createAddress(Number(props.id), addrForm.value)
+    }
+    contractor.value = await store.fetchOne(Number(props.id))
+    showAddrModal.value = false
+  } catch (e) {
+    alert(e.response?.data?.detail || 'Błąd zapisu adresu')
+  } finally {
+    savingAddr.value = false
+  }
+}
+
+async function deleteAddress() {
+  if (!confirm('Usunąć ten adres?')) return
+  try {
+    await store.removeAddress(Number(props.id), editingAddr.value.id)
+    contractor.value = await store.fetchOne(Number(props.id))
+    showAddrModal.value = false
+  } catch (e) {
+    alert(e.response?.data?.detail || 'Błąd usuwania')
+  }
+}
+</script>
+
+<style scoped>
+.address-item {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.address-item:hover { background: var(--color-bg-light); }
+.address-item.selected { background: rgba(29,43,83,0.08); border-left: 3px solid var(--color-primary); }
+</style>

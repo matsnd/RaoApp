@@ -1,0 +1,88 @@
+import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+
+const routes = [
+  {
+    path: '/login',
+    name: 'Login',
+    component: () => import('@/views/LoginView.vue'),
+    meta: { requiresAuth: false },
+  },
+  {
+    path: '/reset-password',
+    name: 'ResetPassword',
+    component: () => import('@/views/ResetPasswordView.vue'),
+    meta: { requiresAuth: false },
+  },
+  {
+    path: '/',
+    component: () => import('@/components/layout/AppLayout.vue'),
+    meta: { requiresAuth: true },
+    children: [
+      { path: '', redirect: '/dashboard/contracts' },
+      {
+        path: 'dashboard/:section',
+        name: 'Dashboard',
+        component: () => import('@/views/DashboardView.vue'),
+        props: true,
+      },
+      {
+        path: 'contractors/new',
+        name: 'ContractorNew',
+        component: () => import('@/views/ContractorFormView.vue'),
+      },
+      {
+        path: 'contractors/:id/edit',
+        name: 'ContractorEdit',
+        component: () => import('@/views/ContractorFormView.vue'),
+        props: true,
+      },
+      {
+        path: 'articles/new',
+        name: 'ArticleNew',
+        component: () => import('@/views/ArticleFormView.vue'),
+      },
+      {
+        path: 'articles/:id/edit',
+        name: 'ArticleEdit',
+        component: () => import('@/views/ArticleFormView.vue'),
+        props: true,
+      },
+      {
+        path: 'contracts/new',
+        name: 'ContractNew',
+        component: () => import('@/views/ContractFormView.vue'),
+      },
+      {
+        path: 'contracts/:id/edit',
+        name: 'ContractEdit',
+        component: () => import('@/views/ContractFormView.vue'),
+        props: true,
+      },
+      {
+        path: 'settings',
+        name: 'Settings',
+        component: () => import('@/views/SettingsView.vue'),
+      },
+    ],
+  },
+  { path: '/:pathMatch(.*)*', redirect: '/' },
+]
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes,
+})
+
+router.beforeEach((to, from, next) => {
+  const auth = useAuthStore()
+  if (to.meta.requiresAuth !== false && !auth.isAuthenticated) {
+    return next({ name: 'Login', query: { redirect: to.fullPath } })
+  }
+  if (to.name === 'Login' && auth.isAuthenticated) {
+    return next('/')
+  }
+  next()
+})
+
+export default router
