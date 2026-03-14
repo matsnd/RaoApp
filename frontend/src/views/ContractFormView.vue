@@ -353,15 +353,27 @@ onMounted(async () => {
 
 function goBack() { router.push('/dashboard/contracts') }
 
+function buildPayload() {
+  const v = { ...form.value }
+  const dateFields = ['date_from', 'date_to']
+  const nullableStr = ['delivery_address', 'prepayment_document', 'invoice_document',
+    'notes', 'contact_person1', 'contact_phone1', 'contact_person2', 'contact_phone2',
+    'email', 'phone', 'contractor_name']
+  dateFields.forEach(f => { if (!v[f]) v[f] = null })
+  nullableStr.forEach(f => { if (v[f] === '') v[f] = null })
+  return v
+}
+
 async function handleSave() {
   if (!form.value.contractor_id) { errorMsg.value = 'Wybierz kontrahenta'; return }
   saving.value = true
   errorMsg.value = ''
   try {
+    const payload = buildPayload()
     if (isEdit.value) {
-      await contractStore.update(Number(props.id), form.value)
+      await contractStore.update(Number(props.id), payload)
     } else {
-      const result = await contractStore.create(form.value)
+      const result = await contractStore.create(payload)
       router.push(`/contracts/${result.id}/edit`)
     }
   } catch (e) {

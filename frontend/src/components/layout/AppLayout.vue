@@ -2,7 +2,7 @@
   <div class="app-shell">
     <AppSidebar :active-section="activeSection" @navigate="handleNavigate" />
     <div class="main-area">
-      <router-view />
+      <router-view :key="route.fullPath" />
     </div>
   </div>
 </template>
