@@ -591,3 +591,80 @@ docs/spec/
 ```
 
 **START → Przeczytaj `00_INDEX.md` → następnie `01` po kolei → buduj.**
+
+---
+
+## Self-Review Workflow z automatycznymi commitami
+
+> **ZASADA:** Po każdym logicalznym kroku zmieniaj kontekst na innego developera i rób sobie sam review. Jeśli nie OK → popraw. Jeśli OK → commituj. To produkuje wiele małych, dobrze opisanych commitów.
+
+### Zmiana kontekstu (rotacja "developera")
+
+Przed każdym commitem zmień "osobę" która commituje:
+- `dev-backend` — praca nad backendem (FastAPI, SQLAlchemy)
+- `dev-frontend` — praca nad frontendem (Vue.js, komponenty)
+- `dev-db` — praca nad bazą danych (DDL, migracje)
+- `dev-infra` — praca nad infrastrukturą (Docker, konfiguracja)
+- `dev-review` — faza finalnego review
+
+### Self-review przed każdym commitem
+
+```
+1. git diff --staged
+2. Oceń:
+   - Czy kod zgodny ze specyfikacją?
+   - Czy nazwy zmiennych sensowne?
+   - Czy są komentarze gdzie potrzeba?
+   - Czy testy przechodzą?
+   - Czy nie ma console.log / debug?
+   - Czy formatowanie spójne?
+3. Jeśli NIE OK → napraw → powtórz review
+4. Jeśli OK → commit
+```
+
+### Format commit messages (Conventional Commits)
+
+```
+<typ>(<zakres>): <opis>
+
+Co zostało zrobione:
+- <lista zmian>
+
+Dlaczego: <uzasadnienie>
+```
+
+Typy: `feat`, `fix`, `refactor`, `docs`, `style`, `test`, `chore`, `perf`, `ci`
+
+### Przykładowa sekwencja
+
+```bash
+# Zadanie: implementuj logowanie
+
+# 1. dev-backend
+feat(auth): dodaj model Uzytkownik i hashowanie hasel
+
+# 2. dev-backend  
+feat(auth): implementuj endpoint POST /auth/login
+
+# 3. dev-frontend
+feat(login): dodaj komponent LoginView
+
+# 4. dev-frontend
+style(login): dostosuj do design systemu Toolsmart
+
+# 5. dev-review
+docs(readme): aktualizuj dokumentacje logowania
+```
+
+### Checklist przed commitem
+
+- [ ] Kod działa (testy przechodzą)
+- [ ] Brak debug/console.log
+- [ ] Nazwy zmiennych sensowne
+- [ ] Formatowanie spójne
+- [ ] Commit message zgodny z konwencją
+- [ ] Zmieniony kontekst developera
+
+---
+
+**START → Przeczytaj `00_INDEX.md` → następnie `01` po kolei → buduj.**
