@@ -594,77 +594,216 @@ docs/spec/
 
 ---
 
-## Self-Review Workflow z automatycznymi commitami
+## Self-Review Workflow — AGRESYWNA AUTOMATYZACJA
 
-> **ZASADA:** Po każdym logicalznym kroku zmieniaj kontekst na innego developera i rób sobie sam review. Jeśli nie OK → popraw. Jeśli OK → commituj. To produkuje wiele małych, dobrze opisanych commitów.
+> **ZASADA:** Po każdym logicalznym kroku (max 50 linii kodu):
+> 1. Zmień kontekst developera
+> 2. Zrób self-review
+> 3. Jeśli nie OK → napraw automatycznie
+> 4. Jeśli OK → commituj natychmiast
+> 5. Uruchom testy → jak nie OK → napraw → retry aż zadziała
+>
+> **NIE PYTAJ — RÓB. Iteruj do skutku.**
 
-### Zmiana kontekstu (rotacja "developera")
-
-Przed każdym commitem zmień "osobę" która commituje:
-- `dev-backend` — praca nad backendem (FastAPI, SQLAlchemy)
-- `dev-frontend` — praca nad frontendem (Vue.js, komponenty)
-- `dev-db` — praca nad bazą danych (DDL, migracje)
-- `dev-infra` — praca nad infrastrukturą (Docker, konfiguracja)
-- `dev-review` — faza finalnego review
-
-### Self-review przed każdym commitem
+### 🔄 Rotacja kontekstu (wymuszona przed każdym commitem)
 
 ```
-1. git diff --staged
-2. Oceń:
-   - Czy kod zgodny ze specyfikacją?
-   - Czy nazwy zmiennych sensowne?
-   - Czy są komentarze gdzie potrzeba?
-   - Czy testy przechodzą?
-   - Czy nie ma console.log / debug?
-   - Czy formatowanie spójne?
-3. Jeśli NIE OK → napraw → powtórz review
-4. Jeśli OK → commit
+KONIECZNIE zmień "osobę" przed commitem (symulacja review):
+┌─────────────────────────────────────────────────────────────┐
+│ dev-db        → DDL, migracje, indeksy                    │
+│ dev-backend-1 → Auth, users, security                     │
+│ dev-backend-2 → Contractors, CRUD                         │
+│ dev-backend-3 → Articles, CRUD                            │
+│ dev-backend-4 → Contracts, positions, conditions          │
+│ dev-frontend-1 → Router, stores, layout                   │
+│ dev-frontend-2 → Komponenty, DataGrid, forms              │
+│ dev-frontend-3 → Views, integracja z API                 │
+│ dev-infra     → Docker, config, .env                      │
+│ dev-review    → Final review, testy E2E                   │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### Format commit messages (Conventional Commits)
+### 🔍 Self-review PRZED commitem (obowiązkowe)
+
+```bash
+# KROK 1: Sprawdź co zmienione
+git diff --cached --stat
+
+# KROK 2: Analizuj jakość
+echo "=== SELF-REVIEW CHECKLIST ==="
+echo "[1] Czy kod zgodny ze specyfikacją (01-09)?"
+echo "[2] Czy nazwy zmiennych sensowne (polski/angielski spójnie)?"
+echo "[3] Czy są docstringi/komentarze gdzie potrzeba?"
+echo "[4] Czy testy jednostkowe przechodzą?"
+echo "[5] Czy NIE MA console.log / print / debug?"
+echo "[6] Czy formatowanie spójne (ESLint/Black)?"
+echo "[7] Czy commit message zgodny z Conventional Commits?"
+echo "[8] Czy zmieniłeś kontekst developera?"
+
+# KROK 3: Jeśli NIE OK → napraw natychmiast
+# KROK 4: Jeśli OK → commit
+```
+
+### 📝 Format commit messages (OBOWIĄZKOWY)
 
 ```
 <typ>(<zakres>): <opis>
 
 Co zostało zrobione:
-- <lista zmian>
+- <lista zmian w bullet points>
 
-Dlaczego: <uzasadnienie>
+Dlaczego: <krótkie uzasadnienie biznesowe/techniczne>
+
+Review: @<poprzedni_kontekst_developera>
 ```
 
-Typy: `feat`, `fix`, `refactor`, `docs`, `style`, `test`, `chore`, `perf`, `ci`
+**Typy:** `feat`, `fix`, `refactor`, `docs`, `style`, `test`, `chore`, `perf`, `ci`, `revert`
 
-### Przykładowa sekwencja
+### ⚡ Automatyczne testy PO każdym commicie
 
 ```bash
-# Zadanie: implementuj logowanie
+# Po KAŻDYM commicie URUCHOM:
+npm run lint          # Frontend lint
+npm run test          # Frontend unit tests (jeśli są)
 
-# 1. dev-backend
-feat(auth): dodaj model Uzytkownik i hashowanie hasel
+# Backend:
+cd backend
+python -m pytest     # Backend tests (jeśli są)
+uvicorn main:app --port 8001 &
+sleep 3
+curl http://localhost:8001/docs | grep -q "swagger" && echo "Backend OK"
+pkill -f "uvicorn main:app"
 
-# 2. dev-backend  
-feat(auth): implementuj endpoint POST /auth/login
-
-# 3. dev-frontend
-feat(login): dodaj komponent LoginView
-
-# 4. dev-frontend
-style(login): dostosuj do design systemu Toolsmart
-
-# 5. dev-review
-docs(readme): aktualizuj dokumentacje logowania
+# Playwright E2E (kluczowe scenariusze):
+npx playwright test tests/login.spec.ts
+npx playwright test tests/crud.spec.ts
 ```
 
-### Checklist przed commitem
+### 🔄 Self-Healing Pattern (AGRESYWNY)
 
-- [ ] Kod działa (testy przechodzą)
-- [ ] Brak debug/console.log
-- [ ] Nazwy zmiennych sensowne
-- [ ] Formatowanie spójne
-- [ ] Commit message zgodny z konwencją
-- [ ] Zmieniony kontekst developera
+```
+LOOP (max 10 iteracji):
+  1. Wykonaj zmianę (max 50 linii)
+  2. Self-review (checklist wyżej)
+  3. Commit z opisem
+  4. Uruchom testy
+  5. JEŚLI TESTY FAIL:
+     a. Przeczytaj error log
+     b. Zidentyfikuj przyczynę
+     c. Napraw kod (krok 1)
+     d. GOTO 2
+  6. JEŚLI TESTY PASS:
+     a. Zmień kontekst na następnego developera
+     b. Następny krok
+```
+
+### 📊 Przykładowa sekwencja commitów (agresywna)
+
+```bash
+# === Zadanie: implementuj logowanie ===
+
+# dev-db: najpierw baza
+chore(db): utworz tabele users zgodnie z 01_DATABASE_DDL
+- dodano tabele users z polami login, email, password (bcrypt), role
+- dodano indeksy na login i email
+- dodano FK na branch_id
+
+# dev-backend-1: model + auth
+feat(auth): dodaj model Uzytkownik i serwis autoryzacji
+- model SQLAlchemy zgodny z DDL
+- hashowanie hasel bcrypt
+- walidacja Pydantic
+
+feat(auth): implementuj POST /auth/login
+- weryfikacja credentials
+- generowanie JWT tokena
+- zwracanie user info
+
+# dev-frontend-1: routing + store
+feat(auth): dodaj router i auth store
+- routes /login, /dashboard z guard
+- Pinia store z token i user state
+- JWT interceptor w axios
+
+# dev-frontend-2: komponent logowania
+feat(login): dodaj komponent LoginView
+- formularz z polami login/haslo
+- walidacja frontendowa
+- obsluga blędow
+
+# dev-frontend-3: style
+style(login): dostosuj do design systemu Toolsmart
+- kolory navy #1D2B53
+- font Montserrat
+- border-radius 12px
+
+# dev-infra: konfiguracja
+chore(env): dodaj .env z konfiguracja
+- DATABASE_URL, SECRET_KEY, SMTP
+- CORS_ORIGINS
+
+# dev-review: testy E2E
+test(e2e): dodaj testy logowania Playwright
+- TEST-01: login poprawny
+- TEST-02: login niepoprawny
+- TEST-03: redirect po zalogowaniu
+```
+
+### ✅ Checklist PRZED commitem (NIE commituj bez tego)
+
+- [ ] **Kod działa** — testy przechodzą (lub wiem dlaczego nie)
+- [ ] **Brak debug** — zero console.log, print, TODO bez opisu
+- [ ] **Nazwy OK** — zmienne po polsku lub angielsku (spójnie)
+- [ ] **Dokumentacja** — docstringi w Python, comments w Vue gdzie potrzeba
+- [ ] **Formatowanie** — ESLint/Black przeszły (lub wiem że nie ma)
+- [ ] **Commit message** — zgodny z Conventional Commits
+- [ ] **Kontekst zmieniony** — nowy "developer" przed commitem
+- [ ] **Max 50 linii** — jeśli więcej, podziel na mniejsze commity
+
+### 🎯 Reguły agresywnej automatyzacji
+
+1. **Małe commity** — max 50 linii zmian, jeden logicalzny feature/fix
+2. **Testuj NATYCHMIAST** — nie pisz 500 linii i "oby zadziałało"
+3. **Iteruj do skutku** — max 10 retry per krok, potem loguj problem
+4. **NIE POMIJAJ BŁĘDÓW** — jak coś nie działa, napraw aż zadziała
+5. **Checkpointy** — po każdej fazie (01-06) weryfikuj całość
+6. **Progress file** — prowadź BUILD_PROGRESS.md
+
+### 📁 BUILD_PROGRESS.md (OBOWIĄZKOWY)
+
+```markdown
+# RAO Build Progress
+
+## Phase 1: Infrastructure [ ]
+- [ ] MariaDB + 14 tabel
+- [ ] Backend startuje na :8000
+- [ ] Frontend startuje na :5173
+
+## Phase 2: Backend API [ ]
+- [ ] Auth (login, register, reset-password)
+- [ ] Contractors CRUD
+- [ ] Articles CRUD
+- [ ] Contracts + positions + conditions CRUD
+
+## Phase 3: Frontend [ ]
+- [ ] Login screen
+- [ ] Dashboard (Umowy/Kontrahenci/Artykuły)
+- [ ] Formularze (Contractor, Contract, Article)
+
+## Phase 4: Integration [ ]
+- [ ] GUS API
+- [ ] Nominatim
+- [ ] PDF Reports
+
+## Phase 5: Testing [ ]
+- [ ] TEST-01..TEST-10 E2E
+
+## Phase 6: Polish [ ]
+- [ ] Wizualne porównanie z Toolsmart
+- [ ] Performance check
+- [ ] README.md
+```
 
 ---
 
-**START → Przeczytaj `00_INDEX.md` → następnie `01` po kolei → buduj.**
+**START → Przeczytaj `00_INDEX.md` → następnie `01` po kolei → buduj iteracyjnie.**
