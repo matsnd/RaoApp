@@ -1,0 +1,480 @@
+# 01 — Nowa baza danych MariaDB (3NF) — Kompletne DDL
+
+> **INSTRUKCJA DLA AGENTA:** Wykonaj poniższe DDL w dokładnej kolejności.
+> Każda tabela ma FK constraints, indeksy i komentarze.
+> NIE ZMIENIAJ nazw tabel ani kolumn — frontend i backend korzystają z tych nazw.
+
+## Kolejność tworzenia (dependencies-first)
+
+```sql
+-- ============================================================
+-- 0. BAZA DANYCH
+-- ============================================================
+CREATE DATABASE IF NOT EXISTS rao_new
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_polish_ci;
+USE rao_new;
+
+-- ============================================================
+-- 1. TABELE BEZ ZALEŻNOŚCI (leaf tables)
+-- ============================================================
+
+-- 1.1 Użytkownicy
+CREATE TABLE users (
+    id                    INT AUTO_INCREMENT PRIMARY KEY,
+    login                 VARCHAR(50)  NOT NULL UNIQUE,
+    email                 VARCHAR(100) NULL UNIQUE COMMENT 'Email do resetowania hasła i powiadomień',
+    password              VARCHAR(255) NOT NULL COMMENT 'bcrypt hash, NIE plaintext',
+    first_name            VARCHAR(30)  NULL,
+    last_name             VARCHAR(30)  NULL,
+    role                  ENUM('admin','user','viewer') NOT NULL DEFAULT 'user',
+    branch_id             INT          NULL COMMENT 'FK do branches, dodana po branches',
+    is_active             BOOLEAN      NOT NULL DEFAULT TRUE COMMENT 'Czy konto aktywne',
+    must_change_password  BOOLEAN      NOT NULL DEFAULT FALSE COMMENT 'Wymuszenie zmiany hasła przy logowaniu',
+    password_reset_token  VARCHAR(255) NULL COMMENT 'Token do resetowania hasła (hash)',
+    password_reset_expires DATETIME    NULL COMMENT 'Ważność tokena resetu',
+    last_login            DATETIME     NULL COMMENT 'Ostatnie logowanie',
+    created_at            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at            DATETIME     NULL ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_users_login (login),
+    INDEX idx_users_email (email)
+) ENGINE=InnoDB COMMENT='Użytkownicy systemu (stara tabela: uzytkownik)';
+
+-- 1.2 Oddziały
+CREATE TABLE branches (
+    id           INT AUTO_INCREMENT PRIMARY KEY,
+    name         VARCHAR(200) NOT NULL,
+    address      VARCHAR(200) NULL,
+    postal_code  VARCHAR(20)  NULL,
+    city         VARCHAR(100) NULL,
+    street       VARCHAR(100) NULL,
+    created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB COMMENT='Oddziały firmy (stara tabela: oddzial)';
+
+-- FK: users.branch_id → branches.id
+ALTER TABLE users ADD CONSTRAINT fk_users_branch
+    FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE SET NULL;
+
+-- 1.3 Kategorie artykułów
+CREATE TABLE categories (
+    id    INT AUTO_INCREMENT PRIMARY KEY,
+    name  VARCHAR(200) NOT NULL,
+    code  VARCHAR(40)  NULL COMMENT 'Kod kategorii np. KOP, DZW',
+    description VARCHAR(400) NULL,
+    INDEX idx_categories_name (name)
+) ENGINE=InnoDB COMMENT='Kategorie maszyn/artykułów (stara tabela: kategoria)';
+
+-- 1.4 Handlowcy
+CREATE TABLE salespeople (
+    id        INT AUTO_INCREMENT PRIMARY KEY,
+    name      VARCHAR(200) NOT NULL,
+    phone     VARCHAR(100) NULL,
+    is_active BOOLEAN      NOT NULL DEFAULT TRUE,
+    INDEX idx_salespeople_active (is_active)
+) ENGINE=InnoDB COMMENT='Handlowcy (stara tabela: handlowiec)';
+
+-- 1.5 Typy stawek
+CREATE TABLE rate_types (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    name        VARCHAR(400) NOT NULL,
+    description VARCHAR(800) NULL,
+    is_dependent BOOLEAN     NULL DEFAULT FALSE COMMENT 'Czy stawka zależy od okresu'
+) ENGINE=InnoDB COMMENT='Typy stawek rozliczeniowych (stara tabela: stawka)';
+
+-- 1.6 Typy kosztów
+CREATE TABLE cost_types (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    name        VARCHAR(100) NOT NULL,
+    description VARCHAR(400) NULL,
+    amount1     DECIMAL(18,2) NULL,
+    amount2     DECIMAL(18,2) NULL
+) ENGINE=InnoDB COMMENT='Typy kosztów dodatkowych (stara tabela: koszt_typ)';
+
+-- 1.7 Firma (singleton - konfiguracja firmy)
+CREATE TABLE company (
+    id             INT AUTO_INCREMENT PRIMARY KEY,
+    name           VARCHAR(200) NULL,
+    name_short     VARCHAR(100) NULL,
+    nip            VARCHAR(20)  NULL,
+    regon          VARCHAR(20)  NULL,
+    postal_code    VARCHAR(20)  NULL,
+    city           VARCHAR(50)  NULL,
+    street         VARCHAR(50)  NULL,
+    header_text    TEXT         NULL COMMENT 'Nagłówek raportu (multiline)',
+    logo           LONGBLOB     NULL,
+    bank_name      VARCHAR(200) NULL,
+    bank_account   VARCHAR(40)  NULL,
+    numbering_start INT         NULL DEFAULT 1 COMMENT 'Startowy numer dla auto-numeracji umów',
+    increment_step DECIMAL(18,2) NULL DEFAULT 50.00 COMMENT 'Krok opłat +/- w konfiguracji',
+    report_folder  VARCHAR(200) NULL,
+    protocol_folder VARCHAR(200) NULL,
+    app_version    VARCHAR(20)  NULL,
+    -- Szablony treści umów
+    contract_rental_text  TEXT NULL COMMENT 'Szablon usług dodatkowych umowy najmu',
+    contract_service_text TEXT NULL COMMENT 'Szablon usług dodatkowych umowy usługowej'
+) ENGINE=InnoDB COMMENT='Dane firmy - singleton (stara tabela: firma)';
+
+-- 1.8 Opłaty dodatkowe (wydzielone z firma)
+CREATE TABLE additional_fees (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    company_id  INT NOT NULL DEFAULT 1,
+    fee_type    ENUM('refueling','transport','cleaning1','cleaning2','excess_downtime')
+                NOT NULL,
+    is_active   BOOLEAN       NOT NULL DEFAULT FALSE,
+    amount_from DECIMAL(18,2) NULL COMMENT 'Kwota od',
+    amount_to   DECIMAL(18,2) NULL COMMENT 'Kwota do',
+    description TEXT          NULL,
+    CONSTRAINT fk_fees_company FOREIGN KEY (company_id) REFERENCES company(id),
+    UNIQUE KEY uk_fee_type (company_id, fee_type)
+) ENGINE=InnoDB COMMENT='Opłaty dodatkowe (stare kolumny: firma.oplata_*)';
+
+-- ============================================================
+-- 2. KONTRAHENCI (Contractors)
+-- ============================================================
+
+CREATE TABLE contractors (
+    id               INT AUTO_INCREMENT PRIMARY KEY,
+    name             VARCHAR(400) NOT NULL,
+    name_short       VARCHAR(200) NULL,
+    nip              VARCHAR(20)  NULL,
+    regon            VARCHAR(20)  NULL,
+    pesel            VARCHAR(20)  NULL,
+    postal_code      VARCHAR(20)  NULL,
+    city             VARCHAR(50)  NULL,
+    street           VARCHAR(50)  NULL,
+    unit             VARCHAR(50)  NULL COMMENT 'Numer lokalu',
+    notes            TEXT         NULL,
+    is_supplier      BOOLEAN      NOT NULL DEFAULT FALSE,
+    email            VARCHAR(100) NULL,
+    contact_person1  VARCHAR(100) NULL,
+    phone1           VARCHAR(100) NULL,
+    contact_person2  VARCHAR(100) NULL,
+    phone2           VARCHAR(100) NULL,
+    landline_phone   VARCHAR(20)  NULL,
+    website          VARCHAR(100) NULL,
+    files_folder     VARCHAR(100) NULL COMMENT 'Ścieżka do folderu plików kontrahenta',
+    gus_date         DATETIME     NULL COMMENT 'Data ostatniego pobrania z GUS',
+    created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at       DATETIME     NULL ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_contractors_name (name),
+    INDEX idx_contractors_nip (nip),
+    INDEX idx_contractors_supplier (is_supplier)
+) ENGINE=InnoDB COMMENT='Kontrahenci (stara tabela: kontrahent2)';
+
+-- 2.1 Adresy kontrahentów
+CREATE TABLE contractor_addresses (
+    id              INT AUTO_INCREMENT PRIMARY KEY,
+    contractor_id   INT          NOT NULL,
+    name            VARCHAR(200) NULL COMMENT 'Nazwa adresu np. Siedziba, Magazyn',
+    country_code    VARCHAR(3)   NULL DEFAULT 'PL',
+    postal_code     VARCHAR(20)  NULL,
+    city            VARCHAR(50)  NULL,
+    street          VARCHAR(50)  NULL,
+    notes           VARCHAR(200) NULL,
+    contact_person  VARCHAR(100) NULL,
+    phone           VARCHAR(20)  NULL,
+    email           VARCHAR(20)  NULL,
+    is_default_delivery BOOLEAN  NOT NULL DEFAULT FALSE,
+    is_headquarters     BOOLEAN  NOT NULL DEFAULT FALSE,
+    latitude        DECIMAL(10,7) NULL,
+    longitude       DECIMAL(10,7) NULL,
+    created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_addr_contractor FOREIGN KEY (contractor_id)
+        REFERENCES contractors(id) ON DELETE CASCADE,
+    INDEX idx_addr_contractor (contractor_id)
+) ENGINE=InnoDB COMMENT='Adresy kontrahentów (stara tabela: adres)';
+
+-- ============================================================
+-- 3.2 Artykuły (Maszyny/Usługi)
+-- ============================================================
+
+CREATE TABLE articles (
+    id                INT AUTO_INCREMENT PRIMARY KEY,
+    name              VARCHAR(200) NOT NULL,
+    is_service        BOOLEAN      NOT NULL DEFAULT FALSE COMMENT 'Czy to usługa (np. transport, mycie)',
+    internal_number   VARCHAR(50)  NULL COMMENT 'Wewnętrzny numer maszyny w firmie',
+    registration_no   VARCHAR(40)  NULL COMMENT 'Numer rejestracyjny',
+    serial_no         VARCHAR(40)  NULL COMMENT 'Numer seryjny',
+    brand             VARCHAR(100) NULL,
+    model             VARCHAR(100) NULL COMMENT 'Model',
+    replacement_value DECIMAL(18,2) NULL COMMENT 'Wartość odtworzeniowa',
+    category_id       INT          NULL,
+    owner_id          INT          NULL COMMENT 'FK do kontrahenta-właściciela (dostawcy)',
+    branch_id         INT          NULL COMMENT 'FK do oddziału',
+    description       VARCHAR(400) NULL,
+    notes             VARCHAR(200) NULL,
+    rental_days       INT          NULL COMMENT 'Ile dni wynajmu default',
+    article_type      VARCHAR(20)  NULL COMMENT 'Rodzaj - typ artykułu',
+    created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at        DATETIME     NULL ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_art_category FOREIGN KEY (category_id)
+        REFERENCES categories(id) ON DELETE SET NULL,
+    CONSTRAINT fk_art_owner FOREIGN KEY (owner_id)
+        REFERENCES contractors(id) ON DELETE SET NULL,
+    CONSTRAINT fk_art_branch FOREIGN KEY (branch_id)
+        REFERENCES branches(id) ON DELETE SET NULL,
+    INDEX idx_art_name (name),
+    INDEX idx_art_category (category_id),
+    INDEX idx_art_owner (owner_id),
+    INDEX idx_art_registration (registration_no)
+) ENGINE=InnoDB COMMENT='Artykuły/maszyny (stara tabela: artykul3)';
+
+-- ============================================================
+-- 4. UMOWY (Contracts)
+-- ============================================================
+
+CREATE TABLE contracts (
+    id                  INT AUTO_INCREMENT PRIMARY KEY,
+    contractor_id       INT          NOT NULL,
+    branch_id           INT          NULL COMMENT 'Oddział (uproszczone z M:N umowa_oddzial)',
+    salesperson_id      INT          NULL,
+    number              VARCHAR(40)  NOT NULL COMMENT 'Numer umowy np. S001/2026',
+    auto_number         INT          NULL COMMENT 'Auto-numer do sortowania',
+    contract_type       CHAR(1)      NOT NULL DEFAULT 'S' COMMENT 'S=najem, U=usługa',
+    description         TEXT         NULL COMMENT 'Usługi dodatkowe',
+    delivery_address    TEXT         NULL COMMENT 'Snapshot adresu dostawy',
+    date_from           DATE         NULL,
+    date_to             DATE         NULL,
+    total_value         DECIMAL(18,2) NULL DEFAULT 0.00,
+    prepayment_amount   DECIMAL(18,2) NULL DEFAULT 0.00,
+    prepayment_document VARCHAR(200) NULL,
+    invoice_amount      DECIMAL(18,2) NULL DEFAULT 0.00,
+    invoice_document    VARCHAR(40)  NULL,
+    notes               TEXT         NULL,
+    additional_fees_text TEXT        NULL COMMENT 'Tekst opłat dodatkowych (snapshot)',
+    -- Osoby kontaktowe (snapshot z momentu umowy)
+    contact_person1     VARCHAR(100) NULL,
+    contact_phone1      VARCHAR(100) NULL,
+    show_person1        BOOLEAN      NOT NULL DEFAULT TRUE,
+    contact_person2     VARCHAR(100) NULL,
+    contact_phone2      VARCHAR(100) NULL,
+    show_person2        BOOLEAN      NOT NULL DEFAULT TRUE,
+    email               VARCHAR(100) NULL,
+    phone               VARCHAR(40)  NULL,
+    -- Kontrahent snapshot
+    contractor_name     VARCHAR(200) NULL COMMENT 'Snapshot nazwy kontrahenta',
+    -- Wydruk
+    print_path          VARCHAR(100) NULL,
+    print_date          DATETIME     NULL,
+    report_without_data BOOLEAN      NOT NULL DEFAULT FALSE COMMENT 'PZ bez danych',
+    -- Dni robocze
+    working_days_per_week INT       NULL DEFAULT 6,
+    position_count      INT          NULL DEFAULT 0,
+    -- Timestamps
+    created_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at          DATETIME     NULL ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_contract_contractor FOREIGN KEY (contractor_id)
+        REFERENCES contractors(id),
+    CONSTRAINT fk_contract_branch FOREIGN KEY (branch_id)
+        REFERENCES branches(id) ON DELETE SET NULL,
+    CONSTRAINT fk_contract_sales FOREIGN KEY (salesperson_id)
+        REFERENCES salespeople(id) ON DELETE SET NULL,
+    INDEX idx_contract_number (number),
+    INDEX idx_contract_contractor (contractor_id),
+    INDEX idx_contract_dates (date_from, date_to),
+    INDEX idx_contract_type (contract_type)
+) ENGINE=InnoDB COMMENT='Umowy (stara tabela: umowa2)';
+
+-- 4.1 Dostawa (geo-location per umowa)
+CREATE TABLE deliveries (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    contract_id INT NOT NULL,
+    address_id  INT NULL COMMENT 'FK do contractor_addresses',
+    latitude    DECIMAL(10,7) NULL,
+    longitude   DECIMAL(10,7) NULL,
+    CONSTRAINT fk_delivery_contract FOREIGN KEY (contract_id)
+        REFERENCES contracts(id) ON DELETE CASCADE,
+    CONSTRAINT fk_delivery_address FOREIGN KEY (address_id)
+        REFERENCES contractor_addresses(id) ON DELETE SET NULL
+) ENGINE=InnoDB COMMENT='Dane dostawy per umowa (stara tabela: dostawa)';
+
+-- 4.2 Adresy dostawy (reverse geocoding results)
+CREATE TABLE delivery_addresses (
+    id           INT AUTO_INCREMENT PRIMARY KEY,
+    contract_id  INT          NOT NULL,
+    name         VARCHAR(400) NULL,
+    street       VARCHAR(200) NULL,
+    number       VARCHAR(100) NULL,
+    postal_code  VARCHAR(20)  NULL,
+    hamlet       VARCHAR(200) NULL,
+    city         VARCHAR(200) NULL,
+    town         VARCHAR(200) NULL,
+    village      VARCHAR(200) NULL,
+    county       VARCHAR(100) NULL COMMENT 'Powiat',
+    municipality VARCHAR(100) NULL COMMENT 'Gmina',
+    province     VARCHAR(100) NULL COMMENT 'Województwo',
+    district     VARCHAR(200) NULL COMMENT 'Dzielnica',
+    neighbourhood VARCHAR(200) NULL COMMENT 'Osiedle',
+    CONSTRAINT fk_deladdr_contract FOREIGN KEY (contract_id)
+        REFERENCES contracts(id) ON DELETE CASCADE
+) ENGINE=InnoDB COMMENT='Adresy dostawy z reverse geocoding (stara tabela: adres_dostawy)';
+
+-- ============================================================
+-- 5. POZYCJE UMOWY (Contract Positions)
+-- ============================================================
+
+CREATE TABLE contract_positions (
+    id              INT AUTO_INCREMENT PRIMARY KEY,
+    contract_id     INT          NOT NULL,
+    article_id      INT          NOT NULL,
+    rental_type     VARCHAR(20)  NULL COMMENT 'najem/usługa',
+    description     VARCHAR(400) NULL,
+    rental_days     INT          NULL,
+    quantity        INT          NULL DEFAULT 1,
+    unit_price      DECIMAL(18,2) NULL,
+    costs           DECIMAL(18,2) NULL DEFAULT 0.00 COMMENT 'Koszty dodatkowe pozycji',
+    rate_type_id    INT          NULL,
+    billing_frequency VARCHAR(20) NULL COMMENT 'tygodniowo/dziennie/godzinowo/miesięcznie/jednorazowo',
+    billing_unit    VARCHAR(20)  NULL COMMENT 'tydzień/doba/godzina/miesiąc/sztuka',
+    supplier_id     INT          NULL COMMENT 'FK do kontrahenta-dostawcy',
+    delivery_date   DATE         NULL,
+    article_name    VARCHAR(400) NULL COMMENT 'Snapshot nazwy artykułu',
+    CONSTRAINT fk_pos_contract FOREIGN KEY (contract_id)
+        REFERENCES contracts(id) ON DELETE CASCADE,
+    CONSTRAINT fk_pos_article FOREIGN KEY (article_id)
+        REFERENCES articles(id),
+    CONSTRAINT fk_pos_rate_type FOREIGN KEY (rate_type_id)
+        REFERENCES rate_types(id) ON DELETE SET NULL,
+    CONSTRAINT fk_pos_supplier FOREIGN KEY (supplier_id)
+        REFERENCES contractors(id) ON DELETE SET NULL,
+    INDEX idx_pos_contract (contract_id),
+    INDEX idx_pos_article (article_id)
+) ENGINE=InnoDB COMMENT='Pozycje umowy (stara tabela: umowa_pozycja3)';
+
+-- 5.1 Warunki rozliczenia per pozycja
+CREATE TABLE position_conditions (
+    id              INT AUTO_INCREMENT PRIMARY KEY,
+    position_id     INT          NOT NULL,
+    rate_type_id    INT          NULL,
+    description     VARCHAR(400) NULL COMMENT 'Opis słowny warunku np. "do 5 tygodni"',
+    rate1           DECIMAL(18,2) NULL COMMENT 'Opłata 1 (podstawowa)',
+    rate2           DECIMAL(18,2) NULL COMMENT 'Opłata 2 (dodatkowa/zmienna)',
+    billing_label   VARCHAR(20)  NULL COMMENT 'Nazwa rozliczenia: tygodniowo/dziennie/etc',
+    period_count    INT          NULL COMMENT 'Ile okresów (dni/tygodni/etc)',
+    minimum         INT          NULL COMMENT 'Minimalna liczba okresów',
+    CONSTRAINT fk_cond_position FOREIGN KEY (position_id)
+        REFERENCES contract_positions(id) ON DELETE CASCADE,
+    CONSTRAINT fk_cond_rate_type FOREIGN KEY (rate_type_id)
+        REFERENCES rate_types(id) ON DELETE SET NULL,
+    INDEX idx_cond_position (position_id)
+) ENGINE=InnoDB COMMENT='Warunki rozliczenia (stara tabela: umowa_pozycja2_warunek)';
+
+-- ============================================================
+-- 6. KOSZTY (Costs)
+-- ============================================================
+
+CREATE TABLE costs (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    cost_type_id INT         NULL,
+    position_id  INT         NULL COMMENT 'FK do contract_positions',
+    description  VARCHAR(400) NULL,
+    amount       DECIMAL(18,2) NULL,
+    created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_cost_type FOREIGN KEY (cost_type_id)
+        REFERENCES cost_types(id) ON DELETE SET NULL,
+    CONSTRAINT fk_cost_position FOREIGN KEY (position_id)
+        REFERENCES contract_positions(id) ON DELETE CASCADE
+) ENGINE=InnoDB COMMENT='Koszty pozycji (stara tabela: koszt)';
+
+-- ============================================================
+-- 7. ROZLICZENIA (Settlements)
+-- ============================================================
+
+CREATE TABLE settlements (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    position_id INT          NOT NULL,
+    date        DATETIME     NULL,
+    amount      DECIMAL(18,2) NULL,
+    CONSTRAINT fk_settlement_position FOREIGN KEY (position_id)
+        REFERENCES contract_positions(id) ON DELETE CASCADE,
+    INDEX idx_settlement_position (position_id)
+) ENGINE=InnoDB COMMENT='Rozliczenia (stara tabela: rozliczenie)';
+
+-- ============================================================
+-- 8. AUDIT LOG
+-- ============================================================
+
+CREATE TABLE audit_log (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    session_id  INT          NULL,
+    event_date  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    event_text  VARCHAR(500) NULL,
+    user_id     INT          NULL,
+    INDEX idx_audit_date (event_date)
+) ENGINE=InnoDB COMMENT='Dziennik zdarzeń (stara tabela: zdarzenie)';
+```
+
+## Mapowanie starych tabel → nowe
+
+| Stara tabela | Nowa tabela | Uwagi |
+|-------------|-------------|-------|
+| `uzytkownik` | `users` | Dodano role, bcrypt hash |
+| `oddzial` | `branches` | Bez zmian strukturalnych |
+| `kategoria` | `categories` | Bez zmian |
+| `handlowiec` | `salespeople` | `AKTYWNY` → `is_active` BOOLEAN |
+| `stawka` | `rate_types` | `ZALEZNA` → `is_dependent` |
+| `koszt_typ` | `cost_types` | Bez zmian |
+| `firma` | `company` + `additional_fees` | Opłaty wydzielone do osobnej tabeli |
+| `kontrahent2` | `contractors` | Połączono 2 osoby kontaktowe, dodano timestamps |
+| `adres` | `contractor_addresses` | Dodano FK constraint, precision lat/lng |
+| `artykul3` | `articles` | `USLUGA` → `is_service` BOOLEAN, FK constraints |
+| `umowa2` | `contracts` | Snapshot kontrahenta zachowany, oddział jako FK |
+| `umowa_oddzial` | *(usunięta)* | Zastąpiona przez `contracts.branch_id` |
+| `dostawa` | `deliveries` | Bez zmian |
+| `adres_dostawy` | `delivery_addresses` | Bez zmian |
+| `umowa_pozycja3` | `contract_positions` | Dodano `billing_frequency` enum |
+| `umowa_pozycja2_warunek` | `position_conditions` | Bez zmian strukturalnych |
+| `koszt` | `costs` | FK constraints dodane |
+| `rozliczenie` | `settlements` | FK constraint |
+| `zdarzenie` | `audit_log` | Dodano `user_id` |
+| `a`, `u` | *(nie migrate)* | Historyczny cache, dane w relacjach |
+| `artykul`, `artykul2`, `umowa`, `umowa_pozycja`, `umowa_pozycja2` | *(nie migrate)* | Legacy, zastąpione przez `*3` wersje |
+| `kontrahent` | *(nie migrate)* | Legacy, zastąpione przez `kontrahent2` |
+| `imp*` | *(nie migrate)* | Tabele importowe, jednorazowe |
+| `dane`, `temp`, `lp`, `nr_umowy`, `oddo` | *(nie migrate)* | Tabele pomocnicze/tymczasowe |
+
+## Tabele-widoki (VIEWS) — w NOWYM systemie nie potrzebne
+
+W starym WinForms views (`umowy`, `kontrahenci`, `artykuly`, `artykulyy`, `pozycje`, `pozycje2`, `warunki`, `dane`, `oplaty`, `rao_dshb`, `rozliczenie_rpt`) służyły do odczytu JOIN danych.
+
+W nowym systemie **SQLAlchemy ORM** robi JOIN automatycznie — views nie są potrzebne.
+Jeśli jednak agent chce je stworzyć dla kompatybilności z raportami:
+
+```sql
+-- Opcjonalnie, do raportów
+CREATE OR REPLACE VIEW v_contracts AS
+SELECT
+    c.id AS idu,
+    c.contractor_id AS idk,
+    ct.name AS kontrahent,
+    c.number AS numer,
+    CASE c.contract_type WHEN 'S' THEN 'Umowa najmu' ELSE 'Umowa usługi' END AS typ,
+    c.description AS opis,
+    c.delivery_address AS adres,
+    c.date_from AS poczatek,
+    c.date_to AS koniec,
+    c.notes AS uwagi,
+    c.total_value AS wartosc,
+    c.prepayment_amount AS przedplata_kwota,
+    c.prepayment_document AS przedplata_dokument,
+    c.invoice_amount AS faktura_kwota,
+    c.invoice_document AS faktura_dokument,
+    c.created_at AS wprowadzona,
+    DATEDIFF(c.date_to, c.date_from) AS trwa,
+    c.email,
+    sp.name AS handlowiec
+FROM contracts c
+JOIN contractors ct ON c.contractor_id = ct.id
+LEFT JOIN salespeople sp ON c.salesperson_id = sp.id;
+```
+
+## Procedury — zamienione na logikę Python
+
+W starym systemie:
+- `DuplikujArtykul2` → Python service: `ArticleService.duplicate(id)`
+- `sprDostepnosc` → Python service: `ArticleService.check_availability(id, date_from, date_to)`
+- `sprUmowyArtykulu5/6` → Python service: `ContractService.get_contracts_for_article(id)`
+- `getUmowyArtykulu7` → Python service: `ArticleService.get_with_contract_status()`
+- `cena_pozycji` (function) → Python: `PositionService.calculate_price(position_id)`
+- `rozlicz_pozycje` (function) → Python: `SettlementService.calculate(position_id)`
+- `generuj_opis_oplaty` (function) → Python: `FeeService.generate_description()`

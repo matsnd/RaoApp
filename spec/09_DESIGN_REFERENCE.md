@@ -1,0 +1,375 @@
+# 09 — Design Reference: Toolsmart.pl
+
+> **INSTRUKCJA DLA AGENTA:** Nowa aplikacja RAO ma wyglądać jak toolsmart.pl.
+> Poniżej dokładna specyfikacja wizualna wyekstrahowana z www.toolsmart.pl.
+
+## Screenshoty referencyjne
+
+![Toolsmart hero + navbar](file:///C:/Users/mateu/.gemini/antigravity/brain/cee607b1-9ee9-4f47-9765-9b5a8c0a77a8/toolsmart_home_1_1773511486481.png)
+
+![Toolsmart wartości + karty](file:///C:/Users/mateu/.gemini/antigravity/brain/cee607b1-9ee9-4f47-9765-9b5a8c0a77a8/toolsmart_home_2_1773511494075.png)
+
+![Toolsmart produkty](file:///C:/Users/mateu/.gemini/antigravity/brain/cee607b1-9ee9-4f47-9765-9b5a8c0a77a8/toolsmart_home_3_1773511500025.png)
+
+---
+
+## Paleta kolorów (wyekstrahowana z toolsmart.pl)
+
+```css
+:root {
+  /* === PRIMARY — Deep Navy Blue === */
+  --color-primary: #1D2B53;          /* Navbar text, headers, buttons, card labels */
+  --color-primary-dark: #141E3A;     /* Hover/active na przyciskach, footer bg */
+  --color-primary-light: #2A3F6F;    /* Lighter navy for subtle elements */
+
+  /* === BACKGROUNDS === */
+  --color-bg-white: #FFFFFF;         /* Główne tło sekcji, navbar, karty */
+  --color-bg-light: #F8F9FA;         /* Tło naprzemiennych sekcji, light gray */
+  --color-bg-card: #FFFFFF;          /* Tło kart */
+  --color-bg-card-hover: #FCFCFE;    /* Hover na kartach */
+
+  /* === TEXT === */
+  --color-text-heading: #1D2B53;     /* Nagłówki — navy blue */
+  --color-text-body: #4A5568;        /* Tekst body — ciemny szary */
+  --color-text-muted: #718096;       /* Muted/secondary text */
+  --color-text-on-primary: #FFFFFF;  /* Biały tekst na navy tle */
+
+  /* === ACCENTS === */
+  --color-accent-blue: #3B82F6;      /* Linki, hover, numbering circles */
+  --color-border: #E2E8F0;           /* Delikatne bordery kart */
+  --color-border-hover: #CBD5E1;     /* Border karty na hover */
+
+  /* === STATUS === */
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
+
+  /* === SHADOWS === */
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-card-hover: 0 10px 25px rgba(29,43,83,0.12);
+  --shadow-navbar: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-button: 0 2px 4px rgba(29,43,83,0.2);
+}
+```
+
+## Typografia
+
+```css
+/* Google Fonts import */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --font-family: 'Montserrat', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* Rozmiary */
+  --font-size-xs: 11px;
+  --font-size-sm: 13px;
+  --font-size-base: 14px;
+  --font-size-md: 16px;
+  --font-size-lg: 20px;
+  --font-size-xl: 24px;
+  --font-size-xxl: 32px;
+  --font-size-hero: 40px;
+
+  /* Wagi */
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+
+  /* Line height */
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.7;
+}
+```
+
+## Spacing
+
+```css
+:root {
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-10: 40px;
+  --spacing-12: 48px;
+  --spacing-16: 64px;
+}
+```
+
+## Komponenty UI (stylistically)
+
+### Navbar (sticky top)
+```css
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--color-bg-white);
+  box-shadow: var(--shadow-navbar);
+  height: 64px;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--spacing-8);
+}
+.navbar-logo {
+  font-family: var(--font-family);
+  font-weight: var(--font-weight-extrabold);
+  font-size: var(--font-size-xl);
+  color: var(--color-primary);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+.navbar-links a {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-base);
+  text-decoration: none;
+  margin: 0 var(--spacing-4);
+  transition: opacity 0.2s;
+}
+.navbar-links a:hover { opacity: 0.7; }
+```
+
+### CTA Button (okrągły, navy bg, biały tekst)
+```css
+.btn-primary {
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  border: none;
+  border-radius: 24px;              /* Pill-shaped */
+  padding: 10px 28px;
+  font-family: var(--font-family);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-base);
+  cursor: pointer;
+  box-shadow: var(--shadow-button);
+  transition: all 0.2s ease;
+}
+.btn-primary:hover {
+  background: var(--color-primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(29,43,83,0.3);
+}
+```
+
+### Karty (białe, rounded, shadow)
+```css
+.card {
+  background: var(--color-bg-card);
+  border-radius: 12px;
+  padding: var(--spacing-6);
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--color-border);
+  transition: all 0.3s ease;
+}
+.card:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-2px);
+  border-color: var(--color-border-hover);
+}
+```
+
+### Card z navy label (jak karty produktów na toolsmart)
+```css
+.product-card {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  transition: all 0.3s ease;
+}
+.product-card-image {
+  background: var(--color-bg-light);
+  padding: var(--spacing-6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+}
+.product-card-label {
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  padding: var(--spacing-4) var(--spacing-6);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+```
+
+### Step Cards (01, 02, 03, 04 — navy bg, biały tekst)
+```css
+.step-card {
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  border-radius: 12px;
+  padding: var(--spacing-6);
+  text-align: center;
+  position: relative;
+}
+.step-card-number {
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-bg-white);
+  color: var(--color-primary);
+  font-weight: var(--font-weight-bold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-sm);
+  box-shadow: var(--shadow-card);
+}
+.step-card-icon {
+  font-size: 32px;
+  margin-bottom: var(--spacing-4);
+  opacity: 0.9;
+}
+```
+
+### Headings
+```css
+h1, h2 {
+  font-family: var(--font-family);
+  color: var(--color-text-heading);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+}
+h1 { font-size: var(--font-size-xxl); }
+h2 { font-size: var(--font-size-xl); }
+h3 { font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); }
+```
+
+### Form Elements (aplikacja RAO)
+```css
+.form-input {
+  width: 100%;
+  padding: 10px 14px;
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg-white);
+  color: var(--color-text-body);
+  transition: border-color 0.2s;
+}
+.form-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(29,43,83,0.1);
+}
+.form-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-heading);
+  margin-bottom: var(--spacing-1);
+  display: block;
+}
+```
+
+### DataGrid / Table (tabelki w aplikacji)
+```css
+.data-grid {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+.data-grid thead th {
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  padding: 12px 16px;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+  text-align: left;
+  border: none;
+}
+.data-grid tbody tr {
+  background: var(--color-bg-white);
+  transition: background 0.15s;
+}
+.data-grid tbody tr:nth-child(even) {
+  background: var(--color-bg-light);
+}
+.data-grid tbody tr:hover {
+  background: rgba(29,43,83,0.05);
+}
+.data-grid tbody tr.selected {
+  background: rgba(29,43,83,0.1);
+}
+.data-grid tbody td {
+  padding: 10px 16px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-body);
+  border-bottom: 1px solid var(--color-border);
+}
+```
+
+### Sidebar (nawigacja aplikacji — nowy styl Toolsmart)
+```css
+.sidebar {
+  width: 220px;
+  background: var(--color-primary);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding-top: var(--spacing-6);
+}
+.sidebar-logo {
+  padding: var(--spacing-4) var(--spacing-6);
+  font-family: var(--font-family);
+  font-weight: var(--font-weight-extrabold);
+  font-size: var(--font-size-xl);
+  color: var(--color-text-on-primary);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: var(--spacing-8);
+}
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  padding: var(--spacing-3) var(--spacing-6);
+  color: rgba(255,255,255,0.7);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-base);
+  text-decoration: none;
+  border-radius: 0 8px 8px 0;
+  margin-right: var(--spacing-3);
+  transition: all 0.2s;
+}
+.sidebar-nav-item:hover {
+  color: var(--color-text-on-primary);
+  background: rgba(255,255,255,0.1);
+}
+.sidebar-nav-item.active {
+  color: var(--color-text-on-primary);
+  background: rgba(255,255,255,0.15);
+  font-weight: var(--font-weight-semibold);
+}
+```
+
+---
+
+## Mapowanie: Toolsmart → RAO App
+
+| Element Toolsmart | Element RAO |
+|-------------------|------------|
+| Sticky top navbar (#FFF, shadow) | Opcjonalnie top bar z info użytkownika |
+| Deep navy sidebar/footer | **Sidebar nawigacji** (navy #1D2B53) |
+| Product cards (image + navy label) | Karty maszyn w gridzie Artykułów |
+| Step cards (01-04, navy bg) | Dashboard status cards |
+| White cards with shadow | Formularz container |
+| Pill CTA button (navy) | Wszystkie główne przyciski |
+| Font Montserrat bold | Nagłówki i etykiety |
+| Light gray alternating bg | Naprzemienne tło sekcji |

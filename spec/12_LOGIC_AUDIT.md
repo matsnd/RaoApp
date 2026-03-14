@@ -1,0 +1,25 @@
+# 12 — Audyt Logiki Biznesowej (Spaghetti vs Specyfikacja)
+
+Ten dokument zawiera wyczerpującą, zrzutową analizę kodu C# (WinForms) oraz starej bazy danych (`toolsmart_roa_fake`), "linijka po linijce", aby upewnić się, że w nowej specyfikacji nie pominięto żadnego niuansu.
+
+## Etap 1: Tabela Odkrytej Logiki (Clean Slate)
+
+Poniżej znajduje się lista wszystkich logik biznesowych, walidacji, operacji bazodanowych i "ubocznych" skutków znalezionych w kodzie. Została spisywana z czystą głową, ignorując naszą obecną specyfikację.
+
+| ID | Plik / Moduł | Wykryta logiki / Operacja bazodanowa / "Spaghetti" | Co dokładnie robi w starej po aplikacji / Bazie? | Status weryfikacji ze specyfikacją |
+|---|---|---|---|---|
+| LOG-01 | Form2.cs (Dashboard) | Kaskadowe usuwanie DB (Delete na: umowa, pozycje, warunki, koszt) | Dbałość o usuwanie "sierocego" syfu z bazy z ręcznymi 4 query Delete. Oraz przycisk duplikacji na "CALL duplikujartykul2" | **POKRYTE** `01_DATABASE_DDL.md` używa `ON DELETE CASCADE`! `duplikujartykul2` to z kolei wbudowana akcja w `ArticleService.duplicate(id)`. |
+| LOG-01b | Form2.cs (Dashboard) | Loop `rozliczenie` | Algorytm sumowania zysku opierał się na wstawianiu 1 wiersza do tabeli `rozliczenie` _na każdy dzień_ pracy urządzenia. | **POKRYTE** Baza odciążona! `calculate_position_value()` wylicza to RAMowo (matematycznie) z pominięciem tabeli tymczasowej. |
+| LOG-02 | FormU4.cs (Umowa) | Wyliczanie Opcji Gwarancyjnych/Kaucji | Brak struktury relacyjnej dla Kaucji. Wartość Kaucji była "magicznie" pisana w polu tekstowym "Uwagi". Faktury pisane z palca w polach tekstowych. | **POKRYTE** Mamy pola `prepayment_amount` oraz `notes` natywnie w DB oraz w `ContractCreateSchema`. Fakturowanie wpisano ręcznie, nowa apka też. |
+| LOG-02b | FormU4.cs (Umowa) | Przekroczenia Limitu (`id_stawki=3, 4`) | Stary kod posiadał logikę na limity godzin/motogodzin, ale... `rozliczstawkkiprzekroczenie()` jest wykomentowane od lat. Odrzucony kawałek (ghost code). | **ODRZUCONE ŚWIADOMIE** Użytkownik i tak tego nie używał. Uprościliśmy system - brak dziur. |
+| LOG-03 | FormW.cs (Warunki) | Wyciąganie minimum via Query + Rebuild Rows | Aktualizacja jednego wiersza warunku polegała na wyczyszczeniu wszystkiego `DELETE FROM umowa_pozycja2_warunek WHERE id_pozycji=...` i wstawieniu na nowo z pętli kontrolki Datagrid. Formatowanie decimal via `Replace(",", ".")`. | **POKRYTE** Pola typu `minimum` (`vmin`) zostały jawnie zaimplementowane algorytmicznie w `04_BUSINESS_LOGIC.md` dla agenta. |
+| LOG-04 | FormAwybor.cs (Rezerwacja) | Omijanie "Conflicts" via Procedura | Wykorzystuje procedury `sprumowyartykulu3`, `5` i `6` do wyciągania "wolnych" maszyn. Ręczna edycja dat dostawy na tym oknie za pomocą stringów w zapytaniu `UPDATE umowa_pozycja3 SET data_dostawy=...`. | **ZREFATORYZOWANE POKRYTE** Kod SQL przepisano na kuloodporną matematykę w Pythonie (`is_available` `check_availability` w backendzie), blokującą podwójny wynajem. |
+| LOG-05 | FormK.cs (Klienci) | GUS API + Propagacja Adresów | Synchronizacja Miejscowosc/Ulica bezpośrednio z GUS-u na podstawie NIP via SOAP API (`PodmiotGus`). Dodatkowo flaga `siedziba=1` zmienia bazowy rekord klienta (brudna denormalizacja DB). | **BRAK! DZIURA!** _Nasza specyfikacja nie posiadała instrukcji dotyczącej pobierania Pydantic model kontrahenta integracją z GUS_ (*będzie zaraz dodane do specyfikacji*). Reszta synchronizacji adresów została ustandaryzowana (w Vue + API robimy master adresu w locie). |
+| LOG-06 | FormA.cs (Artykuły) | Kategoruzacja Po Stringach | Moduł zapisuje ID_kategorii przez wyszukanie nazwy tekstowej wpisanej z ręki w pole `tbxKategoria.Text` via `SELECT id FROM kategoria WHERE nazwa='X'`. Podział na Usługi vs Artykuły zależał od flagi BIT i napisu "usługa". | **POKRYTE** Specyfikacja i API używają restrykcyjnego ORM (referencji Primary Key - `category_id`), więc zablokowaliśmy "rozjazd" danych. API obsługuje flagę `is_service=1`. |
+| LOG-06b | Różne formularze | Obsługa Kosztów dodatkowych (Koszty) | Znalazłem kod `podsumujkoszty()`. Okazuje się, że w starym systemie dopisywanie kosztów do salda (Transport / Mycie) jest wpisane w pliku `FormU4.cs`, ale jest... WYKOMENTOWANE. Użytkownik dopisywał to ręcznie. | **ZREFATORYZOWANE** Nasza specyfikacja wrzuca tę logikę opłat w endpoint "Statystyk" zgodnie z nowym życzeniem i do tabeli `costs`. Logika "legacy" ucięta na rzecz czystszej implementacji. |
+| LOG-07 | Stare Widoki DB | Zagnieżdżone `count()` i podzapytania | Widoki pobierały ile dni trwa umowa za pomocą zapętlonych i niewydajnych złączeń z tabelami rozliczeń. | **POKRYTE** Pydantic Schema dynamicznie operuje na properties z SQLAlchemy bez zapętlania bazy. |
+| LOG-08 | Procedury DB | `sprUmowyArtykulu6` z błędem datowym | Procedura miała "lukę" datową (nie łapała pełnych overlaps). Tzw. problem z rezerwacjami u starych klientów (maszyna podwójnie wynajęta). | **POKRYTE** Algorytm na overlapping dates napisany poprawnie od zera w logice biznesowej Pythona. |
+
+---
+
+*(Agent w trakcie wypełniania...)*
