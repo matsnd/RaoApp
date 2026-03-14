@@ -6,9 +6,11 @@
 # === STARA BAZA (do weryfikacji) ===
 OLD_DB_HOST=localhost
 OLD_DB_PORT=3306
-OLD_DB_USER=
-OLD_DB_PASSWORD=
-OLD_DB_NAME=rao
+OLD_DB_USER=root
+OLD_DB_PASSWORD=USOjtYTpJaxyhT2q5PnI
+OLD_DB_NAME=toolsmart_roa_fake
+```
+
 ```
 
 ### Jak zdobyć credentials:
