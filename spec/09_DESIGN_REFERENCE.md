@@ -1,7 +1,97 @@
 # 09 — Design Reference: Toolsmart.pl
 
 > **INSTRUKCJA DLA AGENTA:** Nowa aplikacja RAO ma wyglądać jak toolsmart.pl.
-> Poniżej dokładna specyfikacja wizualna wyekstrahowana z www.toolsmart.pl.
+> **PRZED ROZPOCZĘCIEM BUDOWY FRONTENDU** wykonaj pełny scrape CSS z toolsmart.pl
+> zgodnie z procedurą w sekcji „Scraping CSS" poniżej. Wartości w tym pliku są
+> punktem wyjścia — aktualne dane ze strony mają zawsze pierwszeństwo.
+
+---
+
+## 0. Scraping CSS z toolsmart.pl — WYKONAJ PRZED BUDOWĄ UI
+
+### Cel
+Wyciągnąć aktualne wartości CSS (kolory, fonty, spacing, border-radius, shadows)
+bezpośrednio ze strony www.toolsmart.pl używając Playwright MCP.
+Zaktualizować sekcje poniżej jeśli cokolwiek się różni.
+
+### Procedura (Playwright MCP)
+
+```
+1. Otwórz stronę:
+   → mcp5_browser_navigate({ url: "https://www.toolsmart.pl" })
+
+2. Zrób screenshot dla wizualnego odniesienia:
+   → mcp5_browser_take_screenshot({ filename: "spec/toolsmart_scrape.png", fullPage: true })
+
+3. Wyciągnij wszystkie CSS custom properties (:root variables):
+   → mcp5_browser_evaluate({
+       function: `() => {
+         const styles = getComputedStyle(document.documentElement);
+         const vars = {};
+         for (const sheet of document.styleSheets) {
+           try {
+             for (const rule of sheet.cssRules) {
+               if (rule.selectorText === ':root') {
+                 rule.style.cssText.split(';').forEach(d => {
+                   const [k, v] = d.split(':');
+                   if (k && k.trim().startsWith('--')) vars[k.trim()] = v.trim();
+                 });
+               }
+             }
+           } catch(e) {}
+         }
+         return vars;
+       }`
+     })
+
+4. Wyciągnij kolory tła, tekstu i border z kluczowych elementów:
+   → mcp5_browser_evaluate({
+       function: `() => {
+         const sel = (s) => {
+           const el = document.querySelector(s);
+           if (!el) return null;
+           const cs = getComputedStyle(el);
+           return { bg: cs.backgroundColor, color: cs.color, border: cs.borderColor,
+                    fontFamily: cs.fontFamily, fontSize: cs.fontSize, fontWeight: cs.fontWeight };
+         };
+         return {
+           navbar:      sel('header, nav, .navbar, [class*="nav"]'),
+           btn_primary: sel('[class*="btn-primary"], [class*="cta"], button[class*="primary"]'),
+           card:        sel('[class*="card"], [class*="product"]'),
+           body:        sel('body'),
+           h1:          sel('h1'),
+           footer:      sel('footer'),
+         };
+       }`
+     })
+
+5. Wyciągnij font z Google Fonts link tag:
+   → mcp5_browser_evaluate({
+       function: `() => [...document.querySelectorAll('link[href*="fonts.googleapis"]')]
+                        .map(l => l.href)`
+     })
+
+6. Sprawdź navbar background + logo kolor:
+   → mcp5_browser_evaluate({
+       function: `() => {
+         const nav = document.querySelector('header, nav, [class*="navbar"]');
+         if (!nav) return null;
+         const cs = getComputedStyle(nav);
+         return { bg: cs.backgroundColor, color: cs.color, height: cs.height };
+       }`
+     })
+```
+
+### Co zrobić z wynikami
+- Jeśli `--color-primary` różni się od `#1D2B53` → zaktualizuj sekcję „Paleta kolorów"
+- Jeśli font to nie Montserrat → zaktualizuj sekcję „Typografia"  
+- Jeśli border-radius kart różni się od `12px` → zaktualizuj komponenty
+- Jeśli cokolwiek się zgadza — potwierdź i buduj bez zmian
+
+### Fallback (jeśli scrape się nie uda)
+Użyj wartości z sekcji poniżej — są zweryfikowane i aktualne na dzień tworzenia specyfikacji.
+
+---
 
 ## Screenshoty referencyjne
 

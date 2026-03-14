@@ -82,17 +82,107 @@ RAO_CORS_ORIGINS=["http://localhost:5173","http://localhost:3000"]
 ## Master Plan — Fazy budowy
 
 Agent musi prowadzić plik **`BUILD_PROGRESS.md`** w katalogu głównym projektu.
-Po każdym etapie — aktualizuj status. Format:
+**Aktualizuj po KAŻDYM kroku** — nie po fazie, po każdym pojedynczym kroku.
+
+### Zasady aktualizacji BUILD_PROGRESS.md
+
+```
+KIEDY aktualizować:
+  - Przed startem kroku → dodaj wiersz ze statusem ⏳
+  - Po zakończeniu kroku → zmień na ✅ lub ❌, uzupełnij resztę pól
+  - Po każdym self-heal retry → zaktualizuj kolumnę "Retries" i "Problemy"
+  - Po każdym commicie → wklej hash commita
+
+NIE POMIJAJ żadnego kroku — nawet jeśli trwał 30 sekund.
+```
+
+### Szablon BUILD_PROGRESS.md
 
 ```markdown
-# RAO Build Progress
+# RAO App — Build Progress
 
-## Phase 1: Infrastructure [ ] → [x] po zakończeniu
-## Phase 2: Backend API [ ]
-## Phase 3: Frontend [ ]
-## Phase 4: Integration [ ]
-## Phase 5: Testing [ ]
-## Phase 6: Polish & Verification [ ]
+> Ostatnia aktualizacja: {DATA} {GODZINA} | Kontekst: {AGENT}
+
+---
+
+## Statusy faz
+
+| Faza | Status | Ukończono | Czas łączny |
+|------|--------|-----------|-------------|
+| Phase 1: Infrastructure | ⏳ | 0/5 kroków | - |
+| Phase 2: Backend API    | ⬜ | 0/10 kroków | - |
+| Phase 3: Frontend       | ⬜ | 0/14 kroków | - |
+| Phase 4: Integration    | ⬜ | 0/4 kroków | - |
+| Phase 5: Testing        | ⬜ | 0/13 testów | - |
+| Phase 6: Polish         | ⬜ | 0/4 kroków | - |
+
+Legenda: ⬜ nie zaczęte · ⏳ w toku · ✅ ukończone · ❌ błąd · 🔄 retry
+
+---
+
+## Dziennik kroków
+
+| # | Data & Godzina | Faza.Krok | Kontekst agenta | Status | Co zrobiono (1 zdanie) | Pliki zmienione | Problemy napotkane | Retries | Commit |
+|---|---------------|-----------|-----------------|--------|------------------------|-----------------|-------------------|---------|--------|
+| 1 | 2026-03-14 22:15 | 1.1 | dev-db | ✅ | Utworzono bazę rao_new i użytkownika rao_user | - | Brak | 0 | `a1b2c3d` |
+| 2 | 2026-03-14 22:18 | 1.2 | dev-db | ✅ | Wykonano DDL — 16 tabel | `01_DATABASE_DDL.md` (ref) | FK błąd na costs → poprawiono kolejność | 1 | `e4f5g6h` |
+| 3 | 2026-03-14 22:35 | 1.3 | dev-infra | ⏳ | Konfiguracja venv i pip install | `requirements.txt` | - | 0 | - |
+
+---
+
+## Otwarte problemy (self-heal queue)
+
+| ID | Faza.Krok | Opis problemu | Próby | Ostatnia próba | Rozwiązanie |
+|----|-----------|---------------|-------|----------------|-------------|
+| P1 | 2.3 | 422 Unprocessable Entity na POST /contractors | 2 | 2026-03-14 23:10 | ⏳ W toku |
+
+---
+
+## Metryki sesji
+
+| Metryka | Wartość |
+|---------|---------|
+| Sesja rozpoczęta | {DATA} {GODZINA} |
+| Łączne kroki ukończone | 0 |
+| Łączne retries (self-heal) | 0 |
+| Aktualny kontekst agenta | {AGENT} |
+| Ostatni commit | - |
+| Kolejny krok | 1.1 — Utwórz bazę danych |
+
+---
+
+## Historia kontekstów agenta
+
+| Data & Godzina | Poprzedni kontekst | Nowy kontekst | Powód rotacji |
+|---------------|-------------------|---------------|---------------|
+| 2026-03-14 22:15 | - | dev-db | Start sesji, Phase 1 |
+| 2026-03-14 22:35 | dev-db | dev-infra | Przejście do setupu środowiska |
+```
+
+### Reguły wypełniania tabeli
+
+```
+Kolumna "Kontekst agenta":
+  Wybierz z listy rotacji (sekcja Self-Review Workflow):
+  dev-db / dev-backend-1..4 / dev-frontend-1..3 / dev-infra / dev-review
+
+Kolumna "Status":
+  ⏳ = zaczęty, nie ukończony
+  ✅ = ukończony, testy zielone
+  ❌ = zakończony błędem (opisz w "Problemy")
+  🔄 = w trakcie self-heal retry
+
+Kolumna "Pliki zmienione":
+  Lista plików oddzielona przecinkami, np.: "backend/auth/router.py, main.py"
+  Jeśli >5 plików → wpisz "16 plików (feat: auth module)"
+
+Kolumna "Retries":
+  Liczba iteracji self-heal zanim krok przeszedł.
+  0 = za pierwszym razem, 3 = trzecia próba zadziałała.
+
+Kolumna "Commit":
+  Skrócony hash (7 znaków) po `git log --oneline -1`
+  Wpisz "-" jeśli krok nie generował commitu
 ```
 
 ---
@@ -240,6 +330,15 @@ npm run dev
      -d '{"login":"admin","password":"admin"}'
    ```
 
+### Przed implementacją — przeczytaj KONIECZNIE:
+
+```
+- 12_LOGIC_AUDIT.md — audyt spaghetti kodu C#, lista dziur w specyfikacji
+  WAŻNE: LOG-05 (GUS + propagacja adresów do Pydantic) — DZIURA do uzupełnienia!
+- 05_CROSS_CHECK.md — macierz: stary GUI ↔ SQL ↔ obiekty DB ↔ nowe endpointy
+  Użyj do weryfikacji czy każda akcja GUI ma odpowiedni endpoint
+```
+
 ### Kluczowe algorytmy do implementacji (z `04_BUSINESS_LOGIC.md`):
 
 - **Numeracja umów:** `generate_contract_number()` → format `S001/2026`
@@ -272,8 +371,11 @@ LOOP:
 - [ ] CRUD contractors działa
 - [ ] CRUD articles działa
 - [ ] CRUD contracts + positions + conditions działa
-- [ ] Settings CRUD działa
+- [ ] Settings CRUD działa (firma, handlowcy, opłaty dodatkowe)
+- [ ] GET/POST/PUT/DELETE `/settings/service-fee-templates` działa
+- [ ] GET/POST/PUT/DELETE `/contracts/{id}/service-fees` działa
 - [ ] Numeracja umów generuje prawidłowe numery
+- [ ] LOG-05 z 12_LOGIC_AUDIT.md pokryte (GUS → Pydantic model kontrahenta)
 
 ---
 
@@ -282,6 +384,10 @@ LOOP:
 ### Kolejność implementacji
 
 ```
+3.0  CSS Scraping z toolsmart.pl (OBOWIĄZKOWE przed 3.1)
+     → Przeczytaj 09_DESIGN_REFERENCE.md sekcja "0. Scraping CSS"
+     → Uruchom procedurę Playwright MCP (kroki 1-6 z sekcji 0)
+     → Zaktualizuj wartości w 09_DESIGN_REFERENCE.md jeśli się różnią
 3.1  Design System (CSS variables, global styles)    → 09_DESIGN_REFERENCE.md
 3.2  Router + Auth Guard + Stores (Pinia)
 3.3  Layout: AppSidebar + AppLayout
@@ -390,12 +496,16 @@ LOOP:
 ### 4.3 Raporty PDF
 
 ```
-1. Przeczytaj 07_INTEGRATIONS.md sekcja Raporty
-2. Zaimplementuj ReportService z WeasyPrint
-3. Utwórz szablony HTML/Jinja2
-4. Test: context menu → Wydruk → Umowa → pobiera się PDF?
-5. Otwórz PDF → czy wygląda jak formatka umowy?
-6. Self-heal do skutku
+1. Przeczytaj 11_REPORTS_AND_STATS.md — CAŁY plik (6 wariantów, OWU, statystyki)
+2. Przeczytaj 07_INTEGRATIONS.md sekcja Raporty
+3. Zlokalizuj referencyjne PDF-y: docs/spec/reference_reports/
+   - Umowa Najmu, Umowa Usługi, Protokół Z-O (x2), Protokół Z-O bez kwot (x2)
+   - ownA.pdf i ownU.pdf (OWU — wyekstrahuj tekst i wbuduj w szablony)
+4. Zaimplementuj ReportService z WeasyPrint (6 szablonów Jinja2)
+5. Zaimplementuj endpointy statystyk z 11_REPORTS_AND_STATS.md
+6. Test każdego z 6 wariantów: context menu → Wydruk → pobiera się PDF?
+7. Porównaj layout z reference_reports/*.pdf — musi być 1:1
+8. Self-heal do skutku
 ```
 
 ### 4.4 Migracja danych
@@ -424,9 +534,11 @@ LOOP:
 
 ### ✅ Checkpoint Phase 4
 
-- [ ] GUS auto-fill działa
+- [ ] GUS auto-fill działa (z propagacją danych do Pydantic — LOG-05)
 - [ ] Nominatim reverse geocoding działa
-- [ ] PDF report generuje się poprawnie
+- [ ] Wszystkie 6 wariantów PDF generuje się poprawnie
+- [ ] Layout PDF zgodny z reference_reports/*.pdf
+- [ ] OWU (ownA.pdf / ownU.pdf) wbudowane w szablony umów
 - [ ] migrate_service_fees.py uruchomiony bez błędów
 - [ ] [V1]-[V6] wszystkie weryfikacje przeszły (liczby się zgadzają)
 - [ ] Migracja danych: stare → nowe → count match per tabela
@@ -511,6 +623,23 @@ TEST-09: Responsive & Visual
   3. Sprawdź czy karty mają border-radius 12px
   4. Sprawdź czy DataGrid header ma bg #1D2B53
 
+TEST-12: Service Fee Templates
+  1. Przejdź do Ustawienia
+  2. ASSERT: sekcja "Szablony usług" wyświetla listę pozycji (nie textarea)
+  3. Kliknij [+ Dodaj] → formularz nowej pozycji
+  4. Wpisz: Nazwa="Transport", Kwota=400, Jednostka="zł", Opis="dostawa / odbiór"
+  5. Zapisz → ASSERT: pozycja na liście
+  6. Utwórz nową umowę → ASSERT: pozycje auto-załadowane z szablonu
+  7. Wyłącz jedną pozycję (toggle) → ASSERT: pozycja wyszarzona ale zachowana
+
+TEST-13: Raporty PDF — wszystkie 6 wariantów
+  1. Right-click na umowę najmu → Wydruk → Umowa Najmu
+  2. ASSERT: PDF pobrany, zawiera dane kontrahenta i pozycji
+  3. Right-click → Wydruk → Protokół Z-O → ASSERT: PDF z tabelą maszyn
+  4. Right-click → Wydruk → Protokół Z-O bez danych → ASSERT: brak kolumn kwot
+  5. Analogicznie dla umowy usługowej (3 warianty)
+  6. ASSERT: OWU widoczne jako ostatnie strony każdej umowy
+
 TEST-10: Delete with Cascade
   1. Utwórz umowę z pozycją i warunkiem
   2. Z dashboard usuń umowę
@@ -547,7 +676,7 @@ FOR each TEST in [TEST-01..TEST-10]:
 
 ### ✅ Checkpoint Phase 5
 
-- [ ] TEST-01 do TEST-10: PASS
+- [ ] TEST-01 do TEST-13: PASS
 - [ ] Zero konsolowych errorów JavaScript
 - [ ] Zero niezłapanych wyjątków w backend logach
 - [ ] Wszystkie API responses zwracają poprawne dane
@@ -568,10 +697,11 @@ FOR each TEST in [TEST-01..TEST-10]:
    - Formularz kontrahenta
    - Formularz umowy
    - Warunki rozliczenia
-   - Ustawienia
+   - Ustawienia → Szablony usług (lista, nie textarea!)
 3. Porównaj z wireframe'ami z 03_FRONTEND_SCREENS.md
 4. Porównaj z designem Toolsmart z 09_DESIGN_REFERENCE.md
-5. Napraw wszelkie różnice (kolory, spacing, font, shadows)
+5. Porównaj wygenerowane PDF z docs/spec/reference_reports/*.pdf (1:1)
+6. Napraw wszelkie różnice (kolory, spacing, font, shadows, PDF layout)
 ```
 
 ### 6.2 Performance Check
@@ -625,12 +755,14 @@ docs/spec/
 ├── 02_BACKEND_API.md          ← WSZYSTKIE endpointy + Pydantic modele
 ├── 03_FRONTEND_SCREENS.md     ← Wireframe'y, komponenty Vue, routing
 ├── 04_BUSINESS_LOGIC.md       ← Algorytmy Python (numeracja, kalkulacja, GUS)
-├── 05_CROSS_CHECK.md          ← Macierz: stary system ↔ nowy system
+├── 05_CROSS_CHECK.md          ← Macierz: stary GUI ↔ SQL ↔ DB ↔ nowe endpointy
 ├── 06_NAVIGATION_FLOW.md      ← Flow diagram, routing rules
 ├── 07_INTEGRATIONS.md         ← GUS SOAP, Nominatim, PDF reporty
-├── 08_MIGRATION_PLAN.md       ← Skrypty migracji starej bazy
-├── 09_DESIGN_REFERENCE.md     ← Paleta Toolsmart, CSS, komponenty UI
-└── 10_WINDSURF_WORKFLOW.md    ← TEN PLIK
+├── 08_MIGRATION_PLAN.md       ← Skrypty migracji starej bazy + migrate_service_fees.py
+├── 09_DESIGN_REFERENCE.md     ← Paleta Toolsmart, CSS, scraping procedure
+├── 10_WINDSURF_WORKFLOW.md    ← TEN PLIK
+├── 11_REPORTS_AND_STATS.md    ← 6 wariantów PDF, OWU, statystyki i KPI
+└── 12_LOGIC_AUDIT.md          ← Audyt C# spaghetti: co pokryte, co dziura (czytaj PRZED Phase 2)
 ```
 
 **START → Przeczytaj `00_INDEX.md` → następnie `01` po kolei → buduj.**
