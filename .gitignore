@@ -31,4 +31,3 @@ dist/
 # OS
 .DS_Store
 Thumbs.db
-spec/DB_CONFIG.md
