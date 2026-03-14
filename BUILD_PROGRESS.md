@@ -1,6 +1,6 @@
 # RAO App — Build Progress
 
-> Ostatnia aktualizacja: 2026-03-15 00:21 | Kontekst: e2e-testing
+> Ostatnia aktualizacja: 2026-03-15 00:27 | Kontekst: e2e-testing
 
 ---
 
@@ -13,7 +13,7 @@
 | Phase 3: Frontend       | ✅ | 14/14 kroków | ~2 h |
 | Phase 4: Integration    | ✅ | 4/4 kroków | ~30 min |
 | Phase 5: Testing        | ✅ | 24/24 testów PASS | ~2 h |
-| Phase 6: Polish         | ⬜ | 0/4 kroków | - |
+| Phase 6: Polish         | ✅ | 2/2 kroków | ~5 min |
 
 Legenda: ⬜ nie zaczęte · ⏳ w toku · ✅ ukończone · ❌ błąd · 🔄 retry
 
@@ -66,6 +66,9 @@ Legenda: ⬜ nie zaczęte · ⏳ w toku · ✅ ukończone · ❌ błąd · 🔄 
 | 41 | 2026-03-15 00:18 | 5.11 | e2e-testing | ✅ | FIX TEST-04 zapis: ContractFormView wysyłał date_to:"” — Pydantic nie akceptuje empty string jako date|None | frontend/src/views/ContractFormView.vue | empty string ≠ null w Pydantic | 3 | 81f34a8 |
 | 42 | 2026-03-15 00:19 | 5.12 | e2e-testing | ✅ | FIX TEST-04 izolacja: beforeAll tworzy kontrahenta+umowę przez API, sekcja pozycji głównie do edit | e2e/tests/04-contract.spec.ts | test isolation | 1 | 64dc123 |
 | 43 | 2026-03-15 00:20 | 5.13 | e2e-testing | ✅ | Wszystkie 24/24 testy przechodzą w ~35s | - | - | 0 | 64dc123 |
+| 44 | 2026-03-15 00:25 | 6.1 | e2e-testing | ✅ | Usunięto main.js (duplikat main.ts) z frontend/src/ | frontend/src/main.js | - | 0 | c8a5013 |
+| 45 | 2026-03-15 00:25 | 6.2 | e2e-testing | ✅ | Usunięto create_admin.py (tymczasowy skrypt seed) z backend/ | backend/create_admin.py | - | 0 | c8a5013 |
+| 46 | 2026-03-15 00:27 | 6.3 | e2e-testing | ✅ | Analiza P3: ContractorCreate/ArticleCreate nie mają pól date—problem nie występuje | - | - | 0 | - |
 
 ---
 
@@ -73,9 +76,9 @@ Legenda: ⬜ nie zaczęte · ⏳ w toku · ✅ ukończone · ❌ błąd · 🔄 
 
 | ID | Faza.Krok | Opis problemu | Próby | Ostatnia próba | Rozwiązanie |
 |----|-----------|---------------|-------|----------------|-------------|
-| P1 | 6.1 | main.js + main.ts duplikat w frontend/src/ | 0 | - | Usunąć main.js (używany jest main.ts) |
-| P2 | 6.2 | create_admin.py tymczasowy skrypt w katalogu backend/ | 0 | - | Usunąć po potwierdzeniu admina w bazie |
-| P3 | 6.3 | Inne formy (Contractor, Article) mogą mieć ten sam problem z empty-string vs null | 0 | - | Analogiczny buildPayload() w ContractorFormView + ArticleFormView |
+~~P1~~ | ✅ ROZWIĄZANY | main.js usunięty (commit c8a5013) |
+~~P2~~ | ✅ ROZWIĄZANY | create_admin.py usunięty (commit c8a5013) |
+~~P3~~ | ✅ NIEISTOTNY | ContractorCreate/ArticleCreate nie mają pól `date | None` — problem nie występuje |
 
 ---
 
@@ -84,12 +87,12 @@ Legenda: ⬜ nie zaczęte · ⏳ w toku · ✅ ukończone · ❌ błąd · 🔄 
 | Metryka | Wartość |
 |---------|---------|
 | Sesja rozpoczęta | 2026-03-14 22:18 |
-| Łączne kroki ukończone | 43 |
+| Łączne kroki ukończone | 46 |
 | Łączne retries (self-heal) | 13 |
 | Aktualny kontekst agenta | e2e-testing |
-| Ostatni commit | 64dc123 (feat phase5: 24/24 Playwright tests pass) |
-| Poprzedni commit | 81f34a8 (fix frontend: 401-interceptor, router-view key, contract payload) |
-| Kolejny krok | 6.1 — Polish: usuń duplikaty, finalny test integracyjny |
+| Ostatni commit | c8a5013 (chore phase6: usuń main.js + create_admin.py) |
+| Status projektu | ✅ WSZYSTKIE FAZY UKOĄCZONE (Phase 1–6) |
+| Kolejny krok | git push — opcjonalnie: git push origin main |
 
 ---
 
