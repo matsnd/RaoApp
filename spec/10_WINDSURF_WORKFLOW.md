@@ -13,6 +13,34 @@
 
 ---
 
+## ⚠️ WERYFIKACJA: Sprawdzaj swoją pracę ze starą aplikacją
+
+**NIE WAHASZ SIĘ weryfikować nowego kodu ze starą aplikacją:**
+
+### Źródła do weryfikacji
+- **Stara aplikacja:** `c:\projects\repos\AppRao\rao\` (C# WinForms)
+- **Stara baza:** DSN `BazaDanychRao` (konfiguracja w `App.config`)
+
+### Kiedy WERYFIKUJ:
+1. ✅ Nowy endpoint działa → sprawdź czy wynik zgadza się ze starą aplikacją
+2. ✅ Nowy formularz → porównaj pola ze starym FormK.cs / FormU4.cs
+3. ✅ Nowy algorytm → sprawdź czy wynik identyczny jak w C#
+4. ✅ Nowy widok SQL → porównaj ze starymi VIEW w bazie
+
+### Jak weryfikować:
+```bash
+# Odpytaj starą bazę
+mariadb -u root -p -D rao -e "SELECT * FROM kontrahent2 LIMIT 5;"
+
+# Sprawdź stare VIEW
+mariadb -u root -p -D rao -e "SHOW FULL TABLES WHERE Table_type = 'VIEW';"
+
+# Porównaj z nową bazą
+mariadb -u rao_user -pRaoPass2026! rao_new -e "DESCRIBE users;"
+```
+
+---
+
 ## Konfiguracja środowiska — Plik `.env`
 
 Przed startem utwórz plik `.env` w katalogu głównym projektu:
