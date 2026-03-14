@@ -109,24 +109,25 @@ CREATE TABLE company (
     report_folder  VARCHAR(200) NULL,
     protocol_folder VARCHAR(200) NULL,
     app_version    VARCHAR(20)  NULL,
-    -- Szablony treści umów
-    contract_rental_text  TEXT NULL COMMENT 'Szablon usług dodatkowych umowy najmu',
-    contract_service_text TEXT NULL COMMENT 'Szablon usług dodatkowych umowy usługowej'
+    -- UWAGA: Szablony usług dodatkowych przeniesione do tabeli service_fee_templates
 ) ENGINE=InnoDB COMMENT='Dane firmy - singleton (stara tabela: firma)';
 
--- 1.8 Opłaty dodatkowe (wydzielone z firma)
-CREATE TABLE additional_fees (
-    id          INT AUTO_INCREMENT PRIMARY KEY,
-    company_id  INT NOT NULL DEFAULT 1,
-    fee_type    ENUM('refueling','transport','cleaning1','cleaning2','excess_downtime')
-                NOT NULL,
-    is_active   BOOLEAN       NOT NULL DEFAULT FALSE,
-    amount_from DECIMAL(18,2) NULL COMMENT 'Kwota od',
-    amount_to   DECIMAL(18,2) NULL COMMENT 'Kwota do',
-    description TEXT          NULL,
-    CONSTRAINT fk_fees_company FOREIGN KEY (company_id) REFERENCES company(id),
-    UNIQUE KEY uk_fee_type (company_id, fee_type)
-) ENGINE=InnoDB COMMENT='Opłaty dodatkowe (stare kolumny: firma.oplata_*)';
+-- 1.8 Szablony usług dodatkowych (zastępuje firma.uslugi1/2 + firma.oplata_*)
+-- Każdy wiersz = jedna pozycja z listy "-" np. "Transport: 400 zł"
+CREATE TABLE service_fee_templates (
+    id           INT AUTO_INCREMENT PRIMARY KEY,
+    company_id   INT          NOT NULL DEFAULT 1,
+    contract_type CHAR(1)     NOT NULL COMMENT 'S=najem, U=usługa',
+    sort_order   INT          NOT NULL DEFAULT 0 COMMENT 'Kolejność wyświetlania',
+    name         VARCHAR(200) NOT NULL COMMENT 'Nazwa np. Transport, Czyszczenie',
+    amount_from  DECIMAL(18,2) NULL    COMMENT 'Kwota od (NULL = brak)',
+    amount_to    DECIMAL(18,2) NULL    COMMENT 'Kwota do (NULL = jednorazowa)',
+    unit         VARCHAR(50)  NULL     COMMENT 'Jednostka np. zł, zł/h',
+    description  VARCHAR(400) NULL     COMMENT 'Opis np. dostawa / odbiór',
+    is_active    BOOLEAN      NOT NULL DEFAULT TRUE,
+    CONSTRAINT fk_sft_company FOREIGN KEY (company_id) REFERENCES company(id),
+    INDEX idx_sft_type (company_id, contract_type, sort_order)
+) ENGINE=InnoDB COMMENT='Szablony usług dodatkowych (stare: firma.uslugi1/2, firma.oplata_*)';
 
 -- ============================================================
 -- 2. KONTRAHENCI (Contractors)
@@ -231,7 +232,6 @@ CREATE TABLE contracts (
     number              VARCHAR(40)  NOT NULL COMMENT 'Numer umowy np. S001/2026',
     auto_number         INT          NULL COMMENT 'Auto-numer do sortowania',
     contract_type       CHAR(1)      NOT NULL DEFAULT 'S' COMMENT 'S=najem, U=usługa',
-    description         TEXT         NULL COMMENT 'Usługi dodatkowe',
     delivery_address    TEXT         NULL COMMENT 'Snapshot adresu dostawy',
     date_from           DATE         NULL,
     date_to             DATE         NULL,
@@ -241,7 +241,7 @@ CREATE TABLE contracts (
     invoice_amount      DECIMAL(18,2) NULL DEFAULT 0.00,
     invoice_document    VARCHAR(40)  NULL,
     notes               TEXT         NULL,
-    additional_fees_text TEXT        NULL COMMENT 'Tekst opłat dodatkowych (snapshot)',
+    -- UWAGA: Usługi dodatkowe w tabeli contract_service_fees (relacyjnie)
     -- Osoby kontaktowe (snapshot z momentu umowy)
     contact_person1     VARCHAR(100) NULL,
     contact_phone1      VARCHAR(100) NULL,
@@ -377,7 +377,28 @@ CREATE TABLE costs (
 ) ENGINE=InnoDB COMMENT='Koszty pozycji (stara tabela: koszt)';
 
 -- ============================================================
--- 7. ROZLICZENIA (Settlements)
+-- 7. USŁUGI DODATKOWE UMOWY (Contract Service Fees)
+-- ============================================================
+-- Każdy wiersz = jedna pozycja z listy opłat przypisana do konkretnej umowy
+-- Kopiowane z service_fee_templates przy tworzeniu umowy, edytowalne per-umowa
+
+CREATE TABLE contract_service_fees (
+    id           INT AUTO_INCREMENT PRIMARY KEY,
+    contract_id  INT          NOT NULL,
+    sort_order   INT          NOT NULL DEFAULT 0 COMMENT 'Kolejność pozycji',
+    name         VARCHAR(200) NOT NULL COMMENT 'Nazwa np. Transport',
+    amount_from  DECIMAL(18,2) NULL    COMMENT 'Kwota od',
+    amount_to    DECIMAL(18,2) NULL    COMMENT 'Kwota do (NULL = jednorazowa)',
+    unit         VARCHAR(50)  NULL     COMMENT 'Jednostka np. zł, zł/h',
+    description  VARCHAR(400) NULL     COMMENT 'Opis np. dostawa / odbiór',
+    is_active    BOOLEAN      NOT NULL DEFAULT TRUE COMMENT 'Pokazuje na PDF',
+    CONSTRAINT fk_csf_contract FOREIGN KEY (contract_id)
+        REFERENCES contracts(id) ON DELETE CASCADE,
+    INDEX idx_csf_contract (contract_id, sort_order)
+) ENGINE=InnoDB COMMENT='Usługi dodatkowe umowy (stary: umowa2.oplaty, firma.uslugi1/2)';
+
+-- ============================================================
+-- 8. ROZLICZENIA (Settlements)
 -- ============================================================
 
 CREATE TABLE settlements (
@@ -414,7 +435,9 @@ CREATE TABLE audit_log (
 | `handlowiec` | `salespeople` | `AKTYWNY` → `is_active` BOOLEAN |
 | `stawka` | `rate_types` | `ZALEZNA` → `is_dependent` |
 | `koszt_typ` | `cost_types` | Bez zmian |
-| `firma` | `company` + `additional_fees` | Opłaty wydzielone do osobnej tabeli |
+| `firma` | `company` + `service_fee_templates` | `uslugi1/2` i `oplata_*` → wiersze w `service_fee_templates` |
+| `firma.uslugi1` + `umowa2.oplaty` (najem) | `service_fee_templates` (S) + `contract_service_fees` | Tekst rozdzielony na relacyjne wiersze |
+| `firma.uslugi2` + `umowa2.oplaty` (usługi) | `service_fee_templates` (U) + `contract_service_fees` | Tekst rozdzielony na relacyjne wiersze |
 | `kontrahent2` | `contractors` | Połączono 2 osoby kontaktowe, dodano timestamps |
 | `adres` | `contractor_addresses` | Dodano FK constraint, precision lat/lng |
 | `artykul3` | `articles` | `USLUGA` → `is_service` BOOLEAN, FK constraints |

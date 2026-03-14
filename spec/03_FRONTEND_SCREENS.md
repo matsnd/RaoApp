@@ -518,9 +518,13 @@ Szczegółowy layout Row 1 (nagłówek):
 │ ☐ Reprezentująca  Tel1 [________]       │ Osoba1 [____________]  │
 │ ☐ Kontaktowa      Tel2 [________]       │ Tel1   [____________]  │
 │                                         │ Osoba2 [____________]  │
-│ Usługi dodatkowe ┌──────────────────┐   │ Tel2   [____________]  │
-│                  │ textarea         │   │ Email  [____________]  │
-│                  └──────────────────┘   │                        │
+│ Usługi dodatkowe [↺ Przywróć szablon]   │ Tel2   [____________]  │
+│ ┌────────────────────────────────────┐  │ Email  [____________]  │
+│ │ ☰ Transport    400zł-400zł [zł] ✅❌│  │                        │
+│ │ ☰ Czyszcz.1  150zł-400zł [zł] ✅❌ │  │                        │
+│ │ ☰ Tankowanie   200zł      [zł] ✅❌ │  │                        │
+│ │ [+ Dodaj pozycję]                  │  │                        │
+│ └────────────────────────────────────┘  │                        │
 │ ┌─ Finanse ─────────────────────────┐   │ Oddział [__________▼]  │
 │ │ Wartość     [    15 000,00 zł   ] │   │ Dni/tyg [6]            │
 │ │ Przedpłata  [______] dok [_____] │   │                        │
@@ -617,17 +621,29 @@ Layout (replika WinForms Konfiguracjacs — scrollable):
 │ Bank [___] Rachunek [___]                    │
 │ Numeracja [1]  Folder [___]  Folder2 [___]   │
 └──────────────────────────────────────────────┘
-┌─ Opłaty dodatkowe ───────────────────────────┐
-│ ☐ Tankowanie  od[___] do[___] opis[_________]│
-│ ☐ Transport   od[___] do[___] opis[_________]│
-│ ☐ Czyszcz. 1  od[___] do[___] opis[_________]│
-│ ☐ Czyszcz. 2  od[___] do[___] opis[_________]│
-│ ☐ Ponadnorm.  od[___] do[___] opis[_________]│
-│ ( +/- buttons per opłata, krok = increment_step)│
-└──────────────────────────────────────────────┘
-┌─ Szablony usług ─────────────────────────────┐
-│ Najem    [___textarea___]                    │
-│ Usługa   [___textarea___]                    │
+┌─ Usługi dodatkowe — Szablony ────────────────┐
+│  ┌── Umowa najmu (S) ──┐ ┌── Umowa usługi (U)─┐│
+│  └────────────────────┘ └───────────────────┘ │
+│ (tabs przełączają widok szablonu)             │
+│                                               │
+│ ┌─────────────────────────────────────────┐   │
+│ │☰│ Nazwa pozycji    │Od zł│Do zł│jed│ 👁 │   │
+│ │─┼──────────────────┼─────┼─────┼───┼───│   │
+│ │☰│ Transport        │ 400 │ 400 │zł │ ✅│   │
+│ │☰│ Czyszcz. (drob.) │ 150 │ 400 │zł │ ✅│   │
+│ │☰│ Czyszcz. (trudn.)│ 400 │1500 │zł │ ✅│   │
+│ │☰│ Tankowanie       │ 200 │     │zł │ ✅│   │
+│ │☰│ Ponadnorm. przest│ 200 │ 300 │zł/h│✅│   │
+│ │☰│ Wezwanie serwis. │ 280 │     │zł │ ✅│   │
+│ └─────────────────────────────────────────┘   │
+│  ☰ = drag-to-reorder     👁 = toggle active   │
+│  [+ Dodaj pozycję]  [🗑️ Usuń zaznaczone]       │
+│                                               │
+│  Podgląd tekstu (jak na umowie/PDF):          │
+│  ┌─────────────────────────────────────────┐  │
+│  │- Transport: 400.00 zł dostawa / odbiór  │  │
+│  │- Czyszcz.: 150.00 zł - 400.00 zł        │  │
+│  └─────────────────────────────────────────┘  │
 └──────────────────────────────────────────────┘
 ┌─ Handlowcy ──────────────────────────────────┐
 │ ┌─grid─────────────────────────────────────┐ │

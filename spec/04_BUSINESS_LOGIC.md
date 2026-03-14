@@ -543,7 +543,77 @@ def calculate_remaining(
     return (total_value or Decimal("0")) - (prepayment_amount or Decimal("0")) - (invoice_amount or Decimal("0"))
 ```
 
-## 12. Walidacja NIP (checksum)
+## 12. Kopiowanie szablonów usług dodatkowych do umowy
+
+```python
+async def copy_service_fee_templates_to_contract(
+    db: AsyncSession,
+    contract_id: int,
+    contract_type: Literal["S", "U"]
+) -> None:
+    """
+    Wywoływane ZAWSZE po utworzeniu nowej umowy (POST /contracts).
+    Źródło w WinForms: FormU4.cs linia 1868/1903 — tbxuslugi.Text = uslugi1/2 z firma.
+
+    Logika:
+    1. Pobierz wszystkie aktywne szablony dla (company_id=1, contract_type)
+       posortowane po sort_order
+    2. Dla każdego szablonu utwórz wiersz w contract_service_fees
+    3. Jeśli brak szablonów — OK, umowa powstaje bez usług dodatkowych
+
+    UWAGA: Jeśli umowa już ma usługi (np. PUT /reset) — najpierw usuń wszystkie.
+    """
+    # Usuń istniejące (dla reset)
+    await db.execute(
+        delete(ContractServiceFee).where(ContractServiceFee.contract_id == contract_id)
+    )
+    # Pobierz szablony
+    result = await db.execute(
+        select(ServiceFeeTemplate)
+        .where(
+            ServiceFeeTemplate.company_id == 1,
+            ServiceFeeTemplate.contract_type == contract_type,
+        )
+        .order_by(ServiceFeeTemplate.sort_order)
+    )
+    for t in result.scalars():
+        db.add(ContractServiceFee(
+            contract_id=contract_id,
+            sort_order=t.sort_order,
+            name=t.name,
+            amount_from=t.amount_from,
+            amount_to=t.amount_to,
+            unit=t.unit,
+            description=t.description,
+            is_active=t.is_active,
+        ))
+    await db.commit()
+
+
+def generate_fees_text_for_pdf(fees: list) -> str:
+    """
+    Generuje tekst usług dodatkowych do wydruku PDF/raportu.
+    Identyczny format jak stary umowa2.oplaty.
+    Tylko aktywne (is_active=True) pozycje.
+    """
+    lines = []
+    for f in sorted(fees, key=lambda x: x.sort_order):
+        if not f.is_active:
+            continue
+        if f.amount_from and f.amount_to:
+            kwota = f"{f.amount_from:.2f} zł - {f.amount_to:.2f} zł"
+        elif f.amount_from:
+            kwota = f"{f.amount_from:.2f} zł"
+        else:
+            kwota = ""
+        unit_str = f" / {f.unit}" if f.unit else ""
+        desc_str = f" ({f.description})" if f.description else ""
+        line = f"- {f.name}: {kwota}{unit_str}{desc_str}".strip().rstrip(":")
+        lines.append(line)
+    return "\n".join(lines)
+```
+
+## 13. Walidacja NIP (checksum)
 
 ```python
 def validate_nip(nip: str) -> bool:

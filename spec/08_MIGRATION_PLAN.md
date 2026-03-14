@@ -38,42 +38,286 @@
 INSERT INTO rao_new.company (
     id, name, name_short, nip, regon, postal_code, city, street,
     header_text, logo, bank_name, bank_account, numbering_start,
-    increment_step, report_folder, protocol_folder, app_version,
-    contract_rental_text, contract_service_text
+    increment_step, report_folder, protocol_folder, app_version
 )
 SELECT
     ID, NAZWA, NAZWA_KROTKA, NIP, REGON, KOD_POCZTOWY, MIEJSCOWOSC,
     ULICA_LOKAL, NAGLOWEK, LOGO, BANK, RACHUNEK, numeracja,
-    INTERWAL, FOLDER, FOLDER2, wersja,
-    Uslugi1, Uslugi2
-FROM rao.firma;
+    INTERWAL, FOLDER, FOLDER2, wersja
+FROM toolsmart_roa_fake.firma;
+-- UWAGA: Uslugi1/Uslugi2 migrowane do service_fee_templates (krok 1b poniżej)
 
--- 1b. ADDITIONAL FEES (firma.oplata_* → additional_fees)
-INSERT INTO rao_new.additional_fees (company_id, fee_type, is_active, amount_from, amount_to, description)
-SELECT 1, 'refueling', COALESCE(czy_oplata_tankowanie, 0),
-       oplata_tankowanie_od, oplata_tankowanie_do, oplata_tankowanie_opis
-FROM rao.firma WHERE ID = 1;
+-- 1b. SERVICE FEE TEMPLATES (firma.uslugi1/2 → service_fee_templates)
+-- UWAGA: Tekst "- Transport: 400zł\n- Czyszcz..." rozdzielamy na wiersze.
+-- Wymaga skryptu Python (SQL nie może parsoć multiline text po liniach).
+-- Uruchom: python migrator/migrate_service_fees.py
 
-INSERT INTO rao_new.additional_fees (company_id, fee_type, is_active, amount_from, amount_to, description)
-SELECT 1, 'transport', COALESCE(czy_oplata_transport, 0),
-       oplata_tarnsport_od, oplata_tarnsport_do, oplata_transport_opis
-FROM rao.firma WHERE ID = 1;
+-- Skrypt migrator/migrate_service_fees.py:
+```python
+"""
+Migracja usług dodatkowych ze starej bazy do nowej.
+Parsuje firma.uslugi1/2 i umowa2.OPLATY — każda linia "-" → oddzielny wiersz
+z wyciągniętymi polami: name, amount_from, amount_to, unit, description.
 
-INSERT INTO rao_new.additional_fees (company_id, fee_type, is_active, amount_from, amount_to, description)
-SELECT 1, 'cleaning1', COALESCE(czy_oplata_czyszczenie1, 0),
-       oplata_czyszczenie1_od, oplata_czyszczenie1_do, oplata_czyszczenie1_opis
-FROM rao.firma WHERE ID = 1;
+Wzorce (zweryfikowane na toolsmart_roa_fake):
+  1. Transport: 400.00 zł dostawa / 400.00 zł odbiór  → amount=400, desc="dostawa / odbiór"
+  2. Czyszcz.: 150.00 zł - 400.00 zł                 → amount_from=150, amount_to=400
+  3. Ponadnorm.: 200.00 zł / h - 300.00 zł / h       → amount_from=200, to=300, unit="h"
+  4. Zawiesia: 50,00 zł / doba                        → amount_from=50, unit="doba"
+  5. Tankowanie: 200.00 zł (plus koszt paliwa)        → amount_from=200, desc="plus koszt paliwa"
+  6. Transport: 400.00 zł                             → amount_from=400
+  7. Transport: 950.00 zł - zamiana Ładowarek         → amount_from=950, desc="zamiana Ładowarek"
+  8. Transport: odbiór własny                         → desc="odbiór własny" (brak kwoty)
+  9. Ładowarka - wynajem 900,00 zł / doba             → brak dwukropka, kwota w środku
+"""
+import re
+import asyncio
+import aiomysql
+from decimal import Decimal, InvalidOperation
 
-INSERT INTO rao_new.additional_fees (company_id, fee_type, is_active, amount_from, amount_to, description)
-SELECT 1, 'cleaning2', COALESCE(czy_oplata_czyszczenie2, 0),
-       oplata_czyszczenie2_od, oplata_czyszczenie2_do, oplata_czyszczenie2_opis
-FROM rao.firma WHERE ID = 1;
+OLD_DB = dict(host='localhost', user='root', password='USOjtYTpJaxyhT2q5PnI',
+              db='toolsmart_roa_fake', charset='utf8mb4')
+NEW_DB = dict(host='localhost', user='rao_user', password='RaoPass2026!',
+              db='rao_new', charset='utf8mb4')
 
-INSERT INTO rao_new.additional_fees (company_id, fee_type, is_active, amount_from, amount_to, description)
-SELECT 1, 'excess_downtime', COALESCE(czy_oplata_ponadnormatywny, 0),
-       oplata_ponadnormatywny_przestuj_od, oplata_ponadnormatywny_przestuj_do,
-       oplata_ponadnormatywny_przestuj_opis
-FROM rao.firma WHERE ID = 1;
+# Polska kwota: "400", "400.00", "400,00", "1 000,00", "1 000.00"
+_A = r'([\d]+(?:\s[\d]{3})*(?:[,.][\d]+)?)'
+
+# Wzorce kompilowane raz
+# 1. KWOTA zł [- ] OPIS_DOSTAWY / KWOTA zł [- ] odbiór
+RE_DOSTAWA = re.compile(
+    rf'^{_A}\s*z[łl]\s*[-–]?\s*(.{{1,30}}?)\s*/\s*{_A}\s*z[łl]\s*[-–]?\s*(odbi[oó]r\S*)',
+    re.I | re.U
+)
+# 2. KWOTA zł / UNIT - KWOTA zł / UNIT (zakres godzinowy/dobowy)
+RE_H_RANGE = re.compile(rf'^{_A}\s*z[łl]\s*/\s*(\S+)\s*[-–]\s*{_A}\s*z[łl]\s*/\s*\S+')
+# 3. KWOTA zł / UNIT (stawka jednostkowa)
+RE_PER_UNIT = re.compile(rf'^{_A}\s*z[łl]\s*/\s*(\S+)')
+# 4. KWOTA zł - KWOTA zł (zakres bez jednostki) — drugi człon musi być liczbą
+RE_RANGE = re.compile(rf'^{_A}\s*z[łl]\s*[-–]\s*{_A}\s*z[łl]')
+# 5. KWOTA zł (opis w nawiasach)
+RE_PARENS = re.compile(rf'^{_A}\s*z[łl]\s*\(([^)]+)\)')
+# 6. KWOTA zł [opcjonalny trailing opis]
+RE_SINGLE = re.compile(rf'^{_A}\s*z[łl](.*)')
+# 7. Brak dwukropka, kwota w środku: "Nazwa ... KWOTA zł / UNIT"
+RE_NOCOL = re.compile(rf'^(.+?)\s+{_A}\s*z[łl]\s*/\s*(\S+)\s*$')
+# 8. Linie do pominięcia (nagłówki/śmieci)
+RE_SKIP = re.compile(
+    r'^(-zedytowane|1[-\s]*2\s*dni|powyżej\s*2|praca do \d|czas trwania|'
+    r'opłata w gotówce|do \d+ godzin\s*-)',
+    re.I
+)
+
+def to_decimal(s: str) -> Decimal | None:
+    if not s:
+        return None
+    try:
+        return Decimal(s.strip().replace(' ', '').replace(',', '.'))
+    except InvalidOperation:
+        return None
+
+def parse_fee_line(raw: str) -> dict | None:
+    """Parsuje jedną linię na {name, amount_from, amount_to, unit, description, is_active}."""
+    line = raw.strip().lstrip('- ').strip()
+    if not line or RE_SKIP.match(line):
+        return None
+
+    out = dict(name=line[:200], amount_from=None, amount_to=None,
+               unit=None, description=None, is_active=True)
+
+    # Rozdziel na nazwę i wartość po pierwszym dwukropku
+    if ':' in line:
+        idx = line.index(':')
+        name_part = line[:idx].strip()
+        value = line[idx + 1:].strip()
+        if not name_part:
+            return None
+        out['name'] = name_part[:200]
+    else:
+        # Brak dwukropka — szukamy "TEKST KWOTA zł / UNIT"
+        m = RE_NOCOL.match(line)
+        if m:
+            out['name']        = m.group(1).strip()[:200]
+            out['amount_from'] = to_decimal(m.group(2))
+            out['unit']        = m.group(3)
+        # else: cały tekst zostaje jako name, bez kwoty
+        return out
+
+    if not value:
+        return out  # tylko nazwa, bez wartości
+
+    # --- Dopasowywanie wartości ---
+
+    # Wzorzec 1: KWOTA zł dostawa / KWOTA zł odbiór (symetryczny transport)
+    m = RE_DOSTAWA.match(value)
+    if m:
+        out['amount_from'] = to_decimal(m.group(1))
+        # Kwota dostawy i odbioru jest zawsze taka sama — nie potrzeba amount_to
+        out['description'] = f"{m.group(2).strip()} / {m.group(4).strip()}"
+        return out
+
+    # Wzorzec 2: KWOTA zł / h - KWOTA zł / h (zakres godzinowy)
+    m = RE_H_RANGE.match(value)
+    if m:
+        out['amount_from'] = to_decimal(m.group(1))
+        out['amount_to']   = to_decimal(m.group(3))
+        out['unit']        = m.group(2)
+        return out
+
+    # Wzorzec 3: KWOTA zł / UNIT (stawka jednostkowa)
+    m = RE_PER_UNIT.match(value)
+    if m:
+        out['amount_from'] = to_decimal(m.group(1))
+        out['unit']        = m.group(2)
+        return out
+
+    # Wzorzec 4: KWOTA zł - KWOTA zł (zakres bez jednostki)
+    # Sprawdź czy drugi człon to naprawdę liczba (nie "zamiana Ładowarek")
+    m = RE_RANGE.match(value)
+    if m and to_decimal(m.group(2)) is not None:
+        out['amount_from'] = to_decimal(m.group(1))
+        out['amount_to']   = to_decimal(m.group(2))
+        return out
+
+    # Wzorzec 5: KWOTA zł (opis w nawiasach)
+    m = RE_PARENS.match(value)
+    if m:
+        out['amount_from'] = to_decimal(m.group(1))
+        out['description'] = m.group(2).strip()
+        return out
+
+    # Wzorzec 6: KWOTA zł [trailing tekst]
+    m = RE_SINGLE.match(value)
+    if m:
+        out['amount_from'] = to_decimal(m.group(1))
+        trailing = m.group(2).strip().strip('-– ').strip()
+        if trailing:
+            out['description'] = trailing[:400]
+        return out
+
+    # Wzorzec 7: czysto tekstowy opis (brak kwoty)
+    out['description'] = value[:400]
+    return out
+
+
+def parse_text_to_fees(text: str) -> list[dict]:
+    """Rozbija cały blok tekstu na listę sparsowanych pozycji."""
+    result = []
+    if not text:
+        return result
+    sort_order = 0
+    for raw in text.replace('\r\n', '\n').replace('\r', '\n').splitlines():
+        fee = parse_fee_line(raw)
+        if fee:
+            fee['sort_order'] = sort_order
+            sort_order += 1
+            result.append(fee)
+    return result
+
+
+async def migrate():
+    old = await aiomysql.connect(**OLD_DB)
+    new = await aiomysql.connect(**NEW_DB)
+
+    # 1. Szablony z firma.uslugi1 (S=najem) i uslugi2 (U=usługa)
+    async with old.cursor() as cur:
+        await cur.execute('SELECT uslugi1, uslugi2 FROM firma WHERE id=1')
+        uslugi1, uslugi2 = await cur.fetchone()
+
+    async with new.cursor() as cur:
+        for contract_type, text in [('S', uslugi1), ('U', uslugi2)]:
+            for fee in parse_text_to_fees(text):
+                await cur.execute(
+                    '''INSERT INTO service_fee_templates
+                       (company_id, contract_type, sort_order, name,
+                        amount_from, amount_to, unit, description, is_active)
+                       VALUES (1, %s, %s, %s, %s, %s, %s, %s, %s)''',
+                    (contract_type, fee['sort_order'], fee['name'],
+                     fee['amount_from'], fee['amount_to'],
+                     fee['unit'], fee['description'], fee['is_active'])
+                )
+        await new.commit()
+    print('✓ service_fee_templates: OK')
+
+    # 2. Usługi per umowa z umowa2.OPLATY → contract_service_fees
+    async with old.cursor() as cur:
+        await cur.execute(
+            "SELECT id, OPLATY FROM umowa2 WHERE OPLATY IS NOT NULL AND TRIM(OPLATY) != ''"
+        )
+        rows = await cur.fetchall()
+
+    async with new.cursor() as cur:
+        for contract_id, oplaty in rows:
+            for fee in parse_text_to_fees(oplaty):
+                await cur.execute(
+                    '''INSERT INTO contract_service_fees
+                       (contract_id, sort_order, name,
+                        amount_from, amount_to, unit, description, is_active)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s)''',
+                    (contract_id, fee['sort_order'], fee['name'],
+                     fee['amount_from'], fee['amount_to'],
+                     fee['unit'], fee['description'], fee['is_active'])
+                )
+        await new.commit()
+    print(f'✓ contract_service_fees: {len(rows)} umów, OK')
+
+    old.close()
+    new.close()
+
+
+if __name__ == '__main__':
+    asyncio.run(migrate())
+```
+
+-- 1c. WERYFIKACJA MIGRACJI USŁUG DODATKOWYCH
+-- Uruchom te selecty po wykonaniu migrate_service_fees.py
+-- i porównaj z oczekiwanymi wynikami ze starej bazy.
+
+-- [V1] Ile pozycji zostało wygenerowanych z uslugi1 (najem)?
+-- Oczekiwane: tyle ile linii z "-" w firmie.uslugi1
+SELECT COUNT(*) AS template_najem_count
+FROM rao_new.service_fee_templates
+WHERE contract_type = 'S';
+-- Weryfikacja w starej bazie:
+-- SELECT LENGTH(uslugi1) - LENGTH(REPLACE(uslugi1, '\n', '')) + 1 FROM toolsmart_roa_fake.firma WHERE id=1;
+
+-- [V2] Ile pozycji zostało wygenerowanych z uslugi2 (usługi)?
+SELECT COUNT(*) AS template_uslugi_count
+FROM rao_new.service_fee_templates
+WHERE contract_type = 'U';
+
+-- [V3] Podgląd szablonu najem (czy nazwy się zgadzają z oryginałem)?
+SELECT sort_order, name, amount_from, amount_to, unit, is_active
+FROM rao_new.service_fee_templates
+WHERE contract_type = 'S'
+ORDER BY sort_order;
+-- Porównaj ręcznie z:
+-- SELECT uslugi1 FROM toolsmart_roa_fake.firma WHERE id=1;
+
+-- [V4] Ile umów ma przeniesione usługi dodatkowe?
+SELECT COUNT(DISTINCT contract_id) AS contracts_with_fees
+FROM rao_new.contract_service_fees;
+-- Oczekiwane: ile umów miało niepuste pole OPLATY:
+-- SELECT COUNT(*) FROM toolsmart_roa_fake.umowa2 WHERE OPLATY IS NOT NULL AND OPLATY != '';
+
+-- [V5] Czy żadna umowa nie zgubiła pozycji? (max/min/avg dla cross-check)
+SELECT
+    MIN(cnt) AS min_fees_per_contract,
+    MAX(cnt) AS max_fees_per_contract,
+    AVG(cnt) AS avg_fees_per_contract
+FROM (
+    SELECT contract_id, COUNT(*) AS cnt
+    FROM rao_new.contract_service_fees
+    GROUP BY contract_id
+) sub;
+
+-- [V6] Próbka: 3 losowe umowy — porównaj tekst oryginału z nową listą
+SELECT u.id, u.OPLATY AS stary_tekst
+FROM toolsmart_roa_fake.umowa2 u
+WHERE u.OPLATY IS NOT NULL AND u.OPLATY != ''
+ORDER BY RAND() LIMIT 3;
+-- Następnie dla każdego id:
+-- SELECT name FROM rao_new.contract_service_fees WHERE contract_id = <id> ORDER BY sort_order;
 
 -- 2. BRANCHES (oddzial → branches)
 INSERT INTO rao_new.branches (id, name, address, postal_code, city, street)

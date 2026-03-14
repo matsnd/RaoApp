@@ -681,7 +681,6 @@ class ContractCreate(BaseModel):
     branch_id: int | None = None
     salesperson_id: int | None = None
     contract_type: Literal["S", "U"] = "S"
-    description: str | None = None
     delivery_address: str | None = None
     date_from: date | None = None
     date_to: date | None = None
@@ -691,7 +690,8 @@ class ContractCreate(BaseModel):
     invoice_amount: Decimal = Decimal("0.00")
     invoice_document: str | None = None
     notes: str | None = None
-    additional_fees_text: str | None = None
+    # UWAGA: Usługi dodatkowe tworzone automatycznie z service_fee_templates
+    # Endpoint: POST /contracts/{id}/service-fees do późniejszej edycji
     contact_person1: str | None = None
     contact_phone1: str | None = None
     show_person1: bool = True
@@ -881,6 +881,83 @@ async def recalculate_contract_value(db: AsyncSession, contract_id: int):
     )
 ```
 
+### `GET /contracts/{id}/service-fees`
+### `POST /contracts/{id}/service-fees`
+### `PUT /contracts/{id}/service-fees/{fee_id}`
+### `DELETE /contracts/{id}/service-fees/{fee_id}`
+### `POST /contracts/{id}/service-fees/reorder`
+### `POST /contracts/{id}/service-fees/reset`
+
+```python
+class ContractServiceFeeResponse(BaseModel):
+    id: int
+    sort_order: int
+    name: str
+    amount_from: Decimal | None
+    amount_to: Decimal | None
+    unit: str | None
+    description: str | None
+    is_active: bool
+
+class ContractServiceFeeCreate(BaseModel):
+    name: str = Field(..., max_length=200)
+    amount_from: Decimal | None = None
+    amount_to: Decimal | None = None
+    unit: str | None = Field(None, max_length=50)
+    description: str | None = Field(None, max_length=400)
+    is_active: bool = True
+
+class ContractServiceFeeReorder(BaseModel):
+    ids: list[int]
+```
+
+**Algorytm POST /contracts (tworzenie umowy):**
+```python
+# Po zapisaniu umowy ZAWSZE kopiuj szablony:
+async def copy_fee_templates_to_contract(
+    db: AsyncSession, contract_id: int, contract_type: str
+):
+    templates = await db.execute(
+        select(ServiceFeeTemplate)
+        .where(ServiceFeeTemplate.contract_type == contract_type)
+        .where(ServiceFeeTemplate.is_active == True)
+        .order_by(ServiceFeeTemplate.sort_order)
+    )
+    for t in templates.scalars():
+        db.add(ContractServiceFee(
+            contract_id=contract_id,
+            sort_order=t.sort_order,
+            name=t.name,
+            amount_from=t.amount_from,
+            amount_to=t.amount_to,
+            unit=t.unit,
+            description=t.description,
+            is_active=t.is_active,
+        ))
+    await db.commit()
+```
+
+**Algorytm POST /reset:** Usuwa wszystkie istniejące opłaty i kopiuje z szablonu od nowa.
+
+**Logika PDF (service.py):** Generuje tekst z aktywnych pozycji:
+```python
+def generate_fees_text(fees: list[ContractServiceFee]) -> str:
+    lines = []
+    for f in sorted(fees, key=lambda x: x.sort_order):
+        if not f.is_active:
+            continue
+        if f.amount_from and f.amount_to:
+            kwota = f"{f.amount_from:.2f} zł - {f.amount_to:.2f} zł"
+        elif f.amount_from:
+            kwota = f"{f.amount_from:.2f} zł"
+        else:
+            kwota = ""
+        unit = f" / {f.unit}" if f.unit else ""
+        desc = f" ({f.description})" if f.description else ""
+        lines.append(f"- {f.name}: {kwota}{unit}{desc}".strip())
+    return "\n".join(lines)
+```
+
 ---
 
 ## SETTINGS — Endpointy
@@ -905,34 +982,42 @@ class CompanyResponse(BaseModel):
     increment_step: Decimal | None
     report_folder: str | None
     protocol_folder: str | None
-    contract_rental_text: str | None
-    contract_service_text: str | None
+    # UWAGA: Szablony usług dodatkowych → GET /settings/service-fee-templates
 ```
 
-### `GET /settings/fees`
-### `PUT /settings/fees`
+### `GET /settings/service-fee-templates`
+### `POST /settings/service-fee-templates`
+### `PUT /settings/service-fee-templates/{id}`
+### `DELETE /settings/service-fee-templates/{id}`
+### `POST /settings/service-fee-templates/reorder`
 
 ```python
-class FeeResponse(BaseModel):
+class ServiceFeeTemplateResponse(BaseModel):
     id: int
-    fee_type: str
-    is_active: bool
+    contract_type: Literal['S', 'U']
+    sort_order: int
+    name: str
     amount_from: Decimal | None
     amount_to: Decimal | None
+    unit: str | None
     description: str | None
-
-class FeeUpdate(BaseModel):
-    fees: list[FeeItem]
-
-class FeeItem(BaseModel):
-    fee_type: Literal[
-        "refueling", "transport", "cleaning1", "cleaning2", "excess_downtime"
-    ]
     is_active: bool
+
+class ServiceFeeTemplateCreate(BaseModel):
+    contract_type: Literal['S', 'U']
+    name: str = Field(..., max_length=200)
     amount_from: Decimal | None = None
     amount_to: Decimal | None = None
-    description: str | None = None
+    unit: str | None = Field(None, max_length=50)
+    description: str | None = Field(None, max_length=400)
+    is_active: bool = True
+
+class ServiceFeeTemplateReorder(BaseModel):
+    ids: list[int]  # kolejność wierszy dla danego contract_type
 ```
+
+**Logika GET:** Zwraca wszystkie templates dla company_id=1, posortowane po `(contract_type, sort_order)`.
+**Logika POST /reorder:** Przyjmuje listę id w nowej kolejności, aktualizuje `sort_order` wszystkich.
 
 ### `GET /settings/salespeople`
 ### `POST /settings/salespeople`

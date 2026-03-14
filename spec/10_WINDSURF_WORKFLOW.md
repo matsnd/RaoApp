@@ -401,12 +401,25 @@ LOOP:
 ### 4.4 Migracja danych
 
 ```
-1. Przeczytaj 08_MIGRATION_PLAN.md
-2. Zaimplementuj skrypt migracyjny Python (alembic lub standalone)
-3. Test: uruchom na starej bazie → dane przeniesione?
-4. Weryfikacja: old_count == new_count per tabela
-5. Post-migracja: hashuj hasła bcrypt
-6. Self-heal do skutku
+1. Przeczytaj 08_MIGRATION_PLAN.md — CAŁY plik, łącznie z sekcją weryfikacji [V1]-[V6]
+2. Wykonaj SQL INSERT...SELECT dla wszystkich tabel (krok 1, 2, 3, 4, 5, 6...)
+3. Uruchom: python migrator/migrate_service_fees.py
+   - Parsuje firma.uslugi1/2 → service_fee_templates (po jednym wierszu per linia "-")
+   - Parsuje umowa2.oplaty per umowa → contract_service_fees
+4. Weryfikacja migracji usług dodatkowych (OBOWIĄZKOWA):
+   a) [V1] SELECT COUNT(*) FROM service_fee_templates WHERE contract_type='S'
+      → porównaj z: liczba linii "\n-" w toolsmart_roa_fake.firma.uslugi1
+   b) [V2] SELECT COUNT(*) FROM service_fee_templates WHERE contract_type='U'
+      → porównaj z: liczba linii "\n-" w toolsmart_roa_fake.firma.uslugi2
+   c) [V3] SELECT name FROM service_fee_templates WHERE contract_type='S' ORDER BY sort_order
+      → każda nazwa musi odpowiadać oryginalnemu wierszowi z uslugi1
+   d) [V4] SELECT COUNT(DISTINCT contract_id) FROM contract_service_fees
+      → musi == SELECT COUNT(*) FROM toolsmart_roa_fake.umowa2 WHERE OPLATY IS NOT NULL AND OPLATY != ''
+   e) [V5] Sprawdź min/max/avg pozycji per umowa (patrz query V5 w 08_MIGRATION_PLAN.md)
+   f) [V6] 3 losowe umowy: porównaj stary tekst OPLATY z nowymi wierszami contract_service_fees
+5. Weryfikacja ogólna: old_count == new_count per każda tabela
+6. Post-migracja: hashuj hasła bcrypt (stare mają prefix $PLAINTEXT$)
+7. Self-heal do skutku — jeśli liczby się nie zgadzają popraw parse_fee_lines()
 ```
 
 ### ✅ Checkpoint Phase 4
@@ -414,7 +427,9 @@ LOOP:
 - [ ] GUS auto-fill działa
 - [ ] Nominatim reverse geocoding działa
 - [ ] PDF report generuje się poprawnie
-- [ ] Migracja danych: stare → nowe → count match
+- [ ] migrate_service_fees.py uruchomiony bez błędów
+- [ ] [V1]-[V6] wszystkie weryfikacje przeszły (liczby się zgadzają)
+- [ ] Migracja danych: stare → nowe → count match per tabela
 
 ---
 
