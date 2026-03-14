@@ -19,7 +19,7 @@
 
 ### Źródła do weryfikacji
 - **Stara aplikacja:** `c:\projects\repos\AppRao\rao\` (C# WinForms)
-- **Stara baza:** DSN `BazaDanychRao` (konfiguracja w `App.config`)
+- **Stara baza:** konfiguracja w `spec/DB_CONFIG.md` (credentials do starej bazy)
 
 ### Kiedy WERYFIKUJ:
 1. ✅ Nowy endpoint działa → sprawdź czy wynik zgadza się ze starą aplikacją
@@ -29,11 +29,11 @@
 
 ### Jak weryfikować:
 ```bash
-# Odpytaj starą bazę
-mariadb -u root -p -D rao -e "SELECT * FROM kontrahent2 LIMIT 5;"
+# Odpytaj starą bazę (credentials w spec/DB_CONFIG.md)
+mariadb -h localhost -u <USER> -p<PASSWORD> -D <DB_NAME> -e "SELECT * FROM kontrahent2 LIMIT 5;"
 
 # Sprawdź stare VIEW
-mariadb -u root -p -D rao -e "SHOW FULL TABLES WHERE Table_type = 'VIEW';"
+mariadb -h localhost -u <USER> -p<PASSWORD> -D <DB_NAME> -e "SHOW FULL TABLES WHERE Table_type = 'VIEW';"
 
 # Porównaj z nową bazą
 mariadb -u rao_user -pRaoPass2026! rao_new -e "DESCRIBE users;"
