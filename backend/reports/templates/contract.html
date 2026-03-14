@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap');
+  body { font-family: Montserrat, sans-serif; color: #1D2B53; font-size: 11px; margin: 0; padding: 20px; }
+  h1 { font-size: 16px; color: #1D2B53; margin-bottom: 4px; }
+  h2 { font-size: 13px; color: #1D2B53; border-bottom: 2px solid #1D2B53; padding-bottom: 4px; margin-top: 16px; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+  .company-info { font-size: 10px; text-align: right; color: #555; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 10px; }
+  th { background: #1D2B53; color: white; padding: 6px 8px; text-align: left; }
+  td { padding: 5px 8px; border-bottom: 1px solid #e2e8f0; }
+  tr:nth-child(even) td { background: #f7f8ff; }
+  .label { font-weight: 600; color: #1D2B53; width: 180px; }
+  .value { color: #333; }
+  .section { margin-bottom: 16px; }
+  .fees { white-space: pre-line; font-size: 10px; }
+  .footer { margin-top: 40px; display: flex; justify-content: space-between; font-size: 10px; }
+  .signature { border-top: 1px solid #1D2B53; width: 200px; text-align: center; padding-top: 4px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>UMOWA {% if contract.contract_type == 'S' %}NAJMU{% else %}USŁUGI{% endif %}</h1>
+    <div style="font-size:14px;font-weight:700;">{{ contract.number }}</div>
+  </div>
+  <div class="company-info">
+    {% if company %}<strong>{{ company.name or '' }}</strong><br>
+    {{ company.street or '' }} {{ company.postal_code or '' }} {{ company.city or '' }}<br>
+    NIP: {{ company.nip or '' }}<br>
+    {% if company.bank_account %}Konto: {{ company.bank_account }}{% endif %}{% endif %}
+  </div>
+</div>
+
+<div class="section">
+  <h2>Dane kontrahenta</h2>
+  <table>
+    <tr><td class="label">Kontrahent:</td><td class="value">{{ contractor.name if contractor else contract.contractor_name }}</td></tr>
+    {% if contractor and contractor.nip %}<tr><td class="label">NIP:</td><td class="value">{{ contractor.nip }}</td></tr>{% endif %}
+    {% if contractor %}<tr><td class="label">Adres:</td><td class="value">{{ contractor.street or '' }} {{ contractor.postal_code or '' }} {{ contractor.city or '' }}</td></tr>{% endif %}
+    {% if contract.contact_person1 and contract.show_person1 %}<tr><td class="label">Osoba kontaktowa:</td><td class="value">{{ contract.contact_person1 }} {% if contract.contact_phone1 %}tel. {{ contract.contact_phone1 }}{% endif %}</td></tr>{% endif %}
+    {% if contract.contact_person2 and contract.show_person2 %}<tr><td class="label">Osoba kontaktowa 2:</td><td class="value">{{ contract.contact_person2 }} {% if contract.contact_phone2 %}tel. {{ contract.contact_phone2 }}{% endif %}</td></tr>{% endif %}
+  </table>
+</div>
+
+<div class="section">
+  <h2>Dane umowy</h2>
+  <table>
+    <tr><td class="label">Data od:</td><td class="value">{{ contract.date_from or '' }}</td></tr>
+    <tr><td class="label">Data do:</td><td class="value">{{ contract.date_to or '' }}</td></tr>
+    {% if contract.delivery_address %}<tr><td class="label">Adres dostawy:</td><td class="value">{{ contract.delivery_address }}</td></tr>{% endif %}
+    {% if salesperson %}<tr><td class="label">Handlowiec:</td><td class="value">{{ salesperson.name }}</td></tr>{% endif %}
+    <tr><td class="label">Wartość umowy:</td><td class="value"><strong>{{ "%.2f"|format(contract.total_value or 0) }} zł</strong></td></tr>
+    {% if contract.prepayment_amount %}<tr><td class="label">Przedpłata:</td><td class="value">{{ "%.2f"|format(contract.prepayment_amount) }} zł {% if contract.prepayment_document %}({{ contract.prepayment_document }}){% endif %}</td></tr>{% endif %}
+    {% if contract.invoice_amount %}<tr><td class="label">Faktura:</td><td class="value">{{ "%.2f"|format(contract.invoice_amount) }} zł {% if contract.invoice_document %}({{ contract.invoice_document }}){% endif %}</td></tr>{% endif %}
+  </table>
+</div>
+
+{% if positions %}
+<div class="section">
+  <h2>Pozycje umowy</h2>
+  <table>
+    <thead><tr><th>#</th><th>Artykuł</th><th>Typ najmu</th><th>Dni</th><th>Ilość</th><th>Cena jedn.</th></tr></thead>
+    <tbody>
+    {% for p in positions %}
+    <tr>
+      <td>{{ loop.index }}</td>
+      <td>{{ p.pos.article_name or '' }}</td>
+      <td>{{ p.pos.rental_type or '' }}</td>
+      <td>{{ p.pos.rental_days or '' }}</td>
+      <td>{{ p.pos.quantity or 1 }}</td>
+      <td>{{ "%.2f"|format(p.pos.unit_price or 0) }} zł</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if fees_text %}
+<div class="section">
+  <h2>Usługi dodatkowe</h2>
+  <div class="fees">{{ fees_text }}</div>
+</div>
+{% endif %}
+
+{% if contract.notes %}
+<div class="section">
+  <h2>Uwagi</h2>
+  <p>{{ contract.notes }}</p>
+</div>
+{% endif %}
+
+<div class="footer">
+  <div>
+    <div class="signature">Wynajmujący</div>
+  </div>
+  <div>
+    <div class="signature">Najemca</div>
+  </div>
+</div>
+
+</body>
+</html>

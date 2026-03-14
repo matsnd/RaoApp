@@ -1,0 +1,332 @@
+from datetime import datetime, date
+from decimal import Decimal
+from sqlalchemy import select, func, update, delete
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from contracts.models import Contract, ContractPosition, PositionCondition, ContractServiceFee
+from contracts.schemas import ContractCreate, PositionCreate, ConditionCreate, ContractServiceFeeCreate
+from shared.exceptions import not_found, conflict
+
+
+async def generate_contract_number(db: AsyncSession, contract_type: str) -> tuple[str, int]:
+    from settings.models import Company
+    company_result = await db.execute(select(Company.numbering_start).where(Company.id == 1))
+    start = company_result.scalar_one_or_none() or 1
+
+    max_result = await db.execute(select(func.max(Contract.auto_number)))
+    current_max = max_result.scalar_one_or_none() or 0
+
+    new_number = max(start, current_max) + 1
+    year = datetime.now().year
+    return f"{contract_type}{new_number:03d}/{year}", new_number
+
+
+async def copy_fee_templates(db: AsyncSession, contract_id: int, contract_type: str):
+    from settings.models import ServiceFeeTemplate
+    templates = await db.execute(
+        select(ServiceFeeTemplate)
+        .where(ServiceFeeTemplate.contract_type == contract_type)
+        .where(ServiceFeeTemplate.is_active == True)
+        .order_by(ServiceFeeTemplate.sort_order)
+    )
+    for t in templates.scalars():
+        db.add(ContractServiceFee(
+            contract_id=contract_id,
+            sort_order=t.sort_order,
+            name=t.name,
+            amount_from=t.amount_from,
+            amount_to=t.amount_to,
+            unit=t.unit,
+            description=t.description,
+            is_active=t.is_active,
+        ))
+    await db.commit()
+
+
+class ContractService:
+    async def list_contracts(
+        self, db: AsyncSession,
+        search: str | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
+        contract_type: str | None = None,
+        page: int = 1,
+        per_page: int = 50,
+    ):
+        from contractors.models import Contractor
+        from settings.models import Salesperson
+        from contracts.schemas import ContractListItem
+
+        stmt = select(Contract)
+        if search:
+            stmt = stmt.where(
+                (Contract.number.ilike(f"%{search}%")) |
+                (Contract.contractor_name.ilike(f"%{search}%"))
+            )
+        if date_from:
+            stmt = stmt.where(Contract.date_from >= date_from)
+        if date_to:
+            stmt = stmt.where(Contract.date_to <= date_to)
+        if contract_type:
+            stmt = stmt.where(Contract.contract_type == contract_type)
+
+        count_stmt = select(func.count()).select_from(stmt.subquery())
+        total = (await db.execute(count_stmt)).scalar_one()
+
+        stmt = stmt.order_by(Contract.auto_number.desc()).offset((page - 1) * per_page).limit(per_page)
+        result = await db.execute(stmt)
+        contracts = result.scalars().all()
+
+        items = []
+        for c in contracts:
+            contractor_name = c.contractor_name or ""
+            if not contractor_name:
+                ct = await db.get(Contractor, c.contractor_id)
+                contractor_name = ct.name if ct else ""
+
+            sp_name = None
+            if c.salesperson_id:
+                sp = await db.get(Salesperson, c.salesperson_id)
+                sp_name = sp.name if sp else None
+
+            duration = None
+            if c.date_from and c.date_to:
+                duration = (c.date_to - c.date_from).days
+
+            is_print_current = False
+            if c.print_date and c.updated_at:
+                is_print_current = c.print_date >= c.updated_at
+
+            items.append(ContractListItem(
+                id=c.id, contractor_id=c.contractor_id,
+                contractor_name=contractor_name,
+                number=c.number,
+                contract_type=c.contract_type,
+                type_label="Umowa najmu" if c.contract_type == "S" else "Umowa usługi",
+                delivery_address=c.delivery_address,
+                date_from=c.date_from, date_to=c.date_to,
+                total_value=c.total_value, prepayment_amount=c.prepayment_amount,
+                invoice_amount=c.invoice_amount, notes=c.notes, email=c.email,
+                salesperson_name=sp_name,
+                print_date=c.print_date, is_print_current=is_print_current,
+                duration_days=duration, created_at=c.created_at,
+            ))
+        return items, total
+
+    async def get_contract(self, db: AsyncSession, contract_id: int) -> Contract:
+        result = await db.execute(select(Contract).where(Contract.id == contract_id))
+        contract = result.scalar_one_or_none()
+        if not contract:
+            raise not_found("Umowa")
+        return contract
+
+    async def create_contract(self, db: AsyncSession, data: ContractCreate) -> Contract:
+        number, auto_num = await generate_contract_number(db, data.contract_type)
+        contractor_name = data.contractor_name
+        if not contractor_name:
+            from contractors.models import Contractor
+            ct = await db.get(Contractor, data.contractor_id)
+            contractor_name = ct.name if ct else ""
+
+        contract = Contract(
+            **{k: v for k, v in data.model_dump().items() if k != "contractor_name"},
+            contractor_name=contractor_name,
+            number=number,
+            auto_number=auto_num,
+            created_at=datetime.utcnow(),
+        )
+        db.add(contract)
+        await db.commit()
+        await db.refresh(contract)
+        await copy_fee_templates(db, contract.id, data.contract_type)
+        return contract
+
+    async def update_contract(self, db: AsyncSession, contract_id: int, data: ContractCreate) -> Contract:
+        contract = await self.get_contract(db, contract_id)
+        update_data = data.model_dump()
+        update_data.pop("contractor_name", None)
+        for field, value in update_data.items():
+            setattr(contract, field, value)
+        contract.updated_at = datetime.utcnow()
+        await db.commit()
+        await db.refresh(contract)
+        return contract
+
+    async def delete_contract(self, db: AsyncSession, contract_id: int):
+        await db.execute(
+            delete(PositionCondition).where(
+                PositionCondition.position_id.in_(
+                    select(ContractPosition.id).where(ContractPosition.contract_id == contract_id)
+                )
+            )
+        )
+        await db.execute(delete(ContractPosition).where(ContractPosition.contract_id == contract_id))
+        await db.execute(delete(ContractServiceFee).where(ContractServiceFee.contract_id == contract_id))
+        await db.execute(delete(Contract).where(Contract.id == contract_id))
+        await db.commit()
+
+    async def list_positions(self, db: AsyncSession, contract_id: int):
+        from contracts.schemas import PositionResponse, ConditionResponse
+        from settings.models import RateType
+        from contractors.models import Contractor
+
+        result = await db.execute(
+            select(ContractPosition)
+            .options(selectinload(ContractPosition.conditions))
+            .where(ContractPosition.contract_id == contract_id)
+        )
+        positions = result.scalars().all()
+        out = []
+        for p in positions:
+            rt_name = None
+            if p.rate_type_id:
+                rt = await db.get(RateType, p.rate_type_id)
+                rt_name = rt.name if rt else None
+            sp_name = None
+            if p.supplier_id:
+                sp = await db.get(Contractor, p.supplier_id)
+                sp_name = sp.name if sp else None
+            conditions = []
+            for cond in p.conditions:
+                crt_name = None
+                if cond.rate_type_id:
+                    crt = await db.get(RateType, cond.rate_type_id)
+                    crt_name = crt.name if crt else None
+                conditions.append(ConditionResponse(
+                    id=cond.id, position_id=cond.position_id,
+                    rate_type_id=cond.rate_type_id, rate_type_name=crt_name,
+                    description=cond.description, rate1=cond.rate1, rate2=cond.rate2,
+                    billing_label=cond.billing_label, period_count=cond.period_count,
+                    minimum=cond.minimum,
+                ))
+            out.append(PositionResponse(
+                id=p.id, contract_id=p.contract_id, article_id=p.article_id,
+                article_name=p.article_name, rental_type=p.rental_type,
+                description=p.description, rental_days=p.rental_days,
+                quantity=p.quantity, unit_price=p.unit_price, costs=p.costs,
+                rate_type_id=p.rate_type_id, rate_type_name=rt_name,
+                billing_frequency=p.billing_frequency, billing_unit=p.billing_unit,
+                supplier_id=p.supplier_id, supplier_name=sp_name,
+                delivery_date=p.delivery_date,
+                conditions_count=len(p.conditions), conditions=conditions,
+            ))
+        return out
+
+    async def create_position(self, db: AsyncSession, contract_id: int, data: PositionCreate) -> ContractPosition:
+        from articles.models import Article
+        article = await db.get(Article, data.article_id)
+        pos = ContractPosition(
+            **data.model_dump(),
+            contract_id=contract_id,
+            article_name=article.name if article else None,
+        )
+        db.add(pos)
+        await db.execute(
+            update(Contract).where(Contract.id == contract_id)
+            .values(position_count=Contract.position_count + 1, updated_at=datetime.utcnow())
+        )
+        await db.commit()
+        await db.refresh(pos)
+        return pos
+
+    async def update_position(self, db: AsyncSession, pos_id: int, data: PositionCreate) -> ContractPosition:
+        result = await db.execute(select(ContractPosition).where(ContractPosition.id == pos_id))
+        pos = result.scalar_one_or_none()
+        if not pos:
+            raise not_found("Pozycja")
+        for field, value in data.model_dump().items():
+            setattr(pos, field, value)
+        await db.commit()
+        await db.refresh(pos)
+        return pos
+
+    async def delete_position(self, db: AsyncSession, contract_id: int, pos_id: int):
+        await db.execute(delete(PositionCondition).where(PositionCondition.position_id == pos_id))
+        await db.execute(delete(ContractPosition).where(ContractPosition.id == pos_id))
+        await db.execute(
+            update(Contract).where(Contract.id == contract_id)
+            .values(updated_at=datetime.utcnow())
+        )
+        await db.commit()
+
+    async def list_conditions(self, db: AsyncSession, pos_id: int):
+        result = await db.execute(
+            select(PositionCondition).where(PositionCondition.position_id == pos_id)
+        )
+        return result.scalars().all()
+
+    async def create_condition(self, db: AsyncSession, pos_id: int, data: ConditionCreate) -> PositionCondition:
+        cond = PositionCondition(**data.model_dump(), position_id=pos_id)
+        db.add(cond)
+        await db.commit()
+        await db.refresh(cond)
+        return cond
+
+    async def update_condition(self, db: AsyncSession, cond_id: int, data: ConditionCreate) -> PositionCondition:
+        result = await db.execute(select(PositionCondition).where(PositionCondition.id == cond_id))
+        cond = result.scalar_one_or_none()
+        if not cond:
+            raise not_found("Warunek")
+        for field, value in data.model_dump().items():
+            setattr(cond, field, value)
+        await db.commit()
+        await db.refresh(cond)
+        return cond
+
+    async def delete_condition(self, db: AsyncSession, cond_id: int):
+        await db.execute(delete(PositionCondition).where(PositionCondition.id == cond_id))
+        await db.commit()
+
+    async def list_service_fees(self, db: AsyncSession, contract_id: int):
+        result = await db.execute(
+            select(ContractServiceFee)
+            .where(ContractServiceFee.contract_id == contract_id)
+            .order_by(ContractServiceFee.sort_order)
+        )
+        return result.scalars().all()
+
+    async def create_service_fee(self, db: AsyncSession, contract_id: int, data: ContractServiceFeeCreate) -> ContractServiceFee:
+        max_order = await db.execute(
+            select(func.max(ContractServiceFee.sort_order))
+            .where(ContractServiceFee.contract_id == contract_id)
+        )
+        next_order = (max_order.scalar_one_or_none() or 0) + 1
+        fee = ContractServiceFee(**data.model_dump(), contract_id=contract_id, sort_order=next_order)
+        db.add(fee)
+        await db.commit()
+        await db.refresh(fee)
+        return fee
+
+    async def update_service_fee(self, db: AsyncSession, fee_id: int, data: ContractServiceFeeCreate) -> ContractServiceFee:
+        result = await db.execute(select(ContractServiceFee).where(ContractServiceFee.id == fee_id))
+        fee = result.scalar_one_or_none()
+        if not fee:
+            raise not_found("Usługa dodatkowa")
+        for field, value in data.model_dump().items():
+            setattr(fee, field, value)
+        await db.commit()
+        await db.refresh(fee)
+        return fee
+
+    async def delete_service_fee(self, db: AsyncSession, fee_id: int):
+        await db.execute(delete(ContractServiceFee).where(ContractServiceFee.id == fee_id))
+        await db.commit()
+
+    async def reorder_service_fees(self, db: AsyncSession, contract_id: int, ids: list[int]):
+        for i, fee_id in enumerate(ids):
+            await db.execute(
+                update(ContractServiceFee)
+                .where(ContractServiceFee.id == fee_id, ContractServiceFee.contract_id == contract_id)
+                .values(sort_order=i)
+            )
+        await db.commit()
+
+    async def reset_service_fees(self, db: AsyncSession, contract_id: int):
+        contract = await self.get_contract(db, contract_id)
+        await db.execute(delete(ContractServiceFee).where(ContractServiceFee.contract_id == contract_id))
+        await db.commit()
+        await copy_fee_templates(db, contract_id, contract.contract_type)
+
+
+contract_service = ContractService()

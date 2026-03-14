@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<style>
+  body { font-family: Montserrat, sans-serif; color: #1D2B53; font-size: 11px; margin: 0; padding: 20px; }
+  h1 { font-size: 15px; color: #1D2B53; }
+  h2 { font-size: 12px; border-bottom: 1px solid #1D2B53; padding-bottom: 3px; margin-top: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 6px; }
+  th { background: #1D2B53; color: white; padding: 5px 7px; text-align: left; }
+  td { padding: 4px 7px; border-bottom: 1px solid #e2e8f0; }
+  .label { font-weight: 600; width: 160px; }
+  .footer { margin-top: 40px; display: flex; justify-content: space-between; font-size: 10px; }
+  .signature { border-top: 1px solid #1D2B53; width: 180px; text-align: center; padding-top: 4px; }
+</style>
+</head>
+<body>
+<h1>PROTOKÓŁ ZDAWCZO-ODBIORCZY (bez danych)</h1>
+<p style="font-size:13px;font-weight:700;">Umowa: {{ contract.number }}</p>
+<h2>Dane umowy</h2>
+<table>
+  <tr><td class="label">Kontrahent:</td><td>{{ contractor.name if contractor else contract.contractor_name }}</td></tr>
+  <tr><td class="label">Data od:</td><td>{{ contract.date_from or '' }}</td></tr>
+  <tr><td class="label">Data do:</td><td>{{ contract.date_to or '' }}</td></tr>
+</table>
+<h2>Wykaz sprzętu</h2>
+<table>
+  <thead><tr><th>#</th><th>Artykuł</th><th>Ilość</th></tr></thead>
+  <tbody>
+  {% for p in positions %}
+  <tr><td>{{ loop.index }}</td><td>{{ p.pos.article_name or '' }}</td><td>{{ p.pos.quantity or 1 }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+<div class="footer">
+  <div><div class="signature">Przekazujący</div></div>
+  <div><div class="signature">Odbierający</div></div>
+</div>
+</body>
+</html>

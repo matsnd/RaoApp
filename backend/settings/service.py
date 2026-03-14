@@ -1,0 +1,137 @@
+from datetime import datetime
+from sqlalchemy import select, func, update, delete
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from settings.models import Company, ServiceFeeTemplate, Salesperson, RateType, Branch
+from settings.schemas import CompanyUpdate, ServiceFeeTemplateCreate, SalespersonCreate, CategoryCreate, BranchCreate, RateTypeCreate
+from categories.models import Category
+from shared.exceptions import not_found
+
+
+class SettingsService:
+    async def get_company(self, db: AsyncSession) -> Company:
+        result = await db.execute(select(Company).where(Company.id == 1))
+        company = result.scalar_one_or_none()
+        if not company:
+            company = Company(id=1, name="RAO")
+            db.add(company)
+            await db.commit()
+            await db.refresh(company)
+        return company
+
+    async def update_company(self, db: AsyncSession, data: CompanyUpdate) -> Company:
+        company = await self.get_company(db)
+        for field, value in data.model_dump(exclude_none=True).items():
+            setattr(company, field, value)
+        await db.commit()
+        await db.refresh(company)
+        return company
+
+    async def list_fee_templates(self, db: AsyncSession):
+        result = await db.execute(
+            select(ServiceFeeTemplate)
+            .order_by(ServiceFeeTemplate.contract_type, ServiceFeeTemplate.sort_order)
+        )
+        return result.scalars().all()
+
+    async def create_fee_template(self, db: AsyncSession, data: ServiceFeeTemplateCreate) -> ServiceFeeTemplate:
+        max_order = await db.execute(
+            select(func.max(ServiceFeeTemplate.sort_order))
+            .where(ServiceFeeTemplate.contract_type == data.contract_type)
+        )
+        next_order = (max_order.scalar_one_or_none() or 0) + 1
+        t = ServiceFeeTemplate(**data.model_dump(), company_id=1, sort_order=next_order)
+        db.add(t)
+        await db.commit()
+        await db.refresh(t)
+        return t
+
+    async def update_fee_template(self, db: AsyncSession, template_id: int, data: ServiceFeeTemplateCreate) -> ServiceFeeTemplate:
+        result = await db.execute(select(ServiceFeeTemplate).where(ServiceFeeTemplate.id == template_id))
+        t = result.scalar_one_or_none()
+        if not t:
+            raise not_found("Szablon")
+        for field, value in data.model_dump().items():
+            setattr(t, field, value)
+        await db.commit()
+        await db.refresh(t)
+        return t
+
+    async def delete_fee_template(self, db: AsyncSession, template_id: int):
+        await db.execute(delete(ServiceFeeTemplate).where(ServiceFeeTemplate.id == template_id))
+        await db.commit()
+
+    async def reorder_fee_templates(self, db: AsyncSession, ids: list[int]):
+        for i, tid in enumerate(ids):
+            await db.execute(
+                update(ServiceFeeTemplate).where(ServiceFeeTemplate.id == tid).values(sort_order=i)
+            )
+        await db.commit()
+
+    async def list_salespeople(self, db: AsyncSession):
+        result = await db.execute(select(Salesperson).order_by(Salesperson.name))
+        return result.scalars().all()
+
+    async def create_salesperson(self, db: AsyncSession, data: SalespersonCreate) -> Salesperson:
+        sp = Salesperson(**data.model_dump())
+        db.add(sp)
+        await db.commit()
+        await db.refresh(sp)
+        return sp
+
+    async def update_salesperson(self, db: AsyncSession, sp_id: int, data: SalespersonCreate) -> Salesperson:
+        result = await db.execute(select(Salesperson).where(Salesperson.id == sp_id))
+        sp = result.scalar_one_or_none()
+        if not sp:
+            raise not_found("Handlowiec")
+        for field, value in data.model_dump().items():
+            setattr(sp, field, value)
+        await db.commit()
+        await db.refresh(sp)
+        return sp
+
+    async def toggle_salesperson(self, db: AsyncSession, sp_id: int) -> Salesperson:
+        result = await db.execute(select(Salesperson).where(Salesperson.id == sp_id))
+        sp = result.scalar_one_or_none()
+        if not sp:
+            raise not_found("Handlowiec")
+        sp.is_active = not sp.is_active
+        await db.commit()
+        await db.refresh(sp)
+        return sp
+
+    async def list_categories(self, db: AsyncSession):
+        result = await db.execute(select(Category).order_by(Category.name))
+        return result.scalars().all()
+
+    async def create_category(self, db: AsyncSession, data: CategoryCreate) -> Category:
+        cat = Category(**data.model_dump())
+        db.add(cat)
+        await db.commit()
+        await db.refresh(cat)
+        return cat
+
+    async def list_branches(self, db: AsyncSession):
+        result = await db.execute(select(Branch).order_by(Branch.name))
+        return result.scalars().all()
+
+    async def create_branch(self, db: AsyncSession, data: BranchCreate) -> Branch:
+        b = Branch(**data.model_dump(), created_at=datetime.utcnow().isoformat())
+        db.add(b)
+        await db.commit()
+        await db.refresh(b)
+        return b
+
+    async def list_rate_types(self, db: AsyncSession):
+        result = await db.execute(select(RateType).order_by(RateType.name))
+        return result.scalars().all()
+
+    async def create_rate_type(self, db: AsyncSession, data: RateTypeCreate) -> RateType:
+        rt = RateType(**data.model_dump())
+        db.add(rt)
+        await db.commit()
+        await db.refresh(rt)
+        return rt
+
+
+settings_service = SettingsService()
