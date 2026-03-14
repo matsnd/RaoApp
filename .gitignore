@@ -4,6 +4,7 @@
 
 # Konfiguracja bazy (wrażliwe dane)
 spec/DB_CONFIG.md
+spec/NEW_DB_CONFIG.md
 
 # Python
 __pycache__/
