@@ -1,6 +1,9 @@
 <template>
   <nav class="sidebar">
-    <div class="sidebar-logo">RAO</div>
+    <div class="sidebar-logo">
+      <span class="sidebar-logo-text">TOOLSMART</span>
+      <span class="sidebar-logo-sub">WYNAJEM MASZYN</span>
+    </div>
     <button
       v-for="item in topItems"
       :key="item.section"

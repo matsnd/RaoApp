@@ -74,12 +74,12 @@
     <tr>
       <td class="top-left">
         <div class="top-left-inner">
-          <div class="box-label">dane podmiotu wynajmującego</div>
+          <div class="box-label">NAJEMCA</div>
           <strong>{{ contractor.name if contractor else (contract.contractor_name or '') }}</strong><br>
         </div>
       </td>
       <td class="top-right">
-        <div class="pzo-title">PROTOKÓŁ ZDAWCZO-ODBIORCZY</div>
+        <div class="pzo-title">PROTOKÓŁ WYKONANIA USŁUGI</div>
         <div class="pzo-sub">
           do umowy nr {{ contract.number }}<br>
           zawartej w dniu {{ contract.date_from | datepl }}
@@ -94,7 +94,7 @@
   <thead>
     <tr>
       <th style="width:20px;"></th>
-      <th>przedmiot najmu</th>
+      <th>przedmiot usługi</th>
       <th style="width:80px;text-align:center;">nr seryjny</th>
       <th style="width:80px;text-align:center;">data dostawy</th>
       <th style="width:100px;text-align:right;">wartość odtworzeniowa</th>
@@ -114,7 +114,7 @@
 </table>
 {% endif %}
 
-  <div class="legal-line">Pokwitowanie niniejszego Protokołu Zdawczo - Odbiorczego jest jednoznaczne z oświadczeniem o zapoznaniu się z Ogólnymi Warunkami Umowy Najmu (dalej: OWN) oraz ich akceptacją.</div>
+  <div class="legal-line">Pokwitowanie niniejszego Protokołu jest jednoznaczne z oświadczeniem o zapoznaniu się z Ogólnymi Warunkami Umowy (dalej: OWN) oraz ich akceptacją.</div>
 
   <!-- DELIVERY SIGNATURES -->
   <table class="sigs" style="margin-top: 40px;">
@@ -126,10 +126,10 @@
           NIP 9512598092, Regon 528847124<br>
           KRS 0001109942
         </div>
-        <div class="sig-line" style="margin-top:10px;">czytelny podpis Wynajmującego</div>
+        <div class="sig-line" style="margin-top:10px;">czytelny podpis Wykonawcy</div>
       </td>
       <td style="padding-top:40px; vertical-align: bottom;">
-        <div class="sig-line" style="margin-top:10px;">czytelny podpis Najemcy</div>
+        <div class="sig-line" style="margin-top:10px;">czytelny podpis Zleceniodawcy</div>
       </td>
     </tr>
   </table>
@@ -137,14 +137,14 @@
   <div class="bottom-section">
     <table class="return-table">
       <tr>
-        <td class="ret-col1">dane zwrotu przedmiotu najmu</td>
+        <td class="ret-col1">dane zakończenia usługi</td>
         <td class="ret-col2">ilość dni</td>
         <td class="ret-col3">kaucja zwrócono w wysokości</td>
       </tr>
     </table>
     <div class="ret-uwagi">uwagi</div>
 
-    <div class="note-line">Ogólna weryfikacja maszyny następuje na terenie firmy w terminie do 14 dni od dnia jej przekazania</div>
+    <div class="note-line">Ogólna weryfikacja następuje w terminie do 14 dni od dnia zakończenia usługi</div>
 
     <table class="sigs" style="margin-top: 40px;">
       <tr>
@@ -155,10 +155,10 @@
             NIP 9512598092, Regon 528847124<br>
             KRS 0001109942
           </div>
-          <div class="sig-line" style="margin-top:10px;">czytelny podpis Wynajmującego</div>
+          <div class="sig-line" style="margin-top:10px;">czytelny podpis Wykonawcy</div>
         </td>
         <td style="padding-top:40px; vertical-align: bottom;">
-          <div class="sig-line" style="margin-top:10px;">czytelny podpis Najemcy</div>
+          <div class="sig-line" style="margin-top:10px;">czytelny podpis Zleceniodawcy</div>
         </td>
       </tr>
     </table>

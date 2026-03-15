@@ -1,12 +1,12 @@
 :root {
-  /* === Paleta Toolsmart (Deep Navy) === */
-  --color-primary: #1D2B53;
-  --color-primary-dark: #141E3A;
-  --color-primary-light: #2a3d72;
-  --color-sidebar-bg: #1D2B53;
-  --color-sidebar-hover: #2a3d72;
-  --color-sidebar-active: #534478;
-  --color-accent: #F7C59F;
+  /* === Paleta Toolsmart (Dark Navy) === */
+  --color-primary: #0F234E;
+  --color-primary-dark: #091A3A;
+  --color-primary-light: #1A3266;
+  --color-sidebar-bg: #0F234E;
+  --color-sidebar-hover: #1A3266;
+  --color-sidebar-active: #1A3266;
+  --color-accent: #FFFFFF;
 
   --color-bg-white: #FFFFFF;
   --color-bg-light: #F8F9FA;
@@ -26,7 +26,7 @@
   --color-info: #3182CE;
 
   --color-white: #FFFFFF;
-  --color-row-even: #F7F8FF;
+  --color-row-even: #F8F9FA;
 
   /* === Typografia === */
   --font-family: 'Montserrat', 'Inter', sans-serif;

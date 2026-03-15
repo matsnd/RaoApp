@@ -51,6 +51,7 @@
                   :class="{ selected: selectedId === c.id }"
                   @click="selectedId = c.id"
                   @dblclick="editContract(c.id)"
+                  @contextmenu.prevent="openContextMenu($event, c)"
                 >
                   <td>{{ c.number }}</td>
                   <td>{{ c.contractor_name }}</td>
@@ -209,6 +210,21 @@
       @confirm="confirmDelete"
       @cancel="showConfirm = false"
     />
+
+    <!-- CONTEXT MENU -->
+    <div
+      v-if="ctxMenu.visible"
+      class="ctx-menu"
+      :style="{ top: ctxMenu.y + 'px', left: ctxMenu.x + 'px' }"
+      @mouseleave="ctxMenu.visible = false"
+    >
+      <div class="ctx-menu-header">{{ ctxMenu.contract?.number }}</div>
+      <button class="ctx-menu-item" @click="ctxPrint('contract')">📄 Umowa</button>
+      <button class="ctx-menu-item" @click="ctxPrint('protocol_zo')">📋 Protokół ZO</button>
+      <button class="ctx-menu-item" @click="ctxPrint('protocol_zo_nodata')">📋 Protokół ZO (bez danych)</button>
+      <div class="ctx-menu-sep"></div>
+      <button class="ctx-menu-item" @click="editContract(ctxMenu.contract?.id); ctxMenu.visible=false">✏️ Edytuj umowę</button>
+    </div>
   </div>
 </template>
 
@@ -234,6 +250,28 @@ const selectedId = ref(null)
 const page = ref(1)
 const perPage = 50
 const showConfirm = ref(false)
+
+const ctxMenu = ref({ visible: false, x: 0, y: 0, contract: null })
+
+function openContextMenu(event, contract) {
+  selectedId.value = contract.id
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  let x = event.clientX
+  let y = event.clientY
+  if (x + 200 > vw) x = vw - 210
+  if (y + 160 > vh) y = vh - 170
+  ctxMenu.value = { visible: true, x, y, contract }
+}
+
+function ctxPrint(type) {
+  if (ctxMenu.value.contract) {
+    contractStore.generateReport(ctxMenu.value.contract.id, type)
+  }
+  ctxMenu.value.visible = false
+}
+
+function closeCtxMenu() { ctxMenu.value.visible = false }
 
 const totalPages = computed(() => {
   const total = section.value === 'contracts' ? contractStore.total
@@ -265,7 +303,11 @@ async function loadData() {
   }
 }
 
-onMounted(loadData)
+onMounted(() => {
+  loadData()
+  document.addEventListener('click', closeCtxMenu)
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCtxMenu() })
+})
 
 watch([section, page], loadData)
 
@@ -326,3 +368,49 @@ function formatMoney(v) {
   return Number(v).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' zł'
 }
 </script>
+
+<style scoped>
+.ctx-menu {
+  position: fixed;
+  z-index: 9999;
+  background: #fff;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  min-width: 200px;
+  padding: 4px 0;
+  user-select: none;
+}
+.ctx-menu-header {
+  padding: 6px 14px 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #0F234E;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  border-bottom: 1px solid #E2E8F0;
+  margin-bottom: 3px;
+}
+.ctx-menu-item {
+  display: block;
+  width: 100%;
+  padding: 8px 14px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  font-size: 13px;
+  color: #4A5568;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 120ms;
+}
+.ctx-menu-item:hover {
+  background: #F0F4FF;
+  color: #0F234E;
+}
+.ctx-menu-sep {
+  height: 1px;
+  background: #E2E8F0;
+  margin: 3px 0;
+}
+</style>

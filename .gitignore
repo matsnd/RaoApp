@@ -22,6 +22,10 @@ node_modules/
 dist/
 *.log
 
+# Vite cache
+.vite/
+frontend/.vite/
+
 # IDE
 .idea/
 .vscode/

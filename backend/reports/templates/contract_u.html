@@ -87,24 +87,23 @@
 <div class="content">
 
 <!-- TITLE -->
-<div class="doc-title">Umowa najmu nr: {{ contract.number }}</div>
+<div class="doc-title">Umowa usługi nr: {{ contract.number }}</div>
 <div class="doc-sub">Zawarta w dniu: {{ contract.date_from | datepl }}</div>
+{% if contract.prepayment_amount and contract.prepayment_amount > 0 %}<div class="doc-sub">Przedpłata: {{ contract.prepayment_amount | money }}</div>{% endif %}
 
 <!-- PARTIES -->
 <table class="parties">
   <tr>
     <td class="party-box">
       <div class="party-box-inner">
-        <div class="party-label">wynajmujący</div>
+        <div class="party-label">wykonawca</div>
         <strong>{% if company %}{{ company.name }}{% else %}TOOLSMART Sp. z o.o.{% endif %}</strong><br>
         {% if company %}ul. {{ company.street }}, {{ company.postal_code }} {{ company.city }}<br>
         NIP: {{ company.nip }}{% endif %}
       </div>
     </td>
     <td class="info-col" style="vertical-align:top;padding-top:8px;">
-      Przewidywany okres: {{ contract.date_from | datepl }} - {{ contract.date_to | datepl }}<br>
-      Termin przekazania: {{ contract.date_from | datepl }}<br>
-      {% if contract.prepayment_amount and contract.prepayment_amount > 0 %}Przedpłata: {{ contract.prepayment_amount | money }}<br>{% endif %}
+      {% if contract.date_to %}Termin prac: {{ contract.date_from | datepl }} - {{ contract.date_to | datepl }}<br>{% endif %}
     </td>
   </tr>
   <tr>
@@ -133,7 +132,7 @@
       <td class="fill"></td>
     </tr>
     <tr>
-      <td colspan="4">Adres dostawy:</td>
+      <td colspan="4">Adres wykonania usługi:</td>
     </tr>
     <tr>
       <td colspan="4" class="fill-wide"></td>
@@ -142,7 +141,7 @@
 </div>
 
 <div class="legal-italic">
-  Pokwitowanie niniejszej Umowy Najmu jest jednoznaczne z zapoznaniem się z Ogólnymi Warunkami Umowy Najmu (dalej: OWN) oraz ich akceptacją.
+  Pokwitowanie niniejszej Umowy jest jednoznaczne z zapoznaniem się z Ogólnymi Warunkami Umowy (dalej: OWN) oraz ich akceptacją.
 </div>
 
 <!-- POSITIONS -->
@@ -151,7 +150,7 @@
   <thead>
     <tr>
       <th style="width:18px;"></th>
-      <th style="text-align:left;">przedmiot najmu</th>
+      <th style="text-align:left;">przedmiot usługi</th>
       <th style="width:75px;text-align:center;">typ rozlicz.</th>
       <th style="width:45px;text-align:center;">ilość</th>
       <th style="text-align:left;">cennik / warunki</th>
@@ -220,10 +219,10 @@
         NIP 9512598092, Regon 528847124<br>
         KRS 0001109942
       </div>
-      <div class="sig-line">czytelny podpis Wynajmującego</div>
+      <div class="sig-line">czytelny podpis Wykonawcy</div>
     </td>
     <td style="padding-top:40px; vertical-align: bottom;">
-      <div class="sig-line">czytelny podpis Najemcy</div>
+      <div class="sig-line">czytelny podpis Zleceniodawcy</div>
     </td>
   </tr>
 </table>
@@ -232,56 +231,47 @@
 
 <!-- OWN -->
 <div class="own-page">
-  <div class="own-title">OGÓLNE WARUNKI NAJMU</div>
+  <div class="own-title">OGÓLNE WARUNKI UMOWY</div>
   <div class="own-cols">
     <div class="own-par">§ 1</div>
     <div class="own-sub">Definicje</div>
-    <p class="ot"><strong>Ogólne Warunki Najmu (dalej „OWN”)</strong> – niniejszy dokument stanowiący o warunkach najmu produktów oraz usług oferowanych przez Wynajmującego, z którego postanowieniami zobowiązany jest zapoznać się każdy Najemca i który stanowi integralną część Umowy Najmu.</p>
-    <p class="ot"><strong>Umowa Najmu</strong> – umowa zawarta pomiędzy Wynajmującym a Najemcą, na warunkach i zasadach w niej określonych, której integralną część stanowią OWN.</p>
-    <p class="ot"><strong>Protokół Zdawczo-Odbiorczy</strong> – pisemny dokument sporządzony i podpisywany przez Wynajmującego i Najemcę, który potwierdza przekazanie lub zwrot Przedmiotu Najmu.</p>
-    <p class="ot"><strong>Wynajmujący</strong> – {% if company %}{{ company.name }}, ul. {{ company.street }}, {{ company.postal_code }} {{ company.city }}, NIP: {{ company.nip }}{% else %}firma Toolsmart Sp. z o.o., ul. Kłobucka 6B/103, 02-699 Warszawa, NIP: 9512598092{% endif %}.</p>
-    <p class="ot"><strong>Najemca</strong> – osoba fizyczna, osoba prawna lub jednostka organizacyjna nieposiadająca osobowości prawnej, która zawarła z Wynajmującym Umowę Najmu.</p>
-    <p class="ot"><strong>Przedmiot Najmu</strong> – przedmiot, którego dotyczy zawarta pomiędzy Wynajmującym a Najemcą Umowa Najmu.</p>
-    <p class="ot"><strong>Operator</strong> – osoba będąca przedstawicielem Wynajmującego obsługująca, na zlecenie Najemcy, Przedmiot Najmu.</p>
+    <p class="ot"><strong>Ogólne Warunki Umowy (dalej „OWN")</strong> – niniejszy dokument stanowiący o warunkach świadczenia usług oferowanych przez Wykonawcę, z którego postanowieniami zobowiązany jest zapoznać się każdy Zleceniodawca i który stanowi integralną część Umowy.</p>
+    <p class="ot"><strong>Umowa</strong> – umowa zawarta pomiędzy Wykonawcą a Zleceniodawcą, na warunkach i zasadach w niej określonych, której integralną część stanowią OWN.</p>
+    <p class="ot"><strong>Wykonawca</strong> – {% if company %}{{ company.name }}, ul. {{ company.street }}, {{ company.postal_code }} {{ company.city }}, NIP: {{ company.nip }}{% else %}firma Toolsmart Sp. z o.o., ul. Kłobucka 6B/103, 02-699 Warszawa, NIP: 9512598092{% endif %}.</p>
+    <p class="ot"><strong>Zleceniodawca</strong> – osoba fizyczna, osoba prawna lub jednostka organizacyjna nieposiadająca osobowości prawnej, która zawarła z Wykonawcą Umowę.</p>
 
     <div class="own-par">§ 2</div>
     <div class="own-sub">Postanowienia ogólne</div>
-    <p class="ot">1. Niniejsze Ogólne Warunki Najmu (dalej: OWN) określają warunki wynajmu maszyn przez Wynajmującego na rzecz przedsiębiorców i konsumentów.</p>
-    <p class="ot">2. OWN mają zastosowanie do najmu maszyn oferowanych przez Wynajmującego.</p>
-    <p class="ot">3. Niniejsze OWN stanowią integralną część Umowy Najmu.</p>
-    <p class="ot">4. Przedmiot Najmu pozostaje własnością Wynajmującego przez cały okres trwania najmu.</p>
-    <p class="ot">5. Czas trwania Umowy Najmu liczy się od dnia odbioru Przedmiotu Najmu przez Najemcę do dnia jego zwrotu Wynajmującemu włącznie.</p>
-    <p class="ot">6. Najemca zobowiązuje się do pisemnego poinformowania wynajmującego o zwrocie Przedmiotu Najmu najpóźniej z jednodniowym wyprzedzeniem.</p>
-    <p class="ot">7. W przypadku niewykonania obowiązku przekazania informacji o zwrocie strony przyjmują, że stosunek najmu zawarty jest na czas nieokreślony.</p>
-    <p class="ot">8. Najemca ponosi odpowiedzialność za wynajmowany Przedmiot Najmu od momentu jego dostarczenia aż do zwrotu.</p>
+    <p class="ot">1. Niniejsze OWN określają warunki świadczenia usług przez Wykonawcę na rzecz przedsiębiorców i konsumentów.</p>
+    <p class="ot">2. OWN mają zastosowanie do usług oferowanych przez Wykonawcę.</p>
+    <p class="ot">3. Niniejsze OWN stanowią integralną część Umowy.</p>
 
     <div class="own-par">§ 3</div>
-    <div class="own-sub">Czynsz najmu oraz inne opłaty</div>
+    <div class="own-sub">Wynagrodzenie oraz inne opłaty</div>
     <p class="ot">1. Podstawą do rozliczeń finansowych są ceny netto. Do podanych cen doliczony zostanie podatek VAT.</p>
-    <p class="ot">2. Czynsz naliczany jest za pracę urządzenia w każdej dobie rozliczeniowej.</p>
-    <p class="ot">3. Wynajmujący zastrzega możliwość pobierania kaucji od Najemcy.</p>
-    <p class="ot">4. Wynajmujący zastrzega możliwość uzależnienia wydania Przedmiotu Najmu od wpłacenia kaucji lub przedpłaty.</p>
+    <p class="ot">2. Wynagrodzenie uiszczane będzie gotówką lub przelewem na konto w terminie wskazanym na fakturze / umowie.</p>
+    <p class="ot">3. Wykonawca zastrzega możliwość pobierania kaucji lub przedpłaty od Zleceniodawcy.</p>
 
     <div class="own-par">§ 4</div>
     <div class="own-sub">Prawa i obowiązki stron</div>
-    <p class="ot">1. Najemca zobowiązuje się do obsługi Przedmiotu Najmu zgodnie z obowiązującymi przepisami.</p>
-    <p class="ot">2. Najemca deklaruje, że zapoznał się z wymaganiami technicznymi dotyczącymi Przedmiotu Najmu.</p>
+    <p class="ot">1. Zleceniodawca zobowiązuje się do zapewnienia Wykonawcy dostępu do miejsca wykonania usługi.</p>
+    <p class="ot">2. Wykonawca zobowiązuje się do wykonania usługi z należytą starannością.</p>
 
     <div class="own-par">§ 5</div>
     <div class="own-sub">Odpowiedzialność</div>
-    <p class="ot">1. Najemca ponosi pełną odpowiedzialność za Przedmiot Najmu od chwili jego przejęcia do momentu zwrotu.</p>
-    <p class="ot">2. Odpowiedzialność za szkody wobec pracowników Najemcy ponosi Najemca.</p>
+    <p class="ot">1. Wykonawca ponosi odpowiedzialność za szkody wyrządzone Zleceniodawcy w związku z wykonywaniem usługi.</p>
+    <p class="ot">2. Zleceniodawca ponosi odpowiedzialność za szkody wyrządzone Wykonawcy w związku z niewykonaniem swoich obowiązków.</p>
 
     <div class="own-par">§ 6</div>
     <div class="own-sub">Rozwiązanie umowy</div>
-    <p class="ot">1. Wynajmujący może rozwiązać Umowę Najmu ze skutkiem natychmiastowym jeśli Najemca narusza postanowienia OWN lub Umowy Najmu.</p>
+    <p class="ot">1. Wykonawca może rozwiązać Umowę ze skutkiem natychmiastowym jeśli Zleceniodawca narusza postanowienia OWN lub Umowy.</p>
 
     <div class="own-par">§ 7</div>
     <div class="own-sub">Postanowienia końcowe</div>
-    <p class="ot">1. Administratorem danych jest Wynajmujący – {% if company %}{{ company.name }}{% else %}Toolsmart Sp. z o.o.{% endif %}.</p>
-    <p class="ot">2. Dane osobowe Najemcy przetwarzane będą w oparciu o podstawy prawne wskazane w art. 6 RODO.</p>
+    <p class="ot">1. Administratorem danych jest Wykonawca – {% if company %}{{ company.name }}{% else %}Toolsmart Sp. z o.o.{% endif %}.</p>
+    <p class="ot">2. Dane osobowe Zleceniodawcy przetwarzane będą w oparciu o art. 6 RODO.</p>
     <p class="ot">3. Do rozstrzygnięcia sporów jest właściwy sąd powszechny w Warszawie.</p>
-    <p class="ot">4. Najemca oświadcza, iż zapoznał się z niniejszymi OWN i akceptuje je w całości.</p>
+    <p class="ot">4. Zleceniodawca oświadcza, iż zapoznał się z niniejszymi OWN i akceptuje je w całości.</p>
   </div><!-- /own-cols -->
 
   <div class="own-sig-row">
@@ -292,10 +282,10 @@
         NIP {{ company.nip }}, Regon 528847124<br>
         KRS 0001109942{% endif %}
       </div>
-      <div style="text-align:center;margin-top:20px;"><div class="own-sig-line">Czytelny podpis Wynajmującego</div></div>
+      <div style="text-align:center;margin-top:20px;"><div class="own-sig-line">Czytelny podpis Wykonawcy</div></div>
     </div>
     <div class="own-sig-cell">
-      <div style="text-align:center;margin-top:60px;"><div class="own-sig-line">Czytelny podpis Najemcy</div></div>
+      <div style="text-align:center;margin-top:60px;"><div class="own-sig-line">Czytelny podpis Zleceniodawcy</div></div>
     </div>
   </div>
 </div><!-- /own-page -->
