@@ -194,12 +194,9 @@
         </div>
       </template>
 
-      <!-- REPORTS section placeholder -->
+      <!-- REPORTS -->
       <template v-else-if="section === 'reports'">
-        <div class="page-card">
-          <div class="section-title">Raporty</div>
-          <p style="color:var(--color-text-muted);font-size:13px;">Wybierz umowę z listy i użyj przycisku podglądu (⎙) aby wygenerować raport PDF.</p>
-        </div>
+        <ReportsSection />
       </template>
     </div>
 
@@ -233,6 +230,7 @@ import { ref, watch, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import AppToolbar from '@/components/layout/AppToolbar.vue'
 import ConfirmDialog from '@/components/shared/ConfirmDialog.vue'
+import ReportsSection from '@/components/reports/ReportsSection.vue'
 import { useContractStore } from '@/stores/contracts'
 import { useContractorStore } from '@/stores/contractors'
 import { useArticleStore } from '@/stores/articles'

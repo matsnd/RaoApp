@@ -9,6 +9,7 @@ from contracts.router import router as contracts_router
 from settings.router import router as settings_router
 from reports.router import router as reports_router
 from integrations.router import router as integrations_router
+from stats.router import router as stats_router
 
 app = FastAPI(
     title="RAO API",
@@ -32,6 +33,7 @@ app.include_router(contracts_router)
 app.include_router(settings_router)
 app.include_router(reports_router)
 app.include_router(integrations_router)
+app.include_router(stats_router)
 
 
 @app.get("/health")
