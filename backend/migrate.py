@@ -399,8 +399,11 @@ def _to_dec(s: str) -> Decimal | None:
 
 
 def _parse_fee_line(raw: str) -> dict | None:
-    line = raw.strip().lstrip('- ').strip()
-    if not line or _RE_SKIP.match(line):
+    raw_s = raw.strip()
+    if not raw_s or _RE_SKIP.match(raw_s):
+        return None
+    line = raw_s.lstrip('- ').strip()
+    if not line:
         return None
 
     out = dict(name=line[:200], amount_from=None, amount_to=None,
