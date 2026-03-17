@@ -8,7 +8,7 @@ from settings.schemas import (
     BranchCreate, BranchResponse, CategoryCreate, CategoryResponse,
     CompanyResponse, CompanyUpdate, FeePresetGroupCreate, FeePresetGroupResponse,
     RateTypeCreate, RateTypeResponse, SalespersonCreate, SalespersonResponse,
-    ServiceFeeTemplateCreate, ServiceFeeTemplateReorder, ServiceFeeTemplateResponse,
+    ServiceFeeTemplateCreate, ServiceFeeTemplateResponse,
 )
 from settings.service import settings_service
 
@@ -28,58 +28,6 @@ async def update_company(
 ):
     return await settings_service.update_company(db, data)
 
-
-@router.post("/service-fee-templates/seed", status_code=200)
-async def seed_fee_templates(
-    force: bool = False,
-    db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin),
-):
-    count = await settings_service.seed_fee_templates(db, force)
-    return {"message": f"Dodano {count} szablonów usług dodatkowych", "count": count}
-
-
-@router.get("/service-fee-templates", response_model=list[ServiceFeeTemplateResponse])
-async def list_fee_templates(db: AsyncSession = Depends(get_db), _: User = Depends(get_current_user)):
-    return await settings_service.list_fee_templates(db)
-
-
-@router.post("/service-fee-templates", response_model=ServiceFeeTemplateResponse, status_code=201)
-async def create_fee_template(
-    data: ServiceFeeTemplateCreate,
-    db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin),
-):
-    return await settings_service.create_fee_template(db, data)
-
-
-@router.put("/service-fee-templates/{template_id}", response_model=ServiceFeeTemplateResponse)
-async def update_fee_template(
-    template_id: int,
-    data: ServiceFeeTemplateCreate,
-    db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin),
-):
-    return await settings_service.update_fee_template(db, template_id, data)
-
-
-@router.delete("/service-fee-templates/{template_id}", status_code=204)
-async def delete_fee_template(
-    template_id: int,
-    db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin),
-):
-    await settings_service.delete_fee_template(db, template_id)
-
-
-@router.post("/service-fee-templates/reorder", status_code=200)
-async def reorder_fee_templates(
-    data: ServiceFeeTemplateReorder,
-    db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin),
-):
-    await settings_service.reorder_fee_templates(db, data.ids)
-    return {"message": "Kolejność zaktualizowana"}
 
 
 @router.get("/salespeople", response_model=list[SalespersonResponse])
