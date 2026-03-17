@@ -44,7 +44,7 @@ async def summary_contractors(
     _: User = Depends(get_current_user),
 ):
     pdf_bytes = await generate_summary_pdf(db, "contractors")
-    filename = f"kontrahenci_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
+    filename = f"kontrahenci_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.pdf"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
@@ -58,7 +58,7 @@ async def summary_machines(
     _: User = Depends(get_current_user),
 ):
     pdf_bytes = await generate_summary_pdf(db, "machines")
-    filename = f"maszyny_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
+    filename = f"maszyny_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.pdf"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",

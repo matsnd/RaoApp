@@ -22,6 +22,7 @@ import asyncio
 import subprocess
 import sys
 
+import bcrypt
 import aiomysql
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -372,11 +373,18 @@ async def step6_drop_old():
     await cur.execute("SET FOREIGN_KEY_CHECKS = 0")
     dropped = 0
     for obj in OLD_OBJECTS:
-        for kind in ("VIEW", "TABLE"):
+        for kind, ttype in (("VIEW", "VIEW"), ("TABLE", "BASE TABLE")):
             try:
-                await cur.execute(f"DROP {kind} IF EXISTS `{obj}`")
-                dropped += 1
-            except:
+                await cur.execute(
+                    "SELECT COUNT(*) FROM information_schema.TABLES "
+                    "WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s AND TABLE_TYPE=%s",
+                    (DB_NAME, obj, ttype),
+                )
+                (exists,) = await cur.fetchone()
+                if exists:
+                    await cur.execute(f"DROP {kind} `{obj}`")
+                    dropped += 1
+            except Exception:
                 pass
     await cur.execute("SET FOREIGN_KEY_CHECKS = 1")
     await conn.commit()
@@ -387,7 +395,6 @@ async def step6_drop_old():
 
 async def step7_rehash():
     print("[7/7] Rehash plaintext passwords → bcrypt …")
-    import bcrypt
     conn = await aiomysql.connect(host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASS, db=DB_NAME)
     cur = await conn.cursor()
     await cur.execute("SELECT id, password FROM users")

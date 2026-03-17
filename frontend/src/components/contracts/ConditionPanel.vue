@@ -19,7 +19,7 @@
       </thead>
       <tbody>
         <tr
-          v-for="(cond, idx) in conditions"
+          v-for="cond in conditions"
           :key="cond.id"
           :class="{ selected: selectedCondId === cond.id }"
           @click="selectedCondId = cond.id"
@@ -116,8 +116,6 @@ import { useSettingsStore } from '@/stores/settings'
 const props = defineProps({
   contractId: { type: Number, required: true },
   positionId: { type: Number, required: true },
-  rentalDays: { type: Number, default: 0 },
-  billingFrequency: { type: String, default: 'dziennie' },
 })
 
 const emit = defineEmits(['value-changed'])
@@ -136,62 +134,10 @@ const condForm = ref({
   billing_label: '', period_count: null, minimum: null,
 })
 
-const DAYS_PER_PERIOD = {
-  'doba': 1, 'dziennie': 1, 'dzienna': 1,
-  'tydzień': 7, 'tygodniowo': 7,
-  '2 tygodnie': 14, 'dwutygodniowo': 14,
-  'miesiąc': 30, 'miesięcznie': 30, 'miesieczne': 30,
-  'godzina': 1, 'godzinowo': 1,
-  'jednorazowo': 1,
-}
-
 const calculatedValue = computed(() => {
-  if (!conditions.value.length) return 0
-  const days = props.rentalDays || 0
-  if (days <= 0) return 0
-
-  const freq = props.billingFrequency || 'dziennie'
-  const dpp = DAYS_PER_PERIOD[freq] || 1
-  let totalPeriods = Math.ceil(days / dpp)
-
-  const sorted = [...conditions.value].sort((a, b) => (a.period_count || 0) - (b.period_count || 0))
-  const minPeriods = sorted[0]?.minimum || 0
-  if (totalPeriods < minPeriods) totalPeriods = minPeriods
-  if (totalPeriods <= 0) return 0
-
-  let value = 0
-  let remaining = totalPeriods
-
-  for (let i = 0; i < sorted.length; i++) {
-    if (remaining <= 0) break
-    const cond = sorted[i]
-    const pc = cond.period_count || remaining
-    const rate = Number(cond.rate1) || 0
-    if (rate <= 0) continue
-
-    let periodsInTier
-    if (i === 0) {
-      periodsInTier = Math.min(remaining, pc)
-    } else {
-      const prevPc = sorted[i - 1].period_count || 0
-      const tierSize = (pc || 999) - prevPc
-      periodsInTier = Math.min(remaining, tierSize)
-    }
-    value += rate * periodsInTier
-    remaining -= periodsInTier
-  }
-
-  if (remaining > 0) {
-    for (let i = sorted.length - 1; i >= 0; i--) {
-      const rate = Number(sorted[i].rate1) || 0
-      if (rate > 0) {
-        value += rate * remaining
-        break
-      }
-    }
-  }
-
-  return value
+  return conditions.value.reduce((sum, c) => {
+    return sum + (Number(c.rate1) || 0) * (Number(c.period_count) || 0)
+  }, 0)
 })
 
 watch(calculatedValue, (val) => emit('value-changed', val))

@@ -56,7 +56,7 @@
                     {{ addr.name || addr.city }} — {{ addr.street || '' }} {{ addr.postal_code || '' }}
                   </option>
                 </select>
-                <input v-model="form.delivery_address" type="text" class="form-control" :style="contractorAddresses.length ? 'flex:1;' : 'flex:1;'" />
+                <input v-model="form.delivery_address" type="text" class="form-control" style="flex:1;" />
               </div>
             </div>
           </div>
@@ -207,8 +207,6 @@
             v-if="selectedPosId && isEdit"
             :contract-id="Number(props.id)"
             :position-id="selectedPosId"
-            :rental-days="selectedPosRentalDays"
-            :billing-frequency="selectedPosBillingFreq"
             @value-changed="onConditionValueChanged"
           />
         </div>
@@ -538,15 +536,6 @@ const editingFee = ref(null)
 const savingFee = ref(false)
 const feeForm = ref({ name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true })
 
-const selectedPosRentalDays = computed(() => {
-  const pos = contractStore.positions.find(p => p.id === selectedPosId.value)
-  return pos?.rental_days || 0
-})
-
-const selectedPosBillingFreq = computed(() => {
-  const pos = contractStore.positions.find(p => p.id === selectedPosId.value)
-  return pos?.billing_frequency || 'dziennie'
-})
 
 onMounted(async () => {
   await Promise.all([
@@ -672,6 +661,7 @@ async function selectContractor(c) {
   form.value.contractor_name = c.name
   contractorName.value = c.name
   showContractorPicker.value = false
+  selectedAddressId.value = null
   await loadContractorAddresses(c.id)
 }
 
@@ -733,8 +723,8 @@ async function deletePosition(pos) {
   }
 }
 
-function onConditionValueChanged(value) {
-  // auto-calc hint - value per position
+function onConditionValueChanged(_value) {
+  // Total is recalculated server-side via the ∑ button (recalcTotal)
 }
 
 let artTimer = null
@@ -743,16 +733,18 @@ async function searchArticles() {
   artTimer = setTimeout(async () => {
     const { data } = await api.get('/articles', { params: { search: articlePickerSearch.value, per_page: 50 } })
     articlePickerList.value = data.items.map(a => ({ ...a, _avail: null }))
-    // Check availability for contract dates
+    // Check availability for contract dates (parallel)
     if (form.value.date_from && form.value.date_to) {
-      for (const a of articlePickerList.value) {
-        if (!a.is_service) {
-          try {
-            const av = await articleStore.checkAvailability(a.id, form.value.date_from, form.value.date_to)
-            a._avail = av.is_available
-          } catch { a._avail = null }
-        }
-      }
+      await Promise.all(
+        articlePickerList.value
+          .filter(a => !a.is_service)
+          .map(async a => {
+            try {
+              const av = await articleStore.checkAvailability(a.id, form.value.date_from, form.value.date_to)
+              a._avail = av.is_available
+            } catch { a._avail = null }
+          })
+      )
     }
   }, 300)
 }

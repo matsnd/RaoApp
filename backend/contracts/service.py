@@ -333,7 +333,10 @@ class ContractService:
         contract = await self.get_contract(db, contract_id)
         result = await db.execute(
             select(func.coalesce(
-                func.sum(PositionCondition.rate1 * PositionCondition.period_count), 0
+                func.sum(
+                    func.coalesce(PositionCondition.rate1, 0) *
+                    func.coalesce(PositionCondition.period_count, 0)
+                ), 0
             ))
             .join(ContractPosition, ContractPosition.id == PositionCondition.position_id)
             .where(ContractPosition.contract_id == contract_id)

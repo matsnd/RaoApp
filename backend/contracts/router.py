@@ -156,21 +156,23 @@ async def list_conditions(
     _: User = Depends(get_current_user),
 ):
     from settings.models import RateType
+    from sqlalchemy import select as sa_select
     conds = await contract_service.list_conditions(db, pos_id)
-    result = []
-    for c in conds:
-        rt_name = None
-        if c.rate_type_id:
-            rt = await db.get(RateType, c.rate_type_id)
-            rt_name = rt.name if rt else None
-        result.append(ConditionResponse(
+    rt_ids = {c.rate_type_id for c in conds if c.rate_type_id}
+    rate_types: dict[int, str] = {}
+    if rt_ids:
+        rt_result = await db.execute(sa_select(RateType).where(RateType.id.in_(rt_ids)))
+        rate_types = {rt.id: rt.name for rt in rt_result.scalars()}
+    return [
+        ConditionResponse(
             id=c.id, position_id=c.position_id,
-            rate_type_id=c.rate_type_id, rate_type_name=rt_name,
+            rate_type_id=c.rate_type_id, rate_type_name=rate_types.get(c.rate_type_id),
             description=c.description, rate1=c.rate1, rate2=c.rate2,
             billing_label=c.billing_label, period_count=c.period_count,
             minimum=c.minimum,
-        ))
-    return result
+        )
+        for c in conds
+    ]
 
 
 @router.post("/{contract_id}/positions/{pos_id}/conditions", response_model=ConditionResponse, status_code=201)

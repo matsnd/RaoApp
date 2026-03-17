@@ -1,11 +1,12 @@
 from datetime import datetime
 from sqlalchemy import select, func, update, delete
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from settings.models import Company, ServiceFeeTemplate, Salesperson, RateType, Branch
 from settings.schemas import CompanyUpdate, ServiceFeeTemplateCreate, SalespersonCreate, CategoryCreate, BranchCreate, RateTypeCreate
 from categories.models import Category
-from shared.exceptions import not_found
+from shared.exceptions import not_found, conflict
 
 
 class SettingsService:
@@ -123,8 +124,15 @@ class SettingsService:
         return cat
 
     async def delete_category(self, db: AsyncSession, cat_id: int):
-        await db.execute(delete(Category).where(Category.id == cat_id))
-        await db.commit()
+        result = await db.execute(select(Category).where(Category.id == cat_id))
+        if not result.scalar_one_or_none():
+            raise not_found("Kategoria")
+        try:
+            await db.execute(delete(Category).where(Category.id == cat_id))
+            await db.commit()
+        except IntegrityError:
+            await db.rollback()
+            raise conflict("Kategoria jest używana przez artykuły i nie może zostać usunięta")
 
     async def list_branches(self, db: AsyncSession):
         result = await db.execute(select(Branch).order_by(Branch.name))
@@ -160,12 +168,26 @@ class SettingsService:
         return rt
 
     async def delete_rate_type(self, db: AsyncSession, rt_id: int):
-        await db.execute(delete(RateType).where(RateType.id == rt_id))
-        await db.commit()
+        result = await db.execute(select(RateType).where(RateType.id == rt_id))
+        if not result.scalar_one_or_none():
+            raise not_found("Typ stawki")
+        try:
+            await db.execute(delete(RateType).where(RateType.id == rt_id))
+            await db.commit()
+        except IntegrityError:
+            await db.rollback()
+            raise conflict("Typ stawki jest używany i nie może zostać usunięty")
 
     async def delete_salesperson(self, db: AsyncSession, sp_id: int):
-        await db.execute(delete(Salesperson).where(Salesperson.id == sp_id))
-        await db.commit()
+        result = await db.execute(select(Salesperson).where(Salesperson.id == sp_id))
+        if not result.scalar_one_or_none():
+            raise not_found("Handlowiec")
+        try:
+            await db.execute(delete(Salesperson).where(Salesperson.id == sp_id))
+            await db.commit()
+        except IntegrityError:
+            await db.rollback()
+            raise conflict("Handlowiec jest przypisany do umów i nie może zostać usunięty")
 
 
 settings_service = SettingsService()

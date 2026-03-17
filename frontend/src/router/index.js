@@ -68,6 +68,7 @@ const routes = [
         path: 'admin',
         name: 'Admin',
         component: () => import('@/views/AdminView.vue'),
+        meta: { requiresAdmin: true },
       },
     ],
   },
@@ -86,6 +87,9 @@ router.beforeEach((to, from, next) => {
   }
   if (to.name === 'Login' && auth.isAuthenticated) {
     return next('/')
+  }
+  if (to.meta.requiresAdmin && auth.user?.role !== 'admin') {
+    return next('/dashboard/contracts')
   }
   next()
 })
