@@ -5,8 +5,8 @@
 | 1 | Wywalić legacy szablony | ✅ Done | `879fb45` | Usunięto tab + 6 endpointów `/service-fee-templates` |
 | 2 | Naprawić generowanie raportów PDF | ✅ Done | `0cb3d13` | Playwright + Chromium zainstalowane |
 | 3 | PDF parity ze starą aplikacją | ✅ Done | `5999394` | Ciemne tytuły, usunięto OWN str. 2, dodano legal footer, "Wydrukowano" w stopce, naprawiono merge conflicty |
-| 4 | Raporty dla pracownika | ⏳ Pending | — | — |
-| 5 | Mapowanie usług dodatkowych ze starej bazy | ⏳ Pending | — | — |
+| 4 | Raporty dla pracownika | ✅ Done | `f25979e` | 4 endpointy: expiring/overdue/deliveries-today/unprinted + WorkerView.vue |
+| 5 | Mapowanie usług dodatkowych ze starej bazy | ⏳ In Progress | pending | step5b w migrate.py: parser OPLATY + contract_service_fees |
 | 6 | Ponowna migracja ze starej bazy | ⏳ Pending | — | — |
 | 7 | Plan testowania aplikacji | ⏳ Pending | — | — |
 | 8 | System prowizji dla handlowców | ⏳ Pending | — | — |

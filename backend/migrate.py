@@ -1,5 +1,6 @@
 """
 Migration: old dump (toolsmart_roa) → rao_new
+Step 5b added: migrate umowa2.OPLATY → contract_service_fees (free-text parsing).
 
 Verified source tables from dump:
   firma(41)  kategoria(4)  oddzial(7)  handlowiec(4)  stawka(4)
@@ -19,8 +20,10 @@ Strategy:
 Usage: python migrate.py
 """
 import asyncio
+import re
 import subprocess
 import sys
+from decimal import Decimal, InvalidOperation
 
 import bcrypt
 import aiomysql
@@ -366,6 +369,153 @@ async def step5_service_fee_templates():
     conn.close()
 
 
+# ---------------------------------------------------------------------------
+# Fee-text parsing helpers (for step5b)
+# ---------------------------------------------------------------------------
+
+_A = r'([\d]+(?:\s[\d]{3})*(?:[,.][\d]+)?)'
+
+_RE_DOSTAWA  = re.compile(rf'^{_A}\s*z[łl]\s*[-–]?\s*(.{{1,30}}?)\s*/\s*{_A}\s*z[łl]\s*[-–]?\s*(odbi[oó]r\S*)', re.I | re.U)
+_RE_H_RANGE  = re.compile(rf'^{_A}\s*z[łl]\s*/\s*(\S+)\s*[-–]\s*{_A}\s*z[łl]\s*/\s*\S+')
+_RE_PER_UNIT = re.compile(rf'^{_A}\s*z[łl]\s*/\s*(\S+)')
+_RE_RANGE    = re.compile(rf'^{_A}\s*z[łl]\s*[-–]\s*{_A}\s*z[łl]')
+_RE_PARENS   = re.compile(rf'^{_A}\s*z[łl]\s*\(([^)]+)\)')
+_RE_SINGLE   = re.compile(rf'^{_A}\s*z[łl](.*)')
+_RE_NOCOL    = re.compile(rf'^(.+?)\s+{_A}\s*z[łl]\s*/\s*(\S+)\s*$')
+_RE_SKIP     = re.compile(
+    r'^(-zedytowane|1[-\s]*2\s*dni|powyżej\s*2|praca do \d|czas trwania|'
+    r'opłata w gotówce|do \d+ godzin\s*-)',
+    re.I,
+)
+
+
+def _to_dec(s: str) -> Decimal | None:
+    if not s:
+        return None
+    try:
+        return Decimal(s.strip().replace(' ', '').replace(',', '.'))
+    except InvalidOperation:
+        return None
+
+
+def _parse_fee_line(raw: str) -> dict | None:
+    line = raw.strip().lstrip('- ').strip()
+    if not line or _RE_SKIP.match(line):
+        return None
+
+    out = dict(name=line[:200], amount_from=None, amount_to=None,
+               unit=None, description=None, is_active=True)
+
+    if ':' in line:
+        idx = line.index(':')
+        name_part = line[:idx].strip()
+        value     = line[idx + 1:].strip()
+        if not name_part:
+            return None
+        out['name'] = name_part[:200]
+    else:
+        m = _RE_NOCOL.match(line)
+        if m:
+            out['name']        = m.group(1).strip()[:200]
+            out['amount_from'] = _to_dec(m.group(2))
+            out['unit']        = m.group(3)
+        return out
+
+    if not value:
+        return out
+
+    m = _RE_DOSTAWA.match(value)
+    if m:
+        out['amount_from'] = _to_dec(m.group(1))
+        out['description'] = f"{m.group(2).strip()} / {m.group(4).strip()}"
+        return out
+
+    m = _RE_H_RANGE.match(value)
+    if m:
+        out['amount_from'] = _to_dec(m.group(1))
+        out['amount_to']   = _to_dec(m.group(3))
+        out['unit']        = m.group(2)
+        return out
+
+    m = _RE_PER_UNIT.match(value)
+    if m:
+        out['amount_from'] = _to_dec(m.group(1))
+        out['unit']        = m.group(2)
+        return out
+
+    m = _RE_RANGE.match(value)
+    if m and _to_dec(m.group(2)) is not None:
+        out['amount_from'] = _to_dec(m.group(1))
+        out['amount_to']   = _to_dec(m.group(2))
+        return out
+
+    m = _RE_PARENS.match(value)
+    if m:
+        out['amount_from'] = _to_dec(m.group(1))
+        out['description'] = m.group(2).strip()
+        return out
+
+    m = _RE_SINGLE.match(value)
+    if m:
+        out['amount_from'] = _to_dec(m.group(1))
+        trailing = m.group(2).strip().strip('-– ').strip()
+        if trailing:
+            out['description'] = trailing[:400]
+        return out
+
+    out['description'] = value[:400]
+    return out
+
+
+def _parse_text_to_fees(text: str) -> list[dict]:
+    result = []
+    if not text:
+        return result
+    sort_order = 0
+    for raw in text.replace('\r\n', '\n').replace('\r', '\n').splitlines():
+        fee = _parse_fee_line(raw)
+        if fee:
+            fee['sort_order'] = sort_order
+            sort_order += 1
+            result.append(fee)
+    return result
+
+
+async def step5b_contract_service_fees():
+    """Parse umowa2.OPLATY free-text → contract_service_fees rows."""
+    print("[5b] Migrating umowa2.OPLATY → contract_service_fees …")
+    conn = await aiomysql.connect(host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASS, db=DB_NAME)
+    cur  = await conn.cursor()
+
+    await cur.execute(
+        "SELECT id, OPLATY FROM umowa2 WHERE OPLATY IS NOT NULL AND TRIM(OPLATY) != ''"
+    )
+    rows = await cur.fetchall()
+
+    inserted = 0
+    skipped  = 0
+    for contract_id, oplaty in rows:
+        fees = _parse_text_to_fees(oplaty)
+        for fee in fees:
+            await cur.execute(
+                """INSERT INTO contract_service_fees
+                   (contract_id, sort_order, name,
+                    amount_from, amount_to, unit, description, is_active)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                (contract_id, fee['sort_order'], fee['name'],
+                 fee['amount_from'], fee['amount_to'],
+                 fee['unit'], fee['description'], fee['is_active'])
+            )
+            inserted += 1
+        if not fees:
+            skipped += 1
+
+    await conn.commit()
+    await cur.close()
+    conn.close()
+    print(f"   {inserted} service fee rows from {len(rows)} contracts ({skipped} unparseable skipped)")
+
+
 async def step6_drop_old():
     print("[6/7] DROP old tables + views …")
     conn = await aiomysql.connect(host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASS, db=DB_NAME)
@@ -422,7 +572,7 @@ async def verify():
     for tbl in ["company","categories","branches","salespeople","rate_types",
                 "contractors","contractor_addresses","articles","users",
                 "contracts","contract_positions","position_conditions",
-                "service_fee_templates"]:
+                "service_fee_templates","contract_service_fees"]:
         await cur.execute(f"SELECT COUNT(*) FROM `{tbl}`")
         cnt = (await cur.fetchone())[0]
         print(f"   {tbl}: {cnt}")
@@ -440,6 +590,7 @@ async def main():
         await step3_create_schema()
         await step4_migrate_data()
         await step5_service_fee_templates()
+        await step5b_contract_service_fees()
         await step6_drop_old()
         await step7_rehash()
         await verify()
