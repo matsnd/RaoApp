@@ -13,6 +13,10 @@
     <div class="sidebar-spacer"></div>
     <div class="sidebar-bottom">
       <button
+        :class="['sidebar-btn', { active: activeSection === 'worker' }]"
+        @click="$emit('navigate', 'worker')"
+      >Panel prac.</button>
+      <button
         :class="['sidebar-btn', { active: activeSection === 'reports' }]"
         @click="$emit('navigate', 'reports')"
       >Raporty</button>

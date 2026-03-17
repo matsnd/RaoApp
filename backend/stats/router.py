@@ -16,6 +16,7 @@ from stats.calc import calculate_position_value
 from stats.schemas import (
     FleetSummary, TopMachineItem, CurrentlyRentedResponse, CurrentlyRentedItem,
     MachineRoiResponse, AdditionalFeesResponse, ServiceFeeItem, LocationStatItem,
+    ExpiringContractItem, OverdueContractItem, DeliveryTodayItem, UnprintedContractItem,
 )
 
 router = APIRouter(prefix="/stats", tags=["stats"])
@@ -402,4 +403,142 @@ async def locations(
     return [
         LocationStatItem(city=city, rentals_count=d["cnt"], total_revenue=d["rev"])
         for city, d in sorted_cities
+    ]
+
+
+# ---------------------------------------------------------------------------
+# WORKER REPORTS
+# ---------------------------------------------------------------------------
+
+@router.get("/expiring-contracts", response_model=list[ExpiringContractItem])
+async def expiring_contracts(
+    days: int = Query(14, ge=1, le=90),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Contracts ending within the next N days (inclusive)."""
+    from settings.models import Salesperson
+    today = date.today()
+    deadline = today + timedelta(days=days)
+
+    q = await db.execute(
+        select(
+            Contract.id, Contract.number, Contract.contractor_name,
+            Contract.date_from, Contract.date_to,
+            Contract.delivery_address, Contract.contact_person1, Contract.contact_phone1,
+            Contract.salesperson_id,
+        )
+        .where(and_(Contract.date_to >= today, Contract.date_to <= deadline))
+        .order_by(Contract.date_to)
+    )
+    rows = q.all()
+
+    salesperson_ids = {r[8] for r in rows if r[8]}
+    sp_map: dict[int, str] = {}
+    if salesperson_ids:
+        sp_q = await db.execute(
+            select(Salesperson.id, Salesperson.name).where(Salesperson.id.in_(salesperson_ids))
+        )
+        sp_map = {r[0]: r[1] for r in sp_q.all()}
+
+    return [
+        ExpiringContractItem(
+            id=r[0], number=r[1], contractor_name=r[2],
+            date_from=r[3], date_to=r[4],
+            days_left=(r[4] - today).days if r[4] else 0,
+            delivery_address=r[5], contact_person1=r[6], contact_phone1=r[7],
+            salesperson_name=sp_map.get(r[8]) if r[8] else None,
+        )
+        for r in rows
+    ]
+
+
+@router.get("/overdue-contracts", response_model=list[OverdueContractItem])
+async def overdue_contracts(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Contracts where date_to has passed but are still active (not archived)."""
+    today = date.today()
+
+    q = await db.execute(
+        select(
+            Contract.id, Contract.number, Contract.contractor_name,
+            Contract.date_from, Contract.date_to,
+            Contract.delivery_address, Contract.contact_person1, Contract.contact_phone1,
+        )
+        .where(Contract.date_to < today)
+        .order_by(Contract.date_to)
+    )
+    rows = q.all()
+
+    return [
+        OverdueContractItem(
+            id=r[0], number=r[1], contractor_name=r[2],
+            date_from=r[3], date_to=r[4],
+            days_overdue=(today - r[4]).days if r[4] else 0,
+            delivery_address=r[5], contact_person1=r[6], contact_phone1=r[7],
+        )
+        for r in rows
+    ]
+
+
+@router.get("/deliveries-today", response_model=list[DeliveryTodayItem])
+async def deliveries_today(
+    lookahead: int = Query(1, ge=1, le=7),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Contract positions with delivery_date within next N days."""
+    today = date.today()
+    deadline = today + timedelta(days=lookahead - 1)
+
+    q = await db.execute(
+        select(
+            Contract.id, Contract.number, Contract.contractor_name,
+            ContractPosition.article_name, ContractPosition.delivery_date,
+            Contract.delivery_address, Contract.contact_person1, Contract.contact_phone1,
+        )
+        .select_from(ContractPosition)
+        .join(Contract, Contract.id == ContractPosition.contract_id)
+        .where(and_(ContractPosition.delivery_date >= today, ContractPosition.delivery_date <= deadline))
+        .order_by(ContractPosition.delivery_date, Contract.number)
+    )
+    rows = q.all()
+
+    return [
+        DeliveryTodayItem(
+            contract_id=r[0], contract_number=r[1], contractor_name=r[2],
+            article_name=r[3], delivery_date=r[4],
+            delivery_address=r[5], contact_person1=r[6], contact_phone1=r[7],
+        )
+        for r in rows
+    ]
+
+
+@router.get("/unprinted-contracts", response_model=list[UnprintedContractItem])
+async def unprinted_contracts(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Active contracts (date_to >= today) that have never been printed."""
+    today = date.today()
+
+    q = await db.execute(
+        select(
+            Contract.id, Contract.number, Contract.contractor_name,
+            Contract.date_from, Contract.date_to, Contract.created_at,
+        )
+        .where(and_(Contract.print_date.is_(None), Contract.date_to >= today))
+        .order_by(Contract.date_from.desc())
+    )
+    rows = q.all()
+
+    return [
+        UnprintedContractItem(
+            id=r[0], number=r[1], contractor_name=r[2],
+            date_from=r[3], date_to=r[4],
+            created_at=r[5].strftime("%d.%m.%Y") if r[5] else None,
+        )
+        for r in rows
     ]

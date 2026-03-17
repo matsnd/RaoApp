@@ -4,7 +4,7 @@
 |---|---------|--------|--------|-------|
 | 1 | Wywalić legacy szablony | ✅ Done | `879fb45` | Usunięto tab + 6 endpointów `/service-fee-templates` |
 | 2 | Naprawić generowanie raportów PDF | ✅ Done | `0cb3d13` | Playwright + Chromium zainstalowane |
-| 3 | PDF parity ze starą aplikacją | 🔄 W toku | `5ca337a` | Pre-fill kontaktów + handlowiec w stopce; wymaga dalszego dopracowania layoutu |
+| 3 | PDF parity ze starą aplikacją | ✅ Done | `5999394` | Ciemne tytuły, usunięto OWN str. 2, dodano legal footer, "Wydrukowano" w stopce, naprawiono merge conflicty |
 | 4 | Raporty dla pracownika | ⏳ Pending | — | — |
 | 5 | Mapowanie usług dodatkowych ze starej bazy | ⏳ Pending | — | — |
 | 6 | Ponowna migracja ze starej bazy | ⏳ Pending | — | — |

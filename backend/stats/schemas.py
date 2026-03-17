@@ -67,3 +67,48 @@ class LocationStatItem(BaseModel):
     city: str
     rentals_count: int
     total_revenue: Decimal
+
+
+class ExpiringContractItem(BaseModel):
+    id: int
+    number: str
+    contractor_name: str | None
+    date_from: date | None
+    date_to: date | None
+    days_left: int
+    delivery_address: str | None
+    contact_person1: str | None
+    contact_phone1: str | None
+    salesperson_name: str | None
+
+
+class OverdueContractItem(BaseModel):
+    id: int
+    number: str
+    contractor_name: str | None
+    date_from: date | None
+    date_to: date | None
+    days_overdue: int
+    delivery_address: str | None
+    contact_person1: str | None
+    contact_phone1: str | None
+
+
+class DeliveryTodayItem(BaseModel):
+    contract_id: int
+    contract_number: str
+    contractor_name: str | None
+    article_name: str | None
+    delivery_date: date | None
+    delivery_address: str | None
+    contact_person1: str | None
+    contact_phone1: str | None
+
+
+class UnprintedContractItem(BaseModel):
+    id: int
+    number: str
+    contractor_name: str | None
+    date_from: date | None
+    date_to: date | None
+    created_at: str | None

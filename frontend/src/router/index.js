@@ -60,6 +60,11 @@ const routes = [
         props: true,
       },
       {
+        path: 'worker',
+        name: 'Worker',
+        component: () => import('@/views/WorkerView.vue'),
+      },
+      {
         path: 'settings',
         name: 'Settings',
         component: () => import('@/views/SettingsView.vue'),
