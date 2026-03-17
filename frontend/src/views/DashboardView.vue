@@ -48,7 +48,7 @@
                 <tr
                   v-for="c in contractStore.list"
                   :key="c.id"
-                  :class="{ selected: selectedId === c.id }"
+                  :class="['contract-row', { selected: selectedId === c.id }, expiryClass(c)]"
                   @click="selectedId = c.id"
                   @dblclick="editContract(c.id)"
                   @contextmenu.prevent="openContextMenu($event, c)"
@@ -57,7 +57,12 @@
                   <td>{{ c.contractor_name }}</td>
                   <td><span :class="['badge', c.contract_type === 'S' ? 'badge-info' : 'badge-warning']">{{ c.type_label }}</span></td>
                   <td>{{ formatDate(c.date_from) }}</td>
-                  <td>{{ formatDate(c.date_to) }}</td>
+                  <td>
+                    <span :title="expiryTitle(c)">{{ formatDate(c.date_to) }}</span>
+                    <span v-if="daysLeft(c) !== null && daysLeft(c) <= 14" class="expiry-chip" :class="expiryClass(c)">
+                      {{ daysLeft(c) < 0 ? Math.abs(daysLeft(c)) + 'd po' : daysLeft(c) + 'd' }}
+                    </span>
+                  </td>
                   <td style="font-weight:600;">{{ formatMoney(c.total_value) }}</td>
                   <td>{{ c.salesperson_name || '—' }}</td>
                   <td>
@@ -365,6 +370,31 @@ function formatMoney(v) {
   if (!v && v !== 0) return '—'
   return Number(v).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' zł'
 }
+
+function daysLeft(c) {
+  if (!c.date_to) return null
+  const today = new Date(); today.setHours(0,0,0,0)
+  const dt = new Date(c.date_to); dt.setHours(0,0,0,0)
+  return Math.round((dt - today) / 86400000)
+}
+
+function expiryClass(c) {
+  const d = daysLeft(c)
+  if (d === null) return ''
+  if (d < 0) return 'row-overdue'
+  if (d <= 7) return 'row-expiring-soon'
+  if (d <= 14) return 'row-expiring'
+  return ''
+}
+
+function expiryTitle(c) {
+  const d = daysLeft(c)
+  if (d === null) return ''
+  if (d < 0) return `Przeterminowana o ${Math.abs(d)} dni`
+  if (d === 0) return 'Kończy się dziś!'
+  if (d <= 14) return `Kończy się za ${d} dni`
+  return ''
+}
 </script>
 
 <style scoped>
@@ -411,4 +441,24 @@ function formatMoney(v) {
   background: #E2E8F0;
   margin: 3px 0;
 }
+
+.contract-row.row-overdue td { background: #fff5f5; }
+.contract-row.row-overdue:hover td { background: #ffe8e8; }
+.contract-row.row-expiring-soon td { background: #fff9e6; }
+.contract-row.row-expiring-soon:hover td { background: #fff3cc; }
+.contract-row.row-expiring td { background: #fffcf0; }
+.contract-row.row-expiring:hover td { background: #fff7d6; }
+
+.expiry-chip {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 1px 5px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+.expiry-chip.row-overdue { background: #ffd5d5; color: #b91c1c; }
+.expiry-chip.row-expiring-soon { background: #fde68a; color: #92400e; }
+.expiry-chip.row-expiring { background: #fef3c7; color: #78350f; }
 </style>
