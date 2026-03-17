@@ -5,12 +5,13 @@
       <span class="toolbar-info">{{ isEdit ? (contractStore.current?.number ? `Umowa: ${contractStore.current.number}` : 'Ładowanie...') : 'Nowa umowa' }}</span>
       <button v-if="isEdit" class="toolbar-btn" title="Drukuj PDF" @click="generateReport('contract')">⎙</button>
       <button v-if="isEdit" class="toolbar-btn" title="Protokół ZO" @click="generateReport('protocol_zo')">📄</button>
+      <button v-if="isEdit" class="toolbar-btn" title="Przelicz wartość" @click="recalcTotal">∑</button>
       <button class="btn btn-primary btn-sm" @click="handleSave" :disabled="saving">
         {{ saving ? '...' : 'Zapisz' }}
       </button>
     </div>
 
-    <div class="content-area" style="padding:var(--spacing-md);">
+    <div class="content-area" style="padding:var(--spacing-md);overflow-y:auto;">
       <div v-if="loading" class="empty-state">Ładowanie...</div>
       <div v-else>
         <!-- Top section: contract data -->
@@ -48,7 +49,15 @@
             </div>
             <div class="form-group">
               <label class="form-label">Adres dostawy</label>
-              <input v-model="form.delivery_address" type="text" class="form-control" />
+              <div style="display:flex;gap:8px;">
+                <select v-if="contractorAddresses.length" v-model="selectedAddressId" class="form-control" style="flex:1;" @change="onAddressSelect">
+                  <option :value="null">— wpisz ręcznie —</option>
+                  <option v-for="addr in contractorAddresses" :key="addr.id" :value="addr.id">
+                    {{ addr.name || addr.city }} — {{ addr.street || '' }} {{ addr.postal_code || '' }}
+                  </option>
+                </select>
+                <input v-model="form.delivery_address" type="text" class="form-control" :style="contractorAddresses.length ? 'flex:1;' : 'flex:1;'" />
+              </div>
             </div>
           </div>
 
@@ -61,16 +70,38 @@
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label">Wartość (zł)</label>
-              <input v-model="form.total_value" type="number" step="0.01" class="form-control" />
+              <label class="form-label">Oddział</label>
+              <select v-model="form.branch_id" class="form-control">
+                <option :value="null">— brak —</option>
+                <option v-for="b in settingsStore.branches" :key="b.id" :value="b.id">{{ b.name }}</option>
+              </select>
             </div>
+            <div class="form-group">
+              <label class="form-label">Wartość (zł)</label>
+              <input v-model="form.total_value" type="number" step="0.01" class="form-control" style="font-weight:700;" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Pozostało (zł)</label>
+              <input :value="remainingValue" type="text" class="form-control" disabled style="font-weight:700;color:#E53E3E;" />
+            </div>
+          </div>
+
+          <div class="form-row-4">
             <div class="form-group">
               <label class="form-label">Przedpłata (zł)</label>
               <input v-model="form.prepayment_amount" type="number" step="0.01" class="form-control" />
             </div>
             <div class="form-group">
+              <label class="form-label">Dok. przedpłaty</label>
+              <input v-model="form.prepayment_document" type="text" class="form-control" />
+            </div>
+            <div class="form-group">
               <label class="form-label">Faktura (zł)</label>
               <input v-model="form.invoice_amount" type="number" step="0.01" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Dok. faktury</label>
+              <input v-model="form.invoice_document" type="text" class="form-control" />
             </div>
           </div>
 
@@ -93,9 +124,32 @@
             </div>
           </div>
 
-          <div class="form-group">
-            <label class="form-label">Uwagi</label>
-            <textarea v-model="form.notes" class="form-control" rows="2"></textarea>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">E-mail</label>
+              <input v-model="form.email" type="email" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Telefon</label>
+              <input v-model="form.phone" type="text" class="form-control" />
+            </div>
+          </div>
+
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Uwagi</label>
+              <textarea v-model="form.notes" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Opcje</label>
+              <div style="display:flex;gap:16px;padding-top:6px;">
+                <label class="checkbox-group"><input type="checkbox" v-model="form.report_without_data" /> Wydruk bez danych</label>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="font-size:12px;">Dni rob./tydz.:</span>
+                  <input v-model.number="form.working_days_per_week" type="number" min="1" max="7" class="form-control" style="width:60px;" />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -113,20 +167,22 @@
                 <th>Typ</th>
                 <th>Dni</th>
                 <th>Ilość</th>
-                <th>Cena jedn.</th>
+                <th>Rozliczanie</th>
+                <th>Warunki</th>
                 <th>Dostawca</th>
+                <th>Data dost.</th>
                 <th style="width:80px;"></th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="!contractStore.positions.length">
-                <td colspan="8" class="empty-state">Brak pozycji</td>
+                <td colspan="10" class="empty-state">Brak pozycji</td>
               </tr>
               <tr
                 v-for="(pos, idx) in contractStore.positions"
                 :key="pos.id"
                 :class="{ selected: selectedPosId === pos.id }"
-                @click="selectedPosId = pos.id"
+                @click="selectPosition(pos)"
                 @dblclick="editPosition(pos)"
               >
                 <td>{{ idx + 1 }}</td>
@@ -134,36 +190,56 @@
                 <td>{{ pos.rental_type || '—' }}</td>
                 <td>{{ pos.rental_days || '—' }}</td>
                 <td>{{ pos.quantity || 1 }}</td>
-                <td>{{ pos.unit_price ? Number(pos.unit_price).toFixed(2) + ' zł' : '—' }}</td>
+                <td>{{ pos.billing_frequency || '—' }}</td>
+                <td><span class="badge badge-info">{{ pos.conditions_count || 0 }}</span></td>
                 <td>{{ pos.supplier_name || '—' }}</td>
+                <td>{{ pos.delivery_date ? new Date(pos.delivery_date).toLocaleDateString('pl-PL') : '—' }}</td>
                 <td>
+                  <button class="btn-icon" title="Edytuj" @click.stop="editPosition(pos)">✎</button>
                   <button class="btn-icon" title="Usuń" @click.stop="deletePosition(pos)">✕</button>
                 </td>
               </tr>
             </tbody>
           </table>
+
+          <!-- Conditions panel for selected position -->
+          <ConditionPanel
+            v-if="selectedPosId && isEdit"
+            :contract-id="Number(props.id)"
+            :position-id="selectedPosId"
+            :rental-days="selectedPosRentalDays"
+            :billing-frequency="selectedPosBillingFreq"
+            @value-changed="onConditionValueChanged"
+          />
         </div>
 
         <!-- Service fees section -->
         <div v-if="isEdit" class="page-card">
           <div style="display:flex;align-items:center;margin-bottom:12px;">
             <span class="section-title" style="margin:0;border:none;">Usługi dodatkowe</span>
+            <button class="btn btn-secondary btn-sm" style="margin-left:auto;margin-right:8px;" @click="resetServiceFees" title="Reset do szablonu">↻ Reset</button>
+            <button class="btn btn-primary btn-sm" @click="addServiceFee">+ Dodaj</button>
           </div>
           <table class="data-grid">
             <thead>
-              <tr><th>#</th><th>Nazwa</th><th>Kwota od</th><th>Kwota do</th><th>Jednostka</th><th>Aktywna</th></tr>
+              <tr><th>#</th><th>Nazwa</th><th>Kwota od</th><th>Kwota do</th><th>Jednostka</th><th>Opis</th><th>Aktywna</th><th style="width:80px;"></th></tr>
             </thead>
             <tbody>
               <tr v-if="!contractStore.serviceFees.length">
-                <td colspan="6" class="empty-state">Brak usług dodatkowych</td>
+                <td colspan="8" class="empty-state">Brak usług dodatkowych</td>
               </tr>
-              <tr v-for="(fee, idx) in contractStore.serviceFees" :key="fee.id">
+              <tr v-for="(fee, idx) in contractStore.serviceFees" :key="fee.id" @dblclick="editServiceFee(fee)">
                 <td>{{ idx + 1 }}</td>
                 <td>{{ fee.name }}</td>
                 <td>{{ fee.amount_from ? Number(fee.amount_from).toFixed(2) + ' zł' : '—' }}</td>
                 <td>{{ fee.amount_to ? Number(fee.amount_to).toFixed(2) + ' zł' : '—' }}</td>
                 <td>{{ fee.unit || '—' }}</td>
+                <td style="font-size:11px;">{{ fee.description || '—' }}</td>
                 <td><span :class="['badge', fee.is_active ? 'badge-success' : 'badge-muted']">{{ fee.is_active ? 'Tak' : 'Nie' }}</span></td>
+                <td>
+                  <button class="btn-icon" title="Edytuj" @click.stop="editServiceFee(fee)">✎</button>
+                  <button class="btn-icon" title="Usuń" @click.stop="deleteServiceFee(fee)">✕</button>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -197,16 +273,21 @@
       </div>
     </Transition>
 
-    <!-- Position form modal -->
+    <!-- Position form modal (EXTENDED with 6 missing fields) -->
     <Transition name="modal">
       <div v-if="showPosModal" class="modal-overlay" @click.self="showPosModal = false">
-        <div class="modal-box" style="min-width:560px;">
+        <div class="modal-box" style="min-width:640px;max-height:90vh;overflow-y:auto;">
           <div class="modal-title">{{ editingPos ? 'Edycja pozycji' : 'Nowa pozycja' }}</div>
           <div class="form-group">
             <label class="form-label">Artykuł *</label>
             <div style="display:flex;gap:8px;">
               <input :value="selectedArticleName" type="text" class="form-control" disabled placeholder="Wybierz artykuł..." style="flex:1;" />
               <button type="button" class="btn btn-secondary btn-sm" @click="showArticlePicker = true">Wybierz</button>
+            </div>
+            <div v-if="articleAvailability !== null" style="margin-top:4px;">
+              <span :class="['badge', articleAvailability ? 'badge-success' : 'badge-danger']">
+                {{ articleAvailability ? 'Dostępny' : 'Wynajęty w tym okresie!' }}
+              </span>
             </div>
           </div>
           <div class="form-row-2">
@@ -229,6 +310,52 @@
               <input v-model="posForm.unit_price" type="number" step="0.01" class="form-control" />
             </div>
           </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Rozliczanie</label>
+              <select v-model="posForm.billing_frequency" class="form-control">
+                <option :value="null">— brak —</option>
+                <option value="dziennie">dziennie</option>
+                <option value="tygodniowo">tygodniowo</option>
+                <option value="dwutygodniowo">dwutygodniowo</option>
+                <option value="miesięcznie">miesięcznie</option>
+                <option value="godzinowo">godzinowo</option>
+                <option value="jednorazowo">jednorazowo</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Opłata za</label>
+              <select v-model="posForm.billing_unit" class="form-control">
+                <option :value="null">— brak —</option>
+                <option value="doba">doba</option>
+                <option value="tydzień">tydzień</option>
+                <option value="miesiąc">miesiąc</option>
+                <option value="godzina">godzina</option>
+                <option value="sztuka">sztuka</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Typ stawki</label>
+              <select v-model="posForm.rate_type_id" class="form-control">
+                <option :value="null">— brak —</option>
+                <option v-for="rt in settingsStore.rateTypes" :key="rt.id" :value="rt.id">{{ rt.name }}</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Data dostawy</label>
+              <input v-model="posForm.delivery_date" type="date" class="form-control" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Dostawca</label>
+            <div style="display:flex;gap:8px;">
+              <input :value="supplierName" type="text" class="form-control" disabled placeholder="Opcjonalnie wybierz dostawcę..." style="flex:1;" />
+              <button type="button" class="btn btn-secondary btn-sm" @click="openSupplierPicker">Wybierz</button>
+              <button v-if="posForm.supplier_id" type="button" class="btn btn-secondary btn-sm" @click="posForm.supplier_id = null; supplierName = ''">✕</button>
+            </div>
+          </div>
           <div class="form-group">
             <label class="form-label">Opis</label>
             <textarea v-model="posForm.description" class="form-control" rows="2"></textarea>
@@ -241,10 +368,10 @@
       </div>
     </Transition>
 
-    <!-- Article picker modal -->
+    <!-- Article picker modal (with availability badge) -->
     <Transition name="modal">
       <div v-if="showArticlePicker" class="modal-overlay" @click.self="showArticlePicker = false">
-        <div class="modal-box" style="min-width:600px;">
+        <div class="modal-box" style="min-width:650px;">
           <div class="modal-title">Wybierz artykuł</div>
           <div class="search-input-wrap" style="margin-bottom:12px;">
             <span class="search-icon">⌕</span>
@@ -252,11 +379,16 @@
           </div>
           <div style="max-height:320px;overflow:auto;">
             <table class="data-grid">
-              <thead><tr><th>Nazwa</th><th>Nr rej.</th><th>Marka</th><th>Typ</th></tr></thead>
+              <thead><tr><th>Nazwa</th><th>Nr rej.</th><th>Marka</th><th>Typ</th><th>Dostępność</th></tr></thead>
               <tbody>
                 <tr v-for="a in articlePickerList" :key="a.id" @click="selectArticle(a)" style="cursor:pointer;">
                   <td>{{ a.name }}</td><td>{{ a.registration_no || '—' }}</td><td>{{ a.brand || '—' }}</td>
                   <td><span :class="['badge', a.is_service ? 'badge-warning' : 'badge-info']">{{ a.is_service ? 'Usługa' : 'Sprzęt' }}</span></td>
+                  <td>
+                    <span v-if="a._avail === true" class="badge badge-success">Wolny</span>
+                    <span v-else-if="a._avail === false" class="badge badge-danger">Zajęty</span>
+                    <span v-else class="badge badge-muted">—</span>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -267,16 +399,84 @@
         </div>
       </div>
     </Transition>
+
+    <!-- Supplier picker modal -->
+    <Transition name="modal">
+      <div v-if="showSupplierPicker" class="modal-overlay" @click.self="showSupplierPicker = false">
+        <div class="modal-box" style="min-width:600px;">
+          <div class="modal-title">Wybierz dostawcę</div>
+          <div class="search-input-wrap" style="margin-bottom:12px;">
+            <span class="search-icon">⌕</span>
+            <input v-model="supplierSearch" type="text" class="form-control" placeholder="Szukaj dostawcy..." @input="searchSuppliers" />
+          </div>
+          <div style="max-height:320px;overflow:auto;">
+            <table class="data-grid">
+              <thead><tr><th>Nazwa</th><th>NIP</th><th>Miasto</th></tr></thead>
+              <tbody>
+                <tr v-for="c in supplierList" :key="c.id" @click="selectSupplier(c)" style="cursor:pointer;">
+                  <td>{{ c.name }}</td><td>{{ c.nip || '—' }}</td><td>{{ c.city || '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-secondary btn-sm" @click="showSupplierPicker = false">Anuluj</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Service fee form modal -->
+    <Transition name="modal">
+      <div v-if="showFeeModal" class="modal-overlay" @click.self="showFeeModal = false">
+        <div class="modal-box" style="min-width:520px;">
+          <div class="modal-title">{{ editingFee ? 'Edycja usługi' : 'Nowa usługa dodatkowa' }}</div>
+          <div class="form-group">
+            <label class="form-label">Nazwa *</label>
+            <input v-model="feeForm.name" type="text" class="form-control" />
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Kwota od (zł)</label>
+              <input v-model="feeForm.amount_from" type="number" step="0.01" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Kwota do (zł)</label>
+              <input v-model="feeForm.amount_to" type="number" step="0.01" class="form-control" />
+            </div>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Jednostka</label>
+              <input v-model="feeForm.unit" type="text" class="form-control" placeholder="np. h, doba, km" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Aktywna</label>
+              <label class="checkbox-group" style="padding-top:6px;"><input type="checkbox" v-model="feeForm.is_active" /> Aktywna</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Opis</label>
+            <input v-model="feeForm.description" type="text" class="form-control" />
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-secondary btn-sm" @click="showFeeModal = false">Anuluj</button>
+            <button class="btn btn-primary btn-sm" @click="saveServiceFee" :disabled="savingFee">{{ savingFee ? '...' : 'Zapisz' }}</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useContractStore } from '@/stores/contracts'
 import { useContractorStore } from '@/stores/contractors'
 import { useArticleStore } from '@/stores/articles'
 import { useSettingsStore } from '@/stores/settings'
+import ConditionPanel from '@/components/contracts/ConditionPanel.vue'
 import api from '@/composables/useApi'
 
 const props = defineProps({ id: String })
@@ -303,7 +503,17 @@ const form = ref({
   email: '', phone: '', contractor_name: '', working_days_per_week: 6, report_without_data: false,
 })
 
+const remainingValue = computed(() => {
+  const total = Number(form.value.total_value) || 0
+  const pre = Number(form.value.prepayment_amount) || 0
+  const inv = Number(form.value.invoice_amount) || 0
+  const remaining = total - pre - inv
+  return remaining.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' zł'
+})
+
 const contractorName = ref('')
+const contractorAddresses = ref([])
+const selectedAddressId = ref(null)
 const showContractorPicker = ref(false)
 const pickerSearch = ref('')
 const pickerList = ref([])
@@ -313,12 +523,37 @@ const editingPos = ref(null)
 const savingPos = ref(false)
 const posForm = ref({ article_id: null, rental_type: '', description: '', rental_days: null, quantity: 1, unit_price: null, rate_type_id: null, billing_frequency: null, billing_unit: null, supplier_id: null, delivery_date: null })
 const selectedArticleName = ref('')
+const articleAvailability = ref(null)
 const showArticlePicker = ref(false)
 const articlePickerSearch = ref('')
 const articlePickerList = ref([])
 
+const supplierName = ref('')
+const showSupplierPicker = ref(false)
+const supplierSearch = ref('')
+const supplierList = ref([])
+
+const showFeeModal = ref(false)
+const editingFee = ref(null)
+const savingFee = ref(false)
+const feeForm = ref({ name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true })
+
+const selectedPosRentalDays = computed(() => {
+  const pos = contractStore.positions.find(p => p.id === selectedPosId.value)
+  return pos?.rental_days || 0
+})
+
+const selectedPosBillingFreq = computed(() => {
+  const pos = contractStore.positions.find(p => p.id === selectedPosId.value)
+  return pos?.billing_frequency || 'dziennie'
+})
+
 onMounted(async () => {
-  await settingsStore.fetchSalespeople()
+  await Promise.all([
+    settingsStore.fetchSalespeople(),
+    settingsStore.fetchBranches(),
+    settingsStore.fetchRateTypes(),
+  ])
 
   const [ctRes, artRes] = await Promise.allSettled([
     api.get('/contractors', { params: { per_page: 30 } }),
@@ -333,6 +568,7 @@ onMounted(async () => {
     form.value.contractor_id = ct.id
     contractorName.value = ct.name
     form.value.contractor_name = ct.name
+    await loadContractorAddresses(ct.id)
   }
 
   if (isEdit.value) {
@@ -341,7 +577,11 @@ onMounted(async () => {
       const data = await contractStore.fetchOne(Number(props.id))
       Object.assign(form.value, data)
       if (data.contractor_id) {
-        try { const ct = await contractorStore.fetchOne(data.contractor_id); contractorName.value = ct.name } catch {}
+        try {
+          const ct = await contractorStore.fetchOne(data.contractor_id)
+          contractorName.value = ct.name
+          await loadContractorAddresses(data.contractor_id)
+        } catch {}
       }
       await contractStore.fetchPositions(Number(props.id))
       await contractStore.fetchServiceFees(Number(props.id))
@@ -350,6 +590,21 @@ onMounted(async () => {
     }
   }
 })
+
+async function loadContractorAddresses(contractorId) {
+  try {
+    const { data } = await api.get(`/contractors/${contractorId}/addresses`)
+    contractorAddresses.value = data
+  } catch { contractorAddresses.value = [] }
+}
+
+function onAddressSelect() {
+  const addr = contractorAddresses.value.find(a => a.id === selectedAddressId.value)
+  if (addr) {
+    const parts = [addr.street, addr.postal_code, addr.city].filter(Boolean)
+    form.value.delivery_address = parts.join(', ')
+  }
+}
 
 function goBack() { router.push('/dashboard/contracts') }
 
@@ -383,6 +638,17 @@ async function handleSave() {
   }
 }
 
+async function recalcTotal() {
+  if (!isEdit.value) return
+  try {
+    const { data } = await api.post(`/contracts/${props.id}/recalculate`)
+    form.value.total_value = data.total_value
+    await contractStore.fetchOne(Number(props.id))
+  } catch (e) {
+    alert(e.response?.data?.detail || 'Błąd kalkulacji')
+  }
+}
+
 async function generateReport(type) {
   if (!isEdit.value) return
   try {
@@ -401,24 +667,38 @@ async function searchContractors() {
   }, 300)
 }
 
-function selectContractor(c) {
+async function selectContractor(c) {
   form.value.contractor_id = c.id
   form.value.contractor_name = c.name
   contractorName.value = c.name
   showContractorPicker.value = false
+  await loadContractorAddresses(c.id)
+}
+
+function selectPosition(pos) {
+  selectedPosId.value = pos.id
 }
 
 function addPosition() {
   editingPos.value = null
   Object.assign(posForm.value, { article_id: null, rental_type: '', description: '', rental_days: null, quantity: 1, unit_price: null, rate_type_id: null, billing_frequency: null, billing_unit: null, supplier_id: null, delivery_date: null })
   selectedArticleName.value = ''
+  supplierName.value = ''
+  articleAvailability.value = null
   showPosModal.value = true
 }
 
 function editPosition(pos) {
   editingPos.value = pos
-  Object.assign(posForm.value, pos)
+  Object.assign(posForm.value, {
+    article_id: pos.article_id, rental_type: pos.rental_type || '', description: pos.description || '',
+    rental_days: pos.rental_days, quantity: pos.quantity || 1, unit_price: pos.unit_price,
+    rate_type_id: pos.rate_type_id, billing_frequency: pos.billing_frequency,
+    billing_unit: pos.billing_unit, supplier_id: pos.supplier_id, delivery_date: pos.delivery_date,
+  })
   selectedArticleName.value = pos.article_name || ''
+  supplierName.value = pos.supplier_name || ''
+  articleAvailability.value = null
   showPosModal.value = true
 }
 
@@ -426,10 +706,12 @@ async function savePosition() {
   if (!posForm.value.article_id) { alert('Wybierz artykuł'); return }
   savingPos.value = true
   try {
+    const payload = { ...posForm.value }
+    if (!payload.delivery_date) payload.delivery_date = null
     if (editingPos.value) {
-      await contractStore.updatePosition(Number(props.id), editingPos.value.id, posForm.value)
+      await contractStore.updatePosition(Number(props.id), editingPos.value.id, payload)
     } else {
-      await contractStore.createPosition(Number(props.id), posForm.value)
+      await contractStore.createPosition(Number(props.id), payload)
     }
     await contractStore.fetchPositions(Number(props.id))
     showPosModal.value = false
@@ -444,10 +726,15 @@ async function deletePosition(pos) {
   if (!confirm('Usunąć tę pozycję?')) return
   try {
     await contractStore.deletePosition(Number(props.id), pos.id)
+    if (selectedPosId.value === pos.id) selectedPosId.value = null
     await contractStore.fetchPositions(Number(props.id))
   } catch (e) {
     alert(e.response?.data?.detail || 'Błąd')
   }
+}
+
+function onConditionValueChanged(value) {
+  // auto-calc hint - value per position
 }
 
 let artTimer = null
@@ -455,14 +742,127 @@ async function searchArticles() {
   clearTimeout(artTimer)
   artTimer = setTimeout(async () => {
     const { data } = await api.get('/articles', { params: { search: articlePickerSearch.value, per_page: 50 } })
-    articlePickerList.value = data.items
+    articlePickerList.value = data.items.map(a => ({ ...a, _avail: null }))
+    // Check availability for contract dates
+    if (form.value.date_from && form.value.date_to) {
+      for (const a of articlePickerList.value) {
+        if (!a.is_service) {
+          try {
+            const av = await articleStore.checkAvailability(a.id, form.value.date_from, form.value.date_to)
+            a._avail = av.is_available
+          } catch { a._avail = null }
+        }
+      }
+    }
   }, 300)
 }
 
-function selectArticle(a) {
+async function selectArticle(a) {
   posForm.value.article_id = a.id
   selectedArticleName.value = a.name
   showArticlePicker.value = false
+  // Check availability
+  if (form.value.date_from && form.value.date_to && !a.is_service) {
+    try {
+      const av = await articleStore.checkAvailability(a.id, form.value.date_from, form.value.date_to)
+      articleAvailability.value = av.is_available
+    } catch { articleAvailability.value = null }
+  } else {
+    articleAvailability.value = null
+  }
+}
+
+let supTimer = null
+async function openSupplierPicker() {
+  supplierSearch.value = ''
+  showSupplierPicker.value = true
+  const { data } = await api.get('/contractors', { params: { per_page: 30 } })
+  supplierList.value = data.items
+}
+
+async function searchSuppliers() {
+  clearTimeout(supTimer)
+  supTimer = setTimeout(async () => {
+    const { data } = await api.get('/contractors', { params: { search: supplierSearch.value, per_page: 30 } })
+    supplierList.value = data.items
+  }, 300)
+}
+
+function selectSupplier(c) {
+  posForm.value.supplier_id = c.id
+  supplierName.value = c.name
+  showSupplierPicker.value = false
+}
+
+// Service fees CRUD
+function addServiceFee() {
+  editingFee.value = null
+  Object.assign(feeForm.value, { name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true })
+  showFeeModal.value = true
+}
+
+function editServiceFee(fee) {
+  editingFee.value = fee
+  Object.assign(feeForm.value, {
+    name: fee.name, amount_from: fee.amount_from, amount_to: fee.amount_to,
+    unit: fee.unit || '', description: fee.description || '', is_active: fee.is_active,
+  })
+  showFeeModal.value = true
+}
+
+async function saveServiceFee() {
+  if (!feeForm.value.name) { alert('Podaj nazwę usługi'); return }
+  savingFee.value = true
+  try {
+    const payload = { ...feeForm.value }
+    if (!payload.unit) payload.unit = null
+    if (!payload.description) payload.description = null
+    if (editingFee.value) {
+      await api.put(`/contracts/${props.id}/service-fees/${editingFee.value.id}`, payload)
+    } else {
+      await api.post(`/contracts/${props.id}/service-fees`, payload)
+    }
+    await contractStore.fetchServiceFees(Number(props.id))
+    showFeeModal.value = false
+  } catch (e) {
+    alert(e.response?.data?.detail || 'Błąd zapisu usługi')
+  } finally {
+    savingFee.value = false
+  }
+}
+
+async function deleteServiceFee(fee) {
+  if (!confirm('Usunąć tę usługę dodatkową?')) return
+  try {
+    await api.delete(`/contracts/${props.id}/service-fees/${fee.id}`)
+    await contractStore.fetchServiceFees(Number(props.id))
+  } catch (e) {
+    alert(e.response?.data?.detail || 'Błąd')
+  }
+}
+
+async function resetServiceFees() {
+  if (!confirm('Zresetować usługi dodatkowe do szablonu? Obecne zostaną usunięte.')) return
+  try {
+    await api.post(`/contracts/${props.id}/service-fees/reset`)
+    await contractStore.fetchServiceFees(Number(props.id))
+  } catch (e) {
+    alert(e.response?.data?.detail || 'Błąd resetu')
+  }
 }
 
 </script>
+
+<style scoped>
+.btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  opacity: 0.6;
+  transition: opacity 150ms;
+}
+.btn-icon:hover { opacity: 1; }
+.badge-danger { background: #FED7D7; color: #9B2C2C; }
+</style>

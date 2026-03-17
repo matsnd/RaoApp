@@ -292,7 +292,7 @@ async function loadData() {
   const params = { page: page.value, per_page: perPage }
   if (search.value) params.search = search.value
   if (section.value === 'contracts') {
-    if (contractTypeFilter.value) params.type = contractTypeFilter.value
+    if (contractTypeFilter.value) params.contract_type = contractTypeFilter.value
     await contractStore.fetchList(params)
   } else if (section.value === 'contractors') {
     await contractorStore.fetchList(params)

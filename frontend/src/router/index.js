@@ -64,6 +64,11 @@ const routes = [
         name: 'Settings',
         component: () => import('@/views/SettingsView.vue'),
       },
+      {
+        path: 'admin',
+        name: 'Admin',
+        component: () => import('@/views/AdminView.vue'),
+      },
     ],
   },
   { path: '/:pathMatch(.*)*', redirect: '/' },

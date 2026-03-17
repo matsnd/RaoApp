@@ -20,6 +20,11 @@
         :class="['sidebar-btn', { active: activeSection === 'settings' }]"
         @click="$emit('navigate', 'settings')"
       >Ustawienia</button>
+      <button
+        v-if="authStore.user?.role === 'admin'"
+        :class="['sidebar-btn', { active: activeSection === 'admin' }]"
+        @click="$emit('navigate', 'admin')"
+      >Admin</button>
       <button class="sidebar-btn" style="opacity:0.6;font-size:12px;" @click="handleLogout">Wyloguj</button>
     </div>
   </nav>

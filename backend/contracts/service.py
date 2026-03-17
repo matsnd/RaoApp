@@ -328,5 +328,21 @@ class ContractService:
         await db.commit()
         await copy_fee_templates(db, contract_id, contract.contract_type)
 
+    async def recalculate_total(self, db: AsyncSession, contract_id: int):
+        """Recalculate total_value = SUM(rate1 * period_count) for all conditions."""
+        contract = await self.get_contract(db, contract_id)
+        result = await db.execute(
+            select(func.coalesce(
+                func.sum(PositionCondition.rate1 * PositionCondition.period_count), 0
+            ))
+            .join(ContractPosition, ContractPosition.id == PositionCondition.position_id)
+            .where(ContractPosition.contract_id == contract_id)
+        )
+        total = result.scalar_one()
+        contract.total_value = total
+        await db.commit()
+        await db.refresh(contract)
+        return total
+
 
 contract_service = ContractService()
