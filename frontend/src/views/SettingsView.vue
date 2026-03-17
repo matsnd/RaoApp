@@ -618,6 +618,24 @@ async function deleteRt(id) {
   await api.delete(`/settings/rate-types/${id}`)
   await settingsStore.fetchRateTypes()
 }
+
+async function deleteSp(id) {
+  if (!confirm('Usunąć tego handlowca?')) return
+  await api.delete(`/settings/salespeople/${id}`)
+  await settingsStore.fetchSalespeople()
+}
+
+async function deleteCat(id) {
+  if (!confirm('Usunąć tę kategorię?')) return
+  await api.delete(`/settings/categories/${id}`)
+  await settingsStore.fetchCategories()
+}
+
+async function deleteRt(id) {
+  if (!confirm('Usunąć ten typ stawki?')) return
+  await api.delete(`/settings/rate-types/${id}`)
+  await settingsStore.fetchRateTypes()
+}
 </script>
 
 <style scoped>
