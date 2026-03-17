@@ -65,6 +65,11 @@ const routes = [
         component: () => import('@/views/WorkerView.vue'),
       },
       {
+        path: 'commissions',
+        name: 'Commissions',
+        component: () => import('@/views/CommissionView.vue'),
+      },
+      {
         path: 'settings',
         name: 'Settings',
         component: () => import('@/views/SettingsView.vue'),

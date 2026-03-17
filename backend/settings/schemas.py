@@ -97,6 +97,7 @@ class SalespersonResponse(BaseModel):
     name: str
     phone: str | None
     is_active: bool
+    commission_rate: Decimal | None
 
     class Config:
         from_attributes = True
@@ -105,6 +106,7 @@ class SalespersonResponse(BaseModel):
 class SalespersonCreate(BaseModel):
     name: str = Field(..., max_length=200)
     phone: str | None = Field(None, max_length=100)
+    commission_rate: Decimal | None = Field(None, ge=0, le=100, description="Prowizja w % (0-100)")
 
 
 class CategoryResponse(BaseModel):

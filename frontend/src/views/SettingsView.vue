@@ -97,17 +97,19 @@
 
             <!-- Salespeople tab -->
             <div v-if="activeTab === 'salespeople'">
-              <div style="display:flex;gap:8px;margin-bottom:16px;">
+              <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
                 <input v-model="newSp.name" type="text" class="form-control" placeholder="Imię i nazwisko" style="max-width:240px;" />
                 <input v-model="newSp.phone" type="text" class="form-control" placeholder="Telefon" style="max-width:160px;" />
+                <input v-model.number="newSp.commission_rate" type="number" min="0" max="100" step="0.5" class="form-control" placeholder="Prowizja %" style="max-width:110px;" />
                 <button class="btn btn-primary btn-sm" @click="addSalesperson">+ Dodaj</button>
               </div>
               <table class="data-grid">
-                <thead><tr><th>Nazwa</th><th>Telefon</th><th>Aktywny</th><th style="width:100px;"></th></tr></thead>
+                <thead><tr><th>Nazwa</th><th>Telefon</th><th>Prowizja %</th><th>Aktywny</th><th style="width:100px;"></th></tr></thead>
                 <tbody>
                   <tr v-for="sp in settingsStore.salespeople" :key="sp.id">
                     <td>{{ sp.name }}</td>
                     <td>{{ sp.phone || '—' }}</td>
+                    <td>{{ sp.commission_rate != null ? sp.commission_rate + ' %' : '—' }}</td>
                     <td><span :class="['badge', sp.is_active ? 'badge-success' : 'badge-muted']">{{ sp.is_active ? 'Tak' : 'Nie' }}</span></td>
                     <td>
                       <button class="btn-icon" @click="toggleSp(sp.id)" title="Przełącz">⇄</button>
@@ -289,7 +291,7 @@ const companyForm = ref({ name: '', name_short: '', nip: '', regon: '', postal_c
 const savingCompany = ref(false)
 const companySaved = ref(false)
 
-const newSp = ref({ name: '', phone: '' })
+const newSp = ref({ name: '', phone: '', commission_rate: null })
 const newCat = ref({ name: '', code: '', description: '' })
 const newRt = ref({ name: '', description: '', is_dependent: false })
 
@@ -418,7 +420,7 @@ async function addSalesperson() {
   if (!newSp.value.name) return
   await api.post('/settings/salespeople', newSp.value)
   await settingsStore.fetchSalespeople()
-  newSp.value = { name: '', phone: '' }
+  newSp.value = { name: '', phone: '', commission_rate: null }
 }
 
 async function toggleSp(id) {

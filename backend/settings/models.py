@@ -64,6 +64,7 @@ class Salesperson(Base):
     name = Column(String(200), nullable=False)
     phone = Column(String(100), nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
+    commission_rate = Column(Numeric(5, 2), nullable=True, default=0)
 
 
 class RateType(Base):

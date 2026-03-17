@@ -112,3 +112,20 @@ class UnprintedContractItem(BaseModel):
     date_from: date | None
     date_to: date | None
     created_at: str | None
+
+
+class SalespersonCommissionItem(BaseModel):
+    salesperson_id: int
+    salesperson_name: str
+    commission_rate: Decimal | None
+    contracts_count: int
+    total_revenue: Decimal
+    commission_amount: Decimal
+
+
+class CommissionReportResponse(BaseModel):
+    date_from: date
+    date_to: date
+    items: list[SalespersonCommissionItem]
+    grand_total_revenue: Decimal
+    grand_total_commission: Decimal

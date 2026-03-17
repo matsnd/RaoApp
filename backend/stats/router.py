@@ -17,6 +17,7 @@ from stats.schemas import (
     FleetSummary, TopMachineItem, CurrentlyRentedResponse, CurrentlyRentedItem,
     MachineRoiResponse, AdditionalFeesResponse, ServiceFeeItem, LocationStatItem,
     ExpiringContractItem, OverdueContractItem, DeliveryTodayItem, UnprintedContractItem,
+    SalespersonCommissionItem, CommissionReportResponse,
 )
 
 router = APIRouter(prefix="/stats", tags=["stats"])
@@ -542,3 +543,64 @@ async def unprinted_contracts(
         )
         for r in rows
     ]
+
+
+@router.get("/commissions", response_model=CommissionReportResponse)
+async def commissions(
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Commission report: revenue per salesperson × commission_rate."""
+    from settings.models import Salesperson
+    df, dt = _default_dates(date_from, date_to)
+
+    all_pos = await _compute_position_revenues(db, df, dt)
+
+    sp_q = await db.execute(
+        select(Salesperson.id, Salesperson.name, Salesperson.commission_rate)
+        .where(Salesperson.is_active == True)
+        .order_by(Salesperson.name)
+    )
+    salespeople = {r[0]: {"name": r[1], "rate": r[2]} for r in sp_q.all()}
+
+    contract_sp_q = await db.execute(
+        select(Contract.id, Contract.salesperson_id)
+        .where(and_(Contract.date_from <= dt, Contract.date_to >= df))
+        .where(Contract.salesperson_id.isnot(None))
+    )
+    contract_sp_map = {r[0]: r[1] for r in contract_sp_q.all()}
+
+    agg: dict[int, dict] = defaultdict(lambda: {"revenue": Decimal(0), "contracts": set()})
+    for p in all_pos:
+        sp_id = contract_sp_map.get(p["contract_id"])
+        if sp_id and sp_id in salespeople:
+            agg[sp_id]["revenue"] += p["revenue"]
+            agg[sp_id]["contracts"].add(p["contract_id"])
+
+    items = []
+    for sp_id, sp_data in salespeople.items():
+        data = agg.get(sp_id, {"revenue": Decimal(0), "contracts": set()})
+        rate = sp_data["rate"] or Decimal(0)
+        revenue = data["revenue"]
+        commission = (revenue * rate / Decimal(100)).quantize(Decimal("0.01"))
+        items.append(SalespersonCommissionItem(
+            salesperson_id=sp_id,
+            salesperson_name=sp_data["name"],
+            commission_rate=sp_data["rate"],
+            contracts_count=len(data["contracts"]),
+            total_revenue=revenue,
+            commission_amount=commission,
+        ))
+
+    items.sort(key=lambda x: x.commission_amount, reverse=True)
+    grand_revenue = sum(i.total_revenue for i in items)
+    grand_commission = sum(i.commission_amount for i in items)
+
+    return CommissionReportResponse(
+        date_from=df, date_to=dt,
+        items=items,
+        grand_total_revenue=grand_revenue,
+        grand_total_commission=grand_commission,
+    )

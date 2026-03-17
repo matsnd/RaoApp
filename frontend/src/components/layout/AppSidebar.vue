@@ -17,6 +17,10 @@
         @click="$emit('navigate', 'worker')"
       >Panel prac.</button>
       <button
+        :class="['sidebar-btn', { active: activeSection === 'commissions' }]"
+        @click="$emit('navigate', 'commissions')"
+      >Prowizje</button>
+      <button
         :class="['sidebar-btn', { active: activeSection === 'reports' }]"
         @click="$emit('navigate', 'reports')"
       >Raporty</button>
