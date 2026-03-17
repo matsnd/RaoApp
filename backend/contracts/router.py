@@ -13,6 +13,21 @@ from contracts.service import contract_service
 from database import get_db
 from shared.pagination import PaginatedResponse
 
+
+async def _cond_response(db, cond):
+    from settings.models import RateType
+    rt_name = None
+    if cond.rate_type_id:
+        rt = await db.get(RateType, cond.rate_type_id)
+        rt_name = rt.name if rt else None
+    return ConditionResponse(
+        id=cond.id, position_id=cond.position_id,
+        rate_type_id=cond.rate_type_id, rate_type_name=rt_name,
+        description=cond.description, rate1=cond.rate1, rate2=cond.rate2,
+        billing_label=cond.billing_label, period_count=cond.period_count,
+        minimum=cond.minimum,
+    )
+
 router = APIRouter(prefix="/contracts", tags=["contracts"])
 
 
@@ -21,13 +36,13 @@ async def list_contracts(
     search: str | None = Query(None),
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
-    type: str | None = Query(None),
+    contract_type: str | None = Query(None),
     page: int = Query(1, ge=1),
     per_page: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    items, total = await contract_service.list_contracts(db, search, date_from, date_to, type, page, per_page)
+    items, total = await contract_service.list_contracts(db, search, date_from, date_to, contract_type, page, per_page)
     return PaginatedResponse(items=items, total=total, page=page, per_page=per_page)
 
 
@@ -140,8 +155,22 @@ async def list_conditions(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
+    from settings.models import RateType
     conds = await contract_service.list_conditions(db, pos_id)
-    return [ConditionResponse.model_validate(c) for c in conds]
+    result = []
+    for c in conds:
+        rt_name = None
+        if c.rate_type_id:
+            rt = await db.get(RateType, c.rate_type_id)
+            rt_name = rt.name if rt else None
+        result.append(ConditionResponse(
+            id=c.id, position_id=c.position_id,
+            rate_type_id=c.rate_type_id, rate_type_name=rt_name,
+            description=c.description, rate1=c.rate1, rate2=c.rate2,
+            billing_label=c.billing_label, period_count=c.period_count,
+            minimum=c.minimum,
+        ))
+    return result
 
 
 @router.post("/{contract_id}/positions/{pos_id}/conditions", response_model=ConditionResponse, status_code=201)
@@ -153,7 +182,7 @@ async def create_condition(
     _: User = Depends(get_current_user),
 ):
     cond = await contract_service.create_condition(db, pos_id, data)
-    return ConditionResponse.model_validate(cond)
+    return await _cond_response(db, cond)
 
 
 @router.put("/{contract_id}/positions/{pos_id}/conditions/{cond_id}", response_model=ConditionResponse)
@@ -166,7 +195,7 @@ async def update_condition(
     _: User = Depends(get_current_user),
 ):
     cond = await contract_service.update_condition(db, cond_id, data)
-    return ConditionResponse.model_validate(cond)
+    return await _cond_response(db, cond)
 
 
 @router.delete("/{contract_id}/positions/{pos_id}/conditions/{cond_id}", status_code=204)
@@ -242,3 +271,13 @@ async def reset_service_fees(
 ):
     await contract_service.reset_service_fees(db, contract_id)
     return {"message": "Usługi zresetowane do szablonu"}
+
+
+@router.post("/{contract_id}/recalculate", status_code=200)
+async def recalculate_contract(
+    contract_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    total = await contract_service.recalculate_total(db, contract_id)
+    return {"total_value": total}

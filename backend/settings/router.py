@@ -119,6 +119,25 @@ async def create_category(
     return await settings_service.create_category(db, data)
 
 
+@router.put("/categories/{cat_id}", response_model=CategoryResponse)
+async def update_category(
+    cat_id: int,
+    data: CategoryCreate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    return await settings_service.update_category(db, cat_id, data)
+
+
+@router.delete("/categories/{cat_id}", status_code=204)
+async def delete_category(
+    cat_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    await settings_service.delete_category(db, cat_id)
+
+
 @router.get("/branches", response_model=list[BranchResponse])
 async def list_branches(db: AsyncSession = Depends(get_db), _: User = Depends(get_current_user)):
     return await settings_service.list_branches(db)
@@ -145,3 +164,31 @@ async def create_rate_type(
     _: User = Depends(require_admin),
 ):
     return await settings_service.create_rate_type(db, data)
+
+
+@router.put("/rate-types/{rt_id}", response_model=RateTypeResponse)
+async def update_rate_type(
+    rt_id: int,
+    data: RateTypeCreate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    return await settings_service.update_rate_type(db, rt_id, data)
+
+
+@router.delete("/rate-types/{rt_id}", status_code=204)
+async def delete_rate_type(
+    rt_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    await settings_service.delete_rate_type(db, rt_id)
+
+
+@router.delete("/salespeople/{sp_id}", status_code=204)
+async def delete_salesperson(
+    sp_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    await settings_service.delete_salesperson(db, sp_id)

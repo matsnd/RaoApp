@@ -63,22 +63,12 @@ Legenda: ⬜ nie zaczęte · ⏳ w toku · ✅ ukończone · ❌ błąd · 🔄 
 | 38 | 2026-03-15 00:14 | 5.8 | e2e-testing | ✅ | FIX TEST-01: .form-error nie pojawia się — 401 interceptor robił window.location.href reload kasując Pinia state | frontend/src/composables/useApi.js | window.location reload przy 401 na /auth/login | 2 | 81f34a8 |
 | 39 | 2026-03-15 00:16 | 5.9 | e2e-testing | ✅ | FIX TEST-03: race condition w duplikacji — waitForURL(fn) porównuje ID zamiast regex | e2e/tests/03-article.spec.ts | toHaveURL regex matchł stary URL | 2 | 64dc123 |
 | 40 | 2026-03-15 00:17 | 5.10 | e2e-testing | ✅ | FIX TEST-04 Ładowanie: Vue Router reuse-ował komponent (new→edit) — onMounted nie odpalał | frontend/src/components/layout/AppLayout.vue | router-view bez :key | 2 | 81f34a8 |
-| 41 | 2026-03-15 00:18 | 5.11 | e2e-testing | ✅ | FIX TEST-04 zapis: ContractFormView wysyłał date_to:"” — Pydantic nie akceptuje empty string jako date|None | frontend/src/views/ContractFormView.vue | empty string ≠ null w Pydantic | 3 | 81f34a8 |
-| 42 | 2026-03-15 00:19 | 5.12 | e2e-testing | ✅ | FIX TEST-04 izolacja: beforeAll tworzy kontrahenta+umowę przez API, sekcja pozycji głównie do edit | e2e/tests/04-contract.spec.ts | test isolation | 1 | 64dc123 |
-| 43 | 2026-03-15 00:20 | 5.13 | e2e-testing | ✅ | Wszystkie 24/24 testy przechodzą w ~35s | - | - | 0 | 64dc123 |
-| 44 | 2026-03-15 00:25 | 6.1 | e2e-testing | ✅ | Usunięto main.js (duplikat main.ts) z frontend/src/ | frontend/src/main.js | - | 0 | c8a5013 |
-| 45 | 2026-03-15 00:25 | 6.2 | e2e-testing | ✅ | Usunięto create_admin.py (tymczasowy skrypt seed) z backend/ | backend/create_admin.py | - | 0 | c8a5013 |
-| 46 | 2026-03-15 00:27 | 6.3 | e2e-testing | ✅ | Analiza P3: ContractorCreate/ArticleCreate nie mają pól date—problem nie występuje | - | - | 0 | - |
 
 ---
 
 ## Otwarte problemy (self-heal queue)
 
-| ID | Faza.Krok | Opis problemu | Próby | Ostatnia próba | Rozwiązanie |
-|----|-----------|---------------|-------|----------------|-------------|
-~~P1~~ | ✅ ROZWIĄZANY | main.js usunięty (commit c8a5013) |
-~~P2~~ | ✅ ROZWIĄZANY | create_admin.py usunięty (commit c8a5013) |
-~~P3~~ | ✅ NIEISTOTNY | ContractorCreate/ArticleCreate nie mają pól `date | None` — problem nie występuje |
+*Brak otwartych problemów.*
 
 ---
 
@@ -87,12 +77,11 @@ Legenda: ⬜ nie zaczęte · ⏳ w toku · ✅ ukończone · ❌ błąd · 🔄 
 | Metryka | Wartość |
 |---------|---------|
 | Sesja rozpoczęta | 2026-03-14 22:18 |
-| Łączne kroki ukończone | 46 |
-| Łączne retries (self-heal) | 13 |
-| Aktualny kontekst agenta | e2e-testing |
-| Ostatni commit | c8a5013 (chore phase6: usuń main.js + create_admin.py) |
-| Status projektu | ✅ WSZYSTKIE FAZY UKOĄCZONE (Phase 1–6) |
-| Kolejny krok | git push — opcjonalnie: git push origin main |
+| Łączne kroki ukończone | 57 |
+| Łączne retries (self-heal) | 14 |
+| Aktualny kontekst agenta | spec-update |
+| Status projektu | P0+P1 DONE, migracja DONE, spec DONE |
+| Kolejny krok | Weryfikacja: uruchomić backend+frontend i przetestować |
 
 ---
 
@@ -105,3 +94,6 @@ Legenda: ⬜ nie zaczęte · ⏳ w toku · ✅ ukończone · ❌ błąd · 🔄 
 | 2026-03-14 23:10 | dev-backend | dev-frontend | Przejście do implementacji frontendu |
 | 2026-03-14 23:44 | dev-frontend | frontend-dev | Fixowanie błędów integracji backend↔frontend |
 | 2026-03-15 00:00 | frontend-dev | e2e-testing | Start Phase 5 — Playwright E2E |
+| 2026-03-16 00:00 | e2e-testing | audit-impl | Implementacja P0/P1 z audytu |
+| 2026-03-16 00:16 | audit-impl | migration | Deterministyczna migracja z dumpa |
+| 2026-03-16 00:20 | migration | spec-update | Aktualizacja specyfikacji |

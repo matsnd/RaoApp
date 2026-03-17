@@ -26,6 +26,9 @@ async def generate_contract_report(
         from fastapi import HTTPException
         raise HTTPException(status_code=500, detail=traceback.format_exc())
     contract = await db.get(Contract, contract_id)
+    if contract:
+        contract.print_date = datetime.utcnow()
+        await db.commit()
     contract_num_clean = contract.number.replace('/', '_') if contract and contract.number else str(contract_id)
     filename = f"umowa_{contract_num_clean}_{type}.pdf"
     return Response(
