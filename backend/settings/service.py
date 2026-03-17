@@ -111,6 +111,21 @@ class SettingsService:
         await db.refresh(cat)
         return cat
 
+    async def update_category(self, db: AsyncSession, cat_id: int, data: CategoryCreate) -> Category:
+        result = await db.execute(select(Category).where(Category.id == cat_id))
+        cat = result.scalar_one_or_none()
+        if not cat:
+            raise not_found("Kategoria")
+        for field, value in data.model_dump().items():
+            setattr(cat, field, value)
+        await db.commit()
+        await db.refresh(cat)
+        return cat
+
+    async def delete_category(self, db: AsyncSession, cat_id: int):
+        await db.execute(delete(Category).where(Category.id == cat_id))
+        await db.commit()
+
     async def list_branches(self, db: AsyncSession):
         result = await db.execute(select(Branch).order_by(Branch.name))
         return result.scalars().all()
@@ -132,6 +147,25 @@ class SettingsService:
         await db.commit()
         await db.refresh(rt)
         return rt
+
+    async def update_rate_type(self, db: AsyncSession, rt_id: int, data: RateTypeCreate) -> RateType:
+        result = await db.execute(select(RateType).where(RateType.id == rt_id))
+        rt = result.scalar_one_or_none()
+        if not rt:
+            raise not_found("Typ stawki")
+        for field, value in data.model_dump().items():
+            setattr(rt, field, value)
+        await db.commit()
+        await db.refresh(rt)
+        return rt
+
+    async def delete_rate_type(self, db: AsyncSession, rt_id: int):
+        await db.execute(delete(RateType).where(RateType.id == rt_id))
+        await db.commit()
+
+    async def delete_salesperson(self, db: AsyncSession, sp_id: int):
+        await db.execute(delete(Salesperson).where(Salesperson.id == sp_id))
+        await db.commit()
 
 
 settings_service = SettingsService()

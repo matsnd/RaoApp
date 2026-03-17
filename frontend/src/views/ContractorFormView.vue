@@ -3,6 +3,7 @@
     <div class="toolbar">
       <button class="toolbar-btn" @click="goBack">←</button>
       <span class="toolbar-info">{{ isEdit ? `Edycja kontrahenta: ${form.name}` : 'Nowy kontrahent' }}</span>
+      <button v-if="isEdit" class="btn btn-secondary btn-sm" @click="addContract" title="Dodaj umowę dla tego kontrahenta">+ Umowa</button>
       <button class="btn btn-primary btn-sm" @click="handleSave" :disabled="saving">
         {{ saving ? '...' : 'Zapisz' }}
       </button>
@@ -91,13 +92,17 @@
             </div>
             <div class="form-row-2">
               <div class="form-group">
+                <label class="form-label">Telefon stacjonarny</label>
+                <input v-model="form.landline_phone" type="text" class="form-control" />
+              </div>
+              <div class="form-group">
                 <label class="form-label">Email</label>
                 <input v-model="form.email" type="email" class="form-control" />
               </div>
-              <div class="form-group">
-                <label class="form-label">Strona WWW</label>
-                <input v-model="form.website" type="text" class="form-control" />
-              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Strona WWW</label>
+              <input v-model="form.website" type="text" class="form-control" />
             </div>
             <div class="form-group">
               <label class="form-label">Uwagi</label>
@@ -271,6 +276,22 @@ async function gusLookup() {
     if (data.postal_code) form.value.postal_code = data.postal_code
     if (data.city) form.value.city = data.city
     if (data.regon) form.value.regon = data.regon
+    form.value.gus_date = new Date().toISOString().slice(0, 10)
+    // Auto-create address from GUS data if editing
+    if (isEdit.value && data.city) {
+      try {
+        await store.createAddress(Number(props.id), {
+          name: 'Siedziba (GUS)',
+          postal_code: data.postal_code || '',
+          city: data.city || '',
+          street: (data.street || '') + (data.building_number ? ' ' + data.building_number : ''),
+          is_headquarters: true,
+          is_default_delivery: false,
+          country_code: 'PL',
+        })
+        contractor.value = await store.fetchOne(Number(props.id))
+      } catch {}
+    }
   } catch (e) {
     alert(e.response?.data?.detail || 'Błąd pobierania danych z GUS')
   } finally {
@@ -317,6 +338,10 @@ async function deleteAddress() {
   } catch (e) {
     alert(e.response?.data?.detail || 'Błąd usuwania')
   }
+}
+
+function addContract() {
+  router.push({ path: '/contracts/new', query: { contractor_id: props.id } })
 }
 </script>
 

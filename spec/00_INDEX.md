@@ -18,6 +18,10 @@
 | 09 | [09_DESIGN_REFERENCE.md](./09_DESIGN_REFERENCE.md) | Design system Toolsmart: paleta, CSS, screenshots |
 | 10 | [10_WINDSURF_WORKFLOW.md](./10_WINDSURF_WORKFLOW.md) | Workflow agentowy: self-healing budowa od zera do produkcji |
 | 11 | [11_REPORTS_AND_STATS.md](./11_REPORTS_AND_STATS.md) | Wydruki PDF (Jinja2) + Analityka i KPI |
+| 12 | [12_LOGIC_AUDIT.md](./12_LOGIC_AUDIT.md) | Audyt logiki biznesowej |
+| 13 | [13_AUDIT_ALL_PROCESSES.md](./13_AUDIT_ALL_PROCESSES.md) | Cross-role audyt wszystkich 9 procesów (P0/P1/P2 gaps) |
+| 14 | [14_AUDIT_CONTRACT_PROCESS.md](./14_AUDIT_CONTRACT_PROCESS.md) | Szczegółowy audyt procesu umów (contract CRUD) |
+| 15 | [15_BUILD_PROGRESS.md](./15_BUILD_PROGRESS.md) | Status budowy — implementacja P0/P1/P2 + migracja |
 
 ## Technologie
 
