@@ -103,13 +103,16 @@
                 <button class="btn btn-primary btn-sm" @click="addSalesperson">+ Dodaj</button>
               </div>
               <table class="data-grid">
-                <thead><tr><th>Nazwa</th><th>Telefon</th><th>Aktywny</th><th></th></tr></thead>
+                <thead><tr><th>Nazwa</th><th>Telefon</th><th>Aktywny</th><th style="width:100px;"></th></tr></thead>
                 <tbody>
                   <tr v-for="sp in settingsStore.salespeople" :key="sp.id">
                     <td>{{ sp.name }}</td>
                     <td>{{ sp.phone || '—' }}</td>
                     <td><span :class="['badge', sp.is_active ? 'badge-success' : 'badge-muted']">{{ sp.is_active ? 'Tak' : 'Nie' }}</span></td>
-                    <td><button class="btn-icon" @click="toggleSp(sp.id)" title="Przełącz">⇄</button></td>
+                    <td>
+                      <button class="btn-icon" @click="toggleSp(sp.id)" title="Przełącz">⇄</button>
+                      <button class="btn-icon" @click="deleteSp(sp.id)" title="Usuń">✕</button>
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -123,12 +126,13 @@
                 <button class="btn btn-primary btn-sm" @click="addCategory">+ Dodaj</button>
               </div>
               <table class="data-grid">
-                <thead><tr><th>Nazwa</th><th>Kod</th><th>Opis</th></tr></thead>
+                <thead><tr><th>Nazwa</th><th>Kod</th><th>Opis</th><th style="width:60px;"></th></tr></thead>
                 <tbody>
                   <tr v-for="cat in settingsStore.categories" :key="cat.id">
                     <td>{{ cat.name }}</td>
                     <td>{{ cat.code || '—' }}</td>
                     <td>{{ cat.description || '—' }}</td>
+                    <td><button class="btn-icon" @click="deleteCat(cat.id)" title="Usuń">✕</button></td>
                   </tr>
                 </tbody>
               </table>
@@ -141,12 +145,13 @@
                 <button class="btn btn-primary btn-sm" @click="addRateType">+ Dodaj</button>
               </div>
               <table class="data-grid">
-                <thead><tr><th>Nazwa</th><th>Opis</th><th>Zależna</th></tr></thead>
+                <thead><tr><th>Nazwa</th><th>Opis</th><th>Zależna</th><th style="width:60px;"></th></tr></thead>
                 <tbody>
                   <tr v-for="rt in settingsStore.rateTypes" :key="rt.id">
                     <td>{{ rt.name }}</td>
                     <td>{{ rt.description || '—' }}</td>
                     <td>{{ rt.is_dependent ? 'Tak' : 'Nie' }}</td>
+                    <td><button class="btn-icon" @click="deleteRt(rt.id)" title="Usuń">✕</button></td>
                   </tr>
                 </tbody>
               </table>
@@ -274,5 +279,23 @@ async function addFeeTemplate() {
   await api.post('/settings/service-fee-templates', newFee.value)
   await settingsStore.fetchFeeTemplates()
   newFee.value = { contract_type: 'S', name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true }
+}
+
+async function deleteSp(id) {
+  if (!confirm('Usunąć tego handlowca?')) return
+  await api.delete(`/settings/salespeople/${id}`)
+  await settingsStore.fetchSalespeople()
+}
+
+async function deleteCat(id) {
+  if (!confirm('Usunąć tę kategorię?')) return
+  await api.delete(`/settings/categories/${id}`)
+  await settingsStore.fetchCategories()
+}
+
+async function deleteRt(id) {
+  if (!confirm('Usunąć ten typ stawki?')) return
+  await api.delete(`/settings/rate-types/${id}`)
+  await settingsStore.fetchRateTypes()
 }
 </script>
