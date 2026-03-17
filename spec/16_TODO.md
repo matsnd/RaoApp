@@ -12,11 +12,11 @@
 | 8 | System prowizji dla handlowców | ✅ Done | `f2de66f` | commission_rate w Salesperson, GET /stats/commissions, CommissionView.vue |
 | 9 | Przemyśl GUI/UX z całą ekipą | ✅ Done | `2cbcb54` | spec/18_UX_IMPROVEMENTS.md, kolorowanie wierszy umów, chip dni do końca |
 | 10 | Wydruki dla wszystkich raportów i statystyk | ✅ Done | `f7dbaf2` | @media print CSS, przyciski Drukuj w WorkerView/CommissionView/ReportsSection |
-| 11 | Sprawdź czy czegoś nie brakuje w migracji | 🔄 In Progress | — | — |
-| 12 | U5: UI warunków cenowych w formularzu umowy | 🔄 In Progress | — | P0 bloker produkcyjny |
-| 13 | U6: Auto-kalkulacja wartości umowy po zapisie | ⏳ Pending | — | — |
-| 14 | U7: 6 brakujących pól w modalu pozycji | ⏳ Pending | — | — |
-| 15 | U8-U12: P2 — GUS auto-adres, landline, PDF preview, edit/delete settings | ⏳ Pending | — | — |
+| 11 | Sprawdź czy czegoś nie brakuje w migracji | ✅ Done | `0987a22` | DB OK: 516 umów, 614 pozycji, 875 warunków, costs+commission_rate w DB |
+| 12 | U5: UI warunków cenowych w formularzu umowy | ✅ Done | `0987a22` | ConditionPanel.vue już był wpięty (v-if="selectedPosId && isEdit") |
+| 13 | U6: Auto-kalkulacja wartości umowy po zapisie | ✅ Done | `0987a22` | recalcTotal() wywoływane po savePosition() + onConditionValueChanged() |
+| 14 | U7: pole costs + pozostałe pola w modalu pozycji | ✅ Done | `0987a22` | costs dodane do posForm, PositionCreate schema i szablonu modalu |
+| 15 | U8-U12: P2 — GUS auto-adres, landline, PDF preview, edit/delete settings | ✅ Done | `0987a22` | U8/U9/U10 już były; U11 PDF w nowej karcie; U12 inline edit kat/rate-types |
 
 ---
 
