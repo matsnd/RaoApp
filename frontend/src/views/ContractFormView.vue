@@ -216,7 +216,8 @@
           <div style="display:flex;align-items:center;margin-bottom:8px;">
             <span class="section-title" style="margin:0;border:none;">Usługi dodatkowe</span>
             <span style="font-size:11px;color:#718096;margin-left:12px;">Kliknij wiersz • Enter = zapisz • Esc = anuluj</span>
-            <button class="btn btn-secondary btn-sm" style="margin-left:auto;margin-right:8px;" @click="resetServiceFees" title="Reset do szablonu">↻ Reset</button>
+            <button class="btn btn-secondary btn-sm" style="margin-left:auto;margin-right:6px;" @click="openPresetPicker" title="Wybierz zestaw usług">📋 Wybierz zestaw</button>
+            <button class="btn btn-secondary btn-sm" style="margin-right:8px;" @click="resetServiceFees" title="Reset do domyślnego szablonu">↻ Reset</button>
             <button class="btn btn-primary btn-sm" @click="addFeeRow">+ Dodaj</button>
           </div>
           <table class="data-grid">
@@ -233,7 +234,7 @@
             </thead>
             <tbody>
               <tr v-if="!contractStore.serviceFees.length && !showNewFeeRow">
-                <td colspan="7" class="empty-state">Brak usług dodatkowych — kliknij &quot;+ Dodaj&quot; lub &quot;↻ Reset&quot;</td>
+                <td colspan="7" class="empty-state">Brak usług dodatkowych — kliknij „+ Dodaj”, „💻 Wybierz zestaw” lub „↻ Reset”</td>
               </tr>
               <template v-for="fee in contractStore.serviceFees" :key="fee.id">
                 <!-- EDIT MODE -->
@@ -303,6 +304,44 @@
           </div>
           <div class="modal-actions">
             <button class="btn btn-secondary btn-sm" @click="showContractorPicker = false">Anuluj</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Preset picker modal -->
+    <Transition name="modal">
+      <div v-if="showPresetPicker" class="preset-picker-overlay" @click.self="showPresetPicker = false">
+        <div class="preset-picker-modal">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+            <div class="preset-picker-title">Wybierz zestaw usług dodatkowych</div>
+            <button class="btn-icon" style="font-size:18px;" @click="showPresetPicker = false">✕</button>
+          </div>
+          <div v-if="presetPickerLoading" style="text-align:center;padding:32px;color:#A0AEC0;">Ładowanie zestawów...</div>
+          <div v-else-if="!presetPickerList.length" class="preset-picker-empty">
+            Brak zestawów usług dla tego typu umowy ({{ form.contract_type }}).<br/>
+            Dodaj zestawy w <strong>Ustawienia → Zestawy usług</strong>.
+          </div>
+          <div v-else>
+            <div
+              v-for="preset in presetPickerList"
+              :key="preset.id"
+              class="preset-picker-card"
+              @click="applyPreset(preset)"
+            >
+              <div style="display:flex;align-items:center;justify-content:space-between;">
+                <div class="preset-picker-card-name">{{ preset.name }}</div>
+                <div style="display:flex;gap:6px;align-items:center;">
+                  <span v-if="preset.is_default" class="badge badge-muted" style="font-size:10px;">Domyślny</span>
+                  <span class="badge badge-info" style="font-size:10px;">{{ preset.templates.length }} pozycji</span>
+                  <button class="btn btn-primary btn-sm" style="pointer-events:none;">Zastosuj</button>
+                </div>
+              </div>
+              <div v-if="preset.description" class="preset-picker-card-items" style="margin-top:4px;">{{ preset.description }}</div>
+              <div v-if="preset.templates.length" class="preset-picker-card-items" style="margin-top:6px;">
+                {{ preset.templates.slice(0, 4).map(t => t.name).join(' • ') }}{{ preset.templates.length > 4 ? ` • +${preset.templates.length - 4} więcej` : '' }}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -863,6 +902,33 @@ async function resetServiceFees() {
   }
 }
 
+const showPresetPicker = ref(false)
+const presetPickerList = ref([])
+const presetPickerLoading = ref(false)
+
+async function openPresetPicker() {
+  showPresetPicker.value = true
+  presetPickerLoading.value = true
+  try {
+    const { data } = await api.get('/settings/fee-preset-groups')
+    presetPickerList.value = data.filter(p => p.contract_type === form.value.contract_type)
+  } finally {
+    presetPickerLoading.value = false
+  }
+}
+
+async function applyPreset(preset) {
+  const hasFees = contractStore.serviceFees.length > 0
+  if (hasFees && !confirm(`Zastosować zestaw „${preset.name}”? Obecne ${contractStore.serviceFees.length} pozycji zostaną zastąpione.`)) return
+  try {
+    await api.post(`/contracts/${props.id}/service-fees/apply-preset?preset_id=${preset.id}&replace=true`)
+    await contractStore.fetchServiceFees(Number(props.id))
+    showPresetPicker.value = false
+  } catch (e) {
+    alert(e.response?.data?.detail || 'Błąd aplikowania zestawu')
+  }
+}
+
 </script>
 
 <style scoped>
@@ -889,4 +955,59 @@ async function resetServiceFees() {
 .row-editing { background: #fffff0; }
 .row-editing:hover { background: #fffff0 !important; }
 .row-inactive td { opacity: 0.5; }
+
+.preset-picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.preset-picker-modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  width: 560px;
+  max-width: 95vw;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+.preset-picker-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0F234E;
+  margin-bottom: 16px;
+}
+.preset-picker-card {
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: border-color 150ms, box-shadow 150ms;
+}
+.preset-picker-card:hover {
+  border-color: #0F234E;
+  box-shadow: 0 2px 8px rgba(15,35,78,0.12);
+}
+.preset-picker-card-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: #0F234E;
+  margin-bottom: 4px;
+}
+.preset-picker-card-items {
+  font-size: 11px;
+  color: #718096;
+  line-height: 1.6;
+}
+.preset-picker-empty {
+  text-align: center;
+  color: #A0AEC0;
+  padding: 32px 0;
+  font-size: 13px;
+}
 </style>

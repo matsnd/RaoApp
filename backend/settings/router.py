@@ -6,8 +6,8 @@ from auth.models import User
 from database import get_db
 from settings.schemas import (
     BranchCreate, BranchResponse, CategoryCreate, CategoryResponse,
-    CompanyResponse, CompanyUpdate, RateTypeCreate, RateTypeResponse,
-    SalespersonCreate, SalespersonResponse,
+    CompanyResponse, CompanyUpdate, FeePresetGroupCreate, FeePresetGroupResponse,
+    RateTypeCreate, RateTypeResponse, SalespersonCreate, SalespersonResponse,
     ServiceFeeTemplateCreate, ServiceFeeTemplateReorder, ServiceFeeTemplateResponse,
 )
 from settings.service import settings_service
@@ -202,3 +202,67 @@ async def delete_salesperson(
     _: User = Depends(require_admin),
 ):
     await settings_service.delete_salesperson(db, sp_id)
+
+
+@router.get("/fee-preset-groups", response_model=list[FeePresetGroupResponse])
+async def list_fee_preset_groups(db: AsyncSession = Depends(get_db), _: User = Depends(get_current_user)):
+    return await settings_service.list_fee_preset_groups(db)
+
+
+@router.post("/fee-preset-groups", response_model=FeePresetGroupResponse, status_code=201)
+async def create_fee_preset_group(
+    data: FeePresetGroupCreate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    return await settings_service.create_fee_preset_group(db, data)
+
+
+@router.put("/fee-preset-groups/{preset_id}", response_model=FeePresetGroupResponse)
+async def update_fee_preset_group(
+    preset_id: int,
+    data: FeePresetGroupCreate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    return await settings_service.update_fee_preset_group(db, preset_id, data)
+
+
+@router.delete("/fee-preset-groups/{preset_id}", status_code=204)
+async def delete_fee_preset_group(
+    preset_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    await settings_service.delete_fee_preset_group(db, preset_id)
+
+
+@router.post("/fee-preset-groups/{preset_id}/templates", response_model=ServiceFeeTemplateResponse, status_code=201)
+async def add_template_to_preset(
+    preset_id: int,
+    data: ServiceFeeTemplateCreate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    return await settings_service.add_template_to_preset(db, preset_id, data)
+
+
+@router.put("/fee-preset-groups/{preset_id}/templates/{template_id}", response_model=ServiceFeeTemplateResponse)
+async def update_preset_template(
+    preset_id: int,
+    template_id: int,
+    data: ServiceFeeTemplateCreate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    return await settings_service.update_preset_template(db, template_id, data)
+
+
+@router.delete("/fee-preset-groups/{preset_id}/templates/{template_id}", status_code=204)
+async def delete_preset_template(
+    preset_id: int,
+    template_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    await settings_service.delete_preset_template(db, template_id)

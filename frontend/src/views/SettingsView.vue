@@ -157,6 +157,108 @@
               </table>
             </div>
 
+            <!-- Fee preset groups tab -->
+            <div v-if="activeTab === 'fee-presets'">
+              <!-- new preset form -->
+              <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap;">
+                <div class="form-group" style="margin:0;">
+                  <label class="form-label">Typ umowy</label>
+                  <select v-model="newPreset.contract_type" class="form-control" style="width:130px;">
+                    <option value="S">Najem (S)</option>
+                    <option value="U">Usługa (U)</option>
+                  </select>
+                </div>
+                <div class="form-group" style="margin:0;flex:1;min-width:220px;">
+                  <label class="form-label">Nazwa zestawu</label>
+                  <input v-model="newPreset.name" type="text" class="form-control" placeholder="np. Standardowy, Premium…" @keydown.enter="addPreset" />
+                </div>
+                <div class="form-group" style="margin:0;flex:2;min-width:200px;">
+                  <label class="form-label">Opis (opcjonalnie)</label>
+                  <input v-model="newPreset.description" type="text" class="form-control" placeholder="Krótki opis zestawu" />
+                </div>
+                <button class="btn btn-primary btn-sm" @click="addPreset" style="margin-bottom:0;">+ Nowy zestaw</button>
+              </div>
+
+              <div v-if="!feePresets.length" class="empty-state">Brak zestawów — utwórz pierwszy zestaw powyżej.</div>
+
+              <div v-for="preset in feePresets" :key="preset.id" class="preset-card">
+                <div class="preset-header">
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <span :class="['badge', preset.contract_type === 'S' ? 'badge-info' : 'badge-warning']">{{ preset.contract_type }}</span>
+                    <span v-if="editingPresetId !== preset.id" style="font-weight:600;font-size:14px;">{{ preset.name }}</span>
+                    <input v-else v-model="editingPresetName" class="form-control form-control-xs" style="width:260px;" @keydown.enter="savePresetName(preset)" @keydown.esc="editingPresetId = null" />
+                    <span v-if="preset.is_default" class="badge badge-muted" style="font-size:10px;">Domyślny</span>
+                    <span style="font-size:11px;color:#718096;">({{ preset.templates.length }} pozycji)</span>
+                  </div>
+                  <div style="display:flex;gap:4px;">
+                    <button v-if="editingPresetId !== preset.id" class="btn-icon" title="Zmień nazwę" @click="startEditPreset(preset)">✎</button>
+                    <button v-else class="btn-icon" style="color:#22543D;" title="Zapisz" @click="savePresetName(preset)">✓</button>
+                    <button class="btn-icon" :class="{ active: expandedPresetId === preset.id }" title="Pokaż/ukryj pozycje" @click="toggleExpand(preset.id)">{{ expandedPresetId === preset.id ? '▲' : '▼' }}</button>
+                    <button class="btn-icon" title="Usuń zestaw" @click="deletePreset(preset.id)">✕</button>
+                  </div>
+                </div>
+
+                <!-- Expanded items -->
+                <div v-if="expandedPresetId === preset.id" class="preset-items">
+                  <table class="data-grid" style="margin-top:8px;">
+                    <thead>
+                      <tr>
+                        <th style="width:28%;">Nazwa</th>
+                        <th style="width:10%;">Kwota od</th>
+                        <th style="width:10%;">Kwota do</th>
+                        <th style="width:8%;">J.m.</th>
+                        <th>Opis</th>
+                        <th style="width:60px;">Aktywna</th>
+                        <th style="width:64px;"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template v-for="tpl in preset.templates" :key="tpl.id">
+                        <tr v-if="editingPresetItemId === tpl.id" style="background:#fffff0;">
+                          <td><input v-model="editingPresetItemData.name" class="form-control form-control-xs" @keydown.enter="savePresetItem(preset.id)" @keydown.esc="editingPresetItemId = null" /></td>
+                          <td><input v-model="editingPresetItemData.amount_from" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="savePresetItem(preset.id)" @keydown.esc="editingPresetItemId = null" /></td>
+                          <td><input v-model="editingPresetItemData.amount_to" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="savePresetItem(preset.id)" @keydown.esc="editingPresetItemId = null" /></td>
+                          <td><input v-model="editingPresetItemData.unit" class="form-control form-control-xs" placeholder="h, km…" @keydown.enter="savePresetItem(preset.id)" @keydown.esc="editingPresetItemId = null" /></td>
+                          <td><input v-model="editingPresetItemData.description" class="form-control form-control-xs" @keydown.enter="savePresetItem(preset.id)" @keydown.esc="editingPresetItemId = null" /></td>
+                          <td style="text-align:center;"><input type="checkbox" v-model="editingPresetItemData.is_active" /></td>
+                          <td>
+                            <button class="btn-icon" style="color:#22543D;" title="Zapisz" @click="savePresetItem(preset.id)">✓</button>
+                            <button class="btn-icon" title="Anuluj" @click="editingPresetItemId = null">✕</button>
+                          </td>
+                        </tr>
+                        <tr v-else @click="startEditPresetItem(tpl)" style="cursor:pointer;" :class="{ 'row-inactive-tpl': !tpl.is_active }">
+                          <td>{{ tpl.name }}</td>
+                          <td>{{ tpl.amount_from ? Number(tpl.amount_from).toFixed(2) + ' zł' : '—' }}</td>
+                          <td>{{ tpl.amount_to ? Number(tpl.amount_to).toFixed(2) + ' zł' : '—' }}</td>
+                          <td>{{ tpl.unit || '—' }}</td>
+                          <td style="font-size:11px;">{{ tpl.description || '—' }}</td>
+                          <td><span :class="['badge', tpl.is_active ? 'badge-success' : 'badge-muted']">{{ tpl.is_active ? 'Tak' : 'Nie' }}</span></td>
+                          <td>
+                            <button class="btn-icon" title="Edytuj" @click.stop="startEditPresetItem(tpl)">✎</button>
+                            <button class="btn-icon" title="Usuń" @click.stop="deletePresetItem(preset.id, tpl.id)">✕</button>
+                          </td>
+                        </tr>
+                      </template>
+                      <!-- new item row -->
+                      <tr v-if="addingToPresetId === preset.id" style="background:#f0fff4;">
+                        <td><input v-model="newPresetItem.name" class="form-control form-control-xs" placeholder="Nazwa usługi" ref="newPresetItemNameRef" @keydown.enter="saveNewPresetItem(preset)" @keydown.esc="addingToPresetId = null" /></td>
+                        <td><input v-model="newPresetItem.amount_from" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="saveNewPresetItem(preset)" @keydown.esc="addingToPresetId = null" /></td>
+                        <td><input v-model="newPresetItem.amount_to" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="saveNewPresetItem(preset)" @keydown.esc="addingToPresetId = null" /></td>
+                        <td><input v-model="newPresetItem.unit" class="form-control form-control-xs" placeholder="h, km…" @keydown.enter="saveNewPresetItem(preset)" @keydown.esc="addingToPresetId = null" /></td>
+                        <td><input v-model="newPresetItem.description" class="form-control form-control-xs" @keydown.enter="saveNewPresetItem(preset)" @keydown.esc="addingToPresetId = null" /></td>
+                        <td style="text-align:center;"><input type="checkbox" v-model="newPresetItem.is_active" /></td>
+                        <td>
+                          <button class="btn-icon" style="color:#22543D;" title="Dodaj (Enter)" @click="saveNewPresetItem(preset)">✓</button>
+                          <button class="btn-icon" title="Anuluj" @click="addingToPresetId = null">✕</button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <button class="btn btn-secondary btn-sm" style="margin-top:8px;" @click="startAddPresetItem(preset.id)">+ Dodaj pozycję</button>
+                </div>
+              </div>
+            </div>
+
             <!-- Fee templates tab -->
             <div v-if="activeTab === 'fee-templates'">
               <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:8px;flex-wrap:wrap;">
@@ -261,7 +363,8 @@ const tabs = [
   { id: 'salespeople', label: 'Handlowcy' },
   { id: 'categories', label: 'Kategorie' },
   { id: 'rate-types', label: 'Typy stawek' },
-  { id: 'fee-templates', label: 'Szablony usług' },
+  { id: 'fee-presets', label: 'Zestawy usług' },
+  { id: 'fee-templates', label: 'Szablony (legacy)' },
 ]
 
 const currentTabLabel = computed(() => tabs.find(t => t.id === activeTab.value)?.label || '')
@@ -277,11 +380,115 @@ const newFee = ref({ contract_type: 'S', name: '', amount_from: null, amount_to:
 const editingFeeTemplateId = ref(null)
 const editingFeeTemplateData = ref({})
 
+const feePresets = ref([])
+const newPreset = ref({ contract_type: 'S', name: '', description: '' })
+const expandedPresetId = ref(null)
+const editingPresetId = ref(null)
+const editingPresetName = ref('')
+const editingPresetItemId = ref(null)
+const editingPresetItemData = ref({})
+const addingToPresetId = ref(null)
+const newPresetItem = ref({ name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true })
+const newPresetItemNameRef = ref(null)
+
 onMounted(async () => {
   await settingsStore.fetchAll()
   const company = await settingsStore.fetchCompany()
   if (company) Object.assign(companyForm.value, company)
+  await loadFeePresets()
 })
+
+async function loadFeePresets() {
+  const { data } = await api.get('/settings/fee-preset-groups')
+  feePresets.value = data
+}
+
+async function addPreset() {
+  if (!newPreset.value.name) return
+  const payload = { ...newPreset.value }
+  if (!payload.description) payload.description = null
+  await api.post('/settings/fee-preset-groups', payload)
+  await loadFeePresets()
+  newPreset.value = { contract_type: newPreset.value.contract_type, name: '', description: '' }
+}
+
+async function deletePreset(id) {
+  if (!confirm('Usunąć ten zestaw i wszystkie jego pozycje?')) return
+  await api.delete(`/settings/fee-preset-groups/${id}`)
+  if (expandedPresetId.value === id) expandedPresetId.value = null
+  await loadFeePresets()
+}
+
+function toggleExpand(id) {
+  expandedPresetId.value = expandedPresetId.value === id ? null : id
+  addingToPresetId.value = null
+}
+
+function startEditPreset(preset) {
+  editingPresetId.value = preset.id
+  editingPresetName.value = preset.name
+}
+
+async function savePresetName(preset) {
+  if (!editingPresetName.value) return
+  await api.put(`/settings/fee-preset-groups/${preset.id}`, {
+    name: editingPresetName.value,
+    contract_type: preset.contract_type,
+    description: preset.description,
+    is_default: preset.is_default,
+  })
+  editingPresetId.value = null
+  await loadFeePresets()
+}
+
+function startEditPresetItem(tpl) {
+  editingPresetItemId.value = tpl.id
+  editingPresetItemData.value = {
+    name: tpl.name,
+    amount_from: tpl.amount_from,
+    amount_to: tpl.amount_to,
+    unit: tpl.unit || '',
+    description: tpl.description || '',
+    is_active: tpl.is_active,
+    contract_type: tpl.contract_type,
+  }
+}
+
+async function savePresetItem(presetId) {
+  if (!editingPresetItemData.value.name) return
+  const payload = { ...editingPresetItemData.value }
+  if (!payload.unit) payload.unit = null
+  if (!payload.description) payload.description = null
+  await api.put(`/settings/fee-preset-groups/${presetId}/templates/${editingPresetItemId.value}`, payload)
+  editingPresetItemId.value = null
+  await loadFeePresets()
+}
+
+async function deletePresetItem(presetId, tplId) {
+  if (!confirm('Usunąć tę pozycję z zestawu?')) return
+  await api.delete(`/settings/fee-preset-groups/${presetId}/templates/${tplId}`)
+  await loadFeePresets()
+}
+
+async function startAddPresetItem(presetId) {
+  addingToPresetId.value = presetId
+  newPresetItem.value = { name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true }
+  await import('vue').then(({ nextTick }) => nextTick(() => newPresetItemNameRef.value?.focus()))
+}
+
+async function saveNewPresetItem(preset) {
+  if (!newPresetItem.value.name) return
+  const payload = {
+    ...newPresetItem.value,
+    contract_type: preset.contract_type,
+    preset_id: preset.id,
+  }
+  if (!payload.unit) payload.unit = null
+  if (!payload.description) payload.description = null
+  await api.post(`/settings/fee-preset-groups/${preset.id}/templates`, payload)
+  addingToPresetId.value = null
+  await loadFeePresets()
+}
 
 async function saveCompany() {
   savingCompany.value = true
@@ -396,6 +603,18 @@ async function deleteRt(id) {
 </script>
 
 <style scoped>
+.sidebar-btn {
+  color: var(--color-text);
+}
+.sidebar-btn:hover {
+  background: var(--color-primary);
+  color: #fff;
+}
+.sidebar-btn.active {
+  background: var(--color-primary);
+  color: #fff;
+  border-left: 3px solid var(--color-primary-dark, #1a3a5c);
+}
 .form-control-xs {
   padding: 2px 6px;
   height: 28px;
@@ -416,4 +635,23 @@ async function deleteRt(id) {
 }
 .btn-icon:hover { opacity: 1; }
 .row-inactive-tpl td { opacity: 0.5; }
+
+.preset-card {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.preset-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #f7f8ff;
+  cursor: default;
+}
+.preset-items {
+  padding: 8px 14px 14px;
+  background: #fff;
+}
 </style>

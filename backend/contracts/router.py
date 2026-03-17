@@ -275,6 +275,19 @@ async def reset_service_fees(
     return {"message": "Usługi zresetowane do szablonu"}
 
 
+@router.post("/{contract_id}/service-fees/apply-preset", status_code=200)
+async def apply_fee_preset(
+    contract_id: int,
+    preset_id: int = Query(...),
+    replace: bool = Query(True),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    from contracts.service import apply_preset_to_contract
+    await apply_preset_to_contract(db, contract_id, preset_id, replace)
+    return {"message": "Zestaw zastosowany"}
+
+
 @router.post("/{contract_id}/recalculate", status_code=200)
 async def recalculate_contract(
     contract_id: int,

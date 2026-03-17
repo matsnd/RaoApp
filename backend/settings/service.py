@@ -3,8 +3,9 @@ from sqlalchemy import select, func, update, delete
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from settings.models import Company, ServiceFeeTemplate, Salesperson, RateType, Branch
-from settings.schemas import CompanyUpdate, ServiceFeeTemplateCreate, SalespersonCreate, CategoryCreate, BranchCreate, RateTypeCreate
+from sqlalchemy.orm import selectinload
+from settings.models import Company, FeePresetGroup, ServiceFeeTemplate, Salesperson, RateType, Branch
+from settings.schemas import CompanyUpdate, FeePresetGroupCreate, ServiceFeeTemplateCreate, SalespersonCreate, CategoryCreate, BranchCreate, RateTypeCreate
 from categories.models import Category
 from shared.exceptions import not_found, conflict
 
@@ -99,6 +100,86 @@ class SettingsService:
             await db.execute(
                 update(ServiceFeeTemplate).where(ServiceFeeTemplate.id == tid).values(sort_order=i)
             )
+        await db.commit()
+
+    async def list_fee_preset_groups(self, db: AsyncSession):
+        result = await db.execute(
+            select(FeePresetGroup)
+            .options(selectinload(FeePresetGroup.templates))
+            .order_by(FeePresetGroup.contract_type, FeePresetGroup.sort_order)
+        )
+        return result.scalars().all()
+
+    async def get_fee_preset_group(self, db: AsyncSession, preset_id: int) -> FeePresetGroup:
+        result = await db.execute(
+            select(FeePresetGroup)
+            .options(selectinload(FeePresetGroup.templates))
+            .where(FeePresetGroup.id == preset_id)
+        )
+        grp = result.scalar_one_or_none()
+        if not grp:
+            raise not_found("Zestaw usług")
+        return grp
+
+    async def create_fee_preset_group(self, db: AsyncSession, data: FeePresetGroupCreate) -> FeePresetGroup:
+        max_order = await db.execute(
+            select(func.max(FeePresetGroup.sort_order))
+            .where(FeePresetGroup.contract_type == data.contract_type)
+        )
+        next_order = (max_order.scalar_one_or_none() or 0) + 1
+        grp = FeePresetGroup(**data.model_dump(), company_id=1, sort_order=next_order)
+        db.add(grp)
+        await db.commit()
+        await db.refresh(grp)
+        return await self.get_fee_preset_group(db, grp.id)
+
+    async def update_fee_preset_group(self, db: AsyncSession, preset_id: int, data: FeePresetGroupCreate) -> FeePresetGroup:
+        grp = await self.get_fee_preset_group(db, preset_id)
+        for field, value in data.model_dump().items():
+            setattr(grp, field, value)
+        await db.commit()
+        return await self.get_fee_preset_group(db, preset_id)
+
+    async def delete_fee_preset_group(self, db: AsyncSession, preset_id: int):
+        await db.execute(delete(FeePresetGroup).where(FeePresetGroup.id == preset_id))
+        await db.commit()
+
+    async def add_template_to_preset(self, db: AsyncSession, preset_id: int, data: ServiceFeeTemplateCreate) -> ServiceFeeTemplate:
+        grp = await self.get_fee_preset_group(db, preset_id)
+        max_order = await db.execute(
+            select(func.max(ServiceFeeTemplate.sort_order)).where(ServiceFeeTemplate.preset_id == preset_id)
+        )
+        next_order = (max_order.scalar_one_or_none() or 0) + 1
+        t = ServiceFeeTemplate(
+            company_id=1,
+            preset_id=preset_id,
+            contract_type=grp.contract_type,
+            sort_order=next_order,
+            name=data.name,
+            amount_from=data.amount_from,
+            amount_to=data.amount_to,
+            unit=data.unit,
+            description=data.description,
+            is_active=data.is_active,
+        )
+        db.add(t)
+        await db.commit()
+        await db.refresh(t)
+        return t
+
+    async def update_preset_template(self, db: AsyncSession, template_id: int, data: ServiceFeeTemplateCreate) -> ServiceFeeTemplate:
+        result = await db.execute(select(ServiceFeeTemplate).where(ServiceFeeTemplate.id == template_id))
+        t = result.scalar_one_or_none()
+        if not t:
+            raise not_found("Szablon")
+        for field in ("name", "amount_from", "amount_to", "unit", "description", "is_active"):
+            setattr(t, field, getattr(data, field))
+        await db.commit()
+        await db.refresh(t)
+        return t
+
+    async def delete_preset_template(self, db: AsyncSession, template_id: int):
+        await db.execute(delete(ServiceFeeTemplate).where(ServiceFeeTemplate.id == template_id))
         await db.commit()
 
     async def list_salespeople(self, db: AsyncSession):

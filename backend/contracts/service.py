@@ -44,6 +44,38 @@ async def copy_fee_templates(db: AsyncSession, contract_id: int, contract_type: 
     await db.commit()
 
 
+async def apply_preset_to_contract(db: AsyncSession, contract_id: int, preset_id: int, replace: bool = True):
+    from settings.models import FeePresetGroup, ServiceFeeTemplate
+    result = await db.execute(
+        select(FeePresetGroup).where(FeePresetGroup.id == preset_id)
+    )
+    grp = result.scalar_one_or_none()
+    if not grp:
+        from shared.exceptions import not_found
+        raise not_found("Zestaw usług")
+    if replace:
+        await db.execute(delete(ContractServiceFee).where(ContractServiceFee.contract_id == contract_id))
+        await db.flush()
+    templates = await db.execute(
+        select(ServiceFeeTemplate)
+        .where(ServiceFeeTemplate.preset_id == preset_id)
+        .where(ServiceFeeTemplate.is_active == True)
+        .order_by(ServiceFeeTemplate.sort_order)
+    )
+    for t in templates.scalars():
+        db.add(ContractServiceFee(
+            contract_id=contract_id,
+            sort_order=t.sort_order,
+            name=t.name,
+            amount_from=t.amount_from,
+            amount_to=t.amount_to,
+            unit=t.unit,
+            description=t.description,
+            is_active=t.is_active,
+        ))
+    await db.commit()
+
+
 class ContractService:
     async def list_contracts(
         self, db: AsyncSession,

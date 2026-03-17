@@ -43,6 +43,7 @@ class CompanyUpdate(BaseModel):
 
 class ServiceFeeTemplateResponse(BaseModel):
     id: int
+    preset_id: int | None
     contract_type: str
     sort_order: int
     name: str
@@ -58,6 +59,7 @@ class ServiceFeeTemplateResponse(BaseModel):
 
 class ServiceFeeTemplateCreate(BaseModel):
     contract_type: Literal["S", "U"]
+    preset_id: int | None = None
     name: str = Field(..., max_length=200)
     amount_from: Decimal | None = None
     amount_to: Decimal | None = None
@@ -68,6 +70,26 @@ class ServiceFeeTemplateCreate(BaseModel):
 
 class ServiceFeeTemplateReorder(BaseModel):
     ids: list[int]
+
+
+class FeePresetGroupCreate(BaseModel):
+    name: str = Field(..., max_length=200)
+    contract_type: Literal["S", "U"]
+    description: str | None = Field(None, max_length=400)
+    is_default: bool = False
+
+
+class FeePresetGroupResponse(BaseModel):
+    id: int
+    name: str
+    contract_type: str
+    description: str | None
+    is_default: bool
+    sort_order: int
+    templates: list[ServiceFeeTemplateResponse] = []
+
+    class Config:
+        from_attributes = True
 
 
 class SalespersonResponse(BaseModel):

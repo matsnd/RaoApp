@@ -10,12 +10,43 @@ from settings.router import router as settings_router
 from reports.router import router as reports_router
 from integrations.router import router as integrations_router
 from stats.router import router as stats_router
+from database import engine, Base
 
 app = FastAPI(
     title="RAO API",
     description="RAO - Wynajem maszyn budowlanych",
     version="1.0.0",
 )
+
+
+@app.on_event("startup")
+async def startup_migrations():
+    import sqlalchemy as sa
+    from database import AsyncSessionLocal
+    from settings.models import FeePresetGroup, ServiceFeeTemplate
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+        await conn.execute(sa.text(
+            "ALTER TABLE service_fee_templates ADD COLUMN IF NOT EXISTS "
+            "preset_id INT NULL REFERENCES fee_preset_groups(id) ON DELETE CASCADE"
+        ))
+
+    async with AsyncSessionLocal() as db:
+        from sqlalchemy import select, update, func
+        has_presets = (await db.execute(select(func.count()).select_from(FeePresetGroup))).scalar_one()
+        if has_presets == 0:
+            for ct, label in (("S", "Domyślny — najem"), ("U", "Domyślny — usługa")):
+                grp = FeePresetGroup(company_id=1, name=label, contract_type=ct, is_default=True, sort_order=0)
+                db.add(grp)
+                await db.flush()
+                await db.execute(
+                    update(ServiceFeeTemplate)
+                    .where(ServiceFeeTemplate.contract_type == ct)
+                    .where(ServiceFeeTemplate.preset_id == None)
+                    .values(preset_id=grp.id)
+                )
+            await db.commit()
 
 app.add_middleware(
     CORSMiddleware,
