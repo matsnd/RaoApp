@@ -22,11 +22,11 @@
   /* TOP SECTIONS */
   table.top { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
   .top-left { width: 40%; vertical-align: top; padding: 0 10px 0 0; }
-  .top-left-inner { border: 1px solid #aaa; padding: 10px 8px; font-size: 10px; line-height: 1.4; min-height: 80px; }
+  .top-left-inner { border: 1px solid #aaa; padding: 10px 8px; font-size: 10px; line-height: 1.4; min-height: 80px; color: #1D2B53; }
   .box-label { font-size: 8px; color: #888; margin-bottom: 2px; }
   .top-right { vertical-align: middle; padding-left: 10px; text-align: center; }
-  .pzo-title { font-size: 20px; font-weight: bold; margin-bottom: 8px; margin-top: -6px; }
-  .pzo-sub { font-size: 11.5px; line-height: 1.6; }
+  .pzo-title { font-size: 20px; font-weight: bold; margin-bottom: 8px; margin-top: -6px; color: #E07800; }
+  .pzo-sub { font-size: 11.5px; line-height: 1.6; color: #E07800; }
   
   table.boxes { width: 100%; border-collapse: collapse; margin-bottom: 12px; table-layout: fixed; }
   .box-cell { width: 50%; vertical-align: top; }
@@ -37,6 +37,7 @@
   table.pos th { font-size: 9px; color: #555; padding: 4px 5px; border-bottom: 1px solid #aaa; font-weight: normal; text-align: center; }
   table.pos td { padding: 5px 5px; border-bottom: 1px solid #ddd; vertical-align: top; text-align: center; }
   table.pos th:nth-child(2), table.pos td:nth-child(2) { text-align: left; }
+  .art-name { color: #1D2B53; font-weight: bold; }
   
   /* TEXT */
   .fuel-line { font-size: 9.5px; margin: 6px 0 8px; }
@@ -119,6 +120,7 @@
       <td class="box-cell" style="padding-right: 5px; width: 50%;">
         <div class="box-inner">
           <div class="box-label">osoba upoważniona do odbioru przedmiotu najmu</div>
+          {% if contract.contact_person1 %}{{ contract.contact_person1 }}{% if contract.contact_phone1 %}, tel. {{ contract.contact_phone1 }}{% endif %}{% endif %}
         </div>
       </td>
       <td class="box-cell" style="padding-left: 5px; width: 50%;">
@@ -146,7 +148,7 @@
     {% for p in positions %}
     <tr>
       <td>{{ loop.index }}</td>
-      <td>{{ p.pos.article_name or '' }}</td>
+      <td><span class="art-name">{{ p.pos.article_name or '' }}</span></td>
       <td>{{ p.serial_no or '' }}</td>
       <td>{{ p.pos.delivery_date | datepl }}</td>
       <td style="text-align:right;">{% if p.replacement_value %}{{ p.replacement_value | money_plain }}{% endif %}</td>

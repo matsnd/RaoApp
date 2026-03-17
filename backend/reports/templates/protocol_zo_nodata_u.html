@@ -1,3 +1,4 @@
+<<<<<<< C:/projects/repos/RaoApp/backend/reports/templates/protocol_zo_nodata_u.html
 <!DOCTYPE html>
 <html lang="pl">
 <head>
@@ -168,3 +169,169 @@
 
 </body>
 </html>
+=======
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: 10px; color: #000; width: 210mm; height: 296mm; }
+  body { display: flex; flex-direction: column; }
+
+  /* HEADER */
+  table.hdr { width: 100%; background: #1D2B53; color: #fff; border-collapse: collapse; flex-shrink: 0; }
+  .hdr-left { width: 33%; padding: 10px 10px 10px 14mm; font-size: 8px; line-height: 1.6; vertical-align: middle; }
+  .hdr-center { width: 34%; text-align: center; vertical-align: middle; padding: 8px; }
+  .hdr-logo { font-size: 22px; font-weight: bold; letter-spacing: 2px; line-height: 1.1; }
+  .hdr-slogan { font-size: 7.5px; letter-spacing: 3px; margin-top: 2px; }
+  .hdr-right { width: 33%; text-align: right; padding: 10px 14mm 10px 10px; font-size: 8px; line-height: 1.6; vertical-align: middle; }
+
+  /* CONTENT */
+  .content { flex: 1; display: flex; flex-direction: column; padding: 14px 14mm 10px 14mm; }
+
+  /* TITLE centered at top */
+  .pzo-title { font-size: 18px; font-weight: bold; text-align: center; margin: 0 0 4px; color: #E07800; }
+  .pzo-sub { font-size: 10px; text-align: center; line-height: 1.7; color: #E07800; margin-bottom: 10px; }
+
+  /* BOXES */
+  .box-label { font-size: 8px; color: #888; margin-bottom: 2px; }
+  table.boxes { width: 100%; border-collapse: collapse; margin-bottom: 8px; table-layout: fixed; }
+  .box-cell { width: 50%; vertical-align: top; }
+  .box-inner { border: 1px solid #aaa; padding: 6px 8px; font-size: 10px; line-height: 1.4; min-height: 50px; }
+
+  /* WORKLOG PER POSITION */
+  .pos-section { margin-bottom: 6px; }
+  table.pos-header { width: 100%; border-collapse: collapse; margin-bottom: 0; }
+  table.pos-header td { padding: 3px 5px; border: 1px solid #aaa; vertical-align: middle; font-size: 9px; }
+  .pos-num { width: 20px; text-align: center; color: #555; border-right: none; }
+  .art-name { color: #1D2B53; font-weight: bold; }
+  .pos-zone { width: 60px; text-align: center; color: #555; }
+
+  table.worklog { width: 100%; border-collapse: collapse; font-size: 9px; }
+  table.worklog th { background: #f5f5f5; color: #555; font-weight: normal; padding: 3px 5px; border: 1px solid #aaa; text-align: center; font-size: 8.5px; }
+  table.worklog td { border: 1px solid #ddd; padding: 0; height: 16px; }
+  .wl-date { width: 28%; }
+  .wl-od { width: 12%; }
+  .wl-do { width: 12%; }
+  .wl-sig { width: 36%; }
+  .wl-zone { width: 12%; }
+
+  /* UWAGI */
+  .uwagi-label { font-size: 8px; color: #888; margin: 8px 0 2px; }
+  .uwagi-box { border: 1px solid #aaa; padding: 5px 8px; font-size: 9px; min-height: 40px; }
+
+  /* SIGNATURES */
+  table.sigs { width: 100%; border-collapse: collapse; margin-top: 20px; }
+  table.sigs td { text-align: center; width: 50%; font-size: 10px; vertical-align: bottom; }
+  .sig-line { border-top: 1px solid #000; display: inline-block; width: 220px; padding-top: 3px; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<table class="hdr">
+  <tr>
+    <td class="hdr-left">toolsmart.pl<br>+48 888 992 015<br>biuro@toolsmart.pl</td>
+    <td class="hdr-center">
+      <div class="hdr-logo">TOOLSMART</div>
+      <div class="hdr-slogan">WYNAJEM MASZYN BUDOWLANYCH</div>
+    </td>
+    <td class="hdr-right">{{ company.name if company else 'TOOLSMART Sp. z o.o.' }}<br>ul. {{ company.street if company else 'Kłobucka 6B/103' }},<br>{{ (company.postal_code + ' ' + company.city) if company else '02-699 Warszawa' }}<br>NIP {{ company.nip if company else '9512598092' }}</td>
+  </tr>
+</table>
+
+<div class="content">
+
+  <!-- TITLE centered at top (no NAJEMCA box) -->
+  <div class="pzo-title">PROTOKÓŁ WYKONANIA USŁUGI</div>
+  <div class="pzo-sub">
+    do umowy nr {{ contract.number }}<br>
+    zawartej w dniu {{ contract.date_from | datepl }}<br>
+    {% if contract.date_to %}termin wykonania usługi {{ contract.date_to | datepl }}{% endif %}
+  </div>
+
+  <!-- BOXES: osoba upoważniona | miejsce -->
+  <table class="boxes">
+    <tr>
+      <td class="box-cell" style="padding-right: 5px;">
+        <div class="box-inner">
+          <div class="box-label">osoba upoważniona do odbioru przedmiotu najmu</div>
+          {% if contract.contact_person1 %}{{ contract.contact_person1 }}{% if contract.contact_phone1 %}, tel. {{ contract.contact_phone1 }}{% endif %}{% endif %}
+        </div>
+      </td>
+      <td class="box-cell" style="padding-left: 5px;">
+        <div class="box-inner">
+          <div class="box-label">miejsce dostawy i odbioru przedmiotu najmu</div>
+          {% if contract.delivery_address %}{{ contract.delivery_address }}<br>{% endif %}
+          {% if contract.phone %}telefon: {{ contract.phone }}{% endif %}
+        </div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- PER-POSITION WORK LOG -->
+  {% for p in positions %}
+  <div class="pos-section">
+    <table class="pos-header">
+      <tr>
+        <td class="pos-num">{{ loop.index }}</td>
+        <td style="padding: 3px 5px; border: 1px solid #aaa; vertical-align: middle; font-size: 9px;">
+          <span style="font-size:8px;color:#888;">przedmiot najmu</span>&nbsp;&nbsp;
+          <span class="art-name">{{ p.pos.article_name or '' }}</span>
+        </td>
+        <td class="pos-zone"><span style="font-size:8px;color:#888;">zane</span></td>
+      </tr>
+    </table>
+    <table class="worklog">
+      <thead>
+        <tr>
+          <th class="wl-date">Data wykonania usługi</th>
+          <th class="wl-od">od</th>
+          <th class="wl-do">do</th>
+          <th class="wl-sig">podpis osoby upoważnionej</th>
+          <th class="wl-zone">zane</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="wl-date"></td><td class="wl-od"></td><td class="wl-do"></td><td class="wl-sig"></td><td class="wl-zone"></td></tr>
+        <tr><td class="wl-date"></td><td class="wl-od"></td><td class="wl-do"></td><td class="wl-sig"></td><td class="wl-zone"></td></tr>
+        <tr><td class="wl-date"></td><td class="wl-od"></td><td class="wl-do"></td><td class="wl-sig"></td><td class="wl-zone"></td></tr>
+        <tr><td class="wl-date"></td><td class="wl-od"></td><td class="wl-do"></td><td class="wl-sig"></td><td class="wl-zone"></td></tr>
+        <tr><td class="wl-date"></td><td class="wl-od"></td><td class="wl-do"></td><td class="wl-sig"></td><td class="wl-zone"></td></tr>
+        <tr><td class="wl-date"></td><td class="wl-od"></td><td class="wl-do"></td><td class="wl-sig"></td><td class="wl-zone"></td></tr>
+        <tr><td class="wl-date"></td><td class="wl-od"></td><td class="wl-do"></td><td class="wl-sig"></td><td class="wl-zone"></td></tr>
+        <tr><td class="wl-date"></td><td class="wl-od"></td><td class="wl-do"></td><td class="wl-sig"></td><td class="wl-zone"></td></tr>
+      </tbody>
+    </table>
+  </div>
+  {% endfor %}
+
+  <!-- UWAGI -->
+  <div class="uwagi-label">uwagi</div>
+  <div class="uwagi-box">{{ contract.notes or '' }}</div>
+
+  <!-- SIGNATURES -->
+  <table class="sigs">
+    <tr>
+      <td>
+        <div style="text-align:center; margin-bottom: 16px; font-size: 10px; line-height: 1.3; color: #000;">
+          <strong>{{ company.name if company else 'TOOLSMART Sp. z o.o.' }}</strong><br>
+          ul. {{ company.street if company else 'Kłobucka 6B/103' }}, {{ (company.postal_code + ' ' + company.city) if company else '02-699 Warszawa' }}<br>
+          NIP {{ company.nip if company else '9512598092' }}, Regon 528847124<br>
+          KRS 0001109942
+        </div>
+        <div class="sig-line">czytelny podpis Wykonawcy</div>
+      </td>
+      <td style="padding-top:40px; vertical-align: bottom;">
+        <div class="sig-line">czytelny podpis Zleceniodawcy</div>
+      </td>
+    </tr>
+  </table>
+
+</div><!-- /content -->
+
+</body>
+</html>
+>>>>>>> C:/Users/mateu/.windsurf/worktrees/RaoApp/RaoApp-d430aa87/backend/reports/templates/protocol_zo_nodata_u.html
