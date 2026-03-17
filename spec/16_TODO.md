@@ -1,3 +1,20 @@
+## Status wykonania zadań
+
+| # | Zadanie | Status | Commit | Uwagi |
+|---|---------|--------|--------|-------|
+| 1 | Wywalić legacy szablony | ✅ Done | `879fb45` | Usunięto tab + 6 endpointów `/service-fee-templates` |
+| 2 | Naprawić generowanie raportów PDF | ✅ Done | `0cb3d13` | Playwright + Chromium zainstalowane |
+| 3 | PDF parity ze starą aplikacją | 🔄 W toku | `5ca337a` | Pre-fill kontaktów + handlowiec w stopce; wymaga dalszego dopracowania layoutu |
+| 4 | Raporty dla pracownika | ⏳ Pending | — | — |
+| 5 | Mapowanie usług dodatkowych ze starej bazy | ⏳ Pending | — | — |
+| 6 | Ponowna migracja ze starej bazy | ⏳ Pending | — | — |
+| 7 | Plan testowania aplikacji | ⏳ Pending | — | — |
+| 8 | System prowizji dla handlowców | ⏳ Pending | — | — |
+| 9 | Przemyśl GUI/UX z całą ekipą | ⏳ Pending | — | — |
+| 10 | Wydruki dla wszystkich raportów i statystyk | ⏳ Pending | — | — |
+
+---
+
 1. Wywalić legacy szablony
 2. Naprawic generowanie raportów PDF nie działa po kliknięciu
 3. Product owner ma docisnąc zespół, żeby PDF wyglądały dokłądnie tak samo jak w starej aplikacji
@@ -7,3 +24,5 @@
 7. Zastanów się jaki masz pomysł na testowanie tej aplikacji 
 8. Zaproponuj jakiś system obliczenia prowizji dla handlowców
 9. Przemyśl ekipą jak lepiej by to można było rozłożyć w GUI, UIX designer niech się wykaże i doagadajcie sie z product ownerem i cała ekipą
+10. Utwórz wydruki dla wszystkich raportów i statystyk jeśli brakuje w najlepiej rozmyślony sposób przez ekipę
+11. Sprawdź czy czegoś nie brakuje w migracji na tym etapie aplikacji

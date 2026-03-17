@@ -1,4 +1,3 @@
-<<<<<<< C:/projects/repos/RaoApp/backend/reports/templates/contract_u.html
 <!DOCTYPE html>
 <html lang="pl">
 <head>
@@ -32,7 +31,10 @@
 
   /* UZUPELNIJ */
   .uz-wrap { border: 1px solid #aaa; margin-bottom: 8px; }
-  .uz-label { color: #c00000; font-size: 10px; padding: 5px 8px 0 8px; }
+  .uz-label { color: #E07800; font-size: 9px; padding: 5px 8px 0 8px; }
+  /* FOOTER LEGAL */
+  .footer-legal { font-size: 8px; line-height: 1.4; margin-top: 10px; }
+  .footer-legal strong { font-size: 8.5px; }
   table.uz { width: 100%; border-collapse: collapse; padding: 0 8px 4px 8px; }
   table.uz td { font-size: 9px; padding: 2px 4px; vertical-align: bottom; }
   .fill { background: #ffff99; border-bottom: 2px dotted #c00000; height: 20px; min-width: 140px; padding: 2px 4px; font-size: 10px; }
@@ -220,6 +222,12 @@
   </tr>
 </table>
 
+<!-- FOOTER LEGAL -->
+<div class="footer-legal">
+  <strong>*ceny podane na umowie są cenami netto</strong><br>
+  Niniejszym zobowiązuje się do zabezpieczenia Przedmiotów Najmu przed kradzieżą i zniszczeniem przez cały okres trwania Umowy Najmu. W przypadku zniszczenia, zaginięcia lub uszkodzenia Przedmiotu Najmu, zobowiązuje się ponieść pełną odpowiedzialność materialną. Pokwitowanie niniejszej Umowy Najmu jest jednoznaczne z oświadczeniem o zapoznaniu się z Ogólnymi Warunkami Umowy Najmu (dalej: OWN) oraz ich akceptacją. OWN jest integralną częścią Umowy Najmu.
+</div>
+
 <!-- SIGNATURES -->
 <table class="sigs">
   <tr>
@@ -241,7 +249,7 @@
 
 </div><!-- /content -->
 
-<!-- OWN -->
+<!--
 <div class="own-page">
   <div class="own-title">OGÓLNE WARUNKI UMOWY</div>
   <div class="own-cols">
@@ -300,301 +308,8 @@
       <div style="text-align:center;margin-top:60px;"><div class="own-sig-line">Czytelny podpis Zleceniodawcy</div></div>
     </div>
   </div>
-</div><!-- /own-page -->
+</div>
+-->
 
 </body>
 </html>
-=======
-<!DOCTYPE html>
-<html lang="pl">
-<head>
-<meta charset="UTF-8">
-<style>
-  @page { size: A4; }
-  * { box-sizing: border-box; }
-  body { margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: 10px; color: #000; }
-
-  /* HEADER */
-  table.hdr { width: 100%; background: #1D2B53; color: #fff; border-collapse: collapse; }
-  .hdr-left { width: 28%; padding: 10px 10px 10px 14mm; font-size: 8px; line-height: 1.6; vertical-align: middle; }
-  .hdr-center { text-align: center; vertical-align: middle; padding: 8px; }
-  .hdr-logo { font-size: 22px; font-weight: bold; letter-spacing: 2px; line-height: 1.1; }
-  .hdr-slogan { font-size: 7.5px; letter-spacing: 3px; margin-top: 2px; }
-  .hdr-right { width: 28%; text-align: right; padding: 10px 14mm 10px 10px; font-size: 8px; line-height: 1.6; vertical-align: middle; }
-
-  /* CONTENT */
-  .content { padding: 8px 14mm 8px 14mm; }
-
-  /* TITLE */
-  .doc-title { font-size: 16px; text-align: center; margin: 14px 0 2px; font-weight: normal; color: #E07800; }
-  .doc-sub { font-size: 10px; text-align: center; margin-bottom: 16px; color: #E07800; }
-
-  /* PARTIES */
-  table.parties { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
-  .party-box { width: 46%; vertical-align: top; padding: 0 10px 0 0; }
-  .party-box-inner { border: 1px solid #aaa; padding: 5px 8px; font-size: 9px; line-height: 1.5; }
-  .party-label { font-size: 8px; color: #888; }
-  .party-data { color: #1D2B53; font-size: 9px; }
-  .info-col { vertical-align: top; padding-left: 4px; font-size: 9.5px; line-height: 1.8; color: #E07800; }
-
-  /* UZUPELNIJ */
-  .uz-wrap { border: 1px solid #aaa; margin-bottom: 6px; padding: 4px 8px 4px 8px; }
-  .uz-label { font-size: 8px; color: #888; margin-bottom: 3px; }
-  table.uz { width: 100%; border-collapse: collapse; }
-  table.uz td { font-size: 9px; padding: 1px 3px; vertical-align: bottom; white-space: nowrap; }
-  .fill { background: #ffff99; border-bottom: 1px solid #aaa; height: 18px; min-width: 120px; padding: 1px 3px; font-size: 9px; width: 100%; }
-  .fill-wide { background: #ffff99; border-bottom: 1px solid #aaa; height: 18px; padding: 1px 3px; font-size: 9px; width: 100%; }
-
-  /* LEGAL ITALIC */
-  .legal-italic { font-size: 8.5px; font-style: italic; line-height: 1.4; margin: 4px 0 6px; }
-
-  /* POSITIONS TABLE */
-  table.pos { width: 100%; border-collapse: collapse; font-size: 9px; margin: 4px 0 6px; }
-  table.pos th { font-size: 8.5px; color: #555; padding: 3px 5px; border-bottom: 1px solid #aaa; font-weight: normal; }
-  table.pos td { padding: 4px 5px; border-bottom: 1px solid #ddd; vertical-align: top; }
-  .art-name { color: #1D2B53; font-weight: bold; }
-  .cond { white-space: pre-line; font-size: 9px; }
-
-  /* INNE USŁUGI */
-  table.inne { width: 100%; border-collapse: collapse; margin-top: 6px; }
-  .inne-left { width: 58%; vertical-align: top; padding-right: 8px; font-size: 8.5px; }
-  .inne-right { width: 42%; vertical-align: top; padding-left: 8px; font-size: 8.5px; }
-  .inne-label { font-size: 8px; color: #888; margin-bottom: 2px; }
-  .inne-item { margin-bottom: 1px; }
-  .inne-box { border: 1px solid #aaa; padding: 5px 8px; font-size: 9px; line-height: 1.45; min-height: 50px; }
-
-  /* SIGNATURES */
-  table.sigs { width: 100%; border-collapse: collapse; margin-top: 30px; }
-  table.sigs td { text-align: center; width: 50%; font-size: 10px; vertical-align: bottom; }
-  .sig-line { border-top: 1px solid #000; display: inline-block; width: 220px; padding-top: 3px; }
-
-  /* OWN */
-  .own-page { page-break-before: always; font-size: 8.5px; line-height: 1.45; padding: 10px 14mm; }
-  .own-title { font-size: 13px; font-weight: bold; text-align: center; margin-bottom: 6px; }
-  .own-par { font-size: 10px; font-weight: bold; text-align: center; margin: 8px 0 1px; }
-  .own-sub { font-weight: bold; text-align: center; font-size: 9px; margin: 0 0 5px; }
-  .own-cols { column-count: 2; column-gap: 14px; }
-  p.ot { margin: 0 0 4px; text-align: justify; }
-  .own-sig-row { margin-top: 16px; overflow: hidden; clear: both; }
-  .own-sig-cell { float: left; width: 50%; text-align: center; }
-  .own-sig-line { display: inline-block; border-top: 1px solid #000; width: 180px; padding-top: 3px; font-size: 8px; }
-</style>
-</head>
-<body>
-
-<!-- HEADER -->
-<table class="hdr">
-  <tr>
-    <td class="hdr-left">toolsmart.pl<br>+48 888 992 015<br>biuro@toolsmart.pl</td>
-    <td class="hdr-center">
-      <div class="hdr-logo">TOOLSMART</div>
-      <div class="hdr-slogan">WYNAJEM MASZYN BUDOWLANYCH</div>
-    </td>
-    <td class="hdr-right">{{ company.name if company else 'TOOLSMART Sp. z o.o.' }}<br>ul. {{ company.street if company else 'Kłobucka 6B/103' }},<br>{{ (company.postal_code + ' ' + company.city) if company else '02-699 Warszawa' }}<br>NIP {{ company.nip if company else '9512598092' }}</td>
-  </tr>
-</table>
-
-<div class="content">
-
-<!-- TITLE -->
-<div class="doc-title">Umowa usługi nr: {{ contract.number }}</div>
-<div class="doc-sub">Zawarta w dniu: {{ contract.date_from | datepl }}</div>
-
-<!-- PARTIES -->
-<table class="parties">
-  <tr>
-    <td class="party-box">
-      <div class="party-box-inner">
-        <div class="party-label">wykonawca</div>
-        <div class="party-data">
-          <strong>{% if company %}{{ company.name }}{% else %}TOOLSMART Sp. z o.o.{% endif %}</strong><br>
-          {% if company %}ul. {{ company.street }}, {{ company.postal_code }} {{ company.city }}<br>
-          NIP: {{ company.nip }}{% endif %}
-        </div>
-      </div>
-    </td>
-    <td class="info-col" style="vertical-align:top;padding-top:6px;">
-      {% if contract.date_to %}Termin prac: {{ contract.date_from | datepl }} - {{ contract.date_to | datepl }}<br>{% endif %}
-      {% if contract.prepayment_amount and contract.prepayment_amount > 0 %}Przedpłata: {{ contract.prepayment_amount | money }}<br>{% endif %}
-    </td>
-  </tr>
-  <tr>
-    <td class="party-box" style="padding-top:4px;">
-      <div class="party-box-inner">
-        <div class="party-label">najemca</div>
-        <div class="party-data">
-          <strong>{{ contractor.name if contractor else (contract.contractor_name or '') }}</strong><br>
-          {% if contractor %}{% if contractor.street or contractor.postal_code or contractor.city %}ul. {{ contractor.street or '' }}, {{ contractor.postal_code or '' }} {{ contractor.city or '' }}<br>
-          {% endif %}NIP: {{ contractor.nip or '' }}{% endif %}
-        </div>
-      </div>
-    </td>
-    <td class="info-col" style="vertical-align:top;padding-top:6px;">
-      {% if contract.delivery_address %}Adres dostawy: {{ contract.delivery_address }}{% endif %}
-    </td>
-  </tr>
-</table>
-
-<!-- UZUPELNIJ -->
-<div class="uz-wrap">
-  <div class="uz-label">uzupełnij</div>
-  <table class="uz">
-    <tr>
-      <td style="width:130px;">reprezentowany przez:</td>
-      <td><div class="fill"></div></td>
-      <td style="width:50px;padding-left:8px;">nr tel:</td>
-      <td style="width:160px;"><div class="fill"></div></td>
-    </tr>
-    <tr>
-      <td>osoba kontaktowa:</td>
-      <td><div class="fill"></div></td>
-      <td style="padding-left:8px;">nr tel:</td>
-      <td><div class="fill"></div></td>
-    </tr>
-    <tr>
-      <td>na budowie:</td>
-      <td colspan="3"><div class="fill-wide"></div></td>
-    </tr>
-    <tr>
-      <td>email do przesłania faktury:</td>
-      <td colspan="3"><div class="fill-wide"></div></td>
-    </tr>
-  </table>
-</div>
-
-<div class="legal-italic">
-  Pokwitowanie niniejszej Umowy jest jednoznaczne z zapoznaniem się z Ogólnymi Warunkami Umowy (dalej: OWN) oraz ich akceptacją.
-</div>
-
-<!-- POSITIONS -->
-{% if positions %}
-<table class="pos">
-  <thead>
-    <tr>
-      <th style="width:18px;text-align:center;"></th>
-      <th style="text-align:left;">Usługa</th>
-      <th style="width:80px;text-align:center;">Ilość</th>
-      <th style="text-align:left;">Rozliczenie</th>
-    </tr>
-  </thead>
-  <tbody>
-  {% for p in positions %}
-  <tr>
-    <td style="text-align:center;">{{ loop.index }}</td>
-    <td><span class="art-name">{{ p.pos.article_name or '' }}</span></td>
-    <td style="text-align:center;">{{ p.pos.quantity or 1 }}</td>
-    <td><div class="cond">{{ p.conditions_text }}</div></td>
-  </tr>
-  {% endfor %}
-  </tbody>
-</table>
-{% endif %}
-
-<!-- INNE USŁUGI + UWAGI/WARTOŚĆ -->
-<table class="inne">
-  <tr>
-    <td class="inne-left">
-      {% if fees %}
-      <div class="inne-label">Inne usługi</div>
-      {% for f in fees %}{% if f.is_active %}
-      <div class="inne-item">- {{ f.name }}{% if f.description %} ({{ f.description }}){% endif %}: {% if f.amount_from %}{{ f.amount_from | money_plain }}{% endif %}{% if f.amount_to %} - {{ f.amount_to | money_plain }}{% endif %}{% if f.unit %} {{ f.unit }}{% endif %}</div>
-      {% endif %}{% endfor %}
-      {% endif %}
-    </td>
-    <td class="inne-right">
-      <div class="inne-box">
-        <div class="inne-label">Uwagi</div>
-        {{ contract.notes or '' }}
-        {% if contract.total_value %}
-        <div style="margin-top:8px;font-size:9px;"><strong>Wartość umowy: {{ contract.total_value | money }}</strong></div>
-        {% endif %}
-      </div>
-    </td>
-  </tr>
-</table>
-
-<!-- SIGNATURES -->
-<table class="sigs">
-  <tr>
-    <td>
-      <div style="text-align:center; margin-bottom: 18px; font-size: 10px; line-height: 1.3; font-weight: normal; color: #000;">
-        <strong>{{ company.name if company else 'TOOLSMART Sp. z o.o.' }}</strong><br>
-        ul. {{ company.street if company else 'Kłobucka 6B/103' }}, {{ (company.postal_code + ' ' + company.city) if company else '02-699 Warszawa' }}<br>
-        NIP {{ company.nip if company else '9512598092' }}, Regon 528847124<br>
-        KRS 0001109942
-      </div>
-      <div class="sig-line">czytelny podpis Wykonawcy</div>
-    </td>
-    <td style="padding-top:40px; vertical-align: bottom;">
-      {% if salesperson %}<div style="margin-bottom:6px;font-size:9px;">Handlowiec: <strong>{{ salesperson.name }}</strong>{% if salesperson.phone %}, tel. {{ salesperson.phone }}{% endif %}</div>{% endif %}
-      <div class="sig-line">czytelny podpis Zleceniodawcy</div>
-    </td>
-  </tr>
-</table>
-
-</div><!-- /content -->
-
-<!-- OWN -->
-<div class="own-page">
-  <div class="own-title">OGÓLNE WARUNKI UMOWY</div>
-  <div class="own-cols">
-    <div class="own-par">§ 1</div>
-    <div class="own-sub">Definicje</div>
-    <p class="ot"><strong>Ogólne Warunki Umowy (dalej „OWN")</strong> – niniejszy dokument stanowiący o warunkach świadczenia usług oferowanych przez Wykonawcę, z którego postanowieniami zobowiązany jest zapoznać się każdy Zleceniodawca i który stanowi integralną część Umowy.</p>
-    <p class="ot"><strong>Umowa</strong> – umowa zawarta pomiędzy Wykonawcą a Zleceniodawcą, na warunkach i zasadach w niej określonych, której integralną część stanowią OWN.</p>
-    <p class="ot"><strong>Wykonawca</strong> – {% if company %}{{ company.name }}, ul. {{ company.street }}, {{ company.postal_code }} {{ company.city }}, NIP: {{ company.nip }}{% else %}firma Toolsmart Sp. z o.o., ul. Kłobucka 6B/103, 02-699 Warszawa, NIP: 9512598092{% endif %}.</p>
-    <p class="ot"><strong>Zleceniodawca</strong> – osoba fizyczna, osoba prawna lub jednostka organizacyjna nieposiadająca osobowości prawnej, która zawarła z Wykonawcą Umowę.</p>
-
-    <div class="own-par">§ 2</div>
-    <div class="own-sub">Postanowienia ogólne</div>
-    <p class="ot">1. Niniejsze OWN określają warunki świadczenia usług przez Wykonawcę na rzecz przedsiębiorców i konsumentów.</p>
-    <p class="ot">2. OWN mają zastosowanie do usług oferowanych przez Wykonawcę.</p>
-    <p class="ot">3. Niniejsze OWN stanowią integralną część Umowy.</p>
-
-    <div class="own-par">§ 3</div>
-    <div class="own-sub">Wynagrodzenie oraz inne opłaty</div>
-    <p class="ot">1. Podstawą do rozliczeń finansowych są ceny netto. Do podanych cen doliczony zostanie podatek VAT.</p>
-    <p class="ot">2. Wynagrodzenie uiszczane będzie gotówką lub przelewem na konto w terminie wskazanym na fakturze / umowie.</p>
-    <p class="ot">3. Wykonawca zastrzega możliwość pobierania kaucji lub przedpłaty od Zleceniodawcy.</p>
-
-    <div class="own-par">§ 4</div>
-    <div class="own-sub">Prawa i obowiązki stron</div>
-    <p class="ot">1. Zleceniodawca zobowiązuje się do zapewnienia Wykonawcy dostępu do miejsca wykonania usługi.</p>
-    <p class="ot">2. Wykonawca zobowiązuje się do wykonania usługi z należytą starannością.</p>
-
-    <div class="own-par">§ 5</div>
-    <div class="own-sub">Odpowiedzialność</div>
-    <p class="ot">1. Wykonawca ponosi odpowiedzialność za szkody wyrządzone Zleceniodawcy w związku z wykonywaniem usługi.</p>
-    <p class="ot">2. Zleceniodawca ponosi odpowiedzialność za szkody wyrządzone Wykonawcy w związku z niewykonaniem swoich obowiązków.</p>
-
-    <div class="own-par">§ 6</div>
-    <div class="own-sub">Rozwiązanie umowy</div>
-    <p class="ot">1. Wykonawca może rozwiązać Umowę ze skutkiem natychmiastowym jeśli Zleceniodawca narusza postanowienia OWN lub Umowy.</p>
-
-    <div class="own-par">§ 7</div>
-    <div class="own-sub">Postanowienia końcowe</div>
-    <p class="ot">1. Administratorem danych jest Wykonawca – {% if company %}{{ company.name }}{% else %}Toolsmart Sp. z o.o.{% endif %}.</p>
-    <p class="ot">2. Dane osobowe Zleceniodawcy przetwarzane będą w oparciu o art. 6 RODO.</p>
-    <p class="ot">3. Do rozstrzygnięcia sporów jest właściwy sąd powszechny w Warszawie.</p>
-    <p class="ot">4. Zleceniodawca oświadcza, iż zapoznał się z niniejszymi OWN i akceptuje je w całości.</p>
-  </div><!-- /own-cols -->
-
-  <div class="own-sig-row">
-    <div class="own-sig-cell">
-      <div style="font-size:9px;margin-bottom:4px;text-align:center;">
-        {% if company %}<strong>{{ company.name }}</strong><br>
-        ul. {{ company.street }}, {{ company.postal_code }} {{ company.city }}<br>
-        NIP {{ company.nip }}, Regon 528847124<br>
-        KRS 0001109942{% endif %}
-      </div>
-      <div style="text-align:center;margin-top:20px;"><div class="own-sig-line">Czytelny podpis Wykonawcy</div></div>
-    </div>
-    <div class="own-sig-cell">
-      <div style="text-align:center;margin-top:60px;"><div class="own-sig-line">Czytelny podpis Zleceniodawcy</div></div>
-    </div>
-  </div>
-</div><!-- /own-page -->
-
-</body>
-</html>
->>>>>>> C:/Users/mateu/.windsurf/worktrees/RaoApp/RaoApp-d430aa87/backend/reports/templates/contract_u.html

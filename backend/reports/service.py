@@ -155,7 +155,7 @@ def _html_to_pdf_sync(html: str) -> bytes:
     now = datetime.datetime.now().strftime("%d.%m.%Y")
     
     footer_template = f"""<div style="font-size: 8px; color: #444; width: 100%; padding: 0 14mm; display: flex; justify-content: space-between; font-family: Arial;">
-      <span>{now}</span>
+      <span>Wydrukowano {now}</span>
       <span>Strona <span class="pageNumber"></span> z <span class="totalPages"></span></span>
     </div>"""
 

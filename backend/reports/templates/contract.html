@@ -19,8 +19,8 @@
   .content { padding: 8px 14mm 8px 14mm; }
 
   /* TITLE */
-  .doc-title { font-size: 16px; text-align: center; margin: 14px 0 2px; font-weight: normal; color: #E07800; }
-  .doc-sub { font-size: 10px; text-align: center; margin-bottom: 16px; color: #E07800; }
+  .doc-title { font-size: 16px; text-align: center; margin: 14px 0 2px; font-weight: normal; color: #1D2B53; }
+  .doc-sub { font-size: 10px; text-align: center; margin-bottom: 16px; color: #1D2B53; }
 
   /* PARTIES */
   table.parties { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
@@ -28,7 +28,7 @@
   .party-box-inner { border: 1px solid #aaa; padding: 5px 8px; font-size: 9px; line-height: 1.5; }
   .party-label { font-size: 8px; color: #888; }
   .party-data { color: #1D2B53; font-size: 9px; }
-  .info-col { vertical-align: top; padding-left: 4px; font-size: 9.5px; line-height: 1.8; color: #E07800; }
+  .info-col { vertical-align: top; padding-left: 4px; font-size: 9.5px; line-height: 1.8; color: #000; }
 
   /* UZUPELNIJ */
   .uz-wrap { border: 1px solid #aaa; margin-bottom: 6px; padding: 4px 8px 4px 8px; }
@@ -40,6 +40,10 @@
 
   /* LEGAL ITALIC */
   .legal-italic { font-size: 8.5px; font-style: italic; line-height: 1.4; margin: 4px 0 6px; }
+
+  /* FOOTER LEGAL */
+  .footer-legal { font-size: 8px; line-height: 1.4; margin-top: 10px; }
+  .footer-legal strong { font-size: 8.5px; }
 
   /* POSITIONS TABLE */
   table.pos { width: 100%; border-collapse: collapse; font-size: 9px; margin: 4px 0 6px; }
@@ -209,6 +213,12 @@
   </tr>
 </table>
 
+<!-- FOOTER LEGAL -->
+<div class="footer-legal">
+  <strong>*ceny podane na umowie są cenami netto</strong><br>
+  Niniejszym zobowiązuje się do zabezpieczenia Przedmiotów Najmu przed kradzieżą i zniszczeniem przez cały okres trwania Umowy Najmu. W przypadku zniszczenia, zaginięcia lub uszkodzenia Przedmiotu Najmu, zobowiązuje się ponieść pełną odpowiedzialność materialną mającą na celu przwrócenie całości utraconego sprzętu lub kosztów jego naprawy. Najemca wyraża zgodę na wystawienie faktury bez jego podpisu i skompensowanie kwoty zobowiązań za wynajem z kwotą przedpłaty. Najemca zobowiązuje się do pisemnego poinformowania wynajmującego o zwrocie maszyny budowlanej najpóźniej z jednodniowym wyprzedzeniem. Pokwitowanie niniejszej Umowy Najmu jest jednoznaczne z oświadczeniem o zapoznaniu się z Ogólnymi Warunkami Umowy Najmu (dalej: OWN) oraz ich akceptacją. OWN jest integralną częścią Umowy Najmu.
+</div>
+
 <!-- SIGNATURES -->
 <table class="sigs">
   <tr>
@@ -230,7 +240,8 @@
 
 </div><!-- /content -->
 
-<!-- OWN -->
+<!-- OWN - REMOVED, standalone document -->
+<!--
 <div class="own-page">
   <div class="own-title">OGÓLNE WARUNKI NAJMU</div>
   <div class="own-cols">
@@ -282,23 +293,9 @@
     <p class="ot">2. Dane osobowe Najemcy przetwarzane będą w oparciu o podstawy prawne wskazane w art. 6 RODO.</p>
     <p class="ot">3. Do rozstrzygnięcia sporów jest właściwy sąd powszechny w Warszawie.</p>
     <p class="ot">4. Najemca oświadcza, iż zapoznał się z niniejszymi OWN i akceptuje je w całości.</p>
-  </div><!-- /own-cols -->
-
-  <div class="own-sig-row">
-    <div class="own-sig-cell">
-      <div style="font-size:9px;margin-bottom:4px;text-align:center;">
-        {% if company %}<strong>{{ company.name }}</strong><br>
-        ul. {{ company.street }}, {{ company.postal_code }} {{ company.city }}<br>
-        NIP {{ company.nip }}, Regon 528847124<br>
-        KRS 0001109942{% endif %}
-      </div>
-      <div style="text-align:center;margin-top:20px;"><div class="own-sig-line">Czytelny podpis Wynajmującego</div></div>
-    </div>
-    <div class="own-sig-cell">
-      <div style="text-align:center;margin-top:60px;"><div class="own-sig-line">Czytelny podpis Najemcy</div></div>
-    </div>
   </div>
-</div><!-- /own-page -->
+-->
+<!-- END OWN -->
 
 </body>
 </html>
