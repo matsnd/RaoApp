@@ -53,6 +53,12 @@ export const useSettingsStore = defineStore('settings', () => {
     return data
   }
 
+  async function seedFeeTemplates(force = false) {
+    const { data } = await api.post(`/settings/service-fee-templates/seed?force=${force}`)
+    await fetchFeeTemplates()
+    return data
+  }
+
   async function fetchAll() {
     loading.value = true
     try {
@@ -71,6 +77,6 @@ export const useSettingsStore = defineStore('settings', () => {
   return {
     company, salespeople, categories, branches, rateTypes, feeTemplates, loading,
     fetchCompany, updateCompany, fetchSalespeople, fetchCategories,
-    fetchBranches, fetchRateTypes, fetchFeeTemplates, fetchAll,
+    fetchBranches, fetchRateTypes, fetchFeeTemplates, seedFeeTemplates, fetchAll,
   }
 })

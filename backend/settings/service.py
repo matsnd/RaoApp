@@ -28,6 +28,38 @@ class SettingsService:
         await db.refresh(company)
         return company
 
+    async def seed_fee_templates(self, db: AsyncSession, force: bool = False) -> int:
+        if not force:
+            existing = await db.execute(select(func.count()).select_from(ServiceFeeTemplate))
+            if existing.scalar_one() > 0:
+                return 0
+        DEFAULT_FEES = [
+            ("Transport",                                    400.00, 400.00,  "dostawa/odbiór", None),
+            ("Czyszczenie (zabrudzenia drobne)",             150.00, 400.00,  None,              None),
+            ("Czyszczenie (zabrudzenia trudnościeralne)",    400.00, 1500.00, None,              None),
+            ("Usługa tankowania",                            200.00, None,    None,              "plus koszt paliwa"),
+            ("Ponadnormatywny przestój transportu",          200.00, 300.00,  "h",               None),
+            ("Nieuzasadnione wezwanie serwisowe",            280.00, None,    None,              "plus transport"),
+        ]
+        from decimal import Decimal
+        count = 0
+        for contract_type in ("S", "U"):
+            for i, (name, amt_from, amt_to, unit, desc) in enumerate(DEFAULT_FEES):
+                db.add(ServiceFeeTemplate(
+                    company_id=1,
+                    contract_type=contract_type,
+                    sort_order=i,
+                    name=name,
+                    amount_from=Decimal(str(amt_from)) if amt_from else None,
+                    amount_to=Decimal(str(amt_to)) if amt_to else None,
+                    unit=unit,
+                    description=desc,
+                    is_active=True,
+                ))
+                count += 1
+        await db.commit()
+        return count
+
     async def list_fee_templates(self, db: AsyncSession):
         result = await db.execute(
             select(ServiceFeeTemplate)

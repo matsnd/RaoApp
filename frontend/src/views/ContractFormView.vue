@@ -213,30 +213,67 @@
 
         <!-- Service fees section -->
         <div v-if="isEdit" class="page-card">
-          <div style="display:flex;align-items:center;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;margin-bottom:8px;">
             <span class="section-title" style="margin:0;border:none;">Usługi dodatkowe</span>
+            <span style="font-size:11px;color:#718096;margin-left:12px;">Kliknij wiersz • Enter = zapisz • Esc = anuluj</span>
             <button class="btn btn-secondary btn-sm" style="margin-left:auto;margin-right:8px;" @click="resetServiceFees" title="Reset do szablonu">↻ Reset</button>
-            <button class="btn btn-primary btn-sm" @click="addServiceFee">+ Dodaj</button>
+            <button class="btn btn-primary btn-sm" @click="addFeeRow">+ Dodaj</button>
           </div>
           <table class="data-grid">
             <thead>
-              <tr><th>#</th><th>Nazwa</th><th>Kwota od</th><th>Kwota do</th><th>Jednostka</th><th>Opis</th><th>Aktywna</th><th style="width:80px;"></th></tr>
+              <tr>
+                <th style="width:26%;">Nazwa</th>
+                <th style="width:11%;">Kwota od</th>
+                <th style="width:11%;">Kwota do</th>
+                <th style="width:8%;">J.m.</th>
+                <th>Opis</th>
+                <th style="width:62px;">Aktywna</th>
+                <th style="width:56px;"></th>
+              </tr>
             </thead>
             <tbody>
-              <tr v-if="!contractStore.serviceFees.length">
-                <td colspan="8" class="empty-state">Brak usług dodatkowych</td>
+              <tr v-if="!contractStore.serviceFees.length && !showNewFeeRow">
+                <td colspan="7" class="empty-state">Brak usług dodatkowych — kliknij &quot;+ Dodaj&quot; lub &quot;↻ Reset&quot;</td>
               </tr>
-              <tr v-for="(fee, idx) in contractStore.serviceFees" :key="fee.id" @dblclick="editServiceFee(fee)">
-                <td>{{ idx + 1 }}</td>
-                <td>{{ fee.name }}</td>
-                <td>{{ fee.amount_from ? Number(fee.amount_from).toFixed(2) + ' zł' : '—' }}</td>
-                <td>{{ fee.amount_to ? Number(fee.amount_to).toFixed(2) + ' zł' : '—' }}</td>
-                <td>{{ fee.unit || '—' }}</td>
-                <td style="font-size:11px;">{{ fee.description || '—' }}</td>
-                <td><span :class="['badge', fee.is_active ? 'badge-success' : 'badge-muted']">{{ fee.is_active ? 'Tak' : 'Nie' }}</span></td>
+              <template v-for="fee in contractStore.serviceFees" :key="fee.id">
+                <!-- EDIT MODE -->
+                <tr v-if="editingFeeId === fee.id" class="row-editing">
+                  <td><input v-model="editingFeeData.name" class="form-control form-control-xs" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" /></td>
+                  <td><input v-model="editingFeeData.amount_from" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" /></td>
+                  <td><input v-model="editingFeeData.amount_to" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" /></td>
+                  <td><input v-model="editingFeeData.unit" class="form-control form-control-xs" placeholder="h, km…" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" /></td>
+                  <td><input v-model="editingFeeData.description" class="form-control form-control-xs" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" /></td>
+                  <td style="text-align:center;"><input type="checkbox" v-model="editingFeeData.is_active" /></td>
+                  <td>
+                    <button class="btn-icon" style="color:#22543D;" title="Zapisz (Enter)" @click="saveInlineFee">✓</button>
+                    <button class="btn-icon" title="Anuluj (Esc)" @click="cancelInlineFee">✕</button>
+                  </td>
+                </tr>
+                <!-- DISPLAY MODE -->
+                <tr v-else @click="startEditFee(fee)" style="cursor:pointer;" :class="{ 'row-inactive': !fee.is_active }">
+                  <td>{{ fee.name }}</td>
+                  <td>{{ fee.amount_from ? Number(fee.amount_from).toFixed(2) + ' zł' : '—' }}</td>
+                  <td>{{ fee.amount_to ? Number(fee.amount_to).toFixed(2) + ' zł' : '—' }}</td>
+                  <td>{{ fee.unit || '—' }}</td>
+                  <td style="font-size:11px;">{{ fee.description || '—' }}</td>
+                  <td style="text-align:center;"><span :class="['badge', fee.is_active ? 'badge-success' : 'badge-muted']">{{ fee.is_active ? 'Tak' : 'Nie' }}</span></td>
+                  <td>
+                    <button class="btn-icon" title="Edytuj" @click.stop="startEditFee(fee)">✎</button>
+                    <button class="btn-icon" title="Usuń" @click.stop="deleteServiceFee(fee)">✕</button>
+                  </td>
+                </tr>
+              </template>
+              <!-- NEW ROW -->
+              <tr v-if="showNewFeeRow" class="row-editing">
+                <td><input v-model="newFeeData.name" class="form-control form-control-xs" placeholder="Nazwa usługi" ref="newFeeNameInput" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" /></td>
+                <td><input v-model="newFeeData.amount_from" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" /></td>
+                <td><input v-model="newFeeData.amount_to" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" /></td>
+                <td><input v-model="newFeeData.unit" class="form-control form-control-xs" placeholder="h, km…" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" /></td>
+                <td><input v-model="newFeeData.description" class="form-control form-control-xs" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" /></td>
+                <td style="text-align:center;"><input type="checkbox" v-model="newFeeData.is_active" /></td>
                 <td>
-                  <button class="btn-icon" title="Edytuj" @click.stop="editServiceFee(fee)">✎</button>
-                  <button class="btn-icon" title="Usuń" @click.stop="deleteServiceFee(fee)">✕</button>
+                  <button class="btn-icon" style="color:#22543D;" title="Dodaj (Enter)" @click="saveNewFeeRow">✓</button>
+                  <button class="btn-icon" title="Anuluj (Esc)" @click="cancelNewFeeRow">✕</button>
                 </td>
               </tr>
             </tbody>
@@ -424,51 +461,11 @@
       </div>
     </Transition>
 
-    <!-- Service fee form modal -->
-    <Transition name="modal">
-      <div v-if="showFeeModal" class="modal-overlay" @click.self="showFeeModal = false">
-        <div class="modal-box" style="min-width:520px;">
-          <div class="modal-title">{{ editingFee ? 'Edycja usługi' : 'Nowa usługa dodatkowa' }}</div>
-          <div class="form-group">
-            <label class="form-label">Nazwa *</label>
-            <input v-model="feeForm.name" type="text" class="form-control" />
-          </div>
-          <div class="form-row-2">
-            <div class="form-group">
-              <label class="form-label">Kwota od (zł)</label>
-              <input v-model="feeForm.amount_from" type="number" step="0.01" class="form-control" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Kwota do (zł)</label>
-              <input v-model="feeForm.amount_to" type="number" step="0.01" class="form-control" />
-            </div>
-          </div>
-          <div class="form-row-2">
-            <div class="form-group">
-              <label class="form-label">Jednostka</label>
-              <input v-model="feeForm.unit" type="text" class="form-control" placeholder="np. h, doba, km" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Aktywna</label>
-              <label class="checkbox-group" style="padding-top:6px;"><input type="checkbox" v-model="feeForm.is_active" /> Aktywna</label>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Opis</label>
-            <input v-model="feeForm.description" type="text" class="form-control" />
-          </div>
-          <div class="modal-actions">
-            <button class="btn btn-secondary btn-sm" @click="showFeeModal = false">Anuluj</button>
-            <button class="btn btn-primary btn-sm" @click="saveServiceFee" :disabled="savingFee">{{ savingFee ? '...' : 'Zapisz' }}</button>
-          </div>
-        </div>
-      </div>
-    </Transition>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useContractStore } from '@/stores/contracts'
 import { useContractorStore } from '@/stores/contractors'
@@ -531,10 +528,11 @@ const showSupplierPicker = ref(false)
 const supplierSearch = ref('')
 const supplierList = ref([])
 
-const showFeeModal = ref(false)
-const editingFee = ref(null)
-const savingFee = ref(false)
-const feeForm = ref({ name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true })
+const editingFeeId = ref(null)
+const editingFeeData = ref({})
+const showNewFeeRow = ref(false)
+const newFeeData = ref({ name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true })
+const newFeeNameInput = ref(null)
 
 
 onMounted(async () => {
@@ -786,40 +784,62 @@ function selectSupplier(c) {
   showSupplierPicker.value = false
 }
 
-// Service fees CRUD
-function addServiceFee() {
-  editingFee.value = null
-  Object.assign(feeForm.value, { name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true })
-  showFeeModal.value = true
+// Service fees — inline Excel-style CRUD
+function startEditFee(fee) {
+  editingFeeId.value = fee.id
+  editingFeeData.value = {
+    name: fee.name,
+    amount_from: fee.amount_from,
+    amount_to: fee.amount_to,
+    unit: fee.unit || '',
+    description: fee.description || '',
+    is_active: fee.is_active,
+  }
 }
 
-function editServiceFee(fee) {
-  editingFee.value = fee
-  Object.assign(feeForm.value, {
-    name: fee.name, amount_from: fee.amount_from, amount_to: fee.amount_to,
-    unit: fee.unit || '', description: fee.description || '', is_active: fee.is_active,
-  })
-  showFeeModal.value = true
+function cancelInlineFee() {
+  editingFeeId.value = null
+  editingFeeData.value = {}
 }
 
-async function saveServiceFee() {
-  if (!feeForm.value.name) { alert('Podaj nazwę usługi'); return }
-  savingFee.value = true
+async function saveInlineFee() {
+  if (!editingFeeData.value.name) { cancelInlineFee(); return }
   try {
-    const payload = { ...feeForm.value }
+    const payload = { ...editingFeeData.value }
     if (!payload.unit) payload.unit = null
     if (!payload.description) payload.description = null
-    if (editingFee.value) {
-      await api.put(`/contracts/${props.id}/service-fees/${editingFee.value.id}`, payload)
-    } else {
-      await api.post(`/contracts/${props.id}/service-fees`, payload)
-    }
+    await api.put(`/contracts/${props.id}/service-fees/${editingFeeId.value}`, payload)
     await contractStore.fetchServiceFees(Number(props.id))
-    showFeeModal.value = false
+    editingFeeId.value = null
+    editingFeeData.value = {}
   } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd zapisu usługi')
-  } finally {
-    savingFee.value = false
+    alert(e.response?.data?.detail || 'Błąd zapisu')
+  }
+}
+
+function addFeeRow() {
+  editingFeeId.value = null
+  newFeeData.value = { name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true }
+  showNewFeeRow.value = true
+  nextTick(() => { newFeeNameInput.value?.focus() })
+}
+
+function cancelNewFeeRow() {
+  showNewFeeRow.value = false
+}
+
+async function saveNewFeeRow() {
+  if (!newFeeData.value.name) { cancelNewFeeRow(); return }
+  try {
+    const payload = { ...newFeeData.value }
+    if (!payload.unit) payload.unit = null
+    if (!payload.description) payload.description = null
+    await api.post(`/contracts/${props.id}/service-fees`, payload)
+    await contractStore.fetchServiceFees(Number(props.id))
+    showNewFeeRow.value = false
+    newFeeData.value = { name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true }
+  } catch (e) {
+    alert(e.response?.data?.detail || 'Błąd dodawania')
   }
 }
 
@@ -857,4 +877,16 @@ async function resetServiceFees() {
 }
 .btn-icon:hover { opacity: 1; }
 .badge-danger { background: #FED7D7; color: #9B2C2C; }
+.form-control-xs {
+  padding: 2px 6px;
+  height: 28px;
+  font-size: 12px;
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: #fff;
+}
+.row-editing { background: #fffff0; }
+.row-editing:hover { background: #fffff0 !important; }
+.row-inactive td { opacity: 0.5; }
 </style>

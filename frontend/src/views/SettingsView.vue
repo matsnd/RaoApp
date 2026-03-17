@@ -159,40 +159,84 @@
 
             <!-- Fee templates tab -->
             <div v-if="activeTab === 'fee-templates'">
-              <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap;">
+              <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:8px;flex-wrap:wrap;">
                 <div class="form-group" style="margin:0;">
                   <label class="form-label">Typ umowy</label>
-                  <select v-model="newFee.contract_type" class="form-control" style="width:160px;">
+                  <select v-model="newFee.contract_type" class="form-control" style="width:130px;">
                     <option value="S">Najem (S)</option>
                     <option value="U">Usługa (U)</option>
                   </select>
                 </div>
-                <div class="form-group" style="margin:0;flex:1;">
+                <div class="form-group" style="margin:0;flex:2;min-width:200px;">
                   <label class="form-label">Nazwa</label>
                   <input v-model="newFee.name" type="text" class="form-control" placeholder="Nazwa usługi" />
                 </div>
-                <div class="form-group" style="margin:0;width:120px;">
+                <div class="form-group" style="margin:0;width:100px;">
                   <label class="form-label">Kwota od</label>
                   <input v-model="newFee.amount_from" type="number" step="0.01" class="form-control" />
                 </div>
-                <div class="form-group" style="margin:0;width:120px;">
+                <div class="form-group" style="margin:0;width:100px;">
                   <label class="form-label">Kwota do</label>
                   <input v-model="newFee.amount_to" type="number" step="0.01" class="form-control" />
                 </div>
+                <div class="form-group" style="margin:0;width:90px;">
+                  <label class="form-label">J.m.</label>
+                  <input v-model="newFee.unit" type="text" class="form-control" placeholder="h, km…" />
+                </div>
+                <div class="form-group" style="margin:0;flex:1;min-width:140px;">
+                  <label class="form-label">Opis</label>
+                  <input v-model="newFee.description" type="text" class="form-control" placeholder="np. plus koszt paliwa" />
+                </div>
                 <button class="btn btn-primary btn-sm" @click="addFeeTemplate" style="margin-bottom:0;">+ Dodaj</button>
               </div>
+              <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;">
+                <span style="font-size:12px;color:#718096;">Kliknij wiersz aby edytować • Enter = zapisz • Esc = anuluj</span>
+                <button class="btn btn-secondary btn-sm" style="margin-left:auto;" @click="seedTemplates" title="Załaduj domyślny zestaw 6 opłat (tylko gdy lista jest pusta)">⟳ Seed domyślne</button>
+              </div>
               <table class="data-grid">
-                <thead><tr><th>Typ</th><th>#</th><th>Nazwa</th><th>Kwota od</th><th>Kwota do</th><th>Jedn.</th><th>Aktywna</th></tr></thead>
-                <tbody>
-                  <tr v-for="f in settingsStore.feeTemplates" :key="f.id">
-                    <td><span :class="['badge', f.contract_type === 'S' ? 'badge-info' : 'badge-warning']">{{ f.contract_type }}</span></td>
-                    <td>{{ f.sort_order }}</td>
-                    <td>{{ f.name }}</td>
-                    <td>{{ f.amount_from ? Number(f.amount_from).toFixed(2) + ' zł' : '—' }}</td>
-                    <td>{{ f.amount_to ? Number(f.amount_to).toFixed(2) + ' zł' : '—' }}</td>
-                    <td>{{ f.unit || '—' }}</td>
-                    <td><span :class="['badge', f.is_active ? 'badge-success' : 'badge-muted']">{{ f.is_active ? 'Tak' : 'Nie' }}</span></td>
+                <thead>
+                  <tr>
+                    <th style="width:60px;">Typ</th>
+                    <th style="width:26%;">Nazwa</th>
+                    <th style="width:10%;">Kwota od</th>
+                    <th style="width:10%;">Kwota do</th>
+                    <th style="width:8%;">J.m.</th>
+                    <th>Opis</th>
+                    <th style="width:60px;">Aktywna</th>
+                    <th style="width:64px;"></th>
                   </tr>
+                </thead>
+                <tbody>
+                  <template v-for="f in settingsStore.feeTemplates" :key="f.id">
+                    <!-- EDIT MODE -->
+                    <tr v-if="editingFeeTemplateId === f.id" style="background:#fffff0;">
+                      <td><span :class="['badge', f.contract_type === 'S' ? 'badge-info' : 'badge-warning']">{{ f.contract_type }}</span></td>
+                      <td><input v-model="editingFeeTemplateData.name" class="form-control form-control-xs" @keydown.enter="saveEditFeeTemplate" @keydown.esc="cancelEditFeeTemplate" /></td>
+                      <td><input v-model="editingFeeTemplateData.amount_from" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="saveEditFeeTemplate" @keydown.esc="cancelEditFeeTemplate" /></td>
+                      <td><input v-model="editingFeeTemplateData.amount_to" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="saveEditFeeTemplate" @keydown.esc="cancelEditFeeTemplate" /></td>
+                      <td><input v-model="editingFeeTemplateData.unit" class="form-control form-control-xs" placeholder="h, km…" @keydown.enter="saveEditFeeTemplate" @keydown.esc="cancelEditFeeTemplate" /></td>
+                      <td><input v-model="editingFeeTemplateData.description" class="form-control form-control-xs" @keydown.enter="saveEditFeeTemplate" @keydown.esc="cancelEditFeeTemplate" /></td>
+                      <td style="text-align:center;"><input type="checkbox" v-model="editingFeeTemplateData.is_active" /></td>
+                      <td>
+                        <button class="btn-icon" style="color:#22543D;" title="Zapisz (Enter)" @click="saveEditFeeTemplate">✓</button>
+                        <button class="btn-icon" title="Anuluj (Esc)" @click="cancelEditFeeTemplate">✕</button>
+                      </td>
+                    </tr>
+                    <!-- DISPLAY MODE -->
+                    <tr v-else @click="startEditFeeTemplate(f)" style="cursor:pointer;" :class="{ 'row-inactive-tpl': !f.is_active }">
+                      <td><span :class="['badge', f.contract_type === 'S' ? 'badge-info' : 'badge-warning']">{{ f.contract_type }}</span></td>
+                      <td>{{ f.name }}</td>
+                      <td>{{ f.amount_from ? Number(f.amount_from).toFixed(2) + ' zł' : '—' }}</td>
+                      <td>{{ f.amount_to ? Number(f.amount_to).toFixed(2) + ' zł' : '—' }}</td>
+                      <td>{{ f.unit || '—' }}</td>
+                      <td style="font-size:11px;">{{ f.description || '—' }}</td>
+                      <td><span :class="['badge', f.is_active ? 'badge-success' : 'badge-muted']">{{ f.is_active ? 'Tak' : 'Nie' }}</span></td>
+                      <td>
+                        <button class="btn-icon" title="Edytuj" @click.stop="startEditFeeTemplate(f)">✎</button>
+                        <button class="btn-icon" title="Usuń" @click.stop="deleteFeeTemplate(f.id)">✕</button>
+                      </td>
+                    </tr>
+                  </template>
                 </tbody>
               </table>
             </div>
@@ -230,6 +274,8 @@ const newSp = ref({ name: '', phone: '' })
 const newCat = ref({ name: '', code: '', description: '' })
 const newRt = ref({ name: '', description: '', is_dependent: false })
 const newFee = ref({ contract_type: 'S', name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true })
+const editingFeeTemplateId = ref(null)
+const editingFeeTemplateData = ref({})
 
 onMounted(async () => {
   await settingsStore.fetchAll()
@@ -276,9 +322,58 @@ async function addRateType() {
 
 async function addFeeTemplate() {
   if (!newFee.value.name) return
-  await api.post('/settings/service-fee-templates', newFee.value)
+  const payload = { ...newFee.value }
+  if (!payload.unit) payload.unit = null
+  if (!payload.description) payload.description = null
+  await api.post('/settings/service-fee-templates', payload)
   await settingsStore.fetchFeeTemplates()
-  newFee.value = { contract_type: 'S', name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true }
+  newFee.value = { contract_type: newFee.value.contract_type, name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true }
+}
+
+function startEditFeeTemplate(f) {
+  editingFeeTemplateId.value = f.id
+  editingFeeTemplateData.value = {
+    contract_type: f.contract_type,
+    name: f.name,
+    amount_from: f.amount_from,
+    amount_to: f.amount_to,
+    unit: f.unit || '',
+    description: f.description || '',
+    is_active: f.is_active,
+  }
+}
+
+function cancelEditFeeTemplate() {
+  editingFeeTemplateId.value = null
+  editingFeeTemplateData.value = {}
+}
+
+async function saveEditFeeTemplate() {
+  if (!editingFeeTemplateData.value.name) return
+  const payload = { ...editingFeeTemplateData.value }
+  if (!payload.unit) payload.unit = null
+  if (!payload.description) payload.description = null
+  await api.put(`/settings/service-fee-templates/${editingFeeTemplateId.value}`, payload)
+  await settingsStore.fetchFeeTemplates()
+  editingFeeTemplateId.value = null
+  editingFeeTemplateData.value = {}
+}
+
+async function deleteFeeTemplate(id) {
+  if (!confirm('Usunąć ten szablon usługi?')) return
+  await api.delete(`/settings/service-fee-templates/${id}`)
+  await settingsStore.fetchFeeTemplates()
+}
+
+async function seedTemplates() {
+  const result = await settingsStore.seedFeeTemplates(false)
+  if (result.count === 0) {
+    if (confirm('Szablony już istnieją. Wymusić ponowne załadowanie (usunie istniejące)? Użyj z ostrożnością.')) {
+      await settingsStore.seedFeeTemplates(true)
+    }
+  } else {
+    alert(`Dodano ${result.count} domyślnych szablonów.`)
+  }
 }
 
 async function deleteSp(id) {
@@ -299,3 +394,26 @@ async function deleteRt(id) {
   await settingsStore.fetchRateTypes()
 }
 </script>
+
+<style scoped>
+.form-control-xs {
+  padding: 2px 6px;
+  height: 28px;
+  font-size: 12px;
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: #fff;
+}
+.btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  opacity: 0.6;
+  transition: opacity 150ms;
+}
+.btn-icon:hover { opacity: 1; }
+.row-inactive-tpl td { opacity: 0.5; }
+</style>

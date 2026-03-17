@@ -29,6 +29,16 @@ async def update_company(
     return await settings_service.update_company(db, data)
 
 
+@router.post("/service-fee-templates/seed", status_code=200)
+async def seed_fee_templates(
+    force: bool = False,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    count = await settings_service.seed_fee_templates(db, force)
+    return {"message": f"Dodano {count} szablonów usług dodatkowych", "count": count}
+
+
 @router.get("/service-fee-templates", response_model=list[ServiceFeeTemplateResponse])
 async def list_fee_templates(db: AsyncSession = Depends(get_db), _: User = Depends(get_current_user)):
     return await settings_service.list_fee_templates(db)
