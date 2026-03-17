@@ -15,6 +15,7 @@
         <button class="pill pill-go" @click="loadAll()">Filtruj</button>
       </div>
       <button :class="['pill', { active: activePreset === 'custom' }]" @click="activePreset = 'custom'">📅 Własny</button>
+      <button class="btn-print print-hide" @click="printPage">🖨 Drukuj</button>
     </div>
 
     <!-- LOADING -->
@@ -230,6 +231,8 @@ function selectPreset(key) {
   activePreset.value = key
   if (key !== 'custom') loadAll()
 }
+
+function printPage() { window.print() }
 
 const utilClass = computed(() => {
   if (!statsStore.summary) return ''

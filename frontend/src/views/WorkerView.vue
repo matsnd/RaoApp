@@ -3,6 +3,7 @@
     <div class="worker-header">
       <h1>Panel pracownika</h1>
       <span class="worker-date">{{ today }}</span>
+      <button class="btn-print print-hide" @click="printPage">🖨 Drukuj</button>
     </div>
 
     <div class="worker-grid">
@@ -88,7 +89,7 @@
         <div class="card-header">
           <span class="card-icon">🚚</span>
           <h2>Dostawy</h2>
-          <div class="days-filter">
+          <div class="days-filter print-hide">
             <button v-for="d in [1, 2, 3, 7]" :key="d" :class="{ active: deliveryLookahead === d }" @click="setDeliveryLookahead(d)">
               {{ d === 1 ? 'Dziś' : d === 2 ? 'Jutro' : d + 'd' }}
             </button>
@@ -127,7 +128,7 @@
         <div class="card-header">
           <span class="card-icon">🖨️</span>
           <h2>Niewydrukowane umowy</h2>
-          <span class="badge-count" v-if="unprinted.length">{{ unprinted.length }}</span>
+          <span class="badge-count print-hide" v-if="unprinted.length">{{ unprinted.length }}</span>
         </div>
         <div class="card-body">
           <div v-if="loadingUnprinted" class="loading">Ładowanie…</div>
@@ -257,6 +258,8 @@ async function printContract(id) {
   }
 }
 
+function printPage() { window.print() }
+
 onMounted(() => {
   loadExpiring()
   loadOverdue()
@@ -290,6 +293,19 @@ onMounted(() => {
   font-size: 13px;
   color: #888;
 }
+
+.btn-print {
+  margin-left: auto;
+  padding: .35rem .85rem;
+  background: #f0f4ff;
+  color: #1D2B53;
+  border: 1px solid #c0cce8;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: .82rem;
+  font-weight: 600;
+}
+.btn-print:hover { background: #dde6ff; }
 
 .worker-grid {
   display: grid;

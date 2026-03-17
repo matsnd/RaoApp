@@ -10,6 +10,7 @@
           <input type="date" v-model="dateTo" @change="load" />
         </label>
         <button class="btn-primary" @click="load">Odśwież</button>
+        <button class="btn-print print-hide" @click="printPage">🖨 Drukuj</button>
       </div>
     </div>
 
@@ -84,6 +85,8 @@ const loading  = ref(false)
 const error    = ref(null)
 const report   = ref({ items: [], grand_total_revenue: 0, grand_total_commission: 0, date_from: '', date_to: '' })
 
+function printPage() { window.print() }
+
 function fmt(val) {
   const n = parseFloat(val) || 0
   return n.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -116,6 +119,8 @@ onMounted(load)
 .header-filters input { padding: .3rem .5rem; border: 1px solid #ccc; border-radius: 4px; font-size: .85rem; }
 .btn-primary { padding: .4rem .9rem; background: #1D2B53; color: #fff; border: none; border-radius: 5px; cursor: pointer; font-size: .85rem; }
 .btn-primary:hover { background: #2a3f7e; }
+.btn-print { padding: .35rem .85rem; background: #f0f4ff; color: #1D2B53; border: 1px solid #c0cce8; border-radius: 5px; cursor: pointer; font-size: .82rem; font-weight: 600; }
+.btn-print:hover { background: #dde6ff; }
 
 .loading-msg, .error-msg, .empty-msg { color: #888; font-style: italic; margin: 1rem 0; }
 .error-msg { color: #c00; }
