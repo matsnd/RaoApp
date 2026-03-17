@@ -124,19 +124,29 @@
 
 <!-- UZUPELNIJ -->
 <div class="uz-wrap">
-  <div class="uz-label"><strong>UZUPEŁNIJ PRZED WYGENEROWANIEM!</strong></div>
+  <div class="uz-label">uzupełnij</div>
   <table class="uz">
     <tr>
       <td>Osoba upoważniona:</td>
-      <td class="fill"></td>
+      <td class="fill">{{ contract.contact_person1 or '' }}</td>
       <td>telefon:</td>
-      <td class="fill"></td>
+      <td class="fill">{{ contract.contact_phone1 or '' }}</td>
+    </tr>
+    <tr>
+      <td>Osoba kontaktowa:</td>
+      <td class="fill">{{ contract.contact_person2 or '' }}</td>
+      <td>telefon:</td>
+      <td class="fill">{{ contract.contact_phone2 or '' }}</td>
     </tr>
     <tr>
       <td colspan="4">Adres wykonania usługi:</td>
     </tr>
     <tr>
-      <td colspan="4" class="fill-wide"></td>
+      <td colspan="4" class="fill-wide">{{ contract.delivery_address or '' }}</td>
+    </tr>
+    <tr>
+      <td>email do faktury:</td>
+      <td colspan="3" class="fill-wide">{{ contract.email or '' }}</td>
     </tr>
   </table>
 </div>
@@ -223,6 +233,7 @@
       <div class="sig-line">czytelny podpis Wykonawcy</div>
     </td>
     <td style="padding-top:40px; vertical-align: bottom;">
+      {% if salesperson %}<div style="margin-bottom:6px;font-size:9px;">Handlowiec: <strong>{{ salesperson.name }}</strong>{% if salesperson.phone %}, tel. {{ salesperson.phone }}{% endif %}</div>{% endif %}
       <div class="sig-line">czytelny podpis Zleceniodawcy</div>
     </td>
   </tr>
@@ -515,6 +526,7 @@
       <div class="sig-line">czytelny podpis Wykonawcy</div>
     </td>
     <td style="padding-top:40px; vertical-align: bottom;">
+      {% if salesperson %}<div style="margin-bottom:6px;font-size:9px;">Handlowiec: <strong>{{ salesperson.name }}</strong>{% if salesperson.phone %}, tel. {{ salesperson.phone }}{% endif %}</div>{% endif %}
       <div class="sig-line">czytelny podpis Zleceniodawcy</div>
     </td>
   </tr>
