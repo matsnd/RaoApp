@@ -97,11 +97,8 @@ export const useContractStore = defineStore('contracts', () => {
       responseType: 'blob',
     })
     const url = URL.createObjectURL(response.data)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `umowa_${contractId}_${type}.pdf`
-    a.click()
-    URL.revokeObjectURL(url)
+    window.open(url, '_blank')
+    setTimeout(() => URL.revokeObjectURL(url), 30000)
   }
 
   return {

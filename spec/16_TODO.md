@@ -8,10 +8,15 @@
 | 4 | Raporty dla pracownika | ✅ Done | `f25979e` | 4 endpointy: expiring/overdue/deliveries-today/unprinted + WorkerView.vue |
 | 5 | Mapowanie usług dodatkowych ze starej bazy | ✅ Done | `534340a` | step5b w migrate.py: parser OPLATY → 2345 wierszy z 413 umów |
 | 6 | Ponowna migracja ze starej bazy | ✅ Done | `534340a` | Migracja OK: 516 umów, 875 warunków, 2345 usług dodatkowych, 531 kontrahentów |
-| 7 | Plan testowania aplikacji | ⏳ Pending | — | — |
-| 8 | System prowizji dla handlowców | ⏳ Pending | — | — |
-| 9 | Przemyśl GUI/UX z całą ekipą | ⏳ Pending | — | — |
-| 10 | Wydruki dla wszystkich raportów i statystyk | ⏳ Pending | — | — |
+| 7 | Plan testowania aplikacji | ✅ Done | `d9122cb` | spec/17_TESTING_PLAN.md + 32 testy jednostkowe (calc + fee parser) |
+| 8 | System prowizji dla handlowców | ✅ Done | `f2de66f` | commission_rate w Salesperson, GET /stats/commissions, CommissionView.vue |
+| 9 | Przemyśl GUI/UX z całą ekipą | ✅ Done | `2cbcb54` | spec/18_UX_IMPROVEMENTS.md, kolorowanie wierszy umów, chip dni do końca |
+| 10 | Wydruki dla wszystkich raportów i statystyk | ✅ Done | `f7dbaf2` | @media print CSS, przyciski Drukuj w WorkerView/CommissionView/ReportsSection |
+| 11 | Sprawdź czy czegoś nie brakuje w migracji | 🔄 In Progress | — | — |
+| 12 | U5: UI warunków cenowych w formularzu umowy | 🔄 In Progress | — | P0 bloker produkcyjny |
+| 13 | U6: Auto-kalkulacja wartości umowy po zapisie | ⏳ Pending | — | — |
+| 14 | U7: 6 brakujących pól w modalu pozycji | ⏳ Pending | — | — |
+| 15 | U8-U12: P2 — GUS auto-adres, landline, PDF preview, edit/delete settings | ⏳ Pending | — | — |
 
 ---
 

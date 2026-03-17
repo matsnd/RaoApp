@@ -128,14 +128,28 @@
                 <button class="btn btn-primary btn-sm" @click="addCategory">+ Dodaj</button>
               </div>
               <table class="data-grid">
-                <thead><tr><th>Nazwa</th><th>Kod</th><th>Opis</th><th style="width:60px;"></th></tr></thead>
+                <thead><tr><th>Nazwa</th><th>Kod</th><th>Opis</th><th style="width:80px;"></th></tr></thead>
                 <tbody>
-                  <tr v-for="cat in settingsStore.categories" :key="cat.id">
-                    <td>{{ cat.name }}</td>
-                    <td>{{ cat.code || '—' }}</td>
-                    <td>{{ cat.description || '—' }}</td>
-                    <td><button class="btn-icon" @click="deleteCat(cat.id)" title="Usuń">✕</button></td>
-                  </tr>
+                  <template v-for="cat in settingsStore.categories" :key="cat.id">
+                    <tr v-if="editingCatId === cat.id" class="row-editing">
+                      <td><input v-model="editingCatData.name" class="form-control form-control-xs" @keydown.enter="saveEditCat" @keydown.esc="editingCatId = null" /></td>
+                      <td><input v-model="editingCatData.code" class="form-control form-control-xs" @keydown.enter="saveEditCat" @keydown.esc="editingCatId = null" /></td>
+                      <td><input v-model="editingCatData.description" class="form-control form-control-xs" @keydown.enter="saveEditCat" @keydown.esc="editingCatId = null" /></td>
+                      <td>
+                        <button class="btn-icon" style="color:#22543D;" @click="saveEditCat" title="Zapisz">✓</button>
+                        <button class="btn-icon" @click="editingCatId = null" title="Anuluj">✕</button>
+                      </td>
+                    </tr>
+                    <tr v-else>
+                      <td>{{ cat.name }}</td>
+                      <td>{{ cat.code || '—' }}</td>
+                      <td>{{ cat.description || '—' }}</td>
+                      <td>
+                        <button class="btn-icon" @click="startEditCat(cat)" title="Edytuj">✎</button>
+                        <button class="btn-icon" @click="deleteCat(cat.id)" title="Usuń">✕</button>
+                      </td>
+                    </tr>
+                  </template>
                 </tbody>
               </table>
             </div>
@@ -147,14 +161,28 @@
                 <button class="btn btn-primary btn-sm" @click="addRateType">+ Dodaj</button>
               </div>
               <table class="data-grid">
-                <thead><tr><th>Nazwa</th><th>Opis</th><th>Zależna</th><th style="width:60px;"></th></tr></thead>
+                <thead><tr><th>Nazwa</th><th>Opis</th><th>Zależna</th><th style="width:80px;"></th></tr></thead>
                 <tbody>
-                  <tr v-for="rt in settingsStore.rateTypes" :key="rt.id">
-                    <td>{{ rt.name }}</td>
-                    <td>{{ rt.description || '—' }}</td>
-                    <td>{{ rt.is_dependent ? 'Tak' : 'Nie' }}</td>
-                    <td><button class="btn-icon" @click="deleteRt(rt.id)" title="Usuń">✕</button></td>
-                  </tr>
+                  <template v-for="rt in settingsStore.rateTypes" :key="rt.id">
+                    <tr v-if="editingRtId === rt.id" class="row-editing">
+                      <td><input v-model="editingRtData.name" class="form-control form-control-xs" @keydown.enter="saveEditRt" @keydown.esc="editingRtId = null" /></td>
+                      <td><input v-model="editingRtData.description" class="form-control form-control-xs" @keydown.enter="saveEditRt" @keydown.esc="editingRtId = null" /></td>
+                      <td style="text-align:center;"><input type="checkbox" v-model="editingRtData.is_dependent" /></td>
+                      <td>
+                        <button class="btn-icon" style="color:#22543D;" @click="saveEditRt" title="Zapisz">✓</button>
+                        <button class="btn-icon" @click="editingRtId = null" title="Anuluj">✕</button>
+                      </td>
+                    </tr>
+                    <tr v-else>
+                      <td>{{ rt.name }}</td>
+                      <td>{{ rt.description || '—' }}</td>
+                      <td>{{ rt.is_dependent ? 'Tak' : 'Nie' }}</td>
+                      <td>
+                        <button class="btn-icon" @click="startEditRt(rt)" title="Edytuj">✎</button>
+                        <button class="btn-icon" @click="deleteRt(rt.id)" title="Usuń">✕</button>
+                      </td>
+                    </tr>
+                  </template>
                 </tbody>
               </table>
             </div>
@@ -451,32 +479,38 @@ async function deleteSp(id) {
 
 async function deleteCat(id) {
   if (!confirm('Usunąć tę kategorię?')) return
-  await api.delete(`/settings/categories/${id}`)
-  await settingsStore.fetchCategories()
+  await settingsStore.deleteCategory(id)
 }
 
 async function deleteRt(id) {
   if (!confirm('Usunąć ten typ stawki?')) return
-  await api.delete(`/settings/rate-types/${id}`)
-  await settingsStore.fetchRateTypes()
+  await settingsStore.deleteRateType(id)
 }
 
-async function deleteSp(id) {
-  if (!confirm('Usunąć tego handlowca?')) return
-  await api.delete(`/settings/salespeople/${id}`)
-  await settingsStore.fetchSalespeople()
+// Inline edit — categories
+const editingCatId = ref(null)
+const editingCatData = ref({ name: '', code: '', description: '' })
+function startEditCat(cat) {
+  editingCatId.value = cat.id
+  editingCatData.value = { name: cat.name, code: cat.code || '', description: cat.description || '' }
+}
+async function saveEditCat() {
+  if (!editingCatData.value.name) return
+  await settingsStore.updateCategory(editingCatId.value, editingCatData.value)
+  editingCatId.value = null
 }
 
-async function deleteCat(id) {
-  if (!confirm('Usunąć tę kategorię?')) return
-  await api.delete(`/settings/categories/${id}`)
-  await settingsStore.fetchCategories()
+// Inline edit — rate types
+const editingRtId = ref(null)
+const editingRtData = ref({ name: '', description: '', is_dependent: false })
+function startEditRt(rt) {
+  editingRtId.value = rt.id
+  editingRtData.value = { name: rt.name, description: rt.description || '', is_dependent: rt.is_dependent }
 }
-
-async function deleteRt(id) {
-  if (!confirm('Usunąć ten typ stawki?')) return
-  await api.delete(`/settings/rate-types/${id}`)
-  await settingsStore.fetchRateTypes()
+async function saveEditRt() {
+  if (!editingRtData.value.name) return
+  await settingsStore.updateRateType(editingRtId.value, editingRtData.value)
+  editingRtId.value = null
 }
 </script>
 

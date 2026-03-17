@@ -35,6 +35,17 @@ export const useSettingsStore = defineStore('settings', () => {
     return data
   }
 
+  async function updateCategory(id, payload) {
+    const { data } = await api.put(`/settings/categories/${id}`, payload)
+    await fetchCategories()
+    return data
+  }
+
+  async function deleteCategory(id) {
+    await api.delete(`/settings/categories/${id}`)
+    await fetchCategories()
+  }
+
   async function fetchBranches() {
     const { data } = await api.get('/settings/branches')
     branches.value = data
@@ -44,6 +55,23 @@ export const useSettingsStore = defineStore('settings', () => {
   async function fetchRateTypes() {
     const { data } = await api.get('/settings/rate-types')
     rateTypes.value = data
+    return data
+  }
+
+  async function updateRateType(id, payload) {
+    const { data } = await api.put(`/settings/rate-types/${id}`, payload)
+    await fetchRateTypes()
+    return data
+  }
+
+  async function deleteRateType(id) {
+    await api.delete(`/settings/rate-types/${id}`)
+    await fetchRateTypes()
+  }
+
+  async function updateSalesperson(id, payload) {
+    const { data } = await api.put(`/settings/salespeople/${id}`, payload)
+    await fetchSalespeople()
     return data
   }
 
@@ -76,7 +104,11 @@ export const useSettingsStore = defineStore('settings', () => {
 
   return {
     company, salespeople, categories, branches, rateTypes, feeTemplates, loading,
-    fetchCompany, updateCompany, fetchSalespeople, fetchCategories,
-    fetchBranches, fetchRateTypes, fetchFeeTemplates, seedFeeTemplates, fetchAll,
+    fetchCompany, updateCompany,
+    fetchSalespeople, updateSalesperson,
+    fetchCategories, updateCategory, deleteCategory,
+    fetchBranches,
+    fetchRateTypes, updateRateType, deleteRateType,
+    fetchFeeTemplates, seedFeeTemplates, fetchAll,
   }
 })

@@ -386,6 +386,15 @@
           </div>
           <div class="form-row-2">
             <div class="form-group">
+              <label class="form-label">Koszty własne (zł)</label>
+              <input v-model="posForm.costs" type="number" step="0.01" class="form-control" placeholder="0.00" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">&nbsp;</label>
+            </div>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
               <label class="form-label">Rozliczanie</label>
               <select v-model="posForm.billing_frequency" class="form-control">
                 <option :value="null">— brak —</option>
@@ -555,7 +564,7 @@ const pickerList = ref([])
 const showPosModal = ref(false)
 const editingPos = ref(null)
 const savingPos = ref(false)
-const posForm = ref({ article_id: null, rental_type: '', description: '', rental_days: null, quantity: 1, unit_price: null, rate_type_id: null, billing_frequency: null, billing_unit: null, supplier_id: null, delivery_date: null })
+const posForm = ref({ article_id: null, rental_type: '', description: '', rental_days: null, quantity: 1, unit_price: null, costs: null, rate_type_id: null, billing_frequency: null, billing_unit: null, supplier_id: null, delivery_date: null })
 const selectedArticleName = ref('')
 const articleAvailability = ref(null)
 const showArticlePicker = ref(false)
@@ -708,7 +717,7 @@ function selectPosition(pos) {
 
 function addPosition() {
   editingPos.value = null
-  Object.assign(posForm.value, { article_id: null, rental_type: '', description: '', rental_days: null, quantity: 1, unit_price: null, rate_type_id: null, billing_frequency: null, billing_unit: null, supplier_id: null, delivery_date: null })
+  Object.assign(posForm.value, { article_id: null, rental_type: '', description: '', rental_days: null, quantity: 1, unit_price: null, costs: null, rate_type_id: null, billing_frequency: null, billing_unit: null, supplier_id: null, delivery_date: null })
   selectedArticleName.value = ''
   supplierName.value = ''
   articleAvailability.value = null
@@ -719,7 +728,7 @@ function editPosition(pos) {
   editingPos.value = pos
   Object.assign(posForm.value, {
     article_id: pos.article_id, rental_type: pos.rental_type || '', description: pos.description || '',
-    rental_days: pos.rental_days, quantity: pos.quantity || 1, unit_price: pos.unit_price,
+    rental_days: pos.rental_days, quantity: pos.quantity || 1, unit_price: pos.unit_price, costs: pos.costs,
     rate_type_id: pos.rate_type_id, billing_frequency: pos.billing_frequency,
     billing_unit: pos.billing_unit, supplier_id: pos.supplier_id, delivery_date: pos.delivery_date,
   })
@@ -742,6 +751,7 @@ async function savePosition() {
     }
     await contractStore.fetchPositions(Number(props.id))
     showPosModal.value = false
+    await recalcTotal()
   } catch (e) {
     alert(e.response?.data?.detail || 'Błąd zapisu pozycji')
   } finally {
@@ -761,7 +771,7 @@ async function deletePosition(pos) {
 }
 
 function onConditionValueChanged(_value) {
-  // Total is recalculated server-side via the ∑ button (recalcTotal)
+  recalcTotal()
 }
 
 let artTimer = null

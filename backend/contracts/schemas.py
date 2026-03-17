@@ -62,6 +62,7 @@ class PositionCreate(BaseModel):
     rental_days: int | None = None
     quantity: int = 1
     unit_price: Decimal | None = None
+    costs: Decimal | None = None
     rate_type_id: int | None = None
     billing_frequency: str | None = None
     billing_unit: str | None = None
