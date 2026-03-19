@@ -25,11 +25,14 @@ const activeSection = computed(() => {
   if (route.path.startsWith('/commissions')) return 'commissions'
   if (route.path.startsWith('/settings')) return 'settings'
   if (route.path.startsWith('/admin')) return 'admin'
+  if (route.path === '/home') return 'home'
   return 'contracts'
 })
 
 function handleNavigate(section) {
-  if (section === 'settings') {
+  if (section === 'home') {
+    router.push('/home')
+  } else if (section === 'settings') {
     router.push('/settings')
   } else if (section === 'admin') {
     router.push('/admin')

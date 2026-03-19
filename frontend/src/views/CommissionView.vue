@@ -74,7 +74,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import api from '@/api/axios'
+import api from '@/composables/useApi'
 
 const today = new Date()
 const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
@@ -85,7 +85,19 @@ const loading  = ref(false)
 const error    = ref(null)
 const report   = ref({ items: [], grand_total_revenue: 0, grand_total_commission: 0, date_from: '', date_to: '' })
 
-function printPage() { window.print() }
+async function printPage() {
+  try {
+    const response = await api.get('/reports/summary/commissions', {
+      params: { date_from: dateFrom.value, date_to: dateTo.value },
+      responseType: 'blob',
+    })
+    const url = URL.createObjectURL(response.data)
+    window.open(url, '_blank')
+    setTimeout(() => URL.revokeObjectURL(url), 30000)
+  } catch {
+    alert('Błąd generowania PDF')
+  }
+}
 
 function fmt(val) {
   const n = parseFloat(val) || 0

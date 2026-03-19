@@ -59,8 +59,8 @@
                   <td>{{ formatDate(c.date_from) }}</td>
                   <td>
                     <span :title="expiryTitle(c)">{{ formatDate(c.date_to) }}</span>
-                    <span v-if="daysLeft(c) !== null && daysLeft(c) <= 14" class="expiry-chip" :class="expiryClass(c)">
-                      {{ daysLeft(c) < 0 ? Math.abs(daysLeft(c)) + 'd po' : daysLeft(c) + 'd' }}
+                    <span v-if="daysLeft(c) !== null && daysLeft(c) >= 0 && daysLeft(c) <= 14" class="expiry-chip" :class="expiryClass(c)">
+                      {{ daysLeft(c) + 'd' }}
                     </span>
                   </td>
                   <td style="font-weight:600;">{{ formatMoney(c.total_value) }}</td>

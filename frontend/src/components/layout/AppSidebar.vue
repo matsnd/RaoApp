@@ -5,6 +5,11 @@
       <span class="sidebar-logo-sub">WYNAJEM MASZYN</span>
     </div>
     <button
+      :class="['sidebar-btn', 'sidebar-btn-home', { active: activeSection === 'home' }]"
+      @click="$emit('navigate', 'home')"
+    >🏠 Start</button>
+    <div class="sidebar-divider"></div>
+    <button
       v-for="item in topItems"
       :key="item.section"
       :class="['sidebar-btn', { active: activeSection === item.section }]"
@@ -15,7 +20,7 @@
       <button
         :class="['sidebar-btn', { active: activeSection === 'worker' }]"
         @click="$emit('navigate', 'worker')"
-      >Panel prac.</button>
+      >Pulpit</button>
       <button
         :class="['sidebar-btn', { active: activeSection === 'commissions' }]"
         @click="$emit('navigate', 'commissions')"
@@ -59,3 +64,14 @@ function handleLogout() {
   router.push('/login')
 }
 </script>
+
+<style scoped>
+.sidebar-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.12);
+  margin: 4px 12px;
+}
+.sidebar-btn-home {
+  font-size: 13px;
+}
+</style>

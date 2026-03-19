@@ -172,6 +172,7 @@
 import { ref, computed, watch, onMounted, nextTick, onBeforeUnmount } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import { useStatsStore } from '@/stores/stats'
+import api from '@/composables/useApi'
 
 Chart.register(...registerables)
 
@@ -232,7 +233,28 @@ function selectPreset(key) {
   if (key !== 'custom') loadAll()
 }
 
-function printPage() { window.print() }
+async function printPage() {
+  try {
+    let df = null, dt = null
+    if (activePreset.value === 'custom') {
+      df = customFrom.value || null
+      dt = customTo.value || null
+    } else {
+      const [from, to] = getDateRange(activePreset.value)
+      df = fmt(from)
+      dt = fmt(to)
+    }
+    const response = await api.get('/reports/summary/stats', {
+      params: { date_from: df, date_to: dt },
+      responseType: 'blob',
+    })
+    const url = URL.createObjectURL(response.data)
+    window.open(url, '_blank')
+    setTimeout(() => URL.revokeObjectURL(url), 30000)
+  } catch {
+    alert('B\u0142\u0105d generowania PDF')
+  }
+}
 
 const utilClass = computed(() => {
   if (!statsStore.summary) return ''

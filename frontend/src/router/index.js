@@ -19,7 +19,12 @@ const routes = [
     component: () => import('@/components/layout/AppLayout.vue'),
     meta: { requiresAuth: true },
     children: [
-      { path: '', redirect: '/dashboard/contracts' },
+      { path: '', redirect: '/home' },
+      {
+        path: 'home',
+        name: 'Home',
+        component: () => import('@/views/HomeView.vue'),
+      },
       {
         path: 'dashboard/:section',
         name: 'Dashboard',
@@ -99,7 +104,7 @@ router.beforeEach((to, from, next) => {
     return next('/')
   }
   if (to.meta.requiresAdmin && auth.user?.role !== 'admin') {
-    return next('/dashboard/contracts')
+    return next('/home')
   }
   next()
 })

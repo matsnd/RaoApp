@@ -1,9 +1,8 @@
 <template>
   <div class="worker-view">
     <div class="worker-header">
-      <h1>Panel pracownika</h1>
+      <h1>Pulpit operacyjny</h1>
       <span class="worker-date">{{ today }}</span>
-      <button class="btn-print print-hide" @click="printPage">🖨 Drukuj</button>
     </div>
 
     <div class="worker-grid">
@@ -25,7 +24,7 @@
           <table v-else class="worker-table">
             <thead>
               <tr>
-                <th>Umowa</th>
+                <th>Nr umowy</th>
                 <th>Kontrahent</th>
                 <th>Koniec</th>
                 <th>Dni</th>
@@ -49,40 +48,6 @@
         </div>
       </section>
 
-      <!-- PRZETERMINOWANE UMOWY -->
-      <section class="worker-card overdue">
-        <div class="card-header">
-          <span class="card-icon">🔴</span>
-          <h2>Przeterminowane umowy</h2>
-          <span class="badge-count" v-if="overdue.length">{{ overdue.length }}</span>
-        </div>
-        <div class="card-body">
-          <div v-if="loadingOverdue" class="loading">Ładowanie…</div>
-          <div v-else-if="!overdue.length" class="empty">Brak przeterminowanych umów</div>
-          <table v-else class="worker-table">
-            <thead>
-              <tr>
-                <th>Umowa</th>
-                <th>Kontrahent</th>
-                <th>Data końca</th>
-                <th>Dni po terminie</th>
-                <th>Adres</th>
-                <th>Kontakt</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="c in overdue" :key="c.id">
-                <td><router-link :to="`/contracts/${c.id}/edit`">{{ c.number }}</router-link></td>
-                <td>{{ c.contractor_name }}</td>
-                <td>{{ formatDate(c.date_to) }}</td>
-                <td class="overdue-days">+{{ c.days_overdue }} dni</td>
-                <td>{{ c.delivery_address || '—' }}</td>
-                <td>{{ c.contact_person1 || '—' }}{{ c.contact_phone1 ? ', ' + c.contact_phone1 : '' }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
 
       <!-- DOSTAWY -->
       <section class="worker-card deliveries">
@@ -102,7 +67,7 @@
             <thead>
               <tr>
                 <th>Data</th>
-                <th>Umowa</th>
+                <th>Nr umowy</th>
                 <th>Kontrahent</th>
                 <th>Maszyna</th>
                 <th>Adres dostawy</th>
@@ -136,7 +101,7 @@
           <table v-else class="worker-table">
             <thead>
               <tr>
-                <th>Umowa</th>
+                <th>Nr umowy</th>
                 <th>Kontrahent</th>
                 <th>Od</th>
                 <th>Do</th>
@@ -166,7 +131,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import api from '@/services/api'
+import api from '@/composables/useApi'
 import { useContractStore } from '@/stores/contracts'
 
 const contractStore = useContractStore()
@@ -177,12 +142,10 @@ const today = computed(() => {
 })
 
 const expiring = ref([])
-const overdue = ref([])
 const deliveries = ref([])
 const unprinted = ref([])
 
 const loadingExpiring = ref(false)
-const loadingOverdue = ref(false)
 const loadingDeliveries = ref(false)
 const loadingUnprinted = ref(false)
 
@@ -207,16 +170,6 @@ async function loadExpiring() {
     expiring.value = res.data
   } finally {
     loadingExpiring.value = false
-  }
-}
-
-async function loadOverdue() {
-  loadingOverdue.value = true
-  try {
-    const res = await api.get('/stats/overdue-contracts')
-    overdue.value = res.data
-  } finally {
-    loadingOverdue.value = false
   }
 }
 
@@ -258,11 +211,8 @@ async function printContract(id) {
   }
 }
 
-function printPage() { window.print() }
-
 onMounted(() => {
   loadExpiring()
-  loadOverdue()
   loadDeliveries()
   loadUnprinted()
 })

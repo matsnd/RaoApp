@@ -261,7 +261,7 @@ async def step4_migrate_data():
                  created_at, updated_at)
             SELECT
                 id, id_kontrahenta, NULLIF(id_handlowca, 0),
-                numer, autonumer, COALESCE(typ, 'S'),
+                numer, autonumer, CASE WHEN typ = 'N' THEN 'S' WHEN typ = 'U' THEN 'U' ELSE 'S' END,
                 adres, data_od, data_do,
                 wartosc, przedplata_kwota, przedplata_dokument,
                 faktura_kwota, faktura_dokument,
