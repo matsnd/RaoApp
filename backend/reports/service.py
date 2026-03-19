@@ -149,13 +149,21 @@ async def generate_summary_pdf(db: AsyncSession, summary_type: str) -> bytes:
     return await asyncio.get_event_loop().run_in_executor(None, _html_to_pdf_sync, html)
 
 
-def _html_to_pdf_sync(html: str) -> bytes:
-    """Render HTML to PDF using Playwright (Chromium). Handles Polish characters correctly."""
+def _html_to_pdf_sync(html: str, use_playwright_footer: bool = True) -> bytes:
+    """Render HTML to PDF. Tries Playwright (dev), falls back to WeasyPrint (production/shared hosting)."""
+    try:
+        return _pdf_via_playwright(html, use_playwright_footer)
+    except Exception:
+        return _pdf_via_weasyprint(html)
+
+
+def _pdf_via_playwright(html: str, use_footer: bool = True) -> bytes:
+    """Playwright/Chromium renderer — full-featured, requires browser binaries."""
     from playwright.sync_api import sync_playwright
     import datetime
-    
+
     now = datetime.datetime.now().strftime("%d.%m.%Y")
-    
+
     footer_template = f"""<div style="font-size: 8px; color: #444; width: 100%; padding: 0 14mm; display: flex; justify-content: space-between; font-family: Arial;">
       <span>Wydrukowano {now}</span>
       <span>Strona <span class="pageNumber"></span> z <span class="totalPages"></span></span>
@@ -165,16 +173,45 @@ def _html_to_pdf_sync(html: str) -> bytes:
         browser = p.chromium.launch()
         page = browser.new_page()
         page.set_content(html, wait_until="networkidle")
-        pdf_bytes = page.pdf(
-            format="A4",
-            print_background=True,
-            display_header_footer=True,
-            header_template="<span></span>",
-            footer_template=footer_template,
-            margin={"top": "0", "bottom": "15mm", "left": "0", "right": "0"}
-        )
+        if use_footer:
+            pdf_bytes = page.pdf(
+                format="A4",
+                print_background=True,
+                display_header_footer=True,
+                header_template="<span></span>",
+                footer_template=footer_template,
+                margin={"top": "0", "bottom": "15mm", "left": "0", "right": "0"}
+            )
+        else:
+            pdf_bytes = page.pdf(
+                format="A4",
+                print_background=True,
+                display_header_footer=False,
+                margin={"top": "0", "bottom": "0", "left": "0", "right": "0"}
+            )
         browser.close()
     return pdf_bytes
+
+
+def _pdf_via_weasyprint(html: str) -> bytes:
+    """WeasyPrint renderer — works on shared hosting without browser binaries."""
+    from weasyprint import HTML
+    import datetime
+
+    now = datetime.datetime.now().strftime("%d.%m.%Y")
+    footer_css = f"""
+    @page {{
+        size: A4;
+        margin: 10mm 10mm 18mm 10mm;
+        @bottom-left  {{ content: "Wydrukowano {now}"; font-size: 8px; color: #444; font-family: Arial, sans-serif; }}
+        @bottom-right {{ content: "Strona " counter(page) " z " counter(pages); font-size: 8px; color: #444; font-family: Arial, sans-serif; }}
+    }}
+    """
+    if "</head>" in html:
+        html = html.replace("</head>", f"<style>{footer_css}</style></head>")
+    else:
+        html = f"<style>{footer_css}</style>{html}"
+    return HTML(string=html).write_pdf()
 
 
 def _fmt_date_pl(d) -> str:
@@ -469,6 +506,9 @@ async def generate_pdf(db: AsyncSession, contract_id: int, report_type: str = "c
     data["now"] = datetime.now().strftime("%d.%m.%Y")
     html = template.render(**data)
 
+    is_protocol = report_type.startswith("protocol_")
     loop = asyncio.get_event_loop()
-    pdf_bytes = await loop.run_in_executor(None, _html_to_pdf_sync, html)
+    pdf_bytes = await loop.run_in_executor(
+        None, _html_to_pdf_sync, html, not is_protocol
+    )
     return pdf_bytes

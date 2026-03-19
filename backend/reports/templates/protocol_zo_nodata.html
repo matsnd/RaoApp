@@ -6,7 +6,7 @@
   @page { size: A4; margin: 0; }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: 10px; color: #000; width: 210mm; height: 296mm; }
-  body { display: flex; flex-direction: column; }
+  body { display: flex; flex-direction: column; overflow: hidden; }
 
   /* HEADER */
   table.hdr { width: 100%; background: #1D2B53; color: #fff; border-collapse: collapse; flex-shrink: 0; }
@@ -54,6 +54,11 @@
   .ret-col3 { width: 30%; }
   .ret-uwagi { border: 1px solid #aaa; border-top: none; padding: 4px 6px; font-size: 9px; min-height: 45px; color: #888; }
   .note-line { font-size: 9px; font-style: italic; font-weight: bold; margin: 6px 0 10px; }
+
+  /* PAGE FOOTER */
+  .pg-footer { border-top: 1px solid #ccc; padding: 3px 14mm 5px; margin-top: 0; overflow: hidden; font-size: 8.5px; color: #444; flex-shrink: 0; }
+  .pg-footer-l { float: left; }
+  .pg-footer-r { float: right; }
 </style>
 </head>
 <body>
@@ -167,7 +172,13 @@
     </table>
   </div>
 
+
 </div><!-- /content -->
+
+<div class="pg-footer">
+  <span class="pg-footer-l">{{ now }}</span>
+  <span class="pg-footer-r">Strona 1 z 1</span>
+</div>
 
 </body>
 </html>

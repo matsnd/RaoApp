@@ -20,7 +20,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !isAuthEndpoint) {
       localStorage.removeItem('rao_token')
       localStorage.removeItem('rao_user')
-      window.location.href = '/login'
+      window.location.href = '/rao/login'
     }
     return Promise.reject(error)
   }
