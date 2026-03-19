@@ -7,11 +7,12 @@
 
     <div class="worker-grid">
 
-      <!-- KOŃCZĄCE SIĘ UMOWY -->
-      <section class="worker-card expiring">
+      <!-- KOŃCZĄCE SIĘ UMOWY — full width -->
+      <section class="worker-card expiring full-width">
         <div class="card-header">
           <span class="card-icon">⏰</span>
           <h2>Kończące się umowy</h2>
+          <span class="badge-count" v-if="expiring.length">{{ expiring.length }}</span>
           <div class="days-filter">
             <button v-for="d in [7, 14, 30]" :key="d" :class="{ active: expiringDays === d }" @click="setExpiringDays(d)">
               {{ d }}d
@@ -19,72 +20,84 @@
           </div>
         </div>
         <div class="card-body">
-          <div v-if="loadingExpiring" class="loading">Ładowanie…</div>
-          <div v-else-if="!expiring.length" class="empty">Brak kończących się umów</div>
-          <table v-else class="worker-table">
-            <thead>
-              <tr>
-                <th>Nr umowy</th>
-                <th>Kontrahent</th>
-                <th>Koniec</th>
-                <th>Dni</th>
-                <th>Adres</th>
-                <th>Kontakt</th>
-                <th>Handlowiec</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="c in expiring" :key="c.id" :class="urgencyClass(c.days_left)">
-                <td><router-link :to="`/contracts/${c.id}/edit`">{{ c.number }}</router-link></td>
-                <td>{{ c.contractor_name }}</td>
-                <td>{{ formatDate(c.date_to) }}</td>
-                <td class="days-badge" :class="urgencyClass(c.days_left)">{{ c.days_left }}</td>
-                <td>{{ c.delivery_address || '—' }}</td>
-                <td>{{ c.contact_person1 || '—' }}{{ c.contact_phone1 ? ', ' + c.contact_phone1 : '' }}</td>
-                <td>{{ c.salesperson_name || '—' }}</td>
-              </tr>
-            </tbody>
-          </table>
+          <div v-if="loadingExpiring" class="skeleton-list">
+            <div class="skel-row" v-for="i in 3" :key="i"></div>
+          </div>
+          <div v-else-if="!expiring.length" class="empty">
+            <span class="empty-ok">✓</span> Brak kończących się umów w ciągu {{ expiringDays }} dni
+          </div>
+          <div v-else class="exp-grid">
+            <div
+              v-for="c in expiring"
+              :key="c.id"
+              class="exp-card"
+              :class="urgencyClass(c.days_left)"
+              @click="$router.push(`/contracts/${c.id}/edit`)"
+            >
+              <div class="exp-bar"></div>
+              <div class="exp-content">
+                <div class="exp-top">
+                  <span class="exp-number">{{ c.number }}</span>
+                  <span class="exp-days-badge" :class="urgencyClass(c.days_left)">
+                    {{ c.days_left === 0 ? 'Dziś!' : c.days_left + ' dni' }}
+                  </span>
+                </div>
+                <div class="exp-contractor">{{ c.contractor_name }}</div>
+                <div class="exp-details">
+                  <span v-if="c.delivery_address" class="exp-addr">📍 {{ c.delivery_address }}</span>
+                  <span class="exp-date">do {{ formatDate(c.date_to) }}</span>
+                  <span v-if="c.salesperson_name" class="exp-salesperson">· {{ c.salesperson_name }}</span>
+                </div>
+                <div class="exp-contact" v-if="c.contact_person1 || c.contact_phone1">
+                  <span v-if="c.contact_person1" class="contact-name">{{ c.contact_person1 }}</span>
+                  <a v-if="c.contact_phone1" :href="`tel:${c.contact_phone1}`" class="contact-phone" @click.stop>📞 {{ c.contact_phone1 }}</a>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
-
 
       <!-- DOSTAWY -->
       <section class="worker-card deliveries">
         <div class="card-header">
           <span class="card-icon">🚚</span>
           <h2>Dostawy</h2>
+          <span class="badge-count badge-blue" v-if="deliveries.length">{{ deliveries.length }}</span>
           <div class="days-filter print-hide">
             <button v-for="d in [1, 2, 3, 7]" :key="d" :class="{ active: deliveryLookahead === d }" @click="setDeliveryLookahead(d)">
               {{ d === 1 ? 'Dziś' : d === 2 ? 'Jutro' : d + 'd' }}
             </button>
           </div>
         </div>
-        <div class="card-body">
-          <div v-if="loadingDeliveries" class="loading">Ładowanie…</div>
-          <div v-else-if="!deliveries.length" class="empty">Brak dostaw w wybranym okresie</div>
-          <table v-else class="worker-table">
-            <thead>
-              <tr>
-                <th>Data</th>
-                <th>Nr umowy</th>
-                <th>Kontrahent</th>
-                <th>Maszyna</th>
-                <th>Adres dostawy</th>
-                <th>Kontakt</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="d in deliveries" :key="d.contract_id + '-' + d.article_name">
-                <td>{{ formatDate(d.delivery_date) }}</td>
-                <td><router-link :to="`/contracts/${d.contract_id}/edit`">{{ d.contract_number }}</router-link></td>
-                <td>{{ d.contractor_name }}</td>
-                <td>{{ d.article_name || '—' }}</td>
-                <td>{{ d.delivery_address || '—' }}</td>
-                <td>{{ d.contact_person1 || '—' }}{{ d.contact_phone1 ? ', ' + d.contact_phone1 : '' }}</td>
-              </tr>
-            </tbody>
-          </table>
+        <div class="card-body no-pad">
+          <div v-if="loadingDeliveries" class="skeleton-list padded">
+            <div class="skel-row" v-for="i in 3" :key="i"></div>
+          </div>
+          <div v-else-if="!deliveries.length" class="empty">
+            <span class="empty-ok">✓</span> Brak dostaw w wybranym okresie
+          </div>
+          <div v-else class="delivery-list">
+            <div v-for="d in deliveries" :key="d.contract_id + '-' + d.article_name" class="delivery-row">
+              <div class="del-chip" :class="isToday(d.delivery_date) ? 'chip-today' : 'chip-future'">
+                {{ isToday(d.delivery_date) ? 'Dziś' : isTomorrow(d.delivery_date) ? 'Jutro' : formatDate(d.delivery_date) }}
+              </div>
+              <div class="del-body">
+                <div class="del-top">
+                  <router-link :to="`/contracts/${d.contract_id}/edit`" class="del-number">{{ d.contract_number }}</router-link>
+                  <span class="del-machine">{{ d.article_name || '—' }}</span>
+                </div>
+                <div class="del-contractor">{{ d.contractor_name }}</div>
+                <div class="del-details">
+                  <span v-if="d.delivery_address" class="del-addr">📍 {{ d.delivery_address }}</span>
+                </div>
+                <div class="del-contact" v-if="d.contact_person1 || d.contact_phone1">
+                  <span v-if="d.contact_person1" class="contact-name">{{ d.contact_person1 }}</span>
+                  <a v-if="d.contact_phone1" :href="`tel:${d.contact_phone1}`" class="contact-phone">📞 {{ d.contact_phone1 }}</a>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -93,35 +106,25 @@
         <div class="card-header">
           <span class="card-icon">🖨️</span>
           <h2>Niewydrukowane umowy</h2>
-          <span class="badge-count print-hide" v-if="unprinted.length">{{ unprinted.length }}</span>
+          <span class="badge-count badge-red" v-if="unprinted.length">{{ unprinted.length }}</span>
         </div>
-        <div class="card-body">
-          <div v-if="loadingUnprinted" class="loading">Ładowanie…</div>
-          <div v-else-if="!unprinted.length" class="empty">Wszystkie aktywne umowy zostały wydrukowane</div>
-          <table v-else class="worker-table">
-            <thead>
-              <tr>
-                <th>Nr umowy</th>
-                <th>Kontrahent</th>
-                <th>Od</th>
-                <th>Do</th>
-                <th>Utworzona</th>
-                <th>Akcja</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="c in unprinted" :key="c.id">
-                <td><router-link :to="`/contracts/${c.id}/edit`">{{ c.number }}</router-link></td>
-                <td>{{ c.contractor_name }}</td>
-                <td>{{ formatDate(c.date_from) }}</td>
-                <td>{{ formatDate(c.date_to) }}</td>
-                <td>{{ c.created_at || '—' }}</td>
-                <td>
-                  <button class="print-btn" @click="printContract(c.id)" title="Drukuj PDF">⎙</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <div class="card-body no-pad">
+          <div v-if="loadingUnprinted" class="skeleton-list padded">
+            <div class="skel-row" v-for="i in 2" :key="i"></div>
+          </div>
+          <div v-else-if="!unprinted.length" class="empty">
+            <span class="empty-ok">✓</span> Wszystkie umowy wydrukowane
+          </div>
+          <div v-else class="unprinted-list">
+            <div v-for="c in unprinted" :key="c.id" class="unp-row">
+              <div class="unp-info" @click="$router.push(`/contracts/${c.id}/edit`)">
+                <span class="unp-number">{{ c.number }}</span>
+                <span class="unp-contractor">{{ c.contractor_name }}</span>
+                <span class="unp-dates">{{ formatDate(c.date_from) }} – {{ formatDate(c.date_to) }}</span>
+              </div>
+              <button class="print-btn" @click="printContract(c.id)" title="Drukuj PDF">⎙ Drukuj</button>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -151,6 +154,12 @@ const loadingUnprinted = ref(false)
 
 const expiringDays = ref(14)
 const deliveryLookahead = ref(2)
+
+const todayStr = new Date().toISOString().slice(0, 10)
+const tomorrowStr = new Date(Date.now() + 86400000).toISOString().slice(0, 10)
+
+function isToday(d) { return d && String(d).slice(0, 10) === todayStr }
+function isTomorrow(d) { return d && String(d).slice(0, 10) === tomorrowStr }
 
 function formatDate(d) {
   if (!d) return '—'
@@ -220,192 +229,280 @@ onMounted(() => {
 
 <style scoped>
 .worker-view {
-  padding: 20px;
-  max-width: 1400px;
+  padding: 20px 24px;
+  max-width: 1600px;
   margin: 0 auto;
+  height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+  background: #F4F6FB;
 }
 
 .worker-header {
   display: flex;
   align-items: baseline;
   gap: 16px;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
-
 .worker-header h1 {
-  font-size: 22px;
-  font-weight: 600;
-  color: #1D2B53;
+  font-size: 20px;
+  font-weight: 700;
+  color: #0F234E;
   margin: 0;
 }
-
 .worker-date {
   font-size: 13px;
-  color: #888;
+  color: #718096;
+  text-transform: capitalize;
 }
 
-.btn-print {
-  margin-left: auto;
-  padding: .35rem .85rem;
-  background: #f0f4ff;
-  color: #1D2B53;
-  border: 1px solid #c0cce8;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: .82rem;
-  font-weight: 600;
-}
-.btn-print:hover { background: #dde6ff; }
-
+/* ── GRID ── */
 .worker-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  gap: 16px;
+}
+.full-width {
+  grid-column: 1 / -1;
 }
 
+/* ── CARD ── */
 .worker-card {
   background: #fff;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.07);
   overflow: hidden;
 }
-
 .card-header {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 12px 16px;
-  background: #f8f9fa;
-  border-bottom: 1px solid #e0e0e0;
+  background: #fff;
+  border-bottom: 1px solid #EDF2F7;
 }
-
-.card-icon {
-  font-size: 16px;
-}
-
+.card-icon { font-size: 16px; }
 .card-header h2 {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
   margin: 0;
   flex: 1;
-  color: #1D2B53;
+  color: #0F234E;
+  text-transform: uppercase;
+  letter-spacing: .04em;
 }
-
 .badge-count {
-  background: #E07800;
+  background: #F59E0B;
   color: #fff;
   font-size: 11px;
-  font-weight: bold;
-  padding: 2px 7px;
-  border-radius: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+  min-width: 20px;
+  text-align: center;
 }
+.badge-blue { background: #3B82F6; }
+.badge-red  { background: #EF4444; }
 
 .days-filter {
   display: flex;
   gap: 4px;
 }
-
 .days-filter button {
-  padding: 2px 8px;
+  padding: 3px 9px;
   font-size: 11px;
-  border: 1px solid #ccc;
+  border: 1px solid #CBD5E0;
   border-radius: 4px;
   background: #fff;
   cursor: pointer;
-  color: #555;
+  color: #4A5568;
+  font-family: inherit;
+  transition: all 120ms;
 }
+.days-filter button:hover { background: #EDF2F7; }
+.days-filter button.active { background: #0F234E; color: #fff; border-color: #0F234E; }
 
-.days-filter button.active {
-  background: #1D2B53;
-  color: #fff;
-  border-color: #1D2B53;
+.card-body { padding: 12px 16px; }
+.card-body.no-pad { padding: 0; }
+
+/* ── LOADING SKELETON ── */
+.skeleton-list { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+.skeleton-list.padded { padding: 12px 16px; }
+.skel-row {
+  height: 52px;
+  background: #EDF2F7;
+  border-radius: 6px;
+  animation: pulse 1.4s ease-in-out infinite;
 }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
 
-.card-body {
-  padding: 12px 16px;
-  overflow-x: auto;
-}
-
-.loading, .empty {
+/* ── EMPTY ── */
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   font-size: 13px;
-  color: #888;
-  padding: 12px 0;
-  text-align: center;
+  color: #A0AEC0;
+  padding: 20px;
 }
+.empty-ok { color: #10B981; font-size: 16px; }
 
-.worker-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
+/* ── EXPIRING GRID ── */
+.exp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
 }
+.exp-card {
+  display: flex;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: box-shadow 150ms, border-color 150ms;
+}
+.exp-card:hover { box-shadow: 0 3px 10px rgba(0,0,0,.1); border-color: #C7D2F0; }
+.exp-bar { width: 4px; flex-shrink: 0; }
+.exp-card.urgent .exp-bar   { background: #EF4444; }
+.exp-card.warning .exp-bar  { background: #F59E0B; }
+.exp-card:not(.urgent):not(.warning) .exp-bar { background: #FCD34D; }
 
-.worker-table th {
-  text-align: left;
+.exp-content { padding: 10px 12px; flex: 1; min-width: 0; }
+.exp-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 3px;
+}
+.exp-number { font-size: 13px; font-weight: 700; color: #0F234E; }
+.exp-days-badge {
   font-size: 11px;
-  color: #888;
-  font-weight: normal;
-  padding: 4px 6px;
-  border-bottom: 1px solid #e0e0e0;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 10px;
   white-space: nowrap;
 }
+.exp-days-badge.urgent  { background: #FEE2E2; color: #991B1B; }
+.exp-days-badge.warning { background: #FEF3C7; color: #92400E; }
+.exp-days-badge:not(.urgent):not(.warning) { background: #FFF8DC; color: #78350F; }
 
-.worker-table td {
-  padding: 5px 6px;
-  border-bottom: 1px solid #f0f0f0;
-  vertical-align: top;
+.exp-contractor { font-size: 13px; font-weight: 600; color: #2D3748; margin-bottom: 4px; }
+.exp-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 11px;
+  color: #718096;
+  margin-bottom: 4px;
 }
-
-.worker-table tr:last-child td {
-  border-bottom: none;
-}
-
-.worker-table a {
-  color: #1D2B53;
+.exp-addr { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
+.exp-contact { display: flex; flex-wrap: wrap; gap: 10px; font-size: 11px; }
+.contact-name { color: #4A5568; }
+.contact-phone {
+  color: #3B82F6;
+  text-decoration: none;
   font-weight: 600;
+}
+.contact-phone:hover { text-decoration: underline; }
+
+/* ── DELIVERIES ── */
+.delivery-list { }
+.delivery-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 11px 16px;
+  border-bottom: 1px solid #F0F4F8;
+}
+.delivery-row:last-child { border-bottom: none; }
+.del-chip {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+.chip-today   { background: #DBEAFE; color: #1E40AF; }
+.chip-future  { background: #E0E7FF; color: #3730A3; }
+.del-body { flex: 1; min-width: 0; }
+.del-top { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+.del-number {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0F234E;
   text-decoration: none;
 }
-
-.worker-table a:hover {
-  text-decoration: underline;
+.del-number:hover { text-decoration: underline; }
+.del-machine {
+  font-size: 12px;
+  font-weight: 600;
+  color: #2D3748;
 }
+.del-contractor { font-size: 11px; color: #718096; margin-bottom: 2px; }
+.del-details { font-size: 11px; color: #718096; margin-bottom: 2px; }
+.del-addr { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.del-contact { font-size: 11px; display: flex; gap: 10px; }
 
-.worker-table tr.urgent td {
-  background: #fff0f0;
+/* ── UNPRINTED ── */
+.unprinted-list { }
+.unp-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #F0F4F8;
 }
-
-.worker-table tr.warning td {
-  background: #fffbe6;
-}
-
-.days-badge {
-  font-weight: bold;
-  text-align: center;
-}
-
-.days-badge.urgent { color: #c00; }
-.days-badge.warning { color: #c07000; }
-
-.overdue-days {
-  font-weight: bold;
-  color: #c00;
-}
-
-.print-btn {
-  background: none;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  padding: 2px 8px;
+.unp-row:last-child { border-bottom: none; }
+.unp-info {
+  flex: 1;
+  min-width: 0;
   cursor: pointer;
-  font-size: 14px;
 }
-
-.print-btn:hover {
-  background: #f0f0f0;
+.unp-number {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0F234E;
+  display: block;
+  margin-bottom: 2px;
 }
+.unp-contractor {
+  font-size: 12px;
+  color: #2D3748;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 2px;
+}
+.unp-dates {
+  font-size: 11px;
+  color: #A0AEC0;
+  display: block;
+}
+.print-btn {
+  flex-shrink: 0;
+  background: #F0F4FF;
+  border: 1px solid #C7D2F0;
+  border-radius: 5px;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  color: #0F234E;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background 120ms;
+}
+.print-btn:hover { background: #DDE6FF; }
 
-@media (max-width: 1100px) {
-  .worker-grid {
-    grid-template-columns: 1fr;
-  }
+@media (max-width: 900px) {
+  .worker-grid { grid-template-columns: 1fr; }
+  .full-width { grid-column: 1; }
+  .exp-grid { grid-template-columns: 1fr; }
 }
 </style>

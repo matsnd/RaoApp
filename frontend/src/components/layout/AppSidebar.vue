@@ -7,7 +7,7 @@
     <button
       :class="['sidebar-btn', 'sidebar-btn-home', { active: activeSection === 'home' }]"
       @click="$emit('navigate', 'home')"
-    >🏠 Start</button>
+    >Start</button>
     <div class="sidebar-divider"></div>
     <button
       v-for="item in topItems"

@@ -112,9 +112,9 @@ class ContractListItem(BaseModel):
     invoice_amount: Decimal | None
     notes: str | None
     email: str | None
-    contact_person1: str | None
-    contact_phone1: str | None
-    phone: str | None
+    contact_person1: str | None = None
+    contact_phone1: str | None = None
+    phone: str | None = None
     salesperson_name: str | None
     print_date: datetime | None
     is_print_current: bool

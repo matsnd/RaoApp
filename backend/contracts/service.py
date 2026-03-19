@@ -140,6 +140,8 @@ class ContractService:
                 date_from=c.date_from, date_to=c.date_to,
                 total_value=c.total_value, prepayment_amount=c.prepayment_amount,
                 invoice_amount=c.invoice_amount, notes=c.notes, email=c.email,
+                contact_person1=c.contact_person1, contact_phone1=c.contact_phone1,
+                phone=c.phone,
                 salesperson_name=sp_name,
                 print_date=c.print_date, is_print_current=is_print_current,
                 duration_days=duration, created_at=c.created_at,

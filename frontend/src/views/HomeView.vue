@@ -443,6 +443,8 @@ onMounted(loadAll)
   gap: 8px;
   padding: 14px 16px 12px;
   border-bottom: 1px solid #EDF2F7;
+  background: #fff;
+  color: #0F234E;
 }
 .panel-icon { font-size: 16px; }
 .panel-header h2 {
