@@ -240,62 +240,121 @@
 
 </div><!-- /content -->
 
-<!-- OWN - REMOVED, standalone document -->
-<!--
 <div class="own-page">
   <div class="own-title">OGÓLNE WARUNKI NAJMU</div>
   <div class="own-cols">
+
     <div class="own-par">§ 1</div>
     <div class="own-sub">Definicje</div>
-    <p class="ot"><strong>Ogólne Warunki Najmu (dalej „OWN”)</strong> – niniejszy dokument stanowiący o warunkach najmu produktów oraz usług oferowanych przez Wynajmującego, z którego postanowieniami zobowiązany jest zapoznać się każdy Najemca i który stanowi integralną część Umowy Najmu.</p>
-    <p class="ot"><strong>Umowa Najmu</strong> – umowa zawarta pomiędzy Wynajmującym a Najemcą, na warunkach i zasadach w niej określonych, której integralną część stanowią OWN.</p>
-    <p class="ot"><strong>Protokół Zdawczo-Odbiorczy</strong> – pisemny dokument sporządzony i podpisywany przez Wynajmującego i Najemcę, który potwierdza przekazanie lub zwrot Przedmiotu Najmu.</p>
-    <p class="ot"><strong>Wynajmujący</strong> – {% if company %}{{ company.name }}, ul. {{ company.street }}, {{ company.postal_code }} {{ company.city }}, NIP: {{ company.nip }}{% else %}firma Toolsmart Sp. z o.o., ul. Kłobucka 6B/103, 02-699 Warszawa, NIP: 9512598092{% endif %}.</p>
-    <p class="ot"><strong>Najemca</strong> – osoba fizyczna, osoba prawna lub jednostka organizacyjna nieposiadająca osobowości prawnej, która zawarła z Wynajmującym Umowę Najmu.</p>
+    <p class="ot"><strong>Ogólne Warunki Najmu (dalej „OWN")</strong> – niniejszy dokument stanowiący o warunkach najmu produktów oferowanych przez Wynajmującego, z którego postanowieniami zobowiązany jest zapoznać się każdy Najemca i który stanowi integralną część Umowy Najmu, bez względu na fakt, czy Umowa Najmu została zawarta na czas oznaczony czy nieoznaczony. Zawarcie przez Najemcę Umowy Najmu, oznacza jednocześnie akceptację przez Najemcę OWN, które wiążą Najemcę od dnia zawarcia Umowy Najmu.</p>
+    <p class="ot"><strong>Umowa Najmu</strong> – umowa w rozumieniu obowiązujących przepisów ustawy Kodeks cywilny (art. 659 i nast.) zawarta pomiędzy Wynajmującym a Najemcą, na warunkach i zasadach w niej określonych, której integralną część stanowią OWN.</p>
+    <p class="ot"><strong>Protokół Zdawczo – Odbiorczy</strong> – Pisemny dokument sporządzony i podpisywany przez Wynajmującego i Najemcę, który potwierdza przekazanie, zwrot, stan techniczny Przedmiotu Najmu lub wykonanie usługi za pomocą Przedmiotu Najmu.</p>
+    <p class="ot"><strong>Wynajmujący</strong> – firma {% if company %}{{ company.name }}, ul. {{ company.street }}, {{ company.postal_code }} {{ company.city }}, NIP: {{ company.nip }}{% else %}Toolsmart Sp. z o.o., ul. Kłobucka 6B/103, 02-699 Warszawa, NIP: 9512598092{% endif %}</p>
+    <p class="ot"><strong>Najemca</strong> – osoba fizyczna, osoba prawna, jednostka organizacyjna nieposiadająca osobowości prawnej, która zawarła z Wynajmującym Umowę Najmu.</p>
     <p class="ot"><strong>Przedmiot Najmu</strong> – przedmiot, którego dotyczy zawarta pomiędzy Wynajmującym a Najemcą Umowa Najmu.</p>
     <p class="ot"><strong>Operator</strong> – osoba będąca przedstawicielem Wynajmującego obsługująca, na zlecenie Najemcy, Przedmiot Najmu.</p>
 
     <div class="own-par">§ 2</div>
     <div class="own-sub">Postanowienia ogólne</div>
-    <p class="ot">1. Niniejsze Ogólne Warunki Najmu (dalej: OWN) określają warunki wynajmu maszyn przez Wynajmującego na rzecz przedsiębiorców i konsumentów.</p>
+    <p class="ot">1. Niniejsze Ogólne Warunki Najmu (dalej: OWN) określają warunki wynajmu maszyn przez firmę {% if company %}{{ company.name }}{% else %}Toolsmart Sp. z o.o.{% endif %} działającą pod marką Toolsmart; posiadającą NIP: {% if company %}{{ company.nip }}{% else %}9512598092{% endif %}, zwaną dalej „Wynajmującym" na rzecz przedsiębiorców i konsumentów w rozumieniu art. 22(1) Kodeksu cywilnego, zwanych dalej „Najemcą", jak i również zasady rozliczania świadczonych usług, zasady odpowiedzialności Stron z tytułu wykonywania umowy.</p>
     <p class="ot">2. OWN mają zastosowanie do najmu maszyn oferowanych przez Wynajmującego.</p>
-    <p class="ot">3. Niniejsze OWN stanowią integralną część Umowy Najmu.</p>
+    <p class="ot">3. Niniejsze Ogólne Warunki Najmu stanowią integralną część Umowy Najmu, zawartej pomiędzy Wynajmującym, a Najemcą.</p>
     <p class="ot">4. Przedmiot Najmu pozostaje własnością Wynajmującego przez cały okres trwania najmu.</p>
     <p class="ot">5. Czas trwania Umowy Najmu liczy się od dnia odbioru Przedmiotu Najmu przez Najemcę do dnia jego zwrotu Wynajmującemu włącznie.</p>
-    <p class="ot">6. Najemca zobowiązuje się do pisemnego poinformowania wynajmującego o zwrocie Przedmiotu Najmu najpóźniej z jednodniowym wyprzedzeniem.</p>
-    <p class="ot">7. W przypadku niewykonania obowiązku przekazania informacji o zwrocie strony przyjmują, że stosunek najmu zawarty jest na czas nieokreślony.</p>
-    <p class="ot">8. Najemca ponosi odpowiedzialność za wynajmowany Przedmiot Najmu od momentu jego dostarczenia aż do zwrotu.</p>
+    <p class="ot">6. Najemca zobowiązuje się do pisemnego poinformowania wynajmującego o zwrocie (wymeldowaniu) Przedmiotu Najmu najpóźniej z jednodniowym wyprzedzeniem.</p>
+    <p class="ot">7. W przypadku niewykonania obowiązku przekazania informacji o zwrocie (wymeldowaniu) Przedmiotu Najmu przez Najemcę, strony przyjmują, że stosunek najmu zawarty jest na czas nieokreślony.</p>
+    <p class="ot">8. Najemca ponosi odpowiedzialność za wynajmowany Przedmiot Najmu od momentu jego dostarczenia aż do zwrotu. W szczególności za jego uszkodzenia, przypadkową utratę, zniszczenie, kradzież w całości lub w części oraz nieuprawnione przywłaszczenie. Najemca odpowiada również za wszelkie szkody wynikające z użytkowania przedmiotu, zarówno w odniesieniu do swojego majątku, jak i majątku osób trzecich oraz za szkody wyrządzone innym osobom, szczególnie te, które mogą być spowodowane wyciekiem oleju lub innych płynów eksploatacyjnych, które nie zostały zarejestrowane przy odbiorze urządzenia.</p>
+    <p class="ot">9. Najemca, bądź osoba przez niego uprawniona, zobowiązany jest do obecności przy przekazaniu i zwrocie Przedmiotu Najmu – jego nieobecność skutkować będzie jednostronnym sporządzeniem Protokołu Zdawczo-Odbiorczego. Tak sporządzony Protokół Zdawczo-Odbiorczy stanowi dowód na informacje w nim zawarte w przypadku sporu co do stanu Przedmiotu Najmu.</p>
+    <p class="ot">10. Najemca nie jest uprawniony do ustanawiania na Przedmiocie Najmu jakichkolwiek praw na rzecz osób trzecich, w tym do jego podnajmu, bez pisemnej zgody Wynajmującego. Przedmiot Najmu nie może stanowić zabezpieczenia spłat jakichkolwiek zobowiązań Najemcy wobec osób trzecich.</p>
+    <p class="ot">11. Zabronione jest użytkowanie Przedmiotu Najmu do prac typu piaskowanie, śrutowanie lub do podobnych metod prac obróbki strumieniowo-ściernej.</p>
+    <p class="ot">12. Najemca zobowiązany jest do niezwłocznego powiadomienia Wynajmującego w przypadku zgłoszenia jakichkolwiek roszczeń do Przedmiotu Najmu.</p>
+    <p class="ot">13. Wydanie oraz zwrot Przedmiotu Najmu następuje na podstawie Protokołu Zdawczo-Odbiorczego podpisanego przez przedstawicieli Najemcy i Wynajmującego.</p>
+    <p class="ot">14. Najemca zobowiązany jest do poinformowania Wynajmującego o wszelkich zdarzeniach uznawanych za wypadki czy uszkodzenia oraz wszelkich postępowaniach wszczętych przez organy państwowe po takich zdarzeniach, w których uczestniczył Przedmiot Najmu.</p>
+    <p class="ot">15. Najemca zobowiązany jest do umożliwienia Wynajmującemu dostępu do Przedmiotu Najmu na każde jego żądanie.</p>
 
     <div class="own-par">§ 3</div>
     <div class="own-sub">Czynsz najmu oraz inne opłaty</div>
-    <p class="ot">1. Podstawą do rozliczeń finansowych są ceny netto. Do podanych cen doliczony zostanie podatek VAT.</p>
-    <p class="ot">2. Czynsz naliczany jest za pracę urządzenia w każdej dobie rozliczeniowej.</p>
-    <p class="ot">3. Wynajmujący zastrzega możliwość pobierania kaucji od Najemcy.</p>
-    <p class="ot">4. Wynajmujący zastrzega możliwość uzależnienia wydania Przedmiotu Najmu od wpłacenia kaucji lub przedpłaty.</p>
+    <p class="ot">1. Podstawą do rozliczeń finansowych są ceny netto, określone w Umowie Najmu. Do podanych cen doliczony zostanie podatek VAT.</p>
+    <p class="ot">2. Czynsz naliczany jest za pracę urządzenia w każdej dobie rozliczeniowej (chyba, że Umowa Najmu wskazuje inny sposób rozliczenia). Przyjmuje się, że doba rozliczeniowa obejmuje 8 godzin pracy urządzenia, licząc od momentu jego uruchomienia danego dnia. W przypadku przekroczenia tego limitu, Wynajmujący zastrzega sobie prawo do naliczenia dodatkowej opłaty w wysokości 12,5% dziennej stawki za każdą dodatkową godzinę.</p>
+    <p class="ot">3. Wynajmujący zastrzega możliwość pobierania kaucji od Najemcy celem zabezpieczenia odszkodowania za utratę lub uszkodzenie Przedmiotu Najmu. Strony mogą dokonywać wzajemnych potrąceń należności z tytułu zawartych umów z wpłaconą kaucją. Wpłacona kaucja zabezpieczać może także kolejne Umowy Najmu.</p>
+    <p class="ot">4. Wynajmujący zastrzega możliwość uzależnienia wydania Przedmiotu Najmu od wpłacenia przez Najemcę kaucji lub przedpłaty na zabezpieczenie odszkodowania za utratę lub uszkodzenie przedmiotu najmu. Wysokość kaucji lub przedpłaty będzie każdorazowo przez Strony uzgadniana. Kaucja lub przedpłata zostanie zwrócona Najemcy na wskazane w odrębnym piśmie konto bankowe w terminie 5 dni roboczych po zwrocie przedmiotu najmu i całkowitym rozliczeniu wszystkich umów Najemcy.</p>
+    <p class="ot">5. W przypadku niezwrócenia Przedmiotu Najmu po rozwiązaniu Umowy Najmu, Wynajmujący ma prawo do naliczenia odszkodowania za bezumowne korzystanie z tego sprzętu w wysokości równej 100% wartości stawki dziennego czynszu określonego w Cenniku Wynajmu.</p>
+    <p class="ot">6. Okres najmu, za który naliczana jest opłata obejmuje czas od momentu przyjęcia sprzętu przez Najemcę do momentu pisemnego, telefonicznego lub mailowego poinformowania o gotowości do zwrotu („wymeldowania") Sprzętu. Przyjmuje się, że na potrzeby rozliczeń jeden dzień najmu obejmuje 8 godzin, jeśli strony nie ustaliły inaczej.</p>
+    <p class="ot">7. Czynsz uiszczany będzie gotówką lub przelewem na konto oraz w terminie wskazanym na fakturze / umowie. W przypadku nieuiszczenia czynszu w terminie wynikającym z postanowień niniejszej umowy, Najemca zobowiązany będzie do zapłacenia odsetek maksymalnych. Wynajmujący ma prawo obciążyć Najemcę kosztami dochodzenia od Najemcy należności wynikających z niniejszej umowy – do kosztów tych należeć będzie w szczególności wynagrodzenie kancelarii prawnych lub firm windykacyjnych, którym Wynajmujący zleci dochodzenie roszczeń od Najemcy.</p>
+    <p class="ot">8. Najemca zobowiązany będzie do dodatkowej zapłaty w następujących przypadkach:</p>
+    <p class="ot" style="padding-left:8px;">– Uszkodzenia Przedmiotu Najmu w trakcie trwania umowy lub zwrotu niesprawnego Przedmiotu Najmu oraz konieczności dokonania naprawy przez Wynajmującego. Naprawy w takich przypadkach przeprowadza lub zleca wyłącznie Wynajmujący. Najemca w żadnym razie nie jest uprawniony do dokonywania samodzielnych napraw, wprowadzania zmian, uzupełnienia Przedmiotu Najmu o dodatkowe elementy, ani do zlecenia ich wykonania osobom trzecim.</p>
+    <p class="ot" style="padding-left:8px;">– Zwrotu zabrudzonego Przedmiotu Najmu, gdzie Najemca zostanie obciążony kosztami jego czyszczenia – po ocenie stanu czystości zwracanego Sprzętu – wg stawki ustalonej w Umowie Najmu.</p>
+    <p class="ot" style="padding-left:8px;">– W przypadku wezwania serwisowego, które okaże się nieuzasadnione, a problem wynikać będzie z prostych do usunięcia przyczyn (np. wciśnięty wyłącznik awaryjny, nieprawidłowo załączony bieg, brak paliwa, niewłaściwie ustawienie przełączników lub inne błędne operacje eksploatacyjne), Najemca ponosi koszt takiego wezwania zgodnie z obowiązującym cennikiem serwisowym.</p>
+    <p class="ot" style="padding-left:8px;">– W przypadku opóźnienia po stronie Najemcy w odbiorze lub przyjęciu dostawy Przedmiotu Najmu, Wynajmujący zastrzega sobie prawo do naliczenia opłaty za przestój kierowcy wynikający z konieczności oczekiwania na Najemcę według ustalonych stawek.</p>
 
     <div class="own-par">§ 4</div>
     <div class="own-sub">Prawa i obowiązki stron</div>
-    <p class="ot">1. Najemca zobowiązuje się do obsługi Przedmiotu Najmu zgodnie z obowiązującymi przepisami.</p>
-    <p class="ot">2. Najemca deklaruje, że zapoznał się z wymaganiami technicznymi dotyczącymi Przedmiotu Najmu.</p>
+    <p class="ot">1. Najemca zobowiązuje się do obsługi Przedmiotu Najmu zgodnie z obowiązującymi przepisami, w szczególności przez operatorów posiadających odpowiednie uprawnienia wydane przez dozór techniczny lub inną właściwą instytucję.</p>
+    <p class="ot">2. Najemca deklaruje, że zapoznał się z wymaganiami technicznymi dotyczącymi Przedmiotu Najmu, uwzględniając jego przeznaczenie oraz warunki pracy w planowanym miejscu użytkowania. Wszystkie udostępniane katalogi, zdjęcia, materiały reklamowe i dane techniczne Przedmiotu Najmu mają wyłącznie charakter informacyjny i nabierają mocy wiążącej wyłącznie po ich zatwierdzeniu przez Wynajmującego.</p>
+    <p class="ot">3. W przypadku uszkodzenia lub zniszczenia mechanicznego Przedmiotu Najmu przez Najemcę, Najemca zobowiązany jest do pokrycia całkowitych kosztów naprawy. Gdy sprzęt nie nadaje się do naprawy Najemca zwróci jego wartość odtworzeniową, zgodnie z wystawioną przez Wynajmującego notą obciążeniową lub fakturę VAT w terminie 7 dni od daty jej otrzymania. Wartość odtworzeniowa to aktualna cena maszyny o podobnym przebiegu i roku produkcji – wartość taka podana będzie w Umowie Najmu lub w protokole zdawczo-odbiorczym, które Najemca akceptuje.</p>
+    <p class="ot">4. Termin naprawy uzależniony będzie od rodzaju usterki lub uszkodzenia. Wynajmujący dołoży należytej staranności do jak najszybszego usunięcia awarii - naprawy Przedmiotu Najmu, jednakże w przypadku zachowania tej staranności nie ponosi odpowiedzialności za szkody spowodowane przestojem Przedmiotu Najmu. Wynajmujący dołoży należytej staranności, aby zapewnić Najemcy zastępczy Przedmiot Najmu, pod warunkiem jednak posiadania go w swoich zasobach.</p>
+    <p class="ot">5. Najemca ma obowiązek poinformowania Wynajmującego o wszelkich zdarzeniach, które mogą mieć wpływ na prawidłową eksploatację Przedmiotu Najmu, w szczególności o jego niewłaściwej, innej niż dotychczasowej pracy, wszelkich wypadkach, braku płynów eksploatacyjnych, braku oleju, zniszczonych podzespołów itp.</p>
+    <p class="ot">6. W wypadku kradzieży Przedmiotu Najmu Najemca zobowiązany jest powiadomić organy ścigania. Do czasu zawiadomienia organów ścigania o kradzieży, Wynajmujący ma prawo naliczać ustalone stawki wg ustaleń zawartych w Umowie Najmu.</p>
+    <p class="ot">7. Jeśli Przedmiot Najmu został w trakcie najmu utracony, za zakończenie umowy najmu uważa się dzień wpłaty przez Najemcę kwoty, na którą została wystawiona nota obciążeniowa lub faktura VAT.</p>
+    <p class="ot">8. W przypadku uszkodzenia sprzętu wynikającego z niewłaściwego użytkowania, zaniedbania lub innych działań Najemcy, Wynajmujący zastrzega sobie prawo do przeprowadzenia serwisu i napraw w czasie odpowiadającym rzeczywistemu zakresowi koniecznych prac naprawczych uwzględniając m.in. czas sprowadzenia części niezbędnych oraz robociznę.</p>
+    <p class="ot">9. Najemca ponosi koszt transportu Przedmiotu Najmu z magazynu Wynajmującego do miejsca jego używania oraz z miejsca używania do magazynu Wynajmującego według ustalonej ceny.</p>
+    <p class="ot">10. Wynajmujący nie ponosi odpowiedzialności za jakiekolwiek szkody materialne lub niematerialne wyrządzone przez Przedmiot Najmu lub inne maszyny budowlane w trakcie dostawy lub realizacji usług operatorskich na rzecz Najemcy, w tym, lecz nie wyłącznie, za szkody spowodowane:</p>
+    <p class="ot" style="padding-left:8px;">– Przypadkowym wyciekiem płynów eksploatacyjnych (np. oleju hydraulicznego, paliwa) na powierzchnie należące do klienta lub osoby trzeciej.</p>
+    <p class="ot" style="padding-left:8px;">– Uszkodzeniem infrastruktury, terenu bądź innego mienia w wyniku standardowej pracy maszyny lub jej nieprzewidzianych awarii.</p>
+    <p class="ot" style="padding-left:8px;">– Zachowaniem operatora, o ile działał zgodnie z zasadami technicznymi i standardami użytkowania maszyny.</p>
+    <p class="ot">11. Najemca zobowiązuje się do podjęcia działań mających na celu minimalizację ryzyka związanego z użytkowaniem maszyn, w tym zapewnienia odpowiednich warunków pracy dla maszyn oraz poinformowania Wynajmującego o wszelkich szczególnych wymaganiach dotyczących miejsca realizacji usługi lub dostawy Przedmiotu Najmu.</p>
+    <p class="ot">12. Najemca oświadcza, iż jest uprawniony do odbioru faktur, o nadanym numerze NIP oraz jednocześnie upoważnia Wynajmującego do wystawiania faktur bez swojego podpisu.</p>
+    <p class="ot">13. Najemca zobowiązany jest do uczestnictwa osobistego lub przez upoważnione osoby zarówno przy przekazywaniu Przedmiotu Najmu, jak i przy jego zdawaniu na rzecz Wynajmującego. Niewywiązanie się z tego obowiązku przez Najemcę uprawnia Wynajmującego do samodzielnego, jednostronnego ustalenia stanu technicznego Przedmiotu Najmu oraz ilości elementów wielokrotnych. Protokół ten stanowił będzie podstawę do obciążenia Najemcy kosztami doprowadzenia Przedmiotu Najmu do stanu pierwotnego.</p>
+    <p class="ot">14. Najemca zobowiązany jest do używania Przedmiotu Najmu z należytą starannością, zgodnie z zasadami BHP oraz zaleceniami producenta, w miejscu ustalonym w Umowie Najmu. O każdej zmianie zakresu lub miejsca używania przedmiotu najmu Najemca powiadomi pisemnie Wynajmującego w celu uzyskania jego pisemnej zgody.</p>
+    <p class="ot">15. Najemca zobowiązany jest pisemnie poinformować Wynajmującego o terminie wykonania przeglądu wynikającego z odczytu liczby motogodzin lub zapisu w Protokole Zdawczo-Odbiorczym.</p>
+    <p class="ot">16. Najemca nie może scedować swych praw i obowiązków wynikających z Umowy Najmu na osobę trzecią. Wynajmujący zastrzega sobie prawo do przeniesienia swoich wierzytelności na rzecz osób trzecich, w tym zawodowo zajmującym się obrotem wierzytelnościami, na co Najemca wyraża zgodę.</p>
+    <p class="ot">17. Najemca oświadcza, iż nie toczy się wobec niego postępowanie zabezpieczające lub egzekucyjne, a także naprawcze lub upadłościowe oraz że ma zapewnione środki finansowe na zapłatę czynszu najmu oraz wynagrodzenia za świadczenie usług dodatkowych.</p>
 
     <div class="own-par">§ 5</div>
     <div class="own-sub">Odpowiedzialność</div>
-    <p class="ot">1. Najemca ponosi pełną odpowiedzialność za Przedmiot Najmu od chwili jego przejęcia do momentu zwrotu.</p>
-    <p class="ot">2. Odpowiedzialność za szkody wobec pracowników Najemcy ponosi Najemca.</p>
+    <p class="ot">1. Najemca ponosi pełną odpowiedzialność za Przedmiot Najmu od chwili jego przejęcia do momentu zwrotu w miejscu ustalonym między Wynajmującym, a Najemcą w stanie takim w jakim odebrał maszynę od Wynajmującego, a ryzyko utraty lub uszkodzenia Przedmiotu Najmu niezależnie od jego przyczyny czy okoliczności przechodzi na Najemcę z chwilą protokolarnego odbioru przez niego Przedmiotu Najmu.</p>
+    <p class="ot">2. Odpowiedzialność za szkody wobec pracowników Najemcy lub osób związanych z nim innymi stosunkami prawnymi, a także wobec osób trzecich powstałe podczas używania Przedmiotu Najmu, ponosi Najemca.</p>
+    <p class="ot">3. Skutki uszkodzeń, awarii i strat powstałe przez nieprzestrzeganie instrukcji obsługi Przedmiotu Najmu oraz zasad BHP będą obciążały w całości Najemcę.</p>
+    <p class="ot">4. W razie uszkodzenia, zniszczenia lub utraty Przedmiotu Najmu Najemca zobowiązany jest do zapłaty odszkodowania odpowiadającego jego wartości (wartość odtworzeniowa), określonej w Umowie Najmu lub Protokole Zdawczo-Odbiorczym, które Najemca akceptuje. Najemca ma obowiązek uiszczenia ustalonego w Umowie Najmu czynszu za okres od dnia zajścia tego zdarzenia do dnia zapłaty wspomnianego odszkodowania.</p>
+    <p class="ot">5. W razie uszkodzenia Przedmiotu Najmu Najemca zobowiązany jest do pokrycia kosztów naprawy tj. robocizny oraz części zamiennych. Wartość uszkodzenia będzie wyceniona przez Wynajmującego na podstawie aktualnych cen części i robocizny niezbędnej do jej usunięcia. Jeżeli z powodu utraty lub uszkodzenia Przedmiotu Najmu przez Najemcę, Wynajmujący poniesie szkodę w związku z odpowiedzialnością cywilną wobec osób trzecich z tytułu niewykonania wcześniej zawartych umów, Najemca zobowiązany będzie do naprawienia szkody poniesionej przez Wynajmującego.</p>
+    <p class="ot">6. Najemca ponosi pełną odpowiedzialność za szkody wynikłe z naruszenia zasad przy używaniu Przedmiotu Najmu, a w szczególności zasad bezpieczeństwa i higieny pracy w przypadku gdy Przedmiot Najmu jest obsługiwany przez osoby nieuprawnione lub nieposiadające odpowiednich, wymaganych przez prawo uprawnień.</p>
+    <p class="ot">7. Wynajmujący zobowiązuje się do podjęcia działań serwisowych w terminie do 24 godzin od momentu zgłoszenia przez Najemcę potrzeby serwisu Przedmiotu Najmu, pod warunkiem dokonania zgłoszenia w dniu roboczym oraz w godzinach pracy Wynajmującego.</p>
+    <p class="ot">8. Wynajmujący zastrzega sobie prawo do dokonania oceny technicznej zwróconego przez Najemcę Przedmiotu Najmu do 14 dni po odbiorze Przedmiotu Najmu, ewentualnie na wniosek i koszt Najemcy dokonanej przez autoryzowany serwis producenta Przedmiotu Najmu, która będzie obowiązująca dla ustalenia: przyczyn oraz kosztów usunięcia jego uszkodzenia itp. Dokumentem uzupełniającym dla ustalenia przyczyn uszkodzenia będzie protokół zdawczo-odbiorczy podpisany przez przedstawicieli Najemcy oraz Wynajmującego na podstawie oględzin zewnętrznych, rozruchu próbnego i działania sprzętu oraz ewentualnej kontroli widocznych uszkodzeń.</p>
+    <p class="ot">9. Najemca nie ponosi odpowiedzialności za zużycie Przedmiotu Najmu będące następstwem jego prawidłowego użytkowania.</p>
 
     <div class="own-par">§ 6</div>
     <div class="own-sub">Rozwiązanie umowy</div>
-    <p class="ot">1. Wynajmujący może rozwiązać Umowę Najmu ze skutkiem natychmiastowym jeśli Najemca narusza postanowienia OWN lub Umowy Najmu.</p>
+    <p class="ot">Wynajmujący może rozwiązać Umowę Najmu ze skutkiem natychmiastowym jeśli:</p>
+    <p class="ot" style="padding-left:8px;">– Najemca używa Przedmiot Najmu w sposób sprzeczny z jego przeznaczeniem narażając go na utratę lub uszkodzenie,</p>
+    <p class="ot" style="padding-left:8px;">– Najemca oddaje Przedmiot Najmu w używanie osobom trzecim bez zgody Wynajmującego,</p>
+    <p class="ot" style="padding-left:8px;">– Najemca zalega z zapłatą należności z jakiegokolwiek tytułu za okres co najmniej 14 dni,</p>
+    <p class="ot" style="padding-left:8px;">– Najemca narusza postanowienia niniejszych Ogólnych Warunków Najmu, Umowy Najmu.</p>
 
     <div class="own-par">§ 7</div>
     <div class="own-sub">Postanowienia końcowe</div>
     <p class="ot">1. Administratorem danych jest Wynajmujący – {% if company %}{{ company.name }}{% else %}Toolsmart Sp. z o.o.{% endif %}.</p>
-    <p class="ot">2. Dane osobowe Najemcy przetwarzane będą w oparciu o podstawy prawne wskazane w art. 6 RODO.</p>
-    <p class="ot">3. Do rozstrzygnięcia sporów jest właściwy sąd powszechny w Warszawie.</p>
-    <p class="ot">4. Najemca oświadcza, iż zapoznał się z niniejszymi OWN i akceptuje je w całości.</p>
+    <p class="ot">2. Dane osobowe Najemcy przetwarzane będą w oparciu o podstawy prawne wskazane w art. 6 Ogólnego rozporządzenia o ochronie danych (RODO).</p>
+    <p class="ot">3. Strony zobowiązują się do niezwłocznego pisemnego powiadamiania o wszelkich zmianach swoich danych adresowych. Brak dokonania powiadomienia skutkował będzie przyjęciem skutecznego doręczenia korespondencji pod ostatnim wskazanym adresem.</p>
+    <p class="ot">4. Do rozstrzygnięcia sporów między Wynajmującym i Najemcą wynikających z Umowy Najmu jest właściwy sąd powszechny w Warszawie.</p>
+    <p class="ot">5. Najemca oświadcza, iż zapoznał się z niniejszymi ogólnymi warunkami umowy najmu i akceptuje je w całości.</p>
+
+  </div><!-- /own-cols -->
+
+  <div class="own-sig-row">
+    <div class="own-sig-cell">
+      <div style="font-size:9px;margin-bottom:4px;text-align:center;">
+        {% if company %}<strong>{{ company.name }}</strong><br>
+        ul. {{ company.street }}, {{ company.postal_code }} {{ company.city }}<br>
+        NIP {{ company.nip }}, Regon 528847124<br>
+        KRS 0001109942{% endif %}
+      </div>
+      <div style="text-align:center;margin-top:20px;"><div class="own-sig-line">Czytelny podpis Wynajmującego</div></div>
+    </div>
+    <div class="own-sig-cell">
+      <div style="text-align:center;margin-top:60px;"><div class="own-sig-line">Czytelny podpis Najemcy</div></div>
+    </div>
   </div>
--->
-<!-- END OWN -->
+</div>
 
 </body>
 </html>
