@@ -150,11 +150,14 @@ async def generate_summary_pdf(db: AsyncSession, summary_type: str) -> bytes:
 
 
 def _html_to_pdf_sync(html: str, use_playwright_footer: bool = True) -> bytes:
-    """Render HTML to PDF. Tries Playwright (dev), falls back to WeasyPrint (production/shared hosting)."""
-    try:
+    """Render HTML to PDF. Renderer controlled by RAO_PDF_RENDERER env var.
+    weasyprint (default) — identical output on dev and prod (shared hosting).
+    playwright — Chromium-based, higher CSS fidelity, requires browser binaries.
+    """
+    from config import settings
+    if settings.RAO_PDF_RENDERER == "playwright":
         return _pdf_via_playwright(html, use_playwright_footer)
-    except Exception:
-        return _pdf_via_weasyprint(html)
+    return _pdf_via_weasyprint(html)
 
 
 def _pdf_via_playwright(html: str, use_footer: bool = True) -> bytes:

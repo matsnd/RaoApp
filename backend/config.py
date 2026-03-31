@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     RAO_GUS_API_KEY: str = ""
     RAO_NOMINATIM_BASE_URL: str = "https://nominatim.openstreetmap.org"
     RAO_CORS_ORIGINS: str = '["http://localhost:5173","http://localhost:5174","http://localhost:5175"]'
+    RAO_PDF_RENDERER: str = "weasyprint"
 
     def get_cors_origins(self) -> List[str]:
         return json.loads(self.RAO_CORS_ORIGINS)

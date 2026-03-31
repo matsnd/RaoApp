@@ -206,6 +206,7 @@ RAO_SMTP_TLS=True
 RAO_FRONTEND_URL=https://www.toolsmart.pl/rao
 RAO_GUS_API_KEY=twoj_klucz_gus
 RAO_CORS_ORIGINS=["https://www.toolsmart.pl","https://toolsmart.pl"]
+RAO_PDF_RENDERER=weasyprint
 ```
 
 > **Generowanie SECRET_KEY** (uruchom lokalnie):
@@ -286,6 +287,7 @@ Następnie kliknij **+ ADD VARIABLE** i dodaj po kolei każdą zmienną:
 | `RAO_SMTP_USER` | `noreply@toolsmart.pl` |
 | `RAO_SMTP_PASSWORD` | `(hasło skrzynki)` |
 | `RAO_SMTP_TLS` | `True` |
+| `RAO_PDF_RENDERER` | `weasyprint` |
 
 Po uzupełnieniu wszystkich pól kliknij **CREATE**.
 
