@@ -1,8 +1,12 @@
-# Environment
+# Environment — NIGDY nie commituj!
 .env
 .env.local
+.env.production.local
+.env.*.local
+**/secrets.*
+**/*_credentials.*
 
-# Konfiguracja bazy (wrażliwe dane)
+# Konfiguracja bazy / dane wrażliwe
 spec/DB_CONFIG.md
 spec/NEW_DB_CONFIG.md
 spec/.obsidian/
@@ -35,4 +39,3 @@ frontend/.vite/
 # OS
 .DS_Store
 Thumbs.db
-spec/DB_CONFIG.md
