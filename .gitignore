@@ -1,5 +1,6 @@
 # Environment — NIGDY nie commituj!
 .env
+.env.prod
 .env.local
 .env.production.local
 .env.*.local
