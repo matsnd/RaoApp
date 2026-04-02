@@ -79,8 +79,28 @@ Sprawdź limit importu w PhpMyAdmin (zazwyczaj 50–512 MB). Nasz dump powinien 
 3. Utwórz **użytkownika bazy**:
    - Login: `ts123_rao_user`
    - Hasło: (silne, zapisz!)
-   - Uprawnienia: **ALL PRIVILEGES** na tej bazie
-4. Zanotuj:
+4. Przypisz użytkownika do bazy i nadaj uprawnienia — **zaznacz dokładnie te pola**:
+
+| Uprawnienie | Zaznacz | Po co |
+|-------------|---------|-------|
+| `SELECT` | ✅ | odczyt danych |
+| `INSERT` | ✅ | dodawanie rekordów |
+| `UPDATE` | ✅ | edycja rekordów |
+| `DELETE` | ✅ | usuwanie rekordów |
+| `CREATE` | ✅ | tworzenie tabel (migracje Alembic) |
+| `DROP` | ✅ | usuwanie tabel (migracje) |
+| `ALTER` | ✅ | zmiana struktury tabel (migracje) |
+| `INDEX` | ✅ | tworzenie indeksów |
+| `REFERENCES` | ✅ | klucze obce (foreign keys) |
+| `CREATE TEMPORARY TABLES` | ✅ | operacje tymczasowe |
+| `LOCK TABLES` | ✅ | import dumpów |
+| `EXECUTE` | ❌ | nie potrzebne |
+| `GRANT OPTION` | ❌ | nie dawaj — pozwala nadawać prawa innym |
+| `SUPER` | ❌ | nie potrzebne, zbyt szerokie |
+
+> **Najszybsza opcja w panelu DirectAdmin**: przy przypisywaniu użytkownika do bazy kliknij **"ALL PRIVILEGES"** — to zaznacza wszystkie powyższe naraz (z wyjątkiem GRANT OPTION i SUPER). Na shared hostingu panel zazwyczaj nie daje SUPER i GRANT OPTION nawet przez ALL PRIVILEGES — więc jest bezpieczne.
+
+5. Zanotuj:
    ```
    DB_HOST=localhost
    DB_NAME=ts123_rao

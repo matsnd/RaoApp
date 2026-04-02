@@ -95,7 +95,6 @@ export const useSettingsStore = defineStore('settings', () => {
         fetchCategories(),
         fetchBranches(),
         fetchRateTypes(),
-        fetchFeeTemplates(),
       ])
     } finally {
       loading.value = false

@@ -16,6 +16,7 @@ app = FastAPI(
     title="RAO API",
     description="RAO - Wynajem maszyn budowlanych",
     version="1.0.0",
+    root_path="/rao/api",
 )
 
 
