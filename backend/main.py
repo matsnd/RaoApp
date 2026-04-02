@@ -45,7 +45,7 @@ async def startup_migrations():
                     update(ServiceFeeTemplate)
                     .where(ServiceFeeTemplate.contract_type == ct)
                     .where(ServiceFeeTemplate.preset_id == None)
-                    .values(preset_id=grp.id)
+                    .values(preset_id=grp.id, is_active=True)
                 )
             await db.commit()
 

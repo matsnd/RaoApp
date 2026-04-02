@@ -351,14 +351,14 @@ async def step5_service_fee_templates():
             await cur.execute("""
                 INSERT INTO service_fee_templates
                     (company_id, contract_type, sort_order, name, amount_from, amount_to, description, is_active)
-                VALUES (1, 'S', %s, %s, %s, %s, %s, %s)
-            """, (i, name, amt_from, amt_to, desc, 1 if active else 0))
+                VALUES (1, 'S', %s, %s, %s, %s, %s, 1)
+            """, (i, name, amt_from, amt_to, desc))
             # Also create for U type
             await cur.execute("""
                 INSERT INTO service_fee_templates
                     (company_id, contract_type, sort_order, name, amount_from, amount_to, description, is_active)
-                VALUES (1, 'U', %s, %s, %s, %s, %s, %s)
-            """, (i, name, amt_from, amt_to, desc, 1 if active else 0))
+                VALUES (1, 'U', %s, %s, %s, %s, %s, 1)
+            """, (i, name, amt_from, amt_to, desc))
             count += 2
         await conn.commit()
         print(f"   {count} fee templates created (5 × S + 5 × U)")
@@ -484,6 +484,30 @@ def _parse_text_to_fees(text: str) -> list[dict]:
     return result
 
 
+async def step5c_create_preset_groups():
+    """Create default fee preset groups and link service_fee_templates to them."""
+    print("[5c] Creating fee preset groups and linking templates …")
+    conn = await aiomysql.connect(host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASS, db=DB_NAME)
+    cur = await conn.cursor()
+
+    for sort_order, (ct, label) in enumerate((("S", "Domyślny — najem"), ("U", "Domyślny — usługa"))):
+        await cur.execute("""
+            INSERT INTO fee_preset_groups (company_id, name, contract_type, is_default, sort_order)
+            VALUES (1, %s, %s, 1, %s)
+        """, (label, ct, sort_order))
+        preset_id = cur.lastrowid
+        await cur.execute("""
+            UPDATE service_fee_templates
+            SET preset_id = %s, is_active = 1
+            WHERE contract_type = %s AND preset_id IS NULL
+        """, (preset_id, ct))
+        print(f"   preset_id={preset_id} ({label}): {cur.rowcount} templates linked")
+
+    await conn.commit()
+    await cur.close()
+    conn.close()
+
+
 async def step5b_contract_service_fees():
     """Parse umowa2.OPLATY free-text → contract_service_fees rows."""
     print("[5b] Migrating umowa2.OPLATY → contract_service_fees …")
@@ -593,6 +617,7 @@ async def main():
         await step3_create_schema()
         await step4_migrate_data()
         await step5_service_fee_templates()
+        await step5c_create_preset_groups()
         await step5b_contract_service_fees()
         await step6_drop_old()
         await step7_rehash()
