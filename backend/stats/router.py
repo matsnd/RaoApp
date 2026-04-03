@@ -16,7 +16,7 @@ from stats.calc import calculate_position_value
 from stats.schemas import (
     FleetSummary, TopMachineItem, CurrentlyRentedResponse, CurrentlyRentedItem,
     MachineRoiResponse, AdditionalFeesResponse, ServiceFeeItem, LocationStatItem,
-    ExpiringContractItem, OverdueContractItem, DeliveryTodayItem, UnprintedContractItem,
+    ExpiringContractItem, OverdueContractItem, DeliveryTodayItem, UnprintedContractItem, StalePrintContractItem,
     SalespersonCommissionItem, CommissionReportResponse,
 )
 
@@ -540,6 +540,42 @@ async def unprinted_contracts(
             id=r[0], number=r[1], contractor_name=r[2],
             date_from=r[3], date_to=r[4],
             created_at=r[5].strftime("%d.%m.%Y") if r[5] else None,
+        )
+        for r in rows
+    ]
+
+
+@router.get("/stale-print-contracts", response_model=list[StalePrintContractItem])
+async def stale_print_contracts(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Active contracts printed before last modification (wydruk nieaktualny)."""
+    today = date.today()
+
+    q = await db.execute(
+        select(
+            Contract.id, Contract.number, Contract.contractor_name,
+            Contract.date_from, Contract.date_to, Contract.print_date, Contract.updated_at,
+        )
+        .where(and_(
+            Contract.print_date.isnot(None),
+            Contract.updated_at.isnot(None),
+            Contract.print_date < Contract.updated_at,
+            Contract.date_to >= today,
+        ))
+        .order_by(Contract.updated_at.desc())
+    )
+    rows = q.all()
+
+    def _fmt(dt):
+        return dt.strftime("%d.%m.%Y %H:%M") if dt else None
+
+    return [
+        StalePrintContractItem(
+            id=r[0], number=r[1], contractor_name=r[2],
+            date_from=r[3], date_to=r[4],
+            print_date=_fmt(r[5]), updated_at=_fmt(r[6]),
         )
         for r in rows
     ]

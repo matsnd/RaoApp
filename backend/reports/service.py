@@ -1,3 +1,4 @@
+import pathlib
 from collections import defaultdict
 from datetime import date
 from decimal import Decimal
@@ -117,7 +118,7 @@ async def generate_summary_pdf(db: AsyncSession, summary_type: str) -> bytes:
         result = await db.execute(select(Contractor).order_by(Contractor.name))
         items = result.scalars().all()
         html = """<!DOCTYPE html><html><head><meta charset="UTF-8">
-        <style>body{font-family:"Liberation Sans","DejaVu Sans",Arial,sans-serif;font-size:11px;color:#222;padding:20px;}
+        <style>body{font-family:'Roboto',sans-serif;font-size:11px;color:#222;padding:20px;}
         h1{font-size:15px;color:#1D2B53;margin-bottom:12px;}
         table{width:100%;border-collapse:collapse;}
         th{background:#1D2B53;color:#fff;padding:5px 8px;text-align:left;font-size:10px;}
@@ -132,7 +133,7 @@ async def generate_summary_pdf(db: AsyncSession, summary_type: str) -> bytes:
         result = await db.execute(select(Article).order_by(Article.name))
         items = result.scalars().all()
         html = """<!DOCTYPE html><html><head><meta charset="UTF-8">
-        <style>body{font-family:"Liberation Sans","DejaVu Sans",Arial,sans-serif;font-size:11px;color:#222;padding:20px;}
+        <style>body{font-family:'Roboto',sans-serif;font-size:11px;color:#222;padding:20px;}
         h1{font-size:15px;color:#1D2B53;margin-bottom:12px;}
         table{width:100%;border-collapse:collapse;}
         th{background:#1D2B53;color:#fff;padding:5px 8px;text-align:left;font-size:10px;}
@@ -196,25 +197,60 @@ def _pdf_via_playwright(html: str, use_footer: bool = True) -> bytes:
     return pdf_bytes
 
 
+_FONT_DIR = pathlib.Path(__file__).parent / "fonts"
+
+
+def _font_face_css() -> str:
+    """Build @font-face CSS pointing to bundled Roboto .ttf files."""
+    regular = _FONT_DIR / "Roboto-Regular.ttf"
+    bold = _FONT_DIR / "Roboto-Bold.ttf"
+    if not regular.exists():
+        return ""
+    reg_uri = regular.resolve().as_posix()
+    bold_uri = bold.resolve().as_posix()
+    return f"""
+    @font-face {{
+        font-family: 'Roboto';
+        font-style: normal;
+        font-weight: 400;
+        src: url('file:///{reg_uri}') format('truetype');
+    }}
+    @font-face {{
+        font-family: 'Roboto';
+        font-style: normal;
+        font-weight: 700;
+        src: url('file:///{bold_uri}') format('truetype');
+    }}
+    """
+
+
 def _pdf_via_weasyprint(html: str) -> bytes:
     """WeasyPrint renderer — works on shared hosting without browser binaries."""
-    from weasyprint import HTML
+    from weasyprint import HTML, CSS
+    from weasyprint.text.fonts import FontConfiguration
     import datetime
 
+    font_config = FontConfiguration()
     now = datetime.datetime.now().strftime("%d.%m.%Y")
-    footer_css = f"""
+
+    font_face = _font_face_css()
+    extra_css = f"""
+    {font_face}
     @page {{
         size: A4;
         margin: 10mm 10mm 18mm 10mm;
-        @bottom-left  {{ content: "Wydrukowano {now}"; font-size: 8px; color: #444; font-family: "Liberation Sans", "DejaVu Sans", Arial, sans-serif; }}
-        @bottom-right {{ content: "Strona " counter(page) " z " counter(pages); font-size: 8px; color: #444; font-family: "Liberation Sans", "DejaVu Sans", Arial, sans-serif; }}
+        @bottom-left  {{ content: "Wydrukowano {now}"; font-size: 8px; color: #444; font-family: 'Roboto', sans-serif; }}
+        @bottom-right {{ content: "Strona " counter(page) " z " counter(pages); font-size: 8px; color: #444; font-family: 'Roboto', sans-serif; }}
     }}
     """
     if "</head>" in html:
-        html = html.replace("</head>", f"<style>{footer_css}</style></head>")
+        html = html.replace("</head>", f"<style>{extra_css}</style></head>")
     else:
-        html = f"<style>{footer_css}</style>{html}"
-    return HTML(string=html).write_pdf()
+        html = f"<style>{extra_css}</style>{html}"
+    return HTML(string=html).write_pdf(
+        font_config=font_config,
+        stylesheets=[CSS(string=font_face, font_config=font_config)] if font_face else [],
+    )
 
 
 def _fmt_date_pl(d) -> str:
@@ -300,7 +336,7 @@ async def generate_commissions_pdf(db: AsyncSession, date_from: date, date_to: d
 
     html = f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
 <style>
-body{{font-family:"Liberation Sans","DejaVu Sans",Arial,sans-serif;font-size:11px;color:#222;padding:20px;}}
+body{{font-family:'Roboto',sans-serif;font-size:11px;color:#222;padding:20px;}}
 h1{{font-size:16px;color:#1D2B53;margin-bottom:4px;}}
 .period{{font-size:11px;color:#666;margin-bottom:16px;}}
 .summary{{display:flex;gap:24px;margin-bottom:20px;}}
@@ -422,7 +458,7 @@ async def generate_stats_pdf(db: AsyncSession, date_from: date, date_to: date) -
 
     html = f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
 <style>
-body{{font-family:"Liberation Sans","DejaVu Sans",Arial,sans-serif;font-size:11px;color:#222;padding:20px;}}
+body{{font-family:'Roboto',sans-serif;font-size:11px;color:#222;padding:20px;}}
 h1{{font-size:17px;color:#1D2B53;margin-bottom:4px;}}
 h2{{font-size:13px;color:#1D2B53;margin:18px 0 8px;border-bottom:2px solid #1D2B53;padding-bottom:4px;}}
 .period{{font-size:11px;color:#666;margin-bottom:16px;}}

@@ -42,7 +42,7 @@ DB_PORT = 3306
 DB_USER = "rao_user"
 DB_PASS = "RaoPass2026!"
 DB_NAME = "rao_new"
-DUMP_PATH = r"c:\dbdump\dump-toolsmart_roa-202603141415-full.sql"
+DUMP_PATH = r"c:\projects\repos\RaoApp\db\toolsmart_roa_1775169471.sql"
 
 # Every object imported from the dump (tables + views) to drop at the end
 OLD_OBJECTS = [

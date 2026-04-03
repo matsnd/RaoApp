@@ -114,6 +114,16 @@ class UnprintedContractItem(BaseModel):
     created_at: str | None
 
 
+class StalePrintContractItem(BaseModel):
+    id: int
+    number: str
+    contractor_name: str | None
+    date_from: date | None
+    date_to: date | None
+    print_date: str | None
+    updated_at: str | None
+
+
 class SalespersonCommissionItem(BaseModel):
     salesperson_id: int
     salesperson_name: str
