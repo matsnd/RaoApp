@@ -10,36 +10,6 @@
       @help="handleHelp"
     />
     <div class="content-area" style="padding:var(--spacing-md);">
-      <!-- PRINT ALERTS PANEL -->
-      <div v-if="section === 'contracts' && (unprintedContracts.length || staleContracts.length)" class="print-alerts-panel">
-        <div v-if="unprintedContracts.length" class="print-alert-group">
-          <div class="print-alert-title">⚠️ Niewydrukowane ({{ unprintedContracts.length }})</div>
-          <div class="print-alert-list">
-            <span
-              v-for="c in unprintedContracts.slice(0, 8)"
-              :key="c.id"
-              class="print-alert-chip unprinted"
-              :title="(c.contractor_name || '') + '\n' + formatDate(c.date_from) + ' – ' + formatDate(c.date_to)"
-              @click="editContract(c.id)"
-            >{{ c.number }}</span>
-            <span v-if="unprintedContracts.length > 8" class="print-alert-chip more">+{{ unprintedContracts.length - 8 }} więcej</span>
-          </div>
-        </div>
-        <div v-if="staleContracts.length" class="print-alert-group">
-          <div class="print-alert-title">🔄 Nieaktualny wydruk ({{ staleContracts.length }})</div>
-          <div class="print-alert-list">
-            <span
-              v-for="c in staleContracts.slice(0, 8)"
-              :key="c.id"
-              class="print-alert-chip stale"
-              :title="(c.contractor_name || '') + '\nWydruk: ' + c.print_date + '\nZmiana: ' + c.updated_at"
-              @click="editContract(c.id)"
-            >{{ c.number }}</span>
-            <span v-if="staleContracts.length > 8" class="print-alert-chip more">+{{ staleContracts.length - 8 }} więcej</span>
-          </div>
-        </div>
-      </div>
-
       <!-- CONTRACTS -->
       <template v-if="section === 'contracts'">
         <div class="grid-container">
@@ -269,8 +239,6 @@ import ReportsSection from '@/components/reports/ReportsSection.vue'
 import { useContractStore } from '@/stores/contracts'
 import { useContractorStore } from '@/stores/contractors'
 import { useArticleStore } from '@/stores/articles'
-import api from '@/composables/useApi'
-
 const props = defineProps({ section: String })
 const router = useRouter()
 
@@ -284,20 +252,6 @@ const selectedId = ref(null)
 const page = ref(1)
 const perPage = 50
 const showConfirm = ref(false)
-
-const unprintedContracts = ref([])
-const staleContracts = ref([])
-
-async function loadPrintAlerts() {
-  try {
-    const [r1, r2] = await Promise.all([
-      api.get('/stats/unprinted-contracts'),
-      api.get('/stats/stale-print-contracts'),
-    ])
-    unprintedContracts.value = r1.data
-    staleContracts.value = r2.data
-  } catch { /* silent */ }
-}
 
 const ctxMenu = ref({ visible: false, x: 0, y: 0, contract: null })
 
@@ -353,7 +307,6 @@ async function loadData() {
 
 onMounted(() => {
   loadData()
-  loadPrintAlerts()
   document.addEventListener('click', closeCtxMenu)
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCtxMenu() })
 })

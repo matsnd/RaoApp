@@ -128,6 +128,33 @@
         </div>
       </section>
 
+      <!-- NIEAKTUALNY WYDRUK -->
+      <section class="worker-card stale-print">
+        <div class="card-header">
+          <span class="card-icon">🔄</span>
+          <h2>Nieaktualny wydruk</h2>
+          <span class="badge-count badge-orange" v-if="stale.length">{{ stale.length }}</span>
+        </div>
+        <div class="card-body no-pad">
+          <div v-if="loadingStale" class="skeleton-list padded">
+            <div class="skel-row" v-for="i in 2" :key="i"></div>
+          </div>
+          <div v-else-if="!stale.length" class="empty">
+            <span class="empty-ok">✓</span> Wszystkie wydruki aktualne
+          </div>
+          <div v-else class="unprinted-list">
+            <div v-for="c in stale" :key="c.id" class="unp-row">
+              <div class="unp-info" @click="$router.push(`/contracts/${c.id}/edit`)">
+                <span class="unp-number">{{ c.number }}</span>
+                <span class="unp-contractor">{{ c.contractor_name }}</span>
+                <span class="unp-dates stale-meta" :title="'Wydruk: ' + c.print_date">⚠️ Zmiana: {{ c.updated_at }}</span>
+              </div>
+              <button class="print-btn" @click="printContract(c.id)" title="Dodrukuj PDF">⎙ Dodrukuj</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
     </div>
   </div>
 </template>
@@ -147,10 +174,12 @@ const today = computed(() => {
 const expiring = ref([])
 const deliveries = ref([])
 const unprinted = ref([])
+const stale = ref([])
 
 const loadingExpiring = ref(false)
 const loadingDeliveries = ref(false)
 const loadingUnprinted = ref(false)
+const loadingStale = ref(false)
 
 const expiringDays = ref(14)
 const deliveryLookahead = ref(2)
@@ -202,6 +231,16 @@ async function loadUnprinted() {
   }
 }
 
+async function loadStale() {
+  loadingStale.value = true
+  try {
+    const res = await api.get('/stats/stale-print-contracts')
+    stale.value = res.data
+  } finally {
+    loadingStale.value = false
+  }
+}
+
 function setExpiringDays(d) {
   expiringDays.value = d
   loadExpiring()
@@ -224,6 +263,7 @@ onMounted(() => {
   loadExpiring()
   loadDeliveries()
   loadUnprinted()
+  loadStale()
 })
 </script>
 
@@ -301,8 +341,9 @@ onMounted(() => {
   min-width: 20px;
   text-align: center;
 }
-.badge-blue { background: #3B82F6; }
-.badge-red  { background: #EF4444; }
+.badge-blue   { background: #3B82F6; }
+.badge-red    { background: #EF4444; }
+.badge-orange { background: #F59E0B; }
 
 .days-filter {
   display: flex;
@@ -499,6 +540,7 @@ onMounted(() => {
   transition: background 120ms;
 }
 .print-btn:hover { background: #DDE6FF; }
+.stale-meta { color: #C05621; }
 
 @media (max-width: 900px) {
   .worker-grid { grid-template-columns: 1fr; }
