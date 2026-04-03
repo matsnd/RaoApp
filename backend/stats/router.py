@@ -522,15 +522,21 @@ async def unprinted_contracts(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    """Active contracts (date_to >= today) that have never been printed."""
+    """Contracts never printed: active OR created in last 60 days."""
+    from datetime import timedelta
+    from sqlalchemy import or_
     today = date.today()
+    cutoff = today - timedelta(days=60)
 
     q = await db.execute(
         select(
             Contract.id, Contract.number, Contract.contractor_name,
             Contract.date_from, Contract.date_to, Contract.created_at,
         )
-        .where(and_(Contract.print_date.is_(None), Contract.date_to >= today))
+        .where(and_(
+            Contract.print_date.is_(None),
+            or_(Contract.date_to >= today, Contract.created_at >= cutoff),
+        ))
         .order_by(Contract.date_from.desc())
     )
     rows = q.all()
@@ -550,8 +556,11 @@ async def stale_print_contracts(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    """Active contracts printed before last modification (wydruk nieaktualny)."""
+    """Contracts printed before last modification: active OR modified in last 30 days."""
+    from datetime import timedelta
+    from sqlalchemy import or_
     today = date.today()
+    cutoff = today - timedelta(days=30)
 
     q = await db.execute(
         select(
@@ -562,7 +571,7 @@ async def stale_print_contracts(
             Contract.print_date.isnot(None),
             Contract.updated_at.isnot(None),
             Contract.print_date < Contract.updated_at,
-            Contract.date_to >= today,
+            or_(Contract.date_to >= today, Contract.updated_at >= cutoff),
         ))
         .order_by(Contract.updated_at.desc())
     )

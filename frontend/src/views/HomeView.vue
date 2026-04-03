@@ -67,6 +67,17 @@
           <div class="kpi-sub" v-else-if="!loading.unprinted">Wszystko OK</div>
         </div>
       </div>
+
+      <div class="kpi-card" :class="stale.length >= 3 ? 'kpi-danger' : stale.length >= 1 ? 'kpi-warn' : 'kpi-ok'">
+        <div class="kpi-icon">🔄</div>
+        <div class="kpi-body">
+          <div class="kpi-value" v-if="!loading.stale">{{ stale.length }}</div>
+          <div class="kpi-value skeleton" v-else>&nbsp;</div>
+          <div class="kpi-label">Nieaktualny wydruk</div>
+          <div class="kpi-sub" v-if="!loading.stale && stale.length">Wymaga dodruku</div>
+          <div class="kpi-sub" v-else-if="!loading.stale">Wszystko OK</div>
+        </div>
+      </div>
     </div>
 
     <!-- MAIN CONTENT GRID -->
@@ -193,6 +204,40 @@
           </div>
         </div>
 
+        <!-- Stale print -->
+        <div class="home-panel panel-stale">
+          <div class="panel-header">
+            <span class="panel-icon">🔄</span>
+            <h2>Nieaktualny wydruk</h2>
+            <span class="panel-badge panel-badge-orange" v-if="stale.length">{{ stale.length }}</span>
+          </div>
+
+          <div v-if="loading.stale" class="panel-loading">
+            <div class="skel-row" v-for="i in 2" :key="i"></div>
+          </div>
+
+          <div v-else-if="!stale.length" class="panel-empty panel-empty-sm">
+            <span class="empty-icon">✓</span>
+            <p>Wszystkie wydruki aktualne</p>
+          </div>
+
+          <div v-else class="unprinted-list">
+            <div
+              v-for="c in stale.slice(0, 6)"
+              :key="c.id"
+              class="unprinted-row stale-row"
+              @click="$router.push(`/contracts/${c.id}/edit`)"
+            >
+              <div class="unp-number">{{ c.number }}</div>
+              <div class="unp-contractor">{{ c.contractor_name }}</div>
+              <div class="unp-date" :title="'Zmiana: ' + c.updated_at">{{ c.updated_at }}</div>
+            </div>
+            <div v-if="stale.length > 6" class="unp-more">
+              + {{ stale.length - 6 }} więcej →
+            </div>
+          </div>
+        </div>
+
         <!-- Quick Nav -->
         <div class="home-panel panel-nav">
           <div class="panel-header">
@@ -236,11 +281,12 @@
 import { ref, computed, onMounted } from 'vue'
 import api from '@/composables/useApi'
 
-const loading = ref({ fleet: true, expiring: true, deliveries: true, unprinted: true })
+const loading = ref({ fleet: true, expiring: true, deliveries: true, unprinted: true, stale: true })
 const fleet = ref({ total_rented: 0, total_machines: 0, utilization_pct: 0, period_revenue: 0, contracts_in_period: 0 })
 const expiring = ref([])
 const deliveries = ref([])
 const unprinted = ref([])
+const stale = ref([])
 
 const today = new Date()
 today.setHours(0, 0, 0, 0)
@@ -298,11 +344,12 @@ async function loadAll() {
   const dfStr = df.toISOString().slice(0, 10)
   const dtStr = new Date().toISOString().slice(0, 10)
 
-  const [fleetRes, expiringRes, deliveriesRes, unprintedRes] = await Promise.allSettled([
+  const [fleetRes, expiringRes, deliveriesRes, unprintedRes, staleRes] = await Promise.allSettled([
     api.get('/stats/fleet-summary', { params: { date_from: dfStr, date_to: dtStr } }),
     api.get('/stats/expiring-contracts', { params: { days: 14 } }),
     api.get('/stats/deliveries-today', { params: { lookahead: 2 } }),
     api.get('/stats/unprinted-contracts'),
+    api.get('/stats/stale-print-contracts'),
   ])
 
   if (fleetRes.status === 'fulfilled') fleet.value = fleetRes.value.data
@@ -316,6 +363,9 @@ async function loadAll() {
 
   if (unprintedRes.status === 'fulfilled') unprinted.value = unprintedRes.value.data
   loading.value.unprinted = false
+
+  if (staleRes.status === 'fulfilled') stale.value = staleRes.value.data
+  loading.value.stale = false
 }
 
 onMounted(loadAll)
@@ -378,7 +428,7 @@ onMounted(loadAll)
 /* ── KPI STRIP ── */
 .kpi-strip {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 14px;
   margin-bottom: 20px;
 }
@@ -468,6 +518,7 @@ onMounted(loadAll)
 }
 .panel-badge-blue { background: #3B82F6; }
 .panel-badge-red { background: #EF4444; }
+.panel-badge-orange { background: #F59E0B; }
 
 /* ── LOADING ── */
 .panel-loading { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
@@ -575,6 +626,7 @@ onMounted(loadAll)
   cursor: pointer;
   text-align: center;
 }
+.stale-row:hover { background: #FFF5F5; }
 
 /* ── QUICK NAV ── */
 .nav-grid {
@@ -602,6 +654,9 @@ onMounted(loadAll)
 .nav-tile-icon { font-size: 20px; }
 
 /* ── RESPONSIVE ── */
+@media (max-width: 1400px) {
+  .kpi-strip { grid-template-columns: repeat(3, 1fr); }
+}
 @media (max-width: 1100px) {
   .kpi-strip { grid-template-columns: repeat(2, 1fr); }
   .home-grid { grid-template-columns: 1fr; }
