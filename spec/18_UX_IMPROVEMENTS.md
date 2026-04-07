@@ -1,6 +1,9 @@
 # UX/GUI Propozycje Usprawnień
 
-## Zrealizowane (w tej sesji)
+> ⚠️ **ARCHIWUM** — Dokument z 2026-03-15. Większość pozycji zrealizowana.  
+> **Aktualny backlog → patrz `19_BACKLOG.md`**
+
+## Zrealizowane (sprint S1+S2+S3 — do 2026-04-07)
 
 | # | Opis | Gdzie | Status |
 |---|------|-------|--------|

@@ -1,5 +1,7 @@
 ## Status wykonania zadań
 
+> **Ostatnia aktualizacja:** 2026-04-07 | Aktualny backlog z pozostałymi zadaniami → `19_BACKLOG.md`
+
 | # | Zadanie | Status | Commit | Uwagi |
 |---|---------|--------|--------|-------|
 | 1 | Wywalić legacy szablony | ✅ Done | `879fb45` | Usunięto tab + 6 endpointów `/service-fee-templates` |
@@ -17,6 +19,10 @@
 | 13 | U6: Auto-kalkulacja wartości umowy po zapisie | ✅ Done | `0987a22` | recalcTotal() wywoływane po savePosition() + onConditionValueChanged() |
 | 14 | U7: pole costs + pozostałe pola w modalu pozycji | ✅ Done | `0987a22` | costs dodane do posForm, PositionCreate schema i szablonu modalu |
 | 15 | U8-U12: P2 — GUS auto-adres, landline, PDF preview, edit/delete settings | ✅ Done | `0987a22` | U8/U9/U10 już były; U11 PDF w nowej karcie; U12 inline edit kat/rate-types |
+| 16 | PDF czcionki na Linux (produkcja) | ✅ Done | — | Roboto bundled w backend/reports/fonts/, @font-face w CSS |
+| 17 | Dashboard: Niewydrukowane + Nieaktualne wydruki | ✅ Done | — | HomeView + WorkerView, endpoints /stats/unprinted + /stats/stale-print-contracts |
+| 18 | Logika biznesowa niewydrukowanych/nieaktualnych | ✅ Done | — | active OR last 60/30 days, backend stats/router.py |
+| 19 | Responsywność formularzy (grid layout) | ✅ Done | — | forms.css form-row-2/3/4 display:grid + responsive breakpoints, max-width w ContractFormView |
 
 ---
 

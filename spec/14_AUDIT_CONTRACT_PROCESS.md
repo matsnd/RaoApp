@@ -3,6 +3,9 @@
 > **Data:** 2026-03-15 | **Wersja:** 1.0  
 > **Metoda:** Cross-role team analysis (Analityk Biznesowy + DBA + UX + Frontend Architect + Backend Architect)
 
+> ⚠️ **ARCHIWUM** — Wszystkie P0 i większość P1 z tego dokumentu zostały zaimplementowane do 2026-04-07.  
+> **Aktualny backlog → patrz `19_BACKLOG.md`**
+
 ---
 
 ## 1. Stary Proces (WinForms FormU4.cs) — Pełna Rekonstrukcja

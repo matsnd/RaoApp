@@ -22,6 +22,11 @@
 | 13 | [13_AUDIT_ALL_PROCESSES.md](./13_AUDIT_ALL_PROCESSES.md) | Cross-role audyt wszystkich 9 procesów (P0/P1/P2 gaps) |
 | 14 | [14_AUDIT_CONTRACT_PROCESS.md](./14_AUDIT_CONTRACT_PROCESS.md) | Szczegółowy audyt procesu umów (contract CRUD) |
 | 15 | [15_BUILD_PROGRESS.md](./15_BUILD_PROGRESS.md) | Status budowy — implementacja P0/P1/P2 + migracja |
+| 16 | [16_TODO.md](./16_TODO.md) | Historia zadań — co zrobione, kiedy i dlaczego |
+| 17 | [17_TESTING_PLAN.md](./17_TESTING_PLAN.md) | Strategia testowania + scenariusze |
+| 18 | [18_UX_IMPROVEMENTS.md](./18_UX_IMPROVEMENTS.md) | UX/GUI propozycje usprawnień (archiwum) |
+| **19** | **[19_BACKLOG.md](./19_BACKLOG.md)** | **Master backlog — pozostałe zadania P1/P2/P3** |
+| **20** | **[20_USER_GUIDE_SETTLEMENT.md](./20_USER_GUIDE_SETTLEMENT.md)** | **Instrukcja użytkownika: jak wykonać rozliczenie** |
 
 ## Technologie
 

@@ -13,7 +13,7 @@
 
     <div class="content-area" style="padding:var(--spacing-md);overflow-y:auto;">
       <div v-if="loading" class="empty-state">Ładowanie...</div>
-      <div v-else>
+      <div v-else style="max-width:1100px;margin:0 auto;">
         <!-- Top section: contract data -->
         <div class="page-card" style="margin-bottom:var(--spacing-md);">
           <div v-if="errorMsg" style="color:var(--color-danger);padding:8px;background:#FED7D7;border-radius:6px;margin-bottom:12px;font-size:13px;">{{ errorMsg }}</div>
