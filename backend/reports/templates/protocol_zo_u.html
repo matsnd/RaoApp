@@ -153,35 +153,38 @@
     </tbody>
   </table>
 
-  <!-- SERVICE HOURS SECTION -->
+  <!-- SERVICE HOURS SECTION — formularz do wypełnienia ręcznego -->
   {% for p in positions %}
-  {% if p.service_hours %}
-  <div style="margin: 12px 0 8px;">
-    <div style="font-size: 10px; font-weight: bold; color: #1D2B53; margin-bottom: 4px;">
-      Ewidencja godzin — {{ p.pos.article_name or '' }}
+  <div style="margin: 16px 0 10px; page-break-inside: avoid;">
+    <div style="font-size: 10px; font-weight: bold; color: #1D2B53; margin-bottom: 6px;">
+      Data wykonania usługi — {{ p.pos.article_name or 'Usługa' }}
     </div>
-    <table class="pos" style="margin-bottom: 8px;">
+    <table class="pos" style="margin-bottom: 10px;">
       <thead>
         <tr>
-          <th style="width: 100px;">Data</th>
-          <th style="width: 60px;">Od</th>
-          <th style="width: 60px;">Do</th>
-          <th>Uwagi</th>
+          <th style="width: 110px;">Data</th>
+          <th style="width: 45px;">od</th>
+          <th style="width: 45px;">do</th>
+          <th>uwagi</th>
         </tr>
       </thead>
       <tbody>
-        {% for h in p.service_hours %}
-        <tr>
-          <td>{{ h.work_date | datepl }}</td>
-          <td>{{ h.time_from or '—' }}</td>
-          <td>{{ h.time_to or '—' }}</td>
-          <td>{{ h.notes or '' }}</td>
-        </tr>
-        {% endfor %}
+        <!-- 12 pustych wierszy do wypełnienia ręcznego -->
+        <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
+        <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
+        <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
+        <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
+        <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
+        <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
+        <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
+        <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
+        <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
+        <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
+        <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
+        <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
       </tbody>
     </table>
   </div>
-  {% endif %}
   {% endfor %}
 
   <div class="legal-line">Pokwitowanie niniejszego Protokołu jest jednoznaczne z oświadczeniem o zapoznaniu się z Ogólnymi Warunkami Umowy (dalej: OWN) oraz ich akceptacją.</div>

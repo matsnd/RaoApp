@@ -4,7 +4,7 @@ from datetime import date
 from decimal import Decimal
 from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
-from contracts.models import Contract, ContractPosition, PositionCondition, ContractServiceFee, ServiceHour
+from contracts.models import Contract, ContractPosition, PositionCondition, ContractServiceFee
 from contractors.models import Contractor
 from settings.models import Company, Salesperson, RateType
 from articles.models import Article as ArticleModel
@@ -78,12 +78,6 @@ async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
 
         article = await db.get(ArticleModel, pos.article_id) if pos.article_id else None
 
-        # Load service hours for this position (for protocol U)
-        hours_result = await db.execute(
-            select(ServiceHour).where(ServiceHour.position_id == pos.id).order_by(ServiceHour.work_date)
-        )
-        service_hours = hours_result.scalars().all()
-
         conditions_text = _build_conditions_text(conditions, pos.billing_unit or "doba")
 
         positions_data.append({
@@ -94,7 +88,6 @@ async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
             "replacement_value": article.replacement_value if article else None,
             "serial_no": article.serial_no if article else None,
             "registration_no": article.registration_no if article else None,
-            "service_hours": service_hours,
         })
 
     fees_result = await db.execute(

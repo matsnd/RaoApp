@@ -210,68 +210,7 @@
             @value-changed="onConditionValueChanged"
           />
 
-          <!-- Service Hours section (only for contract type U) -->
-          <div v-if="selectedPosId && isEdit && form.contract_type === 'U'" style="margin-top:16px;padding-top:16px;border-top:1px solid #E2E8F0;">
-            <div style="display:flex;align-items:center;margin-bottom:8px;">
-              <span class="section-title" style="margin:0;border:none;font-size:13px;">Ewidencja godzin</span>
-              <span style="font-size:11px;color:#718096;margin-left:12px;">Kliknij wiersz • Enter = zapisz • Esc = anuluj</span>
-              <button class="btn btn-primary btn-sm" style="margin-left:auto;" @click="addHourRow">+ Dodaj dzień</button>
-            </div>
-            <table class="data-grid">
-              <thead>
-                <tr>
-                  <th style="width:120px;">Data</th>
-                  <th style="width:80px;">Od</th>
-                  <th style="width:80px;">Do</th>
-                  <th>Uwagi</th>
-                  <th style="width:56px;"></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-if="!serviceHours.length && !showNewHourRow">
-                  <td colspan="5" class="empty-state">Brak wpisów godzin — kliknij „+ Dodaj dzień"</td>
-                </tr>
-                <template v-for="h in serviceHours" :key="h.id">
-                  <!-- EDIT MODE -->
-                  <tr v-if="editingHourId === h.id" class="row-editing">
-                    <td><input v-model="editingHourData.work_date" type="date" class="form-control form-control-xs" @keydown.enter="saveInlineHour" @keydown.esc="cancelInlineHour" /></td>
-                    <td><input v-model="editingHourData.time_from" class="form-control form-control-xs" placeholder="8:00" @keydown.enter="saveInlineHour" @keydown.esc="cancelInlineHour" /></td>
-                    <td><input v-model="editingHourData.time_to" class="form-control form-control-xs" placeholder="16:00" @keydown.enter="saveInlineHour" @keydown.esc="cancelInlineHour" /></td>
-                    <td><input v-model="editingHourData.notes" class="form-control form-control-xs" @keydown.enter="saveInlineHour" @keydown.esc="cancelInlineHour" /></td>
-                    <td>
-                      <button class="btn-icon" style="color:#22543D;" title="Zapisz (Enter)" @click="saveInlineHour">✓</button>
-                      <button class="btn-icon" title="Anuluj (Esc)" @click="cancelInlineHour">✕</button>
-                    </td>
-                  </tr>
-                  <!-- DISPLAY MODE -->
-                  <tr v-else @click="startEditHour(h)" style="cursor:pointer;">
-                    <td>{{ h.work_date ? new Date(h.work_date).toLocaleDateString('pl-PL') : '—' }}</td>
-                    <td>{{ h.time_from || '—' }}</td>
-                    <td>{{ h.time_to || '—' }}</td>
-                    <td>{{ h.notes || '—' }}</td>
-                    <td>
-                      <button class="btn-icon" title="Edytuj" @click.stop="startEditHour(h)">✎</button>
-                      <button class="btn-icon" title="Usuń" @click.stop="deleteHour(h)">✕</button>
-                    </td>
-                  </tr>
-                </template>
-                <!-- NEW ROW -->
-                <tr v-if="showNewHourRow" class="row-editing">
-                  <td><input v-model="newHourData.work_date" type="date" class="form-control form-control-xs" ref="newHourDateInput" @keydown.enter="saveNewHourRow" @keydown.esc="cancelNewHourRow" /></td>
-                  <td><input v-model="newHourData.time_from" class="form-control form-control-xs" placeholder="8:00" @keydown.enter="saveNewHourRow" @keydown.esc="cancelNewHourRow" /></td>
-                  <td><input v-model="newHourData.time_to" class="form-control form-control-xs" placeholder="16:00" @keydown.enter="saveNewHourRow" @keydown.esc="cancelNewHourRow" /></td>
-                  <td><input v-model="newHourData.notes" class="form-control form-control-xs" @keydown.enter="saveNewHourRow" @keydown.esc="cancelNewHourRow" /></td>
-                  <td>
-                    <button class="btn-icon" style="color:#22543D;" title="Dodaj (Enter)" @click="saveNewHourRow">✓</button>
-                    <button class="btn-icon" title="Anuluj (Esc)" @click="cancelNewHourRow">✕</button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Service fees section -->
+          <!-- Service fees section -->
         <div v-if="isEdit" class="page-card">
           <div style="display:flex;align-items:center;margin-bottom:8px;">
             <span class="section-title" style="margin:0;border:none;">Usługi dodatkowe</span>
@@ -646,23 +585,6 @@ const editingFeeData = ref({})
 const showNewFeeRow = ref(false)
 const newFeeData = ref({ name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true })
 const newFeeNameInput = ref(null)
-
-// Service Hours state
-const serviceHours = ref([])
-const editingHourId = ref(null)
-const editingHourData = ref({})
-const showNewHourRow = ref(false)
-const newHourData = ref({ work_date: '', time_from: '', time_to: '', notes: '' })
-const newHourDateInput = ref(null)
-
-// Watch selectedPosId to load service hours when position changes
-watch(selectedPosId, async (newPosId) => {
-  if (newPosId && form.value.contract_type === 'U' && isEdit.value) {
-    await loadServiceHours(newPosId)
-  } else {
-    serviceHours.value = []
-  }
-})
 
 
 // Format description by replacing $1 and $2 with actual amounts
@@ -1062,79 +984,6 @@ async function applyPreset(preset) {
   }
 }
 
-// Service Hours CRUD functions
-async function loadServiceHours(positionId) {
-  if (!props.id || !positionId) return
-  try {
-    const { data } = await api.get(`/contracts/${props.id}/positions/${positionId}/hours`)
-    serviceHours.value = data
-  } catch (e) {
-    serviceHours.value = []
-  }
-}
-
-function startEditHour(hour) {
-  editingHourId.value = hour.id
-  editingHourData.value = {
-    work_date: hour.work_date,
-    time_from: hour.time_from || '',
-    time_to: hour.time_to || '',
-    notes: hour.notes || '',
-  }
-}
-
-function cancelInlineHour() {
-  editingHourId.value = null
-  editingHourData.value = {}
-}
-
-async function saveInlineHour() {
-  if (!editingHourData.value.work_date) { cancelInlineHour(); return }
-  try {
-    const payload = { ...editingHourData.value }
-    await api.put(`/contracts/${props.id}/positions/${selectedPosId.value}/hours/${editingHourId.value}`, payload)
-    await loadServiceHours(selectedPosId.value)
-    editingHourId.value = null
-    editingHourData.value = {}
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd zapisu godzin')
-  }
-}
-
-function addHourRow() {
-  editingHourId.value = null
-  const today = new Date().toISOString().split('T')[0]
-  newHourData.value = { work_date: today, time_from: '', time_to: '', notes: '' }
-  showNewHourRow.value = true
-  nextTick(() => { newHourDateInput.value?.focus() })
-}
-
-function cancelNewHourRow() {
-  showNewHourRow.value = false
-}
-
-async function saveNewHourRow() {
-  if (!newHourData.value.work_date) { cancelNewHourRow(); return }
-  try {
-    const payload = { ...newHourData.value }
-    await api.post(`/contracts/${props.id}/positions/${selectedPosId.value}/hours`, payload)
-    await loadServiceHours(selectedPosId.value)
-    showNewHourRow.value = false
-    newHourData.value = { work_date: '', time_from: '', time_to: '', notes: '' }
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd dodawania godzin')
-  }
-}
-
-async function deleteHour(hour) {
-  if (!confirm('Usunąć ten wpis godzin?')) return
-  try {
-    await api.delete(`/contracts/${props.id}/positions/${selectedPosId.value}/hours/${hour.id}`)
-    await loadServiceHours(selectedPosId.value)
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd usuwania')
-  }
-}
 
 </script>
 

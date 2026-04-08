@@ -1,4 +1,3 @@
-from datetime import datetime
 from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, Enum
 from sqlalchemy.orm import relationship
 from database import Base
@@ -65,7 +64,6 @@ class ContractPosition(Base):
 
     contract = relationship("Contract", back_populates="positions")
     conditions = relationship("PositionCondition", back_populates="position", cascade="all, delete-orphan")
-    hours = relationship("ServiceHour", back_populates="position", cascade="all, delete-orphan")
 
 
 class PositionCondition(Base):
@@ -98,18 +96,3 @@ class ContractServiceFee(Base):
     is_active = Column(Boolean, nullable=False, default=True)
 
     contract = relationship("Contract", back_populates="service_fees")
-
-
-class ServiceHour(Base):
-    __tablename__ = "service_hours"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    position_id = Column(Integer, ForeignKey("contract_positions.id", ondelete="CASCADE"), nullable=False)
-    work_date = Column(Date, nullable=False)
-    time_from = Column(String(10), nullable=True)
-    time_to = Column(String(10), nullable=True)
-    notes = Column(String(200), nullable=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=True)
-
-    position = relationship("ContractPosition", back_populates="hours")
