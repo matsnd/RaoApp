@@ -1,9 +1,10 @@
 import { defineStore } from 'pinia'
-import { ref, reactive } from 'vue'
+import { ref } from 'vue'
 import api from '@/composables/useApi'
 
 export const useStatsStore = defineStore('stats', () => {
-  const loading = ref(false)
+  const loading = ref(false)      // period loading
+  const loadingLive = ref(false)  // live section loading
   const summary = ref(null)
   const topMachines = ref([])
   const currentlyRented = ref(null)
@@ -29,9 +30,14 @@ export const useStatsStore = defineStore('stats', () => {
   }
 
   async function fetchCurrentlyRented() {
-    const { data } = await api.get('/stats/currently-rented')
-    currentlyRented.value = data
-    return data
+    loadingLive.value = true
+    try {
+      const { data } = await api.get('/stats/currently-rented')
+      currentlyRented.value = data
+      return data
+    } finally {
+      loadingLive.value = false
+    }
   }
 
   async function fetchAdditionalFees(dateFrom, dateTo) {
@@ -52,13 +58,12 @@ export const useStatsStore = defineStore('stats', () => {
     return data
   }
 
-  async function fetchAll(dateFrom, dateTo) {
+  async function fetchPeriod(dateFrom, dateTo) {
     loading.value = true
     try {
       await Promise.all([
         fetchSummary(dateFrom, dateTo),
         fetchTopMachines(dateFrom, dateTo),
-        fetchCurrentlyRented(),
         fetchAdditionalFees(dateFrom, dateTo),
         fetchLocations(dateFrom, dateTo),
       ])
@@ -67,8 +72,16 @@ export const useStatsStore = defineStore('stats', () => {
     }
   }
 
+  async function fetchAll(dateFrom, dateTo) {
+    await Promise.all([
+      fetchCurrentlyRented(),
+      fetchPeriod(dateFrom, dateTo),
+    ])
+  }
+
   return {
-    loading, summary, topMachines, currentlyRented, additionalFees, locations,
-    fetchSummary, fetchTopMachines, fetchCurrentlyRented, fetchAdditionalFees, fetchLocations, fetchAll,
+    loading, loadingLive, summary, topMachines, currentlyRented, additionalFees, locations,
+    fetchSummary, fetchTopMachines, fetchCurrentlyRented, fetchAdditionalFees, fetchLocations,
+    fetchPeriod, fetchAll,
   }
 })

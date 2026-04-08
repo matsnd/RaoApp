@@ -16,9 +16,18 @@
 | #5 | Usługi dodatkowe — format wyświetlania kwot | Ważny klient | ✅ Zrobione | `ContractFormView.vue:587` | formatDescription() zamieniający $1, $2 na kwoty z walutą |
 | #6 | Podpisy na umowie — układ stron | Ważny klient | ✅ Zrobione | `contract.html`, `contract_u.html` | Usunięto padding-top:40px z komórki podpisu Najemcy |
 | #7 | Sekcja "Uwagi" w umowie | Ważny klient | ✅ Zrobione | `ContractFormView.vue:140-142` | Pole textarea już istniało, działa z API |
-| #9 | Protokół usługi — ewidencja godzin | Ważny klient | ✅ Zrobione | Nowa tabela `service_hours`, API, frontend, PDF | Kompletna funkcjonalność dla umów typu U |
-| #3 | Kwota tankowania — default 200 zł | Dobry dodatek | ✅ Zrobione | `SettingsView.vue:422-432` | Auto-ustawianie 200 zł dla "Tankowanie/Paliwo" |
-| #8 | Picker artykułów — filtrowanie po typie umowy | Dobry dodatek | ✅ Zrobione | `ContractFormView.vue:692,878` | `is_service` param zależny od `contract_type` |
+| #9 | Protokół usługi — ewidencja godzin (FORMULARZ PAPIEROWY) | Ważny klient | ✅ Zrobione | `protocol_zo_u.html` — tabela do ręcznego wypełnienia | Zmiana z systemu informatycznego na formularz papierowy |
+| #3 | Kwota tankowania — default 200 zł | Dobry dodatek | ✅ Zrobione | `SettingsView.vue` — watch na nazwę pozycji | Auto-ustawianie 200 zł dla "Tankowanie/Paliwo/Paliw" |
+| #8 | Picker artykułów — filtrowanie po typie umowy | Dobry dodatek | ✅ Zrobione | `ContractFormView.vue` — param `is_service` w API | Filtr `is_service` zależny od `contract_type` ('U'/'S') |
+| #10-#15 | Nowe zgłoszenia klienta (UX raportów, numery wewnętrzne, statystyki, rezerwacje) | Backlog | ✅ Zrobione | `21_BACKLOG_CLIENT.md` | Dokumentacja 6 nowych zadań klienta |
+| #10 | UX Raportów — rozdzielenie "teraz" od "okres" | Ważny klient | ✅ Zrobione | `ReportsSection.vue`, `stats.js` | Sekcja "Stan floty na żywo" niezależna od dat; "Analiza historyczna" z filtrami dat |
+| — | Usunięcie zbędnego kodu service_hours | Refaktoryzacja | ✅ Zrobione | `router.py`, `models.py`, `schemas.py`, `ddl.sql`, `service.py`, `ContractFormView.vue` | Cleanup po zmianie #9 na formularz papierowy |
+| #12-#14 | Eksplorator raportów — nowy widok | Ważny klient | ✅ Zrobione | `explorer/router.py`, `ReportsSection.vue:explorer` | 4 sub-taby: Wszystko, Maszyny, Usługi, Lokalizacje |
+| #12 | Eksplorator — wyszukiwarka universalna | Ważny klient | ✅ Zrobione | `/explorer/search` + tab "Wszystko" | Search po maszynach, nr wewn., kontrahentach, miastach |
+| #13 | Eksplorator — filtrowanie usług | Ważny klient | ✅ Zrobione | `/explorer/services` + tab "Usługi" | Agregacja przychodów per usługa (transport, mycie, tankowanie) |
+| #14 | Eksplorator — lokalizacje | Ważny klient | ✅ Zrobione | `/explorer/locations` + tab "Lokalizacje" | Ranking miast po liczbie umów i przychodzie |
+| — | Eksplorator — szczegóły maszyny | Ważny klient | ✅ Zrobione | `/explorer/machines/{id}` + tab "Maszyny" | Metryki: przychód, dni, średnia, % wykorzystania |
+| — | Eksplorator — redesign UX (okres, usługi, maszyny) | Ważny klient | ✅ Zrobione | `ReportsSection.vue` (explorer section) | 1) Okres: pills + custom date od-do 2) Usługi: dynamiczne grupy z danych 3) Maszyny: typeahead search 4) Auto-reload na zmianę okresu |
 
 ---
 
@@ -53,6 +62,7 @@
 - [ ] **B7** — Upload logo firmy
 - [ ] **B8** — Export statystyk do CSV
 - [ ] **B9** — Modele deliveries/costs/audit_log
+- [ ] **#16** — Raportowanie prac (godzin operatorów) — Ewidencja godzin przepracowanych przez operatorów maszyn, podsumowanie per pracownik/okres
 
 ### Faza 4: P3 + Dodatki
 - [ ] **B12-B17** — Keyboard shortcuts, empty states, NProgress, testy
@@ -65,15 +75,17 @@
 
 | Metryka | Wartość |
 |---------|---------|
-| Zadań zrealizowanych | 7 |
+| Zadań zrealizowanych | 8 |
 | Zadań oczekujących | 14 |
 | Blokerów | 0 |
 
 **Szczegóły zrealizowanych:**
 - B1 (P1 filtr dat) ✅
 - #1, #4, #5, #6, #7, #9 (Ważne klienta — wszystkie zrobione!) ✅
+- Eksplorator redesign UX (okres, usługi, maszyny, auto-reload) ✅
 
 **Faza 1 (P1 + Ważne klienta): KOMPLETNA** ✅
+**Eksplorator: KOMPLETNY** ✅
 
 ---
 

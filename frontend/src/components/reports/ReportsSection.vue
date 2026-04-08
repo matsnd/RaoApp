@@ -1,170 +1,412 @@
 <template>
   <div class="reports-dashboard">
-    <!-- DATE PILLS -->
-    <div class="date-pills">
-      <button
-        v-for="p in presets"
-        :key="p.key"
-        :class="['pill', { active: activePreset === p.key }]"
-        @click="selectPreset(p.key)"
-      >{{ p.label }}</button>
-      <div class="pill-custom" v-if="activePreset === 'custom'">
-        <input type="date" v-model="customFrom" class="pill-date" />
-        <span>—</span>
-        <input type="date" v-model="customTo" class="pill-date" />
-        <button class="pill pill-go" @click="loadAll()">Filtruj</button>
-      </div>
-      <button :class="['pill', { active: activePreset === 'custom' }]" @click="activePreset = 'custom'">📅 Własny</button>
-      <button class="btn-print print-hide" @click="printPage">🖨 Drukuj</button>
+
+    <!-- TABS -->
+    <div class="tabs-bar">
+      <button :class="['tab', { 'tab-active': activeTab === 'live' }]" @click="switchTab('live')">
+        <span class="tab-dot" :class="activeTab === 'live' ? 'tab-dot-active' : ''"></span>
+        Stan floty teraz
+      </button>
+      <button :class="['tab', { 'tab-active': activeTab === 'history' }]" @click="switchTab('history')">
+        📅 Analiza historyczna
+      </button>
+      <button :class="['tab', { 'tab-active': activeTab === 'explorer' }]" @click="switchTab('explorer')">
+        🔍 Eksplorator
+      </button>
     </div>
 
-    <!-- LOADING -->
-    <div v-if="statsStore.loading" class="reports-loading">
-      <div class="spinner"></div>
-      <span>Ładowanie statystyk...</span>
+    <!-- ══════════════════ TAB: TERAZ ══════════════════ -->
+    <div v-show="activeTab === 'live'">
+      <div v-if="statsStore.loadingLive" class="reports-loading">
+        <div class="spinner"></div>
+        <span>Ładowanie stanu floty...</span>
+      </div>
+      <template v-else>
+        <div class="kpi-row kpi-row-live" v-if="statsStore.currentlyRented">
+          <div class="kpi-card">
+            <div class="kpi-value kpi-success">{{ statsStore.currentlyRented.total_machines - statsStore.currentlyRented.total_rented }}</div>
+            <div class="kpi-label">Dostępnych</div>
+            <div class="kpi-sub">z {{ statsStore.currentlyRented.total_machines }} maszyn łącznie</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value" :class="liveUtilClass">{{ liveUtilPct }}%</div>
+            <div class="kpi-label">Wykorzystanie floty</div>
+            <div class="kpi-sub">% maszyn u klientów teraz</div>
+          </div>
+          <div class="chart-panel" style="padding:16px 18px;">
+            <div class="chart-title" style="margin-bottom:8px;">📊 Stan floty</div>
+            <div class="chart-wrap" style="height:160px;">
+              <canvas ref="donutCanvas"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-panel full-width" v-if="statsStore.currentlyRented?.items?.length">
+          <div class="table-title">Maszyny aktualnie wynajęte</div>
+          <div class="rented-scroll">
+            <table class="stats-table">
+              <thead>
+                <tr>
+                  <th>Maszyna</th>
+                  <th>Nr wewnętrzny</th>
+                  <th>Umowa</th>
+                  <th>Kontrahent</th>
+                  <th>Planowany zwrot</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in statsStore.currentlyRented.items" :key="item.article_id + item.contract_number">
+                  <td>{{ item.name }}</td>
+                  <td>{{ item.internal_number || '—' }}</td>
+                  <td style="font-weight:600;">{{ item.contract_number }}</td>
+                  <td>{{ item.contractor_name || '—' }}</td>
+                  <td>{{ item.return_date ? new Date(item.return_date).toLocaleDateString('pl-PL') : '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div v-else-if="statsStore.currentlyRented" class="empty-state">
+          Brak aktywnych wynajmów
+        </div>
+      </template>
     </div>
 
-    <template v-else>
-      <!-- KPI CARDS -->
-      <div class="kpi-row" v-if="statsStore.summary">
-        <div class="kpi-card">
-          <div class="kpi-value kpi-accent">{{ statsStore.summary.total_rented }}</div>
-          <div class="kpi-label">Wynajętych teraz</div>
-          <div class="kpi-sub">z {{ statsStore.summary.total_machines }} maszyn</div>
+    <!-- ══════════════════ TAB: HISTORIA ══════════════════ -->
+    <div v-show="activeTab === 'history'">
+      <!-- DATE PILLS -->
+      <div class="date-pills">
+        <button
+          v-for="p in presets"
+          :key="p.key"
+          :class="['pill', { active: activePreset === p.key }]"
+          @click="selectPreset(p.key)"
+        >{{ p.label }}</button>
+        <div class="pill-custom" v-if="activePreset === 'custom'">
+          <input type="date" v-model="customFrom" class="pill-date" />
+          <span>—</span>
+          <input type="date" v-model="customTo" class="pill-date" />
+          <button class="pill pill-go" @click="loadPeriod()">Filtruj</button>
         </div>
-        <div class="kpi-card">
-          <div class="kpi-value" :class="utilClass">{{ statsStore.summary.utilization_pct }}%</div>
-          <div class="kpi-label">Wykorzystanie floty</div>
-          <div class="kpi-sub">aktywne maszyny u klientów</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-value">{{ formatMoney(statsStore.summary.period_revenue) }}</div>
-          <div class="kpi-label">Przychód w okresie</div>
-          <div class="kpi-sub">{{ statsStore.summary.contracts_in_period }} umów</div>
-        </div>
-        <div class="kpi-card kpi-highlight" v-if="statsStore.summary.top_machine_name">
-          <div class="kpi-value kpi-small">{{ statsStore.summary.top_machine_name }}</div>
-          <div class="kpi-label">Top maszyna</div>
-          <div class="kpi-sub">{{ formatMoney(statsStore.summary.top_machine_revenue) }}</div>
-        </div>
-        <div class="kpi-card" v-else>
-          <div class="kpi-value kpi-muted">—</div>
-          <div class="kpi-label">Top maszyna</div>
-          <div class="kpi-sub">brak danych</div>
-        </div>
+        <button :class="['pill', { active: activePreset === 'custom' }]" @click="activePreset = 'custom'">📅 Własny</button>
+        <button class="btn-print print-hide" @click="printPage">🖨 Drukuj</button>
       </div>
 
-      <!-- CHARTS ROW -->
-      <div class="charts-row">
-        <div class="chart-panel chart-wide">
-          <div class="chart-title">🏗️ TOP 10 Maszyn wg przychodu</div>
-          <div class="chart-wrap" style="height:280px;">
-            <canvas ref="barCanvas"></canvas>
+      <div v-if="statsStore.loading" class="reports-loading">
+        <div class="spinner"></div>
+        <span>Ładowanie statystyk...</span>
+      </div>
+      <template v-else>
+        <div class="kpi-row" v-if="statsStore.summary" style="grid-template-columns: repeat(2, 1fr); max-width: 600px;">
+          <div class="kpi-card">
+            <div class="kpi-value">{{ formatMoney(statsStore.summary.period_revenue) }}</div>
+            <div class="kpi-label">Przychód w okresie</div>
+            <div class="kpi-sub">{{ statsStore.summary.contracts_in_period }} umów</div>
           </div>
-          <div v-if="!statsStore.topMachines.length" class="chart-empty">Brak danych w wybranym okresie</div>
-        </div>
-        <div class="chart-panel chart-narrow">
-          <div class="chart-title">📊 Wykorzystanie floty</div>
-          <div class="chart-wrap" style="height:240px;">
-            <canvas ref="donutCanvas"></canvas>
+          <div class="kpi-card kpi-highlight" v-if="statsStore.summary.top_machine_name">
+            <div class="kpi-value kpi-small">{{ statsStore.summary.top_machine_name }}</div>
+            <div class="kpi-label">Top maszyna</div>
+            <div class="kpi-sub">{{ formatMoney(statsStore.summary.top_machine_revenue) }}</div>
+          </div>
+          <div class="kpi-card" v-else>
+            <div class="kpi-value kpi-muted">—</div>
+            <div class="kpi-label">Top maszyna</div>
+            <div class="kpi-sub">brak danych</div>
           </div>
         </div>
-      </div>
 
-      <!-- BOTTOM TABLES -->
-      <div class="tables-row">
-        <div class="table-panel">
-          <div class="table-title">💰 Usługi dodatkowe</div>
-          <table class="stats-table" v-if="statsStore.additionalFees?.breakdown?.length">
-            <thead>
-              <tr>
-                <th>Usługa</th>
-                <th style="text-align:right;">Przychód</th>
-                <th style="text-align:right;">Umów</th>
-                <th style="width:120px;"></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="s in statsStore.additionalFees.breakdown" :key="s.article_id">
-                <td>{{ s.service_name }}</td>
-                <td style="text-align:right;font-weight:600;">{{ formatMoney(s.total_revenue) }}</td>
-                <td style="text-align:right;">{{ s.times_billed }}</td>
-                <td>
-                  <div class="bar-bg">
-                    <div class="bar-fill" :style="{ width: feeBarWidth(s.total_revenue) + '%' }"></div>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-            <tfoot>
-              <tr>
-                <td style="font-weight:700;">Razem</td>
-                <td style="text-align:right;font-weight:700;">{{ formatMoney(statsStore.additionalFees.total_services_revenue) }}</td>
-                <td></td>
-                <td></td>
-              </tr>
-            </tfoot>
-          </table>
-          <div v-else class="chart-empty">Brak usług w wybranym okresie</div>
+        <div class="charts-row" style="grid-template-columns: 1fr;">
+          <div class="chart-panel">
+            <div class="chart-title">🏗️ TOP 10 Maszyn wg przychodu w okresie</div>
+            <div class="chart-wrap" style="height:280px;">
+              <canvas ref="barCanvas"></canvas>
+            </div>
+            <div v-if="!statsStore.topMachines.length" class="empty-state" style="padding:60px 0;text-align:center;">Brak danych w wybranym okresie</div>
+          </div>
         </div>
 
-        <div class="table-panel">
-          <div class="table-title">📍 Lokalizacje — ranking</div>
-          <table class="stats-table" v-if="statsStore.locations.length">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Miasto</th>
-                <th style="text-align:right;">Umów</th>
-                <th style="text-align:right;">Przychód</th>
-                <th style="width:100px;"></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(loc, i) in statsStore.locations" :key="loc.city">
-                <td style="color:#718096;">{{ i + 1 }}</td>
-                <td style="font-weight:600;">{{ loc.city }}</td>
-                <td style="text-align:right;">{{ loc.rentals_count }}</td>
-                <td style="text-align:right;">{{ formatMoney(loc.total_revenue) }}</td>
-                <td>
-                  <div class="bar-bg">
-                    <div class="bar-fill bar-fill-blue" :style="{ width: locBarWidth(loc.rentals_count) + '%' }"></div>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <div v-else class="chart-empty">Brak danych lokalizacji</div>
+        <div class="tables-row">
+          <div class="table-panel">
+            <div class="table-title">💰 Usługi dodatkowe w okresie</div>
+            <table class="stats-table" v-if="statsStore.additionalFees?.breakdown?.length">
+              <thead>
+                <tr>
+                  <th>Usługa</th>
+                  <th style="text-align:right;">Przychód</th>
+                  <th style="text-align:right;">Umów</th>
+                  <th style="width:120px;"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="s in statsStore.additionalFees.breakdown" :key="s.article_id">
+                  <td>{{ s.service_name }}</td>
+                  <td style="text-align:right;font-weight:600;">{{ formatMoney(s.total_revenue) }}</td>
+                  <td style="text-align:right;">{{ s.times_billed }}</td>
+                  <td>
+                    <div class="bar-bg">
+                      <div class="bar-fill" :style="{ width: feeBarWidth(s.total_revenue) + '%' }"></div>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td style="font-weight:700;">Razem</td>
+                  <td style="text-align:right;font-weight:700;">{{ formatMoney(statsStore.additionalFees.total_services_revenue) }}</td>
+                  <td></td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+            <div v-else class="empty-state">Brak usług w wybranym okresie</div>
+          </div>
+
+          <div class="table-panel">
+            <div class="table-title">📍 Lokalizacje — ranking w okresie</div>
+            <table class="stats-table" v-if="statsStore.locations.length">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Miasto</th>
+                  <th style="text-align:right;">Umów</th>
+                  <th style="text-align:right;">Przychód</th>
+                  <th style="width:100px;"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(loc, i) in statsStore.locations" :key="loc.city">
+                  <td style="color:#718096;">{{ i + 1 }}</td>
+                  <td style="font-weight:600;">{{ loc.city }}</td>
+                  <td style="text-align:right;">{{ loc.rentals_count }}</td>
+                  <td style="text-align:right;">{{ formatMoney(loc.total_revenue) }}</td>
+                  <td>
+                    <div class="bar-bg">
+                      <div class="bar-fill bar-fill-blue" :style="{ width: locBarWidth(loc.rentals_count) + '%' }"></div>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div v-else class="empty-state">Brak danych lokalizacji</div>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- ══════════════════ TAB: EKSPERATOR ══════════════════ -->
+    <div v-show="activeTab === 'explorer'">
+      <!-- SUB-TABS -->
+      <div class="explorer-subtabs">
+        <button :class="['subtab', { 'subtab-active': explorerTab === 'all' }]" @click="switchExplorerTab('all')">
+          🔍 Wszystko
+        </button>
+        <button :class="['subtab', { 'subtab-active': explorerTab === 'machines' }]" @click="switchExplorerTab('machines')">
+          🏗️ Maszyny
+        </button>
+        <button :class="['subtab', { 'subtab-active': explorerTab === 'services' }]" @click="switchExplorerTab('services')">
+          🛠️ Usługi
+        </button>
+        <button :class="['subtab', { 'subtab-active': explorerTab === 'locations' }]" @click="switchExplorerTab('locations')">
+          📍 Lokalizacje
+        </button>
+      </div>
+
+      <!-- PERIOD PILLS -->
+      <div class="explorer-period-bar">
+        <label class="period-label">Okres:</label>
+        <button v-for="p in explorerPresets" :key="p.key"
+          :class="['pill', { active: explorerPeriod === p.key }]"
+          @click="setExplorerPeriod(p.key)">{{ p.label }}</button>
+        <button :class="['pill', { active: explorerPeriod === 'custom' }]" @click="setExplorerPeriod('custom')">📅 Własny</button>
+        <div v-if="explorerPeriod === 'custom'" class="pill-custom">
+          <input type="date" v-model="explorerCustomFrom" class="pill-date" />
+          <span>—</span>
+          <input type="date" v-model="explorerCustomTo" class="pill-date" />
+          <button class="pill pill-go" @click="onExplorerPeriodChange">Filtruj</button>
         </div>
       </div>
 
-      <!-- CURRENTLY RENTED LIST -->
-      <div class="table-panel full-width" v-if="statsStore.currentlyRented?.items?.length">
-        <div class="table-title">🟢 Maszyny aktualnie wynajęte ({{ statsStore.currentlyRented.total_rented }})</div>
-        <div class="rented-scroll">
-          <table class="stats-table">
-            <thead>
-              <tr>
-                <th>Maszyna</th>
-                <th>Nr wewnętrzny</th>
-                <th>Umowa</th>
-                <th>Kontrahent</th>
-                <th>Planowany zwrot</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="item in statsStore.currentlyRented.items" :key="item.article_id + item.contract_number">
-                <td>{{ item.name }}</td>
-                <td>{{ item.internal_number || '—' }}</td>
-                <td style="font-weight:600;">{{ item.contract_number }}</td>
-                <td>{{ item.contractor_name || '—' }}</td>
-                <td>{{ item.return_date ? new Date(item.return_date).toLocaleDateString('pl-PL') : '—' }}</td>
-              </tr>
-            </tbody>
-          </table>
+      <!-- SEARCH (only for Wszystko tab) -->
+      <div v-if="explorerTab === 'all'" class="explorer-filters">
+        <div class="filter-group">
+          <label>Szukaj:</label>
+          <input v-model="explorerQuery" type="text" placeholder="Maszyna, nr wewnętrzny, kontrahent..." class="explorer-search" @keyup.enter="searchExplorer" />
+          <button class="pill pill-go" @click="searchExplorer" :disabled="loadingExplorer">
+            {{ loadingExplorer ? 'Szukanie...' : 'Szukaj' }}
+          </button>
         </div>
       </div>
-    </template>
+
+      <!-- LOADING -->
+      <div v-if="loadingExplorer" class="reports-loading">
+        <div class="spinner"></div>
+        <span>Ładowanie wyników...</span>
+      </div>
+
+      <!-- RESULTS -->
+      <template v-else>
+        <!-- TAB: Wszystko -->
+        <div v-show="explorerTab === 'all'">
+          <div class="table-panel full-width">
+            <div class="table-title">Wyniki wyszukiwania ({{ explorerResults.length }})</div>
+            <table class="stats-table" v-if="explorerResults.length">
+              <thead>
+                <tr>
+                  <th>Typ</th>
+                  <th>Nazwa</th>
+                  <th>Nr wewn.</th>
+                  <th>Kontrahent</th>
+                  <th>Data</th>
+                  <th style="text-align:right;">Kwota</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in explorerResults" :key="item.id" @click="openExplorerItem(item)" class="row-clickable">
+                  <td>{{ item.type }} {{ item.type_label }}</td>
+                  <td>{{ item.name }}</td>
+                  <td>{{ item.internal_number || '—' }}</td>
+                  <td>{{ item.contractor_name || '—' }}</td>
+                  <td>{{ item.date ? new Date(item.date).toLocaleDateString('pl-PL') : '—' }}</td>
+                  <td style="text-align:right;font-weight:600;">{{ formatMoney(item.amount) }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <div v-else class="empty-state">Wpisz frazę i kliknij "Szukaj"</div>
+          </div>
+          <div v-if="explorerSummary.count" class="explorer-summary">
+            Podsumowanie: <strong>{{ explorerSummary.count }}</strong> wyników | 
+            Przychód: <strong>{{ formatMoney(explorerSummary.revenue) }}</strong>
+          </div>
+        </div>
+
+        <!-- TAB: Maszyny -->
+        <div v-show="explorerTab === 'machines'">
+          <div class="explorer-machine-selector">
+            <label>Szukaj maszynę:</label>
+            <input v-model="machineSearch" type="text" placeholder="Wpisz nazwę lub nr wewnętrzny..." class="explorer-search" style="width:320px;" @input="onMachineSearchInput" @keyup.enter="pickFirstMachine" />
+            <span v-if="loadingExplorer" class="search-hint">Szukanie...</span>
+          </div>
+          <div v-if="machineSearchResults.length && !machineDetails" class="machine-search-results">
+            <div v-for="m in machineSearchResults" :key="m.id" class="machine-result-row" @click="pickMachine(m.id)">
+              <span class="machine-result-name">{{ m.name }}</span>
+              <span v-if="m.internal_number" class="machine-result-nr">[{{ m.internal_number }}]</span>
+            </div>
+          </div>
+          <div v-if="machineDetails" class="machine-metrics">
+            <button class="machine-back-btn" @click="machineDetails = null; machineSearch = ''; selectedMachine = ''">← Szukaj inną maszynę</button>
+            <div class="metrics-header">
+              <h3>📊 {{ machineDetails.machine.name }}</h3>
+              <div class="metrics-grid">
+                <div class="metric-card">
+                  <div class="metric-value">{{ formatMoney(machineDetails.metrics.total_revenue) }}</div>
+                  <div class="metric-label">Przychód</div>
+                </div>
+                <div class="metric-card">
+                  <div class="metric-value">{{ machineDetails.metrics.total_days }} dni</div>
+                  <div class="metric-label">Wynajmu</div>
+                </div>
+                <div class="metric-card">
+                  <div class="metric-value">{{ formatMoney(machineDetails.metrics.avg_daily_revenue) }}</div>
+                  <div class="metric-label">Średnio/dzień</div>
+                </div>
+                <div class="metric-card" v-if="machineDetails.metrics.utilization_percentage">
+                  <div class="metric-value">{{ machineDetails.metrics.utilization_percentage }}%</div>
+                  <div class="metric-label">Wykorzystanie</div>
+                </div>
+              </div>
+            </div>
+            <div class="table-panel">
+              <div class="table-title">Historia wynajmów ({{ machineDetails.rentals.length }})</div>
+              <table class="stats-table">
+                <thead>
+                  <tr>
+                    <th>Umowa</th>
+                    <th>Kontrahent</th>
+                    <th>Od</th>
+                    <th>Do</th>
+                    <th>Dni</th>
+                    <th style="text-align:right;">Kwota</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="r in machineDetails.rentals" :key="r.contract_id">
+                    <td>{{ r.contract_number }}</td>
+                    <td>{{ r.contractor_name }}</td>
+                    <td>{{ r.date_from ? new Date(r.date_from).toLocaleDateString('pl-PL') : '—' }}</td>
+                    <td>{{ r.date_to ? new Date(r.date_to).toLocaleDateString('pl-PL') : '—' }}</td>
+                    <td>{{ r.days }}</td>
+                    <td style="text-align:right;font-weight:600;">{{ formatMoney(r.revenue) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: Usługi -->
+        <div v-show="explorerTab === 'services'">
+          <div class="service-filters">
+            <button :class="['service-chip', { active: selectedService === '' }]" @click="filterService('')">
+              Wszystkie
+            </button>
+            <button v-for="g in serviceGroups" :key="g.key"
+              :class="['service-chip', { active: selectedService === g.key }]"
+              @click="filterService(g.key)">
+              {{ g.label }} <span class="chip-count">{{ g.count }}</span>
+            </button>
+          </div>
+          <div class="table-panel full-width">
+            <div class="table-title">Podsumowanie usług</div>
+            <table class="stats-table" v-if="servicesData.length">
+              <thead>
+                <tr>
+                  <th>Usługa</th>
+                  <th style="text-align:right;">Ilość</th>
+                  <th style="text-align:right;">Przychód</th>
+                  <th style="text-align:right;">%</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="s in filteredServices" :key="s.article_id">
+                  <td>{{ s.service_name }}</td>
+                  <td style="text-align:right;">{{ s.times_billed }}</td>
+                  <td style="text-align:right;font-weight:600;">{{ formatMoney(s.total_revenue) }}</td>
+                  <td style="text-align:right;">{{ s.percentage }}%</td>
+                </tr>
+              </tbody>
+            </table>
+            <div v-else class="empty-state">Brak danych usług</div>
+          </div>
+        </div>
+
+        <!-- TAB: Lokalizacje -->
+        <div v-show="explorerTab === 'locations'">
+          <div class="table-panel full-width">
+            <div class="table-title">Ranking miast ({{ locationsData.length }})</div>
+            <table class="stats-table" v-if="locationsData.length">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Miasto</th>
+                  <th style="text-align:right;">Umów</th>
+                  <th style="text-align:right;">Przychód</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="loc in locationsData" :key="loc.city">
+                  <td style="color:#718096;">{{ loc.rank }}</td>
+                  <td style="font-weight:600;">{{ loc.city }}</td>
+                  <td style="text-align:right;">{{ loc.rentals_count }}</td>
+                  <td style="text-align:right;font-weight:600;">{{ formatMoney(loc.total_revenue) }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <div v-else class="empty-state">Brak danych lokalizacji</div>
+          </div>
+        </div>
+      </template>
+    </div>
+
   </div>
 </template>
 
@@ -190,9 +432,31 @@ const presets = [
   { key: 'all', label: 'Wszystko' },
 ]
 
+const activeTab = ref('live')
 const activePreset = ref('year')
 const customFrom = ref('')
 const customTo = ref('')
+
+function switchTab(tab) {
+  activeTab.value = tab
+  if (tab === 'history') {
+    nextTick(() => renderBarChart())
+  } else {
+    nextTick(() => renderDonutChart())
+  }
+}
+
+const liveUtilPct = computed(() => {
+  if (!statsStore.currentlyRented?.total_machines) return 0
+  return Math.round(statsStore.currentlyRented.total_rented / statsStore.currentlyRented.total_machines * 100)
+})
+
+const liveUtilClass = computed(() => {
+  const v = liveUtilPct.value
+  if (v >= 70) return 'kpi-success'
+  if (v >= 40) return 'kpi-warning'
+  return 'kpi-danger'
+})
 
 function getDateRange(preset) {
   const now = new Date()
@@ -213,7 +477,13 @@ function fmt(d) {
   return d.toISOString().slice(0, 10)
 }
 
-async function loadAll() {
+async function loadLive() {
+  await statsStore.fetchCurrentlyRented()
+  await nextTick()
+  renderDonutChart()
+}
+
+async function loadPeriod() {
   let df, dt
   if (activePreset.value === 'custom') {
     df = customFrom.value || null
@@ -223,14 +493,14 @@ async function loadAll() {
     df = fmt(from)
     dt = fmt(to)
   }
-  await statsStore.fetchAll(df, dt)
+  await statsStore.fetchPeriod(df, dt)
   await nextTick()
-  renderCharts()
+  renderBarChart()
 }
 
 function selectPreset(key) {
   activePreset.value = key
-  if (key !== 'custom') loadAll()
+  if (key !== 'custom') loadPeriod()
 }
 
 async function printPage() {
@@ -285,6 +555,243 @@ function locBarWidth(val) {
 function formatMoney(v) {
   if (!v && v !== 0) return '—'
   return Number(v).toLocaleString('pl-PL', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' zł'
+}
+
+// ═══════════════════════════════════════════════════════
+// EKSPLORATOR — Zmienne i funkcje
+// ═══════════════════════════════════════════════════════
+
+const explorerTab = ref('all')
+const explorerQuery = ref('')
+const explorerPeriod = ref('year')
+const explorerCustomFrom = ref('')
+const explorerCustomTo = ref('')
+const loadingExplorer = ref(false)
+const explorerResults = ref([])
+const explorerSummary = ref({ count: 0, revenue: 0 })
+const selectedMachine = ref('')
+const availableMachines = ref([])
+const machineDetails = ref(null)
+const machineSearch = ref('')
+const machineSearchResults = ref([])
+let machineSearchTimer = null
+const selectedService = ref('')
+const servicesData = ref([])
+const locationsData = ref([])
+
+const explorerPresets = [
+  { key: 'month', label: 'Ten miesiąc' },
+  { key: 'quarter', label: 'Ten kwartał' },
+  { key: 'year', label: 'Ten rok' },
+  { key: 'all', label: 'Wszystko' },
+]
+
+const SERVICE_GROUPS = [
+  { key: 'teleskopowa', label: 'Ładowarki tel.', pattern: /ładowark.*teleskop/i },
+  { key: 'obrotowa', label: 'Ładowarki obr.', pattern: /ładowark.*obrotow/i },
+  { key: 'widlowy', label: 'Wózki widłowe', pattern: /w[oó][zź]k.*widłow/i },
+  { key: 'zuraw', label: 'Żurawie / HDS', pattern: /(żuraw|HDS|manipulat)/i },
+  { key: 'podnosnik', label: 'Podnośniki', pattern: /(podnośnik|podest)/i },
+  { key: 'minikoparka', label: 'Minikoparki', pattern: /minikopark/i },
+  { key: 'operator', label: 'Usługi operatorskie', pattern: /operator/i },
+  { key: 'transport', label: 'Transport', pattern: /transport/i },
+  { key: 'inne', label: 'Inne', pattern: null },
+]
+
+function classifyService(name) {
+  for (const g of SERVICE_GROUPS) {
+    if (g.pattern && g.pattern.test(name)) return g.key
+  }
+  return 'inne'
+}
+
+const serviceGroups = computed(() => {
+  const counts = {}
+  for (const s of servicesData.value) {
+    const key = classifyService(s.service_name)
+    counts[key] = (counts[key] || 0) + 1
+  }
+  return SERVICE_GROUPS.filter(g => counts[g.key]).map(g => ({ ...g, count: counts[g.key] }))
+})
+
+const filteredServices = computed(() => {
+  if (!selectedService.value) return servicesData.value
+  return servicesData.value.filter(s => classifyService(s.service_name) === selectedService.value)
+})
+
+function filterService(key) {
+  selectedService.value = key
+}
+
+function setExplorerPeriod(key) {
+  explorerPeriod.value = key
+  if (key !== 'custom') onExplorerPeriodChange()
+}
+
+function onExplorerPeriodChange() {
+  const tab = explorerTab.value
+  if (tab === 'all' && explorerQuery.value.trim()) searchExplorer()
+  if (tab === 'services') loadServicesData()
+  if (tab === 'locations') loadLocationsData()
+  if (tab === 'machines' && selectedMachine.value) loadMachineDetails()
+}
+
+function switchExplorerTab(tab) {
+  explorerTab.value = tab
+  if (tab === 'machines' && availableMachines.value.length === 0) loadAvailableMachines()
+  if (tab === 'services') loadServicesData()
+  if (tab === 'locations') loadLocationsData()
+}
+
+function onMachineSearchInput() {
+  clearTimeout(machineSearchTimer)
+  machineDetails.value = null
+  selectedMachine.value = ''
+  const q = machineSearch.value.trim().toLowerCase()
+  if (!q || q.length < 2) {
+    machineSearchResults.value = []
+    return
+  }
+  machineSearchTimer = setTimeout(() => {
+    machineSearchResults.value = availableMachines.value.filter(m =>
+      (m.name && m.name.toLowerCase().includes(q)) ||
+      (m.internal_number && m.internal_number.toLowerCase().includes(q))
+    ).slice(0, 15)
+  }, 200)
+}
+
+function pickMachine(id) {
+  selectedMachine.value = id
+  machineSearchResults.value = []
+  const m = availableMachines.value.find(x => x.id === id)
+  if (m) machineSearch.value = m.name + (m.internal_number ? ` [${m.internal_number}]` : '')
+  loadMachineDetails()
+}
+
+function pickFirstMachine() {
+  if (machineSearchResults.value.length) pickMachine(machineSearchResults.value[0].id)
+}
+
+function openExplorerItem(item) {
+  if (item.type_label === 'Maszyna' && item.article_id) {
+    explorerTab.value = 'machines'
+    if (availableMachines.value.length === 0) {
+      loadAvailableMachines().then(() => pickMachine(item.article_id))
+    } else {
+      pickMachine(item.article_id)
+    }
+  } else if (item.type_label === 'Us\u0142uga') {
+    explorerTab.value = 'services'
+    loadServicesData()
+  }
+}
+
+function getExplorerDateRange() {
+  if (explorerPeriod.value === 'custom') {
+    return [
+      explorerCustomFrom.value ? new Date(explorerCustomFrom.value) : null,
+      explorerCustomTo.value ? new Date(explorerCustomTo.value) : null,
+    ]
+  }
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = now.getMonth()
+  switch (explorerPeriod.value) {
+    case 'month': return [new Date(y, m, 1), now]
+    case 'quarter': return [new Date(y, Math.floor(m / 3) * 3, 1), now]
+    case 'year': return [new Date(y, 0, 1), now]
+    default: return [null, null]
+  }
+}
+
+async function searchExplorer() {
+  if (!explorerQuery.value.trim()) {
+    explorerResults.value = []
+    explorerSummary.value = { count: 0, revenue: 0 }
+    return
+  }
+  loadingExplorer.value = true
+  try {
+    const [from, to] = getExplorerDateRange()
+    const params = {
+      q: explorerQuery.value,
+      date_from: from?.toISOString().slice(0, 10),
+      date_to: to?.toISOString().slice(0, 10),
+      limit: 50,
+    }
+    const { data } = await api.get('/explorer/search', { params })
+    explorerResults.value = data.items || []
+    explorerSummary.value = data.summary || { count: 0, revenue: 0 }
+  } catch (e) {
+    console.error('Explorer search error:', e)
+  } finally {
+    loadingExplorer.value = false
+  }
+}
+
+async function loadAvailableMachines() {
+  try {
+    const { data } = await api.get('/articles', { params: { limit: 1000 } })
+    availableMachines.value = (data.items || data).filter(a => !a.is_service)
+  } catch (e) {
+    console.error('Error loading machines:', e)
+  }
+}
+
+async function loadMachineDetails() {
+  if (!selectedMachine.value) {
+    machineDetails.value = null
+    return
+  }
+  loadingExplorer.value = true
+  try {
+    const [from, to] = getExplorerDateRange()
+    const params = {
+      date_from: from?.toISOString().slice(0, 10),
+      date_to: to?.toISOString().slice(0, 10),
+    }
+    const { data } = await api.get(`/explorer/machines/${selectedMachine.value}`, { params })
+    machineDetails.value = data
+  } catch (e) {
+    console.error('Error loading machine details:', e)
+  } finally {
+    loadingExplorer.value = false
+  }
+}
+
+async function loadServicesData() {
+  loadingExplorer.value = true
+  try {
+    const [from, to] = getExplorerDateRange()
+    const params = {
+      date_from: from?.toISOString().slice(0, 10),
+      date_to: to?.toISOString().slice(0, 10),
+    }
+    const { data } = await api.get('/explorer/services', { params })
+    servicesData.value = data.services || []
+  } catch (e) {
+    console.error('Error loading services:', e)
+  } finally {
+    loadingExplorer.value = false
+  }
+}
+
+async function loadLocationsData() {
+  loadingExplorer.value = true
+  try {
+    const [from, to] = getExplorerDateRange()
+    const params = {
+      date_from: from?.toISOString().slice(0, 10),
+      date_to: to?.toISOString().slice(0, 10),
+      limit: 50,
+    }
+    const { data } = await api.get('/explorer/locations', { params })
+    locationsData.value = data.locations || []
+  } catch (e) {
+    console.error('Error loading locations:', e)
+  } finally {
+    loadingExplorer.value = false
+  }
 }
 
 function renderCharts() {
@@ -403,7 +910,10 @@ function renderDonutChart() {
   })
 }
 
-onMounted(() => loadAll())
+onMounted(() => {
+  loadLive()
+  loadPeriod()
+})
 
 onBeforeUnmount(() => {
   if (barChart) barChart.destroy()
@@ -413,6 +923,95 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .reports-dashboard { padding: 0; }
+
+.tabs-bar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #E2E8F0;
+  padding-bottom: 0;
+}
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 20px;
+  border: none;
+  background: transparent;
+  color: #718096;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color 150ms, border-color 150ms;
+  font-family: inherit;
+  border-radius: 6px 6px 0 0;
+}
+.tab:hover { color: #0F234E; background: #F7FAFC; }
+.tab-active {
+  color: #0F234E;
+  font-weight: 700;
+  border-bottom-color: #0F234E;
+  background: transparent;
+}
+.tab-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #CBD5E0;
+  transition: background 150ms;
+}
+.tab-dot-active {
+  background: #38A169;
+  box-shadow: 0 0 0 3px rgba(56,161,105,0.2);
+}
+
+.kpi-row-live {
+  grid-template-columns: repeat(3, 1fr);
+}
+.kpi-live-accent {
+  background: linear-gradient(135deg, #0F234E 0%, #1A3266 100%);
+}
+
+.empty-state {
+  color: #A0AEC0;
+  font-size: 13px;
+  padding: 24px 0;
+}
+
+.explorer-placeholder {
+  text-align: center;
+  padding: 80px 20px;
+  background: linear-gradient(135deg, #F7FAFC 0%, #EDF2F7 100%);
+  border-radius: 16px;
+  margin-top: 20px;
+}
+.explorer-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+.explorer-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0F234E;
+  margin-bottom: 8px;
+}
+.explorer-desc {
+  font-size: 14px;
+  color: #718096;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+.explorer-coming {
+  display: inline-block;
+  padding: 8px 16px;
+  background: #0F234E;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 99px;
+}
 
 .date-pills {
   display: flex;
@@ -563,6 +1162,8 @@ onBeforeUnmount(() => {
   padding-top: 10px;
 }
 .stats-table tbody tr:hover { background: #F7FAFC; }
+.stats-table tbody tr.row-clickable { cursor: pointer; }
+.stats-table tbody tr.row-clickable:hover { background: #EBF4FF; }
 
 .bar-bg {
   height: 6px;
@@ -615,5 +1216,225 @@ onBeforeUnmount(() => {
   .kpi-row { grid-template-columns: repeat(2, 1fr); }
   .charts-row { grid-template-columns: 1fr; }
   .tables-row { grid-template-columns: 1fr; }
+}
+
+/* Eksplorator styles */
+.explorer-period-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.period-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #4A5568;
+  margin-right: 4px;
+}
+
+.machine-search-results {
+  background: #fff;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  max-height: 280px;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+.machine-result-row {
+  padding: 10px 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #F0F0F0;
+  transition: background 100ms;
+}
+.machine-result-row:last-child { border-bottom: none; }
+.machine-result-row:hover { background: #EBF4FF; }
+.machine-result-name { font-size: 14px; color: #2D3748; font-weight: 500; }
+.machine-result-nr { font-size: 12px; color: #718096; }
+.search-hint { font-size: 13px; color: #718096; }
+.machine-back-btn {
+  border: none;
+  background: transparent;
+  color: #3182CE;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 6px 0;
+  margin-bottom: 8px;
+  font-family: inherit;
+}
+.machine-back-btn:hover { text-decoration: underline; }
+
+.chip-count {
+  display: inline-block;
+  background: rgba(15,35,78,0.1);
+  color: #0F234E;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 99px;
+  margin-left: 4px;
+  font-weight: 600;
+}
+.service-chip.active .chip-count {
+  background: rgba(255,255,255,0.25);
+  color: #fff;
+}
+
+.explorer-subtabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #E2E8F0;
+  padding-bottom: 0;
+}
+.subtab {
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  color: #718096;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all 150ms;
+}
+.subtab:hover { color: #0F234E; }
+.subtab-active {
+  color: #0F234E;
+  font-weight: 600;
+  border-bottom-color: #0F234E;
+}
+
+.explorer-filters {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.filter-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #4A5568;
+}
+.explorer-search {
+  padding: 8px 12px;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  font-size: 14px;
+  width: 280px;
+}
+.explorer-search:focus {
+  outline: none;
+  border-color: #0F234E;
+}
+.explorer-select {
+  padding: 8px 12px;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  font-size: 14px;
+  background: #fff;
+}
+.explorer-select:focus {
+  outline: none;
+  border-color: #0F234E;
+}
+
+.explorer-summary {
+  background: #F7FAFC;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #4A5568;
+  margin-top: 12px;
+}
+
+.explorer-machine-selector {
+  background: #fff;
+  padding: 16px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.explorer-machine-selector label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #4A5568;
+}
+
+.machine-metrics {
+  margin-bottom: 16px;
+}
+.metrics-header {
+  background: linear-gradient(135deg, #0F234E 0%, #1A3266 100%);
+  color: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+.metrics-header h3 {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+}
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+.metric-card {
+  text-align: center;
+  padding: 12px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 8px;
+}
+.metric-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+}
+.metric-label {
+  font-size: 11px;
+  color: rgba(255,255,255,0.7);
+  margin-top: 4px;
+}
+
+.service-filters {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.service-chip {
+  padding: 6px 14px;
+  border-radius: 99px;
+  border: 1px solid #E2E8F0;
+  background: #fff;
+  color: #4A5568;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 150ms;
+}
+.service-chip:hover { border-color: #0F234E; }
+.service-chip.active {
+  background: #0F234E;
+  color: #fff;
+  border-color: #0F234E;
+}
+
+@media (max-width: 768px) {
+  .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+  .explorer-filters { flex-direction: column; }
+  .explorer-search { width: 100%; }
 }
 </style>

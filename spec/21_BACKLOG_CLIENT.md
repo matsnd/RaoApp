@@ -26,7 +26,8 @@ Każde zgłoszenie powinno zawierać:
 | 6 | Podpisy na umowie — układ stron | Ważny | Oczekuje | Podpisy tylko na ostatniej stronie, nie na pierwszej |
 | 7 | Sekcja "Uwagi" w umowie — brakująca treść | Ważny | Oczekuje | Weryfikacja z kodem WinForms i dodanie do PDF |
 | 8 | Picker artykułów — filtrowanie po typie umowy | Dobry dodatek | Oczekuje | Dla umowy usługi → tylko artykuły-usługi (is_service=true) |
-| 9 | Protokół usługi — ewidencja godzin operatora | Ważny | Oczekuje | Nowa tabela/functionality dla godzin od/do |
+| 9 | Protokół usługi — ewidencja godzin operatora | Ważny | ✅ Zrobione | Nowa tabela/functionality dla godzin od/do |
+| 16 | Eksplorator — UX i filtrowanie | Ważny | ✅ Zrobione | Okres od-do, dynamiczne grupy usług, typeahead maszyn, auto-reload |
 
 ---
 
@@ -329,9 +330,185 @@ PDF Protokół usługi — sekcja "Data wykonania usługi" z tabelą godzin
 
 ---
 
+### #10 — UX Raportów — rozdzielenie "teraz" od "okres"
+
+**Zgłaszający:** Klient  
+**Data:** 2026-04-08  
+**Priorytet:** Ważny
+
+**Opis:**
+Aktualnie w sekcji raportów pokazuje się "Wynajętych teraz" obok filtrów datowych. Użytkownik myśli że wybór przedziału czasowego wpływa na tę liczbę, co jest mylące.
+
+**Oczekiwane zachowanie:**
+- Jasne rozdzielenie sekcji "Stan aktualny" (niezależnie od daty) od "Analiza historyczna" (zależnie od daty)
+- Sekcja "Stan aktualny" powinna być wizualnie wyodrębniona (np. inne tło, nagłówek)
+- Daty powinny wpływać tylko na dane historyczne (przychód, trendy, top maszyn)
+
+**Wymagane zmiany:**
+1. `ReportsSection.vue` — wizualna separacja sekcji "Stan aktualny"
+2. `statsStore.js` — nowy endpoint `/stats/current-status` (niezależnie od dat)
+3. Backend — endpoint zwracający zawsze aktualny stan floty
+
+---
+
+### #11 — Numer wewnętrzny maszyny — widoczność i wyszukiwanie
+
+**Zgłaszający:** Klient  
+**Data:** 2026-04-08  
+**Priorytet:** Ważny
+
+**Opis:**
+Pole `internal_number` już istnieje w tabeli `articles`, ale nie jest widoczne w formularzach ani w raportach. Klient potrzebuje identyfikować maszyny po numerach wewnętrznych (np. "TS-042") dla celów operacyjnych i raportowania.
+
+**Oczekiwane zachowanie:**
+- Widoczność nr wewnętrznego w formularzu artykułu
+- Wyszukiwanie po nr wewnętrznym w article pickerze
+- Wyświetlanie nr wewnętrznego w raportach i statystykach
+- Możliwość filtrowania raportów per konkretna maszyna (po nr wewnętrznym)
+
+**Wymagane zmiany:**
+1. `ArticleFormView.vue` — dodanie pola internal_number
+2. `ArticlePicker.vue` — wyszukiwanie po internal_number
+3. `ReportsSection.vue` — filtr "Szukaj maszyny" po nr wewnętrznym
+4. Backend — endpoint `/stats/machine/{internal_number}`
+
+---
+
+### #12 — Statystyki per maszyna (ROI, wykorzystanie)
+
+**Zgłaszający:** Klient  
+**Data:** 2026-04-08  
+**Priorytet:** Normalny
+
+**Opis:**
+Klient potrzebuje sprawdzać rentowność (stopę zwrotu) dla konkretnych maszyn. Ile dana maszyna była wynajmowana w danym okresie (miesiąc/3miesiące/rok).
+
+**Oczekiwane zachowanie:**
+- Po wyborze maszyny (po nr wewnętrznym) pokazują się statystyki:
+  - Okres analizy (np. 3 miesiące)
+  - Całkowity przychód z maszyny w okresie
+  - Liczba dni wynajmu
+  - Średni przychód/dzień wynajmu
+  - Procent wykorzystania w okresie
+
+**Wymagane zmiany:**
+1. Backend — endpoint `/stats/machine/{id}/history?from=&to=`
+2. `ReportsSection.vue` — panel szczegółów maszyny
+3. Ewentualnie wykres wykorzystania w czasie
+
+---
+
+### #13 — Filtrowanie pozycji umowy po typie
+
+**Zgłaszający:** Klient  
+**Data:** 2026-04-08  
+**Priorytet:** Normalny
+
+**Opis:**
+W raportach klient chce widzieć nie tylko maszyny, ale też podsumowanie pozycji dodatkowych: transport, ładowanie akumulatorów, mycie, itp. — zsumowane za dane okresy.
+
+**Oczekiwane zachowanie:**
+- Filtr "Typ pozycji" w raportach: Maszyny | Usługi | Wszystkie
+- Podsumowanie przychodu z usług dodatkowych osobno
+- Lista najczęściej wykonywanych usług dodatkowych
+
+**Wymagane zmiany:**
+1. Backend — `/stats/positions?type=&from=&to=`
+2. `ReportsSection.vue` — filtry typu pozycji
+3. Tabela/usług dodatkowych w raporcie
+
+---
+
+### #14 — Statystyki po lokalizacji/miejscowości
+
+**Zgłaszający:** Klient  
+**Data:** 2026-04-08  
+**Priorytet:** Normalny
+
+**Opis:**
+Klient chce analizować gdzie najczęściej wynajmują maszyny (miejscowości/obszary) aby lepiej planować logistykę.
+
+**Oczekiwane zachowanie:**
+- Filtrowanie raportów po miejscowości (z adresu dostawy)
+- Podsumowanie: ilość wynajmów w danej lokalizacji
+- Mapa lub lista top lokalizacji
+
+**Wymagane zmiany:**
+1. Backend — `/stats/locations/detail?city=&from=&to=`
+2. Frontend — filtr miejscowości w raportach
+3. Lista/heatmap lokalizacji
+
+---
+
+### #15 — Rezerwacja maszyn (blokada wynajmu)
+
+**Zgłaszający:** Klient  
+**Data:** 2026-04-08  
+**Priorytet:** Ważny
+
+**Opis:**
+System musi umożliwiać rezerwację maszyn na przyszłe terminy. Maszyna zablokowana w rezerwacji nie może być wynajęta w tym okresie. Przy próbie wynajmu pokazuje się informacja kiedy maszyna będzie dostępna.
+
+**Oczekiwane zachowanie:**
+- Rezerwacja maszyny na konkretny przedział dat (przyszły)
+- Blokada wynajmu jeśli maszyna jest zarezerwowana
+- W pickerze artykułów: badge "Zarezerwowana do DD.MM.YYYY"
+- Informacja kiedy maszyna będzie dostępna przy próbie wynajmu zablokowanej
+
+**Wymagane zmiany:**
+1. **DB:** Nowa tabela `article_reservations` (opcjonalnie — można użyć istniejących umów jako "soft reservation")
+2. **Backend:** API rezerwacji, walidacja konfliktów dat
+3. **Frontend:** Formularz rezerwacji, badge w pickerze, walidacja dostępności
+
+---
+
+### #16 — Eksplorator — UX i filtrowanie
+
+**Zgłaszający:** Klient  
+**Data:** 2026-04-08  
+**Priorytet:** Ważny
+
+**Opis:**
+Eksplorator raportów wymagał gruntownej przebudowy UX. Aktualny interfejs był mylący i nieintuicyjny — okresy nie działały poprawnie, usługi miały hardcoded chipy niepasujące do danych, a maszyny miały dropdown z 100+ pozycjami.
+
+**Kontekst:**
+Raporty → Eksplorator — wszystkie 4 sub-taby (Wszystko, Maszyny, Usługi, Lokalizacje)
+
+**Oczekiwane zachowanie:**
+- **Okresy:** Pills preset (miesiąc/kwartał/rok/wszystko) + "📅 Własny" z dwoma inputami date (od-do)
+- **Usługi:** Dynamiczne grupy z rzeczywistych danych, nie hardcoded "transport/mycie/tankowanie"
+- **Maszyny:** Jeden typeahead search z dropdownem wyników, nie dropdown + osobne szukanie
+- **Auto-reload:** Zmiana okresu ma natychmiast odświeżyć dane w aktywnym tabie (bez klikania "Szukaj")
+
+**Aktualne zachowanie przed zmianą:**
+- Dropdown z presetami okresów, brak custom od-do
+- Usługi: hardcoded chips (transport, mycie, tankowanie) które nie istnieją w DB
+- Maszyny: dropdown 100+ pozycji + osobne pole search = nieczytelne
+- Lokalizacje/Usługi nie reagowały na zmianę okresu (wymagany klik "Szukaj")
+
+**Wymagane zmiany:**
+1. **Period selector:** Pills + custom date inputs + auto-reload
+2. **Service groups:** Dynamiczne grupy z danych (ładowarki teleskopowe, wózki widłowe, żurawie/HDS, etc.)
+3. **Machine search:** Typeahead z wynikami, klik = ładuj detale
+4. **Auto-reload:** `onExplorerPeriodChange()` dla wszystkich tabów
+
+**Zrealizowane:**
+✅ Pills preset + custom date inputs (type=date)  
+✅ Dynamiczne service groups z licznikami  
+✅ Typeahead search maszyn z wynikami  
+✅ Auto-reload na zmianę okresu  
+✅ Weryfikacja Playwright (0 błędów)
+
+**Załączniki:**
+- [x] Weryfikacja Playwright: Lokalizacje, Usługi, Maszyny, Własny okres
+
+---
+
 ## Historia zmian
 
 | Data | Zmiana | Autor |
 |------|--------|-------|
 | 2026-04-08 | Utworzenie pliku backlogu | Zespół |
+| 2026-04-08 | Dodanie zgłoszeń #10-#15 (raporty, rezerwacje) | Zespół |
+| 2026-04-09 | Zrealizowanie #16 — Eksplorator redesign UX | Zespół |
 

@@ -10,6 +10,7 @@ from settings.router import router as settings_router
 from reports.router import router as reports_router
 from integrations.router import router as integrations_router
 from stats.router import router as stats_router
+from explorer.router import router as explorer_router
 from database import engine, Base
 
 app = FastAPI(
@@ -66,6 +67,7 @@ app.include_router(settings_router)
 app.include_router(reports_router)
 app.include_router(integrations_router)
 app.include_router(stats_router)
+app.include_router(explorer_router)
 
 
 @app.get("/health")
