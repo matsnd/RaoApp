@@ -345,63 +345,210 @@
 
         <!-- TAB: Usługi -->
         <div v-show="explorerTab === 'services'">
-          <div class="service-filters">
-            <button :class="['service-chip', { active: selectedService === '' }]" @click="filterService('')">
-              Wszystkie
-            </button>
-            <button v-for="g in serviceGroups" :key="g.key"
-              :class="['service-chip', { active: selectedService === g.key }]"
-              @click="filterService(g.key)">
-              {{ g.label }} <span class="chip-count">{{ g.count }}</span>
-            </button>
+          <!-- Detail panel -->
+          <div v-if="serviceDetails" class="detail-panel">
+            <button class="machine-back-btn" @click="serviceDetails = null">&#8592; Wroc</button>
+            <div class="metrics-header">
+              <h3>&#128296; {{ serviceDetails.service.name }}</h3>
+              <div class="period-info">&#128197; Okres: {{ getExplorerPeriodLabel() }}</div>
+              <div class="metrics-grid">
+                <div class="metric-card">
+                  <div class="metric-value">{{ serviceDetails.metrics.times_billed }}</div>
+                  <div class="metric-label">Razy rozliczone</div>
+                </div>
+                <div class="metric-card">
+                  <div class="metric-value">{{ formatMoney(serviceDetails.metrics.total_revenue) }}</div>
+                  <div class="metric-label">Przychod</div>
+                </div>
+              </div>
+            </div>
+            <div class="table-panel" v-if="serviceDetails.top_contractors?.length">
+              <div class="table-title">&#127942; Top kontrahenci</div>
+              <table class="stats-table">
+                <thead>
+                  <tr>
+                    <th>Kontrahent</th>
+                    <th style="text-align:right;">Umow</th>
+                    <th style="text-align:right;">Przychod</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="c in serviceDetails.top_contractors" :key="c.contractor_name">
+                    <td>{{ c.contractor_name }}</td>
+                    <td style="text-align:right;">{{ c.contract_count }}</td>
+                    <td style="text-align:right;font-weight:600;">{{ formatMoney(c.total_revenue) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="table-panel" v-if="serviceDetails.location_breakdown?.length">
+              <div class="table-title">&#128205; Lokalizacje</div>
+              <table class="stats-table">
+                <thead>
+                  <tr>
+                    <th>Miasto</th>
+                    <th style="text-align:right;">Umow</th>
+                    <th style="text-align:right;">Przychod</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="loc in serviceDetails.location_breakdown" :key="loc.city">
+                    <td>{{ loc.city }}</td>
+                    <td style="text-align:right;">{{ loc.contract_count }}</td>
+                    <td style="text-align:right;font-weight:600;">{{ formatMoney(loc.total_revenue) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
-          <div class="table-panel full-width">
-            <div class="table-title">Podsumowanie usług</div>
-            <table class="stats-table" v-if="servicesData.length">
-              <thead>
-                <tr>
-                  <th>Usługa</th>
-                  <th style="text-align:right;">Ilość</th>
-                  <th style="text-align:right;">Przychód</th>
-                  <th style="text-align:right;">%</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="s in filteredServices" :key="s.article_id">
-                  <td>{{ s.service_name }}</td>
-                  <td style="text-align:right;">{{ s.times_billed }}</td>
-                  <td style="text-align:right;font-weight:600;">{{ formatMoney(s.total_revenue) }}</td>
-                  <td style="text-align:right;">{{ s.percentage }}%</td>
-                </tr>
-              </tbody>
-            </table>
-            <div v-else class="empty-state">Brak danych usług</div>
+          <!-- List view -->
+          <div v-else>
+            <div class="service-filters">
+              <button :class="['service-chip', { active: selectedService === '' }]" @click="filterService('')">
+                Wszystkie
+              </button>
+              <button v-for="g in serviceGroups" :key="g.key"
+                :class="['service-chip', { active: selectedService === g.key }]"
+                @click="filterService(g.key)">
+                {{ g.label }} <span class="chip-count">{{ g.count }}</span>
+              </button>
+            </div>
+            <div class="explorer-machine-selector" style="margin-top: 16px;">
+              <label>Szukaj usługę:</label>
+              <input v-model="serviceSearch" type="text" placeholder="Wpisz nazwę usługi..." class="explorer-search" style="width:320px;" @input="onServiceSearchInput" />
+              <div v-if="serviceSearchResults.length" class="machine-search-results">
+                <div v-for="s in serviceSearchResults" :key="s.article_id" class="machine-result-row" @click="pickService(s.article_id)">
+                  <span class="machine-result-name">{{ s.service_name }}</span>
+                  <span class="machine-result-nr">{{ s.times_billed }} razy</span>
+                </div>
+              </div>
+            </div>
+            <div class="table-panel full-width">
+              <div class="table-title">Podsumowanie uslug</div>
+              <table class="stats-table" v-if="filteredServices.length">
+                <thead>
+                  <tr>
+                    <th>Usluga</th>
+                    <th style="text-align:right;">Ilosc</th>
+                    <th style="text-align:right;">Przychod</th>
+                    <th style="text-align:right;">%</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="s in filteredServices" :key="s.article_id" @click="openServiceDetails(s)" class="row-clickable">
+                    <td>{{ s.service_name }}</td>
+                    <td style="text-align:right;">{{ s.times_billed }}</td>
+                    <td style="text-align:right;font-weight:600;">{{ formatMoney(s.total_revenue) }}</td>
+                    <td style="text-align:right;">{{ s.percentage }}%</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div v-else class="empty-state">Brak danych uslug</div>
+            </div>
           </div>
         </div>
 
         <!-- TAB: Lokalizacje -->
         <div v-show="explorerTab === 'locations'">
-          <div class="table-panel full-width">
-            <div class="table-title">Ranking miast ({{ locationsData.length }})</div>
-            <table class="stats-table" v-if="locationsData.length">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Miasto</th>
-                  <th style="text-align:right;">Umów</th>
-                  <th style="text-align:right;">Przychód</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="loc in locationsData" :key="loc.city">
-                  <td style="color:#718096;">{{ loc.rank }}</td>
-                  <td style="font-weight:600;">{{ loc.city }}</td>
-                  <td style="text-align:right;">{{ loc.rentals_count }}</td>
-                  <td style="text-align:right;font-weight:600;">{{ formatMoney(loc.total_revenue) }}</td>
-                </tr>
-              </tbody>
-            </table>
-            <div v-else class="empty-state">Brak danych lokalizacji</div>
+          <!-- Detail panel -->
+          <div v-if="selectedLocation && locationMetrics" class="detail-panel">
+            <button class="machine-back-btn" @click="selectedLocation = ''; locationSearch = ''; locationMetrics = null">&#8592; Wroc</button>
+            <div class="metrics-header">
+              <h3>&#128205; {{ selectedLocation }}</h3>
+              <div class="period-info">&#128197; Okres: {{ getExplorerPeriodLabel() }}</div>
+              <div class="metrics-grid">
+                <div class="metric-card">
+                  <div class="metric-value">{{ locationMetrics.metrics.contracts_count }}</div>
+                  <div class="metric-label">Umow</div>
+                </div>
+                <div class="metric-card">
+                  <div class="metric-value">{{ locationMetrics.metrics.unique_contractors }}</div>
+                  <div class="metric-label">Klientow</div>
+                </div>
+                <div class="metric-card">
+                  <div class="metric-value">{{ formatMoney(locationMetrics.metrics.total_revenue) }}</div>
+                  <div class="metric-label">Przychod</div>
+                </div>
+                <div class="metric-card" v-if="explorerPeriod !== 'all'">
+                  <div class="metric-value">{{ formatMoney(locationMetrics.metrics.avg_revenue_per_contract) }}</div>
+                  <div class="metric-label">Srednio/umowe</div>
+                </div>
+              </div>
+            </div>
+            <div class="table-panel" v-if="locationMetrics.top_machines?.length">
+              <div class="table-title">&#128664; Top maszyny</div>
+              <table class="stats-table">
+                <thead>
+                  <tr>
+                    <th>Maszyna</th>
+                    <th style="text-align:right;">Razy</th>
+                    <th style="text-align:right;">Przychod</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="m in locationMetrics.top_machines" :key="m.name">
+                    <td>{{ m.name }}</td>
+                    <td style="text-align:right;">{{ m.rental_count }}x</td>
+                    <td style="text-align:right;font-weight:600;">{{ formatMoney(m.total_revenue) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="table-panel" v-if="locationMetrics.top_contractors?.length">
+              <div class="table-title">&#127942; Top kontrahenci</div>
+              <table class="stats-table">
+                <thead>
+                  <tr>
+                    <th>Kontrahent</th>
+                    <th style="text-align:right;">Umow</th>
+                    <th style="text-align:right;">Przychod</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="c in locationMetrics.top_contractors" :key="c.contractor_name">
+                    <td>{{ c.contractor_name }}</td>
+                    <td style="text-align:right;">{{ c.contract_count }}</td>
+                    <td style="text-align:right;font-weight:600;">{{ formatMoney(c.total_revenue) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <!-- Search view -->
+          <div v-else>
+            <div class="explorer-machine-selector" style="margin-bottom: 16px;">
+              <label>Szukaj miasto:</label>
+              <input v-model="locationSearch" type="text" placeholder="Wpisz nazwe miasta..." class="explorer-search" style="width:320px;" @input="onLocationSearchInput" />
+              <div v-if="locationSearchResults.length" class="machine-search-results">
+                <div v-for="loc in locationSearchResults" :key="loc.city" class="machine-result-row" @click="pickLocation(loc.city)">
+                  <span class="machine-result-name">{{ loc.city }}</span>
+                  <span class="machine-result-nr">{{ loc.rentals_count }} umow</span>
+                </div>
+              </div>
+            </div>
+            <div v-if="!locationSearch && locationsData.length" class="location-suggestions">
+              <div class="table-panel full-width">
+                <div class="table-title">Ranking miast ({{ locationsData.length }})</div>
+                <table class="stats-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Miasto</th>
+                      <th style="text-align:right;">Umow</th>
+                      <th style="text-align:right;">Przychod</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="loc in locationsData.slice(0, 20)" :key="loc.city" @click="pickLocation(loc.city)" class="row-clickable">
+                      <td style="color:#718096;">{{ loc.rank }}</td>
+                      <td style="font-weight:600;">{{ loc.city }}</td>
+                      <td style="text-align:right;">{{ loc.rentals_count }}</td>
+                      <td style="text-align:right;font-weight:600;">{{ formatMoney(loc.total_revenue) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
       </template>
@@ -577,6 +724,14 @@ const machineSearchResults = ref([])
 let machineSearchTimer = null
 const selectedService = ref('')
 const servicesData = ref([])
+const serviceDetails = ref(null)
+const serviceSearch = ref('')
+const serviceSearchResults = ref([])
+let serviceSearchTimer = null
+const selectedLocation = ref('')
+const locationSearch = ref('')
+const locationSearchResults = ref([])
+const locationMetrics = ref(null)
 const locationsData = ref([])
 
 const explorerPresets = [
@@ -658,6 +813,30 @@ function onMachineSearchInput() {
       (m.internal_number && m.internal_number.toLowerCase().includes(q))
     ).slice(0, 15)
   }, 200)
+}
+
+function onServiceSearchInput() {
+  clearTimeout(serviceSearchTimer)
+  serviceDetails.value = null
+  const q = serviceSearch.value.trim().toLowerCase()
+  if (!q || q.length < 2) {
+    serviceSearchResults.value = []
+    return
+  }
+  serviceSearchTimer = setTimeout(() => {
+    serviceSearchResults.value = servicesData.value.filter(s =>
+      (s.service_name && s.service_name.toLowerCase().includes(q))
+    ).slice(0, 15)
+  }, 200)
+}
+
+function pickService(articleId) {
+  const service = servicesData.value.find(s => s.article_id === articleId)
+  if (service) {
+    serviceSearch.value = service.service_name
+    serviceSearchResults.value = []
+    openServiceDetails(service)
+  }
 }
 
 function pickMachine(id) {
@@ -794,6 +973,140 @@ async function loadLocationsData() {
   }
 }
 
+function onLocationSearchInput() {
+  const q = locationSearch.value.trim().toLowerCase()
+  if (!q || q.length < 2) {
+    locationSearchResults.value = []
+    return
+  }
+  locationSearchResults.value = locationsData.value.filter(l =>
+    l.city.toLowerCase().includes(q)
+  ).slice(0, 15)
+}
+
+function pickLocation(city) {
+  selectedLocation.value = city
+  locationSearchResults.value = []
+  locationSearch.value = city
+  loadLocationDetails(city)
+}
+
+async function loadLocationDetails(city) {
+  loadingExplorer.value = true
+  try {
+    const [from, to] = getExplorerDateRange()
+    const params = {
+      date_from: from?.toISOString().slice(0, 10),
+      date_to: to?.toISOString().slice(0, 10),
+    }
+    const { data } = await api.get(`/explorer/locations/${encodeURIComponent(city)}`, { params })
+    if (data.error) {
+      console.error('Backend error:', data)
+      // Instead of undefined, show zero data
+      locationMetrics.value = {
+        metrics: {
+          contracts_count: 0,
+          unique_contractors: 0,
+          total_revenue: 0,
+          avg_revenue_per_contract: 0
+        },
+        top_machines: [],
+        top_contractors: []
+      }
+    } else {
+      locationMetrics.value = data
+    }
+  } catch (e) {
+    console.error('Error loading location details:', e)
+    // Also handle catch case with zero data
+    locationMetrics.value = {
+      metrics: {
+        contracts_count: 0,
+        unique_contractors: 0,
+        total_revenue: 0,
+        avg_revenue_per_contract: 0
+      },
+      top_machines: [],
+      top_contractors: []
+    }
+  } finally {
+    loadingExplorer.value = false
+  }
+}
+
+function openServiceDetails(service) {
+  selectedService.value = ''
+  loadServiceDetails(service.article_id)
+}
+
+async function loadServiceDetails(articleId) {
+  loadingExplorer.value = true
+  try {
+    const [from, to] = getExplorerDateRange()
+    const params = {
+      date_from: from?.toISOString().slice(0, 10),
+      date_to: to?.toISOString().slice(0, 10),
+    }
+    const { data } = await api.get(`/explorer/services/${articleId}`, { params })
+    if (data.error) {
+      console.error('Backend error:', data)
+      // Instead of closing panel, show zero data
+      // Use existing service name from current details or try to find it
+      const existingName = serviceDetails.value?.service?.name
+      const service = servicesData.value.find(s => s.article_id === articleId)
+      const serviceName = existingName || service?.service_name || `Usługa ${articleId}`
+      
+      serviceDetails.value = {
+        service: {
+          id: articleId,
+          name: serviceName
+        },
+        metrics: {
+          times_billed: 0,
+          total_revenue: 0,
+          avg_revenue_per_contract: 0
+        },
+        top_contractors: [],
+        location_breakdown: []
+      }
+    } else {
+      serviceDetails.value = data
+    }
+  } catch (e) {
+    console.error('Error loading service details:', e)
+    // Also handle catch case with zero data
+    const existingName = serviceDetails.value?.service?.name
+    const service = servicesData.value.find(s => s.article_id === articleId)
+    const serviceName = existingName || service?.service_name || `Usługa ${articleId}`
+    
+    serviceDetails.value = {
+      service: {
+        id: articleId,
+        name: serviceName
+      },
+      metrics: {
+        times_billed: 0,
+        total_revenue: 0,
+        avg_revenue_per_contract: 0
+      },
+      top_contractors: [],
+      location_breakdown: []
+    }
+  } finally {
+    loadingExplorer.value = false
+  }
+}
+
+function getExplorerPeriodLabel() {
+  const p = explorerPeriod.value
+  if (p === 'month') return 'Ten miesiac'
+  if (p === 'quarter') return 'Ten kwartaL'
+  if (p === 'year') return 'Ten rok'
+  if (p === 'all') return 'Wszystko'
+  if (p === 'custom') return 'Wlasny okres'
+  return p
+}
+
 function renderCharts() {
   renderBarChart()
   renderDonutChart()
@@ -909,6 +1222,44 @@ function renderDonutChart() {
     }],
   })
 }
+
+// Watch for period changes to reload data
+watch(explorerPeriod, () => {
+  onExplorerPeriodChange()
+  // Reload details if they are open
+  if (serviceDetails.value) {
+    loadServiceDetails(serviceDetails.value.service?.id)
+  }
+  if (locationMetrics.value && selectedLocation.value) {
+    loadLocationDetails(selectedLocation.value)
+  }
+})
+
+watch(explorerCustomFrom, () => {
+  if (explorerPeriod.value === 'custom') {
+    onExplorerPeriodChange()
+    // Reload details if they are open
+    if (serviceDetails.value) {
+      loadServiceDetails(serviceDetails.value.service?.id)
+    }
+    if (locationMetrics.value && selectedLocation.value) {
+      loadLocationDetails(selectedLocation.value)
+    }
+  }
+})
+
+watch(explorerCustomTo, () => {
+  if (explorerPeriod.value === 'custom') {
+    onExplorerPeriodChange()
+    // Reload details if they are open
+    if (serviceDetails.value) {
+      loadServiceDetails(serviceDetails.value.service?.id)
+    }
+    if (locationMetrics.value && selectedLocation.value) {
+      loadLocationDetails(selectedLocation.value)
+    }
+  }
+})
 
 onMounted(() => {
   loadLive()
@@ -1386,6 +1737,7 @@ onBeforeUnmount(() => {
 .metrics-header h3 {
   margin: 0 0 16px 0;
   font-size: 18px;
+  color: #fff;
 }
 .metrics-grid {
   display: grid;
@@ -1430,6 +1782,23 @@ onBeforeUnmount(() => {
   background: #0F234E;
   color: #fff;
   border-color: #0F234E;
+}
+
+.period-info {
+  font-size: 13px;
+  color: #718096;
+  margin-bottom: 12px;
+}
+
+.detail-panel {
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.location-suggestions {
+  margin-top: 16px;
 }
 
 @media (max-width: 768px) {

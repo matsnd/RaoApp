@@ -19,42 +19,104 @@ router = APIRouter(prefix="/explorer", tags=["explorer"])
 
 
 def extract_city(address: str) -> str:
-    """Extract city name from a Polish delivery address."""
+    """Extract city name from a Polish delivery address with enhanced logic."""
     if not address:
         return "Nieznane"
     address = address.strip()
 
-    # 1. Postal code XX-XXX followed by city name
-    m = re.search(r'\d{2}-\d{3}\s+([A-Z\u0141\u015a\u0179\u017b\u0106\u0143\u00d3\u0118\u0104][a-z\u0142\u015b\u017a\u017c\u0107\u0144\u00f3\u0119\u0105A-Z\u0141\u015a\u0179\u017b\u0106\u0143\u00d3\u0118\u0104\s-]+)', address)
+    # Common Polish city names for better matching
+    common_cities = {
+        'warszawa', 'kraków', 'łódź', 'wrocław', 'poznań', 'gdańsk', 'szczecin', 'bydgoszcz',
+        'lublin', 'katowice', 'białystok', 'gdynia', 'częstochowa', 'radom', 'sosnowiec',
+        'toruń', 'kielce', 'gliwice', 'zabrze', 'bytom', 'rzeszów', 'olsztyn', 'bielsko-biała',
+        'ruda śląska', 'rybnik', 'tarnów', 'dąbrowa górnicza', 'płock', 'opole', 'elbląg',
+        'gorzów wielkopolski', 'włocławek', 'zielona góra', 'legnica', 'kalisz', 'grudziądz',
+        'tarnowskie góry', 'nowy sącz', 'konin', 'piła', 'radomsko', 'suwałki', 'koszalin',
+        'jelenia góra', 'słupsk', 'przemyśl', 'stargard', 'wałbrzych', 'włocławek'
+    }
+
+    def normalize_city(city: str) -> str:
+        """Normalize city name for consistency."""
+        if not city:
+            return ""
+        
+        # Remove common prefixes/suffixes
+        city = re.sub(r'^(m\.|gm\.|gmina|miasto)\s+', '', city, flags=re.IGNORECASE)
+        
+        # Handle special cases
+        city = city.replace('Warszawa-', 'Warszawa ')
+        city = city.replace('-Warszawa', ' Warszawa')
+        
+        # Clean up extra spaces and punctuation
+        city = re.sub(r'\s+', ' ', city).strip()
+        city = city.rstrip(',.;')
+        
+        # Capitalize properly (first letter uppercase, rest lowercase)
+        if city.lower() in common_cities:
+            return city.title()
+        
+        # For multi-word cities, capitalize each word
+        return ' '.join(word.capitalize() for word in city.split())
+
+    # 0. Priority: Look for known city names first (most reliable)
+    address_lower = address.lower()
+    for city in sorted(common_cities, key=len, reverse=True):  # Check longer names first
+        if city in address_lower:
+            return city.title()
+
+    # 1. Postal code XX-XXX followed by city name (most reliable)
+    m = re.search(r'\d{2}-\d{3}\s+([A-ZĄŁŃÓŚŻŹĆ][a-ząłęóśżźć\s-]+)', address)
     if m:
-        city = m.group(1).strip()
-        city = re.split(r'\s*[,;]\s*', city)[0].strip()
+        city = normalize_city(m.group(1))
         if city:
             return city
 
-    # 2. City before "ul." / "al." / "pl."
-    m = re.search(r'^(.+?)\s+(?:ul\.|al\.|pl\.)', address, re.IGNORECASE)
+    # 2. City at the beginning before street indicators
+    m = re.search(r'^([A-ZĄŁŃÓŚŻŹĆ][a-ząłęóśżźć\s-]+?)\s+(?:ul\.|al\.|pl\.|os\.|dw\.|skw\.)', address, re.IGNORECASE)
     if m:
-        city = m.group(1).strip().rstrip(',;')
-        city = re.sub(r'\s+\d+.*$', '', city).strip()
+        city = normalize_city(m.group(1))
         if city and len(city) > 1:
             return city
 
-    # 3. Split by , or ; and find city-like part (last non-street part)
-    parts = re.split(r'[;,]', address)
-    for part in reversed(parts):
+    # 3. Split by common separators and analyze parts
+    parts = re.split(r'[,;]', address)
+    for i, part in enumerate(reversed(parts)):
         part = part.strip()
-        part = re.sub(r'\(.*?\)', '', part).strip()
-        if re.match(r'^(ul\.|al\.|pl\.)', part, re.IGNORECASE):
+        
+        # Skip if it's clearly a street address
+        if re.match(r'^(ul\.|al\.|pl\.|os\.|dw\.|skw\.|budynek|lok|mieszkanie)', part, re.IGNORECASE):
             continue
-        if re.match(r'^\d', part):
+        if re.match(r'^\d+[A-Z]?', part):  # House numbers
             continue
-        clean = re.sub(r'\d+', '', part).strip()
-        clean = re.sub(r'\s+', ' ', clean).strip()
-        if clean and len(clean) > 1 and not re.match(r'^(ul |al |pl )', clean, re.IGNORECASE):
-            return clean
+        if re.search(r'\d+/\d+', part):  # Flat numbers
+            continue
+        
+        # Skip common street patterns
+        if re.search(r'\b(ul|al|pl|os|dw|skw)\b', part, re.IGNORECASE):
+            continue
+        
+        # Remove parentheses content and numbers
+        part = re.sub(r'\(.*?\)', '', part)
+        part = re.sub(r'\b\d+\b', '', part)
+        part = re.sub(r'\s+', ' ', part).strip()
+        
+        if len(part) < 2:
+            continue
+            
+        # Check if it looks like a city name
+        if re.match(r'^[A-ZĄŁŃÓŚŻŹĆ]', part):
+            city = normalize_city(part)
+            if city:
+                return city
 
-    return address[:50]
+    # 4. Final fallback: first reasonable word
+    words = address.split()
+    for word in words:
+        word = re.sub(r'[^\w\s-]', '', word)
+        if len(word) > 2 and not re.match(r'^\d', word):
+            return normalize_city(word)
+
+    return "Nieznane"
 
 
 @router.options("/{path:path}")
@@ -466,4 +528,316 @@ async def get_locations_summary(
             "from": date_from.isoformat() if date_from else None,
             "to": date_to.isoformat() if date_to else None,
         },
+    }
+
+
+@router.get("/services/{article_id}")
+async def get_service_details(
+    article_id: int,
+    date_from: Optional[date] = Query(None),
+    date_to: Optional[date] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Get detailed metrics for a specific service."""
+    # Revenue subquery
+    revenue_subq = (
+        select(
+            PositionCondition.position_id,
+            func.sum(
+                func.coalesce(PositionCondition.rate1, 0) * func.coalesce(PositionCondition.period_count, 1)
+            ).label("pos_revenue"),
+        )
+        .group_by(PositionCondition.position_id)
+        .subquery()
+    )
+
+    # Get service details with revenue
+    query = (
+        select(
+            Article.id,
+            Article.name,
+            func.count(ContractPosition.id).label("times_billed"),
+            func.coalesce(func.sum(revenue_subq.c.pos_revenue), 0).label("total_revenue"),
+        )
+        .select_from(Article)
+        .outerjoin(ContractPosition, Article.id == ContractPosition.article_id)
+        .outerjoin(Contract, ContractPosition.contract_id == Contract.id)
+        .outerjoin(revenue_subq, ContractPosition.id == revenue_subq.c.position_id)
+        .where(Article.id == article_id)
+        .where(Article.is_service == True)
+    )
+
+    if date_from:
+        query = query.where(Contract.date_from >= date_from)
+    if date_to:
+        query = query.where(Contract.date_to <= date_to)
+
+    query = query.group_by(Article.id, Article.name)
+
+    result = await db.execute(query)
+    row = result.mappings().first()
+
+    if not row:
+        return {"error": "Service not found - no row", "debug": f"article_id={article_id}, date_from={date_from}, date_to={date_to}"}
+    
+    # Use dictionary-style access to avoid AttributeError
+    if 'id' not in row or not row['id']:
+        return {"error": "Service not found - no id", "debug": f"article_id={article_id}, row_keys={list(row.keys()) if row else 'none'}"}
+    contractors_query = (
+        select(
+            Contractor.name.label("contractor_name"),
+            func.count(Contract.id).label("contract_count"),
+            func.coalesce(func.sum(revenue_subq.c.pos_revenue), 0).label("total_revenue"),
+        )
+        .select_from(Article)
+        .join(ContractPosition, Article.id == ContractPosition.article_id)
+        .join(Contract, ContractPosition.contract_id == Contract.id)
+        .join(Contractor, Contract.contractor_id == Contractor.id)
+        .outerjoin(revenue_subq, ContractPosition.id == revenue_subq.c.position_id)
+        .where(Article.id == article_id)
+    )
+
+    if date_from:
+        contractors_query = contractors_query.where(Contract.date_from >= date_from)
+    if date_to:
+        contractors_query = contractors_query.where(Contract.date_to <= date_to)
+
+    contractors_query = contractors_query.group_by(Contractor.name).order_by(func.sum(revenue_subq.c.pos_revenue).desc()).limit(5)
+
+    contractors_result = await db.execute(contractors_query)
+    top_contractors = [dict(row) for row in contractors_result.mappings().all()]
+
+    # Get location breakdown - fetch raw addresses and extract city in Python
+    location_query = (
+        select(
+            Contract.delivery_address,
+            func.count(Contract.id).label("contract_count"),
+            func.coalesce(func.sum(revenue_subq.c.pos_revenue), 0).label("total_revenue"),
+        )
+        .select_from(Article)
+        .join(ContractPosition, Article.id == ContractPosition.article_id)
+        .join(Contract, ContractPosition.contract_id == Contract.id)
+        .outerjoin(revenue_subq, ContractPosition.id == revenue_subq.c.position_id)
+        .where(Article.id == article_id)
+        .where(Contract.delivery_address != "")
+    )
+
+    if date_from:
+        location_query = location_query.where(Contract.date_from >= date_from)
+    if date_to:
+        location_query = location_query.where(Contract.date_to <= date_to)
+
+    location_query = location_query.group_by(Contract.delivery_address).order_by(func.sum(revenue_subq.c.pos_revenue).desc()).limit(20)
+
+    location_result = await db.execute(location_query)
+    raw_locations = location_result.mappings().all()
+    
+    # Save service row before we overwrite 'row' variable
+    service_row = row
+    
+    # Aggregate by city in Python
+    city_data = {}
+    for row in raw_locations:
+        city = extract_city(row.delivery_address)
+        if city not in city_data:
+            city_data[city] = {"contract_count": 0, "total_revenue": 0.0}
+        city_data[city]["contract_count"] += row.contract_count
+        city_data[city]["total_revenue"] += float(row.total_revenue) if row.total_revenue else 0
+    
+    sorted_cities = sorted(city_data.items(), key=lambda x: x[1]["total_revenue"], reverse=True)[:10]
+    location_breakdown = [{"city": c, "contract_count": d["contract_count"], "total_revenue": d["total_revenue"]} for c, d in sorted_cities]
+
+    try:
+        return {
+            "service": {
+                "id": service_row['id'],
+                "name": service_row['name'],
+            },
+            "metrics": {
+                "times_billed": service_row['times_billed'] or 0,
+                "total_revenue": float(service_row['total_revenue']) if service_row['total_revenue'] else 0,
+            },
+            "top_contractors": top_contractors,
+            "location_breakdown": location_breakdown,
+        }
+    except (KeyError, AttributeError) as e:
+        return {"error": f"Error accessing row data: {str(e)}", "debug": f"row_keys={list(service_row.keys())}"}
+
+
+@router.get("/locations/{city}")
+async def get_location_details(
+    city: str,
+    date_from: Optional[date] = Query(None),
+    date_to: Optional[date] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Get detailed metrics for a specific city/location."""
+    # Revenue subquery
+    revenue_subq = (
+        select(
+            PositionCondition.position_id,
+            func.sum(
+                func.coalesce(PositionCondition.rate1, 0) * func.coalesce(PositionCondition.period_count, 1)
+            ).label("pos_revenue"),
+        )
+        .group_by(PositionCondition.position_id)
+        .subquery()
+    )
+
+    # Get city summary - fetch raw data and filter in Python
+    base_query = (
+        select(
+            Contract.id,
+            Contract.delivery_address,
+            Contract.contractor_id,
+            func.coalesce(func.sum(revenue_subq.c.pos_revenue), 0).label("total_revenue"),
+        )
+        .select_from(Contract)
+        .join(ContractPosition, Contract.id == ContractPosition.contract_id)
+        .outerjoin(revenue_subq, ContractPosition.id == revenue_subq.c.position_id)
+        .where(Contract.delivery_address != "")
+    )
+
+    if date_from:
+        base_query = base_query.where(Contract.date_from >= date_from)
+    if date_to:
+        base_query = base_query.where(Contract.date_to <= date_to)
+
+    base_query = base_query.group_by(Contract.id, Contract.delivery_address, Contract.contractor_id)
+
+    result = await db.execute(base_query)
+    rows = result.mappings().all()
+    
+    # Filter by city in Python
+    city_rows = [r for r in rows if extract_city(r.delivery_address) == city]
+    
+    if not city_rows:
+        return {"error": "City not found"}
+    
+    contract_ids = set(r.id for r in rows if extract_city(r.delivery_address) == city)
+    unique_contractors = len(set(r.contractor_id for r in city_rows if r.contractor_id))
+    total_revenue = sum(float(r.total_revenue) for r in city_rows)
+    contracts_count = len(city_rows)
+
+    # Get top machines in this city
+    machines_query = (
+        select(
+            Article.name,
+            func.count(ContractPosition.id).label("rental_count"),
+            func.coalesce(func.sum(revenue_subq.c.pos_revenue), 0).label("total_revenue"),
+        )
+        .select_from(Contract)
+        .join(ContractPosition, Contract.id == ContractPosition.contract_id)
+        .join(Article, ContractPosition.article_id == Article.id)
+        .outerjoin(revenue_subq, ContractPosition.id == revenue_subq.c.position_id)
+        .where(Contract.delivery_address != "")
+    )
+
+    if date_from:
+        machines_query = machines_query.where(Contract.date_from >= date_from)
+    if date_to:
+        machines_query = machines_query.where(Contract.date_to <= date_to)
+
+    machines_query = machines_query.group_by(Article.name).order_by(func.count(ContractPosition.id).desc()).limit(10)
+
+    machines_result = await db.execute(machines_query)
+    all_machines = machines_result.mappings().all()
+    # Filter by city in Python
+    top_machines = []
+    machine_data = {}
+    for m in all_machines:
+        # Get contracts for this machine
+        machine_contracts_query = (
+            select(Contract.delivery_address)
+            .select_from(Contract)
+            .join(ContractPosition, Contract.id == ContractPosition.contract_id)
+            .where(ContractPosition.article_id == Article.id)
+            .where(Contract.delivery_address != "")
+        )
+        if date_from:
+            machine_contracts_query = machine_contracts_query.where(Contract.date_from >= date_from)
+        if date_to:
+            machine_contracts_query = machine_contracts_query.where(Contract.date_to <= date_to)
+        
+        mc_result = await db.execute(machine_contracts_query)
+        mc_rows = mc_result.mappings().all()
+        
+        # Check if any contract is in our city
+        in_city = any(extract_city(r.delivery_address) == city for r in mc_rows)
+        if in_city:
+            if m.name not in machine_data:
+                machine_data[m.name] = {"rental_count": 0, "total_revenue": 0}
+            machine_data[m.name]["rental_count"] += m.rental_count or 0
+            machine_data[m.name]["total_revenue"] += float(m.total_revenue) if m.total_revenue else 0
+    
+    top_machines = [{"name": k, "rental_count": v["rental_count"], "total_revenue": v["total_revenue"]} for k, v in sorted(machine_data.items(), key=lambda x: x[1]["rental_count"], reverse=True)[:10]]
+
+    # Get top contractors in this city
+    contractors_query = (
+        select(
+            Contractor.name.label("contractor_name"),
+            func.count(Contract.id).label("contract_count"),
+            func.coalesce(func.sum(revenue_subq.c.pos_revenue), 0).label("total_revenue"),
+        )
+        .select_from(Contract)
+        .join(Contractor, Contract.contractor_id == Contractor.id)
+        .join(ContractPosition, Contract.id == ContractPosition.contract_id)
+        .outerjoin(revenue_subq, ContractPosition.id == revenue_subq.c.position_id)
+        .where(Contract.delivery_address != "")
+    )
+
+    if date_from:
+        contractors_query = contractors_query.where(Contract.date_from >= date_from)
+    if date_to:
+        contractors_query = contractors_query.where(Contract.date_to <= date_to)
+
+    contractors_query = contractors_query.group_by(Contractor.name).order_by(func.sum(revenue_subq.c.pos_revenue).desc()).limit(5)
+
+    contractors_result = await db.execute(contractors_query)
+    all_contractors = contractors_result.mappings().all()
+    # Filter contractors by city in Python
+    contractor_data = {}
+    for c in all_contractors:
+        # Get contracts for this contractor
+        contr_contracts_query = (
+            select(Contract.delivery_address)
+            .select_from(Contract)
+            .where(Contract.contractor_id == Contractor.id)
+            .where(Contract.delivery_address != "")
+        )
+        if date_from:
+            contr_contracts_query = contr_contracts_query.where(Contract.date_from >= date_from)
+        if date_to:
+            contr_contracts_query = contr_contracts_query.where(Contract.date_to <= date_to)
+        
+        cc_result = await db.execute(contr_contracts_query)
+        cc_rows = cc_result.mappings().all()
+        
+        in_city = any(extract_city(r.delivery_address) == city for r in cc_rows)
+        if in_city:
+            contractor_data[c.contractor_name] = {
+                "contract_count": c.contract_count or 0,
+                "total_revenue": float(c.total_revenue) if c.total_revenue else 0
+            }
+    
+    top_contractors = [{"contractor_name": k, "contract_count": v["contract_count"], "total_revenue": v["total_revenue"]} for k, v in sorted(contractor_data.items(), key=lambda x: x[1]["total_revenue"], reverse=True)[:5]]
+
+    # Get monthly trend - simplified, just return empty for now
+    monthly_trend = []
+
+    avg_per_contract = total_revenue / contracts_count if contracts_count else 0
+
+    return {
+        "city": city,
+        "metrics": {
+            "contracts_count": contracts_count,
+            "unique_contractors": unique_contractors,
+            "total_revenue": total_revenue,
+            "avg_revenue_per_contract": round(avg_per_contract, 2),
+        },
+        "top_machines": top_machines,
+        "top_contractors": top_contractors,
+        "monthly_trend": monthly_trend,
     }

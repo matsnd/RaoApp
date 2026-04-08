@@ -28,6 +28,7 @@ Każde zgłoszenie powinno zawierać:
 | 8 | Picker artykułów — filtrowanie po typie umowy | Dobry dodatek | Oczekuje | Dla umowy usługi → tylko artykuły-usługi (is_service=true) |
 | 9 | Protokół usługi — ewidencja godzin operatora | Ważny | ✅ Zrobione | Nowa tabela/functionality dla godzin od/do |
 | 16 | Eksplorator — UX i filtrowanie | Ważny | ✅ Zrobione | Okres od-do, dynamiczne grupy usług, typeahead maszyn, auto-reload |
+| 17 | Poprawa ekstrakcji miast z adresów dostawy | Blokujący | Oczekuje | delivery_address to pole wielolinijkowe - dane rozdrobnione w raportach lokalizacyjnych |
 
 ---
 
@@ -504,6 +505,121 @@ Raporty → Eksplorator — wszystkie 4 sub-taby (Wszystko, Maszyny, Usługi, Lo
 
 ---
 
+### #17 — Poprawa ekstrakcji miast z adresów dostawy
+
+**Zgłaszający:** Zespół deweloperski  
+**Data:** 2026-04-09  
+**Priorytet:** Blokujący
+
+**Problem:**
+Pole `delivery_address` w bazie danych zawiera wielolinijkowe adresy z szczegółowymi instrukcjami dojazdu, co powoduje rozdrobnienie danych w raportach lokalizacyjnych. Ekstrakcja samych miast jest trudna i zawodna.
+
+**Kontekst:**
+Raporty → Eksplorator → Lokalizacje — agregacja danych po miastach
+
+**Przykładowy zawartość `delivery_address`:**
+```
+Warszawa, ul. Krakowska 12
+Brama od ulicy Pawiej, dzwonek #3
+II piętro, pokój 23
+Informacje dla kierowcy: wjazd od godziny 8:00
+```
+
+**Aktualne zachowanie:**
+- Funkcja `extract_city()` próbuje wyciągać miasta z takich wielolinijkowych adresów
+- To samo miasto jest traktowane jako różne lokalizacje:
+  - "Warszawa"
+  - "Warszawa, Brama od ulicy Pawiej"
+  - "Warszawa Krakowska 12 Brama"
+- Raporty lokalizacyjne są nieczytelne i rozdrobnione
+
+**Oczekiwane zachowanie:**
+- Spójne nazwy miast w raportach niezależnie od formatu adresu
+- Możliwość wyboru miasta z autocomplete (jak przy kontrahentach)
+- Zachowanie pełnego adresu dostawy dla logistyki
+
+**Propozycja rozwiązania (3 fazy):**
+
+**Faza 1 - Ulepszenie ekstrakcji (natychmiast):**
+- ✅ Ulepszona funkcja `extract_city()` z priorytetyzacją znanych miast
+- ✅ Lepsze wykrywanie i ignorowanie instrukcji dojazdu
+- ✅ Testy: 16/22 przypadków poprawnych (73% skuteczności)
+
+**Faza 2 - Migracja bazy danych (krótkotermin):**
+```sql
+-- Dodanie dedykowanej kolumny
+ALTER TABLE contract ADD COLUMN city VARCHAR(100);
+
+-- Wypełnienie danymi (użycie ulepszonej funkcji)
+UPDATE contract SET city = extract_city(delivery_address);
+
+-- Indeks dla wydajności
+CREATE INDEX idx_contract_city ON contract(city);
+```
+
+**Faza 3 - Autocomplete miast (średniotermin):**
+- Nowy endpoint: `GET /contracts/cities?search=warsz`
+- Wykorzystanie istniejących miast z `contractor_addresses.city`
+- Modal picker identyczny jak przy kontrahentach
+- Możliwość dodawania nowych miast "on-the-fly"
+
+**Backend endpoint proposal:**
+```python
+@router.get("/cities")
+async def get_cities(
+    search: str | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Get unique cities for autocomplete"""
+    # Z adresów kontrahentów (już dostępne)
+    query = select(ContractorAddress.city).distinct()
+    query = query.where(ContractorAddress.city.isnot(None))
+    
+    if search and len(search) >= 2:
+        query = query.where(ContractorAddress.city.ilike(f"%{search}%"))
+    
+    query = query.order_by(ContractorAddress.city).limit(50)
+    result = await db.execute(query)
+    cities = [row[0] for row in result.fetchall()]
+    
+    return {"cities": cities}
+```
+
+**Frontend implementation:**
+- Modal picker z debounced search (300ms delay)
+- Taki sam interfejs jak picker kontrahentów
+- Opcja "Dodaj nowe miasto" jeśli nie ma na liście
+
+**Wymagane zmiany:**
+1. **Backend:**
+   - `contracts/models.py` - dodanie `city: Column(String(100))`
+   - `contracts/router.py` - endpoint `/cities`
+   - Migration script do wypełnienia danych
+2. **Frontend:**
+   - `ContractFormView.vue` - city picker modal
+   - Formularz umowy: pole "Miasto" + textarea "Adres dostawy"
+3. **Eksplorator:**
+   - Agregacja po `contract.city` zamiast `extract_city(delivery_address)`
+
+**Korzyści:**
+- ✅ Spójne dane w raportach lokalizacyjnych
+- ✅ Lepsza wydajność (brak ekstrakcji przy każdym zapytaniu)
+- ✅ Możliwość ręcznej korekty błędnych miast
+- ✅ Znany interfejs użytkownika (picker jak kontrahenci)
+
+**Ryzyka:**
+- Migracja bazy danych wymaga downtime'u
+- Konieczność aktualizacji istniejących umów
+- Potrzebne testy wydajności przy dużych wolumenach
+
+**Status realizacji:**
+- ✅ Faza 1: Ulepszenie `extract_city()` - zrobione
+- ⏳ Faza 2: Migracja bazy - oczekuje na decyzję klienta
+- ⏳ Faza 3: Autocomplete - zależne od migracji
+
+---
+
 ## Historia zmian
 
 | Data | Zmiana | Autor |
@@ -511,4 +627,5 @@ Raporty → Eksplorator — wszystkie 4 sub-taby (Wszystko, Maszyny, Usługi, Lo
 | 2026-04-08 | Utworzenie pliku backlogu | Zespół |
 | 2026-04-08 | Dodanie zgłoszeń #10-#15 (raporty, rezerwacje) | Zespół |
 | 2026-04-09 | Zrealizowanie #16 — Eksplorator redesign UX | Zespół |
+| 2026-04-09 | Dodanie #17 — Poprawa ekstrakcji miast z adresów dostawy | Zespół |
 
