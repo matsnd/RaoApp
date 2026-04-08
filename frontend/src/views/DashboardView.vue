@@ -23,6 +23,8 @@
               <option value="S">Umowy najmu</option>
               <option value="U">Umowy usługi</option>
             </select>
+            <input v-model="dateFrom" type="date" class="form-control" style="width:140px;" placeholder="Data od" />
+            <input v-model="dateTo" type="date" class="form-control" style="width:140px;" placeholder="Data do" />
           </div>
           <div class="grid-scroll">
             <table class="data-grid">
@@ -30,6 +32,7 @@
                 <tr>
                   <th>Numer</th>
                   <th>Kontrahent</th>
+                  <th>Adres dostawy</th>
                   <th>Typ</th>
                   <th>Data od</th>
                   <th>Data do</th>
@@ -40,10 +43,10 @@
               </thead>
               <tbody>
                 <tr v-if="contractStore.loading">
-                  <td colspan="8" class="empty-state">Ładowanie...</td>
+                  <td colspan="9" class="empty-state">Ładowanie...</td>
                 </tr>
                 <tr v-else-if="!contractStore.list.length">
-                  <td colspan="8" class="empty-state">Brak umów</td>
+                  <td colspan="9" class="empty-state">Brak umów</td>
                 </tr>
                 <tr
                   v-for="c in contractStore.list"
@@ -55,6 +58,7 @@
                 >
                   <td>{{ c.number }}</td>
                   <td>{{ c.contractor_name }}</td>
+                  <td style="max-width:180px;white-space:pre-wrap;font-size:11px;">{{ c.delivery_address || '—' }}</td>
                   <td><span :class="['badge', c.contract_type === 'S' ? 'badge-info' : 'badge-warning']">{{ c.type_label }}</span></td>
                   <td>{{ formatDate(c.date_from) }}</td>
                   <td>
@@ -248,6 +252,8 @@ const articleStore = useArticleStore()
 
 const search = ref('')
 const contractTypeFilter = ref('')
+const dateFrom = ref('')
+const dateTo = ref('')
 const selectedId = ref(null)
 const page = ref(1)
 const perPage = 50
@@ -297,6 +303,8 @@ async function loadData() {
   if (search.value) params.search = search.value
   if (section.value === 'contracts') {
     if (contractTypeFilter.value) params.contract_type = contractTypeFilter.value
+    if (dateFrom.value) params.date_from = dateFrom.value
+    if (dateTo.value) params.date_to = dateTo.value
     await contractStore.fetchList(params)
   } else if (section.value === 'contractors') {
     await contractorStore.fetchList(params)
@@ -319,6 +327,8 @@ watch(search, () => {
   searchTimer = setTimeout(() => { page.value = 1; loadData() }, 400)
 })
 watch(contractTypeFilter, () => { page.value = 1; loadData() })
+watch(dateFrom, () => { page.value = 1; loadData() })
+watch(dateTo, () => { page.value = 1; loadData() })
 
 function handleAdd() {
   if (section.value === 'contracts') router.push('/contracts/new')

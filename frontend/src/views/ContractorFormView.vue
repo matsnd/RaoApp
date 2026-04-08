@@ -245,9 +245,28 @@ onMounted(async () => {
 
 function goBack() { router.push('/dashboard/contractors') }
 
+// NIP checksum validation (Polish NIP algorithm)
+function isValidNIP(nip) {
+  if (!nip || nip.length !== 10) return false
+  if (!/^\d{10}$/.test(nip)) return false
+  const weights = [6, 5, 7, 2, 3, 4, 5, 6, 7]
+  let sum = 0
+  for (let i = 0; i < 9; i++) {
+    sum += parseInt(nip[i]) * weights[i]
+  }
+  const checkDigit = sum % 11
+  return checkDigit === parseInt(nip[9])
+}
+
 async function handleSave() {
   saving.value = true
   errorMsg.value = ''
+  // Validate NIP if provided
+  if (form.value.nip && !isValidNIP(form.value.nip)) {
+    errorMsg.value = 'NIP nieprawidłowy (błędna suma kontrolna)'
+    saving.value = false
+    return
+  }
   try {
     if (isEdit.value) {
       await store.update(Number(props.id), form.value)
@@ -266,6 +285,10 @@ async function handleSave() {
 async function gusLookup() {
   if (!form.value.nip || form.value.nip.length !== 10) {
     alert('Podaj 10-cyfrowy NIP')
+    return
+  }
+  if (!isValidNIP(form.value.nip)) {
+    alert('NIP nieprawidłowy (błędna suma kontrolna)')
     return
   }
   gusLoading.value = true

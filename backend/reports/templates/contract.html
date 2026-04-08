@@ -128,7 +128,7 @@
       </div>
     </td>
     <td class="info-col" style="vertical-align:top;padding-top:6px;">
-      {% if contract.delivery_address %}Adres dostawy: {{ contract.delivery_address }}{% endif %}
+      <!-- Adres dostawy ukryty na umowie - widoczny tylko na protokole -->
     </td>
   </tr>
 </table>
@@ -149,7 +149,7 @@
       <td style="padding-left:8px;">nr tel:</td>
       <td><div class="fill">{{ contract.contact_phone2 or '' }}</div></td>
     </tr>
-    <tr>
+    <tr style="display:none;">
       <td>na budowie:</td>
       <td colspan="3"><div class="fill-wide">{{ contract.delivery_address or '' }}</div></td>
     </tr>
@@ -204,7 +204,7 @@
     <td class="inne-right">
       <div class="inne-box">
         <div class="inne-label">Uwagi</div>
-        {{ contract.notes or '' }}
+        <div style="white-space: pre-wrap;">{{ contract.notes or '' }}</div>
         {% if contract.total_value %}
         <div style="margin-top:8px;font-size:9px;"><strong>Wartość umowy: {{ contract.total_value | money }}</strong></div>
         {% endif %}
@@ -231,7 +231,7 @@
       </div>
       <div class="sig-line">czytelny podpis Wynajmującego</div>
     </td>
-    <td style="padding-top:40px; vertical-align: bottom;">
+    <td style="vertical-align: bottom;">
       {% if salesperson %}<div style="margin-bottom:6px;font-size:9px;">Handlowiec: <strong>{{ salesperson.name }}</strong>{% if salesperson.phone %}, tel. {{ salesperson.phone }}{% endif %}</div>{% endif %}
       <div class="sig-line">czytelny podpis Najemcy</div>
     </td>

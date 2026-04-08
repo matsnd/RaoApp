@@ -186,3 +186,23 @@ class ContractCreate(BaseModel):
     contractor_name: str | None = None
     working_days_per_week: int = 6
     report_without_data: bool = False
+
+
+class ServiceHourResponse(BaseModel):
+    id: int
+    position_id: int
+    work_date: date
+    time_from: str | None
+    time_to: str | None
+    notes: str | None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ServiceHourCreate(BaseModel):
+    work_date: date
+    time_from: str | None = Field(None, max_length=10)
+    time_to: str | None = Field(None, max_length=10)
+    notes: str | None = Field(None, max_length=200)

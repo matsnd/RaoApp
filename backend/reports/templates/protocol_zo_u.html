@@ -121,9 +121,9 @@
       </td>
       <td class="box-cell" style="padding-left: 5px; width: 50%;">
         <div class="box-inner">
-          <div class="box-label">miejsce wykonania usługi</div>
-          {% if contract.delivery_address %}{{ contract.delivery_address }}<br>{% endif %}
-          {% if contract.phone %}telefon: {{ contract.phone }}{% endif %}
+          <div class="box-label">miejsce dostawy i odbioru przedmiotu najmu</div>
+          {% if contract.delivery_address %}<div style="white-space: pre-wrap;">{{ contract.delivery_address }}</div>{% endif %}
+          {% if contract.phone %}<br>telefon: {{ contract.phone }}{% endif %}
         </div>
       </td>
     </tr>
@@ -152,6 +152,37 @@
     {% endfor %}
     </tbody>
   </table>
+
+  <!-- SERVICE HOURS SECTION -->
+  {% for p in positions %}
+  {% if p.service_hours %}
+  <div style="margin: 12px 0 8px;">
+    <div style="font-size: 10px; font-weight: bold; color: #1D2B53; margin-bottom: 4px;">
+      Ewidencja godzin — {{ p.pos.article_name or '' }}
+    </div>
+    <table class="pos" style="margin-bottom: 8px;">
+      <thead>
+        <tr>
+          <th style="width: 100px;">Data</th>
+          <th style="width: 60px;">Od</th>
+          <th style="width: 60px;">Do</th>
+          <th>Uwagi</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h in p.service_hours %}
+        <tr>
+          <td>{{ h.work_date | datepl }}</td>
+          <td>{{ h.time_from or '—' }}</td>
+          <td>{{ h.time_to or '—' }}</td>
+          <td>{{ h.notes or '' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% endfor %}
 
   <div class="legal-line">Pokwitowanie niniejszego Protokołu jest jednoznaczne z oświadczeniem o zapoznaniu się z Ogólnymi Warunkami Umowy (dalej: OWN) oraz ich akceptacją.</div>
 

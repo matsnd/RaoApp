@@ -80,6 +80,11 @@ const routes = [
         component: () => import('@/views/SettingsView.vue'),
       },
       {
+        path: 'password',
+        name: 'ChangePassword',
+        component: () => import('@/views/ChangePasswordView.vue'),
+      },
+      {
         path: 'admin',
         name: 'Admin',
         component: () => import('@/views/AdminView.vue'),

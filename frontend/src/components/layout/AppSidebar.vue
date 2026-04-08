@@ -38,6 +38,7 @@
         :class="['sidebar-btn', { active: activeSection === 'admin' }]"
         @click="$emit('navigate', 'admin')"
       >Admin</button>
+      <button class="sidebar-btn" style="opacity:0.8;font-size:12px;" @click="$emit('navigate', 'password')">Zmień hasło</button>
       <button class="sidebar-btn" style="opacity:0.6;font-size:12px;" @click="handleLogout">Wyloguj</button>
     </div>
   </nav>

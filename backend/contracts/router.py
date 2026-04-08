@@ -8,6 +8,7 @@ from contracts.schemas import (
     ConditionCreate, ConditionResponse, ContractCreate, ContractDetail,
     ContractListItem, ContractServiceFeeCreate, ContractServiceFeeReorder,
     ContractServiceFeeResponse, PositionCreate, PositionResponse,
+    ServiceHourCreate, ServiceHourResponse,
 )
 from contracts.service import contract_service
 from database import get_db
@@ -296,3 +297,95 @@ async def recalculate_contract(
 ):
     total = await contract_service.recalculate_total(db, contract_id)
     return {"total_value": total}
+
+
+# Service Hours endpoints (for protocol U)
+@router.get("/{contract_id}/positions/{pos_id}/hours", response_model=list[ServiceHourResponse])
+async def list_service_hours(
+    contract_id: int,
+    pos_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """List service hours for a position (only for contract type U)."""
+    from contracts.models import ServiceHour
+    from sqlalchemy import select as sa_select
+    result = await db.execute(
+        sa_select(ServiceHour).where(ServiceHour.position_id == pos_id).order_by(ServiceHour.work_date)
+    )
+    hours = result.scalars().all()
+    return [ServiceHourResponse.model_validate(h) for h in hours]
+
+
+@router.post("/{contract_id}/positions/{pos_id}/hours", response_model=ServiceHourResponse, status_code=201)
+async def create_service_hour(
+    contract_id: int,
+    pos_id: int,
+    data: ServiceHourCreate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Create service hour entry for a position."""
+    from contracts.models import ServiceHour
+    from datetime import datetime
+    hour = ServiceHour(
+        position_id=pos_id,
+        work_date=data.work_date,
+        time_from=data.time_from,
+        time_to=data.time_to,
+        notes=data.notes,
+        created_at=datetime.utcnow(),
+    )
+    db.add(hour)
+    await db.commit()
+    await db.refresh(hour)
+    return ServiceHourResponse.model_validate(hour)
+
+
+@router.put("/{contract_id}/positions/{pos_id}/hours/{hour_id}", response_model=ServiceHourResponse)
+async def update_service_hour(
+    contract_id: int,
+    pos_id: int,
+    hour_id: int,
+    data: ServiceHourCreate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Update service hour entry."""
+    from contracts.models import ServiceHour
+    from sqlalchemy import select as sa_select
+    from datetime import datetime
+    result = await db.execute(sa_select(ServiceHour).where(ServiceHour.id == hour_id, ServiceHour.position_id == pos_id))
+    hour = result.scalar_one_or_none()
+    if not hour:
+        from shared.exceptions import not_found
+        raise not_found("Wpis godzin")
+    hour.work_date = data.work_date
+    hour.time_from = data.time_from
+    hour.time_to = data.time_to
+    hour.notes = data.notes
+    hour.updated_at = datetime.utcnow()
+    await db.commit()
+    await db.refresh(hour)
+    return ServiceHourResponse.model_validate(hour)
+
+
+@router.delete("/{contract_id}/positions/{pos_id}/hours/{hour_id}", status_code=204)
+async def delete_service_hour(
+    contract_id: int,
+    pos_id: int,
+    hour_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Delete service hour entry."""
+    from contracts.models import ServiceHour
+    from sqlalchemy import select as sa_select, delete as sa_delete
+    result = await db.execute(sa_select(ServiceHour).where(ServiceHour.id == hour_id, ServiceHour.position_id == pos_id))
+    hour = result.scalar_one_or_none()
+    if not hour:
+        from shared.exceptions import not_found
+        raise not_found("Wpis godzin")
+    await db.execute(sa_delete(ServiceHour).where(ServiceHour.id == hour_id))
+    await db.commit()
+    return None

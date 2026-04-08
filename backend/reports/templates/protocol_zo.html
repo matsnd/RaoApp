@@ -126,8 +126,8 @@
       <td class="box-cell" style="padding-left: 5px; width: 50%;">
         <div class="box-inner">
           <div class="box-label">miejsce dostawy i odbioru przedmiotu najmu</div>
-          {% if contract.delivery_address %}{{ contract.delivery_address }}<br>{% endif %}
-          {% if contract.phone %}telefon: {{ contract.phone }}{% endif %}
+          {% if contract.delivery_address %}<div style="white-space: pre-wrap;">{{ contract.delivery_address }}</div>{% endif %}
+          {% if contract.phone %}<br>telefon: {{ contract.phone }}{% endif %}
         </div>
       </td>
     </tr>

@@ -419,6 +419,18 @@ async function startAddPresetItem(presetId) {
   await import('vue').then(({ nextTick }) => nextTick(() => newPresetItemNameRef.value?.focus()))
 }
 
+// Watch for fuel items — auto-set 200 zł default
+watch(() => newPresetItem.value.name, (newName) => {
+  if (!newName) return
+  const lower = newName.toLowerCase()
+  if ((lower.includes('tankowanie') || lower.includes('paliwo') || lower.includes('fuel')) && 
+      newPresetItem.value.amount_from === null && newPresetItem.value.amount_to === null) {
+    newPresetItem.value.amount_from = 200
+    newPresetItem.value.amount_to = 200
+    newPresetItem.value.unit = 'szt'
+  }
+})
+
 async function saveNewPresetItem(preset) {
   if (!newPresetItem.value.name) return
   const payload = {

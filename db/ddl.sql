@@ -351,7 +351,7 @@ CREATE TABLE IF NOT EXISTS contract_service_fees (
     INDEX idx_csf_contract (contract_id, sort_order)
 ) ENGINE=InnoDB;
 
--- 8. Rozliczenia
+-- 8. Rozliczenia (cache techniczny — deprecated)
 CREATE TABLE IF NOT EXISTS settlements (
     id          INT AUTO_INCREMENT PRIMARY KEY,
     position_id INT          NOT NULL,
@@ -360,6 +360,22 @@ CREATE TABLE IF NOT EXISTS settlements (
     CONSTRAINT fk_settlement_position FOREIGN KEY (position_id)
         REFERENCES contract_positions(id) ON DELETE CASCADE,
     INDEX idx_settlement_position (position_id)
+) ENGINE=InnoDB;
+
+-- 8.1 Ewidencja godzin usługi (protokół U)
+CREATE TABLE IF NOT EXISTS service_hours (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    position_id INT          NOT NULL,
+    work_date   DATE         NOT NULL,
+    time_from   VARCHAR(10)  NULL,
+    time_to     VARCHAR(10)  NULL,
+    notes       VARCHAR(200) NULL,
+    created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  DATETIME     NULL ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_service_hours_position FOREIGN KEY (position_id)
+        REFERENCES contract_positions(id) ON DELETE CASCADE,
+    INDEX idx_sh_position (position_id),
+    INDEX idx_sh_date (work_date)
 ) ENGINE=InnoDB;
 
 -- 9. Audit log

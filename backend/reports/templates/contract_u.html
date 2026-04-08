@@ -119,7 +119,7 @@
       </div>
     </td>
     <td class="info-col" style="vertical-align:top;padding-top:8px;">
-      {% if contract.delivery_address %}Adres dostawy: {{ contract.delivery_address }}{% endif %}
+      <!-- Adres dostawy ukryty na umowie - widoczny tylko na protokole -->
     </td>
   </tr>
 </table>
@@ -140,10 +140,10 @@
       <td>telefon:</td>
       <td class="fill">{{ contract.contact_phone2 or '' }}</td>
     </tr>
-    <tr>
+    <tr style="display:none;">
       <td colspan="4">Adres wykonania usługi:</td>
     </tr>
-    <tr>
+    <tr style="display:none;">
       <td colspan="4" class="fill-wide">{{ contract.delivery_address or '' }}</td>
     </tr>
     <tr>
@@ -240,7 +240,7 @@
       </div>
       <div class="sig-line">czytelny podpis Wykonawcy</div>
     </td>
-    <td style="padding-top:40px; vertical-align: bottom;">
+    <td style="vertical-align: bottom;">
       {% if salesperson %}<div style="margin-bottom:6px;font-size:9px;">Handlowiec: <strong>{{ salesperson.name }}</strong>{% if salesperson.phone %}, tel. {{ salesperson.phone }}{% endif %}</div>{% endif %}
       <div class="sig-line">czytelny podpis Zleceniodawcy</div>
     </td>

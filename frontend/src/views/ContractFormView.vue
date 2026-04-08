@@ -56,7 +56,7 @@
                     {{ addr.name || addr.city }} — {{ addr.street || '' }} {{ addr.postal_code || '' }}
                   </option>
                 </select>
-                <input v-model="form.delivery_address" type="text" class="form-control" style="flex:1;" />
+                <textarea v-model="form.delivery_address" class="form-control" style="flex:1;" rows="3"></textarea>
               </div>
             </div>
           </div>
@@ -209,6 +209,66 @@
             :position-id="selectedPosId"
             @value-changed="onConditionValueChanged"
           />
+
+          <!-- Service Hours section (only for contract type U) -->
+          <div v-if="selectedPosId && isEdit && form.contract_type === 'U'" style="margin-top:16px;padding-top:16px;border-top:1px solid #E2E8F0;">
+            <div style="display:flex;align-items:center;margin-bottom:8px;">
+              <span class="section-title" style="margin:0;border:none;font-size:13px;">Ewidencja godzin</span>
+              <span style="font-size:11px;color:#718096;margin-left:12px;">Kliknij wiersz • Enter = zapisz • Esc = anuluj</span>
+              <button class="btn btn-primary btn-sm" style="margin-left:auto;" @click="addHourRow">+ Dodaj dzień</button>
+            </div>
+            <table class="data-grid">
+              <thead>
+                <tr>
+                  <th style="width:120px;">Data</th>
+                  <th style="width:80px;">Od</th>
+                  <th style="width:80px;">Do</th>
+                  <th>Uwagi</th>
+                  <th style="width:56px;"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="!serviceHours.length && !showNewHourRow">
+                  <td colspan="5" class="empty-state">Brak wpisów godzin — kliknij „+ Dodaj dzień"</td>
+                </tr>
+                <template v-for="h in serviceHours" :key="h.id">
+                  <!-- EDIT MODE -->
+                  <tr v-if="editingHourId === h.id" class="row-editing">
+                    <td><input v-model="editingHourData.work_date" type="date" class="form-control form-control-xs" @keydown.enter="saveInlineHour" @keydown.esc="cancelInlineHour" /></td>
+                    <td><input v-model="editingHourData.time_from" class="form-control form-control-xs" placeholder="8:00" @keydown.enter="saveInlineHour" @keydown.esc="cancelInlineHour" /></td>
+                    <td><input v-model="editingHourData.time_to" class="form-control form-control-xs" placeholder="16:00" @keydown.enter="saveInlineHour" @keydown.esc="cancelInlineHour" /></td>
+                    <td><input v-model="editingHourData.notes" class="form-control form-control-xs" @keydown.enter="saveInlineHour" @keydown.esc="cancelInlineHour" /></td>
+                    <td>
+                      <button class="btn-icon" style="color:#22543D;" title="Zapisz (Enter)" @click="saveInlineHour">✓</button>
+                      <button class="btn-icon" title="Anuluj (Esc)" @click="cancelInlineHour">✕</button>
+                    </td>
+                  </tr>
+                  <!-- DISPLAY MODE -->
+                  <tr v-else @click="startEditHour(h)" style="cursor:pointer;">
+                    <td>{{ h.work_date ? new Date(h.work_date).toLocaleDateString('pl-PL') : '—' }}</td>
+                    <td>{{ h.time_from || '—' }}</td>
+                    <td>{{ h.time_to || '—' }}</td>
+                    <td>{{ h.notes || '—' }}</td>
+                    <td>
+                      <button class="btn-icon" title="Edytuj" @click.stop="startEditHour(h)">✎</button>
+                      <button class="btn-icon" title="Usuń" @click.stop="deleteHour(h)">✕</button>
+                    </td>
+                  </tr>
+                </template>
+                <!-- NEW ROW -->
+                <tr v-if="showNewHourRow" class="row-editing">
+                  <td><input v-model="newHourData.work_date" type="date" class="form-control form-control-xs" ref="newHourDateInput" @keydown.enter="saveNewHourRow" @keydown.esc="cancelNewHourRow" /></td>
+                  <td><input v-model="newHourData.time_from" class="form-control form-control-xs" placeholder="8:00" @keydown.enter="saveNewHourRow" @keydown.esc="cancelNewHourRow" /></td>
+                  <td><input v-model="newHourData.time_to" class="form-control form-control-xs" placeholder="16:00" @keydown.enter="saveNewHourRow" @keydown.esc="cancelNewHourRow" /></td>
+                  <td><input v-model="newHourData.notes" class="form-control form-control-xs" @keydown.enter="saveNewHourRow" @keydown.esc="cancelNewHourRow" /></td>
+                  <td>
+                    <button class="btn-icon" style="color:#22543D;" title="Dodaj (Enter)" @click="saveNewHourRow">✓</button>
+                    <button class="btn-icon" title="Anuluj (Esc)" @click="cancelNewHourRow">✕</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <!-- Service fees section -->
@@ -256,7 +316,7 @@
                   <td>{{ fee.amount_from ? Number(fee.amount_from).toFixed(2) + ' zł' : '—' }}</td>
                   <td>{{ fee.amount_to ? Number(fee.amount_to).toFixed(2) + ' zł' : '—' }}</td>
                   <td>{{ fee.unit || '—' }}</td>
-                  <td style="font-size:11px;">{{ fee.description || '—' }}</td>
+                  <td style="font-size:11px;">{{ formatDescription(fee.description, fee.amount_from, fee.amount_to) }}</td>
                   <td style="text-align:center;"><span :class="['badge', fee.is_active ? 'badge-success' : 'badge-muted']">{{ fee.is_active ? 'Tak' : 'Nie' }}</span></td>
                   <td>
                     <button class="btn-icon" title="Edytuj" @click.stop="startEditFee(fee)">✎</button>
@@ -462,15 +522,20 @@
           </div>
           <div style="max-height:320px;overflow:auto;">
             <table class="data-grid">
-              <thead><tr><th>Nazwa</th><th>Nr rej.</th><th>Marka</th><th>Typ</th><th>Dostępność</th></tr></thead>
+              <thead><tr><th>Nazwa</th><th>Nr rej.</th><th>Marka</th><th>Typ</th><th>Dostępność</th><th style="width:80px;">Akcje</th></tr></thead>
               <tbody>
-                <tr v-for="a in articlePickerList" :key="a.id" @click="selectArticle(a)" style="cursor:pointer;">
-                  <td>{{ a.name }}</td><td>{{ a.registration_no || '—' }}</td><td>{{ a.brand || '—' }}</td>
-                  <td><span :class="['badge', a.is_service ? 'badge-warning' : 'badge-info']">{{ a.is_service ? 'Usługa' : 'Sprzęt' }}</span></td>
-                  <td>
+                <tr v-for="a in articlePickerList" :key="a.id" style="cursor:pointer;">
+                  <td @click="selectArticle(a)">{{ a.name }}</td>
+                  <td @click="selectArticle(a)">{{ a.registration_no || '—' }}</td>
+                  <td @click="selectArticle(a)">{{ a.brand || '—' }}</td>
+                  <td @click="selectArticle(a)"><span :class="['badge', a.is_service ? 'badge-warning' : 'badge-info']">{{ a.is_service ? 'Usługa' : 'Sprzęt' }}</span></td>
+                  <td @click="selectArticle(a)">
                     <span v-if="a._avail === true" class="badge badge-success">Wolny</span>
                     <span v-else-if="a._avail === false" class="badge badge-danger">Zajęty</span>
                     <span v-else class="badge badge-muted">—</span>
+                  </td>
+                  <td>
+                    <button class="btn-icon" title="Duplikuj artykuł" @click.stop="duplicateArticle(a)">⧉</button>
                   </td>
                 </tr>
               </tbody>
@@ -582,6 +647,38 @@ const showNewFeeRow = ref(false)
 const newFeeData = ref({ name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true })
 const newFeeNameInput = ref(null)
 
+// Service Hours state
+const serviceHours = ref([])
+const editingHourId = ref(null)
+const editingHourData = ref({})
+const showNewHourRow = ref(false)
+const newHourData = ref({ work_date: '', time_from: '', time_to: '', notes: '' })
+const newHourDateInput = ref(null)
+
+// Watch selectedPosId to load service hours when position changes
+watch(selectedPosId, async (newPosId) => {
+  if (newPosId && form.value.contract_type === 'U' && isEdit.value) {
+    await loadServiceHours(newPosId)
+  } else {
+    serviceHours.value = []
+  }
+})
+
+
+// Format description by replacing $1 and $2 with actual amounts
+function formatDescription(description, amount_from, amount_to) {
+  if (!description) return '—'
+  let result = description
+  if (amount_from !== null && amount_from !== undefined) {
+    const formattedFrom = Number(amount_from).toLocaleString('pl-PL', { minimumFractionDigits: 2 })
+    result = result.replace(/\$1/g, formattedFrom + ' zł')
+  }
+  if (amount_to !== null && amount_to !== undefined) {
+    const formattedTo = Number(amount_to).toLocaleString('pl-PL', { minimumFractionDigits: 2 })
+    result = result.replace(/\$2/g, formattedTo + ' zł')
+  }
+  return result
+}
 
 onMounted(async () => {
   await Promise.all([
@@ -592,7 +689,7 @@ onMounted(async () => {
 
   const [ctRes, artRes] = await Promise.allSettled([
     api.get('/contractors', { params: { per_page: 30 } }),
-    api.get('/articles', { params: { per_page: 50 } }),
+    api.get('/articles', { params: { per_page: 50, is_service: form.value.contract_type === 'U' ? true : false } }),
   ])
   if (ctRes.status === 'fulfilled') pickerList.value = ctRes.value.data.items
   if (artRes.status === 'fulfilled') articlePickerList.value = artRes.value.data.items
@@ -778,7 +875,7 @@ let artTimer = null
 async function searchArticles() {
   clearTimeout(artTimer)
   artTimer = setTimeout(async () => {
-    const { data } = await api.get('/articles', { params: { search: articlePickerSearch.value, per_page: 50 } })
+    const { data } = await api.get('/articles', { params: { search: articlePickerSearch.value, per_page: 50, is_service: form.value.contract_type === 'U' ? true : false } })
     articlePickerList.value = data.items.map(a => ({ ...a, _avail: null }))
     // Check availability for contract dates (parallel)
     if (form.value.date_from && form.value.date_to) {
@@ -808,6 +905,32 @@ async function selectArticle(a) {
     } catch { articleAvailability.value = null }
   } else {
     articleAvailability.value = null
+  }
+}
+
+async function duplicateArticle(a) {
+  // Add the article as a new position immediately
+  try {
+    const payload = {
+      article_id: a.id,
+      rental_type: '',
+      description: a.name || '',
+      rental_days: null,
+      quantity: 1,
+      unit_price: null,
+      costs: null,
+      rate_type_id: null,
+      billing_frequency: null,
+      billing_unit: null,
+      supplier_id: null,
+      delivery_date: form.value.date_from || null,
+    }
+    await contractStore.createPosition(Number(props.id), payload)
+    await contractStore.fetchPositions(Number(props.id))
+    await recalcTotal()
+    // Don't close picker, keep it open for more selections
+  } catch (e) {
+    alert(e.response?.data?.detail || 'Błąd dodawania pozycji')
   }
 }
 
@@ -929,13 +1052,87 @@ async function openPresetPicker() {
 
 async function applyPreset(preset) {
   const hasFees = contractStore.serviceFees.length > 0
-  if (hasFees && !confirm(`Zastosować zestaw „${preset.name}”? Obecne ${contractStore.serviceFees.length} pozycji zostaną zastąpione.`)) return
+  if (hasFees && !confirm(`Zastosować zestaw „${preset.name}"? Obecne ${contractStore.serviceFees.length} pozycji zostaną zastąpione.`)) return
   try {
     await api.post(`/contracts/${props.id}/service-fees/apply-preset?preset_id=${preset.id}&replace=true`)
     await contractStore.fetchServiceFees(Number(props.id))
     showPresetPicker.value = false
   } catch (e) {
     alert(e.response?.data?.detail || 'Błąd aplikowania zestawu')
+  }
+}
+
+// Service Hours CRUD functions
+async function loadServiceHours(positionId) {
+  if (!props.id || !positionId) return
+  try {
+    const { data } = await api.get(`/contracts/${props.id}/positions/${positionId}/hours`)
+    serviceHours.value = data
+  } catch (e) {
+    serviceHours.value = []
+  }
+}
+
+function startEditHour(hour) {
+  editingHourId.value = hour.id
+  editingHourData.value = {
+    work_date: hour.work_date,
+    time_from: hour.time_from || '',
+    time_to: hour.time_to || '',
+    notes: hour.notes || '',
+  }
+}
+
+function cancelInlineHour() {
+  editingHourId.value = null
+  editingHourData.value = {}
+}
+
+async function saveInlineHour() {
+  if (!editingHourData.value.work_date) { cancelInlineHour(); return }
+  try {
+    const payload = { ...editingHourData.value }
+    await api.put(`/contracts/${props.id}/positions/${selectedPosId.value}/hours/${editingHourId.value}`, payload)
+    await loadServiceHours(selectedPosId.value)
+    editingHourId.value = null
+    editingHourData.value = {}
+  } catch (e) {
+    alert(e.response?.data?.detail || 'Błąd zapisu godzin')
+  }
+}
+
+function addHourRow() {
+  editingHourId.value = null
+  const today = new Date().toISOString().split('T')[0]
+  newHourData.value = { work_date: today, time_from: '', time_to: '', notes: '' }
+  showNewHourRow.value = true
+  nextTick(() => { newHourDateInput.value?.focus() })
+}
+
+function cancelNewHourRow() {
+  showNewHourRow.value = false
+}
+
+async function saveNewHourRow() {
+  if (!newHourData.value.work_date) { cancelNewHourRow(); return }
+  try {
+    const payload = { ...newHourData.value }
+    await api.post(`/contracts/${props.id}/positions/${selectedPosId.value}/hours`, payload)
+    await loadServiceHours(selectedPosId.value)
+    showNewHourRow.value = false
+    newHourData.value = { work_date: '', time_from: '', time_to: '', notes: '' }
+  } catch (e) {
+    alert(e.response?.data?.detail || 'Błąd dodawania godzin')
+  }
+}
+
+async function deleteHour(hour) {
+  if (!confirm('Usunąć ten wpis godzin?')) return
+  try {
+    await api.delete(`/contracts/${props.id}/positions/${selectedPosId.value}/hours/${hour.id}`)
+    await loadServiceHours(selectedPosId.value)
+  } catch (e) {
+    alert(e.response?.data?.detail || 'Błąd usuwania')
   }
 }
 
