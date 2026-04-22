@@ -412,7 +412,26 @@ CREATE TABLE settlements (
 ) ENGINE=InnoDB COMMENT='Rozliczenia (stara tabela: rozliczenie)';
 
 -- ============================================================
--- 8. AUDIT LOG
+-- 8. SERVICE HOURS (godziny pracy operatora)
+-- ============================================================
+
+CREATE TABLE service_hours (
+    id            INT AUTO_INCREMENT PRIMARY KEY,
+    position_id   INT          NOT NULL COMMENT 'Pozycja umowy (dla umów typu U)',
+    service_date  DATE         NOT NULL COMMENT 'Data wykonania usługi',
+    time_from     TIME         NULL COMMENT 'Godzina rozpoczęcia',
+    time_to       TIME         NULL COMMENT 'Godzina zakończenia',
+    notes         VARCHAR(500) NULL COMMENT 'Uwagi',
+    created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_service_hours_position FOREIGN KEY (position_id)
+        REFERENCES contract_positions(id) ON DELETE CASCADE,
+    INDEX idx_service_hours_position (position_id),
+    INDEX idx_service_hours_date (service_date)
+) ENGINE=InnoDB COMMENT='Godziny pracy operatora dla umów usługowych';
+
+-- ============================================================
+-- 9. AUDIT LOG
 -- ============================================================
 
 CREATE TABLE audit_log (

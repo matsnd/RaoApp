@@ -1,6 +1,7 @@
 from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, Enum
 from sqlalchemy.orm import relationship
 from database import Base
+from .service_hours import ServiceHour
 
 
 class Contract(Base):
@@ -64,6 +65,7 @@ class ContractPosition(Base):
 
     contract = relationship("Contract", back_populates="positions")
     conditions = relationship("PositionCondition", back_populates="position", cascade="all, delete-orphan")
+    service_hours = relationship("ServiceHour", back_populates="position", cascade="all, delete-orphan")
 
 
 class PositionCondition(Base):

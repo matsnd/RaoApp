@@ -23,6 +23,7 @@
 15. position_conditions (umowa_pozycja2_warunek → position_conditions)
 16. costs (koszt → costs)
 17. settlements (rozliczenie → settlements)
+18. service_hours (nowa tabela - godziny pracy operatora)
 ```
 
 ## Skrypty migracyjne
@@ -552,6 +553,15 @@ SELECT 'positions', (SELECT COUNT(*) FROM rao.umowa_pozycja3),
        (SELECT COUNT(*) FROM rao_new.contract_positions)
 UNION ALL
 SELECT 'conditions', (SELECT COUNT(*) FROM rao.umowa_pozycja2_warunek),
-       (SELECT COUNT(*) FROM rao_new.position_conditions);
+       (SELECT COUNT(*) FROM rao_new.position_conditions)
+UNION ALL
+SELECT 'service_hours', 0 AS old_count,
+       (SELECT COUNT(*) FROM rao_new.service_hours) AS new_count;
 -- Wszystkie old_count == new_count → migracja OK
+-- service_hours ma old_count=0 bo to nowa tabela (nie istniała w starej bazie)
 ```
+
+-- 18. SERVICE HOURS (nowa tabela - godziny pracy operatora)
+-- UWAGA: To nowa funkcjonalność - tabela jest pusta na początku
+-- Dane będą wprowadzane przez użytkowników w formularzu umów usługowych
+-- Nie ma migracji ze starej bazy bo funkcjonalność nie istniała

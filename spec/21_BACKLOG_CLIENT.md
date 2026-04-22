@@ -26,7 +26,7 @@ Każde zgłoszenie powinno zawierać:
 | 6 | Podpisy na umowie — układ stron | Ważny | Oczekuje | Podpisy tylko na ostatniej stronie, nie na pierwszej |
 | 7 | Sekcja "Uwagi" w umowie — brakująca treść | Ważny | Oczekuje | Weryfikacja z kodem WinForms i dodanie do PDF |
 | 8 | Picker artykułów — filtrowanie po typie umowy | Dobry dodatek | Oczekuje | Dla umowy usługi → tylko artykuły-usługi (is_service=true) |
-| 9 | Protokół usługi — ewidencja godzin operatora | Ważny | ✅ Zrobione | Nowa tabela/functionality dla godzin od/do |
+| 9 | Protokół usługi — ewidencja godzin operatora | Ważny | ⚠️ Częściowo | PDF szablon gotowy, brak tabeli DB i endpointów |
 | 16 | Eksplorator — UX i filtrowanie | Ważny | ✅ Zrobione | Okres od-do, dynamiczne grupy usług, typeahead maszyn, auto-reload |
 | 17 | Poprawa ekstrakcji miast z adresów dostawy | Blokujący | Oczekuje | delivery_address to pole wielolinijkowe - dane rozdrobnione w raportach lokalizacyjnych |
 
@@ -613,7 +613,24 @@ async def get_cities(
 - Konieczność aktualizacji istniejących umów
 - Potrzebne testy wydajności przy dużych wolumenach
 
-**Status realizacji:**
+**Aktualny status #9:**
+- ✅ Szablon PDF z tabelą godzin (protocol_zo_u.html) - zrobione
+- ❌ Tabela `service_hours` w bazie danych - brak
+- ❌ Backend endpointy CRUD - brak
+- ❌ Frontend komponent do edycji godzin - brak
+
+**Co zostało zrobione:**
+- Tabela godzin w protokole usługi PDF (formularz do wypełnienia ręcznego)
+- Struktura pól: Data, od, do, uwagi
+
+**Czego brakuje do pełnej implementacji:**
+1. ✅ Tabela `service_hours` w DDL (dodane)
+2. ✅ Migracja bazy (dodana)
+3. Backend: modele, endpointy CRUD
+4. Frontend: komponent edycji godzin w ContractFormView
+5. Integracja z PDF (dynamiczne dane zamiast formularza ręcznego)
+
+**Status realizacji #17:**
 - ✅ Faza 1: Ulepszenie `extract_city()` - zrobione
 - ⏳ Faza 2: Migracja bazy - oczekuje na decyzję klienta
 - ⏳ Faza 3: Autocomplete - zależne od migracji

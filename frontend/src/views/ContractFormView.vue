@@ -281,6 +281,7 @@
         </div>
       </div>
     </div>
+    </div>
 
     <!-- Contractor picker modal -->
     <Transition name="modal">
