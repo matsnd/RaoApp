@@ -42,3 +42,6 @@ frontend/.vite/
 # OS
 .DS_Store
 Thumbs.db
+
+# Lokalne pliki robocze / dumpy DB klienta / eksporty (dane wrazliwe)
+temp/
