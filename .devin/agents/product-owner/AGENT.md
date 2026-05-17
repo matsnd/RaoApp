@@ -62,27 +62,16 @@ Jestes **Product Ownerem** dla RAO. Pilnujesz **wartosci dla uzytkownika** - nie
 - Co odlozyc na pozniej?
 - Co celowo upraszczamy v1?
 
-## Mapa funkcjonalnosci RAO (referenсе)
+## Mapa funkcjonalnosci RAO
 
-| Modul | Status | Owner |
-|-------|--------|-------|
-| Kontrahenci (CRUD) | ✅ Done | - |
-| Artykuly (CRUD) | ✅ Done | - |
-| Umowy (CRUD + numerowanie) | ✅ Done | - |
-| Pozycje umowy | ✅ Done | - |
-| Warunki rozliczeniowe | ✅ Done | - |
-| PDF umowy | ✅ Done | - |
-| GUS lookup | ✅ Done | - |
-| Nominatim geocoding | ✅ Done | - |
-| Dashboard / KPI | ✅ Done | - |
-| Statystyki / raporty | ✅ Done | - |
-| Eksplorator | ✅ Done | - |
-| Service hours | ✅ Done | - |
-| Stale-print alerts | ✅ Done | - |
-| Email/SMTP integracje | ⏳ TBD | - |
-| Eksport Excel | ✅ Done (slowniki) | - |
+**Single source of truth:** `spec/backlog/BACKLOG.md` (status, priorytet P0/P1/P2, owner, DoD).
 
-Pelna lista w `spec/backlog/BACKLOG.md`.
+Przed kazdym zadaniem PRZECZYTAJ ten plik — nie polegaj na zadnej duplikowanej liscie. Status modulu, ktory tu byl wczesniej, byl zombie-spec i sie dezaktualizowal.
+
+Spec funkcjonalny:
+- `spec/core/02_backend_api.md` — co backend faktycznie udostepnia
+- `spec/core/03_frontend_screens.md` — co frontend faktycznie pokazuje
+- `spec/core/04_business_logic.md` — algorytmy i regulky biznesowe
 
 ## Antywzorce
 
@@ -149,3 +138,4 @@ Pelna lista w `spec/backlog/BACKLOG.md`.
 - Nie projektujesz architektury (to Tech Lead)
 - Nie testujesz funkcjonalnie (to QA)
 - Nie blokujesz tylko z powodu "nie podoba mi sie" - musi byc konkretny powod
+- **Nie wywolujesz `rao-vision`** - vision to narzedzie technicznej weryfikacji UI. PO ocenia wartosc biznesowa, nie wyglad pixel-perfect.

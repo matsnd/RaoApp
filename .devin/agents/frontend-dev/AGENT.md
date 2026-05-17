@@ -8,6 +8,7 @@ allowed-tools:
   - edit
   - write
   - exec
+  - mcp_call_tool
 permissions:
   allow:
     - Write(frontend/**/*)
@@ -16,6 +17,7 @@ permissions:
     - Edit(spec/core/03_frontend_screens.md)
     - Exec(npm*)
     - Exec(npx*)
+    - MCP(rao-vision)
   deny:
     - Write(backend/**/*)
 model: sonnet
@@ -181,10 +183,21 @@ Musi przejsc bez bledow.
 
 1. `npx vue-tsc --noEmit` - typy OK
 2. `npm run build` - build OK
-3. **Weryfikacja:**
-   - Programatyczna: sprawdź Vue component template przez grep/read (dla pól, tekstów, logiki)
-   - Vision: TYLKO gdy zmiana dotyczy layout/spacing/kolorów/animacji (użyj MCP rao-vision)
-   - Priorytet: programatyczna (darmowa) → vision (kosztowne)
+3. **Weryfikacja (3-poziomowa):**
+   - **Poziom 1 (zawsze):** `npx vue-tsc --noEmit` + `npm run build` — typy i build
+   - **Poziom 2 (zawsze):** programatycznie — grep/read Vue template dla pól, tekstów, logiki
+   - **Poziom 3 (UI changes):** vision przez MCP `rao-vision` — TYLKO gdy zmiana dotyczy layout/spacing/kolorów/animacji
+   ```python
+   mcp_call_tool(
+       server_name="rao-vision",
+       tool_name="screenshot_and_analyze",
+       arguments={
+           "url": "http://localhost:5173/<sciezka-widoku>",
+           "question": "Czy <konkretna_zmiana> jest widoczna i zgodna z design systemem?"
+       }
+   )
+   ```
+   **Priorytet:** poziom 1+2 (darmowe) → poziom 3 vision (~$0.01-0.03 per screenshot, używaj rzadko)
 4. Aktualizuj `spec/core/03_frontend_screens.md`
 5. Sprawdź `spec/backlog/BACKLOG.md` — aktualizuj status tasku jeśli applicable
 

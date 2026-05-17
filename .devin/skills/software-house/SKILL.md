@@ -102,10 +102,10 @@ DB layer    -> db-architect (foreground)
 Backend     -> backend-dev (foreground)
    |
    v
-Frontend    -> frontend-dev (foreground) || ui-designer (background, equolegle)
+Frontend    -> frontend-dev (foreground) || ui-designer (background, równolegle, MCP rao-vision)
    |
    v
-Polish      -> motion-designer (background) + ux-designer review
+Polish      -> motion-designer (background, MCP rao-vision) + ux-designer review (MCP rao-vision)
    |
    v
 Audit       -> security-auditor + performance-eng (rownolegle background)
@@ -145,7 +145,7 @@ Przed zamknieciem zadania:
 - `ui-designer` -> "Design system zachowany?"
 - `security-auditor` -> "Brak dziur?"
 
-### Krok 6.5 - Vision Verification (tylko gdy potrzebne)
+### Krok 7 - Vision Verification (tylko gdy potrzebne)
 
 **Zasada:** Vision tools (rao-vision) są kosztowne (~$0.01-0.03 per screenshot). Używaj ich TYLKO gdy nie możesz zweryfikować programatycznie.
 
@@ -257,11 +257,11 @@ Jak: grep "Login" frontend/src/auth/LoginView.vue
 Vision: NIE potrzebne
 ```
 
-### Krok 7 - Spec sync (krytyczne!)
+### Krok 8 - Spec sync (krytyczne!)
 
 Po implementacji **ZAWSZE** sprawdz `git diff --stat spec/core/`. Jesli pusty przy zmianach funkcjonalnych - aktualizuj odpowiedni plik (mapa w `spec/AGENT_PLAYBOOK.md`).
 
-### Krok 8 - Backlog update
+### Krok 9 - Backlog update
 
 Aktualizuj status zadania w `spec/backlog/BACKLOG.md`:
 - Zmien `status: triaged` → `status: in_progress` (na początku)
@@ -271,7 +271,7 @@ Aktualizuj status zadania w `spec/backlog/BACKLOG.md`:
 
 **Uwaga:** Jeśli zadanie dotyczy migracji danych ze starej bazy → patrz db-architect dla `backend/migrate.py` procedury (deterministyczna INSERT...SELECT)
 
-### Krok 9 - Lokalny commit
+### Krok 10 - Lokalny commit
 
 Po zakonczeniu zadania i aktualizacji spec/ wykonaj lokalny commit:
 ```bash
