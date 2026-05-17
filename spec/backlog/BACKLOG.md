@@ -587,7 +587,7 @@ Dodać tabelę "Przy wydaniu / Przy odbiorze" w protokółach PDF z polami do r�
 id: RAO-P1-011
 priority: P1
 size: L
-status: in_progress
+status: done
 classification: cross-stack
 roles: [db-architect, backend-dev]
 depends_on: []

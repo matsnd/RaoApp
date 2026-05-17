@@ -608,7 +608,54 @@ async def sync_template_with_article(
 - Ustaw article_id i default_price
 - Idempotentne: pomija rekordy z już ustawionym article_id
 
-## 13. Kopiowanie szablonów usług dodatkowych do umowy
+## 13. Auto-creowanie rozliczeń umowy (RAO-P1-012)
+
+```python
+async def auto_create_settlements_for_contract(
+    db: AsyncSession,
+    contract_id: int,
+    position_ids: list[int]
+) -> None:
+    """
+    RAO-P1-012: Auto-create settlement records for all contract positions.
+    Wywoływane po utworzeniu umowy (POST /contracts).
+
+    Logika:
+    1. Dla każdej pozycji umowy (position_id):
+       - Sprawdź czy istnieje settlement record (contract_id, position_id)
+       - Jeśli nie → utwórz z cost_client=NULL, cost_company=NULL
+    2. Idempotentne: pomija istniejące rekordy
+    """
+    for position_id in position_ids:
+        existing = await db.execute(
+            select(ContractSettlement).where(
+                ContractSettlement.contract_id == contract_id,
+                ContractSettlement.position_id == position_id,
+            )
+        )
+        if not existing.scalar_one_or_none():
+            settlement = ContractSettlement(
+                contract_id=contract_id,
+                position_id=position_id,
+                cost_client=None,
+                cost_company=None,
+                notes=None,
+            )
+            db.add(settlement)
+    await db.commit()
+```
+
+**Margin calculation:**
+```python
+@property
+def margin(self) -> Decimal | None:
+    """Marża = cost_client - cost_company"""
+    if self.cost_client is None or self.cost_company is None:
+        return None
+    return self.cost_client - self.cost_company
+```
+
+## 14. Kopiowanie szablonów usług dodatkowych do umowy
 
 ```python
 async def copy_service_fee_templates_to_contract(

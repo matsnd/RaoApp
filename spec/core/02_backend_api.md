@@ -1028,6 +1028,42 @@ class ServiceFeeTemplateReorder(BaseModel):
 **Logika GET:** Zwraca wszystkie templates dla company_id=1, posortowane po `(contract_type, sort_order)`.
 **Logika POST /reorder:** Przyjmuje listę id w nowej kolejności, aktualizuje `sort_order` wszystkich.
 
+### `GET /settlements/contract/{contract_id}` - RAO-P1-012
+### `GET /settlements/{settlement_id}`
+### `POST /settlements`
+### `PUT /settlements/{settlement_id}`
+### `DELETE /settlements/{settlement_id}`
+
+```python
+class ContractSettlementResponse(BaseModel):
+    id: int
+    contract_id: int
+    position_id: int | None = None
+    cost_client: Decimal | None = None
+    cost_company: Decimal | None = None
+    margin: Decimal | None = None  # auto-calculated: cost_client - cost_company
+    notes: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+class ContractSettlementCreate(BaseModel):
+    contract_id: int
+    position_id: int | None = None
+    cost_client: Decimal | None = Field(None, ge=0)
+    cost_company: Decimal | None = Field(None, ge=0)
+    notes: str | None = Field(None, max_length=2000)
+
+class ContractSettlementUpdate(BaseModel):
+    cost_client: Decimal | None = Field(None, ge=0)
+    cost_company: Decimal | None = Field(None, ge=0)
+    notes: str | None = Field(None, max_length=2000)
+```
+
+**Logika:**
+- GET /contract/{contract_id}: Zwraca wszystkie rozliczenia dla umowy
+- Auto-creowanie: Po utworzeniu umowy, automatycznie tworzy rekordy settlement dla wszystkich pozycji (cost_client/cost_company = NULL)
+- Margin: Automatycznie obliczane jako cost_client - cost_company
+
 ### `GET /settings/salespeople`
 ### `POST /settings/salespeople`
 ### `PUT /settings/salespeople/{id}`

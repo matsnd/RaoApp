@@ -408,11 +408,33 @@ CREATE TABLE costs (
     CONSTRAINT fk_cost_type FOREIGN KEY (cost_type_id)
         REFERENCES cost_types(id) ON DELETE SET NULL,
     CONSTRAINT fk_cost_position FOREIGN KEY (position_id)
-        REFERENCES contract_positions(id) ON DELETE CASCADE
-) ENGINE=InnoDB COMMENT='Koszty pozycji (stara tabela: koszt)';
+        REFERENCES contract_positions(id) ON DELETE CASCADE,
+    INDEX idx_cost_position (position_id)
+) ENGINE=InnoDB COMMENT='Koszty (stara tabela: koszty)';
 
 -- ============================================================
--- 7. USŁUGI DODATKOWE UMOWY (Contract Service Fees)
+-- 7. ROZLICZENIA UMÓW (Contract Settlements) - RAO-P1-012
+-- ============================================================
+
+CREATE TABLE contract_settlements (
+    id              INT AUTO_INCREMENT PRIMARY KEY,
+    contract_id     INT          NOT NULL COMMENT 'ID umowy',
+    position_id     INT          NULL COMMENT 'ID pozycji umowy (maszyna/usługa)',
+    cost_client     DECIMAL(18,2) NULL COMMENT 'Koszt dla klienta (na fakturze)',
+    cost_company    DECIMAL(18,2) NULL COMMENT 'Koszt dla firmy (narzut/marża)',
+    notes           TEXT         NULL COMMENT 'Uwagi do rozliczenia',
+    created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_settlement_contract FOREIGN KEY (contract_id)
+        REFERENCES contracts(id) ON DELETE CASCADE,
+    CONSTRAINT fk_settlement_position FOREIGN KEY (position_id)
+        REFERENCES contract_positions(id) ON DELETE CASCADE,
+    INDEX idx_settlement_contract (contract_id),
+    INDEX idx_settlement_position (position_id)
+) ENGINE=InnoDB COMMENT='Rozliczenia umów - koszty klient vs firma (RAO-P1-012)';
+
+-- ============================================================
+-- 8. USŁUGI DODATKOWE UMOWY (Contract Service Fees)
 -- ============================================================
 -- Każdy wiersz = jedna pozycja z listy opłat przypisana do konkretnej umowy
 -- Kopiowane z service_fee_templates przy tworzeniu umowy, edytowalne per-umowa

@@ -174,6 +174,11 @@ class ContractService:
         await db.commit()
         await db.refresh(contract)
         await copy_fee_templates(db, contract.id, data.contract_type)
+        # RAO-P1-012: Auto-create settlement records for all positions
+        from settlements.service import SettlementService
+        settlement_service = SettlementService()
+        position_ids = [p.id for p in data.positions] if data.positions else []
+        await settlement_service.auto_create_settlements_for_contract(db, contract.id, position_ids)
         return contract
 
     async def update_contract(self, db: AsyncSession, contract_id: int, data: ContractCreate) -> Contract:

@@ -7,6 +7,7 @@ from contractors.router import router as contractors_router
 from articles.router import router as articles_router
 from contracts.router import router as contracts_router
 from settings.router import router as settings_router
+from settlements.router import router as settlements_router
 from reports.router import router as reports_router
 from integrations.router import router as integrations_router
 from stats.router import router as stats_router
@@ -26,6 +27,7 @@ async def startup_migrations():
     import sqlalchemy as sa
     from database import AsyncSessionLocal
     from settings.models import FeePresetGroup, ServiceFeeTemplate
+    import settlements.models  # RAO-P1-012
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -86,6 +88,7 @@ app.include_router(contractors_router)
 app.include_router(articles_router)
 app.include_router(contracts_router)
 app.include_router(settings_router)
+app.include_router(settlements_router)
 app.include_router(reports_router)
 app.include_router(integrations_router)
 app.include_router(stats_router)
