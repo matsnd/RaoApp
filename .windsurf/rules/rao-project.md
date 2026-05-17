@@ -20,7 +20,7 @@ Aplikacja do wynajmu maszyn budowlanych. Migracja z legacy WinForms (C#) → Fas
 **Krytyczne ustawienia:**
 - FastAPI `root_path="/rao/api"` → wszystkie endpointy są pod tym prefiksem (np. `http://localhost:8000/rao/api/health`)
 - E2E credentials: `admin` / `admin123` (w `e2e/tests/helpers.ts`)
-- DB user: `rao_user` / hasło `RaoPass2026!` (z `.env`)
+- DB user: `rao_user` / hasło `<<DB_PASSWORD_PLACEHOLDER>>` (z `.env`)
 
 ## Reguła portów (wzmacnia user global rule)
 

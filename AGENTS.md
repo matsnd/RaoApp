@@ -27,7 +27,7 @@ Funkcje: kontrahenci, artykuły (maszyny), umowy, pozycje, warunki rozliczeniowe
 **Kluczowe ustawienia:**
 - FastAPI `root_path="/rao/api"` — wszystkie endpointy pod tym prefiksem (np. `http://localhost:8000/rao/api/health`)
 - Login do aplikacji: `admin` / `admin123`
-- DB user: `rao_user` / hasło `RaoPass2026!` (z `.env`)
+- DB user: `rao_user` / hasło `<<DB_PASSWORD_PLACEHOLDER>>` (z `.env`)
 
 ## Setup (od zera)
 
@@ -35,7 +35,7 @@ Funkcje: kontrahenci, artykuły (maszyny), umowy, pozycje, warunki rozliczeniowe
 # 1. MariaDB
 sudo service mariadb start
 sudo mariadb -e "CREATE DATABASE IF NOT EXISTS rao_new CHARACTER SET utf8mb4 COLLATE utf8mb4_polish_ci;"
-sudo mariadb -e "CREATE USER IF NOT EXISTS 'rao_user'@'localhost' IDENTIFIED BY 'RaoPass2026!';"
+sudo mariadb -e "CREATE USER IF NOT EXISTS 'rao_user'@'localhost' IDENTIFIED BY '<<DB_PASSWORD_PLACEHOLDER>>';"
 sudo mariadb -e "GRANT ALL PRIVILEGES ON rao_new.* TO 'rao_user'@'localhost'; FLUSH PRIVILEGES;"
 
 # 2. Backend
