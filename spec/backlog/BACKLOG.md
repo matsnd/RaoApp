@@ -436,9 +436,347 @@ Ulepsz funkcję ekstrakcji miast z wielolinijkowych adresów dostawy dla spójny
 
 ---
 
+### [RAO-P1-008] Strukturalizacja adresów: kod pocztowy + miasto (#1)
+
+```yaml
+id: RAO-P1-008
+priority: P1
+size: L
+status: triaged
+classification: cross-stack
+roles: [db-architect, backend-dev, frontend-dev]
+depends_on: []
+blocks: [RAO-P1-005]
+source: client
+source_date: 2026-05-17
+specs_to_update:
+  - core/01_database.md
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+  - core/04_business_logic.md
+  - core/11_reports_stats.md
+migration_impact: yes
+security_impact: low
+```
+
+**Job-to-be-done:**
+Rozdzielić adres dostawy na strukturę: kod pocztowy + miasto + pełny adres (do dowolnych notatek). Implementacja słownikowania kodów pocztowych (auto-uzupełnianie miasta) i zmiana statystyk na bazowanie na twardych danych (kod pocztowy + miasto), nie na całym adresie.
+
+**Acceptance criteria (DoD):**
+- [ ] DB: Nowe kolumny w `contracts`: `postal_code VARCHAR(10)`, `city VARCHAR(100)`, `delivery_address TEXT` (zmiana z VARCHAR)
+- [ ] Backend: Skrypt ekstrakcji kodu pocztowego i miasta z adresu (regex + słownik)
+- [ ] Backend: Słownik kodów pocztowych (tabela `postal_codes` lub API zewnętrzne)
+- [ ] Backend: Auto-uzupełnianie miasta po wpisaniu kodu pocztowego
+- [ ] Frontend: Formularz z polami: kod pocztowy (auto-uzupełnia miasto), miasto (edytowalne), adres pełny (dowolne notatki)
+- [ ] Stats: Zmiana filtrów statystyk z "cały adres" na "kod pocztowy + miasto"
+- [ ] Migration: Skrypt migracji starych danych (ekstrakcja + ujednolicenie)
+- [ ] `core/01_database.md` zaktualizowany
+- [ ] `core/02_backend_api.md` zaktualizowany
+- [ ] `core/03_frontend_screens.md` zaktualizowany
+- [ ] `core/04_business_logic.md` zaktualizowany
+- [ ] `core/11_reports_stats.md` zaktualizowany
+
+**Migration plan (RAO deterministic):**
+1. `core/01_database.md` — finalny DDL (postal_code, city, delivery_address TEXT)
+2. `backend/contracts/models.py` — SQLAlchemy models
+3. `backend/main.py` startup — ALTER TABLE ADD COLUMN
+4. `backend/migrate.py` — skrypt migracji starych danych:
+   - Ekstrakcja kodu pocztowego z adresu (regex XX-XXX)
+   - Ekstrakcja miasta z adresu lub słownika po kodzie pocztowym
+   - Ujednolicenie: jeden kod pocztowy = jedno miasto (najczęstsze)
+   - Weryfikacja: % rekordów z poprawnym kodem pocztowym
+5. **Verification gate (obowiązkowe):**
+   - [ ] `DROP DATABASE rao_new && CREATE` → run migrate → sprawdź czy postal_code/city są wypełnione
+   - [ ] Re-run `python migrate.py` → idempotentne
+   - [ ] Drugi restart backend bez błędu
+   - [ ] Weryfikacja: `SELECT COUNT(*) FROM contracts WHERE postal_code IS NULL` = 0
+
+**QA DoD:**
+- [ ] Unit test dla skryptu ekstrakcji kodu pocztowego
+- [ ] Unit test dla słownikowania (kod pocztowy → miasto)
+- [ ] E2E test w `04-contract.spec.ts` dla auto-uzupełniania miasta
+- [ ] Smoke test `01-login.spec.ts` PASS
+
+**Pliki do zmiany:** `backend/contracts/models.py`, `schemas.py`, `service.py`, `backend/migrate.py`, `ContractFormView.vue`, `backend/stats/router.py`, `backend/stats/calc.py`
+**ROI:** Krytyczne dla statystyk — obecne filtry po całym adresie są bezużyteczne (wiele wariantów tego samego miasta)
+**Estimate:** 12h (L)
+
+---
+
+### [RAO-P1-009] Weryfikacja PDF vs stara aplikacja WinForms (#6)
+
+```yaml
+id: RAO-P1-009
+priority: P1
+size: M
+status: triaged
+classification: qa
+roles: [qa-engineer, frontend-dev]
+depends_on: []
+blocks: []
+source: client
+source_date: 2026-05-17
+specs_to_update:
+  - core/11_reports_stats.md
+migration_impact: no
+security_impact: low
+```
+
+**Job-to-be-done:**
+Przejrzeć wygenerowane PDF z nowego systemu i porównać z PDF ze starej aplikacji WinForms. Zidentyfikować różnice i naprawić.
+
+**Acceptance criteria (DoD):**
+- [ ] Porównanie umowy PDF (nowy vs stary) — lista różnic
+- [ ] Porównanie protokołu PDF (nowy vs stary) — lista różnic
+- [ ] Naprawa wszystkich krytycznych różnic (brakujące sekcje, błędne dane)
+- [ ] Weryfikacja: 5 losowych umów — PDF identyczne lub lepsze
+- [ ] `core/11_reports_stats.md` zaktualizowany
+
+**QA DoD:**
+- [ ] Visual regression test (screenshot comparison) dla PDF
+- [ ] Smoke test `01-login.spec.ts` PASS
+
+**Pliki do zmiany:** `backend/reports/templates/contract.html`, `protocol_zo.html`, `protocol_uslugi.html`
+**ROI:** Klient wymaga feature parity PDF — obecne różnice blokują go-live
+**Estimate:** 4h (M)
+
+---
+
+### [RAO-P1-010] Tabela "Przy wydaniu / Przy odbiorze" w protokole (#7)
+
+```yaml
+id: RAO-P1-010
+priority: P1
+size: M
+status: triaged
+classification: frontend
+roles: [frontend-dev]
+depends_on: []
+blocks: []
+source: client
+source_date: 2026-05-17
+specs_to_update:
+  - core/11_reports_stats.md
+migration_impact: no
+security_impact: low
+```
+
+**Job-to-be-done:**
+Dodać tabelę "Przy wydaniu / Przy odbiorze" w protokółach PDF z polami do ręcznego uzupełnienia przez klienta (data, urządzenie, stan paliwa, klucze, wideł, czystość, dokumentacja, akcesoria, uwagi).
+
+**Acceptance criteria (DoD):**
+- [ ] PDF Protokół: nowa sekcja "Przy wydaniu / Przy odbiorze" przed podpisami
+- [ ] Tabela z kolumnami: data i godzina, urządzenie i model, stan paliwa, ilość kluczyków, stan wideł, czystość maszyny, dokumentacja zdjęciowa, dodatkowe akcesoria, uwagi
+- [ ] Pola puste do ręcznego wypełnienia (nie generowane z systemu)
+- [ ] Styl: tabela z ramkami, czytelne nagłówki
+- [ ] `core/11_reports_stats.md` zaktualizowany
+
+**QA DoD:**
+- [ ] E2E test w `04-contract.spec.ts` dla weryfikacji tabeli
+- [ ] Smoke test `01-login.spec.ts` PASS
+
+**Pliki do zmiany:** `backend/reports/templates/protocol_zo.html`, `protocol_uslugi.html`, `protocol.css`
+**ROI:** Klient wymaga tej tabeli — jest krytyczna dla procesu wydania/odbioru maszyny
+**Estimate:** 3h (M)
+
+---
+
+### [RAO-P1-011] Usługi dodatkowe zesłownikowane z artykułami (#8)
+
+```yaml
+id: RAO-P1-011
+priority: P1
+size: L
+status: triaged
+classification: db-only
+roles: [db-architect, backend-dev]
+depends_on: []
+blocks: [RAO-P1-012]
+source: client
+source_date: 2026-05-17
+specs_to_update:
+  - core/01_database.md
+  - core/02_backend_api.md
+  - core/04_business_logic.md
+migration_impact: yes
+security_impact: low
+```
+
+**Job-to-be-done:**
+Zmienić strukturę usług dodatkowych tak, aby były zesłownikowane z artykułami (artykuły => usługi). Obecnie usługi dodatkowe są zmyślone stringi — mają być powiązane z tabelą `articles` przez FK. Zestawy usług (service_fee_templates) mają być zesłownikowane z konkretnymi artykułami.
+
+**Acceptance criteria (DoD):**
+- [ ] DB: Zmiana struktury `service_fee_templates` — dodanie FK do `articles` (zamiast string name)
+- [ ] DB: Tabela `service_fee_template_items` (template_id, article_id, default_price)
+- [ ] Backend: Zmiana logiki tworzenia szablonów — wybór z artykułów zamiast wpisywanie nazwy
+- [ ] Backend: API zwraca nazwę artykułu z tabeli `articles` (nie string)
+- [ ] Migration: Skrypt migracji starych danych — mapowanie stringów na artykuły
+- [ ] Frontend: Picker artykułów w formularzu szablonów (zamiast text input)
+- [ ] `core/01_database.md` zaktualizowany
+- [ ] `core/02_backend_api.md` zaktualizowany
+- [ ] `core/04_business_logic.md` zaktualizowany
+
+**Migration plan (RAO deterministic):**
+1. `core/01_database.md` — finalny DDL (service_fee_template_items)
+2. `backend/settings/models.py` — SQLAlchemy models
+3. `backend/main.py` startup — ALTER TABLE + CREATE TABLE
+4. `backend/migrate.py` — skrypt migracji:
+   - Mapowanie string nazw usług dodatkowych na `articles` (po nazwie lub ręczne mapowanie)
+   - Tworzenie rekordów w `service_fee_template_items`
+   - Weryfikacja: % szablonów z poprawnymi FK
+5. **Verification gate (obowiązkowe):**
+   - [ ] `DROP DATABASE rao_new && CREATE` → run migrate → sprawdź czy FK są poprawne
+   - [ ] Re-run `python migrate.py` → idempotentne
+   - [ ] Drugi restart backend bez błędu
+
+**QA DoD:**
+- [ ] Unit test dla migracji usług dodatkowych
+- [ ] E2E test w `05-settings.spec.ts` dla tworzenia szablonów z artykułami
+- [ ] Smoke test `01-login.spec.ts` PASS
+
+**Pliki do zmiany:** `backend/settings/models.py`, `schemas.py`, `service.py`, `backend/migrate.py`, `SettingsView.vue`
+**ROI:** Spójność danych — usługi dodatkowe nie są "zmyślone stringi" tylko powiązane z rzeczywistymi artykułami
+**Estimate:** 8h (L)
+
+---
+
+### [RAO-P1-012] Panel rozliczenie umowy — koszty klient vs firma (#9)
+
+```yaml
+id: RAO-P1-012
+priority: P1
+size: XL
+status: triaged
+classification: cross-stack
+roles: [product-owner, db-architect, backend-dev, frontend-dev]
+depends_on: [RAO-P1-011]
+blocks: [RAO-P1-013]
+source: client
+source_date: 2026-05-17
+specs_to_update:
+  - core/01_database.md
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+  - core/04_business_logic.md
+migration_impact: yes
+security_impact: low
+```
+
+**Job-to-be-done:**
+Nowy panel "Rozliczenie umowy" z tabelą wszystkich pozycji umowy (maszyny + usługi dodatkowe) z polami do ręcznego wpisania kosztów: koszt dla klienta (na fakturze) i koszt dla firmy (narzut). Product Owner musi wymyślić odpowiednie nazwy pól.
+
+**Acceptance criteria (DoD):**
+- [ ] PO: Zdefiniowanie nazw pól kosztów (np. "Koszt faktura", "Koszt własny", "Marża")
+- [ ] DB: Nowa tabela `contract_settlements` (id, contract_id, position_id, cost_client DECIMAL, cost_company DECIMAL, notes TEXT)
+- [ ] Backend: Automatyczne tworzenie rekordów w `contract_settlements` po utworzeniu umowy (dla wszystkich pozycji)
+- [ ] Backend: CRUD endpointy dla rozliczeń
+- [ ] Frontend: Nowy panel w ContractFormView / ContractDetailView z tabelą rozliczeń
+- [ ] Frontend: Pola edytowalne: koszt klienta, koszt firmy, uwagi
+- [ ] Frontend: Obliczanie marży automatycznie (cost_client - cost_company)
+- [ ] `core/01_database.md` zaktualizowany
+- [ ] `core/02_backend_api.md` zaktualizowany
+- [ ] `core/03_frontend_screens.md` zaktualizowany
+- [ ] `core/04_business_logic.md` zaktualizowany
+
+**Migration plan (RAO deterministic):**
+1. `core/01_database.md` — finalny DDL (contract_settlements)
+2. `backend/settlements/models.py` — SQLAlchemy (nowy moduł)
+3. `backend/main.py` startup — CREATE TABLE
+4. `backend/contracts/service.py` — auto-creowanie settlement records po create contract
+5. **Verification gate (obowiązkowe):**
+   - [ ] `DROP DATABASE rao_new && CREATE` → restart backend → create contract → sprawdź czy settlement records są tworzone
+   - [ ] Drugi restart backend bez błędu
+
+**QA DoD:**
+- [ ] Unit test dla auto-creowania settlement records
+- [ ] E2E test w `04-contract.spec.ts` dla panelu rozliczeń
+- [ ] Smoke test `01-login.spec.ts` PASS
+
+**Pliki do zmiany:** `backend/settlements/` (nowy moduł), `backend/contracts/service.py`, `ContractFormView.vue`, `ContractDetailView.vue`
+**ROI:** Krytyczne dla fakturowania i prowizji — obecnie brak rozdzielenia kosztów klient vs firma
+**Estimate:** 16h (XL)
+
+---
+
+### [RAO-P1-013] Refactor systemu prowizyjnego — od realnego zarobku (#10)
+
+```yaml
+id: RAO-P1-013
+priority: P1
+size: M
+status: triaged
+classification: backend
+roles: [backend-dev]
+depends_on: [RAO-P1-012]
+blocks: []
+source: client
+source_date: 2026-05-17
+specs_to_update:
+  - core/04_business_logic.md
+migration_impact: no
+security_impact: low
+```
+
+**Job-to-be-done:**
+Zrefaktoryzować system prowizyjny tak, aby prowizja handlowca była liczona od realnego zarobku (marży), a nie od kosztu umowy. Obecna formuła: prowizja = x% od kosztu umowy. Nowa formuła: prowizja = x% od (koszt klienta - koszt firmy).
+
+**Acceptance criteria (DoD):**
+- [ ] Backend: Zmiana formuły prowizji w `backend/stats/calc.py` lub odpowiednim serwisie
+- [ ] Nowa formuła: `commission = commission_rate * (SUM(cost_client) - SUM(cost_company))` dla umowy
+- [ ] Backend: Użycie danych z `contract_settlements` (z RAO-P1-012)
+- [ ] Backend: Backward compatibility — jeśli brak danych settlement, użyj starej formuły lub 0
+- [ ] Frontend: Aktualizacja widoku statystyk handlowca (jeśli pokazuje prowizje)
+- [ ] `core/04_business_logic.md` zaktualizowany
+
+**QA DoD:**
+- [ ] Unit test dla nowej formuły prowizji
+- [ ] Test edge cases: ujemna marża, brak danych settlement
+- [ ] Smoke test `01-login.spec.ts` PASS
+
+**Pliki do zmiany:** `backend/stats/calc.py`, `backend/commissions/` (jeśli istnieje), `ReportsSection.vue`
+**ROI:** Krytyczne dla poprawności prowizji — obecnie handlowcy dostają prowizję od przychodu, nie od zysku
+**Estimate:** 4h (M)
+
+---
+
 ## 🟡 P2 — Should-Have w ciągu kwartału
 
 UX, drobne tech debt, nice-to-have.
+
+### [RAO-P2-013] Weryfikacja screenshotów #2, #3, #4, #5
+
+```yaml
+id: RAO-P2-013
+priority: P2
+size: XS
+status: todo
+classification: qa
+roles: [qa-engineer, product-owner]
+depends_on: []
+blocks: []
+source: client
+source_date: 2026-05-17
+specs_to_update: []
+migration_impact: no
+security_impact: low
+```
+
+**Job-to-be-done:**
+Zweryfikować 4 zrzuty ekranu z folderu `backlog_to_refinement/` i zdefiniować wymagania. Screenshoty nie zostały wczytane przez system — wymagana ręczna weryfikacja przez Product Ownera.
+
+**Acceptance criteria (DoD):**
+- [ ] PO: Przejrzenie screenshotów #2 (220919.png), #3 (221011.png), #4 (221042.png), #5 (20260517221341.png)
+- [ ] PO: Zdefiniowanie co jest na screenshotach i jakie są wymagania
+- [ ] PO: Utworzenie odpowiednich historyjek w backlogu (P1/P2/P3)
+- [ ] QA: Usunięcie tego taska po utworzeniu właściwych historyjek
+
+**Uwaga:** Ten task jest placeholder — po weryfikacji screenshotów należy go usunąć i zastąpić właściwymi historyjkami.
+
+**Pliki do zmiany:** `spec/backlog/BACKLOG.md` (usunięcie tego taska)
+**ROI:** Brakujące wymagania z screenshotów mogą być krytyczne dla go-live
+**Estimate:** 1h (XS)
+
+---
 
 ### [RAO-P2-001] Kolumna "Adres dostawy" w liście umów (B2)
 
@@ -1085,10 +1423,10 @@ Podczas tworzenia umowy typu "Usługa" (U), w pickerze artykułów powinny wyśw
 
 ---
 
-### [RAO-P1-006] Protokół usługi — ewidencja godzin operatora (#9)
+### [RAO-P1-014] Protokół usługi — ewidencja godzin operatora (#9)
 
 ```yaml
-id: RAO-P1-006
+id: RAO-P1-014
 priority: P1
 size: M
 status: todo
@@ -1318,10 +1656,10 @@ Klient chce analizować gdzie najczęściej wynajmują maszyny (miejscowości/ob
 
 ---
 
-### [RAO-P1-007] Rezerwacja maszyn (blokada wynajmu) (#15)
+### [RAO-P1-015] Rezerwacja maszyn (blokada wynajmu) (#15)
 
 ```yaml
-id: RAO-P1-007
+id: RAO-P1-015
 priority: P1
 size: M
 status: todo
@@ -1378,8 +1716,8 @@ Zobacz `archive/16_todo_done.md` dla pełnego historii zadań ukończonych.
 | Priorytet | Liczba | Effort łączny |
 |-----------|--------|---------------|
 | 🚨 P0 | 5 | ~7h |
-| 🔴 P1 | 5 | ~8h |
-| 🟡 P2 | 5 | ~11h |
+| 🔴 P1 | 11 | ~55h |
+| 🟡 P2 | 6 | ~12h |
 | 🟢 P3 | 5 | ~20h |
 | **Razem** | **20** | **~46h** |
 
@@ -1398,8 +1736,15 @@ Zobacz `archive/16_todo_done.md` dla pełnego historii zadań ukończonych.
 | RAO-P1-002 | Adres dostawy multiline | Client | P1 | S | triaged | cross-stack |
 | RAO-P1-003 | Adres dostawy rozdzielenie | Client | P1 | S | triaged | frontend-dev |
 | RAO-P1-004 | Sekcja Uwagi w umowie | Client | P1 | XS | triaged | frontend-dev |
-| RAO-P1-005 | Ekstrakcja miast | Internal | P1 | M | triaged | backend-dev ||| RAO-P1-006 | Protokół usługi — godziny operatora | Client | P1 | M | todo | cross-stack |
-|| RAO-P1-007 | Rezerwacja maszyn | Client | P1 | M | todo | cross-stack |
+| RAO-P1-005 | Ekstrakcja miast | Internal | P1 | M | triaged | backend-dev |
+n|| RAO-P1-008 | Strukturalizacja adresów: kod pocztowy + miasto | Client | P1 | L | triaged | cross-stack |
+|| RAO-P1-009 | Weryfikacja PDF vs stara aplikacja | Client | P1 | M | triaged | qa-engineer |
+|| RAO-P1-010 | Tabela Przy wydaniu/Przy odbiorze | Client | P1 | M | triaged | frontend-dev |
+|| RAO-P1-011 | Usługi dodatkowe z artykułami | Client | P1 | L | triaged | db-architect |
+|| RAO-P1-012 | Panel rozliczenie umowy | Client | P1 | XL | triaged | cross-stack |
+|| RAO-P1-013 | Refactor systemu prowizyjnego | Client | P1 | M | triaged | backend-dev |
+|| RAO-P1-014 | Protokół usługi — godziny operatora | Client | P1 | M | todo | cross-stack |
+|| RAO-P1-015 | Rezerwacja maszyn | Client | P1 | M | todo | cross-stack |
 || RAO-P2-001 | Kolumna adres dostawy | Internal | P2 | XS | todo | frontend-dev |
 || RAO-P2-002 | Link "Zmień hasło" sidebar | Internal | P2 | XS | todo | frontend-dev |
 || RAO-P2-003 | NIP validation checksum | Internal | P2 | S | todo | backend-dev |
