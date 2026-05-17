@@ -543,7 +543,72 @@ def calculate_remaining(
     return (total_value or Decimal("0")) - (prepayment_amount or Decimal("0")) - (invoice_amount or Decimal("0"))
 ```
 
-## 12. Kopiowanie szablonów usług dodatkowych do umowy
+## 12. Linkowanie szablonów usług dodatkowych z artykułami (RAO-P1-011)
+
+```python
+async def resolve_article_name_for_template(
+    db: AsyncSession,
+    article_id: int | None,
+    name_override: str | None = None
+) -> str:
+    """
+    RAO-P1-011: Jeśli article_id ustawiony, pobierz nazwę z articles.name.
+    Jeśli name_override podany, użyj go (ale snapshot z articles.name jest zachowany w polu name).
+
+    Strategia:
+    1. Jeśli article_id NULL → zwróć name_override lub pusty string
+    2. Jeśli article_id ustawiony:
+       - Pobierz artykuł po ID
+       - Jeśli artykuł nie istnieje → raise 404
+       - Zwróć articles.name (snapshot w polu name ServiceFeeTemplate)
+    """
+    if not article_id:
+        return name_override or ""
+
+    result = await db.execute(select(Article).where(Article.id == article_id))
+    article = result.scalar_one_or_none()
+    if not article:
+        raise HTTPException(status_code=404, detail="Artykuł nie znaleziony")
+    return article.name
+
+async def sync_template_with_article(
+    db: AsyncSession,
+    template: ServiceFeeTemplate,
+    data: ServiceFeeTemplateCreate
+) -> None:
+    """
+    RAO-P1-011: Synchronizacja szablonu z artykułem przy tworzeniu/edycji.
+
+    Logika:
+    1. Jeśli data.article_id ustawiony:
+       - Pobierz nazwę z articles.name
+       - Ustaw template.name = articles.name (snapshot)
+       - Ustaw template.article_id = data.article_id
+       - Ustaw template.default_price = data.default_price lub article.price
+    2. Jeśli data.article_id NULL:
+       - Ustaw template.name = data.name (manual input)
+       - Ustaw template.article_id = NULL
+       - Ustaw template.default_price = data.default_price lub NULL
+    """
+    if data.article_id:
+        name = await resolve_article_name_for_template(db, data.article_id)
+        template.name = name
+        template.article_id = data.article_id
+        template.default_price = data.default_price
+    else:
+        template.name = data.name
+        template.article_id = None
+        template.default_price = data.default_price
+```
+
+**Migration (backend/migrate.py step5d):**
+- Mapowanie service_fee_templates.name → articles.id (po nazwie, case-insensitive)
+- Preferuj artykuły z is_service=1
+- Jeśli artykuł nie istnieje → utwórz (is_service=1)
+- Ustaw article_id i default_price
+- Idempotentne: pomija rekordy z już ustawionym article_id
+
+## 13. Kopiowanie szablonów usług dodatkowych do umowy
 
 ```python
 async def copy_service_fee_templates_to_contract(

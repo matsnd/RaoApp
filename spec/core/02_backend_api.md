@@ -994,8 +994,13 @@ class CompanyResponse(BaseModel):
 ```python
 class ServiceFeeTemplateResponse(BaseModel):
     id: int
+    preset_id: int | None = None
     contract_type: Literal['S', 'U']
     sort_order: int
+    # RAO-P1-011: FK do articles + nazwa z articles (jeśli article_id ustawiony)
+    article_id: int | None = None
+    article_name: str | None = None
+    default_price: Decimal | None = None
     name: str
     amount_from: Decimal | None
     amount_to: Decimal | None
@@ -1005,6 +1010,10 @@ class ServiceFeeTemplateResponse(BaseModel):
 
 class ServiceFeeTemplateCreate(BaseModel):
     contract_type: Literal['S', 'U']
+    preset_id: int | None = None
+    # RAO-P1-011: opcjonalna referencja do artykułu (gdy ustawiona, nazwa derive z articles)
+    article_id: int | None = None
+    default_price: Decimal | None = None
     name: str = Field(..., max_length=200)
     amount_from: Decimal | None = None
     amount_to: Decimal | None = None

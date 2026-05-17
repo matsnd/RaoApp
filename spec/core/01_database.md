@@ -112,22 +112,57 @@ CREATE TABLE company (
     -- UWAGA: Szablony usług dodatkowych przeniesione do tabeli service_fee_templates
 ) ENGINE=InnoDB COMMENT='Dane firmy - singleton (stara tabela: firma)';
 
+-- 1.7 Grupy szablonów usług dodatkowych (RAO-P1-011)
+-- Pozwalają grupować zestawy usług (np. "Standard", "Premium", "Budowa")
+CREATE TABLE fee_preset_groups (
+    id           INT AUTO_INCREMENT PRIMARY KEY,
+    company_id   INT          NOT NULL DEFAULT 1,
+    name         VARCHAR(200) NOT NULL COMMENT 'Nazwa grupy np. Standard, Premium',
+    contract_type CHAR(1)     NOT NULL COMMENT 'S=najem, U=usługa',
+    sort_order   INT          NOT NULL DEFAULT 0 COMMENT 'Kolejność wyświetlania',
+    is_default   BOOLEAN      NOT NULL DEFAULT FALSE COMMENT 'Domyślna grupa dla tego typu',
+    is_active    BOOLEAN      NOT NULL DEFAULT TRUE,
+    CONSTRAINT fk_fpg_company FOREIGN KEY (company_id) REFERENCES company(id),
+    INDEX idx_fpg_type (company_id, contract_type, sort_order)
+) ENGINE=InnoDB COMMENT='Grupy szablonów usług dodatkowych (RAO-P1-011)';
+
 -- 1.8 Szablony usług dodatkowych (zastępuje firma.uslugi1/2 + firma.oplata_*)
 -- Każdy wiersz = jedna pozycja z listy "-" np. "Transport: 400 zł"
+-- RAO-P1-011: Zesłownikowanie z artykułami - article_id wskazuje na articles (zwykle usługa, is_service=1)
 CREATE TABLE service_fee_templates (
     id           INT AUTO_INCREMENT PRIMARY KEY,
     company_id   INT          NOT NULL DEFAULT 1,
+    preset_id    INT          NULL     COMMENT 'Grupa szablonów (fee_preset_groups)',
     contract_type CHAR(1)     NOT NULL COMMENT 'S=najem, U=usługa',
     sort_order   INT          NOT NULL DEFAULT 0 COMMENT 'Kolejność wyświetlania',
-    name         VARCHAR(200) NOT NULL COMMENT 'Nazwa np. Transport, Czyszczenie',
+    article_id   INT          NULL     COMMENT 'RAO-P1-011: FK do articles (usługi)',
+    default_price DECIMAL(18,2) NULL  COMMENT 'RAO-P1-011: Domyślna cena z artykułu',
+    name         VARCHAR(200) NOT NULL COMMENT 'Nazwa np. Transport, Czyszczenie (snapshot z articles.name jeśli article_id ustawiony)',
     amount_from  DECIMAL(18,2) NULL    COMMENT 'Kwota od (NULL = brak)',
     amount_to    DECIMAL(18,2) NULL    COMMENT 'Kwota do (NULL = jednorazowa)',
     unit         VARCHAR(50)  NULL     COMMENT 'Jednostka np. zł, zł/h',
     description  VARCHAR(400) NULL     COMMENT 'Opis np. dostawa / odbiór',
     is_active    BOOLEAN      NOT NULL DEFAULT TRUE,
     CONSTRAINT fk_sft_company FOREIGN KEY (company_id) REFERENCES company(id),
-    INDEX idx_sft_type (company_id, contract_type, sort_order)
+    CONSTRAINT fk_sft_preset FOREIGN KEY (preset_id) REFERENCES fee_preset_groups(id) ON DELETE CASCADE,
+    CONSTRAINT fk_sft_article FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE SET NULL,
+    INDEX idx_sft_type (company_id, contract_type, sort_order),
+    INDEX idx_sft_article (article_id)
 ) ENGINE=InnoDB COMMENT='Szablony usług dodatkowych (stare: firma.uslugi1/2, firma.oplata_*)';
+
+-- 1.8b Pozycje szablonów usług dodatkowych (RAO-P1-011)
+-- Relacja N:M szablon (fee_preset_group) → artykuł z domyślną ceną
+-- Pozwala budować zestawy usług jako listę konkretnych artykułów + cena
+CREATE TABLE service_fee_template_items (
+    id           INT AUTO_INCREMENT PRIMARY KEY,
+    template_id  INT          NOT NULL COMMENT 'ID grupy szablonów (fee_preset_groups)',
+    article_id   INT          NOT NULL COMMENT 'ID artykułu (zwykle usługa)',
+    default_price DECIMAL(18,2) NULL  COMMENT 'Domyślna cena dla tego artykułu w tym szablonie',
+    sort_order   INT          NOT NULL DEFAULT 0 COMMENT 'Kolejność wyświetlania',
+    CONSTRAINT fk_sfti_template FOREIGN KEY (template_id) REFERENCES fee_preset_groups(id) ON DELETE CASCADE,
+    CONSTRAINT fk_sfti_article FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE,
+    INDEX idx_sfti_template (template_id, sort_order)
+) ENGINE=InnoDB COMMENT='Pozycje szablonów usług dodatkowych - link do artykułów (RAO-P1-011)';
 
 -- ============================================================
 -- 2. KONTRAHENCI (Contractors)

@@ -234,6 +234,7 @@
                     <thead>
                       <tr>
                         <th style="width:28%;">Nazwa</th>
+                        <th style="width:10%;">Cena dom.</th>
                         <th style="width:10%;">Kwota od</th>
                         <th style="width:10%;">Kwota do</th>
                         <th style="width:8%;">J.m.</th>
@@ -245,7 +246,15 @@
                     <tbody>
                       <template v-for="tpl in preset.templates" :key="tpl.id">
                         <tr v-if="editingPresetItemId === tpl.id" style="background:#fffff0;">
-                          <td><input v-model="editingPresetItemData.name" class="form-control form-control-xs" @keydown.enter="savePresetItem(preset.id)" @keydown.esc="editingPresetItemId = null" /></td>
+                          <td>
+                            <!-- RAO-P1-011: Article picker instead of text input -->
+                            <select v-model="editingPresetItemData.article_id" class="form-control form-control-xs" @change="onArticleSelected('edit')" style="margin-bottom:4px;">
+                              <option :value="null">-- Wybierz artykuł --</option>
+                              <option v-for="art in articleStore.list" :key="art.id" :value="art.id">{{ art.name }}</option>
+                            </select>
+                            <input v-model="editingPresetItemData.name" class="form-control form-control-xs" placeholder="Nazwa (auto z artykułu)" @keydown.enter="savePresetItem(preset.id)" @keydown.esc="editingPresetItemId = null" />
+                          </td>
+                          <td><input v-model="editingPresetItemData.default_price" type="number" step="0.01" class="form-control form-control-xs" placeholder="Cena domyślna" @keydown.enter="savePresetItem(preset.id)" @keydown.esc="editingPresetItemId = null" /></td>
                           <td><input v-model="editingPresetItemData.amount_from" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="savePresetItem(preset.id)" @keydown.esc="editingPresetItemId = null" /></td>
                           <td><input v-model="editingPresetItemData.amount_to" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="savePresetItem(preset.id)" @keydown.esc="editingPresetItemId = null" /></td>
                           <td><input v-model="editingPresetItemData.unit" class="form-control form-control-xs" placeholder="h, km…" @keydown.enter="savePresetItem(preset.id)" @keydown.esc="editingPresetItemId = null" /></td>
@@ -257,7 +266,8 @@
                           </td>
                         </tr>
                         <tr v-else @click="startEditPresetItem(tpl)" style="cursor:pointer;" :class="{ 'row-inactive-tpl': !tpl.is_active }">
-                          <td>{{ tpl.name }}</td>
+                          <td>{{ tpl.article_name || tpl.name }}</td>
+                          <td>{{ tpl.default_price ? Number(tpl.default_price).toFixed(2) + ' zł' : '—' }}</td>
                           <td>{{ tpl.amount_from ? Number(tpl.amount_from).toFixed(2) + ' zł' : '—' }}</td>
                           <td>{{ tpl.amount_to ? Number(tpl.amount_to).toFixed(2) + ' zł' : '—' }}</td>
                           <td>{{ tpl.unit || '—' }}</td>
@@ -271,7 +281,15 @@
                       </template>
                       <!-- new item row -->
                       <tr v-if="addingToPresetId === preset.id" style="background:#f0fff4;">
-                        <td><input v-model="newPresetItem.name" class="form-control form-control-xs" placeholder="Nazwa usługi" ref="newPresetItemNameRef" @keydown.enter="saveNewPresetItem(preset)" @keydown.esc="addingToPresetId = null" /></td>
+                        <td>
+                          <!-- RAO-P1-011: Article picker for new item -->
+                          <select v-model="newPresetItem.article_id" class="form-control form-control-xs" @change="onArticleSelected('new')" style="margin-bottom:4px;">
+                            <option :value="null">-- Wybierz artykuł --</option>
+                            <option v-for="art in articleStore.list" :key="art.id" :value="art.id">{{ art.name }}</option>
+                          </select>
+                          <input v-model="newPresetItem.name" class="form-control form-control-xs" placeholder="Nazwa (auto z artykułu)" ref="newPresetItemNameRef" @keydown.enter="saveNewPresetItem(preset)" @keydown.esc="addingToPresetId = null" />
+                        </td>
+                        <td><input v-model="newPresetItem.default_price" type="number" step="0.01" class="form-control form-control-xs" placeholder="Cena domyślna" @keydown.enter="saveNewPresetItem(preset)" @keydown.esc="addingToPresetId = null" /></td>
                         <td><input v-model="newPresetItem.amount_from" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="saveNewPresetItem(preset)" @keydown.esc="addingToPresetId = null" /></td>
                         <td><input v-model="newPresetItem.amount_to" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="saveNewPresetItem(preset)" @keydown.esc="addingToPresetId = null" /></td>
                         <td><input v-model="newPresetItem.unit" class="form-control form-control-xs" placeholder="h, km…" @keydown.enter="saveNewPresetItem(preset)" @keydown.esc="addingToPresetId = null" /></td>
@@ -300,9 +318,11 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useSettingsStore } from '@/stores/settings'
+import { useArticleStore } from '@/stores/articles'
 import api from '@/composables/useApi'
 
 const settingsStore = useSettingsStore()
+const articleStore = useArticleStore()
 
 const activeTab = ref('company')
 const tabs = [
@@ -331,7 +351,7 @@ const editingPresetName = ref('')
 const editingPresetItemId = ref(null)
 const editingPresetItemData = ref({})
 const addingToPresetId = ref(null)
-const newPresetItem = ref({ name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true })
+const newPresetItem = ref({ name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true, article_id: null, default_price: null })
 const newPresetItemNameRef = ref(null)
 
 onMounted(async () => {
@@ -339,6 +359,8 @@ onMounted(async () => {
   const company = await settingsStore.fetchCompany()
   if (company) Object.assign(companyForm.value, company)
   await loadFeePresets()
+  // RAO-P1-011: Load articles for picker
+  await articleStore.fetchList({ is_service: true })
 })
 
 async function loadFeePresets() {
@@ -388,6 +410,8 @@ function startEditPresetItem(tpl) {
   editingPresetItemId.value = tpl.id
   editingPresetItemData.value = {
     name: tpl.name,
+    article_id: tpl.article_id,
+    default_price: tpl.default_price,
     amount_from: tpl.amount_from,
     amount_to: tpl.amount_to,
     unit: tpl.unit || '',
@@ -397,11 +421,28 @@ function startEditPresetItem(tpl) {
   }
 }
 
+function onArticleSelected(mode) {
+  // RAO-P1-011: Auto-fill name from selected article
+  const data = mode === 'edit' ? editingPresetItemData.value : newPresetItem.value
+  if (data.article_id) {
+    const article = articleStore.list.find(a => a.id === data.article_id)
+    if (article) {
+      data.name = article.name
+      if (!data.default_price && article.price) {
+        data.default_price = article.price
+      }
+    }
+  }
+}
+
 async function savePresetItem(presetId) {
   if (!editingPresetItemData.value.name) return
   const payload = { ...editingPresetItemData.value }
   if (!payload.unit) payload.unit = null
   if (!payload.description) payload.description = null
+  // RAO-P1-011: Send article_id and default_price
+  if (!payload.article_id) payload.article_id = null
+  if (!payload.default_price) payload.default_price = null
   await api.put(`/settings/fee-preset-groups/${presetId}/templates/${editingPresetItemId.value}`, payload)
   editingPresetItemId.value = null
   await loadFeePresets()
@@ -440,6 +481,9 @@ async function saveNewPresetItem(preset) {
   }
   if (!payload.unit) payload.unit = null
   if (!payload.description) payload.description = null
+  // RAO-P1-011: Send article_id and default_price
+  if (!payload.article_id) payload.article_id = null
+  if (!payload.default_price) payload.default_price = null
   await api.post(`/settings/fee-preset-groups/${preset.id}/templates`, payload)
   addingToPresetId.value = null
   await loadFeePresets()
