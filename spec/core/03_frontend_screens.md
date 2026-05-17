@@ -548,6 +548,20 @@ Row 2 (pozycje + warunki):
 └────────────────────────────────┴───────────────────────────────┘
 ```
 
+Row 2.5 (rozliczenie umowy - RAO-P1-012):
+
+```
+┌─ Rozliczenie umowy — Koszt klienta vs Koszt firmy ─────────────────────────────┐
+│ ┌────────────────────────────────────────────────────────────────────────────┐ │
+│ │ Pozycja        │ Koszt klienta │ Koszt firmy │ Marża   │ Uwagi             │ │
+│ │ Koparka 320    │ [15000.00]    │ [12000.00]  │ 3000.00 │ [____________]   │ │
+│ │ Transport      │ [500.00]      │ [400.00]    │ 100.00  │ [____________]   │ │
+│ │ Czyszczenie    │ [300.00]      │ [200.00]    │ 100.00  │ [____________]   │ │
+│ └────────────────────────────────────────────────────────────────────────────┘ │
+│ Marża = koszt klienta - koszt firma (auto-calculated, green > 0, red < 0)       │
+└──────────────────────────────────────────────────────────────────────────────────┘
+```
+
 **Pozycje [+] otwiera `ArticlePicker.vue` (replika FormAwybor).**
 **Warunki [+] otwiera `ConditionFormView.vue` (replika FormW).**
 

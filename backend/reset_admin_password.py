@@ -27,7 +27,7 @@ async def reset_admin_password():
             return
 
         # Zhashuj nowe hasło
-        new_hash = hash_password("password")
+        new_hash = hash_password("admin123")
 
         # Zaktualizuj w bazie
         await db.execute(
@@ -38,7 +38,7 @@ async def reset_admin_password():
         )
         await db.commit()
 
-        print(f"Hasło dla użytkownika 'admin' (ID: {user.id}) zostało zmienione na 'password'")
+        print(f"Hasło dla użytkownika 'admin' (ID: {user.id}) zostało zmienione na 'admin123'")
 
 
 if __name__ == "__main__":

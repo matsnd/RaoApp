@@ -46,13 +46,13 @@ test.describe('TEST-04: Umowy', () => {
     await navigateTo(page, 'contracts')
     await page.getByRole('button', { name: '+' }).click()
 
-    await expect(page).toHaveURL(/\/contracts\/new/, { timeout: 8_000 })
+    await expect(page).toHaveURL(/\/rao\/contracts\/new/, { timeout: 8_000 })
     await expect(page.getByRole('combobox').first()).toBeVisible({ timeout: 5_000 })
     await expect(page.getByRole('button', { name: 'Wybierz' })).toBeVisible()
   })
 
   test('walidacja — brak kontrahenta blokuje zapis', async ({ page }) => {
-    await page.goto('/contracts/new', { waitUntil: 'domcontentloaded', timeout: 15_000 })
+    await page.goto('/rao/contracts/new', { waitUntil: 'domcontentloaded', timeout: 15_000 })
     await page.getByRole('button', { name: 'Zapisz' }).click()
 
     await expect(page).toHaveURL(/\/contracts\/new/, { timeout: 5_000 })
@@ -74,12 +74,12 @@ test.describe('TEST-04: Umowy', () => {
     await page.locator('input[type="date"]').nth(0).fill(today)
 
     await page.getByRole('button', { name: 'Zapisz' }).click()
-    await expect(page).toHaveURL(/\/contracts\/\d+\/edit/, { timeout: 15_000 })
+    await expect(page).toHaveURL(/\/rao\/contracts\/\d+\/edit/, { timeout: 15_000 })
     await expect(page.locator('.toolbar-info')).toContainText('Umowa:', { timeout: 10_000 })
   })
 
   test('sekcja pozycji umowy jest widoczna w trybie edycji', async ({ page }) => {
-    await page.goto(`/contracts/${contractId}/edit`, { waitUntil: 'networkidle', timeout: 20_000 })
+    await page.goto(`/rao/contracts/${contractId}/edit`, { waitUntil: 'networkidle', timeout: 20_000 })
     await expect(page.locator('.toolbar-info')).toContainText('Umowa:', { timeout: 10_000 })
 
     await expect(page.locator('.section-title', { hasText: 'Pozycje umowy' })).toBeVisible({ timeout: 8_000 })

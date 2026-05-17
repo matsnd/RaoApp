@@ -279,6 +279,67 @@
             </tbody>
           </table>
         </div>
+
+        <!-- Settlements section (RAO-P1-012) -->
+        <div v-if="isEdit" class="page-card" style="margin-bottom:var(--spacing-md);">
+          <div style="display:flex;align-items:center;margin-bottom:12px;">
+            <span class="section-title" style="margin:0;border:none;">Rozliczenie umowy</span>
+            <span style="font-size:11px;color:#718096;margin-left:12px;">Koszt klienta vs koszt firmy</span>
+          </div>
+          <table class="data-grid">
+            <thead>
+              <tr>
+                <th>Pozycja</th>
+                <th style="width:15%;">Koszt klienta (zł)</th>
+                <th style="width:15%;">Koszt firmy (zł)</th>
+                <th style="width:12%;">Marża (zł)</th>
+                <th>Uwagi</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="!settlements.length">
+                <td colspan="5" class="empty-state">Brak danych rozliczenia — pozycje umowy pojawią się tutaj po dodaniu</td>
+              </tr>
+              <tr v-for="s in settlements" :key="s.id">
+                <td>{{ getPositionName(s.position_id) }}</td>
+                <td>
+                  <input 
+                    v-model.number="s.cost_client" 
+                    type="number" 
+                    step="0.01" 
+                    class="form-control form-control-xs" 
+                    @change="updateSettlement(s)"
+                    placeholder="0.00"
+                  />
+                </td>
+                <td>
+                  <input 
+                    v-model.number="s.cost_company" 
+                    type="number" 
+                    step="0.01" 
+                    class="form-control form-control-xs" 
+                    @change="updateSettlement(s)"
+                    placeholder="0.00"
+                  />
+                </td>
+                <td>
+                  <span :style="{ color: s.margin > 0 ? 'green' : s.margin < 0 ? 'red' : 'inherit', fontWeight: '600' }">
+                    {{ s.margin !== null ? Number(s.margin).toFixed(2) + ' zł' : '—' }}
+                  </span>
+                </td>
+                <td>
+                  <input 
+                    v-model="s.notes" 
+                    type="text" 
+                    class="form-control form-control-xs" 
+                    @change="updateSettlement(s)"
+                    placeholder="Uwagi..."
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
     </div>
@@ -587,6 +648,9 @@ const showNewFeeRow = ref(false)
 const newFeeData = ref({ name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true })
 const newFeeNameInput = ref(null)
 
+// RAO-P1-012: Settlements
+const settlements = ref([])
+
 
 // Format description with actual amounts instead of placeholders
 // Format: "{name}: {amount_from} zł - {amount_to} zł" or "{name}: {amount_from} zł ({description})"
@@ -654,6 +718,7 @@ onMounted(async () => {
       }
       await contractStore.fetchPositions(Number(props.id))
       await contractStore.fetchServiceFees(Number(props.id))
+      await fetchSettlements(Number(props.id))
     } finally {
       loading.value = false
     }
@@ -724,6 +789,40 @@ async function generateReport(type) {
     await contractStore.generateReport(Number(props.id), type)
   } catch (e) {
     alert('Błąd generowania raportu')
+  }
+}
+
+// RAO-P1-012: Settlement functions
+async function fetchSettlements(contractId) {
+  try {
+    const { data } = await api.get(`/settlements/contract/${contractId}`)
+    settlements.value = data
+  } catch (e) {
+    console.error('Failed to fetch settlements:', e)
+    settlements.value = []
+  }
+}
+
+function getPositionName(positionId) {
+  if (!positionId) return '—'
+  const pos = contractStore.positions.find(p => p.id === positionId)
+  if (pos) return pos.article_name || `Pozycja #${positionId}`
+  return `Pozycja #${positionId}`
+}
+
+async function updateSettlement(settlement) {
+  try {
+    await api.put(`/settlements/${settlement.id}`, {
+      cost_client: settlement.cost_client,
+      cost_company: settlement.cost_company,
+      notes: settlement.notes
+    })
+    // Re-fetch to get updated margin
+    await fetchSettlements(Number(props.id))
+  } catch (e) {
+    alert('Błąd aktualizacji rozliczenia')
+    // Revert to original values
+    await fetchSettlements(Number(props.id))
   }
 }
 

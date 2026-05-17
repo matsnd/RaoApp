@@ -25,20 +25,20 @@ test.describe('TEST-02: Kontrahenci', () => {
   })
 
   test('tworzy kontrahenta i wraca do edycji', async ({ page }) => {
-    await page.goto('/contractors/new', { waitUntil: 'domcontentloaded', timeout: 15_000 })
+    await page.goto('/rao/contractors/new', { waitUntil: 'domcontentloaded', timeout: 15_000 })
     await expect(page.getByPlaceholder('Nazwa firmy lub imię i nazwisko')).toBeVisible({ timeout: 8_000 })
 
     await page.getByPlaceholder('Nazwa firmy lub imię i nazwisko').fill(`Test E2E ${TS}`)
     await page.getByPlaceholder('0000000000').fill(NIP)
     await page.getByRole('button', { name: 'Zapisz' }).click()
 
-    await expect(page).toHaveURL(/\/contractors\/\d+\/edit/, { timeout: 10_000 })
+    await expect(page).toHaveURL(/\/rao\/contractors\/\d+\/edit/, { timeout: 10_000 })
     await expect(page.locator('.toolbar-info')).toContainText(`Test E2E ${TS}`, { timeout: 8_000 })
     await expect(page.locator('text=Adresy dostawy')).toBeVisible({ timeout: 5_000 })
   })
 
   test('walidacja — brak wymaganej nazwy', async ({ page }) => {
-    await page.goto('/contractors/new', { waitUntil: 'domcontentloaded', timeout: 15_000 })
+    await page.goto('/rao/contractors/new', { waitUntil: 'domcontentloaded', timeout: 15_000 })
     await page.getByRole('button', { name: 'Zapisz' }).click()
 
     await expect(page).toHaveURL(/\/contractors\/new/, { timeout: 5_000 })

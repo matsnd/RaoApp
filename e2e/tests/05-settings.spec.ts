@@ -9,19 +9,19 @@ test.describe('TEST-05: Ustawienia', () => {
 
   test('otwiera widok ustawień', async ({ page }) => {
     await page.getByRole('button', { name: 'Ustawienia' }).click()
-    await expect(page).toHaveURL(/\/settings/, { timeout: 8_000 })
+    await expect(page).toHaveURL(/\/rao\/settings/, { timeout: 8_000 })
     await expect(page.locator('.toolbar-info')).toContainText('Ustawienia', { timeout: 5_000 })
   })
 
   test('zakładka Dane firmy ładuje dane z bazy', async ({ page }) => {
-    await page.goto('/settings', { waitUntil: 'domcontentloaded', timeout: 15_000 })
+    await page.goto('/rao/settings', { waitUntil: 'domcontentloaded', timeout: 15_000 })
     await expect(page.getByRole('button', { name: 'Dane firmy' })).toBeVisible({ timeout: 8_000 })
     await expect(page.locator('text=Dane firmy').first()).toBeVisible()
     await expect(page.getByRole('button', { name: 'Zapisz dane firmy' })).toBeVisible({ timeout: 5_000 })
   })
 
   test('przełącza zakładki poprawnie', async ({ page }) => {
-    await page.goto('/settings', { waitUntil: 'domcontentloaded', timeout: 15_000 })
+    await page.goto('/rao/settings', { waitUntil: 'domcontentloaded', timeout: 15_000 })
     const panel = page.locator('.panel').first()
 
     await panel.getByRole('button', { name: 'Handlowcy' }).click()
@@ -38,7 +38,7 @@ test.describe('TEST-05: Ustawienia', () => {
   })
 
   test('zapisuje dane firmy bez błędu', async ({ page }) => {
-    await page.goto('/settings', { waitUntil: 'domcontentloaded', timeout: 15_000 })
+    await page.goto('/rao/settings', { waitUntil: 'domcontentloaded', timeout: 15_000 })
     await expect(page.getByRole('button', { name: 'Zapisz dane firmy' })).toBeVisible({ timeout: 8_000 })
 
     await page.getByRole('button', { name: 'Zapisz dane firmy' }).click()
