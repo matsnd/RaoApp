@@ -67,7 +67,7 @@ echo "    OK — frontend/node_modules gotowy"
 # ------------------------------------------------------------
 # 5. E2E (Playwright + Chromium)
 # ------------------------------------------------------------
-echo "==> [5/6] E2E + Playwright Chromium"
+echo "==> [5/7] E2E + Playwright Chromium"
 cd e2e
 npm ci --silent
 npx playwright install --with-deps chromium
@@ -75,9 +75,27 @@ cd "$REPO_ROOT"
 echo "    OK — e2e gotowy"
 
 # ------------------------------------------------------------
-# 6. Pierwsze uruchomienie backendu (utworzy schemat z modeli SQLAlchemy)
+# 6. MCP Vision server (Claude Vision dla analizy screenshotów UI)
 # ------------------------------------------------------------
-echo "==> [6/6] Inicjalizacja schematu DB (uvicorn startup events)"
+echo "==> [6/7] MCP Vision server (mcp-vision/)"
+if [ -d "mcp-vision" ]; then
+    cd mcp-vision
+    npm install --silent
+    cd "$REPO_ROOT"
+    echo "    OK — mcp-vision deps zainstalowane"
+    if [ -z "${ANTHROPIC_API_KEY:-}" ] && ! grep -q "^ANTHROPIC_API_KEY=." .env 2>/dev/null; then
+        echo "    ⚠️  UWAGA: brak ANTHROPIC_API_KEY w .env — vision tools będą zwracać błąd."
+        echo "        Uzyskaj klucz: https://console.anthropic.com/settings/keys"
+        echo "        Konfiguracja MCP w Devin Settings: zobacz .devin/MCP_CONFIG.md"
+    fi
+else
+    echo "    SKIP — folder mcp-vision/ nie istnieje"
+fi
+
+# ------------------------------------------------------------
+# 7. Pierwsze uruchomienie backendu (utworzy schemat z modeli SQLAlchemy)
+# ------------------------------------------------------------
+echo "==> [7/7] Inicjalizacja schematu DB (uvicorn startup events)"
 cd backend
 # shellcheck disable=SC1091
 source .venv/bin/activate

@@ -5,7 +5,10 @@ allowed-tools:
   - read
   - grep
   - glob
+  - mcp_call_tool
 permissions:
+  allow:
+    - MCP(rao-vision)
   deny:
     - write
     - edit
@@ -113,3 +116,33 @@ Jestes **UX Designerem** dla RAO. Twoja rola to ZROZUMIENIE z perspektywy uzytko
 - Nie projektujesz wygladu (kolory, fonty - to UI Designer)
 - Nie testujesz technicznie (to QA)
 - Nie bierzesz pod uwage feasibility - opisujesz idealny UX, frontend dev oceni co da sie zrobic
+
+## Vision Verification (kiedy używać rao-vision)
+
+**Zasada:** Używaj MCP `rao-vision` bardzo rzadko - tylko gdy ocena intuicyjności layoutu jest niemożliwa programatycznie.
+
+**Użyj vision TYLKO gdy:**
+- ❌ Ocena czy layout jest intuicyjny dla użytkownika (np. czy button jest w widocznym miejscu)
+- ❌ Ocena czy hierarchy wizualna prowadzi użytkownika (np. czy główna akcja jest widoczna)
+- ❌ Ocena czy elementy są rozpoznawalne (np. czy ikony są zrozumiałe bez tooltipów)
+
+**NIE używaj vision gdy:**
+- ✅ Ocena tekstów/labeli (read Vue template)
+- ✅ Ocena flow/nawigacji (read router config)
+- ✅ Ocena feedback messages (grep po komunikatach)
+- ✅ Ocena walidacji (read Vue component logic)
+- ✅ Ocena accessibility (semantyczny HTML - read template)
+
+**Jak używać:**
+```python
+mcp_call_tool(
+    server_name="rao-vision",
+    tool_name="screenshot_and_analyze",
+    arguments={
+        "url": "http://localhost:5173/<sciezka-widoku>",
+        "question": "Czy layout jest intuicyjny? Czy użytkownik wie gdzie kliknąć aby osiągnąć cel? Czy hierarchy wizualna prowadzi do głównej akcji?"
+    }
+)
+```
+
+**Priorytet:** Zawsze programatyczna weryfikacja (teksty, flow, logika) → Vision tylko przy ocenie intuicyjności layoutu (bardzo rzadko)

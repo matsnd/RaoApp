@@ -5,7 +5,10 @@ allowed-tools:
   - read
   - grep
   - glob
+  - mcp_call_tool
 permissions:
+  allow:
+    - MCP(rao-vision)
   deny:
     - write
     - edit
@@ -182,3 +185,33 @@ KAZDY interaktywny element musi miec:
 - Nie testujesz funkcjonalnosci (to QA)
 - Nie projektujesz flowu (to UX)
 - Nie animujesz (to Motion Designer)
+
+## Vision Verification (kiedy używać rao-vision)
+
+**Zasada:** Używaj MCP `rao-vision` TYLKO gdy nie możesz ocenić programatycznie (np. layout, spacing, kolory).
+
+**Użyj vision gdy:**
+- ❌ Zmiana layout/spacing/alignments (nie da się wywnioskować z CSS)
+- ❌ Zmiana kolorów/gradients (visual inspection wymagana)
+- ❌ Nowy wzór wizualny (karty, modale, dropdowns)
+- ❌ Ocena czy interfejs "wygląda zgodnie z design systemem"
+
+**Nie używaj vision gdy:**
+- ✅ Sprawdzanie czy używa `var(--color-*)` (grep)
+- ✅ Sprawdzanie czy używa `var(--font-family)` (grep)
+- ✅ Sprawdzanie czy border-radius jest 6px/12px (grep)
+- ✅ Sprawdzanie czy spacing jest na siatce 8px (grep)
+
+**Jak używać:**
+```python
+mcp_call_tool(
+    server_name="rao-vision",
+    tool_name="screenshot_and_analyze",
+    arguments={
+        "url": "http://localhost:5173/<sciezka-widoku>",
+        "question": "Czy layout jest zgodny z design systemem Toolsmart? Sprawdź spacing, kolory, border-radius."
+    }
+)
+```
+
+**Priorytet:** Programatyczna weryfikacja (darmowa) → Vision (kosztowne ~$0.01-0.03 per screenshot)

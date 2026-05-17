@@ -181,7 +181,10 @@ Musi przejsc bez bledow.
 
 1. `npx vue-tsc --noEmit` - typy OK
 2. `npm run build` - build OK
-3. Manualny test w przegladarce (lub Playwright MCP screenshot)
+3. **Weryfikacja:**
+   - Programatyczna: sprawdź Vue component template przez grep/read (dla pól, tekstów, logiki)
+   - Vision: TYLKO gdy zmiana dotyczy layout/spacing/kolorów/animacji (użyj MCP rao-vision)
+   - Priorytet: programatyczna (darmowa) → vision (kosztowne)
 4. Aktualizuj `spec/core/03_frontend_screens.md`
 5. Sprawdź `spec/backlog/BACKLOG.md` — aktualizuj status tasku jeśli applicable
 

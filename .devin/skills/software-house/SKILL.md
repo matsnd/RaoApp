@@ -145,6 +145,118 @@ Przed zamknieciem zadania:
 - `ui-designer` -> "Design system zachowany?"
 - `security-auditor` -> "Brak dziur?"
 
+### Krok 6.5 - Vision Verification (tylko gdy potrzebne)
+
+**Zasada:** Vision tools (rao-vision) są kosztowne (~$0.01-0.03 per screenshot). Używaj ich TYLKO gdy nie możesz zweryfikować programatycznie.
+
+#### Decyzja: Programatyczna vs Vision
+
+**Użyj weryfikacji programatycznej (darmowa) gdy:**
+- ✅ Dodanie pola formularza → sprawdź DOM/HTML przez `grep` lub `read`
+- ✅ Zmiana logiki biznesowej → sprawdź kod service/router
+- ✅ Dodanie routing → sprawdź `frontend/src/router/`
+- ✅ Zmiana tekstu/labeli → sprawdź Vue component template
+- ✅ Dodanie API endpoint → sprawdź router + schemas
+- ✅ Zmiana struktury danych → sprawdź models + DDL
+
+**Użyj vision (kosztowne) gdy:**
+- ❌ Zmiana layout/spacing/alignments (nie da się wywnioskować z CSS)
+- ❌ Zmiana kolorów/gradients (visual inspection wymagana)
+- ❌ Nowa animacja/mikro-interakcja (motion design)
+- ❌ Zmiana typografii/hierarchii wizualnej
+- ❌ Responsywność na różnych breakpointach
+- ❌ Złożone UI patterns (karty, modale, dropdowns)
+- ❌ Zadanie jawnie UX/UI designer wrażliwe (np. "popraw wygląd formularza")
+
+#### Proces decyzyjny
+
+1. **Sprawdź czy można zweryfikować programatycznie:**
+   ```bash
+   # Przykład: dodanie pola delivery_address
+   grep -r "delivery_address" frontend/src/contracts/
+   # Jeśli znajdziesz → programatyczna weryfikacja wystarcza
+   ```
+
+2. **Jeśli NIE → użyj vision:**
+   - Uruchom frontend (jeśli nie działa)
+   - Wywołaj `rao-vision.screenshot_and_analyze` dla zmodyfikowanego widoku
+   - Zadaj konkretne pytanie (nie "czy wygląda OK", ale "czy spacing jest 16px?")
+
+3. **Sekwencja vision:**
+   ```
+   url: "http://localhost:5173/<sciezka-widoku>"
+   question: "Czy <konkretna zmiana> jest zgodna z design systemem? Sprawdź <aspekt>."
+   ```
+   - `verdict: "OK"` → kontynuuj
+   - `verdict: "MINOR_ISSUES"` → log issue, kontynuuj
+   - `verdict: "MAJOR_ISSUES"` → fix + re-vision (max 2 iteracje)
+
+#### Tryb --full-auto
+
+Vision check jest **opcjonalny** nawet w --full-auto. Używaj go tylko gdy:
+- Zadanie jawnie dotyczy wyglądu (layout, kolory, animacje)
+- Programatyczna weryfikacja jest niemożliwa
+- User prompt zawiera słowa kluczowe: "wygląd", "design", "UI", "wizualne", "poprawić wygląd"
+
+#### Optymalizacja kosztów
+
+- **1 screenshot max** — nie robić 5 widoków dla jednego zadania
+- **Konkretne pytanie** — "Czy button jest primary color?" vs "Czy wygląda OK?"
+- **Reuse screenshots** — jeśli e2e test już zrobił screenshot → `analyze_screenshot`
+- **Batch vision** — jeśli multiple UI changes → 1 screenshot z pytaniem o wszystkie
+
+#### Priorytety weryfikacji
+
+1. **Programatyczna** (darmowa, szybka) → zawsze pierwsza
+2. **Vision** (kosztowna, wolna) → tylko gdy programatyczna niemożliwa
+
+#### Przykłady praktyczne
+
+**Przykład 1: Dodanie pola formularza**
+```
+Zadanie: "Dodaj pole delivery_address do formularza umowy"
+Decyzja: Programatyczna weryfikacja
+Dlaczego: Można sprawdzić czy pole jest w Vue template przez grep/read
+Jak: grep -r "delivery_address" frontend/src/contracts/ContractFormView.vue
+Vision: NIE potrzebne
+```
+
+**Przykład 2: Zmiana koloru przycisku**
+```
+Zadanie: "Zmień kolor button 'Zapisz' na czerwony"
+Decyzja: Vision verification
+Dlaczego: Kolory są wizualne, nie da się wywnioskować z kodu
+Jak: rao-vision.screenshot_and_analyze({question: "Czy button Zapisz jest czerwony?"})
+Vision: TAK potrzebne
+```
+
+**Przykład 3: Poprawa layout formularza**
+```
+Zadanie: "Popraw spacing w formularzu logowania"
+Decyzja: Vision verification
+Dlaczego: Spacing/alignments są wizualne
+Jak: rao-vision.screenshot_and_analyze({question: "Czy spacing między inputami jest 16px zgodnie z design systemem?"})
+Vision: TAK potrzebne
+```
+
+**Przykład 4: Dodanie API endpoint**
+```
+Zadanie: "Dodaj endpoint GET /contracts/{id}/positions"
+Decyzja: Programatyczna weryfikacja
+Dlaczego: Można sprawdzić router + schemas + curl
+Jak: curl http://localhost:8000/rao/api/contracts/1/positions
+Vision: NIE potrzebne (backend-only)
+```
+
+**Przykład 5: Zmiana tekstu labela**
+```
+Zadanie: "Zmień label 'Login' na 'Email'"
+Decyzja: Programatyczna weryfikacja
+Dlaczego: Można sprawdzić Vue template
+Jak: grep "Login" frontend/src/auth/LoginView.vue
+Vision: NIE potrzebne
+```
+
 ### Krok 7 - Spec sync (krytyczne!)
 
 Po implementacji **ZAWSZE** sprawdz `git diff --stat spec/core/`. Jesli pusty przy zmianach funkcjonalnych - aktualizuj odpowiedni plik (mapa w `spec/AGENT_PLAYBOOK.md`).
@@ -182,6 +294,7 @@ To tworzy historie zmian do rollbacku (`git revert HEAD`) i sledzenia postepow.
 9. **Zero `kill-port`/`pkill`** - port zajety -> kolejny wolny
 10. **Lokalne commity po kazdym zadaniu** - po zakonczeniu zadania wykonaj `git commit` z opisem zmian (format: `feat(category): opis`). To tworzy historie do rollbacku i sledzenia postepow.
 11. **Auto-rollback w --full-auto** - jeśli 3 próby fixa nie zadziałają → `git revert HEAD` i spróbuj innej strategii
+12. **Vision Verification tylko gdy potrzebne** - używaj MCP `rao-vision` TYLKO gdy nie możesz zweryfikować programatycznie (patrz Krok 6.5). Priorytet: weryfikacja programatyczna (darmowa) → vision (kosztowna). W trybie `--full-auto` vision jest opcjonalne, nie obowiązkowe.
 
 ## Wzor prompta dla subagenta
 
@@ -245,7 +358,10 @@ OGRANICZENIA:
    - security-auditor: "Sanityzacja inputu? Auth na endpoint?"
    - qa-engineer: "Edge cases: pusty string, 500 znakow, polskie znaki?"
 
-7. **Verification:** uruchom backend (port 8001 jesli 8000 zajete), curl `/contracts`, sprawdz UI w playwright MCP screenshot.
+7. **Verification:**
+   - Programatyczna: sprawdź czy `delivery_address` jest w Vue component template
+   - Vision: TYLKO jeśli zmiana dotyczy layout/spacing (np. pozycja pola w formularzu)
+   - Jeśli vision potrzebne → `rao-vision.screenshot_and_analyze` z konkretnym pytaniem
 
 8. **Spec sync:** verify `git diff --stat spec/core/`.
 
@@ -272,6 +388,7 @@ OGRANICZENIA:
 3. **Auto-rollback przy błędach** - jeśli 3 próby fixa nie zadziałają → `git revert HEAD`
 4. **Max 15 prób całkowitych** - jeśli wszystko zawiedzie, final report z błędem
 5. **Żaden interaction** - użytkownik nie jest pytany o nic podczas procesu
+6. **Inteligentna weryfikacja** - vision tylko gdy potrzebne (layout, kolory, animacje), programatyczna w pozostałych przypadkach
 
 ### Kiedy używać --full-auto
 ✅ **Dobre dla:**
@@ -292,3 +409,36 @@ OGRANICZENIA:
 - Sekrety są sprawdzane przez gitleaks przed commitem
 - Audit trail jest zachowany w git historii
 - Smoke test (`e2e/tests/01-login.spec.ts`) jest wymuszany przed kontynuacją
+- Vision verification jest inteligentne — tylko gdy naprawdę potrzebne (koszt optymalizacja)
+
+---
+
+## Zmiany w workflow (Refactor 2026-05-17)
+
+### Co zmieniono w Krok 6.5 (Vision Verification):
+
+**Przed:**
+- Vision był obowiązkowy dla każdego zadania UI
+- W --full-auto vision był MANDATORY
+- Agresywne używanie screenshotów (koszt ~$0.01-0.03 per screenshot)
+
+**Po:**
+- Vision jest OPCJONALNY — używany tylko gdy programatyczna weryfikacja niemożliwa
+- Priorytet: programatyczna (darmowa) → vision (kosztowna)
+- Inteligentna decyzja na podstawie typu zadania
+- Konkretne przykłady kiedy używać vision a kiedy nie
+
+**Korzyści:**
+- ⚡ Szybsze execution (vision jest wolne)
+- 💰 Niższe koszty (mniej screenshotów)
+- 🎯 Lepsze decyzje (vision tylko gdy naprawdę potrzebne)
+- 📝 Przykłady praktyczne dla agentów
+
+**Mapa decyzyjna:**
+```
+Zadanie UI?
+├─ Tak → Czy można zweryfikować programatycznie?
+│   ├─ Tak → grep/read/curl (darmowe)
+│   └─ Nie → rao-vision (kosztowne)
+└─ Nie → Programatyczna weryfikacja (darmowa)
+```

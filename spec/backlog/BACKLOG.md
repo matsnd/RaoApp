@@ -743,41 +743,6 @@ Zrefaktoryzować system prowizyjny tak, aby prowizja handlowca była liczona od 
 
 UX, drobne tech debt, nice-to-have.
 
-### [RAO-P2-013] Weryfikacja screenshotów #2, #3, #4, #5
-
-```yaml
-id: RAO-P2-013
-priority: P2
-size: XS
-status: todo
-classification: qa
-roles: [qa-engineer, product-owner]
-depends_on: []
-blocks: []
-source: client
-source_date: 2026-05-17
-specs_to_update: []
-migration_impact: no
-security_impact: low
-```
-
-**Job-to-be-done:**
-Zweryfikować 4 zrzuty ekranu z folderu `backlog_to_refinement/` i zdefiniować wymagania. Screenshoty nie zostały wczytane przez system — wymagana ręczna weryfikacja przez Product Ownera.
-
-**Acceptance criteria (DoD):**
-- [ ] PO: Przejrzenie screenshotów #2 (220919.png), #3 (221011.png), #4 (221042.png), #5 (20260517221341.png)
-- [ ] PO: Zdefiniowanie co jest na screenshotach i jakie są wymagania
-- [ ] PO: Utworzenie odpowiednich historyjek w backlogu (P1/P2/P3)
-- [ ] QA: Usunięcie tego taska po utworzeniu właściwych historyjek
-
-**Uwaga:** Ten task jest placeholder — po weryfikacji screenshotów należy go usunąć i zastąpić właściwymi historyjkami.
-
-**Pliki do zmiany:** `spec/backlog/BACKLOG.md` (usunięcie tego taska)
-**ROI:** Brakujące wymagania z screenshotów mogą być krytyczne dla go-live
-**Estimate:** 1h (XS)
-
----
-
 ### [RAO-P2-001] Kolumna "Adres dostawy" w liście umów (B2)
 
 ```yaml
@@ -1702,6 +1667,298 @@ System musi umożliwiać rezerwację maszyn na przyszłe terminy. Maszyna zablok
 
 **Pliki do zmiany:** nowe moduły backend/, ContractFormView.vue, ArticlePicker.vue
 **Estimate:** 8h (M)
+
+---
+
+### [RAO-P1-016] Pole "reprezentowany przez" w formularzu kontrahenta (#2)
+
+```yaml
+id: RAO-P1-016
+priority: P1
+size: XS
+status: triaged
+classification: cross-stack
+roles: [frontend-dev, backend-dev]
+depends_on: []
+blocks: []
+source: client
+source_date: 2026-05-17
+specs_to_update:
+  - core/01_database.md
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+migration_impact: yes
+security_impact: low
+```
+
+**Job-to-be-done:**
+Dodać pole "reprezentowany przez" w formularzu kontrahenta — osoba reprezentująca kontrahenta w umowie.
+
+**Acceptance criteria (DoD):**
+- [ ] DB: Nowa kolumna `represented_by VARCHAR(100) NULL` w tabeli `contractors`
+- [ ] Backend: Nowe pole w `Contractor` schema (Pydantic)
+- [ ] Frontend: Nowe pole `represented_by` w ContractorFormView (text input, max 100 znaków)
+- [ ] API: Endpoint `PUT /contractors/{id}` aktualizuje pole
+- [ ] PDF: Pole widoczne w umowie (sekcja "Dane kontrahenta")
+- [ ] `core/01_database.md` zaktualizowany
+- [ ] `core/02_backend_api.md` zaktualizowany
+- [ ] `core/03_frontend_screens.md` zaktualizowany
+
+**Migration plan (RAO deterministic):**
+1. `core/01_database.md` — finalny DDL
+2. `backend/contractors/models.py` — SQLAlchemy
+3. `backend/main.py` startup — ALTER TABLE ADD COLUMN
+4. **Verification gate:**
+   - [ ] `DROP DATABASE rao_new && CREATE` → restart backend → schema OK
+   - [ ] Drugi restart backend bez błędu
+
+**QA DoD:**
+- [ ] E2E test w `02-contractor.spec.ts` dla pola "reprezentowany przez"
+- [ ] Smoke test `01-login.spec.ts` PASS
+
+**Pliki do zmiany:** `backend/contractors/models.py`, `schemas.py`, `ContractorFormView.vue`, `backend/reports/templates/contract.html`
+**ROI:** Feature parity — pole było w starej aplikacji
+**Estimate:** 2h (XS)
+
+---
+
+### [RAO-P1-017] Pole "osoba kontaktowa na budowie" w formularzu umowy (#2)
+
+```yaml
+id: RAO-P1-017
+priority: P1
+size: XS
+status: triaged
+classification: cross-stack
+roles: [frontend-dev, backend-dev]
+depends_on: []
+blocks: []
+source: client
+source_date: 2026-05-17
+specs_to_update:
+  - core/01_database.md
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+migration_impact: yes
+security_impact: low
+```
+
+**Job-to-be-done:**
+Dodać pole "osoba kontaktowa na budowie" w formularzu umowy — osoba do kontaktu w miejscu wykonania usługi.
+
+**Acceptance criteria (DoD):**
+- [ ] DB: Nowa kolumna `contact_person_on_site VARCHAR(100) NULL` w tabeli `contracts`
+- [ ] Backend: Nowe pole w `Contract` schema (Pydantic)
+- [ ] Frontend: Nowe pole `contact_person_on_site` w ContractFormView (text input, max 100 znaków)
+- [ ] API: Endpoint `PUT /contracts/{id}` aktualizuje pole
+- [ ] PDF: Pole widoczne w umowie (sekcja "Dane dostawy")
+- [ ] `core/01_database.md` zaktualizowany
+- [ ] `core/02_backend_api.md` zaktualizowany
+- [ ] `core/03_frontend_screens.md` zaktualizowany
+
+**Migration plan (RAO deterministic):**
+1. `core/01_database.md` — finalny DDL
+2. `backend/contracts/models.py` — SQLAlchemy
+3. `backend/main.py` startup — ALTER TABLE ADD COLUMN
+4. **Verification gate:**
+   - [ ] `DROP DATABASE rao_new && CREATE` → restart backend → schema OK
+   - [ ] Drugi restart backend bez błędu
+
+**QA DoD:**
+- [ ] E2E test w `04-contract.spec.ts` dla pola "osoba kontaktowa"
+- [ ] Smoke test `01-login.spec.ts` PASS
+
+**Pliki do zmiany:** `backend/contracts/models.py`, `schemas.py`, `ContractFormView.vue`, `backend/reports/templates/contract.html`
+**ROI:** Ułatwia komunikację na budowie
+**Estimate:** 2h (XS)
+
+---
+
+### [RAO-P1-018] Pole "email do przesłania faktury" w formularzu kontrahenta (#2)
+
+```yaml
+id: RAO-P1-018
+priority: P1
+size: XS
+status: triaged
+classification: cross-stack
+roles: [frontend-dev, backend-dev]
+depends_on: []
+blocks: []
+source: client
+source_date: 2026-05-17
+specs_to_update:
+  - core/01_database.md
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+migration_impact: yes
+security_impact: low
+```
+
+**Job-to-be-done:**
+Dodać pole "email do przesłania faktury" w formularzu kontrahenta — osobny email dla wysyłki faktur.
+
+**Acceptance criteria (DoD):**
+- [ ] DB: Nowa kolumna `invoice_email VARCHAR(255) NULL` w tabeli `contractors`
+- [ ] Backend: Nowe pole w `Contractor` schema (Pydantic, walidacja email)
+- [ ] Frontend: Nowe pole `invoice_email` w ContractorFormView (email input, walidacja)
+- [ ] API: Endpoint `PUT /contractors/{id}` aktualizuje pole
+- [ ] Backend: Logika wysyłki faktur — użyj `invoice_email` zamiast głównego emailu
+- [ ] `core/01_database.md` zaktualizowany
+- [ ] `core/02_backend_api.md` zaktualizowany
+- [ ] `core/03_frontend_screens.md` zaktualizowany
+
+**Migration plan (RAO deterministic):**
+1. `core/01_database.md` — finalny DDL
+2. `backend/contractors/models.py` — SQLAlchemy
+3. `backend/main.py` startup — ALTER TABLE ADD COLUMN
+4. **Verification gate:**
+   - [ ] `DROP DATABASE rao_new && CREATE` → restart backend → schema OK
+   - [ ] Drugi restart backend bez błędu
+
+**QA DoD:**
+- [ ] E2E test w `02-contractor.spec.ts` dla pola "invoice_email"
+- [ ] Unit test dla walidacji email
+- [ ] Smoke test `01-login.spec.ts` PASS
+
+**Pliki do zmiany:** `backend/contractors/models.py`, `schemas.py`, `ContractorFormView.vue`, `backend/reports/router.py`
+**ROI:** Umożliwia wysyłkę faktur na inny email niż główny kontakt
+**Estimate:** 2h (XS)
+
+---
+
+### [RAO-P1-019] Sekcja "Wymogłocy organizacji" w umowie (#2)
+
+```yaml
+id: RAO-P1-019
+priority: P1
+size: S
+status: triaged
+classification: cross-stack
+roles: [frontend-dev, backend-dev]
+depends_on: []
+blocks: []
+source: client
+source_date: 2026-05-17
+specs_to_update:
+  - core/01_database.md
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+  - core/11_reports_stats.md
+migration_impact: yes
+security_impact: low
+```
+
+**Job-to-be-done:**
+Dodać sekcję "Wymogłocy organizacji" w umowie PDF — warunki organizacyjne wynajmu (np. wymogi dotyczące ubezpieczenia, dokumentacji, itp.).
+
+**Acceptance criteria (DoD):**
+- [ ] DB: Nowa kolumna `organizational_requirements TEXT NULL` w tabeli `contracts`
+- [ ] Backend: Nowe pole w `Contract` schema (Pydantic)
+- [ ] Frontend: Nowe pole `organizational_requirements` w ContractFormView (textarea, max 500 znaków)
+- [ ] PDF: Nowa sekcja "Wymogłocy organizacji" w umowie (przed podpisami)
+- [ ] Zawartość: tekst z formularza
+- [ ] `core/01_database.md` zaktualizowany
+- [ ] `core/02_backend_api.md` zaktualizowany
+- [ ] `core/03_frontend_screens.md` zaktualizowany
+- [ ] `core/11_reports_stats.md` zaktualizowany
+
+**Migration plan (RAO deterministic):**
+1. `core/01_database.md` — finalny DDL
+2. `backend/contracts/models.py` — SQLAlchemy
+3. `backend/main.py` startup — ALTER TABLE ADD COLUMN
+4. **Verification gate:**
+   - [ ] `DROP DATABASE rao_new && CREATE` → restart backend → schema OK
+   - [ ] Drugi restart backend bez błędu
+
+**QA DoD:**
+- [ ] E2E test w `04-contract.spec.ts` dla sekcji "wymogłocy"
+- [ ] Smoke test `01-login.spec.ts` PASS
+
+**Pliki do zmiany:** `backend/contracts/models.py`, `schemas.py`, `ContractFormView.vue`, `backend/reports/templates/contract.html`
+**ROI:** Umożliwia określenie warunków organizacyjnych wynajmu
+**Estimate:** 3h (S)
+
+---
+
+### [RAO-P1-020] Weryfikacja i naprawa danych firmy w PDF (TOOLSMART) (#3)
+
+```yaml
+id: RAO-P1-020
+priority: P1
+size: S
+status: triaged
+classification: backend
+roles: [backend-dev]
+depends_on: []
+blocks: []
+source: client
+source_date: 2026-05-17
+specs_to_update:
+  - core/11_reports_stats.md
+migration_impact: no
+security_impact: low
+```
+
+**Job-to-be-done:**
+Weryfikować i naprawić dane firmy wynajmującej (TOOLSMART) w generowanych PDF — upewnić się, że NIP, Regon, KRS, adres są poprawne i spójne.
+
+**Acceptance criteria (DoD):**
+- [ ] PDF: Dane firmy TOOLSMART poprawne (NIP 9512598092, Regon 528647124, KRS 0001109942)
+- [ ] PDF: Adres firmy poprawny (ul. Kłobucka 68/103, 02-699 Warszawa)
+- [ ] Backend: Dane firmy pobierane z tabeli `company_settings` (nie hardcoded w szablonie)
+- [ ] PDF: Dane spójne we wszystkich dokumentach (umowa, protokół)
+- [ ] `core/11_reports_stats.md` zaktualizowany
+
+**QA DoD:**
+- [ ] E2E test w `04-contract.spec.ts` dla weryfikacji danych firmy
+- [ ] Smoke test `01-login.spec.ts` PASS
+
+**Pliki do zmiany:** `backend/reports/templates/contract.html`, `protocol_zo.html`, `protocol_uslugi.html`
+**ROI:** Profesjonalny wygląd dokumentów, zgodność z rzeczywistymi danymi firmy
+**Estimate:** 2h (S)
+
+---
+
+### [RAO-P1-021] Integracja "Ogólnych Warunków Najmu" (OWN) w PDF umowy (#4)
+
+```yaml
+id: RAO-P1-021
+priority: P1
+size: M
+status: triaged
+classification: backend
+roles: [backend-dev]
+depends_on: []
+blocks: []
+source: client
+source_date: 2026-05-17
+specs_to_update:
+  - core/11_reports_stats.md
+  - core/04_business_logic.md
+migration_impact: no
+security_impact: low
+```
+
+**Job-to-be-done:**
+Zintegrować "Ogólne Warunki Najmu" (OWN) jako integralną część PDF umowy — dokument zawierający szczegółowe warunki wynajmu maszyn (definicje, warunki ogólne, itp.).
+
+**Acceptance criteria (DoD):**
+- [ ] PDF: Sekcja "Ogólne Warunki Najmu" w umowie (jako osobna strona lub część umowy)
+- [ ] Zawartość OWN: Definicje (Umowa, Przedmiot Najmu, Najemca, Wynajmujący, itp.)
+- [ ] Zawartość OWN: 8+ punktów warunków ogólnych (szczegółowe warunki wynajmu)
+- [ ] Backend: Szablonowy tekst OWN przechowywany w `company_settings` lub pliku konfiguracyjnym
+- [ ] PDF: OWN generowana automatycznie dla każdej umowy
+- [ ] `core/11_reports_stats.md` zaktualizowany
+- [ ] `core/04_business_logic.md` zaktualizowany
+
+**QA DoD:**
+- [ ] E2E test w `04-contract.spec.ts` dla weryfikacji OWN w PDF
+- [ ] Smoke test `01-login.spec.ts` PASS
+
+**Pliki do zmiany:** `backend/reports/templates/contract.html`, `backend/settings/models.py`, `backend/reports/router.py`
+**ROI:** Umowa zawiera pełne warunki wynajmu — wymagane prawnie
+**Estimate:** 3h (M)
 
 ---
 
