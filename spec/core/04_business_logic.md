@@ -741,4 +741,72 @@ def validate_nip(nip: str) -> bool:
     weights = [6, 5, 7, 2, 3, 4, 5, 6, 7]
     checksum = sum(w * int(d) for w, d in zip(weights, nip[:9])) % 11
     return checksum == int(nip[9])
+
+## 14. System prowizyjny (RAO-P1-018)
+
+```python
+async def calculate_salesperson_commission(
+    db: AsyncSession,
+    salesperson_id: int,
+    date_from: date,
+    date_to: date
+) -> Decimal:
+    """
+    Oblicz prowizję handlowca od marży, nie od przychodu (RAO-P1-018).
+    
+    Stara formuła (przed RAO-P1-018):
+        commission = revenue * commission_rate / 100
+    
+    Nowa formuła (RAO-P1-018):
+        commission = margin * commission_rate / 100
+        gdzie margin = SUM(cost_client - cost_company) dla umów handlowca
+    
+    Backward compatibility:
+        - Jeśli brak danych settlement (cost_client/cost_company),
+          użyj starej formuły (revenue)
+        - Jeśli marża = 0 lub None, prowizja = 0
+    
+    Źródło danych:
+        - contract_settlements (RAO-P1-012) → cost_client, cost_company
+        - salespeople.commission_rate → stawka prowizji (%)
+        - contracts → date_from, date_to, salesperson_id
+    """
+    from settlements.models import ContractSettlement
+    
+    # Oblicz marżę z contract_settlements
+    settlement_q = await db.execute(
+        select(
+            func.sum(ContractSettlement.cost_client - ContractSettlement.cost_company).label("total_margin")
+        )
+        .join(Contract, Contract.id == ContractSettlement.contract_id)
+        .where(Contract.salesperson_id == salesperson_id)
+        .where(and_(Contract.date_from <= date_to, Contract.date_to >= date_from))
+        .where(ContractSettlement.cost_client.isnot(None))
+        .where(ContractSettlement.cost_company.isnot(None))
+    )
+    margin = settlement_q.scalar()
+    
+    # Pobierz stawkę prowizji handlowca
+    sp_q = await db.execute(
+        select(Salesperson.commission_rate)
+        .where(Salesperson.id == salesperson_id)
+    )
+    commission_rate = sp_q.scalar() or Decimal(0)
+    
+    # Jeśli brak danych settlement, użyj revenue (backward compatibility)
+    if margin is None or margin == 0:
+        # Oblicz revenue ze starych danych
+        revenue_q = await db.execute(
+            select(func.sum(ContractPosition.unit_price * ContractPosition.quantity))
+            .join(Contract, Contract.id == ContractPosition.contract_id)
+            .where(Contract.salesperson_id == salesperson_id)
+            .where(and_(Contract.date_from <= date_to, Contract.date_to >= date_from))
+        )
+        revenue = revenue_q.scalar() or Decimal(0)
+        commission = (revenue * commission_rate / Decimal(100)).quantize(Decimal("0.01"))
+    else:
+        # Nowa formuła: prowizja od marży
+        commission = (margin * commission_rate / Decimal(100)).quantize(Decimal("0.01"))
+    
+    return commission
 ```

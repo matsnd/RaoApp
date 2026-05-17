@@ -597,11 +597,26 @@ async def commissions(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    """Commission report: revenue per salesperson × commission_rate."""
+    """Commission report: margin per salesperson × commission_rate (RAO-P1-018)."""
     from settings.models import Salesperson
+    from settlements.models import ContractSettlement
     df, dt = _default_dates(date_from, date_to)
 
-    all_pos = await _compute_position_revenues(db, df, dt)
+    # RAO-P1-018: Prowizja od marży, nie od przychodu
+    # Oblicz marżę z contract_settlements dla umów w zakresie dat
+    settlement_q = await db.execute(
+        select(
+            Contract.salesperson_id,
+            func.sum(ContractSettlement.cost_client - ContractSettlement.cost_company).label("total_margin")
+        )
+        .join(ContractSettlement, Contract.id == ContractSettlement.contract_id)
+        .where(and_(Contract.date_from <= dt, Contract.date_to >= df))
+        .where(Contract.salesperson_id.isnot(None))
+        .where(ContractSettlement.cost_client.isnot(None))
+        .where(ContractSettlement.cost_company.isnot(None))
+        .group_by(Contract.salesperson_id)
+    )
+    settlement_margins = {r[0]: r[1] for r in settlement_q.all()}
 
     sp_q = await db.execute(
         select(Salesperson.id, Salesperson.name, Salesperson.commission_rate)
@@ -610,6 +625,8 @@ async def commissions(
     )
     salespeople = {r[0]: {"name": r[1], "rate": r[2]} for r in sp_q.all()}
 
+    # Dla backward compatibility, oblicz również revenue (stara metoda)
+    all_pos = await _compute_position_revenues(db, df, dt)
     contract_sp_q = await db.execute(
         select(Contract.id, Contract.salesperson_id)
         .where(and_(Contract.date_from <= dt, Contract.date_to >= df))
@@ -628,14 +645,25 @@ async def commissions(
     for sp_id, sp_data in salespeople.items():
         data = agg.get(sp_id, {"revenue": Decimal(0), "contracts": set()})
         rate = sp_data["rate"] or Decimal(0)
-        revenue = data["revenue"]
-        commission = (revenue * rate / Decimal(100)).quantize(Decimal("0.01"))
+        
+        # RAO-P1-018: Użyj marży z settlement jeśli dostępna, wpp. revenue (backward compatibility)
+        margin = settlement_margins.get(sp_id, Decimal(0))
+        if margin is not None and margin != 0:
+            # Nowa formuła: prowizja od marży
+            commission = (margin * rate / Decimal(100)).quantize(Decimal("0.01"))
+            base_amount = margin
+        else:
+            # Backward compatibility: jeśli brak danych settlement, użyj revenue
+            revenue = data["revenue"]
+            commission = (revenue * rate / Decimal(100)).quantize(Decimal("0.01"))
+            base_amount = revenue
+        
         items.append(SalespersonCommissionItem(
             salesperson_id=sp_id,
             salesperson_name=sp_data["name"],
             commission_rate=sp_data["rate"],
             contracts_count=len(data["contracts"]),
-            total_revenue=revenue,
+            total_revenue=data["revenue"],  # Zachowaj revenue dla informacji
             commission_amount=commission,
         ))
 
