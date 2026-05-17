@@ -185,8 +185,13 @@ Każde zadanie musi spełnić:
 3. **Spec updated** — `git diff --stat spec/core/` nie-pusty jeśli zmiana funkcjonalna
 4. **Jeśli `migration_impact: yes`:** — verification gates przeszły (drop&recreate test)
 5. **Backlog item** — ma `status: review` z linkiem do diffu
-6. **Tech Lead review** — przegląda → `done`
-
+6. **Backlog documentation** — dodaj sekcję "## Rozwiązanie" z:
+   - Data zakończenia (YYYY-MM-DD)
+   - Commit hash (np. `abc1234`)
+   - Lista zmienionych plików
+   - Krótki opis implementacji
+   - Linki do diffów (opcjonalnie, np. `git diff abc1234`)
+7. **Tech Lead review** — przegląda → `done`
 ---
 
 ## 🔒 Security Checklist (dla każdego zadania)
