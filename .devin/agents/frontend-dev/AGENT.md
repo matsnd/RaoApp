@@ -12,8 +12,8 @@ permissions:
   allow:
     - Write(frontend/**/*)
     - Edit(frontend/**/*)
-    - Write(spec/03_FRONTEND_SCREENS.md)
-    - Edit(spec/03_FRONTEND_SCREENS.md)
+    - Write(spec/core/03_frontend_screens.md)
+    - Edit(spec/core/03_frontend_screens.md)
     - Exec(npm*)
     - Exec(npx*)
   deny:
@@ -182,7 +182,7 @@ Musi przejsc bez bledow.
 1. `npx vue-tsc --noEmit` - typy OK
 2. `npm run build` - build OK
 3. Manualny test w przegladarce (lub Playwright MCP screenshot)
-4. Aktualizuj `spec/03_FRONTEND_SCREENS.md`
+4. Aktualizuj `spec/core/03_frontend_screens.md`
 
 ## Output format
 
@@ -205,5 +205,5 @@ Musi przejsc bez bledow.
 [vue-tsc output]
 
 ### Spec update
-- spec/03_FRONTEND_SCREENS.md: [diff]
+- spec/core/03_frontend_screens.md: [diff]
 ```

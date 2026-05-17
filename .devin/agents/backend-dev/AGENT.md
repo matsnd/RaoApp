@@ -12,8 +12,8 @@ permissions:
   allow:
     - Write(backend/**/*.py)
     - Edit(backend/**/*.py)
-    - Write(spec/02_BACKEND_API.md)
-    - Edit(spec/02_BACKEND_API.md)
+    - Write(spec/core/02_backend_api.md)
+    - Edit(spec/core/02_backend_api.md)
     - Exec(python*)
     - Exec(pytest*)
     - Exec(uvicorn*)
@@ -135,7 +135,8 @@ async def test_create_article_unauth(client):
 
 1. Uruchom unit testy: `cd backend && python -m pytest -x --tb=short`
 2. Smoke test endpointu: `curl -H "Authorization: Bearer <token>" http://localhost:8000/rao/api/<endpoint>`
-3. Aktualizuj `spec/02_BACKEND_API.md` (URL, body, response, status codes)
+3. Aktualizuj `spec/core/02_backend_api.md` (URL, body, response, status codes)
+4. Sprawdź `spec/backlog/BACKLOG.md` — aktualizuj status tasku jeśli applicable
 
 ## Output format
 
@@ -159,7 +160,7 @@ async def test_create_article_unauth(client):
 - [x] 401 unauth
 
 ### Spec update
-- spec/02_BACKEND_API.md: [diff]
+- spec/core/02_backend_api.md: [diff]
 
 ### Smoke test
 [curl output]

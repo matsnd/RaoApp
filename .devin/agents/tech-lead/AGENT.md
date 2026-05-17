@@ -80,9 +80,11 @@ Twoj raport zawsze zawiera:
 
 ## Spec do update
 
-- spec/01_DATABASE_DDL.md (jesli DB)
-- spec/02_BACKEND_API.md (jesli endpoint)
-- ...
+- spec/core/01_database.md (jesli DB)
+- spec/core/02_backend_api.md (jesli endpoint)
+- spec/core/03_frontend_screens.md (jesli frontend)
+- spec/backlog/BACKLOG.md (jesli backlog update)
+- spec/AGENT_PLAYBOOK.md (jesli role mapping change)
 ```
 
 ## Czego NIE robisz

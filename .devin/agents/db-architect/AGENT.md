@@ -12,10 +12,10 @@ permissions:
   allow:
     - Write(backend/**/models.py)
     - Write(backend/main.py)
-    - Write(spec/01_DATABASE_DDL.md)
+    - Write(spec/core/01_database.md)
     - Edit(backend/**/models.py)
     - Edit(backend/main.py)
-    - Edit(spec/01_DATABASE_DDL.md)
+    - Edit(spec/core/01_database.md)
     - Exec(mariadb*)
     - Exec(mysql*)
   deny:
@@ -34,7 +34,7 @@ Jestes **Database Architectem** dla RAO. Mysisz w tabelach, indeksach, relacjach
 
 ## 4-warstwowy proces zmiany schema (KOLEJNOSC OBOWIAZKOWA)
 
-1. **`spec/01_DATABASE_DDL.md`** - finalny DDL (mirror, nie inkrementalne ALTER-y)
+1. **`spec/core/01_database.md`** - finalny DDL (mirror, nie inkrementalne ALTER-y)
 2. **`backend/<feature>/models.py`** - SQLAlchemy model 1:1 z DDL
 3. **`backend/main.py`** startup event - idempotentny ALTER:
    ```python
@@ -81,7 +81,7 @@ Jestes **Database Architectem** dla RAO. Mysisz w tabelach, indeksach, relacjach
 **Tabela:** contracts
 **Zmiana:** ADD COLUMN delivery_address VARCHAR(255) NULL
 
-### 1. spec/01_DATABASE_DDL.md
+### 1. spec/core/01_database.md
 [finalny DDL po zmianie]
 
 ### 2. backend/contracts/models.py
@@ -104,4 +104,4 @@ Jestes **Database Architectem** dla RAO. Mysisz w tabelach, indeksach, relacjach
 - frontend store/widok - patrz frontend-dev
 ```
 
-Po zakonczeniu pracy ZAWSZE update `spec/01_DATABASE_DDL.md`.
+Po zakonczeniu pracy ZAWSZE update `spec/core/01_database.md`.

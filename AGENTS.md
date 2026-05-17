@@ -3,6 +3,12 @@
 > Instrukcje dla AI agentów (Devin, Codex, Cursor, Cascade, Aider) pracujących w tym repo.
 > Czytaj ten plik PRZED jakimkolwiek działaniem.
 
+> **🚀 QUICK START:**
+> 1. Czytaj `spec/AGENT_PLAYBOOK.md` — znajdź swoją rolę i "Primary read"
+> 2. Czytaj swój "Primary read" z AGENT_PLAYBOOK.md
+> 3. Sprawdź `spec/backlog/BACKLOG.md` — co jest priorytetem (P0/P1/P2)
+> 4. Zacznij od P0 — production blockers first
+
 ## Czym jest RAO
 
 Aplikacja do wynajmu maszyn budowlanych. Migracja z legacy WinForms (C# .NET) → FastAPI + Vue 3.
@@ -123,13 +129,15 @@ RAO **nie używa Alembic**. Schema zarządzane przez:
 1. Modele SQLAlchemy w `backend/<feature>/models.py`
 2. `Base.metadata.create_all` przy starcie (tworzy nowe tabele)
 3. **Idempotentne `ALTER TABLE ... IF NOT EXISTS`** w `@app.on_event("startup")` w `backend/main.py`
-4. DDL w `spec/01_DATABASE_DDL.md` jako single source of truth
+4. DDL w `spec/core/01_database.md` jako single source of truth
 
 **Każda zmiana DB = 4 pliki** (kolejność):
-1. `spec/01_DATABASE_DDL.md` — finalny DDL (mirror, nie inkrementalne ALTER-y)
+1. `spec/core/01_database.md` — finalny DDL (mirror, nie inkrementalne ALTER-y)
 2. `backend/<feature>/models.py` — SQLAlchemy
 3. `backend/main.py` startup — `ALTER ... IF NOT EXISTS` (lub try/except dla MariaDB <10.6)
 4. Weryfikacja: restart backendu + `DESCRIBE` + drugi restart bez błędu
+
+**Szczegółowa polityka migracji:** `spec/process/migrations.md`
 
 **Przykład poprawnej migracji w `backend/main.py`:**
 ```python
@@ -152,31 +160,53 @@ async def startup_migrations():
 
 ## spec/ to single source of truth
 
-Folder `spec/` opisuje aktualny stan aplikacji. Po **każdej zmianie funkcjonalnej** zaktualizuj odpowiedni plik:
+Folder `spec/` opisuje aktualny stan aplikacji. Nowa struktura (reorganizacja 2026-05-17):
+
+```
+spec/
+├── core/           # Single source of truth (database, API, screens, business logic, security)
+├── process/        # Procedures (migrations, testing, workflow)
+├── backlog/        # Planning with YAML front-matter format
+├── archive/        # Historical specs
+├── AGENT_PLAYBOOK.md  # Role mapping for agents
+└── 00_INDEX.md     # Mapa całej specyfikacji
+```
+
+Po **każdej zmianie funkcjonalnej** zaktualizuj odpowiedni plik:
 
 | Co zmieniłeś | Spec do update |
 |--------------|----------------|
-| Schema DB | `spec/01_DATABASE_DDL.md` |
-| Endpoint REST / Pydantic | `spec/02_BACKEND_API.md` |
-| Widok Vue / komponent | `spec/03_FRONTEND_SCREENS.md` |
-| Algorytm biznesowy | `spec/04_BUSINESS_LOGIC.md` |
-| Routing / nawigacja | `spec/06_NAVIGATION_FLOW.md` |
-| GUS/Nominatim/PDF/SMTP | `spec/07_INTEGRATIONS.md` |
-| Design system / CSS | `spec/09_DESIGN_REFERENCE.md` |
-| Backlog (oznacz ✅ done) | `spec/19_BACKLOG.md` |
+| Schema DB | `spec/core/01_database.md` |
+| Endpoint REST / Pydantic | `spec/core/02_backend_api.md` |
+| Widok Vue / komponent | `spec/core/03_frontend_screens.md` |
+| Algorytm biznesowy | `spec/core/04_business_logic.md` |
+| Routing / nawigacja | `spec/core/06_navigation_flow.md` |
+| GUS/Nominatim/PDF/SMTP | `spec/core/07_integrations.md` |
+| Design system / CSS | `spec/core/09_design_reference.md` |
+| Security / RBAC | `spec/core/25_security.md` |
+| Backlog (status: done) | `spec/backlog/BACKLOG.md` |
 
 **Czytaj odpowiedni spec PRZED kodowaniem** — odpowiedzi na 90% pytań są tam.
 
-Po zakończeniu zadania sprawdź `git diff --stat spec/` — pusty diff przy zmianach funkcjonalnych = niedopełniony obowiązek.
+**AGENT_PLAYBOOK.md** zawiera szczegółowe role mapping:
+- DB Agent → `spec/core/01_database.md` + `spec/process/migrations.md`
+- Backend Agent → `spec/core/02_backend_api.md` + `spec/core/04_business_logic.md`
+- Frontend Agent → `spec/core/03_frontend_screens.md` + `spec/core/09_design_reference.md`
+- QA Agent → `spec/process/testing.md` + `spec/backlog/BACKLOG.md`
+- Tech Lead → wszystkie spec + priorytetyzacja backlog
+
+Po zakończeniu zadania sprawdź `git diff --stat spec/core/` — pusty diff przy zmianach funkcjonalnych = niedopełniony obowiązek.
 
 ## Reguły operacyjne
 
 1. **Root cause > symptomy** — minimalna upstream fix > obejście downstream
 2. **Nie usuwaj/osłabiaj testów** bez wyraźnej zgody użytkownika (nawet "tymczasowo")
 3. **Lokalne commity po każdym zadaniu** — po zakończeniu każdego zadania/feature wykonaj lokalny commit z opisem zmian. To pozwala na śledzenie postępów i łatwe przywracanie wcześniejszych stanów przez `git revert` lub `git reset`. Commit message powinien być krótki i opisywać "co i dlaczego" (nie "jak").
-4. **Po każdej zmianie kodu → smoke `e2e/tests/01-login.spec.ts`** (najszybsza ochrona przed regresją)
-5. **Port zajęty?** Użyj kolejnego wolnego (8001, 5174). NIGDY `kill-port`/`pkill`/`taskkill` cudzych procesów. Po zmianie portu backendu zaktualizuj `VITE_API_URL` w `frontend/.env`.
-6. **Sekrety w `.env`**, nigdy w kodzie. `.env` jest w `.gitignore`. Szablon: `.env.example`.
+4. **Czytaj AGENT_PLAYBOOK.md** — znajdź swoją rolę i "Primary read" przed kodowaniem
+5. **Sprawdź backlog/BACKLOG.md** — zacznij od P0 (production blockers)
+6. **Po każdej zmianie kodu → smoke `e2e/tests/01-login.spec.ts`** (najszybsza ochrona przed regresją)
+7. **Port zajęty?** Użyj kolejnego wolnego (8001, 5174). NIGDY `kill-port`/`pkill`/`taskkill` cudzych procesów. Po zmianie portu backendu zaktualizuj `VITE_API_URL` w `frontend/.env`.
+8. **Sekrety w `.env`**, nigdy w kodzie. `.env` jest w `.gitignore`. Szablon: `.env.example`.
 
 ## Lokalne commity — śledzenie postępów
 
@@ -259,12 +289,21 @@ e2e/tests/
 
 spec/                    # ← czytaj PRZED kodowaniem
 ├── 00_INDEX.md          # przegląd całości
-├── 01_DATABASE_DDL.md   # SSoT dla schema
-├── 02_BACKEND_API.md    # SSoT dla endpointów
-├── 03_FRONTEND_SCREENS.md
-├── 04_BUSINESS_LOGIC.md
-├── ... (05-25)
-└── 19_BACKLOG.md        # aktualny backlog (P0/P1/P2)
+├── AGENT_PLAYBOOK.md    # role mapping dla agentów (czytaj to jako pierwsze!)
+├── core/                # SSoT dla aktualnego stanu
+│   ├── 01_database.md       # schema DB
+│   ├── 02_backend_api.md    # endpointy REST
+│   ├── 03_frontend_screens.md # ekrany Vue
+│   ├── 04_business_logic.md  # algorytmy
+│   ├── 06_navigation_flow.md # routing
+│   ├── 09_design_reference.md # design system
+│   └── 25_security.md        # RBAC, auth
+├── process/             # procedury
+│   ├── migrations.md        # polityka migracji DB
+│   └── testing.md           # strategia testowania
+├── backlog/             # backlog z YAML front-matter
+│   └── BACKLOG.md           # P0/P1/P2 tasks
+└── archive/             # historyczne specy
 ```
 
 ## Tryb autonomiczny "do skutku"
@@ -279,7 +318,7 @@ Gdy zadanie wymaga pełnej autonomii z self-healingiem i pełną weryfikacją:
    - Tier 2: unit (`pytest -x --tb=short`)
    - Tier 3: smoke (curl `/health`, `/openapi.json`, `/auth/login`)
    - Tier 4: e2e (`npx playwright test`)
-   - Tier 4.5: migration & spec consistency (drugi restart + `git diff spec/`)
+   - Tier 4.5: migration & spec consistency (drugi restart + `git diff spec/core/`)
    - Tier 5: manual (browser navigate + snapshot + screenshot)
    - Tier 6: local commit (opis zmian, historia do rollbacku)
 5. Self-healing loop: max 15 iteracji, root-cause analysis, escape valve z uczciwym raportem
@@ -296,9 +335,12 @@ Gdy zadanie wymaga pełnej autonomii z self-healingiem i pełną weryfikacją:
 
 ## Dokumentacja rozszerzona
 
+- **Specyfikacja:** `spec/AGENT_PLAYBOOK.md` (role mapping), `spec/00_INDEX.md` (mapa)
+- **Backlog:** `spec/backlog/BACKLOG.md` (P0/P1/P2 tasks z YAML front-matter)
+- **Procesy:** `spec/process/migrations.md`, `spec/process/testing.md`
 - Pełny plan budowy od zera: `.windsurf/workflows/build-rao-app.md`
 - Cross-role audit: `.windsurf/workflows/cross-role-audit.md`
-- Loop autonomiczny (5-tier): `.windsurf/workflows/loop-do-skutku-rao.md`
+- Loop autonomiczny (6-tier): `.windsurf/workflows/loop-do-skutku-rao.md`
 - Deploy produkcyjny: `DEPLOY.md`
 - Stack reguły szczegółowe (Cascade): `.windsurf/rules/rao-project.md`
 - Migracje DB szczegółowe (Cascade): `.windsurf/rules/rao-migrations.md`

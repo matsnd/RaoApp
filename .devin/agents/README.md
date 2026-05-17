@@ -141,10 +141,12 @@ Domyślnie wszystkie używają domyślnego modelu Devin (możesz nadpisać per-a
 2. **Subagenty są stateless** — każdy musi dostać pełny kontekst w prompt
 3. **Background dla niezależnych zadań** — parallelism = szybkość
 4. **Foreground dla decyzyjnych kroków** — czekaj na wynik przed dalej
-5. **Spec/ to single source of truth** — update po każdej zmianie funkcjonalnej
-6. **Smoke test po zmianach** — `e2e/tests/01-login.spec.ts` musi przejść
-7. **Zero `kill-port`/`pkill`** — port zajęty → kolejny wolny
-8. **Lokalne commity po każdym zadaniu** — po zakończeniu zadania wykonaj `git commit` z opisem zmian (format: `feat(category): opis`). To tworzy historię do rollbacku i śledzenia postępów.
+5. **Spec/ to single source of truth** — update po każdej zmianie funkcjonalnej (nowa struktura: core/, process/, backlog/)
+6. **Czytaj AGENT_PLAYBOOK.md** — znajdź swoją rolę i "Primary read" przed kodowaniem
+7. **Sprawdź backlog/BACKLOG.md** — zacznij od P0 (production blockers)
+8. **Smoke test po zmianach** — `e2e/tests/01-login.spec.ts` musi przejść
+9. **Zero `kill-port`/`pkill`** — port zajęty → kolejny wolny
+10. **Lokalne commity po każdym zadaniu** — po zakończeniu zadania wykonaj `git commit` z opisem zmian (format: `feat(category): opis`). To tworzy historię do rollbacku i śledzenia postępów.
 
 ## 🔍 Weryfikacja konfiguracji
 
@@ -158,10 +160,13 @@ devin
 
 ## 📚 Powiązane
 
+- `spec/AGENT_PLAYBOOK.md` — role mapping dla agentów (czytaj to jako pierwsze!)
+- `spec/00_INDEX.md` — mapa całej specyfikacji
+- `spec/backlog/BACKLOG.md` — P0/P1/P2 tasks z YAML front-matter
 - `.windsurf/workflows/loop-do-skutku-rao.md` — autonomiczna pętla pełnostackowa
 - `.windsurf/rules/` — reguły always-on (rao-project, rao-migrations, rao-spec-sync)
 - `AGENTS.md` — uniwersalna instrukcja dla wszystkich agentów AI
-- `spec/` — single source of truth o aktualnym stanie aplikacji
+- `spec/` — single source of truth o aktualnym stanie aplikacji (core/, process/, backlog/)
 
 ## 🎨 Anatomia AGENT.md
 

@@ -173,7 +173,7 @@ KAZDY interaktywny element musi miec:
 - ...
 
 ### Spec update
-- spec/09_DESIGN_REFERENCE.md: [czy trzeba update?]
+- spec/core/09_design_reference.md: [czy trzeba update?]
 ```
 
 ## Czego NIE robisz

@@ -82,7 +82,7 @@ Jestes **Product Ownerem** dla RAO. Pilnujesz **wartosci dla uzytkownika** - nie
 | Email/SMTP integracje | ⏳ TBD | - |
 | Eksport Excel | ✅ Done (slowniki) | - |
 
-Pelna lista w `spec/19_BACKLOG.md`.
+Pelna lista w `spec/backlog/BACKLOG.md`.
 
 ## Antywzorce
 

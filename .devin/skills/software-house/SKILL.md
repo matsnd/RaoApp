@@ -33,8 +33,10 @@ Masz do dyspozycji 11 wyspecjalizowanych subagentow:
 ### Krok 1 - Pre-flight (rownolegle)
 
 W jednym bloku tool calls:
+- Przeczytaj `spec/AGENT_PLAYBOOK.md` zeby znalezc swoja role i "Primary read"
 - Przeczytaj `spec/00_INDEX.md` zeby zobaczyc co jest udokumentowane
-- Przeczytaj plik spec relevantny do zadania
+- Przeczytaj plik spec relevantny do zadania (z `core/`, `process/`, lub `backlog/`)
+- Przeczytaj `spec/backlog/BACKLOG.md` zeby sprawdzic priorytety (P0/P1/P2)
 - `code_search` lub `grep` dla obszaru zmian
 - Sprawdz `git status`
 
@@ -103,9 +105,15 @@ Przed zamknieciem zadania:
 
 ### Krok 7 - Spec sync (krytyczne!)
 
-Po implementacji **ZAWSZE** sprawdz `git diff --stat spec/`. Jesli pusty przy zmianach funkcjonalnych - aktualizuj odpowiedni plik (mapa w `.windsurf/rules/rao-spec-sync.md`).
+Po implementacji **ZAWSZE** sprawdz `git diff --stat spec/core/`. Jesli pusty przy zmianach funkcjonalnych - aktualizuj odpowiedni plik (mapa w `spec/AGENT_PLAYBOOK.md`).
 
-### Krok 8 - Lokalny commit
+### Krok 8 - Backlog update
+
+Aktualizuj status zadania w `spec/backlog/BACKLOG.md`:
+- Zmien `status: triaged` → `status: review`
+- Dodaj komentarz z linkiem do commita/diffu
+
+### Krok 9 - Lokalny commit
 
 Po zakonczeniu zadania i aktualizacji spec/ wykonaj lokalny commit:
 ```bash
@@ -170,9 +178,9 @@ OGRANICZENIA:
    - tech-lead (custom): "Czy to laczyc z existing address czy osobne pole?"
 
 4. **Implementacja (sekwencyjnie):**
-   - db-architect (foreground): migracja + spec/01
-   - backend-dev (foreground): models, schemas, service, router + spec/02
-   - frontend-dev (foreground): ContractFormView edit, store + spec/03
+   - db-architect (foreground): migracja + spec/core/01_database.md
+   - backend-dev (foreground): models, schemas, service, router + spec/core/02_backend_api.md
+   - frontend-dev (foreground): ContractFormView edit, store + spec/core/03_frontend_screens.md
 
 5. **Polish (rownolegle background):**
    - ui-designer: "Czy field uzywa --color-primary, Montserrat, border-radius 12px?"
@@ -184,11 +192,13 @@ OGRANICZENIA:
 
 7. **Verification:** uruchom backend (port 8001 jesli 8000 zajete), curl `/contracts`, sprawdz UI w playwright MCP screenshot.
 
-8. **Spec sync:** verify `git diff --stat spec/`.
+8. **Spec sync:** verify `git diff --stat spec/core/`.
 
-9. **Lokalny commit:** `git add . && git commit -m "feat(contracts): add delivery_address field"`.
+9. **Backlog update:** update task status in `spec/backlog/BACKLOG.md`.
 
-10. **Final report:** lista zmian, screenshot, status testow, hash commita.
+10. **Lokalny commit:** `git add . && git commit -m "feat(contracts): add delivery_address field"`.
+
+11. **Final report:** lista zmian, screenshot, status testow, hash commita.
 
 ---
 
