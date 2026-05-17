@@ -150,7 +150,7 @@ Zmienić migrację haseł z kopiowania plaintext na force_password_reset + losow
 id: RAO-P0-004
 priority: P0
 size: S
-status: triaged
+status: done
 classification: bugfix
 roles: [frontend-dev]
 depends_on: []

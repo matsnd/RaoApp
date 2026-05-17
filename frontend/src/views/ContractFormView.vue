@@ -588,9 +588,23 @@ const newFeeData = ref({ name: '', amount_from: null, amount_to: null, unit: '',
 const newFeeNameInput = ref(null)
 
 
-// Format description by replacing $1 and $2 with actual amounts
+// Format description with actual amounts instead of placeholders
+// Format: "{name}: {amount_from} zł - {amount_to} zł" or "{name}: {amount_from} zł ({description})"
 function formatDescription(description, amount_from, amount_to) {
-  if (!description) return '—'
+  if (!description) {
+    // If no description, format amounts directly
+    if (amount_from !== null && amount_from !== undefined) {
+      const formattedFrom = Number(amount_from).toLocaleString('pl-PL', { minimumFractionDigits: 2 })
+      if (amount_to !== null && amount_to !== undefined) {
+        const formattedTo = Number(amount_to).toLocaleString('pl-PL', { minimumFractionDigits: 2 })
+        return `${formattedFrom} zł - ${formattedTo} zł`
+      }
+      return `${formattedFrom} zł`
+    }
+    return '—'
+  }
+
+  // If description exists, replace $1/$2 placeholders with actual amounts
   let result = description
   if (amount_from !== null && amount_from !== undefined) {
     const formattedFrom = Number(amount_from).toLocaleString('pl-PL', { minimumFractionDigits: 2 })
