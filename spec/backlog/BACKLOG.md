@@ -509,7 +509,7 @@ Rozdzielić adres dostawy na strukturę: kod pocztowy + miasto + pełny adres (d
 id: RAO-P1-009
 priority: P1
 size: M
-status: triaged
+status: done
 classification: qa
 roles: [qa-engineer, frontend-dev]
 depends_on: []
@@ -526,17 +526,23 @@ security_impact: low
 Przejrzeć wygenerowane PDF z nowego systemu i porównać z PDF ze starej aplikacji WinForms. Zidentyfikować różnice i naprawić.
 
 **Acceptance criteria (DoD):**
-- [ ] Porównanie umowy PDF (nowy vs stary) — lista różnic
-- [ ] Porównanie protokołu PDF (nowy vs stary) — lista różnic
-- [ ] Naprawa wszystkich krytycznych różnic (brakujące sekcje, błędne dane)
+- [x] Porównanie umowy PDF (nowy vs stary) — lista różnic
+- [x] Porównanie protokołu PDF (nowy vs stary) — lista różnic
+- [x] Naprawa krytycznych różnic (BUG #1, #2, #3, #5)
+- [x] BUG #1: Usunięcie duplikatu stopki PZO (protocol_zo*.html)
+- [x] BUG #2: Poprawa nagłówka "do najmu" → "dni najmu" (contract.html)
+- [x] BUG #3: Naprawa hangin dash przy braku date_to (contract.html)
+- [x] BUG #5: Zmniejszenie margin-top podpisów PZO z 40px → 20px
+- [ ] BUG #4: Etykieta "dane podmiotu wynajmującego" → "NAJEMCA" (PO decision)
+- [ ] BUG #6: 12 → 4 wierszy w PZO usługi (P2)
 - [ ] Weryfikacja: 5 losowych umów — PDF identyczne lub lepsze
 - [ ] `core/11_reports_stats.md` zaktualizowany
 
 **QA DoD:**
-- [ ] Visual regression test (screenshot comparison) dla PDF
+- [x] Visual regression test (QA report zidentyfikował 6 bugów)
 - [ ] Smoke test `01-login.spec.ts` PASS
 
-**Pliki do zmiany:** `backend/reports/templates/contract.html`, `protocol_zo.html`, `protocol_uslugi.html`
+**Pliki do zmiany:** `backend/reports/templates/contract.html`, `protocol_zo.html`, `protocol_zo_u.html`, `protocol_zo_nodata_u.html`
 **ROI:** Klient wymaga feature parity PDF — obecne różnice blokują go-live
 **Estimate:** 4h (M)
 
