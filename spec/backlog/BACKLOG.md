@@ -194,7 +194,7 @@ Naprawić błąd gdzie podpisy na umowie PDF pojawiają się na pierwszej stroni
 id: RAO-P0-005
 priority: P0
 size: XS
-status: triaged
+status: done
 classification: bugfix
 roles: [frontend-dev]
 depends_on: []
@@ -240,7 +240,7 @@ Feature parity + krytyczne bugi.
 id: RAO-P1-001
 priority: P1
 size: XS
-status: triaged
+status: done
 classification: frontend
 roles: [frontend-dev]
 depends_on: []
@@ -278,7 +278,7 @@ Dodać możliwość filtrowania umów po zakresie dat (date_from/date_to) w Dash
 id: RAO-P1-002
 priority: P1
 size: S
-status: triaged
+status: done
 classification: cross-stack
 roles: [frontend-dev, backend-dev]
 depends_on: []

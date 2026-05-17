@@ -131,14 +131,12 @@
     <tr>
       <td>Osoba upoważniona:</td>
       <td class="fill">{{ contract.contact_person1 or '' }}</td>
-      <td>telefon:</td>
-      <td class="fill">{{ contract.contact_phone1 or '' }}</td>
+      <!-- Phone numbers hidden on contract - visible only on protocol -->
     </tr>
     <tr>
       <td>Osoba kontaktowa:</td>
       <td class="fill">{{ contract.contact_person2 or '' }}</td>
-      <td>telefon:</td>
-      <td class="fill">{{ contract.contact_phone2 or '' }}</td>
+      <!-- Phone numbers hidden on contract - visible only on protocol -->
     </tr>
     <tr style="display:none;">
       <td colspan="4">Adres wykonania usługi:</td>

@@ -135,14 +135,12 @@
     <tr>
       <td style="width:130px;">reprezentowany przez:</td>
       <td><div class="fill">{{ contract.contact_person1 or '' }}</div></td>
-      <td style="width:50px;padding-left:8px;">nr tel:</td>
-      <td style="width:160px;"><div class="fill">{{ contract.contact_phone1 or '' }}</div></td>
+      <!-- Phone numbers hidden on contract - visible only on protocol -->
     </tr>
     <tr>
       <td>osoba kontaktowa:</td>
       <td><div class="fill">{{ contract.contact_person2 or '' }}</div></td>
-      <td style="padding-left:8px;">nr tel:</td>
-      <td><div class="fill">{{ contract.contact_phone2 or '' }}</div></td>
+      <!-- Phone numbers hidden on contract - visible only on protocol -->
     </tr>
     <tr style="display:none;">
       <td>na budowie:</td>
