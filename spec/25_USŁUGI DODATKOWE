@@ -1,0 +1,5 @@
+1. usługi dodatkowe do umów mają być wybierane z artykułów (usługi)
+2. konfigurowane zestawy (tak jak teraz) tylko ze nie stringi tylko matchowane z artykułami usługi
+3. Reszta się nie zmienia poza tym 
+4. musi to być w locie na bazie migracji ze starej aplikacji (prawdopodobnie muszą być inserty tych usług dodatkowych, a potem zestawy wybrane)
+5. Przeanalizuj krok po kroku migrację i wszystko

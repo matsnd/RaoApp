@@ -298,7 +298,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useSettingsStore } from '@/stores/settings'
 import api from '@/composables/useApi'
 
