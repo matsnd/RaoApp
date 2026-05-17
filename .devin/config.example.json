@@ -1,0 +1,52 @@
+{
+  "_comment": "Skopiuj ten plik jako .devin/config.json i wstaw swoje sekrety. config.json jest w .gitignore.",
+  "read_config_from": {
+    "windsurf": false,
+    "claude": false,
+    "cursor": false
+  },
+  "permissions": {
+    "allow": [
+      "mcp__*"
+    ]
+  },
+  "mcpServers": {
+    "rao-vision": {
+      "command": "node",
+      "args": ["C:/projects/repos/RaoApp/mcp-vision/index.js"],
+      "env": {
+        "ANTHROPIC_API_KEY": "sk-ant-api03-TWOJ-KLUCZ-TUTAJ"
+      }
+    },
+    "sequential-thinking": {
+      "command": "node",
+      "args": ["C:/Users/<USER>/AppData/Roaming/npm/node_modules/@modelcontextprotocol/server-sequential-thinking/dist/index.js"],
+      "env": {
+        "DISABLE_THOUGHT_LOGGING": "true",
+        "NODE_OPTIONS": "--max-old-space-size=512"
+      }
+    },
+    "memory": {
+      "command": "node",
+      "args": ["C:/Users/<USER>/AppData/Roaming/npm/node_modules/@modelcontextprotocol/server-memory/dist/index.js"]
+    },
+    "github": {
+      "command": "node",
+      "args": ["C:/Users/<USER>/AppData/Roaming/npm/node_modules/@modelcontextprotocol/server-github/dist/index.js"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_TWOJ_TOKEN_TUTAJ"
+      }
+    },
+    "brave-search": {
+      "command": "node",
+      "args": ["C:/Users/<USER>/AppData/Roaming/npm/node_modules/@modelcontextprotocol/server-brave-search/dist/index.js"],
+      "env": {
+        "BRAVE_API_KEY": "BSA_TWOJ_KLUCZ_TUTAJ"
+      }
+    },
+    "playwright": {
+      "command": "node",
+      "args": ["C:/Users/<USER>/AppData/Roaming/npm/node_modules/@playwright/mcp/cli.js", "--headless"]
+    }
+  }
+}
