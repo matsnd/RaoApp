@@ -25,7 +25,9 @@ Usage: python migrate.py
 """
 import asyncio
 import re
+import secrets
 import subprocess
+import string
 import sys
 from decimal import Decimal, InvalidOperation
 
@@ -41,12 +43,24 @@ import contracts.models    # noqa
 import settings.models     # noqa
 import categories.models   # noqa
 
+
+def generate_temp_password(length: int = 16) -> str:
+    """Generate random temporary password."""
+    alphabet = string.ascii_letters + string.digits + string.punctuation
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
+
+
+def hash_password(password: str) -> str:
+    """Hash password with bcrypt."""
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+
 DB_HOST = "localhost"
 DB_PORT = 3306
 DB_USER = "rao_user"
 DB_PASS = "RaoPass2026!"
 DB_NAME = "rao_new"
-DUMP_PATH = r"c:\projects\repos\RaoApp\temp\toolsmart_roa_1776887933.sql"
+DUMP_PATH = r"spec\backlog\archiwum\refinement\toolsmart_roa_1779053066.sql"
 
 # Every object imported from the dump (tables + views) to drop at the end
 OLD_OBJECTS = [
@@ -227,20 +241,9 @@ async def step4_migrate_data():
 
         # ── uzytkownik → users ──
         # uzytkownik: id, login, haslo, imie, nazwisko, id_grupy, data, id_oddzialu
-        # No email column. id_grupy=1 → admin, else → user
-        ("users", """
-            INSERT INTO users
-                (id, login, password, first_name, last_name,
-                 role, is_active, must_change_password,
-                 branch_id, created_at)
-            SELECT
-                id, login, haslo, imie, nazwisko,
-                CASE WHEN id_grupy = 1 THEN 'admin' ELSE 'user' END,
-                1, 1,
-                NULLIF(id_oddzialu, 0),
-                COALESCE(data, NOW())
-            FROM uzytkownik
-        """),
+        # SECURITY: Generate random bcrypt passwords instead of copying plaintext
+        # All users get must_change_password=1 to force password reset on first login
+        # Users will need to reset password via email or admin intervention
 
         # ── umowa2 → contracts ──
         # umowa2: id, id_kontrahenta, numer, opis, adres, data_od, data_do,
@@ -323,6 +326,50 @@ async def step4_migrate_data():
     await conn.commit()
     await cur.close()
     conn.close()
+
+
+async def step4b_migrate_users():
+    """Migrate users with random bcrypt passwords (security fix)."""
+    print("[4b/7] Migrating users with random bcrypt passwords …")
+    conn = await aiomysql.connect(host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASS, db=DB_NAME)
+    cur = await conn.cursor()
+
+    # Get all users from old table
+    await cur.execute("""
+        SELECT id, login, imie, nazwisko, id_grupy, id_oddzialu, data
+        FROM uzytkownik
+    """)
+    users = await cur.fetchall()
+
+    count = 0
+    for user_id, login, first_name, last_name, id_grupy, branch_id, created_at in users:
+        # Generate random temporary password
+        temp_password = generate_temp_password()
+        hashed_password = hash_password(temp_password)
+
+        # Determine role
+        role = 'admin' if id_grupy == 1 else 'user'
+
+        # Insert with must_change_password=1
+        await cur.execute("""
+            INSERT INTO users
+                (id, login, password, first_name, last_name,
+                 role, is_active, must_change_password,
+                 branch_id, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            user_id, login, hashed_password, first_name, last_name,
+            role, True, True,
+            branch_id if branch_id and branch_id != 0 else None,
+            created_at if created_at else None
+        ))
+        count += 1
+        print(f"   [{count}] User {login}: temporary password generated, must_change_password=1")
+
+    await conn.commit()
+    await cur.close()
+    conn.close()
+    print(f"   OK: {count} users migrated with bcrypt passwords")
 
 
 async def step5_service_fee_templates():
@@ -574,27 +621,6 @@ async def step6_drop_old():
     print(f"   dropped {dropped} objects")
 
 
-async def step7_rehash():
-    print("[7/7] Rehash plaintext passwords → bcrypt …")
-    conn = await aiomysql.connect(host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASS, db=DB_NAME)
-    cur = await conn.cursor()
-    await cur.execute("SELECT id, password FROM users")
-    rows = await cur.fetchall()
-    n = 0
-    for uid, pwd in rows:
-        if not pwd or pwd.startswith("$2"):
-            continue
-        # bcrypt max 72 bytes
-        pwd_bytes = pwd.encode("utf-8")[:72]
-        h = bcrypt.hashpw(pwd_bytes, bcrypt.gensalt()).decode("utf-8")
-        await cur.execute("UPDATE users SET password=%s, must_change_password=1 WHERE id=%s", (h, uid))
-        n += 1
-    await conn.commit()
-    await cur.close()
-    conn.close()
-    print(f"   {n} passwords rehashed")
-
-
 async def verify():
     """Quick row-count verification."""
     print("\n── Verification ──")
@@ -621,13 +647,16 @@ async def main():
         step2_import_dump()
         await step3_create_schema()
         await step4_migrate_data()
+        await step4b_migrate_users()  # SECURITY: random bcrypt passwords
         await step5_service_fee_templates()
         await step5c_create_preset_groups()
         await step5b_contract_service_fees()
         await step6_drop_old()
-        await step7_rehash()
+        # step7_rehash removed - passwords already hashed in step4b
         await verify()
         print("\n✓ Migration complete!")
+        print("⚠ All users have must_change_password=1 and random bcrypt passwords")
+        print("⚠ Users must reset passwords via email or admin intervention")
     except Exception as e:
         print(f"\n✗ FATAL: {e}")
         import traceback; traceback.print_exc()

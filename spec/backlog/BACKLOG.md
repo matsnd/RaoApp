@@ -16,7 +16,7 @@ Max 5 zadań, każdy z deadline ostry.
 id: RAO-P0-001
 priority: P0
 size: XS
-status: triaged
+status: done
 classification: security
 roles: [tech-lead]
 depends_on: []
@@ -57,7 +57,7 @@ Usunąć hasła produkcyjne z plików specyfikacji które zostały przypadkowo z
 id: RAO-P0-002
 priority: P0
 size: M
-status: todo
+status: done
 classification: security
 roles: [security-auditor, tech-lead]
 depends_on: [RAO-P0-001]
