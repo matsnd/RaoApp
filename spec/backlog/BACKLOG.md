@@ -100,7 +100,7 @@ Utworzyć kompletny plik security spec z threat model, RBAC matrix, polityką ha
 id: RAO-P0-003
 priority: P0
 size: M
-status: todo
+status: done
 classification: backend
 roles: [backend-dev, db-architect]
 depends_on: [RAO-P0-001, RAO-P0-002]

@@ -60,11 +60,6 @@
   .inne-item { margin-bottom: 1px; }
   .inne-box { border: 1px solid #aaa; padding: 5px 8px; font-size: 9px; line-height: 1.45; min-height: 50px; }
 
-  /* SIGNATURES */
-  table.sigs { width: 100%; border-collapse: collapse; margin-top: 30px; }
-  table.sigs td { text-align: center; width: 50%; font-size: 10px; vertical-align: bottom; }
-  .sig-line { border-top: 1px solid #000; display: inline-block; width: 220px; padding-top: 3px; }
-
   /* OWN */
   .own-page { page-break-before: always; font-size: 8.5px; line-height: 1.45; padding: 10px 14mm; }
   .own-title { font-size: 13px; font-weight: bold; text-align: center; margin-bottom: 6px; }
@@ -72,7 +67,7 @@
   .own-sub { font-weight: bold; text-align: center; font-size: 9px; margin: 0 0 5px; }
   .own-cols { column-count: 2; column-gap: 14px; }
   p.ot { margin: 0 0 4px; text-align: justify; }
-  .own-sig-row { margin-top: 16px; overflow: hidden; clear: both; }
+  .own-sig-row { margin-top: 16px; overflow: hidden; clear: both; page-break-inside: avoid; }
   .own-sig-cell { float: left; width: 50%; text-align: center; }
   .own-sig-line { display: inline-block; border-top: 1px solid #000; width: 180px; padding-top: 3px; font-size: 8px; }
 </style>
@@ -218,25 +213,6 @@
   <strong>*ceny podane na umowie są cenami netto</strong><br>
   Niniejszym zobowiązuje się do zabezpieczenia Przedmiotów Najmu przed kradzieżą i zniszczeniem przez cały okres trwania Umowy Najmu. W przypadku zniszczenia, zaginięcia lub uszkodzenia Przedmiotu Najmu, zobowiązuje się ponieść pełną odpowiedzialność materialną mającą na celu przwrócenie całości utraconego sprzętu lub kosztów jego naprawy. Najemca wyraża zgodę na wystawienie faktury bez jego podpisu i skompensowanie kwoty zobowiązań za wynajem z kwotą przedpłaty. Najemca zobowiązuje się do pisemnego poinformowania wynajmującego o zwrocie maszyny budowlanej najpóźniej z jednodniowym wyprzedzeniem. Pokwitowanie niniejszej Umowy Najmu jest jednoznaczne z oświadczeniem o zapoznaniu się z Ogólnymi Warunkami Umowy Najmu (dalej: OWN) oraz ich akceptacją. OWN jest integralną częścią Umowy Najmu.
 </div>
-
-<!-- SIGNATURES -->
-<table class="sigs">
-  <tr>
-    <td>
-      <div style="text-align:center; margin-bottom: 18px; font-size: 10px; line-height: 1.3; font-weight: normal; color: #000;">
-        <strong>{{ company.name if company else 'TOOLSMART Sp. z o.o.' }}</strong><br>
-        ul. {{ company.street if company else 'Kłobucka 6B/103' }}, {{ (company.postal_code + ' ' + company.city) if company else '02-699 Warszawa' }}<br>
-        NIP {{ company.nip if company else '9512598092' }}, Regon 528847124<br>
-        KRS 0001109942
-      </div>
-      <div class="sig-line">czytelny podpis Wynajmującego</div>
-    </td>
-    <td style="vertical-align: bottom;">
-      {% if salesperson %}<div style="margin-bottom:6px;font-size:9px;">Handlowiec: <strong>{{ salesperson.name }}</strong>{% if salesperson.phone %}, tel. {{ salesperson.phone }}{% endif %}</div>{% endif %}
-      <div class="sig-line">czytelny podpis Najemcy</div>
-    </td>
-  </tr>
-</table>
 
 </div><!-- /content -->
 
