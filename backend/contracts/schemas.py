@@ -152,6 +152,8 @@ class ContractDetail(BaseModel):
     email: str | None
     phone: str | None
     report_without_data: bool
+    hide_delivery_address: bool
+    signatures_on_page1: bool
     working_days_per_week: int | None
     print_date: datetime | None
     created_at: datetime
@@ -186,3 +188,5 @@ class ContractCreate(BaseModel):
     contractor_name: str | None = None
     working_days_per_week: int = 6
     report_without_data: bool = False
+    hide_delivery_address: bool = False
+    signatures_on_page1: bool = False

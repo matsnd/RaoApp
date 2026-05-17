@@ -44,6 +44,15 @@ async def startup_migrations():
             "ALTER TABLE service_fee_templates ADD COLUMN IF NOT EXISTS "
             "default_price DECIMAL(18,2) NULL"
         ))
+        # RAO-P1-014: checkbox podpisów na stronie 1
+        await conn.execute(sa.text(
+            "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
+            "signatures_on_page1 BOOLEAN NOT NULL DEFAULT FALSE"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
+            "hide_delivery_address BOOLEAN NOT NULL DEFAULT FALSE"
+        ))
         # service_fee_template_items utworzone przez Base.metadata.create_all (nowa tabela)
 
     # FK + index dodawane w osobnych transakcjach (MariaDB nie wspiera ADD CONSTRAINT IF NOT EXISTS / CREATE INDEX IF NOT EXISTS)

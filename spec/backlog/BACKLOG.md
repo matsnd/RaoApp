@@ -743,7 +743,7 @@ Naprawić tekst checkboxa "Ukryj adres dostawy na umowie" — obecny tekst jest 
 id: RAO-P1-014
 priority: P1
 size: XS
-status: triaged
+status: done
 classification: frontend
 roles: [frontend-dev, ux-designer]
 depends_on: []
@@ -751,8 +751,10 @@ blocks: []
 source: client
 source_date: 2026-05-17
 specs_to_update:
-  - core/11_reports_stats.md
-migration_impact: no
+  - core/01_database.md
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+migration_impact: yes
 security_impact: low
 ```
 
@@ -760,16 +762,21 @@ security_impact: low
 Naprawić etykietę checkboxa w sekcji podpisów — podwójna negacja jest niezrozumiała.
 
 **Acceptance criteria (DoD):**
-- [ ] Nowy tekst: "☐ Strona 1 zawiera podpisy" lub "☐ Podpisy wymagane na stronie 1"
-- [ ] Usunięcie podwójnej negacji
-- [ ] Zwięzlenie tekstu
-- [ ] `core/11_reports_stats.md` zaktualizowany
+- [x] Nowy tekst: "☐ Podpisy wymagane na stronie 1"
+- [x] Usunięcie podwójnej negacji
+- [x] Zwięzlenie tekstu
+- [x] DB: Dodanie pola `signatures_on_page1 BOOLEAN NOT NULL DEFAULT FALSE` do tabeli `contracts`
+- [x] Backend: Aktualizacja modelu i schemas
+- [x] Frontend: Dodanie checkboxa w ContractFormView.vue
+- [x] `core/01_database.md` zaktualizowany
+- [x] `core/02_backend_api.md` zaktualizowany
+- [x] `core/03_frontend_screens.md` zaktualizowany
 
 **QA DoD:**
 - [ ] E2E test w `04-contract.spec.ts` dla checkboxa podpisów
 - [ ] Smoke test `01-login.spec.ts` PASS
 
-**Pliki do zmiany:** `backend/reports/templates/contract.html`
+**Pliki do zmiany:** `backend/contracts/models.py`, `backend/contracts/schemas.py`, `backend/main.py`, `ContractFormView.vue`, `spec/core/01_database.md`, `spec/core/02_backend_api.md`, `spec/core/03_frontend_screens.md`
 **ROI:** UX krytyczne — obecny tekst jest mylący
 **Estimate:** 30 min (XS)
 
@@ -926,7 +933,7 @@ Migracja kategorii maszyn z pliku CSV (Asortyment - Produkty - Maszyny - Toolsma
 id: RAO-P1-018
 priority: P1
 size: M
-status: triaged
+status: done
 classification: backend
 roles: [backend-dev]
 depends_on: [RAO-P1-012]
@@ -943,19 +950,19 @@ security_impact: low
 Zrefaktoryzować system prowizyjny tak, aby prowizja handlowca była liczona od realnego zarobku (marży), a nie od kosztu umowy. Obecna formuła: prowizja = x% od kosztu umowy. Nowa formuła: prowizja = x% od (koszt klienta - koszt firmy).
 
 **Acceptance criteria (DoD):**
-- [ ] Backend: Zmiana formuły prowizji w `backend/stats/calc.py` lub odpowiednim serwisie
-- [ ] Nowa formuła: `commission = commission_rate * (SUM(cost_client) - SUM(cost_company))` dla umowy
-- [ ] Backend: Użycie danych z `contract_settlements` (z RAO-P1-012)
-- [ ] Backend: Backward compatibility — jeśli brak danych settlement, użyj starej formuły lub 0
+- [x] Backend: Zmiana formuły prowizji w `backend/stats/router.py`
+- [x] Nowa formuła: `commission = commission_rate * (SUM(cost_client) - SUM(cost_company))` dla umowy
+- [x] Backend: Użycie danych z `contract_settlements` (z RAO-P1-012)
+- [x] Backend: Backward compatibility — jeśli brak danych settlement, użyj starej formuły lub 0
 - [ ] Frontend: Aktualizacja widoku statystyk handlowca (jeśli pokazuje prowizje)
-- [ ] `core/04_business_logic.md` zaktualizowany
+- [x] `core/04_business_logic.md` zaktualizowany
 
 **QA DoD:**
 - [ ] Unit test dla nowej formuły prowizji
 - [ ] Test edge cases: ujemna marża, brak danych settlement
 - [ ] Smoke test `01-login.spec.ts` PASS
 
-**Pliki do zmiany:** `backend/stats/calc.py`, `backend/commissions/` (jeśli istnieje), `ReportsSection.vue`
+**Pliki do zmiany:** `backend/stats/router.py`, `core/04_business_logic.md`
 **ROI:** Krytyczne dla poprawności prowizji — obecnie handlowcy dostają prowizję od przychodu, nie od zysku
 **Estimate:** 4h (M)
 

@@ -292,6 +292,8 @@ CREATE TABLE contracts (
     print_path          VARCHAR(100) NULL,
     print_date          DATETIME     NULL,
     report_without_data BOOLEAN      NOT NULL DEFAULT FALSE COMMENT 'PZ bez danych',
+    hide_delivery_address BOOLEAN    NOT NULL DEFAULT FALSE COMMENT 'Ukryj adres dostawy na umowie',
+    signatures_on_page1 BOOLEAN      NOT NULL DEFAULT FALSE COMMENT 'Podpisy wymagane na stronie 1',
     -- Dni robocze
     working_days_per_week INT       NULL DEFAULT 6,
     position_count      INT          NULL DEFAULT 0,
