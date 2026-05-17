@@ -321,7 +321,7 @@ Zmienić pole adresu dostawy z jednolinijkowego na wielolinijkowy (textarea) w f
 id: RAO-P1-003
 priority: P1
 size: S
-status: triaged
+status: done
 classification: frontend
 roles: [frontend-dev]
 depends_on: [RAO-P1-002]
