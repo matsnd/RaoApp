@@ -47,3 +47,12 @@ Thumbs.db
 temp/
 nul
 .devin/
+
+# IDE config (personal)
+.windsurf/
+
+# DB DDL snapshot (dezaktualizuje się, schema jest w spec/01_DATABASE_DDL.md)
+db/
+
+# Root package-lock (pusty, pakiety są w frontend/)
+package-lock.json
