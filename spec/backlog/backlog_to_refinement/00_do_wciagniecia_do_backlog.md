@@ -2,7 +2,7 @@ Sa następujące historyjki i bugi dla product ownera do dodania
 
 następnie zespół ma zrobic refinement, 
 zweryfikować backlog i zadecydować o dodaniu
-
+ Screenshoty ogladaj vision ai zeby wiedziec o co chodzi
 1. 
 - Miejscowości w starej bazie są jako zlepek w stringu 
 - Klient chce mieć możliwość wpisywać tak żeby było można było dopisywać różne rzeczy
@@ -46,4 +46,9 @@ Chciałabym zmienić wygląd protokołów. Zależy mi na dodaniu tabeli „Przy 
 8.  Zmień, że usługi dodatkowe mają być zestawem zesłownikowanym z usługami, migrując starą bazę ma to się utworzyć, czyli usługi dodatkowe to nie są jakieś zmyślone stringi tylko usługi zesłownikowane (artykuły=> usługi). Czyli tak jak jest w nowej aplikacji ze sa uslugi dodatkowe w zestawach, ale te zestawy maja byc zeslownikowane z uslugami w artykuly
 9.  Musi być zakonczone 8 przed tym!!! dodaj nowy panel Rozliczenie umowy i tak będą wszystkie pozycje umowy (razem z uslugi dodatkowe) automatycznie sie to ma dodac po utworzeniu umowy i beda recznie do wpisania dane Koszty (zadanie dla PRODUCT OWNERA wymyslec odpowiednie nazwy, chodzi o koszty przedstawione na fakturze dla klienta i koszty jakie ponosi firma)
 10. musi byc dokonczone 9 przed tym!!!!! Zrefactoryzuj system prowizyjny, zeby dla handlowca ustalal prowizje x% ale nie od kosztu umowy, tylko od realnego zarobku czyli (Koszty klienta - Koszt jakie ponosi toolsmart ) x%
-   
+
+11. ![[Asortyment - Produkty - Maszyny - Toolsmart - Archiwum_Łukasza_Dane.csv]] Problem: obecna implementacja statystyk nie ma w ogole sensu na ten moment bo w starych danych systemowych jest mnóstwo maszyn które są zduplikowane, ze względu na błędne używanie starej aplikacji. W nowej aplikacji (obecnej nad którą pracujesz) te maszyny muszą być wszystkie pobrane, ale pomyśl jest taki - te maszyny które są obecnie dodać im flagę archiwalne, ale narazie dodać nic nie będziemy z nią robić, każda nowa maszyna nie będzie miała tej flagi. docelowo wyrzucę to w ogóle z wyswietlania i nowe maszyny beda mialy numery wenwetrzne i bedzie mozna po nich robic statystyki, jednak te stare odcinamy i bedziemy prowadzic statystyki bazujac na danych ktore sa w pliku csv czyli po kategoriach.
+    robiac migracje bazy danych ![[toolsmart_roa_1779053066.sql]] wykonaj z tej bazy migracje do lokalnej bazy na ktorej uruchamiamy aplikacje i dodaj te kategorie do odpowiendich maszyn, badaj te dane vs. csv, ale nie kopiuj bezmozgowo, ze zrozumieniem zeby sie nie pomylic weryfikuj to
+    
+
+po zakonczeniu dodaj podfolder archiwum refinement i podfolder z data i to wrzuc tam, bedziemy tak archiwizowac historie naszych prac
