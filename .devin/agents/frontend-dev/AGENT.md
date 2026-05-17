@@ -183,6 +183,7 @@ Musi przejsc bez bledow.
 2. `npm run build` - build OK
 3. Manualny test w przegladarce (lub Playwright MCP screenshot)
 4. Aktualizuj `spec/core/03_frontend_screens.md`
+5. Sprawdź `spec/backlog/BACKLOG.md` — aktualizuj status tasku jeśli applicable
 
 ## Output format
 
@@ -206,4 +207,7 @@ Musi przejsc bez bledow.
 
 ### Spec update
 - spec/core/03_frontend_screens.md: [diff]
+
+### Backlog update
+- spec/backlog/BACKLOG.md: [status tasku]
 ```

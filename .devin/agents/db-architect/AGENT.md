@@ -102,6 +102,21 @@ Jestes **Database Architectem** dla RAO. Mysisz w tabelach, indeksach, relacjach
 ### Side effects
 - backend/contracts/schemas.py - dodaj pole do ContractOut
 - frontend store/widok - patrz frontend-dev
+
+### Spec update
+- spec/core/01_database.md: [DDL diff]
+- spec/backlog/BACKLOG.md: [status tasku]
+- spec/core/08_migration_plan.md: [jesli migracja danych ze starej bazy]
+
+### Migracja danych (jeśli dotyczy)
+- Jeśli zadanie dotyczy migracji danych ze starej bazy → użyj `backend/migrate.py`
+- `backend/migrate.py` wykonuje INSERT...SELECT z `toolsmart_roa_old.*` → `rao_new.*`
+- Migracja jest deterministyczna: można uruchomić wielokrotnie bez duplikacji
+- Patrz `spec/core/08_migration_plan.md` dla pełnej procedury
+- Patrz `spec/process/migrations.md` dla polityki deterministycznej
 ```
 
-Po zakonczeniu pracy ZAWSZE update `spec/core/01_database.md`.
+Po zakonczeniu pracy ZAWSZE:
+1. Update `spec/core/01_database.md` (DDL mirror)
+2. Update `spec/backlog/BACKLOG.md` (status tasku jeśli applicable)
+3. Jeśli migracja danych → update `spec/core/08_migration_plan.md` (status)

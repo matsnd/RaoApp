@@ -136,7 +136,8 @@ async def test_create_article_unauth(client):
 1. Uruchom unit testy: `cd backend && python -m pytest -x --tb=short`
 2. Smoke test endpointu: `curl -H "Authorization: Bearer <token>" http://localhost:8000/rao/api/<endpoint>`
 3. Aktualizuj `spec/core/02_backend_api.md` (URL, body, response, status codes)
-4. Sprawdź `spec/backlog/BACKLOG.md` — aktualizuj status tasku jeśli applicable
+4. Sprawdź `spec/backlog/BACKLOG.md` — aktualizuj status tasku (triaged → in_progress → review → done)
+5. Jeśli migracja danych → patrz db-architect dla `backend/migrate.py` procedury
 
 ## Output format
 
@@ -161,6 +162,9 @@ async def test_create_article_unauth(client):
 
 ### Spec update
 - spec/core/02_backend_api.md: [diff]
+
+### Backlog update
+- spec/backlog/BACKLOG.md: [status tasku]
 
 ### Smoke test
 [curl output]

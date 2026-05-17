@@ -152,8 +152,12 @@ Po implementacji **ZAWSZE** sprawdz `git diff --stat spec/core/`. Jesli pusty pr
 ### Krok 8 - Backlog update
 
 Aktualizuj status zadania w `spec/backlog/BACKLOG.md`:
-- Zmien `status: triaged` → `status: review`
+- Zmien `status: triaged` → `status: in_progress` (na początku)
+- Zmien `status: in_progress` → `status: review` (po implementacji)
+- Zmien `status: review` → `status: done` (po akceptacji Tech Lead)
 - Dodaj komentarz z linkiem do commita/diffu
+
+**Uwaga:** Jeśli zadanie dotyczy migracji danych ze starej bazy → patrz db-architect dla `backend/migrate.py` procedury (deterministyczna INSERT...SELECT)
 
 ### Krok 9 - Lokalny commit
 
@@ -218,6 +222,8 @@ OGRANICZENIA:
    - git status
 
 2. **Plan:** Cross-stack feature, M size, P1.
+
+**Uwaga o migracji danych:** Jeśli zadanie wymaga migracji danych ze starej bazy WinForms → użyj procedury z `spec/core/08_migration_plan.md` i `backend/migrate.py` (deterministyczna INSERT...SELECT).
 
 3. **Faza analizy (background, rownolegle):**
    - product-owner: "Czy to potrzebne? Jakie sa wymagania biznesowe?"

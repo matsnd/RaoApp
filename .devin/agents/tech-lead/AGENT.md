@@ -83,8 +83,10 @@ Twoj raport zawsze zawiera:
 - spec/core/01_database.md (jesli DB)
 - spec/core/02_backend_api.md (jesli endpoint)
 - spec/core/03_frontend_screens.md (jesli frontend)
-- spec/backlog/BACKLOG.md (jesli backlog update)
+- spec/backlog/BACKLOG.md (jesli backlog update - zawsze aktualizuj status tasku: triaged → in_progress → review → done)
 - spec/AGENT_PLAYBOOK.md (jesli role mapping change)
+- spec/core/08_migration_plan.md (jesli migracja danych ze starej bazy - patrz backend/migrate.py)
+- spec/process/migrations.md (jesli polityka migracji ulegla zmianie)
 ```
 
 ## Czego NIE robisz
