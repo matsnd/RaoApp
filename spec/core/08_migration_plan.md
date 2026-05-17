@@ -76,9 +76,9 @@ import asyncio
 import aiomysql
 from decimal import Decimal, InvalidOperation
 
-OLD_DB = dict(host='localhost', user='root', password='USOjtYTpJaxyhT2q5PnI',
+OLD_DB = dict(host='localhost', user='root', password='<<OLD_DB_PASS>>',
               db='toolsmart_roa_fake', charset='utf8mb4')
-NEW_DB = dict(host='localhost', user='rao_user', password='RaoPass2026!',
+NEW_DB = dict(host='localhost', user='rao_user', password='<<NEW_DB_PASS>>',
               db='rao_new', charset='utf8mb4')
 
 # Polska kwota: "400", "400.00", "400,00", "1 000,00", "1 000.00"
@@ -524,13 +524,13 @@ with engine.begin() as conn:
     users = conn.execute(text("SELECT id, password FROM users")).fetchall()
     for user_id, password in users:
         if password.startswith("$PLAINTEXT$"):
-            plain = password.replace("$PLAINTEXT$", "")
-            hashed = bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
+            # Zamiast kopiować plaintext, generuj losowe hasło tymczasowe + force_password_reset
+            temp_password = generate_random_temp_password()  # losowe hasło bcrypt
             conn.execute(
-                text("UPDATE users SET password = :pwd WHERE id = :id"),
-                {"pwd": hashed, "id": user_id}
+                text("UPDATE users SET password = :pwd, force_password_reset = 1 WHERE id = :id"),
+                {"pwd": temp_password, "id": user_id}
             )
-    print(f"Zaktualizowano {len(users)} haseł")
+    print(f"Zaktualizowano {len(users)} użytkowników (force_password_reset=1 dla migrowanych haseł)")
 ```
 
 ## Weryfikacja migracji

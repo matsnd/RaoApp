@@ -4,7 +4,7 @@
 > **Metoda:** Cross-role team analysis (Analityk Biznesowy + DBA + UX + Frontend Architect + Backend Architect)
 
 > ⚠️ **ARCHIWUM** — Wszystkie P0 i większość P1 z tego dokumentu zostały zaimplementowane do 2026-04-07.  
-> **Aktualny backlog → patrz `19_BACKLOG.md`**
+> **Aktualny backlog → patrz `backlog/BACKLOG.md`**
 
 ---
 

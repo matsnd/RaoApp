@@ -5,7 +5,7 @@
 > **Nota:** Proces #1 (Dodawanie Umowy) opisany szczegółowo w `AUDIT_CONTRACT_PROCESS.md`
 
 > ⚠️ **ARCHIWUM** — Ten dokument odzwierciedla stan z 2026-03-15. Większość P0 i P1 zidentyfikowanych tutaj zostało zaimplementowanych do 2026-04-07.  
-> **Aktualny backlog → patrz `19_BACKLOG.md`**
+> **Aktualny backlog → patrz `backlog/BACKLOG.md`**
 
 ---
 

@@ -1100,7 +1100,7 @@ Raporty zbiorczych — generują PDF z danymi zagregowanymi.
 ### `GET /stats/additional-fees` (Nowość)
 ### `GET /stats/locations` (Nowość)
 
-> Pełna specyfikacja raportów z obrazkami i endpointów statystyk znajduje się w pliku **[11_REPORTS_AND_STATS.md](./11_REPORTS_AND_STATS.md)**.
+> Pełna specyfikacja raportów z obrazkami i endpointów statystyk znajduje się w pliku **[11_reports_stats.md](./11_reports_stats.md)**.
 
 ---
 

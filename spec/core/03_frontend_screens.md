@@ -82,7 +82,7 @@ frontend/
 ## Design System (CSS Custom Properties)
 
 > **⚠️ UWAGA:** Pełny design system z kolorami, typografią, komponentami i stylami
-> znajduje się w pliku **[09_DESIGN_REFERENCE.md](./09_DESIGN_REFERENCE.md)** —
+> znajduje się w pliku **[09_design_reference.md](./09_design_reference.md)** —
 > wyekstrahowany z toolsmart.pl (wzorzec wizualny nowej aplikacji).
 
 **Kluczowe parametry (skrócone):**
