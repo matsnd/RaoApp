@@ -704,7 +704,7 @@ Nowy panel "Rozliczenie umowy" z tabelÄ… wszystkich pozycji umowy (maszyny + usÅ
 id: RAO-P1-013
 priority: P1
 size: XS
-status: triaged
+status: done
 classification: frontend
 roles: [frontend-dev, ux-designer]
 depends_on: []

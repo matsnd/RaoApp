@@ -144,6 +144,7 @@
               <label class="form-label">Opcje</label>
               <div style="display:flex;gap:16px;padding-top:6px;">
                 <label class="checkbox-group"><input type="checkbox" v-model="form.report_without_data" /> Wydruk bez danych</label>
+                <label class="checkbox-group"><input type="checkbox" v-model="form.hide_delivery_address" /> Ukryj adres dostawy na umowie (klient wpisze ręcznie)</label>
                 <div style="display:flex;align-items:center;gap:6px;">
                   <span style="font-size:12px;">Dni rob./tydz.:</span>
                   <input v-model.number="form.working_days_per_week" type="number" min="1" max="7" class="form-control" style="width:60px;" />
@@ -609,7 +610,7 @@ const form = ref({
   invoice_amount: 0, invoice_document: '', notes: '',
   contact_person1: '', contact_phone1: '', show_person1: true,
   contact_person2: '', contact_phone2: '', show_person2: true,
-  email: '', phone: '', contractor_name: '', working_days_per_week: 6, report_without_data: false,
+  email: '', phone: '', contractor_name: '', working_days_per_week: 6, report_without_data: false, hide_delivery_address: false,
 })
 
 const remainingValue = computed(() => {
