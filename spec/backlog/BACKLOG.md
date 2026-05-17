@@ -698,10 +698,232 @@ Nowy panel "Rozliczenie umowy" z tabelą wszystkich pozycji umowy (maszyny + us�
 
 ---
 
-### [RAO-P1-013] Refactor systemu prowizyjnego — od realnego zarobku (#10)
+### [RAO-P1-013] Poprawa tekstu checkboxa ukrywania adresu (#2)
 
 ```yaml
 id: RAO-P1-013
+priority: P1
+size: XS
+status: triaged
+classification: frontend
+roles: [frontend-dev, ux-designer]
+depends_on: []
+blocks: []
+source: client
+source_date: 2026-05-17
+specs_to_update:
+  - core/03_frontend_screens.md
+migration_impact: no
+security_impact: low
+```
+
+**Job-to-be-done:**
+Naprawić tekst checkboxa "Ukryj adres dostawy na umowie" — obecny tekst jest za długi, zawiera błędy ortograficzne i jest niezrozumiały.
+
+**Acceptance criteria (DoD):**
+- [ ] Nowy tekst: "☐ Ukryj adres dostawy na umowie (klient wpisze ręcznie)"
+- [ ] Poprawa błędu ortograficznego: "żę" → "że"
+- [ ] Usunięcie języka potocznego ("niech się nie pokazuje")
+- [ ] Zwięzlenie tekstu do maks 15 słów
+- [ ] `core/03_frontend_screens.md` zaktualizowany
+
+**QA DoD:**
+- [ ] E2E test w `04-contract.spec.ts` dla checkboxa
+- [ ] Smoke test `01-login.spec.ts` PASS
+
+**Pliki do zmiany:** `ContractFormView.vue`
+**ROI:** UX krytyczne — obecny tekst wygląda jak notatka developera, nie produkcyjny UI
+**Estimate:** 30 min (XS)
+
+---
+
+### [RAO-P1-014] Poprawa checkboxa "Na 1 stronie nie bez podpisów" (#3)
+
+```yaml
+id: RAO-P1-014
+priority: P1
+size: XS
+status: triaged
+classification: frontend
+roles: [frontend-dev, ux-designer]
+depends_on: []
+blocks: []
+source: client
+source_date: 2026-05-17
+specs_to_update:
+  - core/11_reports_stats.md
+migration_impact: no
+security_impact: low
+```
+
+**Job-to-be-done:**
+Naprawić etykietę checkboxa w sekcji podpisów — podwójna negacja jest niezrozumiała.
+
+**Acceptance criteria (DoD):**
+- [ ] Nowy tekst: "☐ Strona 1 zawiera podpisy" lub "☐ Podpisy wymagane na stronie 1"
+- [ ] Usunięcie podwójnej negacji
+- [ ] Zwięzlenie tekstu
+- [ ] `core/11_reports_stats.md` zaktualizowany
+
+**QA DoD:**
+- [ ] E2E test w `04-contract.spec.ts` dla checkboxa podpisów
+- [ ] Smoke test `01-login.spec.ts` PASS
+
+**Pliki do zmiany:** `backend/reports/templates/contract.html`
+**ROI:** UX krytyczne — obecny tekst jest mylący
+**Estimate:** 30 min (XS)
+
+---
+
+### [RAO-P1-015] Format OWN dokumentu — 2 strony z punktem 3 po prawej (#4)
+
+```yaml
+id: RAO-P1-015
+priority: P1
+size: M
+status: triaged
+classification: frontend
+roles: [frontend-dev]
+depends_on: []
+blocks: []
+source: client
+source_date: 2026-05-17
+specs_to_update:
+  - core/11_reports_stats.md
+migration_impact: no
+security_impact: low
+```
+
+**Job-to-be-done:**
+Naprawić format dokumentu "Ogólne Warunki Najmu" (OWN) tak, aby mieścił się na 2 stronach z punktem §3 zaczynającym się po prawej stronie kolumny.
+
+**Acceptance criteria (DoD):**
+- [ ] PDF OWN: podział na 2 strony
+- [ ] Auto-layout: punkt §3 zawsze zaczyna się po prawej stronie kolumny
+- [ ] Dodać preview z wizualnym podziałem na strony (Page 1 | Page 2)
+- [ ] Zmienić font na Montserrat (nie Times New Roman)
+- [ ] Dodać header z logo RAO w kolorze #1D2B53
+- [ ] Dodać toolbar: [Drukuj] [PDF] [Edytuj] z border-radius: 12px
+- [ ] `core/11_reports_stats.md` zaktualizowany
+
+**QA DoD:**
+- [ ] E2E test w `04-contract.spec.ts` dla OWN dokumentu
+- [ ] Wizualne sprawdzenie: 2 strony, punkt §3 po prawej
+- [ ] Smoke test `01-login.spec.ts` PASS
+
+**Pliki do zmiany:** `backend/reports/templates/own.html`, `own.css`
+**ROI:** Klient wymaga poprawnego formatu dokumentu prawnego
+**Estimate:** 4h (M)
+
+---
+
+### [RAO-P1-016] Rozszerzenie sekcji "Uwagi" w umowie o brakujące pola (#5)
+
+```yaml
+id: RAO-P1-016
+priority: P1
+size: S
+status: triaged
+classification: frontend
+roles: [qa-engineer, frontend-dev]
+depends_on: [RAO-P1-004]
+blocks: []
+source: client
+source_date: 2026-05-17
+specs_to_update:
+  - core/11_reports_stats.md
+migration_impact: no
+security_impact: low
+```
+
+**Job-to-be-done:**
+Przejrzej starą aplikację WinForms i zidentyfikować wszystkie brakujące pola w sekcji "Uwagi" umowy. Rozszerzyć RAO-P1-004 o brakujące elementy.
+
+**Acceptance criteria (DoD):**
+- [ ] QA: Analiza starej aplikacji WinForms (C:\projects\repos\AppRao)
+- [ ] Lista brakujących pól uwag
+- [ ] Dodanie brakujących pól do sekcji "Uwagi" w PDF umowy
+- [ ] Weryfikacja: 5 losowych umów — PDF zawiera wszystkie pola ze starej aplikacji
+- [ ] `core/11_reports_stats.md` zaktualizowany
+
+**QA DoD:**
+- [ ] E2E test w `04-contract.spec.ts` dla rozszerzonej sekcji uwag
+- [ ] Smoke test `01-login.spec.ts` PASS
+
+**Pliki do zmiany:** `backend/reports/templates/contract.html`, `core/11_reports_stats.md`
+**ROI:** Feature parity — klient wymaga wszystkich pól ze starej aplikacji
+**Estimate:** 3h (S)
+
+---
+
+### [RAO-P1-017] Migracja kategorii maszyn z CSV + flaga archiwalna (#11)
+
+```yaml
+id: RAO-P1-017
+priority: P1
+size: XL
+status: triaged
+classification: db-only
+roles: [db-architect, backend-dev]
+depends_on: []
+blocks: []
+source: client
+source_date: 2026-05-17
+specs_to_update:
+  - core/01_database.md
+  - core/04_business_logic.md
+  - core/11_reports_stats.md
+migration_impact: yes
+security_impact: low
+```
+
+**Job-to-be-done:**
+Migracja kategorii maszyn z pliku CSV (Asortyment - Produkty - Maszyny - Toolsmart - Archiwum_Łukasza_Dane.csv) i z bazy SQL (toolsmart_roa_1779053066.sql). Dodanie kategorii do maszyn, flaga archiwalna dla starych maszyn, statystyki bazujące na kategoriach.
+
+**Acceptance criteria (DoD):**
+- [ ] DB: Dodanie kolumny `category VARCHAR(100)` do tabeli `articles`
+- [ ] DB: Dodanie kolumny `is_archival BOOLEAN DEFAULT FALSE` do tabeli `articles`
+- [ ] Backend: Skrypt migracji z CSV — mapowanie kategorii na maszyny
+- [ ] Backend: Skrypt migracji z SQL — mapowanie kategorii z toolsmart_roa
+- [ ] Backend: Flaga `is_archival = TRUE` dla wszystkich istniejących maszyn
+- [ ] Backend: Nowe maszyny (po migracji) mają `is_archival = FALSE`
+- [ ] Backend: Statystyki zmienione na bazowanie na kategoriach (nie po numerach wewnętrznych)
+- [ ] Weryfikacja: porównanie danych CSV vs SQL — unikanie duplikacji
+- [ ] `core/01_database.md` zaktualizowany
+- [ ] `core/04_business_logic.md` zaktualizowany
+- [ ] `core/11_reports_stats.md` zaktualizowany
+
+**Migration plan (RAO deterministic):**
+1. `core/01_database.md` — finalny DDL (category, is_archival)
+2. `backend/articles/models.py` — SQLAlchemy models
+3. `backend/main.py` startup — ALTER TABLE ADD COLUMN
+4. `backend/migrate.py` — skrypt migracji:
+   - Wczytanie CSV i parsowanie kategorii
+   - Wczytanie SQL i parsowanie kategorii
+   - Mapowanie kategorii na `articles` (po nazwie lub innym kluczu)
+   - Ustawienie `is_archival = TRUE` dla wszystkich istniejących rekordów
+   - Weryfikacja: % maszyn z poprawną kategorią
+5. **Verification gate (obowiązkowe):**
+   - [ ] `DROP DATABASE rao_new && CREATE` → run migrate → sprawdź czy category/is_archival są wypełnione
+   - [ ] Re-run `python migrate.py` → idempotentne
+   - [ ] Drugi restart backend bez błędu
+   - [ ] Weryfikacja: `SELECT COUNT(*) FROM articles WHERE is_archival = TRUE` > 0
+
+**QA DoD:**
+- [ ] Unit test dla migracji kategorii
+- [ ] Weryfikacja statystyk: raporty po kategoriach działają poprawnie
+- [ ] Smoke test `01-login.spec.ts` PASS
+
+**Pliki do zmiany:** `backend/articles/models.py`, `backend/migrate.py`, `backend/stats/router.py`, `backend/stats/calc.py`
+**ROI:** Krytyczne dla statystyk — obecne duplikacje maszyn zniekształcają raporty
+**Estimate:** 12h (XL)
+
+---
+
+### [RAO-P1-018] Refactor systemu prowizyjnego — od realnego zarobku (#10)
+
+```yaml
+id: RAO-P1-018
 priority: P1
 size: M
 status: triaged
