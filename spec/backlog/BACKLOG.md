@@ -397,7 +397,7 @@ Dodać brakującą sekcję "Uwagi" w umowie PDF z ważnymi informacjami o warunk
 id: RAO-P1-005
 priority: P1
 size: M
-status: triaged
+status: done
 classification: backend
 roles: [backend-dev]
 depends_on: []
