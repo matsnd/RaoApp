@@ -173,10 +173,51 @@ Po zakończeniu zadania sprawdź `git diff --stat spec/` — pusty diff przy zmi
 
 1. **Root cause > symptomy** — minimalna upstream fix > obejście downstream
 2. **Nie usuwaj/osłabiaj testów** bez wyraźnej zgody użytkownika (nawet "tymczasowo")
-3. **Nie commituj automatycznie** — agent przygotowuje zmiany, człowiek commituje (chyba że PR-mode autoryzowany)
+3. **Lokalne commity po każdym zadaniu** — po zakończeniu każdego zadania/feature wykonaj lokalny commit z opisem zmian. To pozwala na śledzenie postępów i łatwe przywracanie wcześniejszych stanów przez `git revert` lub `git reset`. Commit message powinien być krótki i opisywać "co i dlaczego" (nie "jak").
 4. **Po każdej zmianie kodu → smoke `e2e/tests/01-login.spec.ts`** (najszybsza ochrona przed regresją)
 5. **Port zajęty?** Użyj kolejnego wolnego (8001, 5174). NIGDY `kill-port`/`pkill`/`taskkill` cudzych procesów. Po zmianie portu backendu zaktualizuj `VITE_API_URL` w `frontend/.env`.
 6. **Sekrety w `.env`**, nigdy w kodzie. `.env` jest w `.gitignore`. Szablon: `.env.example`.
+
+## Lokalne commity — śledzenie postępów
+
+Po każdym zakończonym zadaniu wykonaj lokalny commit. To tworzy historię zmian i pozwala na:
+
+- **Śledzenie postępów** — widoczne co zostało zrobione w danym czasie
+- **Easy rollback** — `git revert HEAD` cofa ostatnie zmiany
+- **Debugging** — można porównać stany przed/po przez `git diff`
+- **Eksperymenty** — gałęzie do testowania bez ryzyka
+
+### Format commit message
+
+```
+feat(category): krótki opis co i dlaczego
+
+Szczegóły jeśli potrzebne (opcjonalne).
+```
+
+Przykłady:
+```
+feat(contracts): add delivery_address field to contracts
+fix(auth): resolve JWT token expiration edge case
+refactor(frontend): extract ArticlePicker to reusable component
+```
+
+### Procedura commitowania
+
+1. **Sprawdź zmiany:** `git status` i `git diff`
+2. **Dodaj pliki:** `git add <pliki>` lub `git add .`
+3. **Commit:** `git commit -m "opis zmiany"`
+4. **Weryfikacja:** `git log --oneline -3`
+
+### Przywracanie stanów
+
+- **Cofnij ostatni commit:** `git revert HEAD`
+- **Reset do konkretnego commita:** `git reset --hard <commit-hash>`
+- **Porównaj stany:** `git diff HEAD~1 HEAD`
+
+<Note>
+Lokalne commity NIE są automatycznie pushowane do origin. Pushuj tylko gdy zmiany są stabilne i przetestowane.
+</Note>
 
 ## Mapa plików
 
@@ -233,15 +274,16 @@ Gdy zadanie wymaga pełnej autonomii z self-healingiem i pełną weryfikacją:
 1. Klasyfikuj: DB-only / Backend / Frontend / Cross-stack / Bugfix / Refactor
 2. Plan w todo (3-8 kroków, jeden in_progress na raz)
 3. Implementacja warstwowa (DB → backend → frontend → e2e → spec sync)
-4. **5-tier verification matrix:**
+4. **6-tier verification matrix:**
    - Tier 1: static (`vue-tsc --noEmit` + `python -m compileall`)
    - Tier 2: unit (`pytest -x --tb=short`)
    - Tier 3: smoke (curl `/health`, `/openapi.json`, `/auth/login`)
    - Tier 4: e2e (`npx playwright test`)
    - Tier 4.5: migration & spec consistency (drugi restart + `git diff spec/`)
    - Tier 5: manual (browser navigate + snapshot + screenshot)
+   - Tier 6: local commit (opis zmian, historia do rollbacku)
 5. Self-healing loop: max 15 iteracji, root-cause analysis, escape valve z uczciwym raportem
-6. Final report: lista plików zmienionych + spec/ updated + screenshot dowodu
+6. Final report: lista plików zmienionych + spec/ updated + screenshot dowodu + hash lokalnego commita
 
 ## Reguły agentów (mapa konfiguracji)
 

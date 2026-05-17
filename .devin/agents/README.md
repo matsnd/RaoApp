@@ -144,6 +144,7 @@ Domyślnie wszystkie używają domyślnego modelu Devin (możesz nadpisać per-a
 5. **Spec/ to single source of truth** — update po każdej zmianie funkcjonalnej
 6. **Smoke test po zmianach** — `e2e/tests/01-login.spec.ts` musi przejść
 7. **Zero `kill-port`/`pkill`** — port zajęty → kolejny wolny
+8. **Lokalne commity po każdym zadaniu** — po zakończeniu zadania wykonaj `git commit` z opisem zmian (format: `feat(category): opis`). To tworzy historię do rollbacku i śledzenia postępów.
 
 ## 🔍 Weryfikacja konfiguracji
 

@@ -105,6 +105,16 @@ Przed zamknieciem zadania:
 
 Po implementacji **ZAWSZE** sprawdz `git diff --stat spec/`. Jesli pusty przy zmianach funkcjonalnych - aktualizuj odpowiedni plik (mapa w `.windsurf/rules/rao-spec-sync.md`).
 
+### Krok 8 - Lokalny commit
+
+Po zakonczeniu zadania i aktualizacji spec/ wykonaj lokalny commit:
+```bash
+git add .
+git commit -m "feat(category): krotki opis co i dlaczego"
+```
+
+To tworzy historie zmian do rollbacku (`git revert HEAD`) i sledzenia postepow.
+
 ## Reguly nienaruszalne
 
 1. **Nie pytaj uzytkownika o oczywistosci** - czytaj kod, spec, zdrowy rozsadek
@@ -115,6 +125,7 @@ Po implementacji **ZAWSZE** sprawdz `git diff --stat spec/`. Jesli pusty przy zm
 6. **Spec/ to single source of truth** - update po kazdej zmianie funkcjonalnej
 7. **Smoke test po zmianach** - `e2e/tests/01-login.spec.ts` musi przejsc
 8. **Zero `kill-port`/`pkill`** - port zajety -> kolejny wolny
+9. **Lokalne commity po kazdym zadaniu** - po zakonczeniu zadania wykonaj `git commit` z opisem zmian (format: `feat(category): opis`). To tworzy historie do rollbacku i sledzenia postepow.
 
 ## Wzor prompta dla subagenta
 
@@ -175,7 +186,9 @@ OGRANICZENIA:
 
 8. **Spec sync:** verify `git diff --stat spec/`.
 
-9. **Final report:** lista zmian, screenshot, status testow.
+9. **Lokalny commit:** `git add . && git commit -m "feat(contracts): add delivery_address field"`.
+
+10. **Final report:** lista zmian, screenshot, status testow, hash commita.
 
 ---
 
