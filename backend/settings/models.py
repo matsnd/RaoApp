@@ -47,6 +47,11 @@ class ServiceFeeTemplate(Base):
     preset_id = Column(Integer, ForeignKey("fee_preset_groups.id", ondelete="CASCADE"), nullable=True)
     contract_type = Column(String(1), nullable=False)
     sort_order = Column(Integer, nullable=False, default=0)
+    # RAO-P1-011: zesłownikowanie z artykułami.
+    # article_id wskazuje na artykuł (zwykle usługa, is_service=1); jeśli ustawiony,
+    # nazwa wyświetlana pochodzi z articles.name (snapshot w `name` zachowany dla legacy).
+    article_id = Column(Integer, ForeignKey("articles.id", ondelete="SET NULL"), nullable=True)
+    default_price = Column(Numeric(18, 2), nullable=True)
     name = Column(String(200), nullable=False)
     amount_from = Column(Numeric(18, 2), nullable=True)
     amount_to = Column(Numeric(18, 2), nullable=True)
@@ -55,6 +60,29 @@ class ServiceFeeTemplate(Base):
     is_active = Column(Boolean, nullable=False, default=True)
 
     preset_group = relationship("FeePresetGroup", back_populates="templates")
+    article = relationship("Article", lazy="selectin", foreign_keys=[article_id])
+
+    @property
+    def article_name(self) -> str | None:
+        return self.article.name if self.article else None
+
+
+class ServiceFeeTemplateItem(Base):
+    """RAO-P1-011: relacja N:M szablon (fee_preset_group) → artykuł z domyślną ceną.
+
+    Tabela utworzona dla spójności danych — pozwala w przyszłości budować zestaw usług
+    dodatkowych jako listę konkretnych artykułów + cena, niezależnie od (legacy)
+    pełnowymiarowego rekordu w service_fee_templates (amount_from/amount_to/unit).
+    """
+    __tablename__ = "service_fee_template_items"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    template_id = Column(Integer, ForeignKey("fee_preset_groups.id", ondelete="CASCADE"), nullable=False)
+    article_id = Column(Integer, ForeignKey("articles.id", ondelete="CASCADE"), nullable=False)
+    default_price = Column(Numeric(18, 2), nullable=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+
+    article = relationship("Article", lazy="selectin", foreign_keys=[article_id])
 
 
 class Salesperson(Base):

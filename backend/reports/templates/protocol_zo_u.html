@@ -72,6 +72,14 @@
   .pg-footer { border-top: 1px solid #ccc; padding: 3px 14mm 5px; margin-top: 0; overflow: hidden; font-size: 8.5px; color: #444; flex-shrink: 0; }
   .pg-footer-l { float: left; }
   .pg-footer-r { float: right; }
+
+  /* PRZY WYDANIU / PRZY ODBIORZE */
+  .pwo-section { margin: 8px 0 10px; page-break-inside: avoid; }
+  .pwo-title { font-size: 9px; font-weight: bold; color: #1D2B53; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; border-bottom: 2px solid #1D2B53; padding-bottom: 2px; display: block; }
+  table.pwo-table { width: 100%; border-collapse: collapse; font-size: 7.5px; table-layout: fixed; }
+  table.pwo-table th { background: #1D2B53; color: #fff; padding: 3px 2px; text-align: center; border: 1px solid #1D2B53; font-weight: normal; font-size: 7px; line-height: 1.2; }
+  table.pwo-table td { border: 1px solid #aaa; padding: 3px 2px; height: 22px; vertical-align: middle; }
+  .pwo-row-label { background: #f0f2f8; color: #1D2B53; font-weight: bold; font-size: 7.5px; text-align: center; white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -105,7 +113,9 @@
         <div class="pzo-title">PROTOKÓŁ WYKONANIA USŁUGI</div>
         <div class="pzo-sub">
           do umowy nr {{ contract.number }}<br>
-          zawartej w dniu {{ contract.date_from | datepl }}
+          zawartej w dniu {{ contract.date_from | datepl }}<br>
+          {% set svc_date = (positions[0].pos.delivery_date if positions else None) or contract.date_from %}
+          {% if svc_date %}termin wykonania usługi {{ svc_date | datepl }}{% endif %}
         </div>
       </td>
     </tr>
@@ -116,7 +126,8 @@
     <tr>
       <td class="box-cell" style="padding-right: 5px; width: 50%;">
         <div class="box-inner">
-          <div class="box-label">osoba upoważniona do odbioru</div>
+          <div class="box-label">osoba upoważniona do odbioru przedmiotu najmu</div>
+          {% if contract.contact_person1 %}{{ contract.contact_person1 }}{% if contract.contact_phone1 %}, tel. {{ contract.contact_phone1 }}{% endif %}{% endif %}
         </div>
       </td>
       <td class="box-cell" style="padding-left: 5px; width: 50%;">
@@ -129,15 +140,13 @@
     </tr>
   </table>
 
-  <!-- POSITIONS -->
+  <!-- POSITIONS (zgodnie z PDF WinForms: tylko 2 kolumny "przedmiot najmu | dane") -->
   <table class="pos">
     <thead>
       <tr>
         <th style="width:20px;"></th>
-        <th>przedmiot usługi</th>
-        <th style="width:90px;">nr seryjny</th>
-        <th style="width:80px;">data dostawy</th>
-        <th style="width:100px;text-align:right;">wartość odtworzeniowa</th>
+        <th>przedmiot najmu</th>
+        <th style="text-align:left;">dane</th>
       </tr>
     </thead>
     <tbody>
@@ -145,9 +154,10 @@
     <tr>
       <td>{{ loop.index }}</td>
       <td>{{ p.pos.article_name or '' }}</td>
-      <td>{{ p.serial_no or '' }}</td>
-      <td>{{ p.pos.delivery_date | datepl }}</td>
-      <td style="text-align:right;">{% if p.replacement_value %}{{ p.replacement_value | money_plain }}{% endif %}</td>
+      <td style="text-align:left;">
+        {% if p.serial_no %}nr seryjny: {{ p.serial_no }}{% endif %}
+        {% if p.pos.delivery_date %}{% if p.serial_no %} · {% endif %}data: {{ p.pos.delivery_date | datepl }}{% endif %}
+      </td>
     </tr>
     {% endfor %}
     </tbody>
@@ -188,15 +198,58 @@
   {% endfor %}
 
   <div class="legal-line">Pokwitowanie niniejszego Protokołu jest jednoznaczne z oświadczeniem o zapoznaniu się z Ogólnymi Warunkami Umowy (dalej: OWN) oraz ich akceptacją.</div>
+  <!-- PRZY WYDANIU / PRZY ODBIORZE -->
+  <div class="pwo-section">
+    <div class="pwo-title">Przy wydaniu / Przy odbiorze</div>
+    <table class="pwo-table">
+      <colgroup>
+        <col style="width: 56px;">
+        <col style="width: 58px;">
+        <col>
+        <col style="width: 44px;">
+        <col style="width: 48px;">
+        <col style="width: 44px;">
+        <col style="width: 55px;">
+        <col style="width: 60px;">
+        <col style="width: 60px;">
+        <col style="width: 65px;">
+      </colgroup>
+      <thead>
+        <tr>
+          <th></th>
+          <th>Data i godzina</th>
+          <th>Urządzenie i model</th>
+          <th>Stan paliwa</th>
+          <th>Ilość kluczyków</th>
+          <th>Stan wideł</th>
+          <th>Czystość maszyny</th>
+          <th>Dokumentacja zdjęciowa</th>
+          <th>Dodatkowe akcesoria</th>
+          <th>Uwagi</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="pwo-row-label">Przy wydaniu</td>
+          <td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+        </tr>
+        <tr>
+          <td class="pwo-row-label">Przy odbiorze</td>
+          <td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
 
   <!-- DELIVERY SIGNATURES -->
   <table class="sigs" style="margin-top: 40px;">
     <tr>
       <td style="padding-top:40px; vertical-align: bottom;">
-        <div class="sig-line">czytelny podpis Wykonawcy</div>
+        <div class="sig-line">czytelny podpis Wynajmującego</div>
       </td>
       <td style="padding-top:40px; vertical-align: bottom;">
-        <div class="sig-line">czytelny podpis Zleceniodawcy</div>
+        <div class="sig-line">czytelny podpis Najemcy</div>
       </td>
     </tr>
   </table>
@@ -226,10 +279,10 @@
             NIP {{ company.nip }}, Regon 528847124<br>
             KRS 0001109942{% endif %}
           </div>
-          <div class="sig-line" style="margin-top:10px;">czytelny podpis Wykonawcy</div>
+          <div class="sig-line" style="margin-top:10px;">czytelny podpis Wynajmującego</div>
         </td>
         <td style="padding-top:40px; vertical-align: bottom;">
-          <div class="sig-line" style="margin-top:10px;">czytelny podpis Zleceniodawcy</div>
+          <div class="sig-line" style="margin-top:10px;">czytelny podpis Najemcy</div>
         </td>
       </tr>
     </table>

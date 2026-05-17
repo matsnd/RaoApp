@@ -33,6 +33,28 @@ async def startup_migrations():
             "ALTER TABLE service_fee_templates ADD COLUMN IF NOT EXISTS "
             "preset_id INT NULL REFERENCES fee_preset_groups(id) ON DELETE CASCADE"
         ))
+        # RAO-P1-011: zesłownikowanie usług dodatkowych z artykułami
+        await conn.execute(sa.text(
+            "ALTER TABLE service_fee_templates ADD COLUMN IF NOT EXISTS "
+            "article_id INT NULL"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE service_fee_templates ADD COLUMN IF NOT EXISTS "
+            "default_price DECIMAL(18,2) NULL"
+        ))
+        # service_fee_template_items utworzone przez Base.metadata.create_all (nowa tabela)
+
+    # FK + index dodawane w osobnych transakcjach (MariaDB nie wspiera ADD CONSTRAINT IF NOT EXISTS / CREATE INDEX IF NOT EXISTS)
+    for ddl in [
+        "ALTER TABLE service_fee_templates ADD CONSTRAINT fk_sft_article "
+        "FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE SET NULL",
+        "CREATE INDEX idx_sft_article ON service_fee_templates(article_id)",
+    ]:
+        try:
+            async with engine.begin() as conn2:
+                await conn2.execute(sa.text(ddl))
+        except Exception:
+            pass  # constraint/index już istnieje
 
     async with AsyncSessionLocal() as db:
         from sqlalchemy import select, update, func

@@ -86,4 +86,38 @@ test.describe('TEST-04: Umowy', () => {
     await expect(page.getByRole('button', { name: '+ Dodaj pozycję' })).toBeVisible()
     await expect(page.locator('.section-title', { hasText: 'Usługi dodatkowe' })).toBeVisible()
   })
+
+  test('protokół ZO generuje PDF z sekcją wydania/odbioru', async ({ request }) => {
+    // Autoryzacja
+    const loginRes = await request.post(`${API}/auth/login`, {
+      data: CREDS, timeout: 10_000,
+    })
+    const { access_token } = await loginRes.json()
+    const headers = { Authorization: `Bearer ${access_token}` }
+
+    // Wygeneruj protokół ZO najmu (type=protocol_zo_s -> protocol_zo.html)
+    const pdfRes = await request.post(
+      `${API}/reports/contract/${contractId}?type=protocol_zo_s`,
+      { headers, timeout: 30_000 }
+    )
+    expect(pdfRes.status()).toBe(200)
+    expect(pdfRes.headers()['content-type']).toContain('application/pdf')
+
+    // Wygeneruj protokół ZO usług (type=protocol_zo_u -> protocol_zo_u.html)
+    const pdfResU = await request.post(
+      `${API}/reports/contract/${contractId}?type=protocol_zo_u`,
+      { headers, timeout: 30_000 }
+    )
+    expect(pdfResU.status()).toBe(200)
+    expect(pdfResU.headers()['content-type']).toContain('application/pdf')
+
+    // Wygeneruj protokół nodata (type=protocol_zo_nodata_s -> protocol_zo_nodata.html)
+    const pdfResNodata = await request.post(
+      `${API}/reports/contract/${contractId}?type=protocol_zo_nodata_s`,
+      { headers, timeout: 30_000 }
+    )
+    expect(pdfResNodata.status()).toBe(200)
+    expect(pdfResNodata.headers()['content-type']).toContain('application/pdf')
+  })
+
 })

@@ -535,6 +535,84 @@ def _parse_text_to_fees(text: str) -> list[dict]:
     return result
 
 
+async def step5d_link_articles_to_templates():
+    """RAO-P1-011: Mapowanie service_fee_templates.name → articles.id (FK).
+
+    Strategia:
+      1. Dla każdego service_fee_templates z article_id IS NULL, znajdź artykuł
+         po nazwie (case-insensitive, dopasowanie zaczynane od name).
+      2. Preferuj artykuły z is_service=1 (usługi).
+      3. Jeśli artykuł nie istnieje — utwórz go (is_service=1).
+      4. Wypełnij default_price = COALESCE(amount_from, amount_to).
+
+    Idempotentne: pomija rekordy z już ustawionym article_id.
+    """
+    print("[5d] Linking service_fee_templates.name → articles (RAO-P1-011) …")
+    conn = await aiomysql.connect(host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASS, db=DB_NAME)
+    cur = await conn.cursor()
+
+    await cur.execute("""
+        SELECT id, name, amount_from, amount_to
+        FROM service_fee_templates
+        WHERE article_id IS NULL
+    """)
+    rows = await cur.fetchall()
+
+    linked = 0
+    created = 0
+    for tpl_id, name, amt_from, amt_to in rows:
+        if not name:
+            continue
+        # Match by exact name (case-insensitive) — preferuj is_service=1
+        await cur.execute(
+            "SELECT id FROM articles WHERE LOWER(name) = LOWER(%s) "
+            "ORDER BY is_service DESC, id ASC LIMIT 1",
+            (name,)
+        )
+        art = await cur.fetchone()
+        article_id = art[0] if art else None
+
+        if article_id is None:
+            # Spróbuj LIKE (prefix)
+            await cur.execute(
+                "SELECT id FROM articles WHERE LOWER(name) LIKE LOWER(%s) "
+                "ORDER BY is_service DESC, id ASC LIMIT 1",
+                (name[:30] + "%",)
+            )
+            art = await cur.fetchone()
+            article_id = art[0] if art else None
+
+        if article_id is None:
+            # Utwórz nowy artykuł-usługę
+            await cur.execute(
+                "INSERT INTO articles (name, is_service, article_type, created_at) "
+                "VALUES (%s, 1, 'usluga_dodatkowa', NOW())",
+                (name[:200],)
+            )
+            article_id = cur.lastrowid
+            created += 1
+
+        default_price = amt_from if amt_from is not None else amt_to
+        await cur.execute(
+            "UPDATE service_fee_templates SET article_id = %s, default_price = %s WHERE id = %s",
+            (article_id, default_price, tpl_id)
+        )
+        linked += 1
+
+    await conn.commit()
+
+    # Verification
+    await cur.execute("SELECT COUNT(*) FROM service_fee_templates")
+    total = (await cur.fetchone())[0]
+    await cur.execute("SELECT COUNT(*) FROM service_fee_templates WHERE article_id IS NOT NULL")
+    with_fk = (await cur.fetchone())[0]
+    pct = (with_fk * 100 // total) if total else 0
+    print(f"   linked={linked}, articles_created={created}, FK coverage: {with_fk}/{total} ({pct}%)")
+
+    await cur.close()
+    conn.close()
+
+
 async def step5c_create_preset_groups():
     """Create default fee preset groups and link service_fee_templates to them."""
     print("[5c] Creating fee preset groups and linking templates …")
@@ -650,6 +728,7 @@ async def main():
         await step4b_migrate_users()  # SECURITY: random bcrypt passwords
         await step5_service_fee_templates()
         await step5c_create_preset_groups()
+        await step5d_link_articles_to_templates()  # RAO-P1-011
         await step5b_contract_service_fees()
         await step6_drop_old()
         # step7_rehash removed - passwords already hashed in step4b

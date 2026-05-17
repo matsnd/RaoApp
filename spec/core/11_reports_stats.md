@@ -51,6 +51,42 @@ W nowym systemie (FastAPI + WeasyPrint) będziesz musiał zaprojektować **spój
    - Na końcu pliku `UmowaU.html` (dla usług), dołącz HTML wyekstrahowany z `ownU.pdf`.
 4. Dzięki temu WeasyPrint podczas generowania raportu wygeneruje **jeden, płynny i kompletny plik PDF** z idealnym formatowaniem dla druku, bez potrzeby post-processingu i doklejania innych plików w backendzie.
 
+
+### 1.4 Tabela "Przy wydaniu / Przy odbiorze" (RAO-P1-010)
+
+Do wszystkich 4 wariantów protokołu Z-O dodana została sekcja `Przy wydaniu / Przy odbiorze`
+umieszczona **przed podpisami** (po linii z akceptacją OWU/OWN).
+
+**Lokalizacja w szablonach:**
+- `backend/reports/templates/protocol_zo.html` — Protokół Najmu z cenami
+- `backend/reports/templates/protocol_zo_u.html` — Protokół Usług z cenami
+- `backend/reports/templates/protocol_zo_nodata.html` — Protokół Najmu bez cen
+- `backend/reports/templates/protocol_zo_nodata_u.html` — Protokół Usług bez cen
+
+**Struktura tabeli:**
+
+| Kolumna | Opis |
+|---------|------|
+| (label) | "Przy wydaniu" / "Przy odbiorze" |
+| Data i godzina | Puste pole do ręcznego wypełnienia |
+| Urządzenie i model | Puste pole |
+| Stan paliwa | Puste pole |
+| Ilość kluczyków | Puste pole |
+| Stan wideł | Puste pole |
+| Czystość maszyny | Puste pole |
+| Dokumentacja zdjęciowa | Puste pole |
+| Dodatkowe akcesoria | Puste pole |
+| Uwagi | Puste pole |
+
+**Pola:** Wszystkie pola są **puste** — do ręcznego wypełnienia przez klienta.
+**Styl:** Nagłówek tabeli w kolorze `#1D2B53` (Toolsmart navy), tło etykiet wierszy `#f0f2f8`.
+
+**Klasy CSS:**
+- `.pwo-section` — kontener sekcji
+- `.pwo-title` — tytuł sekcji (uppercase, navy, border-bottom)
+- `table.pwo-table` — tabela 10-kolumnowa z border-collapse
+- `.pwo-row-label` — etykieta wiersza (Przy wydaniu / Przy odbiorze)
+
 ---
 
 ## 2. Statystyki i Analityka (Nowe funkcje)

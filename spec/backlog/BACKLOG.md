@@ -548,7 +548,7 @@ Przejrzeć wygenerowane PDF z nowego systemu i porównać z PDF ze starej aplika
 id: RAO-P1-010
 priority: P1
 size: M
-status: triaged
+status: done
 classification: frontend
 roles: [frontend-dev]
 depends_on: []

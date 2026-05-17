@@ -56,6 +56,14 @@
   .pg-footer { border-top: 1px solid #ccc; padding: 3px 14mm 5px; margin-top: 0; overflow: hidden; font-size: 8.5px; color: #444; flex-shrink: 0; }
   .pg-footer-l { float: left; }
   .pg-footer-r { float: right; }
+
+  /* PRZY WYDANIU / PRZY ODBIORZE */
+  .pwo-section { margin: 8px 0 10px; page-break-inside: avoid; }
+  .pwo-title { font-size: 9px; font-weight: bold; color: #1D2B53; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; border-bottom: 2px solid #1D2B53; padding-bottom: 2px; display: block; }
+  table.pwo-table { width: 100%; border-collapse: collapse; font-size: 7.5px; table-layout: fixed; }
+  table.pwo-table th { background: #1D2B53; color: #fff; padding: 3px 2px; text-align: center; border: 1px solid #1D2B53; font-weight: normal; font-size: 7px; line-height: 1.2; }
+  table.pwo-table td { border: 1px solid #aaa; padding: 3px 2px; height: 22px; vertical-align: middle; }
+  .pwo-row-label { background: #f0f2f8; color: #1D2B53; font-weight: bold; font-size: 7.5px; text-align: center; white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -120,15 +128,58 @@
 {% endif %}
 
   <div class="legal-line">Pokwitowanie niniejszego Protokołu jest jednoznaczne z oświadczeniem o zapoznaniu się z Ogólnymi Warunkami Umowy (dalej: OWN) oraz ich akceptacją.</div>
+  <!-- PRZY WYDANIU / PRZY ODBIORZE -->
+  <div class="pwo-section">
+    <div class="pwo-title">Przy wydaniu / Przy odbiorze</div>
+    <table class="pwo-table">
+      <colgroup>
+        <col style="width: 56px;">
+        <col style="width: 58px;">
+        <col>
+        <col style="width: 44px;">
+        <col style="width: 48px;">
+        <col style="width: 44px;">
+        <col style="width: 55px;">
+        <col style="width: 60px;">
+        <col style="width: 60px;">
+        <col style="width: 65px;">
+      </colgroup>
+      <thead>
+        <tr>
+          <th></th>
+          <th>Data i godzina</th>
+          <th>Urządzenie i model</th>
+          <th>Stan paliwa</th>
+          <th>Ilość kluczyków</th>
+          <th>Stan wideł</th>
+          <th>Czystość maszyny</th>
+          <th>Dokumentacja zdjęciowa</th>
+          <th>Dodatkowe akcesoria</th>
+          <th>Uwagi</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="pwo-row-label">Przy wydaniu</td>
+          <td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+        </tr>
+        <tr>
+          <td class="pwo-row-label">Przy odbiorze</td>
+          <td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
 
   <!-- DELIVERY SIGNATURES -->
   <table class="sigs" style="margin-top: 40px;">
     <tr>
       <td style="padding-top:40px; vertical-align: bottom;">
-        <div class="sig-line">czytelny podpis Wykonawcy</div>
+        <div class="sig-line">czytelny podpis Wynajmującego</div>
       </td>
       <td style="padding-top:40px; vertical-align: bottom;">
-        <div class="sig-line">czytelny podpis Zleceniodawcy</div>
+        <div class="sig-line">czytelny podpis Najemcy</div>
       </td>
     </tr>
   </table>
@@ -154,10 +205,10 @@
             NIP {{ company.nip }}, Regon 528847124<br>
             KRS 0001109942{% endif %}
           </div>
-          <div class="sig-line" style="margin-top:10px;">czytelny podpis Wykonawcy</div>
+          <div class="sig-line" style="margin-top:10px;">czytelny podpis Wynajmującego</div>
         </td>
         <td style="padding-top:40px; vertical-align: bottom;">
-          <div class="sig-line" style="margin-top:10px;">czytelny podpis Zleceniodawcy</div>
+          <div class="sig-line" style="margin-top:10px;">czytelny podpis Najemcy</div>
         </td>
       </tr>
     </table>

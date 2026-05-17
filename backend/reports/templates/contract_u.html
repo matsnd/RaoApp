@@ -99,14 +99,15 @@
   <tr>
     <td class="party-box">
       <div class="party-box-inner">
-        <div class="party-label">wykonawca</div>
+        <div class="party-label">wynajmujący</div>
         <strong>{% if company %}{{ company.name }}{% else %}TOOLSMART Sp. z o.o.{% endif %}</strong><br>
         {% if company %}ul. {{ company.street }}, {{ company.postal_code }} {{ company.city }}<br>
         NIP: {{ company.nip }}{% endif %}
       </div>
     </td>
     <td class="info-col" style="vertical-align:top;padding-top:8px;">
-      {% if contract.date_to %}Termin prac: {{ contract.date_from | datepl }} - {{ contract.date_to | datepl }}<br>{% endif %}
+      {% set svc_date = (positions[0].pos.delivery_date if positions else None) or contract.date_from %}
+      {% if svc_date %}Termin prac: {{ svc_date | datepl }}<br>{% endif %}
     </td>
   </tr>
   <tr>
@@ -119,7 +120,7 @@
       </div>
     </td>
     <td class="info-col" style="vertical-align:top;padding-top:8px;">
-      <!-- Adres dostawy ukryty na umowie - widoczny tylko na protokole -->
+      {% if contract.delivery_address %}Adres dostawy: {{ contract.delivery_address }}<br>{% endif %}
     </td>
   </tr>
 </table>
@@ -129,23 +130,23 @@
   <div class="uz-label">uzupełnij</div>
   <table class="uz">
     <tr>
-      <td>Osoba upoważniona:</td>
+      <td style="width:130px;">reprezentowany przez:</td>
       <td class="fill">{{ contract.contact_person1 or '' }}</td>
-      <!-- Phone numbers hidden on contract - visible only on protocol -->
+      <td style="width:60px;padding-left:8px;">nr tel:</td>
+      <td class="fill">{{ contract.contact_phone1 or '' }}</td>
     </tr>
     <tr>
-      <td>Osoba kontaktowa:</td>
+      <td>osoba kontaktowa:</td>
       <td class="fill">{{ contract.contact_person2 or '' }}</td>
-      <!-- Phone numbers hidden on contract - visible only on protocol -->
-    </tr>
-    <tr style="display:none;">
-      <td colspan="4">Adres wykonania usługi:</td>
-    </tr>
-    <tr style="display:none;">
-      <td colspan="4" class="fill-wide">{{ contract.delivery_address or '' }}</td>
+      <td style="padding-left:8px;">nr tel:</td>
+      <td class="fill">{{ contract.contact_phone2 or '' }}</td>
     </tr>
     <tr>
-      <td>email do faktury:</td>
+      <td>na budowie:</td>
+      <td colspan="3" class="fill-wide">{{ contract.delivery_address or '' }}</td>
+    </tr>
+    <tr>
+      <td>email do przesłania faktury:</td>
       <td colspan="3" class="fill-wide">{{ contract.email or '' }}</td>
     </tr>
   </table>
@@ -236,11 +237,11 @@
         NIP 9512598092, Regon 528847124<br>
         KRS 0001109942
       </div>
-      <div class="sig-line">czytelny podpis Wykonawcy</div>
+      <div class="sig-line">czytelny podpis Wynajmującego</div>
     </td>
     <td style="vertical-align: bottom;">
       {% if salesperson %}<div style="margin-bottom:6px;font-size:9px;">Handlowiec: <strong>{{ salesperson.name }}</strong>{% if salesperson.phone %}, tel. {{ salesperson.phone }}{% endif %}</div>{% endif %}
-      <div class="sig-line">czytelny podpis Zleceniodawcy</div>
+      <div class="sig-line">czytelny podpis Najemcy</div>
     </td>
   </tr>
 </table>

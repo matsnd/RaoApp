@@ -74,18 +74,39 @@ class SettingsService:
             .where(ServiceFeeTemplate.contract_type == data.contract_type)
         )
         next_order = (max_order.scalar_one_or_none() or 0) + 1
-        t = ServiceFeeTemplate(**data.model_dump(), company_id=1, sort_order=next_order)
+        payload = data.model_dump()
+        # RAO-P1-011: jeśli wybrano artykuł, synchronizuj nazwę (snapshot do `name`)
+        await self._resolve_article_name(db, payload)
+        t = ServiceFeeTemplate(**payload, company_id=1, sort_order=next_order)
         db.add(t)
         await db.commit()
         await db.refresh(t)
         return t
+
+    async def _resolve_article_name(self, db: AsyncSession, payload: dict) -> None:
+        """RAO-P1-011: jeśli payload zawiera article_id, ustaw `name` na articles.name."""
+        article_id = payload.get("article_id")
+        if not article_id:
+            return
+        from articles.models import Article
+        result = await db.execute(select(Article).where(Article.id == article_id))
+        art = result.scalar_one_or_none()
+        if art is None:
+            raise not_found("Artykuł")
+        # Snapshot artykułowej nazwy do `name` (zachowuje display name nawet po ON DELETE SET NULL)
+        if not payload.get("name"):
+            payload["name"] = art.name
+        else:
+            payload["name"] = art.name
 
     async def update_fee_template(self, db: AsyncSession, template_id: int, data: ServiceFeeTemplateCreate) -> ServiceFeeTemplate:
         result = await db.execute(select(ServiceFeeTemplate).where(ServiceFeeTemplate.id == template_id))
         t = result.scalar_one_or_none()
         if not t:
             raise not_found("Szablon")
-        for field, value in data.model_dump().items():
+        payload = data.model_dump()
+        await self._resolve_article_name(db, payload)
+        for field, value in payload.items():
             setattr(t, field, value)
         await db.commit()
         await db.refresh(t)
@@ -150,12 +171,22 @@ class SettingsService:
             select(func.max(ServiceFeeTemplate.sort_order)).where(ServiceFeeTemplate.preset_id == preset_id)
         )
         next_order = (max_order.scalar_one_or_none() or 0) + 1
+        # RAO-P1-011: jeśli article_id ustawiony, snapshot name z articles.name
+        name = data.name
+        if data.article_id:
+            from articles.models import Article
+            art = (await db.execute(select(Article).where(Article.id == data.article_id))).scalar_one_or_none()
+            if art is None:
+                raise not_found("Artykuł")
+            name = art.name
         t = ServiceFeeTemplate(
             company_id=1,
             preset_id=preset_id,
             contract_type=grp.contract_type,
             sort_order=next_order,
-            name=data.name,
+            article_id=data.article_id,
+            default_price=data.default_price,
+            name=name,
             amount_from=data.amount_from,
             amount_to=data.amount_to,
             unit=data.unit,
@@ -172,7 +203,18 @@ class SettingsService:
         t = result.scalar_one_or_none()
         if not t:
             raise not_found("Szablon")
-        for field in ("name", "amount_from", "amount_to", "unit", "description", "is_active"):
+        # RAO-P1-011: jeśli article_id ustawiony, snapshot name z articles.name
+        new_name = data.name
+        if data.article_id:
+            from articles.models import Article
+            art = (await db.execute(select(Article).where(Article.id == data.article_id))).scalar_one_or_none()
+            if art is None:
+                raise not_found("Artykuł")
+            new_name = art.name
+        t.article_id = data.article_id
+        t.default_price = data.default_price
+        t.name = new_name
+        for field in ("amount_from", "amount_to", "unit", "description", "is_active"):
             setattr(t, field, getattr(data, field))
         await db.commit()
         await db.refresh(t)

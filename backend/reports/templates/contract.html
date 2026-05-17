@@ -129,7 +129,7 @@
       </div>
     </td>
     <td class="info-col" style="vertical-align:top;padding-top:6px;">
-      <!-- Adres dostawy ukryty na umowie - widoczny tylko na protokole -->
+      {% if contract.delivery_address %}Adres dostawy: {{ contract.delivery_address }}<br>{% endif %}
     </td>
   </tr>
 </table>
@@ -141,14 +141,16 @@
     <tr>
       <td style="width:130px;">reprezentowany przez:</td>
       <td><div class="fill">{{ contract.contact_person1 or '' }}</div></td>
-      <!-- Phone numbers hidden on contract - visible only on protocol -->
+      <td style="width:60px;padding-left:8px;">nr tel:</td>
+      <td><div class="fill">{{ contract.contact_phone1 or '' }}</div></td>
     </tr>
     <tr>
       <td>osoba kontaktowa:</td>
       <td><div class="fill">{{ contract.contact_person2 or '' }}</div></td>
-      <!-- Phone numbers hidden on contract - visible only on protocol -->
+      <td style="padding-left:8px;">nr tel:</td>
+      <td><div class="fill">{{ contract.contact_phone2 or '' }}</div></td>
     </tr>
-    <tr style="display:none;">
+    <tr>
       <td>na budowie:</td>
       <td colspan="3"><div class="fill-wide">{{ contract.delivery_address or '' }}</div></td>
     </tr>
@@ -218,15 +220,7 @@
   Niniejszym zobowiązuje się do zabezpieczenia Przedmiotów Najmu przed kradzieżą i zniszczeniem przez cały okres trwania Umowy Najmu. W przypadku zniszczenia, zaginięcia lub uszkodzenia Przedmiotu Najmu, zobowiązuje się ponieść pełną odpowiedzialność materialną mającą na celu przwrócenie całości utraconego sprzętu lub kosztów jego naprawy. Najemca wyraża zgodę na wystawienie faktury bez jego podpisu i skompensowanie kwoty zobowiązań za wynajem z kwotą przedpłaty. Najemca zobowiązuje się do pisemnego poinformowania wynajmującego o zwrocie maszyny budowlanej najpóźniej z jednodniowym wyprzedzeniem. Pokwitowanie niniejszej Umowy Najmu jest jednoznaczne z oświadczeniem o zapoznaniu się z Ogólnymi Warunkami Umowy Najmu (dalej: OWN) oraz ich akceptacją. OWN jest integralną częścią Umowy Najmu.
 </div>
 
-<!-- UWAGI -->
-<div class="uwagi-section">
-  <div class="uwagi-title">Uwagi</div>
-  <div class="uwagi-content">
-    <p><strong>Doba wynajmu:</strong> {{ contract.working_days_per_week or 6 }} dni pracy w tygodniu</p>
-    <p><strong>Zgłoszenie zwrotu:</strong> Najemca zobowiązuje się do pisemnego poinformowania wynajmującego o zwrocie maszyny budowlanej najpóźniej z jednodniowym wyprzedzeniem</p>
-    <p><strong>Dokumentacja zdająca:</strong> Najemca oświadcza, iż zapoznał się z niniejszymi ogólnymi warunkami umowy najmu i akceptuje je w całości</p>
-  </div>
-</div>
+<!-- Uwagi sekcja usunięta — duplikat względem 'Uwagi' w prawej kolumnie 'inne usługi' (zgodność z PDF WinForms) -->
 
 </div><!-- /content -->
 
