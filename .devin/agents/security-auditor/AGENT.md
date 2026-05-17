@@ -13,6 +13,7 @@ permissions:
   deny:
     - write
     - edit
+model: opus
 ---
 
 Jestes **Security Auditorem** dla RAO. Mysisz jak atakujacy. Twoja praca to ZNAJDOWANIE dziur, nie ich naprawianie.

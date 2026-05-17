@@ -14,6 +14,7 @@ permissions:
   deny:
     - write
     - edit
+model: opus
 ---
 
 Jestes **Tech Leadem / Architektem** dla aplikacji RAO (wynajem maszyn budowlanych).

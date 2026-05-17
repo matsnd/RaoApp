@@ -18,6 +18,7 @@ permissions:
     - Exec(npx*)
   deny:
     - Write(backend/**/*)
+model: sonnet
 ---
 
 Jestes **Frontend Developerem** dla RAO.

@@ -4,19 +4,35 @@ Zespół 11 wyspecjalizowanych subagentów Devin dla projektu RAO (FastAPI + Vue
 
 ## 👥 Skład zespołu
 
-| Profile | Rola | Permisje | Kiedy wzywać |
-|---------|------|----------|--------------|
-| `tech-lead` | Tech Lead / Architect | Read-only | Decyzje architektoniczne, podział pracy |
-| `db-architect` | Database Architect | Write: models, migracje, DDL spec | Każda zmiana schema DB |
-| `backend-dev` | Backend Developer | Write: backend/**/*.py | Endpointy, logika biznesowa, testy unit |
-| `frontend-dev` | Frontend Developer | Write: frontend/** | Komponenty, stores, routing |
-| `ux-designer` | UX Designer | Read-only | Flow użytkownika, edge cases UX |
-| `ui-designer` | UI Designer | Read-only | Design system, spójność wizualna |
-| `motion-designer` | Motion Designer | Read-only | Animacje, mikro-interakcje |
-| `security-auditor` | Security Auditor | Read-only | Auth, IDOR, walidacja, sekrety |
-| `performance-eng` | Performance Engineer | Read-only | N+1, paginacja, bundle size |
-| `qa-engineer` | QA Engineer | Write: tests/** | Edge cases, testy unit + e2e |
-| `product-owner` | Product Owner | Read-only | Wartość biznesowa, priorytet, DoD |
+| Profile | Rola | Model | Permisje | Kiedy wzywać |
+|---------|------|-------|----------|--------------|
+| `tech-lead` | Tech Lead / Architect | **opus** | Read-only | Decyzje architektoniczne, podział pracy |
+| `db-architect` | Database Architect | **opus** | Write: models, migracje, DDL spec | Każda zmiana schema DB |
+| `backend-dev` | Backend Developer | **sonnet** | Write: backend/**/*.py | Endpointy, logika biznesowa, testy unit |
+| `frontend-dev` | Frontend Developer | **sonnet** | Write: frontend/** | Komponenty, stores, routing |
+| `ux-designer` | UX Designer | **opus** | Read-only | Flow użytkownika, edge cases UX |
+| `ui-designer` | UI Designer | **sonnet** | Read-only | Design system, spójność wizualna |
+| `motion-designer` | Motion Designer | **sonnet** | Read-only | Animacje, mikro-interakcje |
+| `security-auditor` | Security Auditor | **opus** | Read-only | Auth, IDOR, walidacja, sekrety |
+| `performance-eng` | Performance Engineer | **opus** | Read-only | N+1, paginacja, bundle size |
+| `qa-engineer` | QA Engineer | **opus** | Write: tests/** | Edge cases, testy unit + e2e |
+| `product-owner` | Product Owner | **opus** | Read-only | Wartość biznesowa, priorytet, DoD |
+
+### Strategia modeli (maksymalna skuteczność przy optymalizacji kosztów)
+
+**Opus (7 agentów)** — tam gdzie głębokie rozumowanie jest KRYTYCZNE:
+- Architektura, migracje (nieodwracalne decyzje)
+- Security (adversarial thinking)
+- QA (wyliczanie edge cases)
+- UX (empathia użytkownika)
+- Performance (reasoning o bottleneckach)
+- PO (strategia i priorytety)
+
+**Sonnet (4 agentów)** — tam gdzie throughput kodu > głębokie rozumowanie:
+- Backend CRUD (pattern matching)
+- Frontend CRUD (pattern matching)
+- UI design (pattern matching design system)
+- Motion design (pattern matching CSS animations)
 
 ## 🚀 Jak uruchomić
 

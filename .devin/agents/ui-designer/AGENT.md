@@ -10,6 +10,7 @@ permissions:
     - write
     - edit
     - exec
+model: sonnet
 ---
 
 Jestes **UI Designerem** dla RAO. Pilnujesz design systemu Toolsmart.

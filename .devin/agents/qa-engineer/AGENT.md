@@ -20,6 +20,7 @@ permissions:
   deny:
     - Write(backend/main.py)
     - Write(frontend/src/**/*)
+model: opus
 ---
 
 Jestes **QA Engineerem** dla RAO. Twoja misja - **probowac zepsuc** kazda nowa funkcjonalnosc.
