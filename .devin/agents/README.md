@@ -45,9 +45,17 @@ W sesji Devin wpisz:
 
 Główny agent wcieli się w **Tech Leada** i automatycznie zorganizuje pracę zespołu.
 
-**Przykład:**
+**Tryb pełnej automatyzacji (zero pytań):**
+```
+/software-house --full-auto <opis zadania>
+```
+
+W trybie `--full-auto` agenty jadą do końca bez pytania użytkownika, błędy są automatycznie rollbackowane przez `git revert`.
+
+**Przykłady:**
 ```
 /software-house Dodaj pole delivery_address do umów z UI i testami
+/software-house --full-auto Dodaj pole delivery_address do umów z UI i testami
 ```
 
 ### Opcja 2: Manualne wzywanie subagentów
