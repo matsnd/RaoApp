@@ -646,7 +646,7 @@ Zmienić strukturę usług dodatkowych tak, aby były zesłownikowane z artykuł
 id: RAO-P1-012
 priority: P1
 size: XL
-status: in_progress
+status: done
 classification: cross-stack
 roles: [product-owner, db-architect, backend-dev, frontend-dev]
 depends_on: [RAO-P1-011]
