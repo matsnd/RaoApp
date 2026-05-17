@@ -359,7 +359,7 @@ Ukryć adres dostawy na umowie PDF, pokazać tylko na protokole.
 id: RAO-P1-004
 priority: P1
 size: XS
-status: triaged
+status: done
 classification: frontend
 roles: [frontend-dev]
 depends_on: []

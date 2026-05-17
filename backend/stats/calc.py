@@ -9,6 +9,7 @@ Implements the algorithm from spec 04_BUSINESS_LOGIC.md:
 Source of truth: position_conditions.rate1 + contract_positions.rental_days
 Old WinForms: FormU4.cs spaghetti → rozliczenie table (1 row/day)
 """
+import re
 import math
 from decimal import Decimal
 
@@ -103,3 +104,84 @@ def calculate_position_value(
                 break
 
     return total_value
+
+
+# City extraction for location reports
+# Priority list of Polish cities (top 20 by population)
+KNOWN_CITIES = [
+    "Warszawa", "Kraków", "Łódź", "Wrocław", "Poznań", "Gdańsk", "Szczecin", "Bydgoszcz",
+    "Lublin", "Białystok", "Katowice", "Gdynia", "Częstochowa", "Radom", "Sosnowiec",
+    "Toruń", "Kielce", "Gliwice", "Zabrze", "Olsztyn", "Bielsko-Biała", "Bytom",
+    "Zgierz", "Rzeszów", "Ruda Śląska", "Rybnik", "Tychy", "Dąbrowa Górnicza",
+    "Opole", "Elbląg", "Płock", "Wałbrzych", "Włocławek", "Gorzów Wielkopolski",
+    "Tarnów", "Chorzów", "Kalisz", "Koszalin", "Jelenia Góra", "Lublin", "Sopot",
+    "Jastrzębie-Zdrój", "Nowy Sącz", "Jaworzno", "Jastrzębie Zdrój", "Piła", "Siedlce"
+]
+
+# Patterns to ignore (delivery instructions)
+IGNORE_PATTERNS = [
+    r'dojezd[^\w]*', r'instrukcja[^\w]*', r'zobacz[^\w]*', r'prosz[^\w]*',
+    r'proszę', r'bardzo', r'dziękuję', r'pozdrawiam', r'z poważaniem',
+    r'z góry', r'z dołu', r'z lewej', r'z prawej', r'na rogu',
+    r'przy budowie', r'na budowie', r'obok', r'naprzeciwko', r'w pobliżu'
+]
+
+
+def extract_city(address: str | None) -> str:
+    """
+    Extract city name from delivery address with priority for known cities.
+    
+    Strategy:
+    1. Check for known cities first (priority)
+    2. Extract using patterns (postal code + city, city after comma)
+    3. Ignore delivery instructions
+    4. Return empty string if no city found
+    
+    Args:
+        address: Delivery address string (multiline or single line)
+    
+    Returns:
+        Extracted city name or empty string
+    """
+    if not address:
+        return ""
+    
+    # Normalize address: remove extra whitespace, convert to single line
+    normalized = ' '.join(address.split()).strip()
+    
+    # Step 1: Check for known cities (priority)
+    for city in KNOWN_CITIES:
+        if city.lower() in normalized.lower():
+            return city
+    
+    # Step 2: Extract postal code + city pattern (XX-XXX City)
+    postal_pattern = r'(\d{2}-\d{3})\s*([A-ZŚĆŹŁ][a-ząćęłńóśźż]+)'
+    match = re.search(postal_pattern, normalized)
+    if match:
+        return match.group(2)
+    
+    # Step 3: Extract city after comma (typical Polish address format)
+    # Pattern: "ul. Street 1, 00-001 City, Country" or "Street 1, City"
+    comma_pattern = r',\s*([A-ZŚĆŹŁ][a-ząćęłńóśźż]+(?:\s+[A-ZŚĆŹŁ][a-ząćęłńóśźż]+)*)'
+    matches = re.findall(comma_pattern, normalized)
+    if matches:
+        # Return the last match (usually city before country)
+        city_candidate = matches[-1].strip()
+        # Filter out common non-city words
+        non_city_words = ['ulica', 'ul.', 'osiedle', 'os.', 'budowa', 'budynek', 'pokój', 'p.', 'mieszkanie', 'm.']
+        for word in non_city_words:
+            if city_candidate.lower().startswith(word.lower()):
+                continue
+        return city_candidate
+    
+    # Step 4: Extract from end of address (last word before instructions)
+    words = normalized.split()
+    for i, word in enumerate(reversed(words)):
+        # Check if word looks like a city (starts with capital letter)
+        if re.match(r'^[A-ZŚĆŹŁ][a-ząćęłńóśźż]+$', word):
+            # Check if it's not an instruction
+            is_instruction = any(re.search(pattern, word.lower()) for pattern in IGNORE_PATTERNS)
+            if not is_instruction:
+                return word
+    
+    return ""
