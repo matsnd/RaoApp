@@ -671,3 +671,79 @@ Layout (replika WinForms Konfiguracjacs — scrollable):
 └──────────────────────────────────────────────┘
             [ Zapisz ]
 ```
+
+---
+
+## Komponent: `ReportsSection.vue` (sekcja Raporty)
+
+> **Zaimplementowane:** 2026-05-18 | **RAO-P1-017**
+
+### Tabs (główne)
+
+| Tab | Klucz | Opis |
+|-----|-------|------|
+| Stan floty teraz | `live` | Donut chart + tabela aktualnie wynajętych maszyn |
+| Analiza historyczna | `history` | Sub-taby: Ogólne + Kategorie |
+| Eksplorator | `explorer` | Sub-taby: Wszystko / Maszyny / Usługi / Lokalizacje |
+
+### Tab: Stan floty teraz (`live`)
+
+- KPI cards: dostępnych maszyn, % wykorzystania floty
+- Donut chart: Wynajęte vs Dostępne
+- Tabela "Maszyny aktualnie wynajęte": **Maszyna | Nr wewnętrzny | Kategoria | Umowa | Kontrahent | Planowany zwrot**
+  - `data-testid="live-rented-table"`
+  - Kolumna `Kategoria` = `item.category_main` (RAO-P1-017)
+
+### Tab: Analiza historyczna (`history`)
+
+**Sub-taby:**
+- `data-testid="history-subtabs"` — kontener sub-tabów
+- `data-testid="history-subtab-general"` — Ogólne (dotychczasowe statystyki)
+- `data-testid="history-subtab-categories"` — Kategorie (RAO-P1-017)
+
+**Date presets** (wspólne dla obu sub-tabów):
+- Ten miesiąc / Ten kwartał / Ten rok / Wszystko / 📅 Własny
+
+#### Sub-tab: Ogólne
+- KPI: przychód w okresie, top maszyna
+- Bar chart: TOP 10 maszyn wg przychodu (poziomy, Chart.js)
+- Tabela: usługi dodatkowe w okresie
+- Tabela: lokalizacje — ranking
+
+#### Sub-tab: Kategorie (RAO-P1-017)
+
+```
+Poziom kategorii: [Główna kategoria] [Podkategoria 1]
+                   data-testid="category-level-main"  data-testid="category-level-sub1"
+
+Loading / Error / Empty states ← OBOWIĄZKOWE
+
+KPI row (max-width 700px):
+  [Łączny przychód]  [Aktywnych kategorii]  [Dni wynajmu]
+
+Bar chart: Kategorie wg przychodu TOP 15 (poziomy)
+  canvas data-testid="category-bar-chart"
+
+Tabela: data-testid="category-stats-table"
+  Kategoria | Maszyny | Dni wynajmu | Umowy | Przychód | [bar progress]
+```
+
+**Dane z:** `GET /stats/by-category?level=main|sub1&date_from&date_to&include_archival=false`
+
+**Store:** `statsStore.byCategoryData` (CategoryStatsResponse), `statsStore.loadingByCategory`
+
+**Trigger ładowania kategorii:**
+- Przełączenie na sub-tab Kategorie
+- Zmiana poziomu (main ↔ sub1)
+- Zmiana date presetu lub kliknięcie "Filtruj"
+
+### Store: `useStatsStore` (stores/stats.js)
+
+| Stan | Typ | Opis |
+|------|-----|------|
+| `byCategoryData` | `CategoryStatsResponse \| null` | RAO-P1-017 |
+| `loadingByCategory` | `boolean` | loading dla /stats/by-category |
+
+| Funkcja | Opis |
+|---------|------|
+| `fetchByCategory(level, dateFrom, dateTo, includeArchival)` | GET /stats/by-category |

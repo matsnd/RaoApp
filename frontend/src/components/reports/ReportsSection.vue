@@ -44,11 +44,12 @@
         <div class="table-panel full-width" v-if="statsStore.currentlyRented?.items?.length">
           <div class="table-title">Maszyny aktualnie wynajęte</div>
           <div class="rented-scroll">
-            <table class="stats-table">
+            <table class="stats-table" data-testid="live-rented-table">
               <thead>
                 <tr>
                   <th>Maszyna</th>
                   <th>Nr wewnętrzny</th>
+                  <th>Kategoria</th>
                   <th>Umowa</th>
                   <th>Kontrahent</th>
                   <th>Planowany zwrot</th>
@@ -58,6 +59,7 @@
                 <tr v-for="item in statsStore.currentlyRented.items" :key="item.article_id + item.contract_number">
                   <td>{{ item.name }}</td>
                   <td>{{ item.internal_number || '—' }}</td>
+                  <td>{{ item.category_main || '—' }}</td>
                   <td style="font-weight:600;">{{ item.contract_number }}</td>
                   <td>{{ item.contractor_name || '—' }}</td>
                   <td>{{ item.return_date ? new Date(item.return_date).toLocaleDateString('pl-PL') : '—' }}</td>
@@ -86,12 +88,28 @@
           <input type="date" v-model="customFrom" class="pill-date" />
           <span>—</span>
           <input type="date" v-model="customTo" class="pill-date" />
-          <button class="pill pill-go" @click="loadPeriod()">Filtruj</button>
+          <button class="pill pill-go" @click="applyPeriodFilter()">Filtruj</button>
         </div>
         <button :class="['pill', { active: activePreset === 'custom' }]" @click="activePreset = 'custom'">📅 Własny</button>
         <button class="btn-print print-hide" @click="printPage">🖨 Drukuj</button>
       </div>
 
+      <!-- HISTORIA SUB-TABS -->
+      <div class="explorer-subtabs" data-testid="history-subtabs">
+        <button
+          data-testid="history-subtab-general"
+          :class="['subtab', { 'subtab-active': historySubTab === 'general' }]"
+          @click="switchHistorySubTab('general')"
+        >📊 Ogólne</button>
+        <button
+          data-testid="history-subtab-categories"
+          :class="['subtab', { 'subtab-active': historySubTab === 'categories' }]"
+          @click="switchHistorySubTab('categories')"
+        >🏷️ Kategorie</button>
+      </div>
+
+      <!-- SUB-TAB: Ogólne -->
+      <div v-show="historySubTab === 'general'">
       <div v-if="statsStore.loading" class="reports-loading">
         <div class="spinner"></div>
         <span>Ładowanie statystyk...</span>
@@ -191,6 +209,107 @@
           </div>
         </div>
       </template>
+      </div><!-- /historySubTab === 'general' -->
+
+      <!-- SUB-TAB: Kategorie (RAO-P1-017) -->
+      <div v-show="historySubTab === 'categories'" data-testid="categories-panel">
+        <!-- Level selector -->
+        <div class="category-level-bar">
+          <span class="period-label">Poziom kategorii:</span>
+          <button
+            data-testid="category-level-main"
+            :class="['pill', { active: categoryLevel === 'main' }]"
+            @click="setCategoryLevel('main')"
+          >Główna kategoria</button>
+          <button
+            data-testid="category-level-sub1"
+            :class="['pill', { active: categoryLevel === 'sub1' }]"
+            @click="setCategoryLevel('sub1')"
+          >Podkategoria 1</button>
+        </div>
+
+        <!-- Loading state -->
+        <div v-if="statsStore.loadingByCategory" class="reports-loading">
+          <div class="spinner"></div>
+          <span>Ładowanie danych kategorii...</span>
+        </div>
+
+        <!-- Error state -->
+        <div v-else-if="errorByCategory" class="category-error-state">
+          ⚠️ {{ errorByCategory }}
+        </div>
+
+        <!-- Empty state -->
+        <div v-else-if="!statsStore.byCategoryData?.items?.length" class="empty-state" style="padding:60px 0;text-align:center;">
+          Brak danych dla wybranego okresu
+        </div>
+
+        <!-- Data -->
+        <template v-else>
+          <!-- KPI summary -->
+          <div class="kpi-row" style="grid-template-columns: repeat(3, 1fr); max-width: 700px;">
+            <div class="kpi-card">
+              <div class="kpi-value kpi-small">{{ formatMoney(statsStore.byCategoryData.total_revenue) }}</div>
+              <div class="kpi-label">Łączny przychód</div>
+              <div class="kpi-sub">za wybrany okres</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-value">{{ statsStore.byCategoryData.items.length }}</div>
+              <div class="kpi-label">Aktywnych kategorii</div>
+              <div class="kpi-sub">z wynajmem w okresie</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-value">{{ totalCategoryDays }}</div>
+              <div class="kpi-label">Dni wynajmu</div>
+              <div class="kpi-sub">łącznie we wszystkich kategorii</div>
+            </div>
+          </div>
+
+          <!-- Bar chart -->
+          <div class="charts-row" style="grid-template-columns: 1fr;">
+            <div class="chart-panel">
+              <div class="chart-title">🏷️ Kategorie wg przychodu (TOP 15)</div>
+              <div class="chart-wrap" style="height:280px;">
+                <canvas data-testid="category-bar-chart" ref="categoryBarCanvas"></canvas>
+              </div>
+              <div v-if="!statsStore.byCategoryData.items.length" class="empty-state" style="padding:60px 0;text-align:center;">
+                Brak danych w wybranym okresie
+              </div>
+            </div>
+          </div>
+
+          <!-- Table -->
+          <div class="table-panel full-width">
+            <div class="table-title">📋 Zestawienie kategorii</div>
+            <table class="stats-table" data-testid="category-stats-table">
+              <thead>
+                <tr>
+                  <th>Kategoria</th>
+                  <th style="text-align:right;">Maszyny</th>
+                  <th style="text-align:right;">Dni wynajmu</th>
+                  <th style="text-align:right;">Umowy</th>
+                  <th style="text-align:right;">Przychód</th>
+                  <th style="width:130px;"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="cat in statsStore.byCategoryData.items" :key="cat.category_name">
+                  <td style="font-weight:600;">{{ cat.category_name }}</td>
+                  <td style="text-align:right;">{{ cat.articles_count }}</td>
+                  <td style="text-align:right;">{{ cat.rented_days }}</td>
+                  <td style="text-align:right;">{{ cat.contracts_count }}</td>
+                  <td style="text-align:right;font-weight:600;">{{ formatMoney(cat.revenue) }}</td>
+                  <td>
+                    <div class="bar-bg">
+                      <div class="bar-fill" :style="{ width: categoryBarWidth(cat.revenue) + '%' }"></div>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </template>
+      </div><!-- /historySubTab === 'categories' -->
     </div>
 
     <!-- ══════════════════ TAB: EKSPERATOR ══════════════════ -->
@@ -584,6 +703,13 @@ const activePreset = ref('year')
 const customFrom = ref('')
 const customTo = ref('')
 
+// ── Historia sub-tabs (RAO-P1-017) ─────────────────────────────────────────
+const historySubTab = ref('general')
+const categoryLevel = ref('main')
+const categoryBarCanvas = ref(null)
+let categoryBarChart = null
+const errorByCategory = ref(null)
+
 function switchTab(tab) {
   activeTab.value = tab
   if (tab === 'history') {
@@ -647,7 +773,127 @@ async function loadPeriod() {
 
 function selectPreset(key) {
   activePreset.value = key
-  if (key !== 'custom') loadPeriod()
+  if (key !== 'custom') {
+    loadPeriod()
+    if (historySubTab.value === 'categories') {
+      loadCategoryData()
+    }
+  }
+}
+
+// Wywołanie z przycisku "Filtruj" (custom date range) — obsługuje oba sub-taby
+function applyPeriodFilter() {
+  loadPeriod()
+  if (historySubTab.value === 'categories') {
+    loadCategoryData()
+  }
+}
+
+// ── Historia sub-tabs logic (RAO-P1-017) ────────────────────────────────────
+function switchHistorySubTab(tab) {
+  historySubTab.value = tab
+  if (tab === 'categories') {
+    loadCategoryData()
+  } else {
+    nextTick(() => renderBarChart())
+  }
+}
+
+function setCategoryLevel(level) {
+  categoryLevel.value = level
+  if (historySubTab.value === 'categories') {
+    loadCategoryData()
+  }
+}
+
+async function loadCategoryData() {
+  errorByCategory.value = null
+  let df, dt
+  if (activePreset.value === 'custom') {
+    df = customFrom.value || null
+    dt = customTo.value || null
+  } else {
+    const [from, to] = getDateRange(activePreset.value)
+    df = fmt(from)
+    dt = fmt(to)
+  }
+  try {
+    await statsStore.fetchByCategory(categoryLevel.value, df, dt, false)
+    await nextTick()
+    renderCategoryBarChart()
+  } catch (e) {
+    errorByCategory.value = e?.response?.data?.detail ?? 'Błąd ładowania danych kategorii'
+  }
+}
+
+function renderCategoryBarChart() {
+  if (categoryBarChart) categoryBarChart.destroy()
+  if (!categoryBarCanvas.value || !statsStore.byCategoryData?.items?.length) return
+
+  const items = statsStore.byCategoryData.items.slice(0, 15)
+  const labels = items.map(i => {
+    const n = i.category_name
+    return n.length > 28 ? n.slice(0, 28) + '...' : n
+  })
+  const data = items.map(i => Number(i.revenue))
+
+  categoryBarChart = new Chart(categoryBarCanvas.value.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Przychód (zł)',
+        data,
+        backgroundColor: 'rgba(15, 35, 78, 0.75)',
+        hoverBackgroundColor: 'rgba(15, 35, 78, 0.95)',
+        borderRadius: 4,
+        barThickness: 22,
+      }],
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const item = items[ctx.dataIndex]
+              return `${formatMoney(item.revenue)} · ${item.rented_days} dni · ${item.contracts_count} umów`
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          ticks: {
+            callback: (v) => v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v,
+            font: { size: 11 },
+          },
+          grid: { color: 'rgba(0,0,0,0.05)' },
+        },
+        y: {
+          ticks: { font: { size: 11 } },
+          grid: { display: false },
+        },
+      },
+    },
+  })
+}
+
+const maxCategoryRevenue = computed(() => {
+  if (!statsStore.byCategoryData?.items?.length) return 1
+  return Math.max(...statsStore.byCategoryData.items.map(i => Number(i.revenue)))
+})
+
+const totalCategoryDays = computed(() => {
+  if (!statsStore.byCategoryData?.items?.length) return 0
+  return statsStore.byCategoryData.items.reduce((sum, i) => sum + i.rented_days, 0)
+})
+
+function categoryBarWidth(val) {
+  return Math.round(Number(val) / maxCategoryRevenue.value * 100)
 }
 
 async function printPage() {
@@ -1269,6 +1515,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (barChart) barChart.destroy()
   if (donutChart) donutChart.destroy()
+  if (categoryBarChart) categoryBarChart.destroy()
 })
 </script>
 
@@ -1805,5 +2052,24 @@ onBeforeUnmount(() => {
   .metrics-grid { grid-template-columns: repeat(2, 1fr); }
   .explorer-filters { flex-direction: column; }
   .explorer-search { width: 100%; }
+}
+
+/* ── RAO-P1-017: Category stats styles ──────────────────────────────────── */
+.category-level-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.category-error-state {
+  background: #FFF5F5;
+  color: #C53030;
+  padding: 14px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 16px;
+  border: 1px solid #FEB2B2;
 }
 </style>

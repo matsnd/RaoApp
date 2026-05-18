@@ -3,13 +3,15 @@ import { ref } from 'vue'
 import api from '@/composables/useApi'
 
 export const useStatsStore = defineStore('stats', () => {
-  const loading = ref(false)      // period loading
-  const loadingLive = ref(false)  // live section loading
+  const loading = ref(false)              // period loading
+  const loadingLive = ref(false)          // live section loading
+  const loadingByCategory = ref(false)    // RAO-P1-017: category stats loading
   const summary = ref(null)
   const topMachines = ref([])
   const currentlyRented = ref(null)
   const additionalFees = ref(null)
   const locations = ref([])
+  const byCategoryData = ref(null)        // RAO-P1-017: CategoryStatsResponse
 
   async function fetchSummary(dateFrom, dateTo) {
     const params = {}
@@ -79,9 +81,25 @@ export const useStatsStore = defineStore('stats', () => {
     ])
   }
 
+  // RAO-P1-017 — statystyki po kategoriach
+  async function fetchByCategory(level = 'main', dateFrom = null, dateTo = null, includeArchival = false) {
+    loadingByCategory.value = true
+    try {
+      const params = { level, include_archival: includeArchival }
+      if (dateFrom) params.date_from = dateFrom
+      if (dateTo) params.date_to = dateTo
+      const { data } = await api.get('/stats/by-category', { params })
+      byCategoryData.value = data
+      return data
+    } finally {
+      loadingByCategory.value = false
+    }
+  }
+
   return {
-    loading, loadingLive, summary, topMachines, currentlyRented, additionalFees, locations,
+    loading, loadingLive, loadingByCategory,
+    summary, topMachines, currentlyRented, additionalFees, locations, byCategoryData,
     fetchSummary, fetchTopMachines, fetchCurrentlyRented, fetchAdditionalFees, fetchLocations,
-    fetchPeriod, fetchAll,
+    fetchPeriod, fetchAll, fetchByCategory,
   }
 })

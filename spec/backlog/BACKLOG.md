@@ -911,6 +911,17 @@ Migracja kategorii maszyn z pliku CSV (Asortyment - Produkty - Maszyny - Toolsma
 - [x] `core/01_database.md` zaktualizowany (2026-05-18, db-architect)
 - [ ] `core/04_business_logic.md` zaktualizowany (opcjonalne - algorytm kategoryzacji w migrate.py)
 - [x] `core/11_reports_stats.md` zaktualizowany (2026-05-xx, backend-dev)
+- [x] **Frontend: ReportsSection.vue — sub-tab "Kategorie" w Analizie historycznej** (2026-05-18)
+  - [x] `stores/stats.js`: `fetchByCategory()`, `byCategoryData`, `loadingByCategory`
+  - [x] Tab historia: sub-taby Ogólne / Kategorie (`data-testid="history-subtabs"`)
+  - [x] Level selector: Główna kategoria / Podkategoria 1 (`data-testid="category-level-*"`)
+  - [x] Tabela kategorii (`data-testid="category-stats-table"`) — name, articles_count, rented_days, contracts_count, revenue + bar progress
+  - [x] Bar chart poziomy (Chart.js) — TOP 15 kategorii wg przychodu
+  - [x] KPI row: łączny przychód, liczba kategorii, dni wynajmu
+  - [x] Loading / Error / Empty states — ZAIMPLEMENTOWANE
+  - [x] Kolumna "Kategoria" (`category_main`) w tabeli "Maszyny aktualnie wynajęte" (live tab)
+  - [x] `data-testid` na kluczowych elementach
+  - [x] `spec/core/03_frontend_screens.md` zaktualizowany
 
 **Migration plan (RAO deterministic):**
 1. `core/01_database.md` — finalny DDL (category, is_archival)
