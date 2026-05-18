@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import api from '../utils/api'
+import api from '@/composables/useApi'
 
 interface FakturowniaSettings {
   id: number
