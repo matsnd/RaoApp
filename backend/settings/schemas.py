@@ -13,7 +13,6 @@ class CompanyResponse(BaseModel):
     city: str | None
     street: str | None
     header_text: str | None
-    stamp: str | None
     bank_name: str | None
     bank_account: str | None
     numbering_start: int | None
@@ -34,7 +33,6 @@ class CompanyUpdate(BaseModel):
     city: str | None = Field(None, max_length=50)
     street: str | None = Field(None, max_length=50)
     header_text: str | None = None
-    stamp: str | None = Field(None, max_length=500)
     bank_name: str | None = Field(None, max_length=200)
     bank_account: str | None = Field(None, max_length=40)
     numbering_start: int | None = None

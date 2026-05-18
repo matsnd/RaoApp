@@ -96,11 +96,6 @@ async def startup_migrations():
             "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
             "city VARCHAR(100) NULL"
         ))
-        # Pieczątka firmy w sekcji podpisów OWN
-        await conn.execute(sa.text(
-            "ALTER TABLE company ADD COLUMN IF NOT EXISTS "
-            "stamp VARCHAR(500) NULL"
-        ))
         # service_fee_template_items utworzone przez Base.metadata.create_all (nowa tabela)
 
     # FK + index dodawane w osobnych transakcjach (MariaDB nie wspiera ADD CONSTRAINT IF NOT EXISTS / CREATE INDEX IF NOT EXISTS)

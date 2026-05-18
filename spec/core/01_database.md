@@ -109,7 +109,6 @@ CREATE TABLE company (
     street         VARCHAR(50)  NULL,
     header_text    TEXT         NULL COMMENT 'Nagłówek raportu (multiline)',
     logo           LONGBLOB     NULL,
-    stamp          VARCHAR(500) NULL COMMENT 'Ścieżka do pliku z pieczątką firmy',
     bank_name      VARCHAR(200) NULL,
     bank_account   VARCHAR(40)  NULL,
     numbering_start INT         NULL DEFAULT 1 COMMENT 'Startowy numer dla auto-numeracji umów',
