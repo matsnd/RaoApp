@@ -952,6 +952,7 @@ Migracja kategorii maszyn z pliku CSV (Asortyment - Produkty - Maszyny - Toolsma
 - `43d8ed4` feat(db): RAO-P1-017 hierarchical categories schema
 - `fb7244b` feat(migrate): RAO-P1-017 step8_csv_categories — CSV -> hierarchical categories -> articles
 - `d471c01` feat(stats): RAO-P1-017 statystyki po kategoriach
+- `fefd710` feat(frontend): RAO-P1-017 statystyki po kategoriach - UI
 
 **Zmienione pliki:**
 - `backend/categories/models.py` - parent_id, level ENUM, self-ref FK
@@ -962,20 +963,50 @@ Migracja kategorii maszyn z pliku CSV (Asortyment - Produkty - Maszyny - Toolsma
 - `backend/stats/calc.py` - aggregate_by_category() pure function
 - `backend/stats/schemas.py` - CategoryStatItem, CategoryStatsResponse
 - `backend/tests/unit/test_stats_categories.py` - 12 unit tests
+- `frontend/src/stores/stats.js` - fetchByCategory(), byCategoryData, loadingByCategory
+- `frontend/src/components/reports/ReportsSection.vue` - sub-taby Kategorie, level selector, bar chart, tabela kategorii, KPI row
 - `spec/core/01_database.md` - DDL categories + articles
 - `spec/core/11_reports_stats.md` - sekcja 2.6 /stats/by-category
 - `spec/core/02_backend_api.md` - endpoint /stats/by-category
+- `spec/core/03_frontend_screens.md` - ReportsSection z sub-tab Kategorie
 - `spec/backlog/BACKLOG.md` - status done
 
 **Implementacja:**
 1. **DB layer** (db-architect): Hierarchia 3-poziomowa z parent_id + level ENUM, denormalizacja w articles (category_main/sub1/sub2/sub3), is_archival flag, technical_attributes JSON
 2. **Migracja** (backend-dev): step8_csv_categories() - parsowanie CSV (csv.reader, SQL-INJ-001 safe), normalizacja kategorii (NFD + diacritics strip), budowanie drzewa kategorii (sorted for determinism), idempotent upsert, GET_LOCK race condition guard, 268 CSV rows (263 z kategorią, 98%)
 3. **Statystyki** (backend-dev): Refactor endpointów na bazowanie na category_main zamiast internal_number, nowy GET /stats/by-category (level=main|sub1), filtr is_archival=FALSE default, 12 unit testów
+4. **Frontend** (frontend-dev): Stats store (fetchByCategory, byCategoryData, loadingByCategory), ReportsSection z sub-tab Kategorie (level selector, bar chart Chart.js, tabela kategorii, KPI row), DashboardView z category_main column
 
 **Weryfikacja:**
 - Unit testy: 12/12 passed (aggregate_by_category + schema validation)
-- Smoke test: 5/5 passed (01-login.spec.ts)
-- Idempotentność: drugi run migrate.py = 0 zmian
+- Typecheck frontend: ✅ built in 333ms
+- Smoke test: ⚠️ frontend nie uruchomiony (port zajęty), ale typecheck OK
+- Idempotentność migrate.py: drugi run = 0 zmian
+
+**UX review (ux-designer):**
+- ✅ Flow podstawowy działa (sub-taby, level selector, KPI + chart + tabela)
+- ⚠️ P1: Brak drilldown (klik w wiersz → sub1 zafiltrowany)
+- ⚠️ P1: Brak CSV export (oczekiwane B2B)
+- ⚠️ P1: Labelki techniczne ("Podkategoria 1" bez przykładu)
+- ⚠️ P1: Brak sortowania kolumn tabeli
+- ⚠️ P1: Niespójność chart (TOP 15) vs tabela (wszystkie)
+- ⚠️ P1: Error state bez buttona "Spróbuj ponownie"
+- 🟢 P2: Literówka "kategoriach" → "kategoriach" (sub KPI)
+- 🟢 P2: Brak breadcrumb (wymagany po drilldown)
+- 🟢 P2: Brak toggle "Pokaż archiwalne"
+- 🟢 P2: Brak paginacji przy długich listach
+- 🟢 P2: Brak wartości na słupkach chart (data labels)
+- 🟢 P2: Brak timestamp "ostatnia aktualizacja"
+
+**Przyszłe ulepszenia (RAO-P1-017b, c, d...):**
+- Drilldown wiersz → sub1 z breadcrumb
+- CSV export z filtrami
+- Lepsze labelki poziomu z tooltipami
+- Sortowanie kolumn tabeli
+- Retry button w error state
+- Toggle include_archival
+- Paginacja tabeli przy >50 wierszy
+
 **ROI:** Krytyczne dla statystyk — obecne duplikacje maszyn zniekształcają raporty
 **Estimate:** 12h (XL)
 
