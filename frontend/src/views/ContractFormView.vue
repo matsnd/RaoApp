@@ -6,6 +6,7 @@
       <button v-if="isEdit" class="toolbar-btn" title="Drukuj PDF" @click="generateReport('contract')">⎙</button>
       <button v-if="isEdit" class="toolbar-btn" title="Protokół ZO" @click="generateReport('protocol_zo')">📄</button>
       <button v-if="isEdit" class="toolbar-btn" title="Przelicz wartość" @click="recalcTotal">∑</button>
+      <button v-if="isEdit" class="toolbar-btn" title="Pobierz koszty z Fakturownia (coming soon)" disabled style="opacity:0.5;cursor:not-allowed;">💰</button>
       <button class="btn btn-primary btn-sm" @click="handleSave" :disabled="saving">
         {{ saving ? '...' : 'Zapisz' }}
       </button>

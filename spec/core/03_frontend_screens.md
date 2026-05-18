@@ -501,6 +501,16 @@ Dokładne rozmiary z Designer.cs:
 - Row 2: 200px — pozycje + warunki (split 50%/50%)
 - Row 3: 30px — przycisk zapisu
 
+**Toolbar (górna belka):**
+
+Przyciski toolbar (v-if="isEdit" = tylko przy edycji):
+- ← — powrót do Dashboard
+- ⎙ — Drukuj PDF (generateReport('contract'))
+- 📄 — Protokół ZO (generateReport('protocol_zo'))
+- ∑ — Przelicz wartość (recalcTotal)
+- 💰 — Pobierz koszty z Fakturownia (placeholder, disabled, coming soon)
+- [Zapisz] — button btn-primary btn-sm
+
 Szczegółowy layout Row 1 (nagłówek):
 
 ```
