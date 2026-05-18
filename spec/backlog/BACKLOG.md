@@ -1,6 +1,6 @@
 # RAO Backlog — Master Backlog
 
-> **Last updated:** 2026-05-17  
+> **Last updated:** 2026-05-18  
 > **Format:** YAML front-matter + sekcje (parsowalne przez agentów)  
 > **Source:** Unified backlog (merge of 19_BACKLOG.md + 21_BACKLOG_CLIENT.md)
 
@@ -2008,6 +2008,91 @@ Klient chce analizować gdzie najczęściej wynajmują maszyny (miejscowości/ob
 
 ---
 
+### [RAO-P2-012] Integracja z Fakturownia — automatyczne pobieranie kosztów
+
+```yaml
+id: RAO-P2-012
+priority: P2
+size: L
+status: todo
+classification: cross-stack
+roles: [backend-dev, frontend-dev, product-owner]
+depends_on: [RAO-P1-012]
+blocks: []
+source: client
+source_date: 2026-05-18
+specs_to_update:
+  - core/01_database.md
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+  - core/07_integrations.md
+migration_impact: yes
+security_impact: high
+```
+
+**NOTE (2026-05-18):** ODŁOŻONE po pełnym scrum refinement.
+- **PO rekomendacja:** Odłożyć po zakończeniu P0/P1 — userzy muszą potwierdzić pain point
+- **Security audit:** security_impact podniesione z LOW → HIGH (12 krytycznych zagrożeń: plaintext token, IDOR, SSRF, brak RBAC)
+- **Tech Lead:** Szczegółowy plan architektoniczny gotowy do implementacji
+- **QA:** 32 edge cases zidentyfikowanych, strategia testowania zdefiniowana
+- **Pattern:** Pełny refinement zapisany w `spec/technical/patterns/fakturownia_integration.md`
+- **Kiedy wrócić:** Po zakończeniu wszystkich P1 (must-have przed go-live)
+
+**Job-to-be-done:**
+Integracja z systemem fakturowania Fakturownia (publiczne API) w celu automatycznego pobierania kosztów do panelu rozliczenia umowy. Włączenie integracji w ustawieniach, mapowanie produktów, pobieranie faktur po OID i zsumowanie kosztów w rozliczeniu.
+
+**Acceptance criteria (DoD):**
+- [ ] PO: UX design dla guzika w widoku umowy (product owner + UX designer)
+- [ ] DB: Tabela `fakturownia_settings` (id, enabled, api_token, domain_url)
+- [ ] DB: Tabela `fakturownia_product_mapping` (id, fakturownia_product_id, article_id, fakturownia_product_name)
+- [ ] Backend: Endpointy CRUD dla ustawień integracji (settings router)
+- [ ] Backend: Endpoint `GET /fakturownia/products` — pobranie listy produktów z Fakturownia API
+- [ ] Backend: Endpoint `POST /fakturownia/mapping` — zapisanie mapowania produktów
+- [ ] Backend: Endpoint `GET /fakturownia/invoices?oid=` — pobranie faktur po numerze zamówienia (OID)
+- [ ] Backend: Automatyczne mapowanie pozycji faktury na artykuły RAO (po product_id lub nazwie)
+- [ ] Backend: Zsumowanie kosztów z wielu faktur pod jedną umową
+- [ ] Frontend: Toggle "Integracja Fakturownia" w ustawieniach (SettingsView)
+- [ ] Frontend: Pola: API token, domain URL (np. toolsmart.fakturownia.pl)
+- [ ] Frontend: Widok "Mapowanie produktów" — tabela Fakturownia Products ↔ RAO articles
+- [ ] Frontend: Guzik "Pobierz produkty z Fakturownia" — fetch i display
+- [ ] Frontend: Guzik w widoku umowy (ContractDetailView) — "Pobierz koszty z Fakturownia" (gdy integracja włączona)
+- [ ] Frontend: Panel rozliczenia — logika:
+  - Bez faktury: proponuj wszystkie pozycje umowy (wynajem + usługi dodatkowe)
+  - Po pobraniu faktury: tylko pozycje z faktury (zmapowane na artykuły RAO)
+  - Wiele faktur: zsumuj koszty per artykuł
+- [ ] Frontend: Fallback: ręczne wpisywanie kosztów jeśli nie pobrano z Fakturownia
+- [ ] DB: Pole `contracts.oid` już istnieje — używane jako numer zamówienia w Fakturownia
+- [ ] `core/01_database.md` zaktualizowany (fakturownia_settings, fakturownia_product_mapping)
+- [ ] `core/02_backend_api.md` zaktualizowany (endpointy integracji)
+- [ ] `core/03_frontend_screens.md` zaktualizowany (widoki ustawień, mapowania, umowy)
+- [ ] `core/07_integrations.md` zaktualizowany (dokumentacja API Fakturownia)
+
+**Migration plan (RAO deterministic):**
+1. `core/01_database.md` — finalny DDL (fakturownia_settings, fakturownia_product_mapping)
+2. `backend/integrations/fakturownia/` — nowy moduł (models.py, schemas.py, service.py, router.py)
+3. `backend/main.py` startup — CREATE TABLE
+4. `backend/settings/router.py` — rejestracja endpointów integracji
+5. **Verification gate (obowiązkowe):**
+   - [ ] `DROP DATABASE rao_new && CREATE` → restart backend → sprawdź czy tabele integracji są tworzone
+   - [ ] Drugi restart backend bez błędu
+
+**QA DoD:**
+- [ ] Unit test dla pobierania produktów z Fakturownia API (mock)
+- [ ] Unit test dla mapowania pozycji faktury na artykuły RAO
+- [ ] E2E test w `04-contract.spec.ts` dla pobierania kosztów z Fakturownia
+- [ ] Smoke test `01-login.spec.ts` PASS
+
+**Security DoD:**
+- [ ] API token szyfrowany w bazie (bcrypt/encryption)
+- [ ] API token nie logowany w logach aplikacji
+- [ ] HTTPS dla zapytań do Fakturownia API
+
+**Pliki do zmiany:** `backend/integrations/fakturownia/` (nowy moduł), `backend/settings/router.py`, `SettingsView.vue`, `ContractDetailView.vue`, `spec/core/07_integrations.md`
+**ROI:** Automatyzacja fakturowania — obecnie ręczne wpisywanie kosztów w rozliczeniu
+**Estimate:** 12h (L)
+
+---
+
 ### [RAO-P1-015] Rezerwacja maszyn (blokada wynajmu) (#15)
 
 ```yaml
@@ -2361,9 +2446,9 @@ Zobacz `archive/16_todo_done.md` dla pełnego historii zadań ukończonych.
 |-----------|--------|---------------|
 | 🚨 P0 | 5 | ~7h |
 | 🔴 P1 | 11 | ~55h |
-| 🟡 P2 | 6 | ~12h |
+| 🟡 P2 | 7 | ~24h |
 | 🟢 P3 | 5 | ~20h |
-| **Razem** | **20** | **~46h** |
+| **Razem** | **21** | **~58h** |
 
 ---
 
@@ -2400,6 +2485,7 @@ n|| RAO-P1-008 | Strukturalizacja adresów: kod pocztowy + miasto | Client | P1 
 || RAO-P2-009 | Statystyki per maszyna ROI | Client | P2 | M | todo | cross-stack |
 || RAO-P2-010 | Filtrowanie pozycji umowy typ | Client | P2 | S | todo | cross-stack |
 || RAO-P2-011 | Statystyki po lokalizacji | Client | P2 | S | todo | cross-stack |
+|| RAO-P2-012 | Integracja Fakturownia — automatyczne koszty | Client | P2 | L | todo | cross-stack |
 || RAO-P3-001 | Drag & drop reorder szablonów | Internal | P3 | M | todo | frontend-dev |
 || RAO-P3-002 | Upload logo firmy | Internal | P3 | M | todo | cross-stack |
 || RAO-P3-003 | Logo w nagłówku sidebar | Internal | P3 | XS | todo | frontend-dev |

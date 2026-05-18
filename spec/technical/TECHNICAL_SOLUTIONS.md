@@ -28,6 +28,15 @@ spec/technical/
 ### Migracje DB (MariaDB)
 - **Pattern:** `spec/technical/patterns/migrations_mariadb.md` — Idempotentne ALTER TABLE, bez Alembic
 
+### Fakturownia Integration (RAO-P2-012)
+- **Pattern:** `spec/technical/patterns/fakturownia_integration.md` — Pełny scrum refinement (PO, Tech Lead, QA, Security)
+- **Status:** ODŁOŻONE po refinement — PO rekomenduje po P0/P1
+- **Security impact:** HIGH (12 krytycznych zagrożeń zidentyfikowanych)
+- **Architecture:** Full module `integrations/fakturownia/` (models, schemas, service, client, router)
+- **Schema:** fakturownia_settings (singleton), fakturownia_product_mapping (FK → articles)
+- **Edge cases:** 32 zidentyfikowanych (API, OID, mapping, wiele faktur, UI, security)
+- **Testing strategy:** Unit (15+ testów), Integration (8 testów), E2E (10 scenariuszy), Manual (8-item checklist)
+
 ## Skrypty (Scripts)
 
 ### PDF & Vision AI (RAO-P1-022)
@@ -57,3 +66,4 @@ Po każdym zadaniu:
 
 - **2026-05-18:** Utworzenie struktury spec/technical/, migracja rozwiązań z AGENTS.md
 - **2026-05-18:** RAO-P1-022 — PDF extraction, Vision AI, WeasyPrint images
+- **2026-05-18:** RAO-P2-012 — Pełny scrum refinement Fakturownia integration (PO, Tech Lead, QA, Security) — ODŁOŻONE
