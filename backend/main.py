@@ -53,6 +53,39 @@ async def startup_migrations():
             "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
             "hide_delivery_address BOOLEAN NOT NULL DEFAULT FALSE"
         ))
+        # RAO-P1-017: hierarchia kategorii 3-poziomowa + flaga archiwalna + atrybuty techniczne
+        await conn.execute(sa.text(
+            "ALTER TABLE categories ADD COLUMN IF NOT EXISTS "
+            "parent_id INT NULL"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE categories ADD COLUMN IF NOT EXISTS "
+            "level ENUM('main','sub1','sub2','sub3') NOT NULL DEFAULT 'main'"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "category_main VARCHAR(100) NULL"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "category_sub1 VARCHAR(100) NULL"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "category_sub2 VARCHAR(100) NULL"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "category_sub3 VARCHAR(100) NULL"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "is_archival BOOLEAN NOT NULL DEFAULT FALSE"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "technical_attributes JSON NULL"
+        ))
         # service_fee_template_items utworzone przez Base.metadata.create_all (nowa tabela)
 
     # FK + index dodawane w osobnych transakcjach (MariaDB nie wspiera ADD CONSTRAINT IF NOT EXISTS / CREATE INDEX IF NOT EXISTS)
@@ -60,6 +93,12 @@ async def startup_migrations():
         "ALTER TABLE service_fee_templates ADD CONSTRAINT fk_sft_article "
         "FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE SET NULL",
         "CREATE INDEX idx_sft_article ON service_fee_templates(article_id)",
+        # RAO-P1-017: FK self-ref + indeksy dla hierarchii kategorii i archiwum
+        "ALTER TABLE categories ADD CONSTRAINT fk_category_parent "
+        "FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE SET NULL",
+        "CREATE INDEX idx_categories_parent ON categories(parent_id)",
+        "CREATE INDEX idx_articles_category_main ON articles(category_main)",
+        "CREATE INDEX idx_articles_archival ON articles(is_archival)",
     ]:
         try:
             async with engine.begin() as conn2:

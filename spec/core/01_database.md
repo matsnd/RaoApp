@@ -55,14 +55,21 @@ CREATE TABLE branches (
 ALTER TABLE users ADD CONSTRAINT fk_users_branch
     FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE SET NULL;
 
--- 1.3 Kategorie artykułów
+-- 1.3 Kategorie artykułów (RAO-P1-017: hierarchia 3-poziomowa)
+-- Drzewo: main → sub1 → sub2 → sub3 (poziom 'main' = root, parent_id = NULL)
 CREATE TABLE categories (
-    id    INT AUTO_INCREMENT PRIMARY KEY,
-    name  VARCHAR(200) NOT NULL,
-    code  VARCHAR(40)  NULL COMMENT 'Kod kategorii np. KOP, DZW',
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    name        VARCHAR(200) NOT NULL,
+    code        VARCHAR(40)  NULL COMMENT 'Kod kategorii np. KOP, DZW',
     description VARCHAR(400) NULL,
-    INDEX idx_categories_name (name)
-) ENGINE=InnoDB COMMENT='Kategorie maszyn/artykułów (stara tabela: kategoria)';
+    parent_id   INT          NULL COMMENT 'RAO-P1-017: FK self-ref do categories.id (NULL dla level=main)',
+    level       ENUM('main','sub1','sub2','sub3') NOT NULL DEFAULT 'main'
+                COMMENT 'RAO-P1-017: poziom w hierarchii kategorii',
+    CONSTRAINT fk_category_parent FOREIGN KEY (parent_id)
+        REFERENCES categories(id) ON DELETE SET NULL,
+    INDEX idx_categories_name (name),
+    INDEX idx_categories_parent (parent_id)
+) ENGINE=InnoDB COMMENT='Kategorie maszyn/artykułów - hierarchia 3-poziomowa (stara tabela: kategoria)';
 
 -- 1.4 Handlowcy
 CREATE TABLE salespeople (
@@ -241,6 +248,13 @@ CREATE TABLE articles (
     notes             VARCHAR(200) NULL,
     rental_days       INT          NULL COMMENT 'Ile dni wynajmu default',
     article_type      VARCHAR(20)  NULL COMMENT 'Rodzaj - typ artykułu',
+    -- RAO-P1-017: kategoryzacja hierarchiczna (snapshot nazw + flaga archiwalna + atrybuty techniczne)
+    category_main     VARCHAR(100) NULL COMMENT 'RAO-P1-017: Kategoria główna (snapshot nazwy z categories.name level=main)',
+    category_sub1     VARCHAR(100) NULL COMMENT 'RAO-P1-017: Podkategoria 1 (snapshot)',
+    category_sub2     VARCHAR(100) NULL COMMENT 'RAO-P1-017: Podkategoria 2 (snapshot)',
+    category_sub3     VARCHAR(100) NULL COMMENT 'RAO-P1-017: Podkategoria 3 (snapshot)',
+    is_archival       BOOLEAN      NOT NULL DEFAULT FALSE COMMENT 'RAO-P1-017: maszyna archiwalna (TRUE dla starych)',
+    technical_attributes JSON      NULL COMMENT 'RAO-P1-017: dynamiczne atrybuty techniczne (np. waga, moc)',
     created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at        DATETIME     NULL ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_art_category FOREIGN KEY (category_id)
@@ -252,7 +266,9 @@ CREATE TABLE articles (
     INDEX idx_art_name (name),
     INDEX idx_art_category (category_id),
     INDEX idx_art_owner (owner_id),
-    INDEX idx_art_registration (registration_no)
+    INDEX idx_art_registration (registration_no),
+    INDEX idx_articles_category_main (category_main),
+    INDEX idx_articles_archival (is_archival)
 ) ENGINE=InnoDB COMMENT='Artykuły/maszyny (stara tabela: artykul3)';
 
 -- ============================================================

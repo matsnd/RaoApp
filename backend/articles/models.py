@@ -1,4 +1,5 @@
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Numeric, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, Numeric, String
+from sqlalchemy.dialects.mysql import JSON
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -22,5 +23,21 @@ class Article(Base):
     notes = Column(String(200), nullable=True)
     rental_days = Column(Integer, nullable=True)
     article_type = Column(String(20), nullable=True)
+    # RAO-P1-017: kategoryzacja hierarchiczna (snapshot nazw) + flaga archiwalna + atrybuty
+    category_main = Column(String(100), nullable=True)
+    category_sub1 = Column(String(100), nullable=True)
+    category_sub2 = Column(String(100), nullable=True)
+    category_sub3 = Column(String(100), nullable=True)
+    is_archival = Column(Boolean, nullable=False, default=False, server_default="0")
+    technical_attributes = Column(JSON, nullable=True)
     created_at = Column(DateTime, nullable=False)
     updated_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (
+        Index("idx_art_name", "name"),
+        Index("idx_art_category", "category_id"),
+        Index("idx_art_owner", "owner_id"),
+        Index("idx_art_registration", "registration_no"),
+        Index("idx_articles_category_main", "category_main"),
+        Index("idx_articles_archival", "is_archival"),
+    )
