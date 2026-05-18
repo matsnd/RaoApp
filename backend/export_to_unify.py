@@ -28,7 +28,7 @@ from openpyxl.worksheet.datavalidation import DataValidation
 DB_HOST = "localhost"
 DB_PORT = 3306
 DB_USER = "rao_user"
-DB_PASS = "RaoPass2026!"
+DB_PASS = "<<DB_PASSWORD_PLACEHOLDER>>"
 DB_NAME = "rao_new"
 
 SOURCE_XLSX = Path(r"c:\projects\repos\RaoApp\temp\Asortyment - Produkty - Maszyny - Toolsmart.xlsx")

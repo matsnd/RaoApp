@@ -24,7 +24,7 @@ sudo service mariadb start 2>/dev/null || sudo service mysql start 2>/dev/null |
 sleep 2
 
 sudo mariadb -e "CREATE DATABASE IF NOT EXISTS rao_new CHARACTER SET utf8mb4 COLLATE utf8mb4_polish_ci;"
-sudo mariadb -e "CREATE USER IF NOT EXISTS 'rao_user'@'localhost' IDENTIFIED BY 'RaoPass2026!';"
+sudo mariadb -e "CREATE USER IF NOT EXISTS 'rao_user'@'localhost' IDENTIFIED BY '<<DB_PASSWORD_PLACEHOLDER>>';"
 sudo mariadb -e "GRANT ALL PRIVILEGES ON rao_new.* TO 'rao_user'@'localhost'; FLUSH PRIVILEGES;"
 echo "    OK — baza rao_new + user rao_user"
 

@@ -36,7 +36,7 @@ mariadb -h localhost -u <USER> -p<PASSWORD> -D <DB_NAME> -e "SELECT * FROM kontr
 mariadb -h localhost -u <USER> -p<PASSWORD> -D <DB_NAME> -e "SHOW FULL TABLES WHERE Table_type = 'VIEW';"
 
 # Porównaj z nową bazą
-mariadb -u rao_user -pRaoPass2026! rao_new -e "DESCRIBE users;"
+mariadb -u rao_user -p<<DB_PASSWORD_PLACEHOLDER>> rao_new -e "DESCRIBE users;"
 ```
 
 ---
@@ -47,10 +47,10 @@ Przed startem utwórz plik `.env` w katalogu głównym projektu:
 
 ```env
 # === DATABASE ===
-RAO_DATABASE_URL=mariadb+asyncmy://rao_user:RaoPass2026!@localhost:3306/rao_new
+RAO_DATABASE_URL=mariadb+asyncmy://rao_user:<<DB_PASSWORD_PLACEHOLDER>>@localhost:3306/rao_new
 RAO_DB_ROOT_PASSWORD=rootpass
 RAO_DB_USER=rao_user
-RAO_DB_PASSWORD=RaoPass2026!
+RAO_DB_PASSWORD=<<DB_PASSWORD_PLACEHOLDER>>
 RAO_DB_NAME=rao_new
 RAO_DB_HOST=localhost
 RAO_DB_PORT=3306
@@ -195,7 +195,7 @@ Kolumna "Commit":
 # Zaloguj się do MariaDB jako root i utwórz bazę + użytkownika
 mariadb -u root -p$RAO_DB_ROOT_PASSWORD -e "
 CREATE DATABASE IF NOT EXISTS rao_new CHARACTER SET utf8mb4 COLLATE utf8mb4_polish_ci;
-CREATE USER IF NOT EXISTS 'rao_user'@'localhost' IDENTIFIED BY 'RaoPass2026!';
+CREATE USER IF NOT EXISTS 'rao_user'@'localhost' IDENTIFIED BY '<<DB_PASSWORD_PLACEHOLDER>>';
 GRANT ALL PRIVILEGES ON rao_new.* TO 'rao_user'@'localhost';
 FLUSH PRIVILEGES;
 "
@@ -207,7 +207,7 @@ Przeczytaj plik `01_DATABASE_DDL.md` i wykonaj WSZYSTKIE `CREATE TABLE` query w 
 **NIE POMIJAJ żadnej tabeli.** Sprawdź po wykonaniu:
 
 ```bash
-mariadb -u rao_user -pRaoPass2026! rao_new -e "SHOW TABLES;"
+mariadb -u rao_user -p<<DB_PASSWORD_PLACEHOLDER>> rao_new -e "SHOW TABLES;"
 # Oczekiwane: 14+ tabel
 ```
 

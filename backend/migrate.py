@@ -71,7 +71,7 @@ def hash_password(password: str) -> str:
 DB_HOST = "localhost"
 DB_PORT = 3306
 DB_USER = "rao_user"
-DB_PASS = "RaoPass2026!"
+DB_PASS = "<<DB_PASSWORD_PLACEHOLDER>>"
 DB_NAME = "rao_new"
 # DUMP_PATH is now defined above as absolute path
 

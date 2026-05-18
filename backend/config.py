@@ -4,7 +4,7 @@ import json
 
 
 class Settings(BaseSettings):
-    RAO_DATABASE_URL: str = "mysql+aiomysql://rao_user:RaoPass2026!@localhost:3306/rao_new"
+    RAO_DATABASE_URL: str = "mysql+aiomysql://rao_user:<<DB_PASSWORD_PLACEHOLDER>>@localhost:3306/rao_new"
     RAO_SECRET_KEY: str = "change-me"
     RAO_ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
     RAO_SMTP_HOST: str = "localhost"

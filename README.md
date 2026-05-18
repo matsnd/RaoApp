@@ -24,7 +24,7 @@ bash .devin/run.sh
 ```powershell
 # 1. MariaDB — zainstaluj z https://mariadb.org/download/ i utwórz bazę:
 mariadb -u root -p -e "CREATE DATABASE rao_new CHARACTER SET utf8mb4 COLLATE utf8mb4_polish_ci;"
-mariadb -u root -p -e "CREATE USER 'rao_user'@'localhost' IDENTIFIED BY 'RaoPass2026!'; GRANT ALL ON rao_new.* TO 'rao_user'@'localhost';"
+mariadb -u root -p -e "CREATE USER 'rao_user'@'localhost' IDENTIFIED BY '<<DB_PASSWORD_PLACEHOLDER>>'; GRANT ALL ON rao_new.* TO 'rao_user'@'localhost';"
 
 # 2. Backend
 cd backend
