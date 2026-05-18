@@ -295,6 +295,7 @@ To tworzy historie zmian do rollbacku (`git revert HEAD`) i sledzenia postepow.
 10. **Lokalne commity po kazdym zadaniu** - po zakonczeniu zadania wykonaj `git commit` z opisem zmian (format: `feat(category): opis`). To tworzy historie do rollbacku i sledzenia postepow.
 11. **Auto-rollback w --full-auto** - jeśli 3 próby fixa nie zadziałają → `git revert HEAD` i spróbuj innej strategii
 12. **Vision Verification tylko gdy potrzebne** - używaj MCP `rao-vision` TYLKO gdy nie możesz zweryfikować programatycznie (patrz Krok 6.5). Priorytet: weryfikacja programatyczna (darmowa) → vision (kosztowna). W trybie `--full-auto` vision jest opcjonalne, nie obowiązkowe.
+13. **Post-task cleanup (ZAPISYWANIE ROZWIĄZAŃ)** - po każdym zadaniu zapisz odkryte rozwiązania do `spec/technical/` (skrypty do `scripts/`, wzorce do `patterns/`, indeks w `TECHNICAL_SOLUTIONS.md`). To zapobiega utracie wiedzy po restarcie AI agenta.
 
 ## Wzor prompta dla subagenta
 
@@ -369,7 +370,14 @@ OGRANICZENIA:
 
 10. **Lokalny commit:** `git add . && git commit -m "feat(contracts): add delivery_address field"`.
 
-11. **Final report:** lista zmian, screenshot, status testow, hash commita.
+11. **Post-task cleanup (ZAPISYWANIE ROZWIĄZAŃ):**
+   - Jeśli stworzyłeś tymczasowy skrypt testowy → przenieś do `spec/technical/scripts/` z opisem `*.md`
+   - Jeśli odkryłeś powtarzalny wzorzec (pattern) → dodaj do `spec/technical/patterns/`
+   - Zaktualizuj indeks `spec/technical/TECHNICAL_SOLUTIONS.md`
+   - Usuń tymczasowe pliki z backend/ (jeśli nie są już potrzebne)
+   - To zapobiega utracie wiedzy po restarcie AI agenta
+
+12. **Final report:** lista zmian, screenshot, status testow, hash commita.
 
 ---
 

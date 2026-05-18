@@ -345,3 +345,34 @@ Gdy zadanie wymaga pełnej autonomii z self-healingiem i pełną weryfikacją:
 - Stack reguły szczegółowe (Cascade): `.windsurf/rules/rao-project.md`
 - Migracje DB szczegółowe (Cascade): `.windsurf/rules/rao-migrations.md`
 - Spec sync szczegółowe (Cascade): `.windsurf/rules/rao-spec-sync.md`
+
+## Technical Solutions Storage
+
+Wszystkie odkryte techniczne rozwiązania są zapisywane w `spec/technical/`. Służy to do szybkiego odzyskania wiedzy po restarcie AI agenta.
+
+### Struktura
+```
+spec/technical/
+├── TECHNICAL_SOLUTIONS.md    # Główny indeks
+├── scripts/                  # Pythonowe skrypty testowe/utility + *.md opisy
+└── patterns/                 # Wzorce architektoniczne (PDF extraction, JWT, etc.)
+```
+
+### Szybki dostęp
+- **Indeks:** `spec/technical/TECHNICAL_SOLUTIONS.md`
+- **Skrypty:** `spec/technical/scripts/*.py` + `spec/technical/scripts/*.md`
+- **Wzorce:** `spec/technical/patterns/*.md`
+
+### Dodawanie nowych rozwiązań
+Po każdym zadaniu:
+1. **Skrypt:** Dodaj do `spec/technical/scripts/` z opisem `*.md`
+2. **Wzorzec:** Jeśli to powtarzalny pattern → dodaj do `spec/technical/patterns/`
+3. **Indeks:** Zaktualizuj `spec/technical/TECHNICAL_SOLUTIONS.md`
+
+### Przykłady rozwiązań
+- **PDF Extraction:** fitz (PyMuPDF) na Windows → `spec/technical/patterns/pdf_extraction.md`
+- **Vision AI:** rao-vision MCP do analizy layout → `spec/technical/patterns/vision_ai_analysis.md`
+- **WeasyPrint Images:** file:// URI z absolute path → `spec/technical/patterns/weasyprint_images.md`
+- **JWT Auth:** reset hasła admina, token → `spec/technical/patterns/jwt_auth_e2e.md`
+- **Port Management:** alternatywne porty (8001, 5174) → `spec/technical/patterns/port_management.md`
+- **Migracje DB:** idempotentne ALTER TABLE → `spec/technical/patterns/migrations_mariadb.md`
