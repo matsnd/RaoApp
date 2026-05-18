@@ -1007,6 +1007,23 @@ Migracja kategorii maszyn z pliku CSV (Asortyment - Produkty - Maszyny - Toolsma
 - Toggle include_archival
 - Paginacja tabeli przy >50 wierszy
 
+**UI review (ui-designer):**
+- 🔴 P2: Zero użycia `var(--*)` w ReportsSection.vue — wszystkie kolory/spacing/shadows hardcoded (127 miejsc)
+- 🔴 P2: `.category-error-state` — błędny kolor błędu (#C53030 zamiast #E53E3E), border-radius poza skalą (8px zamiast 6px/12px)
+- 🔴 P2: `bar-fill` animation 600ms zamiast 250ms (var(--transition-normal))
+- 🔴 P2: Inline style `color:#718096` w template (linia 196, 662)
+- 🔴 P2: Brak focus-visible na `.pill`, `.subtab`, `.tab` (accessibility)
+- 🟡 P2: `stats-table th` odbiega od systemu (biały bg zamiast navy pattern z .data-grid)
+- 🟡 P2: Spacing off-grid (6px, 7px, 14px zamiast 4/8/12/16)
+- 🟡 P2: Emoji zamiast Lucide icons (cross-OS consistency)
+- 🟢 P2: Padding off-grid (18px, 20px 18px 16px, 14px 16px)
+- 🟢 P2: `.empty-state` lokalna definicja kolizji z globalną
+
+**Refactor design system ReportsSection.vue (RAO-P1-017e):**
+- Priorytet 1-4: `.category-error-state` kolory → var(), `bar-fill` transition → 250ms, inline style usunąć, focus-visible
+- Priorytet 5-6: `stats-table th` → navy bg pattern, gap/spacing → siatka 8px
+- Priorytet 7-8: Emoji → Lucide icons, refactor var() cały komponent (bardzo wysoki koszt)
+
 **ROI:** Krytyczne dla statystyk — obecne duplikacje maszyn zniekształcają raporty
 **Estimate:** 12h (XL)
 
