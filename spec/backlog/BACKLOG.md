@@ -1945,13 +1945,14 @@ Klient potrzebuje sprawdzać rentowność (stopę zwrotu) dla konkretnych maszyn
 id: RAO-P2-010
 priority: P2
 size: S
-status: postponed
+status: done
 classification: cross-stack
 roles: [backend-dev, frontend-dev]
 depends_on: []
 blocks: []
 source: client
 source_date: 2026-04-08
+completion_date: 2026-05-18
 specs_to_update:
   - core/02_backend_api.md
   - core/03_frontend_screens.md
@@ -2486,7 +2487,7 @@ n|| RAO-P1-008 | Strukturalizacja adresów: kod pocztowy + miasto | Client | P1 
 || RAO-P2-007 | UX Raportów — teraz vs okres | Client | P2 | S | todo | cross-stack |
 || RAO-P2-008 | Numer wewnętrzny maszyny | Client | P2 | S | todo | cross-stack |
 || RAO-P2-009 | Statystyki per maszyna ROI | Client | P2 | M | done | cross-stack |
-|| RAO-P2-010 | Filtrowanie pozycji umowy typ | Client | P2 | S | todo | cross-stack |
+|| RAO-P2-010 | Filtrowanie pozycji umowy typ | Client | P2 | S | done | cross-stack |
 || RAO-P2-011 | Statystyki po lokalizacji | Client | P2 | S | todo | cross-stack |
 || RAO-P2-012 | Integracja Fakturownia — automatyczne koszty | Client | P2 | L | todo | cross-stack |
 || RAO-P3-001 | Drag & drop reorder szablonów | Internal | P3 | M | todo | frontend-dev |

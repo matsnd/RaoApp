@@ -12,6 +12,7 @@ export const useStatsStore = defineStore('stats', () => {
   const additionalFees = ref(null)
   const locations = ref([])
   const byCategoryData = ref(null)        // RAO-P1-017: CategoryStatsResponse
+  const positionsData = ref(null)         // RAO-P2-010: PositionStatsResponse
 
   async function fetchSummary(dateFrom, dateTo) {
     const params = {}
@@ -96,10 +97,20 @@ export const useStatsStore = defineStore('stats', () => {
     }
   }
 
+  // RAO-P2-010 — statystyki pozycji z filtrem typu
+  async function fetchPositions(type = 'all', dateFrom = null, dateTo = null) {
+    const params = { type }
+    if (dateFrom) params.date_from = dateFrom
+    if (dateTo) params.date_to = dateTo
+    const { data } = await api.get('/stats/positions', { params })
+    positionsData.value = data
+    return data
+  }
+
   return {
     loading, loadingLive, loadingByCategory,
-    summary, topMachines, currentlyRented, additionalFees, locations, byCategoryData,
+    summary, topMachines, currentlyRented, additionalFees, locations, byCategoryData, positionsData,
     fetchSummary, fetchTopMachines, fetchCurrentlyRented, fetchAdditionalFees, fetchLocations,
-    fetchPeriod, fetchAll, fetchByCategory,
+    fetchPeriod, fetchAll, fetchByCategory, fetchPositions,
   }
 })

@@ -100,6 +100,14 @@
         <button class="btn-print print-hide" @click="printPage">🖨 Drukuj</button>
       </div>
 
+      <!-- RAO-P2-010: FILTR TYP POZYCJI -->
+      <div class="position-type-filter" v-if="historySubTab === 'general'">
+        <span class="filter-label">Typ pozycji:</span>
+        <button :class="['pill', { active: positionType === 'all' }]" @click="positionType = 'all'">Wszystkie</button>
+        <button :class="['pill', { active: positionType === 'machines' }]" @click="positionType = 'machines'">Maszyny</button>
+        <button :class="['pill', { active: positionType === 'services' }]" @click="positionType = 'services'">Usługi</button>
+      </div>
+
       <!-- HISTORIA SUB-TABS -->
       <div class="explorer-subtabs" data-testid="history-subtabs">
         <button
@@ -212,6 +220,49 @@
               </tbody>
             </table>
             <div v-else class="empty-state">Brak danych lokalizacji</div>
+          </div>
+
+          <!-- RAO-P2-010: Tabela pozycji z filtrem typu -->
+          <div class="table-panel full-width" v-if="statsStore.positionsData">
+            <div class="table-title">📋 Pozycje ({{ statsStore.positionsData.type === 'all' ? 'Wszystkie' : statsStore.positionsData.type === 'machines' ? 'Maszyny' : 'Usługi' }})</div>
+            <table class="stats-table" v-if="statsStore.positionsData.items?.length">
+              <thead>
+                <tr>
+                  <th>Nazwa</th>
+                  <th>Nr wewnętrzny</th>
+                  <th>Kategoria</th>
+                  <th style="text-align:right;">Przychód</th>
+                  <th style="text-align:right;">Dni</th>
+                  <th style="text-align:right;">Umów</th>
+                  <th style="text-align:right;">Razy</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="pos in statsStore.positionsData.items" :key="pos.article_id">
+                  <td style="font-weight:600;">{{ pos.article_name }}</td>
+                  <td>{{ pos.internal_number || '—' }}</td>
+                  <td>{{ pos.category_main || '—' }}</td>
+                  <td style="text-align:right;font-weight:600;">{{ formatMoney(pos.revenue) }}</td>
+                  <td style="text-align:right;">{{ pos.rented_days }}</td>
+                  <td style="text-align:right;">{{ pos.contracts_count }}</td>
+                  <td style="text-align:right;">{{ pos.times_billed }}</td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="3" style="font-weight:700;">Suma</td>
+                  <td style="text-align:right;font-weight:700;">{{ formatMoney(statsStore.positionsData.total_revenue) }}</td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+            <div v-else class="empty-state">Brak pozycji w wybranym okresie</div>
+            <div class="positions-summary" v-if="statsStore.positionsData">
+              <span>Maszyny: <strong>{{ formatMoney(statsStore.positionsData.total_machines_revenue) }}</strong></span>
+              <span style="margin-left:16px;">Usługi: <strong>{{ formatMoney(statsStore.positionsData.total_services_revenue) }}</strong></span>
+            </div>
           </div>
         </div>
       </template>
@@ -716,6 +767,9 @@ const categoryBarCanvas = ref(null)
 let categoryBarChart = null
 const errorByCategory = ref(null)
 
+// ── RAO-P2-010: Filtr typ pozycji ───────────────────────────────────────────────
+const positionType = ref('all')  // 'machines' | 'services' | 'all'
+
 function switchTab(tab) {
   activeTab.value = tab
   if (tab === 'history') {
@@ -777,12 +831,29 @@ async function loadPeriod() {
   renderBarChart()
 }
 
+// RAO-P2-010: Ładowanie pozycji z filtrem typu
+async function loadPositions() {
+  let df, dt
+  if (activePreset.value === 'custom') {
+    df = customFrom.value || null
+    dt = customTo.value || null
+  } else {
+    const [from, to] = getDateRange(activePreset.value)
+    df = fmt(from)
+    dt = fmt(to)
+  }
+  await statsStore.fetchPositions(positionType.value, df, dt)
+}
+
 function selectPreset(key) {
   activePreset.value = key
   if (key !== 'custom') {
     loadPeriod()
     if (historySubTab.value === 'categories') {
       loadCategoryData()
+    }
+    if (historySubTab.value === 'general') {
+      loadPositions()  // RAO-P2-010: przeładuj pozycje przy zmianie dat
     }
   }
 }
@@ -1513,9 +1584,17 @@ watch(explorerCustomTo, () => {
   }
 })
 
+// RAO-P2-010: Watch na positionType - przeładuj pozycje przy zmianie filtra
+watch(positionType, () => {
+  if (historySubTab.value === 'general') {
+    loadPositions()
+  }
+})
+
 onMounted(() => {
   loadLive()
   loadPeriod()
+  loadPositions()  // RAO-P2-010: załaduj pozycje przy starcie
 })
 
 onBeforeUnmount(() => {
@@ -2099,5 +2178,27 @@ onBeforeUnmount(() => {
   font-size: 13px;
   margin-bottom: 16px;
   border: 1px solid #FEB2B2;
+}
+
+/* ── RAO-P2-010: Position type filter styles ───────────────────────────────── */
+.position-type-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+  padding: 8px 0;
+}
+.filter-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #718096;
+}
+.positions-summary {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: #F7FAFC;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #4A5568;
 }
 </style>

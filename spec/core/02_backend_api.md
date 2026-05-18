@@ -1202,6 +1202,14 @@ Query: `?level=main|sub1&date_from&date_to&include_archival=false&internal_numbe
 Response: `CategoryStatsResponse`
 HTTP: 200 | 401 | 422 (nieprawidłowy `level`)
 
+### `GET /stats/positions` (RAO-P2-010, NOWY)
+Query: `?type=machines|services|all&date_from&date_to`
+Response: `PositionStatsResponse` with:
+- date_from, date_to, type (applied filter)
+- total_revenue, total_machines_revenue, total_services_revenue
+- items[]: list[PositionStatItem] (article_id, article_name, internal_number, is_service, category_main, revenue, rented_days, contracts_count, times_billed)
+HTTP: 200 | 401 | 422 (nieprawidłowy `type`)
+
 ### `GET /explorer/machines/{article_id}` (RAO-P2-009)
 Query: `?date_from&date_to`
 Response: Machine metrics object with:

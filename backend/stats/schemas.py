@@ -161,3 +161,29 @@ class CategoryStatsResponse(BaseModel):
     level: str              # "main" | "sub1"
     total_revenue: Decimal
     items: list[CategoryStatItem]
+
+
+# ── RAO-P2-010: Statystyki pozycji z filtrem typu ────────────────────────────────
+
+class PositionStatItem(BaseModel):
+    """Jedna pozycja zagregowana per article w okresie [date_from, date_to]."""
+    article_id: int
+    article_name: str
+    internal_number: str | None
+    is_service: bool                  # ← klucz filtra type
+    category_main: str | None         # spójność z RAO-P1-017
+    revenue: Decimal
+    rented_days: int                  # 0 dla usług o billing_frequency != "DAILY"
+    contracts_count: int
+    times_billed: int                 # liczba pozycji = ile razy wystąpiła w umowach
+
+
+class PositionStatsResponse(BaseModel):
+    """Odpowiedź endpointu GET /stats/positions."""
+    date_from: date
+    date_to: date
+    type: str                         # "machines" | "services" | "all"
+    total_revenue: Decimal
+    total_machines_revenue: Decimal   # podsumowanie per typ (zawsze, niezależnie od filtra)
+    total_services_revenue: Decimal   # ↑ pozwala FE pokazać "Z czego usługi: X zł"
+    items: list[PositionStatItem]

@@ -790,6 +790,22 @@ Pole `internal_number` jest w pełni zaimplementowane:
   - Wykorzystanie (%)
 - Tabela historia wynajmów (umowa, kontrahent, daty, dni, kwota)
 
+### Filtrowanie pozycji umowy po typie (RAO-P2-010)
+
+**Backend (stats/router.py):**
+- Endpoint `/stats/positions` z parametrami `type=machines|services|all`, `date_from`, `date_to`
+- Zwraca `PositionStatsResponse` z:
+  - total_revenue, total_machines_revenue, total_services_revenue
+  - items[]: pozycje zagregowane per article (article_id, article_name, internal_number, is_service, category_main, revenue, rented_days, contracts_count, times_billed)
+
+**Frontend (ReportsSection.vue):**
+- Filtr "Typ pozycji" w sub-tab "Ogólne" (Analiza historyczna):
+  - Pills: Wszystkie | Maszyny | Usługi
+  - `v-if="historySubTab === 'general'"`
+- Tabela pozycji z kolumnami: Nazwa, Nr wewnętrzny, Kategoria, Przychód, Dni, Umów, Razy
+- Summary: Maszyny: X zł, Usługi: Y zł (zawsze widoczne, niezależnie od filtra)
+- Store: `statsStore.positionsData` + `fetchPositions(type, from, to)`
+
 ### Tab: Stan floty teraz (`live`)
 
 - KPI cards: dostępnych maszyn, % wykorzystania floty

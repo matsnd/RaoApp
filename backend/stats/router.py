@@ -1,6 +1,7 @@
 from collections import defaultdict
 from datetime import date, timedelta
 from decimal import Decimal
+from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select, and_, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +20,7 @@ from stats.schemas import (
     ExpiringContractItem, OverdueContractItem, DeliveryTodayItem, UnprintedContractItem, StalePrintContractItem,
     SalespersonCommissionItem, CommissionReportResponse,
     CategoryStatItem, CategoryStatsResponse,
+    PositionStatItem, PositionStatsResponse,
 )
 
 router = APIRouter(prefix="/stats", tags=["stats"])
@@ -521,6 +523,97 @@ async def by_category(
         date_to=dt,
         level=level,
         total_revenue=total_revenue,
+        items=items,
+    )
+
+
+# ---------------------------------------------------------------------------
+# RAO-P2-010: STATYSTYKI POZYCJI Z FILTREM TYPU
+# ---------------------------------------------------------------------------
+
+@router.get("/positions", response_model=PositionStatsResponse)
+async def positions(
+    position_type: Literal["machines", "services", "all"] = Query("all", alias="type"),
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """
+    Statystyki pozycji umowy z filtrem typu (RAO-P2-010).
+
+    - type=machines → tylko maszyny (service_filter=False)
+    - type=services → tylko usługi (service_filter=True)
+    - type=all → wszystkie pozycje (service_filter=None, default)
+    """
+    df, dt = _default_dates(date_from, date_to)
+
+    # Mapowanie type → service_filter
+    service_filter = None
+    if position_type == "machines":
+        service_filter = False
+    elif position_type == "services":
+        service_filter = True
+
+    # Pobierz pozycje z odpowiednim filtrem
+    all_pos = await _compute_position_revenues(db, df, dt, service_filter=service_filter)
+
+    # Agregacja per article
+    agg = defaultdict(lambda: {
+        "name": "",
+        "internal_number": None,
+        "is_service": False,
+        "category_main": None,
+        "revenue": Decimal(0),
+        "rented_days": 0,
+        "contracts": set(),
+        "times_billed": 0,
+    })
+
+    for p in all_pos:
+        key = p["article_id"]
+        agg[key]["name"] = p["article_name"]
+        agg[key]["internal_number"] = p["internal_number"]
+        agg[key]["is_service"] = p["is_service"]
+        agg[key]["category_main"] = p["category_main"]
+        agg[key]["revenue"] += p["revenue"]
+        agg[key]["rented_days"] += p["clamped_days"] if not p["is_service"] else 0
+        agg[key]["contracts"].add(p["contract_id"])
+        agg[key]["times_billed"] += 1
+
+    # Oblicz total_machines_revenue i total_services_revenue (zawsze, niezależnie od filtra)
+    all_pos_unfiltered = await _compute_position_revenues(db, df, dt, service_filter=None)
+    total_machines_rev = sum(p["revenue"] for p in all_pos_unfiltered if not p["is_service"])
+    total_services_rev = sum(p["revenue"] for p in all_pos_unfiltered if p["is_service"])
+
+    # Build response items
+    items = [
+        PositionStatItem(
+            article_id=aid,
+            article_name=d["name"],
+            internal_number=d["internal_number"],
+            is_service=d["is_service"],
+            category_main=d["category_main"],
+            revenue=d["revenue"],
+            rented_days=d["rented_days"],
+            contracts_count=len(d["contracts"]),
+            times_billed=d["times_billed"],
+        )
+        for aid, d in agg.items()
+    ]
+
+    # Sortuj po revenue descending
+    items.sort(key=lambda x: x.revenue, reverse=True)
+
+    total_revenue = sum(item.revenue for item in items)
+
+    return PositionStatsResponse(
+        date_from=df,
+        date_to=dt,
+        type=position_type,
+        total_revenue=total_revenue,
+        total_machines_revenue=total_machines_rev,
+        total_services_revenue=total_services_rev,
         items=items,
     )
 
