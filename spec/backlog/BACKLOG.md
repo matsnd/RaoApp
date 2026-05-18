@@ -2194,6 +2194,150 @@ Integracja z systemem fakturowania Fakturownia (publiczne API) w celu automatycz
 
 ---
 
+### [RAO-P2-013] Pełne pokrycie E2E — scenariusze testowe dla wszystkich use case'ów
+
+```yaml
+id: RAO-P2-013
+priority: P2
+size: XL
+status: todo
+classification: qa
+roles: [qa-engineer, frontend-dev, backend-dev]
+depends_on: []
+blocks: []
+source: internal
+source_date: 2026-05-18
+specs_to_update:
+  - process/testing.md
+migration_impact: no
+security_impact: low
+estimate: 16-20h
+```
+
+**Job-to-be-done:**
+Obecne testy E2E (pliki `01–05`) pokrywają tylko happy path podstawowych flow. Brakuje scenariuszy negatywnych, edge case'ów, widoków raportów, dashboardu i statystyk. Zadanie polega na rozszerzeniu suity Playwright tak, żeby każdy use case aplikacji miał przynajmniej jeden test happy path ORAZ jeden test ścieżki negatywnej.
+
+**Scope — moduły i brakujące scenariusze:**
+
+#### 01 — Logowanie (rozszerzenie `01-login.spec.ts`)
+- [ ] Przycisk "Zaloguj się" jest disabled podczas ładowania (spinner widoczny)
+- [ ] Enter w polu hasła submittuje formularz
+- [ ] Token JWT zapisany w localStorage po zalogowaniu
+- [ ] Odświeżenie strony po zalogowaniu nie wylogowuje (persystencja sesji)
+- [ ] Wejście na `/rao/` gdy zalogowany → redirect do `/rao/home` (nie `/login`)
+
+#### 02 — Kontrahenci (rozszerzenie `02-contractor.spec.ts`)
+- [ ] Edycja istniejącego kontrahenta — zmiana nazwy, zapis, toolbar wyświetla nową nazwę
+- [ ] Usunięcie kontrahenta → dialog potwierdzenia → znika z listy
+- [ ] Dodanie adresu dostawy — formularz widoczny, zapis, adres pojawia się w liście
+- [ ] Edycja adresu dostawy — zmiana pola i zapis
+- [ ] Usunięcie adresu dostawy → potwierdzenie → znika z listy
+- [ ] Lookup GUS — wpisanie NIP → przycisk GUS klikalny, pola wypełniają się (lub błąd 503 gdy API niedostępne)
+- [ ] Wyszukiwanie po NIP — wyniki filtrowane poprawnie
+- [ ] Paginacja — przejście na stronę 2 gdy >20 kontrahentów
+- [ ] Pole "reprezentowany przez" — zapis i wyświetlanie
+
+#### 03 — Artykuły (rozszerzenie `03-article.spec.ts`)
+- [ ] Edycja istniejącego artykułu — zmiana nazwy i kategorii, zapis
+- [ ] Usunięcie artykułu → potwierdzenie → znika z listy
+- [ ] Filtrowanie po kategorii — dropdown filtruje tabelę
+- [ ] Filtrowanie po statusie dostępności
+- [ ] Wyszukiwanie po nazwie działa
+- [ ] Paginacja artykułów
+- [ ] Duplikacja: kopia ma te same wartości pól co oryginał
+- [ ] Pole `fakturownia_product_id` widoczne i edytowalne
+
+#### 04 — Umowy (rozszerzenie `04-contract.spec.ts`)
+- [ ] Edycja istniejącej umowy — zmiana `date_to`, zapis, weryfikacja
+- [ ] Filtrowanie listy umów po `date_from` / `date_to`
+- [ ] Wyszukiwanie umów po kontrahencie
+- [ ] Dodanie pozycji: picker artykułu → wybór → pozycja w gridzie
+- [ ] Edycja pozycji: zmiana dat, zapis
+- [ ] Usunięcie pozycji → potwierdzenie → znika z gridu
+- [ ] Dodanie warunku rozliczeniowego — wybór szablonu, zapis, pojawia się w liście
+- [ ] Edycja warunku — zmiana kwoty, zapis
+- [ ] Usunięcie warunku → potwierdzenie
+- [ ] Usługi dodatkowe — checkbox włącza usługę, kwota wyświetlana poprawnie (nie "$1")
+- [ ] Sekcja "Uwagi" — textarea widoczna, tekst zapisuje się
+- [ ] Adres dostawy — pole widoczne, wartość zapisuje się
+- [ ] PDF umowy — klik "Drukuj" → HTTP 200, Content-Type `application/pdf`
+- [ ] PDF — podpisy na OSTATNIEJ stronie wielostronicowej umowy (nie na pierwszej)
+- [ ] Protokół ZO sprzęt — HTTP 200, PDF
+- [ ] Protokół ZO usługi — HTTP 200, PDF
+- [ ] Protokół ZO nodata — HTTP 200, PDF
+- [ ] Typ umowy "S" vs "U" — odpowiednie pola aktywne w formularzu
+- [ ] Walidacja: brak `date_from` → zapis zablokowany, komunikat błędu
+- [ ] Walidacja: brak kontrahenta → zapis zablokowany, komunikat "Wybierz kontrahenta"
+- [ ] Paginacja listy umów
+
+#### 05 — Ustawienia (rozszerzenie `05-settings.spec.ts`)
+- [ ] Dodanie handlowca — zapis, pojawia się na liście
+- [ ] Edycja handlowca — zmiana imienia, zapis
+- [ ] Usunięcie handlowca → potwierdzenie
+- [ ] Dodanie kategorii artykułu — zapis, pojawia się w liście
+- [ ] Usunięcie kategorii
+- [ ] Dodanie typu stawki — zapis, pojawia się na liście
+- [ ] Dodanie szablonu usługi — zapis, pojawia się na liście
+- [ ] Edycja szablonu usługi — zmiana kwoty, zapis
+- [ ] Usunięcie szablonu usługi
+- [ ] Zakładka Fakturownia — widoczna, pola `api_token` i `domain_subdomain` dostępne
+- [ ] Zapis konfiguracji Fakturownia — token maskowany w podglądzie (`tk_****1234`)
+
+#### 06 — Dashboard i statystyki (NOWY: `06-dashboard.spec.ts`)
+- [ ] Dashboard ładuje się — tabela widoczna lub komunikat "Brak umów"
+- [ ] Filtr dat — ustawienie `date_from` / `date_to` przeładowuje wyniki
+- [ ] Kliknięcie wiersza umowy → przejście do `/rao/contracts/{id}/edit`
+- [ ] Karta KPI — widoczna sekcja ze statystykami (aktywne umowy, przychód)
+- [ ] Statystyki per maszyna — lista artykułów z ROI
+
+#### 07 — Raporty PDF (NOWY: `07-reports.spec.ts`, testy przez Playwright `request`)
+- [ ] `POST /reports/contract/{id}?type=contract` → 200, `application/pdf`
+- [ ] `POST /reports/contract/{id}?type=protocol_zo_s` → 200, PDF
+- [ ] `POST /reports/contract/{id}?type=protocol_zo_u` → 200, PDF
+- [ ] `POST /reports/contract/{id}?type=protocol_zo_nodata_s` → 200, PDF
+- [ ] Nieistniejące ID → 404
+- [ ] Brak tokenu → 401
+
+#### 08 — Auth / Security (NOWY: `08-auth-security.spec.ts`)
+- [ ] `/rao/home` bez tokenu → redirect `/rao/login`
+- [ ] `/rao/contractors/new` bez tokenu → redirect `/rao/login`
+- [ ] `/rao/contracts/new` bez tokenu → redirect `/rao/login`
+- [ ] `GET /contractors` bez tokenu → 401
+- [ ] `POST /contractors` bez tokenu → 401
+- [ ] `GET /contracts` bez tokenu → 401
+- [ ] Zmiana hasła — poprawna (stare + nowe + potwierdzenie) → sukces
+- [ ] Zmiana hasła — błędne stare hasło → komunikat błędu
+
+**Acceptance criteria (DoD):**
+- [ ] Wszystkie wylistowane scenariusze zaimplementowane w Playwright
+- [ ] Testy działają w trybie `--headless` (CI)
+- [ ] Cleanup po testach przez API (`afterAll`) — brak śmieciowych danych w DB
+- [ ] `npx playwright test` PASS (≥95% zielone; flaky oznaczone `test.fixme`)
+- [ ] Smoke `01-login.spec.ts` PASS
+- [ ] `spec/process/testing.md` zaktualizowany o macierz pokrycia
+
+**QA DoD:**
+- [ ] Każdy endpoint API: ≥1 test E2E lub unit test
+- [ ] Każdy widok Vue: ≥1 happy path + ≥1 negatywny
+- [ ] Edge cases: puste listy, brak danych, network error (mock)
+
+**Pliki do zmiany / stworzenia:**
+- `e2e/tests/01-login.spec.ts` — rozszerzenie
+- `e2e/tests/02-contractor.spec.ts` — rozszerzenie
+- `e2e/tests/03-article.spec.ts` — rozszerzenie
+- `e2e/tests/04-contract.spec.ts` — rozszerzenie
+- `e2e/tests/05-settings.spec.ts` — rozszerzenie
+- `e2e/tests/06-dashboard.spec.ts` — nowy
+- `e2e/tests/07-reports.spec.ts` — nowy
+- `e2e/tests/08-auth-security.spec.ts` — nowy
+- `e2e/tests/helpers.ts` — rozszerzenie (cleanup, seedData helpers)
+- `spec/process/testing.md` — macierz pokrycia
+
+**ROI:** Brak testów = regresy niewykryte przed go-live. Każdy bug produkcyjny kosztuje wielokrotnie więcej niż test.
+**Estimate:** 16-20h (XL)
+
+---
+
 ### [RAO-P1-015] Rezerwacja maszyn (blokada wynajmu) (#15)
 
 ```yaml
@@ -2547,7 +2691,7 @@ Zobacz `archive/16_todo_done.md` dla pełnego historii zadań ukończonych.
 |-----------|--------|---------------|
 | 🚨 P0 | 5 | ~7h |
 | 🔴 P1 | 11 | ~55h |
-| 🟡 P2 | 7 | ~24h |
+| 🟡 P2 | 8 | ~44h |
 | 🟢 P3 | 5 | ~20h |
 | **Razem** | **21** | **~58h** |
 
@@ -2587,6 +2731,7 @@ n|| RAO-P1-008 | Strukturalizacja adresów: kod pocztowy + miasto | Client | P1 
 || RAO-P2-010 | Filtrowanie pozycji umowy typ | Client | P2 | S | done | cross-stack |
 || RAO-P2-011 | Statystyki po lokalizacji | Client | P2 | S | todo | cross-stack |
 || RAO-P2-012 | Integracja Fakturownia — automatyczne koszty | Client | P2 | L | done | cross-stack |
+|| RAO-P2-013 | Pełne pokrycie E2E — wszystkie use case'y | Internal | P2 | XL | todo | qa-engineer |
 || RAO-P3-001 | Drag & drop reorder szablonów | Internal | P3 | M | todo | frontend-dev |
 || RAO-P3-002 | Upload logo firmy | Internal | P3 | M | todo | cross-stack |
 || RAO-P3-003 | Logo w nagłówku sidebar | Internal | P3 | XS | todo | frontend-dev |
