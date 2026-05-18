@@ -2338,6 +2338,88 @@ Obecne testy E2E (pliki `01–05`) pokrywają tylko happy path podstawowych flow
 
 ---
 
+### [RAO-P2-014] Weryfikacja kodu aplikacji vs. specyfikacja i backlog
+
+```yaml
+id: RAO-P2-014
+priority: P2
+size: M
+status: todo
+classification: qa
+roles: [tech-lead, qa-engineer]
+depends_on: []
+blocks: []
+source: internal
+source_date: 2026-05-18
+specs_to_update:
+  - core/01_database.md
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+  - core/04_business_logic.md
+migration_impact: no
+security_impact: low
+estimate: 4-6h
+```
+
+**Job-to-be-done:**
+Przegląd i audyt aktualnego kodu aplikacji (backend + frontend) pod kątem zgodności z dokumentacją w `spec/core/`. Celem jest wykrycie rozbieżności między tym co jest zaimplementowane a tym co opisuje specyfikacja i backlog — brakujące endpointy, niepełne widoki, niezsynchronizowane modele DB, zadania oznaczone jako `done` które faktycznie nie są zaimplementowane.
+
+**Scope audytu:**
+
+#### Backend (FastAPI)
+- [ ] Porównaj endpointy z `spec/core/02_backend_api.md` — każdy endpoint w spec ma odpowiednik w kodzie
+- [ ] Porównaj modele SQLAlchemy z `spec/core/01_database.md` — kolumny, typy, FK zgodne
+- [ ] Porównaj Pydantic schemas z endpointami — request/response body zgodne ze spec
+- [ ] Sprawdź czy wszystkie startup migrations w `backend/main.py` pokrywają kolumny opisane w spec
+- [ ] Zidentyfikuj endpointy istniejące w kodzie ale nieopisane w spec (undocumented API)
+
+#### Frontend (Vue 3)
+- [ ] Porównaj widoki Vue z `spec/core/03_frontend_screens.md` — każdy ekran w spec ma odpowiedni plik `.vue`
+- [ ] Sprawdź czy wszystkie pola formularzy (kontrahent, artykuł, umowa, ustawienia) są zgodne ze spec
+- [ ] Sprawdź routing (`router/index.ts`) vs `spec/core/06_navigation_flow.md`
+- [ ] Zidentyfikuj widoki/komponenty istniejące w kodzie ale nieopisane w spec
+
+#### Backlog vs. kod
+- [ ] Przejdź przez zadania w backlogu oznaczone `status: done` — zweryfikuj że feature faktycznie działa w kodzie
+- [ ] Przejdź przez zadania `status: todo` — sprawdź czy przypadkiem nie są już zaimplementowane
+- [ ] Zidentyfikuj rozbieżności: "done w backlogu ale brak w kodzie" oraz "jest w kodzie ale nie ma w backlogu"
+
+#### Wynik audytu
+- [ ] Dokument `spec/technical/audit-code-vs-spec-YYYY-MM-DD.md` z listą rozbieżności
+- [ ] Każda rozbieżność sklasyfikowana: `[BRAK_W_KODZIE]` / `[BRAK_W_SPEC]` / `[NIEZGODNOŚĆ]` / `[OK]`
+- [ ] Lista zadań backlogowych do weryfikacji statusu (done → todo lub todo → done)
+- [ ] Lista plików spec do aktualizacji
+
+**Acceptance criteria (DoD):**
+- [ ] Dokument audytu utworzony w `spec/technical/`
+- [ ] Wszystkie rozbieżności skatalogowane i sklasyfikowane
+- [ ] Backlog zaktualizowany — statusy zadań zgodne z rzeczywistym stanem kodu
+- [ ] Spec zaktualizowany — odzwierciedla aktualny stan implementacji (lub stworzone osobne zadania na uzupełnienie)
+- [ ] `spec/core/` i kod są spójne (diff jest wytłumaczony)
+
+**QA DoD:**
+- [ ] Audyt obejmuje 100% zadań backlogowych o statusie `done`
+- [ ] Audyt obejmuje wszystkie pliki `backend/*/router.py` i `frontend/src/views/*.vue`
+- [ ] Każda rozbieżność ma przypisane działanie: "fix spec" / "fix kod" / "dodaj do backlogu"
+
+**Pliki do sprawdzenia (lista wejściowa):**
+- `backend/*/router.py`, `backend/*/models.py`, `backend/*/schemas.py`
+- `frontend/src/views/*.vue`, `frontend/src/components/**/*.vue`
+- `frontend/src/router/index.ts`
+- `backend/main.py` (startup migrations)
+- `spec/core/01_database.md`, `02_backend_api.md`, `03_frontend_screens.md`, `06_navigation_flow.md`
+- `spec/backlog/BACKLOG.md` (statusy zadań)
+
+**Pliki wynikowe:**
+- `spec/technical/audit-code-vs-spec-YYYY-MM-DD.md` — nowy dokument audytu
+- `spec/backlog/BACKLOG.md` — korekty statusów
+- `spec/core/*.md` — uzupełnienia braków
+
+**ROI:** Wykrycie zadań "done" które faktycznie nie działają zanim trafi na go-live. Zapobiega sytuacji gdy klient zgłasza brakujące feature opisane w spec.
+**Estimate:** 4-6h (M)
+
+---
+
 ### [RAO-P1-015] Rezerwacja maszyn (blokada wynajmu) (#15)
 
 ```yaml
@@ -2691,7 +2773,7 @@ Zobacz `archive/16_todo_done.md` dla pełnego historii zadań ukończonych.
 |-----------|--------|---------------|
 | 🚨 P0 | 5 | ~7h |
 | 🔴 P1 | 11 | ~55h |
-| 🟡 P2 | 8 | ~44h |
+| 🟡 P2 | 9 | ~50h |
 | 🟢 P3 | 5 | ~20h |
 | **Razem** | **21** | **~58h** |
 
@@ -2732,6 +2814,7 @@ n|| RAO-P1-008 | Strukturalizacja adresów: kod pocztowy + miasto | Client | P1 
 || RAO-P2-011 | Statystyki po lokalizacji | Client | P2 | S | todo | cross-stack |
 || RAO-P2-012 | Integracja Fakturownia — automatyczne koszty | Client | P2 | L | done | cross-stack |
 || RAO-P2-013 | Pełne pokrycie E2E — wszystkie use case'y | Internal | P2 | XL | todo | qa-engineer |
+|| RAO-P2-014 | Weryfikacja kodu vs. spec i backlog | Internal | P2 | M | todo | tech-lead |
 || RAO-P3-001 | Drag & drop reorder szablonów | Internal | P3 | M | todo | frontend-dev |
 || RAO-P3-002 | Upload logo firmy | Internal | P3 | M | todo | cross-stack |
 || RAO-P3-003 | Logo w nagłówku sidebar | Internal | P3 | XS | todo | frontend-dev |
