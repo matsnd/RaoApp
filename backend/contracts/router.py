@@ -8,8 +8,10 @@ from contracts.schemas import (
     ConditionCreate, ConditionResponse, ContractCreate, ContractDetail,
     ContractListItem, ContractServiceFeeCreate, ContractServiceFeeReorder,
     ContractServiceFeeResponse, PositionCreate, PositionResponse,
+    ServiceHourCreate, ServiceHourResponse, ServiceHourUpdate,
 )
 from contracts.service import contract_service
+from contracts.service_hours_service import service_hour_service
 from database import get_db
 from shared.pagination import PaginatedResponse
 
@@ -296,3 +298,47 @@ async def recalculate_contract(
 ):
     total = await contract_service.recalculate_total(db, contract_id)
     return {"total_value": total}
+
+
+# Service Hours endpoints
+@router.get("/positions/{position_id}/service-hours", response_model=list[ServiceHourResponse])
+async def list_service_hours(
+    position_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    hours = await service_hour_service.list_service_hours(db, position_id)
+    return [ServiceHourResponse.model_validate(h) for h in hours]
+
+
+@router.post("/positions/{position_id}/service-hours", response_model=ServiceHourResponse, status_code=201)
+async def create_service_hour(
+    position_id: int,
+    data: ServiceHourCreate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    hour = await service_hour_service.create_service_hour(db, position_id, data)
+    return ServiceHourResponse.model_validate(hour)
+
+
+@router.put("/positions/{position_id}/service-hours/{hour_id}", response_model=ServiceHourResponse)
+async def update_service_hour(
+    position_id: int,
+    hour_id: int,
+    data: ServiceHourUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    hour = await service_hour_service.update_service_hour(db, hour_id, data)
+    return ServiceHourResponse.model_validate(hour)
+
+
+@router.delete("/positions/{position_id}/service-hours/{hour_id}", status_code=204)
+async def delete_service_hour(
+    position_id: int,
+    hour_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    await service_hour_service.delete_service_hour(db, hour_id)

@@ -214,6 +214,12 @@
             @value-changed="onConditionValueChanged"
           />
 
+          <!-- Service hours for service contracts (type U) -->
+          <ServiceHourGrid
+            v-if="selectedPosId && isEdit && form.contract_type === 'U'"
+            :position-id="selectedPosId"
+          />
+
           <!-- Service fees section -->
         <div v-if="isEdit" class="page-card">
           <div style="display:flex;align-items:center;margin-bottom:8px;">
@@ -590,6 +596,7 @@ import { useContractorStore } from '@/stores/contractors'
 import { useArticleStore } from '@/stores/articles'
 import { useSettingsStore } from '@/stores/settings'
 import ConditionPanel from '@/components/contracts/ConditionPanel.vue'
+import ServiceHourGrid from '@/components/contracts/ServiceHourGrid.vue'
 import api from '@/composables/useApi'
 
 const props = defineProps({ id: String })

@@ -595,6 +595,40 @@ Layout (replika WinForms FormAwybor):
 
 ---
 
+## Komponent: `ServiceHourGrid.vue` (RAO-P1-014)
+
+**Cel:** Ewidencja godzin pracy operatora dla umów typu "U" (usługa).
+
+**Widoczność:** Tylko gdy `contract_type === 'U'` i pozycja jest wybrana.
+
+**Layout:**
+```
+┌──────────────────────────────────────────────────────┐
+│ Ewidencja godzin operatora        [+ Dodaj wpis]    │
+├──────────────────────────────────────────────────────┤
+│ Data        │ od   │ do   │ Uwagi           │      │
+│ [2026-03-15]│[08:00]│[16:00]│[Operator: Jan] │ [✕] │
+│ [2026-03-16]│[08:00]│[16:00]│[Operator: Jan] │ [✕] │
+└──────────────────────────────────────────────────────┘
+```
+
+**Funkcje:**
+- Inline edit (data/time/notes)
+- Auto-save na zmianę (change event)
+- Delete button z potwierdzeniem
+- Pusty state gdy brak wpisów
+
+**Props:**
+```typescript
+interface Props {
+  positionId: number
+}
+```
+
+**Store:** `useServiceHourStore` (`frontend/src/stores/serviceHours.js`)
+
+---
+
 ## Dialog: `ConditionFormView.vue`
 
 ```

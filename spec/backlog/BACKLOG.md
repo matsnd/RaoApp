@@ -1783,7 +1783,7 @@ Podczas tworzenia umowy typu "Usługa" (U), w pickerze artykułów powinny wyśw
 id: RAO-P1-014
 priority: P1
 size: M
-status: postponed
+status: done
 classification: cross-stack
 roles: [db-architect, backend-dev, frontend-dev]
 depends_on: []

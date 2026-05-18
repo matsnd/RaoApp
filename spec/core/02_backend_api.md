@@ -890,6 +890,45 @@ async def recalculate_contract_value(db: AsyncSession, contract_id: int):
 ### `POST /contracts/{id}/service-fees/reorder`
 ### `POST /contracts/{id}/service-fees/reset`
 
+### `GET /contracts/positions/{position_id}/service-hours` (RAO-P1-014)
+
+**Response:**
+```python
+class ServiceHourResponse(BaseModel):
+    id: int
+    position_id: int
+    service_date: date
+    time_from: time | None
+    time_to: time | None
+    notes: str | None
+    created_at: datetime
+    updated_at: datetime | None
+```
+
+### `POST /contracts/positions/{position_id}/service-hours` (RAO-P1-014)
+
+**Request:**
+```python
+class ServiceHourCreate(BaseModel):
+    service_date: date
+    time_from: time | None = None
+    time_to: time | None = None
+    notes: str | None = Field(None, max_length=500)
+```
+
+### `PUT /contracts/positions/{position_id}/service-hours/{hour_id}` (RAO-P1-014)
+
+**Request:**
+```python
+class ServiceHourUpdate(BaseModel):
+    service_date: date | None = None
+    time_from: time | None = None
+    time_to: time | None = None
+    notes: str | None = Field(None, max_length=500)
+```
+
+### `DELETE /contracts/positions/{position_id}/service-hours/{hour_id}` (RAO-P1-014)
+
 ```python
 class ContractServiceFeeResponse(BaseModel):
     id: int

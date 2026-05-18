@@ -158,7 +158,7 @@
     </tbody>
   </table>
 
-  <!-- SERVICE HOURS SECTION — formularz do wypełnienia ręcznego -->
+  <!-- SERVICE HOURS SECTION — dane z bazy lub puste wiersze -->
   {% for p in positions %}
   <div style="margin: 16px 0 10px; page-break-inside: avoid;">
     <div style="font-size: 10px; font-weight: bold; color: #1D2B53; margin-bottom: 6px;">
@@ -174,19 +174,30 @@
         </tr>
       </thead>
       <tbody>
-        <!-- 12 pustych wierszy do wypełnienia ręcznego -->
-        <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
-        <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
-        <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
-        <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
-        <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
-        <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
-        <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
-        <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
-        <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
-        <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
-        <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
-        <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
+        {% if p.service_hours and p.service_hours|length > 0 %}
+          {% for hour in p.service_hours %}
+          <tr style="height: 28px;">
+            <td>{{ hour.service_date|datepl if hour.service_date else '' }}</td>
+            <td>{{ hour.time_from.strftime('%H:%M') if hour.time_from else '' }}</td>
+            <td>{{ hour.time_to.strftime('%H:%M') if hour.time_to else '' }}</td>
+            <td>{{ hour.notes or '' }}</td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <!-- 12 pustych wierszy do wypełnienia ręcznego -->
+          <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
+          <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
+          <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
+          <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
+          <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
+          <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
+          <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
+          <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
+          <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
+          <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
+          <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
+          <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
+        {% endif %}
       </tbody>
     </table>
   </div>

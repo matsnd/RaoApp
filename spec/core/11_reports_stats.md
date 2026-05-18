@@ -98,6 +98,40 @@ Do obu wariantów umowy dodana została sekcja `Uwagi` umieszczona **przed podpi
 
 ### 1.6 Font dokumentów — Montserrat (RAO-P1-015 scope-cut)
 
+### 1.7 Sekcja "Ewidencja godzin operatora" w protokole usługi (RAO-P1-014)
+
+**Lokalizacja:**
+- `backend/reports/templates/protocol_zo_u.html` — Protokół Usług z cenami
+
+**Zawartość:**
+- Tabela z kolumnami: Data, od (godzina), do (godzina), uwagi
+- Dane z bazy `service_hours` (jeśli istnieją) lub 12 pustych wierszy do ręcznego wypełnienia
+- Sekcja widoczna dla każdej pozycji umowy
+- Automatyczne ładowanie przez `build_contract_data()` w `reports/service.py`
+
+**Logika:**
+```python
+# W reports/service.py, build_contract_data():
+hours_result = await db.execute(
+    select(ServiceHour).where(ServiceHour.position_id == pos.id).order_by(ServiceHour.service_date)
+)
+service_hours = hours_result.scalars().all()
+
+# W template:
+{% if p.service_hours and p.service_hours|length > 0 %}
+  {% for hour in p.service_hours %}
+  <tr>
+    <td>{{ hour.service_date|datepl }}</td>
+    <td>{{ hour.time_from.strftime('%H:%M') }}</td>
+    <td>{{ hour.time_to.strftime('%H:%M') }}</td>
+    <td>{{ hour.notes }}</td>
+  </tr>
+  {% endfor %}
+{% else %}
+  <!-- 12 pustych wierszy -->
+{% endif %}
+```
+
 ### 1.7 Pieczątki firmowe w dokumentach (RAO-P1-022)
 
 Wszystkie dokumenty PDF (umowy, protokoły, OWN) zawierają pieczątkę firmową Toolsmart Sp. z o.o. w sekcjach podpisów Wynajmującego.
