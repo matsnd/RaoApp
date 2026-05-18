@@ -1,6 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class AddressResponse(BaseModel):
@@ -107,6 +107,16 @@ class ContractorCreate(BaseModel):
     phone2: str | None = Field(None, max_length=100)
     landline_phone: str | None = Field(None, max_length=20)
     website: str | None = Field(None, max_length=100)
+
+    @field_validator('nip')
+    @classmethod
+    def validate_nip(cls, v: str | None) -> str | None:
+        if v is None or v.strip() == '':
+            return None
+        from contractors.service import validate_nip_checksum
+        if not validate_nip_checksum(v):
+            raise ValueError('Nieprawidłowy numer NIP - błędna suma kontrolna')
+        return v
 
 
 class GusLookupRequest(BaseModel):

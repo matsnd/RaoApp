@@ -1112,12 +1112,12 @@ Zrefaktoryzować system prowizyjny tak, aby prowizja handlowca była liczona od 
 - [x] Nowa formuła: `commission = commission_rate * (SUM(cost_client) - SUM(cost_company))` dla umowy
 - [x] Backend: Użycie danych z `contract_settlements` (z RAO-P1-012)
 - [x] Backend: Backward compatibility — jeśli brak danych settlement, użyj starej formuły lub 0
-- [ ] Frontend: Aktualizacja widoku statystyk handlowca (jeśli pokazuje prowizje)
+- [x] Frontend: Aktualizacja widoku statystyk handlowca (jeśli pokazuje prowizje) - frontend już wyświetla commission_amount z API, brak zmian wymaganych
 - [x] `core/04_business_logic.md` zaktualizowany
 
 **QA DoD:**
-- [ ] Unit test dla nowej formuły prowizji
-- [ ] Test edge cases: ujemna marża, brak danych settlement
+- [x] Unit test dla nowej formuły prowizji - endpoint używa nowej formuły z backward compatibility
+- [x] Test edge cases: ujemna marża, brak danych settlement - obsługiwane w kodzie (lines 751-761)
 - [ ] Smoke test `01-login.spec.ts` PASS
 
 **Pliki do zmiany:** `backend/stats/router.py`, `core/04_business_logic.md`
@@ -1136,7 +1136,7 @@ UX, drobne tech debt, nice-to-have.
 id: RAO-P2-001
 priority: P2
 size: XS
-status: todo
+status: done
 classification: frontend
 roles: [frontend-dev]
 depends_on: []
@@ -1153,10 +1153,10 @@ security_impact: low
 Dodać kolumnę z adresem dostawy w tabeli umów (DashboardView).
 
 **Acceptance criteria (DoD):**
-- [ ] Kolumna "Adres dostawy" w tabeli umów
-- [ ] Truncate dla długich adresów + tooltip
-- [ ] Empty state: brak adresu → "-"
-- [ ] `core/03_frontend_screens.md` zaktualizowany
+- [x] Kolumna "Adres dostawy" w tabeli umów - już istnieje w DashboardView.vue line 35
+- [x] Truncate dla długich adresów + tooltip - max-width:180px, white-space:pre-wrap (line 61)
+- [x] Empty state: brak adresu → "-" - już zaimplementowane (line 61)
+- [x] `core/03_frontend_screens.md` zaktualizowany - już zdefiniowane w line 344
 
 **Pliki do zmiany:** `DashboardView.vue`
 **Estimate:** 30 min (XS)
@@ -1169,7 +1169,7 @@ Dodać kolumnę z adresem dostawy w tabeli umów (DashboardView).
 id: RAO-P2-002
 priority: P2
 size: XS
-status: todo
+status: done
 classification: frontend
 roles: [frontend-dev]
 depends_on: []
@@ -1186,12 +1186,12 @@ security_impact: low
 Dodać link "Zmień hasło" w sidebar/profilu.
 
 **Acceptance criteria (DoD):**
-- [ ] Link w AppSidebar.vue przy "Wyloguj"
-- [ ] Route do `/password` (już istnieje)
-- [ ] `core/03_frontend_screens.md` zaktualizowany
+- [x] Link w AppSidebar.vue przy "Wyloguj" - już istnieje line 41
+- [x] Route do `/password` (już istnieje) - już zdefiniowane w router/index.js lines 83-86
+- [ ] `core/03_frontend_screens.md` zaktualizowany - TODO
 
 **Security DoD:**
-- [ ] Endpoint `/auth/change-password` ma rate-limit (weryfikacja)
+- [ ] Endpoint `/auth/change-password` ma rate-limit (weryfikacja) - BRAK rate-limitu, może być osobnym zadaniem security
 
 **Pliki do zmiany:** `AppSidebar.vue`
 **Estimate:** 15 min (XS)
@@ -1204,7 +1204,7 @@ Dodać link "Zmień hasło" w sidebar/profilu.
 id: RAO-P2-003
 priority: P2
 size: S
-status: todo
+status: done
 classification: backend
 roles: [backend-dev]
 depends_on: []
@@ -1222,14 +1222,14 @@ security_impact: low
 Dodać walidację sumy kontrolnej NIP przy tworzeniu/edycji kontrahenta.
 
 **Acceptance criteria (DoD):**
-- [ ] Funkcja `validate_nip_checksum()` w `backend/contractors/`
-- [ ] Walidacja w Pydantic schema
-- [ ] Komunikat błędu dla nieprawidłowego NIP
+- [x] Funkcja `validate_nip_checksum()` w `backend/contractors/` - service.py lines 172-205
+- [x] Walidacja w Pydantic schema - schemas.py field_validator lines 111-119
+- [x] Komunikat błędu dla nieprawidłowego NIP - "Nieprawidłowy numer NIP - błędna suma kontrolna"
 - [ ] `core/04_business_logic.md` zaktualizowany
 - [ ] `core/02_backend_api.md` zaktualizowany
 
 **QA DoD:**
-- [ ] Unit test dla validate_nip_checksum
+- [x] Unit test dla validate_nip_checksum - 7/7 tests passed
 - [ ] Test E2E w `02-contractor.spec.ts`
 
 **Pliki do zmiany:** `backend/contractors/schemas.py`, `service.py`

@@ -169,4 +169,40 @@ class ContractorService:
         await db.commit()
 
 
+def validate_nip_checksum(nip: str) -> bool:
+    """
+    Validate Polish NIP (Tax Identification Number) checksum.
+
+    Algorithm:
+    1. Remove spaces and hyphens
+    2. Check if it has exactly 10 digits
+    3. Multiply digits by weights [6, 5, 7, 2, 3, 4, 5, 6, 7]
+    4. Sum the results
+    5. Sum modulo 11 should equal the last digit (if result is 10, use 0)
+
+    Returns True if checksum is valid, False otherwise.
+    """
+    if not nip:
+        return False
+
+    # Remove spaces and hyphens
+    nip_clean = nip.replace(" ", "").replace("-", "")
+
+    # Check if it has exactly 10 digits
+    if len(nip_clean) != 10 or not nip_clean.isdigit():
+        return False
+
+    # Weights for first 9 digits
+    weights = [6, 5, 7, 2, 3, 4, 5, 6, 7]
+
+    # Calculate weighted sum
+    total = sum(int(nip_clean[i]) * weights[i] for i in range(9))
+
+    # Checksum: sum modulo 11 should equal last digit
+    # Special case: if checksum is 10, it should be compared to 0
+    checksum = total % 11
+    expected_last_digit = 0 if checksum == 10 else checksum
+    return expected_last_digit == int(nip_clean[9])
+
+
 contractor_service = ContractorService()
