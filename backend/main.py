@@ -96,6 +96,15 @@ async def startup_migrations():
             "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
             "city VARCHAR(100) NULL"
         ))
+        # RAO-P2-005: geokodowanie adresów - latitude/longitude
+        await conn.execute(sa.text(
+            "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
+            "latitude DECIMAL(10,8) NULL"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
+            "longitude DECIMAL(11,8) NULL"
+        ))
         # service_fee_template_items utworzone przez Base.metadata.create_all (nowa tabela)
 
     # FK + index dodawane w osobnych transakcjach (MariaDB nie wspiera ADD CONSTRAINT IF NOT EXISTS / CREATE INDEX IF NOT EXISTS)

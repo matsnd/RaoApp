@@ -121,6 +121,8 @@ class ContractListItem(BaseModel):
     delivery_address: str | None
     postal_code: str | None
     city: str | None
+    latitude: Decimal | None
+    longitude: Decimal | None
     date_from: date | None
     date_to: date | None
     total_value: Decimal | None
@@ -153,6 +155,8 @@ class ContractDetail(BaseModel):
     delivery_address: str | None
     postal_code: str | None
     city: str | None
+    latitude: Decimal | None
+    longitude: Decimal | None
     date_from: date | None
     date_to: date | None
     total_value: Decimal | None
@@ -189,6 +193,8 @@ class ContractCreate(BaseModel):
     delivery_address: str | None = None
     postal_code: PostalCode | None = None
     city: CityName | None = None
+    latitude: Decimal | None = None
+    longitude: Decimal | None = None
     date_from: date | None = None
     date_to: date | None = None
     total_value: Decimal = Decimal("0.00")

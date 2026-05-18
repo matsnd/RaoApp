@@ -608,7 +608,7 @@ const selectedPosId = ref(null)
 
 const form = ref({
   contractor_id: null, branch_id: null, salesperson_id: null,
-  contract_type: 'S', delivery_address: '', postal_code: '', city: '', date_from: '', date_to: '',
+  contract_type: 'S', delivery_address: '', postal_code: '', city: '', latitude: null, longitude: null, date_from: '', date_to: '',
   total_value: 0, prepayment_amount: 0, prepayment_document: '',
   invoice_amount: 0, invoice_document: '', notes: '',
   contact_person1: '', contact_phone1: '', show_person1: true,
@@ -755,11 +755,22 @@ async function loadContractorAddresses(contractorId) {
   } catch { contractorAddresses.value = [] }
 }
 
-function onAddressSelect() {
+async function onAddressSelect() {
   const addr = contractorAddresses.value.find(a => a.id === selectedAddressId.value)
   if (addr) {
     const parts = [addr.street, addr.postal_code, addr.city].filter(Boolean)
     form.value.delivery_address = parts.join(', ')
+    // RAO-P2-005: geocode address to get lat/lng
+    try {
+      const addressStr = parts.join(', ')
+      const { data } = await api.post('/integrations/geocode', { address: addressStr })
+      if (data.lat && data.lon) {
+        form.value.latitude = data.lat
+        form.value.longitude = data.lon
+      }
+    } catch {
+      // Silently fail if geocoding fails
+    }
   }
 }
 

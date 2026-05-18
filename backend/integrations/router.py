@@ -40,6 +40,16 @@ class PostalCodeLookupResponse(BaseModel):
     voivodeship: str | None = None
 
 
+class GeocodeRequest(BaseModel):
+    address: str
+
+
+class GeocodeResponse(BaseModel):
+    lat: Decimal | None = None
+    lon: Decimal | None = None
+    address: dict | None = None
+
+
 @router.post("/reverse-geocode", response_model=ReverseGeocodeResponse)
 async def reverse_geocode(
     data: ReverseGeocodeRequest,
@@ -60,6 +70,21 @@ async def reverse_geocode(
         province=addr.get("state"),
         district=addr.get("district"),
         neighbourhood=addr.get("neighbourhood"),
+    )
+
+
+@router.post("/geocode", response_model=GeocodeResponse)
+async def geocode(
+    data: GeocodeRequest,
+    _: User = Depends(get_current_user),
+):
+    """Forward geocoding: address -> lat/lng (RAO-P2-005)"""
+    from integrations.nominatim import nominatim_client
+    result = await nominatim_client.geocode(data.address)
+    return GeocodeResponse(
+        lat=result.get("lat"),
+        lon=result.get("lon"),
+        address=result.get("address"),
     )
 
 

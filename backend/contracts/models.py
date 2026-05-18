@@ -2,6 +2,7 @@ from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, Num
 from sqlalchemy.orm import relationship
 from database import Base
 from .service_hours import ServiceHour
+from decimal import Decimal
 
 
 class Contract(Base):
@@ -17,6 +18,8 @@ class Contract(Base):
     delivery_address = Column(Text, nullable=True)
     postal_code = Column(String(20), nullable=True)
     city = Column(String(100), nullable=True)
+    latitude = Column(Numeric(10, 8), nullable=True)
+    longitude = Column(Numeric(11, 8), nullable=True)
     date_from = Column(Date, nullable=True)
     date_to = Column(Date, nullable=True)
     total_value = Column(Numeric(18, 2), nullable=True, default=0)
