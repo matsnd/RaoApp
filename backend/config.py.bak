@@ -18,10 +18,6 @@ class Settings(BaseSettings):
     RAO_NOMINATIM_BASE_URL: str = "https://nominatim.openstreetmap.org"
     RAO_CORS_ORIGINS: str = '["http://localhost:5173","http://localhost:5174","http://localhost:5175"]'
     RAO_PDF_RENDERER: str = "weasyprint"
-    # RAO-P2-012: Fernet key for Fakturownia API token encryption
-    # Generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-    # Must be 32 URL-safe base64-encoded bytes (44 chars). Empty = encryption disabled.
-    RAO_FAKTUROWNIA_ENC_KEY: str = ""
 
     def get_cors_origins(self) -> List[str]:
         return json.loads(self.RAO_CORS_ORIGINS)

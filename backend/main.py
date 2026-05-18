@@ -30,6 +30,7 @@ async def startup_migrations():
     from database import AsyncSessionLocal
     from settings.models import FeePresetGroup, ServiceFeeTemplate
     import settlements.models  # RAO-P1-012
+    import integrations.fakturownia.models  # RAO-P2-012
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -97,6 +98,35 @@ async def startup_migrations():
             "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
             "city VARCHAR(100) NULL"
         ))
+        # RAO-P2-012: integracja Fakturownia — singleton settings + mapping produktu w articles
+        await conn.execute(sa.text("""
+            CREATE TABLE IF NOT EXISTS fakturownia_settings (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                enabled BOOLEAN NOT NULL DEFAULT FALSE COMMENT 'Czy integracja włączona',
+                api_token_ciphertext VARBINARY(512) NULL COMMENT 'API token zaszyfrowany Fernet',
+                api_token_preview VARCHAR(32) NULL COMMENT 'Preview tokena np. tk_****1234',
+                domain_subdomain VARCHAR(100) NULL COMMENT 'Subdomena np. toolsmart',
+                api_token_updated_at DATETIME NULL COMMENT 'Kiedy zaktualizowano token',
+                api_token_updated_by INT NULL COMMENT 'FK users.id - kto zaktualizował',
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
+                CONSTRAINT fk_fakturownia_settings_user FOREIGN KEY (api_token_updated_by)
+                    REFERENCES users(id) ON DELETE SET NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_polish_ci
+              COMMENT='RAO-P2-012: Singleton konfiguracji integracji Fakturownia'
+        """))
+        await conn.execute(sa.text(
+            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "fakturownia_product_id BIGINT NULL COMMENT 'RAO-P2-012: ID produktu w Fakturownia (1:N globalny)'"
+        ))
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_articles_fakturownia_product "
+            "ON articles(fakturownia_product_id)"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
+            "oid VARCHAR(40) NULL COMMENT 'RAO-P2-012: Numer zamówienia w Fakturownia'"
+        ))
         # RAO-P2-005: geokodowanie adresów - latitude/longitude
         await conn.execute(sa.text(
             "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
@@ -155,6 +185,11 @@ async def startup_migrations():
         ))
         await conn2.execute(sa.text(
             "CREATE INDEX IF NOT EXISTS idx_contracts_city ON contracts(city)"
+        ))
+        # RAO-P2-012: index na mapping FA produktu w artykułach (lookup po fakturownia_product_id)
+        await conn2.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_articles_fakturownia_product "
+            "ON articles(fakturownia_product_id)"
         ))
 
     async with AsyncSessionLocal() as db:

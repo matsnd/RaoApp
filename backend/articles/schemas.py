@@ -17,6 +17,8 @@ class ArticleListItem(BaseModel):
     owner_name: str | None
     notes: str | None
     active_contract_number: str | None
+    # RAO-P2-012: Fakturownia product mapping (1:N global)
+    fakturownia_product_id: int | None = None
     created_at: datetime
     updated_at: datetime | None
     conditions_count: int
@@ -44,6 +46,8 @@ class ArticleDetail(BaseModel):
     notes: str | None
     rental_days: int | None
     article_type: str | None
+    # RAO-P2-012: Fakturownia product mapping (1:N global)
+    fakturownia_product_id: int | None = None
     created_at: datetime
     updated_at: datetime | None
 
@@ -66,6 +70,8 @@ class ArticleCreate(BaseModel):
     description: str | None = Field(None, max_length=400)
     notes: str | None = Field(None, max_length=200)
     article_type: str | None = Field(None, max_length=20)
+    # RAO-P2-012: Fakturownia product mapping (1:N global)
+    fakturownia_product_id: int | None = None
 
 
 class AvailabilityConflict(BaseModel):

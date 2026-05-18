@@ -34,6 +34,7 @@ async def _build_detail(db: AsyncSession, a: Article) -> ArticleDetail:
         owner_id=a.owner_id, owner_name=own_name,
         branch_id=a.branch_id, description=a.description, notes=a.notes,
         rental_days=a.rental_days, article_type=a.article_type,
+        fakturownia_product_id=a.fakturownia_product_id,
         created_at=a.created_at, updated_at=a.updated_at,
     )
 

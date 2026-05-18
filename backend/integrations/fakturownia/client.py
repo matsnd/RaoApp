@@ -1,53 +1,201 @@
-import httpx
-import os
-from typing import List, Optional
-from decimal import Decimal
+"""
+RAO-P2-012: Fakturownia REST API client.
 
-from .schemas import InvoiceLine, InvoiceOut
+Security:
+- SSRF guard: domain_subdomain validated against ^[a-z0-9-]+$ (Pydantic + runtime).
+  Domain suffix '.fakturownia.pl' is hardcoded — never user-supplied.
+- httpx: verify=True (TLS), follow_redirects=False, timeout=10s.
+- api_token passed as query param per Fakturownia API spec — never logged.
+- 401 from Fakturownia → 502 upstream (bad token, not 401 to client — T1 fix).
+"""
+import logging
+import re
+from decimal import Decimal, InvalidOperation
+from typing import List
+
+import httpx
+from fastapi import HTTPException
+
+from .schemas import FakturowniaProductOut, InvoiceLine, InvoiceOut
+
+logger = logging.getLogger(__name__)
+
+# SSRF guard — must match exactly before building URL
+_SUBDOMAIN_RE = re.compile(r"^[a-z0-9-]+$")
+# Hardcoded suffix — never from user input
+_DOMAIN_SUFFIX = ".fakturownia.pl"
+_TIMEOUT = 10.0
 
 
 class FakturowniaClient:
-    """Client Fakturownia API (read-only, MVP dla spike)."""
-    
-    def __init__(self):
-        # MVP: hardcoded token z .env dla spike
-        self.api_token = os.getenv("FAKTUROWNIA_API_TOKEN")
-        self.domain_url = os.getenv("FAKTUROWNIA_DOMAIN_URL", "toolsmart")
-        self.base_url = f"https://{self.domain_url}.fakturownia.pl"
-        
-    async def get_invoices_by_oid(self, oid: str) -> List[InvoiceOut]:
-        """
-        Pobierz faktury po numerze zamówienia (OID).
-        
-        MVP: mock implementation dla spike (zwraca dane testowe).
-        W produkcji: prawdziwe zapytanie do Fakturownia API.
-        """
-        # TODO: W produkcji: prawdziwe zapytanie do Fakturownia API
-        # MVP: mock data dla spike
-        
-        mock_invoices = [
-            InvoiceOut(
-                invoice_number=f"FV/2026/{oid}",
-                lines=[
-                    InvoiceLine(
-                        fakturownia_product_id=12345,
-                        fakturownia_product_name="Koparka CAT 320",
-                        quantity=Decimal("1"),
-                        price_net=Decimal("12000.00"),
-                        total_net=Decimal("12000.00"),
-                        invoice_number=f"FV/2026/{oid}"
-                    ),
-                    InvoiceLine(
-                        fakturownia_product_id=12346,
-                        fakturownia_product_name="Transport",
-                        quantity=Decimal("1"),
-                        price_net=Decimal("400.00"),
-                        total_net=Decimal("400.00"),
-                        invoice_number=f"FV/2026/{oid}"
-                    )
-                ],
-                total_net=Decimal("12400.00")
+    """
+    Read-only Fakturownia REST API client.
+
+    Instantiate per-request with decrypted credentials from DB.
+    Do NOT store or log api_token.
+    """
+
+    def __init__(self, domain_subdomain: str, api_token: str) -> None:
+        # SSRF guard: validate subdomain at construction time
+        if not domain_subdomain or not _SUBDOMAIN_RE.match(domain_subdomain):
+            raise ValueError(
+                f"Invalid domain_subdomain {domain_subdomain!r}. "
+                "Must match ^[a-z0-9-]+$ (SSRF protection)"
             )
-        ]
-        
-        return mock_invoices
+        # Suffix is hardcoded — attacker cannot escape to arbitrary hosts
+        self._base_url = f"https://{domain_subdomain}{_DOMAIN_SUFFIX}"
+        self._api_token = api_token  # ← NEVER log this field
+
+    # ── Public API ────────────────────────────────────────────────────────────
+
+    async def get_invoices_by_oid(self, oid: str) -> List[InvoiceOut]:
+        """Fetch invoices from Fakturownia by Order ID (OID = contract number in RAO).
+
+        Fakturownia endpoint: GET /invoices.json?api_token=...&oid=...
+        """
+        raw = await self._get(
+            "/invoices.json",
+            params={"api_token": self._api_token, "oid": oid},
+        )
+        if not isinstance(raw, list):
+            logger.warning(
+                "Fakturownia /invoices.json returned non-list type: %s", type(raw).__name__
+            )
+            return []
+        return self._parse_invoices(raw)
+
+    async def get_products(self) -> List[FakturowniaProductOut]:
+        """Fetch product catalogue from Fakturownia.
+
+        Fakturownia endpoint: GET /products.json?api_token=...
+        """
+        raw = await self._get(
+            "/products.json",
+            params={"api_token": self._api_token},
+        )
+        if not isinstance(raw, list):
+            logger.warning(
+                "Fakturownia /products.json returned non-list type: %s", type(raw).__name__
+            )
+            return []
+        return self._parse_products(raw)
+
+    # ── HTTP layer ────────────────────────────────────────────────────────────
+
+    async def _get(self, path: str, params: dict) -> object:
+        url = f"{self._base_url}{path}"
+        # NOTE: params dict contains api_token — do NOT log params
+        try:
+            async with httpx.AsyncClient(
+                verify=True,
+                follow_redirects=False,
+                timeout=_TIMEOUT,
+            ) as client:
+                resp = await client.get(url, params=params)
+        except httpx.TimeoutException:
+            logger.warning("Fakturownia API timeout on %s", path)
+            raise HTTPException(
+                status_code=504,
+                detail="Fakturownia API: przekroczono czas odpowiedzi (timeout 10s)",
+            )
+        except httpx.RequestError as exc:
+            logger.error(
+                "Fakturownia API connection error on %s: %s", path, type(exc).__name__
+            )
+            raise HTTPException(
+                status_code=502,
+                detail="Fakturownia API: błąd połączenia — sprawdź sieć/konfigurację",
+            )
+
+        self._check_status(resp, path)
+        return resp.json()
+
+    def _check_status(self, resp: httpx.Response, path: str) -> None:
+        if resp.status_code == 200:
+            return
+        # 401: bad token — surface as 502 (not 401 to avoid confusion with RAO auth)
+        if resp.status_code == 401:
+            raise HTTPException(
+                status_code=502,
+                detail="Fakturownia API: nieprawidłowy token API (HTTP 401) — zaktualizuj token w ustawieniach",
+            )
+        # 429: rate limit upstream
+        if resp.status_code == 429:
+            raise HTTPException(
+                status_code=429,
+                detail="Fakturownia API: przekroczono limit zapytań (HTTP 429) — poczekaj chwilę",
+            )
+        # 302: redirect likely means bad subdomain (follow_redirects=False)
+        if resp.status_code in (301, 302, 303, 307, 308):
+            raise HTTPException(
+                status_code=502,
+                detail=(
+                    "Fakturownia API: nieoczekiwane przekierowanie "
+                    "(sprawdź domain_subdomain w ustawieniach)"
+                ),
+            )
+        logger.error(
+            "Fakturownia API HTTP %d on %s (URL: %s)", resp.status_code, path, resp.url
+        )
+        raise HTTPException(
+            status_code=502,
+            detail=f"Fakturownia API: błąd HTTP {resp.status_code}",
+        )
+
+    # ── Parsers ───────────────────────────────────────────────────────────────
+
+    def _parse_invoices(self, data: list) -> List[InvoiceOut]:
+        result: List[InvoiceOut] = []
+        for inv in data:
+            inv_number = str(inv.get("number") or inv.get("id") or "")
+            positions = inv.get("positions") or []
+            lines: List[InvoiceLine] = []
+            for pos in positions:
+                pid = pos.get("product_id")
+                try:
+                    lines.append(
+                        InvoiceLine(
+                            fakturownia_product_id=int(pid) if pid is not None else 0,
+                            fakturownia_product_name=str(pos.get("name") or ""),
+                            quantity=Decimal(str(pos.get("quantity") or 1)),
+                            price_net=Decimal(str(pos.get("price_net") or 0)),
+                            total_net=Decimal(str(pos.get("total_price_net") or 0)),
+                            invoice_number=inv_number,
+                        )
+                    )
+                except (TypeError, ValueError, InvalidOperation) as exc:
+                    logger.warning("Fakturownia invoice line parse error: %s", exc)
+                    continue
+            try:
+                total_net = Decimal(str(inv.get("price_net") or 0))
+            except (TypeError, ValueError, InvalidOperation):
+                total_net = Decimal("0")
+            result.append(
+                InvoiceOut(
+                    invoice_number=inv_number,
+                    lines=lines,
+                    total_net=total_net,
+                )
+            )
+        return result
+
+    def _parse_products(self, data: list) -> List[FakturowniaProductOut]:
+        result: List[FakturowniaProductOut] = []
+        for p in data:
+            try:
+                price_net: Decimal | None = None
+                if p.get("price_net") is not None:
+                    price_net = Decimal(str(p["price_net"]))
+                result.append(
+                    FakturowniaProductOut(
+                        id=int(p.get("id") or 0),
+                        name=str(p.get("name") or ""),
+                        code=p.get("code") or None,
+                        price_net=price_net,
+                        currency=p.get("currency") or None,
+                    )
+                )
+            except (TypeError, ValueError, InvalidOperation) as exc:
+                logger.warning("Fakturownia product parse error: %s", exc)
+                continue
+        return result
