@@ -934,10 +934,10 @@ Migracja kategorii maszyn z pliku CSV (Asortyment - Produkty - Maszyny - Toolsma
    - Ustawienie `is_archival = TRUE` dla wszystkich istniejących rekordów
    - Weryfikacja: % maszyn z poprawną kategorią
 5. **Verification gate (obowiązkowe):**
-   - [ ] `DROP DATABASE rao_new && CREATE` → run migrate → sprawdź czy category/is_archival są wypełnione
-   - [ ] Re-run `python migrate.py` → idempotentne
-   - [ ] Drugi restart backend bez błędu
-   - [ ] Weryfikacja: `SELECT COUNT(*) FROM articles WHERE is_archival = TRUE` > 0
+   - [x] `DROP DATABASE rao_new && CREATE` → run migrate → sprawdź czy category/is_archival są wypełnione
+   - [x] Re-run `python migrate.py` → idempotentne
+   - [x] Drugi restart backend bez błędu
+   - [x] Weryfikacja: `SELECT COUNT(*) FROM articles WHERE is_archival = TRUE` > 0
 
 **QA DoD:**
 - [x] Unit testy: 12/12 passed (test_stats_categories.py)
@@ -976,6 +976,8 @@ Migracja kategorii maszyn z pliku CSV (Asortyment - Produkty - Maszyny - Toolsma
 2. **Migracja** (backend-dev): step8_csv_categories() - parsowanie CSV (csv.reader, SQL-INJ-001 safe), normalizacja kategorii (NFD + diacritics strip), budowanie drzewa kategorii (sorted for determinism), idempotent upsert, GET_LOCK race condition guard, 268 CSV rows (263 z kategorią, 98%)
 3. **Statystyki** (backend-dev): Refactor endpointów na bazowanie na category_main zamiast internal_number, nowy GET /stats/by-category (level=main|sub1), filtr is_archival=FALSE default, 12 unit testów
 4. **Frontend** (frontend-dev): Stats store (fetchByCategory, byCategoryData, loadingByCategory), ReportsSection z sub-tab Kategorie (level selector, bar chart Chart.js, tabela kategorii, KPI row), DashboardView z category_main column
+5. **Verification gate** (2026-05-18): Backup → DROP/CREATE → migrate.py (416/416 is_archival=TRUE) → re-run (idempotentne) → backend restart → SELECT COUNT(*) = 416
+6. **Naprawki migrate.py**: UTF-8 encoding (sys.stdout), absolutna ścieżka DUMP_PATH, subprocess encoding='utf-8', users created_at default='2024-01-01', contracts hide_delivery_address/signatures_on_page1=0
 
 **Weryfikacja:**
 - Unit testy: 12/12 passed (aggregate_by_category + schema validation)
