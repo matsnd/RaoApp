@@ -292,10 +292,59 @@
 
         <!-- Settlements section (RAO-P1-012) -->
         <div v-if="isEdit" class="page-card" style="margin-bottom:var(--spacing-md);">
-          <div style="display:flex;align-items:center;margin-bottom:12px;">
-            <span class="section-title" style="margin:0;border:none;">Rozliczenie umowy</span>
-            <span style="font-size:11px;color:#718096;margin-left:12px;">Koszt klienta vs koszt firmy</span>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <div style="display:flex;align-items:center;">
+              <span class="section-title" style="margin:0;border:none;">Rozliczenie umowy</span>
+              <span style="font-size:11px;color:#718096;margin-left:12px;">Koszt klienta vs koszt firmy</span>
+            </div>
+            <button 
+              class="btn btn-xs btn-outline"
+              @click="toggleFakturowniaPanel"
+              :disabled="fakturowniaStore.loading"
+            >
+              {{ fakturowniaStore.loading ? 'Ładowanie...' : 'Pokaż faktury z FA' }}
+            </button>
           </div>
+
+          <!-- Fakturownia read-only panel (spike RAO-P2-012) -->
+          <div v-if="showFakturowniaPanel" class="page-card" style="margin-bottom:12px;background:#f7fafc;border:1px dashed #cbd5e0;">
+            <div style="display:flex;align-items:center;margin-bottom:8px;">
+              <span style="font-weight:600;font-size:13px;color:#2d3748;">Faktury z Fakturownia (read-only)</span>
+              <button class="btn btn-xs btn-link" style="margin-left:auto;" @click="showFakturowniaPanel = false">Zamknij</button>
+            </div>
+            <div v-if="fakturowniaStore.error" style="color:#e53e3e;font-size:12px;padding:8px;background:#fff5f5;border-radius:4px;">
+              {{ fakturowniaStore.error }}
+            </div>
+            <div v-else-if="!fakturowniaStore.invoices.length" style="color:#718096;font-size:12px;padding:8px;">
+              Brak faktur dla tego kontrahenta (OID: {{ form.contractor_id }})
+            </div>
+            <div v-else>
+              <div v-for="inv in fakturowniaStore.invoices" :key="inv.invoice_number" style="margin-bottom:12px;background:white;padding:8px;border-radius:4px;border:1px solid #e2e8f0;">
+                <div style="font-weight:600;font-size:12px;color:#2d3748;margin-bottom:4px;">
+                  Faktura {{ inv.invoice_number }} — Netto: {{ inv.total_net.toFixed(2) }} zł
+                </div>
+                <table style="width:100%;font-size:11px;border-collapse:collapse;">
+                  <thead>
+                    <tr style="background:#f7fafc;">
+                      <th style="text-align:left;padding:4px;">Produkt FA</th>
+                      <th style="text-align:right;padding:4px;">Ilość</th>
+                      <th style="text-align:right;padding:4px;">Cena netto</th>
+                      <th style="text-align:right;padding:4px;">Suma netto</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="line in inv.lines" :key="line.funkurownia_product_id" style="border-bottom:1px solid #edf2f7;">
+                      <td style="padding:4px;">{{ line.funkurownia_product_name }}</td>
+                      <td style="text-align:right;padding:4px;">{{ line.quantity }}</td>
+                      <td style="text-align:right;padding:4px;">{{ line.price_net.toFixed(2) }} zł</td>
+                      <td style="text-align:right;padding:4px;">{{ line.total_net.toFixed(2) }} zł</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
           <table class="data-grid">
             <thead>
               <tr>
@@ -595,6 +644,7 @@ import { useContractStore } from '@/stores/contracts'
 import { useContractorStore } from '@/stores/contractors'
 import { useArticleStore } from '@/stores/articles'
 import { useSettingsStore } from '@/stores/settings'
+import { useFakturowniaStore } from '@/stores/fakturownia'
 import ConditionPanel from '@/components/contracts/ConditionPanel.vue'
 import ServiceHourGrid from '@/components/contracts/ServiceHourGrid.vue'
 import api from '@/composables/useApi'
@@ -606,6 +656,7 @@ const contractStore = useContractStore()
 const contractorStore = useContractorStore()
 const articleStore = useArticleStore()
 const settingsStore = useSettingsStore()
+const fakturowniaStore = useFakturowniaStore()
 
 const isEdit = computed(() => !!props.id)
 const loading = ref(false)
@@ -637,6 +688,18 @@ const selectedAddressId = ref(null)
 const showContractorPicker = ref(false)
 const pickerSearch = ref('')
 const pickerList = ref([])
+
+// RAO-P2-012 spike: Fakturownia panel
+const showFakturowniaPanel = ref(false)
+
+async function toggleFakturowniaPanel() {
+  if (showFakturowniaPanel.value) {
+    showFakturowniaPanel.value = false
+    return
+  }
+  showFakturowniaPanel.value = true
+  await fakturowniaStore.fetchInvoicesByOid(String(form.value.contractor_id))
+}
 
 // RAO-P1-008: Auto-fill city from postal code
 const onPostalCodeBlur = async () => {

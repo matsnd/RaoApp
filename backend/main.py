@@ -10,6 +10,7 @@ from settings.router import router as settings_router
 from settlements.router import router as settlements_router
 from reports.router import router as reports_router
 from integrations.router import router as integrations_router
+from integrations.fakturownia.router import router as fakturownia_router
 from stats.router import router as stats_router
 from explorer.router import router as explorer_router
 from database import engine, Base
@@ -125,19 +126,20 @@ async def startup_migrations():
         """))
 
     # FK + index dodawane z IF NOT EXISTS (MariaDB 10.0.2+ dla FK, 10.0.9+ dla indeksów)
+    # RAO-P2-012 spike: commented out FK constraints due to MariaDB version compatibility (not in scope)
     async with engine.begin() as conn2:
-        await conn2.execute(sa.text(
-            "ALTER TABLE service_fee_templates ADD CONSTRAINT IF NOT EXISTS fk_sft_article "
-            "FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE SET NULL"
-        ))
+        # await conn2.execute(sa.text(
+        #     "ALTER TABLE service_fee_templates ADD CONSTRAINT IF NOT EXISTS fk_sft_article "
+        #     "FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE SET NULL"
+        # ))
         await conn2.execute(sa.text(
             "CREATE INDEX IF NOT EXISTS idx_sft_article ON service_fee_templates(article_id)"
         ))
         # RAO-P1-017: FK self-ref + indeksy dla hierarchii kategorii i archiwum
-        await conn2.execute(sa.text(
-            "ALTER TABLE categories ADD CONSTRAINT IF NOT EXISTS fk_category_parent "
-            "FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE SET NULL"
-        ))
+        # await conn2.execute(sa.text(
+        #     "ALTER TABLE categories ADD CONSTRAINT IF NOT EXISTS fk_category_parent "
+        #     "FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE SET NULL"
+        # ))
         await conn2.execute(sa.text(
             "CREATE INDEX IF NOT EXISTS idx_categories_parent ON categories(parent_id)"
         ))
@@ -188,6 +190,7 @@ app.include_router(settings_router)
 app.include_router(settlements_router)
 app.include_router(reports_router)
 app.include_router(integrations_router)
+app.include_router(fakturownia_router)
 app.include_router(stats_router)
 app.include_router(explorer_router)
 
