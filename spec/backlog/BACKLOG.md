@@ -794,7 +794,7 @@ Naprawić etykietę checkboxa w sekcji podpisów — podwójna negacja jest niez
 id: RAO-P1-015
 priority: P1
 size: M
-status: triaged
+status: done
 classification: frontend
 roles: [frontend-dev]
 depends_on: []
@@ -836,7 +836,7 @@ Naprawić format dokumentu "Ogólne Warunki Najmu" (OWN) tak, aby mieścił się
 id: RAO-P1-016
 priority: P1
 size: S
-status: triaged
+status: done
 classification: frontend
 roles: [qa-engineer, frontend-dev]
 depends_on: [RAO-P1-004]
@@ -2009,7 +2009,7 @@ System musi umożliwiać rezerwację maszyn na przyszłe terminy. Maszyna zablok
 id: RAO-P1-016
 priority: P1
 size: XS
-status: triaged
+status: done
 classification: cross-stack
 roles: [frontend-dev, backend-dev]
 depends_on: []
@@ -2061,7 +2061,7 @@ Dodać pole "reprezentowany przez" w formularzu kontrahenta — osoba reprezentu
 id: RAO-P1-017
 priority: P1
 size: XS
-status: triaged
+status: done
 classification: cross-stack
 roles: [frontend-dev, backend-dev]
 depends_on: []
@@ -2113,7 +2113,7 @@ Dodać pole "osoba kontaktowa na budowie" w formularzu umowy — osoba do kontak
 id: RAO-P1-018
 priority: P1
 size: XS
-status: triaged
+status: done
 classification: cross-stack
 roles: [frontend-dev, backend-dev]
 depends_on: []
@@ -2166,7 +2166,7 @@ Dodać pole "email do przesłania faktury" w formularzu kontrahenta — osobny e
 id: RAO-P1-019
 priority: P1
 size: S
-status: triaged
+status: done
 classification: cross-stack
 roles: [frontend-dev, backend-dev]
 depends_on: []
@@ -2220,7 +2220,7 @@ Dodać sekcję "Wymogłocy organizacji" w umowie PDF — warunki organizacyjne w
 id: RAO-P1-020
 priority: P1
 size: S
-status: triaged
+status: done
 classification: backend
 roles: [backend-dev]
 depends_on: []
@@ -2259,7 +2259,7 @@ Weryfikować i naprawić dane firmy wynajmującej (TOOLSMART) w generowanych PDF
 id: RAO-P1-021
 priority: P1
 size: M
-status: triaged
+status: done
 classification: backend
 roles: [backend-dev]
 depends_on: []

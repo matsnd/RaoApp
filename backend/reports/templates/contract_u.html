@@ -5,7 +5,7 @@
 <style>
   @page { size: A4; }
   * { box-sizing: border-box; }
-  body { margin: 0; padding: 0; font-family: 'Roboto', sans-serif; font-size: 10px; color: #000; }
+  body { margin: 0; padding: 0; font-family: 'Montserrat', sans-serif; font-size: 10px; color: #000; }
 
   /* HEADER */
   table.hdr { width: 100%; background: #1D2B53; color: #fff; border-collapse: collapse; }
@@ -288,6 +288,17 @@
     <p class="ot">Najemca oświadcza, iż jest uprawniony do odbioru faktur, o nadanym numerze NIP oraz jednocześnie upoważnia Wynajmującego do wystawiania faktur bez swojego podpisu.</p>
 
   </div><!-- /own-cols -->
+
+  <!-- Uwagi sekcja przed podpisami (RAO-P1-004) -->
+  <div class="uwagi-section" style="margin-top: 20px; padding: 12px; border: 1px solid #ddd; background: #fafafa; page-break-inside: avoid;">
+    <div class="uwagi-title" style="font-size: 11px; font-weight: bold; margin-bottom: 8px; text-align: center;">Uwagi</div>
+    <div class="uwagi-content" style="font-size: 9px; line-height: 1.4;">
+      <p><strong>Doba wynajmu:</strong> 8 godzin pracy urządzenia, licząc od momentu jego uruchomienia danego dnia.</p>
+      <p><strong>Zgłoszenie zwrotu:</strong> Najemca zobowiązuje się do pisemnego poinformowania wynajmującego o zwrocie maszyny budowlanej najpóźniej z jednodniowym wyprzedzeniem.</p>
+      <p><strong>Dni pracy/tydzień:</strong> {% if contract.working_days_per_week %}{{ contract.working_days_per_week }}{% else %}5{% endif %} dni.</p>
+      <p><strong>Dokumentacja zdająca:</strong> Najemca zobowiązuje się do dostarczenia kompletnej dokumentacji zdjęciowej przy zwrocie urządzenia.</p>
+    </div>
+  </div>
 
   <div class="own-sig-row">
     <div class="own-sig-cell">

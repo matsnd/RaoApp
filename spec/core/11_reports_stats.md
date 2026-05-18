@@ -81,6 +81,32 @@ umieszczona **przed podpisami** (po linii z akceptacją OWU/OWN).
 **Pola:** Wszystkie pola są **puste** — do ręcznego wypełnienia przez klienta.
 **Styl:** Nagłówek tabeli w kolorze `#1D2B53` (Toolsmart navy), tło etykiet wierszy `#f0f2f8`.
 
+### 1.5 Sekcja "Uwagi" przed podpisami (RAO-P1-004 + RAO-P1-016)
+
+Do obu wariantów umowy dodana została sekcja `Uwagi` umieszczona **przed podpisami**
+(na ostatniej stronie, po sekcji OWN).
+
+**Lokalizacja w szablonach:**
+- `backend/reports/templates/contract.html` — Umowa Najmu
+- `backend/reports/templates/contract_u.html` — Umowa Usługi
+
+**Zawartość sekcji:**
+- Doba wynajmu: 8 godzin pracy urządzenia
+- Zgłoszenie zwrotu: pisemne powiadomienie 1 dzień przed zwrotem
+- Dni pracy/tydzień: dane z `contract.working_days_per_week` (default: 5)
+- Dokumentacja zdjęciowa: obowiązek dostarczenia przy zwrocie
+
+### 1.6 Font dokumentów — Montserrat (RAO-P1-015 scope-cut)
+
+Font we wszystkich szablonach PDF zmieniony z Roboto na Montserrat dla spójności
+z design systemem Toolsmart.
+
+**Zmienione pliki:**
+- `backend/reports/templates/contract.html`
+- `backend/reports/templates/contract_u.html`
+
+**Dodatkowo:** Punkt §3 w OWN ma `page-break-before: right` dla lepszego layoutu.
+
 **Klasy CSS:**
 - `.pwo-section` — kontener sekcji
 - `.pwo-title` — tytuł sekcji (uppercase, navy, border-bottom)
