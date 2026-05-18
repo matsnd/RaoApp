@@ -1,19 +1,19 @@
 """
-Migration: old dump (toolsmart_roa) → rao_new
-Step 5b added: migrate umowa2.OPLATY → contract_service_fees (free-text parsing).
+Migration: old dump (toolsmart_roa) -> rao_new
+Step 5b added: migrate umowa2.OPLATY -> contract_service_fees (free-text parsing).
 Step 18 added: service_hours table (new functionality - empty on migration).
 
 Verified source tables from dump:
   firma(41)  kategoria(4)  oddzial(7)  handlowiec(4)  stawka(4)
   kontrahent2(24)  artykul3(17)  uzytkownik(8)
   umowa2(34)  umowa_pozycja3(15)  umowa_pozycja2_warunek(9)
-  adres_dostawy(16) — linked to umowa, not kontrahent
+  adres_dostawy(16) - linked to umowa, not kontrahent
 
 Strategy:
   1. DROP+CREATE rao_new
-  2. Import dump via mysql CLI  → old Polish tables appear
-  3. CREATE new English tables  → SQLAlchemy models
-  4. INSERT…SELECT old→new      → deterministic column mapping
+  2. Import dump via mysql CLI  -> old Polish tables appear
+  3. CREATE new English tables  -> SQLAlchemy models
+  4. INSERT...SELECT old->new      -> deterministic column mapping
   5. Build service_fee_templates from firma.oplata_* columns
   6. DROP old tables + views
   7. Rehash plaintext passwords with bcrypt
@@ -23,11 +23,18 @@ Note: service_hours table is NEW (no old data) - will be empty after migration.
 
 Usage: python migrate.py
 """
+import sys
+import io
+import os
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
+# Get absolute path for dump file
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DUMP_PATH = os.path.join(project_root, "spec", "backlog", "archiwum", "refinement", "toolsmart_roa_1779053066.sql")
 import asyncio
 import csv
 import glob
 import json
-import os
 import re
 import secrets
 import subprocess
@@ -65,7 +72,7 @@ DB_PORT = 3306
 DB_USER = "rao_user"
 DB_PASS = "RaoPass2026!"
 DB_NAME = "rao_new"
-DUMP_PATH = r"spec\backlog\archiwum\refinement\toolsmart_roa_1779053066.sql"
+# DUMP_PATH is now defined above as absolute path
 
 # Every object imported from the dump (tables + views) to drop at the end
 OLD_OBJECTS = [
@@ -99,9 +106,10 @@ async def step1_recreate_db():
 def step2_import_dump():
     print("[2/7] Import dump via mysql CLI …")
     cmd = f'cmd /c "mysql -h {DB_HOST} -P {DB_PORT} -u {DB_USER} -p{DB_PASS} {DB_NAME} < {DUMP_PATH}"'
-    r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=120)
+    r = subprocess.run(cmd, shell=True, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=120)
     if r.returncode != 0:
-        print(f"   WARN: {r.stderr[:300]}")
+        stderr_msg = r.stderr[:300] if r.stderr else "No stderr output"
+        print(f"   WARN: {stderr_msg}")
     else:
         print("   OK")
 
@@ -269,6 +277,7 @@ async def step4_migrate_data():
                  contact_person2, contact_phone2, show_person2,
                  email, phone, contractor_name,
                  print_path, print_date, report_without_data,
+                 hide_delivery_address, signatures_on_page1,
                  working_days_per_week, position_count,
                  created_at, updated_at)
             SELECT
@@ -281,6 +290,7 @@ async def step4_migrate_data():
                 osoba2, telefon2, COALESCE(pokaz_osobe2, 1),
                 email, telefon, nazwa,
                 sciezka_wydruku, data_wydruku, COALESCE(pz_bez, 0),
+                0, 0,
                 COALESCE(liczba_dni, 6), ilepoz,
                 COALESCE(data_wprowadzenia, NOW()),
                 COALESCE(data_modyfikacji, NOW())
@@ -366,7 +376,7 @@ async def step4b_migrate_users():
             user_id, login, hashed_password, first_name, last_name,
             role, True, True,
             branch_id if branch_id and branch_id != 0 else None,
-            created_at if created_at else None
+            created_at if created_at else '2024-01-01 00:00:00'
         ))
         count += 1
         print(f"   [{count}] User {login}: temporary password generated, must_change_password=1")
@@ -1065,6 +1075,7 @@ async def main():
     print("=" * 60)
     print("RAO Migration  —  deterministic dump → rao_new")
     print("=" * 60)
+    print("DEBUG: Starting migration...")
     try:
         await step1_recreate_db()
         step2_import_dump()
@@ -1089,4 +1100,10 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except Exception as e:
+        print(f"ERROR in asyncio.run: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
