@@ -2112,6 +2112,15 @@ estimate: 16-20h
 - **Decyzja architektoniczna:** 1:N globalny w artykułach = WYBRANY, 1:1+context (PO) = NIEPOPRAWNE, pełne 1:N z resolution cache (Tech Lead) = over-engineering
 - **Estimate po decyzji:** 16-18h (prostsze niż osobna tabela mappingu, bez resolution cache)
 
+**NOTE (2026-05-18 — SPIKE 4H DONE):** MVP spike zrealizowany (commit 03e02aa).
+- [x] **SPIKE 4h zrealizowany** — read-only display faktur (GET /fakturownia/invoices?oid=)
+- [x] Backend: endpoint `/integrations/fakturownia/invoices?oid={oid}` z auth
+- [x] Frontend: Pinia store `fakturownia.ts` z `fetchInvoicesByOid()`
+- [x] Security: auth włączony, token w .env (MVP spike)
+- [x] Test: endpoint zwraca dane poprawnie (curl test passed)
+- [ ] **Walidacja terenowa:** ≥2 userów testuje ≥1 tydzień (pomiar użycia)
+- [ ] **Decyzja:** Jeśli użycie potwierdzone → BUDUJ pełną integrację (16-18h), inaczej ODRZUĆ
+
 **Job-to-be-done:**
 Integracja z systemem fakturowania Fakturownia (publiczne API) w celu automatycznego pobierania kosztów do panelu rozliczenia umowy. Włączenie integracji w ustawieniach, mapowanie produktów, pobieranie faktur po OID i zsumowanie kosztów w rozliczeniu.
 
