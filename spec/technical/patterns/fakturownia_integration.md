@@ -402,3 +402,125 @@ User decision: wyciąć automapowanie po nazwie, zachować mapowanie produktów 
 - [ ] Jeśli < 30 min → ODRZUĆ (RAO-P2-011 lepszy kandydat)
 - [ ] Spike 4h jako walidacja przed pełnym scope (opcjonalne)
 - [ ] P1-012 ma status done (nie triaged) — blocker usunięty
+
+---
+
+## Re-Refinement Inline Matching (2026-05-18 — matching tylko w panelu rozliczenia)
+
+### Kontekst
+User requirement: matching tylko w panelu rozliczenia, nie w Settings; 1 produkt Fakturownia → wiele artykułów RAO (1:N) z contextem umowy. Zespół (UX, Tech Lead, PO, QA) przeprowadził re-refinement.
+
+### Zmiana UX
+- **Matching inline w panelu rozliczenia** (accordion pod tabelą rozliczenia, nie modal)
+- **Combobox z autocomplete** (nie plain select, nie multi-select) — domyślnie 1:1, świadomie rozszerzane do 1:N przez `[+ Dodaj kolejną]`
+- **Context-first** — combobox pokazuje tylko pozycje bieżącej umowy + escape hatch "pokaż wszystkie"
+- **Auto-mapping z historii** — bez pytania (95% przypadków poprawne), z indicator `✨` + możliwość cofnięcia
+- **Tylko 1 confirm dialog** — re-fetch nadpisujący ręczne edycje. Reszta flow bez friction.
+- **1:N walidacja** — real-time "Pozostało: X zł", soft warning przy niedopasowaniu, blocker tylko przy overflow
+
+### Architektura 1:N (Tech Lead proposal)
+**Tabela A: `fakturownia_product_mapping` — słownik kandydatów (1:N)**
+```sql
+CREATE TABLE IF NOT EXISTS fakturownia_product_mapping (
+  id                       INT PRIMARY KEY AUTO_INCREMENT,
+  fakturownia_product_id   BIGINT       NOT NULL,
+  fakturownia_product_name VARCHAR(255) NOT NULL,
+  article_id               INT          NOT NULL,
+  is_default               BOOLEAN      NOT NULL DEFAULT FALSE,
+  is_active                BOOLEAN      NOT NULL DEFAULT TRUE,
+  UNIQUE KEY uq_fa_article (fakturownia_product_id, article_id),
+  KEY ix_fa_product (fakturownia_product_id),
+  CONSTRAINT fk_fpm_article FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
+);
+```
+
+**Tabela B: `fakturownia_contract_resolution` — context-aware cache**
+```sql
+CREATE TABLE IF NOT EXISTS fakturownia_contract_resolution (
+  id                     INT PRIMARY KEY AUTO_INCREMENT,
+  contract_id            INT          NOT NULL,
+  fakturownia_product_id BIGINT       NOT NULL,
+  invoice_line_hash      VARCHAR(64)  NULL,
+  article_id             INT          NOT NULL,
+  resolved_by            VARCHAR(50)  NOT NULL,
+  resolved_at            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_contract_fa (contract_id, fakturownia_product_id),
+  KEY ix_contract (contract_id),
+  CONSTRAINT fk_fcr_contract FOREIGN KEY (contract_id) REFERENCES contracts(id) ON DELETE CASCADE,
+  CONSTRAINT fk_fcr_article  FOREIGN KEY (article_id)  REFERENCES articles(id)  ON DELETE RESTRICT
+);
+```
+
+**Algorytm rozstrzygania (priorytet ↓):**
+1. `resolutions[fa_pid]` istnieje → `resolved` (cache wygrywa zawsze)
+2. `len(contextual) == 1` → `auto_suggested` (jednoznaczne na umowie)
+3. `len(contextual) > 1` → `ambiguous` — user musi wybrać
+4. `len(contextual) == 0` AND `len(all_cands) >= 1` → `unmapped` z hintem
+5. `len(all_cands) == 0` → `unmapped` (wymaga dodania kandydata)
+
+### Architektura 1:1+context (PO proposal)
+**Pragmatyczna architektura:**
+- `mapping`: 1:1 (FA product → default RAO article)
+- Przy fetchu: jeśli umowa ma artykuł zgodny z mappingiem → użyj. Jeśli nie → zaproponuj wybór z artykułów BĘDĄCYCH NA UMOWIE (context-aware suggestion)
+- To NIE jest 1:N, to jest 1:1 + smart suggestion. Tańsze i czytelniejsze.
+
+**Uzasadnienie:** Realistyczny use case (paliwo, transport, serwis) jest prawdziwy, ale nie wymaga prawdziwego 1:N w tabeli mappingu. Pełna tabela 1:N BEZ context = bezużyteczna — system nie wie który article wybrać przy auto-fetchu.
+
+### Edge cases (QA)
+**15 nowych edge cases (E33-E47):**
+- **Persystencja inline mappingu:** Mapping bez zapisu rozliczenia, "Pobierz koszty" ponownie po wykonanym mappingu, cofnięcie/edycja mappingu
+- **1:N mapping z contextem umowy:** Konflikt cross-contract, reuse mappingu z innej umowy, artykuł usunięty z umowy, artykuł soft-deleted
+- **Context-aware filtering:** Umowa ma 0 pozycji, umowa ma 100+ pozycji, FA product nie pasuje do żadnego artykułu umowy, filtering dropdown
+- **UI/UX i race conditions:** Double-click "Pobierz koszty", zamknięcie panelu z dirty mappingiem, refetch costs podczas trwającego mappingu, dwie zakładki przeglądarki
+
+**Priorytetyzacja:**
+- **P0 (krytyczne):** 7 edge cases (E33, E34, E36, E38, E40, E44, E45)
+- **P1 (ważne):** 6 edge cases (E35, E37, E39, E42, E43, E46)
+- **P2 (nice-to-have):** 2 edge cases (E41, E47)
+
+**Wpływ na estimate test coverage:**
+- Obecnie: 9-11h (edge cases 32 → 19)
+- Po inline matchingu: 15-18h (+6-7h)
+- Realny zakres pełnego ficzera: 22-27h
+
+### Estimate
+| Pozycja | Stary spec | Inline matching (1:1+context) | Pełne 1:N z contextem |
+|---|---|---|---|
+| Settings UI (mapping view) | 3h | −3h (cut) + 1h (read-only listing) | jw. |
+| Inline matching UI w panelu | 0h | +4h | +5h |
+| Mapping logic + context-aware | 2h | +2h (suggestion logic) | +4h (1:N resolution) |
+| Backend mapping table | 1h | 1h | 2h (+contract_id, +priority) |
+| Security/auth (RBAC: kto może mapować) | included | +2h (nowy problem) | +2h |
+| Reszta (client, fetch, sumowanie) | 10h | 10h | 10h |
+| **TOTAL** | **16-20h** | **17-21h** | **22-26h** |
+
+### Rekomendacja zespołu
+| Rola | Rekomendacja | Kluczowy powód |
+|------|--------------|----------------|
+| **UX Designer** | Inline matching jest lepszy dla codziennego użycia | Context-first, mniej klików, ale wymaga RBAC |
+| **Tech Lead** | Pełne 1:N z contextem jest do implementacji | Architektura rozstrzygnięta, dwie tabele |
+| **Product Owner** | 1:N to over-engineering, wystarczy 1:1+context | Realistyczny use case zaspokaja 1:1 + smart suggestion |
+| **QA Engineer** | Edge cases zwiększają estimate o +6-7h | 15 nowych edge cases, 7 P0 |
+
+### Konsensus
+**ODŁOŻYĆ DALEJ** — pain point nadal niepotwierdzony, koszt re-refine zaczyna konkurować z kosztem walidacji terenowej.
+
+### Rekomendacja PO
+**SPIKE 4h** zamiast pełnej implementacji:
+1. Backend: `GET /fakturownia/invoices?oid=` — read-only fetch faktur, **bez DB, bez mapping**
+2. Frontend: w panelu rozliczenia (po wpisaniu API tokenu w `.env` admina jako hardcoded MVP) — guzik "Pokaż faktury z FA" → lista pozycji **read-only z FA, nazwy bez mapping na RAO articles**
+3. Daj 2-3 userom (1 tydzień użycia)
+4. Mierz: ile razy klikali? czy przepisywali kwoty? co ich blokowało?
+
+**Po spike — decyzja:**
+- ✅ Klikali ≥3x/tydz/user, chcą mappingu → **BUDUJ pełny scope z 1:1+context (17-21h)** LUB pełne 1:N (22-26h) po decyzji architektonicznej
+- ❌ Klikali <1x/tydz lub mówili "nie potrzebuję" → **ODRZUĆ na zawsze** (RAO-P2-011 statystyki priorytetowo)
+
+### Warunki do powrotu (zaktualizowane)
+- [ ] SPIKE 4h zrealizowany — read-only display faktur w panelu rozliczenia (GET /fakturownia/invoices?oid=)
+- [ ] ≥2 userów testowało ≥1 tydzień — pomiar realnego użycia (clicks, time saved)
+- [ ] Jeśli użycie potwierdzone (≥3 klik/tydz/user) → BUDUJ z architekturą 1:1+context (17-21h) LUB pełne 1:N (22-26h) po decyzji architektonicznej
+- [ ] Jeśli użycie poniżej progu → ODRZUĆ na zawsze, priorytet RAO-P2-011
+- [ ] Decyzja architektoniczna: 1:1+context (PO) vs pełne 1:N (Tech Lead) — zależy od wyniku spike
+- [ ] Decyzja RBAC: kto może mapować (handlowiec vs admin-only)
+- [ ] Decyzja security: token w .env (MVP spike) vs Fernet w DB (production)

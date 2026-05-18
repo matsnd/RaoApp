@@ -2078,6 +2078,31 @@ estimate: 16-20h
   - [ ] Spike 4h jako walidacja przed pełnym scope (opcjonalne)
   - [ ] P1-012 ma status done (nie triaged) — blocker usunięty
 
+**NOTE (2026-05-18 — RE-REFINEMENT INLINE MATCHING):** NADAL ODŁOŻONE — konsensus zespołu (UX, Tech Lead, PO, QA). User requirement: matching tylko w panelu rozliczenia, nie w Settings; 1 produkt FA → wiele artykułów RAO (1:N) z contextem umowy.
+- **Zmiana UX:** Matching inline w panelu rozliczenia (accordion pod tabelą), combobox z autocomplete, context-first (tylko pozycje tej umowy)
+- **Architektura 1:N (Tech Lead):** Tabela A: fakturownia_product_mapping (słownik kandydatów 1:N) + Tabela B: fakturownia_contract_resolution (context-aware cache)
+- **Architektura 1:1+context (PO):** 1:N to over-engineering — wystarczy 1:1 globalny default + context-aware suggestion na artykuły umowy
+- **UX design (UX Designer):** Inline matching bez modalu, auto-mapping z historii bez pytania, tylko 1 confirm dialog (re-fetch nadpisujący ręczne edycje)
+- **Edge cases (QA):** 15 nowych edge cases (E33-E47), 7 P0 (krytyczne), test coverage: 9-11h → 15-18h (+6-7h), realny zakres pełnego ficzera: 22-27h
+- **Estimate:**
+  - Inline matching (1:1+context): 17-21h (kosztowo neutralny vs 16-20h)
+  - Pełne 1:N z contextem: 22-26h (+5h over-engineering)
+- **Rekomendacja zespołu:**
+  - **UX:** Inline matching jest lepszy dla codziennego użycia, ale wymaga RBAC (kto może mapować?)
+  - **Tech Lead:** Pełne 1:N z contextem jest do implementacji po decyzji architektonicznej
+  - **PO:** 1:N to over-engineering, wystarczy 1:1+context, pain point nadal niepotwierdzony
+  - **QA:** Edge cases zwiększają estimate test coverage o +6-7h
+- **Konsensus:** ODŁOŻYĆ DALEJ — pain point nadal niepotwierdzony, koszt re-refine zaczyna konkurować z kosztem walidacji terenowej
+- **Rekomendacja PO:** SPIKE 4h (read-only display faktur w panelu rozliczenia, bez DB, bez mapping) → walidacja z 2-3 userami (1 tydzień)
+- **Warunki do powrotu (zaktualizowane):**
+  - [ ] SPIKE 4h zrealizowany — read-only display faktur w panelu rozliczenia (GET /fakturownia/invoices?oid=)
+  - [ ] ≥2 userów testowało ≥1 tydzień — pomiar realnego użycia (clicks, time saved)
+  - [ ] Jeśli użycie potwierdzone (≥3 klik/tydz/user) → BUDUJ z architekturą 1:1+context (17-21h) LUB pełne 1:N (22-26h) po decyzji architektonicznej
+  - [ ] Jeśli użycie poniżej progu → ODRZUĆ na zawsze, priorytet RAO-P2-011
+  - [ ] Decyzja architektoniczna: 1:1+context (PO) vs pełne 1:N (Tech Lead) — zależy od wyniku spike
+  - [ ] Decyzja RBAC: kto może mapować (handlowiec vs admin-only)
+  - [ ] Decyzja security: token w .env (MVP spike) vs Fernet w DB (production)
+
 **Job-to-be-done:**
 Integracja z systemem fakturowania Fakturownia (publiczne API) w celu automatycznego pobierania kosztów do panelu rozliczenia umowy. Włączenie integracji w ustawieniach, mapowanie produktów, pobieranie faktur po OID i zsumowanie kosztów w rozliczeniu.
 
