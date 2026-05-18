@@ -17,6 +17,12 @@
 
     <!-- ══════════════════ TAB: TERAZ ══════════════════ -->
     <div v-show="activeTab === 'live'">
+      <!-- SECTION HEADER - wizualne wyodrębnienie -->
+      <div class="current-status-header">
+        <div class="current-status-title">📊 Stan aktualny floty</div>
+        <div class="current-status-subtitle">Dane na dzień dzisiejszy — niezależne od filtrów datowych</div>
+      </div>
+
       <div v-if="statsStore.loadingLive" class="reports-loading">
         <div class="spinner"></div>
         <span>Ładowanie stanu floty...</span>
@@ -1525,14 +1531,36 @@ onBeforeUnmount(() => {
 .tabs-bar {
   display: flex;
   gap: 4px;
-  margin-bottom: 20px;
-  border-bottom: 2px solid #E2E8F0;
-  padding-bottom: 0;
 }
-.tab {
+
+.current-status-header {
+  background: linear-gradient(135deg, #f0f4ff 0%, #e8f0ff 100%);
+  border-left: 4px solid var(--color-primary);
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.current-status-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-bottom: 4px;
+}
+
+.current-status-subtitle {
+  font-size: 13px;
+  color: #718096;
+  font-style: italic;
+}
+
+.tabs-bar {
   display: flex;
-  align-items: center;
-  gap: 7px;
+  gap: 4px;
+}
+
+.tab {
   padding: 10px 20px;
   border: none;
   background: transparent;

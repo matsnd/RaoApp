@@ -1831,7 +1831,7 @@ Protokół usługi (inny niż protokół najmu) musi umożliwiać ewidencję god
 id: RAO-P2-007
 priority: P2
 size: S
-status: postponed
+status: done
 classification: cross-stack
 roles: [frontend-dev, backend-dev]
 depends_on: []

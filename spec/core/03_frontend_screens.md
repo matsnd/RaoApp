@@ -721,6 +721,34 @@ Layout (replika WinForms Konfiguracjacs — scrollable):
 | Analiza historyczna | `history` | Sub-taby: Ogólne + Kategorie |
 | Eksplorator | `explorer` | Sub-taby: Wszystko / Maszyny / Usługi / Lokalizacje |
 
+### Wizualne wyodrębnienie (RAO-P2-007)
+
+Sekcja "Stan floty teraz" ma wizualnie wyodrębniony nagłówek z gradient tłem i lewym borderem w kolorze primary (`#1D2B53`). Subtitle jasno wskazuje że dane są "na dzień dzisiejszy — niezależne od filtrów datowych".
+
+**CSS:**
+```css
+.current-status-header {
+  background: linear-gradient(135deg, #f0f4ff 0%, #e8f0ff 100%);
+  border-left: 4px solid var(--color-primary);
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.current-status-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.current-status-subtitle {
+  font-size: 13px;
+  color: #718096;
+  font-style: italic;
+}
+```
+
 ### Tab: Stan floty teraz (`live`)
 
 - KPI cards: dostępnych maszyn, % wykorzystania floty
