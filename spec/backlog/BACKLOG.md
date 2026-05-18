@@ -2103,6 +2103,14 @@ estimate: 16-20h
   - [ ] Decyzja RBAC: kto może mapować (handlowiec vs admin-only)
   - [ ] Decyzja security: token w .env (MVP spike) vs Fernet w DB (production)
 
+**NOTE (2026-05-18 — DOPRECYZOWANIE UŻYTKOWNIKA):** Decyzja architektoniczna podjęta — 1:1+context (PO), pełne 1:N odrzucone.
+- **Faktury read-only** — tylko wyświetlenie, nie edycja (potwierdzone przez użytkownika)
+- **Mapping 1:1** — produkty z faktury mapowane w artykułach (FA product → RAO article, nie 1:N)
+- **Context umowy** — tylko filtr UI (combobox pokazuje tylko artykuły z tej umowy), nie rozgałęzienie DB
+- **Uzasadnienie użytkownika:** "dana maszyna może być tym samym produktem z punktu widzenia naszej aplikacji" — czyli mapping 1:1 jest wystarczający
+- **Decyzja architektoniczna:** 1:1+context (PO) = WYBRANA, pełne 1:N (Tech Lead) = ODRZUCONE jako over-engineering
+- **Estimate po decyzji:** 17-21h (1:1+context), bez pełnego 1:N (22-26h)
+
 **Job-to-be-done:**
 Integracja z systemem fakturowania Fakturownia (publiczne API) w celu automatycznego pobierania kosztów do panelu rozliczenia umowy. Włączenie integracji w ustawieniach, mapowanie produktów, pobieranie faktur po OID i zsumowanie kosztów w rozliczeniu.
 

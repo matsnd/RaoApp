@@ -519,8 +519,75 @@ CREATE TABLE IF NOT EXISTS fakturownia_contract_resolution (
 ### Warunki do powrotu (zaktualizowane)
 - [ ] SPIKE 4h zrealizowany — read-only display faktur w panelu rozliczenia (GET /fakturownia/invoices?oid=)
 - [ ] ≥2 userów testowało ≥1 tydzień — pomiar realnego użycia (clicks, time saved)
-- [ ] Jeśli użycie potwierdzone (≥3 klik/tydz/user) → BUDUJ z architekturą 1:1+context (17-21h) LUB pełne 1:N (22-26h) po decyzji architektonicznej
+- [ ] Jeśli użycie potwierdzone (≥3 klik/tydz/user) → BUDUJ z architekturą 1:1+context (17-21h)
 - [ ] Jeśli użycie poniżej progu → ODRZUĆ na zawsze, priorytet RAO-P2-011
-- [ ] Decyzja architektoniczna: 1:1+context (PO) vs pełne 1:N (Tech Lead) — zależy od wyniku spike
+- [ ] Decyzja architektoniczna: 1:1+context (PO) = WYBRANA, pełne 1:N (Tech Lead) = ODRZUCONE (patrz niżej)
 - [ ] Decyzja RBAC: kto może mapować (handlowiec vs admin-only)
 - [ ] Decyzja security: token w .env (MVP spike) vs Fernet w DB (production)
+
+---
+
+## Decyzja Architektoniczna (2026-05-18 — doprecyzowanie użytkownika)
+
+**Decyzja:** 1:1+context (PO) = WYBRANA, pełne 1:N (Tech Lead) = ODRZUCONE
+
+### Uzasadnienie użytkownika
+- **Faktury read-only** — tylko wyświetlenie, nie edycja
+- **Mapping 1:1** — produkty z faktury mapowane w artykułach (FA product → RAO article, nie 1:N)
+- **Context umowy** — tylko filtr UI (combobox pokazuje tylko artykuły z tej umowy), nie rozgałęzienie DB
+- **Kluczowe stwierdzenie:** "dana maszyna może być tym samym produktem z punktu widzenia naszej aplikacji" — czyli mapping 1:1 jest wystarczający
+
+### Architektura wybrana (1:1+context)
+
+**Tabela mappingu (1:1, nie 1:N):**
+```sql
+CREATE TABLE IF NOT EXISTS fakturownia_product_mapping (
+  id                       INT PRIMARY KEY AUTO_INCREMENT,
+  fakturownia_product_id   BIGINT       NOT NULL UNIQUE,  -- 1:1 (UNIQUE)
+  fakturownia_product_name VARCHAR(255) NOT NULL,
+  article_id               INT          NOT NULL,
+  is_default               BOOLEAN      NOT NULL DEFAULT FALSE,
+  created_at               DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY ix_fa_product (fakturownia_product_id),
+  CONSTRAINT fk_fpm_article FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
+);
+```
+
+**Context umowy = tylko filtr UI, nie rozgałęzienie DB:**
+- Backend: `GET /contracts/{id}/fakturownia/invoices` → zwraca pozycje faktury + listę artykułów z tej umowy
+- Frontend: combobox pokazuje **tylko artykuły z tej umowy** (context-aware filtering)
+- Mapping zapisywany jest globalnie 1:1 (FA product → RAO article), ale user widzi tylko te artykuły które są na bieżącej umowie
+
+**Przykład:**
+- FA product "Koparka CAT 320" → mapowany do RAO article "Koparka CAT 320" (1:1)
+- Umowa A ma artykuł "Koparka CAT 320" → combobox pokazuje "Koparka CAT 320"
+- Umowa B ma artykuł "Dźwig 40t" → combobox pokazuje "Dźwig 40t" (nawet jeśli FA product "Koparka CAT 320" był mapowany wcześniej)
+- User może wymusić mapping na inny artykuł (escape hatch "pokaż wszystkie")
+
+### Architektura odrzucona (pełne 1:N)
+
+**Powód odrzucenia:** Over-engineering
+- Tabela B: `fakturownia_contract_resolution` (context-aware cache) — NIE POTRZEBNA
+- Algorytm rozstrzygania 5-stopniowy — NIE POTRZEBNY
+- Dodatkowe +5h estimate — NIE UZASADNIONE
+
+**Kiedy pełne 1:N byłby potrzebny:** Gdy ten sam produkt FA musi być mapowany do różnych artykułów RAO **jednocześnie** (np. rozdzielenie kosztów 50/50). To NIE jest wymagane przez użytkownika.
+
+### Estimate po decyzji
+
+| Architektura | Estimate | Status |
+|--------------|----------|--------|
+| 1:1+context (PO) | 17-21h | **WYBRANA** |
+| Pełne 1:N (Tech Lead) | 22-26h | ODRZUCONE |
+
+### Zaktualizowany plan implementacji (po spike, jeśli pozytywny)
+
+1. **DB:** Tabela `fakturownia_product_mapping` (1:1, UNIQUE na `fakturownia_product_id`)
+2. **Backend:**
+   - `GET /fakturownia/invoices?oid=` — read-only fetch faktur
+   - `GET /contracts/{id}/articles` — list artykułów z tej umowy (do filtrowania dropdownu)
+   - `POST /fakturownia/mapping` — zapisanie mappingu 1:1
+3. **Frontend:**
+   - Panel rozliczenia: guzik "Pokaż faktury z FA" → lista pozycji read-only z FA
+   - Sekcja "Pozycje niezmapowane" → combobox z artykułami z tej umowy (context-aware filtering)
+   - Mapping zapisywany do DB (globalnie 1:1)
