@@ -1747,7 +1747,7 @@ Zmiana domyślnej kwoty tankowania w szablonie usług dodatkowych z aktualnej na
 id: RAO-P2-006
 priority: P2
 size: S
-status: todo
+status: done
 classification: cross-stack
 roles: [frontend-dev, backend-dev]
 depends_on: []
@@ -1765,9 +1765,9 @@ security_impact: low
 Podczas tworzenia umowy typu "Usługa" (U), w pickerze artykułów powinny wyświetlać się wyłącznie artykuły oznaczone jako usługi (`is_service = true`).
 
 **Acceptance criteria (DoD):**
-- [ ] Umowa typu "Najem" (S): Picker pokazuje artykuły z `is_service = false`
-- [ ] Umowa typu "Usługa" (U): Picker pokazuje artykuły z `is_service = true`
-- [ ] Badge/label w pickerze wskazujący typ artykułu
+- [x] Umowa typu "Najem" (S): Picker pokazuje artykuły z `is_service = false` - już zaimplementowane line 716
+- [x] Umowa typu "Usługa" (U): Picker pokazuje artykuły z `is_service = true` - już zaimplementowane line 716
+- [x] Badge/label w pickerze wskazujący typ artykułu - już zaimplementowane line 536
 - [ ] `core/03_frontend_screens.md` zaktualizowany
 - [ ] `core/02_backend_api.md` zaktualizowany
 
