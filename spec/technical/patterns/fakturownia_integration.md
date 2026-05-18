@@ -275,7 +275,64 @@ api_token_preview     VARCHAR(16)    NOT NULL  -- "tk_****1234"
 ---
 
 ## Status
-**RAO-P2-012:** ODŁOŻONE po refinement  
-**Data refinement:** 2026-05-18  
-**Decyzja:** PO rekomenduje po P0/P1, Security podnia impact na HIGH  
-**Następny krok:** Zakończyć wszystkie P1, potem ponownie rozważyć RAO-P2-012
+**RAO-P2-012:** ODŁOŻONE po refinement + RE-REFINEMENT po P1 done
+**Data refinement:** 2026-05-18
+**Data re-refinement:** 2026-05-18 (po zakończeniu wszystkich P1)
+**Decyzja:** Konsensus zespołu (PO, Tech Lead, Security, QA) — ODŁOŻYĆ DALEJ
+**Kluczowe powody re-refinement:** Pain point nadal niepotwierdzony, estimate zaniżony (12h→20-28h), 5 nowych edge cases po P1
+**Następny krok:** PO zbiera potwierdzenie pain pointu od ≥3 użytkowników (1 tydzień), wtedy re-estimate na XL + re-refine
+
+---
+
+## Re-Refinement (2026-05-18 — po P1 done)
+
+### Kontekst
+Wszystkie zadania P1 zostały zakończone. Zespół (PO, Tech Lead, Security, QA) przeprowadził re-refinement RAO-P2-012 aby zweryfikować czy zadanie powinno zostać rozpoczęte.
+
+### Wyniki re-refinement
+
+| Rola | Rekomendacja | Kluczowy powód |
+|------|--------------|----------------|
+| **Product Owner** | ODŁOŻYĆ + ZWALIDOWAĆ pain point | Pain point niepotwierdzony przez użytkowników |
+| **Tech Lead** | ODŁOŻYĆ DALEJ | Estimate 12h zaniżony → realnie 20-28h (L→XL) |
+| **Security Auditor** | ZMIENIĆ PLAN - re-size + split | Security impact HIGH, 12h nie wystarczy na threat model |
+| **QA Engineer** | ODŁOŻYĆ DALEJ + ZMIENIĆ TEST STRATEGY | 5 nowych edge cases po P1, test coverage nierealistyczny w 12h |
+
+### Kluczowe zmiany od refinement 2026-05-18
+
+1. **Estimate zaktualizowany:** 12h → 20-28h (L→XL)
+   - Security layer sam: 14h (encryption, RBAC, SSRF, audit log, rate limiting)
+   - Testy: 18-22h sam QA (15 unit + integration + 9 E2E + 9 manual)
+   - Implementacja feature: 0h z 12h budżetu przy pełnym security
+
+2. **Nowe edge cases po P1 (5 nowych):**
+   - RBAC (kto może konfigurować integracje?)
+   - Rezerwacje (czy faktura może domknąć rezerwację?)
+   - Multi-tenancy / scope per user
+   - OID collision (2 umowy ten sam OID)
+   - Soft-delete contracts
+
+3. **Pain point nadal niepotwierdzony**
+   - Refinement 2026-05-18: "userzy muszą potwierdzić pain point"
+   - Brak dowodu że 7 dni produkcji P1 zmieniło sytuację
+   - ROI 30-50 min/tydz/user × ~5 userów = ~3h/tydz (break-even ~4 tyg tylko jeśli userzy faktycznie używają OID i Fakturownia konsekwentnie)
+
+### Alternatywa (jeśli pain potwierdzony)
+
+**MVP scope (6h, nie 12h):**
+- ✅ Settings: token + domain (szyfrowany, RBAC admin-only)
+- ✅ Button "Pobierz koszty po OID" → lista pozycji faktury (read-only)
+- ✅ User ręcznie wybiera pozycje do rozliczenia
+- ❌ WYTNIĆ: automapowanie po nazwie (czerwona flaga 2026-05-18, źródło bugów)
+- ❌ WYTNIĆ: osobny widok mapowania produktów (over-engineering dla v1)
+
+### Warunki do powrotu (gate)
+
+- [ ] PO zbiera potwierdzenie pain pointu od ≥3 użytkowników (wywiad 1 tydzień)
+- [ ] Jeśli pain potwierdzony → re-estimate na XL (20-28h) + re-refine z RBAC + rezerwacje + OID collision
+- [ ] Decyzja security: Fernet vs HashiCorp Vault dla api_token
+- [ ] Panel rozliczenia (P1-012) ma min. 2 tyg. produkcyjnej stabilności
+
+### Priorytety alternatywne
+
+**RAO-P2-011 (statystyki po lokalizacji)** — tańsze (S), bezpieczniejsze, mierzalna wartość raportowa. Zalecane przed RAO-P2-012.

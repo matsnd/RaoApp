@@ -2042,6 +2042,20 @@ security_impact: high
 - **Pattern:** Pełny refinement zapisany w `spec/technical/patterns/fakturownia_integration.md`
 - **Kiedy wrócić:** Po zakończeniu wszystkich P1 (must-have przed go-live)
 
+**NOTE (2026-05-18 — RE-REFINEMENT po P1 done):** NADAL ODŁOŻONE — konsensus zespołu (PO, Tech Lead, Security, QA).
+- **Wszystkie P1 DONE** — baseline stabilny, ale pain point nadal niepotwierdzony przez użytkowników
+- **Estimate zaniżony:** 12h → realnie 20-28h (L→XL) gdy doliczymy security hardening + testy
+- **Security impact HIGH:** 12 zagrożeń nadal aktualnych, realistycznie 14h sam security layer
+- **Nowe edge cases po P1:** 5 nowych (RBAC, rezerwacje, multi-tenancy, OID collision, soft-delete)
+- **Rekomendacja zespołu:** ODŁOŻYĆ DALEJ + ZWALIDOWAĆ pain point przed powrotem
+- **Warunki do powrotu:**
+  - [ ] PO zbiera potwierdzenie pain pointu od ≥3 użytkowników (wywiad 1 tydzień)
+  - [ ] Jeśli pain potwierdzony → re-estimate na XL (20-28h) + re-refine z RBAC + rezerwacje + OID collision
+  - [ ] Decyzja security: Fernet vs HashiCorp Vault dla api_token
+  - [ ] Panel rozliczenia (P1-012) ma min. 2 tyg. produkcyjnej stabilności
+- **Alternatywa (jeśli pain potwierdzony):** MVP scope (6h) bez automapowania po nazwie + bez widoku mapowania produktów
+- **Priorytet alternatywne:** RAO-P2-011 (statystyki po lokalizacji) — tańsze (S), bezpieczniejsze, mierzalna wartość raportowa
+
 **Job-to-be-done:**
 Integracja z systemem fakturowania Fakturownia (publiczne API) w celu automatycznego pobierania kosztów do panelu rozliczenia umowy. Włączenie integracji w ustawieniach, mapowanie produktów, pobieranie faktur po OID i zsumowanie kosztów w rozliczeniu.
 
