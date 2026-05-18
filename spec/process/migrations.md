@@ -36,12 +36,22 @@ async def startup_migrations():
             "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
             "delivery_address VARCHAR(255) NULL"
         ))
+        # FK i indeksy też z IF NOT EXISTS (MariaDB 10.0.2+ dla FK, 10.0.9+ dla indeksów)
+        await conn.execute(sa.text(
+            "ALTER TABLE contracts ADD CONSTRAINT IF NOT EXISTS fk_contractor "
+            "FOREIGN KEY (contractor_id) REFERENCES contractors(id)"
+        ))
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_contracts_contractor ON contracts(contractor_id)"
+        ))
 ```
 
 **Zasady:**
-- Zawsze `IF NOT EXISTS` lub `IF EXISTS`
+- Zawsze `IF NOT EXISTS` lub `IF EXISTS` (dla FK i indeksów też!)
 - Zawsze deterministyczne (brak warunków z runtime)
 - Zawsze w `main.py` startup (nie w oddzielnych skryptach)
+- **ZABRONIONE:** try/except z `pass` dla FK/indeksów (to ukrywa prawdziwe błędy)
+- MariaDB wspiera IF NOT EXISTS dla FK od 10.0.2, dla indeksów od 10.0.9
 
 ### B. Migracje danych (legacy → rao_new)
 **Lokalizacja:** `backend/migrate.py`
@@ -209,6 +219,8 @@ kill %1
 | Pitfall | Dlaczego boli | Jak unikać |
 |---------|---------------|-------------|
 | ALTER bez `IF NOT EXISTS` | Drugi start rzuci "Duplicate column" | Zawsze `IF NOT EXISTS` |
+| FK/indeks bez `IF NOT EXISTS` | Drugi start rzuci "Duplicate key" | Zawsze `IF NOT EXISTS` (MariaDB 10.0.2+) |
+| try/except z `pass` dla FK/indeksów | Ukrywa prawdziwe błędy, nie jest deterministyczne | Użyj `IF NOT EXISTS` zamiast try/except |
 | Plaintext hasła w bazie | Snapshot = wszystkie hasła w plaintext | `force_password_reset=1` |
 | Sekrety w spec | Repo leak | Używaj `<<PLACEHOLDER>>` |
 | Brak verification gates | Migracja "udała się" ale jest broken | Zawsze dodaj gates |
@@ -240,7 +252,7 @@ RAO ma **forward-only migrations** — to znaczy że KAŻDA destrukcyjna migracj
 
 ## ✅ Checklist przed commitem migracji
 
-- [ ] Schema migration: `IF NOT EXISTS` / `IF EXISTS`
+- [ ] Schema migration: `IF NOT EXISTS` / `IF EXISTS` (dla FK i indeksów też!)
 - [ ] Data migration: idempotentna (drugi run = 0 zmian)
 - [ ] Brak sekretów w kodzie/spec
 - [ ] Hasła: `force_password_reset=1` zamiast plaintext

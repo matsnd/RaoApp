@@ -124,26 +124,36 @@ async def startup_migrations():
             ) ENGINE=InnoDB COMMENT='Godziny pracy operatora dla umów usługowych'
         """))
 
-    # FK + index dodawane w osobnych transakcjach (MariaDB nie wspiera ADD CONSTRAINT IF NOT EXISTS / CREATE INDEX IF NOT EXISTS)
-    for ddl in [
-        "ALTER TABLE service_fee_templates ADD CONSTRAINT fk_sft_article "
-        "FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE SET NULL",
-        "CREATE INDEX idx_sft_article ON service_fee_templates(article_id)",
+    # FK + index dodawane z IF NOT EXISTS (MariaDB 10.0.2+ dla FK, 10.0.9+ dla indeksów)
+    async with engine.begin() as conn2:
+        await conn2.execute(sa.text(
+            "ALTER TABLE service_fee_templates ADD CONSTRAINT IF NOT EXISTS fk_sft_article "
+            "FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE SET NULL"
+        ))
+        await conn2.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_sft_article ON service_fee_templates(article_id)"
+        ))
         # RAO-P1-017: FK self-ref + indeksy dla hierarchii kategorii i archiwum
-        "ALTER TABLE categories ADD CONSTRAINT fk_category_parent "
-        "FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE SET NULL",
-        "CREATE INDEX idx_categories_parent ON categories(parent_id)",
-        "CREATE INDEX idx_articles_category_main ON articles(category_main)",
-        "CREATE INDEX idx_articles_archival ON articles(is_archival)",
+        await conn2.execute(sa.text(
+            "ALTER TABLE categories ADD CONSTRAINT IF NOT EXISTS fk_category_parent "
+            "FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE SET NULL"
+        ))
+        await conn2.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_categories_parent ON categories(parent_id)"
+        ))
+        await conn2.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_articles_category_main ON articles(category_main)"
+        ))
+        await conn2.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_articles_archival ON articles(is_archival)"
+        ))
         # RAO-P1-008: indeksy dla strukturalizacji adresów
-        "CREATE INDEX idx_contracts_postal_code ON contracts(postal_code)",
-        "CREATE INDEX idx_contracts_city ON contracts(city)",
-    ]:
-        try:
-            async with engine.begin() as conn2:
-                await conn2.execute(sa.text(ddl))
-        except Exception:
-            pass  # constraint/index już istnieje
+        await conn2.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_contracts_postal_code ON contracts(postal_code)"
+        ))
+        await conn2.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_contracts_city ON contracts(city)"
+        ))
 
     async with AsyncSessionLocal() as db:
         from sqlalchemy import select, update, func
