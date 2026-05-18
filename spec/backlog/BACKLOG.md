@@ -1126,9 +1126,10 @@ Zrefaktoryzować system prowizyjny tak, aby prowizja handlowca była liczona od 
 
 ---
 
-## 🟡 P2 — Should-Have w ciągu kwartału
+## 🔴 P2 — Should-Have w ciągu kwartału (POSTPONED)
 
 UX, drobne tech debt, nice-to-have.
+Status: Wszystkie zadania P2 oznaczone jako postponed - icebox dla przyszłości.
 
 ### [RAO-P2-001] Kolumna "Adres dostawy" w liście umów (B2)
 
@@ -1830,7 +1831,7 @@ Protokół usługi (inny niż protokół najmu) musi umożliwiać ewidencję god
 id: RAO-P2-007
 priority: P2
 size: S
-status: todo
+status: postponed
 classification: cross-stack
 roles: [frontend-dev, backend-dev]
 depends_on: []
@@ -1866,7 +1867,7 @@ Aktualnie w sekcji raportów pokazuje się "Wynajętych teraz" obok filtrów dat
 id: RAO-P2-008
 priority: P2
 size: S
-status: todo
+status: postponed
 classification: cross-stack
 roles: [frontend-dev, backend-dev]
 depends_on: []
@@ -1902,7 +1903,7 @@ Pole `internal_number` już istnieje w tabeli `articles`, ale nie jest widoczne 
 id: RAO-P2-009
 priority: P2
 size: M
-status: todo
+status: postponed
 classification: cross-stack
 roles: [backend-dev, frontend-dev]
 depends_on: [RAO-P2-008]
@@ -1943,7 +1944,7 @@ Klient potrzebuje sprawdzać rentowność (stopę zwrotu) dla konkretnych maszyn
 id: RAO-P2-010
 priority: P2
 size: S
-status: todo
+status: postponed
 classification: cross-stack
 roles: [backend-dev, frontend-dev]
 depends_on: []
@@ -1979,7 +1980,7 @@ W raportach klient chce widzieć nie tylko maszyny, ale też podsumowanie pozycj
 id: RAO-P2-011
 priority: P2
 size: S
-status: todo
+status: postponed
 classification: cross-stack
 roles: [backend-dev, frontend-dev]
 depends_on: []
@@ -2015,7 +2016,7 @@ Klient chce analizować gdzie najczęściej wynajmują maszyny (miejscowości/ob
 id: RAO-P2-012
 priority: P2
 size: L
-status: todo
+status: postponed
 classification: cross-stack
 roles: [backend-dev, frontend-dev, product-owner]
 depends_on: [RAO-P1-012]
