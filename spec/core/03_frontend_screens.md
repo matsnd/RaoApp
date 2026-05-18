@@ -773,6 +773,23 @@ Pole `internal_number` jest w pełni zaimplementowane:
   - `GET /stats/by-category?internal_number=<str>`
 - Filtrowanie wyników po numerze wewnętrznym
 
+### Statystyki per maszyna (RAO-P2-009)
+
+**Backend:**
+- Endpoint `/explorer/machines/{article_id}` z parametrami `date_from`, `date_to`
+- Zwraca metryki: total_revenue, total_days, avg_daily, utilization_pct
+- Zwraca historię wynajmów: rentals[] z contract_number, contractor_name, dates, days, revenue
+
+**Frontend (ReportsSection.vue):**
+- Zakładka "Maszyny" w Explorer tab
+- Wyszukiwanie maszyny po nazwie lub nr wewnętrznym
+- Panel szczegółów maszyny z metrykami:
+  - Przychód w okresie
+  - Dni wynajmu
+  - Średni przychód/dzień
+  - Wykorzystanie (%)
+- Tabela historia wynajmów (umowa, kontrahent, daty, dni, kwota)
+
 ### Tab: Stan floty teraz (`live`)
 
 - KPI cards: dostępnych maszyn, % wykorzystania floty

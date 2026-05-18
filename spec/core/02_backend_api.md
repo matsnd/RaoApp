@@ -1202,6 +1202,13 @@ Query: `?level=main|sub1&date_from&date_to&include_archival=false&internal_numbe
 Response: `CategoryStatsResponse`
 HTTP: 200 | 401 | 422 (nieprawidłowy `level`)
 
+### `GET /explorer/machines/{article_id}` (RAO-P2-009)
+Query: `?date_from&date_to`
+Response: Machine metrics object with:
+- total_revenue, total_days, avg_daily, utilization_pct
+- rentals[]: historia wynajmów (contract_number, contractor_name, date_from, date_to, days, revenue)
+HTTP: 200 | 404 (machine not found)
+
 > Pełna specyfikacja raportów z obrazkami i endpointów statystyk znajduje się w pliku **[11_reports_stats.md](./11_reports_stats.md)**.
 
 ---
