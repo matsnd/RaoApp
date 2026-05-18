@@ -1304,9 +1304,10 @@ Po wyborze adresu dostawy automatycznie geokodować współrzędne przez Nominat
 
 ---
 
-## 🟢 P3 — Icebox
+## 🟢 P3 — Icebox (POSTPONED)
 
-Pomysły, bez harmonogramu, odrzuć lub odłóż.
+Pomysły, bez harmonogramu - odłożone do przyszłości.
+Status: Wszystkie zadania P3 oznaczone jako postponed zgodnie z definicją sekcji "odrzuć lub odłóż".
 
 ### [RAO-P3-001] Drag & drop reorder szablonów usług (B6)
 
@@ -1314,7 +1315,7 @@ Pomysły, bez harmonogramu, odrzuć lub odłóż.
 id: RAO-P3-001
 priority: P3
 size: M
-status: todo
+status: postponed
 classification: frontend
 roles: [frontend-dev]
 depends_on: []
@@ -1347,7 +1348,7 @@ Szablony usług można dodawać ale nie zmieniać kolejności przeciąganiem.
 id: RAO-P3-002
 priority: P3
 size: M
-status: todo
+status: postponed
 classification: cross-stack
 roles: [backend-dev, frontend-dev]
 depends_on: []
@@ -1400,7 +1401,7 @@ Pole `logo LONGBLOB` jest w tabeli `companies` ale brak UI do uploadu/zmiany log
 id: RAO-P3-003
 priority: P3
 size: XS
-status: todo
+status: postponed
 classification: frontend
 roles: [frontend-dev]
 depends_on: [RAO-P3-002]
@@ -1432,7 +1433,7 @@ Sidebar ma "TOOLSMART" hard-coded. Po zaimplementowaniu B7 podmienić na `<img>`
 id: RAO-P3-004
 priority: P3
 size: M
-status: todo
+status: postponed
 classification: cross-stack
 roles: [backend-dev, frontend-dev]
 depends_on: []
@@ -1471,7 +1472,7 @@ Panel statystyk (ReportsSection) brak eksportu danych do CSV/Excel.
 id: RAO-P3-005
 priority: P3
 size: L
-status: todo
+status: postponed
 classification: db-only
 roles: [db-architect, backend-dev]
 depends_on: []
@@ -1518,7 +1519,7 @@ security_impact: medium
 id: RAO-P3-006
 priority: P3
 size: S
-status: todo
+status: postponed
 classification: frontend
 roles: [frontend-dev]
 depends_on: []
@@ -1550,7 +1551,7 @@ W starym FormW.cs opis warunku był auto-generowany ("stawka 5000 zł/tyg. do 5 
 id: RAO-P3-007
 priority: P3
 size: M
-status: todo
+status: postponed
 classification: frontend
 roles: [frontend-dev]
 depends_on: []
@@ -1584,7 +1585,7 @@ W starym FormU4 wizualny kalendarz 2-miesieczny do wyboru dat od/do. Nowy formul
 id: RAO-P3-008
 priority: P3
 size: S
-status: todo
+status: postponed
 classification: frontend
 roles: [frontend-dev]
 depends_on: []
@@ -1617,7 +1618,7 @@ Dodać keyboard shortcuts dla codziennych akcji.
 id: RAO-P3-009
 priority: P3
 size: XS
-status: todo
+status: postponed
 classification: frontend
 roles: [frontend-dev]
 depends_on: []
@@ -1649,7 +1650,7 @@ Na pustej bazie lista umów jest pusta bez wskazówki co zrobić.
 id: RAO-P3-010
 priority: P3
 size: S
-status: todo
+status: postponed
 classification: frontend
 roles: [frontend-dev]
 depends_on: []
@@ -1681,7 +1682,7 @@ Każdy widok ma własny spinner; brak globalnego feedbacku nawigacji.
 id: RAO-P3-011
 priority: P3
 size: L
-status: todo
+status: postponed
 classification: qa
 roles: [qa-engineer, backend-dev]
 depends_on: []
@@ -1714,7 +1715,7 @@ security_impact: low
 id: RAO-P3-012
 priority: P3
 size: XS
-status: todo
+status: postponed
 classification: backend
 roles: [backend-dev]
 depends_on: []
