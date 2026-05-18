@@ -2032,6 +2032,7 @@ specs_to_update:
   - core/07_integrations.md
 migration_impact: yes
 security_impact: high
+estimate: 16-20h
 ```
 
 **NOTE (2026-05-18):** ODŁOŻONE po pełnym scrum refinement.
@@ -2056,6 +2057,27 @@ security_impact: high
 - **Alternatywa (jeśli pain potwierdzony):** MVP scope (6h) bez automapowania po nazwie + bez widoku mapowania produktów
 - **Priorytet alternatywne:** RAO-P2-011 (statystyki po lokalizacji) — tańsze (S), bezpieczniejsze, mierzalna wartość raportowa
 
+**NOTE (2026-05-18 — RE-REFINEMENT NOWY SCOPE):** NADAL ODŁOŻONE — konsensus 3/4 role (PO, Tech Lead, Security). QA rekomenduje zacząć z warunkiem.
+- **Zmiana scope:** WYCINĆ automapowanie po nazwie, ZACHOWAĆ mapowanie produktów (tylko product_id)
+- **Nowa estimate:** 16-20h (z 20-28h) — oszczędność ~6-8h
+  - Security layer: 14h → 9-10h (encryption + SSRF + RBAC wciąż wymagane)
+  - Test coverage: 18-22h → 9-11h (edge cases 32 → 19 +3 nowe)
+  - Automapowanie po nazwie: wycięte (−6-8h)
+- **Security impact:** HIGH → MEDIUM-HIGH (9 zagrożeń pozostaje, 3 znikło: XSS przez nazwę, injection przez fuzzy matching, logic bugs)
+- **P1-012 blocker:** status triaged → wymaga sprawdzenia czy nie jest blocker przed startem
+- **Rekomendacja zespołu (3/4):** ODŁOŻYĆ DALEJ — pain point nadal niepotwierdzony, 16-20h na hipotezie = over-investment
+- **QA rekomendacja:** ZACZĄĆ TERAZ (z warunkiem: spec UX dla unmapped pozycji)
+- **Alternatywy:**
+  - **Spike 4h (PO):** Tylko GET invoices + read-only display w panelu rozliczenia (bez mapowania, bez DB) — walidacja wartości przed pełnym scope
+  - **Split 012a + 012b (Tech Lead):** 012a (6-8h, mapowanie CRUD bez API) + 012b (10-12h, sync + security po P1-012)
+  - **RAO-P2-011 priorytet:** Statystyki po lokalizacji (S) — tańsze, bezpieczniejsze, mierzalna wartość
+- **Warunki do powrotu (zaktualizowane):**
+  - [ ] PO przeprowadza wywiad z 2-3 userami (ile faktur/tydzień? ile minut ręczne wpisywanie?)
+  - [ ] Jeśli > 30 min/tydzień/user × 3 userów = ~2h/tydzień → BUDUJ (ROI: ~10 tygodni)
+  - [ ] Jeśli < 30 min → ODRZUĆ (RAO-P2-011 lepszy kandydat)
+  - [ ] Spike 4h jako walidacja przed pełnym scope (opcjonalne)
+  - [ ] P1-012 ma status done (nie triaged) — blocker usunięty
+
 **Job-to-be-done:**
 Integracja z systemem fakturowania Fakturownia (publiczne API) w celu automatycznego pobierania kosztów do panelu rozliczenia umowy. Włączenie integracji w ustawieniach, mapowanie produktów, pobieranie faktur po OID i zsumowanie kosztów w rozliczeniu.
 
@@ -2067,7 +2089,7 @@ Integracja z systemem fakturowania Fakturownia (publiczne API) w celu automatycz
 - [ ] Backend: Endpoint `GET /fakturownia/products` — pobranie listy produktów z Fakturownia API
 - [ ] Backend: Endpoint `POST /fakturownia/mapping` — zapisanie mapowania produktów
 - [ ] Backend: Endpoint `GET /fakturownia/invoices?oid=` — pobranie faktur po numerze zamówienia (OID)
-- [ ] Backend: Automatyczne mapowanie pozycji faktury na artykuły RAO (po product_id lub nazwie)
+- [ ] Backend: Automatyczne mapowanie pozycji faktury na artykuły RAO **TYLKO po product_id** (bez automapowania po nazwie)
 - [ ] Backend: Zsumowanie kosztów z wielu faktur pod jedną umową
 - [ ] Frontend: Toggle "Integracja Fakturownia" w ustawieniach (SettingsView)
 - [ ] Frontend: Pola: API token, domain URL (np. toolsmart.fakturownia.pl)
@@ -2076,7 +2098,8 @@ Integracja z systemem fakturowania Fakturownia (publiczne API) w celu automatycz
 - [ ] Frontend: Guzik w widoku umowy (ContractDetailView) — "Pobierz koszty z Fakturownia" (gdy integracja włączona)
 - [ ] Frontend: Panel rozliczenia — logika:
   - Bez faktury: proponuj wszystkie pozycje umowy (wynajem + usługi dodatkowe)
-  - Po pobraniu faktury: tylko pozycje z faktury (zmapowane na artykuły RAO)
+  - Po pobraniu faktury: tylko pozycje z faktury (zmapowane na artykuły RAO po product_id)
+  - Pozycje bez mapowania → "unmapped" bucket (user musi ręcznie zmapować w widoku mapowania)
   - Wiele faktur: zsumuj koszty per artykuł
 - [ ] Frontend: Fallback: ręczne wpisywanie kosztów jeśli nie pobrano z Fakturownia
 - [ ] DB: Pole `contracts.oid` już istnieje — używane jako numer zamówienia w Fakturownia
@@ -2107,7 +2130,7 @@ Integracja z systemem fakturowania Fakturownia (publiczne API) w celu automatycz
 
 **Pliki do zmiany:** `backend/integrations/fakturownia/` (nowy moduł), `backend/settings/router.py`, `SettingsView.vue`, `ContractDetailView.vue`, `spec/core/07_integrations.md`
 **ROI:** Automatyzacja fakturowania — obecnie ręczne wpisywanie kosztów w rozliczeniu
-**Estimate:** 12h (L)
+**Estimate:** 16-20h (L) — zaktualizowane po re-refinement nowego scope (wycięcie automapowania po nazwie)
 
 ---
 

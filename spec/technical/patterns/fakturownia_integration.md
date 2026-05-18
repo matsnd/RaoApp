@@ -275,12 +275,13 @@ api_token_preview     VARCHAR(16)    NOT NULL  -- "tk_****1234"
 ---
 
 ## Status
-**RAO-P2-012:** ODŁOŻONE po refinement + RE-REFINEMENT po P1 done
+**RAO-P2-012:** ODŁOŻONE po refinement + RE-REFINEMENT po P1 done + RE-REFINEMENT NOWY SCOPE
 **Data refinement:** 2026-05-18
 **Data re-refinement:** 2026-05-18 (po zakończeniu wszystkich P1)
+**Data re-refinement new scope:** 2026-05-18 (zmiana scope: wyciąć automapowanie po nazwie)
 **Decyzja:** Konsensus zespołu (PO, Tech Lead, Security, QA) — ODŁOŻYĆ DALEJ
-**Kluczowe powody re-refinement:** Pain point nadal niepotwierdzony, estimate zaniżony (12h→20-28h), 5 nowych edge cases po P1
-**Następny krok:** PO zbiera potwierdzenie pain pointu od ≥3 użytkowników (1 tydzień), wtedy re-estimate na XL + re-refine
+**Kluczowe powody re-refinement nowy scope:** Pain point nadal niepotwierdzony, 16-20h na hipotezie = over-investment
+**Następny krok:** PO przeprowadza wywiad z użytkownikami (1 tydzień), spike 4h jako walidacja przed pełnym scope
 
 ---
 
@@ -336,3 +337,68 @@ Wszystkie zadania P1 zostały zakończone. Zespół (PO, Tech Lead, Security, QA
 ### Priorytety alternatywne
 
 **RAO-P2-011 (statystyki po lokalizacji)** — tańsze (S), bezpieczniejsze, mierzalna wartość raportowa. Zalecane przed RAO-P2-012.
+
+---
+
+## Re-Refinement Nowy Scope (2026-05-18 — wycięcie automapowania po nazwie)
+
+### Kontekst
+User decision: wyciąć automapowanie po nazwie, zachować mapowanie produktów z Fakturownia do artykułów (tylko product_id).
+
+### Zmiana scope
+- **WYCINĆ:** Automapowanie pozycji faktury na artykuły RAO po nazwie (fuzzy matching)
+- **ZACHOWAĆ:** Mapowanie produktów (widok mapowania + API + DB tabela fakturownia_product_mapping)
+- **ZACHOWAĆ:** Mapowanie tylko po product_id (deterministyczne, nie po nazwie)
+
+### Nowa estimate
+**16-20h** (z 20-28h) — oszczędność ~6-8h:
+- Security layer: 14h → 9-10h (encryption + SSRF + RBAC wciąż wymagane)
+- Test coverage: 18-22h → 9-11h (edge cases 32 → 19 +3 nowe)
+- Automapowanie po nazwie: wycięte (−6-8h)
+
+### Wyniki re-refinement nowy scope
+
+| Rola | Nowa estimate | Rekomendacja | Kluczowy powód |
+|------|---------------|--------------|----------------|
+| **Tech Lead** | 16-20h | ODŁOŻYĆ DALEJ | P1-012 blocker (triaged), security layer 8-10h z 16-20h |
+| **Product Owner** | ROI nieznany | ODŁOŻYĆ DALEJ | Pain point nadal niepotwierdzony, 16-20h na hipotezie = over-investment |
+| **Security Auditor** | 9-10h security | ODŁOŻYĆ DALEJ | HIGH → MEDIUM-HIGH, encryption + SSRF + RBAC wciąż wymagane |
+| **QA Engineer** | 9-11h tests | ZACZĄĆ TERAZ | Edge cases 32→19, ale wymaga spec UX dla unmapped |
+
+### Kluczowe zmiany
+
+1. **Security impact:** HIGH → MEDIUM-HIGH (9 zagrożeń pozostaje, 3 znikło)
+   - Znikły: XSS przez nazwę, injection przez fuzzy matching, logic bugs silent mismapping
+   - Pozostałe: encryption API tokenu, SSRF, RBAC, IDOR, audit log, rate limiting
+
+2. **Edge cases zredukowane:** 32 → 19 (+3 nowe)
+   - Znikają: fuzzy matching, case sensitivity, polskie znaki, encoding mismatch, duplikaty nazw, Unicode normalization, etc. (−13)
+   - Nowe: product_id zmieniony/usunięty, mapping do skasowanego artykułu, pozycja bez product_id (+3)
+
+3. **Architektura:**
+   - Service layer: jedna ścieżka mapowania zamiast dwóch (`get_article_by_fakturownia_id()`, bez `match_by_name()` fallback)
+   - Import flow: pozycje bez mapowania → "unmapped" bucket → user musi ręcznie zmapować w widoku (deterministyczne, brak "magii")
+   - Widok mapowania: bez zmian (lista produktów z Fakturownia + select articles RAO)
+
+4. **Nowe ryzyka:**
+   - UX friction: każdy nowy produkt w Fakturownia = ręczne mapowanie (akceptowalne)
+   - Orphan mapping: produkt usunięty w Fakturownia → 404 przy sync
+   - P1-012 blocker: status triaged → wymaga sprawdzenia czy nie jest blocker przed startem
+
+### Alternatywy
+
+1. **Spike 4h (PO):** Tylko `GET /fakturownia/invoices?oid=` + wyświetlenie surowych pozycji faktury w panelu rozliczenia (read-only, bez mapowania, bez DB) — walidacja wartości przed pełnym scope
+
+2. **Split 012a + 012b (Tech Lead):**
+   - **RAO-P2-012a (6-8h):** Tabela mapowania + widok CRUD (bez integracji API) — można zrobić niezależnie od P1-012
+   - **RAO-P2-012b (10-12h):** Sync + security (po ukończeniu P1-012)
+
+3. **RAO-P2-011 priorytet:** Statystyki po lokalizacji (S) — tańsze, bezpieczniejsze, mierzalna wartość raportowa
+
+### Warunki do powrotu (zaktualizowane)
+
+- [ ] PO przeprowadza wywiad z 2-3 userami (ile faktur/tydzień? ile minut ręczne wpisywanie?)
+- [ ] Jeśli > 30 min/tydzień/user × 3 userów = ~2h/tydzień → BUDUJ (ROI: ~10 tygodni)
+- [ ] Jeśli < 30 min → ODRZUĆ (RAO-P2-011 lepszy kandydat)
+- [ ] Spike 4h jako walidacja przed pełnym scope (opcjonalne)
+- [ ] P1-012 ma status done (nie triaged) — blocker usunięty
