@@ -2103,13 +2103,14 @@ estimate: 16-20h
   - [ ] Decyzja RBAC: kto może mapować (handlowiec vs admin-only)
   - [ ] Decyzja security: token w .env (MVP spike) vs Fernet w DB (production)
 
-**NOTE (2026-05-18 — DOPRECYZOWANIE UŻYTKOWNIKA):** Decyzja architektoniczna podjęta — 1:1+context (PO), pełne 1:N odrzucone.
+**NOTE (2026-05-18 — DOPRECYZOWANIE UŻYTKOWNIKA):** Decyzja architektoniczna podjęta — 1:N globalny w artykułach (nie osobna tabela mappingu).
 - **Faktury read-only** — tylko wyświetlenie, nie edycja (potwierdzone przez użytkownika)
-- **Mapping 1:1** — produkty z faktury mapowane w artykułach (FA product → RAO article, nie 1:N)
-- **Context umowy** — tylko filtr UI (combobox pokazuje tylko artykuły z tej umowy), nie rozgałęzienie DB
-- **Uzasadnienie użytkownika:** "dana maszyna może być tym samym produktem z punktu widzenia naszej aplikacji" — czyli mapping 1:1 jest wystarczający
-- **Decyzja architektoniczna:** 1:1+context (PO) = WYBRANA, pełne 1:N (Tech Lead) = ODRZUCONE jako over-engineering
-- **Estimate po decyzji:** 17-21h (1:1+context), bez pełnego 1:N (22-26h)
+- **Mapping 1:N** — jeden produkt FA może być do kilku artykułów RAO (konfigurowane z artykułów, powtarzalne)
+- **Konfiguracja w artykułach** — mapping jest bezpośrednio w tabeli articles (pole fakturownia_product_id), nie w osobnej tabeli mappingu
+- **Powtarzalne** — ten sam produkt FA może być użyty na różnych umowach z różnymi artykułami (globalna konfiguracja, nie per umowa)
+- **Uzasadnienie użytkownika:** "jeden produkt w fakturownia może być do kilku artykułów (konfigurowane z artykułów, powtarzalne)"
+- **Decyzja architektoniczna:** 1:N globalny w artykułach = WYBRANY, 1:1+context (PO) = NIEPOPRAWNE, pełne 1:N z resolution cache (Tech Lead) = over-engineering
+- **Estimate po decyzji:** 16-18h (prostsze niż osobna tabela mappingu, bez resolution cache)
 
 **Job-to-be-done:**
 Integracja z systemem fakturowania Fakturownia (publiczne API) w celu automatycznego pobierania kosztów do panelu rozliczenia umowy. Włączenie integracji w ustawieniach, mapowanie produktów, pobieranie faktur po OID i zsumowanie kosztów w rozliczeniu.

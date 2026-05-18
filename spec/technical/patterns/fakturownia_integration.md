@@ -529,65 +529,76 @@ CREATE TABLE IF NOT EXISTS fakturownia_contract_resolution (
 
 ## Decyzja Architektoniczna (2026-05-18 — doprecyzowanie użytkownika)
 
-**Decyzja:** 1:1+context (PO) = WYBRANA, pełne 1:N (Tech Lead) = ODRZUCONE
+**Decyzja:** 1:N globalny w artykułach = WYBRANA, 1:1+context (PO) = NIEPOPRAWNE, pełne 1:N z resolution cache (Tech Lead) = over-engineering
 
 ### Uzasadnienie użytkownika
 - **Faktury read-only** — tylko wyświetlenie, nie edycja
-- **Mapping 1:1** — produkty z faktury mapowane w artykułach (FA product → RAO article, nie 1:N)
-- **Context umowy** — tylko filtr UI (combobox pokazuje tylko artykuły z tej umowy), nie rozgałęzienie DB
-- **Kluczowe stwierdzenie:** "dana maszyna może być tym samym produktem z punktu widzenia naszej aplikacji" — czyli mapping 1:1 jest wystarczający
+- **Mapping 1:N** — jeden produkt FA może być do kilku artykułów RAO (konfigurowane z artykułów, powtarzalne)
+- **Konfiguracja w artykułach** — mapping jest bezpośrednio w tabeli articles (pole fakturownia_product_id), nie w osobnej tabeli mappingu
+- **Powtarzalne** — ten sam produkt FA może być użyty na różnych umowach z różnymi artykułami (globalna konfiguracja, nie per umowa)
+- **Kluczowe stwierdzenie:** "jeden produkt w fakturownia może być do kilku artykułów (konfigurowane z artykułów, powtarzalne)"
 
-### Architektura wybrana (1:1+context)
+### Architektura wybrana (1:N globalny w artykułach)
 
-**Tabela mappingu (1:1, nie 1:N):**
+**Modyfikacja tabeli articles (nie osobna tabela mappingu):**
 ```sql
-CREATE TABLE IF NOT EXISTS fakturownia_product_mapping (
-  id                       INT PRIMARY KEY AUTO_INCREMENT,
-  fakturownia_product_id   BIGINT       NOT NULL UNIQUE,  -- 1:1 (UNIQUE)
-  fakturownia_product_name VARCHAR(255) NOT NULL,
-  article_id               INT          NOT NULL,
-  is_default               BOOLEAN      NOT NULL DEFAULT FALSE,
-  created_at               DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  KEY ix_fa_product (fakturownia_product_id),
-  CONSTRAINT fk_fpm_article FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
-);
+ALTER TABLE articles ADD COLUMN IF NOT EXISTS fakturownia_product_id BIGINT NULL;
+ALTER TABLE articles ADD INDEX IF NOT EXISTS ix_fakturownia_product_id (fakturownia_product_id);
 ```
 
-**Context umowy = tylko filtr UI, nie rozgałęzienie DB:**
-- Backend: `GET /contracts/{id}/fakturownia/invoices` → zwraca pozycje faktury + listę artykułów z tej umowy
-- Frontend: combobox pokazuje **tylko artykuły z tej umowy** (context-aware filtering)
-- Mapping zapisywany jest globalnie 1:1 (FA product → RAO article), ale user widzi tylko te artykuły które są na bieżącej umowie
+**1:N globalny (bez resolution cache):**
+- Jeden produkt FA może być przypisany do wielu artykułów RAO (wiele artykułów ma ten sam fakturownia_product_id)
+- Mapping jest globalny (konfiguracja w articles), nie per umowa
+- Nie ma osobnej tabeli fakturownia_product_mapping — to jest bezpośrednio w articles
+- Nie ma tabeli fakturownia_contract_resolution — to jest over-engineering
+
+**Algorytm mapowania (prosty, bez cache):**
+1. Pobierz pozycje faktury z FA (po OID)
+2. Dla każdej pozycji: znajdź artykuły RAO z tym samym fakturownia_product_id
+3. Filtruj: tylko artykuły z tej umowy (context-aware filtering w UI)
+4. Jeśli 1 artykuł na umowie → auto-mapuj
+5. Jeśli >1 artykułów na umowie → user musi wybrać (unmapped)
+6. Jeśli 0 artykułów na umowie → unmapped (escape hatch "pokaż wszystkie artykuły")
 
 **Przykład:**
-- FA product "Koparka CAT 320" → mapowany do RAO article "Koparka CAT 320" (1:1)
-- Umowa A ma artykuł "Koparka CAT 320" → combobox pokazuje "Koparka CAT 320"
-- Umowa B ma artykuł "Dźwig 40t" → combobox pokazuje "Dźwig 40t" (nawet jeśli FA product "Koparka CAT 320" był mapowany wcześniej)
-- User może wymusić mapping na inny artykuł (escape hatch "pokaż wszystkie")
+- FA product "Paliwo Diesel" → przypisany do artykułów: "Koparka CAT 320", "Dźwig 40t", "Ładowarka" (wszystkie mają fakturownia_product_id = 12345)
+- Umowa A ma "Koparka CAT 320" → combobox pokazuje "Koparka CAT 320" (auto-mapuj)
+- Umowa B ma "Dźwig 40t" + "Ładowarka" → combobox pokazuje obie (user musi wybrać)
+- Umowa C nie ma żadnego z tych artykułów → unmapped (escape hatch)
 
-### Architektura odrzucona (pełne 1:N)
+### Architektura odrzucona (1:1+context PO)
+
+**Powód odrzucenia:** NIEPOPRAWNA dla wymagania "jeden produkt FA → kilka artykułów RAO"
+- UNIQUE na fakturownia_product_id w osobnej tabeli mappingu — blokuje 1:N
+- Context-aware filtering — nie rozwiązuje problemu 1:N globalnego
+
+### Architektura odrzucona (pełne 1:N z resolution cache Tech Lead)
 
 **Powód odrzucenia:** Over-engineering
-- Tabela B: `fakturownia_contract_resolution` (context-aware cache) — NIE POTRZEBNA
+- Tabela fakturownia_product_mapping (słownik kandydatów) — NIE POTRZEBNA (mapping jest w articles)
+- Tabela fakturownia_contract_resolution (context-aware cache) — NIE POTRZEBNA (mapping jest globalny)
 - Algorytm rozstrzygania 5-stopniowy — NIE POTRZEBNY
-- Dodatkowe +5h estimate — NIE UZASADNIONE
 
-**Kiedy pełne 1:N byłby potrzebny:** Gdy ten sam produkt FA musi być mapowany do różnych artykułów RAO **jednocześnie** (np. rozdzielenie kosztów 50/50). To NIE jest wymagane przez użytkownika.
+**Kiedy resolution cache byłby potrzebny:** Gdy ten sam produkt FA musi być mapowany inaczej na tej samej umowie w różnych momentach (np. zmiana decyzji użytkownika w czasie). To NIE jest wymagane — mapping jest globalny i powtarzalny.
 
 ### Estimate po decyzji
 
 | Architektura | Estimate | Status |
 |--------------|----------|--------|
-| 1:1+context (PO) | 17-21h | **WYBRANA** |
-| Pełne 1:N (Tech Lead) | 22-26h | ODRZUCONE |
+| 1:N globalny w artykułach | 16-18h | **WYBRANA** |
+| 1:1+context (PO) | 17-21h | NIEPOPRAWNE |
+| Pełne 1:N z resolution cache (Tech Lead) | 22-26h | Over-engineering |
 
 ### Zaktualizowany plan implementacji (po spike, jeśli pozytywny)
 
-1. **DB:** Tabela `fakturownia_product_mapping` (1:1, UNIQUE na `fakturownia_product_id`)
+1. **DB:**
+   - `ALTER TABLE articles ADD COLUMN fakturownia_product_id BIGINT NULL`
+   - `ALTER TABLE articles ADD INDEX ix_fakturownia_product_id (fakturownia_product_id)`
 2. **Backend:**
    - `GET /fakturownia/invoices?oid=` — read-only fetch faktur
-   - `GET /contracts/{id}/articles` — list artykułów z tej umowy (do filtrowania dropdownu)
-   - `POST /fakturownia/mapping` — zapisanie mappingu 1:1
+   - `GET /articles?fakturownia_product_id=` — list artykułów z tym produktem FA (do filtrowania dropdownu)
+   - `PUT /articles/{id}/fakturownia_product_id` — aktualizacja mappingu w artykule
 3. **Frontend:**
    - Panel rozliczenia: guzik "Pokaż faktury z FA" → lista pozycji read-only z FA
    - Sekcja "Pozycje niezmapowane" → combobox z artykułami z tej umowy (context-aware filtering)
-   - Mapping zapisywany do DB (globalnie 1:1)
+   - Mapping konfigurowane w edycji artykułu (pole fakturownia_product_id w ArticleFormView)
