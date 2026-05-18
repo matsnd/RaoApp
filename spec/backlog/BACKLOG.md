@@ -830,6 +830,60 @@ Naprawić format dokumentu "Ogólne Warunki Najmu" (OWN) tak, aby mieścił się
 
 ---
 
+### [RAO-P1-022] Pełna integracja pieczątek z Vision AI i programowym wyciąganiem z PDF
+
+```yaml
+id: RAO-P1-022
+priority: P1
+size: L
+status: done
+classification: cross-stack
+roles: [backend-dev, frontend-dev, tech-lead]
+depends_on: []
+blocks: []
+source: client
+source_date: 2026-05-18
+specs_to_update:
+  - core/11_reports_stats.md
+  - core/07_integrations.md
+migration_impact: yes
+security_impact: low
+```
+
+**Job-to-be-done:**
+Pełna integracja pieczątek firmowych w dokumentach (umowy, protokoły, OWN) z użyciem Vision AI do analizy referencyjnych PDF i programowego wyciągania pieczątek z plików wektorowych PDF.
+
+**Acceptance criteria (DoD):**
+- [ ] Analiza referencyjnych PDF z `spec/archive/reference_reports/` (umowy, protokoły, OWN) przez Vision AI (rao-vision)
+- [ ] Vision AI opisuje dokładnie pozycję, rozmiar, format i zawartość pieczątek
+- [ ] Programowe wyciągnięcie pieczątek z PDF (biblioteka: pdfplumber/fitz/wand - test na Windows)
+- [ ] Ekstrakcja pieczątek jako base64 lub asset files
+- [ ] Integracja pieczątek w contract.html, protocol_zo.html, OWN
+- [ ] Identyczny wygląd do oryginału (pozycja, rozmiar, przezroczystość)
+- [ ] Test E2E: wygenerowany PDF pasuje do referencyjnego
+- [ ] `core/11_reports_stats.md` i `core/07_integrations.md` zaktualizowane
+
+**Technical notes:**
+- Reference PDFs: `spec/archive/reference_reports/`
+  - `S129_2026_own (1).pdf` - umowa z OWN
+  - `S130_2026G_own (1).pdf` - umowa z OWN
+  - `own/ownA.pdf` - OWN dla A
+  - `own/ownU.pdf` - OWN dla U
+  - `PZO_S129_2026 (1).pdf` - protokół
+  - `PZO_S130_2026G (1).pdf` - protokół
+- Vision AI server: rao-vision MCP (tools: analyze_screenshot, screenshot_and_analyze)
+- PDF extraction: pdfplumber/fitz/wand - test które działa na Windows
+- Pieczątki mogą być wektorowe (XObject) lub rasterowe (JPEG/PNG)
+
+**QA DoD:**
+- [ ] Wizualne porównanie wygenerowanych PDF z referencyjnymi (pieczątki w tym samym miejscu)
+- [ ] Smoke test `01-login.spec.ts` PASS
+
+**Pliki do zmiany:** `backend/reports/templates/*.html`, `backend/reports/assets/` (nowy), `backend/reports/service.py`
+**ROI:** Feature parity - klient wymaga pieczątek w dokumentach prawnych
+**Estimate:** 8h (L)
+---
+
 ### [RAO-P1-016] Rozszerzenie sekcji "Uwagi" w umowie o brakujące pola (#5)
 
 ```yaml

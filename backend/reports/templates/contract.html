@@ -66,19 +66,19 @@
   .uwagi-content p { font-size: 9px; line-height: 1.4; margin: 4px 0; }
   .uwagi-content strong { font-weight: 600; }
 
-  /* OWN */
-  .own-page { page-break-before: always; font-size: 8.5px; line-height: 1.45; padding: 10px 14mm; }
-  .own-title { font-size: 13px; font-weight: bold; text-align: center; margin-bottom: 6px; }
-  .own-par { font-size: 10px; font-weight: bold; text-align: center; margin: 8px 0 1px; }
-  .own-sub { font-weight: bold; text-align: center; font-size: 9px; margin: 0 0 5px; }
-  .own-cols { display: flex; gap: 14px; }
-  .own-col-left { flex: 1; }
-  .own-col-right { flex: 1; }
+  /* OWN - 1:1 match z referencyjnym ownA.pdf */
+  .own-page { page-break-before: always; font-family: 'Times New Roman', Times, serif; font-size: 9pt; line-height: 1.2; padding: 35px 40px 60px 40px; }
+  .own-title { font-family: 'Times New Roman', Times, serif; font-size: 14pt; font-weight: bold; text-align: center; margin-bottom: 8px; }
+  .own-par { font-family: 'Times New Roman', Times, serif; font-size: 11pt; font-weight: bold; text-align: center; margin: 12px 0 1px; }
+  .own-sub { font-family: 'Times New Roman', Times, serif; font-weight: bold; text-align: center; font-size: 10pt; margin: 0 0 6px; }
+  .own-cols { display: flex; gap: 15px; }
+  .own-col-left { flex: 1; min-width: 0; }
+  .own-col-right { flex: 1; min-width: 0; }
   .own-page-break { page-break-before: always; }
-  p.ot { margin: 0 0 4px; text-align: justify; }
-  .own-sig-row { margin-top: 16px; overflow: hidden; clear: both; page-break-inside: avoid; }
+  p.ot { font-family: 'Times New Roman', Times, serif; font-size: 8pt; margin: 0 0 4px; text-align: justify; }
+  .own-sig-row { margin-top: 20px; overflow: hidden; clear: both; page-break-inside: avoid; }
   .own-sig-cell { float: left; width: 50%; text-align: center; }
-  .own-sig-line { display: inline-block; border-top: 1px solid #000; width: 180px; padding-top: 3px; font-size: 8px; }
+  .own-sig-line { display: inline-block; border-top: 1px solid #000; width: 150px; padding-top: 2px; font-family: 'Times New Roman', Times, serif; font-size: 8pt; }
 </style>
 </head>
 <body>
@@ -351,7 +351,10 @@
 
   <div class="own-sig-row">
     <div class="own-sig-cell">
-      <div style="text-align:center;margin-top:20px;"><div class="own-sig-line">Czytelny podpis Wynajmującego</div></div>
+      <div style="text-align:center;">
+        <img src="file:///C:/projects/repos/RaoApp/backend/reports/assets/company_stamp.jpg" alt="Pieczątka firmy" style="width:220px;height:85px;object-fit:contain;margin-bottom:20px;">
+        <div class="own-sig-line">Czytelny podpis Wynajmującego</div>
+      </div>
     </div>
     <div class="own-sig-cell">
       <div style="text-align:center;margin-top:60px;"><div class="own-sig-line">Czytelny podpis Najemcy</div></div>

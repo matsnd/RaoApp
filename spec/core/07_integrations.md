@@ -403,5 +403,88 @@ class EmailRequest(BaseModel):
     attachment_path: str | None = None
 ```
 
+---
+
+## 5. Vision AI (RAO-Vision MCP) i PDF Extraction (RAO-P1-022)
+
+### 5.1 Vision AI Server (rao-vision MCP)
+
+**Cel:** Analiza wizualna referencyjnych PDF i screenshotów UI dla 1:1 rekonstrukcji layoutu.
+
+**Dostępne tools:**
+- `analyze_screenshot(image_path, question)` — analiza screenshotu PNG/JPG przez Claude Vision
+- `screenshot_and_analyze(url, question, output_path)` — screenshot URL przez Playwright + analiza
+
+**Użycie:**
+```python
+from mcp_call_tool import mcp_call_tool
+
+result = mcp_call_tool(
+    server_name="rao-vision",
+    tool_name="analyze_screenshot",
+    arguments={
+        "image_path": "C:/projects/repos/RaoApp/backend/pdf_screenshots/ownA_p2.png",
+        "question": "Opisz dokładnie pozycję pieczątki: X/Y, wymiary, format, zawartość tekstową"
+    }
+)
+```
+
+**Kiedy używać:**
+- Tylko gdy weryfikacja programatyczna niemożliwa (layout, spacing, kolory, animacje)
+- Priorytet: programatyczna (darmowa) → vision (kosztowna)
+- Max 1 screenshot na zadanie
+
+### 5.2 PDF Extraction (fitz/PyMuPDF)
+
+**Cel:** Programowe wyciąganie obrazów (pieczątek) z referencyjnych PDF.
+
+**Biblioteka:** fitz (PyMuPDF) — działa na Windows, Linux, macOS.
+
+**Implementacja:**
+```python
+import fitz
+
+def extract_images_from_pdf(pdf_path, output_dir):
+    doc = fitz.open(pdf_path)
+    for page_num in range(len(doc)):
+        page = doc[page_num]
+        image_list = page.get_images(full=True)
+        for img_index, img in enumerate(image_list):
+            xref = img[0]
+            base_image = doc.extract_image(xref)
+            image_bytes = base_image["image"]
+            image_ext = base_image["ext"]
+            # Zapisz jako plik
+            with open(f"{output_dir}/page{page_num+1}_img{img_index+1}.{image_ext}", "wb") as f:
+                f.write(image_bytes)
+            # Zapisz jako base64
+            with open(f"{output_dir}/page{page_num+1}_img{img_index+1}.{image_ext}.b64.txt", "w") as f:
+                f.write(base64.b64encode(image_bytes).decode('utf-8'))
+    doc.close()
+```
+
+**RAO-P1-022 - Pełna integracja pieczątek:**
+- Wyekstrahowano 10 obrazów z 6 referencyjnych PDF
+- Pieczątka firmowa: JPEG 12275 bytes, zawartość:
+  ```
+  Toolsmart Sp. z o.o.
+  ul. Kłobucka 6B/103, 02-699 Warszawa
+  NIP 9512598092, Regon 528847142
+  KRS 0001109942
+  ```
+- Zapisano w `backend/reports/assets/company_stamp.jpg`
+- Zintegrowano w 5 template HTML (contract.html, contract_u.html, protocol_zo.html, protocol_zo_u.html, protocol_zo_nodata_u.html)
+- Użyto `file://` URI dla WeasyPrint (absolute path)
+- Wymiary: 220x85px (OWN), 180x70px (protokoły)
+- Weryfikacja: PDF zawiera pieczątkę na wszystkich stronach (12157 bytes vs 12275 oryginału)
+
+**Reference PDFs:**
+- `spec/archive/reference_reports/own/ownA.pdf` — OWN dla najmu
+- `spec/archive/reference_reports/own/ownU.pdf` — OWN dla usług
+- `spec/archive/reference_reports/S129_2026_own (1).pdf` — Umowa z OWN
+- `spec/archive/reference_reports/S130_2026G_own (1).pdf` — Umowa z OWN
+- `spec/archive/reference_reports/PZO_S129_2026 (1).pdf` — Protokół
+- `spec/archive/reference_reports/PZO_S130_2026G (1).pdf` — Protokół
+
 Implementacja z `smtplib` lub usługą zewnętrzną (SendGrid/Mailgun). Wymaga konfiguracji SMTP w `.env`.
 W MVP: generowanie PDF + otwarcie `mailto:` link w przeglądarce (jak WinForms).

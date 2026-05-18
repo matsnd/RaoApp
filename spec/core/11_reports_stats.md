@@ -98,6 +98,36 @@ Do obu wariantów umowy dodana została sekcja `Uwagi` umieszczona **przed podpi
 
 ### 1.6 Font dokumentów — Montserrat (RAO-P1-015 scope-cut)
 
+### 1.7 Pieczątki firmowe w dokumentach (RAO-P1-022)
+
+Wszystkie dokumenty PDF (umowy, protokoły, OWN) zawierają pieczątkę firmową Toolsmart Sp. z o.o. w sekcjach podpisów Wynajmującego.
+
+**Lokalizacja pieczątki:**
+- `backend/reports/assets/company_stamp.jpg` — plik z pieczątką (JPEG, 12275 bytes)
+- Wyekstrahowany z referencyjnych PDF z `spec/archive/reference_reports/` używając fitz (PyMuPDF)
+
+**Integracja w szablonach:**
+- `contract.html` — Umowa Najmu (sekcja OWN podpisów)
+- `contract_u.html` — Umowa Usługi (sekcja podpisów umowy + OWN)
+- `protocol_zo.html` — Protokół Najmu (dwie sekcje podpisów: wydanie + zwrot)
+- `protocol_zo_u.html` — Protokół Usługi (dwie sekcje podpisów: wydanie + zwrot)
+- `protocol_zo_nodata_u.html` — Protokół Usługi bez cen (dwie sekcje podpisów)
+
+**Implementacja:**
+- Pieczątka wstawiana przez `<img>` tag z `file://` URI (absolute path)
+- Wymiary: 220x85px dla OWN (contract.html), 180x70px dla protokołów
+- Pozycja: nad linią podpisu "Czytelny podpis Wynajmującego"
+- CSS 1:1 z referencyjnym ownA.pdf: Times New Roman, line-height 1.2, margines 40px
+
+**Metoda ekstrakcji:**
+- Biblioteka: fitz (PyMuPDF) — działa na Windows
+- Skrypt: `backend/test_pdf_extraction.py` — wyekstrahował 10 obrazów z 6 referencyjnych PDF
+- Vision AI: rao-vision MCP — przeanalizował pozycje i wymiary pieczątek
+
+**Weryfikacja:**
+- Wygenerowany PDF zawiera pieczątkę na wszystkich stronach (12157 bytes vs 12275 bytes oryginału)
+- Test: `curl` endpoint + `fitz.open()` do sprawdzenia obrazów w PDF
+
 Font we wszystkich szablonach PDF zmieniony z Roboto na Montserrat dla spójności
 z design systemem Toolsmart.
 
