@@ -2200,7 +2200,7 @@ Integracja z systemem fakturowania Fakturownia (publiczne API) w celu automatycz
 id: RAO-P2-013
 priority: P2
 size: XL
-status: todo
+status: done
 classification: qa
 roles: [qa-engineer, frontend-dev, backend-dev]
 depends_on: []
@@ -2213,6 +2213,14 @@ migration_impact: no
 security_impact: low
 estimate: 16-20h
 ```
+
+**NOTE (2026-05-18):** ZAIMPLEMENTOWANE pełne pokrycie E2E.
+- **Test coverage:** 97 testów (78/78 PASS = 100%, 19 skipped jako documented bugs)
+- **Pliki:** Rozszerzone 01-05.spec.ts, nowe 06-dashboard.spec.ts, 07-reports.spec.ts, 08-auth-security.spec.ts
+- **Smoke regression:** 01-login.spec.ts 11/11 PASS ✅
+- **Bugs znalezione:** 7 (1 P0 RAO-QA-002 blokujący 12 testów)
+- **Cleanup:** afterAll API dla wszystkich spec files
+- **Commit:** 8c9a5eb
 
 **Job-to-be-done:**
 Obecne testy E2E (pliki `01–05`) pokrywają tylko happy path podstawowych flow. Brakuje scenariuszy negatywnych, edge case'ów, widoków raportów, dashboardu i statystyk. Zadanie polega na rozszerzeniu suity Playwright tak, żeby każdy use case aplikacji miał przynajmniej jeden test happy path ORAZ jeden test ścieżki negatywnej.
@@ -2813,7 +2821,7 @@ n|| RAO-P1-008 | Strukturalizacja adresów: kod pocztowy + miasto | Client | P1 
 || RAO-P2-010 | Filtrowanie pozycji umowy typ | Client | P2 | S | done | cross-stack |
 || RAO-P2-011 | Statystyki po lokalizacji | Client | P2 | S | todo | cross-stack |
 || RAO-P2-012 | Integracja Fakturownia — automatyczne koszty | Client | P2 | L | done | cross-stack |
-|| RAO-P2-013 | Pełne pokrycie E2E — wszystkie use case'y | Internal | P2 | XL | todo | qa-engineer |
+|| RAO-P2-013 | Pełne pokrycie E2E — wszystkie use case'y | Internal | P2 | XL | done | qa-engineer |
 || RAO-P2-014 | Weryfikacja kodu vs. spec i backlog | Internal | P2 | M | todo | tech-lead |
 || RAO-P3-001 | Drag & drop reorder szablonów | Internal | P3 | M | todo | frontend-dev |
 || RAO-P3-002 | Upload logo firmy | Internal | P3 | M | todo | cross-stack |
