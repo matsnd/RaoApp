@@ -54,6 +54,7 @@ import articles.models     # noqa
 import contracts.models    # noqa
 import settings.models     # noqa
 import categories.models   # noqa
+import integrations.models # noqa
 
 
 def generate_temp_password(length: int = 16) -> str:
@@ -1074,8 +1075,11 @@ async def verify():
 async def step9_postal_codes_migration():
     """RAO-P1-008: Extract postal_code + city from delivery_address, seed postal_codes table."""
     import re
-    
+
     print("[9/9] RAO-P1-008: Strukturalizacja adresów (postal_code + city) ...")
+
+    conn = await aiomysql.connect(host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASS, db=DB_NAME)
+    cur = await conn.cursor()
     
     # 9.1 Seed postal_codes table from CSV
     csv_path = os.path.join(project_root, "backend", "data", "postal_codes.csv")
@@ -1154,6 +1158,9 @@ async def step9_postal_codes_migration():
     print(f"   Updated {updated}/{len(rows)} contracts with postal_code")
     print(f"   Coverage: {with_code}/{with_address} ({with_code*100//with_address if with_address else 0}%)")
     print("   OK")
+
+    await cur.close()
+    conn.close()
 
 
 async def main():
