@@ -1243,7 +1243,7 @@ Dodać walidację sumy kontrolnej NIP przy tworzeniu/edycji kontrahenta.
 id: RAO-P2-004
 priority: P2
 size: S
-status: todo
+status: done
 classification: frontend
 roles: [frontend-dev]
 depends_on: []
@@ -1260,9 +1260,9 @@ security_impact: low
 Dodać przycisk "Duplikuj" w pickerze artykułów (modal w ContractFormView).
 
 **Acceptance criteria (DoD):**
-- [ ] Przycisk "Duplikuj" w ArticlePicker modal
-- [ ] Wywołuje `articleStore.duplicate(id)`
-- [ ] Reload listy po duplikacji
+- [x] Przycisk "Duplikuj" w ArticlePicker modal - już istnieje line 543
+- [x] Wywołuje `articleStore.duplicate(id)` - funkcja duplicateArticle() line 970
+- [x] Reload listy po duplikacji - implementacja w duplicateArticle()
 - [ ] `core/03_frontend_screens.md` zaktualizowany
 
 **Pliki do zmiany:** `ContractFormView.vue`
