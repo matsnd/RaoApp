@@ -307,6 +307,43 @@
               </div>
             </div>
 
+            <!-- Fakturownia tab -->
+            <div v-if="activeTab === 'fakturownia'">
+              <div v-if="fakturowniaStore.loading" class="empty-state">Ładowanie...</div>
+              <div v-else>
+                <div class="form-group" style="margin-bottom:16px;">
+                  <label class="form-label" style="display:flex;align-items:center;gap:8px;">
+                    <input type="checkbox" v-model="fakturowniaForm.enabled" />
+                    Włącz integrację Fakturownia
+                  </label>
+                </div>
+
+                <div class="form-group" style="margin-bottom:16px;">
+                  <label class="form-label">Subdomena Fakturownia</label>
+                  <input v-model="fakturowniaForm.domain_subdomain" type="text" class="form-control" placeholder="np. toolsmart" />
+                  <small style="color:var(--color-text-body);">Pełny URL: {{ fakturowniaForm.domain_subdomain }}.fakturownia.pl</small>
+                </div>
+
+                <div class="form-group" style="margin-bottom:16px;">
+                  <label class="form-label">API Token</label>
+                  <input v-model="fakturowniaForm.api_token" type="password" class="form-control" placeholder="Wklej token API" />
+                  <div v-if="fakturowniaStore.settings?.api_token_preview" style="font-size:12px;color:var(--color-text-body);margin-top:4px;">
+                    Aktualny token: {{ fakturowniaStore.settings.api_token_preview }}
+                  </div>
+                </div>
+
+                <div style="margin-top:16px;">
+                  <button class="btn btn-primary" @click="saveFakturowniaSettings" :disabled="fakturowniaStore.loading">
+                    {{ fakturowniaStore.loading ? '...' : 'Zapisz ustawienia' }}
+                  </button>
+                </div>
+
+                <div v-if="fakturowniaStore.error" style="color:var(--color-danger);margin-top:12px;padding:8px;background:#FED7D7;border-radius:6px;">
+                  {{ fakturowniaStore.error }}
+                </div>
+              </div>
+            </div>
+
 
           </div>
         </div>
@@ -319,10 +356,12 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useSettingsStore } from '@/stores/settings'
 import { useArticleStore } from '@/stores/articles'
+import { useFakturowniaStore } from '@/stores/fakturownia'
 import api from '@/composables/useApi'
 
 const settingsStore = useSettingsStore()
 const articleStore = useArticleStore()
+const fakturowniaStore = useFakturowniaStore()
 
 const activeTab = ref('company')
 const tabs = [
@@ -331,6 +370,7 @@ const tabs = [
   { id: 'categories', label: 'Kategorie' },
   { id: 'rate-types', label: 'Typy stawek' },
   { id: 'fee-presets', label: 'Zestawy usług' },
+  { id: 'fakturownia', label: 'Fakturownia' },
 ]
 
 const currentTabLabel = computed(() => tabs.find(t => t.id === activeTab.value)?.label || '')
@@ -338,6 +378,9 @@ const currentTabLabel = computed(() => tabs.find(t => t.id === activeTab.value)?
 const companyForm = ref({ name: '', name_short: '', nip: '', regon: '', postal_code: '', city: '', street: '', bank_name: '', bank_account: '', numbering_start: 1, increment_step: 50, header_text: '' })
 const savingCompany = ref(false)
 const companySaved = ref(false)
+
+const fakturowniaForm = ref({ enabled: false, domain_subdomain: '', api_token: '' })
+const savingFakturownia = ref(false)
 
 const newSp = ref({ name: '', phone: '', commission_rate: null })
 const newCat = ref({ name: '', code: '', description: '' })
@@ -568,6 +611,37 @@ async function saveEditRt() {
   await settingsStore.updateRateType(editingRtId.value, editingRtData.value)
   editingRtId.value = null
 }
+
+// Fakturownia settings
+async function fetchFakturowniaSettings() {
+  await fakturowniaStore.fetchSettings()
+  if (fakturowniaStore.settings) {
+    fakturowniaForm.value = {
+      enabled: fakturowniaStore.settings.enabled,
+      domain_subdomain: fakturowniaStore.settings.domain_subdomain || '',
+      api_token: ''
+    }
+  }
+}
+
+async function saveFakturowniaSettings() {
+  savingFakturownia.value = true
+  try {
+    await fakturowniaStore.updateSettings(fakturowniaForm.value)
+    alert('Ustawienia Fakturownia zapisane')
+  } catch (e: any) {
+    // Error already handled in store
+  } finally {
+    savingFakturownia.value = false
+  }
+}
+
+// Watch tab change to fetch Fakturownia settings when tab activated
+watch(activeTab, async (newTab) => {
+  if (newTab === 'fakturownia') {
+    await fetchFakturowniaSettings()
+  }
+})
 </script>
 
 <style scoped>

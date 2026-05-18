@@ -6,7 +6,7 @@
       <button v-if="isEdit" class="toolbar-btn" title="Drukuj PDF" @click="generateReport('contract')">⎙</button>
       <button v-if="isEdit" class="toolbar-btn" title="Protokół ZO" @click="generateReport('protocol_zo')">📄</button>
       <button v-if="isEdit" class="toolbar-btn" title="Przelicz wartość" @click="recalcTotal">∑</button>
-      <button v-if="isEdit" class="toolbar-btn" title="Pobierz koszty z Fakturownia (mock data)" @click="handleFakturownia">💰</button>
+      <button v-if="isEdit" class="toolbar-btn" title="Pobierz koszty z Fakturownia" @click="handleFakturownia">💰</button>
       <button class="btn btn-primary btn-sm" @click="handleSave" :disabled="saving">
         {{ saving ? '...' : 'Zapisz' }}
       </button>
@@ -29,6 +29,10 @@
             <div class="form-group">
               <label class="form-label">Numer umowy</label>
               <input :value="contractStore.current?.number || '(auto)'" type="text" class="form-control" disabled />
+            </div>
+            <div class="form-group">
+              <label class="form-label">OID (zamówienie Fakturownia)</label>
+              <input v-model="form.oid" type="text" class="form-control" placeholder="np. 12345" />
             </div>
             <div class="form-group">
               <label class="form-label">Data od</label>
@@ -673,6 +677,7 @@ const form = ref({
   contact_person1: '', contact_phone1: '', show_person1: true,
   contact_person2: '', contact_phone2: '', show_person2: true,
   email: '', phone: '', contractor_name: '', working_days_per_week: 6, report_without_data: false, hide_delivery_address: false, signatures_on_page1: false,
+  oid: '',
 })
 
 const remainingValue = computed(() => {
@@ -892,17 +897,17 @@ const fakturowniaStore = useFakturowniaStore()
 
 async function handleFakturownia() {
   if (!isEdit.value) return
-  const oid = contractStore.current?.oid || 'TEST123'
+  if (!contractStore.current?.id) return
   try {
-    await fakturowniaStore.fetchInvoicesByOid(oid)
+    await fakturowniaStore.fetchInvoicesByContractId(contractStore.current.id)
     if (fakturowniaStore.invoices.length > 0) {
       const total = fakturowniaStore.invoices.reduce((sum, inv) => sum + inv.total_net, 0)
-      alert(`Mock data: Pobrano ${fakturowniaStore.invoices.length} faktur o łącznej kwocie ${total.toFixed(2)} zł`)
+      alert(`Pobrano ${fakturowniaStore.invoices.length} faktur o łącznej kwocie ${total.toFixed(2)} zł`)
     } else {
-      alert('Mock data: Brak faktur dla tego OID')
+      alert('Brak faktur dla tej umowy')
     }
-  } catch (e) {
-    alert('Błąd pobierania faktur z Fakturownia (mock)')
+  } catch (e: any) {
+    alert(e.response?.data?.detail || 'Błąd pobierania faktur z Fakturownia')
   }
 }
 
