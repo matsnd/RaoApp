@@ -13,6 +13,7 @@ from integrations.router import router as integrations_router
 from stats.router import router as stats_router
 from explorer.router import router as explorer_router
 from database import engine, Base
+import integrations.models  # RAO-P1-008
 
 app = FastAPI(
     title="RAO API",
@@ -86,6 +87,15 @@ async def startup_migrations():
             "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
             "technical_attributes JSON NULL"
         ))
+        # RAO-P1-008: strukturalizacja adresów - kod pocztowy + miasto
+        await conn.execute(sa.text(
+            "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
+            "postal_code VARCHAR(20) NULL"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
+            "city VARCHAR(100) NULL"
+        ))
         # service_fee_template_items utworzone przez Base.metadata.create_all (nowa tabela)
 
     # FK + index dodawane w osobnych transakcjach (MariaDB nie wspiera ADD CONSTRAINT IF NOT EXISTS / CREATE INDEX IF NOT EXISTS)
@@ -99,6 +109,9 @@ async def startup_migrations():
         "CREATE INDEX idx_categories_parent ON categories(parent_id)",
         "CREATE INDEX idx_articles_category_main ON articles(category_main)",
         "CREATE INDEX idx_articles_archival ON articles(is_archival)",
+        # RAO-P1-008: indeksy dla strukturalizacji adresów
+        "CREATE INDEX idx_contracts_postal_code ON contracts(postal_code)",
+        "CREATE INDEX idx_contracts_city ON contracts(city)",
     ]:
         try:
             async with engine.begin() as conn2:

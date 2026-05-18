@@ -442,7 +442,7 @@ Ulepsz funkcję ekstrakcji miast z wielolinijkowych adresów dostawy dla spójny
 id: RAO-P1-008
 priority: P1
 size: L
-status: triaged
+status: in_progress
 classification: cross-stack
 roles: [db-architect, backend-dev, frontend-dev]
 depends_on: []

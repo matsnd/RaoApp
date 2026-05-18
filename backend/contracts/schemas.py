@@ -1,7 +1,21 @@
 from datetime import datetime, date
 from decimal import Decimal
-from typing import Literal
+from typing import Literal, Annotated
 from pydantic import BaseModel, Field
+
+
+PostalCode = Annotated[str, Field(
+    pattern=r"^\d{2}-\d{3}$",
+    min_length=6,
+    max_length=6,
+    examples=["00-001"],
+)]
+
+CityName = Annotated[str, Field(
+    min_length=1,
+    max_length=100,
+    pattern=r"^[A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż0-9 \-\.\']+$",
+)]
 
 
 class ConditionResponse(BaseModel):
@@ -105,6 +119,8 @@ class ContractListItem(BaseModel):
     contract_type: str
     type_label: str
     delivery_address: str | None
+    postal_code: str | None
+    city: str | None
     date_from: date | None
     date_to: date | None
     total_value: Decimal | None
@@ -135,6 +151,8 @@ class ContractDetail(BaseModel):
     auto_number: int | None
     contract_type: str
     delivery_address: str | None
+    postal_code: str | None
+    city: str | None
     date_from: date | None
     date_to: date | None
     total_value: Decimal | None
@@ -169,6 +187,8 @@ class ContractCreate(BaseModel):
     salesperson_id: int | None = None
     contract_type: Literal["S", "U"] = "S"
     delivery_address: str | None = None
+    postal_code: PostalCode | None = None
+    city: CityName | None = None
     date_from: date | None = None
     date_to: date | None = None
     total_value: Decimal = Decimal("0.00")

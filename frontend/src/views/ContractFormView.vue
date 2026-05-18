@@ -56,7 +56,9 @@
                     {{ addr.name || addr.city }} — {{ addr.street || '' }} {{ addr.postal_code || '' }}
                   </option>
                 </select>
-                <textarea v-model="form.delivery_address" class="form-control" style="flex:1;" rows="3"></textarea>
+                <input v-model="form.postal_code" @blur="onPostalCodeBlur" class="form-control" placeholder="00-000" style="flex:1;" maxlength="6" />
+                <input v-model="form.city" class="form-control" placeholder="Miasto" style="flex:1;" />
+                <textarea v-model="form.delivery_address" class="form-control" style="flex:1;" rows="2" placeholder="Uwagi dojazdowe (opcjonalnie)"></textarea>
               </div>
             </div>
           </div>
@@ -606,7 +608,7 @@ const selectedPosId = ref(null)
 
 const form = ref({
   contractor_id: null, branch_id: null, salesperson_id: null,
-  contract_type: 'S', delivery_address: '', date_from: '', date_to: '',
+  contract_type: 'S', delivery_address: '', postal_code: '', city: '', date_from: '', date_to: '',
   total_value: 0, prepayment_amount: 0, prepayment_document: '',
   invoice_amount: 0, invoice_document: '', notes: '',
   contact_person1: '', contact_phone1: '', show_person1: true,
@@ -628,6 +630,25 @@ const selectedAddressId = ref(null)
 const showContractorPicker = ref(false)
 const pickerSearch = ref('')
 const pickerList = ref([])
+
+// RAO-P1-008: Auto-fill city from postal code
+const onPostalCodeBlur = async () => {
+  const code = form.value.postal_code.trim()
+  if (!code || code.length !== 6) return
+  
+  try {
+    const token = localStorage.getItem('token')
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/integrations/postal-codes/${code}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    if (response.ok) {
+      const data = await response.json()
+      form.value.city = data.city
+    }
+  } catch (error) {
+    console.warn('Postal code lookup failed:', error)
+  }
+}
 
 const showPosModal = ref(false)
 const editingPos = ref(null)

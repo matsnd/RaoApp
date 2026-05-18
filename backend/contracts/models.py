@@ -15,6 +15,8 @@ class Contract(Base):
     auto_number = Column(Integer, nullable=True)
     contract_type = Column(String(1), nullable=False, default="S")
     delivery_address = Column(Text, nullable=True)
+    postal_code = Column(String(20), nullable=True)
+    city = Column(String(100), nullable=True)
     date_from = Column(Date, nullable=True)
     date_to = Column(Date, nullable=True)
     total_value = Column(Numeric(18, 2), nullable=True, default=0)

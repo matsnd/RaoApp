@@ -137,6 +137,8 @@ class ContractService:
                 contract_type=c.contract_type,
                 type_label="Umowa najmu" if c.contract_type == "S" else "Umowa usługi",
                 delivery_address=c.delivery_address,
+                postal_code=c.postal_code,
+                city=c.city,
                 date_from=c.date_from, date_to=c.date_to,
                 total_value=c.total_value, prepayment_amount=c.prepayment_amount,
                 invoice_amount=c.invoice_amount, notes=c.notes, email=c.email,

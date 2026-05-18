@@ -413,17 +413,17 @@ async def locations(
     df, dt = _default_dates(date_from, date_to)
     all_pos = await _compute_position_revenues(db, df, dt)
 
-    # Get contractor cities
-    contractor_ids = set(p["contractor_id"] for p in all_pos if p["contractor_id"])
+    # Get contract cities (RAO-P1-008: changed from Contractor.city to Contract.city)
+    contract_ids = set(p["contract_id"] for p in all_pos if p["contract_id"])
     city_map = {}
-    if contractor_ids:
+    if contract_ids:
         city_q = await db.execute(
-            select(Contractor.id, Contractor.city)
+            select(Contract.id, Contract.city)
             .where(
                 and_(
-                    Contractor.id.in_(contractor_ids),
-                    Contractor.city.isnot(None),
-                    Contractor.city != "",
+                    Contract.id.in_(contract_ids),
+                    Contract.city.isnot(None),
+                    Contract.city != "",
                 )
             )
         )
@@ -432,7 +432,7 @@ async def locations(
     # Aggregate by city
     agg = defaultdict(lambda: {"cnt": 0, "rev": Decimal(0), "contracts": set()})
     for p in all_pos:
-        city = city_map.get(p["contractor_id"])
+        city = city_map.get(p["contract_id"])
         if not city:
             continue
         agg[city]["rev"] += p["revenue"]

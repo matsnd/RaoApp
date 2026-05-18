@@ -1,9 +1,15 @@
 from decimal import Decimal
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from typing import Annotated
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from auth.dependencies import get_current_user
 from auth.models import User
+from database import AsyncSessionLocal
+
+PostalCodeType = Annotated[str, "Postal code in format XX-XXX"]
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
 
@@ -28,6 +34,12 @@ class ReverseGeocodeResponse(BaseModel):
     neighbourhood: str | None = None
 
 
+class PostalCodeLookupResponse(BaseModel):
+    code: str
+    city: str
+    voivodeship: str | None = None
+
+
 @router.post("/reverse-geocode", response_model=ReverseGeocodeResponse)
 async def reverse_geocode(
     data: ReverseGeocodeRequest,
@@ -49,3 +61,28 @@ async def reverse_geocode(
         district=addr.get("district"),
         neighbourhood=addr.get("neighbourhood"),
     )
+
+
+@router.get("/postal-codes/{code}", response_model=PostalCodeLookupResponse)
+async def lookup_postal_code(
+    code: str,
+    _: User = Depends(get_current_user),
+):
+    """Lookup city by postal code from dictionary (RAO-P1-008)."""
+    import re
+    if not re.match(r"^\d{2}-\d{3}$", code):
+        raise HTTPException(status_code=422, detail="Invalid postal code format. Expected XX-XXX")
+    
+    async with AsyncSessionLocal() as db:
+        from integrations.models import PostalCode
+        result = await db.execute(
+            select(PostalCode).where(PostalCode.code == code).limit(1)
+        )
+        postal = result.scalar_one_or_none()
+        if not postal:
+            raise HTTPException(status_code=404, detail="Postal code not found in dictionary")
+        return PostalCodeLookupResponse(
+            code=postal.code,
+            city=postal.city,
+            voivodeship=postal.voivodeship,
+        )
