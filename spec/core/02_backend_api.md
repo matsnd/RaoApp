@@ -1190,15 +1190,15 @@ Response: `CurrentlyRentedResponse` (items zawierają `category_main` — RAO-P1
 Filtr: domyślnie `is_archival=FALSE`
 
 ### `GET /stats/additional-fees`
-Query: `?date_from&date_to`
+Query: `?date_from&date_to&internal_number=<str>` (RAO-P2-008)
 Response: `AdditionalFeesResponse`
 
 ### `GET /stats/locations`
-Query: `?date_from&date_to`
+Query: `?date_from&date_to&internal_number=<str>` (RAO-P2-008)
 Response: `list[LocationStatItem]`
 
 ### `GET /stats/by-category` (RAO-P1-017, NOWY)
-Query: `?level=main|sub1&date_from&date_to&include_archival=false`
+Query: `?level=main|sub1&date_from&date_to&include_archival=false&internal_number=<str>` (RAO-P2-008)
 Response: `CategoryStatsResponse`
 HTTP: 200 | 401 | 422 (nieprawidłowy `level`)
 

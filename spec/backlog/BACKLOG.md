@@ -1867,7 +1867,7 @@ Aktualnie w sekcji raportów pokazuje się "Wynajętych teraz" obok filtrów dat
 id: RAO-P2-008
 priority: P2
 size: S
-status: postponed
+status: done
 classification: cross-stack
 roles: [frontend-dev, backend-dev]
 depends_on: []

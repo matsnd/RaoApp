@@ -749,6 +749,30 @@ Sekcja "Stan floty teraz" ma wizualnie wyodrębniony nagłówek z gradient tłem
 }
 ```
 
+### Numer wewnętrzny maszyny (RAO-P2-008)
+
+Pole `internal_number` jest w pełni zaimplementowane:
+
+**Formularz artykułu (ArticleFormView.vue):**
+- Pole input `internal_number` w formularzu edycji/nowego artykułu
+
+**Article picker (ArticlePicker.vue):**
+- Wyszukiwanie po `internal_number` (case-insensitive)
+- Wyświetlanie `[nr wewnętrzny]` w wynikach wyszukiwania
+
+**Raporty (ReportsSection.vue):**
+- Kolumna "Nr wewnętrzny" w tabeli "Maszyny aktualnie wynajęte"
+- Kolumna "Nr wewnętrzny" w tabeli wyników eksploratora
+- Wyświetlanie `[nr wewnętrzny]` w wynikach wyszukiwania maszyn
+
+**Backend (stats/router.py):**
+- Parametr `internal_number` w endpointach:
+  - `GET /stats/fleet-summary?internal_number=<str>`
+  - `GET /stats/top-machines?internal_number=<str>`
+  - `GET /stats/locations?internal_number=<str>`
+  - `GET /stats/by-category?internal_number=<str>`
+- Filtrowanie wyników po numerze wewnętrznym
+
 ### Tab: Stan floty teraz (`live`)
 
 - KPI cards: dostępnych maszyn, % wykorzystania floty

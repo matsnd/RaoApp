@@ -158,22 +158,26 @@ async def _compute_position_revenues(
 async def fleet_summary(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
+    internal_number: str | None = Query(None, description="Filtruj po numerze wewnętrznym maszyny"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
     df, dt = _default_dates(date_from, date_to)
     today = date.today()
 
-    # Total machines (not services, not archival) — RAO-P1-017
-    total_q = await db.execute(
-        select(func.count()).select_from(Article).where(
-            and_(Article.is_service == False, Article.is_archival == False)
-        )
+    # Build base query for machines
+    machines_query = select(Article).where(
+        and_(Article.is_service == False, Article.is_archival == False)
     )
+    if internal_number:
+        machines_query = machines_query.where(Article.internal_number == internal_number)
+
+    # Total machines (not services, not archival) — RAO-P1-017
+    total_q = await db.execute(machines_query)
     total_machines = total_q.scalar() or 0
 
     # Currently rented (active contracts with machine positions, not archival) — RAO-P1-017
-    rented_q = await db.execute(
+    rented_query = (
         select(func.count(func.distinct(ContractPosition.article_id)))
         .select_from(ContractPosition)
         .join(Contract, Contract.id == ContractPosition.contract_id)
@@ -187,11 +191,17 @@ async def fleet_summary(
             )
         )
     )
+    if internal_number:
+        rented_query = rented_query.where(Article.internal_number == internal_number)
+
+    rented_q = await db.execute(rented_query)
     total_rented = rented_q.scalar() or 0
     util_pct = round((total_rented / total_machines * 100) if total_machines else 0, 1)
 
     # Revenue — computed via spec algorithm
     all_pos = await _compute_position_revenues(db, df, dt)
+    if internal_number:
+        all_pos = [p for p in all_pos if p["internal_number"] == internal_number]
     period_revenue = sum(p["revenue"] for p in all_pos)
 
     # Contracts in period
@@ -231,12 +241,15 @@ async def fleet_summary(
 async def top_machines(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
+    internal_number: str | None = Query(None, description="Filtruj po numerze wewnętrznym maszyny"),
     limit: int = Query(10, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
     df, dt = _default_dates(date_from, date_to)
     all_pos = await _compute_position_revenues(db, df, dt, service_filter=False)
+    if internal_number:
+        all_pos = [p for p in all_pos if p["internal_number"] == internal_number]
 
     # Aggregate by article
     agg = defaultdict(lambda: {
@@ -407,11 +420,14 @@ async def additional_fees(
 async def locations(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
+    internal_number: str | None = Query(None, description="Filtruj po numerze wewnętrznym maszyny"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
     df, dt = _default_dates(date_from, date_to)
     all_pos = await _compute_position_revenues(db, df, dt)
+    if internal_number:
+        all_pos = [p for p in all_pos if p["internal_number"] == internal_number]
 
     # Get contract cities (RAO-P1-008: changed from Contractor.city to Contract.city)
     contract_ids = set(p["contract_id"] for p in all_pos if p["contract_id"])
