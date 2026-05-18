@@ -12,12 +12,13 @@ from database import get_db
 from articles.models import Article
 from contracts.models import Contract, ContractPosition, PositionCondition
 from contractors.models import Contractor
-from stats.calc import calculate_position_value
+from stats.calc import calculate_position_value, aggregate_by_category
 from stats.schemas import (
     FleetSummary, TopMachineItem, CurrentlyRentedResponse, CurrentlyRentedItem,
     MachineRoiResponse, AdditionalFeesResponse, ServiceFeeItem, LocationStatItem,
     ExpiringContractItem, OverdueContractItem, DeliveryTodayItem, UnprintedContractItem, StalePrintContractItem,
     SalespersonCommissionItem, CommissionReportResponse,
+    CategoryStatItem, CategoryStatsResponse,
 )
 
 router = APIRouter(prefix="/stats", tags=["stats"])
@@ -33,34 +34,46 @@ def _default_dates(date_from: date | None, date_to: date | None):
 
 
 async def _compute_position_revenues(
-    db: AsyncSession, df: date, dt: date, *, service_filter: bool | None = None
+    db: AsyncSession,
+    df: date,
+    dt: date,
+    *,
+    service_filter: bool | None = None,
+    exclude_archival: bool = True,
 ) -> list[dict]:
     """
     Fetch positions+conditions for contracts overlapping [df, dt],
     compute value per position using spec algorithm (04_BUSINESS_LOGIC.md).
 
     Returns list of dicts with keys:
-        position_id, article_id, contract_id, contractor_id, city,
+        position_id, article_id, contract_id, contractor_id,
         article_name, internal_number, is_service, contract_number,
-        contractor_name, rental_days, revenue, date_from, date_to
+        contractor_name, rental_days, revenue, date_from, date_to,
+        category_main, category_sub1                       ← RAO-P1-017
+
+    Args:
+        exclude_archival: gdy True (domyślnie), wyklucza maszyny z is_archival=TRUE.
+                          Nie dotyczy usług (service_filter=True). RAO-P1-017
     """
     stmt = (
         select(
-            ContractPosition.id,
-            ContractPosition.article_id,
-            ContractPosition.contract_id,
-            ContractPosition.rental_days,
-            ContractPosition.billing_frequency,
-            ContractPosition.unit_price,
-            ContractPosition.quantity,
-            Article.name.label("article_name"),
-            Article.internal_number,
-            Article.is_service,
-            Contract.number.label("contract_number"),
-            Contract.contractor_name,
-            Contract.contractor_id,
-            Contract.date_from,
-            Contract.date_to,
+            ContractPosition.id,            # p[0]
+            ContractPosition.article_id,    # p[1]
+            ContractPosition.contract_id,   # p[2]
+            ContractPosition.rental_days,   # p[3]
+            ContractPosition.billing_frequency,  # p[4]
+            ContractPosition.unit_price,    # p[5]
+            ContractPosition.quantity,      # p[6]
+            Article.name.label("article_name"),  # p[7]
+            Article.internal_number,        # p[8]
+            Article.is_service,             # p[9]
+            Contract.number.label("contract_number"),  # p[10]
+            Contract.contractor_name,       # p[11]
+            Contract.contractor_id,         # p[12]
+            Contract.date_from,             # p[13]
+            Contract.date_to,               # p[14]
+            Article.category_main,          # p[15] — RAO-P1-017
+            Article.category_sub1,          # p[16] — RAO-P1-017
         )
         .select_from(ContractPosition)
         .join(Contract, Contract.id == ContractPosition.contract_id)
@@ -69,6 +82,9 @@ async def _compute_position_revenues(
     )
     if service_filter is not None:
         stmt = stmt.where(Article.is_service == service_filter)
+    # RAO-P1-017: domyślnie wyklucz maszyny archiwalne (nie dotyczy usług)
+    if exclude_archival and service_filter is not True:
+        stmt = stmt.where(Article.is_archival == False)
 
     pos_result = await db.execute(stmt)
     positions = pos_result.all()
@@ -132,6 +148,8 @@ async def _compute_position_revenues(
             "date_to": p[14],
             "clamped_days": clamped_days,
             "revenue": revenue,
+            "category_main": p[15],   # RAO-P1-017
+            "category_sub1": p[16],   # RAO-P1-017
         })
     return results
 
@@ -146,13 +164,15 @@ async def fleet_summary(
     df, dt = _default_dates(date_from, date_to)
     today = date.today()
 
-    # Total machines (not services)
+    # Total machines (not services, not archival) — RAO-P1-017
     total_q = await db.execute(
-        select(func.count()).select_from(Article).where(Article.is_service == False)
+        select(func.count()).select_from(Article).where(
+            and_(Article.is_service == False, Article.is_archival == False)
+        )
     )
     total_machines = total_q.scalar() or 0
 
-    # Currently rented (active contracts with machine positions)
+    # Currently rented (active contracts with machine positions, not archival) — RAO-P1-017
     rented_q = await db.execute(
         select(func.count(func.distinct(ContractPosition.article_id)))
         .select_from(ContractPosition)
@@ -161,6 +181,7 @@ async def fleet_summary(
         .where(
             and_(
                 Article.is_service == False,
+                Article.is_archival == False,       # RAO-P1-017
                 Contract.date_from <= today,
                 Contract.date_to >= today,
             )
@@ -248,19 +269,23 @@ async def currently_rented(
 ):
     today = date.today()
 
+    # RAO-P1-017: wyklucz maszyny archiwalne z licznika floty
     total_q = await db.execute(
-        select(func.count()).select_from(Article).where(Article.is_service == False)
+        select(func.count()).select_from(Article).where(
+            and_(Article.is_service == False, Article.is_archival == False)
+        )
     )
     total_machines = total_q.scalar() or 0
 
     q = await db.execute(
         select(
-            Article.id,
-            Article.name,
-            Article.internal_number,
-            Contract.number,
-            Contract.contractor_name,
-            Contract.date_to,
+            Article.id,               # r[0]
+            Article.name,             # r[1]
+            Article.internal_number,  # r[2]
+            Article.category_main,    # r[3] — RAO-P1-017
+            Contract.number,          # r[4]
+            Contract.contractor_name, # r[5]
+            Contract.date_to,         # r[6]
         )
         .select_from(ContractPosition)
         .join(Contract, Contract.id == ContractPosition.contract_id)
@@ -268,18 +293,23 @@ async def currently_rented(
         .where(
             and_(
                 Article.is_service == False,
+                Article.is_archival == False,   # RAO-P1-017: wyklucz archiwalne
                 Contract.date_from <= today,
                 Contract.date_to >= today,
             )
         )
-        .group_by(Article.id, Article.name, Article.internal_number, Contract.number, Contract.contractor_name, Contract.date_to)
+        .group_by(
+            Article.id, Article.name, Article.internal_number, Article.category_main,
+            Contract.number, Contract.contractor_name, Contract.date_to,
+        )
         .order_by(Article.name)
     )
     rows = q.all()
     items = [
         CurrentlyRentedItem(
             article_id=r[0], name=r[1], internal_number=r[2],
-            contract_number=r[3], contractor_name=r[4], return_date=r[5],
+            category_main=r[3],                              # RAO-P1-017
+            contract_number=r[4], contractor_name=r[5], return_date=r[6],
         )
         for r in rows
     ]
@@ -297,9 +327,14 @@ async def machine_roi(
     article_id: int = Query(...),
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
+    include_archival: bool = Query(False, description="Uwzględnij maszyny archiwalne"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
+    """
+    ROI konkretnej maszyny (article_id). RAO-P1-017: dodano category_main w odpowiedzi.
+    include_archival=False (domyślnie) — jeśli maszyna jest archiwalna, zwraca 404.
+    """
     df, dt = _default_dates(date_from, date_to)
 
     art_q = await db.execute(
@@ -309,7 +344,12 @@ async def machine_roi(
     if not art:
         raise HTTPException(404, "Artykuł nie znaleziony")
 
-    all_pos = await _compute_position_revenues(db, df, dt)
+    # RAO-P1-017: blokuj dostęp do archiwalnej maszyny gdy include_archival=False
+    if not include_archival and art.is_archival:
+        raise HTTPException(404, "Artykuł jest archiwalny (użyj include_archival=true)")
+
+    # Dla zapytania o konkretną maszynę: bez filtra archiwum (artykuł już sprawdzony powyżej)
+    all_pos = await _compute_position_revenues(db, df, dt, exclude_archival=False)
     filtered = [p for p in all_pos if p["article_id"] == article_id]
 
     revenue = sum(p["revenue"] for p in filtered)
@@ -322,6 +362,7 @@ async def machine_roi(
 
     return MachineRoiResponse(
         article_id=art.id, name=art.name, internal_number=art.internal_number,
+        category_main=art.category_main,                # RAO-P1-017
         replacement_value=art.replacement_value,
         total_rented_days=days, estimated_revenue=revenue,
         contracts_count=cnt, roi_pct=roi_pct,
@@ -405,6 +446,67 @@ async def locations(
         LocationStatItem(city=city, rentals_count=d["cnt"], total_revenue=d["rev"])
         for city, d in sorted_cities
     ]
+
+
+# ---------------------------------------------------------------------------
+# RAO-P1-017: STATYSTYKI PO KATEGORIACH
+# ---------------------------------------------------------------------------
+
+@router.get("/by-category", response_model=CategoryStatsResponse)
+async def by_category(
+    level: str = Query(
+        "main",
+        pattern="^(main|sub1)$",
+        description="Poziom kategorii: 'main' = category_main, 'sub1' = category_sub1",
+    ),
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    include_archival: bool = Query(
+        False,
+        description="Uwzględnij maszyny archiwalne (domyślnie wykluczone)",
+    ),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """
+    Statystyki wynajmu maszyn agregowane po kategorii (RAO-P1-017).
+
+    - level=main  → GROUP BY category_main  (domyślny)
+    - level=sub1  → GROUP BY category_sub1
+    - include_archival=false (domyślnie) → wyklucza maszyny is_archival=TRUE
+    - Maszyny bez kategorii trafiają do grupy "(bez kategorii)"
+    """
+    df, dt = _default_dates(date_from, date_to)
+
+    # Tylko maszyny (nie usługi), z filtrem archiwum
+    all_pos = await _compute_position_revenues(
+        db, df, dt,
+        service_filter=False,
+        exclude_archival=not include_archival,
+    )
+
+    # Czysta agregacja po kategorii (logika w calc.py — testowalny pure function)
+    grouped = aggregate_by_category(all_pos, level=level)
+
+    items = [
+        CategoryStatItem(
+            category_name=g["category_name"],
+            articles_count=g["articles_count"],
+            rented_days=g["rented_days"],
+            revenue=g["revenue"],
+            contracts_count=g["contracts_count"],
+        )
+        for g in grouped
+    ]
+    total_revenue = sum(item.revenue for item in items)
+
+    return CategoryStatsResponse(
+        date_from=df,
+        date_to=dt,
+        level=level,
+        total_revenue=total_revenue,
+        items=items,
+    )
 
 
 # ---------------------------------------------------------------------------

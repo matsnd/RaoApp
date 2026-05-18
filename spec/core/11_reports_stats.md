@@ -93,26 +93,52 @@ umieszczona **przed podpisami** (po linii z akceptacją OWU/OWN).
 
 Użytkownik potrzebuje narzędzi do badania rentowności maszyn. Poniżej specyfikacja nowych endpointów.
 
+> **RAO-P1-017 (zaimplementowane):** Statystyki bazują na kategoriach (`category_main`/`category_sub1`),
+> nie na numerach wewnętrznych. Domyślny filtr `is_archival=FALSE` we wszystkich endpointach maszyn.
+
 ### 2.1 Numer Wewnętrzny Maszyny
 
 W tabeli `articles` dodane zostało pole `internal_number`. Odróżnia ono maszyny systemowe (np. "Koparka ABC" nr seryjny 123) za pomocą wewnętrznych indeksów ewidencyjnych firmy. Wszystkie widoki na frontendzie (tabele, pola wyboru, PDFy) muszą uwzględniać ten numer tam gdzie wyświetlana jest maszyna.
 
+### 2.1a Kategorie Maszyn (RAO-P1-017)
+
+Tabela `articles` posiada denormalizowane kolumny hierarchii kategorii:
+- `category_main VARCHAR(100)` — kategoria główna (snapshot nazwy)
+- `category_sub1 VARCHAR(100)` — podkategoria 1
+- `category_sub2 VARCHAR(100)` — podkategoria 2
+- `category_sub3 VARCHAR(100)` — podkategoria 3
+- `is_archival BOOLEAN DEFAULT FALSE` — flaga maszyny archiwalnej
+
+**Domyślny filtr:** wszystkie endpointy statystyk maszyn domyślnie wykluczają `is_archival=TRUE`.
+Maszyny bez kategorii trafiają do grupy `(bez kategorii)` w raportach.
+
 ### 2.2 Endpoint: Rentowność Maszyny (ROI)
 
-**Cel:** Ile czasu dana maszyna (konkretny egzemplarz `article_id` lub `internal_number`) była wynajmowana w podanym okresie i ile bezpośrednio wygenerowała przychodu z tytułu *najmu*.
+**Cel:** Ile czasu dana maszyna (konkretny egzemplarz `article_id`) była wynajmowana w podanym okresie i ile bezpośrednio wygenerowała przychodu z tytułu *najmu*.
 
 **`GET /stats/machine-roi`**
-```python
-# Query: ?article_id=5&date_from=2026-01-01&date_to=2026-12-31
+```
+Query: ?article_id=5&date_from=2026-01-01&date_to=2026-12-31&include_archival=false
+```
 
+```python
 class MachineRoiResponse(BaseModel):
     article_id: int
     name: str
     internal_number: str | None
+    category_main: str | None     # RAO-P1-017: kategoria główna maszyny
+    replacement_value: Decimal | None
     total_rented_days: int
     estimated_revenue: Decimal    # Suma wartości z warunków przypisanych do najmu w tych umowach
     contracts_count: int          # W ilu umowach brała udział
+    roi_pct: float | None         # estimated_revenue / replacement_value * 100
 ```
+
+**Parametry:**
+- `article_id` (wymagany) — ID artykułu
+- `date_from`, `date_to` — zakres dat (domyślnie: bieżący miesiąc)
+- `include_archival=false` — gdy False (domyślnie), maszyny archiwalne zwracają 404
+
 *Opis algorytmu:* Pobierz wszystkie umowy, w których dany `article_id` widnieje, których daty trwania nakładają się na `[date_from, date_to]`. Zlicz przepracowane fizycznie dni i pomnóż przez wynegocjowane warunki z tych konkretnych umów.
 
 ### 2.3 Endpoint: Maszyny Obecnie Wynajęte
@@ -122,58 +148,111 @@ class MachineRoiResponse(BaseModel):
 **`GET /stats/currently-rented`**
 ```python
 class CurrentlyRentedResponse(BaseModel):
-    total_rented_count: int       # Ile łącznie maszyn
-    total_owned_count: int        # Ile mamy wszystkich maszyn w bazie (nie usług)
-    utilization_percentage: float # % wypożyczalności
-    rented_articles: list[RentedArticleItem]
+    total_rented: int             # Ile łącznie maszyn aktualnie wynajętych
+    total_machines: int           # Ile mamy wszystkich maszyn (nie archiwalnych, nie usług)
+    utilization_pct: float        # % wypożyczalności
+    items: list[CurrentlyRentedItem]
 
-class RentedArticleItem(BaseModel):
+class CurrentlyRentedItem(BaseModel):
     article_id: int
     name: str
     internal_number: str | None
-    current_contract_number: str
-    contractor_name: str
-    return_date: date | None      # Kiedy planowany zwrot (date_to aktuanej umowy)
+    category_main: str | None     # RAO-P1-017: kategoria główna maszyny
+    contract_number: str
+    contractor_name: str | None
+    return_date: date | None      # Kiedy planowany zwrot (date_to aktualnej umowy)
 ```
-*Opis algorytmu:* Proste `SELECT` maszyn, które biorą udział w aktywnych umowach (`contracts.date_from <= CURDATE() AND contracts.date_to >= CURDATE()`).
+
+**Filtr:** automatycznie wyklucza maszyny `is_archival=TRUE`.
+*Opis algorytmu:* `SELECT` maszyn w aktywnych umowach (`date_from <= CURDATE() AND date_to >= CURDATE()`), z wykluczeniem maszyn archiwalnych.
 
 ### 2.4 Endpoint: Statystyki Pozycji Dodatkowych/Kosztów
 
 **Cel:** Sumowanie opłat dodatkowych i usług za dany okres (od/do). Wyfiltrowanie kwot czysto za "transport", "mycie", "ładowanie akumulatorów" itp., które płaci klient, obok samych maszyn.
 
 **`GET /stats/additional-fees`**
-```python
-# Query: ?date_from=2026-01-01&date_to=2026-03-31
+```
+Query: ?date_from=2026-01-01&date_to=2026-03-31
+```
 
+```python
 class AdditionalFeesResponse(BaseModel):
     date_from: date
     date_to: date
     total_services_revenue: Decimal
-    breakdown_by_service: list[ServiceRevenueItem]
+    breakdown: list[ServiceFeeItem]
 
-class ServiceRevenueItem(BaseModel):
-    article_id: int               # Pod warunkiem że usługi (mycie, transport) są artykułami gdzie is_service=true
+class ServiceFeeItem(BaseModel):
+    article_id: int               # Usługi (mycie, transport) jako artykuły gdzie is_service=true
     service_name: str
     total_revenue: Decimal
     times_billed: int             # Użyte np. na 10 umowach
 ```
-*Opis algorytmu:* Sumujemy wartości pozycji na umowach, ale tylko tych, gdzie powiązany `articles.is_service = true` dla umów trwających w zadanym zakresie.
+
+*Opis algorytmu:* Sumujemy wartości pozycji na umowach, ale tylko tych, gdzie powiązany `articles.is_service = true` dla umów trwających w zadanym zakresie. Usługi nie mają filtra `is_archival`.
 
 ### 2.5 Statystyki Lokalizacji
 
 **Cel:** Zestawienie, w jakich miastach / obszarach mamy najwięcej wynajmów. Odpowiada za dostawy.
 
 **`GET /stats/locations`**
-```python
-# Query: ?date_from=2026-01-01&date_to=2026-12-31
+```
+Query: ?date_from=2026-01-01&date_to=2026-12-31
+```
 
+```python
 class LocationStatItem(BaseModel):
     city: str
-    postal_code: str | None
-    rentals_count: int      # Ilość spisywanych umów/dostaw w danym mieście
+    rentals_count: int      # Ilość umów w danym mieście
     total_revenue: Decimal  # Wygenerowany obrót z danego miasta
 ```
-*Opis algorytmu:* `GROUP BY delivery_address (lub contractor's city, zależnie czy zaimplementujemy w dostawach osobną kolumnę miasta)`. Sumuje liczbę umów oraz `total_value` per miejscowość w danym przedziale czasowym.
+
+*Opis algorytmu:* Grupowanie po `contractor.city`. Sumuje liczbę umów oraz przychód per miejscowość w zadanym zakresie dat.
+
+### 2.6 Endpoint: Statystyki Po Kategoriach (RAO-P1-017, NOWY)
+
+**Cel:** Rentowność maszyn agregowana po kategorii (`category_main` lub `category_sub1`).
+Zastępuje wcześniejszą agregację po `internal_number`.
+
+**`GET /stats/by-category`**
+```
+Query: ?level=main&date_from=2026-01-01&date_to=2026-12-31&include_archival=false
+```
+
+```python
+class CategoryStatsResponse(BaseModel):
+    date_from: date
+    date_to: date
+    level: str              # "main" | "sub1"
+    total_revenue: Decimal
+    items: list[CategoryStatItem]
+
+class CategoryStatItem(BaseModel):
+    category_name: str      # Nazwa kategorii lub "(bez kategorii)"
+    articles_count: int     # Ile unikalnych maszyn wynajętych w okresie
+    rented_days: int        # Suma dni wynajmu (z zakresu dat)
+    revenue: Decimal        # Suma przychodu z kategorii
+    contracts_count: int    # Ile unikalnych umów
+```
+
+**Parametry:**
+| Parametr | Opis | Default |
+|----------|------|---------|
+| `level` | Poziom kategorii: `main` lub `sub1` | `main` |
+| `date_from` | Początek okresu | 1. dzień bieżącego miesiąca |
+| `date_to` | Koniec okresu | dzisiaj |
+| `include_archival` | Uwzględnij maszyny archiwalne | `false` |
+
+**HTTP codes:** 200 OK | 401 Unauthorized | 422 Validation Error (zły `level`)
+
+**Algorytm:**
+1. Pobierz pozycje umów nakładające się na `[date_from, date_to]`, tylko maszyny (`is_service=FALSE`)
+2. Opcjonalnie filtruj `is_archival=FALSE` (domyślnie)
+3. Grupuj po `category_main` (lub `category_sub1`) — brak kategorii → `(bez kategorii)`
+4. Agreguj: `revenue`, `rented_days` (clamped do okna dat), unikalne `article_id`, unikalne `contract_id`
+5. Sortuj malejąco po `revenue`
+
+**Implementacja:** `backend/stats/calc.py::aggregate_by_category()` (pure function, testowalny bez DB)
 
 ---
 

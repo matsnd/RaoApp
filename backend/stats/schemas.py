@@ -26,6 +26,7 @@ class CurrentlyRentedItem(BaseModel):
     article_id: int
     name: str
     internal_number: str | None
+    category_main: str | None   # RAO-P1-017: kategoria główna maszyny
     contract_number: str
     contractor_name: str | None
     return_date: date | None
@@ -42,6 +43,7 @@ class MachineRoiResponse(BaseModel):
     article_id: int
     name: str
     internal_number: str | None
+    category_main: str | None   # RAO-P1-017: kategoria główna maszyny
     replacement_value: Decimal | None
     total_rented_days: int
     estimated_revenue: Decimal
@@ -139,3 +141,23 @@ class CommissionReportResponse(BaseModel):
     items: list[SalespersonCommissionItem]
     grand_total_revenue: Decimal
     grand_total_commission: Decimal
+
+
+# ── RAO-P1-017: Statystyki po kategoriach ─────────────────────────────────────
+
+class CategoryStatItem(BaseModel):
+    """Statystyki wynajmu zagregowane dla jednej kategorii."""
+    category_name: str
+    articles_count: int     # ile unikalnych maszyn wynajętych w okresie
+    rented_days: int        # suma dni wynajmu (z zakresu dat)
+    revenue: Decimal        # suma przychodu z kategorii
+    contracts_count: int    # ile unikalnych umów
+
+
+class CategoryStatsResponse(BaseModel):
+    """Odpowiedź endpointu GET /stats/by-category."""
+    date_from: date
+    date_to: date
+    level: str              # "main" | "sub1"
+    total_revenue: Decimal
+    items: list[CategoryStatItem]

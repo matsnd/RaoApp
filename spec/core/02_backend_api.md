@@ -1142,10 +1142,26 @@ class ReportResponse(BaseModel):
 
 Raporty zbiorczych — generują PDF z danymi zagregowanymi.
 
-### `GET /stats/machine-roi` (Nowość)
-### `GET /stats/currently-rented` (Nowość)
-### `GET /stats/additional-fees` (Nowość)
-### `GET /stats/locations` (Nowość)
+### `GET /stats/machine-roi`
+Query: `?article_id=<int>&date_from&date_to&include_archival=false`
+Response: `MachineRoiResponse` (zawiera `category_main` — RAO-P1-017)
+
+### `GET /stats/currently-rented`
+Response: `CurrentlyRentedResponse` (items zawierają `category_main` — RAO-P1-017)
+Filtr: domyślnie `is_archival=FALSE`
+
+### `GET /stats/additional-fees`
+Query: `?date_from&date_to`
+Response: `AdditionalFeesResponse`
+
+### `GET /stats/locations`
+Query: `?date_from&date_to`
+Response: `list[LocationStatItem]`
+
+### `GET /stats/by-category` (RAO-P1-017, NOWY)
+Query: `?level=main|sub1&date_from&date_to&include_archival=false`
+Response: `CategoryStatsResponse`
+HTTP: 200 | 401 | 422 (nieprawidłowy `level`)
 
 > Pełna specyfikacja raportów z obrazkami i endpointów statystyk znajduje się w pliku **[11_reports_stats.md](./11_reports_stats.md)**.
 

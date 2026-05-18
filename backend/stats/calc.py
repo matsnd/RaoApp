@@ -8,9 +8,12 @@ Implements the algorithm from spec 04_BUSINESS_LOGIC.md:
 
 Source of truth: position_conditions.rate1 + contract_positions.rental_days
 Old WinForms: FormU4.cs spaghetti → rozliczenie table (1 row/day)
+
+RAO-P1-017: dodano aggregate_by_category() dla statystyk po kategoriach
 """
 import re
 import math
+from collections import defaultdict
 from decimal import Decimal
 
 
@@ -104,6 +107,61 @@ def calculate_position_value(
                 break
 
     return total_value
+
+
+# ── RAO-P1-017: Agregacja po kategoriach ─────────────────────────────────────
+
+_FALLBACK_CATEGORY = "(bez kategorii)"
+
+
+def aggregate_by_category(
+    positions: list[dict],
+    level: str = "main",
+) -> list[dict]:
+    """
+    Agreguje dane pozycji wynajmu według poziomu kategorii (RAO-P1-017).
+
+    Args:
+        positions: lista dict-ów z _compute_position_revenues
+                   (wymagane klucze: article_id, contract_id, revenue,
+                    clamped_days, category_main, category_sub1)
+        level: "main" → grupuje po category_main
+               "sub1" → grupuje po category_sub1
+
+    Returns:
+        lista dict-ów posortowanych malejąco po revenue:
+            category_name, articles_count, rented_days, revenue, contracts_count
+    """
+    agg: dict[str, dict] = defaultdict(lambda: {
+        "revenue": Decimal("0"),
+        "days": 0,
+        "contracts": set(),
+        "articles": set(),
+    })
+
+    field = "category_main" if level == "main" else "category_sub1"
+
+    for p in positions:
+        cat_name = p.get(field) or _FALLBACK_CATEGORY
+        agg[cat_name]["revenue"] += p.get("revenue", Decimal("0"))
+        agg[cat_name]["days"] += p.get("clamped_days", 0)
+        agg[cat_name]["contracts"].add(p.get("contract_id"))
+        agg[cat_name]["articles"].add(p.get("article_id"))
+
+    return sorted(
+        [
+            {
+                "category_name": cat,
+                "articles_count": len(d["articles"]),
+                "rented_days": d["days"],
+                "revenue": d["revenue"],
+                "contracts_count": len(d["contracts"]),
+            }
+            for cat, d in agg.items()
+        ],
+        key=lambda x: x["revenue"],
+        reverse=True,
+    )
 
 
 # City extraction for location reports

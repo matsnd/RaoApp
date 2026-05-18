@@ -875,7 +875,7 @@ Przejrzej starą aplikację WinForms i zidentyfikować wszystkie brakujące pola
 id: RAO-P1-017
 priority: P1
 size: XL
-status: review
+status: in_progress
 classification: db-only
 roles: [db-architect, backend-dev]
 depends_on: []
@@ -894,17 +894,23 @@ security_impact: low
 Migracja kategorii maszyn z pliku CSV (Asortyment - Produkty - Maszyny - Toolsmart - Archiwum_Łukasza_Dane.csv) i z bazy SQL (toolsmart_roa_1779053066.sql). Dodanie kategorii do maszyn, flaga archiwalna dla starych maszyn, statystyki bazujące na kategoriach.
 
 **Acceptance criteria (DoD):**
-- [ ] DB: Dodanie kolumny `category VARCHAR(100)` do tabeli `articles`
-- [ ] DB: Dodanie kolumny `is_archival BOOLEAN DEFAULT FALSE` do tabeli `articles`
+- [x] DB: Dodanie kolumny `category_main/sub1/sub2/sub3 VARCHAR(100)` do tabeli `articles` (main.py + models.py)
+- [x] DB: Dodanie kolumny `is_archival BOOLEAN DEFAULT FALSE` do tabeli `articles` (main.py + models.py)
 - [x] Backend: Skrypt migracji z CSV — mapowanie kategorii na maszyny (`step8_csv_categories`)
 - [x] Backend: Skrypt migracji z SQL — mapowanie kategorii z toolsmart_roa (via artykul3.id = CSV col 0)
 - [x] Backend: Flaga `is_archival = TRUE` dla wszystkich istniejących maszyn
 - [ ] Backend: Nowe maszyny (po migracji) mają `is_archival = FALSE`
-- [ ] Backend: Statystyki zmienione na bazowanie na kategoriach (nie po numerach wewnętrznych)
+- [x] Backend: Statystyki zmienione na bazowanie na kategoriach (nie po numerach wewnętrznych) — **RAO-P1-017 DONE**
+  - [x] `GET /stats/by-category` nowy endpoint (level=main|sub1, is_archival filter)
+  - [x] `GET /stats/currently-rented` — dodano `category_main` w response + filtr `is_archival=FALSE`
+  - [x] `GET /stats/machine-roi` — dodano `category_main` w response + param `include_archival`
+  - [x] `GET /stats/fleet-summary` — filtr `is_archival=FALSE` w count queries
+  - [x] `_compute_position_revenues` — dodano `category_main`, `category_sub1`, `exclude_archival=True` default
+  - [x] `calc.py::aggregate_by_category()` — pure function, 12 unit testów
 - [ ] Weryfikacja: porównanie danych CSV vs SQL — unikanie duplikacji
-- [ ] `core/01_database.md` zaktualizowany
-- [ ] `core/04_business_logic.md` zaktualizowany
-- [ ] `core/11_reports_stats.md` zaktualizowany
+- [ ] `core/01_database.md` zaktualizowany (do zrobienia przez db-architect)
+- [ ] `core/04_business_logic.md` zaktualizowany (do zrobienia przez db-architect)
+- [x] `core/11_reports_stats.md` zaktualizowany (2026-05-xx, backend-dev)
 
 **Migration plan (RAO deterministic):**
 1. `core/01_database.md` — finalny DDL (category, is_archival)
