@@ -508,8 +508,15 @@ Przyciski toolbar (v-if="isEdit" = tylko przy edycji):
 - ⎙ — Drukuj PDF (generateReport('contract'))
 - 📄 — Protokół ZO (generateReport('protocol_zo'))
 - ∑ — Przelicz wartość (recalcTotal)
-- 💰 — Pobierz koszty z Fakturownia (placeholder, disabled, coming soon)
+- 💰 — Pobierz koszty z Fakturownia (handleFakturownia, mock data, active)
 - [Zapisz] — button btn-primary btn-sm
+
+**Fakturownia Integration (placeholder z mock data):**
+- Przycisk 💰 aktywny, wywołuje handleFakturownia()
+- Fakturownia store w trybie mock (useMock = true)
+- Mock response: 1 faktura z 2 pozycjami (Koparka CAT 320 + Transport)
+- Alert z wynikami: liczba faktur i łączna kwota
+- Przygotowanie UI pod pełną integrację RAO-P2-012
 
 Szczegółowy layout Row 1 (nagłówek):
 

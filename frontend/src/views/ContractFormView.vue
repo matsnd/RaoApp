@@ -6,7 +6,7 @@
       <button v-if="isEdit" class="toolbar-btn" title="Drukuj PDF" @click="generateReport('contract')">⎙</button>
       <button v-if="isEdit" class="toolbar-btn" title="Protokół ZO" @click="generateReport('protocol_zo')">📄</button>
       <button v-if="isEdit" class="toolbar-btn" title="Przelicz wartość" @click="recalcTotal">∑</button>
-      <button v-if="isEdit" class="toolbar-btn" title="Pobierz koszty z Fakturownia (coming soon)" disabled style="opacity:0.5;cursor:not-allowed;">💰</button>
+      <button v-if="isEdit" class="toolbar-btn" title="Pobierz koszty z Fakturownia (mock data)" @click="handleFakturownia">💰</button>
       <button class="btn btn-primary btn-sm" @click="handleSave" :disabled="saving">
         {{ saving ? '...' : 'Zapisz' }}
       </button>
@@ -885,6 +885,24 @@ async function recalcTotal() {
     await contractStore.fetchOne(Number(props.id))
   } catch (e) {
     alert(e.response?.data?.detail || 'Błąd kalkulacji')
+  }
+}
+
+const fakturowniaStore = useFakturowniaStore()
+
+async function handleFakturownia() {
+  if (!isEdit.value) return
+  const oid = contractStore.current?.oid || 'TEST123'
+  try {
+    await fakturowniaStore.fetchInvoicesByOid(oid)
+    if (fakturowniaStore.invoices.length > 0) {
+      const total = fakturowniaStore.invoices.reduce((sum, inv) => sum + inv.total_net, 0)
+      alert(`Mock data: Pobrano ${fakturowniaStore.invoices.length} faktur o łącznej kwocie ${total.toFixed(2)} zł`)
+    } else {
+      alert('Mock data: Brak faktur dla tego OID')
+    }
+  } catch (e) {
+    alert('Błąd pobierania faktur z Fakturownia (mock)')
   }
 }
 
