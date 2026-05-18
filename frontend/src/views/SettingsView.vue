@@ -627,7 +627,11 @@ async function fetchFakturowniaSettings() {
 async function saveFakturowniaSettings() {
   savingFakturownia.value = true
   try {
-    await fakturowniaStore.updateSettings(fakturowniaForm.value)
+    const payload = { ...fakturowniaForm.value }
+    if (!payload.api_token) {
+      delete payload.api_token
+    }
+    await fakturowniaStore.updateSettings(payload)
     alert('Ustawienia Fakturownia zapisane')
   } catch (e: any) {
     // Error already handled in store

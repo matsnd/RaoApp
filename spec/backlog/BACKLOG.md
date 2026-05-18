@@ -2018,9 +2018,9 @@ Klient chce analizować gdzie najczęściej wynajmują maszyny (miejscowości/ob
 id: RAO-P2-012
 priority: P2
 size: L
-status: postponed
+status: in_progress
 classification: cross-stack
-roles: [backend-dev, frontend-dev, product-owner]
+roles: [backend-dev, frontend-dev, product-owner, db-architect, security-auditor, qa-engineer]
 depends_on: [RAO-P1-012]
 blocks: []
 source: client
@@ -2126,35 +2126,38 @@ Integracja z systemem fakturowania Fakturownia (publiczne API) w celu automatycz
 
 **Acceptance criteria (DoD):**
 - [ ] PO: UX design dla guzika w widoku umowy (product owner + UX designer)
-- [ ] DB: Tabela `fakturownia_settings` (id, enabled, api_token, domain_url)
-- [ ] DB: Tabela `fakturownia_product_mapping` (id, fakturownia_product_id, article_id, fakturownia_product_name)
-- [ ] Backend: Endpointy CRUD dla ustawień integracji (settings router)
-- [ ] Backend: Endpoint `GET /fakturownia/products` — pobranie listy produktów z Fakturownia API
-- [ ] Backend: Endpoint `POST /fakturownia/mapping` — zapisanie mapowania produktów
-- [ ] Backend: Endpoint `GET /fakturownia/invoices?oid=` — pobranie faktur po numerze zamówienia (OID)
+- [ ] DB: Tabela `fakturownia_settings` (id, enabled, api_token_ciphertext, api_token_preview, domain_subdomain, api_token_updated_at, api_token_updated_by)
+- [ ] DB: Pole `articles.fakturownia_product_id BIGINT NULL` + index idx_articles_fakturownia_product (1:N globalny w artykułach)
+- [ ] Backend: Endpointy CRUD dla ustawień integracji (settings router, RBAC admin-only)
+- [ ] Backend: Endpoint `GET /fakturownia/products` — pobranie listy produktów z Fakturownia API (paginacja, RBAC admin-only)
+- [ ] Backend: Endpoint `PUT /articles/{id}` z polem `fakturownia_product_id` (RBAC admin-only dla tego pola)
+- [ ] Backend: Endpoint `GET /fakturownia/invoices?contract_id=` — pobranie faktur po contract_id (ownership check, OID z DB)
 - [ ] Backend: Automatyczne mapowanie pozycji faktury na artykuły RAO **TYLKO po product_id** (bez automapowania po nazwie)
+- [ ] Backend: Sumowanie kosztów 1:N — jeśli artykuł z mappingiem jest na umowie → dostaje pełną wartość (multiplikacja OK)
 - [ ] Backend: Zsumowanie kosztów z wielu faktur pod jedną umową
-- [ ] Frontend: Toggle "Integracja Fakturownia" w ustawieniach (SettingsView)
-- [ ] Frontend: Pola: API token, domain URL (np. toolsmart.fakturownia.pl)
-- [ ] Frontend: Widok "Mapowanie produktów" — tabela Fakturownia Products ↔ RAO articles
-- [ ] Frontend: Guzik "Pobierz produkty z Fakturownia" — fetch i display
+- [ ] Frontend: Toggle "Integracja Fakturownia" w ustawieniach (SettingsView, admin-only)
+- [ ] Frontend: Pola: API token (password field + reveal), domain subdomain (np. toolsmart)
+- [ ] Frontend: ArticleFormView — pole fakturownia_product_id z dropdown z /fakturownia/products
 - [ ] Frontend: Guzik w widoku umowy (ContractDetailView) — "Pobierz koszty z Fakturownia" (gdy integracja włączona)
 - [ ] Frontend: Panel rozliczenia — logika:
   - Bez faktury: proponuj wszystkie pozycje umowy (wynajem + usługi dodatkowe)
   - Po pobraniu faktury: tylko pozycje z faktury (zmapowane na artykuły RAO po product_id)
-  - Pozycje bez mapowania → "unmapped" bucket (user musi ręcznie zmapować w widoku mapowania)
+  - Pozycje bez mapowania → "unmapped" bucket z linkiem do edycji artykułu
   - Wiele faktur: zsumuj koszty per artykuł
+  - 1:N semantyka: jeśli artykuł z mappingiem jest na umowie → każdy dostaje pełną wartość z faktury
 - [ ] Frontend: Fallback: ręczne wpisywanie kosztów jeśli nie pobrano z Fakturownia
 - [ ] DB: Pole `contracts.oid` już istnieje — używane jako numer zamówienia w Fakturownia
-- [ ] `core/01_database.md` zaktualizowany (fakturownia_settings, fakturownia_product_mapping)
-- [ ] `core/02_backend_api.md` zaktualizowany (endpointy integracji)
-- [ ] `core/03_frontend_screens.md` zaktualizowany (widoki ustawień, mapowania, umowy)
-- [ ] `core/07_integrations.md` zaktualizowany (dokumentacja API Fakturownia)
+- [ ] `core/01_database.md` zaktualizowany (fakturownia_settings, articles.fakturownia_product_id)
+- [ ] `core/02_backend_api.md` zaktualizowany (endpointy integracji + RBAC matrix)
+- [ ] `core/03_frontend_screens.md` zaktualizowany (SettingsView sekcja FA, ArticleForm pole, ContractDetail button)
+- [ ] `core/04_business_logic.md` zaktualizowany (algorytm sumowania 1:N w kontekście umowy)
+- [ ] `core/07_integrations.md` zaktualizowany (dokumentacja API Fakturownia + security)
+- [ ] `core/25_security.md` zaktualizowany (Fernet encryption, SSRF whitelist, RBAC admin-only)
 
 **Migration plan (RAO deterministic):**
-1. `core/01_database.md` — finalny DDL (fakturownia_settings, fakturownia_product_mapping)
-2. `backend/integrations/fakturownia/` — nowy moduł (models.py, schemas.py, service.py, router.py)
-3. `backend/main.py` startup — CREATE TABLE
+1. `core/01_database.md` — finalny DDL (fakturownia_settings, articles.fakturownia_product_id)
+2. `backend/integrations/fakturownia/` — rozszerzenie modułu (models.py, schemas.py, service.py, router.py, crypto.py)
+3. `backend/main.py` startup — CREATE TABLE fakturownia_settings + ALTER TABLE articles ADD COLUMN fakturownia_product_id
 4. `backend/settings/router.py` — rejestracja endpointów integracji
 5. **Verification gate (obowiązkowe):**
    - [ ] `DROP DATABASE rao_new && CREATE` → restart backend → sprawdź czy tabele integracji są tworzone
@@ -2167,13 +2170,26 @@ Integracja z systemem fakturowania Fakturownia (publiczne API) w celu automatycz
 - [ ] Smoke test `01-login.spec.ts` PASS
 
 **Security DoD:**
-- [ ] API token szyfrowany w bazie (bcrypt/encryption)
-- [ ] API token nie logowany w logach aplikacji
-- [ ] HTTPS dla zapytań do Fakturownia API
+- [ ] API token szyfrowany w bazie (Fernet encryption, api_token_ciphertext VARBINARY)
+- [ ] API token preview w response (tylko pierwsze 4 i ostatnie 4 znaki, np. tk_****1234)
+- [ ] API token nie logowany w logach aplikacji (redaction filter)
+- [ ] HTTPS dla zapytań do Fakturownia API (verify=True, follow_redirects=False)
+- [ ] SSRF protection na domain_subdomain (whitelist regex ^[a-z0-9-]+$)
+- [ ] RBAC admin-only na settings/products/mapping endpointach
+- [ ] IDOR fix na /invoices?contract_id= (ownership check, OID z DB nie od klienta)
+- [ ] Rate limiting (slowapi: /invoices 30/min/user, /settings/token 5/min/IP)
+- [ ] Audit log (token_changed, mapping_changed, invoices_fetched)
 
 **Pliki do zmiany:** `backend/integrations/fakturownia/` (nowy moduł), `backend/settings/router.py`, `SettingsView.vue`, `ContractDetailView.vue`, `spec/core/07_integrations.md`
 **ROI:** Automatyzacja fakturowania — obecnie ręczne wpisywanie kosztów w rozliczeniu
 **Estimate:** 16-20h (L) — zaktualizowane po re-refinement nowego scope (wycięcie automapowania po nazwie)
+
+**NOTE (2026-05-18 — DECYZJA UŻYTKOWNIKA):** Pełna integracja 16-18h z semantyką 1:N.
+- Użytkownik wybrał pełną integrację (nie MVP 6-8h)
+- Semantyka sumowania 1:N: jeśli artykuł z mappingiem jest na umowie → każdy dostaje pełną wartość z faktury (multiplikacja OK)
+- Przykład: Koparka FA → Koparka 1,2,3 w RAO. Umowa ma Koparka 2 i 3 → dostają 2x pełną wartość
+- Backlog AC zaktualizowany: usunięto fakturownia_product_mapping, dodano articles.fakturownia_product_id
+- Status: in_progress, implementacja warstwowa (DB → backend → frontend → security → QA)
 
 ---
 

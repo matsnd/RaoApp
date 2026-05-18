@@ -1299,6 +1299,80 @@ async def lookup_postal_code(code: str, db: AsyncSession) -> dict:
 
 ---
 
+## Integracja Fakturownia (RAO-P2-012)
+
+### Endpointy
+
+```
+GET /integrations/fakturownia/settings
+  Response: FakturowniaSettingsOut
+  RBAC: admin-only
+  Opis: Pobierz konfigurację integracji (token preview tylko)
+
+PUT /integrations/fakturownia/settings
+  Request: FakturowniaSettingsIn
+  Response: FakturowniaSettingsOut
+  RBAC: admin-only, rate limit 5/min/IP
+  Opis: Zaktualizuj konfigurację (token szyfrowany Fernet przed zapisem)
+
+GET /integrations/fakturownia/products
+  Response: List[FakturowniaProductOut]
+  RBAC: admin-only
+  Opis: Pobierz katalog produktów z Fakturownia API
+
+GET /integrations/fakturownia/invoices?contract_id={id}
+  Response: List[ResolvedInvoiceOut]
+  RBAC: authenticated, ownership check (tylko własne umowy), rate limit 30/min/user
+  Opis: Pobierz faktury dla umowy z 1:N mapping artykułów
+  IDOR fix: contract_id zamiast oid, OID pobierany z DB
+```
+
+### Schemas
+
+```python
+# Settings
+class FakturowniaSettingsIn(BaseModel):
+    enabled: bool
+    api_token: Optional[str]  # plaintext, szyfrowany przed DB
+    domain_subdomain: Optional[str]  # validated ^[a-z0-9-]+$
+
+class FakturowniaSettingsOut(BaseModel):
+    id: int
+    enabled: bool
+    api_token_preview: Optional[str]  # np. "tk_****1234"
+    domain_subdomain: Optional[str]
+    api_token_updated_at: Optional[datetime]
+    api_token_updated_by: Optional[int]
+
+# Products
+class FakturowniaProductOut(BaseModel):
+    id: int
+    name: str
+    code: Optional[str]
+    price_net: Optional[Decimal]
+    currency: Optional[str]
+
+# Invoices (resolved z 1:N mapping)
+class ResolvedInvoiceOut(BaseModel):
+    invoice_number: str
+    lines: List[ResolvedInvoiceLine]
+    total_net: Decimal
+    mapped_total_net: Decimal  # sum z multiplikacji 1:N
+    unmapped_count: int
+```
+
+### Security
+
+- Fernet encryption tokenów at-rest (api_token_ciphertext VARBINARY)
+- Token preview tylko w responses (api_token_preview)
+- SSRF protection na domain_subdomain (whitelist regex)
+- IDOR fix przez contract_id + ownership check
+- RBAC admin-only na settings/products
+- Rate limiting (sliding window)
+- Pydantic extra='forbid' na wszystkich input schemas
+
+---
+
 ## Middleware & Dependencies
 
 ### CORS

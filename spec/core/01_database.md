@@ -266,6 +266,7 @@ CREATE TABLE articles (
     category_sub3     VARCHAR(100) NULL COMMENT 'RAO-P1-017: Podkategoria 3 (snapshot)',
     is_archival       BOOLEAN      NOT NULL DEFAULT FALSE COMMENT 'RAO-P1-017: maszyna archiwalna (TRUE dla starych)',
     technical_attributes JSON      NULL COMMENT 'RAO-P1-017: dynamiczne atrybuty techniczne (np. waga, moc)',
+    fakturownia_product_id BIGINT  NULL COMMENT 'RAO-P2-012: ID produktu w Fakturownia (mapping globalny 1:N)',
     created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at        DATETIME     NULL ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_art_category FOREIGN KEY (category_id)
@@ -279,8 +280,32 @@ CREATE TABLE articles (
     INDEX idx_art_owner (owner_id),
     INDEX idx_art_registration (registration_no),
     INDEX idx_articles_category_main (category_main),
-    INDEX idx_articles_archival (is_archival)
+    INDEX idx_articles_archival (is_archival),
+    INDEX idx_articles_fakturownia_product (fakturownia_product_id)
 ) ENGINE=InnoDB COMMENT='Artykuły/maszyny (stara tabela: artykul3)';
+
+-- ============================================================
+-- 3.3 Integracja Fakturownia (RAO-P2-012) — singleton settings
+-- ============================================================
+-- Mapping produktu Fakturownia → artykuły RAO realizowany przez articles.fakturownia_product_id
+-- (1:N globalny, jeden produkt FA może odpowiadać wielu artykułom RAO).
+-- Token API szyfrowany Fernet (api_token_ciphertext VARBINARY).
+-- Singleton: zawsze tylko jeden wiersz id=1 (analogicznie do company).
+
+CREATE TABLE fakturownia_settings (
+    id                    INT AUTO_INCREMENT PRIMARY KEY,
+    enabled               BOOLEAN      NOT NULL DEFAULT FALSE COMMENT 'Czy integracja włączona',
+    api_token_ciphertext  VARBINARY(512) NULL COMMENT 'API token zaszyfrowany Fernet',
+    api_token_preview     VARCHAR(32)  NULL COMMENT 'Preview tokena np. tk_****1234 (do UI)',
+    domain_subdomain      VARCHAR(100) NULL COMMENT 'Subdomena Fakturownia np. toolsmart',
+    api_token_updated_at  DATETIME     NULL COMMENT 'Kiedy zaktualizowano token',
+    api_token_updated_by  INT          NULL COMMENT 'FK users.id - kto zaktualizował token',
+    created_at            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at            DATETIME     NULL ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_fakturownia_settings_user FOREIGN KEY (api_token_updated_by)
+        REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_polish_ci
+  COMMENT='RAO-P2-012: Singleton konfiguracji integracji Fakturownia';
 
 -- ============================================================
 -- 4. UMOWY (Contracts)

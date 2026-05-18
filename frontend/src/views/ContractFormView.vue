@@ -704,7 +704,7 @@ async function toggleFakturowniaPanel() {
     return
   }
   showFakturowniaPanel.value = true
-  await fakturowniaStore.fetchInvoicesByOid(String(form.value.contractor_id))
+  await fakturowniaStore.fetchInvoicesByContractId(Number(props.id))
 }
 
 // RAO-P1-008: Auto-fill city from postal code
@@ -892,8 +892,6 @@ async function recalcTotal() {
     alert(e.response?.data?.detail || 'Błąd kalkulacji')
   }
 }
-
-const fakturowniaStore = useFakturowniaStore()
 
 async function handleFakturownia() {
   if (!isEdit.value) return

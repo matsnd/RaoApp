@@ -486,5 +486,92 @@ def extract_images_from_pdf(pdf_path, output_dir):
 - `spec/archive/reference_reports/PZO_S129_2026 (1).pdf` — Protokół
 - `spec/archive/reference_reports/PZO_S130_2026G (1).pdf` — Protokół
 
+---
+
+## 2. Fakturownia API (RAO-P2-012)
+
+### Opis
+
+Publiczne REST API do automatycznego pobierania kosztów z systemu fakturowania Fakturownia.
+
+### Endpointy
+
+```
+GET /invoices.json?api_token={token}&oid={oid}
+Response:
+[
+  {
+    "id": 123,
+    "number": "FV/2024/001",
+    "price_net": 10000.00,
+    "positions": [
+      {
+        "product_id": 456,
+        "name": "Koparka CAT 320",
+        "quantity": 1,
+        "price_net": 10000.00,
+        "total_price_net": 10000.00
+      }
+    ]
+  }
+]
+
+GET /products.json?api_token={token}
+Response:
+[
+  {
+    "id": 456,
+    "name": "Koparka CAT 320",
+    "code": "KOP320",
+    "price_net": 10000.00,
+    "currency": "PLN"
+  }
+]
+```
+
+### Konfiguracja
+
+**Backend:**
+- `FAKTUROWNIA_ENC_KEY` w `.env` (Fernet key dla encryption tokenów)
+- `backend/integrations/fakturownia/` — moduł integracji
+
+**Frontend:**
+- SettingsView → tab Fakturownia → subdomena + token
+- ContractFormView → pole OID + guzik 💰
+
+### Security
+
+- **Token encryption:** Fernet (AES-128-CBC + HMAC) at-rest w DB (api_token_ciphertext)
+- **Token preview:** tylko pierwsze 4 i ostatnie 4 znaki w UI (np. "tk_****1234")
+- **SSRF protection:** whitelist regex ^[a-z0-9-]+$ na subdomenie, hardcoded .fakturownia.pl
+- **RBAC:** admin-only na settings/products, authenticated na invoices z ownership check
+- **IDOR fix:** contract_id zamiast oid (OID pobierany z DB po weryfikacji ownership)
+- **Rate limiting:** 30/min/user (invoices), 5/min/IP (settings token update)
+
+### Mapping 1:N
+
+Jeden produkt Fakturownia może być przypisany do wielu artykułów RAO (globalny w `articles.fakturownia_product_id`).
+
+**Semantyka sumowania:** Jeśli artykuł z mappingiem jest na umowie → każdy dostaje pełną wartość z faktury (multiplikacja OK).
+
+Przykład:
+- Fakturownia: Koparka CAT 320 (id=456) → 10 000 zł
+- RAO: Koparka 1, Koparka 2, Koparka 3 (wszystkie mają fakturownia_product_id=456)
+- Umowa ma Koparka 2 i Koparka 3
+- Wynik: 2x 10 000 zł = 20 000 zł (każdy pełna wartość)
+
+### Implementacja
+
+**Backend:**
+- `backend/integrations/fakturownia/client.py` — httpx client z SSRF guard
+- `backend/integrations/fakturownia/service.py` — logika 1:N mapping + sumowanie
+- `backend/integrations/fakturownia/router.py` — endpointy + RBAC + rate limiting
+- `backend/integrations/fakturownia/crypto.py` — Fernet encryption/decryption
+
+**Frontend:**
+- `frontend/src/stores/fakturownia.ts` — Pinia store
+- `frontend/src/views/SettingsView.vue` — sekcja Fakturownia
+- `frontend/src/views/ContractFormView.vue` — pole OID + guzik 💰
+
 Implementacja z `smtplib` lub usługą zewnętrzną (SendGrid/Mailgun). Wymaga konfiguracji SMTP w `.env`.
 W MVP: generowanie PDF + otwarcie `mailto:` link w przeglądarce (jak WinForms).

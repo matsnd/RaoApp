@@ -877,6 +877,75 @@ Tabela: data-testid="category-stats-table"
 
 ### Store: `useStatsStore` (stores/stats.js)
 
+---
+
+## Integracja Fakturownia (RAO-P2-012)
+
+### SettingsView — sekcja Fakturownia
+
+**Tab:** "Fakturownia" w SettingsView
+
+**Pola:**
+- Toggle "Włącz integrację Fakturownia"
+- Subdomena Fakturownia (text input, np. "toolsmart")
+- API Token (password input, placeholder "Wklej token API")
+- Aktualny token preview (tylko pierwsze 4 i ostatnie 4 znaki, np. "tk_****1234")
+
+**Akcje:**
+- "Zapisz ustawienia" — wywołuje `PUT /integrations/fakturownia/settings`
+- Automatyczne fetch przy wejściu na tab (watch activeTab)
+- Error handling: toast z komunikatem z backend
+
+**Store:** `useFakturowniaStore` (stores/fakturownia.ts)
+
+```typescript
+interface FakturowniaSettings {
+  id: number
+  enabled: boolean
+  api_token_preview: string | null
+  domain_subdomain: string | null
+  api_token_updated_at: string | null
+  api_token_updated_by: number | null
+}
+
+async function fetchSettings()
+async function updateSettings(payload: { enabled, api_token?, domain_subdomain? })
+async function fetchProducts()
+async function fetchInvoicesByContractId(contractId: number)
+```
+
+### ContractFormView — pole OID + guzik 💰
+
+**Pole OID:**
+- Lokalizacja: formularz danych kontraktu (po numerze umowy)
+- Label: "OID (zamówienie Fakturownia)"
+- Type: text input
+- Placeholder: "np. 12345"
+- Model: `form.oid`
+
+**Guzik 💰:**
+- Lokalizacja: toolbar (obok przycisków PDF, Protokół ZO, Przelicz)
+- Widoczny tylko przy edycji umowy (`v-if="isEdit"`)
+- Tooltip: "Pobierz koszty z Fakturownia"
+- Akcja: `handleFakturownia()`
+
+**Logika handleFakturownia:**
+```typescript
+async function handleFakturownia() {
+  if (!isEdit.value) return
+  if (!contractStore.current?.id) return
+  await fakturowniaStore.fetchInvoicesByContractId(contractStore.current.id)
+  // Alert z sumą faktur lub komunikat "Brak faktur"
+}
+```
+
+**Response handling:**
+- Jeśli faktury znalezione → alert z liczbą faktur i sumą
+- Jeśli brak faktur → alert "Brak faktur dla tej umowy"
+- Jeśli błąd → alert z komunikatem z backend (np. token nieważny)
+
+### Store: `useStatsStore` (stores/stats.js)
+
 | Stan | Typ | Opis |
 |------|-----|------|
 | `byCategoryData` | `CategoryStatsResponse \| null` | RAO-P1-017 |

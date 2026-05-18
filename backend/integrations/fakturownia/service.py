@@ -115,8 +115,8 @@ async def fetch_invoices_for_contract(
     if contract is None:
         raise HTTPException(status_code=404, detail="Umowa nie znaleziona")
 
-    if user.role != "admin" and user.branch_id is not None:
-        if contract.branch_id != user.branch_id:
+    if user.role != "admin":
+        if user.branch_id is None or contract.branch_id != user.branch_id:
             raise HTTPException(status_code=403, detail="Brak dostepu do tej umowy")
 
     oid = contract.oid

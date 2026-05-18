@@ -108,7 +108,14 @@ class FakturowniaClient:
             )
 
         self._check_status(resp, path)
-        return resp.json()
+        try:
+            return resp.json()
+        except ValueError as exc:
+            logger.error("Fakturownia API returned non-JSON on %s: %s", path, type(exc).__name__)
+            raise HTTPException(
+                status_code=502,
+                detail="Fakturownia API: nieprawidłowy format odpowiedzi (nie-JSON)",
+            )
 
     def _check_status(self, resp: httpx.Response, path: str) -> None:
         if resp.status_code == 200:
