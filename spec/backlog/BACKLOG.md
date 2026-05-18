@@ -2018,7 +2018,7 @@ Klient chce analizować gdzie najczęściej wynajmują maszyny (miejscowości/ob
 id: RAO-P2-012
 priority: P2
 size: L
-status: in_progress
+status: done
 classification: cross-stack
 roles: [backend-dev, frontend-dev, product-owner, db-architect, security-auditor, qa-engineer]
 depends_on: [RAO-P1-012]
@@ -2035,13 +2035,14 @@ security_impact: high
 estimate: 16-20h
 ```
 
-**NOTE (2026-05-18):** ODŁOŻONE po pełnym scrum refinement.
-- **PO rekomendacja:** Odłożyć po zakończeniu P0/P1 — userzy muszą potwierdzić pain point
-- **Security audit:** security_impact podniesione z LOW → HIGH (12 krytycznych zagrożeń: plaintext token, IDOR, SSRF, brak RBAC)
-- **Tech Lead:** Szczegółowy plan architektoniczny gotowy do implementacji
-- **QA:** 32 edge cases zidentyfikowanych, strategia testowania zdefiniowana
-- **Pattern:** Pełny refinement zapisany w `spec/technical/patterns/fakturownia_integration.md`
-- **Kiedy wrócić:** Po zakończeniu wszystkich P1 (must-have przed go-live)
+**NOTE (2026-05-18):** ZAIMPLEMENTOWANE pełna integracja.
+- **User decision:** Pełna integracja (16-18h) nie MVP — 1:N suming semantics: każdy artykuł dostaje pełną wartość
+- **DB layer:** fakturownia_settings table (Fernet encryption) + articles.fakturownia_product_id
+- **Backend:** crypto.py, schemas.py, service.py (1:N mapping), client.py (httpx), router.py (RBAC + rate limiting)
+- **Frontend:** SettingsView (Fakturownia tab), ContractFormView (OID field + 💰 button), fakturownia.ts store
+- **Security audit:** All P0/P1 threats mitigated (Fernet, RBAC, SSRF, IDOR, rate limiting)
+- **QA:** 51 edge cases checked, 5 critical bugs fixed (TypeError, IDOR, JSONDecodeError, settings 422, duplicate store)
+- **Commits:** 8690bc9 (backend), 66a7107 (frontend), 77b4440 (bugfixes + spec sync)
 
 **NOTE (2026-05-18 — RE-REFINEMENT po P1 done):** NADAL ODŁOŻONE — konsensus zespołu (PO, Tech Lead, Security, QA).
 - **Wszystkie P1 DONE** — baseline stabilny, ale pain point nadal niepotwierdzony przez użytkowników
@@ -2585,7 +2586,7 @@ n|| RAO-P1-008 | Strukturalizacja adresów: kod pocztowy + miasto | Client | P1 
 || RAO-P2-009 | Statystyki per maszyna ROI | Client | P2 | M | done | cross-stack |
 || RAO-P2-010 | Filtrowanie pozycji umowy typ | Client | P2 | S | done | cross-stack |
 || RAO-P2-011 | Statystyki po lokalizacji | Client | P2 | S | todo | cross-stack |
-|| RAO-P2-012 | Integracja Fakturownia — automatyczne koszty | Client | P2 | L | todo | cross-stack |
+|| RAO-P2-012 | Integracja Fakturownia — automatyczne koszty | Client | P2 | L | done | cross-stack |
 || RAO-P3-001 | Drag & drop reorder szablonów | Internal | P3 | M | todo | frontend-dev |
 || RAO-P3-002 | Upload logo firmy | Internal | P3 | M | todo | cross-stack |
 || RAO-P3-003 | Logo w nagłówku sidebar | Internal | P3 | XS | todo | frontend-dev |
