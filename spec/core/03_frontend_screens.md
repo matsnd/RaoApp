@@ -513,9 +513,10 @@ Przyciski toolbar (v-if="isEdit" = tylko przy edycji):
 
 **Fakturownia Integration (placeholder z mock data):**
 - Przycisk 💰 aktywny, wywołuje handleFakturownia()
-- Fakturownia store w trybie mock (useMock = true)
-- Mock response: 1 faktura z 2 pozycjami (Koparka CAT 320 + Transport)
+- Fakturownia store wywołuje backend API `/fakturownia/invoices?oid=`
+- Backend client zwraca mock data (Koparka CAT 320 + Transport, 12400 zł)
 - Alert z wynikami: liczba faktur i łączna kwota
+- Backend mock mode: client.py zwraca sample data bez wywoływania zewnętrznego API
 - Przygotowanie UI pod pełną integrację RAO-P2-012
 
 Szczegółowy layout Row 1 (nagłówek):
