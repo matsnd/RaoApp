@@ -1783,7 +1783,7 @@ Podczas tworzenia umowy typu "Usługa" (U), w pickerze artykułów powinny wyśw
 id: RAO-P1-014
 priority: P1
 size: M
-status: todo
+status: postponed
 classification: cross-stack
 roles: [db-architect, backend-dev, frontend-dev]
 depends_on: []
@@ -2101,7 +2101,7 @@ Integracja z systemem fakturowania Fakturownia (publiczne API) w celu automatycz
 id: RAO-P1-015
 priority: P1
 size: M
-status: todo
+status: postponed
 classification: cross-stack
 roles: [db-architect, backend-dev, frontend-dev]
 depends_on: []
