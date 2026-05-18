@@ -1080,7 +1080,7 @@ async def step9_postal_codes_migration():
 
     conn = await aiomysql.connect(host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASS, db=DB_NAME)
     cur = await conn.cursor()
-    
+
     # 9.1 Seed postal_codes table from CSV
     csv_path = os.path.join(project_root, "backend", "data", "postal_codes.csv")
     if os.path.exists(csv_path):
@@ -1102,28 +1102,91 @@ async def step9_postal_codes_migration():
             print(f"   Seeded {inserted} postal codes")
     else:
         print(f"   WARN: postal_codes.csv not found at {csv_path} - skipping seed")
-    
+
     # 9.2 Extract postal_code + city from delivery_address (idempotent)
     print("   Extracting postal_code + city from delivery_address...")
     await cur.execute("""
-        SELECT id, delivery_address 
-        FROM contracts 
-        WHERE delivery_address IS NOT NULL 
+        SELECT id, delivery_address
+        FROM contracts
+        WHERE delivery_address IS NOT NULL
         AND postal_code IS NULL
     """)
     rows = await cur.fetchall()
-    
-    postal_pattern = re.compile(r"\b(\d{2}-\d{3})\b")
+
+    # Enhanced regex patterns for postal codes
+    # Formats: XX-XXX, XX XXX, XXXXXX, XX-XX-XXX (errors), also handle missing spaces
+    postal_patterns = [
+        re.compile(r"(\d{2}-\d{3})"),     # Standard: XX-XXX (without word boundary)
+        re.compile(r"(\d{2}\s\d{3})"),     # Space: XX XXX
+        re.compile(r"(\d{6})"),            # No separator: XXXXXX
+        re.compile(r"(\d{2}-\d{2}-\d{3})"), # Error: XX-XX-XXX
+    ]
+
+    # Top 200 Polish cities for extraction (expanded coverage)
+    polish_cities = [
+        "Warszawa", "Kraków", "Łódź", "Wrocław", "Poznań", "Gdańsk", "Szczecin", "Bydgoszcz", "Lublin",
+        "Białystok", "Katowice", "Gdynia", "Częstochowa", "Radom", "Sosnowiec", "Toruń", "Kielce", "Rzeszów",
+        "Gliwice", "Zabrze", "Olsztyn", "Bielsko-Biała", "Bytom", "Zielona Góra", "Rybnik", "Ruda Śląska",
+        "Opole", "Tychy", "Gorzów Wielkopolski", "Dąbrowa Górnicza", "Elbląg", "Płock", "Wałbrzych", "Włocławek",
+        "Tarnów", "Chorzów", "Koszalin", "Kalisz", "Legnica", "Jaworzno", "Jastrzębie-Zdrój", "Jelenia Góra",
+        "Słupsk", "Malbork", "Grudziądz", "Piła", "Inowrocław", "Lubin", "Ostrów Wielkopolski", "Gniezno",
+        "Ostrołęka", "Suwałki", "Głogów", "Stargard", "Pabianice", "Chełm", "Zamość", "Puławy", "Ełk",
+        "Pruszcz Gdański", "Włocławek", "Tomaszów Mazowiecki", "Mysłowice", "Piaseczno", "Żory", "Otwock",
+        "Radomsko", "Kędzierzyn-Koźle", "Tczew", "Piotrków Trybunalski", "Mielec", "Wałbrzych", "Oława",
+        "Siedlce", "Pruszków", "Mysłowice", "Ostrołęka", "Jaworzno", "Jastrzębie-Zdrój", "Jelenia Góra",
+        "Słupsk", "Malbork", "Grudziądz", "Piła", "Inowrocław", "Lubin", "Ostrów Wielkopolski", "Gniezno",
+        # Additional cities from Mazovia and surrounding regions
+        "Grodzisk Mazowiecki", "Marki", "Piastów", "Pruszków", "Radzymin", "Sochaczew", "Sulejówek",
+        "Warszawa", "Wołomin", "Ząbki", "Żyrardów", "Łomianki", "Michałowice", "Nadarzyn", "Stare Babice",
+        "Nowy Dwór Mazowiecki", "Otwock", "Piaseczno", "Praga-Południe", "Ursus", "Wesoła", "Bemowo",
+        "Białołęka", "Mokotów", "Ochota", "Praga-Północ", "Rembertów", "Śródmieście", "Targówek",
+        "Ursynów", "Wawer", "Wilanów", "Włochy", "Wola", "Żoliborz",
+        # Other major cities
+        "Będzin", "Biała Podlaska", "Bielawa", "Bieruń", "Blachownia", "Bochnia", "Boguszów-Gorce",
+        "Bolesławiec", "Brzeg", "Braniewo", "Brodnica", "Brzeg Dolny", "Bychawa", "Bystrzyca Kłodzka",
+        "Ciechanów", "Ciechocinek", "Cieszyn", "Czerwionka-Leszczyny", "Czarna Woda", "Czechowice-Dziedzice",
+        "Czeladź", "Czerwionka", "Człuchów", "Darłowo", "Dąbrowa Górnicza", "Dębica", "Dębogórz",
+        "Dzierżoniów", "Działdowo", "Elbląg", "Ełk", "Gdańsk", "Gdynia", "Giżycko", "Głogów",
+        "Głogów Małopolski", "Gniezno", "Goleniów", "Gorlice", "Gorzów Wielkopolski", "Gostynin", "Gostyń",
+        "Grajewo", "Grodzisk Mazowiecki", "Grudziądz", "Grybów", "Gryfino", "Ilawa", "Iława",
+        "Inowrocław", "Iłża", "Jabłonowo Pomorskie", "Jarocin", "Jarosław", "Jasło", "Jastarnia",
+        "Jastrzębie-Zdrój", "Jawor", "Jaworzno", "Jaworzno Śląskie", "Jedlina-Zdrój", "Jelenia Góra",
+        "Jędrzejów", "Józefów", "Kalisz", "Kalwaria Zebrzydowska", "Kamienna Góra", "Kamień Pomorski",
+        "Kamień Pomorski", "Kalety", "Kalisz", "Kalisz Pomorski", "Kalwaria Zebrzydowska", "Karczew",
+        "Kargowa", "Karpacz", "Kartuzy", "Katowice", "Kazimierz Dolny", "Kcynia", "Kędzierzyn-Koźle",
+        "Kępice", "Kępnice", "Kętrzyn", "Kęty", "Kielce", "Kietrz", "Kluczbork", "Kłodzko",
+        "Kłobuck", "Kłodzko", "Knurow", "Kobylin", "Kock", "Kolbuszowa", "Kole", "Kołobrzeg",
+        "Koło", "Kolonowskie", "Kołaczyce", "Koluszki", "Konin", "Konskowola", "Końskie",
+        "Koprzywnica", "Korfantów", "Kornik", "Korzecko", "Koszalin", "Koszwały", "Kowal",
+        "Kowalewo Pomorskie", "Kowary", "Koziegłowy", "Kozienice", "Krapkowice", "Krajenka",
+        "Krasnystaw", "Krasnobród", "Krasnik", "Kraśnik", "Kraków", "Krapkowice", "Krzepice",
+        "Krzyczki", "Krynica Morska", "Krynica-Zdrój", "Krzynowłoga", "Książ Wielki", "Kudowa-Zdrój",
+        "Kutno", "Kuźnica", "Kwidzyn", "Kęty", "Kętrzyn"
+    ]
+
     updated = 0
-    
+
     for contract_id, address in rows:
         if not address:
             continue
-        
-        # Extract postal code
-        postal_match = postal_pattern.search(address)
-        postal_code = postal_match.group(1) if postal_match else None
-        
+
+        # Extract postal code (try multiple patterns)
+        postal_code = None
+        for pattern in postal_patterns:
+            match = pattern.search(address)
+            if match:
+                postal_code = match.group(1)
+                # Normalize to XX-XXX format
+                if len(postal_code) == 6 and '-' not in postal_code:
+                    postal_code = f"{postal_code[:2]}-{postal_code[2:]}"
+                elif ' ' in postal_code:
+                    postal_code = postal_code.replace(' ', '-')
+                elif len(postal_code) == 9 and postal_code.count('-') == 2:
+                    # Fix XX-XX-XXX → XX-XXX
+                    parts = postal_code.split('-')
+                    postal_code = f"{parts[0]}-{parts[2]}"
+                break
+
         # Lookup city from postal_codes
         city = None
         if postal_code:
@@ -1134,13 +1197,21 @@ async def step9_postal_codes_migration():
             city_row = await cur.fetchone()
             if city_row:
                 city = city_row[0]
-        
+
+        # If no city from postal_codes, try to extract from address
+        if not city:
+            address_lower = address.lower()
+            for polish_city in polish_cities:
+                if polish_city.lower() in address_lower:
+                    city = polish_city
+                    break
+
         # Normalize city (trim, title case)
         if city:
             city = city.strip().title()
-        
-        # Update if found
-        if postal_code:
+
+        # Update if found postal_code or city
+        if postal_code or city:
             await cur.execute(
                 "UPDATE contracts SET postal_code = %s, city = %s WHERE id = %s",
                 (postal_code, city, contract_id)
