@@ -24,11 +24,16 @@ Note: service_hours table is NEW (no old data) - will be empty after migration.
 Usage: python migrate.py
 """
 import asyncio
+import csv
+import glob
+import json
+import os
 import re
 import secrets
 import subprocess
 import string
 import sys
+import unicodedata
 from decimal import Decimal, InvalidOperation
 
 import bcrypt
@@ -699,8 +704,326 @@ async def step6_drop_old():
     print(f"   dropped {dropped} objects")
 
 
+# ===========================================================================
+# RAO-P1-017 — CSV → hierarchiczne kategorie → artykuły
+# ===========================================================================
+
+# Column indices w pliku CSV (0-based, po przecinku)
+_C_ID       = 0   # legacy id (int)
+_C_NUMER    = 7   # Numer wewnętrzny
+_C_CAT_MAIN = 8   # Właściwa kategoria główna
+_C_CAT_1    = 9   # Kategoria I
+_C_CAT_2    = 10  # Kategoria II
+_C_CAT_3    = 11  # Kategoria III
+_C_ZASIEG   = 12  # Zasięg
+_C_UDZWIG   = 13  # Udźwig (t)
+_C_DODATKI  = 14  # Dodatki
+
+# Wartości garbage → category = NULL (DoD: x, Test, -, empty → is_archival=TRUE)
+_GARBAGE_NORM: frozenset = frozenset({
+    "", "x", "-", "\u2013", "\u2014", "test", "ogolna",
+    "?", "brak", "inne", ".",
+})
+_TECH_GARBAGE: frozenset = frozenset({"", "-", "\u2013", "\u2014"})
+
+
+def normalize_category(name: str) -> str:
+    """
+    Normalizacja do porównania (NIE do przechowywania w DB).
+    NFD + usunięcie Mn (combining diacritics) + ł→l / Ł→L.
+    CSV-INJ-001 safe: brak f-stringów z user input.
+    """
+    if not name:
+        return ""
+    nfd = unicodedata.normalize("NFD", name.strip())
+    no_dia = "".join(ch for ch in nfd if unicodedata.category(ch) != "Mn")
+    no_dia = no_dia.replace("\u0142", "l").replace("\u0141", "L")
+    return re.sub(r"\s+", " ", no_dia.lower()).strip()
+
+
+def _is_garbage_cat(val: str) -> bool:
+    return normalize_category(val) in _GARBAGE_NORM
+
+
+def _clean_cat(val: object) -> "str | None":
+    if not val:
+        return None
+    s = str(val).strip()
+    return None if _is_garbage_cat(s) else s
+
+
+def _clean_tech(val: object) -> "str | None":
+    if not val:
+        return None
+    s = str(val).strip()
+    return None if (not s or s in _TECH_GARBAGE) else s
+
+
+def _parse_csv_file(csv_path: str) -> list:
+    """CSV-INJ-001 SAFE: csv.reader (NIE eval, NIE f-string z user input)."""
+    records = []
+    with open(csv_path, encoding="utf-8-sig", newline="") as fh:
+        reader = csv.reader(fh)
+        next(reader, None)  # skip header
+        for row in reader:
+            while len(row) < 15:
+                row.append("")
+            id_str = row[_C_ID].strip()
+            if not id_str.isdigit():
+                continue
+            records.append({
+                "id":              int(id_str),
+                "cat_main":        _clean_cat(row[_C_CAT_MAIN]),
+                "cat_sub1":        _clean_cat(row[_C_CAT_1]),
+                "cat_sub2":        _clean_cat(row[_C_CAT_2]),
+                "cat_sub3":        _clean_cat(row[_C_CAT_3]),
+                "internal_number": row[_C_NUMER].strip() or None,
+                "zasieg":          _clean_tech(row[_C_ZASIEG]),
+                "udzwig":          _clean_tech(row[_C_UDZWIG]),
+                "dodatki":         _clean_tech(row[_C_DODATKI]),
+            })
+    return records
+
+
+async def step8_csv_categories() -> None:
+    """
+    RAO-P1-017: CSV → hierarchiczne kategorie → UPDATE articles.
+
+    1. GET_LOCK(rao_migrate_csv, 0) — race condition guard (session-scoped)
+    2. Parsowanie CSV (csv.reader — CSV-INJ-001 safe)
+    3. Cache istniejących kategorii w pamięci (Python-side diacritic norm)
+    4. Budowanie drzewa (main→sub1→sub2→sub3, sorted dla determinizmu):
+       _upsert_cat(): SELECT-or-INSERT — idempotent
+    5. UPDATE articles (parametryzowane %s — SQL-INJ-001 safe):
+       category_main/sub1/sub2/sub3, category_id (najgłębszy poziom),
+       technical_attributes (JSON), internal_number (COALESCE),
+       is_archival=TRUE (legacy marker)
+    6. Oznacz WSZYSTKIE pozostałe artykuły is_archival=TRUE
+    7. Weryfikacja: COUNT + orphan check (gate per migrations.md)
+    8. RELEASE_LOCK
+
+    Idempotentność (2nd run = 0 zmian):
+      - Kategorie: cache hit → brak INSERT
+      - Articles: te same wartości → MySQL pomija wiersz
+    Security: SQL-INJ-001 (%s); CSV-INJ-001 (csv.reader).
+    """
+    print("[8] RAO-P1-017: CSV categories → articles ...")
+    script_dir   = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(script_dir)
+    csv_dir      = os.path.join(project_root, "spec", "backlog", "archiwum", "refinement")
+    csv_matches  = glob.glob(os.path.join(csv_dir, "Asortyment*.csv"))
+    if not csv_matches:
+        print(f"   WARN: CSV nie znaleziony w {csv_dir!r} — step8 pominięto")
+        return
+    csv_path = csv_matches[0]
+    print(f"   CSV: {os.path.basename(csv_path)}")
+
+    conn = await aiomysql.connect(
+        host=DB_HOST, port=DB_PORT, user=DB_USER,
+        password=DB_PASS, db=DB_NAME,
+    )
+    cur = await conn.cursor()
+
+    # GET_LOCK — guard przed race condition (session-scoped, auto-release on disconnect)
+    await cur.execute("SELECT GET_LOCK(%s, 0)", ("rao_migrate_csv",))
+    (lock_acquired,) = await cur.fetchone()
+    if lock_acquired != 1:
+        print("   WARN: GET_LOCK failed — step8 pominięto")
+        await cur.close()
+        conn.close()
+        return
+
+    try:
+        records   = _parse_csv_file(csv_path)
+        csv_total = len(records)
+        print(f"   {csv_total} rekordów z CSV")
+
+        # ── Cache kategorii z DB (Python-side normalizacja) ──────────────────
+        await cur.execute("SELECT id, name, level, parent_id FROM categories")
+        cat_cache: dict = {
+            (normalize_category(n or ""), lvl, pid): cid
+            for cid, n, lvl, pid in await cur.fetchall()
+        }
+        print(f"   {len(cat_cache)} kategorii w DB (przed step8)")
+        cats_created = 0
+
+        # ── Idempotent INSERT kategorii ──────────────────────────────────────
+        async def _upsert_cat(canonical: str, level: str, parent_id: object) -> int:
+            nonlocal cats_created
+            norm = normalize_category(canonical)
+            key  = (norm, level, parent_id)
+            if key in cat_cache:
+                return cat_cache[key]
+            # SQL-INJ-001 SAFE: %s parametryzowane
+            await cur.execute(
+                "INSERT INTO categories (name, level, parent_id) VALUES (%s, %s, %s)",
+                (canonical.strip(), level, parent_id),
+            )
+            new_id = cur.lastrowid
+            cat_cache[key] = new_id
+            cats_created += 1
+            return new_id
+
+        # ── Zbierz kanon nazw (pierwsza wystąpienie wygrywa) ─────────────────
+        main_canon: dict = {}
+        sub1_canon: dict = {}
+        sub2_canon: dict = {}
+        sub3_canon: dict = {}
+        for rec in records:
+            cm = rec["cat_main"]
+            if cm is None:
+                continue
+            nm = normalize_category(cm)
+            main_canon.setdefault(nm, cm)
+            cs1 = rec["cat_sub1"]
+            if cs1 is None:
+                continue
+            ns1 = normalize_category(cs1)
+            sub1_canon.setdefault((nm, ns1), cs1)
+            cs2 = rec["cat_sub2"]
+            if cs2 is None:
+                continue
+            ns2 = normalize_category(cs2)
+            sub2_canon.setdefault((nm, ns1, ns2), cs2)
+            cs3 = rec["cat_sub3"]
+            if cs3 is None:
+                continue
+            ns3 = normalize_category(cs3)
+            sub3_canon.setdefault((nm, ns1, ns2, ns3), cs3)
+
+        # ── Buduj drzewo (sorted → determinizm dla idempotentności) ──────────
+        main_id: dict = {}
+        sub1_id: dict = {}
+        sub2_id: dict = {}
+        sub3_id: dict = {}
+        for nm in sorted(main_canon):
+            main_id[nm] = await _upsert_cat(main_canon[nm], "main", None)
+        for (nm, ns1) in sorted(sub1_canon):
+            if nm in main_id:
+                sub1_id[(nm, ns1)] = await _upsert_cat(
+                    sub1_canon[(nm, ns1)], "sub1", main_id[nm])
+        for (nm, ns1, ns2) in sorted(sub2_canon):
+            if (nm, ns1) in sub1_id:
+                sub2_id[(nm, ns1, ns2)] = await _upsert_cat(
+                    sub2_canon[(nm, ns1, ns2)], "sub2", sub1_id[(nm, ns1)])
+        for (nm, ns1, ns2, ns3) in sorted(sub3_canon):
+            if (nm, ns1, ns2) in sub2_id:
+                sub3_id[(nm, ns1, ns2, ns3)] = await _upsert_cat(
+                    sub3_canon[(nm, ns1, ns2, ns3)], "sub3", sub2_id[(nm, ns1, ns2)])
+        print(f"   Nowe kategorie: {cats_created}")
+
+        # ── UPDATE articles ───────────────────────────────────────────────────
+        n_matched   = 0
+        n_unmatched = 0
+        # SQL-INJ-001 SAFE: tylko %s placeholders, zero f-stringów z user data
+        _UPDATE_SQL = (
+            "UPDATE articles SET"
+            "  is_archival          = TRUE,"
+            "  category_main        = %s,"
+            "  category_sub1        = %s,"
+            "  category_sub2        = %s,"
+            "  category_sub3        = %s,"
+            "  category_id          = %s,"
+            "  technical_attributes = %s,"
+            "  internal_number      = COALESCE(NULLIF(internal_number, ''), %s)"
+            " WHERE id = %s"
+        )
+        for rec in records:
+            art_id   = rec["id"]
+            cat_main = rec["cat_main"]
+            cat_sub1 = rec["cat_sub1"]
+            cat_sub2 = rec["cat_sub2"]
+            cat_sub3 = rec["cat_sub3"]
+
+            # Rozwiąż głębszy poziom → category_id
+            cat_id = None
+            if cat_main is not None:
+                nm  = normalize_category(cat_main)
+                ns1 = normalize_category(cat_sub1) if cat_sub1 else None
+                ns2 = normalize_category(cat_sub2) if cat_sub2 else None
+                ns3 = normalize_category(cat_sub3) if cat_sub3 else None
+                if ns1 and ns2 and ns3:
+                    cat_id = sub3_id.get((nm, ns1, ns2, ns3))
+                if cat_id is None and ns1 and ns2:
+                    cat_id = sub2_id.get((nm, ns1, ns2))
+                if cat_id is None and ns1:
+                    cat_id = sub1_id.get((nm, ns1))
+                if cat_id is None:
+                    cat_id = main_id.get(nm)
+
+            # technical_attributes (JSON) — tylko niepuste pola
+            tech: dict = {}
+            if rec["zasieg"]:
+                tech["zasieg"] = rec["zasieg"]
+            if rec["udzwig"]:
+                tech["udzwig"] = rec["udzwig"]
+            if rec["dodatki"]:
+                tech["dodatki"] = rec["dodatki"]
+            tech_json = json.dumps(tech, ensure_ascii=False) if tech else None
+
+            if cat_main is not None:
+                n_matched += 1
+            else:
+                n_unmatched += 1
+
+            await cur.execute(
+                _UPDATE_SQL,
+                (cat_main, cat_sub1, cat_sub2, cat_sub3, cat_id, tech_json,
+                 rec["internal_number"], art_id),
+            )
+
+        # ── Oznacz WSZYSTKIE pozostałe artykuły is_archival=TRUE ─────────────
+        await cur.execute(
+            "UPDATE articles SET is_archival = TRUE WHERE is_archival = FALSE"
+        )
+        extra = cur.rowcount
+        if extra:
+            print(f"   {extra} artykułów spoza CSV → is_archival=TRUE")
+
+        await conn.commit()
+
+        # ── Weryfikacja ───────────────────────────────────────────────────────
+        await cur.execute("SELECT COUNT(*) FROM articles")
+        total_arts = (await cur.fetchone())[0]
+        await cur.execute("SELECT COUNT(*) FROM articles WHERE is_archival = TRUE")
+        archival_ct = (await cur.fetchone())[0]
+        await cur.execute("SELECT COUNT(*) FROM articles WHERE category_main IS NOT NULL")
+        with_cat_main = (await cur.fetchone())[0]
+        await cur.execute("SELECT COUNT(*) FROM articles WHERE category_id IS NOT NULL")
+        with_cat_id = (await cur.fetchone())[0]
+        await cur.execute(
+            "SELECT COUNT(*) FROM articles"
+            " WHERE category_sub1 IS NOT NULL AND category_main IS NULL"
+        )
+        orphan_subs = (await cur.fetchone())[0]
+        await cur.execute("SELECT COUNT(*) FROM categories")
+        total_cats = (await cur.fetchone())[0]
+
+        pct_match   = round(n_matched   * 100 / csv_total, 1) if csv_total else 0.0
+        pct_nomatch = round(n_unmatched * 100 / csv_total, 1) if csv_total else 0.0
+
+        print(f"\n   --- RAO-P1-017 summary ---")
+        print(f"   Kategorie w DB:           {total_cats}  (+{cats_created} nowych)")
+        print(f"   CSV rekordy:              {csv_total}")
+        print(f"     z kategorią:            {n_matched} ({pct_match}%)")
+        print(f"     bez kategorii/śmieci:   {n_unmatched} ({pct_nomatch}%)")
+        print(f"   is_archival=TRUE:         {archival_ct}/{total_arts}")
+        print(f"   category_main ustawiony:  {with_cat_main}/{total_arts}")
+        print(f"   category_id ustawiony:    {with_cat_id}/{total_arts}")
+        if orphan_subs:
+            print(f"   WARN: {orphan_subs} orphan sub-kategorii!")
+        else:
+            print(f"   OK: brak orphan sub-kategorii")
+
+    finally:
+        await cur.execute("SELECT RELEASE_LOCK(%s)", ("rao_migrate_csv",))
+        await cur.fetchone()
+        await cur.close()
+        conn.close()
+
+
 async def verify():
-    """Quick row-count verification."""
+    """Quick row-count verification + RAO-P1-017 gates."""
     print("\n── Verification ──")
     conn = await aiomysql.connect(host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASS, db=DB_NAME)
     cur = await conn.cursor()
@@ -712,6 +1035,28 @@ async def verify():
         await cur.execute(f"SELECT COUNT(*) FROM `{tbl}`")
         cnt = (await cur.fetchone())[0]
         print(f"   {tbl}: {cnt}")
+
+    # ── RAO-P1-017 quality gates ───────────────────────────────────────────
+    print("\n   [P1-017 gates]")
+    await cur.execute("SELECT COUNT(*) FROM articles")
+    total = (await cur.fetchone())[0]
+    await cur.execute("SELECT COUNT(*) FROM articles WHERE is_archival = TRUE")
+    archival = (await cur.fetchone())[0]
+    await cur.execute("SELECT COUNT(*) FROM articles WHERE category_main IS NOT NULL")
+    with_main = (await cur.fetchone())[0]
+    await cur.execute(
+        "SELECT COUNT(*) FROM articles"
+        " WHERE category_sub1 IS NOT NULL AND category_main IS NULL"
+    )
+    orphan = (await cur.fetchone())[0]
+    print(f"   articles total:          {total}")
+    print(f"   is_archival=TRUE:        {archival}/{total}")
+    print(f"   category_main set:       {with_main}/{total}")
+    if orphan:
+        print(f"   GATE FAIL: orphan sub-cats = {orphan}")
+    else:
+        print("   GATE OK:  no orphan sub-categories")
+
     await cur.close()
     conn.close()
 
@@ -732,6 +1077,7 @@ async def main():
         await step5b_contract_service_fees()
         await step6_drop_old()
         # step7_rehash removed - passwords already hashed in step4b
+        await step8_csv_categories()   # RAO-P1-017
         await verify()
         print("\n✓ Migration complete!")
         print("⚠ All users have must_change_password=1 and random bcrypt passwords")

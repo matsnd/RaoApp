@@ -875,7 +875,7 @@ Przejrzej starą aplikację WinForms i zidentyfikować wszystkie brakujące pola
 id: RAO-P1-017
 priority: P1
 size: XL
-status: triaged
+status: review
 classification: db-only
 roles: [db-architect, backend-dev]
 depends_on: []
@@ -896,9 +896,9 @@ Migracja kategorii maszyn z pliku CSV (Asortyment - Produkty - Maszyny - Toolsma
 **Acceptance criteria (DoD):**
 - [ ] DB: Dodanie kolumny `category VARCHAR(100)` do tabeli `articles`
 - [ ] DB: Dodanie kolumny `is_archival BOOLEAN DEFAULT FALSE` do tabeli `articles`
-- [ ] Backend: Skrypt migracji z CSV — mapowanie kategorii na maszyny
-- [ ] Backend: Skrypt migracji z SQL — mapowanie kategorii z toolsmart_roa
-- [ ] Backend: Flaga `is_archival = TRUE` dla wszystkich istniejących maszyn
+- [x] Backend: Skrypt migracji z CSV — mapowanie kategorii na maszyny (`step8_csv_categories`)
+- [x] Backend: Skrypt migracji z SQL — mapowanie kategorii z toolsmart_roa (via artykul3.id = CSV col 0)
+- [x] Backend: Flaga `is_archival = TRUE` dla wszystkich istniejących maszyn
 - [ ] Backend: Nowe maszyny (po migracji) mają `is_archival = FALSE`
 - [ ] Backend: Statystyki zmienione na bazowanie na kategoriach (nie po numerach wewnętrznych)
 - [ ] Weryfikacja: porównanie danych CSV vs SQL — unikanie duplikacji
