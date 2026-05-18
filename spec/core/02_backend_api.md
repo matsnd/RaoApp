@@ -1205,6 +1205,44 @@ async def reverse_geocode(lat: Decimal, lng: Decimal) -> dict:
         return data.get("address", {})
 ```
 
+### `GET /integrations/postal-codes/{code}` (RAO-P1-008)
+
+**Opis:** Auto-uzupełnianie miasta po kodzie pocztowym
+
+**Request:**
+- `code` (path): Kod pocztowy w formacie XX-XXX (np. "00-001")
+
+**Response:**
+```python
+class PostalCodeLookupResponse(BaseModel):
+    code: str
+    city: str | None
+    voivodeship: str | None
+```
+
+**Algorytm:**
+```python
+async def lookup_postal_code(code: str, db: AsyncSession) -> dict:
+    # Walidacja formatu kodu pocztowego
+    if not re.match(r"^\d{2}-\d{3}$", code):
+        raise HTTPException(422, "Invalid postal code format (expected XX-XXX)")
+
+    # Lookup w tabeli postal_codes
+    result = await db.execute(
+        select(PostalCode).where(PostalCode.code == code)
+    )
+    postal_code = result.scalar_one_or_none()
+
+    if not postal_code:
+        return {"code": code, "city": None, "voivodeship": None}
+
+    return {
+        "code": postal_code.code,
+        "city": postal_code.city,
+        "voivodeship": postal_code.voivodeship
+    }
+```
+
 ---
 
 ## Middleware & Dependencies

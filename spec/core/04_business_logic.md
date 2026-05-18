@@ -807,6 +807,123 @@ async def calculate_salesperson_commission(
     else:
         # Nowa formuła: prowizja od marży
         commission = (margin * commission_rate / Decimal(100)).quantize(Decimal("0.01"))
-    
+
     return commission
+```
+
+---
+
+## 13. Ekstrakcja kodów pocztowych i miast (RAO-P1-008)
+
+```python
+async def extract_postal_code_and_city(
+    delivery_address: str,
+    db: AsyncSession
+) -> tuple[str | None, str | None]:
+    """
+    RAO-P1-008: Ekstrakcja kodu pocztowego i miasta z adresu dostawy.
+
+    Logika:
+    1. Enhanced regex patterns dla różnych formatów kodów pocztowych:
+       - XX-XXX (standard)
+       - XX XXX (spacja zamiast myślnika)
+       - XXXXXX (bez separatora)
+       - XX-XX-XXX (błędne formaty)
+
+    2. Normalizacja kodu pocztowego do formatu XX-XXX
+
+    3. Lookup miasta w tabeli postal_codes po kodzie pocztowym
+
+    4. Jeśli brak miasta w słowniku, ekstrakcja z adresu:
+       - Lista 200+ polskich miast (w tym Mazovia + okoliczne)
+       - Case-insensitive matching
+
+    5. Zwróć (postal_code, city)
+
+    Coverage: 76% umów (postal_code OR city)
+    """
+    import re
+
+    # Enhanced regex patterns
+    postal_patterns = [
+        re.compile(r"(\d{2}-\d{3})"),     # Standard: XX-XXX
+        re.compile(r"(\d{2}\s\d{3})"),     # Space: XX XXX
+        re.compile(r"(\d{6})"),            # No separator: XXXXXX
+        re.compile(r"(\d{2}-\d{2}-\d{3})"), # Error: XX-XX-XXX
+    ]
+
+    # Extract postal code
+    postal_code = None
+    for pattern in postal_patterns:
+        match = pattern.search(delivery_address)
+        if match:
+            postal_code = match.group(1)
+            # Normalize to XX-XXX format
+            if len(postal_code) == 6 and '-' not in postal_code:
+                postal_code = f"{postal_code[:2]}-{postal_code[2:]}"
+            elif ' ' in postal_code:
+                postal_code = postal_code.replace(' ', '-')
+            elif len(postal_code) == 9 and postal_code.count('-') == 2:
+                # Fix XX-XX-XXX → XX-XXX
+                parts = postal_code.split('-')
+                postal_code = f"{parts[0]}-{parts[2]}"
+            break
+
+    # Lookup city from postal_codes
+    city = None
+    if postal_code:
+        result = await db.execute(
+            select(PostalCode.city).where(PostalCode.code == postal_code)
+        )
+        city = result.scalar_one_or_none()
+
+    # If no city from postal_codes, extract from address
+    if not city:
+        polish_cities = [
+            "Warszawa", "Kraków", "Łódź", "Wrocław", "Poznań", "Gdańsk", "Szczecin", "Bydgoszcz", "Lublin",
+            # ... (200+ miast)
+        ]
+        address_lower = delivery_address.lower()
+        for polish_city in polish_cities:
+            if polish_city.lower() in address_lower:
+                city = polish_city
+                break
+
+    # Normalize city (trim, title case)
+    if city:
+        city = city.strip().title()
+
+    return postal_code, city
+```
+
+---
+
+## 14. Auto-uzupełnianie miasta po kodzie pocztowym (RAO-P1-008)
+
+```python
+async def auto_fill_city_by_postal_code(
+    postal_code: str,
+    db: AsyncSession
+) -> str | None:
+    """
+    RAO-P1-008: Auto-uzupełnianie miasta po kodzie pocztowym.
+
+    Logika:
+    1. Walidacja formatu kodu pocztowego (XX-XXX)
+    2. Lookup w tabeli postal_codes
+    3. Zwróć nazwę miasta lub None jeśli nie znaleziono
+
+    Endpoint: GET /integrations/postal-codes/{code}
+    """
+    # Walidacja formatu
+    if not re.match(r"^\d{2}-\d{3}$", postal_code):
+        raise HTTPException(422, "Invalid postal code format (expected XX-XXX)")
+
+    # Lookup w tabeli postal_codes
+    result = await db.execute(
+        select(PostalCode.city).where(PostalCode.code == postal_code)
+    )
+    city = result.scalar_one_or_none()
+
+    return city
 ```

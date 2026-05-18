@@ -207,7 +207,7 @@ class LocationStatItem(BaseModel):
     total_revenue: Decimal  # Wygenerowany obrót z danego miasta
 ```
 
-*Opis algorytmu:* Grupowanie po `contractor.city`. Sumuje liczbę umów oraz przychód per miejscowość w zadanym zakresie dat.
+*Opis algorytmu:* RAO-P1-008: Grupowanie po `contract.city` (miasto z adresu dostawy) zamiast `contractor.city`. Sumuje liczbę umów oraz przychód per miejscowość w zadanym zakresie dat.
 
 ### 2.6 Endpoint: Statystyki Po Kategoriach (RAO-P1-017, NOWY)
 

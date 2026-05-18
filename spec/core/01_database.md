@@ -171,6 +171,17 @@ CREATE TABLE service_fee_template_items (
     INDEX idx_sfti_template (template_id, sort_order)
 ) ENGINE=InnoDB COMMENT='Pozycje szablonów usług dodatkowych - link do artykułów (RAO-P1-011)';
 
+-- 1.8c Kody pocztowe (RAO-P1-008)
+-- Słownik kodów pocztowych Polski do auto-uzupełniania miast
+CREATE TABLE postal_codes (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    code        VARCHAR(20)  NOT NULL COMMENT 'Kod pocztowy format XX-XXX',
+    city        VARCHAR(100) NOT NULL COMMENT 'Nazwa miasta',
+    voivodeship VARCHAR(50)  NULL COMMENT 'Województwo',
+    INDEX idx_postal_codes_code (code),
+    INDEX idx_postal_codes_city (city)
+) ENGINE=InnoDB COMMENT='Słownik kodów pocztowych Polski (RAO-P1-008)';
+
 -- ============================================================
 -- 2. KONTRAHENCI (Contractors)
 -- ============================================================
@@ -284,6 +295,8 @@ CREATE TABLE contracts (
     auto_number         INT          NULL COMMENT 'Auto-numer do sortowania',
     contract_type       CHAR(1)      NOT NULL DEFAULT 'S' COMMENT 'S=najem, U=usługa',
     delivery_address    TEXT         NULL COMMENT 'Snapshot adresu dostawy',
+    postal_code         VARCHAR(20)  NULL COMMENT 'RAO-P1-008: Kod pocztowy z adresu dostawy',
+    city                VARCHAR(100) NULL COMMENT 'RAO-P1-008: Miasto z adresu dostawy',
     date_from           DATE         NULL,
     date_to             DATE         NULL,
     total_value         DECIMAL(18,2) NULL DEFAULT 0.00,
@@ -325,7 +338,9 @@ CREATE TABLE contracts (
     INDEX idx_contract_number (number),
     INDEX idx_contract_contractor (contractor_id),
     INDEX idx_contract_dates (date_from, date_to),
-    INDEX idx_contract_type (contract_type)
+    INDEX idx_contract_type (contract_type),
+    INDEX idx_contracts_postal_code (postal_code),
+    INDEX idx_contracts_city (city)
 ) ENGINE=InnoDB COMMENT='Umowy (stara tabela: umowa2)';
 
 -- 4.1 Dostawa (geo-location per umowa)

@@ -442,7 +442,7 @@ Ulepsz funkcję ekstrakcji miast z wielolinijkowych adresów dostawy dla spójny
 id: RAO-P1-008
 priority: P1
 size: L
-status: in_progress
+status: done
 classification: cross-stack
 roles: [db-architect, backend-dev, frontend-dev]
 depends_on: []
@@ -463,18 +463,18 @@ security_impact: low
 Rozdzielić adres dostawy na strukturę: kod pocztowy + miasto + pełny adres (do dowolnych notatek). Implementacja słownikowania kodów pocztowych (auto-uzupełnianie miasta) i zmiana statystyk na bazowanie na twardych danych (kod pocztowy + miasto), nie na całym adresie.
 
 **Acceptance criteria (DoD):**
-- [ ] DB: Nowe kolumny w `contracts`: `postal_code VARCHAR(10)`, `city VARCHAR(100)`, `delivery_address TEXT` (zmiana z VARCHAR)
-- [ ] Backend: Skrypt ekstrakcji kodu pocztowego i miasta z adresu (regex + słownik)
-- [ ] Backend: Słownik kodów pocztowych (tabela `postal_codes` lub API zewnętrzne)
-- [ ] Backend: Auto-uzupełnianie miasta po wpisaniu kodu pocztowego
-- [ ] Frontend: Formularz z polami: kod pocztowy (auto-uzupełnia miasto), miasto (edytowalne), adres pełny (dowolne notatki)
-- [ ] Stats: Zmiana filtrów statystyk z "cały adres" na "kod pocztowy + miasto"
-- [ ] Migration: Skrypt migracji starych danych (ekstrakcja + ujednolicenie)
-- [ ] `core/01_database.md` zaktualizowany
-- [ ] `core/02_backend_api.md` zaktualizowany
-- [ ] `core/03_frontend_screens.md` zaktualizowany
-- [ ] `core/04_business_logic.md` zaktualizowany
-- [ ] `core/11_reports_stats.md` zaktualizowany
+- [x] DB: Nowe kolumny w `contracts`: `postal_code VARCHAR(10)`, `city VARCHAR(100)`, `delivery_address TEXT` (zmiana z VARCHAR)
+- [x] Backend: Skrypt ekstrakcji kodu pocztowego i miasta z adresu (regex + słownik)
+- [x] Backend: Słownik kodów pocztowych (tabela `postal_codes` - tymczasowo 11 kodów, docelowo GUS TERYT)
+- [x] Backend: Auto-uzupełnianie miasta po wpisaniu kodu pocztowego
+- [x] Frontend: Formularz z polami: kod pocztowy (auto-uzupełnia miasto), miasto (edytowalne), adres pełny (dowolne notatki)
+- [x] Stats: Zmiana filtrów statystyk z "cały adres" na "kod pocztowy + miasto"
+- [x] Migration: Skrypt migracji starych danych (ekstrakcja + ujednolicenie)
+- [x] `core/01_database.md` zaktualizowany
+- [x] `core/02_backend_api.md` zaktualizowany
+- [x] `core/03_frontend_screens.md` zaktualizowany
+- [x] `core/04_business_logic.md` zaktualizowany
+- [x] `core/11_reports_stats.md` zaktualizowany
 
 **Migration plan (RAO deterministic):**
 1. `core/01_database.md` — finalny DDL (postal_code, city, delivery_address TEXT)

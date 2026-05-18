@@ -512,7 +512,8 @@ Szczegółowy layout Row 1 (nagłówek):
 │ [Adres ust.] (text, opcja)              │ │ ...                 ││
 │                                         │ ├─────────────────────┤│
 │ ☐ Dostawa [combo adresów ▼]            │ │   Kwiecień 2026     ││
-│ Adres: [ulica] [kod] [miasto] [>>geo]   │ │ ...                 ││
+│ Adres: [ulica] [kod pocztowy] [miasto] [>>geo]   │ │ ...                 ││
+│ RAO-P1-008: kod pocztowy auto-uzupełnia miasto │ │ ...                 ││
 │ Współrzędne [________________]          │ └─────────────────────┘│
 │                                         │                        │
 │ ☐ Reprezentująca  Tel1 [________]       │ Osoba1 [____________]  │
