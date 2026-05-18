@@ -16,6 +16,7 @@ class Company(Base):
     street = Column(String(50), nullable=True)
     header_text = Column(Text, nullable=True)
     logo = Column(LargeBinary, nullable=True)
+    stamp = Column(String(500), nullable=True)  # ścieżka do pliku z pieczątką
     bank_name = Column(String(200), nullable=True)
     bank_account = Column(String(40), nullable=True)
     numbering_start = Column(Integer, nullable=True, default=1)

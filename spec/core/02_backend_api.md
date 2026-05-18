@@ -978,6 +978,7 @@ class CompanyResponse(BaseModel):
     city: str | None
     street: str | None
     header_text: str | None
+    stamp: str | None
     bank_name: str | None
     bank_account: str | None
     numbering_start: int | None

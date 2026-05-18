@@ -351,6 +351,12 @@
 
   <div class="own-sig-row">
     <div class="own-sig-cell">
+      <div style="text-align:center;margin-bottom:10px;">
+        <!-- Placeholder na pieczątkę firmy -->
+        {% if company.stamp %}
+        <img src="{{ company.stamp }}" alt="Pieczątka" style="max-width:150px;max-height:80px;">
+        {% endif %}
+      </div>
       <div style="text-align:center;margin-top:20px;"><div class="own-sig-line">Czytelny podpis Wynajmującego</div></div>
     </div>
     <div class="own-sig-cell">
