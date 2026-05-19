@@ -56,7 +56,7 @@ class ArticleDetail(BaseModel):
 
 
 class ArticleCreate(BaseModel):
-    name: str = Field(..., max_length=200)
+    name: str = Field(..., min_length=1, max_length=200)
     is_service: bool = False
     internal_number: str | None = Field(None, max_length=50)
     registration_no: str | None = Field(None, max_length=40)

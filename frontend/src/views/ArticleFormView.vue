@@ -203,7 +203,7 @@ async function handleSave() {
     if (!payload.rental_days) payload.rental_days = null
     if (!payload.article_type) payload.article_type = null
 
-    if (isEdit.value) {
+    if (isEdit.value && props.id) {
       await store.update(Number(props.id), payload)
     } else {
       const result = await store.create(payload)

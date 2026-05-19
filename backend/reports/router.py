@@ -15,12 +15,15 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 @router.post("/contract/{contract_id}")
 async def generate_contract_report(
     contract_id: int,
-    type: str = Query("contract"),
+    type: str = Query("contract", pattern="^(contract|protocol_zo_s|protocol_zo_u|protocol_zo_nodata_s)$"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
     try:
         pdf_bytes = await generate_pdf(db, contract_id, type)
+    except ValueError:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Umowa nie znaleziona")
     except Exception as exc:
         import traceback
         from fastapi import HTTPException

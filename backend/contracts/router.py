@@ -1,5 +1,6 @@
 from datetime import date
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth.dependencies import get_current_user
@@ -38,7 +39,7 @@ async def list_contracts(
     search: str | None = Query(None),
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
-    contract_type: str | None = Query(None),
+    contract_type: str | None = Query(None, pattern="^[SU]$"),
     page: int = Query(1, ge=1),
     per_page: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),

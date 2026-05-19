@@ -163,7 +163,10 @@ class ContractService:
         if not contractor_name:
             from contractors.models import Contractor
             ct = await db.get(Contractor, data.contractor_id)
-            contractor_name = ct.name if ct else ""
+            if not ct:
+                from fastapi import HTTPException
+                raise HTTPException(status_code=422, detail="Kontrahent nie istnieje")
+            contractor_name = ct.name
 
         contract = Contract(
             **{k: v for k, v in data.model_dump().items() if k != "contractor_name"},
@@ -179,7 +182,7 @@ class ContractService:
         # RAO-P1-012: Auto-create settlement records for all positions
         from settlements.service import SettlementService
         settlement_service = SettlementService()
-        position_ids = [p.id for p in data.positions] if data.positions else []
+        position_ids = [p.id for p in data.positions] if hasattr(data, 'positions') and data.positions else []
         await settlement_service.auto_create_settlements_for_contract(db, contract.id, position_ids)
         return contract
 
