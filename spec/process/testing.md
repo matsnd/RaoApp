@@ -258,3 +258,75 @@ Jeśli pada — **STOP**. Repro → root cause → fix.
 - Statystyki per maszyna w dashboard (brak osobnego widoku)
 - PDF wielostronicowy: weryfikacja podpisów na ostatniej stronie (wymaga pdf-parse)
 
+---
+
+## UX Review (RAO-P2-016)
+
+### Cel
+Weryfikacja zgodności widoków RAO z design systemem Toolsmart przez screenshoty wszystkich ekranów.
+
+### Procedura
+
+1. **Uruchom test screenshotów:**
+   ```bash
+   cd e2e
+   npx playwright test tests/10-ux-screenshots.spec.ts --reporter=list
+   ```
+
+2. **Screenshoty są zapisywane w:** `e2e/screenshots/ux-review/`
+
+3. **UX Designer przegląda screenshoty** używając checklisty w `e2e/screenshots/ux-review/README.md`
+
+4. **Kategorie weryfikacji:**
+   - Kolory (Toolsmart navy #1D2B53, kontrast, stany error/success)
+   - Typografia (Montserrat, hierarchy, wagi, rozmiary)
+   - Spacing & Layout (8px grid, border-radius 12px, shadows)
+   - Formularze (labelki, placeholders, walidacja, przyciski)
+   - Stany (empty, loading, error, success)
+   - Komponenty (przyciski, karty, tabele)
+   - Responsywność (desktop/tablet)
+
+5. **Dokumentacja uwag:**
+   - Critical issues → backlog P1/P2
+   - Minor issues → backlog P3
+   - Uwagi zapisywane w `e2e/screenshots/ux-review/NOTES.md`
+
+### Lista screenshotów (17)
+
+**Widoki główne:**
+- `01-login-empty.png` — Formularz logowania
+- `02-login-validation-error.png` — Błąd walidacji
+- `03-dashboard-empty.png` — Dashboard pusty
+- `04-home-landing.png` — Home page
+
+**Formularze CRUD:**
+- `05-contractor-form-new-empty.png` — Nowy kontrahent
+- `06-contractor-form-validation.png` — Błędy walidacji
+- `07-article-form-new-empty.png` — Nowy artykuł
+- `08-contract-form-new-empty.png` — Nowa umowa
+
+**Ustawienia:**
+- `09-settings-company.png` — Dane firmy
+- `10-settings-salespeople.png` — Handlowcy
+- `11-settings-categories.png` — Kategorie
+- `12-settings-fee-presets.png` — Szablony usług
+- `13-settings-fakturownia.png` — Fakturownia
+
+**Inne:**
+- `14-change-password-empty.png` — Zmiana hasła
+- `15-admin-panel.png` — Panel admin
+- `16-worker-view.png` — Widok pracownika
+- `17-commission-view.png` — Prowizja
+
+### Narzędzia
+
+- **Playwright:** Automatyzacja screenshotów (headless)
+- **rao-vision MCP:** Opcjonalna analiza AI (kosztowne, używaj tylko gdy potrzebne)
+- **Figma/Design tools:** Porównanie z design systemem Toolsmart
+
+### Kiedy uruchamiać
+
+- **Przed go-live:** Pełny UX review wszystkich ekranów
+- **Po dużych zmianach UI:** Screenshoty zmienionych widoków
+- **Regularnie:** Co sprint / co 2 tygodnie dla regression
+
