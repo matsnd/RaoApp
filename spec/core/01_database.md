@@ -117,6 +117,7 @@ CREATE TABLE company (
     report_folder  VARCHAR(200) NULL,
     protocol_folder VARCHAR(200) NULL,
     app_version    VARCHAR(20)  NULL,
+    logo_path      VARCHAR(500) NULL COMMENT 'RAO-P3-002: URL do pliku logo (np. /rao/api/static/logos/company_logo.png)',
     -- UWAGA: Szablony usług dodatkowych przeniesione do tabeli service_fee_templates
 ) ENGINE=InnoDB COMMENT='Dane firmy - singleton (stara tabela: firma)';
 
@@ -571,14 +572,23 @@ CREATE TABLE service_hours (
 -- 9. AUDIT LOG
 -- ============================================================
 
+-- RAO-P3-005: rozszerzony audit_log z JSON snapshot zmian
 CREATE TABLE audit_log (
-    id          INT AUTO_INCREMENT PRIMARY KEY,
-    session_id  INT          NULL,
-    event_date  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    event_text  VARCHAR(500) NULL,
-    user_id     INT          NULL,
-    INDEX idx_audit_date (event_date)
-) ENGINE=InnoDB COMMENT='Dziennik zdarzeń (stara tabela: zdarzenie)';
+    id           INT AUTO_INCREMENT PRIMARY KEY,
+    user_id      INT          NULL COMMENT 'FK users.id - kto wykonał akcję',
+    action       VARCHAR(100) NOT NULL COMMENT 'np. create / update / delete / login',
+    entity_type  VARCHAR(100) NOT NULL COMMENT 'np. contract / contractor / article',
+    entity_id    INT          NULL COMMENT 'ID rekordu którego dotyczy akcja',
+    old_data     JSON         NULL COMMENT 'Snapshot przed zmianą',
+    new_data     JSON         NULL COMMENT 'Snapshot po zmianie',
+    ip_address   VARCHAR(45)  NULL COMMENT 'IPv4/IPv6 klienta',
+    created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_audit_user FOREIGN KEY (user_id)
+        REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_audit_entity (entity_type, entity_id),
+    INDEX idx_audit_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_polish_ci
+  COMMENT='RAO-P3-005: Dziennik zmian (kto, co, kiedy, JSON diff)';
 ```
 
 ## Mapowanie starych tabel → nowe
