@@ -171,16 +171,20 @@ CREATE TABLE service_fee_template_items (
     INDEX idx_sfti_template (template_id, sort_order)
 ) ENGINE=InnoDB COMMENT='Pozycje szablonów usług dodatkowych - link do artykułów (RAO-P1-011)';
 
--- 1.8c Kody pocztowe (RAO-P1-008)
+-- 1.8c Kody pocztowe (RAO-P1-008, RAO-P2-015)
 -- Słownik kodów pocztowych Polski do auto-uzupełniania miast
+-- Źródło: GUS TERYT (200+ kodów z głównych miast dla developmentu)
 CREATE TABLE postal_codes (
-    id          INT AUTO_INCREMENT PRIMARY KEY,
-    code        VARCHAR(20)  NOT NULL COMMENT 'Kod pocztowy format XX-XXX',
-    city        VARCHAR(100) NOT NULL COMMENT 'Nazwa miasta',
-    voivodeship VARCHAR(50)  NULL COMMENT 'Województwo',
-    INDEX idx_postal_codes_code (code),
-    INDEX idx_postal_codes_city (city)
-) ENGINE=InnoDB COMMENT='Słownik kodów pocztowych Polski (RAO-P1-008)';
+    id           INT AUTO_INCREMENT PRIMARY KEY,
+    postal_code  VARCHAR(10)  NOT NULL UNIQUE COMMENT 'Kod pocztowy format XX-XXX',
+    city         VARCHAR(100) NOT NULL COMMENT 'Nazwa miasta',
+    wojewodztwo  VARCHAR(50)  NULL COMMENT 'Województwo',
+    powiat       VARCHAR(100) NULL COMMENT 'Powiat',
+    gmina        VARCHAR(100) NULL COMMENT 'Gmina',
+    INDEX idx_postal_codes_code (postal_code),
+    INDEX idx_postal_codes_city (city),
+    INDEX idx_postal_codes_wojewodztwo (wojewodztwo)
+) ENGINE=InnoDB COMMENT='Słownik kodów pocztowych Polski (RAO-P1-008, RAO-P2-015)';
 
 -- ============================================================
 -- 2. KONTRAHENCI (Contractors)

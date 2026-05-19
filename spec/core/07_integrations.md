@@ -222,6 +222,92 @@ Przycisk `[>>geo]` w formularzu umowy → po wybraniu adresu dostawy → pobierz
 
 ---
 
+## 2.5. GUS TERYT - Kody pocztowe (RAO-P2-015)
+
+### Kiedy używane
+Auto-uzupełnianie miasta po kodzie pocztowym w formularzach (kontrahenci, umowy).
+
+### Endpointy
+- `GET /integrations/postal-codes/{code}` — zwraca miasto dla kodu pocztowego
+- `POST /integrations/teryt/sync` — synchronizuje słownik kodów pocztowych z pliku SQL
+
+### Implementacja
+
+**Źródło danych:**
+- Development: 200+ kodów pocztowych z głównych miast (Warszawa, Kraków, Wrocław, Poznań, Gdańsk, Łódź, Katowice)
+- Generacja: `backend/integrations/teryt/fetch_postal_codes.py`
+- SQL: `backend/integrations/teryt/postal_codes_inserts.sql`
+
+**Endpoint GET /integrations/postal-codes/{code}:**
+```python
+@router.get("/postal-codes/{code}", response_model=PostalCodeLookupResponse)
+async def lookup_postal_code(code: str, _: User = Depends(get_current_user)):
+    """Lookup city by postal code from dictionary (RAO-P1-008, RAO-P2-015)."""
+    import re
+    if not re.match(r"^\d{2}-\d{3}$", code):
+        raise HTTPException(status_code=422, detail="Invalid postal code format. Expected XX-XXX")
+
+    async with AsyncSessionLocal() as db:
+        from integrations.models import PostalCode
+        result = await db.execute(
+            select(PostalCode).where(PostalCode.postal_code == code).limit(1)
+        )
+        postal = result.scalar_one_or_none()
+        if not postal:
+            raise HTTPException(status_code=404, detail="Postal code not found in dictionary")
+        return PostalCodeLookupResponse(
+            code=postal.postal_code,
+            city=postal.city,
+            voivodeship=postal.wojewodztwo,
+        )
+```
+
+**Endpoint POST /integrations/teryt/sync:**
+```python
+@router.post("/teryt/sync", response_model=TerytSyncResponse)
+async def sync_teryt_data(_: User = Depends(get_current_user)):
+    """Sync postal codes from pre-generated SQL inserts (RAO-P2-015)."""
+    import os
+    import sqlalchemy as sa
+
+    sql_file = os.path.join(os.path.dirname(__file__), "teryt", "postal_codes_inserts.sql")
+    with open(sql_file, 'r', encoding='utf-8') as f:
+        sql_content = f.read()
+
+    async with AsyncSessionLocal() as db:
+        await db.execute(sa.text("DELETE FROM postal_codes"))
+        await db.execute(sa.text(sql_content))
+        await db.commit()
+
+        result = await db.execute(sa.text("SELECT COUNT(*) FROM postal_codes"))
+        count = result.scalar()
+        return TerytSyncResponse(success=True, message=f"Synced {count} postal codes", count=count)
+```
+
+**Frontend integration:**
+```vue
+<!-- ContractorFormView.vue lub ContractFormView.vue -->
+<input v-model="form.postal_code" @blur="onPostalCodeBlur" />
+
+<script setup lang="ts">
+const onPostalCodeBlur = async () => {
+  if (/^\d{2}-\d{3}$/.test(form.postal_code)) {
+    const response = await api.get(`/integrations/postal-codes/${form.postal_code}`)
+    if (response.data.city) {
+      form.city = response.data.city
+    }
+  }
+}
+</script>
+```
+
+**Uwagi:**
+- Pełna baza kodów pocztowych Polski (~20k) wymaga rejestracji w GUS TERYT (teryt_ws1@stat.gov.pl)
+- Developmentowa baza 200+ kodów wystarcza do testów i developmentu
+- W produkcji można rozszerzyć do pełnej bazy przez GUS TERYT API lub zakup komercyjnej bazy
+
+---
+
 ## 3. Raporty PDF (WeasyPrint + Jinja2)
 
 ### Kiedy używane

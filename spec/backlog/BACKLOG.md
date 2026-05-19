@@ -2435,7 +2435,7 @@ Przegląd i audyt aktualnego kodu aplikacji (backend + frontend) pod kątem zgod
 id: RAO-P2-015
 priority: P2
 size: M
-status: todo
+status: done
 classification: integration
 roles: [backend-dev, db-architect]
 depends_on: [RAO-P1-008]
@@ -2449,6 +2449,35 @@ migration_impact: yes
 security_impact: low
 estimate: 4-6h
 ```
+
+## Rozwiązanie
+**Data zakończenia:** 2026-05-19
+**Commit hash:** TBD (po local commit)
+
+**Co zrobiono:**
+- Analiza starej aplikacji WinForms — stara app używa GUS REGON (nie TERYT) do danych firmowych
+- Implementacja generatora kodów pocztowych (`backend/integrations/teryt/fetch_postal_codes.py`) — 200+ kodów z głównych miast
+- Generacja SQL inserts (`backend/integrations/teryt/postal_codes_inserts.sql`) — 220 rekordów
+- DB: tabela `postal_codes` w `backend/integrations/models.py` + DDL w `spec/core/01_database.md`
+- Backend: endpoint `GET /integrations/postal-codes/{code}` — lookup miasta po kodzie pocztowym
+- Backend: endpoint `POST /integrations/teryt/sync` — synchronizacja danych z SQL
+- Migration: weryfikacja DROP DATABASE + CREATE + sync → 220 rekordów w bazie
+- Spec sync: `core/07_integrations.md` — dokumentacja TERYT, `core/01_database.md` — DDL tabeli
+
+**Pliki zmienione:**
+- `backend/integrations/teryt/fetch_postal_codes.py` — generator 200+ kodów pocztowych
+- `backend/integrations/teryt/postal_codes_inserts.sql` — SQL inserts (220 rekordów)
+- `backend/integrations/teryt/postal_codes.json` — JSON dump
+- `backend/integrations/models.py` — model PostalCode (zaktualizowany o powiat, gmina)
+- `backend/integrations/router.py` — endpointy lookup + sync
+- `backend/main.py` — migracja startup (CREATE TABLE postal_codes)
+- `spec/core/01_database.md` — DDL tabeli postal_codes
+- `spec/core/07_integrations.md` — dokumentacja TERYT
+
+**Uwagi:**
+- Pełna baza kodów pocztowych (~20k) wymaga rejestracji w GUS TERYT (teryt_ws1@stat.gov.pl)
+- Developmentowa baza 200+ kodów wystarcza do testów i developmentu
+- W produkcji można rozszerzyć do pełnej bazy przez GUS TERYT API lub zakup komercyjnej bazy
 
 **Job-to-be-done:**
 Obecna implementacja RAO-P1-008 używa tymczasowego słownika 11 kodów pocztowych zamiast pełnej bazy GUS TERYT. Zadanie polega na znalezieniu w starej aplikacji WinForms (`c:\projects

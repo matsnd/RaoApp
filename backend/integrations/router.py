@@ -93,21 +93,79 @@ async def lookup_postal_code(
     code: str,
     _: User = Depends(get_current_user),
 ):
-    """Lookup city by postal code from dictionary (RAO-P1-008)."""
+    """Lookup city by postal code from dictionary (RAO-P1-008, RAO-P2-015)."""
     import re
     if not re.match(r"^\d{2}-\d{3}$", code):
         raise HTTPException(status_code=422, detail="Invalid postal code format. Expected XX-XXX")
-    
+
     async with AsyncSessionLocal() as db:
         from integrations.models import PostalCode
         result = await db.execute(
-            select(PostalCode).where(PostalCode.code == code).limit(1)
+            select(PostalCode).where(PostalCode.postal_code == code).limit(1)
         )
         postal = result.scalar_one_or_none()
         if not postal:
             raise HTTPException(status_code=404, detail="Postal code not found in dictionary")
         return PostalCodeLookupResponse(
-            code=postal.code,
+            code=postal.postal_code,
             city=postal.city,
-            voivodeship=postal.voivodeship,
+            voivodeship=postal.wojewodztwo,
         )
+
+
+class TerytSyncResponse(BaseModel):
+    success: bool
+    message: str
+    count: int
+
+
+@router.post("/teryt/sync", response_model=TerytSyncResponse)
+async def sync_teryt_data(
+    _: User = Depends(get_current_user),
+):
+    """
+    Sync postal codes from pre-generated SQL inserts (RAO-P2-015).
+    Loads data from backend/integrations/teryt/postal_codes_inserts.sql
+    """
+    import os
+    import sqlalchemy as sa
+
+    # Wczytaj SQL inserty
+    sql_file = os.path.join(
+        os.path.dirname(__file__),
+        "teryt",
+        "postal_codes_inserts.sql"
+    )
+
+    if not os.path.exists(sql_file):
+        raise HTTPException(
+            status_code=404,
+            detail="SQL file not found. Run fetch_postal_codes.py first."
+        )
+
+    with open(sql_file, 'r', encoding='utf-8') as f:
+        sql_content = f.read()
+
+    async with AsyncSessionLocal() as db:
+        try:
+            # Usuń stare dane
+            await db.execute(sa.text("DELETE FROM postal_codes"))
+            # Wczytaj nowe dane
+            await db.execute(sa.text(sql_content))
+            await db.commit()
+
+            # Policz rekordy
+            result = await db.execute(sa.text("SELECT COUNT(*) FROM postal_codes"))
+            count = result.scalar()
+
+            return TerytSyncResponse(
+                success=True,
+                message=f"Successfully synced {count} postal codes",
+                count=count
+            )
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to sync postal codes: {str(e)}"
+            )

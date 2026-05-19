@@ -98,6 +98,30 @@ async def startup_migrations():
             "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
             "city VARCHAR(100) NULL"
         ))
+        # RAO-P2-015: tabela postal_codes (słownik kodów pocztowych)
+        await conn.execute(sa.text("""
+            CREATE TABLE IF NOT EXISTS postal_codes (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                postal_code VARCHAR(10) NOT NULL UNIQUE,
+                city VARCHAR(100) NOT NULL,
+                wojewodztwo VARCHAR(50) NULL,
+                powiat VARCHAR(100) NULL,
+                gmina VARCHAR(100) NULL,
+                INDEX idx_postal_codes_code (postal_code),
+                INDEX idx_postal_codes_city (city),
+                INDEX idx_postal_codes_wojewodztwo (wojewodztwo)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_polish_ci
+              COMMENT='RAO-P2-015: Słownik kodów pocztowych Polski'
+        """))
+        # Migracja istniejącej tabeli postal_codes (jeśli istnieje ze starym schematem)
+        await conn.execute(sa.text(
+            "ALTER TABLE postal_codes ADD COLUMN IF NOT EXISTS "
+            "powiat VARCHAR(100) NULL"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE postal_codes ADD COLUMN IF NOT EXISTS "
+            "gmina VARCHAR(100) NULL"
+        ))
         # RAO-P2-012: integracja Fakturownia — singleton settings + mapping produktu w articles
         await conn.execute(sa.text("""
             CREATE TABLE IF NOT EXISTS fakturownia_settings (

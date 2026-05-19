@@ -6,6 +6,8 @@ class PostalCode(Base):
     __tablename__ = "postal_codes"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    code = Column(String(20), nullable=False, index=True)
+    postal_code = Column(String(10), nullable=False, unique=True, index=True)
     city = Column(String(100), nullable=False)
-    voivodeship = Column(String(50), nullable=True)
+    wojewodztwo = Column(String(50), nullable=True)
+    powiat = Column(String(100), nullable=True)
+    gmina = Column(String(100), nullable=True)
