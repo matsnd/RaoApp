@@ -1902,7 +1902,7 @@ security_impact: low
 id: RAO-P3-012
 priority: P3
 size: XS
-status: postponed
+status: done
 classification: backend
 roles: [backend-dev]
 depends_on: []
@@ -2168,7 +2168,7 @@ W raportach klient chce widzieć nie tylko maszyny, ale też podsumowanie pozycj
 id: RAO-P2-011
 priority: P2
 size: S
-status: postponed
+status: done
 classification: cross-stack
 roles: [backend-dev, frontend-dev]
 depends_on: []
@@ -3137,10 +3137,10 @@ n|| RAO-P1-008 | Strukturalizacja adresów: kod pocztowy + miasto | Client | P1 
 || RAO-P3-003 | Logo w nagłówku sidebar | Internal | P3 | XS | todo | frontend-dev |
 || RAO-P3-004 | Export statystyk CSV | Internal | P3 | M | todo | cross-stack |
 || RAO-P3-005 | Modele DB deliveries/costs/audit | Internal | P3 | L | todo | db-architect |
-|| RAO-P3-006 | Auto-generowanie opisu warunku | Internal | P3 | S | todo | frontend-dev |
-|| RAO-P3-007 | Kalendarz 2-miesieczny | Internal | P3 | M | todo | frontend-dev |
-|| RAO-P3-008 | Keyboard shortcuts | Internal | P3 | S | todo | frontend-dev |
-|| RAO-P3-009 | Empty state CTA | Internal | P3 | XS | todo | frontend-dev |
-|| RAO-P3-010 | Globalny pasek postępu NProgress | Internal | P3 | S | todo | frontend-dev |
-|| RAO-P3-011 | Testy integracyjne backend pytest | Internal | P3 | L | todo | qa-engineer |
-|| RAO-P3-012 | Kwota tankowania default 200 zł | Client | P3 | XS | todo | backend-dev |
+|| RAO-P3-006 | Auto-generowanie opisu warunku | Internal | P3 | S | done | frontend-dev |
+|| RAO-P3-007 | Kalendarz 2-miesieczny | Internal | P3 | M | done | frontend-dev |
+|| RAO-P3-008 | Keyboard shortcuts | Internal | P3 | S | done | frontend-dev |
+|| RAO-P3-009 | Empty state CTA | Internal | P3 | XS | done | frontend-dev |
+|| RAO-P3-010 | Globalny pasek postępu NProgress | Internal | P3 | S | done | frontend-dev |
+|| RAO-P3-011 | Testy integracyjne backend pytest | Internal | P3 | L | done | qa-engineer |
+|| RAO-P3-012 | Kwota tankowania default 200 zł | Client | P3 | XS | done | backend-dev |

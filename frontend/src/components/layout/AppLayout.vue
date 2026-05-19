@@ -8,7 +8,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppSidebar from './AppSidebar.vue'
 
@@ -29,6 +29,33 @@ const activeSection = computed(() => {
   if (route.path === '/home') return 'home'
   return 'contracts'
 })
+
+// Keyboard shortcuts: Ctrl+N → new item, Escape → back
+function handleKeydown(e) {
+  // Ignore when typing in inputs / textareas / selects
+  const tag = document.activeElement?.tagName
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) return
+  // Ignore when a modal overlay is open
+  if (document.querySelector('.modal-overlay')) return
+
+  if (e.ctrlKey && e.key === 'n') {
+    e.preventDefault()
+    const section = activeSection.value
+    if (section === 'contracts') router.push({ name: 'ContractNew' })
+    else if (section === 'contractors') router.push({ name: 'ContractorNew' })
+    else if (section === 'articles') router.push({ name: 'ArticleNew' })
+  }
+  if (e.key === 'Escape') {
+    // Go back if we are in a form view
+    const path = route.path
+    if (path.endsWith('/new') || path.includes('/edit')) {
+      router.back()
+    }
+  }
+}
+
+onMounted(() => window.addEventListener('keydown', handleKeydown))
+onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
 
 function handleNavigate(section) {
   if (section === 'home') {

@@ -95,7 +95,7 @@
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label">Opis</label>
+            <label class="form-label">Opis <button type="button" class="btn-auto-desc" title="Generuj opis automatycznie" @click="condForm.description = buildAutoDescription()">↻ auto</button></label>
             <input v-model="condForm.description" type="text" class="form-control" placeholder="np. stawka 5000 zł/tyg. do 5 tygodni" />
           </div>
           <div class="modal-actions">
@@ -109,7 +109,7 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, nextTick } from 'vue'
 import { useContractStore } from '@/stores/contracts'
 import { useSettingsStore } from '@/stores/settings'
 
@@ -147,6 +147,33 @@ async function loadConditions() {
     conditions.value = await contractStore.fetchConditions(props.contractId, props.positionId)
   } catch { conditions.value = [] }
 }
+
+function buildAutoDescription() {
+  const parts = []
+  const rtName = rateTypes.value.find(rt => rt.id === condForm.value.rate_type_id)?.name
+  if (rtName) parts.push(rtName)
+  const r1 = condForm.value.rate1
+  if (r1 || r1 === 0) {
+    const formatted = Number(r1).toFixed(2) + ' zł'
+    parts.push(condForm.value.billing_label ? `${formatted}/${condForm.value.billing_label}` : formatted)
+  }
+  const r2 = condForm.value.rate2
+  if (r2 && Number(r2) > 0) parts.push(`+ ${Number(r2).toFixed(2)} zł`)
+  if (condForm.value.period_count) {
+    parts.push(`do ${condForm.value.period_count}${condForm.value.billing_label ? ' ' + condForm.value.billing_label : ''}`)
+  }
+  if (condForm.value.minimum) parts.push(`min. ${condForm.value.minimum}`)
+  return parts.join(', ')
+}
+
+// Auto-fill description for new conditions when fields change
+watch(
+  () => [condForm.value.rate_type_id, condForm.value.rate1, condForm.value.rate2, condForm.value.billing_label, condForm.value.period_count],
+  () => {
+    if (!showCondModal.value || editingCond.value) return
+    condForm.value.description = buildAutoDescription()
+  }
+)
 
 function addCondition() {
   editingCond.value = null
@@ -238,4 +265,17 @@ defineExpose({ loadConditions, calculatedValue })
   transition: opacity 150ms;
 }
 .btn-icon:hover { opacity: 1; }
+.btn-auto-desc {
+  background: none;
+  border: 1px solid #CBD5E0;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 10px;
+  padding: 1px 5px;
+  margin-left: 6px;
+  color: #718096;
+  vertical-align: middle;
+  transition: background 150ms;
+}
+.btn-auto-desc:hover { background: #EDF2F7; }
 </style>

@@ -46,7 +46,10 @@
                   <td colspan="9" class="empty-state">Ładowanie...</td>
                 </tr>
                 <tr v-else-if="!contractStore.list.length">
-                  <td colspan="9" class="empty-state">Brak umów</td>
+                  <td colspan="9" class="empty-state">
+                    Brak umów —
+                    <button class="btn btn-primary btn-sm" style="margin-left:8px;" @click="router.push({ name: 'ContractNew' })">+ Nowa umowa</button>
+                  </td>
                 </tr>
                 <tr
                   v-for="c in contractStore.list"
@@ -115,7 +118,10 @@
                   <td colspan="6" class="empty-state">Ładowanie...</td>
                 </tr>
                 <tr v-else-if="!contractorStore.list.length">
-                  <td colspan="6" class="empty-state">Brak kontrahentów</td>
+                  <td colspan="6" class="empty-state">
+                    Brak kontrahentów —
+                    <button class="btn btn-primary btn-sm" style="margin-left:8px;" @click="router.push({ name: 'ContractorNew' })">+ Nowy kontrahent</button>
+                  </td>
                 </tr>
                 <tr
                   v-for="c in contractorStore.list"
@@ -172,7 +178,10 @@
                   <td colspan="7" class="empty-state">Ładowanie...</td>
                 </tr>
                 <tr v-else-if="!articleStore.list.length">
-                  <td colspan="7" class="empty-state">Brak artykułów</td>
+                  <td colspan="7" class="empty-state">
+                    Brak artykułów —
+                    <button class="btn btn-primary btn-sm" style="margin-left:8px;" @click="router.push({ name: 'ArticleNew' })">+ Nowy artykuł</button>
+                  </td>
                 </tr>
                 <tr
                   v-for="a in articleStore.list"

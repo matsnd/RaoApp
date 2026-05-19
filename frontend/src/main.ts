@@ -8,6 +8,7 @@ import './assets/styles/layout.css'
 import './assets/styles/forms.css'
 import './assets/styles/tables.css'
 import './assets/styles/animations.css'
+import 'nprogress/nprogress.css'
 
 const app = createApp(App)
 app.use(createPinia())
