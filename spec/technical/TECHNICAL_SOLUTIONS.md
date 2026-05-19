@@ -53,6 +53,10 @@ spec/technical/
 - **Script:** `spec/technical/scripts/teryt_postal_codes_generator.py` — Generator słownika kodów pocztowych (200+ z głównych miast)
 - **Doc:** `spec/technical/scripts/teryt_postal_codes_generator.md` — Opis użycia, integracja z RAO, rozszerzenie do pełnej bazy
 
+### Playwright UX Screenshots (RAO-P2-016)
+- **Script:** `e2e/tests/10-ux-screenshots.spec.ts` — Automatyczne screenshoty wszystkich widoków dla UX review
+- **Doc:** `spec/technical/scripts/playwright_ux_screenshots.md` — Opis użycia, lista 17 screenshotów, integracja z UX review
+
 ## Szybki dostęp
 
 - **AGENTS.md:** Sekcja "Technical Solutions Storage" z linkiem do tego pliku
@@ -72,3 +76,4 @@ Po każdym zadaniu:
 - **2026-05-18:** RAO-P1-022 — PDF extraction, Vision AI, WeasyPrint images
 - **2026-05-18:** RAO-P2-012 — Pełny scrum refinement Fakturownia integration (PO, Tech Lead, QA, Security) — ODŁOŻONE
 - **2026-05-19:** RAO-P2-015 — TERYT postal codes integration (200+ kodów z głównych miast, endpointy lookup + sync)
+- **2026-05-19:** RAO-P2-016 — Playwright UX screenshots spike (17 screenshotów dla design review, checklist UX)
