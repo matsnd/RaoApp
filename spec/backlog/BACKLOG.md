@@ -1305,6 +1305,7 @@ Po wyborze adresu dostawy automatycznie geokodować współrzędne przez Nominat
 
 ---
 
+
 ## 🟢 P3 — Icebox (POSTPONED)
 
 Pomysły, bez harmonogramu - odłożone do przyszłości.
@@ -2428,6 +2429,98 @@ Przegląd i audyt aktualnego kodu aplikacji (backend + frontend) pod kątem zgod
 
 ---
 
+### [RAO-P2-015] Integracja API TERYT z GUS — pełny słownik kodów pocztowych
+
+```yaml
+id: RAO-P2-015
+priority: P2
+size: M
+status: todo
+classification: integration
+roles: [backend-dev, db-architect]
+depends_on: [RAO-P1-008]
+blocks: []
+source: internal
+source_date: 2026-05-18
+specs_to_update:
+  - core/07_integrations.md
+  - core/01_database.md
+migration_impact: yes
+security_impact: low
+estimate: 4-6h
+```
+
+**Job-to-be-done:**
+Obecna implementacja RAO-P1-008 używa tymczasowego słownika 11 kodów pocztowych zamiast pełnej bazy GUS TERYT. Zadanie polega na znalezieniu w starej aplikacji WinForms (`c:\projects
+epos\AppRao\`) dostępu do API TERYT i integracji go w nowym systemie. Celem jest pełny słownik kodów pocztowych dla Polski z automatycznym uzupełnianiem miasta po kodzie pocztowym.
+
+**Scope:**
+
+#### Analiza starej aplikacji
+- [ ] Znajdź w `c:\projects
+epos\AppRao\` kod C# który używa API TERYT
+- [ ] Zidentyfikuj endpointy GUS TERYT (SOAP/REST), klucz API, parametry
+- [ ] Dokumentuj w `spec/technical/teryt-integration.md`: endpointy, request/response, przykłady
+
+#### Backend — nowy moduł integracji TERYT
+- [ ] `backend/integrations/teryt/` — nowy moduł (models.py, schemas.py, service.py, router.py)
+- [ ] Tabela `postal_codes` (jeśli jeszcze nie istnieje) — kod pocztowy PK, miasto, województwo, powiat, gmina
+- [ ] Endpoint `GET /integrations/teryt/city/{postal_code}` → zwraca miasto lub null
+- [ ] Endpoint `POST /integrations/teryt/sync` — pobiera pełny słownik z GUS TERYT i zapisuje do DB
+- [ ] Sync idempotentny — drugie uruchomienie aktualizuje dane bez duplikatów
+
+#### Frontend — auto-uzupełnianie
+- [ ] `ContractorFormView.vue` — pole kod pocztowy wywołuje `/integrations/teryt/city/{postal_code}` po blur
+- [ ] Pole miasto wypełnia się automatycznie (jeśli API zwraca wynik)
+- [ ] Loading state podczas wywołania API
+- [ ] Error handling gdy kod nie znaleziony (pole miasto puste, user może wpisać ręcznie)
+
+#### Migration
+- [ ] Skrypt inicjalizujący — `POST /integrations/teryt/sync` przy pierwszym starcie
+- [ ] Weryfikacja: tabela `postal_codes` ma >20k rekordów (pełna baza TERYT)
+
+**Acceptance criteria (DoD):**
+- [ ] Dokumentacja API TERYT w `spec/technical/teryt-integration.md`
+- [ ] Moduł `backend/integrations/teryt/` z endpointami
+- [ ] Tabela `postal_codes` z pełną bazą kodów pocztowych (>20k rekordów)
+- [ ] Endpoint sync działa idempotentnie
+- [ ] Frontend: kod pocztowy → auto-uzupełnienie miasta
+- [ ] `core/07_integrations.md` zaktualizowany o TERYT
+- [ ] `core/01_database.md` zaktualizowany (tabela postal_codes)
+
+**Migration plan (RAO deterministic):**
+1. `core/01_database.md` — finalny DDL (postal_codes table)
+2. `backend/integrations/teryt/models.py` — SQLAlchemy
+3. `backend/main.py` startup — `CREATE TABLE postal_codes IF NOT EXISTS`
+4. **Verification gate:**
+   - [ ] `DROP DATABASE rao_new && CREATE` → restart backend → tabela utworzona
+   - [ ] `POST /integrations/teryt/sync` → tabela wypełniona (>20k rekordów)
+   - [ ] Drugi restart backend bez błędu
+
+**QA DoD:**
+- [ ] Unit test dla endpointu `/integrations/teryt/city/{postal_code}` (mock GUS)
+- [ ] Unit test dla sync endpointu (mock response)
+- [ ] E2E test w `02-contractor.spec.ts` dla auto-uzupełniania miasta
+- [ ] Smoke test `01-login.spec.ts` PASS
+
+**Security DoD:**
+- [ ] Klucz API TERYT w `.env` (teryt_api_key)
+- [ ] Rate limiting na endpoint sync (1/min)
+- [ ] RBAC: sync endpoint tylko admin
+
+**Pliki do zmiany / stworzenia:**
+- `backend/integrations/teryt/` — nowy moduł
+- `backend/main.py` — startup sync (opcjonalne)
+- `ContractorFormView.vue` — auto-uzupełnianie
+- `spec/technical/teryt-integration.md` — dokumentacja API
+- `spec/core/07_integrations.md` — opis integracji
+- `spec/core/01_database.md` — DDL postal_codes
+
+**ROI:** Pełny słownik kodów pocztowych vs. 11 tymczasowych = poprawa jakości danych i UX dla klienta.
+**Estimate:** 4-6h (M)
+
+---
+
 ### [RAO-P1-015] Rezerwacja maszyn (blokada wynajmu) (#15)
 
 ```yaml
@@ -2781,7 +2874,7 @@ Zobacz `archive/16_todo_done.md` dla pełnego historii zadań ukończonych.
 |-----------|--------|---------------|
 | 🚨 P0 | 5 | ~7h |
 | 🔴 P1 | 11 | ~55h |
-| 🟡 P2 | 9 | ~50h |
+| 🟡 P2 | 10 | ~56h |
 | 🟢 P3 | 5 | ~20h |
 | **Razem** | **21** | **~58h** |
 
@@ -2823,6 +2916,7 @@ n|| RAO-P1-008 | Strukturalizacja adresów: kod pocztowy + miasto | Client | P1 
 || RAO-P2-012 | Integracja Fakturownia — automatyczne koszty | Client | P2 | L | done | cross-stack |
 || RAO-P2-013 | Pełne pokrycie E2E — wszystkie use case'y | Internal | P2 | XL | done | qa-engineer |
 || RAO-P2-014 | Weryfikacja kodu vs. spec i backlog | Internal | P2 | M | todo | tech-lead |
+|| RAO-P2-015 | Integracja API TERYT z GUS — pełny słownik kodów pocztowych | Internal | P2 | M | todo | backend-dev |
 || RAO-P3-001 | Drag & drop reorder szablonów | Internal | P3 | M | todo | frontend-dev |
 || RAO-P3-002 | Upload logo firmy | Internal | P3 | M | todo | cross-stack |
 || RAO-P3-003 | Logo w nagłówku sidebar | Internal | P3 | XS | todo | frontend-dev |
