@@ -1738,7 +1738,7 @@ W starym FormW.cs opis warunku był auto-generowany ("stawka 5000 zł/tyg. do 5 
 id: RAO-P3-007
 priority: P3
 size: M
-status: postponed
+status: done
 classification: frontend
 roles: [frontend-dev]
 depends_on: []
@@ -1755,14 +1755,14 @@ security_impact: low
 W starym FormU4 wizualny kalendarz 2-miesieczny do wyboru dat od/do. Nowy formularz ma zwykłe `<input type="date">`.
 
 **Acceptance criteria (DoD):**
-- [ ] `ContractFormView.vue` — opcjonalnie zastąpić inputy data komponentem `vue-datepicker` lub własnym
-- [ ] Wizualny kalendarz 2-miesieczny
-- [ ] `core/03_frontend_screens.md` zaktualizowany
+- [x] `ContractFormView.vue` — zastąpiono inputy date komponentem `@vuepic/vue-datepicker` z range picker
+- [x] Wizualny kalendarz 2-miesieczny (`multi-calendars`)
+- [x] Nowy komponent `frontend/src/components/shared/DateRangePicker.vue`
+- [x] `core/03_frontend_screens.md` zaktualizowany
 
-**Uwaga:** Niski priorytet — obecna implementacja jest funkcjonalna.
-
-**Pliki do zmiany:** `ContractFormView.vue`
+**Pliki zmienione:** `ContractFormView.vue`, `frontend/src/components/shared/DateRangePicker.vue`
 **Estimate:** 4h (M)
+**Completed:** 2026-05-18
 
 ---
 

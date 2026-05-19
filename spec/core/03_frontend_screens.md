@@ -1042,11 +1042,18 @@ async function handleFakturownia() {
 
 **Zmiany:**
 - Pola pogrupowane w 4 sekcje/karty:
-  1. **Dane podstawowe** (typ, numer, OID, daty)
+  1. **Dane podstawowe** (typ, numer, OID, okres umowy)
   2. **Kontrahent i adres dostawy** (wybór kontrahenta, adres)
   3. **Warunki finansowe** (handlowiec, oddział, wartość, przedpłata, faktura)
   4. **Kontakt i uwagi** (osoby kontaktowe, email, telefon, uwagi, opcje)
-- Inline validation dla required fields (data od/do, kontrahent)
+- **RAO-P3-007:** Pola `date_from`/`date_to` zastąpione komponentem `DateRangePicker.vue`
+  - Biblioteka: `@vuepic/vue-datepicker`
+  - Komponent: `frontend/src/components/shared/DateRangePicker.vue`
+  - Tryb: range (2 kalendarze), brak time picker, locale=pl, auto-apply
+  - Label: "Okres umowy (od — do) *"
+  - Emity: `update:dateFrom`, `update:dateTo` → `form.date_from`, `form.date_to`
+  - Walidacja: `v-if="!form.date_from"` → "Podaj datę od"
+- Inline validation dla required fields (data od, kontrahent)
 - Layout adresu dostawy poprawiony:
   - Select adresu w osobnym rzędzie
   - Kod pocztowy + miasto w jednym rzędzie

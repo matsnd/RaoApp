@@ -36,14 +36,14 @@
               <input v-model="form.oid" type="text" class="form-control" placeholder="np. 12345" />
             </div>
             <div class="form-group">
-              <label class="form-label">Data od *</label>
-              <input v-model="form.date_from" type="date" class="form-control" :class="{ 'error': !form.date_from }" />
-              <span v-if="!form.date_from" class="field-error">Pole wymagane</span>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Data do *</label>
-              <input v-model="form.date_to" type="date" class="form-control" :class="{ 'error': !form.date_to }" />
-              <span v-if="!form.date_to" class="field-error">Pole wymagane</span>
+              <label class="form-label">Okres umowy (od — do) *</label>
+              <DateRangePicker
+                :date-from="form.date_from"
+                :date-to="form.date_to"
+                @update:date-from="form.date_from = $event"
+                @update:date-to="form.date_to = $event"
+              />
+              <span v-if="!form.date_from" class="field-error">Podaj datę od</span>
             </div>
           </div>
         </div>
@@ -675,6 +675,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { useFakturowniaStore } from '@/stores/fakturownia'
 import ConditionPanel from '@/components/contracts/ConditionPanel.vue'
 import ServiceHourGrid from '@/components/contracts/ServiceHourGrid.vue'
+import DateRangePicker from '@/components/shared/DateRangePicker.vue'
 import api from '@/composables/useApi'
 
 const props = defineProps({ id: String })
