@@ -1306,6 +1306,99 @@ Po wyborze adresu dostawy automatycznie geokodować współrzędne przez Nominat
 ---
 
 
+### [RAO-P2-016] SPIKE: Playwright screenshot wszystkich widoków dla UX review
+
+```yaml
+id: RAO-P2-016
+priority: P2
+size: M
+status: todo
+classification: spike
+roles: [qa-engineer, ux-designer, frontend-dev]
+depends_on: []
+blocks: []
+source: internal
+source_date: 2026-05-18
+specs_to_update:
+  - process/testing.md
+migration_impact: no
+security_impact: low
+estimate: 4-6h
+```
+
+**Job-to-be-done:**
+Otworzyć w Playwright wszystkie możliwe widoki/ekrany aplikacji i przygotować zestaw screenshotów do przeglądu przez UX Designera. Celem jest weryfikacja czy każdy ekran spełnia wymagania design systemu Toolsmart (kolory, fonty, spacing, border-radius, shadows, hierarchy typograficzna, empty states, loading states).
+
+**Scope — wszystkie widoki Vue (12 ekranów):**
+
+#### Widoki główne
+- [ ] LoginView — formularz logowania (z błędem i sukcesem)
+- [ ] DashboardView — dashboard z tabelą umów (pusta lista i z danymi)
+- [ ] HomeView — home page / landing
+
+#### Formularze CRUD
+- [ ] ContractorFormView — nowy kontrahent (pusty formularz)
+- [ ] ContractorFormView — edycja kontrahenta (z danymi)
+- [ ] ArticleFormView — nowy artykuł (pusty formularz)
+- [ ] ArticleFormView — edycja artykułu (z danymi)
+- [ ] ContractFormView — nowa umowa (pusty formularz)
+- [ ] ContractFormView — edycja umowy (z danymi, pozycje, warunki)
+
+#### Ustawienia i administracja
+- [ ] SettingsView — zakładka Dane firmy
+- [ ] SettingsView — zakładka Handlowcy
+- [ ] SettingsView — zakładka Kategorie
+- [ ] SettingsView — zakładka Typy stawek
+- [ ] SettingsView — zakładka Szablony usług
+- [ ] SettingsView — zakładka Fakturownia
+
+#### Inne
+- [ ] AdminView — panel administracyjny (jeśli istnieje)
+- [ ] WorkerView — widok pracownika (jeśli istnieje)
+- [ ] ChangePasswordView — zmiana hasła
+- [ ] ResetPasswordView — reset hasła
+
+#### Stany każdego widoku (jeśli dotyczy)
+- [ ] Empty state — brak danych (np. pusta lista umów)
+- [ ] Loading state — spinner / skeleton podczas ładowania
+- [ ] Error state — błąd API / network error
+- [ ] Populated state — z danymi
+- [ ] Validation state — błędy walidacji formularza
+
+**Acceptance criteria (DoD):**
+- [ ] Playwright test `e2e/tests/10-ux-screenshots.spec.ts` utworzony
+- [ ] Każdy widok otworzony w przeglądarce (headless) i zapisany jako screenshot PNG
+- [ ] Screenshoty zapisane w `e2e/screenshots/ux-review/` z nazwami opisowymi (np. `login-view-empty.png`, `contract-form-edit-with-data.png`)
+- [ ] Folder `e2e/screenshots/ux-review/` utworzony i zorganizowany (podfoldery per widok)
+- [ ] README w `e2e/screenshots/ux-review/README.md` z listą wszystkich screenshotów i opisem co sprawdzić
+- [ ] `process/testing.md` zaktualizowany o procedurę UX review
+- [ ] UX Designer otrzyma zestaw screenshotów i checklistę weryfikacji
+
+**UX Checklist (do przygotowania w README):**
+- [ ] Kolory zgodne z Toolsmart navy (#1D2B53)
+- [ ] Font Montserrat używany poprawnie (wagi, rozmiary)
+- [ ] Border-radius 12px na kartach
+- [ ] Shadows zgodne z design system
+- [ ] Spacing (padding/margin) zgodny z 8px grid
+- [ ] Hierarchy typograficzna (h1/h2/h3, weights)
+- [ ] Empty states mają CTA / komunikat
+- [ ] Loading states mają spinner / skeleton
+- [ ] Error states mają komunikat i akcję naprawczą
+- [ ] Formularze mają poprawne labelki, placeholders, walidację
+- [ ] Przyciski mają poprawne stany (hover, active, disabled)
+- [ ] Responsywność (jeśli dotyczy)
+
+**Pliki do stworzenia:**
+- `e2e/tests/10-ux-screenshots.spec.ts` — nowy test Playwright
+- `e2e/screenshots/ux-review/` — folder z screenshotami
+- `e2e/screenshots/ux-review/README.md` — checklist UX
+- `spec/process/testing.md` — procedura UX review
+
+**ROI:** Weryfikacja UX przed go-live pozwala wykryć problemy wizualne które user może zgłosić jako "brzydko" lub "nieprofesjonalnie".
+**Estimate:** 4-6h (M)
+
+---
+
 ## 🟢 P3 — Icebox (POSTPONED)
 
 Pomysły, bez harmonogramu - odłożone do przyszłości.
@@ -2903,7 +2996,7 @@ Zobacz `archive/16_todo_done.md` dla pełnego historii zadań ukończonych.
 |-----------|--------|---------------|
 | 🚨 P0 | 5 | ~7h |
 | 🔴 P1 | 11 | ~55h |
-| 🟡 P2 | 10 | ~56h |
+| 🟡 P2 | 11 | ~62h |
 | 🟢 P3 | 5 | ~20h |
 | **Razem** | **21** | **~58h** |
 
@@ -2946,6 +3039,7 @@ n|| RAO-P1-008 | Strukturalizacja adresów: kod pocztowy + miasto | Client | P1 
 || RAO-P2-013 | Pełne pokrycie E2E — wszystkie use case'y | Internal | P2 | XL | done | qa-engineer |
 || RAO-P2-014 | Weryfikacja kodu vs. spec i backlog | Internal | P2 | M | todo | tech-lead |
 || RAO-P2-015 | Integracja API TERYT z GUS — pełny słownik kodów pocztowych | Internal | P2 | M | todo | backend-dev |
+|| RAO-P2-016 | SPIKE: Playwright screenshot wszystkich widoków dla UX review | Internal | P2 | M | todo | qa-engineer |
 || RAO-P3-001 | Drag & drop reorder szablonów | Internal | P3 | M | todo | frontend-dev |
 || RAO-P3-002 | Upload logo firmy | Internal | P3 | M | todo | cross-stack |
 || RAO-P3-003 | Logo w nagłówku sidebar | Internal | P3 | XS | todo | frontend-dev |
