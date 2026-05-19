@@ -74,9 +74,10 @@ CREATE TABLE categories (
 -- 1.4 Handlowcy
 CREATE TABLE salespeople (
     id        INT AUTO_INCREMENT PRIMARY KEY,
-    name      VARCHAR(200) NOT NULL,
-    phone     VARCHAR(100) NULL,
-    is_active BOOLEAN      NOT NULL DEFAULT TRUE,
+    name            VARCHAR(200)  NOT NULL,
+    phone           VARCHAR(100)  NULL,
+    is_active       BOOLEAN       NOT NULL DEFAULT TRUE,
+    commission_rate DECIMAL(5,2)  NULL DEFAULT 0 COMMENT 'Stawka prowizji (%)',
     INDEX idx_salespeople_active (is_active)
 ) ENGINE=InnoDB COMMENT='Handlowcy (stara tabela: handlowiec)';
 
@@ -126,6 +127,7 @@ CREATE TABLE fee_preset_groups (
     company_id   INT          NOT NULL DEFAULT 1,
     name         VARCHAR(200) NOT NULL COMMENT 'Nazwa grupy np. Standard, Premium',
     contract_type CHAR(1)     NOT NULL COMMENT 'S=najem, U=usługa',
+    description  VARCHAR(400) NULL     COMMENT 'Opis grupy szablonów',
     sort_order   INT          NOT NULL DEFAULT 0 COMMENT 'Kolejność wyświetlania',
     is_default   BOOLEAN      NOT NULL DEFAULT FALSE COMMENT 'Domyślna grupa dla tego typu',
     is_active    BOOLEAN      NOT NULL DEFAULT TRUE,
@@ -231,7 +233,7 @@ CREATE TABLE contractor_addresses (
     notes           VARCHAR(200) NULL,
     contact_person  VARCHAR(100) NULL,
     phone           VARCHAR(20)  NULL,
-    email           VARCHAR(20)  NULL,
+    email           VARCHAR(100) NULL,
     is_default_delivery BOOLEAN  NOT NULL DEFAULT FALSE,
     is_headquarters     BOOLEAN  NOT NULL DEFAULT FALSE,
     latitude        DECIMAL(10,7) NULL,
@@ -517,20 +519,6 @@ CREATE TABLE contract_service_fees (
 ) ENGINE=InnoDB COMMENT='Usługi dodatkowe umowy (stary: umowa2.oplaty, firma.uslugi1/2)';
 
 -- ============================================================
--- 8. ROZLICZENIA (Settlements)
--- ============================================================
-
-CREATE TABLE settlements (
-    id          INT AUTO_INCREMENT PRIMARY KEY,
-    position_id INT          NOT NULL,
-    date        DATETIME     NULL,
-    amount      DECIMAL(18,2) NULL,
-    CONSTRAINT fk_settlement_position FOREIGN KEY (position_id)
-        REFERENCES contract_positions(id) ON DELETE CASCADE,
-    INDEX idx_settlement_position (position_id)
-) ENGINE=InnoDB COMMENT='Rozliczenia (stara tabela: rozliczenie)';
-
--- ============================================================
 -- 8. SERVICE HOURS (godziny pracy operatora)
 -- ============================================================
 
@@ -586,7 +574,7 @@ CREATE TABLE audit_log (
 | `umowa_pozycja3` | `contract_positions` | Dodano `billing_frequency` enum |
 | `umowa_pozycja2_warunek` | `position_conditions` | Bez zmian strukturalnych |
 | `koszt` | `costs` | FK constraints dodane |
-| `rozliczenie` | `settlements` | FK constraint |
+| `rozliczenie` | `contract_settlements` | Zastąpiona przez RAO-P1-012 (koszty klient vs firma) |
 | `zdarzenie` | `audit_log` | Dodano `user_id` |
 | `a`, `u` | *(nie migrate)* | Historyczny cache, dane w relacjach |
 | `artykul`, `artykul2`, `umowa`, `umowa_pozycja`, `umowa_pozycja2` | *(nie migrate)* | Legacy, zastąpione przez `*3` wersje |

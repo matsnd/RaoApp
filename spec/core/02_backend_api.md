@@ -890,6 +890,17 @@ async def recalculate_contract_value(db: AsyncSession, contract_id: int):
 ### `POST /contracts/{id}/service-fees/reorder`
 ### `POST /contracts/{id}/service-fees/reset`
 
+### `POST /contracts/{contract_id}/service-fees/apply-preset`
+
+**Opis:** Zastosuj gotowy szablon usług dodatkowych (`fee_preset_groups`) do umowy.
+
+**Query:**
+- `preset_id` (int, required): ID szablonu (`fee_preset_groups.id`)
+- `replace` (bool, optional, default=true): `true` = usuń istniejące usługi przed dodaniem; `false` = dołącz
+
+**Response:** `{ "message": "Zestaw zastosowany" }`
+**HTTP:** 200 | 401 | 404 (umowa lub szablon nie istnieje)
+
 ### `GET /contracts/positions/{position_id}/service-hours` (RAO-P1-014)
 
 **Response:**
@@ -1217,6 +1228,174 @@ Response: Machine metrics object with:
 - rentals[]: historia wynajmów (contract_number, contractor_name, date_from, date_to, days, revenue)
 HTTP: 200 | 404 (machine not found)
 
+---
+
+### `GET /stats/expiring-contracts`
+
+**Opis:** Umowy kończące się w ciągu N dni.
+
+**Query:** `?days=14` (opcjonalny, zakres 1-90, default=14)
+
+**Response:** `list[ExpiringContractItem]`
+```python
+class ExpiringContractItem(BaseModel):
+    id: int
+    number: str
+    contractor_name: str | None
+    date_from: date | None
+    date_to: date | None
+    days_left: int
+    delivery_address: str | None
+    contact_person1: str | None
+    contact_phone1: str | None
+    salesperson_name: str | None
+```
+**HTTP:** 200 | 401
+
+---
+
+### `GET /stats/overdue-contracts`
+
+**Opis:** Umowy przeterminowane (date_to < dziś).
+
+**Response:** `list[OverdueContractItem]` (pola jak ExpiringContractItem + `days_overdue: int`)
+**HTTP:** 200 | 401
+
+---
+
+### `GET /stats/deliveries-today`
+
+**Opis:** Pozycje umów z datą dostawy przypadającą w ciągu N dni.
+
+**Query:** `?lookahead=1` (opcjonalny, zakres 1-7, default=1)
+
+**Response:** `list[DeliveryTodayItem]`
+```python
+class DeliveryTodayItem(BaseModel):
+    contract_id: int
+    contract_number: str
+    contractor_name: str | None
+    article_name: str | None
+    delivery_date: date | None
+    delivery_address: str | None
+    contact_person1: str | None
+    contact_phone1: str | None
+```
+**HTTP:** 200 | 401
+
+---
+
+### `GET /stats/unprinted-contracts`
+
+**Opis:** Umowy nigdy nie wydrukowane (print_date IS NULL), aktywne lub utworzone w ostatnich 60 dniach.
+
+**Response:** `list[UnprintedContractItem]` (id, number, contractor_name, date_from, date_to, created_at)
+**HTTP:** 200 | 401
+
+---
+
+### `GET /stats/stale-print-contracts`
+
+**Opis:** Umowy edytowane po wydruku (print_date < updated_at), aktywne lub zmodyfikowane w ostatnich 30 dniach.
+
+**Response:** `list[StalePrintContractItem]` (id, number, contractor_name, date_from, date_to, print_date, updated_at)
+**HTTP:** 200 | 401
+
+---
+
+### `GET /stats/commissions`
+
+**Opis:** Raport prowizji handlowców za okres. Prowizja obliczana z marży (contract_settlements).
+
+**Query:** `?date_from&date_to` (opcjonalne, default: bieżący miesiąc)
+
+**Response:** `CommissionReportResponse`
+```python
+class SalespersonCommissionItem(BaseModel):
+    salesperson_id: int
+    salesperson_name: str
+    commission_rate: Decimal | None
+    contracts_count: int
+    total_revenue: Decimal
+    commission_amount: Decimal         # margin × rate / 100
+
+class CommissionReportResponse(BaseModel):
+    date_from: date
+    date_to: date
+    items: list[SalespersonCommissionItem]
+    grand_total_revenue: Decimal
+    grand_total_commission: Decimal
+```
+**HTTP:** 200 | 401
+
+---
+
+### `GET /explorer/search`
+
+**Opis:** Uniwersalne wyszukiwanie po pozycjach umów (maszyny + usługi).
+
+**Query:** `?q=&date_from=&date_to=&category=&city=&contractor_id=&limit=50&offset=0`
+
+**Response:**
+```python
+{
+    "items": [{"type": str, "type_label": str, "id": int, "article_id": int,
+               "name": str, "internal_number": str|None, "contract_number": str,
+               "contractor_name": str|None, "date": str, "city": str, "amount": float}],
+    "total": int,
+    "summary": {"count": int, "revenue": float},
+    "offset": int,
+    "limit": int,
+}
+```
+**HTTP:** 200 | 401
+
+---
+
+### `GET /explorer/services`
+
+**Opis:** Podsumowanie usług dodatkowych (is_service=True) — liczba rozliczeń i przychód.
+
+**Query:** `?date_from=&date_to=&service_type=`
+
+**Response:** `{"services": [{article_id, service_name, times_billed, total_revenue, percentage}], "total_revenue": float, "count": int, "period": {...}}`
+**HTTP:** 200 | 401
+
+---
+
+### `GET /explorer/locations`
+
+**Opis:** Podsumowanie wynajmów po miastach (city z delivery_address).
+
+**Query:** `?date_from=&date_to=&limit=50`
+
+**Response:** `{"locations": [{rank, city, rentals_count, total_revenue}], "count": int, "period": {...}}`
+**HTTP:** 200 | 401
+
+---
+
+### `GET /explorer/services/{article_id}`
+
+**Opis:** Szczegóły usługi: metryki, top kontrahenci (5), rozkład geograficzny (10 miast).
+
+**Query:** `?date_from=&date_to=`
+
+**Response:** `{service: {id, name}, metrics: {times_billed, total_revenue}, top_contractors: [...], location_breakdown: [...]}`
+**HTTP:** 200 | 401 | 404
+
+---
+
+### `GET /explorer/locations/{city}`
+
+**Opis:** Szczegóły lokalizacji: metryki, top maszyny (10), top kontrahenci (5).
+
+**Query:** `?date_from=&date_to=`
+
+**Response:** `{city, metrics: {contracts_count, unique_contractors, total_revenue, avg_revenue_per_contract}, top_machines: [...], top_contractors: [...]}`
+**HTTP:** 200 | 401 | 404
+
+---
+
 > Pełna specyfikacja raportów z obrazkami i endpointów statystyk znajduje się w pliku **[11_reports_stats.md](./11_reports_stats.md)**.
 
 ---
@@ -1296,6 +1475,20 @@ async def lookup_postal_code(code: str, db: AsyncSession) -> dict:
         "voivodeship": postal_code.voivodeship
     }
 ```
+
+### `POST /integrations/teryt/sync` (RAO-P2-015)
+
+**Opis:** Synchronizuj słownik kodów pocztowych z pre-generowanego pliku SQL. Ładuje dane z `backend/integrations/teryt/postal_codes_inserts.sql`.
+
+**Request Body:** brak
+**Response:** `TerytSyncResponse`
+```python
+class TerytSyncResponse(BaseModel):
+    success: bool
+    message: str
+    count: int    # Liczba zsynchronizowanych rekordów
+```
+**HTTP:** 200 | 401 | 404 (plik SQL nie znaleziony) | 500 (błąd synchronizacji)
 
 ---
 
@@ -1413,3 +1606,17 @@ class PaginationParams(BaseModel):
     def offset(self) -> int:
         return (self.page - 1) * self.per_page
 ```
+
+---
+
+## HEALTH CHECK
+
+### `GET /health`
+
+**Opis:** Sprawdzenie stanu aplikacji. Endpoint publiczny (bez autentykacji).
+
+**Response:**
+```json
+{"status": "ok"}
+```
+**HTTP:** 200

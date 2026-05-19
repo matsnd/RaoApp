@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, LargeBinary, Numeric, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, LargeBinary, Numeric, String, Text, func
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -113,4 +113,4 @@ class Branch(Base):
     postal_code = Column(String(20), nullable=True)
     city = Column(String(100), nullable=True)
     street = Column(String(100), nullable=True)
-    created_at = Column(String(30), nullable=True)
+    created_at = Column(DateTime, nullable=True, server_default=func.current_timestamp())

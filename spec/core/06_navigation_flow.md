@@ -59,6 +59,27 @@ graph TD
 | `Konfiguracjacs.cs` | `/settings` | Pełna strona |
 | `FormU.cs` (Crystal Report) | Nowa karta z PDF | window.open() |
 
+## Pełna tabela routes (router/index.js)
+
+| Route | Name | View | Auth | Opis |
+|-------|------|------|------|------|
+| `/login` | `Login` | `LoginView.vue` | nie | Strona logowania |
+| `/reset-password` | `ResetPassword` | `ResetPasswordView.vue` | nie | Reset hasła z tokenu (query: `?token=...`) |
+| `/` | — | — | tak | Redirect → `/home` |
+| `/home` | `Home` | `HomeView.vue` | tak | KPI Dashboard, quick actions |
+| `/dashboard/:section` | `Dashboard` | `DashboardView.vue` | tak | Listy (contracts/contractors/articles/reports) |
+| `/contractors/new` | `ContractorNew` | `ContractorFormView.vue` | tak | Nowy kontrahent |
+| `/contractors/:id/edit` | `ContractorEdit` | `ContractorFormView.vue` | tak | Edycja kontrahenta |
+| `/articles/new` | `ArticleNew` | `ArticleFormView.vue` | tak | Nowy artykuł |
+| `/articles/:id/edit` | `ArticleEdit` | `ArticleFormView.vue` | tak | Edycja artykułu |
+| `/contracts/new` | `ContractNew` | `ContractFormView.vue` | tak | Nowa umowa |
+| `/contracts/:id/edit` | `ContractEdit` | `ContractFormView.vue` | tak | Edycja umowy |
+| `/worker` | `Worker` | `WorkerView.vue` | tak | Pulpit operacyjny (kończące, dostawy) |
+| `/commissions` | `Commissions` | `CommissionView.vue` | tak | Raporty prowizji handlowców |
+| `/settings` | `Settings` | `SettingsView.vue` | tak | Konfiguracja firmy/szablonów/handlowców |
+| `/password` | `ChangePassword` | `ChangePasswordView.vue` | tak | Zmiana własnego hasła |
+| `/admin` | `Admin` | `AdminView.vue` | tak + admin | Panel administracyjny (CRUD użytkowników) |
+
 ## Zachowania specjalne
 
 ### 1. Powrót z formularza

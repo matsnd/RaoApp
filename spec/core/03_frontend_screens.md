@@ -1100,3 +1100,113 @@ async function handleFakturownia() {
 ```
 
 **Wszystkie style zaktualizowane do CSS variables zamiast hardcoded kolorów.**
+
+---
+
+## Widoki nieudokumentowane wcześniej (uzupełnienie — audit 2026-05-19)
+
+### AdminView.vue — Panel administracyjny
+
+**Route:** `/admin` | **requiresAdmin:** tak (tylko rola `admin`)
+
+**Opis:** CRUD zarządzania użytkownikami systemu. Dostępny tylko dla administratorów.
+
+**Funkcje:**
+- Lista użytkowników z kolumnami: login, imię, nazwisko, rola, aktywny, ostatnie logowanie
+- Dodawanie nowego użytkownika (modal z polami: login, hasło, first_name, last_name, role)
+- Edycja użytkownika (modal edycji)
+- Aktywacja/deaktywacja konta (PATCH `/admin/users/{id}/activate` / `/deactivate`)
+- Force-reset hasła (POST `/admin/users/{id}/force-password-reset`)
+- Badge: role `admin` → `badge-warning`, inne → `badge-info`
+
+**API:** `GET /admin/users`, `POST /admin/users`, `PUT /admin/users/{id}`, `PATCH /admin/users/{id}/activate`, `PATCH /admin/users/{id}/deactivate`, `POST /admin/users/{id}/force-password-reset`
+
+---
+
+### CommissionView.vue — Raporty prowizji handlowców
+
+**Route:** `/commissions` | **requiresAuth:** tak
+
+**Opis:** Raport prowizji handlowców za zadany okres. Podsumowanie i tabela per handlowiec.
+
+**Funkcje:**
+- Filtrowanie po datach: `date_from` / `date_to` (inputy date)
+- Karty podsumowania: łączny przychód, łączna prowizja, okres
+- Tabela per handlowiec: nazwa, przychód, stawka %, kwota prowizji
+- Przycisk "Drukuj" (window.print(), klasa `print-hide` ukrywa toolbar)
+
+**API:** `GET /stats/commissions?date_from&date_to`
+
+---
+
+### WorkerView.vue — Pulpit operacyjny
+
+**Route:** `/worker` | **requiresAuth:** tak
+
+**Opis:** Pulpit dzienny dla operatora/pracownika. Pokazuje kluczowe informacje do codziennej pracy.
+
+**Funkcje:**
+- Kończące się umowy (filtry: 7d/14d/30d) — pobiera `GET /stats/expiring-contracts?days=N`
+- Dostawy na dziś — pobiera `GET /stats/deliveries-today`
+- Umowy niewydrukowane — pobiera `GET /stats/unprinted-contracts`
+- Aktualne wynajmy — pobiera `GET /stats/currently-rented`
+- Skeleton loading dla każdej sekcji
+- Empty states z komunikatami gdy brak danych
+
+**Layout:** Grid 2-kolumnowy, karty z ikonami emoji
+
+---
+
+### ChangePasswordView.vue — Zmiana hasła
+
+**Route:** `/password` | **requiresAuth:** tak
+
+**Opis:** Formularz zmiany własnego hasła przez zalogowanego użytkownika.
+
+**Pola formularza:**
+- `current_password` — aktualne hasło (required)
+- `new_password` — nowe hasło (required, minlength: 6)
+- `confirm_password` — powtórzenie nowego hasła (required)
+
+**Walidacja:** `new_password === confirm_password` (client-side)
+**API:** `PUT /auth/change-password`
+**Po sukcesie:** Komunikat sukcesu inline, przycisk Anuluj → `/home`
+
+---
+
+### ResetPasswordView.vue — Reset hasła z tokenu
+
+**Route:** `/reset-password?token=<token>` | **requiresAuth:** nie (publiczny)
+
+**Opis:** Strona resetowania hasła po kliknięciu linku z emaila. Token odczytywany z query param.
+
+**Pola formularza:**
+- `new_password` — nowe hasło (required, min 6 znaków)
+- `confirm_password` — powtórzenie (required)
+
+**API:** `POST /auth/reset-password` z `{ token, new_password }`
+**Po sukcesie:** Komunikat + redirect do `/login`
+
+---
+
+### HomeView.vue — Główna strona (KPI Dashboard)
+
+**Route:** `/home` | **requiresAuth:** tak | **Default redirect:** `/` → `/home`
+
+**Opis:** Główny ekran po zalogowaniu. Pokazuje kluczowe KPI i quick actions.
+
+**KPI panele:**
+- Maszyny w terenie (liczba aktywnych wynajmów)
+- Kończące się umowy (w ciągu 7 dni)
+- Dostawy na dziś
+- Umowy niewydrukowane
+- Umowy nieaktualne (edytowane po wydruku)
+
+**Quick actions (przyciski navy `--color-primary`):**
+- Nowa umowa → `/contracts/new`
+- Kontrahenci → `/dashboard/contractors`
+- Ustawienia → `/settings`
+
+**Stany:** skeleton loading, empty state z emoji (📋 🚚 ✅)
+
+**API:** `GET /stats/expiring-contracts`, `GET /stats/deliveries-today`, `GET /stats/unprinted-contracts`, `GET /stats/stale-print-contracts`, `GET /stats/currently-rented`

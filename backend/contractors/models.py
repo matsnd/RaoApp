@@ -46,7 +46,7 @@ class ContractorAddress(Base):
     notes = Column(String(200), nullable=True)
     contact_person = Column(String(100), nullable=True)
     phone = Column(String(20), nullable=True)
-    email = Column(String(20), nullable=True)
+    email = Column(String(100), nullable=True)
     is_default_delivery = Column(Boolean, nullable=False, default=False)
     is_headquarters = Column(Boolean, nullable=False, default=False)
     latitude = Column(Numeric(10, 7), nullable=True)

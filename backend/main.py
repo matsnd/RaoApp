@@ -152,6 +152,10 @@ async def startup_migrations():
             "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
             "oid VARCHAR(40) NULL COMMENT 'RAO-P2-012: Numer zamówienia w Fakturownia'"
         ))
+        # C-2 fix: ContractorAddress.email VARCHAR(20)→VARCHAR(100) (audit 2026-05-19)
+        await conn.execute(sa.text(
+            "ALTER TABLE contractor_addresses MODIFY COLUMN email VARCHAR(100) NULL"
+        ))
         # RAO-P2-005: geokodowanie adresów - latitude/longitude
         await conn.execute(sa.text(
             "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
