@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends
+import os
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth.dependencies import get_current_user, require_admin
@@ -7,7 +9,7 @@ from database import get_db
 from settings.schemas import (
     BranchCreate, BranchResponse, CategoryCreate, CategoryResponse,
     CompanyResponse, CompanyUpdate, FeePresetGroupCreate, FeePresetGroupResponse,
-    RateTypeCreate, RateTypeResponse, SalespersonCreate, SalespersonResponse,
+    RateTypeCreate, RateTypeResponse, ReorderRequest, SalespersonCreate, SalespersonResponse,
     ServiceFeeTemplateCreate, ServiceFeeTemplateResponse,
 )
 from settings.service import settings_service
@@ -28,6 +30,37 @@ async def update_company(
 ):
     return await settings_service.update_company(db, data)
 
+
+# RAO-P3-002: Upload logo firmy
+@router.post("/company/logo", status_code=200)
+async def upload_company_logo(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "svg"}
+    MAX_SIZE = 2 * 1024 * 1024  # 2 MB
+
+    ext = (file.filename or "").rsplit(".", 1)[-1].lower() if "." in (file.filename or "") else ""
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Dozwolone formaty: PNG, JPG, JPEG, SVG")
+
+    content = await file.read()
+    if len(content) > MAX_SIZE:
+        raise HTTPException(status_code=400, detail="Plik za duży (max 2 MB)")
+
+    os.makedirs("static/logos", exist_ok=True)
+    filename = f"company_logo.{ext}"
+    with open(f"static/logos/{filename}", "wb") as fh:
+        fh.write(content)
+
+    logo_url = f"/rao/api/static/logos/{filename}"
+
+    company = await settings_service.get_company(db)
+    company.logo_path = logo_url
+    await db.commit()
+
+    return {"logo_url": logo_url}
 
 
 @router.get("/salespeople", response_model=list[SalespersonResponse])
@@ -214,3 +247,13 @@ async def delete_preset_template(
     _: User = Depends(require_admin),
 ):
     await settings_service.delete_preset_template(db, template_id)
+
+
+@router.patch("/fee-preset-groups/{preset_id}/templates/reorder", status_code=204)
+async def reorder_preset_templates(
+    preset_id: int,
+    data: ReorderRequest,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    await settings_service.reorder_preset_templates(db, preset_id, data.order)

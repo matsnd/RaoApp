@@ -224,6 +224,16 @@ class SettingsService:
         await db.execute(delete(ServiceFeeTemplate).where(ServiceFeeTemplate.id == template_id))
         await db.commit()
 
+    async def reorder_preset_templates(self, db: AsyncSession, preset_id: int, order_list) -> None:
+        """RAO-P3-001: aktualizuje sort_order dla szablonów danego presetu."""
+        for item in order_list:
+            await db.execute(
+                update(ServiceFeeTemplate)
+                .where(ServiceFeeTemplate.id == item.id, ServiceFeeTemplate.preset_id == preset_id)
+                .values(sort_order=item.sort_order)
+            )
+        await db.commit()
+
     async def list_salespeople(self, db: AsyncSession):
         result = await db.execute(select(Salesperson).order_by(Salesperson.name))
         return result.scalars().all()

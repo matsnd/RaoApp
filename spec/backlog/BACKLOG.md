@@ -1502,7 +1502,7 @@ Naprawić problemy UX/UI zidentyfikowane przez vision analysis w 3 kluczowych wi
 id: RAO-P3-001
 priority: P3
 size: M
-status: postponed
+status: done
 classification: frontend
 roles: [frontend-dev]
 depends_on: []
@@ -1535,7 +1535,7 @@ Szablony usług można dodawać ale nie zmieniać kolejności przeciąganiem.
 id: RAO-P3-002
 priority: P3
 size: M
-status: postponed
+status: done
 classification: cross-stack
 roles: [backend-dev, frontend-dev]
 depends_on: []
@@ -1588,7 +1588,7 @@ Pole `logo LONGBLOB` jest w tabeli `companies` ale brak UI do uploadu/zmiany log
 id: RAO-P3-003
 priority: P3
 size: XS
-status: postponed
+status: done
 classification: frontend
 roles: [frontend-dev]
 depends_on: [RAO-P3-002]
@@ -3132,9 +3132,9 @@ n|| RAO-P1-008 | Strukturalizacja adresów: kod pocztowy + miasto | Client | P1 
 || RAO-P2-014 | Weryfikacja kodu vs. spec i backlog | Internal | P2 | M | done | tech-lead |
 || RAO-P2-015 | Integracja API TERYT z GUS — pełny słownik kodów pocztowych | Internal | P2 | M | done | backend-dev |
 || RAO-P2-016 | SPIKE: Playwright screenshot wszystkich widoków dla UX review | Internal | P2 | M | done | qa-engineer |
-|| RAO-P3-001 | Drag & drop reorder szablonów | Internal | P3 | M | todo | frontend-dev |
-|| RAO-P3-002 | Upload logo firmy | Internal | P3 | M | todo | cross-stack |
-|| RAO-P3-003 | Logo w nagłówku sidebar | Internal | P3 | XS | todo | frontend-dev |
+|| RAO-P3-001 | Drag & drop reorder szablonów | Internal | P3 | M | done | frontend-dev |
+|| RAO-P3-002 | Upload logo firmy | Internal | P3 | M | done | cross-stack |
+|| RAO-P3-003 | Logo w nagłówku sidebar | Internal | P3 | XS | done | frontend-dev |
 || RAO-P3-004 | Export statystyk CSV | Internal | P3 | M | todo | cross-stack |
 || RAO-P3-005 | Modele DB deliveries/costs/audit | Internal | P3 | L | todo | db-architect |
 || RAO-P3-006 | Auto-generowanie opisu warunku | Internal | P3 | S | done | frontend-dev |

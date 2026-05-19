@@ -166,3 +166,13 @@ class RateTypeCreate(BaseModel):
     name: str = Field(..., max_length=400)
     description: str | None = Field(None, max_length=800)
     is_dependent: bool = False
+
+
+# RAO-P3-001: reorder szablonów opłat
+class ReorderItem(BaseModel):
+    id: int
+    sort_order: int
+
+
+class ReorderRequest(BaseModel):
+    order: list[ReorderItem]

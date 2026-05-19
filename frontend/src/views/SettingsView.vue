@@ -86,6 +86,33 @@
                   <label class="form-label">Nagłówek wydruku</label>
                   <textarea v-model="companyForm.header_text" class="form-control" rows="3"></textarea>
                 </div>
+
+                <!-- RAO-P3-002: Logo firmy -->
+                <div class="form-group logo-upload-group">
+                  <label class="form-label">Logo firmy</label>
+                  <div class="logo-upload-row">
+                    <img
+                      v-if="companyForm.logo_url"
+                      :src="companyForm.logo_url"
+                      alt="Logo firmy"
+                      class="logo-preview"
+                    />
+                    <div v-else class="logo-placeholder">Brak</div>
+                    <label class="btn btn-secondary btn-sm logo-upload-btn">
+                      Wgraj logo
+                      <input
+                        type="file"
+                        accept=".png,.jpg,.jpeg,.svg"
+                        class="logo-file-input"
+                        @change="uploadLogo"
+                      />
+                    </label>
+                    <span v-if="uploadingLogo" class="logo-upload-status">Wysyłanie...</span>
+                    <span v-if="logoUploaded" class="logo-upload-ok">✓ Wgrano</span>
+                    <span v-if="logoError" class="logo-upload-error">{{ logoError }}</span>
+                  </div>
+                </div>
+
                 <div style="margin-top:16px;">
                   <button class="btn btn-primary" @click="saveCompany" :disabled="savingCompany">
                     {{ savingCompany ? '...' : 'Zapisz dane firmy' }}
@@ -233,6 +260,7 @@
                   <table class="data-grid" style="margin-top:8px;">
                     <thead>
                       <tr>
+                        <th style="width:24px;"></th>
                         <th style="width:28%;">Nazwa</th>
                         <th style="width:10%;">Cena dom.</th>
                         <th style="width:10%;">Kwota od</th>
@@ -243,9 +271,16 @@
                         <th style="width:64px;"></th>
                       </tr>
                     </thead>
-                    <tbody>
-                      <template v-for="tpl in preset.templates" :key="tpl.id">
+                    <!-- VueDraggable renderuje się jako <tbody> — NIE owijaj w zewnętrzne <tbody> -->
+                    <VueDraggable
+                      v-model="preset.templates"
+                      tag="tbody"
+                      handle=".drag-handle"
+                      @end="onTemplatesReorder(preset)"
+                    >
+                      <template #item="{ element: tpl }">
                         <tr v-if="editingPresetItemId === tpl.id" style="background:#fffff0;">
+                          <td></td>
                           <td>
                             <!-- RAO-P1-011: Article picker instead of text input -->
                             <select v-model="editingPresetItemData.article_id" class="form-control form-control-xs" @change="onArticleSelected('edit')" style="margin-bottom:4px;">
@@ -266,6 +301,7 @@
                           </td>
                         </tr>
                         <tr v-else @click="startEditPresetItem(tpl)" style="cursor:pointer;" :class="{ 'row-inactive-tpl': !tpl.is_active }">
+                          <td class="drag-handle" @click.stop title="Przeciągnij aby zmienić kolejność">⋮⋮</td>
                           <td>{{ tpl.article_name || tpl.name }}</td>
                           <td>{{ tpl.default_price ? Number(tpl.default_price).toFixed(2) + ' zł' : '—' }}</td>
                           <td>{{ tpl.amount_from ? Number(tpl.amount_from).toFixed(2) + ' zł' : '—' }}</td>
@@ -279,8 +315,11 @@
                           </td>
                         </tr>
                       </template>
-                      <!-- new item row -->
+                    </VueDraggable>
+                    <!-- Nowy wiersz w osobnym <tbody> (HTML5 dozwala wiele tbody w tabeli) -->
+                    <tbody>
                       <tr v-if="addingToPresetId === preset.id" style="background:#f0fff4;">
+                        <td></td>
                         <td>
                           <!-- RAO-P1-011: Article picker for new item -->
                           <select v-model="newPresetItem.article_id" class="form-control form-control-xs" @change="onArticleSelected('new')" style="margin-bottom:4px;">
@@ -354,6 +393,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+import { VueDraggable } from 'vue-draggable-plus'
 import { useSettingsStore } from '@/stores/settings'
 import { useArticleStore } from '@/stores/articles'
 import { useFakturowniaStore } from '@/stores/fakturownia'
@@ -375,9 +415,14 @@ const tabs = [
 
 const currentTabLabel = computed(() => tabs.find(t => t.id === activeTab.value)?.label || '')
 
-const companyForm = ref({ name: '', name_short: '', nip: '', regon: '', postal_code: '', city: '', street: '', bank_name: '', bank_account: '', numbering_start: 1, increment_step: 50, header_text: '' })
+const companyForm = ref({ name: '', name_short: '', nip: '', regon: '', postal_code: '', city: '', street: '', bank_name: '', bank_account: '', numbering_start: 1, increment_step: 50, header_text: '', logo_url: null as string | null })
 const savingCompany = ref(false)
 const companySaved = ref(false)
+
+// RAO-P3-002: logo upload state
+const uploadingLogo = ref(false)
+const logoUploaded = ref(false)
+const logoError = ref<string | null>(null)
 
 const fakturowniaForm = ref({ enabled: false, domain_subdomain: '', api_token: '' })
 const savingFakturownia = ref(false)
@@ -532,6 +577,19 @@ async function saveNewPresetItem(preset) {
   await loadFeePresets()
 }
 
+async function onTemplatesReorder(preset: any): Promise<void> { // any: preset pochodzi z JSON API (dynamiczny kształt)
+  const order = preset.templates.map((tpl: any, index: number) => ({
+    id: tpl.id,
+    sort_order: index,
+  }))
+  try {
+    await api.patch(`/settings/fee-preset-groups/${preset.id}/templates/reorder`, { order })
+  } catch (e) {
+    console.error('Błąd zapisu kolejności szablonów:', e)
+    await loadFeePresets()
+  }
+}
+
 async function saveCompany() {
   savingCompany.value = true
   try {
@@ -540,6 +598,30 @@ async function saveCompany() {
     setTimeout(() => { companySaved.value = false }, 3000)
   } finally {
     savingCompany.value = false
+  }
+}
+
+// RAO-P3-002: upload logo firmy
+async function uploadLogo(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  uploadingLogo.value = true
+  logoUploaded.value = false
+  logoError.value = null
+  try {
+    const result = await settingsStore.uploadLogo(file)
+    companyForm.value.logo_url = result.logo_url
+    logoUploaded.value = true
+    setTimeout(() => { logoUploaded.value = false }, 3000)
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { detail?: string } } }
+    logoError.value = err?.response?.data?.detail ?? 'Błąd wysyłania pliku'
+    setTimeout(() => { logoError.value = null }, 5000)
+  } finally {
+    uploadingLogo.value = false
+    // Reset input value so ten sam plik można wgrać ponownie
+    input.value = ''
   }
 }
 
@@ -681,6 +763,9 @@ watch(activeTab, async (newTab) => {
 }
 .btn-icon:hover { opacity: 1; }
 .row-inactive-tpl td { opacity: 0.5; }
+.drag-handle { cursor: grab; user-select: none; color: #A0AEC0; padding: 0 6px; text-align: center; }
+.drag-handle:active { cursor: grabbing; }
+:global(.sortable-ghost) { opacity: 0.4; background: #EBF4FF; }
 
 .preset-card {
   border: 1px solid var(--color-border);
@@ -699,5 +784,54 @@ watch(activeTab, async (newTab) => {
 .preset-items {
   padding: 8px 14px 14px;
   background: #fff;
+}
+
+/* RAO-P3-002: logo upload */
+.logo-upload-group {
+  margin-top: 16px;
+}
+.logo-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.logo-preview {
+  height: 48px;
+  max-width: 160px;
+  object-fit: contain;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 4px;
+  background: var(--color-bg-white);
+}
+.logo-placeholder {
+  height: 48px;
+  width: 80px;
+  border: 1px dashed var(--color-border);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted, #A0AEC0);
+  font-size: 11px;
+}
+.logo-upload-btn {
+  cursor: pointer;
+}
+.logo-file-input {
+  display: none;
+}
+.logo-upload-status {
+  font-size: 12px;
+  color: var(--color-text-muted, #A0AEC0);
+}
+.logo-upload-ok {
+  font-size: 12px;
+  color: var(--color-success);
+}
+.logo-upload-error {
+  font-size: 12px;
+  color: var(--color-danger);
 }
 </style>
