@@ -30,9 +30,7 @@ test.describe('TEST-04: Umowy', () => {
       timeout: 10_000,
     })
     if (ctr.status() !== 201) {
-      // 🔴 BUG RAO-QA-002: backend/contracts/service.py:182 czyta data.positions
-      // ale ContractCreate schema nie ma tego pola → AttributeError → 500
-      console.error(`[BUG RAO-QA-002] POST /contracts → ${ctr.status()}`)
+      console.error(`POST /contracts failed: ${ctr.status()}`)
       createdContractors.push(contractorId)
       return
     }
@@ -70,8 +68,7 @@ test.describe('TEST-04: Umowy', () => {
     await expect(page.locator('.page-card >> text=Wybierz kontrahenta')).toBeVisible({ timeout: 5_000 })
   })
 
-  test('tworzy umowę po wyborze kontrahenta', async ({ page }) => {
-    test.fixme(true, 'BUG RAO-QA-002: backend POST /contracts rzuca AttributeError (data.positions)')
+  test('tworzy umowę po wyborze kontrahenta (RAO-QA-002 fixed)', async ({ page }) => {
     await page.goto('/rao/contracts/new', { waitUntil: 'networkidle', timeout: 20_000 })
 
     await page.getByRole('button', { name: 'Wybierz' }).click()
@@ -91,7 +88,7 @@ test.describe('TEST-04: Umowy', () => {
   })
 
   test('sekcja pozycji umowy jest widoczna w trybie edycji', async ({ page }) => {
-    test.skip(!contractId, "BUG RAO-QA-002: brak umowy"); await page.goto(`/rao/contracts/${contractId}/edit`, { waitUntil: 'networkidle', timeout: 20_000 })
+    await page.goto(`/rao/contracts/${contractId}/edit`, { waitUntil: 'networkidle', timeout: 20_000 })
     await expect(page.locator('.toolbar-info')).toContainText('Umowa:', { timeout: 10_000 })
 
     await expect(page.locator('.section-title', { hasText: 'Pozycje umowy' })).toBeVisible({ timeout: 8_000 })
@@ -100,7 +97,6 @@ test.describe('TEST-04: Umowy', () => {
   })
 
   test('protokół ZO generuje PDF z sekcją wydania/odbioru', async ({ request }) => {
-    test.skip(!contractId, 'BUG RAO-QA-002: brak umowy')
     // Autoryzacja
     const loginRes = await request.post(`${API}/auth/login`, {
       data: CREDS, timeout: 10_000,
@@ -136,7 +132,6 @@ test.describe('TEST-04: Umowy', () => {
   // ------- Rozszerzenie (RAO-P2-013) -------
 
   test('edycja umowy: zmiana date_to przez API', async ({ request }) => {
-    test.skip(!contractId, 'BUG RAO-QA-002: brak umowy')
     const token = await apiLogin(request)
     const dateTo = '2030-12-31'
     const upd = await request.put(`${API}/contracts/${contractId}`, {
@@ -175,7 +170,6 @@ test.describe('TEST-04: Umowy', () => {
   })
 
   test('typ umowy U: PDF protokół_zo_u', async ({ request }) => {
-    test.skip(!contractId, 'BUG RAO-QA-002: tworzenie umowy nie działa')
     const token = await apiLogin(request)
     const ts = Date.now()
     const cr = await request.post(`${API}/contractors`, {
@@ -202,7 +196,6 @@ test.describe('TEST-04: Umowy', () => {
   })
 
   test('PDF umowy (type=contract) — 200 + content-type', async ({ request }) => {
-    test.skip(!contractId, 'BUG RAO-QA-002: brak umowy')
     const token = await apiLogin(request)
     const pdf = await request.post(`${API}/reports/contract/${contractId}?type=contract`, {
       headers: authHeaders(token), timeout: 30_000,
@@ -226,7 +219,6 @@ test.describe('TEST-04: Umowy', () => {
   })
 
   test('CRUD pozycji umowy przez API', async ({ request }) => {
-    test.skip(!contractId, 'BUG RAO-QA-002: brak umowy')
     const token = await apiLogin(request)
     const ts = Date.now()
     // Stwórz artykuł do pozycji
@@ -258,7 +250,6 @@ test.describe('TEST-04: Umowy', () => {
   })
 
   test('CRUD usługi dodatkowej (service-fee) przez API', async ({ request }) => {
-    test.skip(!contractId, 'BUG RAO-QA-002: brak umowy')
     const token = await apiLogin(request)
     const r = await request.post(`${API}/contracts/${contractId}/service-fees`, {
       headers: authHeaders(token),
@@ -276,11 +267,10 @@ test.describe('TEST-04: Umowy', () => {
     expect(del.status()).toBe(204)
   })
 
-  test('filtr po contract_type (S/U) zwraca tylko właściwe (BUG RAO-QA-004)', async ({ request }) => {
+  test('filtr po contract_type (S/U) zwraca tylko właściwe (RAO-QA-004 fixed)', async ({ request }) => {
     const token = await apiLogin(request)
     const r = await request.get(`${API}/contracts?contract_type=S`, { headers: authHeaders(token) })
-    // BUG: backend zwraca 500 przy filtrze contract_type. Owner: backend-dev.
-    expect([200, 500]).toContain(r.status())
+    expect(r.status()).toBe(200)
     if (r.status() !== 200) return
     const data = await r.json()
     if (data.items?.length) {

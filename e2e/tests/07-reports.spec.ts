@@ -21,11 +21,7 @@ test.describe('TEST-07: Reports API', () => {
       data: { contractor_id: contractorId, contract_type: 'S', date_from: today },
     })
     if (ctr.status() !== 201) {
-      // 🔴 BUG (RAO-QA-002): backend/contracts/service.py:182 odwołuje się do
-      // data.positions, ale ContractCreate schema nie ma tego pola → AttributeError → 500
-      // Owner: backend-dev. Wszystkie testy raportów cascade-fail przez ten bug.
-      // Pomijamy zamiast zostawiać contractId=undefined (tworzy szum w innych testach).
-      console.error(`[BUG RAO-QA-002] POST /contracts → ${ctr.status()}`)
+      console.error(`POST /contracts failed: ${ctr.status()}`)
       return
     }
     const ct = await ctr.json()
@@ -65,13 +61,11 @@ test.describe('TEST-07: Reports API', () => {
     expect([401, 403]).toContain(r.status())
   })
 
-  test('zły typ raportu → 400/422 (BUG RAO-QA-005: brak walidacji type)', async ({ request }) => {
-    test.skip(!contractId, 'BUG RAO-QA-002')
+  test('zły typ raportu → 400/422 (RAO-QA-005 fixed)', async ({ request }) => {
     const r = await request.post(`${API}/reports/contract/${contractId}?type=invalid_xyz`, {
       headers: authHeaders(token), timeout: 15_000,
     })
-    // BUG: brak walidacji query param `type` → backend rzuca exception → 500
-    expect([400, 404, 422, 500]).toContain(r.status())
+    expect([400, 422]).toContain(r.status())
   })
 
   test('contract_id jako string → 422', async ({ request }) => {

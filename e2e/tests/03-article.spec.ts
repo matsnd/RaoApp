@@ -123,9 +123,8 @@ test.describe('TEST-03: Artykuły', () => {
     await expect(page.locator('tbody')).toContainText(uniq, { timeout: 5_000 })
   })
 
-  test.fixme('pusta nazwa artykułu — backend 422 (BUG: backend akceptuje pustą nazwę → 201)', async ({ request }) => {
-    // BUG: ArticleCreate schema nie ma min_length=1 dla name — backend akceptuje pustą nazwę.
-    // Owner: backend-dev (RAO-QA-001)
+  test('pusta nazwa artykułu — backend 422 (RAO-QA-001 fixed)', async ({ request }) => {
+    // FIXED: RAO-QA-001 - ArticleCreate schema ma min_length=1 dla name.
     const token = await apiLogin(request)
     const r = await request.post(`${API}/articles`, {
       headers: authHeaders(token),
