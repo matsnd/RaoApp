@@ -57,6 +57,11 @@ spec/technical/
 - **Script:** `e2e/tests/10-ux-screenshots.spec.ts` — Automatyczne screenshoty wszystkich widoków dla UX review
 - **Doc:** `spec/technical/scripts/playwright_ux_screenshots.md` — Opis użycia, lista 17 screenshotów, integracja z UX review
 
+### Vision AI UX Analysis (RAO-P2-016 + RAO-P2-017)
+- **Tool:** MCP `rao-vision` — Automatyczna analiza UX/UI przez Claude Vision
+- **Doc:** `spec/technical/scripts/vision_ux_analysis.md` — Opis użycia, wzorce pytań, optymalizacja kosztów
+- **Result:** 4 analizy vision (LoginView, DashboardView, ContractFormView), 20+ zidentyfikowanych problemów UX/UI
+
 ## Szybki dostęp
 
 - **AGENTS.md:** Sekcja "Technical Solutions Storage" z linkiem do tego pliku
@@ -77,3 +82,4 @@ Po każdym zadaniu:
 - **2026-05-18:** RAO-P2-012 — Pełny scrum refinement Fakturownia integration (PO, Tech Lead, QA, Security) — ODŁOŻONE
 - **2026-05-19:** RAO-P2-015 — TERYT postal codes integration (200+ kodów z głównych miast, endpointy lookup + sync)
 - **2026-05-19:** RAO-P2-016 — Playwright UX screenshots spike (17 screenshotów dla design review, checklist UX)
+- **2026-05-19:** RAO-P2-016 + RAO-P2-017 — Vision AI UX analysis (4 analizy, 20+ problemów UX/UI zidentyfikowanych, backlog item utworzony)

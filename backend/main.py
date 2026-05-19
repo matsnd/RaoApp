@@ -14,6 +14,7 @@ from integrations.fakturownia.router import router as fakturownia_router
 from stats.router import router as stats_router
 from explorer.router import router as explorer_router
 from database import engine, Base
+import auth.models  # Auth tables
 import integrations.models  # RAO-P1-008
 
 app = FastAPI(

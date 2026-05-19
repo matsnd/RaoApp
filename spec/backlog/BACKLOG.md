@@ -1426,6 +1426,76 @@ Otworzyć w Playwright wszystkie możliwe widoki/ekrany aplikacji i przygotować
 Pomysły, bez harmonogramu - odłożone do przyszłości.
 Status: Wszystkie zadania P3 oznaczone jako postponed zgodnie z definicją sekcji "odrzuć lub odłóż".
 
+### [RAO-P2-017] Poprawa UX/UI na podstawie vision analysis (Login, Dashboard, Contract Form)
+
+```yaml
+id: RAO-P2-017
+priority: P2
+size: L
+status: todo
+classification: frontend
+roles: [frontend-dev, ui-designer, ux-designer]
+depends_on: [RAO-P2-016]
+blocks: []
+source: internal
+source_date: 2026-05-19
+specs_to_update:
+  - core/09_design_reference.md
+  - core/03_frontend_screens.md
+migration_impact: no
+security_impact: low
+```
+
+**Job-to-be-done:**
+Naprawić problemy UX/UI zidentyfikowane przez vision analysis w 3 kluczowych widokach: Login, Dashboard, Contract Form.
+
+**Acceptance criteria (DoD):**
+
+**LoginView:**
+- [ ] Border-radius karty: 12px (zamiast ~20-24px)
+- [ ] Border-radius inputów: 12px (zamiast ~8px)
+- [ ] Border-radius przycisku: 12px (zamiast ~8px)
+- [ ] Ikony w polach formularza (użytkownik, kłódka, pokaż/ukryj hasło)
+- [ ] Poprawa kontrastu placeholderów (WCAG AA min. 4.5:1)
+- [ ] Stany interaktywne: hover, focus, error
+- [ ] Checkbox "Zapamiętaj mnie"
+- [ ] Komunikat błędu: czerwona ramka na polach, ikona ⚠️, większy font (14px, weight 500)
+- [ ] Animacja shake przy błędzie logowania
+- [ ] Focus automatycznie na pole login po błędzie
+
+**DashboardView:**
+- [ ] Przyciski CTA w kolorze navy #1D2B53 (zamiast ~#3B5BDB)
+- [ ] Ustalenie palety kolorów alertów i ikon KPI (spójność)
+- [ ] Ilustracje empty states (ikonka + tekst zachęcający)
+- [ ] Usunięcie duplikacji informacji (górny pasek vs karty)
+- [ ] Spójny styl ikon KPI (wszystkie outline lub wszystkie filled)
+
+**ContractFormView:**
+- [ ] Wizualne grupowanie pól w sekcje/karty z nagłówkami
+- [ ] Konsekwentne oznaczanie wszystkich pól wymaganych gwiazdką (*)
+- [ ] Inline validation z komunikatami pod polami
+- [ ] Poprawa layout adresu dostawy (ulica, kod pocztowy, miasto w osobnych liniach)
+- [ ] Etykiety ZAWSZE nad polem, placeholdery jako przykłady
+- [ ] Poprawa spacing i alignment
+
+**UI/UX DoD:**
+- [ ] Zgodność z design systemem Toolsmart (navy #1D2B53, Montserrat, border-radius 12px)
+- [ ] Wszystkie stany interaktywne zdefiniowane (hover, focus, error, disabled)
+- [ ] Kontrast WCAG AA dla wszystkich tekstów
+- [ ] Spójna kolorystyka we wszystkich widokach
+
+**QA DoD:**
+- [ ] E2E test w `01-login.spec.ts` dla poprawionego ekranu logowania
+- [ ] E2E test w `04-contract.spec.ts` dla poprawionego formularza umowy
+- [ ] Vision verification po poprawkach (screenshot + analiza)
+- [ ] Smoke test `01-login.spec.ts` PASS
+
+**Pliki do zmiany:** `frontend/src/views/LoginView.vue`, `frontend/src/views/DashboardView.vue`, `frontend/src/views/ContractFormView.vue`, `frontend/src/style.css`
+**ROI:** Poprawa UX/UI zwiększająca użyteczność i profesjonalizm aplikacji
+**Estimate:** 16h (L)
+
+---
+
 ### [RAO-P3-001] Drag & drop reorder szablonów usług (B6)
 
 ```yaml
