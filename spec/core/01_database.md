@@ -375,17 +375,28 @@ CREATE TABLE contracts (
 ) ENGINE=InnoDB COMMENT='Umowy (stara tabela: umowa2)';
 
 -- 4.1 Dostawa (geo-location per umowa)
+-- RAO-P3-005: zlecenia dostawy / odbioru w ramach umowy
 CREATE TABLE deliveries (
-    id          INT AUTO_INCREMENT PRIMARY KEY,
-    contract_id INT NOT NULL,
-    address_id  INT NULL COMMENT 'FK do contractor_addresses',
-    latitude    DECIMAL(10,7) NULL,
-    longitude   DECIMAL(10,7) NULL,
+    id              INT AUTO_INCREMENT PRIMARY KEY,
+    contract_id     INT NOT NULL,
+    position_id     INT NULL COMMENT 'FK do contract_positions (opcjonalnie konkretna pozycja)',
+    delivery_type   ENUM('deliver','collect') NOT NULL DEFAULT 'deliver'
+                    COMMENT 'deliver = dostawa do klienta, collect = odbiór od klienta',
+    scheduled_date  DATE NULL COMMENT 'Planowana data',
+    actual_date     DATE NULL COMMENT 'Faktyczna data realizacji',
+    address         VARCHAR(500) NULL COMMENT 'Adres dostawy/odbioru',
+    driver          VARCHAR(200) NULL COMMENT 'Kierowca / wykonawca',
+    note            VARCHAR(500) NULL,
+    status          ENUM('pending','done','cancelled') NOT NULL DEFAULT 'pending',
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_delivery_contract FOREIGN KEY (contract_id)
         REFERENCES contracts(id) ON DELETE CASCADE,
-    CONSTRAINT fk_delivery_address FOREIGN KEY (address_id)
-        REFERENCES contractor_addresses(id) ON DELETE SET NULL
-) ENGINE=InnoDB COMMENT='Dane dostawy per umowa (stara tabela: dostawa)';
+    CONSTRAINT fk_delivery_position FOREIGN KEY (position_id)
+        REFERENCES contract_positions(id) ON DELETE SET NULL,
+    INDEX idx_deliveries_contract (contract_id),
+    INDEX idx_deliveries_position (position_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_polish_ci
+  COMMENT='RAO-P3-005: Zlecenia dostaw/odbiorów per umowa';
 
 -- 4.2 Adresy dostawy (reverse geocoding results)
 CREATE TABLE delivery_addresses (
@@ -475,6 +486,25 @@ CREATE TABLE costs (
         REFERENCES contract_positions(id) ON DELETE CASCADE,
     INDEX idx_cost_position (position_id)
 ) ENGINE=InnoDB COMMENT='Koszty (stara tabela: koszty)';
+
+-- RAO-P3-005: koszty dodatkowe per umowa (transport, paliwo, naprawy itd.)
+CREATE TABLE contract_costs (
+    id           INT AUTO_INCREMENT PRIMARY KEY,
+    contract_id  INT          NOT NULL,
+    position_id  INT          NULL COMMENT 'Opcjonalnie konkretna pozycja umowy',
+    cost_type    VARCHAR(100) NOT NULL COMMENT 'Typ kosztu (transport/paliwo/naprawa/...)',
+    amount       DECIMAL(10,2) NOT NULL,
+    description  VARCHAR(500) NULL,
+    cost_date    DATE         NULL,
+    created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_ccost_contract FOREIGN KEY (contract_id)
+        REFERENCES contracts(id) ON DELETE CASCADE,
+    CONSTRAINT fk_ccost_position FOREIGN KEY (position_id)
+        REFERENCES contract_positions(id) ON DELETE SET NULL,
+    INDEX idx_ccost_contract (contract_id),
+    INDEX idx_ccost_position (position_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_polish_ci
+  COMMENT='RAO-P3-005: Koszty dodatkowe umowy (księgowanie operacyjne)';
 
 -- ============================================================
 -- 7. ROZLICZENIA UMÓW (Contract Settlements) - RAO-P1-012
