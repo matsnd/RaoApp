@@ -1706,7 +1706,7 @@ security_impact: medium
 id: RAO-P3-006
 priority: P3
 size: S
-status: postponed
+status: done
 classification: frontend
 roles: [frontend-dev]
 depends_on: []
@@ -1772,7 +1772,7 @@ W starym FormU4 wizualny kalendarz 2-miesieczny do wyboru dat od/do. Nowy formul
 id: RAO-P3-008
 priority: P3
 size: S
-status: postponed
+status: done
 classification: frontend
 roles: [frontend-dev]
 depends_on: []
@@ -1805,7 +1805,7 @@ Dodać keyboard shortcuts dla codziennych akcji.
 id: RAO-P3-009
 priority: P3
 size: XS
-status: postponed
+status: done
 classification: frontend
 roles: [frontend-dev]
 depends_on: []
@@ -1837,7 +1837,7 @@ Na pustej bazie lista umów jest pusta bez wskazówki co zrobić.
 id: RAO-P3-010
 priority: P3
 size: S
-status: postponed
+status: done
 classification: frontend
 roles: [frontend-dev]
 depends_on: []

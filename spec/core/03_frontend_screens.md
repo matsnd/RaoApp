@@ -1210,3 +1210,35 @@ async function handleFakturownia() {
 **Stany:** skeleton loading, empty state z emoji (📋 🚚 ✅)
 
 **API:** `GET /stats/expiring-contracts`, `GET /stats/deliveries-today`, `GET /stats/unprinted-contracts`, `GET /stats/stale-print-contracts`, `GET /stats/currently-rented`
+
+---
+
+## Globalne funkcjonalności (AppLayout.vue)
+
+### Pasek postępu NProgress (P3-010)
+- Biblioteka: `nprogress` (niebieska belka `--color-accent-blue`, bez spinnera)
+- Uruchamia się przy każdej zmianie trasy (`router.beforeEach` → `NProgress.start()`, `router.afterEach` → `NProgress.done()`)
+- Konfiguracja: `{ showSpinner: false, speed: 300, minimum: 0.2 }`
+
+### Keyboard shortcuts (P3-008)
+- `Ctrl+N` → nowy rekord (kontekstowo: `ContractNew`, `ContractorNew`, `ArticleNew`)
+- `Escape` → cofnij do poprzedniej strony (tylko gdy trasa kończy się na `/new` lub `/edit`)
+- Guard: ignoruje gdy aktywny element to input/textarea/select lub gdy jest otwarte modal-overlay
+
+---
+
+## DashboardView — Empty state CTA (P3-009)
+
+Puste tabele (brak rekordów) wyświetlają przycisk akcji:
+- Umowy: "Brak umów — [+ Nowa umowa]" → `router.push({ name: 'ContractNew' })`
+- Kontrahenci: "Brak kontrahentów — [+ Nowy kontrahent]" → `router.push({ name: 'ContractorNew' })`
+- Artykuły: "Brak artykułów — [+ Nowy artykuł]" → `router.push({ name: 'ArticleNew' })`
+
+---
+
+## ConditionPanel — Auto-opis warunku (P3-006)
+
+W modalu dodawania warunku:
+- Przycisk `↻ auto` przy polu Opis generuje opis na podstawie: nazwa typu stawki, stawka 1 + jednostka, stawka 2, liczba okresów, minimum
+- Format: `"Typ stawki, 500.00 zł/doba, do 5 dób, min. 1"`
+- Watcher auto-wypełnia opis przy zmianach pól (tylko dla nowych warunków, nie dla edycji)
