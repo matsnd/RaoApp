@@ -532,7 +532,9 @@ Szczegółowy layout Row 1 (nagłówek):
 │ ☐ Dostawa [combo adresów ▼]            │ │   Kwiecień 2026     ││
 │ Adres: [ulica] [kod pocztowy] [miasto] [>>geo]   │ │ ...                 ││
 │ RAO-P1-008: kod pocztowy auto-uzupełnia miasto │ │ ...                 ││
-│ Współrzędne [________________]          │ └─────────────────────┘│
+│ RAO-P2-005: [>>geo] wywołuje POST /integrations/geocode (Nominatim) │ │ ...                 ││
+│ Wynik geokodowania (latitude/longitude) zapisywany do formularza │ │ ...                 ││
+│ Współrzędne [latitude, longitude - auto z geokoding] │ └─────────────────────┘│
 │                                         │                        │
 │ ☐ Reprezentująca  Tel1 [________]       │ Osoba1 [____________]  │
 │ ☐ Kontaktowa      Tel2 [________]       │ Tel1   [____________]  │

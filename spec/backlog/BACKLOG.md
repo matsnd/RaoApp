@@ -1298,7 +1298,7 @@ Po wyborze adresu dostawy automatycznie geokodować współrzędne przez Nominat
 - [x] `ContractFormView.vue` — `onAddressSelect()` wywołuje endpoint - zaimplementowane
 - [x] Endpoint `POST /integrations/geocode` (forward geocoding) - dodany w integrations/router.py
 - [x] Zapis lat/lng do formularza - dodane do form object
-- [ ] `core/03_frontend_screens.md` zaktualizowany
+- [x] `core/03_frontend_screens.md` zaktualizowany
 
 **Pliki do zmiany:** `ContractFormView.vue`
 **Estimate:** 2h (S)
@@ -2813,7 +2813,7 @@ n|| RAO-P1-008 | Strukturalizacja adresów: kod pocztowy + miasto | Client | P1 
 || RAO-P2-002 | Link "Zmień hasło" sidebar | Internal | P2 | XS | todo | frontend-dev |
 || RAO-P2-003 | NIP validation checksum | Internal | P2 | S | todo | backend-dev |
 || RAO-P2-004 | Duplikacja artykułu pickera | Internal | P2 | S | todo | frontend-dev |
-|| RAO-P2-005 | Nominatim reverse geocoding | Internal | P2 | S | todo | cross-stack |
+|| RAO-P2-005 | Nominatim reverse geocoding | Internal | P2 | S | done | cross-stack |
 || RAO-P2-006 | Picker artykułów — filtr typ umowy | Client | P2 | S | todo | cross-stack |
 || RAO-P2-007 | UX Raportów — teraz vs okres | Client | P2 | S | todo | cross-stack |
 || RAO-P2-008 | Numer wewnętrzny maszyny | Client | P2 | S | todo | cross-stack |

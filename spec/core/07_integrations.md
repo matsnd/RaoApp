@@ -206,6 +206,20 @@ class NominatimClient:
             }
 ```
 
+### Forward Geocoding (RAO-P2-005)
+
+**Kiedy używane:**
+Przycisk `[>>geo]` w formularzu umowy → po wybraniu adresu dostawy → pobierz współrzędne GPS.
+
+**Endpoint:**
+`POST /integrations/geocode`
+
+**Implementacja:**
+- Frontend: `ContractFormView.vue` — `onAddressSelect()` wywołuje endpoint po wyborze adresu z listy
+- Backend: `POST /integrations/geocode` (forward geocoding) w `integrations/router.py`
+- Wynik: latitude/longitude zapisywane do formularza (form object)
+- Rate limit: max 1 request/sekunda (Nominatim policy)
+
 ---
 
 ## 3. Raporty PDF (WeasyPrint + Jinja2)
