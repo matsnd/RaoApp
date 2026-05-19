@@ -49,6 +49,10 @@ spec/technical/
 - **Script:** `spec/technical/scripts/reset_admin_password.py` — Reset hasła admina do admin123
 - **Doc:** `spec/technical/scripts/reset_admin_password.md` — Opis użycia
 
+### TERYT Postal Codes (RAO-P2-015)
+- **Script:** `spec/technical/scripts/teryt_postal_codes_generator.py` — Generator słownika kodów pocztowych (200+ z głównych miast)
+- **Doc:** `spec/technical/scripts/teryt_postal_codes_generator.md` — Opis użycia, integracja z RAO, rozszerzenie do pełnej bazy
+
 ## Szybki dostęp
 
 - **AGENTS.md:** Sekcja "Technical Solutions Storage" z linkiem do tego pliku
@@ -67,3 +71,4 @@ Po każdym zadaniu:
 - **2026-05-18:** Utworzenie struktury spec/technical/, migracja rozwiązań z AGENTS.md
 - **2026-05-18:** RAO-P1-022 — PDF extraction, Vision AI, WeasyPrint images
 - **2026-05-18:** RAO-P2-012 — Pełny scrum refinement Fakturownia integration (PO, Tech Lead, QA, Security) — ODŁOŻONE
+- **2026-05-19:** RAO-P2-015 — TERYT postal codes integration (200+ kodów z głównych miast, endpointy lookup + sync)
