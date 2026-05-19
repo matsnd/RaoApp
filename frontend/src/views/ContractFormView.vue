@@ -610,7 +610,7 @@
           </div>
           <div style="max-height:320px;overflow:auto;">
             <table class="data-grid">
-              <thead><tr><th>Nazwa</th><th>Nr rej.</th><th>Marka</th><th>Typ</th><th>Dostępność</th><th style="width:80px;">Akcje</th></tr></thead>
+              <thead><tr><th>Nazwa</th><th>Nr rej.</th><th>Marka</th><th>Typ</th><th>Dostępność</th><th>Rezerwacja</th><th style="width:80px;">Akcje</th></tr></thead>
               <tbody>
                 <tr v-for="a in articlePickerList" :key="a.id" style="cursor:pointer;">
                   <td @click="selectArticle(a)">{{ a.name }}</td>
@@ -621,6 +621,16 @@
                     <span v-if="a._avail === true" class="badge badge-success">Wolny</span>
                     <span v-else-if="a._avail === false" class="badge badge-danger">Zajęty</span>
                     <span v-else class="badge badge-muted">—</span>
+                  </td>
+                  <td @click="selectArticle(a)">
+                    <!-- RAO-P1-015: aktywna rezerwacja -->
+                    <span
+                      v-if="a._reservation"
+                      class="badge badge-warning"
+                      style="font-size:10px;"
+                      :title="`Zarezerwowana ${formatPickerDate(a._reservation.reserved_from)} – ${formatPickerDate(a._reservation.reserved_to)}`"
+                    >Zarezerwowana do {{ formatPickerDate(a._reservation.reserved_to) }}</span>
+                    <span v-else class="badge badge-muted" style="font-size:10px;">—</span>
                   </td>
                   <td>
                     <button class="btn-icon" title="Duplikuj artykuł" @click.stop="duplicateArticle(a)">⧉</button>
@@ -1057,25 +1067,42 @@ function onConditionValueChanged(_value) {
   recalcTotal()
 }
 
+// RAO-P1-015: helper — format date DD.MM from ISO string
+function formatPickerDate(d: string): string {
+  if (!d) return '?'
+  const parts = d.split('-')
+  if (parts.length === 3) return `${parts[2]}.${parts[1]}.${parts[0]}`
+  return d
+}
+
 let artTimer = null
 async function searchArticles() {
   clearTimeout(artTimer)
   artTimer = setTimeout(async () => {
     const { data } = await api.get('/articles', { params: { search: articlePickerSearch.value, per_page: 50, is_service: form.value.contract_type === 'U' ? true : false } })
-    articlePickerList.value = data.items.map(a => ({ ...a, _avail: null }))
-    // Check availability for contract dates (parallel)
-    if (form.value.date_from && form.value.date_to) {
-      await Promise.all(
-        articlePickerList.value
-          .filter(a => !a.is_service)
-          .map(async a => {
-            try {
-              const av = await articleStore.checkAvailability(a.id, form.value.date_from, form.value.date_to)
-              a._avail = av.is_available
-            } catch { a._avail = null }
-          })
-      )
-    }
+    articlePickerList.value = data.items.map(a => ({ ...a, _avail: null, _reservation: null }))
+    // Check availability + active reservations (parallel) — RAO-P1-015
+    await Promise.all(
+      articlePickerList.value
+        .filter(a => !a.is_service)
+        .map(async a => {
+          const tasks: Promise<void>[] = []
+          if (form.value.date_from && form.value.date_to) {
+            tasks.push(
+              articleStore.checkAvailability(a.id, form.value.date_from, form.value.date_to)
+                .then(av => { a._avail = av.is_available })
+                .catch(() => { a._avail = null })
+            )
+          }
+          // RAO-P1-015: fetch first active reservation for this article
+          tasks.push(
+            api.get(`/reservations/article/${a.id}/active`)
+              .then(res => { a._reservation = res.data[0] ?? null })
+              .catch(() => { a._reservation = null })
+          )
+          await Promise.all(tasks)
+        })
+    )
   }, 300)
 }
 

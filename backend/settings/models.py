@@ -23,6 +23,7 @@ class Company(Base):
     report_folder = Column(String(200), nullable=True)
     protocol_folder = Column(String(200), nullable=True)
     app_version = Column(String(20), nullable=True)
+    logo_path = Column(String(500), nullable=True)  # RAO-P3-002: ścieżka do logo (zastępuje binary logo)
 
 
 class FeePresetGroup(Base):

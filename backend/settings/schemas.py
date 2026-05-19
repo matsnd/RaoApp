@@ -1,6 +1,6 @@
 from decimal import Decimal
-from typing import Literal
-from pydantic import BaseModel, Field
+from typing import Literal, Optional
+from pydantic import BaseModel, Field, model_validator
 
 
 class CompanyResponse(BaseModel):
@@ -19,9 +19,22 @@ class CompanyResponse(BaseModel):
     increment_step: Decimal | None
     report_folder: str | None
     protocol_folder: str | None
+    logo_url: str | None = None  # RAO-P3-002: URL do logo firmy (mapuje logo_path z modelu)
 
     class Config:
         from_attributes = True
+        populate_by_name = True
+
+    @model_validator(mode='before')
+    @classmethod
+    def map_logo_path(cls, data):
+        if hasattr(data, '__dict__'):
+            # ORM object
+            if 'logo_url' not in (data.__dict__ or {}) and hasattr(data, 'logo_path'):
+                data.__dict__['logo_url'] = data.logo_path
+        elif isinstance(data, dict) and 'logo_url' not in data and 'logo_path' in data:
+            data['logo_url'] = data['logo_path']
+        return data
 
 
 class CompanyUpdate(BaseModel):

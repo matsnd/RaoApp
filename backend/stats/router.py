@@ -888,3 +888,53 @@ async def commissions(
         grand_total_revenue=grand_revenue,
         grand_total_commission=grand_commission,
     )
+
+
+# ---------------------------------------------------------------------------
+# RAO-P3-004: EKSPORT CSV
+# ---------------------------------------------------------------------------
+
+@router.get("/export/csv")
+async def export_csv(
+    export_type: Literal["contracts", "articles", "contractors"] = Query(
+        ...,
+        alias="type",
+        description="Typ eksportu: contracts | articles | contractors",
+    ),
+    from_date: date | None = Query(
+        None,
+        description="Filtr od daty (YYYY-MM-DD) — dotyczy Contract.date_from dla type=contracts",
+    ),
+    to_date: date | None = Query(
+        None,
+        description="Filtr do daty (YYYY-MM-DD) — dotyczy Contract.date_from dla type=contracts",
+    ),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """
+    RAO-P3-004: Eksport danych statystyk do pliku CSV.
+
+    Zwraca plik CSV z UTF-8 BOM (poprawne otwarcie w Excel PL).
+    Delimiter: średnik.
+
+    Typy eksportu:
+    - **contracts**: lista umów (nr_umowy, kontrahent, data_od, data_do, status, handlowiec, wartosc_netto)
+    - **articles**: lista artykułów niearchiwalnych (nazwa, kategoria, nr_wewn, aktywna_umowa)
+    - **contractors**: lista kontrahentów (nazwa, nip, miasto, email, telefon, aktywna_umowa)
+
+    Parametry `from_date`/`to_date` są opcjonalne i dotyczą wyłącznie type=contracts
+    (filtrują po Contract.date_from).
+    """
+    from stats import service as stats_service
+
+    filename = f"rao_stats_{date.today().strftime('%Y%m%d')}.csv"
+    csv_data = await stats_service.export_csv_data(db, export_type, from_date, to_date)
+
+    return StreamingResponse(
+        iter([csv_data]),
+        media_type="text/csv; charset=utf-8-sig",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )

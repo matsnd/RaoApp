@@ -383,6 +383,10 @@
               </div>
             </div>
 
+            <!-- Reservations tab — RAO-P1-015 -->
+            <div v-if="activeTab === 'reservations'">
+              <ReservationsPanel />
+            </div>
 
           </div>
         </div>
@@ -397,6 +401,7 @@ import { VueDraggable } from 'vue-draggable-plus'
 import { useSettingsStore } from '@/stores/settings'
 import { useArticleStore } from '@/stores/articles'
 import { useFakturowniaStore } from '@/stores/fakturownia'
+import ReservationsPanel from '@/components/shared/ReservationsPanel.vue'
 import api from '@/composables/useApi'
 
 const settingsStore = useSettingsStore()
@@ -411,6 +416,7 @@ const tabs = [
   { id: 'rate-types', label: 'Typy stawek' },
   { id: 'fee-presets', label: 'Zestawy usług' },
   { id: 'fakturownia', label: 'Fakturownia' },
+  { id: 'reservations', label: 'Rezerwacje maszyn' },
 ]
 
 const currentTabLabel = computed(() => tabs.find(t => t.id === activeTab.value)?.label || '')

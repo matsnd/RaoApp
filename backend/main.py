@@ -1,5 +1,8 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from config import settings
 
 from auth.router import router as auth_router, admin_router
@@ -32,6 +35,9 @@ async def startup_migrations():
     from settings.models import FeePresetGroup, ServiceFeeTemplate
     import settlements.models  # RAO-P1-012
     import integrations.fakturownia.models  # RAO-P2-012
+
+    # RAO-P3-002: katalog na logo firmy (startup guard)
+    os.makedirs("static/logos", exist_ok=True)
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -164,6 +170,10 @@ async def startup_migrations():
         await conn.execute(sa.text(
             "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
             "longitude DECIMAL(11,8) NULL"
+        ))
+        # RAO-P3-002: logo firmy — ścieżka do pliku statycznego
+        await conn.execute(sa.text(
+            "ALTER TABLE company ADD COLUMN IF NOT EXISTS logo_path VARCHAR(500) NULL"
         ))
         # service_fee_template_items utworzone przez Base.metadata.create_all (nowa tabela)
         # RAO-P1-014: tabela service_hours dla ewidencji godzin operatora

@@ -15,6 +15,13 @@
       </button>
     </div>
 
+    <!-- RAO-P3-004: Eksport CSV — widoczny na wszystkich zakładkach -->
+    <div class="csv-export-bar">
+      <button class="pill pill-go" @click="exportCsv('contracts')">↓ Eksport umów CSV</button>
+      <button class="pill pill-go" @click="exportCsv('articles')">↓ Eksport artykułów CSV</button>
+      <button class="pill pill-go" @click="exportCsv('contractors')">↓ Eksport kontrahentów CSV</button>
+    </div>
+
     <!-- ══════════════════ TAB: TERAZ ══════════════════ -->
     <div v-show="activeTab === 'live'">
       <!-- SECTION HEADER - wizualne wyodrębnienie -->
@@ -1602,6 +1609,37 @@ onBeforeUnmount(() => {
   if (donutChart) donutChart.destroy()
   if (categoryBarChart) categoryBarChart.destroy()
 })
+
+// ---------------------------------------------------------------------------
+// RAO-P3-004: Eksport CSV
+// ---------------------------------------------------------------------------
+
+/**
+ * Pobiera plik CSV przez axios (zachowuje nagłówek Authorization)
+ * i wyzwala pobieranie w przeglądarce.
+ *
+ * Używa responseType: 'blob' zamiast bezpośredniego <a href> ponieważ
+ * endpoint wymaga JWT Bearer token (brak proxy Vite dla /stats/).
+ */
+async function exportCsv(type) {
+  try {
+    const resp = await api.get('/stats/export/csv', {
+      params: { type },
+      responseType: 'blob',
+    })
+    const blob = new Blob([resp.data], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `rao_${type}_${new Date().toISOString().slice(0, 10)}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  } catch (err) {
+    console.error('Błąd eksportu CSV:', err)
+  }
+}
 </script>
 
 <style scoped>
