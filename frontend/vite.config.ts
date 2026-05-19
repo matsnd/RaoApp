@@ -12,5 +12,12 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    proxy: {
+      // RAO-P3-002: proxy logo firmy w dev (prod: nginx obsługuje /rao/api/static)
+      '/rao/api/static': {
+        target: 'http://localhost:8000',
+        rewrite: (path: string) => path.replace('/rao/api', ''),
+      },
+    },
   },
 })

@@ -1645,6 +1645,14 @@ async function exportCsv(type) {
 <style scoped>
 .reports-dashboard { padding: 0; }
 
+/* RAO-P3-004: pasek eksportu CSV */
+.csv-export-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 10px 0 6px;
+}
+
 .tabs-bar {
   display: flex;
   gap: 4px;

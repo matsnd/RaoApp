@@ -1,8 +1,17 @@
 <template>
   <nav class="sidebar">
+    <!-- RAO-P3-003: Logo firmy (jeśli wgrane) lub domyślna nazwa -->
     <div class="sidebar-logo">
-      <span class="sidebar-logo-text">TOOLSMART</span>
-      <span class="sidebar-logo-sub">WYNAJEM MASZYN</span>
+      <img
+        v-if="settingsStore.company?.logo_url"
+        :src="settingsStore.company.logo_url"
+        alt="Logo firmy"
+        class="sidebar-company-logo"
+      />
+      <template v-else>
+        <span class="sidebar-logo-text">TOOLSMART</span>
+        <span class="sidebar-logo-sub">WYNAJEM MASZYN</span>
+      </template>
     </div>
     <button
       :class="['sidebar-btn', 'sidebar-btn-home', { active: activeSection === 'home' }]"
@@ -45,14 +54,17 @@
 </template>
 
 <script setup>
+import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useSettingsStore } from '@/stores/settings'
 
 defineProps({ activeSection: String })
 defineEmits(['navigate'])
 
 const router = useRouter()
 const authStore = useAuthStore()
+const settingsStore = useSettingsStore()
 
 const topItems = [
   { section: 'contracts', label: 'Umowy' },
@@ -64,6 +76,13 @@ function handleLogout() {
   authStore.logout()
   router.push('/login')
 }
+
+// RAO-P3-003: załaduj dane firmy (logo) jeśli nie są dostępne
+onMounted(async () => {
+  if (!settingsStore.company) {
+    await settingsStore.fetchCompany()
+  }
+})
 </script>
 
 <style scoped>
@@ -74,5 +93,13 @@ function handleLogout() {
 }
 .sidebar-btn-home {
   font-size: 13px;
+}
+/* RAO-P3-003: logo firmy w sidebarze */
+.sidebar-company-logo {
+  max-height: 40px;
+  max-width: 140px;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
 }
 </style>

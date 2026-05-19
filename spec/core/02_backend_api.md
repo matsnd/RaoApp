@@ -1330,6 +1330,37 @@ class CommissionReportResponse(BaseModel):
 
 ---
 
+### `GET /stats/export/csv` (RAO-P3-004, NOWY)
+
+**Opis:** Eksport danych statystyk do pliku CSV (UTF-8 BOM, delimiter `;`).
+Plik gotowy do otwarcia w Microsoft Excel (polska lokalizacja).
+
+**Query:**
+- `type` (wymagany): `contracts` | `articles` | `contractors`
+- `from_date` (opcjonalny, YYYY-MM-DD): filtruje Contract.date_from >= from_date (tylko type=contracts)
+- `to_date` (opcjonalny, YYYY-MM-DD): filtruje Contract.date_from <= to_date (tylko type=contracts)
+
+**Response:** `StreamingResponse` — plik CSV
+- `Content-Type: text/csv; charset=utf-8-sig`
+- `Content-Disposition: attachment; filename="rao_stats_YYYYMMDD.csv"`
+
+**Kolumny per typ:**
+| type | Kolumny |
+|------|---------|
+| `contracts` | `nr_umowy; kontrahent; data_od; data_do; status; handlowiec; wartosc_netto` |
+| `articles` | `nazwa; kategoria; nr_wewn; aktywna_umowa` |
+| `contractors` | `nazwa; nip; miasto; email; telefon; aktywna_umowa` |
+
+**Logika:**
+- `type=contracts`: lista wszystkich umów (z filtrem dat), status = aktywna/zakonczona/przyszla, handlowiec ze słownika salespeople
+- `type=articles`: artykuły niearchiwalne (is_archival=FALSE), aktywna_umowa = "tak"/"nie" (Contract.date_from <= dziś <= Contract.date_to)
+- `type=contractors`: wszyscy kontrahenci, aktywna_umowa = "tak"/"nie"
+- Serwis: `backend/stats/service.py` → `export_csv_data()` + `build_csv_string()` (testowalna pure function)
+
+**HTTP:** 200 (plik CSV) | 401 (brak auth) | 422 (nieprawidłowy type)
+
+---
+
 ### `GET /explorer/search`
 
 **Opis:** Uniwersalne wyszukiwanie po pozycjach umów (maszyny + usługi).

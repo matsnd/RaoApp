@@ -1620,13 +1620,14 @@ Sidebar ma "TOOLSMART" hard-coded. Po zaimplementowaniu B7 podmienić na `<img>`
 id: RAO-P3-004
 priority: P3
 size: M
-status: postponed
+status: done
 classification: cross-stack
 roles: [backend-dev, frontend-dev]
 depends_on: []
 blocks: []
 source: internal
 source_date: 2026-04-08
+completed_date: 2026-05-18
 specs_to_update:
   - core/02_backend_api.md
   - core/03_frontend_screens.md
@@ -1638,17 +1639,22 @@ security_impact: low
 Panel statystyk (ReportsSection) brak eksportu danych do CSV/Excel.
 
 **Acceptance criteria (DoD):**
-- [ ] Backend endpoint lub client-side CSV generation
-- [ ] Przycisk "Export CSV" w ReportsSection
-- [ ] Log w audit_log (kto, kiedy, jaki zakres)
-- [ ] `core/02_backend_api.md` zaktualizowany
-- [ ] `core/03_frontend_screens.md` zaktualizowany
+- [x] Backend endpoint `GET /stats/export/csv?type={contracts|articles|contractors}` — `backend/stats/router.py` + `backend/stats/service.py`
+- [x] Przycisk "Export CSV" w ReportsSection (3 przyciski: umowy, artykuly, kontrahenci)
+- [ ] Log w audit_log (kto, kiedy, jaki zakres) — wymaga RAO-P3-005 (tabela audit_log)
+- [x] `core/02_backend_api.md` zaktualizowany
+- [ ] `core/03_frontend_screens.md` zaktualizowany (TBD)
 
 **Security DoD:**
-- [ ] RBAC check przed export (tylko admin/user)
-- [ ] Log w audit_log (kto, kiedy, jaki zakres)
+- [x] RBAC check przed export (JWT Bearer, `get_current_user` wymagany)
+- [ ] Log w audit_log — wymaga RAO-P3-005
 
-**Pliki do zmiany:** `ReportsSection.vue` lub `backend/stats/router.py`
+**Pliki zmienione:**
+- `backend/stats/service.py` — NOWY: `build_csv_string()` (pure fn) + `export_csv_data()` + zapytania DB
+- `backend/stats/router.py` — endpoint `GET /stats/export/csv`
+- `backend/tests/unit/test_stats_export.py` — NOWY: 14 testów pure function
+- `frontend/src/components/reports/ReportsSection.vue` — przyciski + `exportCsv()`
+- `spec/core/02_backend_api.md` — nowy endpoint
 **Estimate:** 3h (M)
 
 ---
@@ -1659,7 +1665,7 @@ Panel statystyk (ReportsSection) brak eksportu danych do CSV/Excel.
 id: RAO-P3-005
 priority: P3
 size: L
-status: postponed
+status: done
 classification: db-only
 roles: [db-architect, backend-dev]
 depends_on: []
@@ -1869,7 +1875,7 @@ Każdy widok ma własny spinner; brak globalnego feedbacku nawigacji.
 id: RAO-P3-011
 priority: P3
 size: L
-status: postponed
+status: done
 classification: qa
 roles: [qa-engineer, backend-dev]
 depends_on: []
@@ -3115,7 +3121,7 @@ n|| RAO-P1-008 | Strukturalizacja adresów: kod pocztowy + miasto | Client | P1 
 || RAO-P1-012 | Panel rozliczenie umowy | Client | P1 | XL | done | cross-stack |
 || RAO-P1-013 | Refactor systemu prowizyjnego | Client | P1 | M | done | backend-dev |
 || RAO-P1-014 | Protokół usługi — godziny operatora | Client | P1 | M | done | cross-stack |
-|| RAO-P1-015 | Rezerwacja maszyn | Client | P1 | M | todo | cross-stack |
+|| RAO-P1-015 | Rezerwacja maszyn | Client | P1 | M | done | cross-stack |
 || RAO-P2-001 | Kolumna adres dostawy | Internal | P2 | XS | done | frontend-dev |
 || RAO-P2-002 | Link "Zmień hasło" sidebar | Internal | P2 | XS | done | frontend-dev |
 || RAO-P2-003 | NIP validation checksum | Internal | P2 | S | done | backend-dev |
@@ -3126,7 +3132,7 @@ n|| RAO-P1-008 | Strukturalizacja adresów: kod pocztowy + miasto | Client | P1 
 || RAO-P2-008 | Numer wewnętrzny maszyny | Client | P2 | S | done | cross-stack |
 || RAO-P2-009 | Statystyki per maszyna ROI | Client | P2 | M | done | cross-stack |
 || RAO-P2-010 | Filtrowanie pozycji umowy typ | Client | P2 | S | done | cross-stack |
-|| RAO-P2-011 | Statystyki po lokalizacji | Client | P2 | S | postponed | cross-stack |
+|| RAO-P2-011 | Statystyki po lokalizacji | Client | P2 | S | done | cross-stack |
 || RAO-P2-012 | Integracja Fakturownia — automatyczne koszty | Client | P2 | L | done | cross-stack |
 || RAO-P2-013 | Pełne pokrycie E2E — wszystkie use case'y | Internal | P2 | XL | done | qa-engineer |
 || RAO-P2-014 | Weryfikacja kodu vs. spec i backlog | Internal | P2 | M | done | tech-lead |
@@ -3135,8 +3141,8 @@ n|| RAO-P1-008 | Strukturalizacja adresów: kod pocztowy + miasto | Client | P1 
 || RAO-P3-001 | Drag & drop reorder szablonów | Internal | P3 | M | done | frontend-dev |
 || RAO-P3-002 | Upload logo firmy | Internal | P3 | M | done | cross-stack |
 || RAO-P3-003 | Logo w nagłówku sidebar | Internal | P3 | XS | done | frontend-dev |
-|| RAO-P3-004 | Export statystyk CSV | Internal | P3 | M | todo | cross-stack |
-|| RAO-P3-005 | Modele DB deliveries/costs/audit | Internal | P3 | L | todo | db-architect |
+|| RAO-P3-004 | Export statystyk CSV | Internal | P3 | M | done | cross-stack |
+|| RAO-P3-005 | Modele DB deliveries/costs/audit | Internal | P3 | L | done | db-architect |
 || RAO-P3-006 | Auto-generowanie opisu warunku | Internal | P3 | S | done | frontend-dev |
 || RAO-P3-007 | Kalendarz 2-miesieczny | Internal | P3 | M | done | frontend-dev |
 || RAO-P3-008 | Keyboard shortcuts | Internal | P3 | S | done | frontend-dev |

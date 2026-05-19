@@ -69,7 +69,7 @@ async def test_seed_fee_templates_skips_when_records_exist():
     svc = SettingsService()
     db = AsyncMock()
     result = MagicMock()
-    result.scalar.return_value = 5  # już są wpisy
+    result.scalar_one.return_value = 5  # już są wpisy
     db.execute = AsyncMock(return_value=result)
     db.add = MagicMock()
     db.commit = AsyncMock()

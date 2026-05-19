@@ -19,6 +19,10 @@ from explorer.router import router as explorer_router
 from database import engine, Base
 import auth.models  # Auth tables
 import integrations.models  # RAO-P1-008
+import reservations.models  # RAO-P1-015
+import deliveries.models  # RAO-P3-005
+import contract_costs.models  # RAO-P3-005
+import audit.models  # RAO-P3-005
 
 app = FastAPI(
     title="RAO API",
@@ -267,6 +271,11 @@ app.include_router(integrations_router)
 app.include_router(fakturownia_router)
 app.include_router(stats_router)
 app.include_router(explorer_router)
+
+# RAO-P3-002: serwowanie statycznych plików (loga firmy itp.)
+# Katalog tworzony powyżej (os.makedirs), mount musi być po include_router
+os.makedirs("static/logos", exist_ok=True)
+app.mount("/static", StaticFiles(directory="static", html=False), name="static")
 
 
 @app.get("/health")

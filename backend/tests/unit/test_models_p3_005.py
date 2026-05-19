@@ -31,14 +31,14 @@ def test_delivery_has_required_columns():
 def test_delivery_fk_contract_cascade():
     from deliveries.models import Delivery
     fk = next(iter(Delivery.__table__.c.contract_id.foreign_keys))
-    assert fk.column.table.name == "contracts"
+    assert fk.target_fullname == "contracts.id"
     assert fk.ondelete == "CASCADE"
 
 
 def test_delivery_fk_position_set_null():
     from deliveries.models import Delivery
     fk = next(iter(Delivery.__table__.c.position_id.foreign_keys))
-    assert fk.column.table.name == "contract_positions"
+    assert fk.target_fullname == "contract_positions.id"
     assert fk.ondelete == "SET NULL"
 
 
@@ -116,7 +116,7 @@ def test_audit_log_action_required():
 def test_audit_log_user_fk_set_null():
     from audit.models import AuditLog
     fk = next(iter(AuditLog.__table__.c.user_id.foreign_keys))
-    assert fk.column.table.name == "users"
+    assert fk.target_fullname == "users.id"
     assert fk.ondelete == "SET NULL"
 
 

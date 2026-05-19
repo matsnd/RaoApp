@@ -23,6 +23,19 @@ export const useSettingsStore = defineStore('settings', () => {
     return data
   }
 
+  // RAO-P3-002: upload logo firmy
+  async function uploadLogo(file) {
+    const formData = new FormData()
+    formData.append('file', file)
+    const { data } = await api.post('/settings/company/logo', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    if (company.value) {
+      company.value = { ...company.value, logo_url: data.logo_url }
+    }
+    return data
+  }
+
   async function fetchSalespeople() {
     const { data } = await api.get('/settings/salespeople')
     salespeople.value = data
@@ -103,7 +116,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   return {
     company, salespeople, categories, branches, rateTypes, feeTemplates, loading,
-    fetchCompany, updateCompany,
+    fetchCompany, updateCompany, uploadLogo,
     fetchSalespeople, updateSalesperson,
     fetchCategories, updateCategory, deleteCategory,
     fetchBranches,
