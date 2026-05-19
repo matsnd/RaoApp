@@ -15,9 +15,10 @@
     <div class="content-area" style="padding:var(--spacing-md);overflow-y:auto;">
       <div v-if="loading" class="empty-state">Ładowanie...</div>
       <div v-else style="max-width:1100px;margin:0 auto;">
-        <!-- Top section: contract data -->
+        <!-- Section 1: Dane podstawowe -->
         <div class="page-card" style="margin-bottom:var(--spacing-md);">
-          <div v-if="errorMsg" style="color:var(--color-danger);padding:8px;background:#FED7D7;border-radius:6px;margin-bottom:12px;font-size:13px;">{{ errorMsg }}</div>
+          <h3 class="section-title">Dane podstawowe</h3>
+          <div v-if="errorMsg" class="error-message">{{ errorMsg }}</div>
           <div class="form-row-4" style="align-items:start;">
             <div class="form-group">
               <label class="form-label">Typ umowy</label>
@@ -35,39 +36,57 @@
               <input v-model="form.oid" type="text" class="form-control" placeholder="np. 12345" />
             </div>
             <div class="form-group">
-              <label class="form-label">Data od</label>
-              <input v-model="form.date_from" type="date" class="form-control" />
+              <label class="form-label">Data od *</label>
+              <input v-model="form.date_from" type="date" class="form-control" :class="{ 'error': !form.date_from }" />
+              <span v-if="!form.date_from" class="field-error">Pole wymagane</span>
             </div>
             <div class="form-group">
-              <label class="form-label">Data do</label>
-              <input v-model="form.date_to" type="date" class="form-control" />
+              <label class="form-label">Data do *</label>
+              <input v-model="form.date_to" type="date" class="form-control" :class="{ 'error': !form.date_to }" />
+              <span v-if="!form.date_to" class="field-error">Pole wymagane</span>
             </div>
           </div>
+        </div>
 
+        <!-- Section 2: Kontrahent i adres -->
+        <div class="page-card" style="margin-bottom:var(--spacing-md);">
+          <h3 class="section-title">Kontrahent i adres dostawy</h3>
           <div class="form-row-2" style="align-items:start;">
             <div class="form-group">
               <label class="form-label">Kontrahent *</label>
               <div style="display:flex;gap:8px;">
-                <input :value="contractorName" type="text" class="form-control" disabled placeholder="Wybierz kontrahenta..." style="flex:1;" />
+                <input :value="contractorName" type="text" class="form-control" disabled placeholder="Wybierz kontrahenta..." style="flex:1;" :class="{ 'error': !form.contractor_id }" />
                 <button type="button" class="btn btn-secondary btn-sm" @click="showContractorPicker = true">Wybierz</button>
               </div>
+              <span v-if="!form.contractor_id" class="field-error">Wybierz kontrahenta</span>
             </div>
-            <div class="form-group">
-              <label class="form-label">Adres dostawy</label>
-              <div style="display:flex;gap:8px;">
-                <select v-if="contractorAddresses.length" v-model="selectedAddressId" class="form-control" style="flex:1;" @change="onAddressSelect">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Adres dostawy</label>
+            <div class="address-layout">
+              <div class="address-row">
+                <select v-if="contractorAddresses.length" v-model="selectedAddressId" class="form-control address-select" @change="onAddressSelect">
                   <option :value="null">— wpisz ręcznie —</option>
                   <option v-for="addr in contractorAddresses" :key="addr.id" :value="addr.id">
                     {{ addr.name || addr.city }} — {{ addr.street || '' }} {{ addr.postal_code || '' }}
                   </option>
                 </select>
-                <input v-model="form.postal_code" @blur="onPostalCodeBlur" class="form-control" placeholder="00-000" style="flex:1;" maxlength="6" />
-                <input v-model="form.city" class="form-control" placeholder="Miasto" style="flex:1;" />
-                <textarea v-model="form.delivery_address" class="form-control" style="flex:1;" rows="2" placeholder="Uwagi dojazdowe (opcjonalnie)"></textarea>
+              </div>
+              <div class="address-row">
+                <input v-model="form.postal_code" @blur="onPostalCodeBlur" class="form-control postal-input" placeholder="00-000" maxlength="6" />
+                <input v-model="form.city" class="form-control city-input" placeholder="Miasto" />
+              </div>
+              <div class="address-row">
+                <textarea v-model="form.delivery_address" class="form-control" rows="2" placeholder="Uwagi dojazdowe (opcjonalnie)"></textarea>
               </div>
             </div>
           </div>
+        </div>
 
+        <!-- Section 3: Warunki finansowe -->
+        <div class="page-card" style="margin-bottom:var(--spacing-md);">
+          <h3 class="section-title">Warunki finansowe</h3>
           <div class="form-row-4">
             <div class="form-group">
               <label class="form-label">Handlowiec</label>
@@ -89,7 +108,7 @@
             </div>
             <div class="form-group">
               <label class="form-label">Pozostało (zł)</label>
-              <input :value="remainingValue" type="text" class="form-control" disabled style="font-weight:700;color:#E53E3E;" />
+              <input :value="remainingValue" type="text" class="form-control" disabled style="font-weight:700;color:var(--color-error);" />
             </div>
           </div>
 
@@ -111,7 +130,11 @@
               <input v-model="form.invoice_document" type="text" class="form-control" />
             </div>
           </div>
+        </div>
 
+        <!-- Section 4: Kontakt i uwagi -->
+        <div class="page-card" style="margin-bottom:var(--spacing-md);">
+          <h3 class="section-title">Kontakt i uwagi</h3>
           <div class="form-row-2">
             <div class="form-group">
               <label class="form-label">Osoba kontaktowa 1</label>
@@ -1228,6 +1251,53 @@ async function applyPreset(preset) {
 </script>
 
 <style scoped>
+.section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text-heading);
+  margin: 0 0 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.error-message {
+  color: var(--color-error);
+  padding: 8px 12px;
+  background: var(--color-error-bg);
+  border: 1px solid var(--color-error-border);
+  border-radius: var(--border-radius-md);
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.field-error {
+  display: block;
+  color: var(--color-error);
+  font-size: 12px;
+  margin-top: 4px;
+  font-weight: 500;
+}
+.form-control.error {
+  border-color: var(--color-error);
+  background: var(--color-error-bg);
+}
+.address-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.address-row {
+  display: flex;
+  gap: 8px;
+}
+.address-select {
+  flex: 1;
+}
+.postal-input {
+  width: 100px;
+}
+.city-input {
+  flex: 1;
+}
 .btn-icon {
   background: none;
   border: none;

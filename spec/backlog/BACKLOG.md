@@ -1432,7 +1432,7 @@ Status: Wszystkie zadania P3 oznaczone jako postponed zgodnie z definicją sekcj
 id: RAO-P2-017
 priority: P2
 size: L
-status: todo
+status: review
 classification: frontend
 roles: [frontend-dev, ui-designer, ux-designer]
 depends_on: [RAO-P2-016]

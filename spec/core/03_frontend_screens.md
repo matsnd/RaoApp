@@ -956,3 +956,147 @@ async function handleFakturownia() {
 | Funkcja | Opis |
 |---------|------|
 | `fetchByCategory(level, dateFrom, dateTo, includeArchival)` | GET /stats/by-category |
+
+---
+
+## UX/UI Improvements (RAO-P2-017)
+
+> **Zaktualizowano:** 2026-05-19
+> **Cel:** Poprawa UX/UI zgodnie z analizą wizyjną AI i design systemem Toolsmart
+
+### LoginView.vue
+
+**Zmiany:**
+- Border-radius ustawiony na 12px dla karty, inputów i przycisku (zgodnie z `--border-radius-md`)
+- Ikony w polach formularza: 👤 (login), 🔒 (password), 👁️/🙈 (show/hide password)
+- Stany interaktywne: hover, focus, error z płynnymi transitionami
+- Checkbox "Zapamiętaj mnie" dodany pod polami formularza
+- Komunikat błędu zredesignowany: ⚠️ icon, czerwony border, większa czcionka (14px, weight 500)
+- Animacja shake przy błędzie logowania
+- Toggle show/hide password z ikoną
+- Autofocus na pole login po błędzie
+
+**Style:**
+```css
+.login-card {
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-card);
+}
+.form-input {
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--color-border);
+}
+.form-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(29,43,83,0.1);
+}
+.form-input.error {
+  border-color: var(--color-error);
+  background: var(--color-error-bg);
+}
+.btn-primary {
+  background: var(--color-primary);
+  border-radius: var(--border-radius-md);
+}
+.btn-primary:hover {
+  background: var(--color-primary-dark);
+}
+```
+
+### HomeView.vue (Dashboard)
+
+**Zmiany:**
+- Przyciski CTA (quick actions) w kolorze navy `#1D2B53` (`--color-primary`)
+- Paleta alertów KPI zaktualizowana do CSS variables:
+  - `--color-success` (ok)
+  - `--color-warning` (warn)
+  - `--color-error` (danger)
+  - `--color-info` (info)
+- Empty states z ilustracjami emoji:
+  - Kończące się umowy: 📋
+  - Dostawy: 🚚
+  - Niewydrukowane umowy: ✅
+- Wszystkie style zaktualizowane do CSS variables z design systemu Toolsmart
+
+**Style:**
+```css
+.qa-primary {
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+}
+.qa-primary:hover {
+  background: var(--color-primary-dark);
+}
+.kpi-card {
+  background: var(--color-bg-card);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-card);
+}
+.kpi-ok { border-left-color: var(--color-success); }
+.kpi-warn { border-left-color: var(--color-warning); }
+.kpi-danger { border-left-color: var(--color-error); }
+.kpi-info { border-left-color: var(--color-info); }
+```
+
+### ContractFormView.vue
+
+**Zmiany:**
+- Pola pogrupowane w 4 sekcje/karty:
+  1. **Dane podstawowe** (typ, numer, OID, daty)
+  2. **Kontrahent i adres dostawy** (wybór kontrahenta, adres)
+  3. **Warunki finansowe** (handlowiec, oddział, wartość, przedpłata, faktura)
+  4. **Kontakt i uwagi** (osoby kontaktowe, email, telefon, uwagi, opcje)
+- Inline validation dla required fields (data od/do, kontrahent)
+- Layout adresu dostawy poprawiony:
+  - Select adresu w osobnym rzędzie
+  - Kod pocztowy + miasto w jednym rzędzie
+  - Uwagi dojazdowe w osobnym rzędzie
+- Komunikaty błędów inline pod polami
+
+**Style:**
+```css
+.section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text-heading);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.error-message {
+  color: var(--color-error);
+  background: var(--color-error-bg);
+  border: 1px solid var(--color-error-border);
+  border-radius: var(--border-radius-md);
+}
+.field-error {
+  color: var(--color-error);
+  font-size: 12px;
+  font-weight: 500;
+}
+.address-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.address-row {
+  display: flex;
+  gap: 8px;
+}
+```
+
+### style.css (Design System)
+
+**Nowe CSS variables:**
+```css
+/* Error colors */
+--color-error-bg: #FEF2F2;
+--color-error-border: #FECACA;
+
+/* Border radius */
+--border-radius-sm: 8px;
+--border-radius-md: 12px;
+--border-radius-lg: 12px;
+--border-radius-pill: 24px;
+```
+
+**Wszystkie style zaktualizowane do CSS variables zamiast hardcoded kolorów.**

@@ -133,6 +133,8 @@ Użyj wartości z sekcji poniżej — są zweryfikowane i aktualne na dzień two
   --color-success: #22C55E;
   --color-warning: #F59E0B;
   --color-error: #EF4444;
+  --color-error-bg: #FEF2F2;
+  --color-error-border: #FECACA;
   --color-info: #3B82F6;
 
   /* === SHADOWS === */
@@ -190,6 +192,17 @@ Użyj wartości z sekcji poniżej — są zweryfikowane i aktualne na dzień two
   --spacing-10: 40px;
   --spacing-12: 48px;
   --spacing-16: 64px;
+}
+```
+
+## Border Radius
+
+```css
+:root {
+  --border-radius-sm: 8px;      /* Form inputs, small elements */
+  --border-radius-md: 12px;     /* Cards, panels, buttons */
+  --border-radius-lg: 12px;     /* Large cards */
+  --border-radius-pill: 24px;   /* Pill-shaped buttons */
 }
 ```
 
