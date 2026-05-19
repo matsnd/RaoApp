@@ -1432,7 +1432,7 @@ Status: Wszystkie zadania P3 oznaczone jako postponed zgodnie z definicją sekcj
 id: RAO-P2-017
 priority: P2
 size: L
-status: review
+status: done
 classification: frontend
 roles: [frontend-dev, ui-designer, ux-designer]
 depends_on: [RAO-P2-016]
@@ -2538,7 +2538,7 @@ Obecne testy E2E (pliki `01–05`) pokrywają tylko happy path podstawowych flow
 id: RAO-P2-014
 priority: P2
 size: M
-status: todo
+status: done
 classification: qa
 roles: [tech-lead, qa-engineer]
 depends_on: []
@@ -3098,40 +3098,40 @@ Zobacz `archive/16_todo_done.md` dla pełnego historii zadań ukończonych.
 
 | ID | Tytuł | Źródło | P | Est. | Status | Owner |
 |----|-------|--------|---|------|--------|-------|
-| RAO-P0-001 | Usuń sekrety ze spec | Security | P0 | XS | triaged | tech-lead |
-| RAO-P0-002 | Utwórz SECURITY.md | Security | P0 | M | todo | security-auditor |
-| RAO-P0-003 | Napraw migrację haseł | Security | P0 | M | todo | backend-dev |
-| RAO-P0-004 | Napraw podpisy PDF | Client | P0 | S | triaged | frontend-dev |
-| RAO-P0-005 | Napraw format kwot | Client | P0 | XS | triaged | frontend-dev |
-| RAO-P1-001 | Filtr dat Dashboard | Internal | P1 | XS | triaged | frontend-dev |
-| RAO-P1-002 | Adres dostawy multiline | Client | P1 | S | triaged | cross-stack |
-| RAO-P1-003 | Adres dostawy rozdzielenie | Client | P1 | S | triaged | frontend-dev |
-| RAO-P1-004 | Sekcja Uwagi w umowie | Client | P1 | XS | triaged | frontend-dev |
-| RAO-P1-005 | Ekstrakcja miast | Internal | P1 | M | triaged | backend-dev |
-n|| RAO-P1-008 | Strukturalizacja adresów: kod pocztowy + miasto | Client | P1 | L | triaged | cross-stack |
-|| RAO-P1-009 | Weryfikacja PDF vs stara aplikacja | Client | P1 | M | triaged | qa-engineer |
-|| RAO-P1-010 | Tabela Przy wydaniu/Przy odbiorze | Client | P1 | M | triaged | frontend-dev |
-|| RAO-P1-011 | Usługi dodatkowe z artykułami | Client | P1 | L | triaged | db-architect |
-|| RAO-P1-012 | Panel rozliczenie umowy | Client | P1 | XL | triaged | cross-stack |
-|| RAO-P1-013 | Refactor systemu prowizyjnego | Client | P1 | M | triaged | backend-dev |
-|| RAO-P1-014 | Protokół usługi — godziny operatora | Client | P1 | M | todo | cross-stack |
+| RAO-P0-001 | Usuń sekrety ze spec | Security | P0 | XS | done | tech-lead |
+| RAO-P0-002 | Utwórz SECURITY.md | Security | P0 | M | done | security-auditor |
+| RAO-P0-003 | Napraw migrację haseł | Security | P0 | M | done | backend-dev |
+| RAO-P0-004 | Napraw podpisy PDF | Client | P0 | S | done | frontend-dev |
+| RAO-P0-005 | Napraw format kwot | Client | P0 | XS | done | frontend-dev |
+| RAO-P1-001 | Filtr dat Dashboard | Internal | P1 | XS | done | frontend-dev |
+| RAO-P1-002 | Adres dostawy multiline | Client | P1 | S | done | cross-stack |
+| RAO-P1-003 | Adres dostawy rozdzielenie | Client | P1 | S | done | frontend-dev |
+| RAO-P1-004 | Sekcja Uwagi w umowie | Client | P1 | XS | done | frontend-dev |
+| RAO-P1-005 | Ekstrakcja miast | Internal | P1 | M | done | backend-dev |
+n|| RAO-P1-008 | Strukturalizacja adresów: kod pocztowy + miasto | Client | P1 | L | done | cross-stack |
+|| RAO-P1-009 | Weryfikacja PDF vs stara aplikacja | Client | P1 | M | done | qa-engineer |
+|| RAO-P1-010 | Tabela Przy wydaniu/Przy odbiorze | Client | P1 | M | done | frontend-dev |
+|| RAO-P1-011 | Usługi dodatkowe z artykułami | Client | P1 | L | done | db-architect |
+|| RAO-P1-012 | Panel rozliczenie umowy | Client | P1 | XL | done | cross-stack |
+|| RAO-P1-013 | Refactor systemu prowizyjnego | Client | P1 | M | done | backend-dev |
+|| RAO-P1-014 | Protokół usługi — godziny operatora | Client | P1 | M | done | cross-stack |
 || RAO-P1-015 | Rezerwacja maszyn | Client | P1 | M | todo | cross-stack |
-|| RAO-P2-001 | Kolumna adres dostawy | Internal | P2 | XS | todo | frontend-dev |
-|| RAO-P2-002 | Link "Zmień hasło" sidebar | Internal | P2 | XS | todo | frontend-dev |
-|| RAO-P2-003 | NIP validation checksum | Internal | P2 | S | todo | backend-dev |
-|| RAO-P2-004 | Duplikacja artykułu pickera | Internal | P2 | S | todo | frontend-dev |
+|| RAO-P2-001 | Kolumna adres dostawy | Internal | P2 | XS | done | frontend-dev |
+|| RAO-P2-002 | Link "Zmień hasło" sidebar | Internal | P2 | XS | done | frontend-dev |
+|| RAO-P2-003 | NIP validation checksum | Internal | P2 | S | done | backend-dev |
+|| RAO-P2-004 | Duplikacja artykułu pickera | Internal | P2 | S | done | frontend-dev |
 || RAO-P2-005 | Nominatim reverse geocoding | Internal | P2 | S | done | cross-stack |
-|| RAO-P2-006 | Picker artykułów — filtr typ umowy | Client | P2 | S | todo | cross-stack |
-|| RAO-P2-007 | UX Raportów — teraz vs okres | Client | P2 | S | todo | cross-stack |
-|| RAO-P2-008 | Numer wewnętrzny maszyny | Client | P2 | S | todo | cross-stack |
+|| RAO-P2-006 | Picker artykułów — filtr typ umowy | Client | P2 | S | done | cross-stack |
+|| RAO-P2-007 | UX Raportów — teraz vs okres | Client | P2 | S | done | cross-stack |
+|| RAO-P2-008 | Numer wewnętrzny maszyny | Client | P2 | S | done | cross-stack |
 || RAO-P2-009 | Statystyki per maszyna ROI | Client | P2 | M | done | cross-stack |
 || RAO-P2-010 | Filtrowanie pozycji umowy typ | Client | P2 | S | done | cross-stack |
-|| RAO-P2-011 | Statystyki po lokalizacji | Client | P2 | S | todo | cross-stack |
+|| RAO-P2-011 | Statystyki po lokalizacji | Client | P2 | S | postponed | cross-stack |
 || RAO-P2-012 | Integracja Fakturownia — automatyczne koszty | Client | P2 | L | done | cross-stack |
 || RAO-P2-013 | Pełne pokrycie E2E — wszystkie use case'y | Internal | P2 | XL | done | qa-engineer |
-|| RAO-P2-014 | Weryfikacja kodu vs. spec i backlog | Internal | P2 | M | todo | tech-lead |
-|| RAO-P2-015 | Integracja API TERYT z GUS — pełny słownik kodów pocztowych | Internal | P2 | M | todo | backend-dev |
-|| RAO-P2-016 | SPIKE: Playwright screenshot wszystkich widoków dla UX review | Internal | P2 | M | todo | qa-engineer |
+|| RAO-P2-014 | Weryfikacja kodu vs. spec i backlog | Internal | P2 | M | done | tech-lead |
+|| RAO-P2-015 | Integracja API TERYT z GUS — pełny słownik kodów pocztowych | Internal | P2 | M | done | backend-dev |
+|| RAO-P2-016 | SPIKE: Playwright screenshot wszystkich widoków dla UX review | Internal | P2 | M | done | qa-engineer |
 || RAO-P3-001 | Drag & drop reorder szablonów | Internal | P3 | M | todo | frontend-dev |
 || RAO-P3-002 | Upload logo firmy | Internal | P3 | M | todo | cross-stack |
 || RAO-P3-003 | Logo w nagłówku sidebar | Internal | P3 | XS | todo | frontend-dev |
