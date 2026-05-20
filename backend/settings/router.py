@@ -228,6 +228,16 @@ async def add_template_to_preset(
     return await settings_service.add_template_to_preset(db, preset_id, data)
 
 
+@router.patch("/fee-preset-groups/{preset_id}/templates/reorder", status_code=204)
+async def reorder_preset_templates(
+    preset_id: int,
+    data: ReorderRequest,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    await settings_service.reorder_preset_templates(db, preset_id, data.order)
+
+
 @router.put("/fee-preset-groups/{preset_id}/templates/{template_id}", response_model=ServiceFeeTemplateResponse)
 async def update_preset_template(
     preset_id: int,
@@ -247,13 +257,3 @@ async def delete_preset_template(
     _: User = Depends(require_admin),
 ):
     await settings_service.delete_preset_template(db, template_id)
-
-
-@router.patch("/fee-preset-groups/{preset_id}/templates/reorder", status_code=204)
-async def reorder_preset_templates(
-    preset_id: int,
-    data: ReorderRequest,
-    db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin),
-):
-    await settings_service.reorder_preset_templates(db, preset_id, data.order)

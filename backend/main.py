@@ -16,6 +16,7 @@ from integrations.router import router as integrations_router
 from integrations.fakturownia.router import router as fakturownia_router
 from stats.router import router as stats_router
 from explorer.router import router as explorer_router
+from reservations.router import router as reservations_router  # RAO-P1-015
 from database import engine, Base
 import auth.models  # Auth tables
 import integrations.models  # RAO-P1-008
@@ -271,6 +272,7 @@ app.include_router(integrations_router)
 app.include_router(fakturownia_router)
 app.include_router(stats_router)
 app.include_router(explorer_router)
+app.include_router(reservations_router)  # RAO-P1-015
 
 # RAO-P3-002: serwowanie statycznych plików (loga firmy itp.)
 # Katalog tworzony powyżej (os.makedirs), mount musi być po include_router
