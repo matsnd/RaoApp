@@ -30,7 +30,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 # Get absolute path for dump file
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DUMP_PATH = os.path.join(project_root, "spec", "backlog", "archiwum", "refinement", "toolsmart_roa_1779053066.sql")
+DUMP_PATH = os.path.join(project_root, "temp", "toolsmart_roa_1779305445.sql")
 import asyncio
 import csv
 import glob
@@ -71,7 +71,7 @@ def hash_password(password: str) -> str:
 DB_HOST = "localhost"
 DB_PORT = 3306
 DB_USER = "rao_user"
-DB_PASS = "<<DB_PASSWORD_PLACEHOLDER>>"
+DB_PASS = "RaoPass2026!"
 DB_NAME = "rao_new"
 # DUMP_PATH is now defined above as absolute path
 
@@ -1094,7 +1094,7 @@ async def step9_postal_codes_migration():
                     code, city, voivodeship = row[0].strip(), row[1].strip(), row[2].strip() if len(row) > 2 else None
                     if code and city:
                         await cur.execute(
-                            "INSERT IGNORE INTO postal_codes (code, city, voivodeship) VALUES (%s, %s, %s)",
+                            "INSERT IGNORE INTO postal_codes (postal_code, city, wojewodztwo) VALUES (%s, %s, %s)",
                             (code, city, voivodeship)
                         )
                         inserted += 1
@@ -1191,7 +1191,7 @@ async def step9_postal_codes_migration():
         city = None
         if postal_code:
             await cur.execute(
-                "SELECT city FROM postal_codes WHERE code = %s LIMIT 1",
+                "SELECT city FROM postal_codes WHERE postal_code = %s LIMIT 1",
                 (postal_code,)
             )
             city_row = await cur.fetchone()
