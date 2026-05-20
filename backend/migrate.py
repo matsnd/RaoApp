@@ -730,7 +730,7 @@ _C_ZASIEG   = 12  # Zasięg
 _C_UDZWIG   = 13  # Udźwig (t)
 _C_DODATKI  = 14  # Dodatki
 
-# Wartości garbage → category = NULL (DoD: x, Test, -, empty → is_archival=TRUE)
+# Wartości garbage → category = NULL (DoD: x, Test, -, empty)
 _GARBAGE_NORM: frozenset = frozenset({
     "", "x", "-", "\u2013", "\u2014", "test", "ogolna",
     "?", "brak", "inne", ".",
@@ -808,8 +808,8 @@ async def step8_csv_categories() -> None:
     5. UPDATE articles (parametryzowane %s — SQL-INJ-001 safe):
        category_main/sub1/sub2/sub3, category_id (najgłębszy poziom),
        technical_attributes (JSON), internal_number (COALESCE),
-       is_archival=TRUE (legacy marker)
-    6. Oznacz WSZYSTKIE pozostałe artykuły is_archival=TRUE
+       is_archival=FALSE
+    6. Oznacz WSZYSTKIE artykuły is_archival=FALSE
     7. Weryfikacja: COUNT + orphan check (gate per migrations.md)
     8. RELEASE_LOCK
 
@@ -929,7 +929,7 @@ async def step8_csv_categories() -> None:
         # SQL-INJ-001 SAFE: tylko %s placeholders, zero f-stringów z user data
         _UPDATE_SQL = (
             "UPDATE articles SET"
-            "  is_archival          = TRUE,"
+            "  is_archival          = FALSE,"
             "  category_main        = %s,"
             "  category_sub1        = %s,"
             "  category_sub2        = %s,"
@@ -983,20 +983,20 @@ async def step8_csv_categories() -> None:
                  rec["internal_number"], art_id),
             )
 
-        # ── Oznacz WSZYSTKIE pozostałe artykuły is_archival=TRUE ─────────────
+        # ── Oznacz WSZYSTKIE artykuły is_archival=FALSE ─────────────
         await cur.execute(
-            "UPDATE articles SET is_archival = TRUE WHERE is_archival = FALSE"
+            "UPDATE articles SET is_archival = FALSE"
         )
         extra = cur.rowcount
         if extra:
-            print(f"   {extra} artykułów spoza CSV → is_archival=TRUE")
+            print(f"   {extra} artykułów oznaczonych is_archival=FALSE")
 
         await conn.commit()
 
         # ── Weryfikacja ───────────────────────────────────────────────────────
         await cur.execute("SELECT COUNT(*) FROM articles")
         total_arts = (await cur.fetchone())[0]
-        await cur.execute("SELECT COUNT(*) FROM articles WHERE is_archival = TRUE")
+        await cur.execute("SELECT COUNT(*) FROM articles WHERE is_archival = FALSE")
         archival_ct = (await cur.fetchone())[0]
         await cur.execute("SELECT COUNT(*) FROM articles WHERE category_main IS NOT NULL")
         with_cat_main = (await cur.fetchone())[0]
@@ -1018,7 +1018,7 @@ async def step8_csv_categories() -> None:
         print(f"   CSV rekordy:              {csv_total}")
         print(f"     z kategorią:            {n_matched} ({pct_match}%)")
         print(f"     bez kategorii/śmieci:   {n_unmatched} ({pct_nomatch}%)")
-        print(f"   is_archival=TRUE:         {archival_ct}/{total_arts}")
+        print(f"   is_archival=FALSE:        {archival_ct}/{total_arts}")
         print(f"   category_main ustawiony:  {with_cat_main}/{total_arts}")
         print(f"   category_id ustawiony:    {with_cat_id}/{total_arts}")
         if orphan_subs:
@@ -1051,7 +1051,7 @@ async def verify():
     print("\n   [P1-017 gates]")
     await cur.execute("SELECT COUNT(*) FROM articles")
     total = (await cur.fetchone())[0]
-    await cur.execute("SELECT COUNT(*) FROM articles WHERE is_archival = TRUE")
+    await cur.execute("SELECT COUNT(*) FROM articles WHERE is_archival = FALSE")
     archival = (await cur.fetchone())[0]
     await cur.execute("SELECT COUNT(*) FROM articles WHERE category_main IS NOT NULL")
     with_main = (await cur.fetchone())[0]
@@ -1061,7 +1061,7 @@ async def verify():
     )
     orphan = (await cur.fetchone())[0]
     print(f"   articles total:          {total}")
-    print(f"   is_archival=TRUE:        {archival}/{total}")
+    print(f"   is_archival=FALSE:       {archival}/{total}")
     print(f"   category_main set:       {with_main}/{total}")
     if orphan:
         print(f"   GATE FAIL: orphan sub-cats = {orphan}")

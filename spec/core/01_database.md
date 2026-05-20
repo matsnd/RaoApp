@@ -271,7 +271,7 @@ CREATE TABLE articles (
     category_sub1     VARCHAR(100) NULL COMMENT 'RAO-P1-017: Podkategoria 1 (snapshot)',
     category_sub2     VARCHAR(100) NULL COMMENT 'RAO-P1-017: Podkategoria 2 (snapshot)',
     category_sub3     VARCHAR(100) NULL COMMENT 'RAO-P1-017: Podkategoria 3 (snapshot)',
-    is_archival       BOOLEAN      NOT NULL DEFAULT FALSE COMMENT 'RAO-P1-017: maszyna archiwalna (TRUE dla starych)',
+    is_archival       BOOLEAN      NOT NULL DEFAULT FALSE COMMENT 'RAO-P1-017: maszyna archiwalna (FALSE domyślnie, użytkownik oznaczy ręcznie w przyszłości)',
     technical_attributes JSON      NULL COMMENT 'RAO-P1-017: dynamiczne atrybuty techniczne (np. waga, moc)',
     fakturownia_product_id BIGINT  NULL COMMENT 'RAO-P2-012: ID produktu w Fakturownia (mapping globalny 1:N)',
     created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
