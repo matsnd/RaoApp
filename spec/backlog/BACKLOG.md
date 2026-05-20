@@ -3185,8 +3185,8 @@ Brak dodatkowej tabeli → brak synchronizacji → zawsze aktualne dane.
 
 **Cleanup (usunięcie starego):**
 - [ ] Usunąć zakładkę "Rezerwacje maszyn" z `SettingsView.vue` (tabs array + `<div v-if>`)
-- [ ] Usunąć `ReservationsView.vue` (lub oznaczyć jako deprecated — do decyzji)
-- [ ] Usunąć `ReservationsPanel.vue` (lub oznaczyć jako deprecated)
+- [ ] Usunąć `ReservationsView.vue` — **decyzja 2026-05-20: usuń całkowicie** (git history wystarczy)
+- [ ] Usunąć `ReservationsPanel.vue` — **decyzja 2026-05-20: usuń całkowicie**
 - [ ] Zostawić backend `/reservations` endpointy — nie usuwać (dane historyczne, nie zepsuć)
 - [ ] Zostawić tabelę `article_reservations` — nie dropować (może zawierać dane)
 
@@ -3250,7 +3250,7 @@ Brak dodatkowej tabeli → brak synchronizacji → zawsze aktualne dane.
 id: RAO-P2-018
 priority: P2
 size: S
-status: review
+status: triaged
 classification: spike
 roles: [tech-lead, backend-dev, frontend-dev]
 depends_on: []
@@ -3334,7 +3334,7 @@ Reguła: `contract.number.replace('/', '_')` → `S/129/2026` → `S129_2026`, `
 **ROI:** UX — poprawne nazwy plików + faktyczne pobieranie zamiast otwierania w viewerze
 **Estimate:** 3h (S)
 
-## Wynik spike — oczekuje na zatwierdzenie przez użytkownika i implementację
+## Wynik spike — zatwierdzone 2026-05-20, gotowe do implementacji
 
 ---
 
@@ -3563,7 +3563,7 @@ n|| RAO-P1-008 | Strukturalizacja adresów: kod pocztowy + miasto | Client | P1 
 || RAO-P3-010 | Globalny pasek postępu NProgress | Internal | P3 | S | done | frontend-dev |
 || RAO-P3-011 | Testy integracyjne backend pytest | Internal | P3 | L | done | qa-engineer |
 || RAO-P3-012 | Kwota tankowania default 200 zł | Client | P3 | XS | done | backend-dev |
-|| RAO-P2-018 | SPIKE: Foldery docelowe dla pobieranych plików | Internal | P2 | S | review | tech-lead |
+|| RAO-P2-018 | SPIKE: Foldery docelowe dla pobieranych plików | Internal | P2 | S | triaged | tech-lead |
 || RAO-P3-013 | Konfigurowalne foldery pobierania — FS Access API | Internal | P3 | M | triaged | frontend-dev |
 || RAO-P1-024 | BUG: CSV migration — is_service + model brakują | Internal | P1 | S | triaged | backend-dev |
 || RAO-P2-019 | Drzewiaste kategorie — picker, settings, breadcrumb | Internal | P2 | L | triaged | cross-stack |
