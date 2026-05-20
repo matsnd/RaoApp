@@ -29,6 +29,12 @@ node_modules/
 dist/
 *.log
 
+# Playwright artefakty testów
+e2e/playwright-report/data/
+e2e/playwright-report/trace/
+e2e/test-results/
+.playwright-mcp/
+
 # Vite cache
 .vite/
 frontend/.vite/
