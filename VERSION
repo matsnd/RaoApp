@@ -1,0 +1,12 @@
+RAO Application Version Info
+============================
+
+Branch: main
+Commit: 2a608af01554af3d0550ceeeb2d9be1c7e910ce1
+Short:  2a608af
+Date:   2026-05-20 21:40:25 +0200
+Msg:    fix(migration): change is_archival default to FALSE for all articles (user will mark archival manually later)
+
+Deployment verification:
+  git rev-parse HEAD
+  git log -1 --oneline

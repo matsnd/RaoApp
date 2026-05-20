@@ -283,3 +283,58 @@ app.mount("/static", StaticFiles(directory="static", html=False), name="static")
 @app.get("/health")
 async def health():
     return {"status": "ok", "version": "1.0.0"}
+
+
+@app.get("/version")
+async def version():
+    """Zwraca informacje o wersji aplikacji (git commit hash)."""
+    import subprocess
+    try:
+        # Próba pobrania git hash z repo
+        git_hash = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=os.path.dirname(__file__),
+            stderr=subprocess.DEVNULL,
+            text=True
+        ).strip()
+        git_short = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=os.path.dirname(__file__),
+            stderr=subprocess.DEVNULL,
+            text=True
+        ).strip()
+        git_branch = subprocess.check_output(
+            ["git", "branch", "--show-current"],
+            cwd=os.path.dirname(__file__),
+            stderr=subprocess.DEVNULL,
+            text=True
+        ).strip()
+    except Exception:
+        # Fallback: czytaj z pliku VERSION w root projektu
+        version_file = os.path.join(os.path.dirname(__file__), "..", "VERSION")
+        if os.path.exists(version_file):
+            with open(version_file, "r", encoding="utf-8") as f:
+                content = f.read()
+                # Parse simple format
+                git_hash = "unknown"
+                git_short = "unknown"
+                git_branch = "unknown"
+                for line in content.split("\n"):
+                    if line.startswith("Commit:"):
+                        git_hash = line.split(":", 1)[1].strip()
+                    elif line.startswith("Short:"):
+                        git_short = line.split(":", 1)[1].strip()
+                    elif line.startswith("Branch:"):
+                        git_branch = line.split(":", 1)[1].strip()
+        else:
+            git_hash = "unknown"
+            git_short = "unknown"
+            git_branch = "unknown"
+    
+    return {
+        "app": "RAO API",
+        "version": "1.0.0",
+        "git_hash": git_hash,
+        "git_short": git_short,
+        "git_branch": git_branch
+    }
