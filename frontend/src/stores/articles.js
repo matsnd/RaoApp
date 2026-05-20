@@ -49,10 +49,10 @@ export const useArticleStore = defineStore('articles', () => {
     return data
   }
 
-  async function checkAvailability(id, dateFrom, dateTo) {
-    const { data } = await api.get(`/articles/${id}/availability`, {
-      params: { date_from: dateFrom, date_to: dateTo }
-    })
+  async function checkAvailability(id, dateFrom, dateTo, excludeContractId = null) {
+    const params = { date_from: dateFrom, date_to: dateTo }
+    if (excludeContractId) params.exclude_contract_id = excludeContractId
+    const { data } = await api.get(`/articles/${id}/availability`, { params })
     return data
   }
 

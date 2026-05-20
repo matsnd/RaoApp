@@ -3143,7 +3143,7 @@ Zintegrować "Ogólne Warunki Najmu" (OWN) jako integralną część PDF umowy �
 id: RAO-P1-023
 priority: P1
 size: L
-status: triaged
+status: done
 classification: cross-stack
 roles: [backend-dev, frontend-dev, qa-engineer]
 depends_on: []
@@ -3434,7 +3434,7 @@ Potrzebny pełny stack: backend z endpointem drzewa, konfigurowalne drzewo w Ust
 id: RAO-P1-024
 priority: P1
 size: S
-status: triaged
+status: done
 classification: backend
 roles: [backend-dev]
 depends_on: []

@@ -108,7 +108,10 @@ async def check_availability(
     article_id: int,
     date_from: date = Query(...),
     date_to: date = Query(...),
+    exclude_contract_id: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    return await article_service.check_availability(db, article_id, date_from, date_to)
+    return await article_service.check_availability(
+        db, article_id, date_from, date_to, exclude_contract_id=exclude_contract_id
+    )

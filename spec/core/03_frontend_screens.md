@@ -591,27 +591,49 @@ Row 2.5 (rozliczenie umowy - RAO-P1-012):
 
 ## Dialog: `ArticlePicker.vue`
 
+> **RAO-P1-023 (2026-05-20):** Usunięto kolumnę "Rezerwacja" (stary system RAO-P1-015).
+> Dostępność bazuje wyłącznie na datach umów przez `GET /articles/{id}/availability`.
+> Dodano modal konfliktu przy wyborze zajętej maszyny.
+
 ```
-Layout (replika WinForms FormAwybor):
+Layout (modal wbudowany w ContractFormView.vue):
 
 ┌──────────────────────────────────────────────────────┐
 │ [szukaj ________________________________________]    │
 │ ┌────────────────────────────────────────────────┐   │
-│ │ Nazwa      │Nr rej.│Kategoria│Właściciel│Umowa │   │
-│ │ ★Koparka 320│KAT-5 │Koparki  │RAO       │S001 │   │
-│ │ Dźwig 40t  │DZW-12│Dźwigi   │RAO       │     │   │
+│ │ Nazwa │Nr rej.│Marka│Typ    │Dostępność│Akcje │   │
+│ │ Kop.  │KAT-5 │CAT  │Sprzęt │🟢 Wolny  │ [⧉] │   │
+│ │ Dźwig │DZW-12│Lieb.│Sprzęt │🔴 Zajęty │ [⧉] │   │
 │ └────────────────────────────────────────────────┘   │
-│ ★ wiersz z Moccasin (#FFE4B5) = ma aktywną umowę    │
+│ • Dostępność sprawdzana przez checkAvailability()    │
+│   z exclude_contract_id przy edycji umowy            │
+│ • [⧉] = duplikuj artykuł bezpośrednio do umowy      │
 │                                                      │
-│ Data dostawy  [2026-03-15]                           │
-│ Liczba dni    [30]                                    │
-│ Dostawca      [_______________▼]  (combo dostawców)  │
-│                                                      │
-│ [Duplikuj]              [Wybierz]  [Anuluj]          │
+│ [Anuluj]                                             │
 └──────────────────────────────────────────────────────┘
 ```
 
-**Emits:** `@select({ articleId, deliveryDate, rentalDays, supplierId })`
+**Conflict modal (RAO-P1-023)** — pojawia się gdy `is_available === false`:
+```
+┌──────────────────────────────────────────────────────┐
+│ ⚠️ Maszyna zajęta                                    │
+│ "Koparka 320" jest przypisana do:                    │
+│ • Umowa S001/2026 — Firma XYZ (01.03 – 31.05.2026)  │
+│                                                      │
+│ [Anuluj]                    [Mimo to dodaj]          │
+└──────────────────────────────────────────────────────┘
+```
+
+**Logika selectArticle():**
+1. Brak dat umowy / artykuł-usługa → zamknij picker, dodaj bez sprawdzania
+2. `checkAvailability()` → `is_available: true` → zamknij picker normalnie
+3. `checkAvailability()` → `is_available: false` → pokaż conflict modal (picker zostaje otwarty)
+4. [Mimo to dodaj] → zamknij oba (modal + picker), dodaj artykuł
+5. [Anuluj] → zamknij tylko modal, picker pozostaje otwarty
+
+**State (refs):** `showConflictModal`, `conflictList: ConflictingContract[]`, `pendingArticle: ArticlePickerItem | null`
+
+**API:** `GET /articles/{id}/availability?date_from&date_to&exclude_contract_id` (opcjonalny param przy edycji)
 
 ---
 
@@ -680,6 +702,12 @@ Row 3 (30px): centered [ Zakończ ]
 ---
 
 ## Widok: `SettingsView.vue`
+
+**Zakładki:** Dane firmy | Handlowcy | Kategorie | Typy stawek | Zestawy usług | Fakturownia
+
+> **RAO-P1-023 (2026-05-20):** Usunięto zakładkę "Rezerwacje maszyn" (RAO-P1-015).
+> `ReservationsPanel.vue` i `ReservationsView.vue` zostały usunięte — ręczne rezerwacje zastąpione
+> automatycznym sprawdzaniem konfliktów z dat umów (`GET /articles/{id}/availability`).
 
 ```
 Layout (replika WinForms Konfiguracjacs — scrollable):

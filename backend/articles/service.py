@@ -129,13 +129,14 @@ class ArticleService:
         return copy
 
     async def check_availability(
-        self, db: AsyncSession, article_id: int, date_from: date, date_to: date
+        self, db: AsyncSession, article_id: int, date_from: date, date_to: date,
+        exclude_contract_id: int | None = None,
     ):
         from contracts.models import Contract, ContractPosition
         from contractors.models import Contractor
         from articles.schemas import AvailabilityConflict, AvailabilityResponse
 
-        result = await db.execute(
+        stmt = (
             select(Contract.id, Contract.number, Contract.date_from, Contract.date_to, Contractor.name)
             .join(ContractPosition, ContractPosition.contract_id == Contract.id)
             .join(Contractor, Contract.contractor_id == Contractor.id)
@@ -143,6 +144,9 @@ class ArticleService:
             .where(Contract.date_from <= date_to)
             .where(Contract.date_to >= date_from)
         )
+        if exclude_contract_id is not None:
+            stmt = stmt.where(Contract.id != exclude_contract_id)
+        result = await db.execute(stmt)
         rows = result.all()
         conflicts = [
             AvailabilityConflict(

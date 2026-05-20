@@ -610,7 +610,7 @@
           </div>
           <div style="max-height:320px;overflow:auto;">
             <table class="data-grid">
-              <thead><tr><th>Nazwa</th><th>Nr rej.</th><th>Marka</th><th>Typ</th><th>Dostępność</th><th>Rezerwacja</th><th style="width:80px;">Akcje</th></tr></thead>
+              <thead><tr><th>Nazwa</th><th>Nr rej.</th><th>Marka</th><th>Typ</th><th>Dostępność</th><th style="width:80px;">Akcje</th></tr></thead>
               <tbody>
                 <tr v-for="a in articlePickerList" :key="a.id" style="cursor:pointer;">
                   <td @click="selectArticle(a)">{{ a.name }}</td>
@@ -622,16 +622,6 @@
                     <span v-else-if="a._avail === false" class="badge badge-danger">Zajęty</span>
                     <span v-else class="badge badge-muted">—</span>
                   </td>
-                  <td @click="selectArticle(a)">
-                    <!-- RAO-P1-015: aktywna rezerwacja -->
-                    <span
-                      v-if="a._reservation"
-                      class="badge badge-warning"
-                      style="font-size:10px;"
-                      :title="`Zarezerwowana ${formatPickerDate(a._reservation.reserved_from)} – ${formatPickerDate(a._reservation.reserved_to)}`"
-                    >Zarezerwowana do {{ formatPickerDate(a._reservation.reserved_to) }}</span>
-                    <span v-else class="badge badge-muted" style="font-size:10px;">—</span>
-                  </td>
                   <td>
                     <button class="btn-icon" title="Duplikuj artykuł" @click.stop="duplicateArticle(a)">⧉</button>
                   </td>
@@ -641,6 +631,28 @@
           </div>
           <div class="modal-actions">
             <button class="btn btn-secondary btn-sm" @click="showArticlePicker = false">Anuluj</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Conflict modal — RAO-P1-023 -->
+    <Transition name="modal">
+      <div v-if="showConflictModal" class="modal-overlay" @click.self="cancelConflictSelection">
+        <div class="modal-box" style="max-width:520px;">
+          <div class="modal-title" style="color:var(--color-error);">⚠️ Maszyna zajęta</div>
+          <p style="margin:12px 0 8px;">
+            <strong>{{ pendingArticle?.name }}</strong> jest przypisana do:
+          </p>
+          <ul style="margin:0 0 16px 0; padding-left:20px;">
+            <li v-for="c in conflictList" :key="c.contract_id" style="margin-bottom:4px;">
+              Umowa <strong>{{ c.contract_number }}</strong> — {{ c.contractor_name }}
+              <span v-if="c.date_from && c.date_to" style="color:var(--color-text-muted);"> ({{ formatPickerDate(c.date_from) }} – {{ formatPickerDate(c.date_to) }})</span>
+            </li>
+          </ul>
+          <div class="modal-actions">
+            <button class="btn btn-secondary btn-sm" @click="cancelConflictSelection">Anuluj</button>
+            <button class="btn btn-primary btn-sm" @click="confirmConflictSelection">Mimo to dodaj</button>
           </div>
         </div>
       </div>
@@ -769,6 +781,24 @@ const articleAvailability = ref(null)
 const showArticlePicker = ref(false)
 const articlePickerSearch = ref('')
 const articlePickerList = ref([])
+
+// RAO-P1-023: conflict modal state
+interface ConflictingContract {
+  contract_id: number
+  contract_number: string
+  contractor_name: string
+  date_from: string | null
+  date_to: string | null
+}
+interface ArticlePickerItem {
+  id: number
+  name: string
+  is_service: boolean
+  [key: string]: unknown
+}
+const showConflictModal = ref(false)
+const conflictList = ref<ConflictingContract[]>([])
+const pendingArticle = ref<ArticlePickerItem | null>(null)
 
 const supplierName = ref('')
 const showSupplierPicker = ref(false)
@@ -1080,45 +1110,61 @@ async function searchArticles() {
   clearTimeout(artTimer)
   artTimer = setTimeout(async () => {
     const { data } = await api.get('/articles', { params: { search: articlePickerSearch.value, per_page: 50, is_service: form.value.contract_type === 'U' ? true : false } })
-    articlePickerList.value = data.items.map(a => ({ ...a, _avail: null, _reservation: null }))
-    // Check availability + active reservations (parallel) — RAO-P1-015
+    articlePickerList.value = data.items.map(a => ({ ...a, _avail: null }))
+    // Check availability (parallel) — RAO-P1-023
+    const excludeId = isEdit.value ? Number(props.id) : null
     await Promise.all(
       articlePickerList.value
         .filter(a => !a.is_service)
         .map(async a => {
-          const tasks: Promise<void>[] = []
           if (form.value.date_from && form.value.date_to) {
-            tasks.push(
-              articleStore.checkAvailability(a.id, form.value.date_from, form.value.date_to)
-                .then(av => { a._avail = av.is_available })
-                .catch(() => { a._avail = null })
-            )
+            await articleStore.checkAvailability(a.id, form.value.date_from, form.value.date_to, excludeId)
+              .then(av => { a._avail = av.is_available })
+              .catch(() => { a._avail = null })
           }
-          // RAO-P1-015: fetch first active reservation for this article
-          tasks.push(
-            api.get(`/reservations/article/${a.id}/active`)
-              .then(res => { a._reservation = res.data[0] ?? null })
-              .catch(() => { a._reservation = null })
-          )
-          await Promise.all(tasks)
         })
     )
   }, 300)
 }
 
 async function selectArticle(a) {
-  posForm.value.article_id = a.id
-  selectedArticleName.value = a.name
-  showArticlePicker.value = false
-  // Check availability
+  // RAO-P1-023: check availability before closing picker
   if (form.value.date_from && form.value.date_to && !a.is_service) {
     try {
-      const av = await articleStore.checkAvailability(a.id, form.value.date_from, form.value.date_to)
-      articleAvailability.value = av.is_available
-    } catch { articleAvailability.value = null }
-  } else {
+      const excludeId = isEdit.value ? Number(props.id) : null
+      const av = await articleStore.checkAvailability(a.id, form.value.date_from, form.value.date_to, excludeId)
+      if (!av.is_available) {
+        // Show conflict modal — keep picker open in background
+        pendingArticle.value = a
+        conflictList.value = av.conflicting_contracts ?? []
+        showConflictModal.value = true
+        return
+      }
+    } catch { /* ignore — proceed normally on error */ }
+  }
+  // No conflict (or service / no dates) — proceed normally
+  showArticlePicker.value = false
+  posForm.value.article_id = a.id
+  selectedArticleName.value = a.name
+  articleAvailability.value = null
+}
+
+function cancelConflictSelection() {
+  showConflictModal.value = false
+  pendingArticle.value = null
+  conflictList.value = []
+}
+
+function confirmConflictSelection() {
+  showConflictModal.value = false
+  showArticlePicker.value = false
+  if (pendingArticle.value) {
+    posForm.value.article_id = pendingArticle.value.id
+    selectedArticleName.value = pendingArticle.value.name
     articleAvailability.value = null
   }
+  pendingArticle.value = null
+  conflictList.value = []
 }
 
 async function duplicateArticle(a) {
