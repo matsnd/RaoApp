@@ -1640,7 +1640,7 @@ class PaginationParams(BaseModel):
 
 ---
 
-## HEALTH CHECK
+## HEALTH CHECK & VERSION
 
 ### `GET /health`
 
@@ -1648,6 +1648,50 @@ class PaginationParams(BaseModel):
 
 **Response:**
 ```json
-{"status": "ok"}
+{
+  "status": "ok",
+  "version": "1.0.0"
+}
 ```
+**HTTP:** 200
+
+---
+
+### `GET /version`
+
+**Opis:** Zwraca informacje o wersji aplikacji (git commit hash). Endpoint publiczny (bez autentykacji). Używany do weryfikacji wersji deploymentu na produkcji vs. branch lokalny.
+
+**Response:**
+```json
+{
+  "app": "RAO API",
+  "version": "1.0.0",
+  "git_hash": "37dd754867cf85482596bc43f9da1081249a8b3d",
+  "git_short": "37dd754",
+  "git_branch": "main"
+}
+```
+
+**Pola:**
+- `app` — nazwa aplikacji
+- `version` — wersja API (semantic versioning)
+- `git_hash` — pełny SHA-1 commit hash (40 znaków)
+- `git_short` — skrócony commit hash (7 znaków)
+- `git_branch` — nazwa brancha git
+
+**Logika:**
+1. Próba pobrania hashu z `git rev-parse HEAD` (jeśli `.git` dostępny)
+2. Fallback: czytanie z pliku `VERSION` w root projektu (jeśli git niedostępny na prodzie)
+3. Fallback: `"unknown"` jeśli obie metody zawiodą
+
+**Weryfikacja deploymentu:**
+```bash
+# Produkcja
+curl https://toolsmart.pl/rao/api/version
+
+# Lokalnie
+git rev-parse HEAD
+git log -1 --oneline
+```
+
 **HTTP:** 200
