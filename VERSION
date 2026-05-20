@@ -2,11 +2,12 @@ RAO Application Version Info
 ============================
 
 Branch: main
-Commit: 2a608af01554af3d0550ceeeb2d9be1c7e910ce1
-Short:  2a608af
-Date:   2026-05-20 21:40:25 +0200
-Msg:    fix(migration): change is_archival default to FALSE for all articles (user will mark archival manually later)
+Commit: e77137a867cf85482596bc43f9da1081249a8b3d
+Short:  e77137a
+Date:   2026-05-20 21:46:58 +0200
+Msg:    feat: add VERSION file and /version endpoint for deployment verification
 
 Deployment verification:
+  curl http://localhost:8000/rao/api/version
   git rev-parse HEAD
   git log -1 --oneline
