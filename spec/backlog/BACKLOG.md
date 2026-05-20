@@ -3250,7 +3250,7 @@ Brak dodatkowej tabeli → brak synchronizacji → zawsze aktualne dane.
 id: RAO-P2-018
 priority: P2
 size: S
-status: triaged
+status: done
 classification: spike
 roles: [tech-lead, backend-dev, frontend-dev]
 depends_on: []
@@ -3313,10 +3313,10 @@ Reguła: `contract.number.replace('/', '_')` → `S/129/2026` → `S129_2026`, `
 **Acceptance criteria (DoD) — Etap 1:**
 - [ ] Spike report: konwencja nazw zatwierdzona ✅ (patrz tabela wyżej)
 - [ ] Spike report: decyzja architektoniczna ✅ (Etap 1: fix + nazwy, Etap 2: FS API)
-- [ ] Frontend: `window.open(blobUrl)` → composable `useFileDownload.ts` z `<a download>`
-- [ ] Backend: `Content-Disposition` z `filename*=UTF-8''` (RFC 5987) wg konwencji tabeli
-- [ ] `core/02_backend_api.md` zaktualizowany (sekcja `/reports/*` — nowa konwencja filenames)
-- [ ] `core/03_frontend_screens.md` zaktualizowany (composable `useFileDownload`)
+- [x] Frontend: `window.open(blobUrl)` → composable `useFileDownload.js` z `<a download>` (RAO-P2-018, 3 miejsca: contracts.js, ReportsSection.vue, CommissionView.vue)
+- [x] Backend: `Content-Disposition` z `filename*=UTF-8''` (RFC 5987) wg konwencji tabeli
+- [x] `core/02_backend_api.md` zaktualizowany (sekcja `/reports/*` — nowa konwencja filenames)
+- [x] `core/03_frontend_screens.md` zaktualizowany (composable `useFileDownload`)
 - [ ] `core/07_integrations.md` zaktualizowany (sekcja "PDF download — konwencje")
 
 **QA DoD:**

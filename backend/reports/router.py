@@ -1,4 +1,5 @@
 from datetime import datetime, date
+from urllib.parse import quote
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,6 +11,13 @@ from contracts.models import Contract
 from reports.service import generate_pdf, generate_summary_pdf, generate_commissions_pdf, generate_stats_pdf
 
 router = APIRouter(prefix="/reports", tags=["reports"])
+
+
+def _content_disposition(filename: str) -> str:
+    """RFC 5987 — bezpieczna obsługa polskich znaków w nazwie pliku."""
+    ascii_name = filename.encode('ascii', errors='replace').decode('ascii')
+    utf8_name = quote(filename, safe='')
+    return f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{utf8_name}"
 
 
 @router.post("/contract/{contract_id}")
@@ -33,11 +41,14 @@ async def generate_contract_report(
         contract.print_date = datetime.utcnow()
         await db.commit()
     contract_num_clean = contract.number.replace('/', '_') if contract and contract.number else str(contract_id)
-    filename = f"umowa_{contract_num_clean}_{type}.pdf"
+    if type == 'contract':
+        filename = f"{contract_num_clean}.pdf"
+    else:
+        filename = f"PZO_{contract_num_clean}.pdf"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": _content_disposition(filename)},
     )
 
 
@@ -47,11 +58,11 @@ async def summary_contractors(
     _: User = Depends(get_current_user),
 ):
     pdf_bytes = await generate_summary_pdf(db, "contractors")
-    filename = f"kontrahenci_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.pdf"
+    filename = f"Kontrahenci_{datetime.utcnow().strftime('%Y-%m-%d')}.pdf"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": _content_disposition(filename)},
     )
 
 
@@ -61,11 +72,11 @@ async def summary_machines(
     _: User = Depends(get_current_user),
 ):
     pdf_bytes = await generate_summary_pdf(db, "machines")
-    filename = f"maszyny_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.pdf"
+    filename = f"Maszyny_{datetime.utcnow().strftime('%Y-%m-%d')}.pdf"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": _content_disposition(filename)},
     )
 
 
@@ -80,11 +91,11 @@ async def summary_commissions(
     df = date_from or today.replace(day=1)
     dt = date_to or today
     pdf_bytes = await generate_commissions_pdf(db, df, dt)
-    filename = f"prowizje_{df.strftime('%Y%m%d')}_{dt.strftime('%Y%m%d')}.pdf"
+    filename = f"Prowizje_{df.strftime('%Y-%m-%d')}_{dt.strftime('%Y-%m-%d')}.pdf"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": _content_disposition(filename)},
     )
 
 
@@ -99,9 +110,9 @@ async def summary_stats(
     df = date_from or today.replace(day=1)
     dt = date_to or today
     pdf_bytes = await generate_stats_pdf(db, df, dt)
-    filename = f"statystyki_{df.strftime('%Y%m%d')}_{dt.strftime('%Y%m%d')}.pdf"
+    filename = f"Statystyki_{df.strftime('%Y-%m-%d')}_{dt.strftime('%Y-%m-%d')}.pdf"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": _content_disposition(filename)},
     )

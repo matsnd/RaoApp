@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import api from '@/composables/useApi'
+import { useFileDownload } from '@/composables/useFileDownload'
 
 export const useContractStore = defineStore('contracts', () => {
   const list = ref([])
@@ -9,6 +10,8 @@ export const useContractStore = defineStore('contracts', () => {
   const positions = ref([])
   const serviceFees = ref([])
   const loading = ref(false)
+
+  const { downloadBlob } = useFileDownload()
 
   async function fetchList(params = {}) {
     loading.value = true
@@ -96,9 +99,8 @@ export const useContractStore = defineStore('contracts', () => {
       params: { type },
       responseType: 'blob',
     })
-    const url = URL.createObjectURL(response.data)
-    window.open(url, '_blank')
-    setTimeout(() => URL.revokeObjectURL(url), 30000)
+    const cd = response.headers['content-disposition'] || ''
+    downloadBlob(response.data, cd, `raport_${contractId}.pdf`)
   }
 
   return {

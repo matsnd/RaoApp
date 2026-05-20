@@ -75,6 +75,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import api from '@/composables/useApi'
+import { useFileDownload } from '@/composables/useFileDownload'
 
 const today = new Date()
 const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
@@ -84,6 +85,7 @@ const dateTo   = ref(today.toISOString().slice(0, 10))
 const loading  = ref(false)
 const error    = ref(null)
 const report   = ref({ items: [], grand_total_revenue: 0, grand_total_commission: 0, date_from: '', date_to: '' })
+const { downloadBlob } = useFileDownload()
 
 async function printPage() {
   try {
@@ -91,9 +93,8 @@ async function printPage() {
       params: { date_from: dateFrom.value, date_to: dateTo.value },
       responseType: 'blob',
     })
-    const url = URL.createObjectURL(response.data)
-    window.open(url, '_blank')
-    setTimeout(() => URL.revokeObjectURL(url), 30000)
+    const cd = response.headers['content-disposition'] || ''
+    downloadBlob(response.data, cd, 'Prowizje.pdf')
   } catch {
     alert('Błąd generowania PDF')
   }

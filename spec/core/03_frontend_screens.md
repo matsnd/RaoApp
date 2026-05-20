@@ -35,7 +35,8 @@ frontend/
 │   ├── composables/
 │   │   ├── useApi.js                # Axios instance with JWT interceptor
 │   │   ├── useDebounce.js           # Debounced search
-│   │   └── usePagination.js         # Pagination helper
+│   │   ├── usePagination.js         # Pagination helper
+│   │   └── useFileDownload.js       # Pobieranie blob jako pliku przez <a download> (RAO-P2-018)
 │   ├── components/
 │   │   ├── layout/
 │   │   │   ├── AppSidebar.vue       # Lewy sidebar (Umowy/Kontrahenci/Artykuły/Raporty/Ustawienia)

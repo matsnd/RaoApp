@@ -1170,27 +1170,61 @@ class RateTypeResponse(BaseModel):
 
 ## REPORTS — Endpointy
 
+> **RAO-P2-018 (backend done):** Ujednolicono nazwy plików PDF + RFC 5987 `Content-Disposition`.
+
 ### `POST /reports/contract/{id}`
 
-```python
-# Query: ?type=contract|protocol_zo|protocol_zo_nodata
-
-class ReportResponse(BaseModel):
-    file_url: str       # URL to download PDF
-    generated_at: datetime
+```
+Query: ?type=contract|protocol_zo_s|protocol_zo_u|protocol_zo_nodata_s
+Response: application/pdf (binary)
+HTTP: 200 | 401 | 404 (umowa nie istnieje) | 500
 ```
 
-**Algorytm:**
-1. Pobierz dane umowy z pozycjami i warunkami
-2. Render Jinja2 HTML template
-3. WeasyPrint → PDF
-4. Zapisz w `report_folder`
-5. Zwróć URL do pobrania
+**Content-Disposition (RFC 5987):**
+```
+Content-Disposition: attachment; filename="<ascii_safe>"; filename*=UTF-8''<url_encoded>
+```
+
+**Konwencja nazw plików** (`numer_clean = contract.number.replace('/', '_')`):
+
+| `type` | Wzorzec | Przykład |
+|--------|---------|---------|
+| `contract` | `{numer_clean}.pdf` | `S129_2026.pdf` |
+| `protocol_zo_s` / `protocol_zo_u` / `protocol_zo_nodata_s` | `PZO_{numer_clean}.pdf` | `PZO_S129_2026.pdf` |
 
 ### `GET /reports/summary/contractors`
+
+```
+Response: application/pdf (binary)
+HTTP: 200 | 401
+Content-Disposition: attachment; filename="Kontrahenci_YYYY-MM-DD.pdf"; filename*=UTF-8''...
+```
+
 ### `GET /reports/summary/machines`
 
-Raporty zbiorczych — generują PDF z danymi zagregowanymi.
+```
+Response: application/pdf (binary)
+HTTP: 200 | 401
+Content-Disposition: attachment; filename="Maszyny_YYYY-MM-DD.pdf"; filename*=UTF-8''...
+```
+
+### `GET /reports/summary/commissions`
+
+```
+Query: ?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD  (domyślnie: bieżący miesiąc)
+Response: application/pdf (binary)
+HTTP: 200 | 401
+Content-Disposition: attachment; filename="Prowizje_YYYY-MM-DD_YYYY-MM-DD.pdf"; filename*=UTF-8''...
+```
+
+### `GET /reports/summary/stats`
+
+```
+Query: ?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD  (domyślnie: bieżący miesiąc)
+Response: application/pdf (binary)
+HTTP: 200 | 401
+Content-Disposition: attachment; filename="Statystyki_YYYY-MM-DD_YYYY-MM-DD.pdf"; filename*=UTF-8''...
+```
 
 ### `GET /stats/machine-roi`
 Query: `?article_id=<int>&date_from&date_to&include_archival=false`

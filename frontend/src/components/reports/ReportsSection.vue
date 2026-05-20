@@ -745,10 +745,12 @@ import { ref, computed, watch, onMounted, nextTick, onBeforeUnmount } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import { useStatsStore } from '@/stores/stats'
 import api from '@/composables/useApi'
+import { useFileDownload } from '@/composables/useFileDownload'
 
 Chart.register(...registerables)
 
 const statsStore = useStatsStore()
+const { downloadBlob } = useFileDownload()
 
 const barCanvas = ref(null)
 const donutCanvas = ref(null)
@@ -995,9 +997,8 @@ async function printPage() {
       params: { date_from: df, date_to: dt },
       responseType: 'blob',
     })
-    const url = URL.createObjectURL(response.data)
-    window.open(url, '_blank')
-    setTimeout(() => URL.revokeObjectURL(url), 30000)
+    const cd = response.headers['content-disposition'] || ''
+    downloadBlob(response.data, cd, 'Statystyki.pdf')
   } catch {
     alert('B\u0142\u0105d generowania PDF')
   }
