@@ -3344,7 +3344,7 @@ Reguła: `contract.number.replace('/', '_')` → `S/129/2026` → `S129_2026`, `
 id: RAO-P2-019
 priority: P2
 size: L
-status: in_progress
+status: done
 classification: cross-stack
 roles: [backend-dev, frontend-dev, ux-designer]
 depends_on: []
@@ -3401,11 +3401,11 @@ Potrzebny pełny stack: backend z endpointem drzewa, konfigurowalne drzewo w Ust
 - Tooltip z pełną ścieżką jeśli tekst za długi
 
 **Acceptance criteria (DoD):**
-- [ ] `GET /categories/tree` zwraca JSON z zagnieżdżoną strukturą `{id, name, level, children[]}`
-- [ ] SettingsView: widok drzewa z expand/collapse, inline edit, dodawanie dzieci
-- [ ] ArticleFormView: 3 kaskadowe `<select>`, zapis `category_id` + `category_main/sub1/sub2`
+- [x] `GET /categories/tree` zwraca JSON z zagnieżdżoną strukturą `{id, name, level, children[]}` (backend done)
+- [x] SettingsView: widok drzewa z inline edit, dodawanie dzieci, poziomy wcięcia (RAO-P2-019 frontend)
+- [x] ArticleFormView: 3 kaskadowe `<select>`, zapis `category_id` (RAO-P2-019 frontend)
 - [ ] Lista artykułów: kolumna z breadcrumbem kategorii (max 2 poziomy + `…`)
-- [ ] Wyczyszczenie sub-selektów przy zmianie poziomu wyżej (cascade reset)
+- [x] Wyczyszczenie sub-selektorów przy zmianie poziomu wyżej (cascade reset) (RAO-P2-019 frontend)
 - [ ] Istniejące artykuły mają poprawnie wypełnioną ścieżkę z migrate.py (verify przez UI)
 
 **QA DoD:**
