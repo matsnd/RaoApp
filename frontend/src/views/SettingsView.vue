@@ -406,6 +406,44 @@
               </div>
             </div>
 
+            <!-- Folder RAO tab -->
+            <div v-if="activeTab === 'folder'">
+              <div style="max-width:480px;">
+                <p style="color:var(--color-text-secondary);font-size:13px;margin-bottom:16px;">
+                  Wybierz folder na dysku — pobrane dokumenty PDF będą automatycznie trafiać do odpowiednich podfolderów:
+                  <strong>Umowy/</strong>, <strong>Protokoly/</strong>, <strong>Zestawienia/</strong>.
+                  Działa w Chrome i Edge (86+). Firefox i Safari używają standardowego pobierania.
+                </p>
+                <div v-if="!folderApiSupported" class="empty-state" style="padding:16px;text-align:left;">
+                  Twoja przeglądarka nie obsługuje File System Access API. Pliki będą pobierane standardowo.
+                </div>
+                <template v-else>
+                  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:12px;background:var(--color-bg-subtle,#F7FAFC);border-radius:var(--border-radius,12px);border:1px solid var(--color-border,#E2E8F0);">
+                    <span style="font-size:20px;">📁</span>
+                    <div style="flex:1;">
+                      <div style="font-size:13px;font-weight:600;color:var(--color-text);">
+                        {{ folderName || 'Brak folderu' }}
+                      </div>
+                      <div style="font-size:11px;color:var(--color-text-secondary);">
+                        {{ folderName ? 'Pliki zapisywane do: ' + folderName + '/Umowy/, /Protokoly/, /Zestawienia/' : 'Pliki pobierane standardowo (dialog przeglądarki)' }}
+                      </div>
+                    </div>
+                  </div>
+                  <div style="display:flex;gap:8px;">
+                    <button class="btn btn-primary btn-sm" @click="handlePickFolder" :disabled="pickingFolder">
+                      {{ pickingFolder ? '...' : folderName ? 'Zmień folder' : 'Wybierz folder RAO' }}
+                    </button>
+                    <button v-if="folderName" class="btn btn-secondary btn-sm" @click="handleClearFolder">
+                      Usuń konfigurację
+                    </button>
+                  </div>
+                  <div v-if="folderMsg" style="margin-top:8px;font-size:12px;" :style="{ color: folderMsgOk ? 'var(--color-success,#38A169)' : 'var(--color-danger,#E53E3E)' }">
+                    {{ folderMsg }}
+                  </div>
+                </template>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
@@ -420,6 +458,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { useArticleStore } from '@/stores/articles'
 import { useFakturowniaStore } from '@/stores/fakturownia'
 import api from '@/composables/useApi'
+import { useTargetFolder } from '@/composables/useTargetFolder.js'
 
 const settingsStore = useSettingsStore()
 const articleStore = useArticleStore()
@@ -433,6 +472,7 @@ const tabs = [
   { id: 'rate-types', label: 'Typy stawek' },
   { id: 'fee-presets', label: 'Zestawy usług' },
   { id: 'fakturownia', label: 'Fakturownia' },
+  { id: 'folder', label: 'Folder RAO' },
 ]
 
 const currentTabLabel = computed(() => tabs.find(t => t.id === activeTab.value)?.label || '')
@@ -464,6 +504,48 @@ const addingToPresetId = ref(null)
 const newPresetItem = ref({ name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true, article_id: null, default_price: null })
 const newPresetItemNameRef = ref(null)
 
+// --- Folder RAO (File System Access API) ---
+const { isSupported, pickFolder, clearStoredHandle, getStoredFolderName } = useTargetFolder()
+const folderApiSupported = ref(isSupported())
+const folderName = ref<string | null>(null)
+const pickingFolder = ref(false)
+const folderMsg = ref('')
+const folderMsgOk = ref(true)
+
+async function loadFolderName() {
+  folderName.value = await getStoredFolderName()
+}
+
+async function handlePickFolder() {
+  pickingFolder.value = true
+  folderMsg.value = ''
+  try {
+    const result = await pickFolder()
+    if (result.success) {
+      folderName.value = result.folderName
+      folderMsg.value = `Folder "${result.folderName}" zapisany. Pliki PDF będą trafiać do podfolderów.`
+      folderMsgOk.value = true
+    } else {
+      folderMsg.value = 'Anulowano wybór folderu.'
+      folderMsgOk.value = false
+    }
+  } catch {
+    folderMsg.value = 'Błąd wyboru folderu.'
+    folderMsgOk.value = false
+  } finally {
+    pickingFolder.value = false
+    setTimeout(() => { folderMsg.value = '' }, 5000)
+  }
+}
+
+async function handleClearFolder() {
+  await clearStoredHandle()
+  folderName.value = null
+  folderMsg.value = 'Konfiguracja folderu usunięta.'
+  folderMsgOk.value = true
+  setTimeout(() => { folderMsg.value = '' }, 3000)
+}
+
 onMounted(async () => {
   await Promise.all([settingsStore.fetchAll(), settingsStore.fetchCategoriesTree()])
   const company = await settingsStore.fetchCompany()
@@ -471,6 +553,8 @@ onMounted(async () => {
   await loadFeePresets()
   // RAO-P1-011: Load articles for picker
   await articleStore.fetchList({ is_service: true })
+  // RAO-P3-013: Load saved folder name
+  await loadFolderName()
 })
 
 async function loadFeePresets() {

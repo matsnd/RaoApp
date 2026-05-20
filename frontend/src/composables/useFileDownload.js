@@ -2,7 +2,10 @@
  * useFileDownload — pobieranie pliku przez <a download> zamiast window.open
  * Parsuje Content-Disposition header żeby pobrać sugerowaną nazwę pliku.
  * RAO-P2-018: fix dla PDF otwierającego się w viewerze zamiast pobrania.
+ * RAO-P3-013: saveToFolder — inteligentny zapis do skonfigurowanego folderu RAO.
  */
+import { useTargetFolder } from './useTargetFolder.js'
+
 export function useFileDownload() {
   /**
    * Parsuje filename z Content-Disposition headera.
@@ -39,5 +42,22 @@ export function useFileDownload() {
     setTimeout(() => URL.revokeObjectURL(url), 10000)
   }
 
-  return { downloadBlob, parseFilename }
+  /**
+   * Inteligentny zapis PDF: do folderu RAO (jeśli skonfigurowany) lub <a download> (fallback).
+   * @param {Blob} blob - dane pliku
+   * @param {string} contentDisposition - nagłówek Content-Disposition
+   * @param {string} fallbackFilename - nazwa pliku fallback
+   * @param {'umowy'|'protokoly'|'zestawienia'} docType - typ dokumentu (podfolder)
+   */
+  async function saveToFolder(blob, contentDisposition, fallbackFilename = 'plik.pdf', docType = 'zestawienia') {
+    const filename = parseFilename(contentDisposition, fallbackFilename)
+    const { saveToSubfolder } = useTargetFolder()
+    const saved = await saveToSubfolder(blob, filename, docType)
+    if (!saved) {
+      // Fallback: standardowe pobieranie
+      downloadBlob(blob, contentDisposition, fallbackFilename)
+    }
+  }
+
+  return { downloadBlob, parseFilename, saveToFolder }
 }

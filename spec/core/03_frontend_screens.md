@@ -704,7 +704,11 @@ Row 3 (30px): centered [ Zakończ ]
 
 ## Widok: `SettingsView.vue`
 
-**Zakładki:** Dane firmy | Handlowcy | Kategorie | Typy stawek | Zestawy usług | Fakturownia
+**Zakładki:** Dane firmy | Handlowcy | Kategorie | Typy stawek | Zestawy usług | Fakturownia | Folder RAO
+
+
+> **RAO-P2-019 (2026-05-30):** Zakl. Kategorie zastapiona drzewiastym widokiem: flatCategoryTree computed, fetchCategoriesTree() w store, inline edit, cascade subcat, addingSubcatParentId dla inline add.
+
 
 > **RAO-P1-023 (2026-05-20):** Usunięto zakładkę "Rezerwacje maszyn" (RAO-P1-015).
 > `ReservationsPanel.vue` i `ReservationsView.vue` zostały usunięte — ręczne rezerwacje zastąpione
@@ -907,6 +911,42 @@ Tabela: data-testid="category-stats-table"
 - Zmiana date presetu lub kliknięcie "Filtruj"
 
 ### Store: `useStatsStore` (stores/stats.js)
+
+---
+
+## Folder dokumentów RAO (RAO-P3-013)
+
+### SettingsView — sekcja Folder RAO
+
+**Tab:** "Folder RAO" w SettingsView
+
+**Cel:** Użytkownik raz wybiera folder na dysku — kolejne pobrania PDF trafiają automatycznie do podfolderów bez dialogu przeglądarki.
+
+**Obsługiwane przeglądarki:** Chrome 86+, Edge 86+. Firefox i Safari — automatyczny fallback na `<a download>`.
+
+**Subfoldery:**
+- `Umowy/` — umowy (S_xxx, U_xxx)
+- `Protokoly/` — protokoły ZO (PZO_xxx)
+- `Zestawienia/` — raporty i zestawienia
+
+**UI:**
+- Informacja o obsłudze API przez przeglądarkę (`folderApiSupported`)
+- Karta ze statusem aktualnego folderu (📁 ikona + nazwa / "Brak folderu")
+- Przycisk "Wybierz folder RAO" / "Zmień folder" (`handlePickFolder`)
+- Przycisk "Usuń konfigurację" (tylko gdy folder ustawiony, `handleClearFolder`)
+- Komunikat sukcesu/błędu z auto-ukryciem po 5s
+
+**Composables:**
+- `useTargetFolder.js` — File System Access API + IndexedDB (`idb` lib)
+  - `isSupported()` — feature detection
+  - `pickFolder()` — dialog wyboru + zapis do IndexedDB
+  - `saveToSubfolder(blob, filename, subfolder)` — zapis pliku
+  - `verifyPermission(handle)` — sprawdzenie/prośba o permission
+  - `clearStoredHandle()` — usunięcie handle z IndexedDB
+- `useFileDownload.js` — rozszerzone o `saveToFolder(blob, cd, fallback, docType)`
+  - Próbuje `saveToSubfolder` → jeśli false → fallback `downloadBlob`
+
+**Persystencja:** `FileSystemDirectoryHandle` w IndexedDB (`rao-fs` DB, `handles` store)
 
 ---
 
