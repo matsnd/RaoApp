@@ -129,20 +129,39 @@ class SalespersonCreate(BaseModel):
     commission_rate: Decimal | None = Field(None, ge=0, le=100, description="Prowizja w % (0-100)")
 
 
-class CategoryResponse(BaseModel):
+class CategoryTreeNode(BaseModel):
     id: int
     name: str
-    code: str | None
-    description: str | None
+    level: str
+    code: str | None = None
+    parent_id: int | None = None
+    children: list['CategoryTreeNode'] = []
 
     class Config:
         from_attributes = True
+
+
+CategoryTreeNode.model_rebuild()  # wymagane dla self-referential Pydantic v2
 
 
 class CategoryCreate(BaseModel):
     name: str = Field(..., max_length=200)
     code: str | None = Field(None, max_length=40)
     description: str | None = Field(None, max_length=400)
+    parent_id: int | None = None
+    level: str = Field("main", pattern="^(main|sub1|sub2|sub3)$")
+
+
+class CategoryResponse(BaseModel):
+    id: int
+    name: str
+    code: str | None = None
+    description: str | None = None
+    parent_id: int | None = None
+    level: str = "main"
+
+    class Config:
+        from_attributes = True
 
 
 class BranchResponse(BaseModel):

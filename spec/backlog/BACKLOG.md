@@ -3344,7 +3344,7 @@ Reguła: `contract.number.replace('/', '_')` → `S/129/2026` → `S129_2026`, `
 id: RAO-P2-019
 priority: P2
 size: L
-status: triaged
+status: in_progress
 classification: cross-stack
 roles: [backend-dev, frontend-dev, ux-designer]
 depends_on: []

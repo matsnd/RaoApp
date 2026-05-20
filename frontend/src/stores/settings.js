@@ -6,6 +6,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const company = ref(null)
   const salespeople = ref([])
   const categories = ref([])
+  const categoriesTree = ref([])
   const branches = ref([])
   const rateTypes = ref([])
   const feeTemplates = ref([])
@@ -46,6 +47,11 @@ export const useSettingsStore = defineStore('settings', () => {
     const { data } = await api.get('/settings/categories')
     categories.value = data
     return data
+  }
+
+  async function fetchCategoriesTree() {
+    const { data } = await api.get('/settings/categories/tree')
+    categoriesTree.value = data
   }
 
   async function updateCategory(id, payload) {
@@ -115,10 +121,10 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   return {
-    company, salespeople, categories, branches, rateTypes, feeTemplates, loading,
+    company, salespeople, categories, categoriesTree, branches, rateTypes, feeTemplates, loading,
     fetchCompany, updateCompany, uploadLogo,
     fetchSalespeople, updateSalesperson,
-    fetchCategories, updateCategory, deleteCategory,
+    fetchCategories, fetchCategoriesTree, updateCategory, deleteCategory,
     fetchBranches,
     fetchRateTypes, updateRateType, deleteRateType,
     fetchFeeTemplates, seedFeeTemplates, fetchAll,

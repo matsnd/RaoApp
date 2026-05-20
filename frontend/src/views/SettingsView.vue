@@ -149,31 +149,54 @@
 
             <!-- Categories tab -->
             <div v-if="activeTab === 'categories'">
+              <!-- Dodaj kategorię główną -->
               <div style="display:flex;gap:8px;margin-bottom:16px;">
-                <input v-model="newCat.name" type="text" class="form-control" placeholder="Nazwa kategorii" style="max-width:240px;" />
+                <input v-model="newCat.name" type="text" class="form-control" placeholder="Nazwa kategorii głównej" style="max-width:240px;" />
                 <input v-model="newCat.code" type="text" class="form-control" placeholder="Kod" style="max-width:120px;" />
-                <button class="btn btn-primary btn-sm" @click="addCategory">+ Dodaj</button>
+                <button class="btn btn-primary btn-sm" @click="addCategory">+ Dodaj główną</button>
               </div>
-              <table class="data-grid">
-                <thead><tr><th>Nazwa</th><th>Kod</th><th>Opis</th><th style="width:80px;"></th></tr></thead>
+              <!-- Drzewo kategorii -->
+              <div v-if="settingsStore.loading" class="empty-state">Ładowanie...</div>
+              <div v-else-if="settingsStore.categoriesTree.length === 0" class="empty-state">Brak kategorii</div>
+              <table v-else class="data-grid">
+                <thead><tr><th>Nazwa</th><th>Kod</th><th>Poziom</th><th style="width:120px;"></th></tr></thead>
                 <tbody>
-                  <template v-for="cat in settingsStore.categories" :key="cat.id">
+                  <template v-for="cat in flatCategoryTree" :key="cat.id">
                     <tr v-if="editingCatId === cat.id" class="row-editing">
-                      <td><input v-model="editingCatData.name" class="form-control form-control-xs" @keydown.enter="saveEditCat" @keydown.esc="editingCatId = null" /></td>
+                      <td :style="{ paddingLeft: (cat._depth * 20 + 8) + 'px' }">
+                        <input v-model="editingCatData.name" class="form-control form-control-xs" @keydown.enter="saveEditCat" @keydown.esc="editingCatId = null" />
+                      </td>
                       <td><input v-model="editingCatData.code" class="form-control form-control-xs" @keydown.enter="saveEditCat" @keydown.esc="editingCatId = null" /></td>
-                      <td><input v-model="editingCatData.description" class="form-control form-control-xs" @keydown.enter="saveEditCat" @keydown.esc="editingCatId = null" /></td>
+                      <td style="color:var(--color-text-secondary);font-size:11px;">{{ cat.level }}</td>
                       <td>
                         <button class="btn-icon" style="color:#22543D;" @click="saveEditCat" title="Zapisz">✓</button>
                         <button class="btn-icon" @click="editingCatId = null" title="Anuluj">✕</button>
                       </td>
                     </tr>
                     <tr v-else>
-                      <td>{{ cat.name }}</td>
+                      <td :style="{ paddingLeft: (cat._depth * 20 + 8) + 'px' }">
+                        <span :style="cat._depth > 0 ? 'color:var(--color-text-secondary)' : 'font-weight:600'">
+                          {{ cat._depth > 0 ? '└ ' : '' }}{{ cat.name }}
+                        </span>
+                      </td>
                       <td>{{ cat.code || '—' }}</td>
-                      <td>{{ cat.description || '—' }}</td>
+                      <td style="color:var(--color-text-secondary);font-size:11px;">{{ cat.level }}</td>
                       <td>
+                        <button v-if="cat.level !== 'sub3'" class="btn-icon" @click="startAddSubcat(cat)" title="Dodaj podkategorię">+</button>
                         <button class="btn-icon" @click="startEditCat(cat)" title="Edytuj">✎</button>
-                        <button class="btn-icon" @click="deleteCat(cat.id)" title="Usuń">✕</button>
+                        <button class="btn-icon" :disabled="cat.children && cat.children.length > 0" :title="cat.children && cat.children.length > 0 ? 'Ma podkategorie' : 'Usuń'" @click="deleteCat(cat.id)">✕</button>
+                      </td>
+                    </tr>
+                    <!-- Inline add subcategory row -->
+                    <tr v-if="addingSubcatParentId === cat.id" class="row-editing">
+                      <td :style="{ paddingLeft: ((cat._depth + 1) * 20 + 8) + 'px' }">
+                        <input v-model="newSubcat.name" class="form-control form-control-xs" placeholder="Nazwa podkategorii" @keydown.enter="saveSubcat" @keydown.esc="addingSubcatParentId = null" autofocus />
+                      </td>
+                      <td><input v-model="newSubcat.code" class="form-control form-control-xs" placeholder="Kod" @keydown.enter="saveSubcat" @keydown.esc="addingSubcatParentId = null" /></td>
+                      <td style="color:var(--color-text-secondary);font-size:11px;">{{ cat.level === 'main' ? 'sub1' : cat.level === 'sub1' ? 'sub2' : 'sub3' }}</td>
+                      <td>
+                        <button class="btn-icon" style="color:#22543D;" @click="saveSubcat" title="Zapisz">✓</button>
+                        <button class="btn-icon" @click="addingSubcatParentId = null" title="Anuluj">✕</button>
                       </td>
                     </tr>
                   </template>
@@ -442,7 +465,7 @@ const newPresetItem = ref({ name: '', amount_from: null, amount_to: null, unit: 
 const newPresetItemNameRef = ref(null)
 
 onMounted(async () => {
-  await settingsStore.fetchAll()
+  await Promise.all([settingsStore.fetchAll(), settingsStore.fetchCategoriesTree()])
   const company = await settingsStore.fetchCompany()
   if (company) Object.assign(companyForm.value, company)
   await loadFeePresets()
@@ -638,8 +661,8 @@ async function toggleSp(id) {
 
 async function addCategory() {
   if (!newCat.value.name) return
-  await api.post('/settings/categories', newCat.value)
-  await settingsStore.fetchCategories()
+  await api.post('/settings/categories', { ...newCat.value, parent_id: null, level: 'main' })
+  await settingsStore.fetchCategoriesTree()
   newCat.value = { name: '', code: '', description: '' }
 }
 
@@ -660,6 +683,7 @@ async function deleteSp(id) {
 async function deleteCat(id) {
   if (!confirm('Usunąć tę kategorię?')) return
   await settingsStore.deleteCategory(id)
+  await settingsStore.fetchCategoriesTree()
 }
 
 async function deleteRt(id) {
@@ -678,6 +702,48 @@ async function saveEditCat() {
   if (!editingCatData.value.name) return
   await settingsStore.updateCategory(editingCatId.value, editingCatData.value)
   editingCatId.value = null
+  await settingsStore.fetchCategoriesTree()
+}
+
+// Flatten tree do listy z _depth dla renderowania
+const flatCategoryTree = computed(() => {
+  const result: any[] = []
+  function flatten(nodes: any[], depth: number) {
+    for (const node of nodes) {
+      result.push({ ...node, _depth: depth })
+      if (node.children && node.children.length) {
+        flatten(node.children, depth + 1)
+      }
+    }
+  }
+  flatten(settingsStore.categoriesTree, 0)
+  return result
+})
+
+// Dodawanie podkategorii inline
+const addingSubcatParentId = ref(null)
+const newSubcat = ref({ name: '', code: '' })
+
+function startAddSubcat(parentCat: any) {
+  addingSubcatParentId.value = parentCat.id
+  newSubcat.value = { name: '', code: '' }
+}
+
+async function saveSubcat() {
+  if (!newSubcat.value.name || !addingSubcatParentId.value) return
+  const parent = flatCategoryTree.value.find(c => c.id === addingSubcatParentId.value)
+  const levelMap: Record<string, string> = { main: 'sub1', sub1: 'sub2', sub2: 'sub3' }
+  const childLevel = levelMap[parent?.level] || 'sub1'
+  await api.post('/settings/categories', {
+    name: newSubcat.value.name,
+    code: newSubcat.value.code || null,
+    description: null,
+    parent_id: addingSubcatParentId.value,
+    level: childLevel,
+  })
+  addingSubcatParentId.value = null
+  newSubcat.value = { name: '', code: '' }
+  await settingsStore.fetchCategoriesTree()
 }
 
 // Inline edit — rate types

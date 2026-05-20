@@ -270,6 +270,20 @@ class SettingsService:
         result = await db.execute(select(Category).order_by(Category.name))
         return result.scalars().all()
 
+    async def list_categories_tree(self, db: AsyncSession):
+        """Zwraca kategorie główne z zagnieżdżonymi children (do 3 poziomów)."""
+        result = await db.execute(
+            select(Category)
+            .where(Category.parent_id == None)
+            .options(
+                selectinload(Category.children)
+                .selectinload(Category.children)
+                .selectinload(Category.children)
+            )
+            .order_by(Category.name)
+        )
+        return result.scalars().all()
+
     async def create_category(self, db: AsyncSession, data: CategoryCreate) -> Category:
         cat = Category(**data.model_dump())
         db.add(cat)
@@ -290,8 +304,15 @@ class SettingsService:
 
     async def delete_category(self, db: AsyncSession, cat_id: int):
         result = await db.execute(select(Category).where(Category.id == cat_id))
-        if not result.scalar_one_or_none():
+        cat = result.scalar_one_or_none()
+        if not cat:
             raise not_found("Kategoria")
+        # Sprawdź czy ma podkategorie
+        children_result = await db.execute(
+            select(Category.id).where(Category.parent_id == cat_id).limit(1)
+        )
+        if children_result.scalar_one_or_none() is not None:
+            raise conflict("Kategoria ma podkategorie — usuń je najpierw")
         try:
             await db.execute(delete(Category).where(Category.id == cat_id))
             await db.commit()

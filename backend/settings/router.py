@@ -7,7 +7,7 @@ from auth.dependencies import get_current_user, require_admin
 from auth.models import User
 from database import get_db
 from settings.schemas import (
-    BranchCreate, BranchResponse, CategoryCreate, CategoryResponse,
+    BranchCreate, BranchResponse, CategoryCreate, CategoryResponse, CategoryTreeNode,
     CompanyResponse, CompanyUpdate, FeePresetGroupCreate, FeePresetGroupResponse,
     RateTypeCreate, RateTypeResponse, ReorderRequest, SalespersonCreate, SalespersonResponse,
     ServiceFeeTemplateCreate, ServiceFeeTemplateResponse,
@@ -94,6 +94,14 @@ async def toggle_salesperson(
     _: User = Depends(require_admin),
 ):
     return await settings_service.toggle_salesperson(db, sp_id)
+
+
+@router.get("/categories/tree", response_model=list[CategoryTreeNode])
+async def list_categories_tree(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    return await settings_service.list_categories_tree(db)
 
 
 @router.get("/categories", response_model=list[CategoryResponse])

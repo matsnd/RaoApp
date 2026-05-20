@@ -1133,15 +1133,61 @@ class SalespersonCreate(BaseModel):
     phone: str | None = Field(None, max_length=100)
 ```
 
-### `GET /settings/categories`
-### `POST /settings/categories`
+### `GET /settings/categories/tree` (RAO-P2-019, NOWY)
+
+Zwraca hierarchiczne drzewo kategorii (główne + zagnieżdżone children do 3 poziomów).
+Używa explicit `selectinload` — bez lazy-load w async.
+
+**Auth:** Bearer token wymagany  
+**Response:** `200 list[CategoryTreeNode]`
 
 ```python
+class CategoryTreeNode(BaseModel):
+    id: int
+    name: str
+    level: str                         # "main" | "sub1" | "sub2" | "sub3"
+    code: str | None = None
+    parent_id: int | None = None
+    children: list['CategoryTreeNode'] = []
+    # from_attributes = True
+```
+
+**Przykład response:**
+```json
+[
+  {
+    "id": 1, "name": "Koparki", "level": "main", "code": null, "parent_id": null,
+    "children": [
+      { "id": 5, "name": "Mini", "level": "sub1", "code": "KOP-MINI", "parent_id": 1, "children": [] }
+    ]
+  }
+]
+```
+
+---
+
+### `GET /settings/categories`
+### `POST /settings/categories`
+### `PUT /settings/categories/{cat_id}`
+### `DELETE /settings/categories/{cat_id}`
+
+`DELETE` zwraca **409** gdy kategoria ma podkategorie — usuń je najpierw.
+
+```python
+class CategoryCreate(BaseModel):
+    name: str = Field(..., max_length=200)
+    code: str | None = Field(None, max_length=40)
+    description: str | None = Field(None, max_length=400)
+    parent_id: int | None = None      # RAO-P2-019: hierarchia
+    level: str = Field("main", pattern="^(main|sub1|sub2|sub3)$")
+
 class CategoryResponse(BaseModel):
     id: int
     name: str
-    code: str | None
-    description: str | None
+    code: str | None = None
+    description: str | None = None
+    parent_id: int | None = None      # RAO-P2-019
+    level: str = "main"               # RAO-P2-019
 ```
 
 ### `GET /settings/branches`

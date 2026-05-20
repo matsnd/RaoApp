@@ -74,10 +74,20 @@
         <div class="form-row-2">
           <div class="form-group">
             <label class="form-label">Kategoria</label>
-            <select v-model="form.category_id" class="form-control">
-              <option :value="null">— brak —</option>
-              <option v-for="cat in settingsStore.categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
-            </select>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <select v-model="catSelectedMain" class="form-control" @change="catSelectedSub1 = null; catSelectedSub2 = null">
+                <option :value="null">— brak kategorii —</option>
+                <option v-for="c in catMainOptions" :key="c.id" :value="c.id">{{ c.name }}</option>
+              </select>
+              <select v-if="catSub1Options.length" v-model="catSelectedSub1" class="form-control" @change="catSelectedSub2 = null">
+                <option :value="null">— (poziom główny) —</option>
+                <option v-for="c in catSub1Options" :key="c.id" :value="c.id">{{ c.name }}</option>
+              </select>
+              <select v-if="catSub2Options.length" v-model="catSelectedSub2" class="form-control">
+                <option :value="null">— (poziom podrzędny) —</option>
+                <option v-for="c in catSub2Options" :key="c.id" :value="c.id">{{ c.name }}</option>
+              </select>
+            </div>
           </div>
           <div class="form-group">
             <label class="form-label">Właściciel (dostawca)</label>
@@ -144,7 +154,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useArticleStore } from '@/stores/articles'
 import { useSettingsStore } from '@/stores/settings'
@@ -172,9 +182,57 @@ const showOwnerPicker = ref(false)
 const pickerSearch = ref('')
 const pickerList = ref([])
 
+// --- Cascade category pickers ---
+const catSelectedMain = ref(null)
+const catSelectedSub1 = ref(null)
+const catSelectedSub2 = ref(null)
+
+const catMainOptions = computed(() => settingsStore.categoriesTree)
+const catSub1Options = computed(() => {
+  if (!catSelectedMain.value) return []
+  return catMainOptions.value.find(c => c.id === catSelectedMain.value)?.children || []
+})
+const catSub2Options = computed(() => {
+  if (!catSelectedSub1.value) return []
+  return catSub1Options.value.find(c => c.id === catSelectedSub1.value)?.children || []
+})
+
+// Aktualizuj form.category_id przy zmianie kaskady
+watch([catSelectedMain, catSelectedSub1, catSelectedSub2], () => {
+  form.value.category_id = catSelectedSub2.value ?? catSelectedSub1.value ?? catSelectedMain.value
+})
+
+// Pomocnicza: znajdz sciezke od root do node
+function findCatPath(tree, id, path) {
+  if (!path) path = []
+  for (const node of tree) {
+    const newPath = [...path, node]
+    if (node.id === id) return newPath
+    if (node.children?.length) {
+      const found = findCatPath(node.children, id, newPath)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+// Ustaw kaskade po zaladowaniu artykulu
+function setCategoryFromId(categoryId) {
+  if (!categoryId || !settingsStore.categoriesTree.length) {
+    catSelectedMain.value = null
+    catSelectedSub1.value = null
+    catSelectedSub2.value = null
+    return
+  }
+  const path = findCatPath(settingsStore.categoriesTree, categoryId)
+  if (!path) return
+  catSelectedMain.value = path[0]?.id || null
+  catSelectedSub1.value = path[1]?.id || null
+  catSelectedSub2.value = path[2]?.id || null
+}
+
 onMounted(async () => {
-  await settingsStore.fetchCategories()
-  await settingsStore.fetchBranches()
+  await Promise.all([settingsStore.fetchCategoriesTree(), settingsStore.fetchBranches()])
 
   const { data } = await api.get('/contractors', { params: { supplier: true, per_page: 50 } })
   pickerList.value = data.items
@@ -185,6 +243,7 @@ onMounted(async () => {
       const data = await store.fetchOne(Number(props.id))
       Object.assign(form.value, data)
       if (data.owner_name) ownerName.value = data.owner_name
+      setCategoryFromId(data.category_id)
     } finally {
       loading.value = false
     }
