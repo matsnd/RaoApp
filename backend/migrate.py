@@ -721,6 +721,8 @@ async def step6_drop_old():
 
 # Column indices w pliku CSV (0-based, po przecinku)
 _C_ID       = 0   # legacy id (int)
+_C_RODZAJ   = 3   # "Usługa" / "artykuł" → is_service + article_type
+_C_MODEL    = 6   # Model urządzenia (tylko ~7 wierszy ma wartości)
 _C_NUMER    = 7   # Numer wewnętrzny
 _C_CAT_MAIN = 8   # Właściwa kategoria główna
 _C_CAT_1    = 9   # Kategoria I
@@ -784,6 +786,8 @@ def _parse_csv_file(csv_path: str) -> list:
                 continue
             records.append({
                 "id":              int(id_str),
+                "rodzaj":          row[_C_RODZAJ].strip(),
+                "model":           row[_C_MODEL].strip() or None,
                 "cat_main":        _clean_cat(row[_C_CAT_MAIN]),
                 "cat_sub1":        _clean_cat(row[_C_CAT_1]),
                 "cat_sub2":        _clean_cat(row[_C_CAT_2]),
@@ -798,16 +802,21 @@ def _parse_csv_file(csv_path: str) -> list:
 
 async def step8_csv_categories() -> None:
     """
-    RAO-P1-017: CSV → hierarchiczne kategorie → UPDATE articles.
+    RAO-P1-017: CSV → hierarchiczne kategorie + klasyfikacja → UPDATE articles.
 
     1. GET_LOCK(rao_migrate_csv, 0) — race condition guard (session-scoped)
     2. Parsowanie CSV (csv.reader — CSV-INJ-001 safe)
+       Kolumny: [0]=id, [3]=rodzaj, [6]=model, [7]=numer_wewn, [8-14]=kategorie+tech
     3. Cache istniejących kategorii w pamięci (Python-side diacritic norm)
     4. Budowanie drzewa (main→sub1→sub2→sub3, sorted dla determinizmu):
        _upsert_cat(): SELECT-or-INSERT — idempotent
     5. UPDATE articles (parametryzowane %s — SQL-INJ-001 safe):
        category_main/sub1/sub2/sub3, category_id (najgłębszy poziom),
-       technical_attributes (JSON), internal_number (COALESCE),
+       technical_attributes (JSON),
+       is_service (1 jeśli rodzaj="Usługa", inaczej 0),
+       article_type (raw wartość z kolumny [3], np. "Usługa" / "artykuł"),
+       model (COALESCE — nie nadpisuje istniejących wartości),
+       internal_number (COALESCE — nie nadpisuje istniejących wartości),
        is_archival=FALSE
     6. Oznacz WSZYSTKIE artykuły is_archival=FALSE
     7. Weryfikacja: COUNT + orphan check (gate per migrations.md)
@@ -816,6 +825,7 @@ async def step8_csv_categories() -> None:
     Idempotentność (2nd run = 0 zmian):
       - Kategorie: cache hit → brak INSERT
       - Articles: te same wartości → MySQL pomija wiersz
+      - model / internal_number: COALESCE(NULLIF(..., ''), %s) — nie nadpisuje
     Security: SQL-INJ-001 (%s); CSV-INJ-001 (csv.reader).
     """
     print("[8] RAO-P1-017: CSV categories → articles ...")
@@ -936,6 +946,9 @@ async def step8_csv_categories() -> None:
             "  category_sub3        = %s,"
             "  category_id          = %s,"
             "  technical_attributes = %s,"
+            "  is_service           = %s,"
+            "  article_type         = %s,"
+            "  model                = COALESCE(NULLIF(model, ''), %s),"
             "  internal_number      = COALESCE(NULLIF(internal_number, ''), %s)"
             " WHERE id = %s"
         )
@@ -972,6 +985,11 @@ async def step8_csv_categories() -> None:
                 tech["dodatki"] = rec["dodatki"]
             tech_json = json.dumps(tech, ensure_ascii=False) if tech else None
 
+            # is_service + article_type z kolumny [3] "rodzaj"
+            rodzaj_raw     = rec["rodzaj"]
+            is_service_val = 1 if rodzaj_raw.lower() in ("usługa", "usluga") else 0
+            article_type_val = rodzaj_raw if rodzaj_raw else None
+
             if cat_main is not None:
                 n_matched += 1
             else:
@@ -980,6 +998,7 @@ async def step8_csv_categories() -> None:
             await cur.execute(
                 _UPDATE_SQL,
                 (cat_main, cat_sub1, cat_sub2, cat_sub3, cat_id, tech_json,
+                 is_service_val, article_type_val, rec["model"],
                  rec["internal_number"], art_id),
             )
 
