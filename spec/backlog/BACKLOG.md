@@ -1934,6 +1934,65 @@ Zmiana domyślnej kwoty tankowania w szablonie usług dodatkowych z aktualnej na
 
 ---
 
+### [RAO-P3-013] Konfigurowalne foldery pobierania — File System Access API
+
+```yaml
+id: RAO-P3-013
+priority: P3
+size: M
+status: triaged
+classification: frontend
+roles: [frontend-dev, ux-designer]
+depends_on: [RAO-P2-018]
+blocks: []
+source: internal
+source_date: 2026-05-20
+specs_to_update:
+  - core/03_frontend_screens.md
+  - core/07_integrations.md
+migration_impact: no
+security_impact: low
+```
+
+**Job-to-be-done:**
+Umożliwić użytkownikowi raz wybranie folderu „RAO" — każde kolejne pobranie PDF trafi automatycznie do odpowiedniego podfolderu (`RAO/Umowy/`, `RAO/Protokoly/`, `RAO/Zestawienia/`) bez dialogu. Używa File System Access API (Chrome/Edge 86+) z persystowanym `FileSystemDirectoryHandle` w IndexedDB.
+
+**Kontekst:**
+Etap 2 po RAO-P2-018. Wymaga wcześniej działającego `useFileDownload.ts` (fallback gdy API niedostępne).
+
+**Acceptance criteria (DoD):**
+- [ ] Ustawienia: sekcja „Folder dokumentów RAO" z przyciskiem „Wybierz folder"
+- [ ] `showDirectoryPicker()` → handle zapisywany do IndexedDB (`idb` library)
+- [ ] Przy pobraniu: `getRootFolder()` → jeśli handle OK → zapis do subfolderu; jeśli nie → fallback na `<a download>` (RAO-P2-018)
+- [ ] Subfoldery: `RAO/Umowy/` (umowy), `RAO/Protokoly/` (protokoły ZO), `RAO/Zestawienia/` (raporty)
+- [ ] Permission prompt po restarcie Chrome: toast „RAO chce zapisywać do folderu X — [Pozwól]"
+- [ ] Fallback automatyczny: FF/Safari/brak permission → standardowe pobranie (Opcja A)
+- [ ] Brak HTTPS problem: RAO działa na localhost (dev) lub HTTPS (prod)
+- [ ] `core/03_frontend_screens.md` zaktualizowany (sekcja Ustawienia)
+- [ ] `core/07_integrations.md` zaktualizowany (sekcja "File System Access API")
+
+**Pliki do zmiany:**
+- `frontend/src/composables/useTargetFolder.ts` — **nowy** (IndexedDB + handle + permission flow)
+- `frontend/src/composables/useFileDownload.ts` — rozszerzenie o `saveToFolder()`
+- `frontend/src/views/SettingsView.vue` — sekcja „Folder dokumentów RAO"
+- `package.json` — dodanie `idb` library
+- `e2e/tests/06-pdf-download.spec.ts` — rozszerzenie testów
+
+**Ograniczenia (przeglądarka):**
+- Chrome 86+, Edge 86+ ✅. Firefox / Safari ❌ (automatyczny fallback).
+- Wymaga user gesture (click) przy pierwszym wyborze folderu.
+- Handle przeżywa restart przeglądarki (IndexedDB), ale permission wymaga jednorazowego `requestPermission()` na sesję.
+
+**QA DoD:**
+- [ ] Test: wybierz folder → pobierz umowę → plik w `RAO/Umowy/` z nazwą wg konwencji
+- [ ] Test fallback: FF lub permission denied → standardowe `<a download>` bez błędu
+- [ ] Smoke test `01-login.spec.ts` PASS
+
+**ROI:** UX premium — pliki automatycznie w odpowiednim miejscu bez ręcznego organizowania
+**Estimate:** 6h (M)
+
+---
+
 ### [RAO-P2-006] Picker artykułów — filtrowanie po typie umowy (#8)
 
 ```yaml
@@ -2747,11 +2806,12 @@ epos\AppRao\` kod C# który używa API TERYT
 id: RAO-P1-015
 priority: P1
 size: M
-status: postponed
+status: superseded
 classification: cross-stack
 roles: [db-architect, backend-dev, frontend-dev]
 depends_on: []
 blocks: []
+superseded_by: RAO-P1-023
 source: client
 source_date: 2026-04-08
 specs_to_update:
@@ -2762,6 +2822,9 @@ specs_to_update:
 migration_impact: yes
 security_impact: low
 ```
+
+> **⚠️ SUPERSEDED przez RAO-P1-023** — implementacja ręcznych rezerwacji w Ustawieniach była błędna.
+> Rezerwacje mają wynikać z dat umowy, nie być tworzone ręcznie. Patrz RAO-P1-023.
 
 **Job-to-be-done:**
 System musi umożliwiać rezerwację maszyn na przyszłe terminy. Maszyna zablokowana w rezerwacji nie może być wynajęta w tym okresie.
@@ -2776,14 +2839,6 @@ System musi umożliwiać rezerwację maszyn na przyszłe terminy. Maszyna zablok
 - [ ] `core/02_backend_api.md` zaktualizowany
 - [ ] `core/03_frontend_screens.md` zaktualizowany
 - [ ] `core/04_business_logic.md` zaktualizowany
-
-**Migration plan (RAO deterministic):**
-1. `core/01_database.md` — finalny DDL
-2. `backend/reservations/models.py` — SQLAlchemy
-3. `backend/main.py` startup — ALTER TABLE
-4. **Verification gate:**
-   - [ ] `DROP DATABASE rao_new && CREATE` → restart backend → schema OK
-   - [ ] Drugi restart backend bez błędu
 
 **Pliki do zmiany:** nowe moduły backend/, ContractFormView.vue, ArticlePicker.vue
 **Estimate:** 8h (M)
@@ -3082,6 +3137,363 @@ Zintegrować "Ogólne Warunki Najmu" (OWN) jako integralną część PDF umowy �
 
 ---
 
+### [RAO-P1-023] BUG: Rezerwacja maszyn — przepisanie z ręcznego na automatyczne z umowy
+
+```yaml
+id: RAO-P1-023
+priority: P1
+size: L
+status: triaged
+classification: cross-stack
+roles: [backend-dev, frontend-dev, qa-engineer]
+depends_on: []
+blocks: []
+supersedes: RAO-P1-015
+source: client
+source_date: 2026-05-20
+specs_to_update:
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+  - core/04_business_logic.md
+migration_impact: no
+security_impact: low
+```
+
+**Bug report:**
+Obecna implementacja (RAO-P1-015) pozwala tworzyć rezerwacje ręcznie w Ustawieniach → Rezerwacje maszyn. To jest błędne podejście. Rezerwacje mają **wynikać automatycznie z dat umowy** (`date_from` / `date_to`) — kiedy tworzysz umowę z maszyną na dany termin, maszyna jest automatycznie zajęta. Zakładka w Ustawieniach jest do usunięcia.
+
+**Dodatkowy wymóg:** Jeśli maszyna jest już zajęta (inna umowa w nakładającym się terminie) i user próbuje ją dodać do nowej umowy → pokazać popup z ostrzeżeniem. User może zignorować ostrzeżenie i mimo to zaakceptować umowę.
+
+**Root cause obecnego błędu:**
+- `ReservationsView.vue` + `ReservationsPanel.vue` + `/reservations` CRUD = samodzielny moduł oderwany od umów
+- Źródło konfliktu to `article_reservations` tabela z ręcznymi wpisami, nie daty z `contract_positions`
+
+**Architektura docelowa:**
+Zamiast osobnej tabeli rezerwacji → sprawdzaj konflikty bezpośrednio w `contract_positions` JOIN `contracts`:
+```sql
+SELECT c.number, c.date_from, c.date_to
+FROM contract_positions cp
+JOIN contracts c ON c.id = cp.contract_id
+WHERE cp.article_id = :article_id
+  AND c.date_from <= :date_to
+  AND c.date_to   >= :date_from
+  AND c.id != :current_contract_id   -- wyklucz bieżącą umowę
+```
+Brak dodatkowej tabeli → brak synchronizacji → zawsze aktualne dane.
+
+**Acceptance criteria (DoD):**
+
+**Cleanup (usunięcie starego):**
+- [ ] Usunąć zakładkę "Rezerwacje maszyn" z `SettingsView.vue` (tabs array + `<div v-if>`)
+- [ ] Usunąć `ReservationsView.vue` (lub oznaczyć jako deprecated — do decyzji)
+- [ ] Usunąć `ReservationsPanel.vue` (lub oznaczyć jako deprecated)
+- [ ] Zostawić backend `/reservations` endpointy — nie usuwać (dane historyczne, nie zepsuć)
+- [ ] Zostawić tabelę `article_reservations` — nie dropować (może zawierać dane)
+
+**Conflict check przy dodawaniu maszyny do umowy:**
+- [ ] Backend: nowy endpoint `GET /contracts/check-availability?article_id=X&date_from=Y&date_to=Z&exclude_contract_id=N`
+  - Sprawdza `contract_positions` JOIN `contracts` pod kątem nakładających się dat
+  - Response: `{ available: bool, conflicts: [{contract_id, contract_number, date_from, date_to, contractor_name}] }`
+  - Nie blokuje — tylko informuje (user decyduje)
+- [ ] Backend: walidacja wywoływana PRZY ZAPISIE umowy (nie tylko w pickerze) — ostrzeżenie, nie error
+- [ ] Frontend (`ContractFormView.vue`): gdy user wybiera maszynę z pickera i umowa ma daty → automatycznie wywołaj `check-availability`
+- [ ] Frontend: jeśli `available: false` → pokaż modal/popup:
+  ```
+  ⚠️ Maszyna zajęta
+  "{nazwa maszyny}" jest już przypisana do umowy {numer} ({contractor_name})
+  w terminie {date_from} – {date_to}.
+  
+  [Anuluj]  [Mimo to dodaj]
+  ```
+- [ ] Frontend: badge "Zajęta do DD.MM.YYYY" w pickerze artykułów (zastępuje obecne "Zarezerwowana" — teraz bazuje na umowach)
+- [ ] Frontend: przy braku dat umowy (date_from/date_to null) → brak sprawdzania (maszyna wolna)
+
+**Edge cases:**
+- [ ] Umowa bez dat (date_from = null) → nie blokuj, nie sprawdzaj
+- [ ] Umowa z datami tylko częściowymi (tylko date_from) → sprawdź od date_from do dalekie przyszłości
+- [ ] Maszyna w tej samej umowie (edycja) → wyklucz bieżącą umowę z check (`exclude_contract_id`)
+- [ ] Wiele maszyn w umowie → każda sprawdzana osobno przy dodaniu
+- [ ] User klika "Mimo to dodaj" → umowa tworzy się normalnie, badge "Zajęta" nadal widoczny u drugiego usera
+
+**Pliki do zmiany:**
+- `backend/contracts/router.py` — nowy endpoint `GET /contracts/check-availability`
+- `backend/contracts/service.py` — metoda `check_article_availability()`
+- `frontend/src/views/ContractFormView.vue` — wywołanie check + modal konfliktu
+- `frontend/src/views/SettingsView.vue` — usunięcie zakładki "Rezerwacje maszyn"
+- `frontend/src/router/index.ts` — sprawdź czy `ReservationsView` ma route (do usunięcia lub zachowania)
+- `spec/core/02_backend_api.md` — nowy endpoint `check-availability`
+- `spec/core/03_frontend_screens.md` — update opisu ContractFormView
+- `spec/core/04_business_logic.md` — logika sprawdzania konfliktów
+
+**NIE zmieniać (backward compatibility):**
+- `backend/reservations/` — zostawić endpointy i model (nie usuwać)
+- `article_reservations` tabela — zostawić (nie dropować)
+- Router `/reservations` — nie rejestrować wyrejestrowania
+
+**QA DoD:**
+- [ ] Unit test: `check_article_availability()` — conflict detected, no conflict, edge cases (null dates)
+- [ ] E2E test w `04-contract.spec.ts`:
+  - Utwórz umowę A z maszyną X na 1-31 maja
+  - Spróbuj dodać maszynę X do umowy B (maj) → modal konflikt się pojawia
+  - Kliknij "Mimo to dodaj" → maszyna dodana, umowa tworzy się
+- [ ] Smoke test `01-login.spec.ts` PASS
+- [ ] Sprawdź czy Settings nie ma już zakładki "Rezerwacje maszyn"
+
+**ROI:** Poprawna logika biznesowa — rezerwacje wynikają z rzeczywistości (umów), nie z ręcznego zarządzania
+**Estimate:** 8h (L)
+
+---
+
+### [RAO-P2-018] SPIKE: Foldery docelowe dla pobieranych plików (umowy, protokoły)
+
+```yaml
+id: RAO-P2-018
+priority: P2
+size: S
+status: review
+classification: spike
+roles: [tech-lead, backend-dev, frontend-dev]
+depends_on: []
+blocks: [RAO-P3-013]
+source: internal
+source_date: 2026-05-20
+specs_to_update:
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+  - core/07_integrations.md
+migration_impact: no
+security_impact: low
+```
+
+**Job-to-be-done:**
+Zbadać i zdefiniować mechanizm kierowania pobranych plików (wygenerowanych umów, protokołów ZO) do dedykowanych folderów. Cel: pliki powinny trafiać do logicznie nazwanych katalogów zamiast ogólnego `Downloads/`, a nazwy plików powinny być czytelne i jednoznaczne.
+
+## Wyniki Spike (2026-05-20)
+
+### Root cause buga (odkryty podczas spike)
+
+Frontend używa `window.open(blobUrl, '_blank')` — to otwiera PDF w viewerze przeglądarki, ignoruje `Content-Disposition: attachment` z backendu. Użytkownik widzi PDF w karcie zamiast pobrania. To jest główny problem do naprawienia.
+
+### Decyzja architektoniczna — strategia 2-etapowa
+
+**Etap 1 → RAO-P2-018 (ten task):** Fix buga + ujednolicenie nazw plików
+**Etap 2 → RAO-P3-013 (nowy):** File System Access API + persystowany folder w IndexedDB
+
+### Konwencja nazw plików (zatwierdzona 2026-05-20)
+
+Reguła: `contract.number.replace('/', '_')` → `S/129/2026` → `S129_2026`, `S/130/2026G` → `S130_2026G`.
+
+| Typ | Wzorzec | Przykład | Przykład (oddział G) |
+|-----|---------|----------|----------------------|
+| Umowa | `{numer_clean}.pdf` | `S129_2026.pdf` | `S130_2026G.pdf` |
+| Protokół ZO | `PZO_{numer_clean}.pdf` | `PZO_S129_2026.pdf` | `PZO_S130_2026G.pdf` |
+| Kontrahenci | `Kontrahenci_{YYYY-MM-DD}.pdf` | `Kontrahenci_2026-05-20.pdf` | — |
+| Maszyny | `Maszyny_{YYYY-MM-DD}.pdf` | `Maszyny_2026-05-20.pdf` | — |
+| Prowizje | `Prowizje_{od}_{do}.pdf` | `Prowizje_2026-05-01_2026-05-20.pdf` | — |
+| Statystyki | `Statystyki_{od}_{do}.pdf` | `Statystyki_2026-05-01_2026-05-20.pdf` | — |
+
+**Uwagi:**
+- OWN nie jest osobnym plikiem — jest osadzony w umowie (`contract.html`). Brak osobnego wzorca nazwy.
+- `_s` / `_u` w protokołach = typ umowy (sprzęt/usługi), nie "wydanie/zwrot". Oba warianty mają wzorzec `PZO_`.
+- `G` w numerze = flaga oddziału ze starej aplikacji, zachowywana 1:1 z pola `contracts.number`.
+
+### Opcje (zbadane)
+
+| # | Opcja | Koszt | Rekomendacja |
+|---|-------|-------|--------------|
+| A | Content-Disposition + `<a download>` (fix buga) | ~30 min | ✅ Must-have, Etap 1 |
+| B | File System Access API — dialog każde pobranie | ~2h | ⚠️ Może irytować |
+| C | File System Access API + persist folder IndexedDB | ~6h | ✅ Etap 2 (RAO-P3-013) |
+| D | Electron wrapper | ~40h | ❌ Overkill |
+| E | Chrome "Ask where to save" (instrukcja dla usera) | 0 | ✅ Fallback/dokumentacja |
+| F | Chrome Extension | ~16h | ❌ Tarcia deploymentowe |
+| G | Service Worker + OPFS | ~4h | ❌ Nie "folder na dysku" |
+| H | Download Manager in-app (historia) | ~6h | ⚠️ Osobny task P3 |
+
+**Acceptance criteria (DoD) — Etap 1:**
+- [ ] Spike report: konwencja nazw zatwierdzona ✅ (patrz tabela wyżej)
+- [ ] Spike report: decyzja architektoniczna ✅ (Etap 1: fix + nazwy, Etap 2: FS API)
+- [ ] Frontend: `window.open(blobUrl)` → composable `useFileDownload.ts` z `<a download>`
+- [ ] Backend: `Content-Disposition` z `filename*=UTF-8''` (RFC 5987) wg konwencji tabeli
+- [ ] `core/02_backend_api.md` zaktualizowany (sekcja `/reports/*` — nowa konwencja filenames)
+- [ ] `core/03_frontend_screens.md` zaktualizowany (composable `useFileDownload`)
+- [ ] `core/07_integrations.md` zaktualizowany (sekcja "PDF download — konwencje")
+
+**QA DoD:**
+- [ ] E2E `06-pdf-download.spec.ts`: pobierz umowę → `download.suggestedFilename() === 'S129_2026.pdf'`
+- [ ] Smoke test `01-login.spec.ts` PASS
+
+**Pliki do zmiany (Etap 1):**
+- `backend/reports/router.py` — helper `pdf_response()` + nowe nazwy dla 5 endpointów
+- `frontend/src/composables/useFileDownload.ts` — **nowy** (parsing Content-Disposition + `<a download>`)
+- `frontend/src/stores/contracts.js` — użycie composable
+- `frontend/src/components/reports/ReportsSection.vue` — użycie composable
+- `frontend/src/views/CommissionView.vue` — użycie composable
+- `e2e/tests/06-pdf-download.spec.ts` — **nowy test**
+
+**ROI:** UX — poprawne nazwy plików + faktyczne pobieranie zamiast otwierania w viewerze
+**Estimate:** 3h (S)
+
+## Wynik spike — oczekuje na zatwierdzenie przez użytkownika i implementację
+
+---
+
+### [RAO-P2-019] Drzewiaste kategorie artykułów — konfiguracja, picker, wyświetlanie
+
+```yaml
+id: RAO-P2-019
+priority: P2
+size: L
+status: triaged
+classification: cross-stack
+roles: [backend-dev, frontend-dev, ux-designer]
+depends_on: []
+blocks: []
+source: internal
+source_date: 2026-05-20
+specs_to_update:
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+migration_impact: no
+security_impact: low
+```
+
+**Job-to-be-done:**
+Kategorie artykułów są 4-poziomowym drzewem (main → sub1 → sub2 → sub3), importowanym z CSV Toolsmart. Aktualnie:
+- SettingsView wyświetla płaską listę kategorii (brak hierarchii)
+- ArticleFormView ma pojedynczy `<select>` wszystkich kategorii (brak cascade)
+- Karty artykułów nie pokazują ścieżki kategorii
+
+Potrzebny pełny stack: backend z endpointem drzewa, konfigurowalne drzewo w Ustawieniach, kaskadowy picker przy tworzeniu/edycji artykułu, wyświetlanie breadcrumbu na kartach.
+
+**Kontekst:**
+- `categories` tabela: `id, name, level (main/sub1/sub2/sub3), parent_id, code, description`
+- `articles`: `category_id, category_main, category_sub1, category_sub2, category_sub3` (snapshot nazw)
+- Dane wypełnione przez `step8_csv_categories()` w `migrate.py` (268 artykułów)
+- Backend posiada `backend/categories/` (models tylko) — brak routera kategorii z drzewem
+- Frontend: `stores/settings.js → fetchCategories()` → `/settings/categories` (płaska lista)
+
+**Scope implementacji:**
+
+**1. Backend — endpoint drzewa:**
+- `GET /categories/tree` → lista głównych kategorii z zagnieżdżonymi `children[]` do 4 poziomów
+- `POST /categories` z `parent_id` (tworzenie podkategorii)
+- `PUT /categories/{id}` — edycja nazwy/kodu
+- `DELETE /categories/{id}` — tylko liście drzewa (brak dzieci), inaczej 409
+
+**2. Frontend — SettingsView (zakładka Kategorie):**
+- Widok drzewa: poziomy wcięte (16px na poziom), ikona `▶/▼` do expand/collapse
+- Obok każdego węzła: inline edit (kliknij ołówek → `<input>`), przycisk `+ dziecko`, `🗑️` (disabled jeśli ma dzieci)
+- Przycisk `+ Kategoria główna` na górze sekcji
+- Drag & drop kolejności (opcjonalnie, P3)
+
+**3. Frontend — ArticleFormView (kaskadowy picker):**
+- Zastąp pojedynczy `<select>` trzema kaskadowymi `<select>`:
+  1. `Kategoria główna` → lista `level=main`
+  2. `Podkategoria I` → lista `level=sub1, parent_id=wybrany_main` (ukryty jeśli main niezaznaczony)
+  3. `Podkategoria II` → lista `level=sub2, parent_id=wybrany_sub1` (ukryty jeśli sub1 niezaznaczony)
+- `category_id` = ID najgłębszego wybranego poziomu
+- `category_main/sub1/sub2` = snapshoty nazw (UPDATE przy zapisie)
+
+**4. Frontend — wyświetlanie na kartach artykułów:**
+- Lista artykułów: kolumna `Kategoria` pokazuje ścieżkę: `Wozidła > Wózki widłowe`
+- Szczegóły artykułu (ArticleFormView read mode / karta): pełna ścieżka breadcrumb
+- Tooltip z pełną ścieżką jeśli tekst za długi
+
+**Acceptance criteria (DoD):**
+- [ ] `GET /categories/tree` zwraca JSON z zagnieżdżoną strukturą `{id, name, level, children[]}`
+- [ ] SettingsView: widok drzewa z expand/collapse, inline edit, dodawanie dzieci
+- [ ] ArticleFormView: 3 kaskadowe `<select>`, zapis `category_id` + `category_main/sub1/sub2`
+- [ ] Lista artykułów: kolumna z breadcrumbem kategorii (max 2 poziomy + `…`)
+- [ ] Wyczyszczenie sub-selektów przy zmianie poziomu wyżej (cascade reset)
+- [ ] Istniejące artykuły mają poprawnie wypełnioną ścieżkę z migrate.py (verify przez UI)
+
+**QA DoD:**
+- [ ] Unit test: `GET /categories/tree` → poprawna struktura zagnieżdżona
+- [ ] E2E test `03-article.spec.ts`: utwórz artykuł z wybraną kategorią kaskadową → sprawdź zapis i wyświetlanie
+- [ ] Smoke test `01-login.spec.ts` PASS
+
+**Pliki do zmiany:**
+- `backend/categories/router.py` (nowy)
+- `backend/categories/schemas.py` (nowy)
+- `backend/categories/service.py` (nowy)
+- `backend/main.py` (rejestracja routera)
+- `frontend/src/stores/settings.js` (fetchCategoriesTree)
+- `frontend/src/views/SettingsView.vue` (tree widget)
+- `frontend/src/views/ArticleFormView.vue` (kaskadowy picker)
+- `frontend/src/components/` (opcjonalnie: `CategoryTreeNode.vue`, `CategoryCascadePicker.vue`)
+
+**ROI:** Kategorie są w DB, ale nieużywalne przez użytkownika — brak UI blokuje sensowne zarządzanie asortymentem
+**Estimate:** 10h (L)
+
+---
+
+### [RAO-P1-024] BUG: Step8 CSV migration nie importuje is_service i model
+
+```yaml
+id: RAO-P1-024
+priority: P1
+size: S
+status: triaged
+classification: backend
+roles: [backend-dev]
+depends_on: []
+blocks: []
+source: internal
+source_date: 2026-05-20
+specs_to_update: []
+migration_impact: yes
+security_impact: low
+```
+
+**Job-to-be-done:**
+`step8_csv_categories()` w `migrate.py` importuje z CSV: kategorie hierarchiczne + technical_attributes + internal_number.
+**Nie importuje** (a powinien):
+- `[3] rodzaj` → `articles.is_service` + `articles.article_type`
+- `[6] Model` → `articles.model`
+
+Skutek: 2 artykuły mają błędne `is_service=True` (sklasyfikowane jako Usługa, powinny być artykuł — wynika z `Korekta`="usługa → artykuł"), 7 artykułów ma pusty `articles.model` mimo że CSV go zawiera.
+
+**Analiza CSV (plik: `temp/Asortyment - Produkty - Maszyny - Toolsmart - Archiwum_Łukasza_Dane.csv`):**
+
+| Kol. | Nagłówek | n wartości | Obecny import | Fix |
+|------|----------|-----------|---------------|-----|
+| [3] | `rodzaj` | 268 | ❌ brak | UPDATE `is_service` + `article_type` |
+| [6] | `Model` | 7 | ❌ brak | UPDATE `model` (COALESCE — nie nadpisuj jeśli już jest) |
+
+**Artykuły z błędną klasyfikacją (Korekta="usługa → artykuł"):**
+- id=12125: `Podnośnik przegubowo – teleskopowy spalinowy 16m` — jest Usługa, powinien być artykuł
+- id=12111: `Podest teleskopowo - przegubowy spalinowy 16m` — jest Usługa, powinien być artykuł
+
+**Artykuły z modelem w CSV:**
+- id=10070: model=`Dieci Apollo 25.6`
+- id=10054: model=`Unic 295`
+- id=6047, 6048, 8064: model=`CELA DT25`
+- id=10093: model=`Genie GS 5390 RT`
+- id=10064: model=`JLG 3513`
+
+**Fix — zmiany w `_parse_csv_file()` i `step8_csv_categories()`:**
+1. Dodaj stałe kolumn: `_C_RODZAJ = 3`, `_C_MODEL = 6`
+2. W `_parse_csv_file()`: parsuj `rodzaj` i `model` do rekordu
+3. W `_UPDATE_SQL`: dodaj `is_service = %s`, `article_type = %s`, `model = COALESCE(NULLIF(model,''), %s)`
+4. Przekaż odpowiednie wartości w pętli `for rec in records`
+
+**Uwaga dotycząca idempotentności:**
+- `is_service` z CSV nadpisuje wartość z step4 (legacy DB) — CSV ma autorytet dla tego pola
+- `model`: `COALESCE(NULLIF(model,''), %s)` — aktualizuje tylko jeśli DB ma pusty model
+
+**Acceptance criteria (DoD):**
+- [ ] Po re-run step8: `SELECT id, name, is_service, article_type, model FROM articles WHERE id IN (12125, 12111)` → `is_service=0, article_type='artykuł'`
+- [ ] `SELECT id, model FROM articles WHERE id IN (10070, 10054, 6047)` → modele wypełnione
+- [ ] Drugi run step8 = 0 zmian (idempotentność)
+- [ ] `python -m pytest backend/tests/unit/ -x` PASS
+
+**Pliki do zmiany:** `backend/migrate.py`
+**ROI:** 2 artykuły błędnie wyceniane jako usługi (wrong PDF template + pricing logic)
+**Estimate:** 1-2h (S)
+
+---
+
 ## ✅ Done Log
 
 Zobacz `archive/16_todo_done.md` dla pełnego historii zadań ukończonych.
@@ -3093,10 +3505,10 @@ Zobacz `archive/16_todo_done.md` dla pełnego historii zadań ukończonych.
 | Priorytet | Liczba | Effort łączny |
 |-----------|--------|---------------|
 | 🚨 P0 | 5 | ~7h |
-| 🔴 P1 | 11 | ~55h |
-| 🟡 P2 | 11 | ~62h |
+| 🔴 P1 | 12 | ~57h |
+| 🟡 P2 | 12 | ~72h |
 | 🟢 P3 | 5 | ~20h |
-| **Razem** | **21** | **~58h** |
+| **Razem** | **34** | **~156h** |
 
 ---
 
@@ -3121,7 +3533,8 @@ n|| RAO-P1-008 | Strukturalizacja adresów: kod pocztowy + miasto | Client | P1 
 || RAO-P1-012 | Panel rozliczenie umowy | Client | P1 | XL | done | cross-stack |
 || RAO-P1-013 | Refactor systemu prowizyjnego | Client | P1 | M | done | backend-dev |
 || RAO-P1-014 | Protokół usługi — godziny operatora | Client | P1 | M | done | cross-stack |
-|| RAO-P1-015 | Rezerwacja maszyn | Client | P1 | M | done | cross-stack |
+|| RAO-P1-015 | Rezerwacja maszyn (SUPERSEDED) | Client | P1 | M | superseded | cross-stack |
+|| RAO-P1-023 | BUG: Rezerwacja z umowy + conflict popup | Client | P1 | L | triaged | cross-stack |
 || RAO-P2-001 | Kolumna adres dostawy | Internal | P2 | XS | done | frontend-dev |
 || RAO-P2-002 | Link "Zmień hasło" sidebar | Internal | P2 | XS | done | frontend-dev |
 || RAO-P2-003 | NIP validation checksum | Internal | P2 | S | done | backend-dev |
@@ -3150,3 +3563,7 @@ n|| RAO-P1-008 | Strukturalizacja adresów: kod pocztowy + miasto | Client | P1 
 || RAO-P3-010 | Globalny pasek postępu NProgress | Internal | P3 | S | done | frontend-dev |
 || RAO-P3-011 | Testy integracyjne backend pytest | Internal | P3 | L | done | qa-engineer |
 || RAO-P3-012 | Kwota tankowania default 200 zł | Client | P3 | XS | done | backend-dev |
+|| RAO-P2-018 | SPIKE: Foldery docelowe dla pobieranych plików | Internal | P2 | S | review | tech-lead |
+|| RAO-P3-013 | Konfigurowalne foldery pobierania — FS Access API | Internal | P3 | M | triaged | frontend-dev |
+|| RAO-P1-024 | BUG: CSV migration — is_service + model brakują | Internal | P1 | S | triaged | backend-dev |
+|| RAO-P2-019 | Drzewiaste kategorie — picker, settings, breadcrumb | Internal | P2 | L | triaged | cross-stack |
