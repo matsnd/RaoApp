@@ -856,11 +856,15 @@ import { Chart, registerables } from 'chart.js'
 import { useStatsStore } from '@/stores/stats'
 import api from '@/composables/useApi'
 import { useFileDownload } from '@/composables/useFileDownload'
+import { useToastStore } from '@/stores/toast'
+import { useTargetFolder } from '@/composables/useTargetFolder.js'
 
 Chart.register(...registerables)
 
 const statsStore = useStatsStore()
-const { downloadBlob } = useFileDownload()
+const { saveToFolder } = useFileDownload()
+const toastStore = useToastStore()
+const { getStoredFolderName } = useTargetFolder()
 
 const barCanvas = ref(null)
 const donutCanvas = ref(null)
@@ -1369,7 +1373,11 @@ async function printPage() {
       responseType: 'blob',
     })
     const cd = response.headers['content-disposition'] || ''
-    downloadBlob(response.data, cd, 'Statystyki.pdf')
+    const saved = await saveToFolder(response.data, cd, 'Statystyki.pdf', 'zestawienia')
+    if (saved) {
+      const folderName = await getStoredFolderName()
+      toastStore.showToast(`Taki plik zapisany do folderu ${folderName}/Zestawienia`, 'success')
+    }
   } catch {
     alert('B\u0142\u0105d generowania PDF')
   }

@@ -57,6 +57,7 @@ export function useFileDownload() {
       // Fallback: standardowe pobieranie
       downloadBlob(blob, contentDisposition, fallbackFilename)
     }
+    return saved
   }
 
   return { downloadBlob, parseFilename, saveToFolder }

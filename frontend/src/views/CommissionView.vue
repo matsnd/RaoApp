@@ -76,6 +76,8 @@
 import { ref, onMounted } from 'vue'
 import api from '@/composables/useApi'
 import { useFileDownload } from '@/composables/useFileDownload'
+import { useToastStore } from '@/stores/toast'
+import { useTargetFolder } from '@/composables/useTargetFolder.js'
 
 const today = new Date()
 const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
@@ -85,7 +87,9 @@ const dateTo   = ref(today.toISOString().slice(0, 10))
 const loading  = ref(false)
 const error    = ref(null)
 const report   = ref({ items: [], grand_total_revenue: 0, grand_total_commission: 0, date_from: '', date_to: '' })
-const { downloadBlob } = useFileDownload()
+const { saveToFolder } = useFileDownload()
+const toastStore = useToastStore()
+const { getStoredFolderName } = useTargetFolder()
 
 async function printPage() {
   try {
@@ -94,7 +98,11 @@ async function printPage() {
       responseType: 'blob',
     })
     const cd = response.headers['content-disposition'] || ''
-    downloadBlob(response.data, cd, 'Prowizje.pdf')
+    const saved = await saveToFolder(response.data, cd, 'Prowizje.pdf', 'zestawienia')
+    if (saved) {
+      const folderName = await getStoredFolderName()
+      toastStore.showToast(`Taki plik zapisany do folderu ${folderName}/Zestawienia`, 'success')
+    }
   } catch {
     alert('Błąd generowania PDF')
   }

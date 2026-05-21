@@ -2,6 +2,8 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import api from '@/composables/useApi'
 import { useFileDownload } from '@/composables/useFileDownload'
+import { useToastStore } from '@/stores/toast'
+import { useTargetFolder } from '@/composables/useTargetFolder.js'
 
 export const useContractStore = defineStore('contracts', () => {
   const list = ref([])
@@ -11,7 +13,9 @@ export const useContractStore = defineStore('contracts', () => {
   const serviceFees = ref([])
   const loading = ref(false)
 
-  const { downloadBlob } = useFileDownload()
+  const { saveToFolder } = useFileDownload()
+  const toastStore = useToastStore()
+  const { getStoredFolderName } = useTargetFolder()
 
   const overdueList = ref([])
   const overdueTotal = ref(0)
@@ -115,7 +119,16 @@ export const useContractStore = defineStore('contracts', () => {
       responseType: 'blob',
     })
     const cd = response.headers['content-disposition'] || ''
-    downloadBlob(response.data, cd, `raport_${contractId}.pdf`)
+    // Mapowanie typu raportu na podfolder
+    const docType = type === 'contract' ? 'umowy' : type.startsWith('protocol_zo') ? 'protokoly' : 'zestawienia'
+    // Nazwa pliku zgodna z konwencją AppRao (Content-Disposition z backendu)
+    // Backend zwraca: S129_2026.pdf lub PZO_S129_2026.pdf
+    const saved = await saveToFolder(response.data, cd, 'Umowa.pdf', docType)
+    if (saved) {
+      const folderName = await getStoredFolderName()
+      const subfolderNames = { umowy: 'Umowy', protokoly: 'Protokoly', zestawienia: 'Zestawienia' }
+      toastStore.showToast(`Taki plik zapisany do folderu ${folderName}/${subfolderNames[docType]}`, 'success')
+    }
   }
 
   return {

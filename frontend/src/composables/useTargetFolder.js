@@ -104,10 +104,26 @@ export function useTargetFolder() {
    */
   async function saveToSubfolder(blob, filename, subfolder) {
     if (!isSupported()) return false
-    const handle = await getStoredHandle()
+    let handle = await getStoredHandle()
     if (!handle) return false
     const hasPermission = await verifyPermission(handle)
-    if (!hasPermission) return false
+    if (!hasPermission) {
+      // Handle jest zapisany ale uprawnienia wygasły (np. po zamknięciu przeglądarki)
+      // Spróbuj automatycznie ponownie przydzielić uprawnienia
+      try {
+        const opts = { mode: 'readwrite' }
+        if (await handle.requestPermission(opts) === 'granted') {
+          // Uprawnienia przydzielone ponownie
+        } else {
+          // Użytkownik anulował lub uprawnienia nie zostały przydzielone
+          return false
+        }
+      } catch {
+        // Handle jest nieważny (SecurityError), usuń z IndexedDB
+        await clearStoredHandle()
+        return false
+      }
+    }
     try {
       // Utwórz/pobierz podfolder
       const subHandle = await handle.getDirectoryHandle(subfolder, { create: true })
