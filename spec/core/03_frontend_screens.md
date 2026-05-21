@@ -902,16 +902,53 @@ Tabela: data-testid="category-stats-table"
   Kategoria | Maszyny | Dni wynajmu | Umowy | Przychód | [bar progress]
 ```
 
-**Dane z:** `GET /stats/by-category?level=main|sub1&date_from&date_to&include_archival=false`
+**Dane z:** `GET /stats/by-category?level=main|sub1|sub2|sub3&date_from&date_to&include_archival&category_main[]&category_sub1&category_sub2&article_type`
 
 **Store:** `statsStore.byCategoryData` (CategoryStatsResponse), `statsStore.loadingByCategory`
 
 **Trigger ładowania kategorii:**
 - Przełączenie na sub-tab Kategorie
-- Zmiana poziomu (main ↔ sub1)
+- Zmiana poziomu (main ↔ sub1) gdy drilldownPath.length === 0
 - Zmiana date presetu lub kliknięcie "Filtruj"
+- Zmiana shared filters (articleType, categoryMains, archivalState)
+- Kliknięcie wiersza z drilldownable kategorią
+
+**RAO-P1-026: Drilldown (4 poziomy):**
+- `drilldownPath: ref([])` — ścieżka drilldown, np. `['Wozidła', 'Wózki widłowe']`
+- Kliknięcie wiersza z `categoryHasChildren(name) === true` → `drillDown(name)` → dodaje do ścieżki
+- Breadcrumb nad KPI row: `Wszystkie / Wozidła / Wózki widłowe` — klikalne (drillTo)
+- Level selector (main/sub1) widoczny tylko gdy `drilldownPath.length === 0`
+- `sortedCategoryItems` computed z sortKey/sortDir — sortowanie po kliknięciu nagłówka ▲▼
+
+**RAO-P1-026: Shared filter bar** (widoczny dla categories + timeline):
+- Rodzaj: `sharedArticleType` (all/machine/service)
+- Kategoria: multi-select dropdown z `statsStore.categoriesList`
+- Stan: `sharedArchivalState` (active/archival/all) → `includeArchival` computed
+
+**RAO-P1-026: Sub-tab "📅 Historia"** (`historySubTab === 'timeline'`):
+- `data-testid="timeline-panel"`
+- Granularity toggle: Miesiące/Lata (`granularity: ref('month')`)
+- Bar chart: `periodBarCanvas` ref, `renderPeriodBarChart()`, max 8 serii wg kategorii
+- Pivot table: `pivotData` computed — wiersze=kategorie, kolumny=okresy, sumy
+  - Kliknięcie kategorii → `selectPivotCategory(name)` → filtruje `sharedCategoryMains`
+- Loading: `statsStore.loadingByPeriod`, Error: `errorByPeriod`, Empty state
+- **Dane z:** `GET /stats/by-period?granularity&date_from&date_to&category_main[]&article_type&include_archival`
 
 ### Store: `useStatsStore` (stores/stats.js)
+
+**RAO-P1-026 rozszerzenia:**
+
+| Stan | Typ | Opis |
+|------|-----|------|
+| `loadingByPeriod` | `boolean` | loading dla /stats/by-period |
+| `byPeriodData` | `ByPeriodResponse\|null` | dane historyczne per-period |
+| `categoriesList` | `CategoriesListNode[]` | drzewo kategorii (dla dropdown) |
+
+| Funkcja | Endpoint |
+|---------|----------|
+| `fetchByCategory(level, df, dt, includeArchival, categoryMains[], catSub1, catSub2, articleType)` | GET /stats/by-category (URLSearchParams) |
+| `fetchByPeriod(granularity, df, dt, categoryMains[], articleType, includeArchival)` | GET /stats/by-period |
+| `fetchCategoriesList()` | GET /stats/categories-list |
 
 ---
 

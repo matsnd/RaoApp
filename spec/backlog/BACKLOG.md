@@ -3551,6 +3551,8 @@ status: in_progress
 classification: cross-stack
 roles: [backend-dev, frontend-dev, db-architect]
 depends_on: [RAO-P1-017, RAO-P1-024]
+frontend_done: 2026-05-22
+frontend_commit: 40b364e
 blocks: []
 source: internal
 source_date: 2026-05-21
