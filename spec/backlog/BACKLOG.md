@@ -1,6 +1,6 @@
 # RAO Backlog — Master Backlog
 
-> **Last updated:** 2026-05-18  
+> **Last updated:** 2026-05-21  
 > **Format:** YAML front-matter + sekcje (parsowalne przez agentów)  
 > **Source:** Unified backlog (merge of 19_BACKLOG.md + 21_BACKLOG_CLIENT.md)
 
@@ -3541,15 +3541,94 @@ Naprawić import @vuepic/vue-datepicker — obecnie rzuca SyntaxError: "The requ
 
 ---
 
+### [RAO-P1-026] Rozbudowa filtrów statystyk — drilldown kategorii, CSV export, udźwig, archiwalne
+
+```yaml
+id: RAO-P1-026
+priority: P1
+size: L
+status: triaged
+classification: cross-stack
+roles: [backend-dev, frontend-dev, db-architect]
+depends_on: [RAO-P1-017, RAO-P1-024]
+blocks: []
+source: internal
+source_date: 2026-05-21
+specs_to_update:
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+  - core/11_reports_stats.md
+migration_impact: no
+security_impact: low
+```
+
+**Job-to-be-done:**
+Domknąć UX widoku "Analiza historyczna → Kategorie" (RAO-P1-017 był formalnie done, ale zostawił 4 luki P1).
+Dodać drilldown main→sub1, filtr kategorii głównej, filtr rodzaju (globalny), archiwalne toggle, udźwig chipy,
+CSV export tabeli, sortowanie kolumn, statystyki per rok/miesiąc. Bez persistencji filtrów (reset przy F5).
+
+**Decyzje designu (PO + UX, 2026-05-21):**
+- Drilldown: kliknięcie wiersza "Wozidła" w tabeli → filtruje sub1 tylko tej kategorii (breadcrumb "Wszystkie → Wozidła ✕")
+- Filtr "Rodzaj" (Maszyny/Usługi): globalny nad sub-tabami, działa zarówno w Ogólne jak i Kategorie
+- Udźwig: chipy `[<1t][1-5t][5-20t][20-50t][>50t][Własny ▾]` z warningiem o brakujących danych; w tym zadaniu sub-task: weryfikacja czy migracja CSV poprawnie wypełniła `technical_attributes.udzwig`
+- Persistencja: BRAK (reset przy F5 — KISS)
+- Statystyki per rok/miesiąc: widok historii z podziałem temporalnym (nowy sub-tab lub oś czasu)
+
+**Acceptance criteria (DoD):**
+
+**Backend:**
+- [ ] `GET /stats/by-category` — nowy parametr `category_main` (filtr, opcjonalny, multi-value) → zwraca tylko sub1/sub2 danej kategorii
+- [ ] `GET /stats/by-category` — nowy parametr `article_type` (machine/service/all, default=all) → działa globalnie
+- [ ] `GET /stats/by-category` — nowy parametr `include_archival` (boolean, default=false) dostępny w UI (był hardcoded)
+- [ ] `GET /stats/by-category` — nowy parametr `lifting_capacity_ranges` (lista zakresów: `<1,1-5,5-20,20-50,>50`) → filtruje przez `JSON_EXTRACT(technical_attributes, '$.udzwig')` BETWEEN; zwraca `missing_capacity_count` (ile maszyn pominięto przez brak danych)
+- [ ] `GET /stats/by-period` (NOWY endpoint) — zwraca agregaty per rok/miesiąc: `{period, revenue, contracts_count, rented_days}`, parametry: `date_from/to`, `granularity=month|year`, `category_main[]`, `article_type`
+- [ ] `GET /stats/categories-list` (NOWY endpoint lub rozszerzenie istniejącego) — lista kategorii głównych z liczbą maszyn (do dropdown filtra), + lista sub1 per main
+
+**Sub-task udźwig (priorytet przed filtrem):**
+- [ ] Weryfikacja migracji CSV: sprawdź `SELECT COUNT(*), technical_attributes FROM articles WHERE technical_attributes IS NOT NULL LIMIT 20` — czy pole `udzwig` jest wypełnione poprawnie w jednostkach (kg? t? string?)
+- [ ] Jeśli dane niespójne → normalizacja w `migrate.py` (konwersja do kg int, np. "5t" → 5000, "5000 kg" → 5000)
+- [ ] Backup plan: jeśli dane zbyt śmietnikowe → filtr udźwig jako "nice to have" w tym zadaniu, przesuń do P2
+
+**Frontend:**
+- [ ] Panel filtrów (stały, nad sub-tabami w "Analiza historyczna"): Rodzaj | Kategoria główna (dropdown multi-select) | Stan archiwalnych (tri-state pill) | Udźwig chipy
+- [ ] Przycisk "Więcej filtrów ▾" → collapsible: Podkategoria 1 (disabled jeśli main nie wybrana), Udźwig (jeśli dane dostępne)
+- [ ] Chip-summary aktywnych filtrów pod panelem: `[Maszyny ✕] [Wozidła ✕] [5-20t ✕]` + "Wyczyść wszystko"
+- [ ] Drilldown: kliknięcie wiersza w tabeli kategorii → breadcrumb "Wszystkie → {nazwa} ✕" + przeładowanie na level=sub1 z filtrem
+- [ ] Sortowanie kolumn tabeli (klik nagłówka → ASC/DESC)
+- [ ] Przycisk "Eksport CSV" → pobiera aktualną tabelę z BOM UTF-8 (dla Excela) + aktywne filtry w nazwie pliku
+- [ ] Warning przy filtrze udźwig: "ℹ️ X pozycji bez podanego udźwigu zostało pominiętych"
+- [ ] Sub-tab lub oś czasu "Per rok/miesiąc" — bar chart z granularnością month/year, filtry dziedziczone z panelu
+
+**QA DoD:**
+- [ ] Smoke test `01-login.spec.ts` 11/11 PASS
+- [ ] Build `npm run build` bez błędów
+- [ ] `npx vue-tsc --noEmit` bez błędów
+
+**Spec DoD:**
+- [ ] `spec/core/02_backend_api.md` — nowe parametry `/by-category`, nowe endpointy `/by-period`, `/categories-list`
+- [ ] `spec/core/03_frontend_screens.md` — panel filtrów, drilldown, eksport CSV
+- [ ] `spec/core/11_reports_stats.md` — zaktualizowany opis widoku Kategorie
+
+**Pliki do zmiany:**
+- `backend/stats/router.py`, `backend/stats/calc.py` (nowe parametry + nowe endpointy)
+- `frontend/src/views/ReportsSection.vue` (panel filtrów, drilldown, CSV export)
+- `backend/migrate.py` (normalizacja `udzwig` jeśli potrzebna)
+
+**ROI:** Domknięcie P1-017 (UX luki od 2+ tygodni) + nowa wartość: per-rok/miesiąc analiza = 10 raportów/mc × 5 userów = 50 użyć/mc
+**Estimate:** 10-12h (L) — backend 4h + frontend 5h + udźwig-verify 1-2h
+**Deadline:** przed go-live klienta
+
+---
+
 ## 📊 Podsumowanie
 
 | Priorytet | Liczba | Effort łączny |
 |-----------|--------|---------------|
 | 🚨 P0 | 5 | ~7h |
-| 🔴 P1 | 13 | ~58h |
+| 🔴 P1 | 14 | ~70h |
 | 🟡 P2 | 12 | ~72h |
 | 🟢 P3 | 5 | ~20h |
-| **Razem** | **35** | **~157h** |
+| **Razem** | **36** | **~169h** |
 
 ---
 
@@ -3608,4 +3687,5 @@ n|| RAO-P1-008 | Strukturalizacja adresów: kod pocztowy + miasto | Client | P1 
 || RAO-P2-018 | SPIKE: Foldery docelowe dla pobieranych plików | Internal | P2 | S | done | tech-lead |
 || RAO-P3-013 | Konfigurowalne foldery pobierania — FS Access API | Internal | P3 | M | done | frontend-dev |
 || RAO-P1-024 | BUG: CSV migration — is_service + model brakują | Internal | P1 | S | done | backend-dev |
+|| RAO-P1-026 | Filtry statystyk: drilldown, CSV export, udźwig, archiwalne, per-rok/miesiąc | Internal | P1 | L | triaged | cross-stack |
 || RAO-P2-019 | Drzewiaste kategorie — picker, settings, breadcrumb | Internal | P2 | L | done | cross-stack |
