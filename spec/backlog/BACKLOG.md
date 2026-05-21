@@ -3588,12 +3588,21 @@ czyste rekordy bez powtórzeń. Statystyki domyślnie wykluczają archiwalne (`e
 **Acceptance criteria (DoD):**
 
 **Backend:**
-- [ ] `GET /stats/by-category` — nowy parametr `category_main` (filtr, opcjonalny, multi-value) → zwraca tylko sub1/sub2 danej kategorii
+- [ ] `GET /stats/by-category` — rozszerzenie parametru `level` z `main|sub1` na `main|sub1|sub2` (sub3 ma tylko 2 wiersze w CSV — pomijamy)
+- [ ] `GET /stats/by-category` — nowy parametr `category_main` (filtr, opcjonalny, multi-value) → gdy level=sub1, zwraca tylko sub1 wybranych kategorii głównych; gdy level=sub2, zwraca tylko sub2 wybranej sub1
+- [ ] `GET /stats/by-category` — nowy parametr `category_sub1` (filtr, opcjonalny) → używany przy level=sub2 do zawężenia do konkretnej gałęzi
 - [ ] `GET /stats/by-category` — nowy parametr `article_type` (machine/service/all, default=all) → działa globalnie
 - [ ] `GET /stats/by-category` — nowy parametr `include_archival` (boolean, default=false) dostępny w UI (był hardcoded)
 - [ ] `GET /stats/by-category` — nowy parametr `lifting_capacity_ranges` (lista zakresów: `<1,1-5,5-20,20-50,>50`) → filtruje przez `JSON_EXTRACT(technical_attributes, '$.udzwig')` BETWEEN; zwraca `missing_capacity_count` (ile maszyn pominięto przez brak danych)
 - [ ] `GET /stats/by-period` (NOWY endpoint) — zwraca agregaty per rok/miesiąc: `{period, revenue, contracts_count, rented_days}`, parametry: `date_from/to`, `granularity=month|year`, `category_main[]`, `article_type`
-- [ ] `GET /stats/categories-list` (NOWY endpoint lub rozszerzenie istniejącego) — lista kategorii głównych z liczbą maszyn (do dropdown filtra), + lista sub1 per main
+- [ ] `GET /stats/categories-list` (NOWY endpoint) — zwraca pełne drzewo kategorii: `{main, sub1[], sub2[]}` z liczbą maszyn per węzeł; używane przez dropdown filtra i drilldown breadcrumb
+
+**Dane kategorii w CSV (weryfikacja 2026-05-21):**
+- 268 wierszy łącznie
+- ~263 ma sub1 (Kategoria I) — pełna pokrycie
+- 39 ma sub2 (Kategoria II) — dotyczy: Ładowarki Teleskopowe Obrotowe/Sztywne, Podnośniki Nożycowe Spalinowe/Elektryczne, Wozidła > Wózki widłowe elektryczne/gazowe
+- 2 ma sub3 (Kategoria III) — pomijamy (za małe N, brak sensu biznesowego)
+- Sub2 jest w bazie (migrate.py zapisuje category_sub2) — wymaga tylko rozszerzenia backendu
 
 **Sub-task udźwig (priorytet przed filtrem):**
 - [ ] Weryfikacja migracji CSV: sprawdź `SELECT COUNT(*), technical_attributes FROM articles WHERE technical_attributes IS NOT NULL LIMIT 20` — czy pole `udzwig` jest wypełnione poprawnie w jednostkach (kg? t? string?)
@@ -3630,11 +3639,13 @@ Dodać **pod date-pills, nad sub-tabami** (czyli przed `<div class="explorer-sub
 
 **C) Rozbudowa sub-tabu "🏷️ Kategorie" (istniejący)**
 
-- [ ] Drilldown: `<tr>` w tabeli staje się klikalny (`cursor:pointer`, `@click="drilldown(cat.category_name)"`). Kliknięcie:
-  1. Ustawia `categoryDrilldown = cat.category_name`
-  2. Ustawia `categoryLevel = 'sub1'`
-  3. Przeładowuje `/by-category?level=sub1&category_main=Wozidła`
-  4. Pokazuje breadcrumb nad tabelą: `← Wszystkie kategorie  /  Wozidła` z klikalnym "← Wszystkie kategorie" który resetuje drilldown
+- [ ] Drilldown przez 3 poziomy (main → sub1 → sub2):
+  - Klik wiersza na poziomie main (`level=main`) → przeładuj na `level=sub1&category_main={nazwa}`
+  - Klik wiersza na poziomie sub1 → przeładuj na `level=sub2&category_main={main}&category_sub1={nazwa}`
+  - Na poziomie sub2 klik wiersza nie robi nic (koniec drzewa — sub3 pomijamy)
+  - Jeśli dana kategoria nie ma sub2 w drzewie (z `/stats/categories-list`) → klik wiersza na sub1 nie jest aktywny (brak `cursor:pointer`, brak `@click`)
+  - Breadcrumb nad tabelą: `Wszystkie  /  Wozidła  /  Wózki widłowe` — każdy segment klikalny (wraca do danego poziomu z odpowiednimi filtrami)
+  - Stan drilldownu: `drilldownPath = []` (main) | `['Wozidła']` (sub1) | `['Wozidła', 'Wózki widłowe']` (sub2)
 - [ ] Sortowanie kolumn: każdy `<th>` klikalny, `sortKey ref` + `sortDir ref` (asc/desc), ikona ▲▼ przy aktywnej kolumnie, domyślnie sort po `revenue DESC`
 - [ ] Warning udźwig (jeśli filtr udźwig aktywny i `missing_capacity_count > 0`): żółty banner pod panelem filtrów: `ℹ️ {missing_capacity_count} pozycji bez podanego udźwigu zostało pominiętych`
 
