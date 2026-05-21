@@ -701,10 +701,10 @@ class ContractCreate(BaseModel):
     delivery_address: str | None = None
     date_from: date | None = None
     date_to: date | None = None
-    total_value: Decimal = Decimal("0.00")
-    prepayment_amount: Decimal = Decimal("0.00")
+    total_value: Decimal | None = None  # nullable dla Playwright (2026-05-21)
+    prepayment_amount: Decimal | None = None  # nullable dla Playwright (2026-05-21)
     prepayment_document: str | None = None
-    invoice_amount: Decimal = Decimal("0.00")
+    invoice_amount: Decimal | None = None  # nullable dla Playwright (2026-05-21)
     invoice_document: str | None = None
     notes: str | None = None
     # UWAGA: Usługi dodatkowe tworzone automatycznie z service_fee_templates
@@ -1111,6 +1111,7 @@ class ContractSettlementResponse(BaseModel):
     contract_id: int
     position_id: int | None = None
     service_fee_id: int | None = None  # RAO-P2-012
+    service_fee_name: str | None = None  # RAO-P2-012: nazwa usługi dodatkowej dla UI (2026-05-21)
     cost_client: Decimal | None = None
     cost_company: Decimal | None = None
     margin: Decimal | None = None  # auto-calculated: cost_client - cost_company

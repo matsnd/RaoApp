@@ -119,9 +119,10 @@ async def fetch_invoices_for_contract(
         if user.branch_id is None or contract.branch_id != user.branch_id:
             raise HTTPException(status_code=403, detail="Brak dostepu do tej umowy")
 
-    oid = contract.oid
+    # OID = numer umowy (contract.number) - tak będzie dodane w Fakturownia
+    oid = contract.number
     if not oid:
-        raise HTTPException(status_code=422, detail="Umowa nie posiada numeru OID (zamówienia Fakturownia)")
+        raise HTTPException(status_code=422, detail="Umowa nie posiada numeru")
 
     obj = await get_or_create_settings(db)
     client = _build_client(obj)

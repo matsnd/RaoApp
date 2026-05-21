@@ -95,8 +95,8 @@ async def _compute_position_revenues(
     )
     if service_filter is not None:
         stmt = stmt.where(Article.is_service == service_filter)
-    # RAO-P1-017: domyślnie wyklucz maszyny archiwalne (nie dotyczy usług)
-    if exclude_archival and service_filter is not True:
+    # RAO-P1-017: domyślnie wyklucz artykuły archiwalne (również usługi)
+    if exclude_archival:
         stmt = stmt.where(Article.is_archival == False)
         stmt = stmt.where(Article.is_external == False)  # RAO-P1-027: wyklucz maszyny zewnętrzne
     # RAO-P1-026: filtry kategorii

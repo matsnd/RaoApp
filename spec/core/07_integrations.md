@@ -637,7 +637,12 @@ Response:
 
 **Frontend:**
 - SettingsView → tab Fakturownia → subdomena + token
-- ContractFormView → pole OID + guzik 💰
+- ContractFormView → guzik 💰 (Pobierz koszty z Fakturownia)
+
+**OID jako numer umowy (2026-05-21):**
+- OID w RAO to numer umowy (contract.number)
+- API Fakturownia otrzymuje OID jako numer zamówienia
+- Logika pobierania używa contract.number zamiast contract.oid
 
 ### Security
 

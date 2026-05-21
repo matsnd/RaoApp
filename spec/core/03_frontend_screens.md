@@ -1056,14 +1056,7 @@ async function fetchProducts()
 async function fetchInvoicesByContractId(contractId: number)
 ```
 
-### ContractFormView — pole OID + guzik 💰
-
-**Pole OID:**
-- Lokalizacja: formularz danych kontraktu (po numerze umowy)
-- Label: "OID (zamówienie Fakturownia)"
-- Type: text input
-- Placeholder: "np. 12345"
-- Model: `form.oid`
+### ContractFormView — guzik 💰 (Pobierz koszty z Fakturownia)
 
 **Guzik 💰:**
 - Lokalizacja: toolbar (obok przycisków PDF, Protokół ZO, Przelicz)
@@ -1182,7 +1175,7 @@ async function handleFakturownia() {
 
 **Zmiany:**
 - Pola pogrupowane w 4 sekcje/karty:
-  1. **Dane podstawowe** (typ, numer, OID, okres umowy)
+  1. **Dane podstawowe** (typ, numer, okres umowy)
   2. **Kontrahent i adres dostawy** (wybór kontrahenta, adres)
   3. **Warunki finansowe** (handlowiec, oddział, wartość, przedpłata, faktura)
   4. **Kontakt i uwagi** (osoby kontaktowe, email, telefon, uwagi, opcje)
@@ -1193,6 +1186,7 @@ async function handleFakturownia() {
   - Label: "Okres umowy (od — do) *"
   - Emity: `update:dateFrom`, `update:dateTo` → `form.date_from`, `form.date_to`
   - Walidacja: `v-if="!form.date_from"` → "Podaj datę od"
+  - **2026-05-21:** Wyświetlanie dat bez godziny (format: dd.MM.yyyy - dd.MM.yyyy)
 - Inline validation dla required fields (data od, kontrahent)
 - Layout adresu dostawy poprawiony:
   - Select adresu w osobnym rzędzie
