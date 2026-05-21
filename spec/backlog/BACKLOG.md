@@ -3600,14 +3600,91 @@ czyste rekordy bez powtórzeń. Statystyki domyślnie wykluczają archiwalne (`e
 - [ ] Jeśli dane niespójne → normalizacja w `migrate.py` (konwersja do kg int, np. "5t" → 5000, "5000 kg" → 5000)
 - [ ] Backup plan: jeśli dane zbyt śmietnikowe → filtr udźwig jako "nice to have" w tym zadaniu, przesuń do P2
 
-**Frontend:**
-- [ ] Panel filtrów (stały, nad sub-tabami w "Analiza historyczna"): Rodzaj | Kategoria główna (dropdown multi-select) | Stan archiwalnych (tri-state pill) | Udźwig chipy
-- [ ] Przycisk "Więcej filtrów ▾" → collapsible: Podkategoria 1 (disabled jeśli main nie wybrana), Udźwig (jeśli dane dostępne)
-- [ ] Chip-summary aktywnych filtrów pod panelem: `[Maszyny ✕] [Wozidła ✕] [5-20t ✕]` + "Wyczyść wszystko"
-- [ ] Drilldown: kliknięcie wiersza w tabeli kategorii → breadcrumb "Wszystkie → {nazwa} ✕" + przeładowanie na level=sub1 z filtrem
-- [ ] Sortowanie kolumn tabeli (klik nagłówka → ASC/DESC)
-- [ ] Warning przy filtrze udźwig: "ℹ️ X pozycji bez podanego udźwigu zostało pominiętych"
-- [ ] Sub-tab lub oś czasu "Per rok/miesiąc" — bar chart z granularnością month/year, filtry dziedziczone z panelu
+**Frontend — szczegółowy opis implementacji:**
+
+**A) Nowy sub-tab "📅 Historia" obok "🏷️ Kategorie"**
+
+Obecna struktura sub-tabów w "Analiza historyczna":
+```
+[📊 Ogólne]  [🏷️ Kategorie]
+```
+Po zmianie:
+```
+[📊 Ogólne]  [🏷️ Kategorie]  [📅 Historia]
+```
+Sub-tab "Historia" (historySubTab === 'timeline') jest **nowym widokiem** w tym samym `<div v-show="activeTab === 'history'">`.
+
+**B) Panel filtrów — wspólny dla Kategorie i Historia**
+
+Dodać **pod date-pills, nad sub-tabami** (czyli przed `<div class="explorer-subtabs">`), widoczny gdy `historySubTab === 'categories' || historySubTab === 'timeline'`:
+
+```
+[ Rodzaj: [Wszystkie] [Maszyny ●] [Usługi] ]   [ Kategoria: [— wszystkie ▾] ]   [ Stan: [Aktywne ●] [Archiwalne] [Wszystkie] ]
+```
+
+- **Rodzaj** — 3 pille (identyczne jak obecne w Ogólne, tylko przeniesione wyżej i obejmujące oba sub-taby)
+- **Kategoria główna** — dropdown multi-select; opcje pobierane z nowego `GET /stats/categories-list`; gdy wybrana → sub-tab Kategorie automatycznie przełącza level na `sub1` i dodaje breadcrumb; gdy wybrana → sub-tab Historia filtruje serie tylko do wybranych kategorii
+- **Stan archiwalnych** — tri-state pill: `Aktywne` (default, `include_archival=false`) / `Archiwalne` (`include_archival=true, exclude_active=true`) / `Wszystkie` (`include_archival=true`)
+- Zmiana filtra → natychmiast przeładowuje dane aktywnego sub-tabu
+- Reset przy F5 (brak localStorage)
+
+**C) Rozbudowa sub-tabu "🏷️ Kategorie" (istniejący)**
+
+- [ ] Drilldown: `<tr>` w tabeli staje się klikalny (`cursor:pointer`, `@click="drilldown(cat.category_name)"`). Kliknięcie:
+  1. Ustawia `categoryDrilldown = cat.category_name`
+  2. Ustawia `categoryLevel = 'sub1'`
+  3. Przeładowuje `/by-category?level=sub1&category_main=Wozidła`
+  4. Pokazuje breadcrumb nad tabelą: `← Wszystkie kategorie  /  Wozidła` z klikalnym "← Wszystkie kategorie" który resetuje drilldown
+- [ ] Sortowanie kolumn: każdy `<th>` klikalny, `sortKey ref` + `sortDir ref` (asc/desc), ikona ▲▼ przy aktywnej kolumnie, domyślnie sort po `revenue DESC`
+- [ ] Warning udźwig (jeśli filtr udźwig aktywny i `missing_capacity_count > 0`): żółty banner pod panelem filtrów: `ℹ️ {missing_capacity_count} pozycji bez podanego udźwigu zostało pominiętych`
+
+**D) Nowy sub-tab "📅 Historia" — szczegółowo**
+
+Widok składa się z dwóch sekcji:
+
+**D1) Przełącznik granularności** (nad wykresem):
+```
+Grupuj po: [● Miesiące]  [Lata]
+```
+`granularity ref` = `'month'` | `'year'`, default `'month'`
+
+**D2) Grouped bar chart (Chart.js)**
+
+- Endpoint: `GET /stats/by-period?date_from=...&date_to=...&granularity=month&category_main[]=Wozidła&article_type=machine`
+- Response: lista `{period: "2024-03", revenue, contracts_count, rented_days}` per kategoria per okres
+- Wykres: **grouped bar chart** (jedna grupa słupków na miesiąc/rok, każda kategoria = inny kolor)
+- Oś X: okresy (`sty 24`, `lut 24`, ...) — format `MMM YY` dla miesięcy, `YYYY` dla lat
+- Oś Y: przychód (zł)
+- Legenda: nazwy kategorii (max 8 serii, reszta schowana pod "Pozostałe")
+- Jeśli żadna kategoria nie wybrana w filtrze → pokaż TOP 5 kategorii z całego okresu (automatycznie, żeby wykres nie był pusty przy pierwszym wejściu)
+- Tooltip on hover: `{kategoria}\n{okres}: {przychód} zł, {umowy} umów, {dni} dni`
+
+**D3) Tabela pod wykresem**
+
+Tabela przestawna (pivot):
+```
+Kategoria        | sty 24 | lut 24 | mar 24 | ... | SUMA
+─────────────────┼────────┼────────┼────────┼─────┼──────
+Wozidła          | 45 000 | 38 000 | 52 000 | ... | ...
+Ładowarki        | 12 000 | 15 000 |  9 000 | ... | ...
+─────────────────┼────────┼────────┼────────┼─────┼──────
+SUMA             | 57 000 | 53 000 | 61 000 | ... | ...
+```
+- Wartości: przychód (zł), skrócony format (np. `45 tys.` dla >=10000)
+- Kolumny = okresy z zakresu dat (posortowane chronologicznie)
+- Wiersze = kategorie (posortowane malejąco po kolumnie SUMA)
+- Ostatni wiersz = suma per okres
+- Ostatnia kolumna = suma per kategoria
+- Kliknięcie nazwy kategorii w tabeli = ustawia filtr kategorii (jak drilldown)
+- Jeśli granularity=year i zakres > 5 lat → pokaż komunikat "Zawężenie zakresu dat poprawi czytelność"
+- Jeśli granularity=month i zakres > 24 miesięcy → analogiczny komunikat
+
+**E) Stany brzegowe (oba sub-taby)**
+
+- Loading: skeleton (3 wiersze tabeli + spinner)
+- Empty (brak danych): "Brak danych dla wybranych filtrów" + przycisk "Wyczyść filtry"
+- Error API: "⚠️ Błąd ładowania danych. Spróbuj ponownie." + retry button
+- Debounce 300ms na zmianę filtra (nie wysyłaj request przy każdym kliknięciu w szybkiej sekwencji)
 
 **QA DoD:**
 - [ ] Smoke test `01-login.spec.ts` 11/11 PASS
