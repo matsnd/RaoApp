@@ -172,7 +172,7 @@ class ContractService:
                 is_settled=c.is_settled,
                 settled_at=c.settled_at,
                 salesperson_name=sp_name,
-                duration=duration,
+                duration_days=duration,
                 created_at=c.created_at,
                 updated_at=c.updated_at,
             ))
@@ -258,7 +258,7 @@ class ContractService:
                 is_settled=c.is_settled,
                 settled_at=c.settled_at,
                 salesperson_name=sp_name,
-                duration=duration,
+                duration_days=duration,
                 created_at=c.created_at,
                 updated_at=c.updated_at,
             ))

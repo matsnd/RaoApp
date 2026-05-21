@@ -3,6 +3,7 @@ from sqlalchemy.orm import relationship
 from database import Base
 from .service_hours import ServiceHour
 from decimal import Decimal
+from articles.models import Article
 
 
 class Contract(Base):

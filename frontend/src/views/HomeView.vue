@@ -80,99 +80,132 @@
       </div>
     </div>
 
+    <!-- QUICK NAV STRIP -->
+    <div class="quick-nav-strip">
+      <div class="nav-grid-full">
+        <button class="nav-tile" @click="$router.push('/dashboard/contracts')">
+          <span class="nav-tile-icon">📄</span>
+          <span>Umowy</span>
+        </button>
+        <button class="nav-tile" @click="$router.push('/dashboard/contractors')">
+          <span class="nav-tile-icon">👤</span>
+          <span>Kontrahenci</span>
+        </button>
+        <button class="nav-tile" @click="$router.push('/dashboard/articles')">
+          <span class="nav-tile-icon">🔧</span>
+          <span>Artykuły</span>
+        </button>
+        <button class="nav-tile" @click="$router.push('/worker')">
+          <span class="nav-tile-icon">🖥</span>
+          <span>Pulpit</span>
+        </button>
+        <button class="nav-tile" @click="$router.push('/dashboard/reports')">
+          <span class="nav-tile-icon">📊</span>
+          <span>Raporty</span>
+        </button>
+        <button class="nav-tile" @click="$router.push('/commissions')">
+          <span class="nav-tile-icon">💰</span>
+          <span>Prowizje</span>
+        </button>
+      </div>
+    </div>
+
     <!-- MAIN CONTENT GRID -->
     <div class="home-grid">
-      <!-- LEFT: Expiring contracts -->
-      <div class="home-panel panel-expiring">
-        <div class="panel-header">
-          <span class="panel-icon">⏰</span>
-          <h2>Kończące się umowy</h2>
-          <span class="panel-badge" v-if="expiring.length">{{ expiring.length }}</span>
-        </div>
+      <!-- LEFT COLUMN -->
+      <div class="home-left">
+        <!-- LEFT: Expiring contracts -->
+        <div class="home-panel panel-expiring">
+          <div class="panel-header">
+            <span class="panel-icon">⏰</span>
+            <h2>Kończące się umowy</h2>
+            <span class="panel-badge" v-if="expiring.length">{{ expiring.length }}</span>
+          </div>
 
-        <div v-if="loading.expiring" class="panel-loading">
-          <div class="skel-row" v-for="i in 4" :key="i"></div>
-        </div>
+          <div v-if="loading.expiring" class="panel-loading">
+            <div class="skel-row" v-for="i in 4" :key="i"></div>
+          </div>
 
-        <div v-else-if="!expiring.length" class="panel-empty">
-          <span class="empty-icon">📋</span>
-          <p>Brak umów kończących się w ciągu 14 dni</p>
-        </div>
+          <div v-else-if="!expiring.length" class="panel-empty">
+            <span class="empty-icon">📋</span>
+            <p>Brak umów kończących się w ciągu 14 dni</p>
+          </div>
 
-        <div v-else class="expiring-list">
-          <div
-            v-for="c in expiring"
-            :key="c.id"
-            class="exp-row"
-            :class="urgencyClass(c.days_left)"
-            @click="$router.push(`/contracts/${c.id}/edit`)"
-          >
-            <div class="exp-urgency-bar"></div>
-            <div class="exp-body">
-              <div class="exp-top">
-                <span class="exp-number">{{ c.number }}</span>
-                <span class="exp-days" :class="urgencyClass(c.days_left)">
-                  {{ c.days_left === 0 ? 'Dziś!' : `${c.days_left}d` }}
-                </span>
-              </div>
-              <div class="exp-contractor">{{ c.contractor_name }}</div>
-              <div class="exp-meta">
-                <span v-if="c.delivery_address" class="exp-addr">📍 {{ c.delivery_address }}</span>
-                <span class="exp-date">do {{ fmtDate(c.date_to) }}</span>
-              </div>
-              <div class="exp-contact" v-if="c.contact_person1 || c.contact_phone1">
-                <span v-if="c.contact_person1">{{ c.contact_person1 }}</span>
-                <a v-if="c.contact_phone1" :href="`tel:${c.contact_phone1}`" class="phone-link" @click.stop>
-                  📞 {{ c.contact_phone1 }}
-                </a>
+          <div v-else class="expiring-list">
+            <div
+              v-for="c in expiring"
+              :key="c.id"
+              class="exp-row"
+              :class="urgencyClass(c.days_left)"
+              @click="$router.push(`/contracts/${c.id}/edit`)"
+            >
+              <div class="exp-urgency-bar"></div>
+              <div class="exp-body">
+                <div class="exp-top">
+                  <span class="exp-number">{{ c.number }}</span>
+                  <span class="exp-days" :class="urgencyClass(c.days_left)">
+                    {{ c.days_left === 0 ? 'Dziś!' : `${c.days_left}d` }}
+                  </span>
+                </div>
+                <div class="exp-contractor">{{ c.contractor_name }}</div>
+                <div class="exp-meta">
+                  <span v-if="c.delivery_address" class="exp-addr">📍 {{ c.delivery_address }}</span>
+                  <span class="exp-date">do {{ fmtDate(c.date_to) }}</span>
+                </div>
+                <div class="exp-contact" v-if="c.contact_person1 || c.contact_phone1">
+                  <span v-if="c.contact_person1">{{ c.contact_person1 }}</span>
+                  <a v-if="c.contact_phone1" :href="`tel:${c.contact_phone1}`" class="phone-link" @click.stop>
+                    📞 {{ c.contact_phone1 }}
+                  </a>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Overdue contracts -->
-      <div class="home-panel panel-overdue">
-        <div class="panel-header">
-          <span class="panel-icon">🔴</span>
-          <h2>Przeterminowane umowy</h2>
-          <span class="panel-badge panel-badge-red" v-if="overdue.length">{{ overdue.length }}</span>
-        </div>
+        <!-- Overdue contracts -->
+        <div class="home-panel panel-overdue">
+          <div class="panel-header">
+            <span class="panel-icon">🔴</span>
+            <h2>Przeterminowane umowy</h2>
+            <span class="panel-badge panel-badge-red" v-if="overdue.length">{{ overdue.length }}</span>
+          </div>
 
-        <div v-if="loading.overdue" class="panel-loading">
-          <div class="skel-row" v-for="i in 4" :key="i"></div>
-        </div>
+          <div v-if="loading.overdue" class="panel-loading">
+            <div class="skel-row" v-for="i in 4" :key="i"></div>
+          </div>
 
-        <div v-else-if="!overdue.length" class="panel-empty">
-          <span class="empty-icon">✅</span>
-          <p>Brak przeterminowanych umów</p>
-        </div>
+          <div v-else-if="!overdue.length" class="panel-empty">
+            <span class="empty-icon">✅</span>
+            <p>Brak przeterminowanych umów</p>
+          </div>
 
-        <div v-else class="expiring-list">
-          <div
-            v-for="c in overdue"
-            :key="c.id"
-            class="exp-row overdue-row"
-            @click="$router.push(`/contracts/${c.id}/edit`)"
-          >
-            <div class="exp-urgency-bar overdue-bar"></div>
-            <div class="exp-body">
-              <div class="exp-top">
-                <span class="exp-number">{{ c.number }}</span>
-                <span class="exp-days overdue-days">
-                  {{ daysOverdue(c) }} dni
-                </span>
-              </div>
-              <div class="exp-contractor">{{ c.contractor_name }}</div>
-              <div class="exp-meta">
-                <span v-if="c.delivery_address" class="exp-addr">📍 {{ c.delivery_address }}</span>
-                <span class="exp-date">zakończono {{ fmtDate(c.date_to) }}</span>
-              </div>
-              <div class="exp-contact" v-if="c.contact_person1 || c.contact_phone1">
-                <span v-if="c.contact_person1">{{ c.contact_person1 }}</span>
-                <a v-if="c.contact_phone1" :href="`tel:${c.contact_phone1}`" class="phone-link" @click.stop>
-                  📞 {{ c.contact_phone1 }}
-                </a>
+          <div v-else class="expiring-list">
+            <div
+              v-for="c in overdue"
+              :key="c.id"
+              class="exp-row overdue-row"
+              @click="$router.push(`/contracts/${c.id}/edit`)"
+            >
+              <div class="exp-urgency-bar overdue-bar"></div>
+              <div class="exp-body">
+                <div class="exp-top">
+                  <span class="exp-number">{{ c.number }}</span>
+                  <span class="exp-days overdue-days">
+                    {{ daysOverdue(c) }} dni
+                  </span>
+                </div>
+                <div class="exp-contractor">{{ c.contractor_name }}</div>
+                <div class="exp-meta">
+                  <span v-if="c.delivery_address" class="exp-addr">📍 {{ c.delivery_address }}</span>
+                  <span class="exp-date">zakończono {{ fmtDate(c.date_to) }}</span>
+                </div>
+                <div class="exp-contact" v-if="c.contact_person1 || c.contact_phone1">
+                  <span v-if="c.contact_person1">{{ c.contact_person1 }}</span>
+                  <a v-if="c.contact_phone1" :href="`tel:${c.contact_phone1}`" class="phone-link" @click.stop>
+                    📞 {{ c.contact_phone1 }}
+                  </a>
+                </div>
               </div>
             </div>
           </div>
@@ -285,41 +318,6 @@
             </div>
           </div>
         </div>
-
-        <!-- Quick Nav -->
-        <div class="home-panel panel-nav">
-          <div class="panel-header">
-            <span class="panel-icon">⚡</span>
-            <h2>Szybka nawigacja</h2>
-          </div>
-          <div class="nav-grid">
-            <button class="nav-tile" @click="$router.push('/dashboard/contracts')">
-              <span class="nav-tile-icon">📄</span>
-              <span>Umowy</span>
-            </button>
-            <button class="nav-tile" @click="$router.push('/dashboard/contractors')">
-              <span class="nav-tile-icon">👤</span>
-              <span>Kontrahenci</span>
-            </button>
-            <button class="nav-tile" @click="$router.push('/dashboard/articles')">
-              <span class="nav-tile-icon">🔧</span>
-              <span>Artykuły</span>
-            </button>
-            <button class="nav-tile" @click="$router.push('/worker')">
-              <span class="nav-tile-icon">🖥</span>
-              <span>Pulpit</span>
-            </button>
-            <button class="nav-tile" @click="$router.push('/dashboard/reports')">
-              <span class="nav-tile-icon">📊</span>
-              <span>Raporty</span>
-            </button>
-            <button class="nav-tile" @click="$router.push('/commissions')">
-              <span class="nav-tile-icon">💰</span>
-              <span>Prowizje</span>
-            </button>
-          </div>
-        </div>
-
       </div>
     </div>
   </div>
@@ -527,12 +525,31 @@ onMounted(loadAll)
 .kpi-label { font-size: 11px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 2px; }
 .kpi-sub { font-size: 12px; color: var(--color-text-body); margin-top: 3px; }
 
+/* ── QUICK NAV STRIP ── */
+.quick-nav-strip {
+  background: var(--color-bg-card);
+  border-radius: var(--border-radius-md);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-card);
+}
+.nav-grid-full {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+}
+
 /* ── MAIN GRID ── */
 .home-grid {
   display: grid;
-  grid-template-columns: 1fr 380px;
+  grid-template-columns: 2fr 1fr;
   gap: 16px;
   align-items: start;
+}
+.home-left {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 .home-right {
   display: flex;

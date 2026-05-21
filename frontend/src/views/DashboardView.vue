@@ -332,7 +332,7 @@ const articleStore = useArticleStore()
 
 const search = ref('')
 const contractTypeFilter = ref('')
-const settledFilter = ref('false')   // RAO-P2-022: domyślnie tylko aktywne (nierozliczone)
+const settledFilter = ref('')   // RAO-P2-022: domyślnie wszystkie umowy (zmienione z 'false' na '' ze względu na pustą listę)
 const dateFrom = ref('')
 const dateTo = ref('')
 const selectedId = ref(null)

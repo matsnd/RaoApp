@@ -53,7 +53,7 @@ test.describe('TEST-04: Umowy', () => {
 
   test('otwiera formularz nowej umowy', async ({ page }) => {
     await navigateTo(page, 'contracts')
-    await page.getByRole('button', { name: '+' }).click()
+    await page.getByRole('button', { name: '+', exact: true }).click()
 
     await expect(page).toHaveURL(/\/rao\/contracts\/new/, { timeout: 8_000 })
     await expect(page.getByRole('combobox').first()).toBeVisible({ timeout: 5_000 })
@@ -65,7 +65,7 @@ test.describe('TEST-04: Umowy', () => {
     await page.getByRole('button', { name: 'Zapisz' }).click()
 
     await expect(page).toHaveURL(/\/contracts\/new/, { timeout: 5_000 })
-    await expect(page.locator('.page-card >> text=Wybierz kontrahenta')).toBeVisible({ timeout: 5_000 })
+    await expect(page.locator('.page-card .error-message', { hasText: 'Wybierz kontrahenta' })).toBeVisible({ timeout: 5_000 })
   })
 
   test('tworzy umowę po wyborze kontrahenta (RAO-QA-002 fixed)', async ({ page }) => {
@@ -79,8 +79,14 @@ test.describe('TEST-04: Umowy', () => {
     await expect(page.locator('.modal-box')).not.toBeVisible({ timeout: 5_000 })
     await expect(page.locator('input[disabled]').first()).not.toHaveValue('', { timeout: 5_000 })
 
-    const today = new Date().toISOString().slice(0, 10)
-    await page.locator('input[type="date"]').nth(0).fill(today)
+    // Wybierz zakres dat za pomocą VueDatePicker
+    await page.getByPlaceholder('Data od — Data do').click()
+    await page.locator('.dp__today').first().click()
+    await page.locator('.dp__today').first().click()
+
+    // Uzupełnij kod pocztowy i miasto dostawy (wymagane przez backend, jeśli przesłane jako niepuste)
+    await page.getByPlaceholder('00-000').fill('00-123')
+    await page.getByPlaceholder('Miasto').fill('Warszawa')
 
     await page.getByRole('button', { name: 'Zapisz' }).click()
     await expect(page).toHaveURL(/\/rao\/contracts\/\d+\/edit/, { timeout: 15_000 })
@@ -136,7 +142,7 @@ test.describe('TEST-04: Umowy', () => {
     const dateTo = '2030-12-31'
     const upd = await request.put(`${API}/contracts/${contractId}`, {
       headers: authHeaders(token),
-      data: { date_to: dateTo },
+      data: { contractor_id: contractorId, date_to: dateTo },
     })
     expect([200, 204]).toContain(upd.status())
 

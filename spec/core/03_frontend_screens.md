@@ -546,9 +546,9 @@ Szczegółowy layout Row 1 (nagłówek):
 │ Wynik geokodowania (latitude/longitude) zapisywany do formularza │ │ ...                 ││
 │ Współrzędne [latitude, longitude - auto z geokoding] │ └─────────────────────┘│
 │                                         │                        │
-│ ☐ Reprezentująca  Tel1 [________]       │ Osoba1 [____________]  │
+│ ☐ Reprezentująca  Tel1 [________]       │ Reprezentowany przez [____________]  │
 │ ☐ Kontaktowa      Tel2 [________]       │ Tel1   [____________]  │
-│                                         │ Osoba2 [____________]  │
+│                                         │ Osoba kontaktowa      [____________]  │
 │ Usługi dodatkowe [↺ Przywróć szablon]   │ Tel2   [____________]  │
 │ ┌────────────────────────────────────┐  │ Email  [____________]  │
 │ │ ☰ Transport    400zł-400zł [zł] ✅❌│  │                        │

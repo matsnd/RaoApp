@@ -139,7 +139,7 @@
           <h3 class="section-title">Kontakt i uwagi</h3>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">Osoba kontaktowa 1</label>
+              <label class="form-label">Reprezentowany przez</label>
               <div style="display:flex;gap:8px;">
                 <input v-model="form.contact_person1" type="text" class="form-control" placeholder="Imię i nazwisko" />
                 <input v-model="form.contact_phone1" type="text" class="form-control" placeholder="Telefon" style="width:140px;" />
@@ -147,7 +147,7 @@
               </div>
             </div>
             <div class="form-group">
-              <label class="form-label">Osoba kontaktowa 2</label>
+              <label class="form-label">Osoba kontaktowa</label>
               <div style="display:flex;gap:8px;">
                 <input v-model="form.contact_person2" type="text" class="form-control" placeholder="Imię i nazwisko" />
                 <input v-model="form.contact_phone2" type="text" class="form-control" placeholder="Telefon" style="width:140px;" />
