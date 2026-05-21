@@ -115,6 +115,37 @@
         <button :class="['pill', { active: positionType === 'services' }]" @click="positionType = 'services'">Usługi</button>
       </div>
 
+      <!-- RAO-P1-026: Shared filter panel for Kategorie + Historia sub-tabs -->
+      <div class="shared-filter-bar" v-if="historySubTab === 'categories' || historySubTab === 'timeline'">
+        <!-- Rodzaj -->
+        <div class="filter-group" style="position:relative;">
+          <span class="filter-label">Rodzaj:</span>
+          <button :class="['pill', { active: sharedArticleType === 'all' }]" @click="setSharedArticleType('all')">Wszystkie</button>
+          <button :class="['pill', { active: sharedArticleType === 'machine' }]" @click="setSharedArticleType('machine')">Maszyny</button>
+          <button :class="['pill', { active: sharedArticleType === 'service' }]" @click="setSharedArticleType('service')">Usługi</button>
+        </div>
+        <!-- Kategoria główna (multi-select dropdown) -->
+        <div class="filter-group shared-cat-dropdown" ref="catDropdownRef">
+          <span class="filter-label">Kategoria:</span>
+          <button class="pill dropdown-trigger" @click="catDropdownOpen = !catDropdownOpen">
+            {{ sharedCategoryMains.length ? sharedCategoryMains.join(', ') : '— wszystkie —' }} ▾
+          </button>
+          <div class="dropdown-menu" v-if="catDropdownOpen">
+            <label v-for="cat in statsStore.categoriesList" :key="cat.id" class="dropdown-item">
+              <input type="checkbox" :value="cat.name" v-model="sharedCategoryMains" /> {{ cat.name }}
+            </label>
+            <button class="dropdown-clear" @click="sharedCategoryMains = []">✕ Wyczyść</button>
+          </div>
+        </div>
+        <!-- Stan archiwalnych -->
+        <div class="filter-group" style="position:relative;">
+          <span class="filter-label">Stan:</span>
+          <button :class="['pill', { active: sharedArchivalState === 'active' }]" @click="setSharedArchivalState('active')">Aktywne</button>
+          <button :class="['pill', { active: sharedArchivalState === 'archival' }]" @click="setSharedArchivalState('archival')">Archiwalne</button>
+          <button :class="['pill', { active: sharedArchivalState === 'all' }]" @click="setSharedArchivalState('all')">Wszystkie</button>
+        </div>
+      </div>
+
       <!-- HISTORIA SUB-TABS -->
       <div class="explorer-subtabs" data-testid="history-subtabs">
         <button
@@ -127,6 +158,11 @@
           :class="['subtab', { 'subtab-active': historySubTab === 'categories' }]"
           @click="switchHistorySubTab('categories')"
         >🏷️ Kategorie</button>
+        <button
+          data-testid="history-subtab-timeline"
+          :class="['subtab', { 'subtab-active': historySubTab === 'timeline' }]"
+          @click="switchHistorySubTab('timeline')"
+        >📅 Historia</button>
       </div>
 
       <!-- SUB-TAB: Ogólne -->
@@ -275,10 +311,10 @@
       </template>
       </div><!-- /historySubTab === 'general' -->
 
-      <!-- SUB-TAB: Kategorie (RAO-P1-017) -->
+      <!-- SUB-TAB: Kategorie (RAO-P1-017/026) -->
       <div v-show="historySubTab === 'categories'" data-testid="categories-panel">
-        <!-- Level selector -->
-        <div class="category-level-bar">
+        <!-- Level selector (widoczny tylko gdy brak drilldown) -->
+        <div class="category-level-bar" v-if="drilldownPath.length === 0">
           <span class="period-label">Poziom kategorii:</span>
           <button
             data-testid="category-level-main"
@@ -310,6 +346,18 @@
 
         <!-- Data -->
         <template v-else>
+          <!-- Drilldown breadcrumb -->
+          <div class="drilldown-breadcrumb" v-if="drilldownPath.length > 0">
+            <span class="breadcrumb-item clickable" @click="drillTo(0)">Wszystkie</span>
+            <template v-for="(segment, idx) in drilldownPath" :key="idx">
+              <span class="breadcrumb-sep"> / </span>
+              <span
+                :class="['breadcrumb-item', { clickable: idx < drilldownPath.length - 1 }]"
+                @click="idx < drilldownPath.length - 1 ? drillTo(idx + 1) : null"
+              >{{ segment }}</span>
+            </template>
+          </div>
+
           <!-- KPI summary -->
           <div class="kpi-row" style="grid-template-columns: repeat(3, 1fr); max-width: 700px;">
             <div class="kpi-card">
@@ -348,17 +396,26 @@
             <table class="stats-table" data-testid="category-stats-table">
               <thead>
                 <tr>
-                  <th>Kategoria</th>
-                  <th style="text-align:right;">Maszyny</th>
-                  <th style="text-align:right;">Dni wynajmu</th>
-                  <th style="text-align:right;">Umowy</th>
-                  <th style="text-align:right;">Przychód</th>
+                  <th style="cursor:pointer;" @click="toggleSort('category_name')">Kategoria{{ sortIcon('category_name') }}</th>
+                  <th style="text-align:right;cursor:pointer;" @click="toggleSort('articles_count')">Maszyny{{ sortIcon('articles_count') }}</th>
+                  <th style="text-align:right;cursor:pointer;" @click="toggleSort('rented_days')">Dni wynajmu{{ sortIcon('rented_days') }}</th>
+                  <th style="text-align:right;cursor:pointer;" @click="toggleSort('contracts_count')">Umowy{{ sortIcon('contracts_count') }}</th>
+                  <th style="text-align:right;cursor:pointer;" @click="toggleSort('revenue')">Przychód{{ sortIcon('revenue') }}</th>
                   <th style="width:130px;"></th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="cat in statsStore.byCategoryData.items" :key="cat.category_name">
-                  <td style="font-weight:600;">{{ cat.category_name }}</td>
+                <tr
+                  v-for="cat in sortedCategoryItems"
+                  :key="cat.category_name"
+                  :class="{ 'drilldown-row': categoryHasChildren(cat.category_name) }"
+                  @click="categoryHasChildren(cat.category_name) ? drillDown(cat.category_name) : null"
+                  :style="categoryHasChildren(cat.category_name) ? 'cursor:pointer' : ''"
+                >
+                  <td style="font-weight:600;">
+                    {{ cat.category_name }}
+                    <span v-if="categoryHasChildren(cat.category_name)" class="drilldown-arrow">›</span>
+                  </td>
                   <td style="text-align:right;">{{ cat.articles_count }}</td>
                   <td style="text-align:right;">{{ cat.rented_days }}</td>
                   <td style="text-align:right;">{{ cat.contracts_count }}</td>
@@ -374,6 +431,82 @@
           </div>
         </template>
       </div><!-- /historySubTab === 'categories' -->
+
+      <!-- SUB-TAB: Historia (RAO-P1-026) -->
+      <div v-show="historySubTab === 'timeline'" data-testid="timeline-panel">
+
+        <!-- Granularity toggle -->
+        <div class="category-level-bar">
+          <span class="period-label">Grupuj po:</span>
+          <button :class="['pill', { active: granularity === 'month' }]" @click="setGranularity('month')">Miesiące</button>
+          <button :class="['pill', { active: granularity === 'year' }]" @click="setGranularity('year')">Lata</button>
+        </div>
+
+        <!-- Loading -->
+        <div v-if="statsStore.loadingByPeriod" class="reports-loading">
+          <div class="spinner"></div>
+          <span>Ładowanie danych historii...</span>
+        </div>
+
+        <!-- Error -->
+        <div v-else-if="errorByPeriod" class="category-error-state">
+          ⚠️ {{ errorByPeriod }} <button class="btn-link" @click="loadPeriodData">Spróbuj ponownie</button>
+        </div>
+
+        <!-- Empty -->
+        <div v-else-if="!statsStore.byPeriodData?.items?.length" class="empty-state" style="padding:60px 0;text-align:center;">
+          Brak danych dla wybranych filtrów
+        </div>
+
+        <!-- Data -->
+        <template v-else>
+          <!-- Chart -->
+          <div class="charts-row" style="grid-template-columns: 1fr;">
+            <div class="chart-panel">
+              <div class="chart-title">📅 Przychód per {{ granularity === 'month' ? 'miesiąc' : 'rok' }}</div>
+              <div class="chart-wrap" style="height:280px;">
+                <canvas ref="periodBarCanvas"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pivot table -->
+          <div class="table-panel full-width" v-if="pivotData">
+            <div class="table-title">📋 Tabela przestawna — przychód per {{ granularity === 'month' ? 'miesiąc' : 'rok' }}</div>
+            <div style="overflow-x:auto;">
+              <table class="stats-table pivot-table">
+                <thead>
+                  <tr>
+                    <th>Kategoria</th>
+                    <th v-for="period in pivotData.periods" :key="period" style="text-align:right;min-width:80px;">
+                      {{ formatPeriod(period) }}
+                    </th>
+                    <th style="text-align:right;font-weight:700;">SUMA</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="row in pivotData.rows" :key="row.category">
+                    <td style="font-weight:600;cursor:pointer;" @click="selectPivotCategory(row.category)">{{ row.category }}</td>
+                    <td v-for="period in pivotData.periods" :key="period" style="text-align:right;">
+                      {{ formatMoney(row.values[period] || 0) }}
+                    </td>
+                    <td style="text-align:right;font-weight:700;">{{ formatMoney(row.total) }}</td>
+                  </tr>
+                </tbody>
+                <tfoot>
+                  <tr style="font-weight:700;border-top:2px solid var(--color-border, #e0e0e0);">
+                    <td>SUMA</td>
+                    <td v-for="period in pivotData.periods" :key="period" style="text-align:right;">
+                      {{ formatMoney(pivotData.totals[period] || 0) }}
+                    </td>
+                    <td style="text-align:right;">{{ formatMoney(pivotData.grandTotal) }}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </template>
+      </div><!-- /historySubTab === 'timeline' -->
     </div>
 
     <!-- ══════════════════ TAB: EKSPERATOR ══════════════════ -->
@@ -776,6 +909,26 @@ const categoryBarCanvas = ref(null)
 let categoryBarChart = null
 const errorByCategory = ref(null)
 
+// ── RAO-P1-026: Shared filters ──────────────────────────────────────────────
+const sharedArticleType = ref('all')       // 'all' | 'machine' | 'service'
+const sharedCategoryMains = ref([])         // array of category names
+const sharedArchivalState = ref('active')   // 'active' | 'archival' | 'all'
+const catDropdownOpen = ref(false)
+const catDropdownRef = ref(null)
+
+// RAO-P1-026: Drilldown state
+const drilldownPath = ref([])   // e.g. [] | ['Wozidła'] | ['Wozidła', 'Wózki widłowe']
+
+// RAO-P1-026: Historia sub-tab
+const granularity = ref('month')            // 'month' | 'year'
+const errorByPeriod = ref(null)
+const periodBarCanvas = ref(null)           // dla wykresu Historia
+let periodBarChart = null
+
+// ── RAO-P1-026: Column sorting ──────────────────────────────────────────────
+const sortKey = ref('revenue')
+const sortDir = ref('desc')
+
 // ── RAO-P2-010: Filtr typ pozycji ───────────────────────────────────────────────
 const positionType = ref('all')  // 'machines' | 'services' | 'all'
 
@@ -861,6 +1014,9 @@ function selectPreset(key) {
     if (historySubTab.value === 'categories') {
       loadCategoryData()
     }
+    if (historySubTab.value === 'timeline') {
+      loadPeriodData()
+    }
     if (historySubTab.value === 'general') {
       loadPositions()  // RAO-P2-010: przeładuj pozycje przy zmianie dat
     }
@@ -873,13 +1029,47 @@ function applyPeriodFilter() {
   if (historySubTab.value === 'categories') {
     loadCategoryData()
   }
+  if (historySubTab.value === 'timeline') {
+    loadPeriodData()
+  }
 }
 
-// ── Historia sub-tabs logic (RAO-P1-017) ────────────────────────────────────
+// ── RAO-P1-026: Computed include_archival ───────────────────────────────────
+const includeArchival = computed(() => sharedArchivalState.value !== 'active')
+
+// ── RAO-P1-026: Shared filter helpers ───────────────────────────────────────
+function setSharedArticleType(type) {
+  sharedArticleType.value = type
+  reloadActiveSubTab()
+}
+
+function setSharedArchivalState(state) {
+  sharedArchivalState.value = state
+  reloadActiveSubTab()
+}
+
+function reloadActiveSubTab() {
+  if (historySubTab.value === 'categories') {
+    loadCategoryData()
+  } else if (historySubTab.value === 'timeline') {
+    loadPeriodData()
+  }
+}
+
+function handleClickOutsideDropdown(e) {
+  if (catDropdownRef.value && !catDropdownRef.value.contains(e.target)) {
+    catDropdownOpen.value = false
+  }
+}
+
+// ── Historia sub-tabs logic (RAO-P1-017/026) ────────────────────────────────
 function switchHistorySubTab(tab) {
   historySubTab.value = tab
   if (tab === 'categories') {
+    drilldownPath.value = []
     loadCategoryData()
+  } else if (tab === 'timeline') {
+    loadPeriodData()
   } else {
     nextTick(() => renderBarChart())
   }
@@ -887,9 +1077,63 @@ function switchHistorySubTab(tab) {
 
 function setCategoryLevel(level) {
   categoryLevel.value = level
+  drilldownPath.value = []  // reset drilldown przy ręcznej zmianie poziomu
   if (historySubTab.value === 'categories') {
     loadCategoryData()
   }
+}
+
+// ── RAO-P1-026: Drilldown helpers ───────────────────────────────────────────
+function drillDown(categoryName) {
+  if (drilldownPath.value.length >= 3) return  // max sub3
+  drilldownPath.value = [...drilldownPath.value, categoryName]
+  categoryLevel.value = ['main', 'sub1', 'sub2', 'sub3'][drilldownPath.value.length]
+  loadCategoryData()
+}
+
+function drillTo(depth) {
+  drilldownPath.value = drilldownPath.value.slice(0, depth)
+  categoryLevel.value = ['main', 'sub1', 'sub2', 'sub3'][drilldownPath.value.length]
+  loadCategoryData()
+}
+
+function categoryHasChildren(categoryName) {
+  const tree = statsStore.categoriesList || []
+  function findNode(nodes, name) {
+    for (const node of nodes) {
+      if (node.name === name) return node
+      const found = findNode(node.children || [], name)
+      if (found) return found
+    }
+    return null
+  }
+  const node = findNode(tree, categoryName)
+  return node ? (node.children?.length > 0) : false
+}
+
+// ── RAO-P1-026: Column sort ─────────────────────────────────────────────────
+function toggleSort(key) {
+  if (sortKey.value === key) {
+    sortDir.value = sortDir.value === 'desc' ? 'asc' : 'desc'
+  } else {
+    sortKey.value = key
+    sortDir.value = 'desc'
+  }
+}
+
+const sortedCategoryItems = computed(() => {
+  const items = statsStore.byCategoryData?.items ?? []
+  return [...items].sort((a, b) => {
+    const va = a[sortKey.value] ?? 0
+    const vb = b[sortKey.value] ?? 0
+    const cmp = typeof va === 'string' ? va.localeCompare(vb) : Number(vb) - Number(va)
+    return sortDir.value === 'asc' ? -cmp : cmp
+  })
+})
+
+function sortIcon(key) {
+  if (sortKey.value !== key) return ''
+  return sortDir.value === 'asc' ? ' ▲' : ' ▼'
 }
 
 async function loadCategoryData() {
@@ -903,13 +1147,167 @@ async function loadCategoryData() {
     df = fmt(from)
     dt = fmt(to)
   }
+
+  // Oblicz level z drilldownPath
+  const levels = ['main', 'sub1', 'sub2', 'sub3']
+  const level = levels[Math.min(drilldownPath.value.length, 3)]
+
+  // Filtry kategorialne z drilldownPath lub shared filter
+  const catMain = drilldownPath.value[0]
+    ? [drilldownPath.value[0]]
+    : (sharedCategoryMains.value.length ? sharedCategoryMains.value : [])
+  const catSub1 = drilldownPath.value[1] || null
+  const catSub2 = drilldownPath.value[2] || null
+
   try {
-    await statsStore.fetchByCategory(categoryLevel.value, df, dt, false)
+    await statsStore.fetchByCategory(
+      level, df, dt,
+      includeArchival.value,
+      catMain, catSub1, catSub2,
+      sharedArticleType.value
+    )
     await nextTick()
     renderCategoryBarChart()
   } catch (e) {
     errorByCategory.value = e?.response?.data?.detail ?? 'Błąd ładowania danych kategorii'
   }
+}
+
+// ── RAO-P1-026: Historia / by-period ────────────────────────────────────────
+async function loadPeriodData() {
+  errorByPeriod.value = null
+  let df, dt
+  if (activePreset.value === 'custom') {
+    df = customFrom.value || null
+    dt = customTo.value || null
+  } else {
+    const [from, to] = getDateRange(activePreset.value)
+    df = fmt(from)
+    dt = fmt(to)
+  }
+  try {
+    const catMains = sharedCategoryMains.value.length ? sharedCategoryMains.value : []
+    await statsStore.fetchByPeriod(
+      granularity.value, df, dt,
+      catMains, sharedArticleType.value,
+      includeArchival.value
+    )
+    await nextTick()
+    renderPeriodBarChart()
+  } catch (e) {
+    errorByPeriod.value = e?.response?.data?.detail ?? 'Błąd ładowania danych historii'
+  }
+}
+
+function setGranularity(g) {
+  granularity.value = g
+  loadPeriodData()
+}
+
+// Computed: pivot table data
+const pivotData = computed(() => {
+  const items = statsStore.byPeriodData?.items
+  if (!items?.length) return null
+
+  const periodsSet = new Set(items.map(i => i.period))
+  const periods = [...periodsSet].sort()
+  const categoriesSet = new Set(items.map(i => i.category_name))
+
+  const map = {}
+  items.forEach(i => {
+    if (!map[i.category_name]) map[i.category_name] = {}
+    map[i.category_name][i.period] = (map[i.category_name][i.period] || 0) + Number(i.revenue)
+  })
+
+  const rows = [...categoriesSet].map(cat => ({
+    category: cat,
+    values: map[cat] || {},
+    total: Object.values(map[cat] || {}).reduce((s, v) => s + Number(v), 0),
+  })).sort((a, b) => b.total - a.total)
+
+  const totals = {}
+  periods.forEach(p => {
+    totals[p] = rows.reduce((s, r) => s + Number(r.values[p] || 0), 0)
+  })
+  const grandTotal = rows.reduce((s, r) => s + r.total, 0)
+
+  return { periods, rows, totals, grandTotal }
+})
+
+function formatPeriod(period) {
+  if (/^\d{4}-\d{2}$/.test(period)) {
+    const [y, m] = period.split('-')
+    const months = ['sty','lut','mar','kwi','maj','cze','lip','sie','wrz','paź','lis','gru']
+    return `${months[parseInt(m) - 1]} ${y.slice(2)}`
+  }
+  return period
+}
+
+function selectPivotCategory(catName) {
+  if (catName === '__all__') return
+  sharedCategoryMains.value = [catName]
+  reloadActiveSubTab()
+}
+
+function renderPeriodBarChart() {
+  if (periodBarChart) { periodBarChart.destroy(); periodBarChart = null }
+  const items = statsStore.byPeriodData?.items
+  if (!periodBarCanvas.value || !items?.length) return
+
+  const periodsSet = new Set(items.map(i => i.period))
+  const periods = [...periodsSet].sort()
+  const categoriesSet = new Set(items.map(i => i.category_name))
+  const categories = [...categoriesSet].slice(0, 8)  // max 8 serii
+
+  const COLORS = [
+    'rgba(29, 43, 83, 0.8)',
+    'rgba(255, 99, 71, 0.8)',
+    'rgba(50, 205, 50, 0.8)',
+    'rgba(255, 165, 0, 0.8)',
+    'rgba(138, 43, 226, 0.8)',
+    'rgba(0, 206, 209, 0.8)',
+    'rgba(255, 20, 147, 0.8)',
+    'rgba(154, 205, 50, 0.8)',
+  ]
+
+  const datasets = categories.map((cat, idx) => ({
+    label: cat === '__all__' ? 'Przychód' : cat,
+    data: periods.map(p => {
+      const item = items.find(i => i.period === p && i.category_name === cat)
+      return item ? Number(item.revenue) : 0
+    }),
+    backgroundColor: COLORS[idx % COLORS.length],
+    borderRadius: 3,
+  }))
+
+  periodBarChart = new Chart(periodBarCanvas.value.getContext('2d'), {
+    type: 'bar',
+    data: { labels: periods.map(formatPeriod), datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: categories.length > 1 },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const label = ctx.dataset.label
+              const periodLabel = ctx.label
+              const origPeriod = periods[ctx.dataIndex]
+              const item = items.find(i => i.period === origPeriod && (i.category_name === label || label === 'Przychód'))
+              if (item) return `${label}: ${formatMoney(item.revenue)} · ${item.contracts_count} umów · ${item.rented_days} dni`
+              return `${label}: ${formatMoney(ctx.parsed.y)}`
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          ticks: { callback: v => v >= 1000 ? Math.round(v / 1000) + 'k' : v },
+        }
+      }
+    }
+  })
 }
 
 function renderCategoryBarChart() {
@@ -1599,16 +1997,25 @@ watch(positionType, () => {
   }
 })
 
-onMounted(() => {
+// RAO-P1-026: Watch na sharedCategoryMains — przeładuj przy zmianie selekcji
+watch(sharedCategoryMains, () => {
+  reloadActiveSubTab()
+}, { deep: true })
+
+onMounted(async () => {
   loadLive()
   loadPeriod()
   loadPositions()  // RAO-P2-010: załaduj pozycje przy starcie
+  document.addEventListener('click', handleClickOutsideDropdown)
+  await statsStore.fetchCategoriesList()  // RAO-P1-026: załaduj drzewo kategorii
 })
 
 onBeforeUnmount(() => {
   if (barChart) barChart.destroy()
   if (donutChart) donutChart.destroy()
   if (categoryBarChart) categoryBarChart.destroy()
+  if (periodBarChart) { periodBarChart.destroy(); periodBarChart = null }
+  document.removeEventListener('click', handleClickOutsideDropdown)
 })
 
 // ---------------------------------------------------------------------------
@@ -2248,4 +2655,111 @@ async function exportCsv(type) {
   font-size: 13px;
   color: #4A5568;
 }
+
+/* ── RAO-P1-026: Shared filter bar ─────────────────────────────────────────── */
+.shared-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: var(--color-bg-light, #F8F9FA);
+  border-radius: var(--border-radius, 8px);
+  align-items: center;
+}
+
+.shared-cat-dropdown {
+  position: relative;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: #fff;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  padding: 8px;
+  min-width: 200px;
+  max-height: 250px;
+  overflow-y: auto;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #4A5568;
+}
+.dropdown-item:hover { background: #F7FAFC; }
+
+.dropdown-clear {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 4px;
+  font-size: 12px;
+  color: #E53E3E;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+.dropdown-clear:hover { text-decoration: underline; }
+
+.dropdown-trigger {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── RAO-P1-026: Drilldown & breadcrumb ────────────────────────────────────── */
+.drilldown-breadcrumb {
+  font-size: 13px;
+  margin-bottom: 12px;
+  color: #718096;
+}
+.breadcrumb-item.clickable {
+  color: #0F234E;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  transition: text-decoration-color 150ms;
+}
+.breadcrumb-item.clickable:hover { text-decoration-color: currentColor; }
+.breadcrumb-sep { margin: 0 4px; }
+.drilldown-row:hover { background: #EBF4FF !important; }
+.drilldown-arrow {
+  display: inline-block;
+  margin-left: 4px;
+  color: #718096;
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* ── RAO-P1-026: Pivot table ────────────────────────────────────────────────── */
+.pivot-table th, .pivot-table td {
+  white-space: nowrap;
+}
+
+/* ── RAO-P1-026: btn-link helper ────────────────────────────────────────────── */
+.btn-link {
+  background: none;
+  border: none;
+  color: #3182CE;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 4px;
+  font-family: inherit;
+  text-decoration: underline;
+}
+.btn-link:hover { color: #2c5282; }
 </style>

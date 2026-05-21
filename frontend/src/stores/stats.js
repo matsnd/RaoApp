@@ -13,6 +13,10 @@ export const useStatsStore = defineStore('stats', () => {
   const locations = ref([])
   const byCategoryData = ref(null)        // RAO-P1-017: CategoryStatsResponse
   const positionsData = ref(null)         // RAO-P2-010: PositionStatsResponse
+  // RAO-P1-026: Nowe stany
+  const loadingByPeriod = ref(false)
+  const byPeriodData = ref(null)        // ByPeriodResponse
+  const categoriesList = ref([])         // list[CategoriesListNode]
 
   async function fetchSummary(dateFrom, dateTo) {
     const params = {}
@@ -82,19 +86,67 @@ export const useStatsStore = defineStore('stats', () => {
     ])
   }
 
-  // RAO-P1-017 — statystyki po kategoriach
-  async function fetchByCategory(level = 'main', dateFrom = null, dateTo = null, includeArchival = false) {
+  // RAO-P1-017/026 — statystyki po kategoriach (rozszerzone filtry)
+  async function fetchByCategory(
+    level = 'main',
+    dateFrom = null,
+    dateTo = null,
+    includeArchival = false,
+    categoryMains = [],
+    categorySubOne = null,
+    categorySubTwo = null,
+    articleType = 'all'
+  ) {
     loadingByCategory.value = true
     try {
-      const params = { level, include_archival: includeArchival }
-      if (dateFrom) params.date_from = dateFrom
-      if (dateTo) params.date_to = dateTo
-      const { data } = await api.get('/stats/by-category', { params })
+      const searchParams = new URLSearchParams()
+      searchParams.set('level', level)
+      searchParams.set('include_archival', includeArchival)
+      if (dateFrom) searchParams.set('date_from', dateFrom)
+      if (dateTo) searchParams.set('date_to', dateTo)
+      if (articleType !== 'all') searchParams.set('article_type', articleType)
+      categoryMains.forEach(m => searchParams.append('category_main', m))
+      if (categorySubOne) searchParams.set('category_sub1', categorySubOne)
+      if (categorySubTwo) searchParams.set('category_sub2', categorySubTwo)
+      const { data } = await api.get('/stats/by-category?' + searchParams.toString())
       byCategoryData.value = data
       return data
     } finally {
       loadingByCategory.value = false
     }
+  }
+
+  // RAO-P1-026 — statystyki historyczne per-period
+  async function fetchByPeriod(
+    granularity = 'month',
+    dateFrom = null,
+    dateTo = null,
+    categoryMains = [],
+    articleType = 'all',
+    includeArchival = false
+  ) {
+    loadingByPeriod.value = true
+    try {
+      const searchParams = new URLSearchParams()
+      searchParams.set('granularity', granularity)
+      searchParams.set('include_archival', includeArchival)
+      if (dateFrom) searchParams.set('date_from', dateFrom)
+      if (dateTo) searchParams.set('date_to', dateTo)
+      if (articleType !== 'all') searchParams.set('article_type', articleType)
+      categoryMains.forEach(m => searchParams.append('category_main', m))
+      const { data } = await api.get('/stats/by-period?' + searchParams.toString())
+      byPeriodData.value = data
+      return data
+    } finally {
+      loadingByPeriod.value = false
+    }
+  }
+
+  // RAO-P1-026 — lista kategorii z drzewem
+  async function fetchCategoriesList() {
+    const { data } = await api.get('/stats/categories-list')
+    categoriesList.value = data
+    return data
   }
 
   // RAO-P2-010 — statystyki pozycji z filtrem typu
@@ -108,9 +160,10 @@ export const useStatsStore = defineStore('stats', () => {
   }
 
   return {
-    loading, loadingLive, loadingByCategory,
-    summary, topMachines, currentlyRented, additionalFees, locations, byCategoryData, positionsData,
+    loading, loadingLive, loadingByCategory, loadingByPeriod,
+    summary, topMachines, currentlyRented, additionalFees, locations,
+    byCategoryData, positionsData, byPeriodData, categoriesList,
     fetchSummary, fetchTopMachines, fetchCurrentlyRented, fetchAdditionalFees, fetchLocations,
-    fetchPeriod, fetchAll, fetchByCategory, fetchPositions,
+    fetchPeriod, fetchAll, fetchByCategory, fetchByPeriod, fetchCategoriesList, fetchPositions,
   }
 })
