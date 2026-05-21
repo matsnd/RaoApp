@@ -1,6 +1,6 @@
 # RAO Backlog — Master Backlog
 
-> **Last updated:** 2026-05-21  
+> **Last updated:** 2026-05-21 (5 nowych wpisów z uwag do raportów)  
 > **Format:** YAML front-matter + sekcje (parsowalne przez agentów)  
 > **Source:** Unified backlog (merge of 19_BACKLOG.md + 21_BACKLOG_CLIENT.md)
 
@@ -533,7 +533,7 @@ Przejrzeć wygenerowane PDF z nowego systemu i porównać z PDF ze starej aplika
 - [x] BUG #2: Poprawa nagłówka "do najmu" → "dni najmu" (contract.html)
 - [x] BUG #3: Naprawa hangin dash przy braku date_to (contract.html)
 - [x] BUG #5: Zmniejszenie margin-top podpisów PZO z 40px → 20px
-- [ ] BUG #4: Etykieta "dane podmiotu wynajmującego" → "NAJEMCA" (PO decision)
+- [x] BUG #4: Etykieta "dane podmiotu wynajmującego" → "NAJEMCA" (PO decision)
 - [ ] BUG #6: 12 → 4 wierszy w PZO usługi (P2)
 - [ ] Weryfikacja: 5 losowych umów — PDF identyczne lub lepsze
 - [ ] `core/11_reports_stats.md` zaktualizowany
@@ -3500,38 +3500,41 @@ Skutek: 2 artykuły mają błędne `is_service=True` (sklasyfikowane jako Usług
 id: RAO-P1-027
 priority: P1
 size: XS
-status: triaged
+status: done
 classification: backend
 roles: [backend-dev]
 depends_on: []
 blocks: []
 source: internal
 source_date: 2026-05-21
+completion_date: 2026-05-21
 specs_to_update: []
 migration_impact: yes
 security_impact: low
 ```
 
+**NOTE (2026-05-21):** ZAIMPLEMENTOWANE.
+- `migrate.py step8`: zmieniono `UPDATE articles SET is_archival = FALSE` → `TRUE`
+- Direct SQL UPDATE: 417 artykułów ustawionych is_archival=TRUE na bieżącej DB
+- Weryfikacja: `GET /articles` → total=0 (archiwalne schowane) ✅
+- Weryfikacja: `GET /stats/by-category?date_from=2020-01-01&date_to=2027-01-01` → 14 kategorii, 2.686.634 PLN ✅
+
 **Kontekst:**
-Artykuły zaimportowane z WinForms przez `migrate.py` mają tymczasowo `is_archival=FALSE`.
-Docelowa logika biznesowa:
+Artykuły zaimportowane z WinForms przez `migrate.py` mają `is_archival=TRUE`.
+Logika biznesowa:
 - Artykuły z migracji → `is_archival=TRUE` (archiwalne)
   - niewidoczne na liście artykułów
   - niedostępne w pickerze do nowych umów
   - widoczne **tylko** w statystykach kategorii (przychód ze starych umów)
 - Nowe artykuły dodawane przez użytkownika po migracji → `is_archival=FALSE`
 
-**Obecny stan (tymczasowy):**
-Wszystkie 417 artykułów ma `is_archival=FALSE` — są widoczne i dostępne w pickerze.
-Zmienione celowo dla fazy testów i weryfikacji danych. Patrz: `backend/migrate.py` linia 1107.
-
 **Acceptance criteria (DoD):**
-- [ ] `migrate.py step8`: `UPDATE articles SET is_archival = TRUE` (zamiast FALSE)
-- [ ] `migrate.py`: weryfikacja gate: `is_archival=TRUE: N/N` (zamiast FALSE)
-- [ ] Re-run `python migrate.py` → idempotentne
-- [ ] Backend restart bez błędu
-- [ ] `GET /articles` nie zwraca archiwalnych (test: count z DB vs count z API)
-- [ ] `GET /stats/by-category` zwraca przychód ze starych umów mimo `is_archival=TRUE`
+- [x] `migrate.py step8`: `UPDATE articles SET is_archival = TRUE` (zamiast FALSE)
+- [x] `migrate.py`: weryfikacja gate: `is_archival=TRUE: N/N` (zamiast FALSE)
+- [x] Re-run `python migrate.py` → idempotentne
+- [x] Backend restart bez błędu
+- [x] `GET /articles` nie zwraca archiwalnych (test: count z DB vs count z API)
+- [x] `GET /stats/by-category` zwraca przychód ze starych umów mimo `is_archival=TRUE`
 
 **Pliki do zmiany:** `backend/migrate.py` (1 linia)
 **ROI:** Poprawna logika biznesowa — stary asortyment WinForms nie zaśmieca listy maszyn
@@ -3771,15 +3774,310 @@ SUMA             | 57 000 | 53 000 | 61 000 | ... | ...
 
 ---
 
+### [RAO-P2-020] Usuń przyciski eksportu CSV z sekcji Raporty i aktualizuj specyfikację
+
+```yaml
+id: RAO-P2-020
+priority: P2
+size: S
+status: done
+classification: cleanup
+roles: [frontend-dev]
+depends_on: []
+blocks: []
+source: e2e-manual-test
+source_date: 2026-05-21
+specs_to_update:
+  - core/03_frontend_screens.md
+migration_impact: no
+security_impact: none
+```
+
+**Job-to-be-done:**
+Usunąć WSZYSTKIE ślady eksportów CSV z aplikacji (backend, frontend, specyfikacja) ponieważ funkcjonalność nie jest zaimplementowana i wprowadza użytkownika w błąd.
+
+**Symptomy:**
+- W sekcji Raporty są widoczne przyciski: "↓ Eksport umów CSV", "↓ Eksport artykułów CSV", "↓ Eksport kontrahentów CSV"
+- Przyciski nie działają (brak backend endpointów)
+- Wprowadzają użytkownika w błąd sugerując funkcjonalność która nie istnieje
+- Możliwe są fragmenty kodu w backendzie/frontend które przygotowywały eksporty CSV (niedokończone)
+
+**Acceptance criteria (DoD):**
+
+**Frontend:**
+- [ ] Usunięcie przycisków eksportu CSV z `frontend/src/views/ReportsSection.vue`
+- [ ] Sprawdzenie czy nie ma innych komponentów z przyciskami eksportu CSV (np. Dashboard, kontrahenci, artykuły)
+- [ ] Usunięcie wszelkich `exportToCSV` funkcji/helperów w frontend (jeśli istnieją)
+- [ ] Smoke test `01-login.spec.ts` 11/11 PASS
+- [ ] Build `npm run build` bez błędów
+
+**Backend:**
+- [ ] Sprawdzenie czy nie ma endpointów eksportu CSV w routerach (contracts, articles, contractors)
+- [ ] Jeśli istnieją — usunięcie endpointów i funkcji helperów
+- [ ] Sprawdzenie czy nie są importowane niepotrzebne biblioteki CSV (np. csv, pandas do CSV)
+- [ ] Backend restart bez błędu
+
+**Specyfikacja:**
+- [ ] Aktualizacja `spec/core/03_frontend_screens.md` — usunięcie wzmianek o eksportach CSV z sekcji Raporty
+- [ ] Aktualizacja `spec/core/02_backend_api.md` — usunięcie wzmianek o endpointach eksportu CSV (jeśli istnieją)
+- [ ] Sprawdzenie innych plików spec (np. 11_reports_stats.md) pod kątem wzmianek o CSV export
+
+**Pliki do zmiany:** `frontend/src/views/ReportsSection.vue`, `frontend/src/components/*` (jeśli zawierają export CSV), `backend/*/router.py` (sprawdzenie), `spec/core/03_frontend_screens.md`, `spec/core/02_backend_api.md`
+**ROI:** UX cleanup — usuwa mylące przyciski i niedokończony kod eksportu CSV
+**Estimate:** 30-45 min (S)
+
+---
+
+### [RAO-P1-027] BUG: Stan aktualny floty — filtrowanie is_archival=false + is_external=false
+
+```yaml
+id: RAO-P1-027
+priority: P1
+size: S
+status: todo
+classification: bug/data-accuracy
+roles: [backend-dev]
+depends_on: []
+blocks: []
+source: client-notes
+source_date: 2026-05-21
+specs_to_update:
+  - core/11_reports_stats.md
+migration_impact: no
+security_impact: none
+```
+
+**Job-to-be-done:**
+Raport "Stan aktualny floty" musi uwzględniać tylko maszyny niearchiwalne (`is_archival=false`). Maszyny zewnętrzne (`is_external=true`) nie wchodzą do własnego parku maszynowego — są wypożyczone z zewnątrz i nie są wliczane do statystyk floty własnej.
+
+**Kontekst:**
+- Checkbox "maszyna zewnętrzna" → `is_external=true` → wyklucza maszynę ze statystyk floty
+- `is_archival=true` → też wykluczone
+- Dotyczy: raporty floty, udźwig, dostępność
+
+**Acceptance criteria (DoD):**
+
+**Backend:**
+- [ ] Zweryfikować czy `is_archival` istnieje jako kolumna w tabeli `articles` (model + DB)
+- [ ] Zweryfikować czy `is_external` istnieje jako kolumna w tabeli `articles` (model + DB + widok edycji artykułu)
+- [ ] Endpoint statystyk floty filtruje: `WHERE is_archival=false AND (is_external=false OR is_external IS NULL)`
+- [ ] Wszystkie endpointy statystyk per maszyna wykluczają archiwalne i zewnętrzne
+
+**Frontend:**
+- [ ] Widok artykułu: checkbox "maszyna zewnętrzna" widoczny i zapisuje `is_external`
+- [ ] Smoke test `01-login.spec.ts` PASS
+
+**Spec:**
+- [ ] Aktualizacja `spec/core/11_reports_stats.md` — opis filtrowania is_archival + is_external
+
+**Pliki do zmiany:** `backend/articles/models.py` (verify), `backend/stats/router.py`, `backend/stats/calc.py`, `frontend/src/views/ArticleFormView.vue` (verify checkbox), `spec/core/11_reports_stats.md`
+**ROI:** Poprawność danych raportu floty — maszyny zewnętrzne nie zawyżają statystyk własnego parku
+**Estimate:** 2-3h (S)
+
+---
+
+### [RAO-P1-028] BUG: Eksplorator — wyłącznie niearchiwalne artykuły + filtrowanie miast po kodach pocztowych
+
+```yaml
+id: RAO-P1-028
+priority: P1
+size: M
+status: todo
+classification: bug/data-accuracy
+roles: [backend-dev, frontend-dev]
+depends_on: []
+blocks: []
+source: client-notes
+source_date: 2026-05-21
+specs_to_update:
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+migration_impact: no
+security_impact: none
+```
+
+**Job-to-be-done:**
+Naprawić Eksplorator: (1) wyszukiwanie z autocomplete działa poprawnie, (2) maszyny i usługi w sugestiach — wyłącznie niearchiwalne (`is_archival=false`), (3) lokalizacja świadczenia umowy filtrowana po miastach z kodów pocztowych (nowe pola `city`), nie po surowym adresie.
+
+**Acceptance criteria (DoD):**
+
+**Backend:**
+- [ ] Endpoint autocomplete maszyn w eksploratorze: `WHERE is_archival=false`
+- [ ] Endpoint autocomplete usług (`is_service=true`): `WHERE is_archival=false`
+- [ ] `/explorer/machines/{id}` i `/explorer/contractors/{id}`: filtruje archiwalne artykuły/pozycje
+- [ ] Filtrowanie lokalizacji umowy: korzysta z pola `city` (wyekstraktowanego z kodu pocztowego), nie z surowego `address`
+- [ ] Mapowanie kodów pocztowych → miasto jest **N:1** (wiele kodów pocztowych należy do jednego miasta) — tabela/słownik kodów pocztowych musi poprawnie zwracać miasto dla każdego kodu
+- [ ] Zweryfikować mapowanie: migrated cities vs postal_code cities → czy są zgodne (próbka 10 rekordów, w tym miasta z wieloma kodami np. Warszawa, Kraków)
+- [ ] Jeśli wyszukiwanie po adresie istnieje — zastąpić wyszukiwaniem po `city` z kodów pocztowych
+- [ ] Raporty lokalizacyjne grupują po `city` (nie po `postal_code`) — tak żeby Warszawa z 100+ kodami pocztowymi pojawiała się jako jedno miasto
+
+**Frontend:**
+- [ ] Autocomplete w Eksploratorze pokazuje wyłącznie niearchiwalne maszyny/usługi
+- [ ] Smoke test `01-login.spec.ts` PASS
+
+**Spec:**
+- [ ] Aktualizacja `spec/core/02_backend_api.md` — opis filtrowania niearchiwalnych w eksploratorze
+- [ ] Sprawdzenie `spec/core/04_business_logic.md` — sekcja miast/kodów pocztowych
+
+**Pliki do zmiany:** `backend/explorer/router.py`, `backend/explorer/service.py`, `frontend/src/views/ExplorerSection.vue`
+**ROI:** Eksplorator pokazuje aktualne dane; brak archiwalnych w wynikach wyszukiwania
+**Estimate:** 3-4h (M)
+
+---
+
+### [RAO-P1-029] Analiza i naprawa migracji — umowy bez kategorii w raportach
+
+```yaml
+id: RAO-P1-029
+priority: P1
+size: M
+status: todo
+classification: data-quality/migration
+roles: [backend-dev, db-architect]
+depends_on: []
+blocks: [RAO-P2-021]
+source: client-notes
+source_date: 2026-05-21
+specs_to_update:
+  - core/08_migration_plan.md
+migration_impact: yes
+security_impact: none
+```
+
+**Job-to-be-done:**
+Raport kategorii pokazuje "brak kategorii" na 2. miejscu z dużym udziałem przychodów. Zgodnie z CSV migracji praktycznie wszystkie umowy/artykuły powinny mieć przypisane kategorie. Analiza błędu migracji i deterministyczna naprawa przypisania `category_id` do historycznych artykułów.
+
+**Kontekst:**
+- Kategoria w raporcie pochodzi z artykułu (`articles.category_id`) powiązanego z pozycją umowy
+- Możliwe przyczyny: `category_id=NULL` po migracji, mapping CSV → kategoria był niepełny, brak matchingu po typie/nazwie artykułu
+
+**Acceptance criteria (DoD):**
+
+**Analiza:**
+- [ ] `SELECT COUNT(*), SUM(rate1*period_count) FROM contract_positions cp JOIN articles a ON cp.article_id=a.id WHERE a.category_id IS NULL` — określić skalę problemu
+- [ ] Przejrzeć `backend/migrate.py` — jak były przypisywane kategorie artykułom podczas migracji z CSV
+- [ ] Zidentyfikować artykuły z `category_id=NULL` → czy da się deterministycznie przypisać na podstawie danych CSV (nazwa, typ, model)
+
+**Implementacja:**
+- [ ] Napisać skrypt naprawczy (`migrate.py` lub dedykowany `backend/fix_categories.py`) z deterministycznym `UPDATE articles SET category_id=X WHERE ...` na podstawie CSV
+- [ ] Skrypt idempotentny — nie nadpisuje artykułów które już mają `category_id`
+- [ ] Uruchomić na DB i zweryfikować: raport kategorii → "brak kategorii" < 5% przychodów
+
+**Spec:**
+- [ ] Aktualizacja `spec/core/08_migration_plan.md` — sekcja "Fix kategorii (2026-05-21)"
+
+**Pliki do zmiany:** `backend/migrate.py` lub `backend/fix_categories.py`, `spec/core/08_migration_plan.md`
+**ROI:** Raport kategorii staje się wiarygodny; umowy mają właściwą kategorię dla analiz biznesowych
+**Estimate:** 4-6h (M)
+
+---
+
+### [RAO-P2-021] UX Raportów — kategorie jako 1. poziom + drilldown gridowy + info o danych historycznych
+
+```yaml
+id: RAO-P2-021
+priority: P2
+size: M
+status: todo
+classification: ux/refactor
+roles: [frontend-dev, backend-dev]
+depends_on: [RAO-P1-029]
+blocks: []
+source: client-notes
+source_date: 2026-05-21
+specs_to_update:
+  - core/03_frontend_screens.md
+  - core/11_reports_stats.md
+migration_impact: no
+security_impact: none
+```
+
+**Job-to-be-done:**
+Zmiana UX sekcji Raporty: kategorie jako pierwszy eksponowany poziom (nie "Podkategoria 1"), drilldown przez kliknięcie w grid (nie dropdown), usunięcie z kodu filtrowania po "Podkategoria 1", banner informacyjny o zakresie danych historycznych.
+
+**Acceptance criteria (DoD):**
+
+**Backend:**
+- [ ] Usunąć parametr `subcategory1` (lub odpowiednik) z endpointów statystyk jeśli nie używany gdzie indziej
+
+**Frontend:**
+- [ ] Sekcja Raporty: pierwsza zakładka/sekcja to Kategorie (poziom 1 drzewa kategorii)
+- [ ] Drilldown przez kliknięcie w wiersz gridu → przejście do widoku podkategorii (nie dropdown)
+- [ ] Usunąć dropdown/filtr "Podkategoria 1" z komponentów raportu (wszędzie)
+- [ ] Banner informacyjny w sekcji Raporty: _"Raporty zawierają dane historyczne ze starej aplikacji. Nowe dane gromadzone są od momentu korzystania z tej aplikacji — archiwalne maszyny i umowy nie są uwzględniane."_
+- [ ] Smoke test PASS
+
+**Weryfikacja miast (przy okazji):**
+- [ ] Sprawdzić czy `city` w `contracts` pochodzi z kodów pocztowych (nie z surowego adresu)
+- [ ] Mapowanie jest **N:1**: jedno miasto ma wiele kodów pocztowych — raport musi grupować po mieście, nie po kodzie
+- [ ] Porównać próbkę: `postal_code` → oczekiwane miasto vs `city` w DB (test na miastach wielokodowych: Warszawa, Kraków, Wrocław)
+
+**Spec:**
+- [ ] Aktualizacja `spec/core/03_frontend_screens.md` — sekcja Raporty: drilldown UX, kategorie 1. poziom
+- [ ] Aktualizacja `spec/core/11_reports_stats.md` — opis UX + info o danych historycznych
+
+**Pliki do zmiany:** `frontend/src/views/ReportsSection.vue`, `backend/stats/router.py`
+**ROI:** Raport kategorii czytelny; użytkownik rozumie zakres i historyczność danych
+**Estimate:** 4-5h (M)
+
+---
+
+### [RAO-P2-022] Widok umów — domyślne sortowanie od najnowszych + analiza statusów umów
+
+```yaml
+id: RAO-P2-022
+priority: P2
+size: S
+status: todo
+classification: ux/analysis
+roles: [frontend-dev, backend-dev, tech-lead]
+depends_on: []
+blocks: []
+source: client-notes
+source_date: 2026-05-21
+specs_to_update:
+  - core/03_frontend_screens.md
+  - core/04_business_logic.md
+migration_impact: no
+security_impact: none
+```
+
+**Job-to-be-done:**
+(1) Widok listy umów domyślnie sortuje od najnowszych (najwyższy numer/data na górze). (2) Analiza i propozycja koncepcji "umowa rozliczona/przeterminowana" — co oznacza że umowa "znika" po rozliczeniu, jak to powinno działać w kontekście aplikacji.
+
+**Acceptance criteria (DoD):**
+
+**Sortowanie (szybki fix):**
+- [ ] Endpoint `GET /contracts` domyślny `ORDER BY id DESC` (lub `contract_date DESC`)
+- [ ] Frontend: domyślne sortowanie widoku listy umów — najnowsze na górze
+- [ ] Smoke test PASS
+
+**Analiza koncepcji statusów (spec + decyzja):**
+- [ ] Zdefiniować w spec: co oznacza "umowa przeterminowana" (data końca < dziś bez rozliczenia?)
+- [ ] Zdefiniować: co oznacza "umowa rozliczona" — manualny status czy automatyczny trigger?
+- [ ] Przemyśleć: czy "rozliczone" umowy mają znikać z listy (archiwizacja) czy tylko inny status/kolor w widoku?
+- [ ] Zaproponować statusy: `active | settled | expired | cancelled` (lub subset)
+- [ ] Zapisać decyzję w `spec/core/04_business_logic.md` — sekcja "Statusy umowy"
+
+**Spec:**
+- [ ] `spec/core/03_frontend_screens.md` — domyślne sortowanie listy umów
+- [ ] `spec/core/04_business_logic.md` — sekcja "Statusy umowy" (nowa lub rozszerzona)
+
+**Pliki do zmiany:** `backend/contracts/router.py` (default ORDER BY), `frontend/src/views/ContractsListView.vue` (opcjonalnie jeśli sortowanie client-side)
+**ROI:** UX: użytkownik widzi najnowsze umowy od razu; fundament pod przyszłą archiwizację rozliczonych umów
+**Estimate:** 2-3h (S)
+
+---
+
 ## 📊 Podsumowanie
 
 | Priorytet | Liczba | Effort łączny |
 |-----------|--------|---------------|
 | 🚨 P0 | 5 | ~7h |
-| 🔴 P1 | 14 | ~70h |
-| 🟡 P2 | 12 | ~72h |
+| 🔴 P1 | 17 | ~82h |
+| 🟡 P2 | 15 | ~81h |
 | 🟢 P3 | 5 | ~20h |
-| **Razem** | **36** | **~169h** |
+| **Razem** | **42** | **~190h** |
 
 ---
 
@@ -3840,3 +4138,9 @@ n|| RAO-P1-008 | Strukturalizacja adresów: kod pocztowy + miasto | Client | P1 
 || RAO-P1-024 | BUG: CSV migration — is_service + model brakują | Internal | P1 | S | done | backend-dev |
 || RAO-P1-026 | Filtry statystyk: drilldown, udźwig, archiwalne, per-rok/miesiąc | Internal | P1 | L | done | cross-stack |
 || RAO-P2-019 | Drzewiaste kategorie — picker, settings, breadcrumb | Internal | P2 | L | done | cross-stack |
+|| RAO-P2-020 | Usuń przyciski eksportu CSV z Raporty | E2E | P2 | S | done | frontend-dev |
+|| RAO-P1-027 | BUG: Stan aktualny floty — is_archival + is_external | Client | P1 | S | todo | backend-dev |
+|| RAO-P1-028 | BUG: Eksplorator — niearchiwalne + miasta z kodów pocztowych | Client | P1 | M | todo | cross-stack |
+|| RAO-P1-029 | Analiza i naprawa migracji — umowy bez kategorii | Client | P1 | M | todo | backend-dev |
+|| RAO-P2-021 | UX Raportów — kategorie drilldown + info historyczne | Client | P2 | M | todo | cross-stack |
+|| RAO-P2-022 | Widok umów — sortowanie + analiza statusów | Client | P2 | S | todo | cross-stack |

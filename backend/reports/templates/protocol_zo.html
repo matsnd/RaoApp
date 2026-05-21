@@ -102,7 +102,7 @@
     <tr>
       <td class="top-left">
         <div class="top-left-inner">
-          <div class="box-label">dane podmiotu wynajmującego</div>
+          <div class="box-label">NAJEMCA</div>
           <strong>{{ contractor.name if contractor else (contract.contractor_name or '') }}</strong><br>
           {% if contractor %}{% if contractor.street or contractor.postal_code or contractor.city %}ul. {{ contractor.street or '' }}, {{ contractor.postal_code or '' }} {{ contractor.city or '' }}<br>
           {% endif %}NIP: {{ contractor.nip or '' }}{% endif %}

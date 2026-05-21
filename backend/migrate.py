@@ -1103,26 +1103,23 @@ async def step8_csv_categories() -> None:
                  art_id),
             )
 
-        # ── Oznacz WSZYSTKIE artykuły is_archival=FALSE ─────────────
-        # TODO (RAO-P1-027): docelowo artykuły z migracji mają mieć is_archival=TRUE
-        # (niewidoczne na liście, niedostępne w pickerze, widoczne tylko w statystykach kategorii).
-        # Na razie pozostają FALSE żeby były dostępne do testów i weryfikacji danych.
-        # Gdy logika biznesowa zostanie potwierdzona → zmienić na:
-        #   UPDATE articles SET is_archival = TRUE  (dla wszystkich z migrate)
-        #   UPDATE articles SET is_archival = FALSE (tylko dla nowo dodanych przez użytkownika)
+        # ── Oznacz WSZYSTKIE artykuły is_archival=TRUE ──────────────
+        # RAO-P1-027: migrowane artykuły = archiwalne.
+        # Niewidoczne na liście i w pickerze nowych umów, ale liczone w statystykach kategorii.
+        # Nowe artykuły dodawane przez użytkownika → domyślnie is_archival=FALSE.
         await cur.execute(
-            "UPDATE articles SET is_archival = FALSE"
+            "UPDATE articles SET is_archival = TRUE"
         )
         extra = cur.rowcount
         if extra:
-            print(f"   {extra} artykułów oznaczonych is_archival=FALSE (tymczasowo — patrz TODO RAO-P1-027)")
+            print(f"   {extra} artykułów oznaczonych is_archival=TRUE (archiwalne — RAO-P1-027)")
 
         await conn.commit()
 
         # ── Weryfikacja ───────────────────────────────────────────────────────
         await cur.execute("SELECT COUNT(*) FROM articles")
         total_arts = (await cur.fetchone())[0]
-        await cur.execute("SELECT COUNT(*) FROM articles WHERE is_archival = FALSE")
+        await cur.execute("SELECT COUNT(*) FROM articles WHERE is_archival = TRUE")
         archival_ct = (await cur.fetchone())[0]
         await cur.execute("SELECT COUNT(*) FROM articles WHERE category_main IS NOT NULL")
         with_cat_main = (await cur.fetchone())[0]
@@ -1144,7 +1141,7 @@ async def step8_csv_categories() -> None:
         print(f"   CSV rekordy:              {csv_total}")
         print(f"     z kategorią:            {n_matched} ({pct_match}%)")
         print(f"     bez kategorii/śmieci:   {n_unmatched} ({pct_nomatch}%)")
-        print(f"   is_archival=FALSE:        {archival_ct}/{total_arts}")
+        print(f"   is_archival=TRUE:         {archival_ct}/{total_arts}")
         print(f"   category_main ustawiony:  {with_cat_main}/{total_arts}")
         print(f"   category_id ustawiony:    {with_cat_id}/{total_arts}")
         if orphan_subs:
