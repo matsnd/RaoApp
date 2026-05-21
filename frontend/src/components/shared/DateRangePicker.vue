@@ -1,19 +1,30 @@
 <template>
-  <VueDatePicker
-    v-model="range"
-    range
-    :enable-time-picker="false"
-    auto-apply
-    :teleport="true"
-    :month-change-on-scroll="false"
-    placeholder="Data od — Data do"
-    class="rao-datepicker"
-    @update:model-value="onRangeChange"
-  />
+  <div style="position: relative;">
+    <input
+      type="text"
+      :value="displayValue"
+      :placeholder="placeholder"
+      class="rao-datepicker-input"
+      @click="openPicker"
+      readonly
+    />
+    <VueDatePicker
+      ref="pickerRef"
+      v-model="range"
+      range
+      :enable-time-picker="false"
+      auto-apply
+      :teleport="true"
+      :month-change-on-scroll="false"
+      placeholder="Data od — Data do"
+      class="rao-datepicker-hidden"
+      @update:model-value="onRangeChange"
+    />
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 // @ts-ignore — brak oficjalnych typów dla wszystkich propsów VueDatePicker
 import { VueDatePicker } from '@vuepic/vue-datepicker'
 import '@vuepic/vue-datepicker/dist/main.css'
@@ -43,6 +54,8 @@ const range = ref<[Date | null, Date | null]>([
   fromISO(props.dateTo),
 ])
 
+const pickerRef = ref<InstanceType<typeof VueDatePicker> | null>(null)
+
 watch(
   () => [props.dateFrom, props.dateTo] as [string | null, string | null],
   ([f, t]) => {
@@ -59,6 +72,23 @@ function formatDisplay(date: Date): string {
   })
 }
 
+function formatRange(dates: [Date | null, Date | null]): string {
+  if (!dates || !dates[0] || !dates[1]) return ''
+  const from = formatDisplay(dates[0])
+  const to = formatDisplay(dates[1])
+  return `${from} - ${to}`
+}
+
+const displayValue = computed(() => {
+  return formatRange(range.value)
+})
+
+function openPicker() {
+  if (pickerRef.value) {
+    pickerRef.value.openMenu()
+  }
+}
+
 function onRangeChange(val: [Date | null, Date | null] | null) {
   if (!val) {
     emit('update:dateFrom', null)
@@ -71,8 +101,8 @@ function onRangeChange(val: [Date | null, Date | null] | null) {
 </script>
 
 <style>
-/* Niezbędne globalne — VueDatePicker renderuje poza shadow DOM */
-.rao-datepicker .dp__input {
+/* Własny input */
+.rao-datepicker-input {
   font-family: var(--font-family, 'Montserrat', sans-serif);
   font-size: var(--font-size-sm, 13px);
   border: 1px solid var(--color-border, #E2E8F0);
@@ -81,18 +111,26 @@ function onRangeChange(val: [Date | null, Date | null] | null) {
   color: var(--color-text-body, #4A5568);
   width: 100%;
   box-sizing: border-box;
+  cursor: pointer;
+  background: white;
 }
 
-.rao-datepicker .dp__input:focus {
+.rao-datepicker-input:focus {
   border-color: var(--color-accent-blue, #3B82F6);
   outline: none;
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
 }
 
-.rao-datepicker .dp__input_wrap {
-  width: 100%;
+/* Ukryj VueDatePicker input */
+.rao-datepicker-hidden .dp__input {
+  display: none !important;
 }
 
+.rao-datepicker-hidden .dp__input_wrap {
+  display: none !important;
+}
+
+/* Niezbędne globalne — VueDatePicker renderuje poza shadow DOM */
 .rao-datepicker {
   width: 100%;
 }

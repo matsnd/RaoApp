@@ -34,10 +34,6 @@
               <input :value="contractStore.current?.number || '(auto)'" type="text" class="form-control" disabled />
             </div>
             <div class="form-group">
-              <label class="form-label">OID (zamówienie Fakturownia)</label>
-              <input v-model="form.oid" type="text" class="form-control" placeholder="np. 12345" />
-            </div>
-            <div class="form-group">
               <label class="form-label">Okres umowy (od — do) *</label>
               <DateRangePicker
                 :date-from="form.date_from"
@@ -773,7 +769,6 @@ const form = ref({
   contact_person1: '', contact_phone1: '', show_person1: true,
   contact_person2: '', contact_phone2: '', show_person2: true,
   email: '', phone: '', contractor_name: '', working_days_per_week: 6, report_without_data: false, hide_delivery_address: false, signatures_on_page1: false,
-  oid: '',
   is_settled: false, settled_at: null,  // RAO-P2-022
 })
 
