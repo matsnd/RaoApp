@@ -272,7 +272,11 @@ CREATE TABLE articles (
     category_sub2     VARCHAR(100) NULL COMMENT 'RAO-P1-017: Podkategoria 2 (snapshot)',
     category_sub3     VARCHAR(100) NULL COMMENT 'RAO-P1-017: Podkategoria 3 (snapshot)',
     is_archival       BOOLEAN      NOT NULL DEFAULT FALSE COMMENT 'RAO-P1-017: maszyna archiwalna (FALSE domyślnie, użytkownik oznaczy ręcznie w przyszłości)',
-    technical_attributes JSON      NULL COMMENT 'RAO-P1-017: dynamiczne atrybuty techniczne (np. waga, moc)',
+    technical_attributes JSON      NULL COMMENT 'RAO-P1-017: dynamiczne atrybuty techniczne (np. waga, moc) - LEGACY, zostawione dla kompatybilności',
+    -- RAO: dedykowane kolumny numeryczne dla filtrów statystyk (zastępują string-values w technical_attributes JSON)
+    zasieg_m          DECIMAL(8,2) NULL COMMENT 'Zasięg w metrach (filtr >=/<= w statystykach)',
+    udzwig_t          DECIMAL(8,2) NULL COMMENT 'Udźwig w tonach (filtr >=/<= w statystykach)',
+    dodatki           TEXT         NULL COMMENT 'Dodatkowe akcesoria / wyposażenie (było string w technical_attributes JSON)',
     fakturownia_product_id BIGINT  NULL COMMENT 'RAO-P2-012: ID produktu w Fakturownia (mapping globalny 1:N)',
     created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at        DATETIME     NULL ON UPDATE CURRENT_TIMESTAMP,
@@ -288,7 +292,9 @@ CREATE TABLE articles (
     INDEX idx_art_registration (registration_no),
     INDEX idx_articles_category_main (category_main),
     INDEX idx_articles_archival (is_archival),
-    INDEX idx_articles_fakturownia_product (fakturownia_product_id)
+    INDEX idx_articles_fakturownia_product (fakturownia_product_id),
+    INDEX idx_articles_zasieg (zasieg_m),
+    INDEX idx_articles_udzwig (udzwig_t)
 ) ENGINE=InnoDB COMMENT='Artykuły/maszyny (stara tabela: artykul3)';
 
 -- ============================================================

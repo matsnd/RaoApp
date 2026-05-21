@@ -9,12 +9,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@vuepic/vue-datepicker": "^12.1.0",
     "axios": "^1.13.6",
     "chart.js": "^4.5.1",
     "idb": "^8.0.3",
     "nprogress": "^0.2.0",
     "pinia": "^3.0.4",
     "vue": "^3.5.30",
+    "vue-draggable-plus": "^0.6.1",
     "vue-router": "^4.6.4"
   },
   "devDependencies": {

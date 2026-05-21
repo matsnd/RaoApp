@@ -1,7 +1,7 @@
 import { APIRequestContext, Page, expect, request } from '@playwright/test'
 
-export const BASE = 'http://localhost:5174/rao'
-export const API  = 'http://localhost:8001/rao/api'
+export const BASE = 'http://localhost:5173/rao'
+export const API  = 'http://localhost:8000/rao/api'
 export const CREDS = { login: 'admin', password: 'admin123' }
 
 export async function waitForBackend(page: Page) {

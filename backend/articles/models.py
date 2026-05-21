@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, ForeignKey, Index, Integer, Numeric, String
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, ForeignKey, Index, Integer, Numeric, String, Text
 from sqlalchemy.dialects.mysql import JSON
 from sqlalchemy.orm import relationship
 from database import Base
@@ -30,6 +30,10 @@ class Article(Base):
     category_sub3 = Column(String(100), nullable=True)
     is_archival = Column(Boolean, nullable=False, default=False, server_default="0")
     technical_attributes = Column(JSON, nullable=True)
+    # RAO-P2-XXX: dedykowane kolumny numeryczne dla filtrów (zastępują string-values w technical_attributes JSON)
+    zasieg_m = Column(Numeric(8, 2), nullable=True, comment="Zasięg w metrach")
+    udzwig_t = Column(Numeric(8, 2), nullable=True, comment="Udźwig w tonach")
+    dodatki = Column(Text, nullable=True, comment="Dodatkowe akcesoria / wyposażenie")
     # RAO-P2-012: integracja Fakturownia — 1:N globalny mapping produktu FA → artykułów RAO
     fakturownia_product_id = Column(BigInteger, nullable=True,
                                     comment="ID produktu w Fakturownia (mapping globalny 1:N)")
@@ -44,4 +48,6 @@ class Article(Base):
         Index("idx_articles_category_main", "category_main"),
         Index("idx_articles_archival", "is_archival"),
         Index("idx_articles_fakturownia_product", "fakturownia_product_id"),
+        Index("idx_articles_zasieg", "zasieg_m"),
+        Index("idx_articles_udzwig", "udzwig_t"),
     )

@@ -22,7 +22,7 @@ class ArticleService:
         from articles.schemas import ArticleListItem
         from sqlalchemy.orm import aliased
 
-        stmt = select(Article)
+        stmt = select(Article).where(Article.is_archival == False)  # noqa: E712
         if search:
             stmt = stmt.where(Article.name.ilike(f"%{search}%"))
         if category_id:
