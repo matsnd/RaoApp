@@ -3541,7 +3541,7 @@ Naprawić import @vuepic/vue-datepicker — obecnie rzuca SyntaxError: "The requ
 
 ---
 
-### [RAO-P1-026] Rozbudowa filtrów statystyk — drilldown kategorii, CSV export, udźwig, archiwalne
+### [RAO-P1-026] Rozbudowa filtrów statystyk — drilldown kategorii, udźwig, archiwalne, per-rok/miesiąc
 
 ```yaml
 id: RAO-P1-026
@@ -3565,7 +3565,17 @@ security_impact: low
 **Job-to-be-done:**
 Domknąć UX widoku "Analiza historyczna → Kategorie" (RAO-P1-017 był formalnie done, ale zostawił 4 luki P1).
 Dodać drilldown main→sub1, filtr kategorii głównej, filtr rodzaju (globalny), archiwalne toggle, udźwig chipy,
-CSV export tabeli, sortowanie kolumn, statystyki per rok/miesiąc. Bez persistencji filtrów (reset przy F5).
+sortowanie kolumn, statystyki per rok/miesiąc. Bez persistencji filtrów (reset przy F5). Bez CSV export.
+
+**Kontekst biznesowy (kluczowy!):**
+Kategorie istnieją GŁÓWNIE dlatego, że w starej aplikacji WinForms ta sama fizyczna maszyna (np. "Wózek widłowy 8t")
+miała wiele wierszy w bazie (`article_id` 5076, 8074, itd. — różne ID, ta sama maszyna).
+Dzięki kategoriom statystyki agregują po klasie maszyny, nie po duplikacie ID → dane są miarodajne.
+
+**Bug P0 dla tego zadania — `articles_count` jest zawyżony:**
+Obecny `aggregate_by_category` w `calc.py` liczy `articles.add(article_id)` — czyli zlicza duplikaty jako osobne maszyny.
+Poprawna metryka to unikalne `internal_number` (identyfikator fizyczny z CSV), z fallbackiem na `article_id` gdy `internal_number` is None.
+FIX: `agg[cat]["articles"].add(internal_number or article_id)` → miarodajna liczba fizycznych maszyn per kategoria.
 
 **Decyzje designu (PO + UX, 2026-05-21):**
 - Drilldown: kliknięcie wiersza "Wozidła" w tabeli → filtruje sub1 tylko tej kategorii (breadcrumb "Wszystkie → Wozidła ✕")
@@ -3595,7 +3605,6 @@ CSV export tabeli, sortowanie kolumn, statystyki per rok/miesiąc. Bez persisten
 - [ ] Chip-summary aktywnych filtrów pod panelem: `[Maszyny ✕] [Wozidła ✕] [5-20t ✕]` + "Wyczyść wszystko"
 - [ ] Drilldown: kliknięcie wiersza w tabeli kategorii → breadcrumb "Wszystkie → {nazwa} ✕" + przeładowanie na level=sub1 z filtrem
 - [ ] Sortowanie kolumn tabeli (klik nagłówka → ASC/DESC)
-- [ ] Przycisk "Eksport CSV" → pobiera aktualną tabelę z BOM UTF-8 (dla Excela) + aktywne filtry w nazwie pliku
 - [ ] Warning przy filtrze udźwig: "ℹ️ X pozycji bez podanego udźwigu zostało pominiętych"
 - [ ] Sub-tab lub oś czasu "Per rok/miesiąc" — bar chart z granularnością month/year, filtry dziedziczone z panelu
 
@@ -3687,5 +3696,5 @@ n|| RAO-P1-008 | Strukturalizacja adresów: kod pocztowy + miasto | Client | P1 
 || RAO-P2-018 | SPIKE: Foldery docelowe dla pobieranych plików | Internal | P2 | S | done | tech-lead |
 || RAO-P3-013 | Konfigurowalne foldery pobierania — FS Access API | Internal | P3 | M | done | frontend-dev |
 || RAO-P1-024 | BUG: CSV migration — is_service + model brakują | Internal | P1 | S | done | backend-dev |
-|| RAO-P1-026 | Filtry statystyk: drilldown, CSV export, udźwig, archiwalne, per-rok/miesiąc | Internal | P1 | L | triaged | cross-stack |
+|| RAO-P1-026 | Filtry statystyk: drilldown, udźwig, archiwalne, per-rok/miesiąc | Internal | P1 | L | triaged | cross-stack |
 || RAO-P2-019 | Drzewiaste kategorie — picker, settings, breadcrumb | Internal | P2 | L | done | cross-stack |
