@@ -101,6 +101,19 @@ async def startup_migrations():
             "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
             "technical_attributes JSON NULL"
         ))
+        # RAO: dedykowane kolumny numeryczne dla filtrów statystyk (zastępują string-values w technical_attributes JSON)
+        await conn.execute(sa.text(
+            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "zasieg_m DECIMAL(8,2) NULL COMMENT 'Zasięg w metrach'"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "udzwig_t DECIMAL(8,2) NULL COMMENT 'Udźwig w tonach'"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "dodatki TEXT NULL COMMENT 'Dodatkowe akcesoria / wyposażenie'"
+        ))
         # RAO-P1-008: strukturalizacja adresów - kod pocztowy + miasto
         await conn.execute(sa.text(
             "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
@@ -235,9 +248,22 @@ async def startup_migrations():
             "CREATE INDEX IF NOT EXISTS idx_articles_fakturownia_product "
             "ON articles(fakturownia_product_id)"
         ))
+        # RAO: indeksy na zasieg_m / udzwig_t dla filtrów >=/<= w statystykach
+        await conn2.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_articles_zasieg ON articles(zasieg_m)"
+        ))
+        await conn2.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_articles_udzwig ON articles(udzwig_t)"
+        ))
 
     async with AsyncSessionLocal() as db:
         from sqlalchemy import select, update, func
+        from settings.models import Company
+        # Upewnij się że istnieje domyślna firma (id=1) zanim dodamy FeePresetGroup (FK company_id)
+        has_company = (await db.execute(select(func.count()).select_from(Company))).scalar_one()
+        if has_company == 0:
+            db.add(Company(id=1, name="RAO — Wynajem Maszyn"))
+            await db.commit()
         has_presets = (await db.execute(select(func.count()).select_from(FeePresetGroup))).scalar_one()
         if has_presets == 0:
             for ct, label in (("S", "Domyślny — najem"), ("U", "Domyślny — usługa")):

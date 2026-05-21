@@ -3494,6 +3494,51 @@ Skutek: 2 artykuły mają błędne `is_service=True` (sklasyfikowane jako Usług
 
 ---
 
+### [RAO-P1-027] Ustaw is_archival=TRUE dla artykułów z migracji WinForms
+
+```yaml
+id: RAO-P1-027
+priority: P1
+size: XS
+status: triaged
+classification: backend
+roles: [backend-dev]
+depends_on: []
+blocks: []
+source: internal
+source_date: 2026-05-21
+specs_to_update: []
+migration_impact: yes
+security_impact: low
+```
+
+**Kontekst:**
+Artykuły zaimportowane z WinForms przez `migrate.py` mają tymczasowo `is_archival=FALSE`.
+Docelowa logika biznesowa:
+- Artykuły z migracji → `is_archival=TRUE` (archiwalne)
+  - niewidoczne na liście artykułów
+  - niedostępne w pickerze do nowych umów
+  - widoczne **tylko** w statystykach kategorii (przychód ze starych umów)
+- Nowe artykuły dodawane przez użytkownika po migracji → `is_archival=FALSE`
+
+**Obecny stan (tymczasowy):**
+Wszystkie 417 artykułów ma `is_archival=FALSE` — są widoczne i dostępne w pickerze.
+Zmienione celowo dla fazy testów i weryfikacji danych. Patrz: `backend/migrate.py` linia 1107.
+
+**Acceptance criteria (DoD):**
+- [ ] `migrate.py step8`: `UPDATE articles SET is_archival = TRUE` (zamiast FALSE)
+- [ ] `migrate.py`: weryfikacja gate: `is_archival=TRUE: N/N` (zamiast FALSE)
+- [ ] Re-run `python migrate.py` → idempotentne
+- [ ] Backend restart bez błędu
+- [ ] `GET /articles` nie zwraca archiwalnych (test: count z DB vs count z API)
+- [ ] `GET /stats/by-category` zwraca przychód ze starych umów mimo `is_archival=TRUE`
+
+**Pliki do zmiany:** `backend/migrate.py` (1 linia)
+**ROI:** Poprawna logika biznesowa — stary asortyment WinForms nie zaśmieca listy maszyn
+**Estimate:** 15 min (XS)
+
+---
+
 ## ✅ Done Log
 
 Zobacz `archive/16_todo_done.md` dla pełnego historii zadań ukończonych.

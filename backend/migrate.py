@@ -1104,12 +1104,18 @@ async def step8_csv_categories() -> None:
             )
 
         # ── Oznacz WSZYSTKIE artykuły is_archival=FALSE ─────────────
+        # TODO (RAO-P1-027): docelowo artykuły z migracji mają mieć is_archival=TRUE
+        # (niewidoczne na liście, niedostępne w pickerze, widoczne tylko w statystykach kategorii).
+        # Na razie pozostają FALSE żeby były dostępne do testów i weryfikacji danych.
+        # Gdy logika biznesowa zostanie potwierdzona → zmienić na:
+        #   UPDATE articles SET is_archival = TRUE  (dla wszystkich z migrate)
+        #   UPDATE articles SET is_archival = FALSE (tylko dla nowo dodanych przez użytkownika)
         await cur.execute(
             "UPDATE articles SET is_archival = FALSE"
         )
         extra = cur.rowcount
         if extra:
-            print(f"   {extra} artykułów oznaczonych is_archival=FALSE")
+            print(f"   {extra} artykułów oznaczonych is_archival=FALSE (tymczasowo — patrz TODO RAO-P1-027)")
 
         await conn.commit()
 
