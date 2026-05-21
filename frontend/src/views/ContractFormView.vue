@@ -994,8 +994,28 @@ async function handleSave() {
       const result = await contractStore.create(payload)
       router.push(`/contracts/${result.id}/edit`)
     }
-  } catch (e) {
-    errorMsg.value = e.response?.data?.detail || 'Błąd zapisu'
+  } catch (e: any) {
+    const detail = e.response?.data?.detail
+    if (Array.isArray(detail)) {
+      // Parsuj błędy walidacji Pydantic
+      const errorMessages = detail.map((err: any) => {
+        const field = err.loc?.[1] || err.loc?.[0] || 'pole'
+        const msg = err.msg || 'Błąd walidacji'
+        // Mapowanie nazw pól na polski
+        const fieldMap: Record<string, string> = {
+          postal_code: 'Kod pocztowy',
+          city: 'Miasto',
+          date_from: 'Data od',
+          date_to: 'Data do',
+          contractor_id: 'Kontrahent'
+        }
+        const polishField = fieldMap[field] || field
+        return `${polishField}: ${msg}`
+      })
+      errorMsg.value = errorMessages.join(', ')
+    } else {
+      errorMsg.value = detail || 'Błąd zapisu'
+    }
   } finally {
     saving.value = false
   }
