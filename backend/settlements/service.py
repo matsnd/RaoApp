@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from .models import ContractSettlement
-from .schemas import ContractSettlementCreate, ContractSettlementUpdate
+from .schemas import ContractSettlementCreate, ContractSettlementUpdate, ContractSettlementResponse
 
 
 class SettlementService:
@@ -13,7 +13,17 @@ class SettlementService:
             .where(ContractSettlement.contract_id == contract_id)
             .order_by(ContractSettlement.id)
         )
-        return result.scalars().all()
+        settlements = result.scalars().all()
+
+        # RAO-P2-012: ręcznie mapuj na Pydantic response z service_fee_name
+        # (property nie jest automatycznie serializowane przez Pydantic from_attributes)
+        return [
+            ContractSettlementResponse.model_validate({
+                **{k: v for k, v in s.__dict__.items() if not k.startswith('_')},
+                'service_fee_name': s.service_fee_name  # z property modelu
+            })
+            for s in settlements
+        ]
 
     async def get_settlement(self, db: AsyncSession, settlement_id: int):
         from sqlalchemy.orm import selectinload

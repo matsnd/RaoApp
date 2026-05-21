@@ -208,10 +208,10 @@ class ContractCreate(BaseModel):
     longitude: Decimal | None = None
     date_from: date | None = None
     date_to: date | None = None
-    total_value: Decimal = Decimal("0.00")
-    prepayment_amount: Decimal = Decimal("0.00")
+    total_value: Decimal | None = None
+    prepayment_amount: Decimal | None = None
     prepayment_document: str | None = None
-    invoice_amount: Decimal = Decimal("0.00")
+    invoice_amount: Decimal | None = None
     invoice_document: str | None = None
     notes: str | None = None
     contact_person1: str | None = None
