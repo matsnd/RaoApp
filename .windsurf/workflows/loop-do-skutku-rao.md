@@ -109,6 +109,8 @@ Wzór dobrego planu:
 6. [pending] Verification Tier 1-5
 ```
 
+**WAŻNE:** Jeśli zadanie dotyczy bazy danych lub ma wpływ na interfejs API/UI — **zawsze** dodaj krok aktualizacji specyfikacji (np. "Zaktualizuj spec/01_DATABASE_DDL.md" dla zmian DB lub "Zaktualizuj spec/02_BACKEND_API.md" dla nowych endpointów).
+
 ### 1.3 Sequential thinking (tylko gdy złożone)
 
 Jeśli zadanie ma ≥3 niezależne decyzje architektoniczne lub niejasne wymagania → wywołaj `mcp6_sequentialthinking` z 5-10 myślami. Inaczej **pomiń**, marnuje tokeny.
@@ -119,13 +121,33 @@ Jeśli zadanie ma ≥3 niezależne decyzje architektoniczne lub niejasne wymagan
 
 ### 2.A Database (jeśli dotyczy)
 
-🔗 **Pełny proces 4-warstwowy w regule `rao-migrations`** (aktywuje się automatycznie przy edycji `backend/main.py`, `models.py`, `spec/01_DATABASE_DDL.md`).
+🔗 **Pełna polityka migracji w `spec/process/migrations.md`** (aktywuje się automatycznie przy edycji `backend/main.py`, `models.py`, `spec/01_DATABASE_DDL.md`).
 
-W skrócie: `spec/01_DATABASE_DDL.md` → `backend/<feature>/models.py` → `backend/main.py` startup `ALTER ... IF NOT EXISTS` → weryfikacja `DESCRIBE` + drugi restart.
+**KRYTYCZNE:** Zawsze używaj deterministycznych migracji zgodnie z polityką migracji:
+- **Idempotentność** — każda migracja musi być uruchamialna N razy bez błędów
+- **IF NOT EXISTS** — zawsze używaj `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` (dla FK i indeksów też!)
+- **Lokalizacja** — schema migrations w `backend/main.py` startup event, data migrations w `backend/migrate.py`
+- **Verification gates** — obowiązkowe dla każdej migracji (DROP + CREATE → restart → re-run → idempotentność)
+- **Testy** — schema_idempotent, data_integrity, from-scratch migration
+- **Security** — brak sekretów w kodzie/spec, hasła force_password_reset=1
+- **Rollback policy** — forward-only migrations z dump przed migracją
 
-W trybie loop dodatkowo:
-- Po dodaniu migracji **restart backendu na nowym porcie** (np. 8001) i sprawdź logi uvicorn pod kątem błędów startup
-- Idempotentność testowana w Tier 4.5
+**ZAKAZANE:**
+- Ad-hoc ALTER-y w mariadb CLI bez równoległej zmiany w kodzie
+- try/except z `pass` dla FK/indeksów (ukrywa prawdziwe błędy)
+- Plaintext hasła w bazie
+- Sekrety w spec/
+
+**Pełny proces migracji schema:**
+1. `spec/core/01_database.md` — finalny DDL (mirror, nie ALTER)
+2. `backend/<feature>/models.py` — SQLAlchemy Column
+3. `backend/main.py` startup — `ALTER TABLE ... ADD COLUMN IF NOT EXISTS ...`
+4. **Verification gates:**
+   - [ ] DROP DATABASE rao_new && CREATE → restart backend → schema OK
+   - [ ] Drugi restart backend bez błędu "Duplicate column"
+   - [ ] DESCRIBE zgadza się z DDL ze spec
+   - [ ] Test idempotentności (uruchom startup_migrations 3x)
+5. **Jeśli touch `migrate.py`:** dodaj verification gates dla data migrations (row count parity, sample diff)
 
 ### 2.B Backend (FastAPI module)
 
@@ -289,29 +311,33 @@ npx playwright test tests/04-contract.spec.ts --reporter=list
 
 ### Tier 4.5 — Migration & spec consistency check
 
-Po Tier 4 (E2E) ale przed Tier 5 (manualna MCP) — szybki audyt deterministyczności:
+Po Tier 4 (E2E) ale przed Tier 5 (manualna MCP) — audyt deterministyczności zgodnie z polityką migracji.
+
+**UWAGA:** Verification gates (DROP + CREATE, test idempotentności 3x) są **opcjonalne** przy małych zmianach (np. dodanie kolumny). Krytyczne jest tylko **zachowanie deterministyczności** migracji (IF NOT EXISTS, brak try/except z pass). Verification gates wykonuj tylko przy większych zmianach schema lub data migrations.
 
 ```pwsh
-# 1. Restart backendu by sprawdzić idempotentność migracji (Cwd: backend)
-#    (uvicorn --reload sam podchwyci, ale startup events działają tylko przy fresh start —
-#     jeśli zmieniałeś main.py startup → zabij i wystartuj ponownie na innym porcie)
-uvicorn main:app --port 8001
-# Sprawdź logi — żadnego "Duplicate column", "Table already exists" itp.
+# 1. Sprawdź czy migracja w backend/main.py jest deterministyczna (IF NOT EXISTS)
+#    - Jeśli tak: OK, przejdź dalej
+#    - Jeśli nie: popraw migrację zanim przejdziesz dalej
 
-# 2. DESCRIBE wszystkie tabele które zmieniałeś — porównaj ze spec/01_DATABASE_DDL.md
-mariadb -u rao_user -pRaoPass2026! rao_new -e "DESCRIBE <table>;"
-
-# 3. git diff spec/ — czy aktualizowałeś dokumentację?
+# 2. git diff spec/ — czy aktualizowałeś dokumentację?
 git diff --stat spec/
+
+# 3. Opcjonalne: verification gates z spec/process/migrations.md (tylko przy większych zmianach)
+#    - [ ] DROP DATABASE rao_new && CREATE → restart backend → schema OK
+#    - [ ] Drugi restart backend bez błędu "Duplicate column"
+#    - [ ] DESCRIBE zgadza się z DDL ze spec/01_DATABASE_DDL.md
+#    - [ ] Test idempotentności (uruchom startup_migrations 3x)
+#    - [ ] Jeśli touch migrate.py: row count parity, sample diff
 ```
 
 **Pass kryteria:**
-- Drugi (i kolejny) restart backendu działa bez błędów (idempotentność potwierdzona)
-- DESCRIBE zgadza się z DDL ze spec/01_DATABASE_DDL.md
+- Migracja w backend/main.py używa `IF NOT EXISTS` (deterministyczność)
 - `git diff spec/` pokazuje aktualizacje proporcjonalne do zmian funkcjonalnych
   - 0 zmian jeśli zadanie czysto kosmetyczne
   - DDL + API jeśli backend feature
   - Screens + Navigation jeśli frontend feature
+- Przy większych zmianach: verification gates z spec/process/migrations.md są spełnione
 
 ### Tier 5 — Manualna weryfikacja Playwright MCP
 

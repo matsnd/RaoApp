@@ -6,16 +6,21 @@ from .schemas import ContractSettlementCreate, ContractSettlementUpdate
 
 class SettlementService:
     async def get_settlements_by_contract(self, db: AsyncSession, contract_id: int):
+        from sqlalchemy.orm import selectinload
         result = await db.execute(
             select(ContractSettlement)
+            .options(selectinload(ContractSettlement.service_fee))
             .where(ContractSettlement.contract_id == contract_id)
             .order_by(ContractSettlement.id)
         )
         return result.scalars().all()
 
     async def get_settlement(self, db: AsyncSession, settlement_id: int):
+        from sqlalchemy.orm import selectinload
         result = await db.execute(
-            select(ContractSettlement).where(ContractSettlement.id == settlement_id)
+            select(ContractSettlement)
+            .options(selectinload(ContractSettlement.service_fee))
+            .where(ContractSettlement.id == settlement_id)
         )
         return result.scalar_one_or_none()
 

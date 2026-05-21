@@ -461,7 +461,7 @@
                 </td>
                 <td>
                   <span :style="{ color: s.margin > 0 ? 'green' : s.margin < 0 ? 'red' : 'inherit', fontWeight: '600' }">
-                    {{ s.margin !== null ? Number(s.margin).toFixed(2) + ' zł' : '—' }}
+                    {{ (s.margin !== null && !isNaN(s.margin)) ? Number(s.margin).toFixed(2) + ' zł' : '—' }}
                   </span>
                 </td>
                 <td>
