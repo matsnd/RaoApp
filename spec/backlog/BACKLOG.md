@@ -3500,15 +3500,56 @@ Zobacz `archive/16_todo_done.md` dla pełnego historii zadań ukończonych.
 
 ---
 
+### [RAO-P1-025] BUG: Napraw import @vuepic/vue-datepicker — export default error
+
+```yaml
+id: RAO-P1-025
+priority: P1
+size: S
+status: done
+classification: bug
+roles: [frontend-dev]
+depends_on: []
+blocks: []
+source: e2e-manual-test
+source_date: 2026-05-21
+specs_to_update: []
+migration_impact: no
+security_impact: none
+```
+
+**Job-to-be-done:**
+Naprawić import @vuepic/vue-datepicker — obecnie rzuca SyntaxError: "The requested module '/rao/node_modules/.vite/deps/@vuepic_vue-datepicker.js?v=6edc8ea6' does not provide an export named 'default'". Błąd powtarza się przy każdej nawigacji.
+
+**Symptomy:**
+- SyntaxError w konsoli przy każdej nawigacji
+- Double-click na wiersz umowy nie przekierowuje do edycji
+- Przycisk "+" w umowach nie przekierowuje do nowej umowy
+- Może blokować inne funkcje używające vue-datepicker
+
+**Acceptance criteria (DoD):**
+- [x] Import @vuepic/vue-datepicker naprawiony (named export `{ VueDatePicker }` zamiast default)
+- [x] Vite build bez błędów datepicker
+- [x] Smoke test 01-login.spec.ts 11/11 PASS
+
+**Root cause:** `@vuepic/vue-datepicker` v12 eksportuje tylko named export `VueDatePicker` — brak `export default`.
+**Fix:** `import VueDatePicker from` → `import { VueDatePicker } from` w `DateRangePicker.vue`.
+
+**Pliki zmienione:** `frontend/src/components/shared/DateRangePicker.vue`
+**ROI:** Critical — blokuje tworzenie/edycję umów
+**Estimate:** 1h (S)
+
+---
+
 ## 📊 Podsumowanie
 
 | Priorytet | Liczba | Effort łączny |
 |-----------|--------|---------------|
 | 🚨 P0 | 5 | ~7h |
-| 🔴 P1 | 12 | ~57h |
+| 🔴 P1 | 13 | ~58h |
 | 🟡 P2 | 12 | ~72h |
 | 🟢 P3 | 5 | ~20h |
-| **Razem** | **34** | **~156h** |
+| **Razem** | **35** | **~157h** |
 
 ---
 
@@ -3535,6 +3576,7 @@ n|| RAO-P1-008 | Strukturalizacja adresów: kod pocztowy + miasto | Client | P1 
 || RAO-P1-014 | Protokół usługi — godziny operatora | Client | P1 | M | done | cross-stack |
 || RAO-P1-015 | Rezerwacja maszyn (SUPERSEDED) | Client | P1 | M | superseded | cross-stack |
 || RAO-P1-023 | BUG: Rezerwacja z umowy + conflict popup | Client | P1 | L | triaged | cross-stack |
+|| RAO-P1-025 | BUG: Napraw import @vuepic/vue-datepicker | E2E | P1 | S | todo | frontend-dev |
 || RAO-P2-001 | Kolumna adres dostawy | Internal | P2 | XS | done | frontend-dev |
 || RAO-P2-002 | Link "Zmień hasło" sidebar | Internal | P2 | XS | done | frontend-dev |
 || RAO-P2-003 | NIP validation checksum | Internal | P2 | S | done | backend-dev |

@@ -19,7 +19,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 // @ts-ignore — brak oficjalnych typów dla wszystkich propsów VueDatePicker
-import VueDatePicker from '@vuepic/vue-datepicker'
+import { VueDatePicker } from '@vuepic/vue-datepicker'
 import '@vuepic/vue-datepicker/dist/main.css'
 
 const props = defineProps<{
