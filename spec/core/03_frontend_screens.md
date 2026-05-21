@@ -1187,6 +1187,11 @@ async function handleFakturownia() {
   - Emity: `update:dateFrom`, `update:dateTo` → `form.date_from`, `form.date_to`
   - Walidacja: `v-if="!form.date_from"` → "Podaj datę od"
   - **2026-05-21:** Wyświetlanie dat bez godziny (format: dd.MM.yyyy - dd.MM.yyyy)
+- **2026-05-21:** Wyświetlanie błędów walidacji
+  - Błędy walidacji z backendu (Pydantic) są parsowane z tablicy JSON
+  - Format: `Kod pocztowy: String should have at least 6 characters, Miasto: String should have at least 1 character`
+  - Nazwy pól są mapowane na język polski (postal_code → Kod pocztowy, city → Miasto)
+  - Funkcja `handleSave()` w `ContractFormView.vue` parsuje `e.response?.data?.detail`
 - Inline validation dla required fields (data od, kontrahent)
 - Layout adresu dostawy poprawiony:
   - Select adresu w osobnym rzędzie

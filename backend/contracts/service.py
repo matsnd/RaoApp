@@ -106,7 +106,13 @@ class ContractService:
         if contract_type:
             stmt = stmt.where(Contract.contract_type == contract_type)
         if is_settled is not None:
-            stmt = stmt.where(Contract.is_settled == is_settled)
+            if is_settled:
+                # Rozliczone umowy
+                stmt = stmt.where(Contract.is_settled == True)
+            else:
+                # Aktywne umowy: nie rozliczone i nie zamknięte (date_to >= dzisiaj)
+                today = date.today()
+                stmt = stmt.where(Contract.is_settled == False, Contract.date_to >= today)
 
         count_stmt = select(func.count()).select_from(stmt.subquery())
         total = (await db.execute(count_stmt)).scalar_one()

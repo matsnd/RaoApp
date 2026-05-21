@@ -665,7 +665,8 @@ WHERE cp.article_id = :article_id
 ### `GET /contracts`
 
 ```python
-# Query: ?search=S001&date_from=2026-01-01&date_to=2026-12-31&type=S&page=1&per_page=50
+# Query: ?search=S001&date_from=2026-01-01&date_to=2026-12-31&type=S&is_settled=false&page=1&per_page=50
+# is_settled: None=wszystkie, false=aktywne (is_settled=false AND date_to >= dzisiaj), true=rozliczone
 
 class ContractListItem(BaseModel):
     id: int
