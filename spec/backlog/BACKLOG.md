@@ -3834,7 +3834,7 @@ Usunąć WSZYSTKIE ślady eksportów CSV z aplikacji (backend, frontend, specyfi
 id: RAO-P1-030
 priority: P1
 size: S
-status: todo
+status: done
 classification: bug/data-accuracy
 roles: [backend-dev]
 depends_on: []
@@ -3882,7 +3882,7 @@ Raport "Stan aktualny floty" musi uwzględniać tylko maszyny niearchiwalne (`is
 id: RAO-P1-028
 priority: P1
 size: M
-status: todo
+status: done
 classification: bug/data-accuracy
 roles: [backend-dev, frontend-dev]
 depends_on: []
@@ -4144,8 +4144,8 @@ n|| RAO-P1-008 | Strukturalizacja adresów: kod pocztowy + miasto | Client | P1 
 || RAO-P1-026 | Filtry statystyk: drilldown, udźwig, archiwalne, per-rok/miesiąc | Internal | P1 | L | done | cross-stack |
 || RAO-P2-019 | Drzewiaste kategorie — picker, settings, breadcrumb | Internal | P2 | L | done | cross-stack |
 || RAO-P2-020 | Usuń przyciski eksportu CSV z Raporty | E2E | P2 | S | done | frontend-dev |
-|| RAO-P1-027 | BUG: Stan aktualny floty — is_archival + is_external | Client | P1 | S | todo | backend-dev |
-|| RAO-P1-028 | BUG: Eksplorator — niearchiwalne + miasta z kodów pocztowych | Client | P1 | M | todo | cross-stack |
+|| RAO-P1-027 | BUG: Stan aktualny floty — is_archival + is_external | Client | P1 | S | done | backend-dev |
+|| RAO-P1-028 | BUG: Eksplorator — niearchiwalne + miasta z kodów pocztowych | Client | P1 | M | done | cross-stack |
 || RAO-P1-029 | Analiza i naprawa migracji — umowy bez kategorii | Client | P1 | M | todo | backend-dev |
 || RAO-P2-021 | UX Raportów — kategorie drilldown + info historyczne | Client | P2 | M | todo | cross-stack |
 || RAO-P2-022 | Widok umów — sortowanie + analiza statusów | Client | P2 | S | todo | cross-stack |

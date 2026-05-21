@@ -36,6 +36,10 @@
             <input type="checkbox" v-model="form.is_service" />
             <span>Artykuł jest usługą (nie sprzętem)</span>
           </label>
+          <label class="checkbox-group" style="margin-top:6px;">
+            <input type="checkbox" v-model="form.is_external" />
+            <span>Maszyna zewnętrzna (nie wliczana do floty własnej)</span>
+          </label>
         </div>
 
         <div class="form-row-2">
@@ -195,6 +199,7 @@ const form = ref({
   category_id: null, owner_id: null, branch_id: null,
   description: '', notes: '', rental_days: null, article_type: '',
   zasieg_m: null, udzwig_t: null, dodatki: null,
+  is_archival: false, is_external: false,  // RAO-P1-027
 })
 
 const showOwnerPicker = ref(false)

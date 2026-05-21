@@ -71,6 +71,7 @@ class ArticleService:
                 category_name=cat_name,
                 category_main=a.category_main,
                 is_archival=a.is_archival,
+                is_external=a.is_external,  # RAO-P1-027
                 fakturownia_product_id=a.fakturownia_product_id,
                 owner_name=own_name, notes=a.notes,
                 active_contract_number=active_num,
@@ -125,6 +126,7 @@ class ArticleService:
             notes=original.notes,
             rental_days=original.rental_days,
             article_type=original.article_type,
+            is_external=original.is_external,  # RAO-P1-027
             zasieg_m=original.zasieg_m,
             udzwig_t=original.udzwig_t,
             dodatki=original.dodatki,

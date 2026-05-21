@@ -17,6 +17,7 @@ class ArticleListItem(BaseModel):
     # RAO-P1-026: kategoria hierarchiczna (do filtrów statystyk)
     category_main: str | None = None
     is_archival: bool = False
+    is_external: bool = False  # RAO-P1-027
     owner_name: str | None
     notes: str | None
     active_contract_number: str | None
@@ -55,6 +56,7 @@ class ArticleDetail(BaseModel):
     rental_days: int | None
     article_type: str | None
     is_archival: bool = False
+    is_external: bool = False  # RAO-P1-027
     # RAO-P1-026: dane techniczne
     zasieg_m: Decimal | None = None
     udzwig_t: Decimal | None = None
@@ -71,6 +73,8 @@ class ArticleDetail(BaseModel):
 class ArticleCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     is_service: bool = False
+    is_archival: bool = False
+    is_external: bool = False  # RAO-P1-027
     internal_number: str | None = Field(None, max_length=50)
     registration_no: str | None = Field(None, max_length=40)
     serial_no: str | None = Field(None, max_length=40)

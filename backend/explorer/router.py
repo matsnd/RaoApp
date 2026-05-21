@@ -184,6 +184,7 @@ async def explorer_search(
         .outerjoin(Category, Article.category_id == Category.id)
         .outerjoin(Contractor, Contract.contractor_id == Contractor.id)
         .outerjoin(revenue_subq, revenue_subq.c.position_id == ContractPosition.id)
+        .where(Article.is_archival == False)  # RAO-P1-028: tylko niearchiwalne
     )
     
     # Apply filters
@@ -196,7 +197,7 @@ async def explorer_search(
     if contractor_id:
         conditions.append(Contract.contractor_id == contractor_id)
     if city:
-        conditions.append(Contract.delivery_address.like(f"%{city}%"))
+        conditions.append(or_(Contract.city.like(f"%{city}%"), Contract.delivery_address.like(f"%{city}%")))  # RAO-P1-028
     if category:
         conditions.append(Category.name == category)
     
@@ -250,6 +251,7 @@ async def explorer_search(
         .outerjoin(Category, Article.category_id == Category.id)
         .outerjoin(Contractor, Contract.contractor_id == Contractor.id)
         .outerjoin(revenue_subq, revenue_subq.c.position_id == ContractPosition.id)
+        .where(Article.is_archival == False)  # RAO-P1-028: tylko niearchiwalne
     )
     
     if conditions:
@@ -427,6 +429,7 @@ async def get_services_summary(
         .join(Contract, ContractPosition.contract_id == Contract.id)
         .outerjoin(svc_rev_subq, svc_rev_subq.c.position_id == ContractPosition.id)
         .where(Article.is_service == True)
+        .where(Article.is_archival == False)  # RAO-P1-028: tylko niearchiwalne
         .group_by(Article.id, Article.name)
         .order_by(func.sum(func.coalesce(svc_rev_subq.c.pos_revenue, 0)).desc())
     )
@@ -476,11 +479,11 @@ async def get_locations_summary(
     _: User = Depends(get_current_user),
 ):
     """
-    Get rental summary by location (city extracted from delivery_address).
+    Get rental summary by location (Contract.city — RAO-P1-028: grouped by city, not raw address).
     """
     query = (
         select(
-            Contract.delivery_address,
+            Contract.city,
             func.count(Contract.id).label("rentals_count"),
             func.sum(
                 func.coalesce(PositionCondition.rate1, 0) * func.coalesce(PositionCondition.period_count, 1)
@@ -488,9 +491,9 @@ async def get_locations_summary(
         )
         .join(ContractPosition, ContractPosition.contract_id == Contract.id)
         .outerjoin(PositionCondition, PositionCondition.position_id == ContractPosition.id)
-        .where(Contract.delivery_address.isnot(None))
-        .where(Contract.delivery_address != "")
-        .group_by(Contract.delivery_address)
+        .where(Contract.city.isnot(None))
+        .where(Contract.city != "")
+        .group_by(Contract.city)
     )
 
     if date_from:
@@ -501,10 +504,10 @@ async def get_locations_summary(
     result = await db.execute(query)
     rows = result.mappings().all()
 
-    # Extract cities from addresses and re-aggregate
+    # Aggregate by city (already clean, no extract_city needed — RAO-P1-028)
     city_data: dict = {}
     for row in rows:
-        city = extract_city(row.delivery_address)
+        city = row.city
         if city not in city_data:
             city_data[city] = {"rentals_count": 0, "total_revenue": 0.0}
         city_data[city]["rentals_count"] += row.rentals_count

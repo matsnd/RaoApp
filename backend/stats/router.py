@@ -98,6 +98,7 @@ async def _compute_position_revenues(
     # RAO-P1-017: domyślnie wyklucz maszyny archiwalne (nie dotyczy usług)
     if exclude_archival and service_filter is not True:
         stmt = stmt.where(Article.is_archival == False)
+        stmt = stmt.where(Article.is_external == False)  # RAO-P1-027: wyklucz maszyny zewnętrzne
     # RAO-P1-026: filtry kategorii
     if category_main_filter:
         stmt = stmt.where(Article.category_main.in_(category_main_filter))
@@ -190,7 +191,7 @@ async def fleet_summary(
 
     # Build base query for machines
     machines_query = select(func.count(Article.id)).where(
-        and_(Article.is_service == False, Article.is_archival == False)
+        and_(Article.is_service == False, Article.is_archival == False, Article.is_external == False)  # RAO-P1-027
     )
     if internal_number:
         machines_query = machines_query.where(Article.internal_number == internal_number)
@@ -209,6 +210,7 @@ async def fleet_summary(
             and_(
                 Article.is_service == False,
                 Article.is_archival == False,       # RAO-P1-017
+                Article.is_external == False,       # RAO-P1-027
                 Contract.date_from <= today,
                 Contract.date_to >= today,
             )
@@ -308,7 +310,7 @@ async def currently_rented(
     # RAO-P1-017: wyklucz maszyny archiwalne z licznika floty
     total_q = await db.execute(
         select(func.count()).select_from(Article).where(
-            and_(Article.is_service == False, Article.is_archival == False)
+            and_(Article.is_service == False, Article.is_archival == False, Article.is_external == False)  # RAO-P1-027
         )
     )
     total_machines = total_q.scalar() or 0
@@ -330,6 +332,7 @@ async def currently_rented(
             and_(
                 Article.is_service == False,
                 Article.is_archival == False,   # RAO-P1-017: wyklucz archiwalne
+                Article.is_external == False,   # RAO-P1-027: wyklucz zewnętrzne
                 Contract.date_from <= today,
                 Contract.date_to >= today,
             )

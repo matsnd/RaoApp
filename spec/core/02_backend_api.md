@@ -561,6 +561,7 @@ class ArticleListItem(BaseModel):
     owner_name: str | None             # JOIN contractors
     notes: str | None
     is_archival: bool                  # RAO-P1-026
+    is_external: bool                  # RAO-P1-027: maszyna zewnętrzna
     active_contract_number: str | None  # computed
     created_at: datetime
     updated_at: datetime | None
@@ -1294,7 +1295,7 @@ Response: `MachineRoiResponse` (zawiera `category_main` — RAO-P1-017)
 
 ### `GET /stats/currently-rented`
 Response: `CurrentlyRentedResponse` (items zawierają `category_main` — RAO-P1-017)
-Filtr: domyślnie `is_archival=FALSE`
+Filtr: domyślnie `is_archival=FALSE AND is_external=FALSE` (RAO-P1-027)
 
 ### `GET /stats/additional-fees`
 Query: `?date_from&date_to&internal_number=<str>` (RAO-P2-008)
@@ -1472,7 +1473,7 @@ class CommissionReportResponse(BaseModel):
 
 ---
 
-### `GET /explorer/search`
+### `GET /explorer/search` (RAO-P1-028: only non-archival articles)
 
 **Opis:** Uniwersalne wyszukiwanie po pozycjach umów (maszyny + usługi).
 
@@ -1507,7 +1508,7 @@ class CommissionReportResponse(BaseModel):
 
 ### `GET /explorer/locations`
 
-**Opis:** Podsumowanie wynajmów po miastach (city z delivery_address).
+**Opis:** Podsumowanie wynajmów po miastach (grupuje po `Contract.city`, nie raw `delivery_address` — RAO-P1-028).
 
 **Query:** `?date_from=&date_to=&limit=50`
 

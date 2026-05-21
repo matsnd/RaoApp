@@ -29,6 +29,8 @@ class Article(Base):
     category_sub2 = Column(String(100), nullable=True)
     category_sub3 = Column(String(100), nullable=True)
     is_archival = Column(Boolean, nullable=False, default=False, server_default="0")
+    # RAO-P1-027: maszyna zewnętrzna (nie wliczana do floty własnej)
+    is_external = Column(Boolean, nullable=False, default=False, server_default="0")
     technical_attributes = Column(JSON, nullable=True)
     # RAO-P2-XXX: dedykowane kolumny numeryczne dla filtrów (zastępują string-values w technical_attributes JSON)
     zasieg_m = Column(Numeric(8, 2), nullable=True, comment="Zasięg w metrach")
@@ -50,4 +52,5 @@ class Article(Base):
         Index("idx_articles_fakturownia_product", "fakturownia_product_id"),
         Index("idx_articles_zasieg", "zasieg_m"),
         Index("idx_articles_udzwig", "udzwig_t"),
+        Index("idx_articles_external", "is_external"),
     )
