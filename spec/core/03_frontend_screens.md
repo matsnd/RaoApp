@@ -584,6 +584,7 @@ Row 2.5 (rozliczenie umowy - RAO-P1-012):
 
 ```
 ┌─ Rozliczenie umowy — Koszt klienta vs Koszt firmy ─────────────────────────────┐
+│ [?] [-] [+]                                                                    │
 │ ┌────────────────────────────────────────────────────────────────────────────┐ │
 │ │ Pozycja        │ Koszt klienta │ Koszt firmy │ Marża   │ Uwagi             │ │
 │ │ Koparka 320    │ [15000.00]    │ [12000.00]  │ 3000.00 │ [____________]   │ │
@@ -591,6 +592,24 @@ Row 2.5 (rozliczenie umowy - RAO-P1-012):
 │ │ Czyszczenie    │ [300.00]      │ [200.00]    │ 100.00  │ [____________]   │ │
 │ └────────────────────────────────────────────────────────────────────────────┘ │
 │ Marża = koszt klienta - koszt firma (auto-calculated, green > 0, red < 0)       │
+│                                                                                 │
+│ ┌─ Inicjalizacja rozliczeń ─────────────────────────────────────────────────┐ │
+│ │ [📋 Pobierz z umowy]  [💰 Pobierz z Fakturownia]                          │ │
+│ │                                                                                 │ │
+│ │ RAO-P1-012: "Pobierz z umowy" wywołuje POST /settlements/contract/{id}/init │ │
+│ │   Oblicza cost_client = unit_price * rental_days * quantity z pozycji umowy  │ │
+│ │                                                                                 │ │
+│ │ RAO-P2-012: "Pobierz z Fakturownia" wywołuje POST /settlements/contract/{id}/init-from-fakturownia │ │
+│ │   Pobiera faktury z Fakturownia, mapuje pozycje przez fakturownia_product_id (1:N mapping) │ │
+│ │   Jeśli artykuł z mappingiem jest na umowie → automatycznie dodaje settlement z cost_client z faktury │ │
+│ │   Semantyka 1:N: jeśli produkt FA jest przypisany do wielu artykułów RAO, │ │
+│ │   każdy artykuł na umowie dostaje pełną wartość z faktury (multiplikacja OK) │ │
+│ │                                                                                 │ │
+│ │ Guzik "Pobierz z Fakturownia" jest nieaktywny jeśli Fakturownia nie jest skonfigurowana │ │
+│ │ (brak enabled, domain_subdomain lub api_token_preview w ustawieniach)        │ │
+│ └───────────────────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
 └──────────────────────────────────────────────────────────────────────────────────┘
 ```
 

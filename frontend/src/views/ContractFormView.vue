@@ -403,7 +403,39 @@
             </thead>
             <tbody>
               <tr v-if="!settlements.length">
-                <td colspan="5" class="empty-state">Brak danych rozliczenia — pozycje umowy pojawią się tutaj po dodaniu</td>
+                <td colspan="5" class="empty-state">
+                  <div style="padding: 20px; text-align: center;">
+                    <div style="margin-bottom: 12px;">Brak danych rozliczenia — wybierz źródło:</div>
+                    <div style="display:flex;gap:10px;justify-content:center;">
+                      <button
+                        class="btn btn-xs btn-success"
+                        @click="initSettlements"
+                        :disabled="initializingSettlements"
+                      >
+                        {{ initializingSettlements ? '...' : '📋 Pobierz z umowy' }}
+                      </button>
+                      <button
+                        class="btn btn-xs btn-primary"
+                        @click="initSettlementsFromFakturownia"
+                        :disabled="initializingFromFakturownia || !fakturowniaConfigured"
+                        :title="!fakturowniaConfigured ? 'Fakturownia nie jest skonfigurowana (Ustawienia → Fakturownia)' : ''"
+                      >
+                        {{ initializingFromFakturownia ? '...' : '💰 Pobierz z Fakturownia' }}
+                      </button>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="settlements.length">
+                <td colspan="5" style="padding: 8px; text-align: center;">
+                  <button
+                    class="btn btn-xs btn-secondary"
+                    @click="initSettlements"
+                    :disabled="initializingSettlements"
+                  >
+                    {{ initializingSettlements ? '...' : '🔄 Odśwież z umowy' }}
+                  </button>
+                </td>
               </tr>
               <tr v-for="s in settlements" :key="s.id">
                 <td>{{ getPositionName(s.position_id) }}</td>
@@ -832,6 +864,14 @@ const newFeeNameInput = ref(null)
 
 // RAO-P1-012: Settlements
 const settlements = ref([])
+const initializingSettlements = ref(false)
+const initializingFromFakturownia = ref(false)
+
+// RAO-P2-012: Fakturownia configuration check
+const fakturowniaConfigured = computed(() => {
+  const s = fakturowniaStore.settings
+  return s && s.enabled && s.domain_subdomain && s.api_token_preview
+})
 
 
 // Format description with actual amounts instead of placeholders
@@ -868,6 +908,7 @@ onMounted(async () => {
     settingsStore.fetchSalespeople(),
     settingsStore.fetchBranches(),
     settingsStore.fetchRateTypes(),
+    fakturowniaStore.fetchSettings(),
   ])
 
   const [ctRes, artRes] = await Promise.allSettled([
@@ -1011,6 +1052,7 @@ async function toggleSettled() {
     const { data } = await api.patch(`/contracts/${props.id}/settle`, { is_settled: newVal })
     form.value.is_settled = data.is_settled
     form.value.settled_at = data.settled_at
+    await nextTick() // Force Vue re-render
   } catch (e) {
     alert('Błąd zmiany statusu rozliczenia: ' + (e.response?.data?.detail || e.message))
   } finally {
@@ -1049,6 +1091,32 @@ async function updateSettlement(settlement) {
     alert('Błąd aktualizacji rozliczenia')
     // Revert to original values
     await fetchSettlements(Number(props.id))
+  }
+}
+
+async function initSettlements() {
+  if (!props.id) return
+  initializingSettlements.value = true
+  try {
+    const { data } = await api.post(`/settlements/contract/${props.id}/init`)
+    settlements.value = data
+  } catch (e) {
+    alert('Błąd inicjalizacji rozliczenia: ' + (e.response?.data?.detail || e.message))
+  } finally {
+    initializingSettlements.value = false
+  }
+}
+
+async function initSettlementsFromFakturownia() {
+  if (!props.id) return
+  initializingFromFakturownia.value = true
+  try {
+    const { data } = await api.post(`/settlements/contract/${props.id}/init-from-fakturownia`)
+    settlements.value = data
+  } catch (e: any) {
+    alert('Błąd pobierania z Fakturownia: ' + (e.response?.data?.detail || e.message))
+  } finally {
+    initializingFromFakturownia.value = false
   }
 }
 

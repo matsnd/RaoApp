@@ -3,13 +3,9 @@
     v-model="range"
     range
     :enable-time-picker="false"
-    locale="pl"
-    :format="formatDisplay"
-    :preview-format="formatDisplay"
     auto-apply
     :teleport="true"
     :month-change-on-scroll="false"
-    :multi-calendars="{ solo: false }"
     placeholder="Data od — Data do"
     class="rao-datepicker"
     @update:model-value="onRangeChange"

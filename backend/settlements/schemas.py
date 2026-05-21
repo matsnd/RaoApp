@@ -8,6 +8,7 @@ class ContractSettlementResponse(BaseModel):
     id: int
     contract_id: int
     position_id: Optional[int] = None
+    service_fee_id: Optional[int] = None  # RAO-P2-012
     cost_client: Optional[Decimal] = None
     cost_company: Optional[Decimal] = None
     margin: Optional[Decimal] = None
@@ -22,6 +23,7 @@ class ContractSettlementResponse(BaseModel):
 class ContractSettlementCreate(BaseModel):
     contract_id: int
     position_id: Optional[int] = None
+    service_fee_id: Optional[int] = None  # RAO-P2-012
     cost_client: Optional[Decimal] = Field(None, ge=0)
     cost_company: Optional[Decimal] = Field(None, ge=0)
     notes: Optional[str] = Field(None, max_length=2000)

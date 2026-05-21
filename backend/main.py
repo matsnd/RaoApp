@@ -225,6 +225,11 @@ async def startup_migrations():
                 INDEX idx_service_hours_date (service_date)
             ) ENGINE=InnoDB COMMENT='Godziny pracy operatora dla umów usługowych'
         """))
+        # RAO-P2-012: service_fee_id w contract_settlements dla rozliczeń usług dodatkowych
+        await conn.execute(sa.text(
+            "ALTER TABLE contract_settlements ADD COLUMN IF NOT EXISTS "
+            "service_fee_id INT NULL"
+        ))
 
     # FK + index dodawane z IF NOT EXISTS (MariaDB 10.0.2+ dla FK, 10.0.9+ dla indeksów)
     # RAO-P2-012 spike: commented out FK constraints due to MariaDB version compatibility (not in scope)

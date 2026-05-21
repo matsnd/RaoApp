@@ -10,6 +10,7 @@ class ContractSettlement(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     contract_id = Column(Integer, ForeignKey("contracts.id", ondelete="CASCADE"), nullable=False)
     position_id = Column(Integer, ForeignKey("contract_positions.id", ondelete="CASCADE"), nullable=True)
+    service_fee_id = Column(Integer, ForeignKey("contract_service_fees.id", ondelete="CASCADE"), nullable=True)
     cost_client = Column(DECIMAL(18, 2), nullable=True)
     cost_company = Column(DECIMAL(18, 2), nullable=True)
     notes = Column(Text, nullable=True)
@@ -18,6 +19,7 @@ class ContractSettlement(Base):
 
     contract = relationship("Contract", lazy="selectin")
     position = relationship("ContractPosition", lazy="selectin")
+    service_fee = relationship("ContractServiceFee", lazy="selectin")
 
     @property
     def margin(self):

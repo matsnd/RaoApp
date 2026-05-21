@@ -1102,12 +1102,15 @@ class ServiceFeeTemplateReorder(BaseModel):
 ### `POST /settlements`
 ### `PUT /settlements/{settlement_id}`
 ### `DELETE /settlements/{settlement_id}`
+### `POST /settlements/contract/{contract_id}/init` - RAO-P1-012
+### `POST /settlements/contract/{contract_id}/init-from-fakturownia` - RAO-P2-012
 
 ```python
 class ContractSettlementResponse(BaseModel):
     id: int
     contract_id: int
     position_id: int | None = None
+    service_fee_id: int | None = None  # RAO-P2-012
     cost_client: Decimal | None = None
     cost_company: Decimal | None = None
     margin: Decimal | None = None  # auto-calculated: cost_client - cost_company
@@ -1118,6 +1121,7 @@ class ContractSettlementResponse(BaseModel):
 class ContractSettlementCreate(BaseModel):
     contract_id: int
     position_id: int | None = None
+    service_fee_id: int | None = None  # RAO-P2-012
     cost_client: Decimal | None = Field(None, ge=0)
     cost_company: Decimal | None = Field(None, ge=0)
     notes: str | None = Field(None, max_length=2000)
@@ -1129,9 +1133,14 @@ class ContractSettlementUpdate(BaseModel):
 ```
 
 **Logika:**
-- GET /contract/{contract_id}: Zwraca wszystkie rozliczenia dla umowy
+- GET /contract/{contract_id}: Zwraca wszystkie rozliczenia dla umowy (pozycje + usługi dodatkowe)
+- POST /contract/{contract_id}/init: Inicjalizuje rozliczenia z umowy - oblicza cost_client z pozycji umowy (unit_price * rental_days * quantity)
+- POST /contract/{contract_id}/init-from-fakturownia: Inicjalizuje rozliczenia z Fakturownia - pobiera faktury z Fakturownia i mapuje:
+  - Pozycje umowy przez fakturownia_product_id (1:N mapping)
+  - Usługi dodatkowe przez service_fee_templates.article_id → articles.fakturownia_product_id (1:N mapping)
 - Auto-creowanie: Po utworzeniu umowy, automatycznie tworzy rekordy settlement dla wszystkich pozycji (cost_client/cost_company = NULL)
 - Margin: Automatycznie obliczane jako cost_client - cost_company
+- RAO-P2-012: service_fee_id pozwala na rozliczanie usług dodatkowych (contract_service_fees)
 
 ### `GET /settings/salespeople`
 ### `POST /settings/salespeople`

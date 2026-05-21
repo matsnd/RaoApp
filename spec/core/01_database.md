@@ -524,6 +524,7 @@ CREATE TABLE contract_settlements (
     id              INT AUTO_INCREMENT PRIMARY KEY,
     contract_id     INT          NOT NULL COMMENT 'ID umowy',
     position_id     INT          NULL COMMENT 'ID pozycji umowy (maszyna/usługa)',
+    service_fee_id  INT          NULL COMMENT 'RAO-P2-012: ID usługi dodatkowej (contract_service_fees)',
     cost_client     DECIMAL(18,2) NULL COMMENT 'Koszt dla klienta (na fakturze)',
     cost_company    DECIMAL(18,2) NULL COMMENT 'Koszt dla firmy (narzut/marża)',
     notes           TEXT         NULL COMMENT 'Uwagi do rozliczenia',
@@ -533,9 +534,12 @@ CREATE TABLE contract_settlements (
         REFERENCES contracts(id) ON DELETE CASCADE,
     CONSTRAINT fk_settlement_position FOREIGN KEY (position_id)
         REFERENCES contract_positions(id) ON DELETE CASCADE,
+    CONSTRAINT fk_settlement_service_fee FOREIGN KEY (service_fee_id)
+        REFERENCES contract_service_fees(id) ON DELETE CASCADE,
     INDEX idx_settlement_contract (contract_id),
-    INDEX idx_settlement_position (position_id)
-) ENGINE=InnoDB COMMENT='Rozliczenia umów - koszty klient vs firma (RAO-P1-012)';
+    INDEX idx_settlement_position (position_id),
+    INDEX idx_settlement_service_fee (service_fee_id)
+) ENGINE=InnoDB COMMENT='Rozliczenia umów - koszty klient vs firma (RAO-P1-012, RAO-P2-012)';
 
 -- ============================================================
 -- 8. USŁUGI DODATKOWE UMOWY (Contract Service Fees)
