@@ -1114,6 +1114,69 @@ async def step8_csv_categories() -> None:
         if extra:
             print(f"   {extra} artykułów oznaczonych is_archival=TRUE (archiwalne — RAO-P1-027)")
 
+        # ── Backfill category_main/sub1 z category_id (RAO-P1-029) ───────────
+        # Artykuły które mają category_id (ze starego SQL dump) ale brak category_main
+        # (bo step8 CSV nie trafił w nie) → deterministyczny backfill po hierarchii.
+        #
+        # Krok 1: category_id wskazuje bezpośrednio na poziom 'main'
+        await cur.execute(
+            "UPDATE articles a"
+            " JOIN categories c ON a.category_id = c.id AND c.level = 'main'"
+            " SET a.category_main = c.name"
+            " WHERE a.category_main IS NULL AND a.category_id IS NOT NULL"
+        )
+        bf_main = cur.rowcount
+
+        # Krok 2: category_id wskazuje na poziom 'sub1' → category_main = parent.name
+        await cur.execute(
+            "UPDATE articles a"
+            " JOIN categories c  ON a.category_id = c.id   AND c.level = 'sub1'"
+            " JOIN categories p  ON c.parent_id   = p.id   AND p.level = 'main'"
+            " SET a.category_main = p.name, a.category_sub1 = c.name"
+            " WHERE a.category_main IS NULL AND a.category_id IS NOT NULL"
+        )
+        bf_sub1 = cur.rowcount
+
+        # Krok 3: category_id wskazuje na poziom 'sub2' → 2 poziomy wyżej = main
+        await cur.execute(
+            "UPDATE articles a"
+            " JOIN categories c  ON a.category_id = c.id   AND c.level = 'sub2'"
+            " JOIN categories s1 ON c.parent_id   = s1.id  AND s1.level = 'sub1'"
+            " JOIN categories p  ON s1.parent_id  = p.id   AND p.level = 'main'"
+            " SET a.category_main = p.name, a.category_sub1 = s1.name,"
+            "     a.category_sub2 = c.name"
+            " WHERE a.category_main IS NULL AND a.category_id IS NOT NULL"
+        )
+        bf_sub2 = cur.rowcount
+
+        # Krok 4: category_id wskazuje na poziom 'sub3'
+        await cur.execute(
+            "UPDATE articles a"
+            " JOIN categories c  ON a.category_id = c.id   AND c.level = 'sub3'"
+            " JOIN categories s2 ON c.parent_id   = s2.id  AND s2.level = 'sub2'"
+            " JOIN categories s1 ON s2.parent_id  = s1.id  AND s1.level = 'sub1'"
+            " JOIN categories p  ON s1.parent_id  = p.id   AND p.level = 'main'"
+            " SET a.category_main = p.name, a.category_sub1 = s1.name,"
+            "     a.category_sub2 = s2.name, a.category_sub3 = c.name"
+            " WHERE a.category_main IS NULL AND a.category_id IS NOT NULL"
+        )
+        bf_sub3 = cur.rowcount
+
+        total_bf = bf_main + bf_sub1 + bf_sub2 + bf_sub3
+        if total_bf:
+            print(f"   RAO-P1-029 backfill: {total_bf} artykułów"
+                  f" (main={bf_main} sub1={bf_sub1} sub2={bf_sub2} sub3={bf_sub3})")
+
+        # Weryfikacja gate: czy coś zostało bez kategorii mimo posiadania category_id?
+        await cur.execute(
+            "SELECT COUNT(*) FROM articles"
+            " WHERE category_main IS NULL AND category_id IS NOT NULL"
+        )
+        gap = (await cur.fetchone())[0]
+        if gap:
+            print(f"   WARN RAO-P1-029: {gap} artykułów ma category_id"
+                  " ale nadal brak category_main (sprawdź hierarchię kategorii!)")
+
         await conn.commit()
 
         # ── Weryfikacja ───────────────────────────────────────────────────────

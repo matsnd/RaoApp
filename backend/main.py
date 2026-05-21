@@ -114,6 +114,11 @@ async def startup_migrations():
             "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
             "dodatki TEXT NULL COMMENT 'Dodatkowe akcesoria / wyposażenie'"
         ))
+        # RAO-P1-030: maszyna zewnętrzna (nie wliczana do floty własnej)
+        await conn.execute(sa.text(
+            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "is_external TINYINT(1) NOT NULL DEFAULT 0"
+        ))
         # RAO-P1-008: strukturalizacja adresów - kod pocztowy + miasto
         await conn.execute(sa.text(
             "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
@@ -254,6 +259,10 @@ async def startup_migrations():
         ))
         await conn2.execute(sa.text(
             "CREATE INDEX IF NOT EXISTS idx_articles_udzwig ON articles(udzwig_t)"
+        ))
+        # RAO-P1-030: indeks na is_external
+        await conn2.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_articles_external ON articles(is_external)"
         ))
 
     async with AsyncSessionLocal() as db:
