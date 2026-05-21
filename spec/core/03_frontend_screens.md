@@ -808,6 +808,7 @@ Pole `internal_number` jest w pełni zaimplementowane:
 
 **Formularz artykułu (ArticleFormView.vue):**
 - Pole input `internal_number` w formularzu edycji/nowego artykułu
+- Pola techniczne (RAO-P1-026): `zasieg_m` (Zasięg m), `udzwig_t` (Udźwig t), `dodatki` (Dodatkowe wyposażenie)
 
 **Article picker (ArticlePicker.vue):**
 - Wyszukiwanie po `internal_number` (case-insensitive)
@@ -1262,6 +1263,45 @@ async function handleFakturownia() {
 
 **API:** `POST /auth/reset-password` z `{ token, new_password }`
 **Po sukcesie:** Komunikat + redirect do `/login`
+
+---
+
+### ArticleFormView.vue — Formularz artykułu (RAO-P1-026)
+
+**Route:** `/articles/new` | `/articles/:id/edit` | **requiresAuth:** tak
+
+**Opis:** Pełnoekranowy formularz tworzenia i edycji artykułu (maszyny/narzędzia/usługi).
+
+**Pola formularza:**
+- `name` — Nazwa artykułu * (wymagana)
+- `article_type` — Typ artykułu (select: machine/vehicle/tool/service)
+- `is_service` — checkbox "Artykuł jest usługą"
+- `internal_number` — Nr wewnętrzny
+- `registration_no` — Nr rejestracyjny
+- `serial_no` — Nr seryjny
+- `replacement_value` — Wartość odtworzeniowa (zł)
+- `brand` — Marka
+- `model` — Model
+- **Sekcja "Dane techniczne"** (RAO-P1-026):
+  - `zasieg_m` — Zasięg (m), number, min=0, step=0.1, opcjonalne, null gdy puste
+  - `udzwig_t` — Udźwig (t), number, min=0, step=0.1, opcjonalne, null gdy puste
+  - `dodatki` — Dodatkowe wyposażenie, textarea rows=3, opcjonalne, null gdy puste
+- `category_id` — Kategoria (kaskadowy picker 3-poziomowy)
+- `owner_id` — Właściciel/dostawca (picker kontrahentów)
+- `rental_days` — Min. dni najmu
+- `branch_id` — Filia (select)
+- `description` — Opis (textarea)
+- `notes` — Uwagi (textarea)
+
+**Layout sekcji "Dane techniczne":**
+- `zasieg_m` + `udzwig_t` — grid 2 kolumny (`form-row-2`)
+- `dodatki` — pełna szerokość poniżej
+
+**Null handling:** Puste pola number → `null` (nie `0`). Pattern: `if (!payload.x) payload.x = null`
+
+**Edit mode:** `Object.assign(form.value, data)` automatycznie wypełnia wszystkie pola z API.
+
+**Store:** `useArticleStore` (`stores/articles.js`) — `fetchOne`, `create`, `update`, `duplicate`
 
 ---
 

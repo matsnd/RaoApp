@@ -71,6 +71,24 @@
           </div>
         </div>
 
+        <div class="section-title" style="font-size:var(--font-size-sm);margin-top:var(--spacing-4);margin-bottom:var(--spacing-3);padding-bottom:var(--spacing-2);">Dane techniczne</div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label class="form-label">Zasięg (m)</label>
+            <input v-model.number="form.zasieg_m" type="number" class="form-control" min="0" step="0.1" placeholder="np. 21.5" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Udźwig (t)</label>
+            <input v-model.number="form.udzwig_t" type="number" class="form-control" min="0" step="0.1" placeholder="np. 5.0" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Dodatkowe wyposażenie</label>
+          <textarea v-model="form.dodatki" class="form-control" rows="3" placeholder="np. Kosz osobowy, wciągarka..."></textarea>
+        </div>
+
         <div class="form-row-2">
           <div class="form-group">
             <label class="form-label">Kategoria</label>
@@ -176,6 +194,7 @@ const form = ref({
   serial_no: '', brand: '', model: '', replacement_value: null,
   category_id: null, owner_id: null, branch_id: null,
   description: '', notes: '', rental_days: null, article_type: '',
+  zasieg_m: null, udzwig_t: null, dodatki: null,
 })
 
 const showOwnerPicker = ref(false)
@@ -261,6 +280,9 @@ async function handleSave() {
     if (!payload.replacement_value) payload.replacement_value = null
     if (!payload.rental_days) payload.rental_days = null
     if (!payload.article_type) payload.article_type = null
+    if (!payload.zasieg_m) payload.zasieg_m = null
+    if (!payload.udzwig_t) payload.udzwig_t = null
+    if (!payload.dodatki) payload.dodatki = null
 
     if (isEdit.value && props.id) {
       await store.update(Number(props.id), payload)
