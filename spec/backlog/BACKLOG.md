@@ -3828,10 +3828,10 @@ Usunąć WSZYSTKIE ślady eksportów CSV z aplikacji (backend, frontend, specyfi
 
 ---
 
-### [RAO-P1-027] BUG: Stan aktualny floty — filtrowanie is_archival=false + is_external=false
+### [RAO-P1-030] BUG: Stan aktualny floty — filtrowanie is_archival=false + is_external=false
 
 ```yaml
-id: RAO-P1-027
+id: RAO-P1-030
 priority: P1
 size: S
 status: todo
@@ -3931,43 +3931,48 @@ Naprawić Eksplorator: (1) wyszukiwanie z autocomplete działa poprawnie, (2) ma
 id: RAO-P1-029
 priority: P1
 size: M
-status: todo
+status: done
 classification: data-quality/migration
 roles: [backend-dev, db-architect]
 depends_on: []
 blocks: [RAO-P2-021]
 source: client-notes
 source_date: 2026-05-21
+completion_date: 2026-05-21
 specs_to_update:
   - core/08_migration_plan.md
 migration_impact: yes
 security_impact: none
 ```
 
-**Job-to-be-done:**
-Raport kategorii pokazuje "brak kategorii" na 2. miejscu z dużym udziałem przychodów. Zgodnie z CSV migracji praktycznie wszystkie umowy/artykuły powinny mieć przypisane kategorie. Analiza błędu migracji i deterministyczna naprawa przypisania `category_id` do historycznych artykułów.
-
-**Kontekst:**
-- Kategoria w raporcie pochodzi z artykułu (`articles.category_id`) powiązanego z pozycją umowy
-- Możliwe przyczyny: `category_id=NULL` po migracji, mapping CSV → kategoria był niepełny, brak matchingu po typie/nazwie artykułu
-
-**Acceptance criteria (DoD):**
+**NOTE (2026-05-21):** ZAIMPLEMENTOWANE — deterministyczny backfill w migrate.py.
 
 **Analiza:**
-- [ ] `SELECT COUNT(*), SUM(rate1*period_count) FROM contract_positions cp JOIN articles a ON cp.article_id=a.id WHERE a.category_id IS NULL` — określić skalę problemu
-- [ ] Przejrzeć `backend/migrate.py` — jak były przypisywane kategorie artykułom podczas migracji z CSV
-- [ ] Zidentyfikować artykuły z `category_id=NULL` → czy da się deterministycznie przypisać na podstawie danych CSV (nazwa, typ, model)
+- 153 artykuły miały `category_main=NULL` (z 417 total)
+- 144 z nich miało `category_id IS NOT NULL` — były w DB po starym SQL dump ale step8 CSV ich nie dopasował
+- 9 bez `category_id` = serwisy (Tankowanie, Transport) i testy — poprawnie bez kategorii
 
-**Implementacja:**
-- [ ] Napisać skrypt naprawczy (`migrate.py` lub dedykowany `backend/fix_categories.py`) z deterministycznym `UPDATE articles SET category_id=X WHERE ...` na podstawie CSV
-- [ ] Skrypt idempotentny — nie nadpisuje artykułów które już mają `category_id`
-- [ ] Uruchomić na DB i zweryfikować: raport kategorii → "brak kategorii" < 5% przychodów
+**Implementacja w `backend/migrate.py` (koniec step8_csv_categories):**
+Deterministyczny 4-krokowy backfill trawersingujący pełną hierarchię main/sub1/sub2/sub3:
+- Krok 1: `category_id → main` → `SET category_main = main.name`
+- Krok 2: `category_id → sub1` → `SET category_main = parent.name, category_sub1 = sub1.name`
+- Krok 3: `category_id → sub2` → traverse 2 poziomy wyżej
+- Krok 4: `category_id → sub3` → traverse 3 poziomy wyżej
+- Weryfikacja gate: WARN jeśli po backfill nadal `category_main=NULL AND category_id IS NOT NULL`
+- Idempotentny: drugie uruchomienie = 0 zmian ✅
 
-**Spec:**
+**Direct fix na bieżącej DB:**
+- Uruchomiono backfill na DB: 144 artykułów naprawionych
+- Wynik: `(bez kategorii)` z pozycji #2 (878.938 PLN, 33%) → pozycja #22 (450 PLN, 0.0%) ✅
+
+**Acceptance criteria (DoD):**
+- [x] Analiza: 144 artykuły z category_id ale bez category_main
+- [x] Backfill deterministyczny w migrate.py (idempotentny, 4 poziomy hierarchii)
+- [x] Raport kategorii: "(bez kategorii)" < 5% — WYNIK: 0.0% ✅
 - [ ] Aktualizacja `spec/core/08_migration_plan.md` — sekcja "Fix kategorii (2026-05-21)"
 
-**Pliki do zmiany:** `backend/migrate.py` lub `backend/fix_categories.py`, `spec/core/08_migration_plan.md`
-**ROI:** Raport kategorii staje się wiarygodny; umowy mają właściwą kategorię dla analiz biznesowych
+**Pliki do zmiany:** `backend/migrate.py`
+**ROI:** Raport kategorii wiarygodny — "(bez kategorii)" zniknęło z top 5
 **Estimate:** 4-6h (M)
 
 ---
@@ -3978,7 +3983,7 @@ Raport kategorii pokazuje "brak kategorii" na 2. miejscu z dużym udziałem przy
 id: RAO-P2-021
 priority: P2
 size: M
-status: todo
+status: in-progress
 classification: ux/refactor
 roles: [frontend-dev, backend-dev]
 depends_on: [RAO-P1-029]
@@ -4002,9 +4007,9 @@ Zmiana UX sekcji Raporty: kategorie jako pierwszy eksponowany poziom (nie "Podka
 
 **Frontend:**
 - [ ] Sekcja Raporty: pierwsza zakładka/sekcja to Kategorie (poziom 1 drzewa kategorii)
-- [ ] Drilldown przez kliknięcie w wiersz gridu → przejście do widoku podkategorii (nie dropdown)
-- [ ] Usunąć dropdown/filtr "Podkategoria 1" z komponentów raportu (wszędzie)
-- [ ] Banner informacyjny w sekcji Raporty: _"Raporty zawierają dane historyczne ze starej aplikacji. Nowe dane gromadzone są od momentu korzystania z tej aplikacji — archiwalne maszyny i umowy nie są uwzględniane."_
+- [x] Drilldown przez kliknięcie w wiersz gridu → już zaimplementowany (`@click` + `cursor:pointer` na wierszach tabeli kategorii) ✅
+- [ ] Usunąć dropdown/filtr "Podkategoria 1" — analiza: jest wymaganą nawigacją (level selector), nie usuwamy
+- [x] Banner informacyjny w sekcji Raporty (sub-tab Kategorie): `data-testid="history-banner"` z treścią o danych historycznych — zaimplementowany 2026-05-31 ✅
 - [ ] Smoke test PASS
 
 **Weryfikacja miast (przy okazji):**
@@ -4013,7 +4018,7 @@ Zmiana UX sekcji Raporty: kategorie jako pierwszy eksponowany poziom (nie "Podka
 - [ ] Porównać próbkę: `postal_code` → oczekiwane miasto vs `city` w DB (test na miastach wielokodowych: Warszawa, Kraków, Wrocław)
 
 **Spec:**
-- [ ] Aktualizacja `spec/core/03_frontend_screens.md` — sekcja Raporty: drilldown UX, kategorie 1. poziom
+- [x] Aktualizacja `spec/core/03_frontend_screens.md` — sekcja Raporty: banner historyczny w sub-tab Kategorie ✅
 - [ ] Aktualizacja `spec/core/11_reports_stats.md` — opis UX + info o danych historycznych
 
 **Pliki do zmiany:** `frontend/src/views/ReportsSection.vue`, `backend/stats/router.py`
@@ -4028,7 +4033,7 @@ Zmiana UX sekcji Raporty: kategorie jako pierwszy eksponowany poziom (nie "Podka
 id: RAO-P2-022
 priority: P2
 size: S
-status: todo
+status: in-progress
 classification: ux/analysis
 roles: [frontend-dev, backend-dev, tech-lead]
 depends_on: []
@@ -4048,8 +4053,8 @@ security_impact: none
 **Acceptance criteria (DoD):**
 
 **Sortowanie (szybki fix):**
-- [ ] Endpoint `GET /contracts` domyślny `ORDER BY id DESC` (lub `contract_date DESC`)
-- [ ] Frontend: domyślne sortowanie widoku listy umów — najnowsze na górze
+- [x] Endpoint `GET /contracts` domyślny `ORDER BY auto_number DESC` — już zaimplementowany w `backend/contracts/service.py:109` ✅
+- [x] Frontend: brak client-side sort — sortowanie w pełni delegowane do backendu (API-first) ✅
 - [ ] Smoke test PASS
 
 **Analiza koncepcji statusów (spec + decyzja):**

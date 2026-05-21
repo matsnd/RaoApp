@@ -887,6 +887,11 @@ Pole `internal_number` jest w pełni zaimplementowane:
 #### Sub-tab: Kategorie (RAO-P1-017)
 
 ```
+[ℹ️ Banner historyczny] ← RAO-P2-021: zawsze widoczny na górze sekcji Kategorie
+  data-testid="history-banner"
+  "Raporty kategorii zawierają dane historyczne zaimportowane z poprzedniej aplikacji.
+   Archiwalne maszyny i umowy są uwzględnianie wyłącznie w statystykach historycznych."
+
 Poziom kategorii: [Główna kategoria] [Podkategoria 1]
                    data-testid="category-level-main"  data-testid="category-level-sub1"
 

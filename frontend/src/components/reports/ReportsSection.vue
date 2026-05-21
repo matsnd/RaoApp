@@ -299,6 +299,11 @@
 
       <!-- SUB-TAB: Kategorie (RAO-P1-017/026) -->
       <div v-show="historySubTab === 'categories'" data-testid="categories-panel">
+        <!-- RAO-P2-021: Banner informacyjny o danych historycznych -->
+        <div class="history-banner" data-testid="history-banner">
+          ℹ️ Raporty kategorii zawierają dane historyczne zaimportowane z poprzedniej aplikacji.
+          Archiwalne maszyny i umowy są uwzględnianie wyłącznie w statystykach historycznych.
+        </div>
         <!-- Level selector (widoczny tylko gdy brak drilldown) -->
         <div class="category-level-bar" v-if="drilldownPath.length === 0">
           <span class="period-label">Poziom kategorii:</span>
@@ -2698,4 +2703,15 @@ onBeforeUnmount(() => {
   text-decoration: underline;
 }
 .btn-link:hover { color: #2c5282; }
+
+/* RAO-P2-021: Banner informacyjny o danych historycznych (sekcja Kategorie) */
+.history-banner {
+  background: var(--color-bg-light, #f0f4ff);
+  border-left: 3px solid var(--color-primary, #1D2B53);
+  border-radius: 0 var(--border-radius-md, 12px) var(--border-radius-md, 12px) 0;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--color-text-muted, #555);
+  margin-bottom: 12px;
+}
 </style>
