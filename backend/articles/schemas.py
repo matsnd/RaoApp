@@ -14,6 +14,9 @@ class ArticleListItem(BaseModel):
     model: str | None
     replacement_value: Decimal | None
     category_name: str | None
+    # RAO-P1-026: kategoria hierarchiczna (do filtrów statystyk)
+    category_main: str | None = None
+    is_archival: bool = False
     owner_name: str | None
     notes: str | None
     active_contract_number: str | None
@@ -39,6 +42,11 @@ class ArticleDetail(BaseModel):
     replacement_value: Decimal | None
     category_id: int | None
     category_name: str | None
+    # RAO-P1-026: hierarchia kategorii
+    category_main: str | None = None
+    category_sub1: str | None = None
+    category_sub2: str | None = None
+    category_sub3: str | None = None
     owner_id: int | None
     owner_name: str | None
     branch_id: int | None
@@ -46,6 +54,11 @@ class ArticleDetail(BaseModel):
     notes: str | None
     rental_days: int | None
     article_type: str | None
+    is_archival: bool = False
+    # RAO-P1-026: dane techniczne
+    zasieg_m: Decimal | None = None
+    udzwig_t: Decimal | None = None
+    dodatki: str | None = None
     # RAO-P2-012: Fakturownia product mapping (1:N global)
     fakturownia_product_id: int | None = None
     created_at: datetime
@@ -70,6 +83,10 @@ class ArticleCreate(BaseModel):
     description: str | None = Field(None, max_length=400)
     notes: str | None = Field(None, max_length=200)
     article_type: str | None = Field(None, max_length=20)
+    # RAO-P1-026: dane techniczne
+    zasieg_m: Decimal | None = None
+    udzwig_t: Decimal | None = None
+    dodatki: str | None = None
     # RAO-P2-012: Fakturownia product mapping (1:N global)
     fakturownia_product_id: int | None = None
 

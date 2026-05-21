@@ -31,9 +31,13 @@ async def _build_detail(db: AsyncSession, a: Article) -> ArticleDetail:
         serial_no=a.serial_no, brand=a.brand, model=a.model,
         replacement_value=a.replacement_value,
         category_id=a.category_id, category_name=cat_name,
+        category_main=a.category_main, category_sub1=a.category_sub1,
+        category_sub2=a.category_sub2, category_sub3=a.category_sub3,
         owner_id=a.owner_id, owner_name=own_name,
         branch_id=a.branch_id, description=a.description, notes=a.notes,
         rental_days=a.rental_days, article_type=a.article_type,
+        is_archival=a.is_archival,
+        zasieg_m=a.zasieg_m, udzwig_t=a.udzwig_t, dodatki=a.dodatki,
         fakturownia_product_id=a.fakturownia_product_id,
         created_at=a.created_at, updated_at=a.updated_at,
     )

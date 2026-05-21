@@ -68,7 +68,11 @@ class ArticleService:
                 internal_number=a.internal_number, registration_no=a.registration_no,
                 serial_no=a.serial_no, brand=a.brand, model=a.model,
                 replacement_value=a.replacement_value,
-                category_name=cat_name, owner_name=own_name, notes=a.notes,
+                category_name=cat_name,
+                category_main=a.category_main,
+                is_archival=a.is_archival,
+                fakturownia_product_id=a.fakturownia_product_id,
+                owner_name=own_name, notes=a.notes,
                 active_contract_number=active_num,
                 created_at=a.created_at, updated_at=a.updated_at,
                 conditions_count=cond_count,
@@ -121,6 +125,9 @@ class ArticleService:
             notes=original.notes,
             rental_days=original.rental_days,
             article_type=original.article_type,
+            zasieg_m=original.zasieg_m,
+            udzwig_t=original.udzwig_t,
+            dodatki=original.dodatki,
             created_at=datetime.utcnow(),
         )
         db.add(copy)
