@@ -344,6 +344,42 @@ async def step4_migrate_data():
     conn.close()
 
 
+async def step4c_fix_category_duplicates():
+    """Zunifikowanie duplikatów kategorii (2026-05-21)."""
+    print("[4c/7] Fixing category duplicates …")
+    conn = await aiomysql.connect(host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASS, db=DB_NAME)
+    cur = await conn.cursor()
+
+    # 1. Ladowarki teleskopowe → Ładowarki Teleskopowe
+    await cur.execute(
+        "UPDATE articles SET category_main = 'Ładowarki Teleskopowe' "
+        "WHERE category_main = 'Ladowarki teleskopowe'"
+    )
+    rows1 = cur.rowcount
+    print(f"   Ladowarki teleskopowe → Ładowarki Teleskopowe: {rows1} rows")
+
+    # 2. Wózek widłowy → Wózki widłowe w podkategoriach Wozidła (category_sub1)
+    await cur.execute(
+        "UPDATE articles SET category_sub1 = 'Wózki widłowe' "
+        "WHERE category_main = 'Wozidła' AND category_sub1 = 'Wózek widłowy'"
+    )
+    rows2 = cur.rowcount
+    print(f"   Wózek widłowy → Wózki widłowe (sub1): {rows2} rows")
+
+    # 3. Wózek widłowy elektryczny → Wózki widłowe elektryczne (category_sub2)
+    await cur.execute(
+        "UPDATE articles SET category_sub2 = 'Wózki widłowe elektryczne' "
+        "WHERE category_main = 'Wozidła' AND category_sub2 = 'Wózek widłowy elektryczny'"
+    )
+    rows3 = cur.rowcount
+    print(f"   Wózek widłowy elektryczny → Wózki widłowe elektryczne (sub2): {rows3} rows")
+
+    await conn.commit()
+    await cur.close()
+    conn.close()
+    print(f"   OK: {rows1 + rows2 + rows3} category fixes applied")
+
+
 async def step4b_migrate_users():
     """Migrate users with random bcrypt passwords (security fix)."""
     print("[4b/7] Migrating users with random bcrypt passwords …")
@@ -1430,6 +1466,7 @@ async def main():
         step2_import_dump()
         await step3_create_schema()
         await step4_migrate_data()
+        await step4c_fix_category_duplicates()  # Zunifikowanie duplikatów kategorii (2026-05-21)
         await step4b_migrate_users()  # SECURITY: random bcrypt passwords
         await step5_service_fee_templates()
         await step5c_create_preset_groups()

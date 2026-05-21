@@ -304,20 +304,6 @@
           ℹ️ Raporty kategorii zawierają dane historyczne zaimportowane z poprzedniej aplikacji.
           Archiwalne maszyny i umowy są uwzględnianie wyłącznie w statystykach historycznych.
         </div>
-        <!-- Level selector (widoczny tylko gdy brak drilldown) -->
-        <div class="category-level-bar" v-if="drilldownPath.length === 0">
-          <span class="period-label">Poziom kategorii:</span>
-          <button
-            data-testid="category-level-main"
-            :class="['pill', { active: categoryLevel === 'main' }]"
-            @click="setCategoryLevel('main')"
-          >Główna kategoria</button>
-          <button
-            data-testid="category-level-sub1"
-            :class="['pill', { active: categoryLevel === 'sub1' }]"
-            @click="setCategoryLevel('sub1')"
-          >Podkategoria 1</button>
-        </div>
 
         <!-- Loading state -->
         <div v-if="statsStore.loadingByCategory" class="reports-loading">
@@ -368,21 +354,12 @@
             </div>
           </div>
 
-          <!-- Bar chart -->
-          <div class="charts-row" style="grid-template-columns: 1fr;">
-            <div class="chart-panel">
-              <div class="chart-title">🏷️ Kategorie wg przychodu (TOP 15)</div>
-              <div class="chart-wrap" style="height:280px;">
-                <canvas data-testid="category-bar-chart" ref="categoryBarCanvas"></canvas>
-              </div>
-              <div v-if="!statsStore.byCategoryData.items.length" class="empty-state" style="padding:60px 0;text-align:center;">
-                Brak danych w wybranym okresie
-              </div>
-            </div>
-          </div>
-
           <!-- Table -->
           <div class="table-panel full-width">
+            <!-- Back button (nad tabelą) -->
+            <button class="drillback-main-btn" v-if="drilldownPath.length > 0" @click="drillBack" title="Cofnij">
+              ← Cofnij
+            </button>
             <div class="table-title">📋 Zestawienie kategorii</div>
             <table class="stats-table" data-testid="category-stats-table">
               <thead>
@@ -411,14 +388,23 @@
                   <td style="text-align:right;">{{ cat.rented_days }}</td>
                   <td style="text-align:right;">{{ cat.contracts_count }}</td>
                   <td style="text-align:right;font-weight:600;">{{ formatMoney(cat.revenue) }}</td>
-                  <td>
-                    <div class="bar-bg">
-                      <div class="bar-fill" :style="{ width: categoryBarWidth(cat.revenue) + '%' }"></div>
-                    </div>
-                  </td>
+                  <td></td>
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          <!-- Bar chart -->
+          <div class="charts-row" style="grid-template-columns: 1fr;">
+            <div class="chart-panel">
+              <div class="chart-title">🏷️ Kategorie wg przychodu (TOP 15)</div>
+              <div class="chart-wrap" style="height:280px;">
+                <canvas data-testid="category-bar-chart" ref="categoryBarCanvas"></canvas>
+              </div>
+              <div v-if="!statsStore.byCategoryData.items.length" class="empty-state" style="padding:60px 0;text-align:center;">
+                Brak danych w wybranym okresie
+              </div>
+            </div>
           </div>
         </template>
       </div><!-- /historySubTab === 'categories' -->
@@ -1075,6 +1061,13 @@ function drillDown(categoryName) {
 
 function drillTo(depth) {
   drilldownPath.value = drilldownPath.value.slice(0, depth)
+  categoryLevel.value = ['main', 'sub1', 'sub2', 'sub3'][drilldownPath.value.length]
+  loadCategoryData()
+}
+
+function drillBack() {
+  if (drilldownPath.value.length === 0) return
+  drilldownPath.value = drilldownPath.value.slice(0, -1)
   categoryLevel.value = ['main', 'sub1', 'sub2', 'sub3'][drilldownPath.value.length]
   loadCategoryData()
 }
@@ -2703,6 +2696,29 @@ onBeforeUnmount(() => {
   text-decoration: underline;
 }
 .btn-link:hover { color: #2c5282; }
+
+/* Przycisk cofnij nad tabelą kategorii */
+.drillback-main-btn {
+  background: var(--color-primary, #1D2B53);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--border-radius-md, 12px);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-bottom: 16px;
+  transition: all 0.2s ease;
+}
+
+.drillback-main-btn:hover {
+  background: #2a3a6a;
+  transform: translateY(-1px);
+}
+
+.drillback-main-btn:active {
+  transform: translateY(0);
+}
 
 /* RAO-P2-021: Banner informacyjny o danych historycznych (sekcja Kategorie) */
 .history-banner {
