@@ -27,3 +27,10 @@ class ContractSettlement(Base):
         if self.cost_client is None or self.cost_company is None:
             return None
         return self.cost_client - self.cost_company
+
+    @property
+    def service_fee_name(self) -> str | None:
+        """Nazwa usługi dodatkowej (dla wyświetlania w UI)"""
+        if self.service_fee:
+            return self.service_fee.name
+        return None

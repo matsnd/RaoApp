@@ -438,7 +438,7 @@
                 </td>
               </tr>
               <tr v-for="s in settlements" :key="s.id">
-                <td>{{ getPositionName(s.position_id) }}</td>
+                <td>{{ getSettlementLabel(s) }}</td>
                 <td>
                   <input 
                     v-model.number="s.cost_client" 
@@ -1071,11 +1071,18 @@ async function fetchSettlements(contractId) {
   }
 }
 
-function getPositionName(positionId) {
-  if (!positionId) return '—'
-  const pos = contractStore.positions.find(p => p.id === positionId)
-  if (pos) return pos.article_name || `Pozycja #${positionId}`
-  return `Pozycja #${positionId}`
+function getSettlementLabel(s: any) {
+  // RAO-P2-012: Usługi dodatkowe mają service_fee_id + service_fee_name z backend
+  if (s.service_fee_id) {
+    return s.service_fee_name || `Usługa dodatkowa #${s.service_fee_id}`
+  }
+  // Pozycja umowy (maszyna/sprzęt)
+  if (s.position_id) {
+    const pos = contractStore.positions.find(p => p.id === s.position_id)
+    if (pos) return pos.article_name || `Pozycja #${s.position_id}`
+    return `Pozycja #${s.position_id}`
+  }
+  return '—'
 }
 
 async function updateSettlement(settlement) {

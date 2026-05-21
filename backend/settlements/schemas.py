@@ -9,6 +9,7 @@ class ContractSettlementResponse(BaseModel):
     contract_id: int
     position_id: Optional[int] = None
     service_fee_id: Optional[int] = None  # RAO-P2-012
+    service_fee_name: Optional[str] = None  # RAO-P2-012: nazwa usługi dodatkowej dla UI
     cost_client: Optional[Decimal] = None
     cost_company: Optional[Decimal] = None
     margin: Optional[Decimal] = None

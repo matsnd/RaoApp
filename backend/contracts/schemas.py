@@ -93,6 +93,8 @@ class ContractServiceFeeResponse(BaseModel):
     unit: str | None
     description: str | None
     is_active: bool
+    article_id: int | None = None  # RAO-P1-011
+    default_price: Decimal | None = None  # RAO-P1-011
 
     class Config:
         from_attributes = True

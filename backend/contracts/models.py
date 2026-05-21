@@ -106,5 +106,7 @@ class ContractServiceFee(Base):
     unit = Column(String(50), nullable=True)
     description = Column(String(400), nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
+    article_id = Column(Integer, ForeignKey("articles.id", ondelete="SET NULL"), nullable=True)
+    default_price = Column(Numeric(18, 2), nullable=True)
 
     contract = relationship("Contract", back_populates="service_fees")

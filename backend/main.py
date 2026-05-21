@@ -230,6 +230,15 @@ async def startup_migrations():
             "ALTER TABLE contract_settlements ADD COLUMN IF NOT EXISTS "
             "service_fee_id INT NULL"
         ))
+        # RAO-P1-011: article_id i default_price w contract_service_fees (kopia z szablonu)
+        await conn.execute(sa.text(
+            "ALTER TABLE contract_service_fees ADD COLUMN IF NOT EXISTS "
+            "article_id INT NULL"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE contract_service_fees ADD COLUMN IF NOT EXISTS "
+            "default_price DECIMAL(18,2) NULL"
+        ))
 
     # FK + index dodawane z IF NOT EXISTS (MariaDB 10.0.2+ dla FK, 10.0.9+ dla indeksów)
     # RAO-P2-012 spike: commented out FK constraints due to MariaDB version compatibility (not in scope)

@@ -72,6 +72,8 @@ async def apply_preset_to_contract(db: AsyncSession, contract_id: int, preset_id
             unit=t.unit,
             description=t.description,
             is_active=t.is_active,
+            article_id=t.article_id,
+            default_price=t.default_price,
         ))
     await db.commit()
 

@@ -72,23 +72,24 @@ async def init_contract_settlements(
     current_user=Depends(get_current_user),
 ):
     """RAO-P1-012: Inicjuj rozliczenia dla umowy (dla istniejących umów bez settlements).
-    
+
     Oblicza cost_client automatycznie z pozycji umowy:
     - cost_client = position.price * position.days * position.quantity
     - cost_company = NULL (do ręcznego uzupełnienia)
+
+    RAO-P2-012: Również inicjuje rozliczenia dla usług dodatkowych (contract_service_fees)
+    z service_fee_id i default_price jako cost_client.
     """
     from sqlalchemy import select
-    from contracts.models import ContractPosition, Contract
-    
+    from contracts.models import ContractPosition, ContractServiceFee
+
     # Pobierz pozycje umowy
     positions = await db.execute(
         select(ContractPosition).where(ContractPosition.contract_id == contract_id)
     )
     position_list = positions.scalars().all()
-    
-    position_ids = [p.id for p in position_list]
-    
-    # Utwórz lub zaktualizuj settlements z obliczonym cost_client
+
+    # Utwórz lub zaktualizuj settlements dla pozycji
     for position in position_list:
         existing = await db.execute(
             select(ContractSettlement).where(
@@ -97,18 +98,16 @@ async def init_contract_settlements(
             )
         )
         existing_settlement = existing.scalar_one_or_none()
-        
+
         # Oblicz cost_client z pozycji umowy
         cost_client = None
         if position.unit_price and position.rental_days and position.quantity:
             cost_client = float(position.unit_price * position.rental_days * position.quantity)
-        
+
         if existing_settlement:
-            # Zaktualizuj istniejące
             existing_settlement.cost_client = cost_client
             existing_settlement.updated_at = datetime.utcnow()
         else:
-            # Utwórz nowe
             settlement = ContractSettlement(
                 contract_id=contract_id,
                 position_id=position.id,
@@ -117,7 +116,41 @@ async def init_contract_settlements(
                 notes=None
             )
             db.add(settlement)
-    
+
+    # RAO-P2-012: Inicjuj rozliczenia dla usług dodatkowych
+    service_fees = await db.execute(
+        select(ContractServiceFee).where(
+            ContractServiceFee.contract_id == contract_id,
+            ContractServiceFee.is_active == True
+        )
+    )
+    fee_list = service_fees.scalars().all()
+
+    for fee in fee_list:
+        existing = await db.execute(
+            select(ContractSettlement).where(
+                ContractSettlement.contract_id == contract_id,
+                ContractSettlement.service_fee_id == fee.id,
+            )
+        )
+        existing_settlement = existing.scalar_one_or_none()
+
+        # cost_client = default_price dla usług dodatkowych
+        cost_client = float(fee.default_price) if fee.default_price else None
+
+        if existing_settlement:
+            existing_settlement.cost_client = cost_client
+            existing_settlement.updated_at = datetime.utcnow()
+        else:
+            settlement = ContractSettlement(
+                contract_id=contract_id,
+                service_fee_id=fee.id,
+                cost_client=cost_client,
+                cost_company=None,
+                notes=None
+            )
+            db.add(settlement)
+
     await db.commit()
     return await service.get_settlements_by_contract(db, contract_id)
 
