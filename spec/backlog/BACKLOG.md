@@ -3588,9 +3588,10 @@ czyste rekordy bez powtórzeń. Statystyki domyślnie wykluczają archiwalne (`e
 **Acceptance criteria (DoD):**
 
 **Backend:**
-- [ ] `GET /stats/by-category` — rozszerzenie parametru `level` z `main|sub1` na `main|sub1|sub2` (sub3 ma tylko 2 wiersze w CSV — pomijamy)
+- [ ] `GET /stats/by-category` — rozszerzenie parametru `level` z `main|sub1` na `main|sub1|sub2|sub3` (pełne 4 poziomy, nawet jeśli sub3 ma mało danych)
 - [ ] `GET /stats/by-category` — nowy parametr `category_main` (filtr, opcjonalny, multi-value) → gdy level=sub1, zwraca tylko sub1 wybranych kategorii głównych; gdy level=sub2, zwraca tylko sub2 wybranej sub1
-- [ ] `GET /stats/by-category` — nowy parametr `category_sub1` (filtr, opcjonalny) → używany przy level=sub2 do zawężenia do konkretnej gałęzi
+- [ ] `GET /stats/by-category` — nowy parametr `category_sub1` (filtr, opcjonalny) → używany przy level=sub2/sub3 do zawężenia
+- [ ] `GET /stats/by-category` — nowy parametr `category_sub2` (filtr, opcjonalny) → używany przy level=sub3
 - [ ] `GET /stats/by-category` — nowy parametr `article_type` (machine/service/all, default=all) → działa globalnie
 - [ ] `GET /stats/by-category` — nowy parametr `include_archival` (boolean, default=false) dostępny w UI (był hardcoded)
 - [ ] `GET /stats/by-category` — nowy parametr `lifting_capacity_ranges` (lista zakresów: `<1,1-5,5-20,20-50,>50`) → filtruje przez `JSON_EXTRACT(technical_attributes, '$.udzwig')` BETWEEN; zwraca `missing_capacity_count` (ile maszyn pominięto przez brak danych)
@@ -3639,13 +3640,16 @@ Dodać **pod date-pills, nad sub-tabami** (czyli przed `<div class="explorer-sub
 
 **C) Rozbudowa sub-tabu "🏷️ Kategorie" (istniejący)**
 
-- [ ] Drilldown przez 3 poziomy (main → sub1 → sub2):
-  - Klik wiersza na poziomie main (`level=main`) → przeładuj na `level=sub1&category_main={nazwa}`
-  - Klik wiersza na poziomie sub1 → przeładuj na `level=sub2&category_main={main}&category_sub1={nazwa}`
-  - Na poziomie sub2 klik wiersza nie robi nic (koniec drzewa — sub3 pomijamy)
-  - Jeśli dana kategoria nie ma sub2 w drzewie (z `/stats/categories-list`) → klik wiersza na sub1 nie jest aktywny (brak `cursor:pointer`, brak `@click`)
-  - Breadcrumb nad tabelą: `Wszystkie  /  Wozidła  /  Wózki widłowe` — każdy segment klikalny (wraca do danego poziomu z odpowiednimi filtrami)
-  - Stan drilldownu: `drilldownPath = []` (main) | `['Wozidła']` (sub1) | `['Wozidła', 'Wózki widłowe']` (sub2)
+- [ ] Drilldown przez wszystkie 4 poziomy (main → sub1 → sub2 → sub3):
+  - Start: tabela pokazuje poziom `main` (Właściwa kategoria główna)
+  - Klik wiersza na `main` → przeładuj na `level=sub1&category_main={nazwa}`
+  - Klik wiersza na `sub1` → przeładuj na `level=sub2&category_main={main}&category_sub1={nazwa}`
+  - Klik wiersza na `sub2` → przeładuj na `level=sub3&category_main={main}&category_sub1={sub1}&category_sub2={nazwa}`
+  - Klik wiersza na `sub3` → brak akcji (koniec drzewa)
+  - Jeśli dany węzeł nie ma dzieci w drzewie (z `/stats/categories-list`) → wiersz nieklikalny (brak `cursor:pointer`)
+  - Breadcrumb nad tabelą: `Wszystkie  /  Wozidła  /  Wózki widłowe  /  Wózki widłowe elektryczne` — każdy segment klikalny (wraca do danego poziomu)
+  - Stan: `drilldownPath = []` | `['Wozidła']` | `['Wozidła','Wózki widłowe']` | `['Wozidła','Wózki widłowe','el.']`
+  - Backend `/stats/categories-list` zwraca pełne drzewo 4 poziomów: `{id, name, level, children[]}` — używane do detekcji czy węzeł ma dzieci
 - [ ] Sortowanie kolumn: każdy `<th>` klikalny, `sortKey ref` + `sortDir ref` (asc/desc), ikona ▲▼ przy aktywnej kolumnie, domyślnie sort po `revenue DESC`
 - [ ] Warning udźwig (jeśli filtr udźwig aktywny i `missing_capacity_count > 0`): żółty banner pod panelem filtrów: `ℹ️ {missing_capacity_count} pozycji bez podanego udźwigu zostało pominiętych`
 
