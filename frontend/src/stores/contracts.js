@@ -121,13 +121,20 @@ export const useContractStore = defineStore('contracts', () => {
     const cd = response.headers['content-disposition'] || ''
     // Mapowanie typu raportu na podfolder
     const docType = type === 'contract' ? 'umowy' : type.startsWith('protocol_zo') ? 'protokoly' : 'zestawienia'
-    // Nazwa pliku zgodna z konwencją AppRao (Content-Disposition z backendu)
-    // Backend zwraca: S129_2026.pdf lub PZO_S129_2026.pdf
-    const saved = await saveToFolder(response.data, cd, 'Umowa.pdf', docType)
+    // Parsowanie nazwy pliku z Content-Disposition (RFC 5987)
+    let filename = 'Umowa.pdf'
+    const rfc5987 = cd.match(/filename\*=UTF-8''([^;]+)/i)
+    if (rfc5987) {
+      try { filename = decodeURIComponent(rfc5987[1]) } catch { }
+    } else {
+      const classic = cd.match(/filename="?([^";\n]+)"?/i)
+      if (classic) filename = classic[1].trim()
+    }
+    const saved = await saveToFolder(response.data, cd, filename, docType)
     if (saved) {
       const folderName = await getStoredFolderName()
       const subfolderNames = { umowy: 'Umowy', protokoly: 'Protokoly', zestawienia: 'Zestawienia' }
-      toastStore.showToast(`Taki plik zapisany do folderu ${folderName}/${subfolderNames[docType]}`, 'success')
+      toastStore.showToast(`${filename} zapisany do folderu ${folderName}/${subfolderNames[docType]}`, 'success')
     }
   }
 

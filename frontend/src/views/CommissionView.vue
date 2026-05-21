@@ -98,10 +98,19 @@ async function printPage() {
       responseType: 'blob',
     })
     const cd = response.headers['content-disposition'] || ''
-    const saved = await saveToFolder(response.data, cd, 'Prowizje.pdf', 'zestawienia')
+    // Parsowanie nazwy pliku z Content-Disposition
+    let filename = 'Prowizje.pdf'
+    const rfc5987 = cd.match(/filename\*=UTF-8''([^;]+)/i)
+    if (rfc5987) {
+      try { filename = decodeURIComponent(rfc5987[1]) } catch { }
+    } else {
+      const classic = cd.match(/filename="?([^";\n]+)"?/i)
+      if (classic) filename = classic[1].trim()
+    }
+    const saved = await saveToFolder(response.data, cd, filename, 'zestawienia')
     if (saved) {
       const folderName = await getStoredFolderName()
-      toastStore.showToast(`Taki plik zapisany do folderu ${folderName}/Zestawienia`, 'success')
+      toastStore.showToast(`${filename} zapisany do folderu ${folderName}/Zestawienia`, 'success')
     }
   } catch {
     alert('Błąd generowania PDF')
