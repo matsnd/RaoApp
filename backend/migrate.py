@@ -792,6 +792,72 @@ def _parse_numeric(val: "str | None") -> "float | None":
         return None
 
 
+# ─── Canonical category overrides (CSV analysis 2026-05) ─────────────────────
+# Zapobiega tworzeniu zdublowanych kategorii z wariantów nazw w CSV.
+# key: normalize_category(raw_main) → canonical display name
+_MAIN_CAT_OVERRIDES: dict = {
+    "ladowarka teleskopowa":  "Ładowarki Teleskopowe",  # singular→plural (26 artykułów)
+    "ladowarki teleskopowe":  "Ładowarki Teleskopowe",  # wariant lowercase + force display
+    "mini zuraw":             "Miniżuraw",               # "Mini żuraw"×2 → scalenie
+}
+
+# key: (norm_canonical_main, norm_raw_sub1) → canonical sub1 display name
+# norm_canonical_main to norma PO zastosowaniu _MAIN_CAT_OVERRIDES
+_SUB1_CAT_OVERRIDES: dict = {
+    ("ladowarki teleskopowe", "ladowarka teleskopowa obrotowa"): "Ładowarki Teleskopowe Obrotowe",
+    ("ladowarki teleskopowe", "ladowarki teleskopowe sztywne"):  "Ładowarki Teleskopowe Sztywne",
+}
+
+
+def _apply_canonical_mapping(records: list) -> None:
+    """
+    Normalizuje nazwy kategorii w rekordach CSV — scalanie wariantów, korekty strukturalne.
+    Modyfikuje rekordy in-place. Wywoływana RAZ po _parse_csv_file(), przed budowaniem drzewa.
+
+    Przypadki:
+    1. main override:  "Ładowarka teleskopowa" (singular) → "Ładowarki Teleskopowe"
+                       "Mini żuraw" (2 wiersze) → "Miniżuraw"
+    2. sub1 override:  singular/lowercase warianty sub1 → kanoniczne display names
+    3. Structural fix: pusty main + sub1="Podnośnik koszowy na samochodzie"
+                       → main="Podnośnik na samochodzie" (ID=11128)
+    4. Structural fix: Akcesoria + pusty sub1 + niepuste sub2
+                       → promote sub2→sub1, sub3→sub2 (ID=5064, 4059)
+    """
+    for rec in records:
+        # ── 1. Main override ───────────────────────────────────────────────
+        cm = rec["cat_main"]
+        if cm:
+            nm = normalize_category(cm)
+            if nm in _MAIN_CAT_OVERRIDES:
+                rec["cat_main"] = _MAIN_CAT_OVERRIDES[nm]
+
+        # ── 2. Sub1 override ───────────────────────────────────────────────
+        cm_final = rec["cat_main"]
+        cs1 = rec["cat_sub1"]
+        if cm_final and cs1:
+            key = (normalize_category(cm_final), normalize_category(cs1))
+            if key in _SUB1_CAT_OVERRIDES:
+                rec["cat_sub1"] = _SUB1_CAT_OVERRIDES[key]
+
+        # ── 3. Structural: pusty main → przypisz wg sub1 ──────────────────
+        if rec["cat_main"] is None and rec["cat_sub1"] and (
+            normalize_category(rec["cat_sub1"])
+            == normalize_category("Podnośnik koszowy na samochodzie")
+        ):
+            rec["cat_main"] = "Podnośnik na samochodzie"
+
+        # ── 4. Structural: Akcesoria + pusty sub1 + niepuste sub2 → promote ─
+        if (
+            rec["cat_main"]
+            and normalize_category(rec["cat_main"]) == "akcesoria"
+            and rec["cat_sub1"] is None
+            and rec["cat_sub2"]
+        ):
+            rec["cat_sub1"] = rec["cat_sub2"]
+            rec["cat_sub2"] = rec["cat_sub3"]
+            rec["cat_sub3"] = None
+
+
 def _parse_csv_file(csv_path: str) -> list:
     """CSV-INJ-001 SAFE: csv.reader (NIE eval, NIE f-string z user input)."""
     records = []
@@ -831,6 +897,8 @@ async def step8_csv_categories() -> None:
     1. GET_LOCK(rao_migrate_csv, 0) — race condition guard (session-scoped)
     2. Parsowanie CSV (csv.reader — CSV-INJ-001 safe)
        Kolumny: [0]=id, [3]=rodzaj, [6]=model, [7]=numer_wewn, [8-14]=kategorie+tech
+    2a. _apply_canonical_mapping(): scal warianty nazw (_MAIN_CAT_OVERRIDES, _SUB1_CAT_OVERRIDES)
+        + korekty strukturalne (pusty main→inferred, Akcesoria sub2→sub1 promote)
     3. Cache istniejących kategorii w pamięci (Python-side diacritic norm)
     4. Budowanie drzewa (main→sub1→sub2→sub3, sorted dla determinizmu):
        _upsert_cat(): SELECT-or-INSERT — idempotent
@@ -883,6 +951,7 @@ async def step8_csv_categories() -> None:
 
     try:
         records   = _parse_csv_file(csv_path)
+        _apply_canonical_mapping(records)   # scal warianty nazw + korekty strukturalne
         csv_total = len(records)
         print(f"   {csv_total} rekordów z CSV")
 
