@@ -4033,7 +4033,7 @@ Zmiana UX sekcji Raporty: kategorie jako pierwszy eksponowany poziom (nie "Podka
 id: RAO-P2-022
 priority: P2
 size: S
-status: in-progress
+status: done
 classification: ux/analysis
 roles: [frontend-dev, backend-dev, tech-lead]
 depends_on: []
@@ -4043,7 +4043,7 @@ source_date: 2026-05-21
 specs_to_update:
   - core/03_frontend_screens.md
   - core/04_business_logic.md
-migration_impact: no
+migration_impact: yes
 security_impact: none
 ```
 
@@ -4055,18 +4055,25 @@ security_impact: none
 **Sortowanie (szybki fix):**
 - [x] Endpoint `GET /contracts` domyślny `ORDER BY auto_number DESC` — już zaimplementowany w `backend/contracts/service.py:109` ✅
 - [x] Frontend: brak client-side sort — sortowanie w pełni delegowane do backendu (API-first) ✅
-- [ ] Smoke test PASS
+- [x] Smoke test PASS ✅
 
 **Analiza koncepcji statusów (spec + decyzja):**
-- [ ] Zdefiniować w spec: co oznacza "umowa przeterminowana" (data końca < dziś bez rozliczenia?)
-- [ ] Zdefiniować: co oznacza "umowa rozliczona" — manualny status czy automatyczny trigger?
-- [ ] Przemyśleć: czy "rozliczone" umowy mają znikać z listy (archiwizacja) czy tylko inny status/kolor w widoku?
-- [ ] Zaproponować statusy: `active | settled | expired | cancelled` (lub subset)
-- [ ] Zapisać decyzję w `spec/core/04_business_logic.md` — sekcja "Statusy umowy"
+- [x] Zdefiniować w spec: co oznacza "umowa przeterminowana" → `is_settled=0 AND date_to < dziś` ✅
+- [x] Zdefiniować: co oznacza "umowa rozliczona" → **manualny status** `is_settled=TRUE` (decyzja klienta) ✅
+- [x] Przemyśleć: czy "rozliczone" umowy mają znikać → **NIE znikają**, widoczne z innym kolorem (szare tło) ✅
+- [x] Statusy: `active | expiring | overdue | settled` — obliczane deterministycznie, brak kolumny `status` w DB ✅
+- [x] Zapisać decyzję w `spec/core/04_business_logic.md` — sekcja "15. Statusy umowy" ✅
+
+**Implementacja (2026-05-21):**
+- DB: `contracts.is_settled TINYINT(1) DEFAULT 0` + `contracts.settled_at DATETIME NULL`
+- API: `PATCH /contracts/{id}/settle` + filtr `?is_settled=false|true` w `GET /contracts`
+- Frontend: przycisk "Oznacz jako rozliczoną" + badge w ContractFormView; filtr + `row-settled` CSS w DashboardView
+- Stats: `/expiring-contracts` i `/overdue-contracts` wykluczają rozliczone
 
 **Spec:**
-- [ ] `spec/core/03_frontend_screens.md` — domyślne sortowanie listy umów
-- [ ] `spec/core/04_business_logic.md` — sekcja "Statusy umowy" (nowa lub rozszerzona)
+- [x] `spec/core/03_frontend_screens.md` — filtry + statusy + sortowanie listy umów ✅
+- [x] `spec/core/04_business_logic.md` — sekcja "15. Statusy umowy" ✅
+- [x] `spec/core/01_database.md` — kolumny `is_settled` + `settled_at` w tabeli contracts ✅
 
 **Pliki do zmiany:** `backend/contracts/router.py` (default ORDER BY), `frontend/src/views/ContractsListView.vue` (opcjonalnie jeśli sortowanie client-side)
 **ROI:** UX: użytkownik widzi najnowsze umowy od razu; fundament pod przyszłą archiwizację rozliczonych umów
@@ -4146,6 +4153,6 @@ n|| RAO-P1-008 | Strukturalizacja adresów: kod pocztowy + miasto | Client | P1 
 || RAO-P2-020 | Usuń przyciski eksportu CSV z Raporty | E2E | P2 | S | done | frontend-dev |
 || RAO-P1-027 | BUG: Stan aktualny floty — is_archival + is_external | Client | P1 | S | done | backend-dev |
 || RAO-P1-028 | BUG: Eksplorator — niearchiwalne + miasta z kodów pocztowych | Client | P1 | M | done | cross-stack |
-|| RAO-P1-029 | Analiza i naprawa migracji — umowy bez kategorii | Client | P1 | M | todo | backend-dev |
-|| RAO-P2-021 | UX Raportów — kategorie drilldown + info historyczne | Client | P2 | M | todo | cross-stack |
-|| RAO-P2-022 | Widok umów — sortowanie + analiza statusów | Client | P2 | S | todo | cross-stack |
+|| RAO-P1-029 | Analiza i naprawa migracji — umowy bez kategorii | Client | P1 | M | done | backend-dev |
+|| RAO-P2-021 | UX Raportów — kategorie drilldown + info historyczne | Client | P2 | M | done | cross-stack |
+|| RAO-P2-022 | Widok umów — sortowanie + analiza statusów | Client | P2 | S | done | cross-stack |

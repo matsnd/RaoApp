@@ -23,6 +23,12 @@
               <option value="S">Umowy najmu</option>
               <option value="U">Umowy usługi</option>
             </select>
+            <!-- RAO-P2-022: filtr statusu rozliczenia -->
+            <select v-model="settledFilter" class="form-control" style="width:160px;">
+              <option value="false">Aktywne</option>
+              <option value="true">Rozliczone</option>
+              <option value="">Wszystkie</option>
+            </select>
             <input v-model="dateFrom" type="date" class="form-control" style="width:140px;" placeholder="Data od" />
             <input v-model="dateTo" type="date" class="form-control" style="width:140px;" placeholder="Data do" />
           </div>
@@ -38,15 +44,16 @@
                   <th>Data do</th>
                   <th>Wartość</th>
                   <th>Handlowiec</th>
+                  <th>Status</th>
                   <th>Wydruk</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-if="contractStore.loading">
-                  <td colspan="9" class="empty-state">Ładowanie...</td>
+                  <td colspan="10" class="empty-state">Ładowanie...</td>
                 </tr>
                 <tr v-else-if="!contractStore.list.length">
-                  <td colspan="9" class="empty-state">
+                  <td colspan="10" class="empty-state">
                     Brak umów —
                     <button class="btn btn-primary btn-sm" style="margin-left:8px;" @click="router.push({ name: 'ContractNew' })">+ Nowa umowa</button>
                   </td>
@@ -54,7 +61,7 @@
                 <tr
                   v-for="c in contractStore.list"
                   :key="c.id"
-                  :class="['contract-row', { selected: selectedId === c.id }, expiryClass(c)]"
+                  :class="['contract-row', { selected: selectedId === c.id }, c.is_settled ? 'row-settled' : expiryClass(c)]"
                   @click="selectedId = c.id"
                   @dblclick="editContract(c.id)"
                   @contextmenu.prevent="openContextMenu($event, c)"
@@ -66,12 +73,18 @@
                   <td>{{ formatDate(c.date_from) }}</td>
                   <td>
                     <span :title="expiryTitle(c)">{{ formatDate(c.date_to) }}</span>
-                    <span v-if="daysLeft(c) !== null && daysLeft(c) >= 0 && daysLeft(c) <= 14" class="expiry-chip" :class="expiryClass(c)">
+                    <span v-if="!c.is_settled && daysLeft(c) !== null && daysLeft(c) >= 0 && daysLeft(c) <= 14" class="expiry-chip" :class="expiryClass(c)">
                       {{ daysLeft(c) + 'd' }}
                     </span>
                   </td>
                   <td style="font-weight:600;">{{ formatMoney(c.total_value) }}</td>
                   <td>{{ c.salesperson_name || '—' }}</td>
+                  <!-- RAO-P2-022: kolumna statusu -->
+                  <td>
+                    <span v-if="c.is_settled" class="badge badge-settled">Rozliczona</span>
+                    <span v-else-if="daysLeft(c) !== null && daysLeft(c) < 0" class="badge badge-overdue">Przeterminowana</span>
+                    <span v-else class="badge badge-active">Aktywna</span>
+                  </td>
                   <td>
                     <span :class="['badge', c.is_print_current ? 'badge-success' : 'badge-muted']">
                       {{ c.is_print_current ? 'Aktualny' : (c.print_date ? 'Nieaktualny' : 'Brak') }}
@@ -261,6 +274,7 @@ const articleStore = useArticleStore()
 
 const search = ref('')
 const contractTypeFilter = ref('')
+const settledFilter = ref('false')   // RAO-P2-022: domyślnie tylko aktywne (nierozliczone)
 const dateFrom = ref('')
 const dateTo = ref('')
 const selectedId = ref(null)
@@ -312,6 +326,7 @@ async function loadData() {
   if (search.value) params.search = search.value
   if (section.value === 'contracts') {
     if (contractTypeFilter.value) params.contract_type = contractTypeFilter.value
+    if (settledFilter.value !== '') params.is_settled = settledFilter.value  // RAO-P2-022
     if (dateFrom.value) params.date_from = dateFrom.value
     if (dateTo.value) params.date_to = dateTo.value
     await contractStore.fetchList(params)
@@ -336,6 +351,7 @@ watch(search, () => {
   searchTimer = setTimeout(() => { page.value = 1; loadData() }, 400)
 })
 watch(contractTypeFilter, () => { page.value = 1; loadData() })
+watch(settledFilter, () => { page.value = 1; loadData() })  // RAO-P2-022
 watch(dateFrom, () => { page.value = 1; loadData() })
 watch(dateTo, () => { page.value = 1; loadData() })
 
@@ -466,6 +482,12 @@ function expiryTitle(c) {
 .contract-row.row-expiring-soon:hover td { background: #fff3cc; }
 .contract-row.row-expiring td { background: #fffcf0; }
 .contract-row.row-expiring:hover td { background: #fff7d6; }
+/* RAO-P2-022: rozliczone — wyciszone szare tło */
+.contract-row.row-settled td { background: #f8fafb; color: #718096; }
+.contract-row.row-settled:hover td { background: #f0f4f8; }
+.badge-settled { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
+.badge-active  { background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; }
+.badge-overdue { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
 
 .expiry-chip {
   display: inline-block;

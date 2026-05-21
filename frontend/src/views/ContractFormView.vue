@@ -3,6 +3,8 @@
     <div class="toolbar">
       <button class="toolbar-btn" @click="goBack">←</button>
       <span class="toolbar-info">{{ isEdit ? (contractStore.current?.number ? `Umowa: ${contractStore.current.number}` : 'Ładowanie...') : 'Nowa umowa' }}</span>
+      <!-- RAO-P2-022: badge rozliczona -->
+      <span v-if="isEdit && form.is_settled" class="settled-badge">✓ Rozliczona</span>
       <button v-if="isEdit" class="toolbar-btn" title="Drukuj PDF" @click="generateReport('contract')">⎙</button>
       <button v-if="isEdit" class="toolbar-btn" title="Protokół ZO" @click="generateReport('protocol_zo')">📄</button>
       <button v-if="isEdit" class="toolbar-btn" title="Przelicz wartość" @click="recalcTotal">∑</button>
@@ -318,20 +320,36 @@
           </table>
         </div>
 
-        <!-- Settlements section (RAO-P1-012) -->
+        <!-- Settlements section (RAO-P1-012 + RAO-P2-022) -->
         <div v-if="isEdit" class="page-card" style="margin-bottom:var(--spacing-md);">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-            <div style="display:flex;align-items:center;">
+            <div style="display:flex;align-items:center;gap:10px;">
               <span class="section-title" style="margin:0;border:none;">Rozliczenie umowy</span>
-              <span style="font-size:11px;color:#718096;margin-left:12px;">Koszt klienta vs koszt firmy</span>
+              <span style="font-size:11px;color:#718096;">Koszt klienta vs koszt firmy</span>
+              <!-- RAO-P2-022: status badge -->
+              <span v-if="form.is_settled" class="settled-badge-sm">
+                ✓ Rozliczona{{ form.settled_at ? ' · ' + new Date(form.settled_at).toLocaleDateString('pl-PL') : '' }}
+              </span>
             </div>
-            <button 
-              class="btn btn-xs btn-outline"
-              @click="toggleFakturowniaPanel"
-              :disabled="fakturowniaStore.loading"
-            >
-              {{ fakturowniaStore.loading ? 'Ładowanie...' : 'Pokaż faktury z FA' }}
-            </button>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <!-- RAO-P2-022: toggle rozliczenia -->
+              <button
+                class="btn btn-xs"
+                :class="form.is_settled ? 'btn-outline-danger' : 'btn-success'"
+                @click="toggleSettled"
+                :disabled="settlingContract"
+                :title="form.is_settled ? 'Cofnij oznaczenie rozliczona' : 'Oznacz jako rozliczoną'"
+              >
+                {{ settlingContract ? '...' : (form.is_settled ? '✕ Cofnij rozliczenie' : '✓ Oznacz jako rozliczoną') }}
+              </button>
+              <button 
+                class="btn btn-xs btn-outline"
+                @click="toggleFakturowniaPanel"
+                :disabled="fakturowniaStore.loading"
+              >
+                {{ fakturowniaStore.loading ? 'Ładowanie...' : 'Pokaż faktury z FA' }}
+              </button>
+            </div>
           </div>
 
           <!-- Fakturownia read-only panel (spike RAO-P2-012) -->
@@ -724,6 +742,7 @@ const form = ref({
   contact_person2: '', contact_phone2: '', show_person2: true,
   email: '', phone: '', contractor_name: '', working_days_per_week: 6, report_without_data: false, hide_delivery_address: false, signatures_on_page1: false,
   oid: '',
+  is_settled: false, settled_at: null,  // RAO-P2-022
 })
 
 const remainingValue = computed(() => {
@@ -979,6 +998,23 @@ async function generateReport(type) {
     await contractStore.generateReport(Number(props.id), type)
   } catch (e) {
     alert('Błąd generowania raportu')
+  }
+}
+
+// RAO-P2-022: Settle / unsettle contract
+const settlingContract = ref(false)
+async function toggleSettled() {
+  if (!props.id) return
+  settlingContract.value = true
+  try {
+    const newVal = !form.value.is_settled
+    const { data } = await api.patch(`/contracts/${props.id}/settle`, { is_settled: newVal })
+    form.value.is_settled = data.is_settled
+    form.value.settled_at = data.settled_at
+  } catch (e) {
+    alert('Błąd zmiany statusu rozliczenia: ' + (e.response?.data?.detail || e.message))
+  } finally {
+    settlingContract.value = false
   }
 }
 
@@ -1325,6 +1361,58 @@ async function applyPreset(preset) {
 </script>
 
 <style scoped>
+/* RAO-P2-022: badge rozliczona */
+.settled-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #6ee7b7;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.settled-badge-sm {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #6ee7b7;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.btn-success {
+  background: #10b981;
+  color: #fff;
+  border: 1px solid #059669;
+  border-radius: var(--border-radius-md, 8px);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  transition: background 150ms;
+}
+.btn-success:hover { background: #059669; }
+.btn-outline-danger {
+  background: transparent;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+  border-radius: var(--border-radius-md, 8px);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  transition: all 150ms;
+}
+.btn-outline-danger:hover { background: #fef2f2; border-color: #dc2626; }
+
 .section-title {
   font-size: 14px;
   font-weight: 700;

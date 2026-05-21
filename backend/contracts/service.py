@@ -83,6 +83,7 @@ class ContractService:
         date_from: date | None = None,
         date_to: date | None = None,
         contract_type: str | None = None,
+        is_settled: bool | None = None,
         page: int = 1,
         per_page: int = 50,
     ):
@@ -102,6 +103,8 @@ class ContractService:
             stmt = stmt.where(Contract.date_to <= date_to)
         if contract_type:
             stmt = stmt.where(Contract.contract_type == contract_type)
+        if is_settled is not None:
+            stmt = stmt.where(Contract.is_settled == is_settled)
 
         count_stmt = select(func.count()).select_from(stmt.subquery())
         total = (await db.execute(count_stmt)).scalar_one()
@@ -148,7 +151,10 @@ class ContractService:
                 phone=c.phone,
                 salesperson_name=sp_name,
                 print_date=c.print_date, is_print_current=is_print_current,
-                duration_days=duration, created_at=c.created_at,
+                duration_days=duration,
+                is_settled=bool(c.is_settled),  # RAO-P2-022
+                settled_at=c.settled_at,         # RAO-P2-022
+                created_at=c.created_at,
             ))
         return items, total
 
@@ -194,6 +200,16 @@ class ContractService:
         update_data.pop("contractor_name", None)
         for field, value in update_data.items():
             setattr(contract, field, value)
+        contract.updated_at = datetime.utcnow()
+        await db.commit()
+        await db.refresh(contract)
+        return contract
+
+    async def settle_contract(self, db: AsyncSession, contract_id: int, is_settled: bool) -> Contract:
+        """RAO-P2-022: oznacz umowę jako rozliczoną / cofnij rozliczenie."""
+        contract = await self.get_contract(db, contract_id)
+        contract.is_settled = is_settled
+        contract.settled_at = datetime.utcnow() if is_settled else None
         contract.updated_at = datetime.utcnow()
         await db.commit()
         await db.refresh(contract)

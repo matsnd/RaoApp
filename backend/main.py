@@ -119,6 +119,15 @@ async def startup_migrations():
             "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
             "is_external TINYINT(1) NOT NULL DEFAULT 0"
         ))
+        # RAO-P2-022: status rozliczenia umowy
+        await conn.execute(sa.text(
+            "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
+            "is_settled TINYINT(1) NOT NULL DEFAULT 0"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
+            "settled_at DATETIME NULL"
+        ))
         # RAO-P1-008: strukturalizacja adresów - kod pocztowy + miasto
         await conn.execute(sa.text(
             "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "

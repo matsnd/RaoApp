@@ -10,6 +10,7 @@ from contracts.schemas import (
     ContractListItem, ContractServiceFeeCreate, ContractServiceFeeReorder,
     ContractServiceFeeResponse, PositionCreate, PositionResponse,
     ServiceHourCreate, ServiceHourResponse, ServiceHourUpdate,
+    SettleContractRequest,
 )
 from contracts.service import contract_service
 from contracts.service_hours_service import service_hour_service
@@ -40,12 +41,15 @@ async def list_contracts(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     contract_type: str | None = Query(None, pattern="^[SU]$"),
+    is_settled: bool | None = Query(None, description="None=wszystkie, false=aktywne, true=rozliczone"),
     page: int = Query(1, ge=1),
     per_page: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    items, total = await contract_service.list_contracts(db, search, date_from, date_to, contract_type, page, per_page)
+    items, total = await contract_service.list_contracts(
+        db, search, date_from, date_to, contract_type, is_settled, page, per_page
+    )
     return PaginatedResponse(items=items, total=total, page=page, per_page=per_page)
 
 
@@ -77,6 +81,18 @@ async def update_contract(
     _: User = Depends(get_current_user),
 ):
     c = await contract_service.update_contract(db, contract_id, data)
+    return ContractDetail.model_validate(c)
+
+
+@router.patch("/{contract_id}/settle", response_model=ContractDetail)
+async def settle_contract(
+    contract_id: int,
+    data: SettleContractRequest,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """RAO-P2-022: oznacz umowę jako rozliczoną lub cofnij rozliczenie."""
+    c = await contract_service.settle_contract(db, contract_id, data.is_settled)
     return ContractDetail.model_validate(c)
 
 

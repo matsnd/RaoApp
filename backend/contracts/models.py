@@ -45,6 +45,8 @@ class Contract(Base):
     signatures_on_page1 = Column(Boolean, nullable=False, default=False)
     working_days_per_week = Column(Integer, nullable=True, default=6)
     position_count = Column(Integer, nullable=True, default=0)
+    is_settled = Column(Boolean, nullable=False, default=False)  # RAO-P2-022: umowa rozliczona
+    settled_at = Column(DateTime, nullable=True)                  # RAO-P2-022: kiedy rozliczona
     created_at = Column(DateTime, nullable=False)
     updated_at = Column(DateTime, nullable=True)
 

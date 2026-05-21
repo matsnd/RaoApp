@@ -725,6 +725,44 @@ def generate_fees_text_for_pdf(fees: list) -> str:
     return "\n".join(lines)
 ```
 
+## 15. Statusy umowy (RAO-P2-022)
+
+Umowa NIE posiada kolumny `status` (enum). Stan jest obliczany deterministycznie z `is_settled` + `date_to` + dziś.
+
+### Tabela stanów
+
+| Stan | Warunek | Kolor w liście | Dotyczy alarmów |
+|------|---------|---------------|-----------------|
+| `active` | `is_settled=0`, `date_to >= dziś` | biały | tak |
+| `expiring` | `is_settled=0`, `0 < days_left <= 14` | żółte tło | tak |
+| `overdue` | `is_settled=0`, `date_to < dziś` | czerwone tło | tak |
+| `settled` | `is_settled=1`, dowolne `date_to` | szare/wyciszone | **NIE** |
+
+### Reguły
+
+- **Rozliczona = manualna decyzja użytkownika.** Klikając "Oznacz jako rozliczoną" w sekcji Rozliczenie umowy, ustawia się `is_settled=TRUE` i `settled_at=now()`.
+- **Cofnięcie:** przycisk "Cofnij rozliczenie" → `is_settled=FALSE`, `settled_at=NULL`.
+- **Lista umów:** domyślny filtr to `is_settled=false` (widok "Aktywne"). Użytkownik może przełączyć na "Rozliczone" lub "Wszystkie".
+- **Alarmy (HomeView):** endpointy `/stats/expiring-contracts` i `/stats/overdue-contracts` **wykluczają** rozliczone (`is_settled=FALSE`).
+- **Brak auto-rozliczenia:** nie ma automatycznego triggera na podstawie daty ani warunków finansowych.
+
+### API
+
+```
+PATCH /contracts/{id}/settle
+Body: { "is_settled": true | false }
+Response: ContractDetail
+```
+
+### Decyzja projektowa
+
+Wybrano model `is_settled` (boolean) zamiast kolumny `status` (enum `active|settled|expired|cancelled`) ze względu na:
+1. Prostotę — stan obliczany, nie przechowywany
+2. Brak migracji danych przy zmianie definicji statusów
+3. Jedyna "twarda" decyzja użytkownika to rozliczenie — reszta jest pochodną dat
+
+---
+
 ## 13. Walidacja NIP (checksum)
 
 ```python

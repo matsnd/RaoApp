@@ -137,6 +137,8 @@ class ContractListItem(BaseModel):
     print_date: datetime | None
     is_print_current: bool
     duration_days: int | None
+    is_settled: bool = False          # RAO-P2-022
+    settled_at: datetime | None = None  # RAO-P2-022
     created_at: datetime
 
     class Config:
@@ -178,11 +180,18 @@ class ContractDetail(BaseModel):
     signatures_on_page1: bool
     working_days_per_week: int | None
     print_date: datetime | None
+    is_settled: bool = False          # RAO-P2-022
+    settled_at: datetime | None = None  # RAO-P2-022
     created_at: datetime
     updated_at: datetime | None
 
     class Config:
         from_attributes = True
+
+
+class SettleContractRequest(BaseModel):
+    """RAO-P2-022: zmiana statusu rozliczenia umowy."""
+    is_settled: bool
 
 
 class ContractCreate(BaseModel):

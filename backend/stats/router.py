@@ -796,7 +796,10 @@ async def expiring_contracts(
             Contract.delivery_address, Contract.contact_person1, Contract.contact_phone1,
             Contract.salesperson_id,
         )
-        .where(and_(Contract.date_to >= today, Contract.date_to <= deadline))
+        .where(and_(
+            Contract.date_to >= today, Contract.date_to <= deadline,
+            Contract.is_settled == False,  # RAO-P2-022: rozliczone nie pokazują się w alarmach
+        ))
         .order_by(Contract.date_to)
     )
     rows = q.all()
@@ -835,7 +838,10 @@ async def overdue_contracts(
             Contract.date_from, Contract.date_to,
             Contract.delivery_address, Contract.contact_person1, Contract.contact_phone1,
         )
-        .where(Contract.date_to < today)
+        .where(and_(
+            Contract.date_to < today,
+            Contract.is_settled == False,  # RAO-P2-022: rozliczone nie pokazują się w alarmach
+        ))
         .order_by(Contract.date_to)
     )
     rows = q.all()

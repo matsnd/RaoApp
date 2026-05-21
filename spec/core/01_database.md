@@ -364,6 +364,9 @@ CREATE TABLE contracts (
     -- Dni robocze
     working_days_per_week INT       NULL DEFAULT 6,
     position_count      INT          NULL DEFAULT 0,
+    -- RAO-P2-022: status rozliczenia
+    is_settled          TINYINT(1)   NOT NULL DEFAULT 0 COMMENT 'Umowa rozliczona (manualne oznaczenie)',
+    settled_at          DATETIME     NULL COMMENT 'Kiedy oznaczono jako rozliczona',
     -- Timestamps
     created_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          DATETIME     NULL ON UPDATE CURRENT_TIMESTAMP,

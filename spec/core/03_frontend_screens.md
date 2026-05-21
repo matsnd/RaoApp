@@ -370,6 +370,15 @@ const columnDefs = {
 }
 ```
 
+**Lista umów — filtry i sortowanie (RAO-P2-022):**
+
+- Sortowanie: `ORDER BY auto_number DESC` (najnowsze na górze) — po stronie backendu
+- Filtr **statusu rozliczenia** (select): `Aktywne` (domyślnie, `is_settled=false`) | `Rozliczone` | `Wszystkie`
+- Filtr **typ umowy**: Wszystkie typy | Umowy najmu (S) | Umowy usługi (U)
+- Filtr **dat**: Data od / Data do
+- Kolumna **Status**: `Aktywna` (niebieski badge) | `Przeterminowana` (czerwony) | `Rozliczona` (zielony)
+- Wiersz `row-settled`: szare/wyciszone tło gdy `c.is_settled = true`
+
 **Context Menu per sekcja:**
 
 ```javascript
