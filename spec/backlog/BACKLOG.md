@@ -3572,10 +3572,11 @@ Kategorie istnieją GŁÓWNIE dlatego, że w starej aplikacji WinForms ta sama f
 miała wiele wierszy w bazie (`article_id` 5076, 8074, itd. — różne ID, ta sama maszyna).
 Dzięki kategoriom statystyki agregują po klasie maszyny, nie po duplikacie ID → dane są miarodajne.
 
-**Bug P0 dla tego zadania — `articles_count` jest zawyżony:**
-Obecny `aggregate_by_category` w `calc.py` liczy `articles.add(article_id)` — czyli zlicza duplikaty jako osobne maszyny.
-Poprawna metryka to unikalne `internal_number` (identyfikator fizyczny z CSV), z fallbackiem na `article_id` gdy `internal_number` is None.
-FIX: `agg[cat]["articles"].add(internal_number or article_id)` → miarodajna liczba fizycznych maszyn per kategoria.
+**Strategia deduplikacji (nie zmiana kodu — zmiana danych):**
+`articles_count` liczy po `article_id` — to celowe. Miarodajność zapewni się przez dane:
+po migracji duplikaty z WinForms zostaną oznaczone `is_archival=TRUE`, dodane zostaną
+czyste rekordy bez powtórzeń. Statystyki domyślnie wykluczają archiwalne (`exclude_archival=True`)
+→ liczby będą poprawne bez żadnej zmiany w `calc.py`.
 
 **Decyzje designu (PO + UX, 2026-05-21):**
 - Drilldown: kliknięcie wiersza "Wozidła" w tabeli → filtruje sub1 tylko tej kategorii (breadcrumb "Wszystkie → Wozidła ✕")
