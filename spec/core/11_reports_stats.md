@@ -132,26 +132,30 @@ service_hours = hours_result.scalars().all()
 {% endif %}
 ```
 
-### 1.7 Pieczątki firmowe w dokumentach (RAO-P1-022)
+### 1.7 Pieczątki i podpisy w dokumentach (RAO-P1-022 - uaktualnione)
 
-Wszystkie dokumenty PDF (umowy, protokoły, OWN) zawierają pieczątkę firmową Toolsmart Sp. z o.o. w sekcjach podpisów Wynajmującego.
+Wszystkie dokumenty PDF (umowy, protokoły, OWN) zawierają pieczątkę firmową Toolsmart Sp. z o.o. z podpisem w sekcjach podpisów Wynajmującego. Aby uzyskać 100% zgodności wizualnej, wprowadzono dwa odrębne pliki pieczątek firmowych:
 
-**Lokalizacja pieczątki:**
-- `backend/reports/assets/company_stamp.jpg` — plik z pieczątką (JPEG, 12275 bytes)
-- Wyekstrahowany z referencyjnych PDF z `spec/archive/reference_reports/` używając fitz (PyMuPDF)
+**Lokalizacja pieczątek:**
+- `backend/reports/assets/company_stamp.jpg` — Oryginalna pieczątka (JPEG, 12275 bytes) stosowana na umowach (OWN).
+- `backend/reports/assets/protocol_stamp.png` — Dedykowana pieczątka protokołu (PNG, 27856 bytes, wyekstrahowana z referencyjnego PZO) stosowana na wszystkich protokołach zdawczo-odbiorczych (PZO), dająca idealne dopasowanie do podpisów.
 
 **Integracja w szablonach:**
-- `contract.html` — Umowa Najmu (sekcja OWN podpisów)
-- `contract_u.html` — Umowa Usługi (sekcja podpisów umowy + OWN)
-- `protocol_zo.html` — Protokół Najmu (dwie sekcje podpisów: wydanie + zwrot)
-- `protocol_zo_u.html` — Protokół Usługi (dwie sekcje podpisów: wydanie + zwrot)
-- `protocol_zo_nodata_u.html` — Protokół Usługi bez cen (dwie sekcje podpisów)
+- `contract.html` — Umowa Najmu (sekcja OWN podpisów z `company_stamp.jpg` o wymiarach 220x85px).
+- `contract_u.html` — Umowa Usługi (sekcja podpisów umowy z `company_stamp.jpg` oraz OWN).
+- `protocol_zo.html` — Protokół Najmu (dwie sekcje podpisów: wydanie + zwrot z `protocol_stamp.png` o wymiarach 180x70px).
+- `protocol_zo_u.html` — Protokół Usługi (dwie sekcje podpisów: wydanie + zwrot z `protocol_stamp.png` o wymiarach 180x70px).
+- `protocol_zo_nodata_u.html` — Protokół Usługi bez cen (dwie sekcje podpisów z `protocol_stamp.png` o wymiarach 180x70px).
 
-**Implementacja:**
-- Pieczątka wstawiana przez `<img>` tag z `file://` URI (absolute path)
-- Wymiary: 220x85px dla OWN (contract.html), 180x70px dla protokołów
-- Pozycja: nad linią podpisu "Czytelny podpis Wynajmującego"
-- CSS 1:1 z referencyjnym ownA.pdf: Times New Roman, line-height 1.2, margines 40px
+**Optymalizacja layoutu dwukolumnowego OWN (WeasyPrint Fix):**
+- W szablonach `contract.html` oraz `contract_u.html` wyeliminowano przestarzały i błędnie paginowany układ flexboxowy `.own-cols { display: flex; }` na rzecz natywnego, stabilnego układu wielokolumnowego CSS `.own-cols { column-count: 2; column-gap: 15px; }`.
+- Usunięto sztuczne separatory kolumn i połączono sekcje OWN w jeden ciągły kontener, co pozwoliło na automatyczny, prawidłowy podział stron w WeasyPrint.
+- Zmniejszono padding kontenera `.own-page` i zmieniono wielkość fontu paragrafów `p.ot` na `7.0pt` (margin `2px`, line-height `1.1`) w celu perfekcyjnego zmieszczenia całej treści OWN maszynowego na dokładnie 2 stronach (3 strony całej umowy łącznie) oraz OWN usługowego na dokładnie 1 stronie (2 strony całej umowy łącznie) - zgodnie z absolutnymi wzorcami referencyjnymi (S129 i S130).
+
+**Implementacja techniczna:**
+- Pieczątki są wstawiane przez `<img>` tag z `file://` URI (absolute path) generowanym dynamicznie na podstawie ścieżki projektu.
+- Pozycja: nad linią podpisu "Czytelny podpis Wynajmującego" lub "czytelny podpis Wynajmującego".
+- CSS 1:1 z referencyjnymi plikami: czcionka Times New Roman, line-height 1.15.
 
 **Metoda ekstrakcji:**
 - Biblioteka: fitz (PyMuPDF) — działa na Windows
