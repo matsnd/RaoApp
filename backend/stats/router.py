@@ -500,10 +500,6 @@ async def by_category(
     ),
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
-    include_archival: bool = Query(
-        False,
-        description="Uwzględnij maszyny archiwalne (domyślnie wykluczone)",
-    ),
     category_main: list[str] = Query(
         default=[],
         description="Filtr kategorii głównych (multi-value, opcjonalny) — RAO-P1-026",
@@ -528,7 +524,8 @@ async def by_category(
     Statystyki wynajmu maszyn agregowane po kategorii (RAO-P1-017, RAO-P1-026).
 
     - level=main|sub1|sub2|sub3 → GROUP BY odpowiedniego pola kategorii
-    - include_archival=false (domyślnie) → wyklucza maszyny is_archival=TRUE
+    - Archiwalne maszyny SĄ ZAWSZE uwzględniane — stare umowy z migracji mają archiwalne
+      artykuły i ich przychód musi być widoczny w statystykach kategorii.
     - category_main=[...] → opcjonalny filtr kategorii głównych (multi-value)
     - category_sub1/sub2 → opcjonalne filtry sub-kategorii
     - article_type=all|machine|service → filtr rodzaju pozycji
@@ -540,7 +537,7 @@ async def by_category(
     all_pos = await _compute_position_revenues(
         db, df, dt,
         service_filter=service_filter,
-        exclude_archival=not include_archival,
+        exclude_archival=False,  # kategorie zawsze zliczają archiwalne (stare umowy)
         category_main_filter=category_main or None,
         category_sub1_filter=category_sub1,
         category_sub2_filter=category_sub2,
@@ -592,7 +589,6 @@ async def by_period(
         pattern="^(all|machine|service)$",
         description="Filtr rodzaju: all|machine|service",
     ),
-    include_archival: bool = Query(False, description="Uwzględnij maszyny archiwalne"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
@@ -603,6 +599,7 @@ async def by_period(
     - granularity=year  → period = "YYYY"
     - category_main=[...] → osobna seria per kategorię; gdy brak → jedna seria "__all__"
     - article_type=all|machine|service → filtr rodzaju pozycji
+    - Archiwalne maszyny SĄ ZAWSZE uwzględniane (spójne z /by-category).
     """
     df, dt = _default_dates(date_from, date_to)
     service_filter = {"machine": False, "service": True}.get(article_type)
@@ -610,7 +607,7 @@ async def by_period(
     all_pos = await _compute_position_revenues(
         db, df, dt,
         service_filter=service_filter,
-        exclude_archival=not include_archival,
+        exclude_archival=False,  # kategorie zawsze zliczają archiwalne (stare umowy)
         category_main_filter=category_main or None,
     )
 

@@ -137,13 +137,6 @@
             <button class="dropdown-clear" @click="sharedCategoryMains = []">✕ Wyczyść</button>
           </div>
         </div>
-        <!-- Stan archiwalnych -->
-        <div class="filter-group" style="position:relative;">
-          <span class="filter-label">Stan:</span>
-          <button :class="['pill', { active: sharedArchivalState === 'active' }]" @click="setSharedArchivalState('active')">Aktywne</button>
-          <button :class="['pill', { active: sharedArchivalState === 'archival' }]" @click="setSharedArchivalState('archival')">Archiwalne</button>
-          <button :class="['pill', { active: sharedArchivalState === 'all' }]" @click="setSharedArchivalState('all')">Wszystkie</button>
-        </div>
       </div>
 
       <!-- HISTORIA SUB-TABS -->
@@ -912,7 +905,6 @@ const errorByCategory = ref(null)
 // ── RAO-P1-026: Shared filters ──────────────────────────────────────────────
 const sharedArticleType = ref('all')       // 'all' | 'machine' | 'service'
 const sharedCategoryMains = ref([])         // array of category names
-const sharedArchivalState = ref('active')   // 'active' | 'archival' | 'all'
 const catDropdownOpen = ref(false)
 const catDropdownRef = ref(null)
 
@@ -1034,17 +1026,9 @@ function applyPeriodFilter() {
   }
 }
 
-// ── RAO-P1-026: Computed include_archival ───────────────────────────────────
-const includeArchival = computed(() => sharedArchivalState.value !== 'active')
-
 // ── RAO-P1-026: Shared filter helpers ───────────────────────────────────────
 function setSharedArticleType(type) {
   sharedArticleType.value = type
-  reloadActiveSubTab()
-}
-
-function setSharedArchivalState(state) {
-  sharedArchivalState.value = state
   reloadActiveSubTab()
 }
 
@@ -1162,7 +1146,6 @@ async function loadCategoryData() {
   try {
     await statsStore.fetchByCategory(
       level, df, dt,
-      includeArchival.value,
       catMain, catSub1, catSub2,
       sharedArticleType.value
     )
@@ -1189,8 +1172,7 @@ async function loadPeriodData() {
     const catMains = sharedCategoryMains.value.length ? sharedCategoryMains.value : []
     await statsStore.fetchByPeriod(
       granularity.value, df, dt,
-      catMains, sharedArticleType.value,
-      includeArchival.value
+      catMains, sharedArticleType.value
     )
     await nextTick()
     renderPeriodBarChart()

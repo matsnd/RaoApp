@@ -87,11 +87,11 @@ export const useStatsStore = defineStore('stats', () => {
   }
 
   // RAO-P1-017/026 — statystyki po kategoriach (rozszerzone filtry)
+  // Archiwalne maszyny zawsze uwzględniane — stare umowy z migracji mają archiwalne artykuły
   async function fetchByCategory(
     level = 'main',
     dateFrom = null,
     dateTo = null,
-    includeArchival = false,
     categoryMains = [],
     categorySubOne = null,
     categorySubTwo = null,
@@ -101,7 +101,6 @@ export const useStatsStore = defineStore('stats', () => {
     try {
       const searchParams = new URLSearchParams()
       searchParams.set('level', level)
-      searchParams.set('include_archival', includeArchival)
       if (dateFrom) searchParams.set('date_from', dateFrom)
       if (dateTo) searchParams.set('date_to', dateTo)
       if (articleType !== 'all') searchParams.set('article_type', articleType)
@@ -117,19 +116,18 @@ export const useStatsStore = defineStore('stats', () => {
   }
 
   // RAO-P1-026 — statystyki historyczne per-period
+  // Archiwalne maszyny zawsze uwzględniane — spójne z fetchByCategory
   async function fetchByPeriod(
     granularity = 'month',
     dateFrom = null,
     dateTo = null,
     categoryMains = [],
-    articleType = 'all',
-    includeArchival = false
+    articleType = 'all'
   ) {
     loadingByPeriod.value = true
     try {
       const searchParams = new URLSearchParams()
       searchParams.set('granularity', granularity)
-      searchParams.set('include_archival', includeArchival)
       if (dateFrom) searchParams.set('date_from', dateFrom)
       if (dateTo) searchParams.set('date_to', dateTo)
       if (articleType !== 'all') searchParams.set('article_type', articleType)
