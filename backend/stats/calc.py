@@ -10,6 +10,7 @@ Source of truth: position_conditions.rate1 + contract_positions.rental_days
 Old WinForms: FormU4.cs spaghetti → rozliczenie table (1 row/day)
 
 RAO-P1-017: dodano aggregate_by_category() dla statystyk po kategoriach
+RAO-P1-026: dodano aggregate_by_period() + rozszerzono poziomy sub2/sub3
 """
 import re
 import math
@@ -114,6 +115,14 @@ def calculate_position_value(
 _FALLBACK_CATEGORY = "(bez kategorii)"
 
 
+_LEVEL_FIELDS = {
+    "main": "category_main",
+    "sub1": "category_sub1",
+    "sub2": "category_sub2",
+    "sub3": "category_sub3",
+}
+
+
 def aggregate_by_category(
     positions: list[dict],
     level: str = "main",
@@ -124,9 +133,12 @@ def aggregate_by_category(
     Args:
         positions: lista dict-ów z _compute_position_revenues
                    (wymagane klucze: article_id, contract_id, revenue,
-                    clamped_days, category_main, category_sub1)
-        level: "main" → grupuje po category_main
-               "sub1" → grupuje po category_sub1
+                    clamped_days, category_main, category_sub1,
+                    category_sub2, category_sub3)
+        level: "main"  → grupuje po category_main
+               "sub1"  → grupuje po category_sub1
+               "sub2"  → grupuje po category_sub2  (RAO-P1-026)
+               "sub3"  → grupuje po category_sub3  (RAO-P1-026)
 
     Returns:
         lista dict-ów posortowanych malejąco po revenue:
@@ -139,7 +151,7 @@ def aggregate_by_category(
         "articles": set(),
     })
 
-    field = "category_main" if level == "main" else "category_sub1"
+    field = _LEVEL_FIELDS.get(level, "category_main")
 
     for p in positions:
         cat_name = p.get(field) or _FALLBACK_CATEGORY
@@ -161,6 +173,68 @@ def aggregate_by_category(
         ],
         key=lambda x: x["revenue"],
         reverse=True,
+    )
+
+
+# ── RAO-P1-026: Agregacja po okresach ────────────────────────────────────────
+
+def aggregate_by_period(
+    positions: list[dict],
+    granularity: str = "month",
+    category_main_filter: list[str] | None = None,
+) -> list[dict]:
+    """
+    Agreguje pozycje per (period, category_name) (RAO-P1-026).
+
+    Args:
+        positions: lista dict-ów z _compute_position_revenues
+                   (wymagane klucze: contract_date_from, revenue,
+                    clamped_days, contract_id, category_main)
+        granularity: "month" → period = "YYYY-MM"
+                     "year"  → period = "YYYY"
+        category_main_filter: gdy podany → osobna seria per kategorię;
+                              gdy None/pusty → jedna seria "__all__"
+
+    Returns:
+        lista dict-ów posortowanych rosnąco po (period, category_name):
+            period, category_name, revenue, rented_days, contracts_count
+    """
+    _FALLBACK = "(bez kategorii)"
+
+    agg: dict[tuple, dict] = defaultdict(lambda: {
+        "revenue": Decimal("0"),
+        "days": 0,
+        "contracts": set(),
+    })
+
+    for p in positions:
+        dt = p.get("contract_date_from")
+        if not dt:
+            continue
+        period = f"{dt.year}-{dt.month:02d}" if granularity == "month" else str(dt.year)
+
+        if category_main_filter:
+            cat = p.get("category_main") or _FALLBACK
+        else:
+            cat = "__all__"
+
+        key = (period, cat)
+        agg[key]["revenue"] += p.get("revenue", Decimal("0"))
+        agg[key]["days"] += p.get("clamped_days", 0)
+        agg[key]["contracts"].add(p.get("contract_id"))
+
+    return sorted(
+        [
+            {
+                "period": k[0],
+                "category_name": k[1],
+                "revenue": v["revenue"],
+                "rented_days": v["days"],
+                "contracts_count": len(v["contracts"]),
+            }
+            for k, v in agg.items()
+        ],
+        key=lambda x: (x["period"], x["category_name"]),
     )
 
 

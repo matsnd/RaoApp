@@ -187,3 +187,36 @@ class PositionStatsResponse(BaseModel):
     total_machines_revenue: Decimal   # podsumowanie per typ (zawsze, niezależnie od filtra)
     total_services_revenue: Decimal   # ↑ pozwala FE pokazać "Z czego usługi: X zł"
     items: list[PositionStatItem]
+
+
+# ── RAO-P1-026: Statystyki po okresach i lista kategorii ─────────────────────
+
+class ByPeriodItem(BaseModel):
+    """Wiersz agregatu per (period, category_name) — RAO-P1-026."""
+    period: str             # "2024-03" (month) lub "2024" (year)
+    category_name: str      # "__all__" gdy bez filtra kategorii
+    revenue: Decimal
+    contracts_count: int
+    rented_days: int
+
+
+class ByPeriodResponse(BaseModel):
+    """Odpowiedź endpointu GET /stats/by-period — RAO-P1-026."""
+    date_from: date
+    date_to: date
+    granularity: str        # "month" | "year"
+    items: list[ByPeriodItem]
+
+
+class CategoriesListNode(BaseModel):
+    """Węzeł drzewa kategorii z liczbą artykułów — RAO-P1-026."""
+    id: int
+    name: str
+    level: str
+    articles_count: int = 0
+    children: list["CategoriesListNode"] = []
+
+    model_config = {"from_attributes": True}
+
+
+CategoriesListNode.model_rebuild()

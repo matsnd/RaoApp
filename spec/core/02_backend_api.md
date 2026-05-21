@@ -1288,10 +1288,56 @@ Response: `AdditionalFeesResponse`
 Query: `?date_from&date_to&internal_number=<str>` (RAO-P2-008)
 Response: `list[LocationStatItem]`
 
-### `GET /stats/by-category` (RAO-P1-017, NOWY)
-Query: `?level=main|sub1&date_from&date_to&include_archival=false&internal_number=<str>` (RAO-P2-008)
-Response: `CategoryStatsResponse`
-HTTP: 200 | 401 | 422 (nieprawidłowy `level`)
+### `GET /stats/by-category` (RAO-P1-017, RAO-P1-026)
+Query:
+- `level=main|sub1|sub2|sub3` (default: `main`) — poziom hierarchii kategorii
+- `date_from`, `date_to` — zakres dat (default: bieżący miesiąc)
+- `include_archival=false` — uwzględnij maszyny archiwalne
+- `category_main=<str>` — filtr kategorii głównych (multi-value, opcjonalny)
+- `category_sub1=<str>` — filtr sub1 (opcjonalny)
+- `category_sub2=<str>` — filtr sub2 (opcjonalny)
+- `article_type=all|machine|service` (default: `all`) — filtr rodzaju
+
+Response: `CategoryStatsResponse` (`date_from`, `date_to`, `level`, `total_revenue`, `items[]`)
+HTTP: 200 | 401 | 422 (nieprawidłowy `level` lub `article_type`)
+
+### `GET /stats/by-period` (RAO-P1-026, NOWY)
+Query:
+- `granularity=month|year` (default: `month`) — granulacja czasowa
+- `date_from`, `date_to` — zakres dat
+- `category_main=<str>` — filtr/seria kategorii (multi-value; gdy podany → osobna seria per kategorię)
+- `article_type=all|machine|service` (default: `all`)
+- `include_archival=false`
+
+Response: `ByPeriodResponse`:
+```json
+{
+  "date_from": "2024-01-01",
+  "date_to": "2024-12-31",
+  "granularity": "month",
+  "items": [
+    { "period": "2024-01", "category_name": "__all__", "revenue": 15000.00, "contracts_count": 3, "rented_days": 31 }
+  ]
+}
+```
+HTTP: 200 | 401 | 422
+
+### `GET /stats/categories-list` (RAO-P1-026, NOWY)
+Query: brak
+
+Response: `list[CategoriesListNode]` — pełne drzewo kategorii:
+```json
+[
+  {
+    "id": 1, "name": "Koparki", "level": "main", "articles_count": 12,
+    "children": [
+      { "id": 2, "name": "Mini", "level": "sub1", "articles_count": 5, "children": [] }
+    ]
+  }
+]
+```
+Zlicza tylko aktywne (nie-archiwalne) artykuły (`is_archival=false`) przypisane do danej kategorii.
+HTTP: 200 | 401
 
 ### `GET /stats/positions` (RAO-P2-010, NOWY)
 Query: `?type=machines|services|all&date_from&date_to`
@@ -1691,6 +1737,12 @@ app.add_middleware(
 )
 ```
 
+**Uwaga:** Przy zmianie portu frontend (np. gdy 5173 jest zajęty i Vite używa 5174), 
+należy zaktualizować `RAO_CORS_ORIGINS` w `.env` aby zawierał nowy port:
+```bash
+RAO_CORS_ORIGINS=["http://localhost:5173","http://localhost:5174","http://localhost:3000"]
+```
+
 ### Auth Dependency
 
 ```python
@@ -1775,3 +1827,62 @@ git log -1 --oneline
 ```
 
 **HTTP:** 200
+
+---
+
+## Znane problemy i naprawy
+
+### Problem: Błąd CORS przy zmianie portu frontend
+**Symptom:** `Access to XMLHttpRequest at 'http://localhost:8000/...' from origin 'http://localhost:5174' has been blocked by CORS policy`
+
+**Rozwiązanie:** Zaktualizuj `RAO_CORS_ORIGINS` w `.env` aby zawierał aktualny port frontendu:
+```bash
+RAO_CORS_ORIGINS=["http://localhost:5173","http://localhost:5174","http://localhost:3000"]
+```
+
+**Pliki do zmiany:** `.env`
+
+---
+
+### Problem: TypeError w /stats/fleet-summary (backend/stats/router.py:202)
+**Symptom:** `TypeError: unsupported operand type(s) for /: 'int' and 'Article'`
+
+**Przyczyna:** Zapytanie `select(Article)` zwraca obiekty Article zamiast liczby.
+
+**Rozwiązanie:** Użyj `func.count(Article.id)`:
+```python
+# Błędne:
+machines_query = select(Article).where(...)
+
+# Poprawne:
+machines_query = select(func.count(Article.id)).where(...)
+```
+
+**Pliki do zmiany:** `backend/stats/router.py` (linia ~172)
+
+---
+
+### Problem: Nieprawidłowe hasło admin po migracji
+**Symptom:** Logowanie jako admin z hasłem `admin123` nie działa
+
+**Rozwiązanie:** Uruchom skrypt resetujący hasło:
+```bash
+cd backend
+. .venv/bin/activate
+python reset_admin_password.py
+```
+
+**Pliki:** `backend/reset_admin_password.py`
+
+---
+
+### Problem: Brakujące zależności npm po czystej instalacji
+**Symptom:** `Failed to run dependency scan... vue-draggable-plus`, `@vuepic/vue-datepicker`
+
+**Rozwiązanie:** Zainstaluj brakujące pakiety:
+```bash
+cd frontend
+npm install vue-draggable-plus @vuepic/vue-datepicker
+```
+
+**Pliki:** `frontend/package.json`

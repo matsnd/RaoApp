@@ -14,7 +14,8 @@ from database import get_db
 from articles.models import Article
 from contracts.models import Contract, ContractPosition, PositionCondition
 from contractors.models import Contractor
-from stats.calc import calculate_position_value, aggregate_by_category
+from sqlalchemy import func as sqlfunc
+from stats.calc import calculate_position_value, aggregate_by_category, aggregate_by_period
 from stats.schemas import (
     FleetSummary, TopMachineItem, CurrentlyRentedResponse, CurrentlyRentedItem,
     MachineRoiResponse, AdditionalFeesResponse, ServiceFeeItem, LocationStatItem,
@@ -22,6 +23,7 @@ from stats.schemas import (
     SalespersonCommissionItem, CommissionReportResponse,
     CategoryStatItem, CategoryStatsResponse,
     PositionStatItem, PositionStatsResponse,
+    ByPeriodItem, ByPeriodResponse, CategoriesListNode,
 )
 
 router = APIRouter(prefix="/stats", tags=["stats"])
@@ -149,10 +151,13 @@ async def _compute_position_revenues(
             "contractor_id": p[12],
             "date_from": p[13],
             "date_to": p[14],
+            "contract_date_from": p[13],  # alias dla by-period (RAO-P1-026)
             "clamped_days": clamped_days,
             "revenue": revenue,
             "category_main": p[15],   # RAO-P1-017
             "category_sub1": p[16],   # RAO-P1-017
+            "category_sub2": p[17],   # RAO-P1-026
+            "category_sub3": p[18],   # RAO-P1-026
         })
     return results
 
@@ -169,7 +174,7 @@ async def fleet_summary(
     today = date.today()
 
     # Build base query for machines
-    machines_query = select(Article).where(
+    machines_query = select(func.count(Article.id)).where(
         and_(Article.is_service == False, Article.is_archival == False)
     )
     if internal_number:
@@ -475,8 +480,8 @@ async def locations(
 async def by_category(
     level: str = Query(
         "main",
-        pattern="^(main|sub1)$",
-        description="Poziom kategorii: 'main' = category_main, 'sub1' = category_sub1",
+        pattern="^(main|sub1|sub2|sub3)$",
+        description="Poziom kategorii: main|sub1|sub2|sub3",
     ),
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
@@ -484,24 +489,46 @@ async def by_category(
         False,
         description="Uwzględnij maszyny archiwalne (domyślnie wykluczone)",
     ),
+    category_main: list[str] = Query(
+        default=[],
+        description="Filtr kategorii głównych (multi-value, opcjonalny) — RAO-P1-026",
+    ),
+    category_sub1: str | None = Query(
+        None,
+        description="Filtr sub1 (opcjonalny, używany przy level=sub2/sub3) — RAO-P1-026",
+    ),
+    category_sub2: str | None = Query(
+        None,
+        description="Filtr sub2 (opcjonalny, używany przy level=sub3) — RAO-P1-026",
+    ),
+    article_type: str = Query(
+        "all",
+        pattern="^(all|machine|service)$",
+        description="Filtr rodzaju: all|machine|service — RAO-P1-026",
+    ),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
     """
-    Statystyki wynajmu maszyn agregowane po kategorii (RAO-P1-017).
+    Statystyki wynajmu maszyn agregowane po kategorii (RAO-P1-017, RAO-P1-026).
 
-    - level=main  → GROUP BY category_main  (domyślny)
-    - level=sub1  → GROUP BY category_sub1
+    - level=main|sub1|sub2|sub3 → GROUP BY odpowiedniego pola kategorii
     - include_archival=false (domyślnie) → wyklucza maszyny is_archival=TRUE
+    - category_main=[...] → opcjonalny filtr kategorii głównych (multi-value)
+    - category_sub1/sub2 → opcjonalne filtry sub-kategorii
+    - article_type=all|machine|service → filtr rodzaju pozycji
     - Maszyny bez kategorii trafiają do grupy "(bez kategorii)"
     """
     df, dt = _default_dates(date_from, date_to)
+    service_filter = {"machine": False, "service": True}.get(article_type)  # None dla "all"
 
-    # Tylko maszyny (nie usługi), z filtrem archiwum
     all_pos = await _compute_position_revenues(
         db, df, dt,
-        service_filter=False,
+        service_filter=service_filter,
         exclude_archival=not include_archival,
+        category_main_filter=category_main or None,
+        category_sub1_filter=category_sub1,
+        category_sub2_filter=category_sub2,
     )
 
     # Czysta agregacja po kategorii (logika w calc.py — testowalny pure function)
@@ -526,6 +553,119 @@ async def by_category(
         total_revenue=total_revenue,
         items=items,
     )
+
+
+# ---------------------------------------------------------------------------
+# RAO-P1-026: STATYSTYKI PO OKRESACH
+# ---------------------------------------------------------------------------
+
+@router.get("/by-period", response_model=ByPeriodResponse)
+async def by_period(
+    granularity: str = Query(
+        "month",
+        pattern="^(month|year)$",
+        description="Granulacja: month (YYYY-MM) | year (YYYY)",
+    ),
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    category_main: list[str] = Query(
+        default=[],
+        description="Filtr kategorii głównych (multi-value) — osobna seria per kategorię gdy podany",
+    ),
+    article_type: str = Query(
+        "all",
+        pattern="^(all|machine|service)$",
+        description="Filtr rodzaju: all|machine|service",
+    ),
+    include_archival: bool = Query(False, description="Uwzględnij maszyny archiwalne"),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """
+    Agregaty per okres dla Historia sub-tab (wykres i tabela pivot) — RAO-P1-026.
+
+    - granularity=month → period = "YYYY-MM"
+    - granularity=year  → period = "YYYY"
+    - category_main=[...] → osobna seria per kategorię; gdy brak → jedna seria "__all__"
+    - article_type=all|machine|service → filtr rodzaju pozycji
+    """
+    df, dt = _default_dates(date_from, date_to)
+    service_filter = {"machine": False, "service": True}.get(article_type)
+
+    all_pos = await _compute_position_revenues(
+        db, df, dt,
+        service_filter=service_filter,
+        exclude_archival=not include_archival,
+        category_main_filter=category_main or None,
+    )
+
+    items_raw = aggregate_by_period(
+        all_pos,
+        granularity=granularity,
+        category_main_filter=category_main or None,
+    )
+
+    return ByPeriodResponse(
+        date_from=df,
+        date_to=dt,
+        granularity=granularity,
+        items=[ByPeriodItem(**item) for item in items_raw],
+    )
+
+
+# ---------------------------------------------------------------------------
+# RAO-P1-026: LISTA KATEGORII Z LICZNIKAMI ARTYKUŁÓW
+# ---------------------------------------------------------------------------
+
+@router.get("/categories-list", response_model=list[CategoriesListNode])
+async def categories_list(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """
+    Pełne drzewo kategorii z liczbą maszyn per węzeł — RAO-P1-026.
+
+    Używane przez frontend do drilldown i detekcji klikowalnych wierszy.
+    Zlicza tylko aktywne (nie-archiwalne) artykuły przypisane do każdej kategorii.
+    """
+    from categories.models import Category
+
+    # Pobierz wszystkie kategorie posortowane alfabetycznie
+    cats_result = await db.execute(
+        select(Category).order_by(Category.name)
+    )
+    all_cats = cats_result.scalars().all()
+
+    # Policz artykuły per category_id (aktywne, nie archiwalne)
+    counts_result = await db.execute(
+        select(Article.category_id, sqlfunc.count(Article.id))
+        .where(Article.is_archival == False)
+        .where(Article.category_id.is_not(None))
+        .group_by(Article.category_id)
+    )
+    art_counts: dict[int, int] = {row[0]: row[1] for row in counts_result.all()}
+
+    # Zbuduj słownik id → CategoriesListNode
+    nodes: dict[int, CategoriesListNode] = {
+        c.id: CategoriesListNode(
+            id=c.id,
+            name=c.name,
+            level=c.level,
+            articles_count=art_counts.get(c.id, 0),
+        )
+        for c in all_cats
+    }
+
+    # Zbuduj drzewo (parent_id → children)
+    roots: list[CategoriesListNode] = []
+    for cat in all_cats:
+        node = nodes[cat.id]
+        if cat.parent_id is None:
+            roots.append(node)
+        elif cat.parent_id in nodes:
+            nodes[cat.parent_id].children.append(node)
+
+    return roots
 
 
 # ---------------------------------------------------------------------------
