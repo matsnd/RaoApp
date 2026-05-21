@@ -131,18 +131,31 @@
                 <button class="btn btn-primary btn-sm" @click="addSalesperson">+ Dodaj</button>
               </div>
               <table class="data-grid">
-                <thead><tr><th>Nazwa</th><th>Telefon</th><th>Prowizja %</th><th>Aktywny</th><th style="width:100px;"></th></tr></thead>
+                <thead><tr><th>Nazwa</th><th>Telefon</th><th>Prowizja %</th><th>Aktywny</th><th style="width:120px;"></th></tr></thead>
                 <tbody>
-                  <tr v-for="sp in settingsStore.salespeople" :key="sp.id">
-                    <td>{{ sp.name }}</td>
-                    <td>{{ sp.phone || '—' }}</td>
-                    <td>{{ sp.commission_rate != null ? sp.commission_rate + ' %' : '—' }}</td>
-                    <td><span :class="['badge', sp.is_active ? 'badge-success' : 'badge-muted']">{{ sp.is_active ? 'Tak' : 'Nie' }}</span></td>
-                    <td>
-                      <button class="btn-icon" @click="toggleSp(sp.id)" title="Przełącz">⇄</button>
-                      <button class="btn-icon" @click="deleteSp(sp.id)" title="Usuń">✕</button>
-                    </td>
-                  </tr>
+                  <template v-for="sp in settingsStore.salespeople" :key="sp.id">
+                    <tr v-if="editingSpId === sp.id" class="row-editing">
+                      <td><input v-model="editingSpData.name" class="form-control form-control-xs" @keydown.enter="saveEditSp" @keydown.esc="editingSpId = null" /></td>
+                      <td><input v-model="editingSpData.phone" class="form-control form-control-xs" @keydown.enter="saveEditSp" @keydown.esc="editingSpId = null" /></td>
+                      <td><input v-model.number="editingSpData.commission_rate" type="number" min="0" max="100" step="0.5" class="form-control form-control-xs" @keydown.enter="saveEditSp" @keydown.esc="editingSpId = null" /></td>
+                      <td><span :class="['badge', sp.is_active ? 'badge-success' : 'badge-muted']">{{ sp.is_active ? 'Tak' : 'Nie' }}</span></td>
+                      <td>
+                        <button class="btn-icon" style="color:#22543D;" @click="saveEditSp" title="Zapisz">✓</button>
+                        <button class="btn-icon" @click="editingSpId = null" title="Anuluj">✕</button>
+                      </td>
+                    </tr>
+                    <tr v-else>
+                      <td>{{ sp.name }}</td>
+                      <td>{{ sp.phone || '—' }}</td>
+                      <td>{{ sp.commission_rate != null ? sp.commission_rate + ' %' : '—' }}</td>
+                      <td><span :class="['badge', sp.is_active ? 'badge-success' : 'badge-muted']">{{ sp.is_active ? 'Tak' : 'Nie' }}</span></td>
+                      <td>
+                        <button class="btn-icon" @click="startEditSp(sp)" title="Edytuj">✎</button>
+                        <button class="btn-icon" @click="toggleSp(sp.id)" title="Przełącz">⇄</button>
+                        <button class="btn-icon" @click="deleteSp(sp.id)" title="Usuń">✕</button>
+                      </td>
+                    </tr>
+                  </template>
                 </tbody>
               </table>
             </div>
@@ -490,6 +503,8 @@ const fakturowniaForm = ref({ enabled: false, domain_subdomain: '', api_token: '
 const savingFakturownia = ref(false)
 
 const newSp = ref({ name: '', phone: '', commission_rate: null })
+const editingSpId = ref(null)
+const editingSpData = ref({ name: '', phone: '', commission_rate: null })
 const newCat = ref({ name: '', code: '', description: '' })
 const newRt = ref({ name: '', description: '', is_dependent: false })
 
@@ -762,6 +777,16 @@ async function deleteSp(id) {
   if (!confirm('Usunąć tego handlowca?')) return
   await api.delete(`/settings/salespeople/${id}`)
   await settingsStore.fetchSalespeople()
+}
+
+function startEditSp(sp) {
+  editingSpId.value = sp.id
+  editingSpData.value = { name: sp.name, phone: sp.phone || '', commission_rate: sp.commission_rate }
+}
+
+async function saveEditSp() {
+  await settingsStore.updateSalesperson(editingSpId.value, editingSpData.value)
+  editingSpId.value = null
 }
 
 async function deleteCat(id) {
