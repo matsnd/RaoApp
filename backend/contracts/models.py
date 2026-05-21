@@ -76,6 +76,7 @@ class ContractPosition(Base):
     contract = relationship("Contract", back_populates="positions")
     conditions = relationship("PositionCondition", back_populates="position", cascade="all, delete-orphan")
     service_hours = relationship("ServiceHour", back_populates="position", cascade="all, delete-orphan")
+    article = relationship("Article", lazy="selectin")
 
 
 class PositionCondition(Base):
@@ -110,3 +111,4 @@ class ContractServiceFee(Base):
     default_price = Column(Numeric(18, 2), nullable=True)
 
     contract = relationship("Contract", back_populates="service_fees")
+    article = relationship("Article", lazy="selectin")

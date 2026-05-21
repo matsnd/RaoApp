@@ -51,7 +51,13 @@ def _build_conditions_text(conditions, default_unit: str = "doba") -> str:
 
 
 async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
-    result = await db.execute(select(Contract).where(Contract.id == contract_id))
+    from sqlalchemy.orm import selectinload
+    result = await db.execute(
+        select(Contract)
+        .options(selectinload(Contract.positions).selectinload(ContractPosition.article))
+        .options(selectinload(Contract.service_fees).selectinload(ContractServiceFee.article))
+        .where(Contract.id == contract_id)
+    )
     contract = result.scalar_one_or_none()
     if not contract:
         return {}
@@ -62,10 +68,8 @@ async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
     if contract.salesperson_id:
         salesperson = await db.get(Salesperson, contract.salesperson_id)
 
-    positions_result = await db.execute(
-        select(ContractPosition).where(ContractPosition.contract_id == contract_id)
-    )
-    positions = positions_result.scalars().all()
+    positions = contract.positions
+    fees = contract.service_fees
 
     positions_data = []
     for pos in positions:
@@ -97,13 +101,6 @@ async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
             "registration_no": article.registration_no if article else None,
             "service_hours": service_hours,
         })
-
-    fees_result = await db.execute(
-        select(ContractServiceFee)
-        .where(ContractServiceFee.contract_id == contract_id)
-        .order_by(ContractServiceFee.sort_order)
-    )
-    fees = fees_result.scalars().all()
 
     return {
         "contract": contract,

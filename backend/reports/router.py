@@ -23,7 +23,7 @@ def _content_disposition(filename: str) -> str:
 @router.post("/contract/{contract_id}")
 async def generate_contract_report(
     contract_id: int,
-    type: str = Query("contract", pattern="^(contract|protocol_zo_s|protocol_zo_u|protocol_zo_nodata_s)$"),
+    type: str = Query("contract", pattern="^(contract|protocol_zo|protocol_zo_s|protocol_zo_u|protocol_zo_nodata|protocol_zo_nodata_s|protocol_zo_nodata_u)$"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
@@ -41,10 +41,33 @@ async def generate_contract_report(
         contract.print_date = datetime.utcnow()
         await db.commit()
     contract_num_clean = contract.number.replace('/', '_') if contract and contract.number else str(contract_id)
+    
+    # Determine filename and folder
     if type == 'contract':
         filename = f"{contract_num_clean}.pdf"
+        folder = "report_folder"
     else:
         filename = f"PZO_{contract_num_clean}.pdf"
+        folder = "protocol_folder"
+    
+    # Save to folder if configured
+    if contract and folder:
+        from settings.models import Company
+        company = await db.get(Company, 1)
+        if company:
+            folder_path = getattr(company, folder, None)
+            if folder_path:
+                import os
+                try:
+                    os.makedirs(folder_path, exist_ok=True)
+                    file_path = os.path.join(folder_path, filename)
+                    with open(file_path, 'wb') as f:
+                        f.write(pdf_bytes)
+                except Exception as e:
+                    # Log error but don't fail the request
+                    import logging
+                    logging.warning(f"Failed to save PDF to {folder_path}: {e}")
+    
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",

@@ -181,6 +181,36 @@ z design systemem Toolsmart.
 - `table.pwo-table` — tabela 10-kolumnowa z border-collapse
 - `.pwo-row-label` — etykieta wiersza (Przy wydaniu / Przy odbiorze)
 
+### 1.8 Eager loading dla artykułów i usług dodatkowych (RAO-P2-XXX)
+
+W `reports/service.py::build_contract_data()` dodano eager loading dla relacji `article` w `ContractPosition` i `ContractServiceFee` w celu uniknięcia błędów N+1 i zapewnienia poprawnego wyświetlania nazw artykułów w szablonach PDF.
+
+**Implementacja:**
+```python
+# W reports/service.py, build_contract_data():
+from sqlalchemy.orm import selectinload
+result = await db.execute(
+    select(Contract)
+    .options(selectinload(Contract.positions).selectinload(ContractPosition.article))
+    .options(selectinload(Contract.service_fees).selectinload(ContractServiceFee.article))
+    .where(Contract.id == contract_id)
+)
+```
+
+**Relacje w modelach:**
+- `contracts/models.py::ContractPosition.article` — relacja do `Article` (lazy="selectin")
+- `contracts/models.py::ContractServiceFee.article` — relacja do `Article` (lazy="selectin")
+
+### 1.9 Zapisywanie PDF do folderów z ustawień (RAO-P2-XXX)
+
+W `reports/router.py::generate_contract_report()` dodano logikę zapisywania wygenerowanych PDF do folderów konfigurowanych w ustawieniach firmy (`Company`).
+
+**Implementacja:**
+- Dla umów: zapis do `Company.report_folder` (jeśli skonfigurowany)
+- Dla protokołów: zapis do `Company.protocol_folder` (jeśli skonfigurowany)
+- Folder jest tworzony automatycznie jeśli nie istnieje (`os.makedirs(folder_path, exist_ok=True)`)
+- Błędy zapisu są logowane jako warning i nie przerywają generowania PDF
+
 ---
 
 ## 2. Statystyki i Analityka (Nowe funkcje)
