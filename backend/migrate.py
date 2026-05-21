@@ -772,6 +772,26 @@ def _clean_tech(val: object) -> "str | None":
     return None if (not s or s in _TECH_GARBAGE) else s
 
 
+def _parse_numeric(val: "str | None") -> "float | None":
+    """
+    Parsuje string do float — obsługuje "21m", "21.5", "5", "-", "" → None.
+    Używane do zasieg_m i udzwig_t (DECIMAL kolumny w articles).
+    """
+    if not val or val.strip() in ("-", "x", ""):
+        return None
+    cleaned = val.strip().lower()
+    cleaned = re.sub(r"[a-z\s]+$", "", cleaned)   # usuń sufiks: "21m"→"21"
+    cleaned = cleaned.replace(",", ".")              # polska dziesiętna: "21,5"→"21.5"
+    cleaned = cleaned.strip()
+    if not cleaned:
+        return None
+    try:
+        result = float(cleaned)
+        return result if result > 0 else None
+    except ValueError:
+        return None
+
+
 def _parse_csv_file(csv_path: str) -> list:
     """CSV-INJ-001 SAFE: csv.reader (NIE eval, NIE f-string z user input)."""
     records = []
@@ -796,6 +816,10 @@ def _parse_csv_file(csv_path: str) -> list:
                 "zasieg":          _clean_tech(row[_C_ZASIEG]),
                 "udzwig":          _clean_tech(row[_C_UDZWIG]),
                 "dodatki":         _clean_tech(row[_C_DODATKI]),
+                # numeric kolumny (zasieg_m / udzwig_t / dodatki TEXT)
+                "zasieg_m":        _parse_numeric(row[_C_ZASIEG]),
+                "udzwig_m":        _parse_numeric(row[_C_UDZWIG]),
+                "dodatki_txt":     _clean_tech(row[_C_DODATKI]),
             })
     return records
 
@@ -812,7 +836,10 @@ async def step8_csv_categories() -> None:
        _upsert_cat(): SELECT-or-INSERT — idempotent
     5. UPDATE articles (parametryzowane %s — SQL-INJ-001 safe):
        category_main/sub1/sub2/sub3, category_id (najgłębszy poziom),
-       technical_attributes (JSON),
+       technical_attributes (JSON — kompatybilność wsteczna, zachowany),
+       zasieg_m DECIMAL — zasięg sparsowany z col[12] ("21m"→21.0, "-"→NULL),
+       udzwig_t DECIMAL — udźwig sparsowany z col[13] ("5t"→5.0, "-"→NULL),
+       dodatki  TEXT    — surowy string z col[14] (dodatki/wyposażenie),
        is_service (1 jeśli rodzaj="Usługa", inaczej 0),
        article_type (raw wartość z kolumny [3], np. "Usługa" / "artykuł"),
        model (COALESCE — nie nadpisuje istniejących wartości),
@@ -949,7 +976,10 @@ async def step8_csv_categories() -> None:
             "  is_service           = %s,"
             "  article_type         = %s,"
             "  model                = COALESCE(NULLIF(model, ''), %s),"
-            "  internal_number      = COALESCE(NULLIF(internal_number, ''), %s)"
+            "  internal_number      = COALESCE(NULLIF(internal_number, ''), %s),"
+            "  zasieg_m             = %s,"
+            "  udzwig_t             = %s,"
+            "  dodatki              = %s"
             " WHERE id = %s"
         )
         for rec in records:
@@ -999,7 +1029,9 @@ async def step8_csv_categories() -> None:
                 _UPDATE_SQL,
                 (cat_main, cat_sub1, cat_sub2, cat_sub3, cat_id, tech_json,
                  is_service_val, article_type_val, rec["model"],
-                 rec["internal_number"], art_id),
+                 rec["internal_number"],
+                 rec["zasieg_m"], rec["udzwig_m"], rec["dodatki_txt"],
+                 art_id),
             )
 
         # ── Oznacz WSZYSTKIE artykuły is_archival=FALSE ─────────────
