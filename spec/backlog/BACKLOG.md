@@ -3575,8 +3575,8 @@ n|| RAO-P1-008 | Strukturalizacja adresów: kod pocztowy + miasto | Client | P1 
 || RAO-P1-013 | Refactor systemu prowizyjnego | Client | P1 | M | done | backend-dev |
 || RAO-P1-014 | Protokół usługi — godziny operatora | Client | P1 | M | done | cross-stack |
 || RAO-P1-015 | Rezerwacja maszyn (SUPERSEDED) | Client | P1 | M | superseded | cross-stack |
-|| RAO-P1-023 | BUG: Rezerwacja z umowy + conflict popup | Client | P1 | L | triaged | cross-stack |
-|| RAO-P1-025 | BUG: Napraw import @vuepic/vue-datepicker | E2E | P1 | S | todo | frontend-dev |
+|| RAO-P1-023 | BUG: Rezerwacja z umowy + conflict popup | Client | P1 | L | done | cross-stack |
+|| RAO-P1-025 | BUG: Napraw import @vuepic/vue-datepicker | E2E | P1 | S | done | frontend-dev |
 || RAO-P2-001 | Kolumna adres dostawy | Internal | P2 | XS | done | frontend-dev |
 || RAO-P2-002 | Link "Zmień hasło" sidebar | Internal | P2 | XS | done | frontend-dev |
 || RAO-P2-003 | NIP validation checksum | Internal | P2 | S | done | backend-dev |
@@ -3605,7 +3605,7 @@ n|| RAO-P1-008 | Strukturalizacja adresów: kod pocztowy + miasto | Client | P1 
 || RAO-P3-010 | Globalny pasek postępu NProgress | Internal | P3 | S | done | frontend-dev |
 || RAO-P3-011 | Testy integracyjne backend pytest | Internal | P3 | L | done | qa-engineer |
 || RAO-P3-012 | Kwota tankowania default 200 zł | Client | P3 | XS | done | backend-dev |
-|| RAO-P2-018 | SPIKE: Foldery docelowe dla pobieranych plików | Internal | P2 | S | triaged | tech-lead |
+|| RAO-P2-018 | SPIKE: Foldery docelowe dla pobieranych plików | Internal | P2 | S | done | tech-lead |
 || RAO-P3-013 | Konfigurowalne foldery pobierania — FS Access API | Internal | P3 | M | done | frontend-dev |
-|| RAO-P1-024 | BUG: CSV migration — is_service + model brakują | Internal | P1 | S | triaged | backend-dev |
-|| RAO-P2-019 | Drzewiaste kategorie — picker, settings, breadcrumb | Internal | P2 | L | triaged | cross-stack |
+|| RAO-P1-024 | BUG: CSV migration — is_service + model brakują | Internal | P1 | S | done | backend-dev |
+|| RAO-P2-019 | Drzewiaste kategorie — picker, settings, breadcrumb | Internal | P2 | L | done | cross-stack |
