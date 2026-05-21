@@ -131,6 +131,54 @@
         </div>
       </div>
 
+      <!-- Overdue contracts -->
+      <div class="home-panel panel-overdue">
+        <div class="panel-header">
+          <span class="panel-icon">🔴</span>
+          <h2>Przeterminowane umowy</h2>
+          <span class="panel-badge panel-badge-red" v-if="overdue.length">{{ overdue.length }}</span>
+        </div>
+
+        <div v-if="loading.overdue" class="panel-loading">
+          <div class="skel-row" v-for="i in 4" :key="i"></div>
+        </div>
+
+        <div v-else-if="!overdue.length" class="panel-empty">
+          <span class="empty-icon">✅</span>
+          <p>Brak przeterminowanych umów</p>
+        </div>
+
+        <div v-else class="expiring-list">
+          <div
+            v-for="c in overdue"
+            :key="c.id"
+            class="exp-row overdue-row"
+            @click="$router.push(`/contracts/${c.id}/edit`)"
+          >
+            <div class="exp-urgency-bar overdue-bar"></div>
+            <div class="exp-body">
+              <div class="exp-top">
+                <span class="exp-number">{{ c.number }}</span>
+                <span class="exp-days overdue-days">
+                  {{ daysOverdue(c) }} dni
+                </span>
+              </div>
+              <div class="exp-contractor">{{ c.contractor_name }}</div>
+              <div class="exp-meta">
+                <span v-if="c.delivery_address" class="exp-addr">📍 {{ c.delivery_address }}</span>
+                <span class="exp-date">zakończono {{ fmtDate(c.date_to) }}</span>
+              </div>
+              <div class="exp-contact" v-if="c.contact_person1 || c.contact_phone1">
+                <span v-if="c.contact_person1">{{ c.contact_person1 }}</span>
+                <a v-if="c.contact_phone1" :href="`tel:${c.contact_phone1}`" class="phone-link" @click.stop>
+                  📞 {{ c.contact_phone1 }}
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- RIGHT COLUMN -->
       <div class="home-right">
 
@@ -281,12 +329,13 @@
 import { ref, computed, onMounted } from 'vue'
 import api from '@/composables/useApi'
 
-const loading = ref({ fleet: true, expiring: true, deliveries: true, unprinted: true, stale: true })
+const loading = ref({ fleet: true, expiring: true, deliveries: true, unprinted: true, stale: true, overdue: true })
 const fleet = ref({ total_rented: 0, total_machines: 0, utilization_pct: 0, period_revenue: 0, contracts_in_period: 0 })
 const expiring = ref([])
 const deliveries = ref([])
 const unprinted = ref([])
 const stale = ref([])
+const overdue = ref([])
 
 const today = new Date()
 today.setHours(0, 0, 0, 0)
@@ -338,18 +387,26 @@ function urgencyClass(days) {
   return 'urgent-medium'
 }
 
+function daysOverdue(c) {
+  if (!c.date_to) return 0
+  const today = new Date(); today.setHours(0,0,0,0)
+  const dt = new Date(c.date_to); dt.setHours(0,0,0,0)
+  return Math.round((today - dt) / 86400000)
+}
+
 async function loadAll() {
   const df = new Date()
   df.setDate(1)
   const dfStr = df.toISOString().slice(0, 10)
   const dtStr = new Date().toISOString().slice(0, 10)
 
-  const [fleetRes, expiringRes, deliveriesRes, unprintedRes, staleRes] = await Promise.allSettled([
+  const [fleetRes, expiringRes, deliveriesRes, unprintedRes, staleRes, overdueRes] = await Promise.allSettled([
     api.get('/stats/fleet-summary', { params: { date_from: dfStr, date_to: dtStr } }),
     api.get('/stats/expiring-contracts', { params: { days: 14 } }),
     api.get('/stats/deliveries-today', { params: { lookahead: 2 } }),
     api.get('/stats/unprinted-contracts'),
     api.get('/stats/stale-print-contracts'),
+    api.get('/contracts/overdue', { params: { page: 1, per_page: 20 } }),
   ])
 
   if (fleetRes.status === 'fulfilled') fleet.value = fleetRes.value.data
@@ -366,6 +423,9 @@ async function loadAll() {
 
   if (staleRes.status === 'fulfilled') stale.value = staleRes.value.data
   loading.value.stale = false
+
+  if (overdueRes.status === 'fulfilled') overdue.value = overdueRes.value.data.items
+  loading.value.overdue = false
 }
 
 onMounted(loadAll)
@@ -577,6 +637,14 @@ onMounted(loadAll)
 .exp-contact { display: flex; gap: 12px; font-size: 11px; color: var(--color-text-body); }
 .phone-link { color: var(--color-info); text-decoration: none; }
 .phone-link:hover { text-decoration: underline; }
+
+/* ── OVERDUE ── */
+.overdue-row:hover { background: #FEF2F2; }
+.overdue-bar { background: #EF4444; }
+.overdue-days {
+  background: #FEE2E2;
+  color: #991B1B;
+}
 
 /* ── DELIVERIES ── */
 .delivery-list { padding: 4px 0; }

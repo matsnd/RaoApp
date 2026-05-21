@@ -82,7 +82,7 @@
                   <!-- RAO-P2-022: kolumna statusu -->
                   <td>
                     <span v-if="c.is_settled" class="badge badge-settled">Rozliczona</span>
-                    <span v-else-if="daysLeft(c) !== null && daysLeft(c) < 0" class="badge badge-overdue">Przeterminowana</span>
+                    <span v-else-if="daysLeft(c) !== null && daysLeft(c) < 0" class="badge badge-overdue">Zamknięta</span>
                     <span v-else class="badge badge-active">Aktywna</span>
                   </td>
                   <td>
@@ -101,6 +101,64 @@
               <span style="padding:0 8px;font-size:12px;">{{ page }} / {{ totalPages }}</span>
               <button class="page-btn" :disabled="page >= totalPages" @click="page++">›</button>
             </div>
+          </div>
+        </div>
+      </template>
+
+      <!-- OVERDUE CONTRACTS -->
+      <template v-else-if="section === 'overdue'">
+        <div class="grid-container">
+          <div class="grid-header">
+            <h2 style="margin:0;font-size:18px;font-weight:700;color:var(--color-primary);">🔴 Przeterminowane umowy</h2>
+            <span style="color:#718096;font-size:13px;">Umowy z datą zakończenia w przeszłości — nierozliczone</span>
+          </div>
+          <div class="grid-scroll">
+            <table class="data-grid">
+              <thead>
+                <tr>
+                  <th>Numer</th>
+                  <th>Kontrahent</th>
+                  <th>Adres dostawy</th>
+                  <th>Typ</th>
+                  <th>Data od</th>
+                  <th>Data do</th>
+                  <th>Dni po terminie</th>
+                  <th>Wartość</th>
+                  <th>Handlowiec</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="contractStore.overdueLoading">
+                  <td colspan="9" class="empty-state">Ładowanie...</td>
+                </tr>
+                <tr v-else-if="!contractStore.overdueList.length">
+                  <td colspan="9" class="empty-state">
+                    Brak przeterminowanych umów
+                  </td>
+                </tr>
+                <tr
+                  v-for="c in contractStore.overdueList"
+                  :key="c.id"
+                  :class="['contract-row', 'row-overdue']"
+                  @click="selectedId = c.id"
+                  @dblclick="editContract(c.id)"
+                  @contextmenu.prevent="openContextMenu($event, c)"
+                >
+                  <td style="font-weight:600;">{{ c.number }}</td>
+                  <td>{{ c.contractor_name }}</td>
+                  <td style="max-width:180px;white-space:pre-wrap;font-size:11px;">{{ c.delivery_address || '—' }}</td>
+                  <td><span :class="['badge', c.contract_type === 'S' ? 'badge-info' : 'badge-warning']">{{ c.type_label }}</span></td>
+                  <td>{{ formatDate(c.date_from) }}</td>
+                  <td>{{ formatDate(c.date_to) }}</td>
+                  <td style="font-weight:700;color:#c53030;">{{ daysOverdue(c) }} dni</td>
+                  <td style="font-weight:600;">{{ formatMoney(c.total_value) }}</td>
+                  <td>{{ c.salesperson_name || '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="grid-footer">
+            <span>Łącznie: {{ contractStore.overdueTotal }} przeterminowanych umów</span>
           </div>
         </div>
       </template>
@@ -306,6 +364,7 @@ function closeCtxMenu() { ctxMenu.value.visible = false }
 
 const totalPages = computed(() => {
   const total = section.value === 'contracts' ? contractStore.total
+    : section.value === 'overdue' ? contractStore.overdueTotal
     : section.value === 'contractors' ? contractorStore.total
     : articleStore.total
   return Math.ceil(total / perPage) || 1
@@ -315,6 +374,7 @@ const section = computed(() => props.section || 'contracts')
 
 const toolbarInfo = computed(() => {
   if (section.value === 'contracts') return `Umowy (${contractStore.total} rekordów)`
+  if (section.value === 'overdue') return `Przeterminowane umowy (${contractStore.overdueTotal} rekordów)`
   if (section.value === 'contractors') return `Kontrahenci (${contractorStore.total} rekordów)`
   if (section.value === 'articles') return `Artykuły (${articleStore.total} rekordów)`
   return ''
@@ -330,6 +390,8 @@ async function loadData() {
     if (dateFrom.value) params.date_from = dateFrom.value
     if (dateTo.value) params.date_to = dateTo.value
     await contractStore.fetchList(params)
+  } else if (section.value === 'overdue') {
+    await contractStore.fetchOverdueList(params)
   } else if (section.value === 'contractors') {
     await contractorStore.fetchList(params)
   } else if (section.value === 'articles') {
@@ -424,10 +486,17 @@ function expiryClass(c) {
 function expiryTitle(c) {
   const d = daysLeft(c)
   if (d === null) return ''
-  if (d < 0) return `Przeterminowana o ${Math.abs(d)} dni`
+  if (d < 0) return `Zamknięta od ${Math.abs(d)} dni`
   if (d === 0) return 'Kończy się dziś!'
   if (d <= 14) return `Kończy się za ${d} dni`
   return ''
+}
+
+function daysOverdue(c) {
+  if (!c.date_to) return 0
+  const today = new Date(); today.setHours(0,0,0,0)
+  const dt = new Date(c.date_to); dt.setHours(0,0,0,0)
+  return Math.round((today - dt) / 86400000)
 }
 </script>
 

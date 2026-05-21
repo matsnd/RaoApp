@@ -111,7 +111,7 @@ class ContractService:
         count_stmt = select(func.count()).select_from(stmt.subquery())
         total = (await db.execute(count_stmt)).scalar_one()
 
-        stmt = stmt.order_by(Contract.auto_number.desc()).offset((page - 1) * per_page).limit(per_page)
+        stmt = stmt.order_by(Contract.created_at.desc()).offset((page - 1) * per_page).limit(per_page)
         result = await db.execute(stmt)
         contracts = result.scalars().all()
 
@@ -147,16 +147,120 @@ class ContractService:
                 latitude=c.latitude,
                 longitude=c.longitude,
                 date_from=c.date_from, date_to=c.date_to,
-                total_value=c.total_value, prepayment_amount=c.prepayment_amount,
-                invoice_amount=c.invoice_amount, notes=c.notes, email=c.email,
-                contact_person1=c.contact_person1, contact_phone1=c.contact_phone1,
+                total_value=c.total_value,
+                prepayment_amount=c.prepayment_amount,
+                prepayment_document=c.prepayment_document,
+                invoice_amount=c.invoice_amount,
+                invoice_document=c.invoice_document,
+                notes=c.notes,
+                contact_person1=c.contact_person1,
+                contact_phone1=c.contact_phone1,
+                show_person1=c.show_person1,
+                contact_person2=c.contact_person2,
+                contact_phone2=c.contact_phone2,
+                show_person2=c.show_person2,
+                email=c.email,
                 phone=c.phone,
+                print_path=c.print_path,
+                print_date=c.print_date,
+                is_print_current=is_print_current,
+                report_without_data=c.report_without_data,
+                hide_delivery_address=c.hide_delivery_address,
+                signatures_on_page1=c.signatures_on_page1,
+                working_days_per_week=c.working_days_per_week,
+                position_count=c.position_count,
+                is_settled=c.is_settled,
+                settled_at=c.settled_at,
                 salesperson_name=sp_name,
-                print_date=c.print_date, is_print_current=is_print_current,
-                duration_days=duration,
-                is_settled=bool(c.is_settled),  # RAO-P2-022
-                settled_at=c.settled_at,         # RAO-P2-022
+                duration=duration,
                 created_at=c.created_at,
+                updated_at=c.updated_at,
+            ))
+        return items, total
+
+    async def list_overdue_contracts(
+        self, db: AsyncSession,
+        page: int = 1,
+        per_page: int = 50,
+    ):
+        """Lista przeterminowanych (zamkniętych) umów - date_to < dzisiaj i is_settled = false"""
+        from contractors.models import Contractor
+        from settings.models import Salesperson
+        from contracts.schemas import ContractListItem
+
+        today = date.today()
+        stmt = select(Contract).where(
+            Contract.date_to < today,
+            Contract.is_settled == False
+        )
+
+        count_stmt = select(func.count()).select_from(stmt.subquery())
+        total = (await db.execute(count_stmt)).scalar_one()
+
+        stmt = stmt.order_by(Contract.date_to.asc()).offset((page - 1) * per_page).limit(per_page)
+        result = await db.execute(stmt)
+        contracts = result.scalars().all()
+
+        items = []
+        for c in contracts:
+            contractor_name = c.contractor_name or ""
+            if not contractor_name:
+                ct = await db.get(Contractor, c.contractor_id)
+                contractor_name = ct.name if ct else ""
+
+            sp_name = None
+            if c.salesperson_id:
+                sp = await db.get(Salesperson, c.salesperson_id)
+                sp_name = sp.name if sp else None
+
+            duration = None
+            if c.date_from and c.date_to:
+                duration = (c.date_to - c.date_from).days
+
+            is_print_current = False
+            if c.print_date and c.updated_at:
+                is_print_current = c.print_date >= c.updated_at
+
+            items.append(ContractListItem(
+                id=c.id, contractor_id=c.contractor_id,
+                contractor_name=contractor_name,
+                number=c.number,
+                contract_type=c.contract_type,
+                type_label="Umowa najmu" if c.contract_type == "S" else "Umowa usługi",
+                delivery_address=c.delivery_address,
+                postal_code=c.postal_code,
+                city=c.city,
+                latitude=c.latitude,
+                longitude=c.longitude,
+                date_from=c.date_from, date_to=c.date_to,
+                total_value=c.total_value,
+                prepayment_amount=c.prepayment_amount,
+                prepayment_document=c.prepayment_document,
+                invoice_amount=c.invoice_amount,
+                invoice_document=c.invoice_document,
+                notes=c.notes,
+                contact_person1=c.contact_person1,
+                contact_phone1=c.contact_phone1,
+                show_person1=c.show_person1,
+                contact_person2=c.contact_person2,
+                contact_phone2=c.contact_phone2,
+                show_person2=c.show_person2,
+                email=c.email,
+                phone=c.phone,
+                print_path=c.print_path,
+                print_date=c.print_date,
+                is_print_current=is_print_current,
+                report_without_data=c.report_without_data,
+                hide_delivery_address=c.hide_delivery_address,
+                signatures_on_page1=c.signatures_on_page1,
+                working_days_per_week=c.working_days_per_week,
+                position_count=c.position_count,
+                is_settled=c.is_settled,
+                settled_at=c.settled_at,
+                salesperson_name=sp_name,
+                duration=duration,
+                created_at=c.created_at,
+                updated_at=c.updated_at,
             ))
         return items, total
 

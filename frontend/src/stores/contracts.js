@@ -13,6 +13,21 @@ export const useContractStore = defineStore('contracts', () => {
 
   const { downloadBlob } = useFileDownload()
 
+  const overdueList = ref([])
+  const overdueTotal = ref(0)
+  const overdueLoading = ref(false)
+
+  async function fetchOverdueList(params = {}) {
+    overdueLoading.value = true
+    try {
+      const { data } = await api.get('/contracts/overdue', { params })
+      overdueList.value = data.items
+      overdueTotal.value = data.total
+    } finally {
+      overdueLoading.value = false
+    }
+  }
+
   async function fetchList(params = {}) {
     loading.value = true
     try {
@@ -105,6 +120,7 @@ export const useContractStore = defineStore('contracts', () => {
 
   return {
     list, total, current, positions, serviceFees, loading,
+    overdueList, overdueTotal, overdueLoading, fetchOverdueList,
     fetchList, fetchOne, create, update, remove,
     fetchPositions, createPosition, updatePosition, deletePosition,
     fetchConditions, createCondition, updateCondition, deleteCondition,

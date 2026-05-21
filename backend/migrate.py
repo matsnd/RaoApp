@@ -30,7 +30,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 # Get absolute path for dump file
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DUMP_PATH = os.path.join(project_root, "temp", "toolsmart_roa_1779305445.sql")
+DUMP_PATH = os.path.join(project_root, "temp", "toolsmart_roa_1779395472.sql")
 import asyncio
 import csv
 import glob
@@ -279,7 +279,7 @@ async def step4_migrate_data():
                  email, phone, contractor_name,
                  print_path, print_date, report_without_data,
                  hide_delivery_address, signatures_on_page1,
-                 working_days_per_week, position_count,
+                 working_days_per_week, position_count, is_settled,
                  created_at, updated_at)
             SELECT
                 id, id_kontrahenta, NULLIF(id_handlowca, 0),
@@ -292,7 +292,7 @@ async def step4_migrate_data():
                 email, telefon, nazwa,
                 sciezka_wydruku, data_wydruku, COALESCE(pz_bez, 0),
                 0, 0,
-                COALESCE(liczba_dni, 6), ilepoz,
+                COALESCE(liczba_dni, 6), ilepoz, 0,
                 COALESCE(data_wprowadzenia, NOW()),
                 COALESCE(data_modyfikacji, NOW())
             FROM umowa2

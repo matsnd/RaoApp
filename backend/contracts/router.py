@@ -53,6 +53,18 @@ async def list_contracts(
     return PaginatedResponse(items=items, total=total, page=page, per_page=per_page)
 
 
+@router.get("/overdue", response_model=PaginatedResponse[ContractListItem])
+async def list_overdue_contracts(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(50, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Lista przeterminowanych (zamkniętych) umów - date_to < dzisiaj i is_settled = false"""
+    items, total = await contract_service.list_overdue_contracts(db, page, per_page)
+    return PaginatedResponse(items=items, total=total, page=page, per_page=per_page)
+
+
 @router.get("/{contract_id}", response_model=ContractDetail)
 async def get_contract(
     contract_id: int,
