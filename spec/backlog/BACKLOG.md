@@ -3547,19 +3547,21 @@ Naprawić import @vuepic/vue-datepicker — obecnie rzuca SyntaxError: "The requ
 id: RAO-P1-026
 priority: P1
 size: L
-status: in_progress
+status: done
 classification: cross-stack
 roles: [backend-dev, frontend-dev, db-architect]
 depends_on: [RAO-P1-017, RAO-P1-024]
 frontend_done: 2026-05-22
 frontend_commit: 40b364e
+backend_commit: ed69f2b
+bugfix_commit: to-be-committed
 blocks: []
 source: internal
 source_date: 2026-05-21
+done_date: 2026-05-21
 specs_to_update:
   - core/02_backend_api.md
   - core/03_frontend_screens.md
-  - core/11_reports_stats.md
 migration_impact: no
 security_impact: low
 ```
@@ -3791,5 +3793,5 @@ n|| RAO-P1-008 | Strukturalizacja adresów: kod pocztowy + miasto | Client | P1 
 || RAO-P2-018 | SPIKE: Foldery docelowe dla pobieranych plików | Internal | P2 | S | done | tech-lead |
 || RAO-P3-013 | Konfigurowalne foldery pobierania — FS Access API | Internal | P3 | M | done | frontend-dev |
 || RAO-P1-024 | BUG: CSV migration — is_service + model brakują | Internal | P1 | S | done | backend-dev |
-|| RAO-P1-026 | Filtry statystyk: drilldown, udźwig, archiwalne, per-rok/miesiąc | Internal | P1 | L | triaged | cross-stack |
+|| RAO-P1-026 | Filtry statystyk: drilldown, udźwig, archiwalne, per-rok/miesiąc | Internal | P1 | L | done | cross-stack |
 || RAO-P2-019 | Drzewiaste kategorie — picker, settings, breadcrumb | Internal | P2 | L | done | cross-stack |

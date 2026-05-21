@@ -45,6 +45,9 @@ async def _compute_position_revenues(
     *,
     service_filter: bool | None = None,
     exclude_archival: bool = True,
+    category_main_filter: list[str] | None = None,
+    category_sub1_filter: str | None = None,
+    category_sub2_filter: str | None = None,
 ) -> list[dict]:
     """
     Fetch positions+conditions for contracts overlapping [df, dt],
@@ -54,11 +57,14 @@ async def _compute_position_revenues(
         position_id, article_id, contract_id, contractor_id,
         article_name, internal_number, is_service, contract_number,
         contractor_name, rental_days, revenue, date_from, date_to,
-        category_main, category_sub1                       ← RAO-P1-017
+        category_main, category_sub1, category_sub2, category_sub3  ← RAO-P1-017/026
 
     Args:
         exclude_archival: gdy True (domyślnie), wyklucza maszyny z is_archival=TRUE.
                           Nie dotyczy usług (service_filter=True). RAO-P1-017
+        category_main_filter: opcjonalna lista nazw kategorii głównych (RAO-P1-026)
+        category_sub1_filter: opcjonalny filtr sub1 (RAO-P1-026)
+        category_sub2_filter: opcjonalny filtr sub2 (RAO-P1-026)
     """
     stmt = (
         select(
@@ -79,6 +85,8 @@ async def _compute_position_revenues(
             Contract.date_to,               # p[14]
             Article.category_main,          # p[15] — RAO-P1-017
             Article.category_sub1,          # p[16] — RAO-P1-017
+            Article.category_sub2,          # p[17] — RAO-P1-026
+            Article.category_sub3,          # p[18] — RAO-P1-026
         )
         .select_from(ContractPosition)
         .join(Contract, Contract.id == ContractPosition.contract_id)
@@ -90,6 +98,13 @@ async def _compute_position_revenues(
     # RAO-P1-017: domyślnie wyklucz maszyny archiwalne (nie dotyczy usług)
     if exclude_archival and service_filter is not True:
         stmt = stmt.where(Article.is_archival == False)
+    # RAO-P1-026: filtry kategorii
+    if category_main_filter:
+        stmt = stmt.where(Article.category_main.in_(category_main_filter))
+    if category_sub1_filter:
+        stmt = stmt.where(Article.category_sub1 == category_sub1_filter)
+    if category_sub2_filter:
+        stmt = stmt.where(Article.category_sub2 == category_sub2_filter)
 
     pos_result = await db.execute(stmt)
     positions = pos_result.all()

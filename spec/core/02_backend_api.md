@@ -557,8 +557,10 @@ class ArticleListItem(BaseModel):
     model: str | None
     replacement_value: Decimal | None
     category_name: str | None          # JOIN categories
+    category_main: str | None          # RAO-P1-026: denorm kategoria główna
     owner_name: str | None             # JOIN contractors
     notes: str | None
+    is_archival: bool                  # RAO-P1-026
     active_contract_number: str | None  # computed
     created_at: datetime
     updated_at: datetime | None
@@ -600,7 +602,21 @@ class ArticleCreate(BaseModel):
     description: str | None = Field(None, max_length=400)
     notes: str | None = Field(None, max_length=200)
     article_type: str | None = Field(None, max_length=20)
+    zasieg_m: Decimal | None = None    # RAO-P1-026: zasięg roboczy [m]
+    udzwig_t: Decimal | None = None    # RAO-P1-026: udźwig [t]
+    dodatki: str | None = None         # RAO-P1-026: wyposażenie dodatkowe
 ```
+
+### `GET /articles/{id}` (RAO-P1-026)
+
+Response: `ArticleDetail` — rozszerzony obiekt artykułu z hierarchią kategorii i polami technicznymi:
+- Wszystkie pola z `ArticleListItem`
+- `category_main`, `category_sub1`, `category_sub2`, `category_sub3` — denorm z `articles`
+- `zasieg_m: Decimal | None` — zasięg roboczy [m]
+- `udzwig_t: Decimal | None` — udźwig [t]
+- `dodatki: str | None` — wyposażenie dodatkowe
+
+HTTP: 200 | 401 | 404
 
 ### `POST /articles/{id}/duplicate`
 
