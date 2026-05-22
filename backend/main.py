@@ -225,6 +225,29 @@ async def startup_migrations():
                 INDEX idx_service_hours_date (service_date)
             ) ENGINE=InnoDB COMMENT='Godziny pracy operatora dla umów usługowych'
         """))
+        # RAO-P1-012: contract_settlements - rozliczenia umów (koszty klient vs firma)
+        await conn.execute(sa.text("""
+            CREATE TABLE IF NOT EXISTS contract_settlements (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                contract_id INT NOT NULL COMMENT 'FK contracts.id',
+                position_id INT NULL COMMENT 'FK contract_positions.id',
+                service_fee_id INT NULL COMMENT 'FK contract_service_fees.id',
+                cost_client DECIMAL(18,2) NULL COMMENT 'Koszt dla klienta',
+                cost_company DECIMAL(18,2) NULL COMMENT 'Koszt dla firmy',
+                notes TEXT NULL COMMENT 'Uwagi do rozliczenia',
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                CONSTRAINT fk_contract_settlements_contract FOREIGN KEY (contract_id)
+                    REFERENCES contracts(id) ON DELETE CASCADE,
+                CONSTRAINT fk_contract_settlements_position FOREIGN KEY (position_id)
+                    REFERENCES contract_positions(id) ON DELETE CASCADE,
+                CONSTRAINT fk_contract_settlements_service_fee FOREIGN KEY (service_fee_id)
+                    REFERENCES contract_service_fees(id) ON DELETE CASCADE,
+                INDEX idx_contract_settlements_contract (contract_id),
+                INDEX idx_contract_settlements_position (position_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_polish_ci
+              COMMENT='RAO-P1-012: Rozliczenia umów - koszty klient vs firma'
+        """))
         # RAO-P2-012: service_fee_id w contract_settlements dla rozliczeń usług dodatkowych
         await conn.execute(sa.text(
             "ALTER TABLE contract_settlements ADD COLUMN IF NOT EXISTS "
