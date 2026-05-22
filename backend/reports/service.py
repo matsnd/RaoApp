@@ -252,7 +252,9 @@ def _pdf_via_weasyprint(html: str) -> bytes:
         html = html.replace("</head>", f"<style>{extra_css}</style></head>")
     else:
         html = f"<style>{extra_css}</style>{html}"
-    return HTML(string=html).write_pdf(
+    import os
+    assets_dir = os.path.join(os.path.dirname(__file__), "templates")
+    return HTML(string=html, base_url=assets_dir).write_pdf(
         font_config=font_config,
         stylesheets=[CSS(string=font_face, font_config=font_config)] if font_face else [],
     )
