@@ -52,7 +52,8 @@ spec/
 
 || # | Plik | Opis |
 ||---|------|------|
-|| 01 | [backlog/BACKLOG.md](./backlog/BACKLOG.md) | Master backlog — 35 tasks (P0/P1/P2/P3) z YAML front-matter |
+|| 01 | [backlog/BACKLOG.md](./backlog/BACKLOG.md) | Aktywny backlog (Sprint 2) — YAML front-matter |
+|| 02 | [archive/BACKLOG_SPRINT_1.md](./archive/BACKLOG_SPRINT_1.md) | Sprint 1 (zakończony 2026-05-22) — 73 taski, ~190h |
 
 ## Archive
 
@@ -61,6 +62,7 @@ Historical specs and completed tasks:
 - `archive/22_IMPLEMENTATION_REPORT.md` — Raport implementacji
 - `archive/19_backlog_old.md` — Stary backlog (przed reorganizacją)
 - `archive/21_backlog_client_old.md` — Stary backlog klienta
+- `archive/BACKLOG_SPRINT_1.md` — Backlog Sprint 1 (zakończony 2026-05-22)
 - `archive/00_REORGANIZATION_PLAN.md` — Plan reorganizacji
 - `archive/REORGANIZATION_REPORT.md` — Raport reorganizacji
 - `archive/DB_CONFIG.md`, `NEW_DB_CONFIG.md` — Stare konfiguracje DB
