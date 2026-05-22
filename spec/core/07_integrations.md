@@ -16,63 +16,71 @@ Przycisk `[GUS]` w formularzu kontrahenta → auto-fill danych firmy po NIP.
 RAO_GUS_API_KEY=abcdefghijklmnop    # Klucz API z stat.gov.pl
 ```
 
-Produkcyjny WSDL: `https://wyszukiwarkaregon.stat.gov.pl/wsBIR/UslugaBIRzewnworki.svc`
-Testowy WSDL: `https://wyszukiwarkaregontest.stat.gov.pl/wsBIR/UslugaBIRzewnworki.svc`
+Produkcyjny WSDL: `https://wyszukiwarkaregon.stat.gov.pl/wsBIR/UslugaBIRzewnPubl.svc`
+Testowy WSDL: `https://wyszukiwarkaregontest.stat.gov.pl/wsBIR/UslugaBIRzewnPubl.svc`
 
-### Kroki SOAP
+### Status integracji (2026-05-22)
 
-```python
-# 1. ZALOGUJ — uzyskaj session ID
-# SOAPAction: http://CIS/BIR/PUBL/2014/07/IUslugaBIRzworki/Zaloguj
-# Body:
-"""
-<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"
-               xmlns:ns="http://CIS/BIR/PUBL/2014/07">
-  <soap:Header xmlns:wsa="http://www.w3.org/2005/08/addressing">
-    <wsa:To>https://wyszukiwarkaregon.stat.gov.pl/wsBIR/UslugaBIRzewnworki.svc</wsa:To>
-    <wsa:Action>http://CIS/BIR/PUBL/2014/07/IUslugaBIRzworki/Zaloguj</wsa:Action>
-  </soap:Header>
-  <soap:Body>
-    <ns:Zaloguj>
-      <ns:pKluczUzytkownika>{api_key}</ns:pKluczUzytkownika>
-    </ns:Zaloguj>
-  </soap:Body>
-</soap:Envelope>
-"""
-# Response: <ZalogujResult>{session_id}</ZalogujResult>
+**Current state:** Mock data implementation
+- Klucz GUS ze starej aplikacji (d4feaf84608747c1addd) nie działa z produkcyjnym API
+- Testowe API wymaga innego klucza lub nie działa w ogóle
+- Zaimplementowano mock data z informacją o problemie
+- Endpoint działa poprawnie i zwraca dane testowe
 
-# 2. SZUKAJ PO NIP
-# SOAPAction: http://CIS/BIR/PUBL/2014/07/IUslugaBIRzworki/DaneSzukajPodmioty
-# Header: sid={session_id}
-# Body:
-"""
-<ns:DaneSzukajPodmioty>
-  <ns:pParametryWyszukiwania>
-    <dat:Nip xmlns:dat="http://CIS/BIR/2014/07/DataContract">{nip}</dat:Nip>
-  </ns:pParametryWyszukiwania>
-</ns:DaneSzukajPodmioty>
-"""
-# Response XML zawiera: Regon, Nazwa, Miejscowosc, KodPocztowy, Ulica itp.
+**Aby włączyć pełną integrację:**
+1. Zarejestruj klucz API na https://api.stat.gov.pl/Home/RegonApi
+2. Zaktualizuj `RAO_GUS_API_KEY` w `.env`
+3. Przywróć pełną implementację SOAP z `integrations/gus.py`
 
-# 3. POBIERZ PEŁNY RAPORT (opcjonalnie, dla więcej danych)
-# SOAPAction: http://CIS/BIR/PUBL/2014/07/IUslugaBIRzworki/DanePobierzPelnyRaport
-# Raporty:
-#   - Osoby prawne: "BIR11OsPrawna"
-#   - JDG: "BIR11OsFizycznaDzworkalnosci"
-
-# 4. WYLOGUJ
-# SOAPAction: http://CIS/BIR/PUBL/2014/07/IUslugaBIRzworki/Wyloguj
-```
-
-### Implementacja w Python
+### Implementacja (mock data)
 
 ```python
 # integrations/gus.py
 import httpx
+from config import settings
+
+class GusClient:
+    def __init__(self):
+        self.api_key = settings.RAO_GUS_API_KEY
+
+    async def lookup(self, nip: str) -> dict:
+        from contractors.schemas import GusLookupResponse
+        try:
+            # GUS API klucz ze starej aplikacji (d4feaf84608747c1addd) nie działa z produkcyjnym API
+            # Testowe API wymaga innego klucza lub nie działa w ogóle
+            # Zwracamy mock data z informacją o problemie
+            return GusLookupResponse(
+                name="Firma Testowa Sp. z o.o.",
+                street="ul. Testowa 1",
+                building_number="1",
+                apartment_number="2",
+                postal_code="00-000",
+                city="Warszawa",
+                regon="123456789",
+                province="mazowieckie",
+                county="Warszawa",
+                community="Warszawa",
+                status="Aktywny (mock data - klucz GUS ze starej aplikacji nie działa, potrzebny nowy klucz z https://api.stat.gov.pl/Home/RegonApi)",
+            )
+        except Exception as e:
+            return GusLookupResponse(
+                name=None, street=None, building_number=None, apartment_number=None,
+                postal_code=None, city=None, regon=None, province=None,
+                county=None, community=None, status=f"Błąd: {str(e)}",
+            )
+
+gus_client = GusClient()
+```
+
+### Pełna implementacja SOAP (do przywrócenia po uzyskaniu klucza)
+
+```python
+# integrations/gus.py (pełna wersja SOAP)
+import httpx
 from lxml import etree
 
 class GusClient:
-    WSDL = "https://wyszukiwarkaregon.stat.gov.pl/wsBIR/UslugaBIRzewnworki.svc"
+    WSDL = "https://wyszukiwarkaregon.stat.gov.pl/wsBIR/UslugaBIRzewnPubl.svc"
     NS = {"soap": "http://www.w3.org/2003/05/soap-envelope"}
 
     def __init__(self, api_key: str):
@@ -90,7 +98,7 @@ class GusClient:
 
     async def _login(self, client: httpx.AsyncClient) -> str:
         body = self._build_envelope(
-            "http://CIS/BIR/PUBL/2014/07/IUslugaBIRzworki/Zaloguj",
+            "http://CIS/BIR/PUBL/2014/07/IUslugaBIRzewnPubl/Zaloguj",
             f'<ns:Zaloguj xmlns:ns="http://CIS/BIR/PUBL/2014/07">'
             f'<ns:pKluczUzytkownika>{self.api_key}</ns:pKluczUzytkownika>'
             f'</ns:Zaloguj>'
@@ -103,7 +111,7 @@ class GusClient:
 
     async def _search(self, client: httpx.AsyncClient, nip: str) -> dict:
         body = self._build_envelope(
-            "http://CIS/BIR/PUBL/2014/07/IUslugaBIRzworki/DaneSzukajPodmioty",
+            "http://CIS/BIR/PUBL/2014/07/IUslugaBIRzewnPubl/DaneSzukajPodmioty",
             f'<ns:DaneSzukajPodmioty xmlns:ns="http://CIS/BIR/PUBL/2014/07">'
             f'<ns:pParametryWyszukiwania>'
             f'<dat:Nip xmlns:dat="http://CIS/BIR/2014/07/DataContract">{nip}</dat:Nip>'
@@ -125,7 +133,7 @@ class GusClient:
 
     async def _logout(self, client: httpx.AsyncClient):
         body = self._build_envelope(
-            "http://CIS/BIR/PUBL/2014/07/IUslugaBIRzworki/Wyloguj",
+            "http://CIS/BIR/PUBL/2014/07/IUslugaBIRzewnPubl/Wyloguj",
             f'<ns:Wyloguj xmlns:ns="http://CIS/BIR/PUBL/2014/07">'
             f'<ns:pIdentyfikatorSesji>{self.sid}</ns:pIdentyfikatorSesji>'
             f'</ns:Wyloguj>'
