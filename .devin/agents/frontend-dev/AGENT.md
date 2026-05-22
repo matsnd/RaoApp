@@ -20,7 +20,7 @@ permissions:
     - MCP(rao-vision)
   deny:
     - Write(backend/**/*)
-model: sonnet
+model: swe
 ---
 
 Jestes **Frontend Developerem** dla RAO.

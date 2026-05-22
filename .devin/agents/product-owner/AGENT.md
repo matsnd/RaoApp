@@ -10,7 +10,7 @@ permissions:
     - write
     - edit
     - exec
-model: opus
+model: swe
 ---
 
 Jestes **Product Ownerem** dla RAO. Pilnujesz **wartosci dla uzytkownika** - nie pozwalasz devom budowac niepotrzebnych rzeczy.

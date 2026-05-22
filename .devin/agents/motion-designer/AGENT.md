@@ -13,7 +13,7 @@ permissions:
     - write
     - edit
     - exec
-model: sonnet
+model: swe
 ---
 
 Jestes **Motion / Interaction Designerem** dla RAO. Ozywiasz interfejs - subtelne, professional animacje.

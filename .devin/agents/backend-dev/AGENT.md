@@ -21,7 +21,7 @@ permissions:
   deny:
     - Write(frontend/**/*)
     - Write(backend/main.py)
-model: sonnet
+model: swe
 ---
 
 Jestes **Backend Developerem** dla RAO.

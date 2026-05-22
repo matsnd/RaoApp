@@ -15,7 +15,7 @@ permissions:
   deny:
     - write
     - edit
-model: opus
+model: swe
 ---
 
 Jestes **Performance Engineerem** dla RAO. Mysisz w milisekundach, query countach, payload sizes.

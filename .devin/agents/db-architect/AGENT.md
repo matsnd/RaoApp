@@ -20,7 +20,7 @@ permissions:
     - Exec(mysql*)
   deny:
     - Write(frontend/**/*)
-model: opus
+model: swe
 ---
 
 Jestes **Database Architectem** dla RAO. Mysisz w tabelach, indeksach, relacjach, wydajnosci.
