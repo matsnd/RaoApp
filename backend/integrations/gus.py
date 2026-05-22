@@ -4,8 +4,8 @@ from lxml import etree
 
 
 # Production URL (from old app)
-# Note: Test endpoint (wyszukiwarkaregontest) requires different API key
-# This production endpoint works with current API key
+# Note: Test endpoint (wyszukiwarkaregontest) has no real data - only for integration testing
+# This production endpoint works with production API key from GUS
 GUS_WSDL = "https://wyszukiwarkaregon.stat.gov.pl/wsBIR/UslugaBIRzewnPubl.svc"
 
 
@@ -30,13 +30,14 @@ class GusClient:
         """
         Lookup company data from GUS (Polish Central Statistical Office) by NIP.
         
-        Integration status: WORKING
+        Integration status: WORKING (authentication OK, but limited data access)
         - API key authentication: ✅ (login returns session ID)
-        - Search method: DaneSzukaj (from gusregon library reference)
+        - Search method: DaneSzukajPodmioty (official BIR11 API method)
         - Endpoint: Production GUS API (wyszukiwarkaregon.stat.gov.pl)
         
-        Note: Test NIPs (5250008455, 5211112460, 5213305298) return ErrorCode 4
-        because they don't exist in GUS database. Use real NIPs from active companies.
+        Note: All tested NIPs return ErrorCode 4 ("Nie znaleziono wpisu dla podanych kryteriów wyszukiwania")
+        This may indicate that the API key has limited access to the GUS database.
+        For production use, ensure the API key has proper permissions from GUS.
         """
         from contractors.schemas import GusLookupResponse
         try:
@@ -96,21 +97,21 @@ class GusClient:
         return sid_text
 
     async def _search(self, client: httpx.AsyncClient, nip: str) -> dict:
-        # Try NIP search using DaneSzukaj method (from gusregon library)
+        # Use DaneSzukajPodmioty method (official BIR11 API method)
         print(f"[GUS] Searching for NIP: {nip}")
         
         body = (
-            f'<ns:DaneSzukaj xmlns:ns="http://CIS/BIR/PUBL/2014/07">'
+            f'<ns:DaneSzukajPodmioty xmlns:ns="http://CIS/BIR/PUBL/2014/07">'
             f'<ns:pParametryWyszukiwania>'
             f'<dat:Nip xmlns:dat="http://CIS/BIR/2014/07/DataContract">{nip}</dat:Nip>'
             f'</ns:pParametryWyszukiwania>'
-            f'</ns:DaneSzukaj>'
+            f'</ns:DaneSzukajPodmioty>'
         )
         headers = {"Content-Type": "application/soap+xml; charset=utf-8"}
         if self.sid:
             headers["sid"] = self.sid
 
-        resp = await client.post(GUS_WSDL, content=_build_envelope("http://CIS/BIR/PUBL/2014/07/IUslugaBIRzewnPubl/DaneSzukaj", body),
+        resp = await client.post(GUS_WSDL, content=_build_envelope("http://CIS/BIR/PUBL/2014/07/IUslugaBIRzewnPubl/DaneSzukajPodmioty", body),
             headers=headers)
         print(f"[GUS] Search status: {resp.status_code}")
         print(f"[GUS] Search response length: {len(resp.text)}")
@@ -125,7 +126,7 @@ class GusClient:
 
         # Parse response — XML embedded in CDATA
         tree = etree.fromstring(content.encode())
-        result_el = tree.find(".//{http://CIS/BIR/PUBL/2014/07}DaneSzukajResult")
+        result_el = tree.find(".//{http://CIS/BIR/PUBL/2014/07}DaneSzukajPodmiotyResult")
         if result_el is None:
             print(f"[GUS] No result element found")
             return {}
