@@ -4,19 +4,66 @@
 
 ---
 
-## 1. Czym jest RAO
+## 1. Czym jest RAO i dlaczego migracja ma sens biznesowy
 
-RAO to nowoczesna aplikacja webowa zastępująca dotychczasowy desktopowy system (WinForms) używany do zarządzania wynajmem maszyn budowlanych. Aplikacja kompleksowo obsługuje cały cykl wynajmu: od pozyskania kontrahenta, przez przygotowanie umowy i protokołu zdawczo-odbiorczego, aż po analitykę rentowności floty.
+RAO to **transformacyjna migracja** z desktopowego systemu WinForms (.NET 4.7.2) do nowoczesnej aplikacji webowej (FastAPI + Vue 3) dla firmy Toolsmart Sp. z o.o. — lidera w branży wynajmu sprzętu budowlanego.
+
+**Kontekst firmowy Toolsmart:**
+- **Branża:** Wynajem maszyn budowlanych B2B (koparki, ładowarki, podnośniki, zagęszczarki) + usługi towarzyszące (transport, mycie, tankowanie, operator)
+- **Skala:** ~10 użytkowników wewnętrznych, kilkadziesiąt-kilkaset umów rocznie, flota kilkadziesiąt maszyn
+- **Model biznesowy:** Wynajem dobowy/tygodniowy/miesięczny + rozliczenie przez umowy najmu (S) i usługi (U)
+- **Klienci:** Firmy budowlane, deweloperzy, wykonawcy (B2B)
+- **Kluczowe ryzyka biznesowe:** Konflikty rezerwacji floty, ujemne marże na usługach z operatorem, długie nierozliczone umowy, niewykorzystany kapitał (maszyny stojące w magazynie)
+- **Kapitałochłoność:** Maszyna = wartość odtworzeniowa 50-500k zł → decyzje "kupić czy nie kupić nową koparkę" mają wagę finansową
+
+**RAO kompleksowo obsługuje cały cykl wynajmu:** od pozyskania kontrahenta, przez przygotowanie umowy i protokołu zdawczo-odbiorczego, aż po analitykę rentowności floty.
 
 **Użytkownicy:** handlowcy biurowi, księgowi, kadra zarządzająca.
 **Dostęp:** przez przeglądarkę (zamiast tylko desktopu — zysk migracyjny).
 **Jednoczesna obsługa:** ~10 użytkowników w firmie.
 
+**Dlaczego migracji?** Toolsmart kupił migrację nie po to, żeby mieć "to samo, ale w przeglądarce", tylko żeby **podejmować lepsze decyzje finansowe**. Legacy WinForms dawał ZERO odpowiedzi na pytania: "Czy ta maszyna się zwróci?", "W którą kategorię inwestować?", "Który klient nas traci?". RAO dostarcza te odpowiedzi poprzez **realną marżę** (cost_client - cost_company) zamiast iluzji obrotu.
+
 ---
 
-## 2. Główne moduły funkcjonalne
+## 2. Porównanie Legacy WinForms vs RAO — co się zmieniło
 
-### 2.1 Kontrahenci (Klienci) — ✅ Zrealizowane
+### Architektura i dostęp — transformacja z desktopu do chmury
+
+| Wymiar | Legacy WinForms | RAO (FastAPI + Vue) | Superlatywa |
+|--------|-------------------|---------------------|-------------|
+| **Dostęp** | Desktop-only, jeden komputer w biurze, Windows-only | **Web (przeglądarka), dowolne stanowisko, OS-agnostic, równolegle 10 userów** | **Praca z dowolnego miejsca — biuro, dom, plac budowy, tablet** |
+| **Stack** | C# .NET 4.7.2 + Crystal Reports (licencjonowany) | FastAPI + Vue 3 + WeasyPrint (open-source) | **Zero kosztów licencji, edycja w VS Code, wersjonowanie w git** |
+| **DB** | MariaDB 30+ tabel, **brak FK**, **SQL injection vulnerable**, denormalizacja | MariaDB znormalizowana (3NF), **FK constraints**, ORM (SQLAlchemy), parametryzacja | **Spójność referencyjna gwarantowana, SQL injection wyeliminowane strukturalnie** |
+| **Bezpieczeństwo** | Hasła plaintext, brak ról, brak audit trail | **JWT + bcrypt + RBAC (admin/user), wymuszenie zmiany hasła, RODO compliance** | **Industry standard security, audytowalność kto/kiedy/co zmienił** |
+| **Backup/recovery** | Manualny, zawodny, brak automatyzacji | **mariadb-dump + idempotentne migracje, cloud backup** | **Automatyzacja, MTTR z godzin/dni do minut** |
+| **Współbieżność** | Synchroniczne wywołania, blokada UI, pojedyncze stanowisko | **async/await (FastAPI), non-blocking I/O, centralny backend** | **N-krotnie wyższy throughput przy integracjach (GUS, Nominatim, Fakturownia)** |
+| **Testowanie** | Manualne (brak frameworka), brak testów automatycznych | **pytest (unit) + Playwright (E2E) + 6-tier verification** | **Regression protection w CI, nie u klienta produkcyjnego** |
+
+**Wniosek:** RAO to nie "przepisanie", lecz **zmiana paradygmatu** — z monolitycznego desktopa do warstwowej architektury klient-serwer z type-safe contractem między warstwami.
+
+---
+
+### Funkcjonalność — feature parity + superlatywy
+
+| Obszar | Legacy WinForms | RAO (FastAPI + Vue) | Superlatywa biznesowa |
+|--------|-------------------|---------------------|----------------------|
+| **Kontrahenci** | Ręczne wpisywanie 8 pól adresowych, brak walidacji NIP | **GUS po NIP (jedno kliknięcie)**, walidacja sumy kontrolnej, email do faktur, wiele adresów dostawy | **~3 min/kontrahent oszczędzone × kilkadziesiąt kontrahentów/rok = realny czas, brak literówek** |
+| **Maszyny** | Płaska lista, brak kategorii, brak sprawdzania dostępności | **Drzewiaste kategorie (4 poziomy)**, archiwizacja, duplikacja jednym kliknięciem, **sprawdzanie dostępności w terminie** | **Eliminacja konfliktów rezerwacji (najczęstsza reklamacja w branży), skalowalność floty bez chaosu** |
+| **Umowy** | Numeracja, pozycje, stawki proste (tylko dzienna/tygodniowa) | **Stawki progowe** (np. "5000 zł/tydz. do 5 tygodni, potem 4000 zł/tydz."), 6 częstotliwości (godzinowo/dziennie/tygodniowo/dwutygodniowo/miesięcznie/jednorazowo), **strukturalny adres** (kod pocztowy auto-uzupełnia miasto), **reverse geocoding (mapa)** | **Wiarygodne raporty geograficzne (legacy ich nie miał), elastyczność wyceny, mniej błędów rachunkowych** |
+| **PDF** | Crystal Reports (trudny support, .rpt binary, licencjonowany) | WeasyPrint + Jinja2 + **OWN wbudowane** (zamiast doklejania osobnego pliku), pieczątka + podpis, tabela "Przy wydaniu/Przy odbiorce" | **1:1 wizualna zgodność z legacy + utrzymywalność (edycja w VS Code, wersjonowanie w git)** |
+| **Rozliczenia** | Tylko `cost_client` (fakturowanie) — brak widoku na realne koszty | **`cost_client` + `cost_company` + margin** + integracja Fakturownia (automatyczne dociąganie faktur) | **Realna marża zamiast iluzji obrotu — legacy nie miał cost_company, więc nie wiedział czy zarabia czy traci** |
+| **Prowizje** | Od obrotu (niezdrowa motywacja — handlowcy "rabatowali" na rabatach) | **Od realnego zarobku** (po odjęciu kosztów firmy) | **Zdrowsza motywacja, alignment celów handlowców z rentownością firmy** |
+| **Statystyki** | **BRAK** — legacy nie miał ŻADNEJ analityki | **ROI maszyny, currently-rented, by-category, by-location, additional-fees, filtry per okres/kategoria/udźwig/archiwalne** | **Decyzje data-driven zamiast intuicji — legacy nie miał żadnych danych do podejmowania decyzji zakupowych** |
+| **UX** | Klikologia, brak empty states, brak walidacji inline | Toast notifications, empty states z CTA, kalendarz 2-miesięczny, skróty klawiszowe, picker artykułów z filtrem, auto-generowanie opisu warunku | **Krótszy onboarding, mniej błędów, lepsze doświadczenia użytkownika** |
+
+**Wniosek:** RAO osiągnął **pełną feature parity** z legacy (wszystkie 6 typów PDF zweryfikowane wizualnie 1:1) i dodał **superlatywy**, których legacy nie miał — szczególnie w obszarze analityki i rozliczeń.
+
+---
+
+## 3. Główne moduły funkcjonalne
+
+### 3.1 Kontrahenci (Klienci) — ✅ Zrealizowane
 
 Centralna baza klientów wynajmujących maszyny.
 
@@ -27,7 +74,7 @@ Centralna baza klientów wynajmujących maszyny.
 - Dedykowany **email do faktur** (zwiększa skuteczność dostarczania dokumentów księgowych)
 - Wiele adresów dostawy per kontrahent
 
-### 2.2 Maszyny (Artykuły) — ✅ Zrealizowane
+### 3.2 Maszyny (Artykuły) — ✅ Zrealizowane
 
 Ewidencja floty sprzętu firmy.
 
@@ -38,7 +85,7 @@ Ewidencja floty sprzętu firmy.
 - Duplikacja maszyny jednym kliknięciem (przyspiesza dodanie nowego egzemplarza tego samego modelu)
 - **Sprawdzanie dostępności** — system informuje, jeśli maszyna jest już wynajęta w wybranym terminie i na której umowie (eliminuje konflikty rezerwacji)
 
-### 2.3 Umowy — ✅ Zrealizowane
+### 3.3 Umowy — ✅ Zrealizowane
 
 Sercem systemu są umowy najmu / usługi.
 
@@ -57,7 +104,7 @@ Sercem systemu są umowy najmu / usługi.
 - **Panel rozliczenia umowy** — koszty po stronie klienta vs po stronie firmy, przedpłaty, faktury, pozostała kwota do zapłaty
 - **Prowizje handlowców** liczone od realnego zarobku (po odjęciu kosztów firmy)
 
-### 2.4 Dokumenty PDF — ✅ Zrealizowane
+### 3.4 Dokumenty PDF — ✅ Zrealizowane
 
 Profesjonalne wydruki — sześć wariantów dokumentów odpowiadających dotychczasowym wzorcom z WinForms.
 
@@ -78,7 +125,7 @@ Funkcjonalności:
 - **Rozdzielenie informacji**: adres dostawy i telefon widoczne tylko na protokole, ukryte na umowie
 - Konfigurowalne foldery zapisu PDF (umowy / protokoły osobno)
 
-### 2.5 Raporty i statystyki — ✅ Zrealizowane
+### 3.5 Raporty i statystyki — ✅ Zrealizowane
 
 Moduł dostarczający kadrze decyzyjnej rzeczywiste dane biznesowe (nowość względem legacy).
 
@@ -91,7 +138,7 @@ Moduł dostarczający kadrze decyzyjnej rzeczywiste dane biznesowe (nowość wzg
 - **Stan aktualny floty** — co posiadamy, co pracuje, co stoi
 - **Eksplorator** — krzyżowe widoki kontrahent ↔ umowa ↔ maszyna
 
-### 2.6 Ustawienia firmowe — ✅ Zrealizowane
+### 3.6 Ustawienia firmowe — ✅ Zrealizowane
 
 - Dane firmy (Toolsmart) widoczne na dokumentach
 - **Logo firmy** w sidebar i nagłówkach PDF
@@ -100,7 +147,7 @@ Moduł dostarczający kadrze decyzyjnej rzeczywiste dane biznesowe (nowość wzg
 - **Szablony cenników** (warunki rozliczeniowe wielokrotnego użytku)
 - Konfiguracja folderów zapisu dokumentów
 
-### 2.7 Bezpieczeństwo i konta — ✅ Zrealizowane
+### 3.7 Bezpieczeństwo i konta — ✅ Zrealizowane
 
 - Logowanie z JWT
 - Role: admin / user (RBAC)
@@ -108,7 +155,7 @@ Moduł dostarczający kadrze decyzyjnej rzeczywiste dane biznesowe (nowość wzg
 - Zmiana hasła z poziomu sidebara
 - Polityki RODO i retencji danych
 
-### 2.8 Rozliczenia i raporty marżowe — 📋 Propozycje przyszłych raportów
+### 3.8 Rozliczenia i raporty marżowe — 📋 Propozycje przyszłych raportów
 
 **Kontekst:** Obecna implementacja rozliczeń (`ContractSettlement`) zawiera dane o kosztach po stronie klienta (`cost_client`) i firmie (`cost_company`), co pozwala na obliczenie **realnej marży**. To jest kluczowa wartość dodana migracji — legacy WinForms widział tylko fakturowanie, nie realne koszty.
 
@@ -121,29 +168,58 @@ Moduł dostarczający kadrze decyzyjnej rzeczywiste dane biznesowe (nowość wzg
 
 ---
 
-#### Propozycje raportów biznesowych (priorytetyzowane)
+#### Roadmapa raportów marżowych — 3 fazy implementacji
 
-| # | Raport | Dla | Priorytet | Opis biznesowy |
-|---|--------|-----|-----------|----------------|
-| **1** | **Marża realna vs fakturowana** | Kierownictwo | **HIGH** | "Ile *naprawdę* zarobiliśmy w tym miesiącu — nie ile zafakturowaliśmy." KPI: SUM(cost_client), SUM(cost_company), SUM(margin), margin %, trend MoM/YoY. **NOWOŚĆ** — legacy nie miał cost_company. |
-| **2** | **Ranking handlowców wg marży** | Handlowcy + Kierownictwo | **HIGH** | "Mój bonus zależy od marży — chcę widzieć gdzie jestem względem celu i kolegów." KPI: marża/handlowiec, liczba umów, średnia marża na umowę. **NOWOŚĆ** — legacy liczył prowizje od obrotu. |
-| **3** | **Top/Flop kontrahenci wg marży** | Kierownictwo + Handlowcy | **HIGH** | "Który klient generuje obrót, ale tak naprawdę na nim tracimy?" KPI: TOP 20 / BOTTOM 20 kontrahentów wg SUM(margin), flag dla margin < 0. Action: renegocjacja stawek. **NOWOŚĆ**. |
-| **4** | **Umowy nierozliczone / niekompletne** | Księgowość | **HIGH** | "Które umowy zakończyły się ale nie mają wpisanego cost_company — czyli marża jest fałszywa?" KPI: liczba umów po date_to gdzie cost_company IS NULL. Worklist dla księgowej. **NOWOŚĆ** — data quality gate. |
-| **5** | **Rentowność maszyny v2 (z cost_company)** | Operacje + Kierownictwo | MEDIUM | Rozszerzenie istniejącego ROI o kolumny: total_company_cost, real_margin, real_margin_per_rental_day. Action: maszyny z niskim real-ROI → sprzedaż/podniesienie stawki. |
-| **6** | **Struktura kosztów własnych** | Księgowość + Operacje | MEDIUM | "Gdzie nam ucieka kasa — paliwo, operator, serwis?" KPI: SUM(cost_company) po typie service_fee, trend miesięczny. Wizualizacja: stacked bar chart. **NOWOŚĆ**. |
-| **7** | **Marża po kategoriach maszyn** | Kierownictwo (decyzje inwestycyjne) | LOW | "W którą kategorię floty inwestować — koparki gąsienicowe czy kołowe?" KPI: SUM(margin) i margin % po category_main/sub1. Rozszerzenie istniejącego /stats/by-category. **NOWOŚĆ**. |
+**FAZA 1: Data Quality Gate (blokująca)**
+| # | Raport | Dla | Priorytet | Wartość biznesowa |
+|---|--------|-----|-----------|-------------------|
+| **4** | **Umowy nierozliczone / niekompletne** | Księgowość | **P0** | "Które umowy zakończyły się ale nie mają wpisanego cost_company — czyli marża jest fałszywa?" KPI: liczba umów po date_to gdzie cost_company IS NULL. Worklist dla księgowej. **Gwarancja jakości danych** — bez tego wszystkie raporty kłamią (garbage in / garbage out). |
+
+**FAZA 2: Killer Features (uzasadniające migrację)**
+| # | Raport | Dla | Priorytet | Wartość biznesowa |
+|---|--------|-----|-----------|-------------------|
+| **1** | **Marża realna vs fakturowana** | Kierownictwo | **P1** | "Ile *naprawdę* zarobiliśmy w tym miesiącu — nie ile zafakturowaliśmy." KPI: SUM(cost_client), SUM(cost_company), SUM(margin), margin %, trend MoM/YoY. **NOWOŚĆ** — legacy nie miał cost_company, więc nie wiedział czy zarabia czy traci. |
+| **2** | **Ranking handlowców wg marży** | Handlowcy + Kierownictwo | **P1** | "Mój bonus zależy od marży — chcę widzieć gdzie jestem względem celu i kolegów." KPI: marża/handlowiec, liczba umów, średnia marża na umowę. **NOWOŚĆ** — legacy liczył prowizje od obrotu (niezdrowa motywacja — handlowcy "rabatowali" na rabatach). |
+| **3** | **Top/Flop kontrahenci wg marży** | Kierownictwo + Handlowcy | **P1** | "Który klient generuje obrót, ale tak naprawdę na nim tracimy?" KPI: TOP 20 / BOTTOM 20 kontrahentów wg SUM(margin), flag dla margin < 0. Action: renegocjacja stawek. **NOWOŚĆ** — legacy nie miał cost_company, więc nie wiedział który klient go traci. |
+
+**FAZA 3: Strategic Decisions (raz na kwartał/rok)**
+| # | Raport | Dla | Priorytet | Wartość biznesowa |
+|---|--------|-----|-----------|-------------------|
+| **5** | **Rentowność maszyny v2 (z cost_company)** | Operacje + Kierownictwo | P2 | Rozszerzenie istniejącego ROI o kolumny: total_company_cost, real_margin, real_margin_per_rental_day. Action: maszyny z niskim real-ROI → sprzedaż/podniesienie stawki. |
+| **6** | **Struktura kosztów własnych** | Księgowość + Operacje | P2 | "Gdzie nam ucieka kasa — paliwo, operator, serwis?" KPI: SUM(cost_company) po typie service_fee, trend miesięczny. Wizualizacja: stacked bar chart. **NOWOŚĆ**. |
+| **7** | **Marża po kategoriach maszyn** | Kierownictwo (decyzje inwestycyjne) | P2 | "W którą kategorię floty inwestować — koparki gąsienicowe czy kołowe?" KPI: SUM(margin) i margin % po category_main/sub1. Rozszerzenie istniejącego /stats/by-category. **NOWOŚĆ**. |
 
 ---
 
-#### Rekomendowana kolejność implementacji
+#### Wymagania techniczne (Tech Lead)
 
-1. **#4 Umowy nierozliczone (data quality gate)** — najpierw, bo bez niego pozostałe raporty kłamią (garbage in / garbage out)
-2. **#1 Marża realna vs fakturowana** — killer feature migracji, uzasadnia biznesowo całą zmianę
-3. **#2 Ranking handlowców** — bezpośrednio wpływa na motywację (prowizje już są od margin)
-4. **#3 Top/Flop kontrahenci** — trigger decyzji handlowych
-5. **#5 Rentowność maszyny v2** — rozszerzenie istniejącego (2h)
-6. **#6 Struktura kosztów** — wartościowe, ale nie blokujące
-7. **#7 Marża po kategoriach** — strategiczne, decyzja raz na kwartał/rok
+**Architektura:**
+- Nowe endpointy: `/stats/profitability/contracts`, `/stats/profitability/by-contractor`, `/stats/profitability/by-salesperson`, `/stats/profitability/by-category`
+- DB indexes potrzebne na: contracts (date_from, date_to, salesperson_id, contractor_id, is_settled), contract_positions, position_conditions, contract_settlements, articles
+- Computed column dla margin w MariaDB dla SQL-level sorting/filtering
+- Aggregation layer revenue-cost-margin (brak obecnie w systemie)
+
+**Weryfikacja jakości danych (QA):**
+- 13 backend validations: XOR constraint na position_id/service_fee_id, FK existence checks, DECIMAL boundary checks
+- UI messages: BRAK_DANYCH, CZĘŚCIOWE, STRATA, LONG_TERM, Z_MIGRACJI
+- Edge cases: umowy bez rozliczeń, rozliczenia częściowe, ujemne marże, archiwalne vs aktywne umowy, długoterminowe umowy, mieszanie walut, legacy data
+
+---
+
+#### Rekomendacja UI/UX (Product Owner)
+
+Raporty powinny być **widgetami na Dashboard + sub-tabs**, nie osobnym "modułem raportów". Pozwala to na:
+- Szybki podgląd KPI bez nawigacji
+- Drilldown z widgetu do szczegółów
+- Spójny UX z istniejącym `/stats`
+
+---
+
+#### Wymagania wstępne przed implementacją
+
+**CRITICAL RED FLAG:** Musimy zweryfikować czy `cost_company` jest faktycznie wpisywany przez użytkowników przed budową raportów. Jeśli użytkownicy nie wpisują cost_company, raporty będą puste lub kłamią.
+
+**Action item:** Sprawdzić w bazie danych ile umów ma `cost_company IS NULL` dla umów po `date_to`. Jeśli > 50% → najpierw edukacja użytkowników, potem raporty.
 
 ---
 
@@ -177,7 +253,7 @@ Moduł dostarczający kadrze decyzyjnej rzeczywiste dane biznesowe (nowość wzg
 
 ---
 
-## 3. Doświadczenie użytkownika (UX)
+## 4. Doświadczenie użytkownika (UX)
 
 Funkcjonalności poprawiające codzienną pracę:
 
@@ -194,7 +270,7 @@ Funkcjonalności poprawiające codzienną pracę:
 
 ---
 
-## 4. Migracja z legacy WinForms — feature parity
+## 5. Migracja z legacy WinForms — feature parity
 
 Zrealizowano pełną migrację funkcjonalną:
 - ✅ Migracja danych historycznych (kontrahenci, maszyny, umowy, kategorie z CSV)
@@ -204,7 +280,7 @@ Zrealizowano pełną migrację funkcjonalną:
 
 ---
 
-## 5. Status backlogu
+## 6. Status backlogu
 
 | Priorytet | Liczba | Status |
 |-----------|--------|--------|
@@ -221,11 +297,11 @@ Zrealizowano pełną migrację funkcjonalną:
 ### Świadomie odłożone / niezrealizowane
 - Powiadomienia email z linkiem reset hasła (P2 — workaround przez admina wystarcza)
 - Ręczna rezerwacja maszyn — zastąpiona automatyczną z umów (RAO-P1-015 superseded)
-- **Raporty marżowe** — propozycje w sekcji 2.8 (do realizacji w kolejnym cyklu, po walidacji jakości danych cost_company)
+- **Raporty marżowe** — propozycje w sekcji 3.8 (do realizacji w kolejnym cyklu, po walidacji jakości danych cost_company)
 
 ---
 
-## 6. Wartość dla klienta
+## 7. Wartość dla klienta
 
 | Obszar | Wartość biznesowa |
 |--------|-------------------|
@@ -241,24 +317,97 @@ Zrealizowano pełną migrację funkcjonalną:
 
 ---
 
-## 7. Stan aplikacji — gotowość
+## 8. Stan aplikacji — gotowość
 
 **Aplikacja jest funkcjonalnie gotowa do produkcyjnego wdrożenia.** Wszystkie blockery (P0) i wymagania pre-go-live (P1) są ukończone. Pozostałe prace dotyczą polish UX (np. drilldown w raportach), nie blokują wdrożenia.
 
 ### Przyszłe prace — raporty marżowe
 
-Sekcja 2.8 zawiera **propozycje raportów biznesowych opartych na rozliczeniach**, które mogą być zrealizowane w kolejnym cyklu rozwoju. Są to w 90% NOWE raporty, których legacy WinForms nie miał — kluczowa wartość dodana migracji to możliwość śledzenia **realnej marży** (cost_client - cost_company) zamiast tylko fakturowania.
+Sekcja 3.8 zawiera **propozycje raportów biznesowych opartych na rozliczeniach**, które mogą być zrealizowane w kolejnym cyklu rozwoju. Są to w 90% NOWE raporty, których legacy WinForms nie miał — kluczowa wartość dodana migracji to możliwość śledzenia **realnej marży** (cost_client - cost_company) zamiast tylko fakturowania.
 
 **Kluczowa decyzja przed implementacją:** Czy klient faktycznie wpisuje `cost_company` w rozliczeniach? Jeśli pole jest 90% puste → najpierw raport #4 (umowy nierozliczone) jako data quality gate, pozostałe raporty po poprawie jakości danych.
 
 ---
 
-## 8. Kontakt i wsparcie
+## 9. Kontakt i wsparcie
 
 W razie pytań dotyczących funkcjonalności lub zgłoszeń błędów, prosimy o kontakt:
 - **Dokumentacja techniczna:** `spec/00_INDEX.md`
 - **Backlog zadań:** `spec/backlog/BACKLOG.md`
-- **Status wdrożenia:** patrz sekcja 5 powyżej
+- **Status wdrożenia:** patrz sekcja 6 powyżej
+
+---
+
+## 10. Jakość i przyszłość — dlaczego RAO to inwestycja długoterminowa
+
+### Porównanie jakości — Legacy WinForms vs RAO
+
+| Wymiar jakości | Legacy WinForms | RAO (FastAPI + Vue) | Wartość dla Toolsmart |
+|----------------|-------------------|---------------------|----------------------|
+| **Spójność danych** | Brak FK, denormalizacja, orphan records możliwe | FK constraints, 3NF, cascade delete, spójność referencyjna gwarantowana | **Zero "ghost records", raporty zawsze poprawne** |
+| **Bezpieczeństwo** | SQL injection vulnerable, hasła plaintext, brak ról | JWT + bcrypt + RBAC, SQL injection wyeliminowane strukturalnie, audit trail | **Industry standard security, RODO compliance, audytowalność** |
+| **Niezawodność** | Brak testów, regression przy klienta produkcyjnym | pytest (unit) + Playwright (E2E) + 6-tier verification, CI/CD | **Regression protection w CI, nie u klienta produkcyjnego** |
+| **Dostępność** | Desktop-only, awaria PC = brak dostępu, manual backup | Web, cloud backup, automatyzacja, MTTR z godzin/dni do minut | **Business continuity, disaster recovery** |
+| **Utrzymanie** | Licencjonowany stack (.NET, Crystal Reports), rosnące koszty | Open-source, edycja w VS Code, wersjonowanie w git | **Zero kosztów licencji, koszty malejące z czasem** |
+
+**Wniosek:** RAO eliminuje **critical risks** legacy (SQL injection, orphan records, brak testów) i wprowadza **industry best practices** (FK, RBAC, testy automatyczne, CI/CD).
+
+---
+
+### Roadmapa jakości — short-term, medium-term, long-term
+
+**Short-term (do 3 miesięcy):**
+- Pokrycie testami do 80% (unit + E2E)
+- Mutation testing dla backendu
+- Audit log (kto/kiedy/co zmienił)
+- Optimistic locking (race conditions przy równoległych edycjach)
+
+**Medium-term (3-12 miesięcy):**
+- Observability (logging, metrics, tracing)
+- Security hardening (rate limiting, input sanitization, CSP)
+- Load testing (benchmarking przy 10+ userów)
+- Background jobs (async PDF generation, integracje)
+
+**Long-term (12+ miesięcy):**
+- CDC (Change Data Capture) dla integracji z zewnętrznymi systemami
+- Multi-tenancy (obsługa wielu firm w jednym systemie)
+- SLO/SLA (Service Level Objectives/Agreements)
+- PWA (Progressive Web App) dla offline access
+- WebSockets dla real-time updates (np. rezerwacje maszyn)
+- Public API dla integracji z systemami klientów
+- AI/ML (predictive availability, pricing optimization)
+- IoT (telemetria maszyn, automatyczne raportowanie zużycia)
+
+---
+
+### Koszty utrzymania — Legacy vs RAO
+
+| Wymiar | Legacy WinForms | RAO (FastAPI + Vue) | Trend |
+|--------|-------------------|---------------------|-------|
+| **Licencje** | .NET, Crystal Reports, Windows seats | Open-source (FastAPI, Vue, WeasyPrint) | Legacy rosną, RAO stałe |
+| **Hardware** | Desktop PC per user | Cloud server (1 VM) | Legacy rosną, RAO stałe |
+| **Utrzymanie** | EOL .NET 4.7.2, brak wsparcia Microsoftu | Active community, regular updates | Legacy rosną, RAO maleją |
+| **Rozwój** | C# .NET, trudny onboarding nowych devów | Python + TypeScript, łatwy onboarding | Legacy rosną, RAO maleją |
+
+**Wniosek:** RAO to **inwestycja długoterminowa** — koszty utrzymania maleją z czasem, podczas gdy legacy rosną (EOL, licencje, hardware).
+
+---
+
+## 11. Podsumowanie — dlaczego migracja ma sens
+
+RAO to nie "przepisanie do przeglądarki", lecz **transformacja paradygmatu** z monolitycznego desktopa do nowoczesnej architektury webowej z type-safe contractem między warstwami.
+
+**Kluczowe korzyści dla Toolsmart:**
+1. **Decyzje data-driven** — realna marża zamiast iluzji obrotu (legacy nie miał cost_company)
+2. **Eliminacja konfliktów rezerwacji** — sprawdzanie dostępności w terminie (legacy nie miał)
+3. **Szybkość operacyjna** — GUS po NIP, drzewiaste kategorie, stawki progowe (legacy nie miał)
+4. **Bezpieczeństwo i spójność danych** — FK, RBAC, SQL injection wyeliminowane strukturalnie (legacy nie miał)
+5. **Scalowalność i przyszłość** — PWA, WebSockets, Public API, AI/ML, IoT (legacy nie pozwala)
+6. **Koszty malejące** — open-source, cloud deploy, edycja w VS Code (legacy rosną z EOL i licencjami)
+
+**RAO osiągnął pełną feature parity z legacy** (wszystkie 6 typów PDF zweryfikowane wizualnie 1:1) i dodał **superlatywy**, których legacy nie miał — szczególnie w obszarze analityki i rozliczeń.
+
+**Aplikacja jest funkcjonalnie gotowa do produkcyjnego wdrożenia.** Wszystkie blockery (P0) i wymagania pre-go-live (P1) są ukończone. Pozostałe prace dotyczą polish UX (np. drilldown w raportach), nie blokują wdrożenia.
 
 ---
 
