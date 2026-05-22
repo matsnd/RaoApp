@@ -5,6 +5,7 @@
       :value="displayValue"
       :placeholder="placeholder"
       class="rao-datepicker-input"
+      data-testid="date-range-trigger"
       @click="openPicker"
       readonly
     />

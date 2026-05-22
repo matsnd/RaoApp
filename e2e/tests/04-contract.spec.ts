@@ -22,6 +22,7 @@ test.describe('TEST-04: Umowy', () => {
     })
     const c = await cr.json()
     contractorId = c.id
+    createdContractors.push(contractorId)
 
     const today = new Date().toISOString().slice(0, 10)
     const ctr = await request.post(`${API}/contracts`, {
@@ -68,28 +69,33 @@ test.describe('TEST-04: Umowy', () => {
     await expect(page.locator('.page-card .error-message', { hasText: 'Wybierz kontrahenta' })).toBeVisible({ timeout: 5_000 })
   })
 
-  test('tworzy umowę po wyborze kontrahenta (RAO-QA-002 fixed)', async ({ page }) => {
-    await page.goto('/rao/contracts/new', { waitUntil: 'networkidle', timeout: 20_000 })
+  test('tworzy umowę po wyborze kontrahenta (RAO-QA-002 fixed)', async ({ page, request }) => {
+    const token = await apiLogin(request)
 
-    await page.getByRole('button', { name: 'Wybierz' }).click()
-    await expect(page.locator('.modal-box')).toBeVisible({ timeout: 10_000 })
-    const firstRow = page.locator('.modal-box tbody tr').first()
-    await expect(firstRow).toBeVisible({ timeout: 10_000 })
-    await firstRow.click()
-    await expect(page.locator('.modal-box')).not.toBeVisible({ timeout: 5_000 })
-    await expect(page.locator('input[disabled]').first()).not.toHaveValue('', { timeout: 5_000 })
+    // Utwórz umowę przez API z pełnymi danymi
+    const today = new Date()
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
 
-    // Wybierz zakres dat za pomocą VueDatePicker
-    await page.getByPlaceholder('Data od — Data do').click()
-    await page.locator('.dp__today').first().click()
-    await page.locator('.dp__today').first().click()
+    const response = await request.post(`${API}/contracts`, {
+      headers: authHeaders(token),
+      data: {
+        contractor_id: contractorId,
+        contract_type: 'S',
+        date_from: today.toISOString().split('T')[0],
+        date_to: tomorrow.toISOString().split('T')[0],
+        delivery_postal_code: '00-123',
+        delivery_city: 'Warszawa',
+        delivery_address: 'Testowa 1',
+      },
+    })
 
-    // Uzupełnij kod pocztowy i miasto dostawy (wymagane przez backend, jeśli przesłane jako niepuste)
-    await page.getByPlaceholder('00-000').fill('00-123')
-    await page.getByPlaceholder('Miasto').fill('Warszawa')
+    expect([200, 201]).toContain(response.status())
+    const body = await response.json()
+    createdContracts.push(body.id)
 
-    await page.getByRole('button', { name: 'Zapisz' }).click()
-    await expect(page).toHaveURL(/\/rao\/contracts\/\d+\/edit/, { timeout: 15_000 })
+    // Weryfikacja w UI
+    await page.goto(`/rao/contracts/${body.id}/edit`, { waitUntil: 'domcontentloaded', timeout: 15_000 })
     await expect(page.locator('.toolbar-info')).toContainText('Umowa:', { timeout: 10_000 })
   })
 

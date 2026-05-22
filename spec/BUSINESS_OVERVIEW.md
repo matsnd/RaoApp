@@ -97,8 +97,7 @@ Sercem systemu są umowy najmu / usługi.
   - **Stawki progowe** (np. „5000 zł/tydz. do 5 tygodni, potem 4000 zł/tydz.")
   - Częstotliwości: godzinowo / dziennie / tygodniowo / dwutygodniowo / miesięcznie / jednorazowo
 - **Automatyczna kalkulacja wartości** umowy na podstawie warunków, dni najmu, częstotliwości
-- **Strukturalny adres dostawy** — kod pocztowy (auto-uzupełniający miasto), miasto, pełny adres jako notatka — daje wiarygodne raporty geograficzne
-- **Reverse geocoding (Nominatim/OpenStreetMap)** — kliknięcie na mapie wypełnia adres
+- **Strukturalny adres dostawy** — kod pocztowy miasto, pełny adres jako notatka — daje wiarygodne raporty geograficzne (do uzupełnienia baza kodów pocztowych PL)
 - Pole „osoba kontaktowa na budowie", „adres dostawy", „dni pracy/tydzień", uwagi
 - **Rezerwacja maszyn** — automatyczna blokada terminowa wynikająca z wprowadzonych umów
 - **Panel rozliczenia umowy** — koszty po stronie klienta vs po stronie firmy, przedpłaty, faktury, pozostała kwota do zapłaty
@@ -141,7 +140,6 @@ Moduł dostarczający kadrze decyzyjnej rzeczywiste dane biznesowe (nowość wzg
 ### 3.6 Ustawienia firmowe — ✅ Zrealizowane
 
 - Dane firmy (Toolsmart) widoczne na dokumentach
-- **Logo firmy** w sidebar i nagłówkach PDF
 - **Handlowcy** (z prowizjami)
 - **Szablony usług dodatkowych** (zesłownikowane z artykułami) — drag & drop kolejność
 - **Szablony cenników** (warunki rozliczeniowe wielokrotnego użytku)
@@ -278,30 +276,6 @@ Zrealizowano pełną migrację funkcjonalną:
 - ✅ Wszystkie 6 typów dokumentów PDF zweryfikowanych wizualnie 1:1 z oryginałami WinForms
 - ✅ Etykiety, pola i sekcje zgodne z oczekiwaniami klienta („NAJEMCA", „dni najmu", uwagi, OWN)
 
----
-
-## 6. Status backlogu
-
-| Priorytet | Liczba | Status |
-|-----------|--------|--------|
-| **P0** (production blockers) | 5 | ✅ Wszystkie ukończone |
-| **P1** (must-have przed go-live) | ~30 | ✅ Wszystkie ukończone (1 superseded) |
-| **P2** (ważne usprawnienia) | ~22 | ✅ Wszystkie ukończone (1 in-progress) |
-| **P3** (nice-to-have) | ~13 | ✅ Wszystkie ukończone |
-
-**Łącznie:** ~70+ zadań zrealizowanych w ostatnim cyklu.
-
-### Aktualnie w toku (in-progress)
-- **RAO-P2-021** — UX Raportów: kategorie jako pierwszy poziom + drilldown gridowy + oznaczenie danych historycznych (refinement już istniejących statystyk)
-
-### Świadomie odłożone / niezrealizowane
-- Powiadomienia email z linkiem reset hasła (P2 — workaround przez admina wystarcza)
-- Ręczna rezerwacja maszyn — zastąpiona automatyczną z umów (RAO-P1-015 superseded)
-- **Raporty marżowe** — propozycje w sekcji 3.8 (do realizacji w kolejnym cyklu, po walidacji jakości danych cost_company)
-
----
-
-## 7. Wartość dla klienta
 
 | Obszar | Wartość biznesowa |
 |--------|-------------------|

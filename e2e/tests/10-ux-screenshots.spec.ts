@@ -100,7 +100,7 @@ test.describe('RAO-P2-016: UX Screenshots', () => {
     await login(page)
     await page.goto('/rao/settings', { waitUntil: 'domcontentloaded', timeout: 15_000 })
     // Kliknij zakładkę Handlowcy
-    await page.getByRole('tab', { name: 'Handlowcy' }).click()
+    await page.getByRole('button', { name: 'Handlowcy' }).click()
     await page.waitForTimeout(500)
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '10-settings-salespeople.png') })
   })
@@ -108,7 +108,7 @@ test.describe('RAO-P2-016: UX Screenshots', () => {
   test('SettingsView - categories', async ({ page }) => {
     await login(page)
     await page.goto('/rao/settings', { waitUntil: 'domcontentloaded', timeout: 15_000 })
-    await page.getByRole('tab', { name: 'Kategorie' }).click()
+    await page.getByRole('button', { name: 'Kategorie' }).click()
     await page.waitForTimeout(500)
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '11-settings-categories.png') })
   })
@@ -116,7 +116,7 @@ test.describe('RAO-P2-016: UX Screenshots', () => {
   test('SettingsView - fee presets', async ({ page }) => {
     await login(page)
     await page.goto('/rao/settings', { waitUntil: 'domcontentloaded', timeout: 15_000 })
-    await page.getByRole('tab', { name: 'Szablony usług' }).click()
+    await page.getByRole('button', { name: 'Zestawy usług' }).click()
     await page.waitForTimeout(500)
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '12-settings-fee-presets.png') })
   })
@@ -124,7 +124,7 @@ test.describe('RAO-P2-016: UX Screenshots', () => {
   test('SettingsView - Fakturownia', async ({ page }) => {
     await login(page)
     await page.goto('/rao/settings', { waitUntil: 'domcontentloaded', timeout: 15_000 })
-    await page.getByRole('tab', { name: 'Fakturownia' }).click()
+    await page.getByRole('button', { name: 'Fakturownia' }).click()
     await page.waitForTimeout(500)
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '13-settings-fakturownia.png') })
   })
