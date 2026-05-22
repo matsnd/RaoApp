@@ -90,7 +90,80 @@ _Brak otwartych zadań P3._
 
 ## 📥 Triaged (do przeglądu)
 
-_Pusto — dodawaj nowe zgłoszenia tutaj z `status: triaged`._
+### [RAO-P1-030] Bug: GUS nie pobiera danych podczas tworzenia kontrahenta
+
+```yaml
+id: RAO-P1-030
+priority: P1
+size: S
+status: triaged
+classification: bugfix
+roles: [backend-dev, qa-engineer]
+depends_on: []
+blocks: []
+source: user-report
+source_date: 2026-05-22
+specs_to_update:
+  - core/07_integrations.md
+migration_impact: no
+security_impact: none
+```
+
+**Job-to-be-done:**
+Naprawić integrację GUS — dane kontrahenta nie są pobierane automatycznie po podaniu NIP podczas tworzenia nowego kontrahenta.
+
+**Acceptance criteria (DoD):**
+- [ ] GUS integration działa poprawnie po podaniu NIP
+- [ ] Dane są automatycznie wypełniane w formularzu kontrahenta
+- [ ] Walidacja sumy kontrolnej NIP działa
+- [ ] Error handling przy błędach GUS API
+- [ ] QA test PASS
+
+**Spec:**
+- [ ] `spec/core/07_integrations.md` — opis fixa GUS
+
+**Pliki do zmiany:** `backend/integrations/gus.py`, `frontend/src/contractors/ContractorFormView.vue`
+**ROI:** Kontrahenci dodawani szybko bez ręcznego wpisywania danych
+**Estimate:** 2-3h (S)
+
+---
+
+### [RAO-P1-031] Bug: Błąd podczas pobierania Prowizje
+
+```yaml
+id: RAO-P1-031
+priority: P1
+size: S
+status: triaged
+classification: bugfix
+roles: [backend-dev, qa-engineer]
+depends_on: []
+blocks: []
+source: user-report
+source_date: 2026-05-22
+specs_to_update:
+  - core/02_backend_api.md
+  - core/04_business_logic.md
+migration_impact: no
+security_impact: none
+```
+
+**Job-to-be-done:**
+Naprawić błąd podczas pobierania/pokazywania prowizji handlowców — prawdopodobnie problem z endpointem lub logiką obliczeń.
+
+**Acceptance criteria (DoD):**
+- [ ] Endpoint prowizji działa bez błędów
+- [ ] Prowizje są poprawnie obliczane (od realnego zarobku)
+- [ ] Frontend wyświetla dane bez errorów
+- [ ] QA test PASS
+
+**Spec:**
+- [ ] `spec/core/02_backend_api.md` — opis fixa endpointu prowizji
+- [ ] `spec/core/04_business_logic.md` — opis logiki obliczeń
+
+**Pliki do zmiany:** `backend/stats/router.py`, `backend/stats/service.py`, `frontend/src/views/ReportsSection.vue`
+**ROI:** Handlowcy widzą swoje prowizje, system nie crashuje
+**Estimate:** 2-3h (S)
 
 ---
 
@@ -99,10 +172,10 @@ _Pusto — dodawaj nowe zgłoszenia tutaj z `status: triaged`._
 | Priorytet | Liczba | Effort łączny |
 |-----------|--------|---------------|
 | 🚨 P0 | 0 | 0h |
-| 🔴 P1 | 0 | 0h |
+| 🔴 P1 | 2 | ~5h |
 | 🟡 P2 | 1 | ~5h |
 | 🟢 P3 | 0 | 0h |
-| **Razem** | **1** | **~5h** |
+| **Razem** | **3** | **~10h** |
 
 ---
 
@@ -111,6 +184,8 @@ _Pusto — dodawaj nowe zgłoszenia tutaj z `status: triaged`._
 | ID | Tytuł | Źródło | P | Est. | Status | Owner |
 |----|-------|--------|---|------|--------|-------|
 | RAO-P2-021 | UX Raportów — kategorie drilldown + info historyczne (carry-over) | client-notes | P2 | M | in-progress | cross-stack |
+| RAO-P1-030 | Bug: GUS nie pobiera danych podczas tworzenia kontrahenta | user-report | P1 | S | triaged | backend-dev |
+| RAO-P1-031 | Bug: Błąd podczas pobierania Prowizje | user-report | P1 | S | triaged | backend-dev |
 
 ---
 
