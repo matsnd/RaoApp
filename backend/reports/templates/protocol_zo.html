@@ -61,6 +61,15 @@
   .ret-uwagi { border: 1px solid #aaa; border-top: none; padding: 4px 6px; font-size: 9px; min-height: 45px; color: #888; }
   
   .note-line { font-size: 9px; font-style: italic; font-weight: bold; margin: 6px 0 10px; }
+
+  /* PRZY WYDANIU / PRZY ODBIORZE */
+  .pwo-section { margin: 8px 0 10px; page-break-inside: avoid; }
+  .pwo-section-title { font-size: 8.5px; font-weight: bold; color: #1D2B53; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #1D2B53; padding-bottom: 2px; margin-bottom: 4px; display: block; }
+  table.pwo { width: 100%; border-collapse: collapse; font-size: 8.5px; }
+  table.pwo th { background: #1D2B53; color: #fff; padding: 3px 6px; font-weight: normal; border: 1px solid #1D2B53; text-align: center; font-size: 8px; }
+  table.pwo td { border: 1px solid #aaa; padding: 2px 5px; height: 20px; vertical-align: middle; }
+  table.pwo td.pwo-label { background: #f0f2f8; font-size: 8.5px; white-space: nowrap; }
+  table.pwo tr.pwo-uwagi td { height: 36px; vertical-align: top; padding-top: 4px; }
   
   .own-page { page-break-before: always; font-size: 8.5px; line-height: 1.45; padding: 10px 14mm; }
   .own-title { font-size: 13px; font-weight: bold; text-align: center; margin-bottom: 6px; }
@@ -157,6 +166,30 @@
   <div class="fuel-line">poziom uzupełnienia zbiornika/naładowania: .......................................</div>
   <div class="legal-line">Pokwitowanie niniejszego Protokołu Zdawczo - Odbiorczego jest jednoznaczne z oświadczeniem o zapoznaniu się z Ogólnymi Warunkami Umowy Najmu (dalej: OWN) oraz ich akceptacją.</div>
 
+  <!-- PRZY WYDANIU / PRZY ODBIORZE -->
+  <div class="pwo-section">
+    <span class="pwo-section-title">Przy wydaniu / Przy odbiorze</span>
+    <table class="pwo">
+      <thead>
+        <tr>
+          <th style="width: 36%;"></th>
+          <th style="width: 32%;">PRZY WYDANIU</th>
+          <th style="width: 32%;">PRZY ODBIORZE</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="pwo-label">Data i godzina</td><td></td><td></td></tr>
+        <tr><td class="pwo-label">Urządzenie i model</td><td></td><td></td></tr>
+        <tr><td class="pwo-label">Stan paliwa</td><td></td><td></td></tr>
+        <tr><td class="pwo-label">Ilość kluczyków</td><td></td><td></td></tr>
+        <tr><td class="pwo-label">Stan wideł</td><td></td><td></td></tr>
+        <tr><td class="pwo-label">Czystość maszyny</td><td></td><td></td></tr>
+        <tr><td class="pwo-label">Dokumentacja zdjęciowa</td><td></td><td></td></tr>
+        <tr><td class="pwo-label">Dodatkowe akcesoria</td><td></td><td></td></tr>
+        <tr class="pwo-uwagi"><td class="pwo-label">Uwagi</td><td></td><td></td></tr>
+      </tbody>
+    </table>
+  </div>
 
   <!-- DELIVERY SIGNATURES -->
   <table class="sigs" style="margin-top: 20px;">
