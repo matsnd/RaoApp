@@ -22,15 +22,17 @@ Testowy WSDL: `https://wyszukiwarkaregontest.stat.gov.pl/wsBIR/UslugaBIRzewnPubl
 ### Status integracji (2026-05-22)
 
 **Current state:** Mock data implementation
-- Klucz GUS ze starej aplikacji (d4feaf84608747c1addd) nie działa z produkcyjnym API
-- Testowe API wymaga innego klucza lub nie działa w ogóle
+- Klucz GUS ze starej aplikacji (d4feaf84608747c1addd) nie działa - zwraca pusty `<ZalogujResult/>`
+- Oznacza to, że klucz jest nieprawidłowy lub wygasły
+- Testowe API również zwraca pusty `<ZalogujResult/>` z tym samym kluczem
 - Zaimplementowano mock data z informacją o problemie
 - Endpoint działa poprawnie i zwraca dane testowe
 
 **Aby włączyć pełną integrację:**
-1. Zarejestruj klucz API na https://api.stat.gov.pl/Home/RegonApi
+1. Zarejestruj nowy klucz API na https://api.stat.gov.pl/Home/RegonApi
 2. Zaktualizuj `RAO_GUS_API_KEY` w `.env`
-3. Przywróć pełną implementację SOAP z `integrations/gus.py`
+3. Przywróć pełną implementację SOAP z `integrations/gus.py` (poniżej)
+4. Dodaj `lxml` z powrotem do `requirements.txt`
 
 ### Implementacja (mock data)
 

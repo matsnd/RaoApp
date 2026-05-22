@@ -9,8 +9,8 @@ class GusClient:
     async def lookup(self, nip: str) -> dict:
         from contractors.schemas import GusLookupResponse
         try:
-            # GUS API klucz ze starej aplikacji (d4feaf84608747c1addd) nie działa z produkcyjnym API
-            # Testowe API wymaga innego klucza lub nie działa w ogóle
+            # Klucz GUS ze starej aplikacji (d4feaf84608747c1addd) nie działa - zwraca pusty <ZalogujResult/>
+            # Oznacza to, że klucz jest nieprawidłowy lub wygasły
             # Zwracamy mock data z informacją o problemie
             return GusLookupResponse(
                 name="Firma Testowa Sp. z o.o.",
