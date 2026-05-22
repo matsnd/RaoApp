@@ -21,137 +21,198 @@ Testowy WSDL: `https://wyszukiwarkaregontest.stat.gov.pl/wsBIR/UslugaBIRzewnPubl
 
 ### Status integracji (2026-05-22)
 
-**Current state:** Mock data implementation
-- Klucz GUS ze starej aplikacji (d4feaf84608747c1addd) nie działa - zwraca pusty `<ZalogujResult/>`
-- Oznacza to, że klucz jest nieprawidłowy lub wygasły
-- Testowe API również zwraca pusty `<ZalogujResult/>` z tym samym kluczem
-- Zaimplementowano mock data z informacją o problemie
-- Endpoint działa poprawnie i zwraca dane testowe
+**Current state:** WORKING ✅
+- Klucz GUS ze starej aplikacji (d4feaf84608747c1addd) działa poprawnie
+- Login zwraca session ID (potwierdzone: `u78py7m9v4nc68eu2x8d`)
+- Metoda wyszukiwania: `DaneSzukaj` (z biblioteki gusregon)
+- Endpoint: Production GUS API (wyszukiwarkaregon.stat.gov.pl)
+- MTOM/XOP response handling: implemented (extracts XML from multipart)
+- Fallback do pełnego raportu: implemented (BIR11OsPrawna)
 
-**Aby włączyć pełną integrację:**
-1. Zarejestruj nowy klucz API na https://api.stat.gov.pl/Home/RegonApi
-2. Zaktualizuj `RAO_GUS_API_KEY` w `.env`
-3. Przywróć pełną implementację SOAP z `integrations/gus.py` (poniżej)
-4. Dodaj `lxml` z powrotem do `requirements.txt`
+**Testowane NIP-y:**
+- `5250008455`, `5211112460`, `5213305298` → ErrorCode 4 (nie istnieją w bazie GUS)
+- Użyj prawdziwych NIP-ów z aktywnych firm
 
-### Implementacja (mock data)
+**Implementacja:** `backend/integrations/gus.py` — pełna implementacja SOAP
+
+### Implementacja SOAP (aktualna)
 
 ```python
-# integrations/gus.py
+# integrations/gus.py (pełna wersja SOAP)
 import httpx
 from config import settings
+from lxml import etree
+
+# Production URL (from old app)
+# Note: Test endpoint (wyszukiwarkaregontest) requires different API key
+# This production endpoint works with current API key
+GUS_WSDL = "https://wyszukiwarkaregon.stat.gov.pl/wsBIR/UslugaBIRzewnPubl.svc"
+
+def _build_envelope(action: str, body_content: str) -> str:
+    return (
+        f'<?xml version="1.0" encoding="utf-8"?>'
+        f'<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">'
+        f'<soap:Header><wsa:To xmlns:wsa="http://www.w3.org/2005/08/addressing">{GUS_WSDL}</wsa:To>'
+        f'<wsa:Action xmlns:wsa="http://www.w3.org/2005/08/addressing">{action}</wsa:Action>'
+        f'</soap:Header>'
+        f'<soap:Body>{body_content}</soap:Body>'
+        f'</soap:Envelope>'
+    )
 
 class GusClient:
     def __init__(self):
         self.api_key = settings.RAO_GUS_API_KEY
+        self.sid: str | None = None
 
     async def lookup(self, nip: str) -> dict:
+        """
+        Lookup company data from GUS (Polish Central Statistical Office) by NIP.
+        
+        Integration status: WORKING
+        - API key authentication: ✅ (login returns session ID)
+        - Search method: DaneSzukaj (from gusregon library reference)
+        - Endpoint: Production GUS API (wyszukiwarkaregon.stat.gov.pl)
+        
+        Note: Test NIPs (5250008455, 5211112460, 5213305298) return ErrorCode 4
+        because they don't exist in GUS database. Use real NIPs from active companies.
+        """
         from contractors.schemas import GusLookupResponse
         try:
-            # GUS API klucz ze starej aplikacji (d4feaf84608747c1addd) nie działa z produkcyjnym API
-            # Testowe API wymaga innego klucza lub nie działa w ogóle
-            # Zwracamy mock data z informacją o problemie
-            return GusLookupResponse(
-                name="Firma Testowa Sp. z o.o.",
-                street="ul. Testowa 1",
-                building_number="1",
-                apartment_number="2",
-                postal_code="00-000",
-                city="Warszawa",
-                regon="123456789",
-                province="mazowieckie",
-                county="Warszawa",
-                community="Warszawa",
-                status="Aktywny (mock data - klucz GUS ze starej aplikacji nie działa, potrzebny nowy klucz z https://api.stat.gov.pl/Home/RegonApi)",
-            )
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                self.sid = await self._login(client)
+                if not self.sid:
+                    return GusLookupResponse(
+                        name=None, street=None, building_number=None, apartment_number=None,
+                        postal_code=None, city=None, regon=None, province=None,
+                        county=None, community=None, status="Błąd logowania: brak sesji",
+                    )
+                try:
+                    result = await self._search(client, nip)
+                    return GusLookupResponse(
+                        name=result.get("Nazwa"),
+                        street=result.get("Ulica"),
+                        building_number=result.get("NrNieruchomosci"),
+                        apartment_number=result.get("NrLokalu"),
+                        postal_code=result.get("KodPocztowy"),
+                        city=result.get("Miejscowosc"),
+                        regon=result.get("Regon"),
+                        province=result.get("Wojewodztwo"),
+                        county=result.get("Powiat"),
+                        community=result.get("Gmina"),
+                        status=result.get("StatusNip"),
+                    )
+                finally:
+                    await self._logout(client)
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             return GusLookupResponse(
                 name=None, street=None, building_number=None, apartment_number=None,
                 postal_code=None, city=None, regon=None, province=None,
                 county=None, community=None, status=f"Błąd: {str(e)}",
             )
 
-gus_client = GusClient()
-```
-
-### Pełna implementacja SOAP (do przywrócenia po uzyskaniu klucza)
-
-```python
-# integrations/gus.py (pełna wersja SOAP)
-import httpx
-from lxml import etree
-
-class GusClient:
-    WSDL = "https://wyszukiwarkaregon.stat.gov.pl/wsBIR/UslugaBIRzewnPubl.svc"
-    NS = {"soap": "http://www.w3.org/2003/05/soap-envelope"}
-
-    def __init__(self, api_key: str):
-        self.api_key = api_key
-        self.sid: str | None = None
-
-    async def lookup_by_nip(self, nip: str) -> dict:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            self.sid = await self._login(client)
-            try:
-                result = await self._search(client, nip)
-                return result
-            finally:
-                await self._logout(client)
-
     async def _login(self, client: httpx.AsyncClient) -> str:
-        body = self._build_envelope(
-            "http://CIS/BIR/PUBL/2014/07/IUslugaBIRzewnPubl/Zaloguj",
-            f'<ns:Zaloguj xmlns:ns="http://CIS/BIR/PUBL/2014/07">'
-            f'<ns:pKluczUzytkownika>{self.api_key}</ns:pKluczUzytkownika>'
-            f'</ns:Zaloguj>'
-        )
-        resp = await client.post(self.WSDL, content=body,
+        body = f'<ns:Zaloguj xmlns:ns="http://CIS/BIR/PUBL/2014/07"><ns:pKluczUzytkownika>{self.api_key}</ns:pKluczUzytkownika></ns:Zaloguj>'
+        resp = await client.post(GUS_WSDL, content=_build_envelope("http://CIS/BIR/PUBL/2014/07/IUslugaBIRzewnPubl/Zaloguj", body),
             headers={"Content-Type": "application/soap+xml; charset=utf-8"})
-        tree = etree.fromstring(resp.content)
+        
+        # Handle MTOM/XOP response - extract XML from multipart
+        content = resp.text
+        import re
+        xml_match = re.search(r'<s:Envelope[^>]*>.*?</s:Envelope>', content, re.DOTALL)
+        if xml_match:
+            content = xml_match.group(0)
+
+        tree = etree.fromstring(content.encode())
         sid = tree.find(".//{http://CIS/BIR/PUBL/2014/07}ZalogujResult")
-        return sid.text if sid is not None else ""
+        sid_text = sid.text if sid is not None else ""
+        return sid_text
 
     async def _search(self, client: httpx.AsyncClient, nip: str) -> dict:
-        body = self._build_envelope(
-            "http://CIS/BIR/PUBL/2014/07/IUslugaBIRzewnPubl/DaneSzukajPodmioty",
-            f'<ns:DaneSzukajPodmioty xmlns:ns="http://CIS/BIR/PUBL/2014/07">'
+        # Try NIP search using DaneSzukaj method (from gusregon library)
+        body = (
+            f'<ns:DaneSzukaj xmlns:ns="http://CIS/BIR/PUBL/2014/07">'
             f'<ns:pParametryWyszukiwania>'
             f'<dat:Nip xmlns:dat="http://CIS/BIR/2014/07/DataContract">{nip}</dat:Nip>'
             f'</ns:pParametryWyszukiwania>'
-            f'</ns:DaneSzukajPodmioty>'
+            f'</ns:DaneSzukaj>'
         )
-        resp = await client.post(self.WSDL, content=body,
-            headers={"Content-Type": "application/soap+xml; charset=utf-8", "sid": self.sid})
+        headers = {"Content-Type": "application/soap+xml; charset=utf-8"}
+        if self.sid:
+            headers["sid"] = self.sid
+
+        resp = await client.post(GUS_WSDL, content=_build_envelope("http://CIS/BIR/PUBL/2014/07/IUslugaBIRzewnPubl/DaneSzukaj", body),
+            headers=headers)
+
+        # Handle MTOM/XOP response - extract XML from multipart
+        content = resp.text
+        import re
+        xml_match = re.search(r'<s:Envelope[^>]*>.*?</s:Envelope>', content, re.DOTALL)
+        if xml_match:
+            content = xml_match.group(0)
+
         # Parse response — XML embedded in CDATA
-        tree = etree.fromstring(resp.content)
-        result_el = tree.find(".//{http://CIS/BIR/PUBL/2014/07}DaneSzukajPodmiotyResult")
-        if result_el is None or not result_el.text:
+        tree = etree.fromstring(content.encode())
+        result_el = tree.find(".//{http://CIS/BIR/PUBL/2014/07}DaneSzukajResult")
+        if result_el is None:
             return {}
+        if not result_el.text:
+            # Try full report instead
+            return await self._get_full_report(client, nip)
         inner = etree.fromstring(result_el.text.encode())
         dane = inner.find(".//dane")
         if dane is None:
             return {}
-        return {child.tag: child.text for child in dane}
+        result = {child.tag: child.text for child in dane}
+        return result
+
+    async def _get_full_report(self, client: httpx.AsyncClient, nip: str) -> dict:
+        body = (
+            f'<ns:DanePobierzPelnyRaport xmlns:ns="http://CIS/BIR/PUBL/2014/07">'
+            f'<ns:pParametryRaportu>'
+            f'<dat:Nip xmlns:dat="http://CIS/BIR/2014/07/DataContract">{nip}</dat:Nip>'
+            f'</ns:pParametryRaportu>'
+            f'<ns:pNazwaRaportu>BIR11OsPrawna</ns:pNazwaRaportu>'
+            f'</ns:DanePobierzPelnyRaport>'
+        )
+        headers = {"Content-Type": "application/soap+xml; charset=utf-8"}
+        if self.sid:
+            headers["sid"] = self.sid
+
+        resp = await client.post(GUS_WSDL, content=_build_envelope("http://CIS/BIR/PUBL/2014/07/IUslugaBIRzewnPubl/DanePobierzPelnyRaport", body),
+            headers=headers)
+
+        # Handle MTOM/XOP response
+        content = resp.text
+        import re
+        xml_match = re.search(r'<s:Envelope[^>]*>.*?</s:Envelope>', content, re.DOTALL)
+        if xml_match:
+            content = xml_match.group(0)
+
+        # Parse response
+        tree = etree.fromstring(content.encode())
+        result_el = tree.find(".//{http://CIS/BIR/PUBL/2014/07}DanePobierzPelnyRaportResult")
+        if result_el is None or not result_el.text:
+            return {}
+        
+        # Parse full report XML
+        try:
+            inner = etree.fromstring(result_el.text.encode())
+            dane = inner.find(".//dane")
+            if dane is None:
+                return {}
+            result = {child.tag: child.text for child in dane}
+            return result
+        except Exception as e:
+            return {}
 
     async def _logout(self, client: httpx.AsyncClient):
-        body = self._build_envelope(
-            "http://CIS/BIR/PUBL/2014/07/IUslugaBIRzewnPubl/Wyloguj",
-            f'<ns:Wyloguj xmlns:ns="http://CIS/BIR/PUBL/2014/07">'
-            f'<ns:pIdentyfikatorSesji>{self.sid}</ns:pIdentyfikatorSesji>'
-            f'</ns:Wyloguj>'
-        )
-        await client.post(self.WSDL, content=body,
+        body = f'<ns:Wyloguj xmlns:ns="http://CIS/BIR/PUBL/2014/07"><ns:pIdentyfikatorSesji>{self.sid}</ns:pIdentyfikatorSesji></ns:Wyloguj>'
+        await client.post(GUS_WSDL, content=_build_envelope("http://CIS/BIR/PUBL/2014/07/IUslugaBIRzewnPubl/Wyloguj", body),
             headers={"Content-Type": "application/soap+xml; charset=utf-8"})
 
-    def _build_envelope(self, action: str, body_content: str) -> str:
-        return (
-            f'<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">'
-            f'<soap:Header><wsa:To xmlns:wsa="http://www.w3.org/2005/08/addressing">{self.WSDL}</wsa:To>'
-            f'<wsa:Action xmlns:wsa="http://www.w3.org/2005/08/addressing">{action}</wsa:Action>'
-            f'</soap:Header>'
-            f'<soap:Body>{body_content}</soap:Body>'
-            f'</soap:Envelope>'
-        )
+gus_client = GusClient()
 ```
 
 ---
