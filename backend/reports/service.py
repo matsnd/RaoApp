@@ -207,27 +207,38 @@ _FONT_DIR = pathlib.Path(__file__).parent / "fonts"
 
 
 def _font_face_css() -> str:
-    """Build @font-face CSS pointing to bundled Roboto .ttf files."""
-    regular = _FONT_DIR / "Roboto-Regular.ttf"
-    bold = _FONT_DIR / "Roboto-Bold.ttf"
-    if not regular.exists():
-        return ""
-    reg_uri = regular.resolve().as_posix()
-    bold_uri = bold.resolve().as_posix()
-    return f"""
-    @font-face {{
-        font-family: 'Roboto';
-        font-style: normal;
-        font-weight: 400;
-        src: url('file:///{reg_uri}') format('truetype');
-    }}
-    @font-face {{
-        font-family: 'Roboto';
-        font-style: normal;
-        font-weight: 700;
-        src: url('file:///{bold_uri}') format('truetype');
-    }}
+    """Build @font-face CSS pointing to bundled .ttf files.
+
+    Bundled fonts (all in backend/reports/fonts/):
+      Montserrat  — body/headers (Toolsmart design system)
+      Tinos       — OWN legal sections (metrically identical to Times New Roman)
+      Roboto      — page footer counters
     """
+    def _uri(name: str) -> str:
+        return (_FONT_DIR / name).resolve().as_posix()
+
+    faces = []
+
+    for name, weight, fname in [
+        ("Montserrat", 400, "Montserrat-Regular.ttf"),
+        ("Montserrat", 700, "Montserrat-Bold.ttf"),
+        ("Tinos",      400, "Tinos-Regular.ttf"),
+        ("Tinos",      700, "Tinos-Bold.ttf"),
+        ("Roboto",     400, "Roboto-Regular.ttf"),
+        ("Roboto",     700, "Roboto-Bold.ttf"),
+    ]:
+        path = _FONT_DIR / fname
+        if not path.exists():
+            continue
+        faces.append(f"""
+    @font-face {{
+        font-family: '{name}';
+        font-style: normal;
+        font-weight: {weight};
+        src: url('file:///{_uri(fname)}') format('truetype');
+    }}""")
+
+    return "\n".join(faces)
 
 
 def _pdf_via_weasyprint(html: str, use_footer: bool = True) -> bytes:

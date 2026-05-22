@@ -155,6 +155,32 @@
         </div>
       </section>
 
+      <!-- PRZETERMINOWANE UMOWY -->
+      <section class="worker-card overdue">
+        <div class="card-header">
+          <span class="card-icon">⚠️</span>
+          <h2>Przeterminowane umowy</h2>
+          <span class="badge-count badge-red" v-if="overdue.length">{{ overdue.length }}</span>
+        </div>
+        <div class="card-body no-pad">
+          <div v-if="loadingOverdue" class="skeleton-list padded">
+            <div class="skel-row" v-for="i in 2" :key="i"></div>
+          </div>
+          <div v-else-if="!overdue.length" class="empty">
+            <span class="empty-ok">✓</span> Brak przeterminowanych umów
+          </div>
+          <div v-else class="unprinted-list">
+            <div v-for="c in overdue" :key="c.id" class="unp-row">
+              <div class="unp-info" @click="$router.push(`/contracts/${c.id}/edit`)">
+                <span class="unp-number">{{ c.number }}</span>
+                <span class="unp-contractor">{{ c.contractor_name }}</span>
+                <span class="unp-dates overdue-meta">⚠️ {{ c.days_overdue }} dni po terminie (do {{ formatDate(c.date_to) }})</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
     </div>
   </div>
 </template>
@@ -175,11 +201,13 @@ const expiring = ref([])
 const deliveries = ref([])
 const unprinted = ref([])
 const stale = ref([])
+const overdue = ref([])
 
 const loadingExpiring = ref(false)
 const loadingDeliveries = ref(false)
 const loadingUnprinted = ref(false)
 const loadingStale = ref(false)
+const loadingOverdue = ref(false)
 
 const expiringDays = ref(14)
 const deliveryLookahead = ref(2)
@@ -241,6 +269,16 @@ async function loadStale() {
   }
 }
 
+async function loadOverdue() {
+  loadingOverdue.value = true
+  try {
+    const res = await api.get('/stats/overdue-contracts')
+    overdue.value = res.data
+  } finally {
+    loadingOverdue.value = false
+  }
+}
+
 function setExpiringDays(d) {
   expiringDays.value = d
   loadExpiring()
@@ -264,6 +302,7 @@ onMounted(() => {
   loadDeliveries()
   loadUnprinted()
   loadStale()
+  loadOverdue()
 })
 </script>
 
@@ -541,6 +580,7 @@ onMounted(() => {
 }
 .print-btn:hover { background: #DDE6FF; }
 .stale-meta { color: #C05621; }
+.overdue-meta { color: #DC2626; font-weight: 600; }
 
 @media (max-width: 900px) {
   .worker-grid { grid-template-columns: 1fr; }

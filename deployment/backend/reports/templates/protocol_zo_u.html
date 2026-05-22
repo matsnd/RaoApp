@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; font-family: 'Roboto', sans-serif; font-size: 10px; color: #000; width: 210mm; height: 282mm; }
+  body { display: flex; flex-direction: column; overflow: visible; }
+  
+  /* HEADER */
+  table.hdr { width: 100%; background: #1D2B53; color: #fff; border-collapse: collapse; flex-shrink: 0; }
+  .hdr-left { width: 33%; padding: 10px 10px 10px 14mm; font-size: 8px; line-height: 1.6; vertical-align: middle; }
+  .hdr-center { width: 34%; text-align: center; vertical-align: middle; padding: 8px; }
+  .hdr-logo { font-size: 22px; font-weight: bold; letter-spacing: 2px; line-height: 1.1; }
+  .hdr-slogan { font-size: 7.5px; letter-spacing: 3px; margin-top: 2px; }
+  .hdr-right { width: 33%; text-align: right; padding: 10px 14mm 10px 10px; font-size: 8px; line-height: 1.6; vertical-align: middle; }
+  
+  /* CONTENT */
+  .content { flex: 1; display: flex; flex-direction: column; padding: 30px 14mm 10px 14mm; }
+  
+  /* TOP SECTIONS */
+  table.top { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+  .top-left { width: 40%; vertical-align: top; padding: 0 10px 0 0; }
+  .top-left-inner { border: 1px solid #aaa; padding: 10px 8px; font-size: 10px; line-height: 1.4; min-height: 80px; }
+  .box-label { font-size: 8px; color: #888; margin-bottom: 2px; }
+  .top-right { vertical-align: middle; padding-left: 10px; text-align: center; }
+  .pzo-title { font-size: 18px; font-weight: bold; margin-bottom: 5px; color: #1D2B53; }
+  .pzo-sub { font-size: 10px; line-height: 1.7; color: #1D2B53; }
+  table.boxes { width: 100%; border-collapse: collapse; margin-bottom: 12px; table-layout: fixed; }
+  .box-cell { width: 50%; vertical-align: top; }
+  .box-inner { border: 1px solid #aaa; padding: 8px 8px; font-size: 10px; line-height: 1.4; min-height: 55px; }
+  
+  /* POSITIONS TABLE */
+  table.pos { width: 100%; border-collapse: collapse; font-size: 9.5px; margin: 0 0 8px; }
+  table.pos th { font-size: 9px; color: #555; padding: 4px 5px; border-bottom: 1px solid #aaa; font-weight: normal; text-align: center; }
+  table.pos td { padding: 5px 5px; border-bottom: 1px solid #ddd; vertical-align: top; text-align: center; }
+  table.pos th:nth-child(2), table.pos td:nth-child(2) { text-align: left; }
+  
+  /* TEXT */
+  .legal-line { font-size: 9.5px; margin: 6px 0 15px; }
+  
+  /* SIGNATURES */
+  table.sigs { width: 100%; border-collapse: collapse; margin-top: 15px; }
+  table.sigs td { text-align: center; width: 50%; font-size: 10px; vertical-align: bottom; }
+  .sig-line { border-top: 1px solid #000; display: inline-block; width: 220px; padding-top: 3px; }
+  
+  /* BOTTOM SECTION (Flex push) */
+  .bottom-section { margin-top: auto; }
+  
+  /* RETURN SECTION */
+  table.return-table { width: 100%; border-collapse: collapse; font-size: 9px; margin-bottom: 0; }
+  table.return-table td { border: 1px solid #aaa; padding: 4px 6px; vertical-align: top; color: #888; }
+  .ret-col1 { width: 45%; height: 35px; }
+  .ret-col2 { width: 25%; }
+  .ret-col3 { width: 30%; }
+  .ret-uwagi { border: 1px solid #aaa; border-top: none; padding: 4px 6px; font-size: 9px; min-height: 45px; color: #888; }
+  
+  .note-line { font-size: 9px; font-style: italic; font-weight: bold; margin: 6px 0 10px; }
+  
+  .own-page { page-break-before: always; font-size: 8.5px; line-height: 1.45; padding: 10px 14mm; }
+  .own-title { font-size: 13px; font-weight: bold; text-align: center; margin-bottom: 6px; }
+  .own-par { font-size: 10px; font-weight: bold; text-align: center; margin: 8px 0 1px; }
+  .own-sub { font-weight: bold; text-align: center; font-size: 9px; margin: 0 0 5px; }
+  .own-cols { column-count: 2; column-gap: 14px; }
+  p.ot { margin: 0 0 4px; text-align: justify; }
+  .own-sig-row { margin-top: 16px; overflow: hidden; clear: both; }
+  .own-sig-cell { float: left; width: 50%; text-align: center; }
+  .own-sig-line { display: inline-block; border-top: 1px solid #000; width: 180px; padding-top: 3px; font-size: 8px; }
+
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<table class="hdr">
+  <tr>
+    <td class="hdr-left">toolsmart.pl<br>+48 888 992 015<br>biuro@toolsmart.pl</td>
+    <td class="hdr-center">
+      <div class="hdr-logo">TOOLSMART</div>
+      <div class="hdr-slogan">WYNAJEM MASZYN BUDOWLANYCH</div>
+    </td>
+    <td class="hdr-right">{{ company.name if company else 'TOOLSMART Sp. z o.o.' }}<br>ul. {{ company.street if company else 'Kłobucka 6B/103' }},<br>{{ (company.postal_code + ' ' + company.city) if company else '02-699 Warszawa' }}<br>NIP {{ company.nip if company else '9512598092' }}</td>
+  </tr>
+</table>
+
+<div class="content">
+
+  <!-- TOP -->
+  <table class="top">
+    <tr>
+      <td class="top-left">
+        <div class="top-left-inner">
+          <div class="box-label">NAJEMCA</div>
+          <strong>{{ contractor.name if contractor else (contract.contractor_name or '') }}</strong><br>
+          {% if contractor %}{% if contractor.street or contractor.postal_code or contractor.city %}ul. {{ contractor.street or '' }}, {{ contractor.postal_code or '' }} {{ contractor.city or '' }}<br>
+          {% endif %}NIP: {{ contractor.nip or '' }}{% endif %}
+        </div>
+      </td>
+      <td class="top-right">
+        <div class="pzo-title">PROTOKÓŁ WYKONANIA USŁUGI</div>
+        <div class="pzo-sub">
+          do umowy nr {{ contract.number }}<br>
+          zawartej w dniu {{ contract.date_from | datepl }}<br>
+          {% set svc_date = (positions[0].pos.delivery_date if positions else None) or contract.date_from %}
+          {% if svc_date %}termin wykonania usługi {{ svc_date | datepl }}{% endif %}
+        </div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- BOXES -->
+  <table class="boxes">
+    <tr>
+      <td class="box-cell" style="padding-right: 5px; width: 50%;">
+        <div class="box-inner">
+          <div class="box-label">osoba upoważniona do odbioru przedmiotu najmu</div>
+          {% if contract.contact_person1 %}{{ contract.contact_person1 }}{% if contract.contact_phone1 %}, tel. {{ contract.contact_phone1 }}{% endif %}{% endif %}
+        </div>
+      </td>
+      <td class="box-cell" style="padding-left: 5px; width: 50%;">
+        <div class="box-inner">
+          <div class="box-label">miejsce dostawy i odbioru przedmiotu najmu</div>
+          {% if contract.delivery_address %}<div style="white-space: pre-wrap;">{{ contract.delivery_address }}</div>{% endif %}
+          {% if contract.phone %}<br>telefon: {{ contract.phone }}{% endif %}
+        </div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- POSITIONS (zgodnie z PDF WinForms: tylko 2 kolumny "przedmiot najmu | dane") -->
+  <table class="pos">
+    <thead>
+      <tr>
+        <th style="width:20px;"></th>
+        <th>przedmiot najmu</th>
+        <th style="text-align:left;">dane</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for p in positions %}
+    <tr>
+      <td>{{ loop.index }}</td>
+      <td>{{ p.pos.article_name or '' }}</td>
+      <td style="text-align:left;">
+        {% if p.serial_no %}nr seryjny: {{ p.serial_no }}{% endif %}
+        {% if p.pos.delivery_date %}{% if p.serial_no %} · {% endif %}data: {{ p.pos.delivery_date | datepl }}{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- SERVICE HOURS SECTION — dane z bazy lub puste wiersze -->
+  {% for p in positions %}
+  <div style="margin: 16px 0 10px; page-break-inside: avoid;">
+    <table class="pos" style="margin-bottom: 10px;">
+      <thead>
+        <tr>
+          <th style="width: 150px;">Data wykonania usługi</th>
+          <th style="width: 45px;">od</th>
+          <th style="width: 45px;">do</th>
+          <th>podpis osoby upoważnionej</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if p.service_hours and p.service_hours|length > 0 %}
+          {% for hour in p.service_hours %}
+          <tr style="height: 28px;">
+            <td>{{ hour.service_date|datepl if hour.service_date else '' }}</td>
+            <td>{{ hour.time_from.strftime('%H:%M') if hour.time_from else '' }}</td>
+            <td>{{ hour.time_to.strftime('%H:%M') if hour.time_to else '' }}</td>
+            <td>{{ hour.notes or '' }}</td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <!-- 5 pustych wierszy do wypełnienia ręcznego -->
+          <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
+          <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
+          <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
+          <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
+          <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+  {% endfor %}
+
+  <!-- PUSH TO BOTTOM -->
+  <div class="bottom-section">
+
+    <!-- UWAGI BOX -->
+    <div class="ret-uwagi" style="border: 1px solid #aaa; padding: 6px; font-size: 9px; min-height: 80px; color: #888; margin-bottom: 4px;">uwagi</div>
+
+    <!-- SIGNATURE -->
+    <table class="sigs" style="margin-top: 20px;">
+      <tr>
+        <td>
+          <div style="text-align:center;">
+            {% if stamp_src %}<img src="{{ stamp_src }}" alt="Pieczątka firmy" style="width:180px;height:70px;object-fit:contain;margin-bottom:10px;">{% endif %}
+            <div class="sig-line" style="margin-top:10px;">czytelny podpis Wynajmującego</div>
+          </div>
+        </td>
+        <td style="padding-top:40px; vertical-align: bottom;">
+          <div class="sig-line" style="margin-top:10px;">czytelny podpis Najemcy</div>
+        </td>
+      </tr>
+    </table>
+
+  </div> <!-- /bottom-section -->
+
+</div> <!-- /content -->
+
+</body>
+</html>

@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { size: A4; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 0; font-family: 'Montserrat', sans-serif; font-size: 10px; color: #000; }
+
+  /* HEADER */
+  table.hdr { width: 100%; background: #1D2B53; color: #fff; border-collapse: collapse; }
+  .hdr-left { width: 28%; padding: 10px 10px 10px 14mm; font-size: 8px; line-height: 1.6; vertical-align: middle; }
+  .hdr-center { text-align: center; vertical-align: middle; padding: 8px; }
+  .hdr-logo { font-size: 22px; font-weight: bold; letter-spacing: 2px; line-height: 1.1; }
+  .hdr-slogan { font-size: 7.5px; letter-spacing: 3px; margin-top: 2px; }
+  .hdr-right { width: 28%; text-align: right; padding: 10px 14mm 10px 10px; font-size: 8px; line-height: 1.6; vertical-align: middle; }
+
+  /* CONTENT */
+  .content { padding: 8px 14mm 8px 14mm; }
+
+  /* TITLE */
+  .doc-title { font-size: 16px; text-align: center; margin: 16px 0 4px; font-weight: normal; }
+  .doc-sub { font-size: 10px; text-align: center; margin-bottom: 24px; }
+
+  /* PARTIES */
+  table.parties { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+  .party-box { width: 42%; vertical-align: top; padding: 0 10px 0 0; }
+  .party-box-inner { border: 1px solid #aaa; padding: 5px 8px; font-size: 9px; line-height: 1.5; }
+  .party-label { font-size: 8px; color: #888; }
+  .info-col { vertical-align: top; padding-left: 4px; font-size: 9.5px; line-height: 1.7; }
+
+  /* UZUPELNIJ */
+  .uz-wrap { border: 1px solid #aaa; margin-bottom: 8px; }
+  .uz-label { color: #E07800; font-size: 9px; padding: 5px 8px 0 8px; }
+  /* FOOTER LEGAL */
+  .footer-legal { font-size: 8px; line-height: 1.4; margin-top: 10px; }
+  .footer-legal strong { font-size: 8.5px; }
+  table.uz { width: 100%; border-collapse: collapse; padding: 0 8px 4px 8px; }
+  table.uz td { font-size: 9px; padding: 2px 4px; vertical-align: bottom; }
+  .fill { background: #ffff99; border-bottom: 2px dotted #c00000; height: 20px; min-width: 140px; padding: 2px 4px; font-size: 10px; }
+  .fill-wide { background: #ffff99; border-bottom: 2px dotted #c00000; height: 20px; padding: 2px 4px; font-size: 10px; width: 100%; }
+
+  /* LEGAL ITALIC */
+  .legal-italic { font-size: 8.5px; font-style: italic; line-height: 1.4; margin: 6px 0; }
+
+  /* POSITIONS TABLE */
+  table.pos { width: 100%; border-collapse: collapse; font-size: 9px; margin: 4px 0 6px; }
+  table.pos th { font-size: 8.5px; color: #555; padding: 3px 5px; border-bottom: 1px solid #aaa; font-weight: normal; }
+  table.pos td { padding: 4px 5px; border-bottom: 1px solid #ddd; vertical-align: top; }
+  .cond { white-space: pre-line; font-size: 9px; }
+
+  /* BOTTOM TWO COLUMNS */
+  table.bottom { width: 100%; border-collapse: collapse; margin-top: 2px; }
+  .bottom-left { width: 50%; vertical-align: top; padding-right: 8px; }
+  .bottom-right { width: 50%; vertical-align: top; padding-left: 8px; }
+  .bottom-box { border: 1px solid #aaa; padding: 5px 8px; font-size: 9px; line-height: 1.45; min-height: 60px; }
+  .bottom-box-label { font-size: 8px; color: #888; margin-bottom: 2px; }
+
+  /* SIGNATURES */
+  table.sigs { width: 100%; border-collapse: collapse; margin-top: 40px; }
+  table.sigs td { text-align: center; width: 50%; font-size: 10px; vertical-align: bottom; }
+  .sig-line { border-top: 1px solid #aaa; display: inline-block; width: 220px; padding-top: 3px; }
+
+  /* OWN */
+  .own-page { page-break-before: always; font-family: 'Times New Roman', Times, serif; padding: 6mm 12mm 4mm 12mm; }
+  .own-title { font-size: 14pt; font-weight: bold; text-align: center; margin-bottom: 8px; }
+  table.own-table { width: 100%; border-collapse: collapse; }
+  table.own-table td { width: 50%; vertical-align: top; padding: 0 7px 130px 7px; }
+  .own-par { font-size: 10pt; font-weight: bold; text-align: center; margin: 6px 0 1px; }
+  .own-sub { font-weight: bold; text-align: center; font-size: 9pt; margin: 8px 0 5px; }
+  p.ot { font-size: 7.5pt; margin: 10px 0 8px; text-align: justify; line-height: 1.18; }
+  p.ot strong { font-size: 7.5pt; }
+  .own-num { margin: 4px 0 4px; padding-left: 0; text-indent: -14px; padding-left: 14px; font-size: 7.5pt; line-height: 1.18; text-align: justify; }
+  .own-num-indent { margin: 3px 0 3px; padding-left: 22px; text-indent: -14px; font-size: 7.5pt; line-height: 1.18; text-align: justify; }
+  /* Podpisy - normalny flow jak na stronie 1 */
+  table.own-sigs { width: 100%; border-collapse: collapse; margin-top: 40px; }
+  table.own-sigs td { text-align: center; width: 50%; font-size: 10px; vertical-align: bottom; }
+  .own-sig-line { border-top: 1px dotted #aaa; display: inline-block; width: 220px; padding-top: 3px; }
+  .own-sig-line-orange { border-top: 1px solid #aaa; display: inline-block; width: 220px; padding-top: 3px; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<table class="hdr">
+  <tr>
+    <td class="hdr-left">toolsmart.pl<br>+48 888 992 015<br>biuro@toolsmart.pl</td>
+    <td class="hdr-center">
+      <div class="hdr-logo">TOOLSMART</div>
+      <div class="hdr-slogan">WYNAJEM MASZYN BUDOWLANYCH</div>
+    </td>
+    <td class="hdr-right">{{ company.name if company else 'TOOLSMART Sp. z o.o.' }}<br>ul. {{ company.street if company else 'Kłobucka 6B/103' }},<br>{{ (company.postal_code + ' ' + company.city) if company else '02-699 Warszawa' }}<br>NIP {{ company.nip if company else '9512598092' }}</td>
+  </tr>
+</table>
+
+<div class="content">
+
+<!-- TITLE -->
+<div class="doc-title">Umowa usługi nr: {{ contract.number }}</div>
+<div class="doc-sub">Zawarta w dniu: {{ contract.date_from | datepl }}</div>
+{% if contract.prepayment_amount and contract.prepayment_amount > 0 %}<div class="doc-sub">Przedpłata: {{ contract.prepayment_amount | money }}</div>{% endif %}
+
+<!-- PARTIES -->
+<table class="parties">
+  <tr>
+    <td class="party-box">
+      <div class="party-box-inner">
+        <div class="party-label">wynajmujący</div>
+        <strong>{% if company %}{{ company.name }}{% else %}TOOLSMART Sp. z o.o.{% endif %}</strong><br>
+        {% if company %}ul. {{ company.street }}, {{ company.postal_code }} {{ company.city }}<br>
+        NIP: {{ company.nip }}{% endif %}
+      </div>
+    </td>
+    <td class="info-col" style="vertical-align:top;padding-top:8px;">
+      {% set svc_date = (positions[0].pos.delivery_date if positions else None) or contract.date_from %}
+      {% if svc_date %}Termin prac: {{ svc_date | datepl }}<br>{% endif %}
+    </td>
+  </tr>
+  <tr>
+    <td class="party-box" style="padding-top:4px;">
+      <div class="party-box-inner">
+        <div class="party-label">najemca</div>
+        <strong>{{ contractor.name if contractor else (contract.contractor_name or '') }}</strong><br>
+        {% if contractor %}{% if contractor.street or contractor.postal_code or contractor.city %}ul. {{ contractor.street or '' }}, {{ contractor.postal_code or '' }} {{ contractor.city or '' }}<br>
+        {% endif %}NIP: {{ contractor.nip or '' }}{% endif %}
+      </div>
+    </td>
+    <td class="info-col" style="vertical-align:top;padding-top:8px;">
+      {% if contract.delivery_address %}Adres dostawy: {{ contract.delivery_address }}<br>{% endif %}
+    </td>
+  </tr>
+</table>
+
+<!-- UZUPELNIJ -->
+<div class="uz-wrap">
+  <div class="uz-label">uzupełnij</div>
+  <table class="uz">
+    <tr>
+      <td style="width:130px;">reprezentowany przez:</td>
+      <td class="fill">{{ contract.contact_person1 or '' }}</td>
+      <td style="width:60px;padding-left:8px;">nr tel:</td>
+      <td class="fill">{{ contract.contact_phone1 or '' }}</td>
+    </tr>
+    <tr>
+      <td>osoba kontaktowa:</td>
+      <td class="fill">{{ contract.contact_person2 or '' }}</td>
+      <td style="padding-left:8px;">nr tel:</td>
+      <td class="fill">{{ contract.contact_phone2 or '' }}</td>
+    </tr>
+    <tr>
+      <td>na budowie:</td>
+      <td colspan="3" class="fill-wide">{{ contract.delivery_address or '' }}</td>
+    </tr>
+    <tr>
+      <td>email do przesłania faktury:</td>
+      <td colspan="3" class="fill-wide">{{ contract.email or '' }}</td>
+    </tr>
+  </table>
+</div>
+
+<div class="legal-italic">
+  Pokwitowanie niniejszej Umowy jest jednoznaczne z zapoznaniem się z Ogólnymi Warunkami Umowy (dalej: OWN) oraz ich akceptacją.
+</div>
+
+<!-- POSITIONS -->
+{% if positions %}
+<table class="pos">
+  <thead>
+    <tr>
+      <th style="width:18px;"></th>
+      <th style="text-align:left;">przedmiot usługi</th>
+      <th style="width:75px;text-align:center;">typ rozlicz.</th>
+      <th style="width:45px;text-align:center;">ilość</th>
+      <th style="text-align:left;">cennik / warunki</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for p in positions %}
+  <tr>
+    <td>{{ loop.index }}</td>
+    <td>{{ p.pos.article_name or '' }}</td>
+    <td style="text-align:center;">{{ p.rate_type_name or p.pos.rental_type or '' }}</td>
+    <td style="text-align:center;">{{ p.pos.quantity or 1 }}</td>
+    <td><div class="cond">{{ p.conditions_text }}</div></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<!-- FEES -->
+{% if fees %}
+<div style="font-size:9.5px;font-weight:bold;margin:8px 0 3px;">Cennik usług dodatkowych:</div>
+<table class="pos">
+  <thead>
+    <tr><th style="text-align:left;">usługa</th><th style="width:130px;">stawka</th><th style="width:60px;">j.m.</th></tr>
+  </thead>
+  <tbody>
+  {% for f in fees %}
+  {% if f.is_active %}
+  <tr>
+    <td>{{ f.name }}{% if f.description %} ({{ f.description }}){% endif %}</td>
+    <td>{% if f.amount_from %}{{ f.amount_from | money_plain }}{% endif %}{% if f.amount_to %} - {{ f.amount_to | money_plain }}{% endif %}</td>
+    <td>{{ f.unit or '' }}</td>
+  </tr>
+  {% endif %}
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<!-- BOTTOM BOXES -->
+<table class="bottom">
+  <tr>
+    <td class="bottom-left">
+      <div class="bottom-box">
+        <div class="bottom-box-label">uwagi</div>
+        {% if contract.notes %}
+        {{ contract.notes }}
+        {% else %}
+        <p style="margin:0 0 4px 0;"><strong>Doba wynajmu:</strong> 8 godzin pracy urządzenia, licząc od momentu jego uruchomienia danego dnia.</p>
+        <p style="margin:0 0 4px 0;"><strong>Zgłoszenie zwrotu:</strong> Najemca zobowiązuje się do pisemnego poinformowania wynajmującego o zwrocie maszyny budowlanej najpóźniej z jednodniowym wyprzedzeniem.</p>
+        <p style="margin:0 0 4px 0;"><strong>Dni pracy/tydzień:</strong> {% if contract.working_days_per_week %}{{ contract.working_days_per_week }}{% else %}5{% endif %} dni.</p>
+        <p style="margin:0;"><strong>Dokumentacja zdająca:</strong> Najemca zobowiązuje się do dostarczenia kompletnej dokumentacji zdjęciowej przy zwrocie urządzenia.</p>
+        {% endif %}
+      </div>
+    </td>
+    <td class="bottom-right">
+      <div class="bottom-box">
+        <div class="bottom-box-label">wartość umowy</div>
+        <strong>{{ contract.total_value | money }}</strong>
+      </div>
+    </td>
+  </tr>
+</table>
+
+<!-- SIGNATURES -->
+<table class="sigs">
+  <tr>
+    <td>
+      <div style="text-align:center;">
+        <img src="../assets/company_stamp_fixed.jpg" alt="Pieczątka firmy" style="width:180px;height:70px;object-fit:contain;margin-bottom:10px;">
+        <div class="sig-line">czytelny podpis Wynajmującego</div>
+      </div>
+    </td>
+    <td style="vertical-align: bottom;">
+      <div class="sig-line">czytelny podpis Najemcy</div>
+    </td>
+  </tr>
+</table>
+
+<!-- FOOTER LEGAL -->
+<div class="footer-legal">
+  <strong>*ceny podane na umowie są cenami netto</strong><br>
+  Niniejszym zobowiązuje się do zabezpieczenia Przedmiotów Najmu przed kradzieżą i zniszczeniem przez cały okres trwania Umowy Najmu. W przypadku zniszczenia, zaginięcia lub uszkodzenia Przedmiotu Najmu, zobowiązuje się ponieść pełną odpowiedzialność materialną. Pokwitowanie niniejszej Umowy Najmu jest jednoznaczne z oświadczeniem o zapoznaniu się z Ogólnymi Warunkami Umowy Najmu (dalej: OWN) oraz ich akceptacją. OWN jest integralną częścią Umowy Najmu.
+</div>
+
+</div><!-- /content -->
+
+<div class="own-page">
+  <div class="own-title">OGÓLNE WARUNKI NAJMU</div>
+
+  <table class="own-table">
+  <tr>
+    <!-- KOLUMNA LEWA: §1 + §2 pkt 1-4 -->
+    <td>
+      <div class="own-par">§ 1</div>
+      <div class="own-sub">Definicje</div>
+
+      <p class="ot"><strong>Ogólne Warunki Najmu (dalej „OWN”)</strong> – niniejszy dokument stanowiący o warunkach najmu produktów oraz usług oferowanych przez Wynajmującego, z którego postanowieniami zobowiązany jest zapoznać się każdy Najemca i który stanowi integralną część Umowy Usługi, bez względu na fakt, czy Umowa Usługi została zawarta na czas oznaczony czy nieoznaczony. Zawarcie przez Najemcę Umowy Usługi, oznacza jednocześnie akceptację przez Najemcę OWN, które wiążą Najemcę od dnia zawarcia Umowy Usługi.</p>
+
+      <p class="ot"><strong>Umowa Usługi –</strong> umowa w rozumieniu obowiązujących przepisów ustawy Kodeks cywilny (art. 659 i nast.) zawarta pomiędzy Wynajmującym a Najemcą, na warunkach i zasadach w niej określonych, której integralną część stanowią OWN.</p>
+
+      <p class="ot"><strong>Protokół Wykonania Usługi –</strong> Pisemny dokument sporządzony i podpisywany przez Wynajmującego i Najemcę, który potwierdza przekazanie, zwrót Przedmiotu Najmu lub wykonanie usługi za pomocą Przedmiotu Najmu.</p>
+
+      <p class="ot"><strong>Wynajmujący –</strong> firma {% if company %}{{ company.name }}, ul. {{ company.street }}, {{ company.postal_code }} {{ company.city }}, NIP: {{ company.nip }}{% else %}Toolsmart Sp. z o.o., ul. Kłobucka 6B/103, 02-699 Warszawa, NIP: 9512598092{% endif %}</p>
+
+      <p class="ot"><strong>Najemca –</strong> osoba fizyczna, osoba prawna, jednostka organizacyjna nieposiadająca osobowości prawnej, która zawarła z Wynajmującym Umowę Usługi.</p>
+
+      <p class="ot"><strong>Przedmiot Najmu –</strong> przedmiot, którego dotyczy zawarta pomiędzy Wynajmującym a Najemcą Umowa Najmu.</p>
+
+      <p class="ot"><strong>Operator –</strong> osoba będąca przedstawicielem Wynajmującego obsługująca, na zlecenie Najemcy, Przedmiot Najmu.</p>
+
+      <div class="own-par">§ 2</div>
+      <div class="own-sub">Najem urządzenia z operatorem</div>
+
+      <p class="own-num">1. Operator realizuje zadania zlecone przez Najemcę, ograniczając się do obsługi urządzenia zgodnie z obowiązującymi przepisami, instrukcjami użytkowania oraz zasadami BHP. Przy wykonywaniu pracy kieruje się swoim doświadczeniem, priorytetowo traktując bezpieczeństwo osób i mienia. Operator ma prawo odmówić wykonania pracy, jeśli uzna, że istnieje ryzyko dla bezpieczeństwa oraz ryzyko uszkodzenia maszyny.</p>
+      <p class="own-num">2. Operator nie podejmuje działań wykraczających poza standardową obsługę maszyny ani prac, które wymagają dodatkowych zezwoleń lub kwalifikacji.</p>
+      <p class="own-num">3. Potwierdzeniem wykonania usługi jest potwierdzony przez Najemcę, a w przypadku jego braku przez Operatora, Protokół Wykonania Usługi określający początek rozpoczęcia Usługi w podziale na godziny lub doby.</p>
+      <p class="own-num">4. W przypadku braku podpisu Najemcy, protokół wykonania usługi podpisany przez Operatora uznaje się za wiążący i stanowiący podstawę do rozliczenia usługi.</p>
+    </td>
+
+    <!-- KOLUMNA PRAWA: §2 pkt 5-12 -->
+    <td>
+      <p class="own-num">5. Czas pracy Operatora obejmuje również czas przestoju, który nie wynika z winy Wynajmującego.</p>
+      <p class="own-num">6. Przedmiot Najmu pozostaje własnością Wynajmującego przez cały okres trwania najmu i usługi.</p>
+      <p class="own-num">7. W przypadku gdy czas świadczenia usługi ulega przedłużeniu i Przedmiot Najmu pozostaje na terenie Najemcy po zakończeniu pracy Operatora, Najemca ponosi pełną odpowiedzialność za Przedmiot Najmu w okresie, w którym znajduje się on na terenie dedykowanym do przechowywania. Dotyczy to m. in:</p>
+      <p class="own-num-indent">a. Wszelkie szkody, straty, kradzieże, zniszczenia lub inne uszkodzenia Przedmiotu Najmu, niezależnie od przyczyny ich powstania.</p>
+      <p class="own-num-indent">b. Najemca zobowiązany jest do podjęcia wszelkich działań w celu zabezpieczenia sprzętu, w tym zapewnienia odpowiednich warunków przechowywania oraz ochrony przed dostępem osób nieuprawionych.</p>
+      <p class="own-num-indent">c. W razie uszkodzenia, zniszczenia lub utraty Przedmiotu Najmu, Najemca zobowiązany jest do zapłaty odszkodowania odpowiadającego jego wartości (wartość odtworzeniowa), określonej w Umowie Usługi lub Protokole Wykonania Usługi, które Najemca akceptuje. Najemca ma obowiązek uiszczenia ustalonego w Umowie Najmu czynszu za okres od dnia zajścia tego zdarzenia do dnia zapłaty wspomnianego odszkodowania.</p>
+      <p class="own-num">8. Wynajmujący zobowiązuje się do podjęcia działań serwisowych w terminie do 24 godzin od momentu zgłoszenia przez Najemcę lub Operatora potrzeby serwisu Przedmiotu Najmu, pod warunkiem dokonania zgłoszenia w dniu roboczym oraz w godzinach pracy Wynajmującego.</p>
+      <p class="own-num">9. Wynajmujący nie ponosi odpowiedzialności za jakiekolwiek szkody materialne lub niematerialne wyrządzone przez Przedmiot Najmu lub inne maszyny budowlane w trakcie dostawy lub realizacji usług operatorskich na rzecz Najemcy, w tym, lecz nie wyłącznie, za szkody spowodowane:</p>
+      <p class="own-num-indent">a) Przypadkowym wyciekiem płynów eksploatacyjnych (np. oleju hydraulicznego, paliwa) na powierzchnie należące do klienta lub osoby trzecie.</p>
+      <p class="own-num-indent">b) Uszkodzeniem infrastruktury, terenu bądź innego mienia w wyniku standardowej pracy maszyny lub jej nieprzewidzianych awarii.</p>
+      <p class="own-num-indent">c) Zachowaniem operatora, o ile działał zgodnie z zasadami technicznymi i standardami użytkowania maszyny.</p>
+      <p class="own-num">10. Najemca zobowiązuje się do podjęcia działań mających na celu minimalizację ryzyka związanego z użytkowaniem maszyn, w tym zapewnienia odpowiednich warunków pracy dla maszyn oraz poinformowania Wynajmującego o wszelkich szczególnych wymaganiach dotyczących miejsca realizacji usługi lub dostawy Przedmiotu Najmu.</p>
+      <p class="own-num">11. Osoby przebywające w przestrzeni roboczej Operatora zobowiązane są do przestrzegania poleceń wydawanych przez operatora pod rygorem natychmiastowego przerwania pracy. Zobowiązane są również do stosowania wymaganej odzieży zabezpieczającej (kask, szelki, kamizelka odblaskowa, inne).</p>
+      <p class="own-num">12. Najemca oświadcza, iż jest uprawniony do odbioru faktur, o nadanym numerze NIP oraz jednocześnie upoważnia Wynajmującego do wystawiania faktur bez swojego podpisu.</p>
+    </td>
+  </tr>
+  </table>
+
+  <table class="own-sigs">
+    <tr>
+      <td>
+        <img src="../assets/company_stamp_fixed.jpg" style="width:180px;height:70px;object-fit:contain;margin-bottom:10px;">
+        <div class="own-sig-line">czytelny podpis Najemcy</div>
+      </td>
+      <td style="vertical-align: bottom;">
+        <div class="own-sig-line-orange">czytelny podpis Wynajmującego</div>
+      </td>
+    </tr>
+  </table>
+</div>
+
+</body>
+</html>

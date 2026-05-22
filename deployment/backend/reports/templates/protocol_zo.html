@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; font-family: 'Roboto', sans-serif; font-size: 10px; color: #000; width: 210mm; height: 282mm; }
+  body { display: flex; flex-direction: column; overflow: visible; }
+  
+  /* HEADER */
+  table.hdr { width: 100%; background: #1D2B53; color: #fff; border-collapse: collapse; flex-shrink: 0; }
+  .hdr-left { width: 33%; padding: 10px 10px 10px 14mm; font-size: 8px; line-height: 1.6; vertical-align: middle; }
+  .hdr-center { width: 34%; text-align: center; vertical-align: middle; padding: 8px; }
+  .hdr-logo { font-size: 22px; font-weight: bold; letter-spacing: 2px; line-height: 1.1; }
+  .hdr-slogan { font-size: 7.5px; letter-spacing: 3px; margin-top: 2px; }
+  .hdr-right { width: 33%; text-align: right; padding: 10px 14mm 10px 10px; font-size: 8px; line-height: 1.6; vertical-align: middle; }
+  
+  /* CONTENT */
+  .content { flex: 1; display: flex; flex-direction: column; padding: 30px 14mm 10px 14mm; }
+  
+  /* TOP SECTIONS */
+  table.top { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+  .top-left { width: 40%; vertical-align: top; padding: 0 10px 0 0; }
+  .top-left-inner { border: 1px solid #aaa; padding: 10px 8px; font-size: 10px; line-height: 1.4; min-height: 80px; color: #1D2B53; }
+  .box-label { font-size: 8px; color: #888; margin-bottom: 2px; }
+  .top-right { vertical-align: middle; padding-left: 10px; text-align: center; }
+  .pzo-title { font-size: 20px; font-weight: bold; margin-bottom: 8px; margin-top: -6px; color: #1D2B53; }
+  .pzo-sub { font-size: 11.5px; line-height: 1.6; color: #1D2B53; }
+  
+  table.boxes { width: 100%; border-collapse: collapse; margin-bottom: 12px; table-layout: fixed; }
+  .box-cell { width: 50%; vertical-align: top; }
+  .box-inner { border: 1px solid #aaa; padding: 8px 8px; font-size: 10px; line-height: 1.4; min-height: 55px; }
+  
+  /* POSITIONS TABLE */
+  table.pos { width: 100%; border-collapse: collapse; font-size: 9.5px; margin: 0 0 8px; }
+  table.pos th { font-size: 9px; color: #555; padding: 4px 5px; border-bottom: 1px solid #aaa; font-weight: normal; text-align: center; }
+  table.pos td { padding: 5px 5px; border-bottom: 1px solid #ddd; vertical-align: top; text-align: center; }
+  table.pos th:nth-child(2), table.pos td:nth-child(2) { text-align: left; }
+  .art-name { color: #1D2B53; font-weight: bold; }
+  
+  /* TEXT */
+  .fuel-line { font-size: 9.5px; margin: 6px 0 8px; }
+  .legal-line { font-size: 9.5px; margin: 0 0 15px; }
+  
+  /* SIGNATURES */
+  table.sigs { width: 100%; border-collapse: collapse; margin-top: 15px; }
+  table.sigs td { text-align: center; width: 50%; font-size: 10px; vertical-align: bottom; }
+  .stamp-text { font-size: 9px; font-weight: bold; line-height: 1.3; margin-bottom: 15px; }
+  .sig-line { border-top: 1px solid #000; display: inline-block; width: 220px; padding-top: 3px; }
+  
+  /* BOTTOM SECTION (Flex push) */
+  .bottom-section { margin-top: auto; }
+  
+  /* RETURN SECTION */
+  table.return-table { width: 100%; border-collapse: collapse; font-size: 9px; margin-bottom: 0; }
+  table.return-table td { border: 1px solid #aaa; padding: 4px 6px; vertical-align: top; color: #888; }
+  .ret-col1 { width: 45%; height: 35px; }
+  .ret-col2 { width: 25%; }
+  .ret-col3 { width: 30%; }
+  .ret-uwagi { border: 1px solid #aaa; border-top: none; padding: 4px 6px; font-size: 9px; min-height: 45px; color: #888; }
+  
+  .note-line { font-size: 9px; font-style: italic; font-weight: bold; margin: 6px 0 10px; }
+
+  /* PRZY WYDANIU / PRZY ODBIORZE */
+  .pwo-section { margin: 8px 0 10px; page-break-inside: avoid; }
+  .pwo-section-title { font-size: 8.5px; font-weight: bold; color: #1D2B53; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #1D2B53; padding-bottom: 2px; margin-bottom: 4px; display: block; }
+  table.pwo { width: 100%; border-collapse: collapse; font-size: 8.5px; }
+  table.pwo th { background: #1D2B53; color: #fff; padding: 3px 6px; font-weight: normal; border: 1px solid #1D2B53; text-align: center; font-size: 8px; }
+  table.pwo td { border: 1px solid #aaa; padding: 2px 5px; height: 20px; vertical-align: middle; }
+  table.pwo td.pwo-label { background: #f0f2f8; font-size: 8.5px; white-space: nowrap; }
+  table.pwo tr.pwo-uwagi td { height: 36px; vertical-align: top; padding-top: 4px; }
+  
+  .own-page { page-break-before: always; font-size: 8.5px; line-height: 1.45; padding: 10px 14mm; }
+  .own-title { font-size: 13px; font-weight: bold; text-align: center; margin-bottom: 6px; }
+  .own-par { font-size: 10px; font-weight: bold; text-align: center; margin: 8px 0 1px; }
+  .own-sub { font-weight: bold; text-align: center; font-size: 9px; margin: 0 0 5px; }
+  .own-cols { column-count: 2; column-gap: 14px; }
+  p.ot { margin: 0 0 4px; text-align: justify; }
+  .own-sig-row { margin-top: 16px; overflow: hidden; clear: both; }
+  .own-sig-cell { float: left; width: 50%; text-align: center; }
+  .own-sig-line { display: inline-block; border-top: 1px solid #000; width: 180px; padding-top: 3px; font-size: 8px; }
+
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<table class="hdr">
+  <tr>
+    <td class="hdr-left">toolsmart.pl<br>+48 888 992 015<br>biuro@toolsmart.pl</td>
+    <td class="hdr-center">
+      <div class="hdr-logo">TOOLSMART</div>
+      <div class="hdr-slogan">WYNAJEM MASZYN BUDOWLANYCH</div>
+    </td>
+    <td class="hdr-right">{{ company.name if company else 'TOOLSMART Sp. z o.o.' }}<br>ul. {{ company.street if company else 'Kłobucka 6B/103' }},<br>{{ (company.postal_code + ' ' + company.city) if company else '02-699 Warszawa' }}<br>NIP {{ company.nip if company else '9512598092' }}</td>
+  </tr>
+</table>
+
+<div class="content">
+
+  <!-- TOP -->
+  <table class="top">
+    <tr>
+      <td class="top-left">
+        <div class="top-left-inner">
+          <div class="box-label">NAJEMCA</div>
+          <strong>{{ contractor.name if contractor else (contract.contractor_name or '') }}</strong><br>
+          {% if contractor %}{% if contractor.street or contractor.postal_code or contractor.city %}ul. {{ contractor.street or '' }}, {{ contractor.postal_code or '' }} {{ contractor.city or '' }}<br>
+          {% endif %}NIP: {{ contractor.nip or '' }}{% endif %}
+        </div>
+      </td>
+      <td class="top-right">
+        <div class="pzo-title">PROTOKÓŁ ZDAWCZO-ODBIORCZY</div>
+        <div class="pzo-sub">
+          do umowy nr {{ contract.number }}<br>
+          zawartej w dniu {{ contract.date_from | datepl }}
+        </div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- BOXES -->
+  <table class="boxes">
+    <tr>
+      <td class="box-cell" style="padding-right: 5px; width: 50%;">
+        <div class="box-inner">
+          <div class="box-label">osoba upoważniona do odbioru przedmiotu najmu</div>
+          {% if contract.contact_person1 %}{{ contract.contact_person1 }}{% if contract.contact_phone1 %}, tel. {{ contract.contact_phone1 }}{% endif %}{% endif %}
+        </div>
+      </td>
+      <td class="box-cell" style="padding-left: 5px; width: 50%;">
+        <div class="box-inner">
+          <div class="box-label">miejsce dostawy i odbioru przedmiotu najmu</div>
+          {% if contract.delivery_address %}<div style="white-space: pre-wrap;">{{ contract.delivery_address }}</div>{% endif %}
+          {% if contract.phone %}<br>telefon: {{ contract.phone }}{% endif %}
+        </div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- POSITIONS -->
+  <table class="pos">
+    <thead>
+      <tr>
+        <th style="width:20px;"></th>
+        <th>przedmiot najmu</th>
+        <th style="width:90px;">nr seryjny</th>
+        <th style="width:80px;">data dostawy</th>
+        <th style="width:100px;text-align:right;">wartość odtworzeniowa</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for p in positions %}
+    <tr>
+      <td>{{ loop.index }}</td>
+      <td><span class="art-name">{{ p.pos.article_name or '' }}</span></td>
+      <td>{{ p.serial_no or '' }}</td>
+      <td>{{ p.pos.delivery_date | datepl }}</td>
+      <td style="text-align:right;">{% if p.replacement_value %}{{ p.replacement_value | money_plain }}{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="fuel-line">poziom uzupełnienia zbiornika/naładowania: .......................................</div>
+  <div class="legal-line">Pokwitowanie niniejszego Protokołu Zdawczo - Odbiorczego jest jednoznaczne z oświadczeniem o zapoznaniu się z Ogólnymi Warunkami Umowy Najmu (dalej: OWN) oraz ich akceptacją.</div>
+
+  <!-- PRZY WYDANIU / PRZY ODBIORZE -->
+  <div class="pwo-section">
+    <span class="pwo-section-title">Przy wydaniu / Przy odbiorze</span>
+    <table class="pwo">
+      <thead>
+        <tr>
+          <th style="width: 36%;"></th>
+          <th style="width: 32%;">PRZY WYDANIU</th>
+          <th style="width: 32%;">PRZY ODBIORZE</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="pwo-label">Data i godzina</td><td></td><td></td></tr>
+        <tr><td class="pwo-label">Urządzenie i model</td><td></td><td></td></tr>
+        <tr><td class="pwo-label">Stan paliwa</td><td></td><td></td></tr>
+        <tr><td class="pwo-label">Ilość kluczyków</td><td></td><td></td></tr>
+        <tr><td class="pwo-label">Stan wideł</td><td></td><td></td></tr>
+        <tr><td class="pwo-label">Czystość maszyny</td><td></td><td></td></tr>
+        <tr><td class="pwo-label">Dokumentacja zdjęciowa</td><td></td><td></td></tr>
+        <tr><td class="pwo-label">Dodatkowe akcesoria</td><td></td><td></td></tr>
+        <tr class="pwo-uwagi"><td class="pwo-label">Uwagi</td><td></td><td></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- DELIVERY SIGNATURES -->
+  <table class="sigs" style="margin-top: 20px;">
+    <tr>
+      <td>
+        <div style="text-align:center;">
+          {% if stamp_src %}<img src="{{ stamp_src }}" alt="Pieczątka firmy" style="width:180px;height:70px;object-fit:contain;margin-bottom:10px;">{% endif %}
+          <div class="sig-line" style="margin-top:10px;">czytelny podpis Wynajmującego</div>
+        </div>
+      </td>
+      <td style="padding-top:40px; vertical-align: bottom;">
+        <div class="sig-line" style="margin-top:10px;">czytelny podpis Najemcy</div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- PUSH TO BOTTOM -->
+  <div class="bottom-section">
+    
+    <!-- RETURN FORM -->
+    <table class="return-table">
+      <tr>
+        <td class="ret-col1">dane zwrotu przedmiotu najmu</td>
+        <td class="ret-col2">ilość dni</td>
+        <td class="ret-col3">kaucja zwrócono w wysokości</td>
+      </tr>
+    </table>
+    <div class="ret-uwagi">uwagi</div>
+
+    <div class="note-line">Ogólna weryfikacja maszyny następuje na terenie firmy w terminie do 14 dni od dnia jej przekazania</div>
+
+    <!-- RETURN SIGNATURES -->
+    <table class="sigs" style="margin-top: 20px;">
+      <tr>
+        <td>
+          <div style="text-align:center;">
+            {% if stamp_src %}<img src="{{ stamp_src }}" alt="Pieczątka firmy" style="width:180px;height:70px;object-fit:contain;margin-bottom:10px;">{% endif %}
+            <div class="sig-line" style="margin-top:10px;">czytelny podpis Wynajmującego</div>
+          </div>
+        </td>
+        <td style="padding-top:40px; vertical-align: bottom;">
+          <div class="sig-line" style="margin-top:10px;">czytelny podpis Najemcy</div>
+        </td>
+      </tr>
+    </table>
+
+  </div> <!-- /bottom-section -->
+
+</div> <!-- /content -->
+
+</body>
+</html>

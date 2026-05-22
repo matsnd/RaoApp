@@ -1295,6 +1295,8 @@ async function handleFakturownia() {
 - Kończące się umowy (filtry: 7d/14d/30d) — pobiera `GET /stats/expiring-contracts?days=N`
 - Dostawy na dziś — pobiera `GET /stats/deliveries-today`
 - Umowy niewydrukowane — pobiera `GET /stats/unprinted-contracts`
+- Nieaktualny wydruk — pobiera `GET /stats/stale-print-contracts`
+- Przeterminowane umowy — pobiera `GET /stats/overdue-contracts`
 - Aktualne wynajmy — pobiera `GET /stats/currently-rented`
 - Skeleton loading dla każdej sekcji
 - Empty states z komunikatami gdy brak danych

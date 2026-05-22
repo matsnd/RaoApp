@@ -1,0 +1,257 @@
+from datetime import datetime, date, time
+from decimal import Decimal
+from typing import Literal, Annotated
+from pydantic import BaseModel, Field
+
+
+PostalCode = Annotated[str, Field(
+    pattern=r"^\d{2}-\d{3}$",
+    min_length=6,
+    max_length=6,
+    examples=["00-001"],
+)]
+
+CityName = Annotated[str, Field(
+    min_length=1,
+    max_length=100,
+    pattern=r"^[A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż0-9 \-\.\']+$",
+)]
+
+
+class ConditionResponse(BaseModel):
+    id: int
+    position_id: int
+    rate_type_id: int | None
+    rate_type_name: str | None
+    description: str | None
+    rate1: Decimal | None
+    rate2: Decimal | None
+    billing_label: str | None
+    period_count: int | None
+    minimum: int | None
+
+    class Config:
+        from_attributes = True
+
+
+class ConditionCreate(BaseModel):
+    rate_type_id: int | None = None
+    description: str | None = Field(None, max_length=400)
+    rate1: Decimal | None = None
+    rate2: Decimal | None = None
+    billing_label: str | None = None
+    period_count: int | None = None
+    minimum: int | None = None
+
+
+class PositionResponse(BaseModel):
+    id: int
+    contract_id: int
+    article_id: int
+    article_name: str | None
+    rental_type: str | None
+    description: str | None
+    rental_days: int | None
+    quantity: int | None
+    unit_price: Decimal | None
+    costs: Decimal | None
+    rate_type_id: int | None
+    rate_type_name: str | None
+    billing_frequency: str | None
+    billing_unit: str | None
+    supplier_id: int | None
+    supplier_name: str | None
+    delivery_date: date | None
+    conditions_count: int
+    conditions: list[ConditionResponse] = []
+
+    class Config:
+        from_attributes = True
+
+
+class PositionCreate(BaseModel):
+    article_id: int
+    rental_type: str | None = None
+    description: str | None = Field(None, max_length=400)
+    rental_days: int | None = None
+    quantity: int = 1
+    unit_price: Decimal | None = None
+    costs: Decimal | None = None
+    rate_type_id: int | None = None
+    billing_frequency: str | None = None
+    billing_unit: str | None = None
+    supplier_id: int | None = None
+    delivery_date: date | None = None
+
+
+class ContractServiceFeeResponse(BaseModel):
+    id: int
+    sort_order: int
+    name: str
+    amount_from: Decimal | None
+    amount_to: Decimal | None
+    unit: str | None
+    description: str | None
+    is_active: bool
+    article_id: int | None = None  # RAO-P1-011
+    default_price: Decimal | None = None  # RAO-P1-011
+
+    class Config:
+        from_attributes = True
+
+
+class ContractServiceFeeCreate(BaseModel):
+    name: str = Field(..., max_length=200)
+    amount_from: Decimal | None = None
+    amount_to: Decimal | None = None
+    unit: str | None = Field(None, max_length=50)
+    description: str | None = Field(None, max_length=400)
+    is_active: bool = True
+
+
+class ContractServiceFeeReorder(BaseModel):
+    ids: list[int]
+
+
+class ContractListItem(BaseModel):
+    id: int
+    contractor_id: int
+    contractor_name: str
+    number: str
+    contract_type: str
+    type_label: str
+    delivery_address: str | None
+    postal_code: str | None
+    city: str | None
+    latitude: Decimal | None
+    longitude: Decimal | None
+    date_from: date | None
+    date_to: date | None
+    total_value: Decimal | None
+    prepayment_amount: Decimal | None
+    invoice_amount: Decimal | None
+    notes: str | None
+    email: str | None
+    contact_person1: str | None = None
+    contact_phone1: str | None = None
+    phone: str | None = None
+    salesperson_name: str | None
+    print_date: datetime | None
+    is_print_current: bool
+    duration_days: int | None
+    is_settled: bool = False          # RAO-P2-022
+    settled_at: datetime | None = None  # RAO-P2-022
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ContractDetail(BaseModel):
+    id: int
+    contractor_id: int
+    contractor_name: str | None
+    branch_id: int | None
+    salesperson_id: int | None
+    number: str
+    auto_number: int | None
+    contract_type: str
+    delivery_address: str | None
+    postal_code: str | None
+    city: str | None
+    latitude: Decimal | None
+    longitude: Decimal | None
+    date_from: date | None
+    date_to: date | None
+    total_value: Decimal | None
+    prepayment_amount: Decimal | None
+    prepayment_document: str | None
+    invoice_amount: Decimal | None
+    invoice_document: str | None
+    notes: str | None
+    contact_person1: str | None
+    contact_phone1: str | None
+    show_person1: bool
+    contact_person2: str | None
+    contact_phone2: str | None
+    show_person2: bool
+    email: str | None
+    phone: str | None
+    report_without_data: bool
+    hide_delivery_address: bool
+    signatures_on_page1: bool
+    working_days_per_week: int | None
+    print_date: datetime | None
+    is_settled: bool = False          # RAO-P2-022
+    settled_at: datetime | None = None  # RAO-P2-022
+    created_at: datetime
+    updated_at: datetime | None
+
+    class Config:
+        from_attributes = True
+
+
+class SettleContractRequest(BaseModel):
+    """RAO-P2-022: zmiana statusu rozliczenia umowy."""
+    is_settled: bool
+
+
+class ContractCreate(BaseModel):
+    contractor_id: int
+    branch_id: int | None = None
+    salesperson_id: int | None = None
+    contract_type: Literal["S", "U"] = "S"
+    delivery_address: str | None = None
+    postal_code: PostalCode | None = None
+    city: CityName | None = None
+    latitude: Decimal | None = None
+    longitude: Decimal | None = None
+    date_from: date | None = None
+    date_to: date | None = None
+    total_value: Decimal | None = None
+    prepayment_amount: Decimal | None = None
+    prepayment_document: str | None = None
+    invoice_amount: Decimal | None = None
+    invoice_document: str | None = None
+    notes: str | None = None
+    contact_person1: str | None = None
+    contact_phone1: str | None = None
+    show_person1: bool = True
+    contact_person2: str | None = None
+    contact_phone2: str | None = None
+    show_person2: bool = True
+    email: str | None = None
+    phone: str | None = None
+    contractor_name: str | None = None
+    working_days_per_week: int = 6
+    report_without_data: bool = False
+    hide_delivery_address: bool = False
+    signatures_on_page1: bool = False
+
+
+class ServiceHourResponse(BaseModel):
+    id: int
+    position_id: int
+    service_date: date
+    time_from: time | None
+    time_to: time | None
+    notes: str | None
+    created_at: datetime
+    updated_at: datetime | None
+
+    class Config:
+        from_attributes = True
+
+
+class ServiceHourCreate(BaseModel):
+    service_date: date
+    time_from: time | None = None
+    time_to: time | None = None
+    notes: str | None = Field(None, max_length=500)
+
+
+class ServiceHourUpdate(BaseModel):
+    service_date: date | None = None
+    time_from: time | None = None
+    time_to: time | None = None
+    notes: str | None = Field(None, max_length=500)

@@ -974,6 +974,7 @@ Umowa NIE posiada kolumny `status` (enum). Stan jest obliczany deterministycznie
 - **Lista umów:** domyślny filtr to `is_settled=false` (widok "Aktywne"). Aktywne = nie rozliczone AND date_to >= dzisiaj. Użytkownik może przełączyć na "Rozliczone" lub "Wszystkie". Zamknięte umowy (date_to < dzisiaj i is_settled=false) są dostępne w endpoint /overdue.
 - **Alarmy (HomeView):** endpointy `/stats/expiring-contracts` i `/stats/overdue-contracts` **wykluczają** rozliczone (`is_settled=FALSE`).
 - **Brak auto-rozliczenia:** nie ma automatycznego triggera na podstawie daty ani warunków finansowych.
+- **Migracja:** wszystkie umowy migrowane ze starej bazy są automatycznie oznaczane jako `is_settled=TRUE` i `settled_at=date_to` (dane historyczne).
 
 ### API
 
