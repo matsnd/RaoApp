@@ -59,7 +59,7 @@ export const useContractorStore = defineStore('contractors', () => {
   }
 
   async function gusLookup(nip) {
-    const { data } = await api.post('/contractors/gus-lookup', { nip })
+    const { data } = await api.post('/integrations/gus-lookup', { nip })
     return data
   }
 
