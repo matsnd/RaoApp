@@ -201,7 +201,7 @@ Naprawić błąd podczas pobierania/pokazywania prowizji handlowców — prawdop
 - [ ] `spec/core/02_backend_api.md` — opis fixa endpointu prowizji
 - [ ] `spec/core/04_business_logic.md` — opis logiki obliczeń
 
-**Pliki do zmiany:** `backend/stats/router.py`, `backend/stats/service.py`, `frontend/src/views/ReportsSection.vue`
+**Pliki do zmiany:** `backend/stats/router.py` (linia 1002), `frontend/src/views/CommissionView.vue`
 **ROI:** Handlowcy widzą swoje prowizje, system nie crashuje
 **Estimate:** 2-3h (S)
 

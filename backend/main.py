@@ -110,6 +110,23 @@ async def startup_migrations():
             "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
             "udzwig_t DECIMAL(8,2) NULL COMMENT 'Udźwig w tonach'"
         ))
+        # RAO-P1-012: tabela rozliczeń umów (contract_settlements)
+        await conn.execute(sa.text("""
+            CREATE TABLE IF NOT EXISTS contract_settlements (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                contract_id INT NOT NULL,
+                position_id INT NULL,
+                service_fee_id INT NULL,
+                cost_client DECIMAL(18,2) NULL,
+                cost_company DECIMAL(18,2) NULL,
+                notes TEXT NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (contract_id) REFERENCES contracts(id) ON DELETE CASCADE,
+                FOREIGN KEY (position_id) REFERENCES contract_positions(id) ON DELETE CASCADE,
+                FOREIGN KEY (service_fee_id) REFERENCES contract_service_fees(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_polish_ci
+        """))
         await conn.execute(sa.text(
             "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
             "dodatki TEXT NULL COMMENT 'Dodatkowe akcesoria / wyposażenie'"

@@ -30,7 +30,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 # Get absolute path for dump file
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DUMP_PATH = os.path.join(project_root, "temp", "toolsmart_roa_1779433678.sql")
+DUMP_PATH = os.path.join(project_root, "temp", "toolsmart_roa_1779526392.sql")
 import asyncio
 import csv
 import glob
@@ -55,6 +55,12 @@ import contracts.models    # noqa
 import settings.models     # noqa
 import categories.models   # noqa
 import integrations.models # noqa
+import settlements.models  # noqa  # RAO-P1-012: contract_settlements
+import audit.models        # noqa  # RAO-P3-005: audit_log
+import contract_costs.models  # noqa  # RAO-P3-005: contract_costs
+import deliveries.models  # noqa  # RAO-P3-005: deliveries
+import reservations.models  # noqa  # RAO-P3-005: reservations
+import integrations.fakturownia.models  # noqa  # RAO-P2-012: fakturownia
 
 
 def generate_temp_password(length: int = 16) -> str:
