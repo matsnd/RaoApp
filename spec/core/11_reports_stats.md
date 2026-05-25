@@ -104,6 +104,8 @@ Do obu wariantów umowy dodana została sekcja `Uwagi` umieszczona **przed podpi
 
 **Uwaga - pole 'nr tel' w protokole (osoba upoważniona):** Wszystkie szablony protokołów (protocol_zo.html, protocol_zo_u.html, protocol_zo_nodata.html) zostały zaktualizowane wg RAO-P1-005, aby wyświetlać etykietę "nr tel:" osobno w nowym wierszu, nawet gdy pole jest puste. Format: kontakt_person1 w pierwszym wierszu, "nr tel: [wartość lub puste]" w drugim wierszu (font-size: 9px).
 
+**Uwaga - tabela PWO (Przy wydaniu / Przy odbiorze):** Tabela w protocol_zo.html została powiększona wg RAO-P1-006: height wierszy 32px (z 20px), font-size 10px (z 8.5px), padding 5px 8px (z 2px 5px), wiersz "Uwagi" height 60px (z 36px). Tylko protocol_zo.html ma tę tabelę (inne protokoły mają uproszczone layouty).
+
 ### 1.6 Font dokumentów — Montserrat (RAO-P1-015 scope-cut)
 
 ### 1.7 Sekcja "Ewidencja godzin operatora" w protokole usługi (RAO-P1-014)
