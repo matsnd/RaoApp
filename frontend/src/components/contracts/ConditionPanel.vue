@@ -314,9 +314,8 @@ function formatCascadingPreview() {
       lines.push(`powyżej ${prevPeriod} dni - ${rateText} / ${label}`)
     }
   }
-  
-  return lines.join('
-') || 'Wypełnij pola, aby zobaczyć podgląd'
+
+  return lines.join('\n') || 'Wypełnij pola, aby zobaczyć podgląd'
 }
 
 watch(() => props.positionId, loadConditions, { immediate: true })
