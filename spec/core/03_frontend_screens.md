@@ -1482,6 +1482,64 @@ W modalu dodawania warunku:
 - Format: `"Typ stawki, 500.00 zł/doba, do 5 dób, min. 1"`
 - Watcher auto-wypełnia opis przy zmianach pól (tylko dla nowych warunków, nie dla edycji)
 
+
+## ConditionPanel — UX Pomoc dla warunków rozliczenia (RAO-P2-007)
+
+> **Zaimplementowano:** 2026-05-25 | **RAO-P2-007**
+
+**Cel:** Pomoc użytkownikowi w rozumieniu jak wpisywać warunki rozliczenia kaskadowej.
+
+**Lokalizacja:** `frontend/src/components/contracts/ConditionPanel.vue`
+
+### Funkcje UX
+
+#### 1. Sekcja pomocy "Jak wpisać warunki rozliczenia?"
+- Przycisk rozwijany z ikoną 📖 nad nagłówkiem "Warunki rozliczenia"
+- Zawiera przykład koparki z kaskadową stawką dobową (3 warunki)
+- Pokazuje mapowanie pól formularza na wynikowy format
+- Przykłady:
+  - Warunek 1: `rate_type="dobowa"`, `rate1=540`, `period_count=3`, `billing_label="doba"` → `"1 - 3 dni - 540,00 / doba"`
+  - Warunek 2: `rate_type="dobowa"`, `rate1=410`, `period_count=16`, `billing_label="doba"` → `"4 - 16 dni - 410,00 / doba"`
+  - Warunek 3: `rate_type="dobowa"`, `rate2=350`, `billing_label="doba"` (bez `period_count`) → `"powyżej 16 dni - 350,00 / doba"`
+
+#### 2. Tooltip dla pola "Stawka 2"
+- Ikona ⓘ przy etykiecie "Stawka 2 (zł)"
+- Podpowiedź: "ostatni warunek (powyżej) — pozostaw period_count puste"
+
+#### 3. Live Preview formatu kaskadowego
+- Wyświetla się w modalu dodawania/edycji warunku
+- Pokazuje wynik funkcji `format_position_conditions_cascading()` z backendu (RAO-P1-008)
+- Aktualizuje się na żywo przy zmianie pól formularza
+- Widoczne tylko gdy wypełniono `rate1` lub `rate2`
+- Format wyjściowy (frontend implementation):
+  ```javascript
+  function formatCascadingPreview() {
+    // Sortuje warunki po period_count (NULL na końcu)
+    // Buduje zakresy: "X - Y dni - stawka / jednostka"
+    // Ostatni warunek: "powyżej X dni - stawka / jednostka"
+  }
+  ```
+
+### Stany
+
+| Stan | Opis |
+|------|------|
+| Domyślny (zwinięty) | Widoczny tylko przycisk z ikoną ▶ |
+| Rozwinięty | Widoczny pełny tekst pomocy z przykładami |
+| Live preview | Widoczny tylko gdy formularz ma dane |
+
+### Style CSS
+
+- `.help-section`: Kontener sekcji pomocy
+- `.help-toggle`: Przycisk rozwijający (background: `var(--color-bg-light)`)
+- `.help-content`: Treść pomocy z przykładami
+- `.help-example-item`: Pojedynczy przykład z kodem
+- `.field-tooltip`: Ikona ⓘ z tooltip
+- `.live-preview`: Pole podglądu formatu kaskadowego (monospace)
+
+---
+
+
 ---
 
 ## Komponent: `ContractPeriodPicker.vue` (RAO-P2-004)

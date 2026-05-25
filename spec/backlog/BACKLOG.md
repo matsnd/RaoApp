@@ -1480,7 +1480,7 @@ security_impact: none
 **Acceptance criteria (DoD):**
 
 **Frontend (`ConditionPanel.vue`):**
-- [ ] Dodaj nad sekcją warunków accordion „📖 Jak wpisać warunki rozliczenia?":
+- [x] Dodaj nad sekcją warunków accordion „📖 Jak wpisać warunki rozliczenia?":
   ```
   Przykład — koparka z kaskadową stawką dobową (jak w starej aplikacji):
   
@@ -1531,7 +1531,7 @@ security_impact: none
 | RAO-P2-004 | Frontend — okres umowy przez kalendarz + dni | klient czat | P2 | M | done |
 | RAO-P2-005 | Frontend — inline add kontrahenta | klient czat | P2 | M | done |
 | RAO-P2-006 | Frontend — inline add artykułu | klient czat | P2 | M | done |
-| RAO-P2-007 | Frontend — pomoc UX jak wpisywać warunki | klient czat | P2 | S | triaged |
+| RAO-P2-007 | Frontend — pomoc UX jak wpisywać warunki | klient czat | P2 | S | done |
 
 **Razem:** 19 zadań (w tym 1 spike) · ~29-37h pracy
 

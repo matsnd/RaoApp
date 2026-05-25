@@ -1,5 +1,32 @@
 <template>
   <div class="condition-panel">
+    <!-- UX Help Section -->
+    <div class="help-section">
+      <button class="help-toggle" @click="showHelp = !showHelp">
+        📖 Jak wpisać warunki rozliczenia?
+        <span class="help-toggle-icon">{{ showHelp ? '▼' : '▶' }}</span>
+      </button>
+      <Transition name="help-slide">
+        <div v-if="showHelp" class="help-content">
+          <div class="help-example">
+            <strong>Przykład — koparka z kaskadową stawką dobową (jak w starej aplikacji):</strong>
+            <div class="help-example-item">
+              <div>Warunek 1: <code>rate_type="dobowa"</code>, <code>rate1=540</code>, <code>period_count=3</code>, <code>billing_label="doba"</code></div>
+              <div class="help-preview">→ preview: <strong>"1 - 3 dni - 540,00 / doba"</strong></div>
+            </div>
+            <div class="help-example-item">
+              <div>Warunek 2: <code>rate_type="dobowa"</code>, <code>rate1=410</code>, <code>period_count=16</code>, <code>billing_label="doba"</code></div>
+              <div class="help-preview">→ preview: <strong>"4 - 16 dni - 410,00 / doba"</strong></div>
+            </div>
+            <div class="help-example-item">
+              <div>Warunek 3: <code>rate_type="dobowa"</code>, <code>rate2=350</code>, <code>billing_label="doba"</code> (bez <code>period_count</code>)</div>
+              <div class="help-preview">→ preview: <strong>"powyżej 16 dni - 350,00 / doba"</strong></div>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </div>
+
     <div class="cond-header">
       <span class="cond-title">Warunki rozliczenia</span>
       <button class="btn btn-primary btn-sm" @click="addCondition">+ Dodaj warunek</button>
@@ -80,7 +107,7 @@
               <input v-model="condForm.rate1" type="number" step="0.01" class="form-control" placeholder="0.00" />
             </div>
             <div class="form-group">
-              <label class="form-label">Stawka 2 (zł)</label>
+              <label class="form-label">Stawka 2 (zł)</label> <span class="field-tooltip" title="ostatni warunek (powyżej) — pozostaw period_count puste">ⓘ</span>
               <input v-model="condForm.rate2" type="number" step="0.01" class="form-control" placeholder="0.00" />
             </div>
           </div>
@@ -98,7 +125,12 @@
             <label class="form-label">Opis <button type="button" class="btn-auto-desc" title="Generuj opis automatycznie" @click="condForm.description = buildAutoDescription()">↻ auto</button></label>
             <input v-model="condForm.description" type="text" class="form-control" placeholder="np. stawka 5000 zł/tyg. do 5 tygodni" />
           </div>
-          <div class="modal-actions">
+                    <!-- Live Preview -->
+          <div class="form-group" v-if="condForm.rate1 || condForm.rate2">
+            <label class="form-label">Podgląd formatu kaskadowego</label>
+            <div class="live-preview">{{ formatCascadingPreview() }}</div>
+          </div>
+<div class="modal-actions">
             <button class="btn btn-secondary btn-sm" @click="showCondModal = false">Anuluj</button>
             <button class="btn btn-primary btn-sm" @click="saveCondition" :disabled="savingCond">{{ savingCond ? '...' : 'Zapisz' }}</button>
           </div>
@@ -125,6 +157,7 @@ const settingsStore = useSettingsStore()
 const rateTypes = computed(() => settingsStore.rateTypes || [])
 
 const conditions = ref([])
+const showHelp = ref(false)
 const selectedCondId = ref(null)
 const showCondModal = ref(false)
 const editingCond = ref(null)
@@ -237,6 +270,55 @@ function formatMoney(v) {
   return Number(v).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' zł'
 }
 
+
+
+function formatCascadingPreview() {
+  // Frontend version of format_position_conditions_cascading from backend
+  const tempConds = []
+  if (condForm.value.rate1 !== null && condForm.value.rate1 !== undefined && condForm.value.rate1 !== '') {
+    tempConds.push({
+      rate1: Number(condForm.value.rate1),
+      rate2: condForm.value.rate2 ? Number(condForm.value.rate2) : null,
+      billing_label: condForm.value.billing_label || 'doba',
+      period_count: condForm.value.period_count
+    })
+  }
+  
+  if (!tempConds.length) return ''
+  
+  const sorted = [...tempConds].sort((a, b) => {
+    if (a.period_count === null || a.period_count === undefined) return 1
+    if (b.period_count === null || b.period_count === undefined) return -1
+    return a.period_count - b.period_count
+  })
+  
+  const lines = []
+  let prevPeriod = 0
+  
+  for (const c of sorted) {
+    const label = c.billing_label || 'doba'
+    if (c.period_count !== null && c.period_count !== undefined && c.rate1 !== null) {
+      const start = prevPeriod + 1
+      const end = c.period_count
+      let rangeText = ''
+      if (start === end) {
+        rangeText = `${start} ${label}`
+      } else {
+        rangeText = `${start} - ${end} dni`
+      }
+      const rateText = c.rate1.toFixed(2).replace('.', ',')
+      lines.push(`${rangeText} - ${rateText} / ${label}`)
+      prevPeriod = c.period_count
+    } else if (c.rate2 !== null && prevPeriod > 0) {
+      const rateText = c.rate2.toFixed(2).replace('.', ',')
+      lines.push(`powyżej ${prevPeriod} dni - ${rateText} / ${label}`)
+    }
+  }
+  
+  return lines.join('
+') || 'Wypełnij pola, aby zobaczyć podgląd'
+}
+
 watch(() => props.positionId, loadConditions, { immediate: true })
 
 defineExpose({ loadConditions, calculatedValue })
@@ -278,4 +360,95 @@ defineExpose({ loadConditions, calculatedValue })
   transition: background 150ms;
 }
 .btn-auto-desc:hover { background: #EDF2F7; }
+
+
+/* UX Help Section */
+.help-section {
+  margin-bottom: 12px;
+}
+.help-toggle {
+  background: var(--color-bg-light);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-primary);
+  width: 100%;
+  text-align: left;
+  transition: all 150ms;
+}
+.help-toggle:hover {
+  background: #EDF2F7;
+}
+.help-toggle-icon {
+  float: right;
+  font-size: 10px;
+}
+.help-content {
+  background: var(--color-bg-light);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  padding: 12px;
+  margin-top: 8px;
+  font-size: 12px;
+}
+.help-example {
+  line-height: 1.6;
+}
+.help-example-item {
+  margin: 8px 0;
+  padding: 8px;
+  background: var(--color-bg-white);
+  border-radius: 8px;
+}
+.help-example-item code {
+  background: #EDF2F7;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+.help-preview {
+  margin-top: 4px;
+  color: var(--color-text-body);
+  font-size: 11px;
+}
+.help-slide-enter-active,
+.help-slide-leave-active {
+  transition: all 200ms ease;
+}
+.help-slide-enter-from,
+.help-slide-leave-to {
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+}
+.help-slide-enter-to,
+.help-slide-leave-from {
+  opacity: 1;
+  max-height: 500px;
+}
+
+/* Field Tooltip */
+.field-tooltip {
+  display: inline-block;
+  margin-left: 6px;
+  color: #718096;
+  font-size: 12px;
+  cursor: help;
+}
+
+/* Live Preview */
+.live-preview {
+  background: #F7FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  padding: 12px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  color: #2D3748;
+  min-height: 40px;
+}
 </style>
