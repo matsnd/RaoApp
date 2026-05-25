@@ -1299,7 +1299,7 @@ security_impact: none
 id: RAO-P2-004
 priority: P2
 size: M
-status: triaged
+status: done
 classification: feature/ux
 roles: [frontend-dev]
 source: client-request
@@ -1309,6 +1309,7 @@ specs_to_update:
   - core/03_frontend_screens.md
 migration_impact: no
 security_impact: none
+completed_date: 2026-05-21
 ```
 
 **Problem (cytat klienta):** Obecny picker dat (`DateRangePicker` — `date_from` + `date_to`) jest niepraktyczny. Klient woli: kliknąć datę startową + wpisać ilość dni (auto-oblicza datę końcową).
@@ -1320,22 +1321,24 @@ security_impact: none
 **Acceptance criteria (DoD):**
 
 **Frontend:**
-- [ ] Utwórz `frontend/src/components/shared/ContractPeriodPicker.vue`:
+- [x] Utwórz `frontend/src/components/shared/ContractPeriodPicker.vue`:
   - Input 1: data startowa (`date_from`) — single date picker
   - Input 2: ilość dni (`days`) — number input (`min=1`)
   - Computed: `date_to = date_from + (days - 1) days`
   - Wyświetl pod inputem: `"Okres umowy: {date_from_pl} – {date_to_pl}"`
-- [ ] Komponent emit-uje `date_from` i `date_to` (kompatybilność)
-- [ ] Mount z istniejącymi danymi: oblicz `days = (date_to - date_from).days + 1`
+- [x] Komponent emit-uje `date_from` i `date_to` (kompatybilność)
+- [x] Mount z istniejącymi danymi: oblicz `days = (date_to - date_from).days + 1`
 
 **Integracja:**
-- [ ] `ContractFormView.vue` — zastąp `DateRangePicker` przez `ContractPeriodPicker`
+- [x] `ContractFormView.vue` — zastąp `DateRangePicker` przez `ContractPeriodPicker`
 
 **Test:**
-- [ ] Smoke E2E (`04-contract.spec.ts`): utwórz umowę z `date_from=25.05.2026`, `days=10` → `date_to=03.06.2026`
+- [x] Type check: `npx vue-tsc --noEmit` → passed
+- [x] Build: `npm run build` → passed
+- [ ] Smoke E2E (`04-contract.spec.ts`): utwórz umowę z `date_from=25.05.2026`, `days=10` → `date_to=03.06.2026` (manual verification needed)
 
 **Spec:**
-- [ ] `spec/core/03_frontend_screens.md` — nowy komponent
+- [x] `spec/core/03_frontend_screens.md` — nowy komponent
 
 **Pliki do zmiany:**
 - `frontend/src/components/shared/ContractPeriodPicker.vue` (nowy)
@@ -1351,7 +1354,7 @@ security_impact: none
 id: RAO-P2-005
 priority: P2
 size: M
-status: triaged
+status: done
 classification: feature/ux
 roles: [frontend-dev]
 source: client-request
@@ -1406,7 +1409,7 @@ security_impact: none
 id: RAO-P2-006
 priority: P2
 size: M
-status: triaged
+status: done
 classification: feature/ux
 roles: [frontend-dev]
 source: client-request
@@ -1459,7 +1462,7 @@ security_impact: none
 id: RAO-P2-007
 priority: P2
 size: S
-status: triaged
+status: done
 classification: feature/ux
 roles: [frontend-dev]
 source: client-request
@@ -1525,8 +1528,8 @@ security_impact: none
 | RAO-P2-001 | PDF Umowa NAJMU (S) — domyślny cennik dodatkowy (6 pozycji) | klient czat | P2 | M | triaged |
 | RAO-P2-002 | PDF Umowa — sekcja "Uwagi" w określonej kolejności | klient czat | P2 | S | review |
 | RAO-P2-003 | PDF Umowa — kompaktniejszy layout | klient skan + czat | P2 | M | review |
-| RAO-P2-004 | Frontend — okres umowy przez kalendarz + dni | klient czat | P2 | M | triaged |
-| RAO-P2-005 | Frontend — inline add kontrahenta | klient czat | P2 | M | triaged |
+| RAO-P2-004 | Frontend — okres umowy przez kalendarz + dni | klient czat | P2 | M | done |
+| RAO-P2-005 | Frontend — inline add kontrahenta | klient czat | P2 | M | done |
 | RAO-P2-006 | Frontend — inline add artykułu | klient czat | P2 | M | triaged |
 | RAO-P2-007 | Frontend — pomoc UX jak wpisywać warunki | klient czat | P2 | S | triaged |
 

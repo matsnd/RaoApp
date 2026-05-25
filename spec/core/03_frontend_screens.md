@@ -48,7 +48,8 @@ frontend/
 │   │   │   ├── CalendarGrid.vue     # Kalendarz miesięczny (tabela 7x5)
 │   │   │   ├── ConfirmDialog.vue    # Modal potwierdzenia (tak/nie)
 │   │   │   ├── ContextMenu.vue      # Right-click menu
-│   │   │   └── DateRangePicker.vue  # Selektor dat od/do
+│   │   │   ├── DateRangePicker.vue  # Selektor dat od/do (legacy)
+│   │   │   └── ContractPeriodPicker.vue # Selektor okresu umowy (data od + liczba dni)
 │   │   ├── contractors/
 │   │   │   ├── ContractorForm.vue   # Formularz kontrahenta
 │   │   │   ├── AddressList.vue      # Lista adresów (lewa kolumna)
@@ -1179,20 +1180,44 @@ async function handleFakturownia() {
   2. **Kontrahent i adres dostawy** (wybór kontrahenta, adres)
   3. **Warunki finansowe** (handlowiec, oddział, wartość, przedpłata, faktura)
   4. **Kontakt i uwagi** (osoby kontaktowe, email, telefon, uwagi, opcje)
-- **RAO-P3-007:** Pola `date_from`/`date_to` zastąpione komponentem `DateRangePicker.vue`
-  - Biblioteka: `@vuepic/vue-datepicker`
-  - Komponent: `frontend/src/components/shared/DateRangePicker.vue`
-  - Tryb: range (2 kalendarze), brak time picker, locale=pl, auto-apply
-  - Label: "Okres umowy (od — do) *"
+- **RAO-P2-004:** Pola `date_from`/`date_to` zastąpione komponentem `ContractPeriodPicker.vue`
+  - Komponent: `frontend/src/components/shared/ContractPeriodPicker.vue`
+  - Input 1: `date_from` (date picker) - data rozpoczęcia umowy
+  - Input 2: `days` (number input, min=1) - liczba dni trwania umowy
+  - Computed: `date_to = date_from + (days - 1) days`
+  - Display: "Okres umowy: {date_from_pl} – {date_to_pl}"
   - Emity: `update:dateFrom`, `update:dateTo` → `form.date_from`, `form.date_to`
+  - Mount z istniejącymi danymi: `days = (date_to - date_from).days + 1`
+  - Label: "Okres umowy *"
   - Walidacja: `v-if="!form.date_from"` → "Podaj datę od"
   - **2026-05-21:** Wyświetlanie dat bez godziny (format: dd.MM.yyyy - dd.MM.yyyy)
+- **RAO-P3-007 (legacy):** Poprzednio używany `DateRangePicker.vue` (z @vuepic/vue-datepicker) - zachowany jako fallback
 - **2026-05-21:** Wyświetlanie błędów walidacji
   - Błędy walidacji z backendu (Pydantic) są parsowane z tablicy JSON
   - Format: `Kod pocztowy: String should have at least 6 characters, Miasto: String should have at least 1 character`
   - Nazwy pól są mapowane na język polski (postal_code → Kod pocztowy, city → Miasto)
   - Funkcja `handleSave()` w `ContractFormView.vue` parsuje `e.response?.data?.detail`
 - Inline validation dla required fields (data od, kontrahent)
+- **RAO-P2-005:** Inline dodawanie kontrahenta z formularza umowy
+  - W pickerze kontrahentów przycisk "➕ Dodaj nowego kontrahenta" (prominent CTA)
+  - Gdy wyszukiwanie nie zwraca wyników, wyświetlany jest komunikat "Brak wyników dla {search}"
+  - Przycisk otwiera modal "Nowy kontrahent" z formularzem inline
+  - Formularz zawiera wszystkie wymagane pola kontrahenta:
+    - Pełna nazwa * (required)
+    - Nazwa skrócona
+    - NIP
+    - REGON, PESEL
+    - Adres główny: kod pocztowy, miejscowość, ulica, nr lokalu
+    - Kontakt: osoba kontaktowa 1/2, telefon 1/2, email, telefon stacjonarny
+    - Uwagi
+  - Po zapisie:
+    - Nowy kontrahent jest dodany do lokalnej listy pickerList
+    - Kontrahent jest automatycznie wybrany (selectContractor)
+    - Modal jest zamykany
+    - Formularz jest resetowany
+  - Walidacja: nazwa kontrahenta jest wymagana
+  - Obsługa błędów: wyświetlanie błędów z backendu (e.response?.data?.detail)
+  - Pre-fill: jeśli wyszukiwany termin wygląda jak nazwa (nie jest liczbą), jest używany jako domyślna nazwa
 - Layout adresu dostawy poprawiony:
   - Select adresu w osobnym rzędzie
   - Kod pocztowy + miasto w jednym rzędzie
@@ -1429,3 +1454,85 @@ W modalu dodawania warunku:
 - Przycisk `↻ auto` przy polu Opis generuje opis na podstawie: nazwa typu stawki, stawka 1 + jednostka, stawka 2, liczba okresów, minimum
 - Format: `"Typ stawki, 500.00 zł/doba, do 5 dób, min. 1"`
 - Watcher auto-wypełnia opis przy zmianach pól (tylko dla nowych warunków, nie dla edycji)
+
+---
+
+## Komponent: `ContractPeriodPicker.vue` (RAO-P2-004)
+
+> **Zaimplementowano:** 2026-05-21 | **RAO-P2-004**
+
+**Cel:** Selektor okresu umowy oparty na dacie rozpoczęcia i liczbie dni (zamiast dwóch dat).
+
+**Lokalizacja:** `frontend/src/components/shared/ContractPeriodPicker.vue`
+
+### Props
+
+| Prop | Typ | Opis |
+|------|-----|------|
+| `dateFrom` | `string \| null` | Data rozpoczęcia umowy (ISO format: YYYY-MM-DD) |
+| `dateTo` | `string \| null` | Data zakończenia umowy (ISO format: YYYY-MM-DD) |
+
+### Emity
+
+| Event | Payload | Opis |
+|-------|---------|------|
+| `update:dateFrom` | `string \| null` | Emitowana przy zmianie daty rozpoczęcia |
+| `update:dateTo` | `string \| null` | Emitowana przy zmianie daty zakończenia (przeliczanej z dni) |
+
+### Interfejs
+
+```
+┌─────────────────────────────────────────┐
+│ Data od          │ Liczba dni          │
+│ [2026-05-25   ]  │ [10              ]  │
+├─────────────────────────────────────────┤
+│ Okres umowy: 25.05.2026 – 03.06.2026   │
+└─────────────────────────────────────────┘
+```
+
+### Logika
+
+1. **Input 1: Data od** (`date_from`)
+   - Typ: `date` (native HTML5 date picker)
+   - Wartość początkowa: `props.dateFrom` lub pusty string
+
+2. **Input 2: Liczba dni** (`days`)
+   - Typ: `number`, min=1
+   - Wartość początkowa: obliczana z `(date_to - date_from).days + 1` przy mount
+   - Walidacja: nie pozwala na wartości < 1
+
+3. **Computed: Data do** (`date_to`)
+   - Formula: `date_to = date_from + (days - 1) days`
+   - Przykład: `2026-05-25 + 9 dni = 2026-05-03` (czerwiec)
+   - Emitowana automatycznie przy zmianie `date_from` lub `days`
+
+4. **Display**
+   - Format: `"Okres umowy: {date_from_pl} – {date_to_pl}"`
+   - Format daty PL: `dd.MM.yyyy` (np. `25.05.2026 – 03.06.2026`)
+   - Widoczne tylko gdy `date_from` i `days >= 1`
+
+### Przykład użycia (ContractFormView.vue)
+
+```vue
+<ContractPeriodPicker
+  :date-from="form.date_from"
+  :date-to="form.date_to"
+  @update:date-from="form.date_from = $event"
+  @update:date-to="form.date_to = $event"
+/>
+```
+
+### Kompatybilność z API
+
+- Komponent emituje `date_from` i `date_to` w formacie ISO (YYYY-MM-DD)
+- Pełna kompatybilność z istniejącym API backendu
+- Możliwość montowania z istniejącymi danymi (edycja umowy)
+
+### Przykłady obliczeń
+
+| date_from | days | date_to | Display |
+|-----------|------|---------|---------|
+| 2026-05-25 | 1 | 2026-05-25 | 25.05.2026 – 25.05.2026 |
+| 2026-05-25 | 10 | 2026-06-03 | 25.05.2026 – 03.06.2026 |
+| 2026-05-01 | 31 | 2026-05-31 | 01.05.2026 – 31.05.2026 |
+| 2026-12-25 | 10 | 2027-01-03 | 25.12.2026 – 03.01.2027 |

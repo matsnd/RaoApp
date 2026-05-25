@@ -34,8 +34,8 @@
               <input :value="contractStore.current?.number || '(auto)'" type="text" class="form-control" disabled />
             </div>
             <div class="form-group">
-              <label class="form-label">Okres umowy (od — do) *</label>
-              <DateRangePicker
+              <label class="form-label">Okres umowy *</label>
+              <ContractPeriodPicker
                 :date-from="form.date_from"
                 :date-to="form.date_to"
                 @update:date-from="form.date_from = $event"
@@ -487,7 +487,10 @@
             <input v-model="pickerSearch" type="text" class="form-control" placeholder="Szukaj..." @input="searchContractors" />
           </div>
           <div style="max-height:320px;overflow:auto;">
-            <table class="data-grid">
+            <div v-if="!pickerList.length && pickerSearch" class="empty-state" style="padding:32px;text-align:center;color:var(--color-text-muted);">
+              Brak wyników dla "{{ pickerSearch }}"
+            </div>
+            <table v-else class="data-grid">
               <thead><tr><th>Nazwa</th><th>NIP</th><th>Miasto</th></tr></thead>
               <tbody>
                 <tr v-for="c in pickerList" :key="c.id" @click="selectContractor(c)" style="cursor:pointer;">
@@ -497,11 +500,112 @@
             </table>
           </div>
           <div class="modal-actions">
+            <button class="btn btn-primary btn-sm" @click="openInlineContractorForm">
+              ➕ Dodaj nowego kontrahenta
+            </button>
             <button class="btn btn-secondary btn-sm" @click="showContractorPicker = false">Anuluj</button>
           </div>
         </div>
       </div>
     </Transition>
+    <!-- Inline contractor form modal - RAO-P2-005 -->
+    <Transition name="modal">
+      <div v-if="showInlineContractorForm" class="modal-overlay" @click.self="showInlineContractorForm = false">
+        <div class="modal-box" style="min-width:700px;max-height:90vh;overflow-y:auto;">
+          <div class="modal-title">Nowy kontrahent</div>
+          <div v-if="inlineContractorError" style="color:var(--color-danger);font-size:13px;margin-bottom:12px;padding:8px;background:#FED7D7;border-radius:6px;">
+            {{ inlineContractorError }}
+          </div>
+          <div class="form-group">
+            <label class="form-label">Pełna nazwa *</label>
+            <input v-model="inlineContractorForm.name" type="text" class="form-control" placeholder="Nazwa firmy lub imię i nazwisko" />
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Nazwa skrócona</label>
+              <input v-model="inlineContractorForm.name_short" type="text" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">NIP</label>
+              <input v-model="inlineContractorForm.nip" type="text" class="form-control" placeholder="0000000000" maxlength="20" />
+            </div>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">REGON</label>
+              <input v-model="inlineContractorForm.regon" type="text" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">PESEL</label>
+              <input v-model="inlineContractorForm.pesel" type="text" class="form-control" />
+            </div>
+          </div>
+          <div style="font-size:13px;font-weight:600;margin:16px 0 8px 0;">Adres główny</div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Kod pocztowy</label>
+              <input v-model="inlineContractorForm.postal_code" type="text" class="form-control" placeholder="00-000" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Miejscowość</label>
+              <input v-model="inlineContractorForm.city" type="text" class="form-control" />
+            </div>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Ulica</label>
+              <input v-model="inlineContractorForm.street" type="text" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Nr lokalu</label>
+              <input v-model="inlineContractorForm.unit" type="text" class="form-control" />
+            </div>
+          </div>
+          <div style="font-size:13px;font-weight:600;margin:16px 0 8px 0;">Kontakt</div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Osoba kontaktowa 1</label>
+              <input v-model="inlineContractorForm.contact_person1" type="text" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Telefon 1</label>
+              <input v-model="inlineContractorForm.phone1" type="text" class="form-control" />
+            </div>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Osoba kontaktowa 2</label>
+              <input v-model="inlineContractorForm.contact_person2" type="text" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Telefon 2</label>
+              <input v-model="inlineContractorForm.phone2" type="text" class="form-control" />
+            </div>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Email</label>
+              <input v-model="inlineContractorForm.email" type="email" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Telefon stacjonarny</label>
+              <input v-model="inlineContractorForm.landline_phone" type="text" class="form-control" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Uwagi</label>
+            <textarea v-model="inlineContractorForm.notes" class="form-control" rows="2"></textarea>
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-secondary btn-sm" @click="showInlineContractorForm = false">Anuluj</button>
+            <button class="btn btn-primary btn-sm" @click="saveInlineContractor" :disabled="savingInlineContractor">
+              {{ savingInlineContractor ? '...' : 'Zapisz i wybierz' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
 
     <!-- Preset picker modal -->
     <Transition name="modal">
@@ -743,7 +847,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { useFakturowniaStore } from '@/stores/fakturownia'
 import ConditionPanel from '@/components/contracts/ConditionPanel.vue'
 import ServiceHourGrid from '@/components/contracts/ServiceHourGrid.vue'
-import DateRangePicker from '@/components/shared/DateRangePicker.vue'
+import ContractPeriodPicker from '@/components/shared/ContractPeriodPicker.vue'
 import api from '@/composables/useApi'
 
 const props = defineProps({ id: String })
@@ -786,6 +890,17 @@ const selectedAddressId = ref(null)
 const showContractorPicker = ref(false)
 const pickerSearch = ref('')
 const pickerList = ref([])
+
+// RAO-P2-005: Inline contractor creation
+const showInlineContractorForm = ref(false)
+const savingInlineContractor = ref(false)
+const inlineContractorError = ref('')
+const inlineContractorForm = ref({
+  name: '', name_short: '', nip: '', regon: '', pesel: '',
+  postal_code: '', city: '', street: '', unit: '', notes: '',
+  email: '', contact_person1: '', phone1: '',
+  contact_person2: '', phone2: '', landline_phone: '', website: '',
+})
 
 // RAO-P2-012 spike: Fakturownia panel
 const showFakturowniaPanel = ref(false)
@@ -1158,6 +1273,49 @@ async function selectContractor(c) {
   showContractorPicker.value = false
   selectedAddressId.value = null
   await loadContractorAddresses(c.id)
+}
+
+// RAO-P2-005: Inline contractor creation functions
+function openInlineContractorForm() {
+  showInlineContractorForm.value = true
+  inlineContractorError.value = ''
+  // Pre-fill with search term if it looks like a name
+  if (pickerSearch.value && pickerSearch.value.length > 2 && isNaN(Number(pickerSearch.value))) {
+    inlineContractorForm.value.name = pickerSearch.value
+  }
+}
+
+async function saveInlineContractor() {
+  savingInlineContractor.value = true
+  inlineContractorError.value = ''
+  
+  // Basic validation
+  if (!inlineContractorForm.value.name || !inlineContractorForm.value.name.trim()) {
+    inlineContractorError.value = 'Podaj nazwę kontrahenta'
+    savingInlineContractor.value = false
+    return
+  }
+  
+  try {
+    const result = await contractorStore.create(inlineContractorForm.value)
+    // Add to picker list
+    pickerList.value.unshift(result)
+    // Auto-select the new contractor
+    await selectContractor(result)
+    // Close the inline form
+    showInlineContractorForm.value = false
+    // Reset the form
+    inlineContractorForm.value = {
+      name: '', name_short: '', nip: '', regon: '', pesel: '',
+      postal_code: '', city: '', street: '', unit: '', notes: '',
+      email: '', contact_person1: '', phone1: '',
+      contact_person2: '', phone2: '', landline_phone: '', website: '',
+    }
+  } catch (e: any) {
+    inlineContractorError.value = e?.response?.data?.detail || 'Błąd zapisu kontrahenta'
+  } finally {
+    savingInlineContractor.value = false
+  }
 }
 
 function selectPosition(pos) {
