@@ -93,7 +93,7 @@ Do obu wariantów umowy dodana została sekcja `Uwagi` umieszczona **przed podpi
 **Zawartość sekcji:**
 - Doba wynajmu: 8 godzin pracy urządzenia
 - Zgłoszenie zwrotu: pisemne powiadomienie 1 dzień przed zwrotem
-- Dni pracy/tydzień: dane z `contract.working_days_per_week` (default: 5)
+- Ilość dni pracy: dane z `contract.working_days_per_week` (default: 6) — zmieniono z "Dni pracy/tydzień" wg RAO-P1-002
 - Dokumentacja zdjęciowa: obowiązek dostarczenia przy zwrocie
 
 ### 1.6 Font dokumentów — Montserrat (RAO-P1-015 scope-cut)

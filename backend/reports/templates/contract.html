@@ -223,7 +223,7 @@
         {% else %}
         <p style="margin:0 0 4px 0;"><strong>Doba wynajmu:</strong> 8 godzin pracy urządzenia, licząc od momentu jego uruchomienia danego dnia.</p>
         <p style="margin:0 0 4px 0;"><strong>Zgłoszenie zwrotu:</strong> Najemca zobowiązuje się do pisemnego poinformowania wynajmującego o zwrocie maszyny budowlanej najpóźniej z jednodniowym wyprzedzeniem.</p>
-        <p style="margin:0 0 4px 0;"><strong>Dni pracy/tydzień:</strong> {% if contract.working_days_per_week %}{{ contract.working_days_per_week }}{% else %}5{% endif %} dni.</p>
+        <p style="margin:0 0 4px 0;"><strong>Ilość dni pracy:</strong> {% if contract.working_days_per_week %}{{ contract.working_days_per_week }}{% else %}6{% endif %} dni.</p>
         <p style="margin:0;"><strong>Dokumentacja zdająca:</strong> Najemca zobowiązuje się do dostarczenia kompletnej dokumentacji zdjęciowej przy zwrocie urządzenia.</p>
         {% endif %}
         {% if contract.total_value %}
