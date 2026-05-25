@@ -1505,7 +1505,82 @@ security_impact: none
 ---
 
 ## 🟢 P3 — Nice-to-Have
-*(brak)*
+
+### [RAO-P3-014] Placeholdery $1/$2 w opisach usług dodatkowych + nazwa zakładki "Zestawy usług"
+
+```yaml
+id: RAO-P3-014
+priority: P3
+size: M
+status: triaged
+classification: bugfix/data
+roles: [backend-dev, frontend-dev]
+source: client-request
+source_date: 2026-05-25
+source_ref: "client report: placeholdery $1/$2 w PDF + pozycje nie wyświetlają się w ustawieniach"
+specs_to_update:
+  - core/11_reports_stats.md
+  - core/03_frontend_screens.md
+migration_impact: yes
+security_impact: none
+```
+
+**Problem (cytat klienta):** *„w opisie usług dodatkowych są placeholdery z $1 które nie działają na wydrukach, oprócz tego w ustawieniach jak się dodaje i edytuje zestawy usług dodatkowych (proponuje tak to tam nazwać żeby było wiadomo że o to chodzi, to pozycje się nie wyświetlają"*
+
+**Analiza wykonana 2026-05-25:**
+
+1. **Placeholdery $1/$2 w bazie danych:**
+   - Tabela `service_fee_templates` zawiera opisy z placeholderami: `- Transport: $1 zł dostawa / $2 zł odbiór`
+   - Wartości rzeczywiste są w kolumnach `amount_from` (400.00) i `amount_to` (400.00)
+   - Placeholdery NIE są podstawiane w PDF - widoczne jako `$1 zł`, `$2 zł`
+
+2. **Nazwa zakładki w ustawieniach:**
+   - Obecna nazwa: "Zestawy usług" (SettingsView.vue line 486)
+   - Proponowana nazwa: "Zestawy usług dodatkowych" (bardziej precyzyjna)
+
+3. **Wyświetlanie pozycji w ustawieniach:**
+   - UI ma strukturę do wyświetlania pozycji (VueDraggable, tabela z kolumnami)
+   - Dane w bazie istnieją (11 rekordów w service_fee_templates)
+   - Wymaga weryfikacji Playwright czy pozycje się renderują
+
+**Root cause:**
+- Opisy w bazie używają placeholderów `$1`, `$2` (legacy format)
+- Brak mechanizmu podstawiania wartości w PDF template
+- Nazwa zakładki jest nieprecyzyjna
+
+**Acceptance criteria (DoD):**
+
+**Backend (migracja danych):**
+- [ ] Zaktualizuj opisy w `service_fee_templates` - zamień `$1` na `amount_from`, `$2` na `amount_to`
+- [ ] Przykład: `- Transport: $1 zł dostawa / $2 zł odbiór` → `- Transport: 400.00 zł dostawa / 400.00 zł odbiór`
+- [ ] Użyj skryptu migracyjnego w `backend/migrate.py` (deterministyczny UPDATE)
+- [ ] Zaktualuj seed w `backend/main.py` (linia 37-44) - użyj konkretnych wartości zamiast placeholderów
+
+**Backend (PDF template):**
+- [ ] Sprawdź `contract.html` linia 214 - template używa `{{ f.description }}` bez podstawiania
+- [ ] Jeśli placeholderów już nie ma po migracji - template jest OK
+- [ ] Jeśli placeholdery mają pozostać - dodaj mechanizm podstawiania w Jinja2
+
+**Frontend:**
+- [ ] Zmień nazwę zakładki w `SettingsView.vue` line 486: `Zestawy usług` → `Zestawy usług dodatkowych`
+- [ ] Weryfikacja Playwright czy pozycje się wyświetlają w UI
+
+**Test:**
+- [ ] Wygeneruj PDF umowy z usługami dodatkowymi - sprawdź czy wartości są widoczne (bez $1/$2)
+- [ ] Otwórz ustawienia - sprawdź czy pozycje się wyświetlają w tabeli
+- [ ] Sprawdź czy nazwa zakładki to "Zestawy usług dodatkowych"
+
+**Spec:**
+- [ ] `spec/core/11_reports_stats.md` - note o usunięciu placeholderów
+- [ ] `spec/core/03_frontend_screens.md` - nazwa zakładki
+
+**Pliki do zmiany:**
+- `backend/migrate.py` - skrypt migracji (UPDATE service_fee_templates)
+- `backend/main.py` - seed (linie 37-44)
+- `frontend/src/views/SettingsView.vue` - nazwa zakładki (line 486)
+- Opcjonalnie: `backend/reports/templates/contract.html` - jeśli placeholdery mają pozostać
+
+**Estimate:** 2h (M) - głównie migracja danych + weryfikacja
 
 ---
 
@@ -1532,8 +1607,9 @@ security_impact: none
 | RAO-P2-005 | Frontend — inline add kontrahenta | klient czat | P2 | M | done |
 | RAO-P2-006 | Frontend — inline add artykułu | klient czat | P2 | M | done |
 | RAO-P2-007 | Frontend — pomoc UX jak wpisywać warunki | klient czat | P2 | S | done |
+| RAO-P3-014 | Placeholdery $1/$2 + nazwa zakładki | klient czat | P3 | M | triaged |
 
-**Razem:** 19 zadań (w tym 1 spike) · ~29-37h pracy
+**Razem:** 20 zadań (w tym 1 spike) · ~31-39h pracy
 
 ---
 

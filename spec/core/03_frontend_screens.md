@@ -733,7 +733,7 @@ Row 3 (30px): centered [ Zakończ ]
 
 ## Widok: `SettingsView.vue`
 
-**Zakładki:** Dane firmy | Handlowcy | Kategorie | Typy stawek | Zestawy usług | Fakturownia | Folder RAO
+**Zakładki:** Dane firmy | Handlowcy | Kategorie | Typy stawek | Zestawy usług dodatkowych | Fakturownia | Folder RAO
 
 
 > **RAO-P2-019 (2026-05-30):** Zakl. Kategorie zastapiona drzewiastym widokiem: flatCategoryTree computed, fetchCategoriesTree() w store, inline edit, cascade subcat, addingSubcatParentId dla inline add.

@@ -483,7 +483,7 @@ const tabs = [
   { id: 'salespeople', label: 'Handlowcy' },
   { id: 'categories', label: 'Kategorie' },
   { id: 'rate-types', label: 'Typy stawek' },
-  { id: 'fee-presets', label: 'Zestawy usług' },
+  { id: 'fee-presets', label: 'Zestawy usług dodatkowych' },
   { id: 'fakturownia', label: 'Fakturownia' },
   { id: 'folder', label: 'Folder RAO' },
 ]
