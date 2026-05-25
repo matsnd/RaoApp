@@ -3,6 +3,68 @@
 > **INSTRUKCJA DLA AGENTA:** Wykonaj migrację w dokładnej kolejności.
 > Wszystkie dane przenoszone są przez INSERT...SELECT — BEZ procedur.
 
+---
+
+## ⚠️ DECYZJA ARCHITEKTONICZNA: Linia odcięcia (Data Cut-off)
+
+> **Data decyzji:** 2026-05-24
+> **Decydent:** Właściciel Toolsmart Sp. z o.o.
+> **Cytat:** „To nie jest bug — odcięcie linia zmigrowanych starych wadliwych danych od nowych. Kontynuuj.”
+
+### Co to oznacza
+
+Wszystkie dane zmigrowane z legacy WinForms (701 umów, 633 kontrahentów, 418 artykułów) są **świadomie oznaczone jako archiwum tylko-do-odczytu**. Aplikacja nie próbuje rekonstruować brakujących pól (`total_value`, `cost_company`) — zamiast tego rozróżnia dwa światy:
+
+| Świat | Zakres | Stan danych | Liczy się do KPI? | Edytowalne? |
+|-------|--------|-------------|-------------------|-------------|
+| **Legacy** (pre-cutoff) | Wszystko z `migrate.py` (2026-05) | `total_value=NULL`, `is_settled=1`, `is_archival=1` | NIE | NIE (admin override) |
+| **Active** (post-cutoff) | Nowe umowy/artykuły od cut-off date | Walidowane, wypełnione poprawnie | TAK | TAK |
+
+### Stan po migracji (potwierdzenie z DB 2026-05-24)
+
+```sql
+-- Wszystkie umowy z legacy są zamknięte
+SELECT is_settled, COUNT(*) FROM contracts GROUP BY is_settled;
+-- → 1: 701   (100% rozliczone — by-design)
+
+-- Wszystkie umowy z legacy nie mają total_value
+SELECT COUNT(*) - SUM(CASE WHEN total_value IS NULL THEN 1 ELSE 0 END) AS not_null
+FROM contracts;
+-- → 0/701   (100% NULL — by-design, revenue jest w position_conditions.rate1)
+
+-- Wszystkie artykuły z legacy są archiwalne
+SELECT is_archival, COUNT(*) FROM articles GROUP BY is_archival;
+-- → 1: 418   (100% archiwalne — by-design, jeśli aktywna maszyna fizyczna istnieje, wprowadź ją od zera)
+```
+
+### Wymagania na aplikację (RAO-P0-009 w BACKLOG)
+
+Po migracji aplikacja **MUSI** zaimplementować:
+
+1. **Mechanizm flagowania:** dodaj `is_legacy BOOLEAN` na `contracts`, `contractors`, `articles`. Wszystkie istniejące rekordy → `is_legacy=true`.
+2. **Filter domyślny:** wszystkie listy (`/contracts`, `/contractors`, `/articles`) i raporty (`/stats/*`) **domyślnie** filtrują `WHERE is_legacy=false`.
+3. **Toggle/banner:** użytkownik może wyłączyć filtr ("Pokaż archiwum") świadomie.
+4. **Walidacja nowych:** `is_legacy=false` jako domyślna wartość przy `POST /contracts` itp. — Pydantic validator zabrania ustawiania `is_legacy=true` z UI.
+5. **Walidacja `total_value`:** nowe umowy MUSZĄ mieć `total_value > 0` (auto-kalkulacja z `position_conditions.rate1 * period_count`).
+6. **Read-only legacy:** edycja legacy contracts/articles zablokowana (HTTP 403 lub admin override z `?force=true`).
+
+### Pytania otwarte (decyzje wymagane od Właściciela)
+
+- **Cut-off date:** `2026-05-24` (dziś), `2026-06-01`, `2026-07-01`?
+- **Selektywne odznaczenie maszyn:** czy fizycznie aktywne maszyny (te wciąż wynajmowane) odznaczyć z legacy automatycznie, czy wprowadzić od zera?
+- **Edycja legacy:** czy admin może w razie korekty (np. nazwa kontrahenta zmieniła się prawnie)?
+- **Marża historyczna:** wypełniać `cost_company` retroaktywnie czy zostawić NULL?
+- **Archive offload:** po stabilizacji przenieść legacy do osobnej DB schema `rao_legacy`?
+
+### Powiązane dokumenty
+
+- [STRATEGIC_ROADMAP.md sekcja 1.5](../STRATEGIC_ROADMAP.md#15-fundament-architektoniczny-linia-odcięcia-data-cut-off) — kontekst biznesowy
+- [BACKLOG.md RAO-P0-009](../backlog/BACKLOG.md#rao-p0-009) — task implementacyjny
+- [BACKLOG.md RAO-P1-036](../backlog/BACKLOG.md#rao-p1-036) — toggle archiwalnych
+- [BACKLOG.md RAO-P1-037](../backlog/BACKLOG.md#rao-p1-037) — walidacja nowych umów
+
+---
+
 ## Kolejność migracji (dependencies-first)
 
 ```
