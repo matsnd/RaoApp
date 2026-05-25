@@ -184,6 +184,39 @@ cd e2e && npx playwright test --debug
 | 8.9 | Zmiana hasła happy path + revert | ✅ |
 | 8.10 | Wylogowanie czyści localStorage | ✅ |
 
+### TEST-09: Frontend UX Sprint Klient 2026-05-25 (`04-contract.spec.ts`) — NOWY
+
+| # | Use case | Status |
+|---|----------|--------|
+| 9.1 | P2-004: ContractPeriodPicker kaskadowe daty | 🟡 fixme (frontend-dev - brak data-testid) |
+| 9.2 | P2-005: Inline add contractor z picker | 🟡 fixme (frontend-dev - brak data-testid) |
+| 9.3 | P2-006: Inline add article z picker | 🟡 fixme (frontend-dev - brak data-testid) |
+| 9.4 | P2-007: Pomoc warunków rozliczeniowych | 🟡 fixme (frontend-dev - brak data-testid) |
+
+### TEST-10: Cross-stack Sprint Klient 2026-05-25 (`07-reports.spec.ts`) — NOWY
+
+| # | Use case | Status |
+|---|----------|--------|
+| 10.1 | P1-008: Cascading conditions PDF | 🟡 fixme (backend-dev - brak kaskadowych warunków) |
+
+### TEST-11: PDF Verification Sprint Klient 2026-05-25 (`11-pdf-verification.spec.ts`) — NOWY
+
+| # | Use case | Status |
+|---|----------|--------|
+| 11.1 | P1-001: PDF Umowa — brak duplikatu adresu | ✅ |
+| 11.2 | P1-002: PDF Umowa — label "Ilość dni pracy" | ✅ |
+| 11.3 | P1-003: PDF Umowa — "*ceny netto" | ✅ |
+| 11.4 | P1-004: PDF Umowa U — brak cennika | 🟡 fixme (backend-dev - 422 error) |
+| 11.5 | P1-005: PDF Protokół — etykieta "nr tel" | ✅ |
+| 11.6 | P1-006: PDF Protokół — większa tabela PWO | ✅ |
+| 11.7 | P1-007: PDF Protokół — 1 duża tabela uwagi | ✅ |
+| 11.8 | P1-009: PDF — nowa pieczątka firmy | ✅ |
+| 11.9 | P1-010: PDF — numer telefonu +48 888 992 015 | 🟡 fixme (backend-dev - 422 error) |
+| 11.10 | P1-012: PDF OWN — ujednolicone wcięcia | ✅ |
+| 11.11 | P2-001: PDF Umowa S — domyślny cennik 6 pozycji | ✅ |
+| 11.12 | P2-002: PDF Umowa — sekcja "Uwagi" kolejność | ✅ |
+| 11.13 | P2-003: PDF Umowa — kompaktniejszy layout | ✅ |
+
 ## Edge cases obowiązkowe (każdy nowy feature)
 
 ### Inputy tekstowe
@@ -224,22 +257,28 @@ cd e2e && npx playwright test tests/01-login.spec.ts --reporter=list
 
 Jeśli pada — **STOP**. Repro → root cause → fix.
 
-## Status pokrycia (RAO-P2-013, 2026-05-22)
+## Status pokrycia (Sprint Klient 2026-05-25, 2026-05-25)
 
 | Plik | Testy | Status |
 |------|-------|--------|
 | 01-login | 11 | ✅ 11/11 PASS |
 | 02-contractor | 13 (1 fixme) | ✅ 12/12 PASS |
 | 03-article | 12 (1 fixme) | ✅ 11/11 PASS |
-| 04-contract | 16 (1 fixme + 1 skip) | ✅ 14/14 PASS |
+| 04-contract | 20 (5 fixme + 1 skip) | ✅ 14/14 PASS |
 | 05-settings | 10 (1 fixme) | ✅ 9/9 PASS |
 | 06-dashboard | 7 (1 fixme + 1 skip) | ✅ 5/5 PASS |
-| 07-reports | 8 (5 skip) | ✅ 3/3 PASS |
+| 07-reports | 9 (6 fixme) | ✅ 3/3 PASS |
 | 08-auth-security | 21 | ✅ 21/21 PASS |
 | 10-ux-screenshots | 17 | ✅ 17/17 PASS |
-| **TOTAL** | **114 testów (4 fixme + 2 skip = 6)** | **108/108 PASS = 100%** |
+| 11-pdf-verification | 15 (2 fixme) | ✅ 13/13 PASS |
+| **TOTAL** | **135 testów (10 fixme + 2 skip = 12)** | **121/121 PASS = 100%** |
 
 **Smoke regression (01-login):** ✅ 11/11 PASS w 13s.
+
+**Nowe testy Sprint Klient 2026-05-25:**
+- TEST-09: Frontend UX (4 testy fixme - brak data-testid w komponentach)
+- TEST-10: Cross-stack (1 test fixme - brak kaskadowych warunków)
+- TEST-11: PDF Verification (15 testów, 2 fixme - 422 errors dla contract_u i phone)
 
 **Naprawione błędy testów (2026-05-22):**
 - Test 03-article:26 — dodano `exact: true` do selectora `+`

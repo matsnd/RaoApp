@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { API, apiLogin, authHeaders, safeDelete, newApiContext, genValidNip } from './helpers'
+import { API, apiLogin, authHeaders, safeDelete, newApiContext, genValidNip, createContractWithCascadingConditions } from './helpers'
 
 let token = ''
 let contractorId = 0
@@ -73,6 +73,36 @@ test.describe('TEST-07: Reports API', () => {
       headers: authHeaders(token), timeout: 15_000,
     })
     expect([400, 422]).toContain(r.status())
+  })
+
+  // --- RAO-P1-008: Format kaskadowy warunków rozliczenia ---
+  test('RAO-P1-008: format kaskadowy warunków w PDF', async ({ request }) => {
+    test.skip(!contractorId, 'Brak kontrahenta do testu')
+    
+    // Utwórz umowę z kaskadowymi warunkami
+    const cascadingContractId = await createContractWithCascadingConditions(request, contractorId, [
+      { period_count: 3, rate1: 540, billing_label: 'doba' },
+      { period_count: 16, rate1: 410, billing_label: 'doba' },
+      { rate2: 350, billing_label: 'doba' }, // ostatni warunek (powyżej)
+    ])
+    
+    // Generuj PDF
+    const r = await request.post(`${API}/reports/contract/${cascadingContractId}?type=contract`, {
+      headers: authHeaders(token), timeout: 30_000,
+    })
+    expect(r.status()).toBe(200)
+    expect(r.headers()['content-type']).toContain('application/pdf')
+    
+    // Zapisz PDF do artifacts dla manual verification
+    const buffer = await r.body()
+    const fs = await import('fs')
+    const path = await import('path')
+    const artifactsDir = path.join(process.cwd(), 'e2e', 'artifacts', 'pdfs')
+    await fs.promises.mkdir(artifactsDir, { recursive: true })
+    await fs.promises.writeFile(path.join(artifactsDir, 'RAO-P1-008-cascading-conditions.pdf'), buffer)
+    
+    // Cleanup
+    await safeDelete(request, `${API}/contracts/${cascadingContractId}`, token)
   })
 
   test.afterAll(async () => {
