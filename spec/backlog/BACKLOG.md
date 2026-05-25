@@ -419,7 +419,7 @@ Klient chce **1 dużą tabelę "uwagi"** (jedno duże pole tekstowe).
 id: RAO-P1-008
 priority: P1
 size: M
-status: in_progress
+status: review
 classification: feature/refactor
 roles: [frontend-dev, backend-dev]
 source: client-request + legacy-app-reference
@@ -661,7 +661,7 @@ KRS 0001109942
 id: RAO-P1-011
 priority: P1
 size: S
-status: triaged
+status: review
 classification: spike/research
 roles: [backend-dev, frontend-dev, qa-engineer]
 source: client-request
