@@ -139,12 +139,12 @@ service_hours = hours_result.scalars().all()
 Wszystkie dokumenty PDF (umowy, protokoły, OWN) zawierają pieczątkę firmową Toolsmart Sp. z o.o. z podpisem w sekcjach podpisów Wynajmującego. Aby uzyskać 100% zgodności wizualnej, wprowadzono dwa odrębne pliki pieczątek firmowych:
 
 **Lokalizacja pieczątek:**
-- `backend/reports/assets/company_stamp.jpg` — Oryginalna pieczątka (JPEG, 12275 bytes) stosowana na umowach (OWN).
-- `backend/reports/assets/protocol_stamp.png` — Dedykowana pieczątka protokołu (PNG, 27856 bytes, wyekstrahowana z referencyjnego PZO) stosowana na wszystkich protokołach zdawczo-odbiorczych (PZO), dająca idealne dopasowanie do podpisów.
+- `backend/reports/assets/company_stamp_fixed.jpg` — Nowa pieczątka firmowa (JPEG, cropped from client screenshot 2026-05-25) z 4 liniami: Toolsmart Sp. z o.o., ul. Kłobucka 6B/103, 02-699 Warszawa, NIP 9512598092, Regon 528847124, KRS 0001109942. Stosowana na umowach (OWN).
+- `backend/reports/assets/protocol_stamp.png` — Ta sama pieczątka w formacie PNG (z przezroczystym tłem) stosowana na wszystkich protokołach zdawczo-odbiorczych (PZO), dająca idealne dopasowanie do podpisów.
 
 **Integracja w szablonach:**
-- `contract.html` — Umowa Najmu (sekcja OWN podpisów z `company_stamp.jpg` o wymiarach 220x85px).
-- `contract_u.html` — Umowa Usługi (sekcja podpisów umowy z `company_stamp.jpg` oraz OWN).
+- `contract.html` — Umowa Najmu (sekcja OWN podpisów z `company_stamp_fixed.jpg` o wymiarach 220x85px).
+- `contract_u.html` — Umowa Usługi (sekcja podpisów umowy z `company_stamp_fixed.jpg` oraz OWN).
 - `protocol_zo.html` — Protokół Najmu (dwie sekcje podpisów: wydanie + zwrot z `protocol_stamp.png` o wymiarach 180x70px).
 - `protocol_zo_u.html` — Protokół Usługi (dwie sekcje podpisów: wydanie + zwrot z `protocol_stamp.png` o wymiarach 180x70px).
 - `protocol_zo_nodata_u.html` — Protokół Usługi bez cen (dwie sekcje podpisów z `protocol_stamp.png` o wymiarach 180x70px).

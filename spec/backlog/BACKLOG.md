@@ -584,7 +584,7 @@ Lub alternatywnie (decyzja w trakcie implementacji):
 id: RAO-P1-009
 priority: P1
 size: XS
-status: triaged
+status: review
 classification: maintenance
 roles: [backend-dev]
 source: client-request
