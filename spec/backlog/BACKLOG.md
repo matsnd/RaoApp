@@ -1513,19 +1513,19 @@ security_impact: none
 
 | ID | Tytuł | Źródło | P | Est. | Status |
 |----|-------|--------|---|------|--------|
-| RAO-P1-001 | PDF Umowa — usunąć duplikat "na budowie" | klient skan + czat | P1 | XS | triaged |
-| RAO-P1-002 | PDF Umowa — "Dni pracy/tydzień" → "Ilość dni pracy" | klient skan | P1 | XS | triaged |
-| RAO-P1-003 | PDF Umowa — "*ceny netto" wyraźnie na dole | klient skan | P1 | S | triaged |
-| RAO-P1-004 | PDF Umowa U (usługa) — usuń cennik dodatkowy | klient czat + OWN ref | P1 | S | triaged |
-| RAO-P1-005 | PDF Protokół — etykieta "nr tel" w boksie kontaktu | klient skan + czat | P1 | S | triaged |
-| RAO-P1-006 | PDF Protokół — większa tabela "Przy wydaniu/odbiorze" | klient skan | P1 | S | triaged |
-| RAO-P1-007 | PDF Protokół — 1 duża tabela "uwagi" zamiast 3 | klient czat | P1 | M | triaged |
-| RAO-P1-008 | Format kaskadowy warunków rozliczenia (jak stara app) | klient + legacy | P1 | M | triaged |
-| RAO-P1-009 | Wymiana pieczątki firmy w PDF | klient czat | P1 | XS | triaged |
-| RAO-P1-010 | Weryfikacja numeru telefonu w nagłówku | klient czat | P1 | XS | triaged |
-| RAO-P1-011 | **[SPIKE]** Walidacja duplikatu maszyny + ostrzeżenie o konflikcie wynajmu | klient czat | P1 | S | triaged |
-| RAO-P1-012 | PDF OWN — ujednolicenie wcięć w listach (klient: "nic nie wystaje") | klient + docx ref | P1 | M | triaged |
-| RAO-P2-001 | PDF Umowa NAJMU (S) — domyślny cennik dodatkowy (6 pozycji) | klient czat | P2 | M | triaged |
+| RAO-P1-001 | PDF Umowa — usunąć duplikat "na budowie" | klient skan + czat | P1 | XS | review |
+| RAO-P1-002 | PDF Umowa — "Dni pracy/tydzień" → "Ilość dni pracy" | klient skan | P1 | XS | review |
+| RAO-P1-003 | PDF Umowa — "*ceny netto" wyraźnie na dole | klient skan | P1 | S | review |
+| RAO-P1-004 | PDF Umowa U (usługa) — usuń cennik dodatkowy | klient czat + OWN ref | P1 | S | review |
+| RAO-P1-005 | PDF Protokół — etykieta "nr tel" w boksie kontaktu | klient skan + czat | P1 | S | review |
+| RAO-P1-006 | PDF Protokół — większa tabela "Przy wydaniu/odbiorce" | klient skan | P1 | S | review |
+| RAO-P1-007 | PDF Protokół — 1 duża tabela "uwagi" zamiast 3 | klient czat | P1 | M | review |
+| RAO-P1-008 | Format kaskadowy warunków rozliczenia (jak stara app) | klient + legacy | P1 | M | review |
+| RAO-P1-009 | Wymiana pieczątki firmy w PDF | klient czat | P1 | XS | review |
+| RAO-P1-010 | Weryfikacja numeru telefonu w nagłówku | klient czat | P1 | XS | review |
+| RAO-P1-011 | **[SPIKE]** Walidacja duplikatu maszyny + ostrzeżenie o konflikcie wynajmu | klient czat | P1 | S | review |
+| RAO-P1-012 | PDF OWN — ujednolicenie wcięć w listach (klient: "nic nie wystaje") | klient + docx ref | P1 | M | review |
+| RAO-P2-001 | PDF Umowa NAJMU (S) — domyślny cennik dodatkowy (6 pozycji) | klient czat | P2 | M | review |
 | RAO-P2-002 | PDF Umowa — sekcja "Uwagi" w określonej kolejności | klient czat | P2 | S | review |
 | RAO-P2-003 | PDF Umowa — kompaktniejszy layout | klient skan + czat | P2 | M | review |
 | RAO-P2-004 | Frontend — okres umowy przez kalendarz + dni | klient czat | P2 | M | done |
