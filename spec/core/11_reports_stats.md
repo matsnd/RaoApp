@@ -114,6 +114,8 @@ Do obu wariantów umowy dodana została sekcja `Uwagi` umieszczona **przed podpi
 
 **Uwaga - domyślne usługi dodatkowe dla umów najmu (RAO-P2-001):** Seed w backend/main.py::startup_migrations tworzy domyślny preset usług dodatkowych dla umów najmu (typ S) z 6 usługami w określonej kolejności: Transport (500 zł/dostawa), Czyszczenie drobne (150-400 zł), Czyszczenie trudne (400-1500 zł), Tankowanie (200 zł + paliwo), Prestój transportu (200-300 zł/h), Serwis (280 zł + transport). Seed jest idempotentny i automatycznie kopiowany do nowych umów typu S przez funkcję copy_fee_templates.
 
+**Uwaga - kompaktniejszy layout umów (RAO-P2-003):** Font-size i padding w contract.html i contract_u.html zostały zmniejszone dla bardziej kompaktowego wyglądu: table.pos font-size 9px → 8.5px, padding 4px 5px → 2px 4px, .bottom-box/.inne-box font-size 9px → 8px, padding 5px 8px → 4px 6px, line-height 1.45 → 1.3, .cond font-size 9px → 8.5px.
+
 ### 1.6 Font dokumentów — Montserrat (RAO-P1-015 scope-cut)
 
 ### 1.7 Sekcja "Ewidencja godzin operatora" w protokole usługi (RAO-P1-014)

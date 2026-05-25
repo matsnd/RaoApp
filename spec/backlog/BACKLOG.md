@@ -1250,7 +1250,7 @@ security_impact: none
 id: RAO-P2-003
 priority: P2
 size: M
-status: triaged
+status: review
 classification: ux/pdf
 roles: [backend-dev]
 source: client-request
@@ -1524,7 +1524,7 @@ security_impact: none
 | RAO-P1-012 | PDF OWN — ujednolicenie wcięć w listach (klient: "nic nie wystaje") | klient + docx ref | P1 | M | triaged |
 | RAO-P2-001 | PDF Umowa NAJMU (S) — domyślny cennik dodatkowy (6 pozycji) | klient czat | P2 | M | triaged |
 | RAO-P2-002 | PDF Umowa — sekcja "Uwagi" w określonej kolejności | klient czat | P2 | S | review |
-| RAO-P2-003 | PDF Umowa — kompaktniejszy layout | klient skan + czat | P2 | M | triaged |
+| RAO-P2-003 | PDF Umowa — kompaktniejszy layout | klient skan + czat | P2 | M | review |
 | RAO-P2-004 | Frontend — okres umowy przez kalendarz + dni | klient czat | P2 | M | triaged |
 | RAO-P2-005 | Frontend — inline add kontrahenta | klient czat | P2 | M | triaged |
 | RAO-P2-006 | Frontend — inline add artykułu | klient czat | P2 | M | triaged |
