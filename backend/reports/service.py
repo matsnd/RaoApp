@@ -52,6 +52,7 @@ def _build_conditions_text(conditions, default_unit: str = "doba") -> str:
 
 async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
     from sqlalchemy.orm import selectinload
+    from contracts.service import format_position_conditions_cascading
     result = await db.execute(
         select(Contract)
         .options(selectinload(Contract.positions).selectinload(ContractPosition.article))
@@ -83,7 +84,8 @@ async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
 
         article = await db.get(ArticleModel, pos.article_id) if pos.article_id else None
 
-        conditions_text = _build_conditions_text(conditions, pos.billing_unit or "doba")
+        # Use new cascading formatter for conditions
+        conditions_text = format_position_conditions_cascading(conditions)
 
         # Fetch service hours for this position
         hours_result = await db.execute(

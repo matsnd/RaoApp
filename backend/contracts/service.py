@@ -44,6 +44,46 @@ async def copy_fee_templates(db: AsyncSession, contract_id: int, contract_type: 
     await db.commit()
 
 
+def format_position_conditions_cascading(conditions: list[PositionCondition]) -> str:
+    """Buduje opis kaskadowych warunków rozliczenia jak w starej aplikacji WinForms.
+
+    Przykład wyjścia (3 warunki):
+      1 - 3 dni - 540,00 / doba
+      4 - 16 dni - 410,00 / doba
+      powyżej 16 dni - 350,00 / doba
+    """
+    if not conditions:
+        return ""
+
+    # Sortuj warunki rosnąco po period_count (NULL na końcu)
+    sorted_conds = sorted(
+        conditions,
+        key=lambda c: (c.period_count is None, c.period_count or 0)
+    )
+    lines = []
+    prev_period = 0
+    for i, c in enumerate(sorted_conds):
+        label = c.billing_label or 'doba'
+        if c.period_count is not None and c.rate1 is not None:
+            # Zakres dni
+            start = prev_period + 1
+            end = c.period_count
+            if start == end:
+                range_text = f"{start} {label}"
+            else:
+                # Uproszczona polska fleksja: użyj "dni" dla zakresu
+                range_text = f"{start} - {end} dni"
+            # Polski format kwoty (przecinek dziesiętny)
+            rate_text = f"{c.rate1:.2f}".replace('.', ',')
+            lines.append(f"{range_text} - {rate_text} / {label}")
+            prev_period = c.period_count
+        elif c.rate2 is not None and prev_period > 0:
+            # Linia "powyżej"
+            rate_text = f"{c.rate2:.2f}".replace('.', ',')
+            lines.append(f"powyżej {prev_period} dni - {rate_text} / {label}")
+    return '\n'.join(lines)
+
+
 async def apply_preset_to_contract(db: AsyncSession, contract_id: int, preset_id: int, replace: bool = True):
     from settings.models import FeePresetGroup, ServiceFeeTemplate
     result = await db.execute(

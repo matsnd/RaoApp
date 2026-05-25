@@ -941,6 +941,58 @@ UWAGA - różnice między typem S (najmu) a U (usługi) wg RAO-P1-004:
   ale nie są one wyświetlane w PDF (szablon contract_u.html usunął sekcję FEES).
 """
 
+## Formatowanie warunków kaskadowych rozliczenia (RAO-P1-008)
+
+```python
+def format_position_conditions_cascading(conditions: list[PositionCondition]) -> str:
+    """Buduje opis kaskadowych warunków rozliczenia jak w starej aplikacji WinForms.
+
+    Przykład wyjścia (3 warunki):
+      1 - 3 dni - 540,00 / doba
+      4 - 16 dni - 410,00 / doba
+      powyżej 16 dni - 350,00 / doba
+
+    Algorytm:
+    1. Sortuj warunki rosnąco po period_count (NULL na końcu)
+    2. Dla każdego warunku z period_count i rate1:
+       - Oblicz zakres: (prev_period + 1) do period_count
+       - Formatuj: "X - Y dni - kwota / label"
+       - Użyj polskiego formatu kwoty (przecinek dziesiętny)
+    3. Dla warunku z rate2 (NULL period_count):
+       - Formatuj: "powyżej X dni - kwota / label"
+    """
+    if not conditions:
+        return ""
+
+    sorted_conds = sorted(
+        conditions,
+        key=lambda c: (c.period_count is None, c.period_count or 0)
+    )
+    lines = []
+    prev_period = 0
+    for i, c in enumerate(sorted_conds):
+        label = c.billing_label or 'doba'
+        if c.period_count is not None and c.rate1 is not None:
+            start = prev_period + 1
+            end = c.period_count
+            if start == end:
+                range_text = f"{start} {label}"
+            else:
+                range_text = f"{start} - {end} dni"
+            rate_text = f"{c.rate1:.2f}".replace('.', ',')
+            lines.append(f"{range_text} - {rate_text} / {label}")
+            prev_period = c.period_count
+        elif c.rate2 is not None and prev_period > 0:
+            rate_text = f"{c.rate2:.2f}".replace('.', ',')
+            lines.append(f"powyżej {prev_period} dni - {rate_text} / {label}")
+    return '\n'.join(lines)
+```
+
+**Użycie w PDF:**
+- `backend/reports/service.py::build_contract_data` wywołuje `format_position_conditions_cascading(conditions)` dla każdej pozycji
+- Wynik jest przekazywany do szablonu jako `conditions_text`
+- Szablon używa `{{ p.conditions_text }}` z CSS `white-space: pre-line`
+
 
 def generate_fees_text_for_pdf(fees: list) -> str:
     """

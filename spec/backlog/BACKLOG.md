@@ -419,7 +419,7 @@ Klient chce **1 dużą tabelę "uwagi"** (jedno duże pole tekstowe).
 id: RAO-P1-008
 priority: P1
 size: M
-status: triaged
+status: in_progress
 classification: feature/refactor
 roles: [frontend-dev, backend-dev]
 source: client-request + legacy-app-reference

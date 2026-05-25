@@ -108,6 +108,8 @@ Do obu wariantów umowy dodana została sekcja `Uwagi` umieszczona **przed podpi
 
 **Uwaga - dolna sekcja protokołu (uwagi do zwrotu):** W protocol_zo.html 3 elementy dolne zostały połączone w 1 dużą tabelę "uwagi do zwrotu" wg RAO-P1-007: usunięto tabelę return-table (3 kolumny: dane zwrotu / ilość dni / kaucja), zamieniono div ret-uwagi na div big-uwagi z większym wymiarem (min-height: 140px, padding: 10px 12px, font-size: 10px). Notatka "Ogólna weryfikacja maszyny..." i podpisy zachowane.
 
+**Uwaga - formatowanie warunków kaskadowych rozliczenia (RAO-P1-008):** Opis warunków rozliczenia w PDF jest teraz formatowany przez funkcję `format_position_conditions_cascading` w `backend/contracts/service.py`, która generuje czytelny format kaskadowy (np. "1 - 3 dni - 540,00 / doba", "4 - 16 dni - 410,00 / doba", "powyżej 16 dni - 350,00 / doba"). Funkcja jest używana w `backend/reports/service.py::build_contract_data` i wynik jest przekazywany do szablonu jako `conditions_text`.
+
 ### 1.6 Font dokumentów — Montserrat (RAO-P1-015 scope-cut)
 
 ### 1.7 Sekcja "Ewidencja godzin operatora" w protokole usługi (RAO-P1-014)
