@@ -762,6 +762,9 @@
             <table class="data-grid">
               <thead><tr><th>Nazwa</th><th>Nr rej.</th><th>Marka</th><th>Typ</th><th>Dostępność</th><th style="width:80px;">Akcje</th></tr></thead>
               <tbody>
+                <tr v-if="!articlePickerList.length">
+                  <td colspan="6" class="empty-state">Brak wyników dla "{{ articlePickerSearch }}"</td>
+                </tr>
                 <tr v-for="a in articlePickerList" :key="a.id" style="cursor:pointer;">
                   <td @click="selectArticle(a)">{{ a.name }}</td>
                   <td @click="selectArticle(a)">{{ a.registration_no || '—' }}</td>
@@ -780,6 +783,9 @@
             </table>
           </div>
           <div class="modal-actions">
+            <button class="btn btn-primary btn-sm" @click="openInlineArticleForm">
+              ➕ Dodaj nowy artykuł
+            </button>
             <button class="btn btn-secondary btn-sm" @click="showArticlePicker = false">Anuluj</button>
           </div>
         </div>
@@ -803,6 +809,133 @@
           <div class="modal-actions">
             <button class="btn btn-secondary btn-sm" @click="cancelConflictSelection">Anuluj</button>
             <button class="btn btn-primary btn-sm" @click="confirmConflictSelection">Mimo to dodaj</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Inline article form modal - RAO-P2-006 -->
+    <Transition name="modal">
+      <div v-if="showInlineArticleForm" class="modal-overlay" @click.self="showInlineArticleForm = false">
+        <div class="modal-box" style="min-width:700px;max-height:90vh;overflow-y:auto;">
+          <div class="modal-title">Nowy artykuł</div>
+          <div v-if="inlineArticleError" style="color:var(--color-danger);font-size:13px;margin-bottom:12px;padding:8px;background:#FED7D7;border-radius:6px;">
+            {{ inlineArticleError }}
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Nazwa artykułu *</label>
+              <input v-model="inlineArticleForm.name" type="text" class="form-control" placeholder="Np. Koparka gąsienicowa" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Typ artykułu</label>
+              <select v-model="inlineArticleForm.article_type" class="form-control">
+                <option value="">— brak —</option>
+                <option value="machine">Maszyna</option>
+                <option value="vehicle">Pojazd</option>
+                <option value="tool">Narzędzie</option>
+                <option value="service">Usługa</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="checkbox-group">
+              <input type="checkbox" v-model="inlineArticleForm.is_service" />
+              <span>Artykuł jest usługą (nie sprzętem)</span>
+            </label>
+            <label class="checkbox-group" style="margin-top:6px;">
+              <input type="checkbox" v-model="inlineArticleForm.is_external" />
+              <span>Maszyna zewnętrzna (nie wliczana do floty własnej)</span>
+            </label>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Nr wewnętrzny</label>
+              <input v-model="inlineArticleForm.internal_number" type="text" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Nr rejestracyjny</label>
+              <input v-model="inlineArticleForm.registration_no" type="text" class="form-control" />
+            </div>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Nr seryjny</label>
+              <input v-model="inlineArticleForm.serial_no" type="text" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Wartość odtworzeniowa (zł)</label>
+              <input v-model="inlineArticleForm.replacement_value" type="number" step="0.01" class="form-control" />
+            </div>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Marka</label>
+              <input v-model="inlineArticleForm.brand" type="text" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Model</label>
+              <input v-model="inlineArticleForm.model" type="text" class="form-control" />
+            </div>
+          </div>
+          <div style="font-size:13px;font-weight:600;margin:16px 0 8px 0;">Dane techniczne</div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Zasięg (m)</label>
+              <input v-model.number="inlineArticleForm.zasieg_m" type="number" class="form-control" min="0" step="0.1" placeholder="np. 21.5" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Udźwig (t)</label>
+              <input v-model.number="inlineArticleForm.udzwig_t" type="number" class="form-control" min="0" step="0.1" placeholder="np. 5.0" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Dodatkowe wyposażenie</label>
+            <textarea v-model="inlineArticleForm.dodatki" class="form-control" rows="3" placeholder="np. Kosz osobowy, wciągarka..."></textarea>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Kategoria</label>
+              <div style="display:flex;flex-direction:column;gap:4px;">
+                <select v-model="catSelectedMain" class="form-control" @change="catSelectedSub1 = null; catSelectedSub2 = null">
+                  <option :value="null">— brak kategorii —</option>
+                  <option v-for="c in catMainOptions" :key="c.id" :value="c.id">{{ c.name }}</option>
+                </select>
+                <select v-if="catSub1Options.length" v-model="catSelectedSub1" class="form-control" @change="catSelectedSub2 = null">
+                  <option :value="null">— (poziom główny) —</option>
+                  <option v-for="c in catSub1Options" :key="c.id" :value="c.id">{{ c.name }}</option>
+                </select>
+                <select v-if="catSub2Options.length" v-model="catSelectedSub2" class="form-control">
+                  <option :value="null">— (poziom podrzędny) —</option>
+                  <option v-for="c in catSub2Options" :key="c.id" :value="c.id">{{ c.name }}</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Filia</label>
+              <select v-model="inlineArticleForm.branch_id" class="form-control">
+                <option :value="null">— główna —</option>
+                <option v-for="br in settingsStore.branches" :key="br.id" :value="br.id">{{ br.name }}</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Min. dni najmu</label>
+            <input v-model.number="inlineArticleForm.rental_days" type="number" class="form-control" min="1" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Opis</label>
+            <textarea v-model="inlineArticleForm.description" class="form-control" rows="3"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Uwagi</label>
+            <textarea v-model="inlineArticleForm.notes" class="form-control" rows="2"></textarea>
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-secondary btn-sm" @click="showInlineArticleForm = false">Anuluj</button>
+            <button class="btn btn-primary btn-sm" @click="saveInlineArticle" :disabled="savingInlineArticle">
+              {{ savingInlineArticle ? '...' : 'Zapisz i wybierz' }}
+            </button>
           </div>
         </div>
       </div>
@@ -902,6 +1035,23 @@ const inlineContractorForm = ref({
   contact_person2: '', phone2: '', landline_phone: '', website: '',
 })
 
+// RAO-P2-006: Inline article creation
+const showInlineArticleForm = ref(false)
+const savingInlineArticle = ref(false)
+const inlineArticleError = ref('')
+const inlineArticleForm = ref({
+  name: '', is_service: false, internal_number: '', registration_no: '',
+  serial_no: '', brand: '', model: '', replacement_value: null,
+  category_id: null, owner_id: null, branch_id: null,
+  description: '', notes: '', rental_days: null, article_type: '',
+  zasieg_m: null, udzwig_t: null, dodatki: null,
+  is_archival: false, is_external: false,
+})
+// Category cascade for inline article form
+const catSelectedMain = ref(null)
+const catSelectedSub1 = ref(null)
+const catSelectedSub2 = ref(null)
+
 // RAO-P2-012 spike: Fakturownia panel
 const showFakturowniaPanel = ref(false)
 
@@ -942,6 +1092,51 @@ const articleAvailability = ref(null)
 const showArticlePicker = ref(false)
 const articlePickerSearch = ref('')
 const articlePickerList = ref([])
+
+// RAO-P2-006: Category cascade computed properties for inline article form
+const catMainOptions = computed(() => settingsStore.categoriesTree)
+const catSub1Options = computed(() => {
+  if (!catSelectedMain.value) return []
+  return catMainOptions.value.find(c => c.id === catSelectedMain.value)?.children || []
+})
+const catSub2Options = computed(() => {
+  if (!catSelectedSub1.value) return []
+  return catSub1Options.value.find(c => c.id === catSelectedSub1.value)?.children || []
+})
+
+// Update form.category_id when cascade changes
+watch([catSelectedMain, catSelectedSub1, catSelectedSub2], () => {
+  inlineArticleForm.value.category_id = catSelectedSub2.value ?? catSelectedSub1.value ?? catSelectedMain.value
+})
+
+// Helper: find path from root to node
+function findCatPath(tree, id, path) {
+  if (!path) path = []
+  for (const node of tree) {
+    const newPath = [...path, node]
+    if (node.id === id) return newPath
+    if (node.children?.length) {
+      const found = findCatPath(node.children, id, newPath)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+// Set cascade from category_id
+function setCategoryFromId(categoryId) {
+  if (!categoryId || !settingsStore.categoriesTree.length) {
+    catSelectedMain.value = null
+    catSelectedSub1.value = null
+    catSelectedSub2.value = null
+    return
+  }
+  const path = findCatPath(settingsStore.categoriesTree, categoryId)
+  if (!path) return
+  catSelectedMain.value = path[0]?.id || null
+  catSelectedSub1.value = path[1]?.id || null
+  catSelectedSub2.value = path[2]?.id || null
+}
 
 // RAO-P1-023: conflict modal state
 interface ConflictingContract {
@@ -1018,6 +1213,7 @@ onMounted(async () => {
     settingsStore.fetchSalespeople(),
     settingsStore.fetchBranches(),
     settingsStore.fetchRateTypes(),
+    settingsStore.fetchCategoriesTree(), // RAO-P2-006: Load categories for inline article form
     fakturowniaStore.fetchSettings(),
   ])
 
@@ -1315,6 +1511,69 @@ async function saveInlineContractor() {
     inlineContractorError.value = e?.response?.data?.detail || 'Błąd zapisu kontrahenta'
   } finally {
     savingInlineContractor.value = false
+  }
+}
+
+// RAO-P2-006: Inline article creation functions
+function openInlineArticleForm() {
+  showInlineArticleForm.value = true
+  inlineArticleError.value = ''
+  // Pre-fill with search term if it looks like a name
+  if (articlePickerSearch.value && articlePickerSearch.value.length > 2 && isNaN(Number(articlePickerSearch.value))) {
+    inlineArticleForm.value.name = articlePickerSearch.value
+  }
+  // Pre-fill is_service based on contract type
+  inlineArticleForm.value.is_service = form.value.contract_type === 'U'
+  // Reset category cascade
+  catSelectedMain.value = null
+  catSelectedSub1.value = null
+  catSelectedSub2.value = null
+}
+
+async function saveInlineArticle() {
+  savingInlineArticle.value = true
+  inlineArticleError.value = ''
+
+  // Basic validation
+  if (!inlineArticleForm.value.name || !inlineArticleForm.value.name.trim()) {
+    inlineArticleError.value = 'Podaj nazwę artykułu'
+    savingInlineArticle.value = false
+    return
+  }
+
+  try {
+    const payload = { ...inlineArticleForm.value }
+    // Clean up null values
+    if (!payload.replacement_value) payload.replacement_value = null
+    if (!payload.rental_days) payload.rental_days = null
+    if (!payload.article_type) payload.article_type = null
+    if (!payload.zasieg_m) payload.zasieg_m = null
+    if (!payload.udzwig_t) payload.udzwig_t = null
+    if (!payload.dodatki) payload.dodatki = null
+
+    const result = await articleStore.create(payload)
+    // Add to picker list
+    articlePickerList.value.unshift(result)
+    // Auto-select the new article
+    selectArticle(result)
+    // Close the inline form
+    showInlineArticleForm.value = false
+    // Reset the form
+    inlineArticleForm.value = {
+      name: '', is_service: false, internal_number: '', registration_no: '',
+      serial_no: '', brand: '', model: '', replacement_value: null,
+      category_id: null, owner_id: null, branch_id: null,
+      description: '', notes: '', rental_days: null, article_type: '',
+      zasieg_m: null, udzwig_t: null, dodatki: null,
+      is_archival: false, is_external: false,
+    }
+    catSelectedMain.value = null
+    catSelectedSub1.value = null
+    catSelectedSub2.value = null
+  } catch (e: any) {
+    inlineArticleError.value = e?.response?.data?.detail || 'Błąd zapisu artykułu'
+  } finally {
+    savingInlineArticle.value = false
   }
 }
 

@@ -1218,6 +1218,33 @@ async function handleFakturownia() {
   - Walidacja: nazwa kontrahenta jest wymagana
   - Obsługa błędów: wyświetlanie błędów z backendu (e.response?.data?.detail)
   - Pre-fill: jeśli wyszukiwany termin wygląda jak nazwa (nie jest liczbą), jest używany jako domyślna nazwa
+- **RAO-P2-006:** Inline dodawanie artykułu z formularza umowy
+  - W pickerze artykułów przycisk "➕ Dodaj nowy artykuł" (prominent CTA)
+  - Gdy wyszukiwanie nie zwraca wyników, wyświetlany jest komunikat "Brak wyników dla {search}"
+  - Przycisk otwiera modal "Nowy artykuł" z formularzem inline
+  - Formularz zawiera wszystkie wymagane pola artykułu:
+    - Nazwa artykułu * (required)
+    - Typ artykułu (machine/vehicle/tool/service)
+    - Checkbox: Artykuł jest usługą (nie sprzętem)
+    - Checkbox: Maszyna zewnętrzna (nie wliczana do floty własnej)
+    - Nr wewnętrzny, Nr rejestracyjny, Nr seryjny
+    - Wartość odtworzeniowa (zł)
+    - Marka, Model
+    - Dane techniczne: Zasięg (m), Udźwig (t), Dodatkowe wyposażenie
+    - Kategoria (kaskadowa: główna → podrzędna 1 → podrzędna 2)
+    - Filia
+    - Min. dni najmu
+    - Opis, Uwagi
+  - Po zapisie:
+    - Nowy artykuł jest dodany do lokalnej listy articlePickerList
+    - Artykuł jest automatycznie wybrany (selectArticle)
+    - Modal jest zamykany
+    - Formularz jest resetowany
+  - Walidacja: nazwa artykułu jest wymagana
+  - Obsługa błędów: wyświetlanie błędów z backendu (e.response?.data?.detail)
+  - Pre-fill: jeśli wyszukiwany termin wygląda jak nazwa (nie jest liczbą), jest używany jako domyślna nazwa
+  - Pre-fill is_service: ustawiane na true jeśli typ umowy to 'U' (umowa usługi)
+  - Kaskada kategorii: 3-poziomowa (główna → podrzędna 1 → podrzędna 2)
 - Layout adresu dostawy poprawiony:
   - Select adresu w osobnym rzędzie
   - Kod pocztowy + miasto w jednym rzędzie

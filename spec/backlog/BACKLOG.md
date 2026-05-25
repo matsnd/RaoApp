@@ -1530,7 +1530,7 @@ security_impact: none
 | RAO-P2-003 | PDF Umowa — kompaktniejszy layout | klient skan + czat | P2 | M | review |
 | RAO-P2-004 | Frontend — okres umowy przez kalendarz + dni | klient czat | P2 | M | done |
 | RAO-P2-005 | Frontend — inline add kontrahenta | klient czat | P2 | M | done |
-| RAO-P2-006 | Frontend — inline add artykułu | klient czat | P2 | M | triaged |
+| RAO-P2-006 | Frontend — inline add artykułu | klient czat | P2 | M | done |
 | RAO-P2-007 | Frontend — pomoc UX jak wpisywać warunki | klient czat | P2 | S | triaged |
 
 **Razem:** 19 zadań (w tym 1 spike) · ~29-37h pracy
