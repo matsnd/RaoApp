@@ -679,4 +679,10 @@ W starym systemie:
 - `getUmowyArtykulu7` → Python service: `ArticleService.get_with_contract_status()`
 - `cena_pozycji` (function) → Python: `PositionService.calculate_price(position_id)`
 - `rozlicz_pozycje` (function) → Python: `SettlementService.calculate(position_id)`
+
+---
+
+## Uwagi techniczne
+
+**Weryfikacja numeru telefonu (RAO-P1-010):** Wszystkie szablony PDF w repozytorium mają poprawny numer `+48 888 992 015`. W kodzie Pythona i frontendzie nie ma wzmianki o `888 992 017`. Jeśli klient widział błędny numer, prawdopodobną przyczyną był stary deployment na produkcji lub stare dane w polu `company.header_text`. Do weryfikacji na produkcji: `SELECT id, header_text FROM company` oraz sprawdzenie czy deployment ma aktualne szablony. Jeśli `header_text` zawiera stary numer: `UPDATE company SET header_text = REPLACE(header_text, '888 992 017', '888 992 015');`
 - `generuj_opis_oplaty` (function) → Python: `FeeService.generate_description()`

@@ -826,7 +826,7 @@ LUB lepiej: gdy okresy się nakładają z planowaną nową umową:
 id: RAO-P1-010
 priority: P1
 size: XS
-status: triaged
+status: review
 classification: bugfix/data-quality
 roles: [backend-dev, db-agent]
 source: client-request
