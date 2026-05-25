@@ -221,10 +221,10 @@
         {% if contract.notes %}
         <div style="white-space: pre-wrap;">{{ contract.notes }}</div>
         {% else %}
-        <p style="margin:0 0 4px 0;"><strong>Doba wynajmu:</strong> 8 godzin pracy urządzenia, licząc od momentu jego uruchomienia danego dnia.</p>
-        <p style="margin:0 0 4px 0;"><strong>Zgłoszenie zwrotu:</strong> Najemca zobowiązuje się do pisemnego poinformowania wynajmującego o zwrocie maszyny budowlanej najpóźniej z jednodniowym wyprzedzeniem.</p>
-        <p style="margin:0 0 4px 0;"><strong>Ilość dni pracy:</strong> {% if contract.working_days_per_week %}{{ contract.working_days_per_week }}{% else %}6{% endif %} dni.</p>
-        <p style="margin:0;"><strong>Dokumentacja zdająca:</strong> Najemca zobowiązuje się do dostarczenia kompletnej dokumentacji zdjęciowej przy zwrocie urządzenia.</p>
+        <p style="margin:0 0 4px 0;"><strong>Doba wynajmu:</strong> obejmuje 1 dzień kalendarzowy (do 8 godz. pracy jednego dnia).</p>
+        <p style="margin:0 0 4px 0;"><strong>Zgłoszenie zwrotu urządzenia:</strong> pisemne, min. z jednodniowym wyprzedzeniem.</p>
+        <p style="margin:0 0 4px 0;"><strong>Ilość dni pracy w tygodniu:</strong> {% if contract.working_days_per_week %}{{ contract.working_days_per_week }}{% else %}6{% endif %}.</p>
+        <p style="margin:0;"><strong>Dokumentacja zdjęciowa:</strong> wykonano.</p>
         {% endif %}
         {% if contract.total_value %}
         <div style="margin-top:8px;font-size:9px;"><strong>Wartość umowy: {{ contract.total_value | money }}</strong></div>

@@ -91,10 +91,10 @@ Do obu wariantów umowy dodana została sekcja `Uwagi` umieszczona **przed podpi
 - `backend/reports/templates/contract_u.html` — Umowa Usługi
 
 **Zawartość sekcji:**
-- Doba wynajmu: 8 godzin pracy urządzenia
-- Zgłoszenie zwrotu: pisemne powiadomienie 1 dzień przed zwrotem
-- Ilość dni pracy: dane z `contract.working_days_per_week` (default: 6) — zmieniono z "Dni pracy/tydzień" wg RAO-P1-002
-- Dokumentacja zdjęciowa: obowiązek dostarczenia przy zwrocie
+- Doba wynajmu: obejmuje 1 dzień kalendarzowy (do 8 godz. pracy jednego dnia)
+- Zgłoszenie zwrotu urządzenia: pisemne, min. z jednodniowym wyprzedzeniem
+- Ilość dni pracy w tygodniu: dane z `contract.working_days_per_week` (default: 6) — zmieniono z "Dni pracy/tydzień" wg RAO-P1-002
+- Dokumentacja zdjęciowa: wykonano — zmieniono wg RAO-P2-002
 
 **Uwaga - pole "na budowie":** Pole "na budowie" w sekcji "uzupełnij" jest puste (do ręcznego dopisania notatki). Adres dostawy jest wyświetlany tylko raz w sekcji "info-col" jako "Adres dostawy" (wg RAO-P1-001).
 

@@ -1197,7 +1197,7 @@ security_impact: none
 id: RAO-P2-002
 priority: P2
 size: S
-status: triaged
+status: review
 classification: feature/pdf
 roles: [backend-dev]
 source: client-request
@@ -1523,7 +1523,7 @@ security_impact: none
 | RAO-P1-011 | **[SPIKE]** Walidacja duplikatu maszyny + ostrzeżenie o konflikcie wynajmu | klient czat | P1 | S | triaged |
 | RAO-P1-012 | PDF OWN — ujednolicenie wcięć w listach (klient: "nic nie wystaje") | klient + docx ref | P1 | M | triaged |
 | RAO-P2-001 | PDF Umowa NAJMU (S) — domyślny cennik dodatkowy (6 pozycji) | klient czat | P2 | M | triaged |
-| RAO-P2-002 | PDF Umowa — domyślne uwagi (4 podpunkty) | klient czat | P2 | S | triaged |
+| RAO-P2-002 | PDF Umowa — sekcja "Uwagi" w określonej kolejności | klient czat | P2 | S | review |
 | RAO-P2-003 | PDF Umowa — kompaktniejszy layout | klient skan + czat | P2 | M | triaged |
 | RAO-P2-004 | Frontend — okres umowy przez kalendarz + dni | klient czat | P2 | M | triaged |
 | RAO-P2-005 | Frontend — inline add kontrahenta | klient czat | P2 | M | triaged |
