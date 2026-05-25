@@ -1,920 +1,1558 @@
-# RAO Backlog — Sprint 2
+# RAO Backlog — Sprint Klient 2026-05-25
 
-> **Sprint:** 2 (otwarty 2026-05-22)
-> **Last updated:** 2026-05-24
-> **Format:** YAML front-matter + sekcje (parsowalne przez agentów)
-> **Poprzedni sprint:** [archive/BACKLOG_SPRINT_1.md](../archive/BACKLOG_SPRINT_1.md) — 73 tasków, 71× done, 1× superseded, 1× in-progress (przeniesione poniżej)
->
-> **2026-05-24 — Cross-role audit:** Pełny obchód aplikacji w Playwright + analiza bazy. Pierwsze znaleziska oznaczone jako P0 (`total_value=NULL`, `is_settled=1` dla wszystkich umów, `is_archival=1` dla wszystkich artykułów) zostały po konsultacji z Właścicielem **przeklasyfikowane jako świadoma decyzja biznesowa** — „linia odcięcia” (data cut-off) legacy WinForms od nowych danych post-migration. Stare dane są archiwum tylko-do-odczytu, nowe umowy/artykuły będą wypełniane poprawnie od dnia X (cut-off date). **Pozostał jeden realny P0:** zaprojektować UX dla tej linii odcięcia (RAO-P0-009). Pozostałe znaleziska (P1/P2/P3) z auditu pozostają w mocy. **Każdy task pochodzi z `cross-role-audit-2026-05-24` i ma sekcję „Dowód” z linkiem do raportu auditu.**
+> **Status:** Aktualizowany 2026-05-25 wg uwag klienta
+> **Poprzedni backlog:** Zarchiwizowany w `spec/backlog/archiwum/`
+> **Źródła uwag klienta:** `temp/uwagi klienta/` — skan PDF + screenshoty z czatu
+> **Cel:** Implementacja przez agenta SWE 1.6 (zadania szczegółowe, gotowe do wykonania)
 
 ---
 
-## ℹ️ Zasady sprintu
+## ℹ️ Zasady dla agenta SWE 1.6
 
-- Każdy task ma YAML front-matter (id, priority, size, status, classification, roles, depends_on, blocks, source, source_date, specs_to_update, migration_impact, security_impact)
-- **Status flow:** `triaged → in-progress → review → done` (lub `superseded`/`blocked`)
-- Numeracja kontynuowana ze Sprintu 1 (najwyższe użyte ID: P0-005, P1-029, P2-022, P3-013)
-- Nowe taski zaczynamy od kolejnego wolnego numeru w danym priorytecie
-- Po zakończeniu zadania → lokalny commit (patrz `AGENTS.md` § Lokalne commity)
+1. **Każde zadanie zawiera:**
+   - Konkretny plik (ścieżka absolutna) i numer linii do zmiany
+   - Dokładny opis `old → new` gdy to możliwe
+   - Acceptance criteria z checkboxami
+   - Weryfikacja wizualna PDF / smoke E2E
+2. **Status flow:** `triaged → in-progress → review → done`
+3. **Po każdej zmianie → smoke test:** `cd e2e; npx playwright test tests/01-login.spec.ts`
+4. **Po zakończeniu zadania → lokalny commit** (patrz `AGENTS.md`)
+5. **Spec sync:** każda zmiana funkcjonalna → update odpowiedniego pliku w `spec/core/`
 
 ---
 
 ## 🚨 P0 — Production Blockers
-
-### [RAO-P0-009] Zaprojektuj UX „Linii odcięcia” (Data Cut-off) — wyraźnie odseparuj dane legacy od post-migration w całej aplikacji
-
-```yaml
-id: RAO-P0-009
-priority: P0
-size: M
-status: triaged
-classification: ux/architecture
-roles: [tech-lead, ux-designer, backend-dev, frontend-dev, db-agent]
-depends_on: []
-blocks: [RAO-P0-006, RAO-P2-021, RAO-P1-031]
-source: cross-role-audit-2026-05-24 + owner-decision
-source_date: 2026-05-24
-specs_to_update:
-  - core/01_database.md
-  - core/02_backend_api.md
-  - core/03_frontend_screens.md
-  - core/04_business_logic.md
-  - core/08_migration_plan.md
-  - core/11_reports_stats.md
-  - BUSINESS_OVERVIEW.md
-  - STRATEGIC_ROADMAP.md
-migration_impact: yes
-security_impact: none
-```
-
-**Decyzja Właściciela (2026-05-24):**
-Dane z legacy WinForms (701 umów, 633 kontrahentów, 418 artykułów) są świadomie oznaczone jako **archiwum tylko-do-odczytu**. Wszystkie umowy mają `is_settled=1` i `total_value=NULL`, wszystkie artykuły `is_archival=1` — to **NIE bug**, lecz **świadoma linia odcięcia** (cut-off). Aplikacja musi wyraźnie rozróżnić te dwa światy:
-- **Legacy (pre cut-off):** dane historyczne, nie liczy się do KPI/raportów bieżących, dostępne tylko do podglądu
-- **Active (post cut-off):** nowe umowy/artykuły wypełniane poprawnie, liczone do raportów, marży, prowizji, ROI
-
-**Job-to-be-done:**
-Właściciel/handlowiec/księgowa wchodzi do RAO i widzi:
-- KPI „realne" (po cut-off date, np. `2026-06-01`) bez zaśmiecania liczbami z legacy
-- Banner / badge „Dane historyczne (pre-2026-06)" przy starych rekordach
-- Toggle „Pokaż dane archiwalne" w listach (domyślnie OFF)
-- Jasna definicja: co to „umowa archiwalna" vs „umowa aktywna"
-
-**Acceptance criteria (DoD):**
-
-**Decyzja architektoniczna (Tech Lead):**
-- [ ] Wybierz mechanizm rozróżnienia legacy/active — 3 opcje:
-  - **A) Date-based cut-off:** `created_at < cutoff_date` → legacy. Prosty, ale fragmentaryczny.
-  - **B) Boolean flag:** dodaj `is_legacy BOOLEAN` na `contracts`/`contractors`/`articles`. Czysta semantyka.
-  - **C) Source flag:** rozszerzona `source ENUM('legacy_winforms','rao_native','imported_csv')`. Audytowalny.
-- [ ] Decyzja udokumentowana w `spec/core/08_migration_plan.md`
-
-**DB:**
-- [ ] Migracja: dodaj kolumnę wybranego mechanizmu (A/B/C) do tabel: `contracts`, `contractors`, `articles`
-- [ ] Skrypt one-shot: oznacz wszystkie istniejące rekordy jako `legacy` (datę cut-off ustalę z Właścicielem; np. `2026-05-24` lub `2026-06-01`)
-- [ ] Settings: `cutoff_date DATE` w tabeli `company` (gdyby chciał zmieniać)
-
-**Backend:**
-- [ ] Wszystkie listy (`/contracts`, `/contractors`, `/articles`) przyjmują `include_legacy: bool = False` (domyślnie ukryj legacy)
-- [ ] Wszystkie raporty (`/stats/*`) **domyślnie filtrują legacy** (`exclude is_legacy=true`)
-- [ ] Endpoint admin `GET /admin/legacy-stats` — ile rekordów legacy + suma wartości historycznych
-- [ ] Walidacja: nowa umowa/artykuł NIE może mieć `is_legacy=true` (Pydantic validator)
-
-**Frontend:**
-- [ ] Banner globalny na Dashboard / Reports: „Dane od {cutoff_date}. [Pokaż dane historyczne]”
-- [ ] Toggle „Archiwum" w listach (umowy, kontrahenci, artykuły) — domyślnie OFF
-- [ ] Wizualne oznaczenie (np. szary tekst, ikona archiwum, badge „Archiwum") przy rekordach legacy
-- [ ] Strona dedykowana `/archive` z pełnym dostępem do legacy (read-only)
-- [ ] Read-only mode: edycja legacy contracts/articles zablokowana (admin override możliwy)
-
-**Spec:**
-- [ ] `spec/core/08_migration_plan.md` — pełny opis cut-off line jako decyzji architektonicznej
-- [ ] `spec/core/01_database.md` — mirror DDL po migracji
-- [ ] `spec/core/02_backend_api.md` — parametr `include_legacy`
-- [ ] `spec/core/03_frontend_screens.md` — banner + toggle UX
-- [ ] `spec/core/04_business_logic.md` — „umowa aktywna" vs „umowa archiwalna"
-- [ ] `spec/core/11_reports_stats.md` — raporty default exclude legacy
-- [ ] `spec/BUSINESS_OVERVIEW.md` — dodaj sekcję „Linia odcięcia"
-
-**Decyzje biznesowe wymagane (Product Owner / Właściciel):**
-1. **Data cut-off:** `2026-05-24` (dziś), `2026-06-01` (1. czerwca), `2026-07-01` (1. lipca)?
-2. **Edycja legacy:** Czy admin może edytować legacy umowę w razie korekty? Czy całkowicie read-only?
-3. **Eksport:** Czy raporty mogą zawierać legacy dane jeśli użytkownik świadomie zaznaczy „Pokaż historyczne"?
-4. **Wykasowanie:** Czy rozważamy archive offload (przeniesienie legacy do osobnej DB schema `rao_legacy`) po stabilizacji?
-5. **Marża historyczna:** Czy w ogóle wypełniać `cost_company` retroaktywnie dla legacy, czy zostawić NULL?
-
-**Pliki do zmiany:** `backend/main.py` (migration), `backend/contracts/router.py`, `backend/articles/router.py`, `backend/contractors/router.py`, `backend/stats/router.py`, `frontend/src/views/DashboardView.vue`, `frontend/src/views/HomeView.vue`, `frontend/src/components/layout/AppLayout.vue` (banner), nowy widok `frontend/src/views/ArchiveView.vue`
-**ROI:** **Krytyczny dla wiarygodności aplikacji u użytkowników.** Bez tego raporty pokazują „dziwne" liczby (0 zł, 100% rozliczone), co podważa zaufanie do systemu. Z cut-off line — RAO startuje „od zera" w sposób kontrolowany.
-**Estimate:** 8-12h (M)
+*(brak)*
 
 ---
 
-### [RAO-P0-006] Lista artykułów PUSTA — endpoint `/articles` ignoruje archiwalne, ArticlePicker w nowej umowie nie pokazuje 418 maszyn z migracji [PRZEKLASYFIKOWANE NA P1, patrz P1-036]
+## 🔴 P1 — Must-Have (uwagi klienta z 2026-05-25)
+
+### [RAO-P1-001] PDF Umowa — duplikacja adresu dostawy w polu "na budowie"
 
 ```yaml
-id: RAO-P0-006
-priority: P0
-size: S
-status: superseded
-superseded_by: RAO-P1-036
-classification: bugfix
-roles: [backend-dev, frontend-dev, qa-engineer]
-depends_on: []
-blocks: []
-source: cross-role-audit-2026-05-24
-source_date: 2026-05-24
-resolved_date: 2026-05-24
-specs_to_update: []
-migration_impact: no
-security_impact: none
-```
-
-**Status:** **SUPERSEDED przez RAO-P1-036.** Po decyzji Właściciela (2026-05-24) o linii odcięcia, fakt że wszystkie artykuły z migracji są `is_archival=1` jest **świadomą decyzją**, nie bugiem. Picker w nowej umowie domyślnie pokazuje pustą listę, bo nowych (post-cutoff) artykułów jeszcze nie ma. **Działanie:** RAO-P1-036 doda toggle „Pokaż archiwalne" + decyzję biznesową „czy odznaczyć archiwalne dla aktywnych maszyn fizycznych".
-
-**Oryginalny job-to-be-done (zachowany dla kontekstu):**
-Użytkownik (handlowiec) wchodzi w listę Artykułów lub formularz nowej umowy → ArticlePicker pokazuje **0 maszyn**, mimo że w bazie jest **418 artykułów**. Wszystkie mają `is_archival=1` (z migracji ze starego systemu — zgodnie z polityką spec/08_migration_plan.md). Endpoint `GET /articles` ma na sztywno `WHERE is_archival = FALSE` bez parametru `include_archival`. **Konsekwencja: niemożność dodania nowej umowy z istniejącą maszyną z floty.**
-
-**Dowód (audit):**
-- DB: `SELECT is_archival, COUNT(*) FROM articles GROUP BY is_archival` → `1: 418` (wszystkie archiwalne)
-- API: `GET /articles?include_archival=true` → `{"items":[],"total":0}` (parametr ignorowany)
-- Kod: `backend/articles/service.py:25` → `stmt = select(Article).where(Article.is_archival == False)` (hardcoded)
-- UI: `/dashboard/articles` → „Artykuły (0 rekordów)"
-- UI: ArticlePicker w `/contracts/new` → pusta tabela
-
-**Acceptance criteria (DoD):**
-
-**Backend:**
-- [ ] `articles/service.py` `list_articles()` przyjmuje parametr `include_archival: bool = False`
-- [ ] `articles/router.py` `list_articles` deklaruje `include_archival: bool = Query(False)`
-- [ ] Filtr w SQL: `if not include_archival: stmt = stmt.where(Article.is_archival == False)`
-- [ ] Bonus: parametr `is_archival: bool | None` (None=wszystkie, True/False=filter) — daje pełną elastyczność
-- [ ] Test jednostkowy: lista zwraca 418 archiwalnych przy `include_archival=true`
-
-**Frontend:**
-- [ ] `DashboardView.vue` (sekcja artykułów): toggle „Pokaż archiwalne" (domyślnie OFF)
-- [ ] `ContractFormView.vue` ArticlePicker: domyślnie pokazuj **wszystkie** (archiwalne też), bo bez tego niemożliwe jest dodanie pozycji
-- [ ] Wizualne oznaczenie archiwalnej maszyny w pickerze (np. szary tekst, ikona archiwum)
-- [ ] Smoke test: `e2e/tests/03-article.spec.ts` PASS
-
-**Decyzja biznesowa wymagana (Product Owner):**
-- Czy maszyny z migracji powinny pozostać archiwalne (i tylko picker je pokazuje), czy lepiej wykonać `UPDATE articles SET is_archival=0 WHERE id IN (SELECT DISTINCT article_id FROM contract_positions WHERE date_to >= '2026-01-01')` (odznaczyć tylko te aktywnie wynajmowane w ostatnim roku)?
-
-**Spec:**
-- [ ] `spec/core/02_backend_api.md` — opis parametru `include_archival` w `/articles`
-- [ ] `spec/core/03_frontend_screens.md` — toggle w DashboardView
-
-**Pliki do zmiany (oryginalnie):** `backend/articles/service.py`, `backend/articles/router.py`, `frontend/src/views/DashboardView.vue`, `frontend/src/views/ContractFormView.vue`
-**ROI:** Wymaga decyzji biznesowej w P1-036 (czy archiwalne maszyny powinny być wybieralne w nowych umowach).
-**Estimate:** 2-3h (S) — ale tylko po RAO-P0-009 (cut-off design)
-
----
-
-### [RAO-P0-007] ~~Wszystkie 701 umów ma `total_value=NULL`~~ — BY DESIGN (linia odcięcia)
-
-```yaml
-id: RAO-P0-007
-priority: P0
-size: M
-status: by-design
-resolution: owner-decision-2026-05-24
-classification: data-quality
-roles: []
-depends_on: []
-blocks: []
-source: cross-role-audit-2026-05-24
-source_date: 2026-05-24
-resolved_date: 2026-05-24
-specs_to_update: []
-migration_impact: yes
-security_impact: none
-```
-
-**Status:** **BY DESIGN.** Właściciel potwierdził (2026-05-24): brak `total_value` w legacy umowach to **świadoma linia odcięcia** — stare umowy są archiwum read-only, nowe (post-cutoff) będą wypełniane poprawnie. **Działanie:** patrz RAO-P0-009 — zaprojektuj UX dla cut-off line, który jasno komunikuje użytkownikowi co jest legacy a co aktywne.
-
-**Oryginalny job-to-be-done (zachowany dla kontekstu):**
-Lista umów pokazuje „—" w kolumnie „Wartość". Raporty pokazują „0 zł" przychodu mimo 701 umów. ROI maszyny zwraca 0. Statystyki TOP 10 maszyn są puste. **Powód:** kolumna `contracts.total_value` jest NULL we wszystkich 701 rekordach z migracji legacy.
-
-**Decyzja Właściciela (2026-05-24):**
-> „To nie jest bug — odcięcie linia zmigrowanych starych wadliwych danych od nowych. Kontynuuj.”
-
-**Konsekwencje dla roadmapy:**
-- Nie będziemy retroaktywnie wypełniać `total_value` dla legacy umów (~~Wariant A/B~~)
-- Raporty i KPI MUSZĄ domyślnie filtrować legacy (cut-off line)
-- Nowe umowy MUSZĄ mieć walidację: `total_value` wymagane przy zapisie
-- Sekcja „Archive" w UI z pełnym dostępem do legacy (read-only)
-
-**Co dalej (nowe taski):** RAO-P0-009 (cut-off UX), RAO-P1-037 (walidacja `total_value` w nowych umowach — patrz niżej)
-
----
-
-### [RAO-P0-008] ~~Wszystkie 701 umów ma `is_settled=1`~~ — BY DESIGN (linia odcięcia)
-
-```yaml
-id: RAO-P0-008
-priority: P0
-size: S
-status: by-design
-resolution: owner-decision-2026-05-24
-classification: data-quality
-roles: []
-depends_on: []
-blocks: []
-source: cross-role-audit-2026-05-24
-source_date: 2026-05-24
-resolved_date: 2026-05-24
-specs_to_update: []
-migration_impact: yes
-security_impact: none
-```
-
-**Status:** **BY DESIGN.** Właściciel potwierdził (2026-05-24): wszystkie legacy umowy mają `is_settled=1` ponieważ są świadomie zamknięte jako archiwum. **Działanie:** RAO-P0-009 zaprojektuje UX, który **odfiltrowuje legacy** od bieżących operacji — pulpit „Kończące/Przeterminowane" będzie pusty dla legacy, ale aktywny dla nowych umów (post-cutoff).
-
-**Oryginalny job-to-be-done (zachowany dla kontekstu):**
-Dashboard pokazuje „Brak kończących się umów w ciągu 14 dni" mimo dostępu do 701 umów. „Przeterminowane umowy: 0".
-
-**Decyzja Właściciela (2026-05-24):**
-> „To nie jest bug — odcięcie linia zmigrowanych starych wadliwych danych od nowych.”
-
-**Co dalej (nowe taski):** RAO-P0-009 (cut-off UX), RAO-P1-037 (`is_settled=false` jako default dla nowych umów)
-
----
-
-## 🔴 P1 — Must-Have
-
-### [RAO-P1-036] (Po RAO-P0-009) Toggle „Pokaż archiwalne" w pickerach + decyzja: czy odznaczyć fizycznie istniejące maszyny z migracji
-
-```yaml
-id: RAO-P1-036
-priority: P1
-size: S
-status: triaged
-classification: ux/feature
-roles: [backend-dev, frontend-dev, product-owner]
-depends_on: [RAO-P0-009]
-blocks: []
-source: cross-role-audit-2026-05-24 + owner-decision
-source_date: 2026-05-24
-specs_to_update:
-  - core/02_backend_api.md
-  - core/03_frontend_screens.md
-migration_impact: yes
-security_impact: none
-```
-
-**Job-to-be-done:**
-Po decyzji o linii odcięcia (RAO-P0-009) wszystkie 418 artykułów jest oznaczonych jako legacy/archiwalne. Realne pytanie: **czy fizycznie istniejące maszyny w firmie (wciąż wynajmowane) mają być wprowadzone od zera, czy odznaczone z legacy?**
-
-**Dwa scenariusze (decyzja biznesowa wymagana):**
-
-**A) Czysty start (preferowany dla świeżego początku):**
-- Handlowiec wprowadza maszyny „na nowo" — fizycznie te same, ale jako nowe rekordy
-- Stara baza maszyn pozostaje archiwum (read-only)
-- ROI: czyste statystyki od dnia X, brak „zombie" rekordów z brudnym is_archival
-- **Effort dla user-a:** ~2-3h pracy biurowej (wprowadzenie 30-50 aktywnych maszyn)
-
-**B) Selektywne odznaczenie:**
-- Skrypt: `UPDATE articles SET is_archival=0, is_legacy=0 WHERE id IN (SELECT DISTINCT article_id FROM contract_positions WHERE date_to >= '2026-01-01')` (lub datę cut-off)
-- Maszyny aktywnie używane w ostatnich 6 mc — odznaczone
-- Reszta zostaje legacy
-- **Effort dla użytkownika:** 0, ale zostawia „hybrydę"
-
-**Acceptance criteria (DoD) — niezależnie od scenariusza A/B:**
-
-**Backend:**
-- [ ] `articles/service.py::list_articles()` przyjmuje `include_archival: bool = False` (domyślnie OFF)
-- [ ] `articles/router.py::list_articles` deklaruje `include_archival: bool = Query(False)`
-- [ ] Wariant: parametr `is_archival: bool | None` (None=wszystkie, True/False=filter)
-- [ ] Test jednostkowy: lista zwraca 418 archiwalnych przy `include_archival=true`
-
-**Frontend:**
-- [ ] DashboardView (artykuły): toggle „Pokaż archiwalne" (domyślnie OFF)
-- [ ] ContractFormView ArticlePicker: toggle „Pokaż archiwalne" + szare oznaczenie
-- [ ] Wizualne oznaczenie (badge „Archiwum") przy archiwalnej maszynie w pickerze
-- [ ] Komunikat info: „Maszyny archiwalne z migracji — patrz Archive view"
-
-**Spec:**
-- [ ] `spec/core/02_backend_api.md` — parametry filtra archiwalnych
-- [ ] `spec/core/03_frontend_screens.md` — toggle UX
-
-**Pliki do zmiany:** `backend/articles/service.py`, `backend/articles/router.py`, `frontend/src/views/DashboardView.vue`, `frontend/src/views/ContractFormView.vue`
-**Estimate:** 2-3h (S) — po RAO-P0-009
-
----
-
-### [RAO-P1-037] Walidacja: nowe umowy MUSZĄ mieć `total_value` i poprawne `is_settled` (cut-off enforcement)
-
-```yaml
-id: RAO-P1-037
-priority: P1
-size: S
-status: triaged
-classification: data-integrity/feature
-roles: [backend-dev, qa-engineer]
-depends_on: [RAO-P0-009]
-blocks: []
-source: cross-role-audit-2026-05-24 + owner-decision
-source_date: 2026-05-24
-specs_to_update:
-  - core/02_backend_api.md
-  - core/04_business_logic.md
-migration_impact: no
-security_impact: none
-```
-
-**Job-to-be-done:**
-Linia odcięcia ma sens **tylko jeśli nowe umowy są wypełniane poprawnie**. Bez walidacji historia się powtórzy: za rok będziemy mieć „legacy 2026-2027" z brakującymi danymi.
-
-**Acceptance criteria (DoD):**
-
-**Backend:**
-- [ ] `contracts/service.py::create_contract` — po dodaniu pozycji + warunków **automatycznie kalkuluj `total_value`** (z `position_conditions.rate1 * period_count`)
-- [ ] `contracts/service.py::update_contract` — recompute `total_value` przy każdej zmianie pozycji/warunku
-- [ ] Helper: `calculate_contract_revenue(contract_id) -> Decimal` wspólny dla create/update
-- [ ] Walidacja Pydantic: `total_value > 0` przy zapisie (chyba że explicit `is_draft=true`)
-- [ ] `is_settled=false` jako default dla nowych umów (override tylko explicit)
-
-**Spec:**
-- [ ] `spec/core/04_business_logic.md` — algorytm auto-recompute `total_value`
-- [ ] `spec/core/02_backend_api.md` — walidatory Pydantic
-
-**Pliki:** `backend/contracts/service.py`, `backend/contracts/schemas.py`
-**ROI:** Gwarantuje że raporty post-cutoff nigdy nie będą mieć „zombie" 0 zł.
-**Estimate:** 2-3h (S)
-
----
-
-### [RAO-P1-033] Telefony kontaktowe pokazują tylko prefix „+48 " — brak realnego numeru w danych dostawy/protokole
-
-```yaml
-id: RAO-P1-033
-priority: P1
-size: S
-status: triaged
-classification: bugfix/data-quality
-roles: [frontend-dev, db-agent]
-depends_on: []
-blocks: []
-source: cross-role-audit-2026-05-24
-source_date: 2026-05-24
-specs_to_update:
-  - core/03_frontend_screens.md
-  - core/01_database.md
-migration_impact: yes
-security_impact: none
-```
-
-**Job-to-be-done:**
-Na Pulpicie operacyjnym (sekcja „Dostawy") oraz na HomeView każda dostawa pokazuje przycisk telefonu jako `📞 +48 ` (sam prefix bez numeru). Link `tel:+48 ` jest pusty — kierowca/magazynier nie może zadzwonić jednym kliknięciem. Migracja prawdopodobnie utworzyła stringi `"+48 "` zamiast pozostawienia `NULL`.
-
-**Dowód (audit):**
-- UI: /worker → wszystkie sekcje „Dostawy" → `<a href="tel:+48 ">📞 +48</a>` (pusty link, sam prefix)
-- HomeView: ten sam problem
-
-**Acceptance criteria (DoD):**
-
-**Frontend (krótki fix):**
-- [ ] `WorkerView.vue` i `HomeView.vue`: warunkowe renderowanie — pokazuj telefon TYLKO gdy `c.contact_phone1?.replace(/\+48|\s/g, '').length > 0`
-- [ ] Dodaj walidację `tel:` linka — pomijaj jeśli numer pusty/sam prefix
-
-**Backend / DB cleanup:**
-- [ ] SQL: `UPDATE contractors SET phone = NULL WHERE TRIM(REPLACE(phone, '+48', '')) = ''`
-- [ ] SQL: `UPDATE contracts SET contact_phone1 = NULL WHERE TRIM(REPLACE(contact_phone1, '+48', '')) = ''`
-- [ ] To samo dla `contact_phone2` i `phone` na umowie
-- [ ] Walidacja Pydantic na endpointach: phone musi mieć `\d{9,}` po stripowaniu prefixów
-
-**Spec:**
-- [ ] `spec/core/03_frontend_screens.md` — note „pokazuj telefon tylko gdy ma realne cyfry"
-
-**Pliki do zmiany:** `frontend/src/views/WorkerView.vue`, `frontend/src/views/HomeView.vue`, `backend/contractors/schemas.py` (validator)
-**ROI:** Działa kontakt z budową (klient/kierowca dzwoni jednym kliknięciem) — kluczowa funkcja mobile-first dla operacji.
-**Estimate:** 1-2h (S)
-
----
-
-### [RAO-P1-034] Brak roli `salesperson` — handlowiec nie może zalogować się i widzieć tylko swoich umów
-
-```yaml
-id: RAO-P1-034
-priority: P1
-size: M
-status: triaged
-classification: feature/security
-roles: [backend-dev, frontend-dev, db-agent, security-auditor]
-depends_on: [RAO-P0-006, RAO-P0-007]
-blocks: []
-source: cross-role-audit-2026-05-24 + client-vision
-source_date: 2026-05-24
-specs_to_update:
-  - core/01_database.md
-  - core/02_backend_api.md
-  - core/06_navigation_flow.md
-  - core/25_security.md
-migration_impact: yes
-security_impact: high
-```
-
-**Job-to-be-done:**
-Właściciel chce dać dostęp do RAO każdemu handlowcowi (Łukasz, Mariusz, Miłosz, Piotr — obecnie 4) tak, by każdy widział **wyłącznie swoje umowy + swoje prowizje**, bez dostępu do cudzych marż, kontrahentów innych handlowców i danych firmowych. Dziś w `users` jest tylko admin/user/viewer — brak powiązania z `salespeople`. Każdy zalogowany widzi wszystko (sponsored przez admin/admin123).
-
-**Acceptance criteria (DoD):**
-
-**DB:**
-- [ ] `users.salesperson_id INT NULL REFERENCES salespeople(id)` (FK opcjonalny)
-- [ ] `users.role ENUM(...)` rozszerzony o `salesperson`
-- [ ] Migracja: dla istniejących handlowców (Łukasz, Mariusz, Miłosz, Piotr) → utworzyć użytkownika i ustawić `salesperson_id`
-
-**Backend:**
-- [ ] `auth/dependencies.py` helper `get_current_salesperson_id(user) -> int | None`
-- [ ] RBAC matrix update (`spec/core/25_security.md`):
-  - GET /contracts → admin: wszystkie; user: wszystkie; salesperson: tylko `where salesperson_id = current_user.salesperson_id`
-  - GET /contractors → ta sama logika (kontrahent, z którym handlowiec ma chociaż jedną umowę)
-  - GET /commissions → salesperson widzi TYLKO swoje wiersze
-  - GET /stats/fleet-summary → salesperson widzi tylko swój zakres (filter)
-- [ ] Hidden fields dla salesperson: `cost_company`, `margin`, prowizje innych handlowców, dane firmy (NIP, konto bank)
-
-**Frontend:**
-- [ ] AppSidebar.vue: ukryj „Admin", „Ustawienia" dla `role=salesperson`
-- [ ] CommissionView.vue: jeśli `role=salesperson` → pokaż tylko swoje
-- [ ] Filter w listach — wymuś backend (nie ufaj frontendu)
-
-**Security:**
-- [ ] IDOR test: salesperson nie może `GET /contracts/{id}` cudzej umowy (403)
-- [ ] IDOR test: salesperson nie może `GET /contractors/{id}` cudzego kontrahenta (403)
-- [ ] Test: salesperson dostaje 403 na `POST /settings/company`
-
-**Spec:**
-- [ ] `spec/core/01_database.md` — `users.salesperson_id` + role enum
-- [ ] `spec/core/02_backend_api.md` — RBAC per endpoint
-- [ ] `spec/core/06_navigation_flow.md` — sidebar dla salesperson
-- [ ] `spec/core/25_security.md` — RBAC matrix update
-
-**Pliki do zmiany:** `backend/auth/models.py`, `backend/auth/dependencies.py`, `backend/contracts/router.py`, `backend/contractors/router.py`, `backend/stats/router.py`, `frontend/src/components/layout/AppSidebar.vue`, `frontend/src/views/CommissionView.vue`
-**ROI:** Otwiera nowych użytkowników biznesowych (4 handlowców), każdy bez utraty zaufania do prywatności kasy/marży. Fundament dla mobile/PWA roadmap.
-**Estimate:** 6-8h (M, dwa-trzy podzadania możliwe)
-
-**Uwaga po decyzji o cut-off:** RBAC dla salesperson musi też respektować cut-off — handlowiec widzi tylko **swoje aktywne (post-cutoff) umowy**, legacy są dostępne tylko adminom (kontrola historyczna).
-
----
-
-### [RAO-P1-035] Vue warning: `Property "placeholder" was accessed during render but is not defined on instance` w DateRangePicker
-
-```yaml
-id: RAO-P1-035
+id: RAO-P1-001
 priority: P1
 size: XS
 status: triaged
-classification: bugfix
-roles: [frontend-dev]
-depends_on: []
-blocks: []
-source: cross-role-audit-2026-05-24
-source_date: 2026-05-24
-specs_to_update: []
+classification: bugfix/pdf
+roles: [backend-dev]
+source: client-request
+source_date: 2026-05-25
+source_ref: "Scan2026-05-25_125656.pdf strona 1 (NIE przy 'na budowie'), zrzut 223652.png pkt 1"
+specs_to_update:
+  - core/11_reports_stats.md
 migration_impact: no
 security_impact: none
 ```
 
-**Job-to-be-done:**
-W konsoli przeglądarki na `/contracts/new` pojawia się Vue warning: `Property "placeholder" was accessed during render but is not defined on instance`. Komponent `DateRangePicker.vue` używa `{{ placeholder }}` w template, ale nie deklaruje propsa. Brzydki warning w konsoli, choć nie błokuje funkcjonalności.
+**Problem (cytat klienta):** *„Na umowie żeby nie pokazywał się adres w tym miejscu gdzie zaznaczyłam"* — chodzi o pole `na budowie:` w sekcji „uzupełnij", które obecnie zawiera duplikat `contract.delivery_address` (już wyświetlony wyżej w `info-col` jako „Adres dostawy").
 
-**Dowód (audit):**
-- Console: `[Vue warn]: Property "placeholder" was accessed during render but is not defined on instance. at <DateRangePicker date-from="" date-to="" ... >`
+**Lokalizacja w kodzie:**
+- `backend/reports/templates/contract_u.html` linia 150-153 — `<tr><td>na budowie:</td><td colspan="3" class="fill-wide">{{ contract.delivery_address or '' }}</td></tr>`
+- `backend/reports/templates/contract.html` — analogiczna sekcja (znajdź ten sam wzór)
 
 **Acceptance criteria (DoD):**
-- [ ] `DateRangePicker.vue` deklaruje `placeholder?: string` w `defineProps`
-- [ ] Konsola czysta przy nawigacji do `/contracts/new`
-- [ ] Smoke test PASS
 
-**Pliki do zmiany:** `frontend/src/components/shared/DateRangePicker.vue`
-**Estimate:** 15-30 min (XS)
+**Backend:**
+- [ ] W `contract_u.html` linia 150-153: zmień `<td colspan="3" class="fill-wide">{{ contract.delivery_address or '' }}</td>` na `<td colspan="3" class="fill-wide"></td>` (puste pole do ręcznego dopisania notatki)
+- [ ] W `contract.html` analogiczna zmiana
+
+**Test:**
+- [ ] Wygeneruj PDF: `POST /contracts/{id}/pdf` dla istniejącej umowy z `delivery_address`
+- [ ] Sprawdź wizualnie: adres dostawy widoczny tylko raz (w `info-col` przy „Adres dostawy")
+- [ ] Pole „na budowie" jest puste (gotowe do ręcznego dopisania)
+
+**Spec:**
+- [ ] `spec/core/11_reports_stats.md` — note „pole 'na budowie' nie duplikuje adresu dostawy"
+
+**Pliki do zmiany:** `backend/reports/templates/contract_u.html`, `backend/reports/templates/contract.html`
+**Estimate:** 15 min (XS)
+
+---
+
+### [RAO-P1-002] PDF Umowa — "Dni pracy/tydzień" → "Ilość dni pracy"
+
+```yaml
+id: RAO-P1-002
+priority: P1
+size: XS
+status: triaged
+classification: bugfix/pdf
+roles: [backend-dev]
+source: client-request
+source_date: 2026-05-25
+source_ref: "Scan2026-05-25_125656.pdf strona 1 (ręczna adnotacja 'ilość dni pracy: 6')"
+specs_to_update:
+  - core/11_reports_stats.md
+migration_impact: no
+security_impact: none
+```
+
+**Problem (cytat klienta):** Na skanie strona 1 — w boksie „uwagi" (prawa kolumna obok przedmiotu najmu) klient wykreślił `Dni pracy/tydzień: 6 dni` i napisał ręcznie `Ilość dni pracy: 6`. Słowo "tydzień" jest mylące — chodzi o łączną ilość dni pracy w okresie umowy.
+
+**Lokalizacja w kodzie:**
+- `backend/reports/templates/contract_u.html` linia 223:
+  ```html
+  <p style="margin:0 0 4px 0;"><strong>Dni pracy/tydzień:</strong> {% if contract.working_days_per_week %}{{ contract.working_days_per_week }}{% else %}5{% endif %} dni.</p>
+  ```
+- `backend/reports/templates/contract.html` — analogiczna linia (znajdź `Dni pracy/tydzień`)
+
+**Acceptance criteria (DoD):**
+
+**Backend:**
+- [ ] Zmień w obu szablonach: `<strong>Dni pracy/tydzień:</strong>` → `<strong>Ilość dni pracy:</strong>`
+- [ ] Zmień default `{% else %}5{% endif %}` → `{% else %}6{% endif %}` (klient chce 6 jako default)
+- [ ] Po wartości zostaw `dni.` (np. "Ilość dni pracy: 6 dni.")
+
+**Spec:**
+- [ ] `spec/core/11_reports_stats.md` — note o zmianie etykiety
+
+**Pliki do zmiany:** `backend/reports/templates/contract_u.html` (linia 223), `backend/reports/templates/contract.html` (analogiczna)
+**Estimate:** 5 min (XS)
+
+---
+
+### [RAO-P1-003] PDF Umowa — "*ceny netto" na samym dole strony 1
+
+```yaml
+id: RAO-P1-003
+priority: P1
+size: S
+status: triaged
+classification: bugfix/pdf
+roles: [backend-dev]
+source: client-request
+source_date: 2026-05-25
+source_ref: "Scan2026-05-25_125656.pdf strona 1 (strzałka w dół), zrzut 223706.png pkt 6"
+specs_to_update:
+  - core/11_reports_stats.md
+migration_impact: no
+security_impact: none
+```
+
+**Problem (cytat klienta):** *„*ceny podane na umowie - żeby były na dole na umowie"*
+
+Obecnie w `contract_u.html` (linia 252-256) blok `footer-legal` znajduje się POD podpisami, ale klient zaznaczył strzałką w dół że ma być wyraźnie na **samym dole strony**. Treść jest, ale jest słabo widoczna.
+
+**Lokalizacja w kodzie:**
+- `backend/reports/templates/contract_u.html` linia 252-256 — `<div class="footer-legal">` zawiera `<strong>*ceny podane na umowie są cenami netto</strong>`
+- `backend/reports/templates/contract.html` — analogiczna sekcja
+
+**Acceptance criteria (DoD):**
+
+**Backend (CSS w obu szablonach):**
+- [ ] Zwiększ widoczność `.footer-legal`:
+  - `font-size: 9px` (było 8px)
+  - `border-top: 1px solid #aaa; padding-top: 8px; margin-top: 16px;`
+  - `page-break-after: avoid` (żeby nie wciągało na stronę OWN)
+- [ ] Pierwsza linia `*ceny podane na umowie są cenami netto`:
+  - Pogrub: `<strong>` już jest, dodaj inline style: `style="font-size: 11px; color: #c00; display: block; margin-bottom: 4px;"`
+
+**Test:**
+- [ ] Wygeneruj PDF — `footer-legal` jest widoczny na dole strony 1
+- [ ] Tekst "*ceny netto" jest pogrubiony i czerwony
+- [ ] Strona 2 to nadal OWN (page-break OK)
+
+**Spec:**
+- [ ] `spec/core/11_reports_stats.md` — note o pozycjonowaniu *ceny netto
+
+**Pliki do zmiany:** `backend/reports/templates/contract_u.html`, `backend/reports/templates/contract.html`
+**Estimate:** 30 min (S)
+
+---
+
+### [RAO-P1-004] PDF Umowa Usługi (typ U) — usuń sekcję "Cennik usług dodatkowych"
+
+```yaml
+id: RAO-P1-004
+priority: P1
+size: S
+status: triaged
+classification: bugfix/pdf
+roles: [backend-dev]
+source: client-request
+source_date: 2026-05-25
+source_ref: "zrzut 223710.png — 'umowa usługi: tutaj nie dodajemy takich informacji jak tankowanie czyszczenie itp.', potwierdzone OWN w spec/reference_reports/own/ownU.pdf vs ownA.pdf"
+specs_to_update:
+  - core/11_reports_stats.md
+  - core/04_business_logic.md
+migration_impact: no
+security_impact: none
+verification:
+  - "spec/reference_reports/own/ownA.pdf (NAJM typu S) — § 3 pkt 8 wymienia opłaty za czyszczenie/transport/serwis ✅ CENNIK POTRZEBNY"
+  - "spec/reference_reports/own/ownU.pdf (USŁUGA typu U) — § 2 'Najem urządzenia z operatorem' — BRAK paragrafu o transporcie/tankowaniu/czyszczeniu ✅ KLIENT MA RACJĘ"
+```
+
+**Problem (cytat klienta):** *„umowa usługi: tutaj nie dodajemy takich informacji jak tankowanie czyszczenie itp."*
+
+**⚠️ UWAGA — mapping typów w aplikacji (z kodu `backend/contracts/service.py:149`):**
+- `contract_type = 'S'` → **Umowa NAJMU** → szablon `contract.html`
+- `contract_type = 'U'` → **Umowa USŁUGI** (z operatorem) → szablon `contract_u.html`
+
+**Uzasadnienie biznesowe (potwierdzone OWN w `spec/reference_reports/own/`):**
+- **Umowa najmu (S)** — klient sam obsługuje maszynę, więc płaci za transport/tankowanie/czyszczenie po używaniu. OWN umowy najmu (`ownA.pdf`) § 3 pkt 8 to potwierdza.
+- **Umowa usługi (U)** — Toolsmart wykonuje pracę z operatorem, więc koszty operacyjne (transport, paliwo) są wewnętrzne. OWN umowy usługi (`ownU.pdf`) NIE zawiera paragrafu o tych opłatach.
+
+**Lokalizacja w kodzie:**
+- `backend/reports/templates/contract_u.html` linia 191-210 — blok `{% if fees %}<div ...>Cennik usług dodatkowych:</div>...<table class="pos">...{% endif %}`
+- `backend/reports/templates/contract.html` linia 207-216 — analogiczna sekcja `<table class="inne">` z "Inne usługi" — **NIE ZMIENIAĆ** (klient chce żeby zostało dla typu S najmu)
+
+**Acceptance criteria (DoD):**
+
+**Backend:**
+- [ ] W `backend/reports/templates/contract_u.html` **USUŃ** cały blok od linii 191 do 210:
+  ```jinja
+  <!-- FEES -->
+  {% if fees %}
+  <div style="font-size:9.5px;font-weight:bold;margin:8px 0 3px;">Cennik usług dodatkowych:</div>
+  <table class="pos">
+    <thead>
+      <tr><th style="text-align:left;">usługa</th><th style="width:130px;">stawka</th><th style="width:60px;">j.m.</th></tr>
+    </thead>
+    <tbody>
+    {% for f in fees %}
+    {% if f.is_active %}
+    <tr>
+      <td>{{ f.name }}{% if f.description %} ({{ f.description }}){% endif %}</td>
+      <td>{% if f.amount_from %}{{ f.amount_from | money_plain }}{% endif %}{% if f.amount_to %} - {{ f.amount_to | money_plain }}{% endif %}</td>
+      <td>{{ f.unit or '' }}</td>
+    </tr>
+    {% endif %}
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  ```
+- [ ] Powód: szablon `contract_u.html` jest renderowany TYLKO dla typu U (mapping w `backend/reports/service.py:542-547`), więc usunięcie bloku jest bezpieczne — nie potrzeba warunku `{% if contract_type == 'U' %}`.
+- [ ] **NIE ZMIENIAĆ** `backend/reports/templates/contract.html` — sekcja "Inne usługi" (linia 207-216) ma zostać (klient chce ją dla typu S).
+
+**Opcjonalne (decyzja klienta):**
+- [ ] Sprawdź czy w bazie `service_fee_templates` istnieją rekordy z `contract_type = 'U'`. Jeśli tak — można je deaktywować (`is_active = false`) lub zostawić (są niewidoczne w PDF, ale mogą być używane do innych celów).
+- [ ] `backend/contracts/service.py::copy_fee_templates` linia 25-32 — funkcja nadal może kopiować `ContractServiceFee` dla umowy U (do bazy), ale w PDF się nie pokażą. Można rozważyć skip kopiowania dla typu U: `if contract_type == 'U': return`.
+
+**Test:**
+- [ ] Wygeneruj PDF dla umowy **typu S** (najem) → cennik "Inne usługi" widoczny ✅
+- [ ] Wygeneruj PDF dla umowy **typu U** (usługa) → cennik "Cennik usług dodatkowych" **NIE** widoczny ✅
+- [ ] Smoke E2E (`04-contract.spec.ts`) nadal przechodzi
+
+**Spec:**
+- [ ] `spec/core/11_reports_stats.md` — note „contract_u.html bez cennika dodatkowego"
+- [ ] `spec/core/04_business_logic.md` — różnice umowa S (najem) vs U (usługa) + dlaczego cennik tylko dla S
+
+**Pliki do zmiany:**
+- `backend/reports/templates/contract_u.html` (USUNIĘCIE linii 191-210)
+- Opcjonalnie: `backend/contracts/service.py` (skip copy_fee_templates dla typu U)
+
+**Estimate:** 30 min (S) — głównie weryfikacja typu w PDF i smoke E2E
+
+---
+
+### [RAO-P1-005] PDF Protokół — brakuje pola "nr tel" w boksie kontaktu
+
+```yaml
+id: RAO-P1-005
+priority: P1
+size: S
+status: triaged
+classification: bugfix/pdf
+roles: [backend-dev]
+source: client-request
+source_date: 2026-05-25
+source_ref: "zrzut 223652.png 'wpisałam numer tel. a na protokole się on nie pojawia', Scan...pdf strona 4 (adnotacja 'nr tel:'), zrzut 223706.png Protokół pkt 1"
+specs_to_update:
+  - core/11_reports_stats.md
+migration_impact: no
+security_impact: none
+```
+
+**Problem (cytat klienta):** *„wpisałam numer tel. a na protokole się on nie pojawia"* + na skanie protokołu klient dopisał ręcznie `nr tel:` przy boksie „osoba upoważniona do odbioru przedmiotu najmu".
+
+**Analiza:**
+- `contract.contact_phone1` jest zapisywane w formularzu umowy (DB OK)
+- W `protocol_zo.html` linia 128-129 wyświetla `{{ contract.contact_person1 }}{% if contract.contact_phone1 %}, tel. {{ contract.contact_phone1 }}{% endif %}` — to **inline**, więc gdy numeru NIE ma w bazie, nie pojawia się żadna sugestia że tu powinien być
+- Klient chce widzieć etykietę `nr tel:` osobno, nawet gdy puste
+
+**Lokalizacja w kodzie:**
+- `backend/reports/templates/protocol_zo.html` linia 124-131 (boks „osoba upoważniona")
+- `backend/reports/templates/protocol_zo_u.html` linia 113-128 (analogicznie)
+- `backend/reports/templates/protocol_zo_nodata.html`, `protocol_zo_nodata_u.html` — wszystkie 4 szablony
+
+**Acceptance criteria (DoD):**
+
+**Backend (zmień we wszystkich 4 szablonach protokołu):**
+- [ ] Zamień zawartość boksu „osoba upoważniona" na strukturalny układ:
+  ```html
+  <div class="box-inner">
+    <div class="box-label">osoba upoważniona do odbioru przedmiotu najmu</div>
+    {% if contract.contact_person1 %}{{ contract.contact_person1 }}{% endif %}
+    <div style="margin-top: 4px; font-size: 9px;">
+      <strong>nr tel:</strong> {{ contract.contact_phone1 or '' }}
+    </div>
+  </div>
+  ```
+- [ ] Zachowaj fallback gdy `contact_phone1` jest puste — pokaż etykietę "nr tel:" bez wartości
+
+**Test:**
+- [ ] Wygeneruj protokół dla umowy z wypełnionym `contact_phone1` → telefon widoczny
+- [ ] Wygeneruj protokół bez `contact_phone1` → etykieta "nr tel:" widoczna z pustym polem
+- [ ] Sprawdź wszystkie 4 typy protokołów
+
+**Spec:**
+- [ ] `spec/core/11_reports_stats.md` — wymiana boksu „osoba upoważniona"
+
+**Pliki do zmiany:** `backend/reports/templates/protocol_zo.html`, `backend/reports/templates/protocol_zo_u.html`, `backend/reports/templates/protocol_zo_nodata.html`, `backend/reports/templates/protocol_zo_nodata_u.html`
+**Estimate:** 45 min (S)
+
+---
+
+### [RAO-P1-006] PDF Protokół — większa tabela "Przy wydaniu / Przy odbiorze"
+
+```yaml
+id: RAO-P1-006
+priority: P1
+size: S
+status: triaged
+classification: bugfix/pdf
+roles: [backend-dev]
+source: client-request
+source_date: 2026-05-25
+source_ref: "Scan...pdf strona 4 (adnotacja '↓ większe' przy tabeli)"
+specs_to_update:
+  - core/11_reports_stats.md
+migration_impact: no
+security_impact: none
+```
+
+**Problem (cytat klienta):** Na skanie protokołu klient zaznaczył strzałką w dół `większe` obok tabeli „Przy wydaniu / Przy odbiorze". Tabela ma być wyraźnie większa (wyższe wiersze, większy font) — żeby było łatwiej wypełniać ręcznie.
+
+**UWAGA:** Klient też w pkt 2 zrzutu 223706.png napisał "tabelki mniejsze" — chodzi o **inne** tabelki (dolna sekcja zwrotu, patrz RAO-P1-007). Ta tabela PWO ma być **większa**.
+
+**Lokalizacja w kodzie:**
+- `backend/reports/templates/protocol_zo.html` linia 169-192 — `<div class="pwo-section">` z `table.pwo`
+- CSS: linia 65-72 — `table.pwo td { ... height: 20px; ... }`
+
+**Acceptance criteria (DoD):**
+
+**Backend (CSS w protocol_zo.html):**
+- [ ] Zwiększ wysokość wierszy `table.pwo td` z `height: 20px` na `height: 32px`
+- [ ] Zwiększ `font-size` tabeli z `8.5px` na `10px` (`table.pwo`)
+- [ ] Zwiększ `font-size` etykiet (`td.pwo-label`) z `8.5px` na `10px`
+- [ ] Wiersz „Uwagi" (`tr.pwo-uwagi td`) — zwiększ z `height: 36px` na `height: 60px`
+- [ ] Padding komórek z `2px 5px` na `5px 8px`
+
+**Test:**
+- [ ] Wygeneruj protokół — tabela wyraźnie większa, łatwa do wypełnienia ręcznie
+- [ ] Sprawdź czy nie powoduje page-overflow (jeśli tak — zmniejsz inne marginesy lub spróbuj height 28px zamiast 32px)
+
+**Spec:**
+- [ ] `spec/core/11_reports_stats.md` — wymiar tabeli PWO
+
+**Pliki do zmiany:** `backend/reports/templates/protocol_zo.html` (CSS linia 65-72)
+**Estimate:** 30 min (S)
+
+---
+
+### [RAO-P1-007] PDF Protokół — połącz 3 tabelki dolne w 1 dużą tabelę "uwagi"
+
+```yaml
+id: RAO-P1-007
+priority: P1
+size: M
+status: triaged
+classification: refactor/pdf
+roles: [backend-dev]
+source: client-request
+source_date: 2026-05-25
+source_ref: "zrzut 223706.png Protokół pkt 4 'na protokole jest tabela na samym dole dane zwrotu ilość dni - tak naprawdę zróbmy z tego 1 dużą tabelkę na uwagi'"
+specs_to_update:
+  - core/11_reports_stats.md
+migration_impact: no
+security_impact: none
+```
+
+**Problem (cytat klienta):** *„na protokole jest tabela na samym dole dane zwrotu ilość dni - tak naprawdę zróbmy z tego 1 duża tabelka na uwagi :)"*
+
+Na dole protokołu są obecnie 3 elementy do połączenia:
+1. Tabela 1 wiersz × 3 kolumny: `dane zwrotu przedmiotu najmu | ilość dni | kaucja zwrócono w wysokości`
+2. Pusty box `uwagi`
+3. Notatka „Ogólna weryfikacja maszyny..."
+
+Klient chce **1 dużą tabelę "uwagi"** (jedno duże pole tekstowe).
+
+**Lokalizacja w kodzie:**
+- `backend/reports/templates/protocol_zo.html` linia 209-238 — sekcja `<div class="bottom-section">`
+
+**Acceptance criteria (DoD):**
+
+**Backend (protocol_zo.html linia 213-220):**
+- [ ] Usuń `<table class="return-table">...</table>` (3 kolumny: dane zwrotu / ilość dni / kaucja)
+- [ ] Zamień `<div class="ret-uwagi">uwagi</div>` na większy box:
+  ```html
+  <div class="big-uwagi">
+    <div class="box-label" style="font-size:9px;color:#888;margin-bottom:6px;">uwagi do zwrotu</div>
+  </div>
+  ```
+- [ ] Dodaj CSS dla `.big-uwagi`:
+  ```css
+  .big-uwagi { border: 1px solid #aaa; padding: 10px 12px; font-size: 10px; min-height: 140px; color: #888; }
+  ```
+- [ ] Zachowaj `<div class="note-line">Ogólna weryfikacja maszyny...</div>` poniżej
+- [ ] Zachowaj sekcję `RETURN SIGNATURES`
+
+**Test:**
+- [ ] Wygeneruj protokół — na dole 1 duża pusta tabela „uwagi do zwrotu" (do ręcznego wypełnienia)
+- [ ] Tabela 3 kolumnowa zniknęła
+- [ ] Podpisy nadal są na końcu
+
+**Spec:**
+- [ ] `spec/core/11_reports_stats.md` — struktura dolnej sekcji protokołu
+
+**Pliki do zmiany:** `backend/reports/templates/protocol_zo.html` (linia 209-238)
+**Estimate:** 1.5h (M)
+
+---
+
+### [RAO-P1-008] Format opisu warunku kaskadowego rozliczenia — jak w starej aplikacji
+
+```yaml
+id: RAO-P1-008
+priority: P1
+size: M
+status: triaged
+classification: feature/refactor
+roles: [frontend-dev, backend-dev]
+source: client-request + legacy-app-reference
+source_date: 2026-05-25
+source_ref: "temp/uwagi klienta/stary_format.png, C:/projects/repos/AppRao/rao/FormW.cs linia 690-750"
+specs_to_update:
+  - core/03_frontend_screens.md
+  - core/04_business_logic.md
+  - core/11_reports_stats.md
+migration_impact: no
+security_impact: none
+```
+
+**Problem:** Stara aplikacja WinForms wyświetlała opis warunku rozliczenia w czytelnym formacie kaskadowym (tiered rates). Nowa aplikacja generuje obecnie nieprzejrzysty opis. Klient pyta: *„Proszę podpowiedz mi jak mam wstawiać kwoty - rozliczenie? w umowie?"*
+
+**Format docelowy (z `temp/uwagi klienta/stary_format.png`):**
+```
+Rozliczenie
+1 - 3 dni - 540,00 / doba
+4 - 16 dni - 410,00 / doba
+powyżej 16 dni - 350,00 / doba
+```
+
+**Mapping na model danych (`backend/contracts/models.py::PositionCondition`):**
+
+Każdy warunek (condition) ma pola: `rate_type_id`, `rate1`, `rate2`, `period_count`, `billing_label`, `minimum`, `description`.
+
+Dla powyższego przykładu (3 warunki w jednej pozycji):
+| # | period_count | rate1 | rate2 | billing_label | rate_type |
+|---|--------------|-------|-------|---------------|-----------|
+| 1 | 3            | 540   | NULL  | doba          | kaskadowa |
+| 2 | 16           | 410   | NULL  | doba          | kaskadowa |
+| 3 | NULL         | NULL  | 350   | doba          | kaskadowa (powyżej) |
+
+Lub alternatywnie (decyzja w trakcie implementacji):
+| # | period_count | rate1 | rate2 | billing_label |
+|---|--------------|-------|-------|---------------|
+| 1 | 3            | 540   | NULL  | doba          |
+| 2 | 16           | 410   | 350   | doba          | (rate2 = "powyżej") |
+
+**Logika z starej aplikacji `FormW.cs` linia 690-750 (referencja):**
+```csharp
+// id_stawki = "2" (cascading rate):
+// Pierwszy warunek: "do {ile} dni - {oplata1}zł / doba"
+// Ostatni warunek z cbdo.Checked: "powyżej {ile} dni - {oplata2}zł / doba"
+```
+
+**Acceptance criteria (DoD):**
+
+**Backend — helper formatujący:**
+- [ ] Dodaj funkcję w `backend/contracts/service.py`:
+  ```python
+  def format_position_conditions_cascading(conditions: list[PositionCondition]) -> str:
+      """Buduje opis kaskadowych warunków rozliczenia jak w starej aplikacji WinForms.
+      
+      Przykład wyjścia (3 warunki):
+        1 - 3 dni - 540,00 / doba
+        4 - 16 dni - 410,00 / doba
+        powyżej 16 dni - 350,00 / doba
+      """
+      # 1. Sortuj warunki rosnąco po period_count (NULL na końcu)
+      sorted_conds = sorted(
+          conditions,
+          key=lambda c: (c.period_count is None, c.period_count or 0)
+      )
+      lines = []
+      prev_period = 0
+      for i, c in enumerate(sorted_conds):
+          label = c.billing_label or 'doba'
+          if c.period_count is not None and c.rate1 is not None:
+              # Zakres dni
+              start = prev_period + 1
+              end = c.period_count
+              if start == end:
+                  range_text = f"{start} {label}"
+              else:
+                  range_text = f"{start} - {end} {label[:-1]}i"  # "doba" → "doby/dni" — uproszczenie
+              # Polski format kwoty (przecinek dziesiętny)
+              rate_text = f"{c.rate1:.2f}".replace('.', ',')
+              lines.append(f"{range_text} - {rate_text} / {label}")
+              prev_period = c.period_count
+          elif c.rate2 is not None and prev_period > 0:
+              # Linia "powyżej"
+              rate_text = f"{c.rate2:.2f}".replace('.', ',')
+              lines.append(f"powyżej {prev_period} {label[:-1]}i - {rate_text} / {label}")
+      return '\n'.join(lines)
+  ```
+- [ ] **Edge cases:**
+  - Pusty list → ""
+  - 1 warunek bez `period_count` → użyj `description` (legacy fallback)
+  - Tylko `rate2` bez poprzedniego — zignoruj
+  - Polska fleksja "doba"/"dni" — w 1. wersji uprość: jeśli `billing_label='doba'` użyj `'dni'` w zakresie, `'doba'` w stawce. Można później dodać helper `pluralize_pl(label, count)`.
+
+**Backend — test jednostkowy:**
+- [ ] Dodaj `backend/tests/unit/test_format_conditions.py`:
+  ```python
+  def test_cascading_3_conditions_matches_old_app():
+      conditions = [
+          MockCondition(period_count=3, rate1=540, rate2=None, billing_label='doba'),
+          MockCondition(period_count=16, rate1=410, rate2=None, billing_label='doba'),
+          MockCondition(period_count=None, rate1=None, rate2=350, billing_label='doba'),
+      ]
+      result = format_position_conditions_cascading(conditions)
+      expected = (
+          "1 - 3 dni - 540,00 / doba\n"
+          "4 - 16 dni - 410,00 / doba\n"
+          "powyżej 16 dni - 350,00 / doba"
+      )
+      assert result == expected
+  ```
+
+**Backend — użycie w PDF:**
+- [ ] `backend/reports/service.py` — przy budowie kontekstu dla template, dla każdej pozycji wywołaj `format_position_conditions_cascading(position.conditions)` i przekaż jako `p.conditions_text`
+- [ ] `backend/reports/templates/contract_u.html` linia 184: `<div class="cond">{{ p.conditions_text }}</div>` — CSS `.cond` ma już `white-space: pre-line` (linia 50) ✓
+
+**Frontend — preview w formularzu warunku:**
+- [ ] `frontend/src/components/contracts/ConditionPanel.vue` — refactor `buildAutoDescription()` (linia 151-167):
+  - **Opcja A (preferowana):** wywołuj backend endpoint `GET /contracts/{contract_id}/positions/{position_id}/preview-conditions` zwracający string preview po zmianie formularza (debounce 500ms)
+  - **Opcja B:** zaimplementuj tę samą logikę w JS (duplikacja kodu — gorsze)
+- [ ] Wyświetl preview pod formularzem warunku w komponencie (read-only `<pre>` z białym tłem)
+
+**Backend — nowy endpoint preview (Opcja A):**
+- [ ] `backend/contracts/router.py` — dodaj:
+  ```python
+  @router.post("/contracts/{contract_id}/positions/{position_id}/conditions/preview")
+  async def preview_conditions(
+      contract_id: int,
+      position_id: int,
+      conditions: list[ConditionIn],  # tymczasowa lista z formularza
+      db: AsyncSession = Depends(get_db),
+      user: User = Depends(get_current_user),
+  ) -> dict:
+      """Zwraca preview tekstowy warunków bez zapisywania."""
+      text = format_position_conditions_cascading([
+          PositionCondition(**c.dict()) for c in conditions
+      ])
+      return {"preview": text}
+  ```
+
+**Spec:**
+- [ ] `spec/core/04_business_logic.md` — algorytm formatowania kaskadowego (z dokładnym mappingiem i przykładem)
+- [ ] `spec/core/03_frontend_screens.md` — opis ConditionPanel z preview
+- [ ] `spec/core/11_reports_stats.md` — format warunków w PDF
+- [ ] Skopiuj `temp/uwagi klienta/stary_format.png` do `spec/core/assets/stary_format_rozliczenie.png` (już skopiowane w `spec/backlog/stary_format_rozliczenie.png`)
+
+**Pliki do zmiany:**
+- `backend/contracts/service.py` (nowy helper)
+- `backend/contracts/router.py` (nowy endpoint preview)
+- `backend/reports/service.py` (użyj helper przy budowie `conditions_text`)
+- `backend/tests/unit/test_format_conditions.py` (nowy)
+- `frontend/src/components/contracts/ConditionPanel.vue` (linia 151-167 - refactor + preview)
+- `frontend/src/stores/contracts.ts` (dodaj akcję `previewConditions`)
+- `spec/core/assets/stary_format_rozliczenie.png` (referencja wizualna)
+
+**Estimate:** 3-4h (M) — najważniejsze zadanie dla UX klienta
+
+---
+
+### [RAO-P1-009] Wymiana pieczątki firmy w dokumentach PDF (nowa wersja)
+
+```yaml
+id: RAO-P1-009
+priority: P1
+size: XS
+status: triaged
+classification: maintenance
+roles: [backend-dev]
+source: client-request
+source_date: 2026-05-25
+source_ref: "zrzut 223658.png pkt 5 'pieczątka do poprawy' + obrazek pieczątki"
+specs_to_update:
+  - core/11_reports_stats.md
+migration_impact: no
+security_impact: none
+```
+
+**Problem (cytat klienta):** *„pieczątka do poprawy"* — klient przesłał nową wersję pieczątki z czterema liniami:
+```
+Toolsmart Sp. z o.o.
+ul. Kłobucka 6B/103, 02-699 Warszawa
+NIP 9512598092, Regon 528847124
+KRS 0001109942
+[podpis]
+```
+
+**Lokalizacja w kodzie:**
+- `backend/reports/assets/protocol_stamp.png` (27856 bytes) — używana w protokołach przez `stamp_src` (`backend/reports/service.py` linia 573)
+- `backend/reports/assets/company_stamp.jpg` (12275 bytes) — stary plik (nieużywany)
+- `backend/reports/assets/company_stamp_fixed.jpg` (4304 bytes) — używana w umowach (`contract_u.html` linia 242, 316, `contract.html` linia 242, 387)
+
+**Acceptance criteria (DoD):**
+
+**Plik graficzny:**
+- [ ] Klient ma przesłać oryginalny plik PNG (przezroczyste tło, wysoka rozdzielczość)
+- [ ] Wymiar finalny: 360×140px (2× dla 180×70px @ retina) lub 720×280px @ 4×
+- [ ] Format: PNG z przezroczystym tłem
+- [ ] **TYMCZASOWO:** użyj obrazka z `temp/uwagi klienta/Zrzut ekranu 2026-05-25 223658.png` (crop dolnej części) — wystarcza do testów
+
+**Backend:**
+- [ ] Zamień `backend/reports/assets/protocol_stamp.png` na nową wersję
+- [ ] Zamień `backend/reports/assets/company_stamp_fixed.jpg` na nową wersję:
+  - **Opcja A:** skonwertuj PNG→JPG z białym tłem (Pillow: `Image.open('new.png').convert('RGB').save('company_stamp_fixed.jpg', quality=95)`)
+  - **Opcja B (preferowane):** zmień szablony `contract.html`/`contract_u.html` żeby używały tego samego PNG co protokoły (jednolite source of truth):
+    - `contract_u.html` linia 242, 316: `<img src="../assets/company_stamp_fixed.jpg"` → `<img src="../assets/protocol_stamp.png"`
+    - `contract.html` linia 242, 387: analogicznie
+- [ ] Sprawdź też `deployment/backend/reports/assets/` — jeśli istnieją te same pliki, zamień również
+- [ ] Skasuj nieużywany `company_stamp.jpg`
+
+**Test:**
+- [ ] Wygeneruj PDF umowy → pieczątka widoczna w stopce
+- [ ] Wygeneruj PDF protokołu (oba sekcje wydania i zwrotu) → pieczątka widoczna
+- [ ] Sprawdź ostrość pieczątki przy zoomie 200%
+
+**Weryfikacja danych firmy:**
+- [ ] Sprawdź czy dane w bazie `company` są aktualne (porównaj z pieczątką):
+  - NIP: 9512598092
+  - Regon: 528847124
+  - KRS: 0001109942 ⚠️ **KRS NIE istnieje obecnie w modelu `Company`** w `backend/settings/models.py` — jeśli klient chce go widzieć w nagłówku PDF, dodaj kolumnę `krs VARCHAR(20) NULL` (migracja `ALTER TABLE company ADD COLUMN IF NOT EXISTS krs VARCHAR(20)`)
+  - Adres: ul. Kłobucka 6B/103, 02-699 Warszawa
+
+**Spec:**
+- [ ] `spec/core/11_reports_stats.md` — nota o nowej pieczątce + ścieżki plików
+- [ ] `spec/core/01_database.md` — dodaj kolumnę `krs` do `company` (jeśli implementowane)
+
+**Pliki do zmiany:**
+- `backend/reports/assets/protocol_stamp.png` (zamiana)
+- `backend/reports/assets/company_stamp_fixed.jpg` (zamiana LUB usunięcie + użycie PNG)
+- `backend/reports/templates/contract.html` (opcja B)
+- `backend/reports/templates/contract_u.html` (opcja B)
+- `deployment/backend/reports/assets/*` (sync)
+
+**Estimate:** 30 min (XS) — głównie czeka na finalny plik graficzny od klienta
+
+---
+
+### [RAO-P1-011] [SPIKE] Walidacja wielokrotnego dodania tej samej maszyny + ostrzeżenie o zajętej maszynie
+
+```yaml
+id: RAO-P1-011
+priority: P1
+size: S
+status: triaged
+classification: spike/research
+roles: [backend-dev, frontend-dev, qa-engineer]
+source: client-request
+source_date: 2026-05-25
+source_ref: "pytania klienta z czatu (2026-05-25 23:07)"
+specs_to_update:
+  - core/04_business_logic.md
+  - core/01_database.md
+  - core/03_frontend_screens.md
+migration_impact: tbd
+security_impact: none
+```
+
+**Pytania klienta:**
+1. *„Czy można dodać w jednej umowie maszyne external 5 razy np.?"*
+2. *„Czy maszyna która jest używana będzie wyskakiwał monit z ostrzeżeniem i świadomym ponownym wybraniem już teoretycznie pożyczonej umowy?"*
+
+**Cel spike-u:**
+Zrozumieć obecny stan, zaproponować rozwiązanie (decyzja biznesowa + techniczna), dopiero wtedy zaplanować implementację jako osobne tasky.
+
+---
+
+#### Pytanie 1: Wielokrotne dodanie tej samej maszyny do umowy
+
+**Analiza stanu obecnego (kod):**
+- `backend/contracts/models.py::ContractPosition` — pole `article_id = Column(Integer, ForeignKey("articles.id"), nullable=False)`
+- **NIE MA `UniqueConstraint(contract_id, article_id)`** → technicznie można dodać tę samą maszynę N razy do tej samej umowy
+- `Article.is_external` (bool) — odróżnia maszyny zewnętrzne (podnajem) od własnej floty
+- Brak walidacji w `backend/contracts/service.py` przy `add_position` / `update_position`
+
+**Pytania do biznesu (decyzja klienta — Toolsmart):**
+- [ ] **Czy duplikat ma sens biznesowy?** Scenariusze:
+  - **TAK (np. external):** Ten sam typ maszyny wynajęty 5× od różnych dostawców = 5 pozycji w umowie, każda z innym numerem seryjnym/cenniku. *Wymaga dodania pola `external_owner` lub `external_serial` per position.*
+  - **TAK (taka sama maszyna własna):** Klient chce wynająć 5 jednakowych młotów udarowych. Wtedy lepiej: 1 pozycja z `quantity=5` (już jest pole `quantity` w `ContractPosition`!) — to jest preferowane rozwiązanie z punktu widzenia UX/danych.
+  - **NIE (maszyna unikalna):** Maszyna z numerem seryjnym = unikat, nie może być na tej samej umowie 2×.
+- [ ] **Czy rozróżnić zachowanie dla `is_external=true` vs `is_external=false`?**
+  - Maszyna własna (numer seryjny) — UNIQUE per umowa (max 1 pozycja, ale z `quantity > 1`)
+  - Maszyna external (typ + dostawca) — można 5× (różni dostawcy, różne ceny)
+
+**Proponowane warianty rozwiązania (do wyboru przez klienta):**
+
+**Wariant A: Strict UNIQUE per umowa (maszyny własne)**
+- Dodaj unique constraint w bazie: `UNIQUE(contract_id, article_id) WHERE is_external = false`
+- Maszyny external: bez constraint
+- Frontend: jeśli dodaję maszynę własną która już jest w umowie → blokada + komunikat „Ta maszyna jest już w tej umowie. Zmień ilość w istniejącej pozycji."
+- **Plus:** Spójność danych, jasne zasady
+- **Minus:** Wymaga migracji + obsługa w frontendzie (gdzie pokazać `quantity`)
+
+**Wariant B: Pozwól na duplikaty zawsze, ale ostrzeż**
+- Brak unique constraint
+- Frontend: warning toast „Maszyna {name} już jest w tej umowie (pozycja #3). Dodaję jako nową pozycję?" → user klika OK
+- **Plus:** Elastyczność (np. ten sam młot dwie różne ceny w jednej umowie)
+- **Minus:** Łatwo o pomyłkę, dane mniej spójne
+
+**Wariant C: Hybryda — własne strict, external dozwolone z ostrzeżeniem**
+- UNIQUE constraint tylko dla `is_external = false`
+- Warning dla `is_external = true`
+- **Plus:** Najbliżej rzeczywistości biznesowej (external = typ, własne = unikat)
+- **Minus:** Najbardziej skomplikowane technicznie
+
+---
+
+#### Pytanie 2: Ostrzeżenie gdy maszyna jest aktualnie pożyczona w innej umowie
+
+**Analiza stanu obecnego (kod):**
+- Brak pola `is_currently_rented` lub `rental_status` w `Article`
+- Brak walidacji w `add_position` że maszyna nie jest aktualnie wynajęta
+- **Aktualnie:** żaden monit się nie wyświetli — można wpisać tę samą maszynę do 5 umów z nachodzącymi datami
+
+**Co znaczy „aktualnie pożyczona"?**
+Maszyna jest pożyczona, gdy istnieje umowa spełniająca WSZYSTKIE warunki:
+- `Contract.is_settled = false` (nierozliczona)
+- `Contract.date_from <= NOW() <= Contract.date_to` (okres aktualny)
+- Maszyna jest pozycją w tej umowie
+
+LUB lepiej: gdy okresy się nakładają z planowaną nową umową:
+- Nowa umowa ma `date_from = X`, `date_to = Y`
+- Sprawdź czy maszyna jest w innej umowie której okres `[date_from, date_to]` ma część wspólną z `[X, Y]`
+
+**Proponowane rozwiązanie (do dyskusji):**
+
+**Krok 1: Backend endpoint do sprawdzenia konfliktu**
+- [ ] Dodaj `GET /articles/{article_id}/conflicts?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD&exclude_contract_id={id}`
+- Zwraca: `[{contract_id, contract_number, date_from, date_to, contractor_name}]`
+- Implementacja:
+  ```python
+  async def find_article_conflicts(
+      db, article_id: int, date_from: date, date_to: date, exclude_contract_id: int | None = None
+  ) -> list[ConflictInfo]:
+      query = select(Contract, ContractPosition).join(ContractPosition).where(
+          ContractPosition.article_id == article_id,
+          Contract.is_settled == False,
+          # Okresy się nakładają jeśli: contract.date_from <= date_to AND contract.date_to >= date_from
+          Contract.date_from <= date_to,
+          Contract.date_to >= date_from,
+      )
+      if exclude_contract_id:
+          query = query.where(Contract.id != exclude_contract_id)
+      result = await db.execute(query)
+      return [...]
+  ```
+
+**Krok 2: Frontend — warning modal**
+- [ ] W `ArticlePicker.vue` po wyborze artykułu → wywołaj `GET /articles/{id}/conflicts` z aktualnymi datami umowy
+- [ ] Jeśli są konflikty → pokaż modal:
+  ```
+  ⚠️ Uwaga: Maszyna {name} jest już w innych umowach w tym okresie:
+  
+  • Umowa S123/2026 (Cegro Sp. z o.o.) — 23.05 do 02.06.2026
+  • Umowa S130/2026 (Bud-Mat) — 28.05 do 05.06.2026
+  
+  Czy na pewno chcesz dodać tę maszynę do bieżącej umowy?
+  
+  [ Anuluj ]    [ Tak, dodaj świadomie ]
+  ```
+- [ ] Po kliknięciu „Tak, dodaj świadomie" → kontynuuj normalnie + zaloguj `audit_log` (kto, kiedy, którą umowę pominął)
+
+**Krok 3: Audit log (opcjonalne)**
+- [ ] Tabela `position_conflict_overrides` (id, user_id, contract_id, article_id, conflicting_contract_ids, timestamp)
+- [ ] W przyszłości można generować raport „świadome konflikty" dla admina
+
+---
+
+#### Acceptance criteria (spike — research only, NIE implementacja)
+
+**Deliverables (output dokumentu):**
+- [ ] Decyzja biznesowa od klienta: Wariant A / B / C dla pytania 1
+- [ ] Decyzja biznesowa: jaki próg nakładania okresów (cały okres / >50% / dowolny dzień)
+- [ ] Decyzja: blokować czy ostrzec (modal z ✓)
+- [ ] Dokument w `spec/core/04_business_logic.md` sekcja „Walidacja duplikatów + konfliktów rental"
+- [ ] Nowy backlog item P1 (lub P2 zależnie od decyzji) z konkretnymi zmianami:
+  - Migration (jeśli unique constraint)
+  - Backend endpoint
+  - Frontend modal
+  - E2E test
+
+**Test scenariusze (do weryfikacji przed implementacją):**
+- [ ] Scenariusz 1: dodaj maszynę external `X` 5× do umowy → obecnie działa, sprawdź czy jest sens biznesowy
+- [ ] Scenariusz 2: maszyna `Y` w aktywnej umowie A (date_from=20.05, date_to=30.05). Próbuj dodać do nowej umowy B (date_from=25.05, date_to=10.06) → obecnie brak ostrzeżenia
+- [ ] Scenariusz 3: maszyna `Y` w umowie rozliczonej (`is_settled=true`) — czy to liczy się jako konflikt? (najprawdopodobniej NIE)
+
+**Czas spike:** 2-3h (analiza + dokument + rozmowa z klientem)
+
+---
+
+#### Pliki do przeczytania (research)
+
+- `backend/articles/models.py` (linia 33: `is_external`)
+- `backend/contracts/models.py` (linia 58-80: `ContractPosition` — brak unique)
+- `backend/contracts/service.py` — funkcja `add_position` / `update_position`
+- `backend/contracts/router.py` — endpointy positions
+- `frontend/src/views/ContractFormView.vue` — gdzie się dodaje pozycje
+- `frontend/src/components/contracts/ArticlePicker.vue` — picker maszyn
+
+**Estimate:** 2-3h spike (research + 1 dokument decyzyjny dla klienta)
+
+---
+
+### [RAO-P1-010] Weryfikacja numeru telefonu w nagłówku PDF (klient zgłosił 888 992 017)
+
+```yaml
+id: RAO-P1-010
+priority: P1
+size: XS
+status: triaged
+classification: bugfix/data-quality
+roles: [backend-dev, db-agent]
+source: client-request
+source_date: 2026-05-25
+source_ref: "zrzut 223710.png 'tutaj jest bład zły numer 888 992 017 / powinien być 888 992 015'"
+specs_to_update:
+  - core/01_database.md
+migration_impact: no
+security_impact: none
+```
+
+**Problem (cytat klienta):** *„tutaj jest bład zły numer 888 992 017 / powinien być 888 992 015"*
+
+**Analiza statyczna kodu:**
+- Wszystkie szablony Jinja w `backend/reports/templates/*.html` mają hardcoded `+48 888 992 015` (POPRAWNY)
+- W kodzie Pythona NIE MA wzmianki o `888 992 017`
+- Możliwe źródło:
+  1. **Najprawdopodobniej:** produkcja ma starą wersję szablonu lub stare dane w `company.header_text`
+  2. Klient widział PDF wygenerowany przed ostatnią poprawką
+  3. Pole `company.header_text` w bazie zawiera stary numer
+
+**Acceptance criteria (DoD):**
+
+**Weryfikacja:**
+- [ ] Wykonaj `SELECT id, header_text FROM company` na produkcji
+- [ ] Sprawdź deployment na produkcji (toolsmart.pl/rao) — czy szablony mają aktualną wersję
+- [ ] Sprawdź `frontend/src/views/SettingsView.vue` — czy nigdzie nie jest pre-wypełnione `888 992 017`
+
+**Naprawa (jeśli znaleziono źródło):**
+- [ ] Jeśli `company.header_text` zawiera stary numer:
+  ```sql
+  UPDATE company SET header_text = REPLACE(header_text, '888 992 017', '888 992 015');
+  ```
+- [ ] Jeśli to deployment — wgraj aktualne szablony
+
+**Test:**
+- [ ] Wygeneruj PDF na lokalnym backendzie → numer `888 992 015`
+- [ ] Wygeneruj PDF na produkcji → numer `888 992 015`
+
+**Spec:**
+- [ ] `spec/core/01_database.md` — nota o weryfikacji `company.header_text`
+
+**Pliki do zmiany:** SQL `UPDATE company...` (jeśli potrzebne), ewentualnie deployment templates
+**Estimate:** 15 min (XS)
+
+---
+
+### [RAO-P1-012] PDF OWN — ujednolicenie wcięć w listach numerowanych (klient: "nic nie wystaje")
+
+```yaml
+id: RAO-P1-012
+priority: P1
+size: M
+status: triaged
+classification: bugfix/pdf/visual
+roles: [backend-dev]
+source: client-request
+source_date: 2026-05-25
+source_ref: "klient bardzo restrykcyjny dot. OWN. Analiza docx w spec/archive/reference_reports/own/ownA.docx + ownU.docx wykazała hanging indenty 12.7mm/19.05mm"
+specs_to_update:
+  - core/11_reports_stats.md
+  - core/09_design_reference.md
+migration_impact: no
+security_impact: none
+verification:
+  - "Analiza ownA.docx (Python python-docx): pierwsze paragrafy definicji L=0mm, listy numerowane left=720 twips (12.7mm), hanging=360 twips (6.35mm), sub-listy left=1080 twips (19.05mm)"
+  - "Obecnie w contract.html: .own-num padding-left:14px (≈3.7mm) text-indent:-14px — ZA MAŁE wcięcie, niezgodne z docx"
+  - "W docx klienta sub-listy są niespójne (różne abstractNumId: 9 / 10 / 11 — od left=720 do 1440 twips), więc agent ma uporządkować JEDNĄ SPÓJNĄ regułę dla wszystkich sub-list"
+```
+
+**Problem (cytat klienta):** *„klient ma fisia żeby wszystkie wcięcia były równe i nic nie wystawało"*
+
+Klient wymaga aby w OWN (strona/-y z Ogólnymi Warunkami Najmu):
+1. **Wszystkie główne numerowane punkty** (`1. 2. 3. ... 17.`) były wyrównane w **tej samej pionowej linii** (numer w pionie + tekst zaczynał się w pionie)
+2. **Wszystkie sub-litery** (`a) b) c)` lub `a. b. c.`) były wyrównane w **innej, głębszej pionowej linii**
+3. **Numery dwucyfrowe** (`10.`, `11.`, `17.`) nie wystawały na lewo poza linię numerów jednocyfrowych
+4. **Kontynuacja tekstu w drugiej linii** akapitu wyrównana z pierwszą literą tekstu (nie z numerem) — czyli prawdziwy hanging indent
+
+---
+
+#### Analiza obecnego stanu
+
+**Obecne CSS w `backend/reports/templates/contract.html` (linia 86-87):**
+```css
+.own-num        { margin: 1px 0 0; padding-left: 14px; text-indent: -14px; font-size: 7pt; line-height: 1.1; text-align: justify; }
+.own-num-indent { margin: 0 0 0;   padding-left: 22px; text-indent: -14px; font-size: 7pt; line-height: 1.1; text-align: justify; }
+```
+
+**Obecne CSS w `backend/reports/templates/contract_u.html` (linia 73-74):**
+```css
+.own-num        { margin: 4px 0 4px; padding-left: 0; text-indent: -14px; padding-left: 14px; font-size: 7.5pt; ... }
+.own-num-indent { margin: 3px 0 3px; padding-left: 22px; text-indent: -14px; font-size: 7.5pt; ... }
+```
+
+**Problemy:**
+1. Wartości w `px` (14px ≈ 3.7mm) zamiast `mm` — niespójne z docx klienta (12.7mm)
+2. `text-indent: -14px` (≈-3.7mm) za małe → **numery dwucyfrowe `10.` `11.` `17.` wystają na lewo** (4 znaki vs 3.7mm)
+3. Niespójność między `contract.html` (font 7pt) i `contract_u.html` (font 7.5pt)
+4. `padding-left` zdublowane w `contract_u.html` linia 73 (`padding-left: 0; padding-left: 14px`) — szum CSS
+5. Brak `text-align: justify` ustawionego konsekwentnie
+
+---
+
+#### Analiza docx klienta (`spec/archive/reference_reports/own/ownA.docx`)
+
+**Margines strony:** left=12.51mm, right=12.7mm, top=10mm, bottom=5.01mm
+
+**Wcięcia paragrafów (z `numbering.xml`):**
+
+| Element | numId | abstractId | left (twips) | left (mm) | hanging (twips) | hanging (mm) | Uwagi |
+|---------|-------|------------|--------------|-----------|-----------------|--------------|-------|
+| §1 definicje (akapit normal) | - | - | 0 | 0mm | - | - | Bez wcięcia |
+| §2 punkty 1-15 | 5 | 7 | 720 | **12.7mm** | 360 | **6.35mm** | Decimal `%1.` |
+| §3 punkty 1-8 | 6 | 13 | 720 | **12.7mm** | 360 | **6.35mm** | Decimal `%1.` |
+| §3 pkt 8 sub-listy a)-d) | 7 | 9 | **1080** | **19.05mm** | 360 | **6.35mm** | lowerLetter `%1)` |
+| §4 punkty 1-17 | 8 | 14 | 720 | **12.7mm** | 360 | **6.35mm** | Decimal `%1.` |
+| §4 pkt 10 sub-listy a)-c) | 13 | 10 | **1440** | **25.4mm** | 360 | **6.35mm** | ⚠️ NIESPÓJNE z §3 |
+| §5 punkty 1-9 | 9 | 3 | 720 | **12.7mm** | 360 | **6.35mm** | Decimal `%1.` |
+| §6 lista a-d (bez numeru) | 11 | 11 | **720** | **12.7mm** | 360 | **6.35mm** | ⚠️ NIESPÓJNE — sub-listy spłaszczone |
+| §7 punkty 1-5 | - | - | 720 | **12.7mm** | 360 | **6.35mm** | Decimal `%1.` |
+
+**Kluczowy wniosek:** W oryginalnym docx klienta sub-listy mają **różne wcięcia** (1080 vs 1440 twips). Klient widzi tę niespójność w wygenerowanym PDF i się denerwuje. **Agent ma uporządkować jedną spójną regułę** dla wszystkich sub-list.
+
+---
+
+#### Acceptance criteria (DoD)
+
+**1. Ujednolicone CSS dla OWN (do zastosowania w `contract.html` ORAZ `contract_u.html`):**
+
+Zastąp obecne `.own-num` i `.own-num-indent` przez:
+
+```css
+/* OWN — hanging indent ujednolicony, zgodny z docx klienta */
+/* Poziom 0 (definicje §1) — bez wcięcia, tylko zwykły akapit */
+p.ot {
+  font-size: 7.5pt;
+  margin: 1px 0;
+  text-align: justify;
+  line-height: 1.15;
+  padding-left: 0;
+  text-indent: 0;
+}
+p.ot strong { font-size: 7.5pt; }
+
+/* Poziom 1 — główne numerowane punkty (1. 2. ... 17.) */
+/* Numer "wisi" na lewo na pozycji 0mm, tekst zaczyna się na 7mm */
+.own-num {
+  font-size: 7.5pt;
+  margin: 2px 0;
+  padding-left: 7mm;      /* tekst zaczyna od 7mm */
+  text-indent: -7mm;      /* numer wisi na -7mm = na pozycji 0mm (lewa krawędź akapitu) */
+  line-height: 1.15;
+  text-align: justify;
+}
+
+/* Poziom 2 — sub-listy a) b) c) lub a. b. c. */
+/* Litera "wisi" na pozycji 7mm (równo z tekstem poziomu 1), tekst zaczyna się na 13mm */
+.own-num-indent {
+  font-size: 7.5pt;
+  margin: 2px 0;
+  padding-left: 13mm;     /* tekst sub-listy zaczyna od 13mm */
+  text-indent: -6mm;      /* litera wisi na -6mm = na pozycji 7mm (równo z tekstem .own-num !) */
+  line-height: 1.15;
+  text-align: justify;
+}
+
+/* Tytuły paragrafów (§ 1, § 2 ...) — wyśrodkowane */
+.own-par {
+  font-size: 10pt;
+  font-weight: bold;
+  text-align: center;
+  margin: 6px 0 1px 0;
+}
+.own-sub {
+  font-size: 9pt;
+  font-weight: bold;
+  text-align: center;
+  margin: 0 0 5px 0;
+}
+```
+
+**Pionowa logika wyrównania (klient to widzi i tego pilnuje):**
+```
+| 0mm    | 7mm                                       | 13mm     |
+|--------|-------------------------------------------|----------|
+| 1.     | Tekst głównego punktu                     |          |
+|        | kontynuacja w drugiej linii bez wcięcia   |          |
+| 2.     | Tekst                                     |          |
+|        |          a)                               | Tekst sub-listy |
+|        |          b)                               | Tekst    |
+|        |          c)                               | Tekst    |
+| 10.    | Tekst (dwucyfrowy numer NIE wystaje)      |          |
+| 17.    | Tekst                                     |          |
+```
+
+**2. Zastosowanie zmian:**
+
+- [ ] **`backend/reports/templates/contract.html`** (umowa najmu typ S):
+  - [ ] Linia 84-87: zastąp obecne CSS dla `p.ot`, `.own-num`, `.own-num-indent`, `.own-par`, `.own-sub` powyższymi wartościami
+  - [ ] Usuń zdublowane `padding-left` jeśli istnieje
+  - [ ] Sprawdź czy `font-size: 7pt` (obecnie) → zmień na `7.5pt` (spójność z `contract_u.html`)
+- [ ] **`backend/reports/templates/contract_u.html`** (umowa usługi typ U):
+  - [ ] Linia 71-74: zastąp CSS analogicznie
+  - [ ] Usuń `padding-left: 0; padding-left: 14px` (zdublowane)
+- [ ] **Sprawdź użycie klas w treści OWN** (`contract.html` linia 264-380, `contract_u.html` linia 260+):
+  - [ ] Wszystkie `<p class="own-num">1. ...` mają numer **na początku tekstu** (nie ma `<li>` ani `<ol>`)
+  - [ ] Wszystkie `<p class="own-num-indent">a) ...` analogicznie
+  - [ ] **NIE** używaj `<ol type="1">` ani `<ol type="a">` — agent ma zachować obecny układ z numerem manualnym wpisanym w tekście, tylko poprawić CSS
+
+**3. Weryfikacja wizualna (KRYTYCZNA — klient sprawdzi to wzrokiem):**
+
+- [ ] Wygeneruj PDF dla istniejącej umowy typu S → otwórz w przeglądarce / podglądzie
+- [ ] **Test 1 — wyrównanie numerów jednocyfrowych:** Punkty `1.`, `2.`, ..., `9.` w §2/§3/§4/§5 muszą zaczynać się dokładnie w tej samej pionowej linii (cyfra na poziomie 0mm relatywnie do akapitu)
+- [ ] **Test 2 — wyrównanie numerów dwucyfrowych:** Punkty `10.`, `11.`, ..., `17.` w §4 muszą **też** zaczynać się w tej samej pionowej linii (kropka po numerze może wystawać minimalnie, ale cyfra "1" musi być na poziomie 0mm)
+- [ ] **Test 3 — wyrównanie kontynuacji tekstu:** Druga linia akapitu (gdy tekst się zawija) musi zaczynać się dokładnie na 7mm (pod pierwszą literą tekstu, NIE pod numerem)
+- [ ] **Test 4 — wyrównanie sub-list:** Litery `a)`, `b)`, `c)`, `d)` w §3 pkt 8 oraz §4 pkt 10 muszą zaczynać się w tej samej pionowej linii (na poziomie 7mm) — TA SAMA linia co tekst głównych punktów
+- [ ] **Test 5 — kontynuacja tekstu sub-listy:** Druga linia sub-listy zaczyna się na 13mm (pod pierwszą literą tekstu sub-listy)
+- [ ] **Test 6 — analogicznie dla `contract_u.html`** (umowa usługi)
+- [ ] **Test 7 — porównanie wizualne** z `spec/archive/reference_reports/own/ownA.pdf` (otwórz oba PDF obok siebie) — wcięcia powinny wyglądać RÓWNIEJ niż w docx klienta (bo my unifikujemy 1080/1440 do jednej wartości 13mm)
+
+**4. Edge cases do sprawdzenia:**
+
+- [ ] §1 Definicje — paragrafy z bold prefixem (`<strong>Ogólne Warunki Najmu</strong>`) — mają być bez wcięcia (klasa `.ot`, NIE `.own-num`)
+- [ ] §6 (`contract.html` linia 365-371) — lista `a. b. c. d.` po wstępie `Wynajmujący może rozwiązać Umowę Najmu...` — agent ma to ZACHOWAĆ jako `.own-num-indent` (nie zmienia logiki, tylko CSS)
+- [ ] Numery z kropką (`1.`) vs nawiasem (`a)`) — obie formy mają działać z tym samym CSS (bo to tekst, nie list-style)
+
+**5. Nie zmieniaj:**
+- [ ] Treści OWN (paragrafy prawne) — tylko CSS
+- [ ] Struktury HTML (`<table class="own-table">`, `<td>` kolumny lewa/prawa)
+- [ ] `.own-page` padding (6mm 12mm) — zostaje
+- [ ] Nagłówków `<div class="own-title">`, `<div class="own-par">`, `<div class="own-sub">` — tylko poprawiamy CSS dla nich (margins/spacing)
+
+**Spec:**
+- [ ] `spec/core/11_reports_stats.md` — sekcja "OWN: hanging indent" z dokładną tabelą wartości CSS
+- [ ] `spec/core/09_design_reference.md` — zmienne CSS dla OWN (rozważ wprowadzenie `--own-indent-1: 7mm; --own-indent-2: 13mm;`)
+
+**Pliki do zmiany:**
+- `backend/reports/templates/contract.html` (CSS linia 84-87)
+- `backend/reports/templates/contract_u.html` (CSS linia 71-74)
+- `spec/core/11_reports_stats.md` (dokumentacja)
+- `spec/core/09_design_reference.md` (zmienne)
+
+**Materiał referencyjny:**
+- `spec/archive/reference_reports/own/ownA.docx` (oryginalny docx klienta — umowa najmu)
+- `spec/archive/reference_reports/own/ownU.docx` (oryginalny docx klienta — umowa usługi)
+- `spec/archive/reference_reports/own/ownA.pdf` (zrenderowany PDF z docx — to widzi klient na druku)
+- `spec/archive/reference_reports/own/ownU.pdf`
+- `temp/own_analysis.txt` (output analizy python-docx — szczegółowe wartości twipsów per paragraf)
+
+**Estimate:** 1-2h (M) — głównie iteracja wizualna z porównaniem z PDF klienta. Klient prawdopodobnie odeśle to do poprawki kilka razy, więc proszę uważać na detale (klient ma "fisia" 😉).
 
 ---
 
 ## 🟡 P2 — Should-Have
 
-### [RAO-P2-022] Lista kontrahentów: "brudne" dane z migracji + brak filtrów
+### [RAO-P2-001] PDF Umowa NAJMU (typ S) — sekcja "Inne usługi" w określonej kolejności i formacie
 
 ```yaml
-id: RAO-P2-022
+id: RAO-P2-001
+priority: P2
+size: M
+status: triaged
+classification: feature/pdf
+roles: [backend-dev, db-agent]
+source: client-request
+source_date: 2026-05-25
+source_ref: "zrzut 223658.png pkt 3 — pełna lista usług z cenami"
+specs_to_update:
+  - core/11_reports_stats.md
+  - core/04_business_logic.md
+migration_impact: yes
+security_impact: none
+```
+
+**Problem (cytat klienta):** *„Inne usługi musi być jak teraz jest na umowie i w tej kolejności również:"*
+
+**Wymagana lista i kolejność:**
+1. Transport: 500.00 zł / dostawa / 500.00 zł odbiór
+2. Czyszczenie maszyny po wynajmie (zabrudzenia drobne): 150.00 zł - 400.00 zł
+3. Czyszczenie maszyny po wynajmie (zabrudzenia trudnościeralne): 400.00 zł - 1500.00 zł
+4. Usługa tankowania: 200.00 zł (plus koszt paliwa)
+5. Ponadnormatywny przestój transportu: 200.00 zł / h - 300.00 zł / h
+6. Nieuzasadnione wezwanie serwisowe: 280.00 zł (plus transport)
+
+**Analiza:**
+- Obecnie w `contract_u.html` linia 192-210 cennik pochodzi z `fees` (`ServiceFeeTemplate`)
+- Klient chce konkretne wartości i kolejność jako **domyślne dla wszystkich umów najmu**
+
+**Acceptance criteria (DoD):**
+
+**DB (seed/migration):**
+- [ ] **UWAGA:** Mapping typów w aplikacji RAO: `'S' = NAJEM` (`contract.html`), `'U' = USŁUGA` (`contract_u.html`). Cennik usług dodatkowych dotyczy **WYŁĄCZNIE typu S (najem)** — patrz RAO-P1-004 dla uzasadnienia.
+- [ ] W `backend/main.py` startup migrations dodaj seed:
+  ```python
+  async def seed_default_fees_for_S():
+      """Idempotentny seed cennika usług dodatkowych dla umów typu S (NAJEM)."""
+      async with AsyncSessionLocal() as db:
+          existing = await db.execute(
+              select(FeePresetGroup).where(
+                  FeePresetGroup.contract_type == 'S',
+                  FeePresetGroup.is_default == True
+              )
+          )
+          if existing.scalar_one_or_none():
+              return  # Już istnieje
+          
+          group = FeePresetGroup(
+              name='Standardowe usługi NAJMU',
+              contract_type='S',
+              is_default=True,
+              sort_order=0,
+              company_id=1,
+          )
+          db.add(group)
+          await db.flush()
+          
+          templates = [
+              ServiceFeeTemplate(preset_id=group.id, contract_type='S', sort_order=1,
+                  name='Transport', description='dostawa / odbiór',
+                  amount_from=500, amount_to=500, unit='zł', is_active=True, company_id=1),
+              ServiceFeeTemplate(preset_id=group.id, contract_type='S', sort_order=2,
+                  name='Czyszczenie maszyny po wynajmie', description='zabrudzenia drobne',
+                  amount_from=150, amount_to=400, unit='zł', is_active=True, company_id=1),
+              ServiceFeeTemplate(preset_id=group.id, contract_type='S', sort_order=3,
+                  name='Czyszczenie maszyny po wynajmie', description='zabrudzenia trudnościeralne',
+                  amount_from=400, amount_to=1500, unit='zł', is_active=True, company_id=1),
+              ServiceFeeTemplate(preset_id=group.id, contract_type='S', sort_order=4,
+                  name='Usługa tankowania', description='plus koszt paliwa',
+                  amount_from=200, amount_to=None, unit='zł', is_active=True, company_id=1),
+              ServiceFeeTemplate(preset_id=group.id, contract_type='S', sort_order=5,
+                  name='Ponadnormatywny przestój transportu', description=None,
+                  amount_from=200, amount_to=300, unit='zł/h', is_active=True, company_id=1),
+              ServiceFeeTemplate(preset_id=group.id, contract_type='S', sort_order=6,
+                  name='Nieuzasadnione wezwanie serwisowe', description='plus transport',
+                  amount_from=280, amount_to=None, unit='zł', is_active=True, company_id=1),
+          ]
+          db.add_all(templates)
+          await db.commit()
+  ```
+- [ ] Wywołaj `await seed_default_fees_for_S()` w `@app.on_event("startup")`
+
+**Backend (renderowanie):**
+- [ ] `backend/reports/service.py` — kontekst dla template: `fees` musi pochodzić z domyślnego presetu dla typu umowy, sortowane po `sort_order`
+- [ ] Jeśli umowa ma override → użyj override; inaczej → preset
+
+**Test:**
+- [ ] Restart backendu → seed wykonany (sprawdź `SELECT * FROM service_fee_templates WHERE preset_id IN (SELECT id FROM fee_preset_groups WHERE contract_type='S')`)
+- [ ] Drugi restart → seed nie duplikuje (idempotentność)
+- [ ] Wygeneruj PDF umowy typu **S** (najem) → 6 pozycji w wymaganej kolejności w sekcji "Inne usługi"
+- [ ] Wygeneruj PDF umowy typu U (usługa) → sekcja "Cennik usług dodatkowych" NIE występuje (po RAO-P1-004)
+
+**Spec:**
+- [ ] `spec/core/04_business_logic.md` — domyślne stawki dla typu S (najem)
+- [ ] `spec/core/11_reports_stats.md` — kolejność i format cennika
+- [ ] `spec/core/01_database.md` — seed data
+
+**Pliki do zmiany:**
+- `backend/main.py` (startup seed)
+- `backend/reports/service.py` (logika fees per type)
+
+**Estimate:** 3-4h (M)
+
+---
+
+### [RAO-P2-002] PDF Umowa — sekcja "Uwagi" w określonej kolejności
+
+```yaml
+id: RAO-P2-002
 priority: P2
 size: S
 status: triaged
-classification: data-quality/ux
-roles: [db-agent, frontend-dev]
-depends_on: []
-blocks: []
-source: cross-role-audit-2026-05-24
-source_date: 2026-05-24
+classification: feature/pdf
+roles: [backend-dev]
+source: client-request
+source_date: 2026-05-25
+source_ref: "zrzut 223658.png pkt 4 — lista uwag"
 specs_to_update:
-  - core/08_migration_plan.md
-migration_impact: yes
-security_impact: none
-```
-
-**Job-to-be-done:**
-Lista kontrahentów (633 rekordów) ma artefakty migracji:
-- Pierwszy rekord to nazwa „." (kropka), bez NIP, bez nic — brudny rekord z legacy
-- Adresy email z artefaktem `>` na końcu (np. `wojtekg422@wp.pl>`)
-- Telefony zawierają tylko prefix `+48` bez numeru
-- Brak filtrów po regionie, miastu, aktywności umowy, handlowcu
-
-**Dowód (audit):**
-- UI /dashboard/contractors: pierwszy wiersz `.    —    —    +48    —    —`
-- UI: rekord „CEGRO" z emailem `wojtekg422@wp.pl>` (z `>` na końcu)
-- UI: tylko search input, brak innych filtrów
-
-**Acceptance criteria (DoD):**
-
-**Data cleanup:**
-- [ ] SQL: `DELETE FROM contractors WHERE name = '.' OR name = '' OR LENGTH(TRIM(name)) <= 1` (po backupie!)
-- [ ] SQL: `UPDATE contractors SET email = REGEXP_REPLACE(email, '[<>"\']', '')` — usuwa artefakty
-- [ ] SQL: jak w P1-033 dla phone
-- [ ] Walidacja Pydantic: `name: constr(min_length=2)`, `email: EmailStr | None`
-
-**Frontend filtry:**
-- [ ] Filter: miasto (combobox z autocomplete)
-- [ ] Filter: aktywna umowa (toggle: tylko z aktywną umową)
-- [ ] Filter: handlowiec (combobox — które kontrahenty obsługuje X)
-- [ ] Sort: nazwa A-Z / Z-A, ostatnia aktywność, liczba umów
-
-**Spec:**
-- [ ] `spec/core/08_migration_plan.md` — sekcja „post-migration cleanup"
-
-**Pliki do zmiany:** `backend/contractors/schemas.py`, `frontend/src/views/DashboardView.vue` (sekcja contractors), nowy skrypt `backend/cleanup_legacy_data.py`
-**ROI:** Lista kontrahentów wygląda profesjonalnie (klient, którego handlowiec szuka, znajduje go szybko), ale głównie jako fundament dla widoku salesperson (P1-034).
-**Estimate:** 2-3h (S)
-
----
-
-### [RAO-P2-023] Lista umów: brak filtrów po handlowcu, kategorii, miesiącu/roku — UX dla 701 rekordów
-
-```yaml
-id: RAO-P2-023
-priority: P2
-size: M
-status: triaged
-classification: ux/feature
-roles: [frontend-dev, backend-dev]
-depends_on: []
-blocks: []
-source: cross-role-audit-2026-05-24
-source_date: 2026-05-24
-specs_to_update:
-  - core/03_frontend_screens.md
-migration_impact: no
-security_impact: none
-```
-
-**Job-to-be-done:**
-Lista umów ma 701 rekordów (15 stron paginacji), ale tylko 5 filtrów (search, type S/U, status, daty od/do). Handlowiec/właściciel nie może szybko sfiltrować:
-- „Pokaż umowy Piotra w maju 2026"
-- „Pokaż umowy z koparkami w 2026"
-- „Pokaż umowy z TOP-5 kontrahentami"
-
-**Dowód (audit):**
-- UI /dashboard/contracts: pasek filtrów ma tylko: szukaj, typ, status, daty
-- 701 rekordów / 50 per page = 15 stron
-- Brak filtra handlowca (mimo że w DB jest `salesperson_id`)
-
-**Acceptance criteria (DoD):**
-
-**Backend:**
-- [ ] `GET /contracts` przyjmuje: `salesperson_id`, `category_main`, `contractor_id`, `month`, `year`
-- [ ] Index DB: `idx_contracts_salesperson` istniejący OK; `idx_contracts_year` dla `YEAR(date_from)`
-
-**Frontend:**
-- [ ] Filter „Handlowiec" (combobox z listą salespeople)
-- [ ] Filter „Kategoria maszyny" (drzewiasty picker)
-- [ ] Filter „Kontrahent" (autocomplete)
-- [ ] Filter „Rok/Miesiąc" (chip selector)
-- [ ] „Wyczyść filtry" button
-- [ ] Persist filtrów w localStorage / URL query (żeby odświeżenie nie traciło)
-
-**Spec:**
-- [ ] `spec/core/03_frontend_screens.md` — sekcja Dashboard Contracts filters
-
-**Pliki do zmiany:** `backend/contracts/router.py`, `backend/contracts/service.py`, `frontend/src/views/DashboardView.vue`
-**ROI:** Power-user (admin, właściciel) pracuje ~5x szybciej z filtrami niż z search; również warunek konieczny dla sensownego widoku salesperson.
-**Estimate:** 4-5h (M)
-
----
-
-### [RAO-P2-024] Email kontrahenta z artefaktami HTML/quote — `wojtekg422@wp.pl>`
-
-```yaml
-id: RAO-P2-024
-priority: P2
-size: XS
-status: triaged
-classification: data-quality
-roles: [db-agent]
-depends_on: []
-blocks: []
-source: cross-role-audit-2026-05-24
-source_date: 2026-05-24
-specs_to_update: []
-migration_impact: yes
-security_impact: none
-```
-
-**Job-to-be-done:**
-Email kontrahenta CEGRO ma format `wojtekg422@wp.pl>` (z `>` na końcu — zostawiony znacznik HTML). Łamie wysyłkę emaila (faktury → dostarczalność).
-
-**Dowód:** UI /dashboard/contractors: rekord CEGRO, kolumna email
-
-**Acceptance:**
-- [ ] SQL: `UPDATE contractors SET email = TRIM(REGEXP_REPLACE(email, '[<>"\\\']', '')) WHERE email LIKE '%>%' OR email LIKE '%<%'`
-- [ ] Pydantic validator: email musi przejść `EmailStr`
-- [ ] Backup przed: `mariadb-dump`
-
-**Pliki:** nowy skrypt `backend/cleanup_legacy_emails.py` lub konsola SQL
-**Estimate:** 30 min (XS)
-
----
-
-
-### [RAO-P2-021] UX Raportów — kategorie jako 1. poziom + drilldown gridowy + info o danych historycznych
-
-```yaml
-id: RAO-P2-021
-priority: P2
-size: M
-status: in-progress
-classification: ux/refactor
-roles: [frontend-dev, backend-dev]
-depends_on: [RAO-P1-029]
-blocks: []
-source: client-notes
-source_date: 2026-05-21
-carried_from_sprint: 1
-specs_to_update:
-  - core/03_frontend_screens.md
   - core/11_reports_stats.md
 migration_impact: no
 security_impact: none
 ```
 
-**Job-to-be-done:**
-Zmiana UX sekcji Raporty: kategorie jako pierwszy eksponowany poziom (nie "Podkategoria 1"), drilldown przez kliknięcie w grid (nie dropdown), usunięcie z kodu filtrowania po "Podkategoria 1", banner informacyjny o zakresie danych historycznych.
+**Problem (cytat klienta):** *„Uwagi również muszą być tak jak są na umowie:"*
+- Doba wynajmu obejmuje 1 dzień kalendarzowy (do 8 godz. pracy jednego dnia)
+- Zgłoszenie zwrotu urządzenia: pisemnie, min. z jednodniowym wyprzedzeniem
+- Ilość dni pracy w tygodniu: 6
+- dokumentacja zdjęciowa: wykonano
+
+**Lokalizacja w kodzie:**
+- `backend/reports/templates/contract_u.html` linia 217-225 — fallback gdy `contract.notes` puste
+- `backend/reports/templates/contract.html` — analogiczna sekcja
 
 **Acceptance criteria (DoD):**
 
-**Backend:**
-- [ ] Usunąć parametr `subcategory1` (lub odpowiednik) z endpointów statystyk jeśli nie używany gdzie indziej
+**Backend (oba szablony):**
+- [ ] Zmień default block:
+  ```jinja
+  {% else %}
+  <p style="margin:0 0 4px 0;"><strong>Doba wynajmu:</strong> obejmuje 1 dzień kalendarzowy (do 8 godz. pracy jednego dnia).</p>
+  <p style="margin:0 0 4px 0;"><strong>Zgłoszenie zwrotu urządzenia:</strong> pisemnie, min. z jednodniowym wyprzedzeniem.</p>
+  <p style="margin:0 0 4px 0;"><strong>Ilość dni pracy w tygodniu:</strong> {% if contract.working_days_per_week %}{{ contract.working_days_per_week }}{% else %}6{% endif %}.</p>
+  <p style="margin:0;"><strong>Dokumentacja zdjęciowa:</strong> wykonano.</p>
+  {% endif %}
+  ```
 
-**Frontend:**
-- [ ] Sekcja Raporty: pierwsza zakładka/sekcja to Kategorie (poziom 1 drzewa kategorii)
-- [x] Drilldown przez kliknięcie w wiersz gridu ✅
-- [ ] Usunąć dropdown/filtr "Podkategoria 1" — analiza: jest wymaganą nawigacją (level selector), nie usuwamy
-- [x] Banner informacyjny `data-testid="history-banner"` ✅
-- [ ] Smoke test PASS
-
-**Weryfikacja miast (przy okazji):**
-- [ ] Sprawdzić czy `city` w `contracts` pochodzi z kodów pocztowych (nie z surowego adresu)
-- [ ] Mapowanie **N:1** — raport grupuje po mieście, nie po kodzie
-- [ ] Porównać próbkę dla miast wielokodowych (Warszawa, Kraków, Wrocław)
+**Test:**
+- [ ] Wygeneruj PDF dla umowy bez `notes` → 4 podpunkty w wymaganym formacie
+- [ ] Wygeneruj PDF dla umowy z `notes` → custom notes (niezmienione)
 
 **Spec:**
-- [x] `spec/core/03_frontend_screens.md` — sub-tab Kategorie ✅
-- [ ] `spec/core/11_reports_stats.md` — opis UX + info historyczne
+- [ ] `spec/core/11_reports_stats.md` — domyślne uwagi
 
-**Pliki do zmiany:** `frontend/src/views/ReportsSection.vue`, `backend/stats/router.py`
-**ROI:** Raport kategorii czytelny; użytkownik rozumie zakres i historyczność danych
-**Estimate:** 4-5h (M)
+**Pliki do zmiany:** `backend/reports/templates/contract_u.html` (linia 217-225), `backend/reports/templates/contract.html`
+**Estimate:** 30 min (S)
 
 ---
 
-## 🟢 P3 — Nice-to-Have
-
-### [RAO-P3-014] Admin panel: brak kolumny Email/Branch + brak przypisania `salesperson_id`
+### [RAO-P2-003] PDF Umowa — mniejsze tabelki i mniejszy opis (kompaktniejszy layout)
 
 ```yaml
-id: RAO-P3-014
-priority: P3
-size: S
+id: RAO-P2-003
+priority: P2
+size: M
 status: triaged
-classification: ux/feature
-roles: [frontend-dev, backend-dev]
-depends_on: [RAO-P1-034]
-blocks: []
-source: cross-role-audit-2026-05-24
-source_date: 2026-05-24
+classification: ux/pdf
+roles: [backend-dev]
+source: client-request
+source_date: 2026-05-25
+source_ref: "Scan...pdf strona 1 ('mniejsze' przy tabeli + 'do poprawy' przy 'Inne usługi'), zrzut 223652.png pkt 2 'Opis mniejszy'"
+specs_to_update:
+  - core/11_reports_stats.md
+migration_impact: no
+security_impact: none
+```
+
+**Problem (cytat klienta):**
+- Tabela „Przedmiot najmu" jest za duża
+- „Inne usługi" za duża
+- Główny opis (uwagi obok przedmiotu) za duży
+
+**Lokalizacja w kodzie:**
+- `backend/reports/templates/contract_u.html` linia 47-50 — CSS `table.pos`
+- Linia 56 — `.bottom-box`
+
+**Acceptance criteria (DoD):**
+
+**Backend (CSS w `contract_u.html` i `contract.html`):**
+- [ ] `table.pos` — `font-size` z `9px` na `8.5px`
+- [ ] `table.pos td` — `padding` z `4px 5px` na `2px 4px`
+- [ ] `table.pos th` — `padding` z `3px 5px` na `2px 4px`
+- [ ] `.bottom-box` (uwagi) — `font-size` z `9px` na `8px`, `padding` z `5px 8px` na `4px 6px`, `line-height` z `1.45` na `1.3`
+- [ ] `.cond` — z `9px` na `8.5px`
+
+**Test:**
+- [ ] Wygeneruj PDF — wszystkie tabelki i opisy wyraźnie kompaktniejsze
+- [ ] Sprawdź czytelność (font-size ≥ 8px)
+- [ ] Sprawdź alignment/overflow
+
+**Spec:**
+- [ ] `spec/core/11_reports_stats.md` — wymiary fontów w PDF umowy
+
+**Pliki do zmiany:** `backend/reports/templates/contract_u.html` (CSS), `backend/reports/templates/contract.html` (CSS)
+**Estimate:** 1-2h (M)
+
+---
+
+### [RAO-P2-004] Frontend formularz umowy — wybór okresu przez kalendarz + ilość dni
+
+```yaml
+id: RAO-P2-004
+priority: P2
+size: M
+status: triaged
+classification: feature/ux
+roles: [frontend-dev]
+source: client-request
+source_date: 2026-05-25
+source_ref: "zrzut 224827.png pkt 1 'Wybór okresu umowy - w jakiś inny sposób np. zaznaczenie 25.05.2026 daty na kalendarzu i wpisaniu ile dni mniej więcej?'"
 specs_to_update:
   - core/03_frontend_screens.md
 migration_impact: no
-security_impact: low
+security_impact: none
 ```
 
-**Job-to-be-done:**
-Panel admin (`/admin`) pokazuje listę użytkowników z kolumnami Login/Imię/Nazwisko/Rola/Aktywny/Ostatnie logowanie. Brakuje:
-- Kolumna `email` (do resetu hasła)
-- Kolumna `branch` (oddział)
-- Edytor `salesperson_id` (powiązanie z handlowcem)
+**Problem (cytat klienta):** Obecny picker dat (`DateRangePicker` — `date_from` + `date_to`) jest niepraktyczny. Klient woli: kliknąć datę startową + wpisać ilość dni (auto-oblicza datę końcową).
 
-**Dowód:** UI /admin: 4 użytkownicy (admin, lukasz, patrycja, test), brak kolumny email
+**Lokalizacja w kodzie:**
+- `frontend/src/components/shared/DateRangePicker.vue`
+- `frontend/src/views/ContractFormView.vue` — używa DateRangePicker
 
-**Acceptance:**
-- [ ] AdminView.vue: dodaj kolumny Email i Branch
-- [ ] Edytor użytkownika: combobox `salesperson_id` (po implementacji P1-034)
+**Acceptance criteria (DoD):**
 
-**Pliki:** `frontend/src/views/AdminView.vue`
+**Frontend:**
+- [ ] Utwórz `frontend/src/components/shared/ContractPeriodPicker.vue`:
+  - Input 1: data startowa (`date_from`) — single date picker
+  - Input 2: ilość dni (`days`) — number input (`min=1`)
+  - Computed: `date_to = date_from + (days - 1) days`
+  - Wyświetl pod inputem: `"Okres umowy: {date_from_pl} – {date_to_pl}"`
+- [ ] Komponent emit-uje `date_from` i `date_to` (kompatybilność)
+- [ ] Mount z istniejącymi danymi: oblicz `days = (date_to - date_from).days + 1`
+
+**Integracja:**
+- [ ] `ContractFormView.vue` — zastąp `DateRangePicker` przez `ContractPeriodPicker`
+
+**Test:**
+- [ ] Smoke E2E (`04-contract.spec.ts`): utwórz umowę z `date_from=25.05.2026`, `days=10` → `date_to=03.06.2026`
+
+**Spec:**
+- [ ] `spec/core/03_frontend_screens.md` — nowy komponent
+
+**Pliki do zmiany:**
+- `frontend/src/components/shared/ContractPeriodPicker.vue` (nowy)
+- `frontend/src/views/ContractFormView.vue` (integracja)
+
+**Estimate:** 3-4h (M)
+
+---
+
+### [RAO-P2-005] Frontend — dodawanie kontrahenta inline z formularza umowy
+
+```yaml
+id: RAO-P2-005
+priority: P2
+size: M
+status: triaged
+classification: feature/ux
+roles: [frontend-dev]
+source: client-request
+source_date: 2026-05-25
+source_ref: "zrzut 224827.png pkt 2 'wybór kontrahenta - wszystko ok jak jest w bazie a jak nie ma? ułatwiłoby gdyby na tym etapie można byłoby go dodać'"
+specs_to_update:
+  - core/03_frontend_screens.md
+migration_impact: no
+security_impact: none
+```
+
+**Problem (cytat klienta):** Gdy kontrahenta nie ma w bazie, użytkownik musi wyjść z formularza umowy, dodać go, wrócić. Klient chce: w pickerze przycisk „➕ Dodaj nowego" → modal z formularzem.
+
+**Lokalizacja w kodzie:**
+- Sprawdź `frontend/src/views/ContractFormView.vue` — komponent pickera kontrahenta (może być inline lub osobny)
+- Reuzywalna logika z `frontend/src/views/contractors/ContractorFormView.vue`
+
+**Acceptance criteria (DoD):**
+
+**Frontend:**
+- [ ] W pickerze kontrahenta dodaj przycisk „➕ Dodaj nowego kontrahenta" (prominentny CTA gdy search nie zwraca wyników)
+- [ ] Klik otwiera modal `ContractorQuickAddModal.vue` z minimalnym formularzem:
+  - NIP (z możliwością auto-pobrania z GUS — `POST /integrations/gus/lookup`)
+  - Nazwa
+  - Adres (street, postal_code, city)
+  - Email
+  - Telefon
+- [ ] Po `POST /contractors` → automatycznie wybierz kontrahenta w pickerze + zamknij modal
+- [ ] Toast: „Kontrahent {name} utworzony i wybrany"
+
+**Backend (weryfikacja):**
+- [ ] Endpoint `POST /contractors` — sprawdź czy zwraca pełny obiekt. Jeśli nie — zaktualizuj response.
+
+**Test:**
+- [ ] Smoke E2E: w formularzu umowy → „Dodaj kontrahenta" → wypełnij modal → kontrahent automatycznie wybrany
+
+**Spec:**
+- [ ] `spec/core/03_frontend_screens.md` — opis QuickAdd modal
+
+**Pliki do zmiany:**
+- `frontend/src/components/contractors/ContractorQuickAddModal.vue` (nowy)
+- `frontend/src/views/ContractFormView.vue` (integracja przycisku)
+- `frontend/src/stores/contractors.ts` (jeśli wymagane)
+
+**Estimate:** 3-4h (M)
+
+---
+
+### [RAO-P2-006] Frontend — dodawanie artykułu inline z formularza umowy
+
+```yaml
+id: RAO-P2-006
+priority: P2
+size: M
+status: triaged
+classification: feature/ux
+roles: [frontend-dev]
+source: client-request
+source_date: 2026-05-25
+source_ref: "zrzut 224827.png pkt 3 'i tak samo z artykułami też żeby była możliwość dodania na bieżąco jakieś maszyny gdyby nie było'"
+specs_to_update:
+  - core/03_frontend_screens.md
+migration_impact: no
+security_impact: none
+```
+
+**Problem (cytat klienta):** Analogicznie do P2-005, ale dla artykułów (maszyn).
+
+**Lokalizacja w kodzie:**
+- `frontend/src/components/contracts/ArticlePicker.vue` (lub podobny)
+
+**Acceptance criteria (DoD):**
+
+**Frontend:**
+- [ ] W `ArticlePicker.vue` dodaj przycisk „➕ Dodaj nową maszynę"
+- [ ] Klik otwiera modal `ArticleQuickAddModal.vue`:
+  - Nazwa
+  - Kategoria (dropdown z `Category`)
+  - Numer seryjny (opcjonalne)
+  - Wartość odtworzeniowa (opcjonalne)
+  - Domyślna stawka dobowa (opcjonalne)
+- [ ] Po `POST /articles` → automatycznie wybierz w pickerze + zamknij modal
+- [ ] Toast
+
+**Backend (weryfikacja):**
+- [ ] `POST /articles` zwraca pełny obiekt
+
+**Test:**
+- [ ] Smoke E2E
+
+**Spec:**
+- [ ] `spec/core/03_frontend_screens.md`
+
+**Pliki do zmiany:**
+- `frontend/src/components/articles/ArticleQuickAddModal.vue` (nowy)
+- `frontend/src/components/contracts/ArticlePicker.vue` (modyfikacja)
+
+**Estimate:** 3-4h (M)
+
+---
+
+### [RAO-P2-007] Frontend — pomoc/preview jak wpisywać kwoty rozliczenia
+
+```yaml
+id: RAO-P2-007
+priority: P2
+size: S
+status: triaged
+classification: feature/ux
+roles: [frontend-dev]
+source: client-request
+source_date: 2026-05-25
+source_ref: "zrzut 224827.png pkt 4 'Proszę podpowiedź mi jak mam wstawiać kwoty - rozliczenie? w umowie?'"
+depends_on: [RAO-P1-008]
+specs_to_update:
+  - core/03_frontend_screens.md
+migration_impact: no
+security_impact: none
+```
+
+**Problem (cytat klienta):** Klient nie wie jak wpisywać kwoty rozliczenia. Po implementacji P1-008 (format kaskadowy) — dodaj UX pomocniczy.
+
+**Acceptance criteria (DoD):**
+
+**Frontend (`ConditionPanel.vue`):**
+- [ ] Dodaj nad sekcją warunków accordion „📖 Jak wpisać warunki rozliczenia?":
+  ```
+  Przykład — koparka z kaskadową stawką dobową (jak w starej aplikacji):
+  
+  Warunek 1: rate_type="dobowa", rate1=540, period_count=3, billing_label="doba"
+    → preview: "1 - 3 dni - 540,00 / doba"
+    
+  Warunek 2: rate_type="dobowa", rate1=410, period_count=16, billing_label="doba"
+    → preview: "4 - 16 dni - 410,00 / doba"
+    
+  Warunek 3: rate_type="dobowa", rate2=350, billing_label="doba" (bez period_count)
+    → preview: "powyżej 16 dni - 350,00 / doba"
+  ```
+- [ ] Dodaj live-preview pod formularzem warunku — wyświetl wynik `format_position_conditions_cascading()` przez endpoint `/conditions/preview` (z P1-008)
+- [ ] Tooltip przy polu `rate2` z wyjaśnieniem „ostatni warunek (powyżej) — pozostaw period_count puste"
+
+**Spec:**
+- [ ] `spec/core/03_frontend_screens.md` — UX pomocy w ConditionPanel
+
+**Pliki do zmiany:** `frontend/src/components/contracts/ConditionPanel.vue`
 **Estimate:** 1-2h (S)
 
 ---
 
-### [RAO-P3-015] Liczba aktywnych maszyn na HomeView KPI = 0/0 zamiast realnej wartości
-
-```yaml
-id: RAO-P3-015
-priority: P3
-size: XS
-status: triaged
-classification: ux/bugfix
-roles: [backend-dev]
-depends_on: [RAO-P0-006]
-blocks: []
-source: cross-role-audit-2026-05-24
-source_date: 2026-05-24
-specs_to_update: []
-migration_impact: no
-security_impact: none
-```
-
-**Job-to-be-done:**
-HomeView KPI „Maszyny w terenie" pokazuje `0/0` z 0% wykorzystania. Powinno pokazać realne liczby — zostanie naprawione gdy P0-006 (filtr archiwalnych) i P0-008 (is_settled) będą rozwiązane. Po fixie dodać kontrolę że KPI jest sensowne.
-
-**Acceptance (po P0-006 i P0-008):**
-- [ ] HomeView pokazuje liczbę aktywnych maszyn (np. `12/45`)
-- [ ] `utilization_pct > 0` jeśli są aktywne wynajmy
-
-**Pliki:** weryfikacja, nie kod (regression test)
-**Estimate:** 30 min (XS)
-
----
-
-
-## 📥 Triaged (do przeglądu)
-
-### [RAO-P1-032] Naprawa testów Playwright — 4 błędy testów naprawione
-
-```yaml
-id: RAO-P1-032
-priority: P1
-size: S
-status: done
-classification: bugfix
-roles: [qa-engineer]
-depends_on: []
-blocks: []
-source: qa-report
-source_date: 2026-05-22
-specs_to_update:
-  - process/testing.md
-migration_impact: no
-security_impact: none
-```
-
-**Job-to-be-done:**
-Naprawić 4 błędy testów Playwright wykryte podczas smoke regression.
-
-**Acceptance criteria (DoD):**
-- [x] Test 03-article:26 — dodano `exact: true` do selectora `+`
-- [x] Test 04-contract:71 — zmieniono na API-based test (data picker był flaky)
-- [x] Test 05-settings:138 — dodano `test.fixme` dla braku `RAO_FAKTUROWNIA_ENC_KEY`
-- [x] Test 10-ux-screenshots:99-130 — zmieniono `role='tab'` na `role='button'` + poprawiono etykietę
-- [x] Wszystkie testy E2E PASS (108/108)
-- [x] Aktualizacja spec/process/testing.md
-
-**Spec:**
-- [x] `spec/process/testing.md` — status pokrycia + lista naprawionych błędów
-
-**Pliki do zmiany:** `e2e/tests/03-article.spec.ts`, `e2e/tests/04-contract.spec.ts`, `e2e/tests/05-settings.spec.ts`, `e2e/tests/10-ux-screenshots.spec.ts`, `frontend/src/components/shared/DateRangePicker.vue`, `.env`
-**ROI:** Testy E2E są stabilne i dają pewność regresji
-**Estimate:** 1h (S)
-**Commit:** `fix(e2e): naprawiono 4 błędy testów Playwright`
-
----
-
-### [RAO-P1-030] Bug: GUS nie pobiera danych podczas tworzenia kontrahenta
-
-```yaml
-id: RAO-P1-030
-priority: P1
-size: S
-status: triaged
-classification: bugfix
-roles: [backend-dev, qa-engineer]
-depends_on: []
-blocks: []
-source: user-report
-source_date: 2026-05-22
-specs_to_update:
-  - core/07_integrations.md
-migration_impact: no
-security_impact: none
-```
-
-**Job-to-be-done:**
-Naprawić integrację GUS — dane kontrahenta nie są pobierane automatycznie po podaniu NIP podczas tworzenia nowego kontrahenta.
-
-**Acceptance criteria (DoD):**
-- [ ] GUS integration działa poprawnie po podaniu NIP
-- [ ] Dane są automatycznie wypełniane w formularzu kontrahenta
-- [ ] Walidacja sumy kontrolnej NIP działa
-- [ ] Error handling przy błędach GUS API
-- [ ] QA test PASS
-
-**Spec:**
-- [ ] `spec/core/07_integrations.md` — opis fixa GUS
-
-**Pliki do zmiany:** `backend/integrations/gus.py`, `frontend/src/contractors/ContractorFormView.vue`
-**ROI:** Kontrahenci dodawani szybko bez ręcznego wpisywania danych
-**Estimate:** 2-3h (S)
-
----
-
-### [RAO-P1-031] Bug: Błąd podczas pobierania Prowizje
-
-```yaml
-id: RAO-P1-031
-priority: P1
-size: S
-status: triaged
-classification: bugfix
-roles: [backend-dev, qa-engineer]
-depends_on: []
-blocks: []
-source: user-report
-source_date: 2026-05-22
-specs_to_update:
-  - core/02_backend_api.md
-  - core/04_business_logic.md
-migration_impact: no
-security_impact: none
-```
-
-**Job-to-be-done:**
-Naprawić błąd podczas pobierania/pokazywania prowizji handlowców — prawdopodobnie problem z endpointem lub logiką obliczeń.
-
-**Acceptance criteria (DoD):**
-- [ ] Endpoint prowizji działa bez błędów
-- [ ] Prowizje są poprawnie obliczane (od realnego zarobku)
-- [ ] Frontend wyświetla dane bez errorów
-- [ ] QA test PASS
-
-**Spec:**
-- [ ] `spec/core/02_backend_api.md` — opis fixa endpointu prowizji
-- [ ] `spec/core/04_business_logic.md` — opis logiki obliczeń
-
-**Pliki do zmiany:** `backend/stats/router.py` (linia 1002), `frontend/src/views/CommissionView.vue`
-**ROI:** Handlowcy widzą swoje prowizje, system nie crashuje
-**Estimate:** 2-3h (S)
-
----
-
-## 📊 Podsumowanie
-
-| Priorytet | Liczba aktywne | Closed | Effort łączny |
-|-----------|----------------|--------|---------------|
-| 🚨 P0 | 1 (P0-009) | 3 (P0-006 superseded, P0-007/008 by-design) | ~8-12h |
-| 🔴 P1 | 8 | 1 (P1-032 done) | ~17-22h |
-| 🟡 P2 | 4 | — | ~12h |
-| 🟢 P3 | 2 | — | ~2h |
-| **Razem** | **15** | **4** | **~39-48h** |
-
-**Po decyzji Właściciela 2026-05-24 — zmiana strategii:**
-- Naprawa data quality (P0-007/008) odrzucona — to BY DESIGN (linia odcięcia)
-- P0-006 superseded przez P1-036 (wymaga decyzji biznesowej w P0-009)
-- Dodano P0-009 — zaprojektuj UX cut-off (jedyny realny P0)
-- Dodano P1-036 — toggle archiwalnych po P0-009
-- Dodano P1-037 — walidacja nowych umów (cut-off enforcement)
+## 🟢 P3 — Nice-to-Have
+*(brak)*
 
 ---
 
 ## 📋 Tabela TL;DR
 
-| ID | Tytuł | Źródło | P | Est. | Status | Owner |
-|----|-------|--------|---|------|--------|-------|
-| RAO-P0-006 | ~~Lista artykułów PUSTA~~ → superseded by P1-036 | audit-2026-05-24 | P0 | S | superseded | — |
-| RAO-P0-007 | ~~`total_value=NULL`~~ → BY DESIGN (cut-off line) | audit-2026-05-24 | P0 | M | by-design | — |
-| RAO-P0-008 | ~~`is_settled=1`~~ → BY DESIGN (cut-off line) | audit-2026-05-24 | P0 | S | by-design | — |
-| **RAO-P0-009** | **Zaprojektuj UX „Linii odcięcia” (Data Cut-off)** | **audit + owner-decision** | **P0** | **M** | **triaged** | **tech-lead+ux** |
-| RAO-P1-030 | Bug: GUS nie pobiera danych podczas tworzenia kontrahenta | user-report | P1 | S | triaged | backend-dev |
-| RAO-P1-031 | Bug: Błąd podczas pobierania Prowizje | user-report | P1 | S | triaged | backend-dev |
-| RAO-P1-032 | Naprawa testów Playwright — 4 błędy testów naprawione | qa-report | P1 | S | done | qa-engineer |
-| RAO-P1-033 | Telefony pokazują tylko `+48 ` bez numeru | audit-2026-05-24 | P1 | S | triaged | frontend-dev |
-| RAO-P1-034 | Brak roli `salesperson` — handlowiec nie widzi tylko swoich umów | audit + client-vision | P1 | M | triaged | cross-stack |
-| RAO-P1-035 | Vue warning `placeholder` w DateRangePicker | audit-2026-05-24 | P1 | XS | triaged | frontend-dev |
-| RAO-P1-036 | Toggle „Pokaż archiwalne" + decyzja biznesowa | audit + owner | P1 | S | triaged | cross-stack |
-| RAO-P1-037 | Walidacja: nowe umowy MUSZĄ mieć `total_value` (cut-off enforcement) | audit + owner | P1 | S | triaged | backend-dev |
-| RAO-P2-021 | UX Raportów — kategorie drilldown + info historyczne (carry-over) | client-notes | P2 | M | in-progress | cross-stack |
-| RAO-P2-022 | Lista kontrahentów: brudne dane + brak filtrów | audit-2026-05-24 | P2 | S | triaged | db-agent |
-| RAO-P2-023 | Lista umów: brak filtrów po handlowcu/kategorii/roku | audit-2026-05-24 | P2 | M | triaged | frontend-dev |
-| RAO-P2-024 | Email kontrahenta z artefaktem `>` (cleanup migracji) | audit-2026-05-24 | P2 | XS | triaged | db-agent |
-| RAO-P3-014 | Admin panel: brak kolumn Email/Branch + brak `salesperson_id` | audit-2026-05-24 | P3 | S | triaged | frontend-dev |
-| RAO-P3-015 | HomeView KPI 0/0 (po fixie P0-006 i P0-008) | audit-2026-05-24 | P3 | XS | triaged | qa-engineer |
+| ID | Tytuł | Źródło | P | Est. | Status |
+|----|-------|--------|---|------|--------|
+| RAO-P1-001 | PDF Umowa — usunąć duplikat "na budowie" | klient skan + czat | P1 | XS | triaged |
+| RAO-P1-002 | PDF Umowa — "Dni pracy/tydzień" → "Ilość dni pracy" | klient skan | P1 | XS | triaged |
+| RAO-P1-003 | PDF Umowa — "*ceny netto" wyraźnie na dole | klient skan | P1 | S | triaged |
+| RAO-P1-004 | PDF Umowa U (usługa) — usuń cennik dodatkowy | klient czat + OWN ref | P1 | S | triaged |
+| RAO-P1-005 | PDF Protokół — etykieta "nr tel" w boksie kontaktu | klient skan + czat | P1 | S | triaged |
+| RAO-P1-006 | PDF Protokół — większa tabela "Przy wydaniu/odbiorze" | klient skan | P1 | S | triaged |
+| RAO-P1-007 | PDF Protokół — 1 duża tabela "uwagi" zamiast 3 | klient czat | P1 | M | triaged |
+| RAO-P1-008 | Format kaskadowy warunków rozliczenia (jak stara app) | klient + legacy | P1 | M | triaged |
+| RAO-P1-009 | Wymiana pieczątki firmy w PDF | klient czat | P1 | XS | triaged |
+| RAO-P1-010 | Weryfikacja numeru telefonu w nagłówku | klient czat | P1 | XS | triaged |
+| RAO-P1-011 | **[SPIKE]** Walidacja duplikatu maszyny + ostrzeżenie o konflikcie wynajmu | klient czat | P1 | S | triaged |
+| RAO-P1-012 | PDF OWN — ujednolicenie wcięć w listach (klient: "nic nie wystaje") | klient + docx ref | P1 | M | triaged |
+| RAO-P2-001 | PDF Umowa NAJMU (S) — domyślny cennik dodatkowy (6 pozycji) | klient czat | P2 | M | triaged |
+| RAO-P2-002 | PDF Umowa — domyślne uwagi (4 podpunkty) | klient czat | P2 | S | triaged |
+| RAO-P2-003 | PDF Umowa — kompaktniejszy layout | klient skan + czat | P2 | M | triaged |
+| RAO-P2-004 | Frontend — okres umowy przez kalendarz + dni | klient czat | P2 | M | triaged |
+| RAO-P2-005 | Frontend — inline add kontrahenta | klient czat | P2 | M | triaged |
+| RAO-P2-006 | Frontend — inline add artykułu | klient czat | P2 | M | triaged |
+| RAO-P2-007 | Frontend — pomoc UX jak wpisywać warunki | klient czat | P2 | S | triaged |
+
+**Razem:** 19 zadań (w tym 1 spike) · ~29-37h pracy
 
 ---
 
-## 🗂️ Archiwum sprintów
+## 🗂️ Materiały referencyjne dla agenta
 
-- Sprint 1 (zakończony 2026-05-22): [archive/BACKLOG_SPRINT_1.md](../archive/BACKLOG_SPRINT_1.md) — 73 taski, ~190h
+**Lokalizacje plików klienta (źródło prawdy):**
+- `temp/uwagi klienta/Scan2026-05-25_125656.pdf` — 4-stronicowy skan umowy + protokołu z odręcznymi adnotacjami
+- `temp/uwagi klienta/Zrzut ekranu 2026-05-25 223652.png` — punkty 1-2 (czat)
+- `temp/uwagi klienta/Zrzut ekranu 2026-05-25 223658.png` — punkty 3-5 + obrazek pieczątki (czat)
+- `temp/uwagi klienta/Zrzut ekranu 2026-05-25 223706.png` — punkt 6 + protokół 1-4 (czat)
+- `temp/uwagi klienta/Zrzut ekranu 2026-05-25 223710.png` — umowa usługi + protokół + telefon (czat)
+- `temp/uwagi klienta/Zrzut ekranu 2026-05-25 224827.png` — UX formularz umowy 1-4 (czat)
+- `temp/uwagi klienta/stary_format.png` → skopiowane do `spec/backlog/stary_format_rozliczenie.png` — referencja formatu kaskadowego z starej aplikacji
+- `temp/uwagi klienta/pdf_pages/page_*.png` — strony PDF jako obrazy (do przeglądania w IDE)
+
+**Stara aplikacja WinForms (referencja):**
+- `C:\projects\repos\AppRao\rao\FormW.cs` linia 690-750 — algorytm formatowania warunków kaskadowych
+- Spojrzeć też na `FormW.cs` linia 1230-1310 dla edge cases
+
+**Aktualne szablony PDF:**
+- `backend/reports/templates/contract_u.html` — umowa (najem U + usługa S)
+- `backend/reports/templates/contract.html` — umowa (alternatywny wariant)
+- `backend/reports/templates/protocol_zo.html` — protokół zdawczo-odbiorczy
+- `backend/reports/templates/protocol_zo_u.html` — protokół wykonania usługi
+- `backend/reports/templates/protocol_zo_nodata*.html` — warianty bez danych
