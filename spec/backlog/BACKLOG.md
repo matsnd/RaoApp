@@ -880,7 +880,7 @@ security_impact: none
 id: RAO-P1-012
 priority: P1
 size: M
-status: triaged
+status: review
 classification: bugfix/pdf/visual
 roles: [backend-dev]
 source: client-request

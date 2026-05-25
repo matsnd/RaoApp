@@ -110,6 +110,8 @@ Do obu wariantów umowy dodana została sekcja `Uwagi` umieszczona **przed podpi
 
 **Uwaga - formatowanie warunków kaskadowych rozliczenia (RAO-P1-008):** Opis warunków rozliczenia w PDF jest teraz formatowany przez funkcję `format_position_conditions_cascading` w `backend/contracts/service.py`, która generuje czytelny format kaskadowy (np. "1 - 3 dni - 540,00 / doba", "4 - 16 dni - 410,00 / doba", "powyżej 16 dni - 350,00 / doba"). Funkcja jest używana w `backend/reports/service.py::build_contract_data` i wynik jest przekazywany do szablonu jako `conditions_text`.
 
+**Uwaga - ujednolicenie wcięć w listach numerowanych OWN (RAO-P1-012):** CSS dla OWN w contract.html i contract_u.html zostało ujednolicone wg RAO-P1-012: poziom 0 (p.ot) bez wcięcia, poziom 1 (.own-num) z padding-left: 7mm i text-indent: -7mm (numer wisi na 0mm, tekst zaczyna na 7mm), poziom 2 (.own-num-indent) z padding-left: 13mm i text-indent: -6mm (litera wisi na 7mm, tekst zaczyna na 13mm). Font-size ujednolicony na 7.5pt, line-height na 1.15, text-align: justify. To zapewnia spójne wyrównanie pionowe dla wszystkich numerów (1-17) i sub-list, zgodnie z wymaganiami klienta.
+
 ### 1.6 Font dokumentów — Montserrat (RAO-P1-015 scope-cut)
 
 ### 1.7 Sekcja "Ewidencja godzin operatora" w protokole usługi (RAO-P1-014)
