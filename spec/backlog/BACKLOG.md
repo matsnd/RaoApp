@@ -119,7 +119,7 @@ security_impact: none
 id: RAO-P1-003
 priority: P1
 size: S
-status: triaged
+status: review
 classification: bugfix/pdf
 roles: [backend-dev]
 source: client-request
