@@ -96,6 +96,8 @@ Do obu wariantów umowy dodana została sekcja `Uwagi` umieszczona **przed podpi
 - Ilość dni pracy: dane z `contract.working_days_per_week` (default: 6) — zmieniono z "Dni pracy/tydzień" wg RAO-P1-002
 - Dokumentacja zdjęciowa: obowiązek dostarczenia przy zwrocie
 
+**Uwaga - pole "na budowie":** Pole "na budowie" w sekcji "uzupełnij" jest puste (do ręcznego dopisania notatki). Adres dostawy jest wyświetlany tylko raz w sekcji "info-col" jako "Adres dostawy" (wg RAO-P1-001).
+
 ### 1.6 Font dokumentów — Montserrat (RAO-P1-015 scope-cut)
 
 ### 1.7 Sekcja "Ewidencja godzin operatora" w protokole usługi (RAO-P1-014)
