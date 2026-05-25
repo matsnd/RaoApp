@@ -102,6 +102,8 @@ Do obu wariantów umowy dodana została sekcja `Uwagi` umieszczona **przed podpi
 
 **Uwaga - cennik usług dodatkowych (typ U):** Szablon `contract_u.html` (Umowa Usługi z operatorem) NIE zawiera sekcji "Cennik usług dodatkowych" (transport, tankowanie, czyszczenie) wg RAO-P1-004. Szablon `contract.html` (Umowa Najmu) zachowuje tę sekcję, ponieważ klient sam obsługuje maszynę i płaci za te usługi.
 
+**Uwaga - pole 'nr tel' w protokole (osoba upoważniona):** Wszystkie szablony protokołów (protocol_zo.html, protocol_zo_u.html, protocol_zo_nodata.html) zostały zaktualizowane wg RAO-P1-005, aby wyświetlać etykietę "nr tel:" osobno w nowym wierszu, nawet gdy pole jest puste. Format: kontakt_person1 w pierwszym wierszu, "nr tel: [wartość lub puste]" w drugim wierszu (font-size: 9px).
+
 ### 1.6 Font dokumentów — Montserrat (RAO-P1-015 scope-cut)
 
 ### 1.7 Sekcja "Ewidencja godzin operatora" w protokole usługi (RAO-P1-014)

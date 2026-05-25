@@ -254,7 +254,7 @@ verification:
 id: RAO-P1-005
 priority: P1
 size: S
-status: triaged
+status: review
 classification: bugfix/pdf
 roles: [backend-dev]
 source: client-request
