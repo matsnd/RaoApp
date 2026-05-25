@@ -418,9 +418,9 @@ watch(dateFrom, () => { page.value = 1; loadData() })
 watch(dateTo, () => { page.value = 1; loadData() })
 
 function handleAdd() {
-  if (section.value === 'contracts') router.push('/contracts/new')
-  else if (section.value === 'contractors') router.push('/contractors/new')
-  else if (section.value === 'articles') router.push('/articles/new')
+  if (section.value === 'contracts') router.push({ name: 'ContractNew' })
+  else if (section.value === 'contractors') router.push({ name: 'ContractorNew' })
+  else if (section.value === 'articles') router.push({ name: 'ArticleNew' })
 }
 
 function handleRemove() {
