@@ -168,7 +168,7 @@ Obecnie w `contract_u.html` (linia 252-256) blok `footer-legal` znajduje się PO
 id: RAO-P1-004
 priority: P1
 size: S
-status: triaged
+status: review
 classification: bugfix/pdf
 roles: [backend-dev]
 source: client-request

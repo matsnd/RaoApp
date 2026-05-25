@@ -188,27 +188,6 @@
 </table>
 {% endif %}
 
-<!-- FEES -->
-{% if fees %}
-<div style="font-size:9.5px;font-weight:bold;margin:8px 0 3px;">Cennik usług dodatkowych:</div>
-<table class="pos">
-  <thead>
-    <tr><th style="text-align:left;">usługa</th><th style="width:130px;">stawka</th><th style="width:60px;">j.m.</th></tr>
-  </thead>
-  <tbody>
-  {% for f in fees %}
-  {% if f.is_active %}
-  <tr>
-    <td>{{ f.name }}{% if f.description %} ({{ f.description }}){% endif %}</td>
-    <td>{% if f.amount_from %}{{ f.amount_from | money_plain }}{% endif %}{% if f.amount_to %} - {{ f.amount_to | money_plain }}{% endif %}</td>
-    <td>{{ f.unit or '' }}</td>
-  </tr>
-  {% endif %}
-  {% endfor %}
-  </tbody>
-</table>
-{% endif %}
-
 <!-- BOTTOM BOXES -->
 <table class="bottom">
   <tr>

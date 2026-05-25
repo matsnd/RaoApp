@@ -931,6 +931,17 @@ async def copy_service_fee_templates_to_contract(
     await db.commit()
 
 
+"""
+UWAGA - różnice między typem S (najmu) a U (usługi) wg RAO-P1-004:
+- Umowa Najmu (typ S): klient sam obsługuje maszynę, więc płaci za transport/tankowanie/czyszczenie.
+  Szablon `contract.html` zawiera sekcję "Cennik usług dodatkowych" (Inne usługi).
+- Umowa Usługi (typ U): Toolsmart wykonuje pracę z operatorem, koszty operacyjne są wewnętrzne.
+  Szablon `contract_u.html` NIE zawiera sekcji "Cennik usług dodatkowych".
+  Funkcja `copy_service_fee_templates_to_contract` może nadal kopiować usługi do bazy dla typu U,
+  ale nie są one wyświetlane w PDF (szablon contract_u.html usunął sekcję FEES).
+"""
+
+
 def generate_fees_text_for_pdf(fees: list) -> str:
     """
     Generuje tekst usług dodatkowych do wydruku PDF/raportu.

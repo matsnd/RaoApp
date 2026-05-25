@@ -100,6 +100,8 @@ Do obu wariantów umowy dodana została sekcja `Uwagi` umieszczona **przed podpi
 
 **Uwaga - footer-legal (ceny netto):** Sekcja `.footer-legal` na dole strony 1 została wzmocniona wizualnie wg RAO-P1-003: font-size 9px (z 8px), border-top, padding-top, page-break-after: avoid, a tekst "*ceny podane na umowie są cenami netto" jest pogrubiony, czerwony (color: #c00) i większy (font-size: 11px).
 
+**Uwaga - cennik usług dodatkowych (typ U):** Szablon `contract_u.html` (Umowa Usługi z operatorem) NIE zawiera sekcji "Cennik usług dodatkowych" (transport, tankowanie, czyszczenie) wg RAO-P1-004. Szablon `contract.html` (Umowa Najmu) zachowuje tę sekcję, ponieważ klient sam obsługuje maszynę i płaci za te usługi.
+
 ### 1.6 Font dokumentów — Montserrat (RAO-P1-015 scope-cut)
 
 ### 1.7 Sekcja "Ewidencja godzin operatora" w protokole usługi (RAO-P1-014)
