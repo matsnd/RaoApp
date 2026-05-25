@@ -53,13 +53,8 @@
   .bottom-section { margin-top: auto; }
   
   /* RETURN SECTION */
-  table.return-table { width: 100%; border-collapse: collapse; font-size: 9px; margin-bottom: 0; }
-  table.return-table td { border: 1px solid #aaa; padding: 4px 6px; vertical-align: top; color: #888; }
-  .ret-col1 { width: 45%; height: 35px; }
-  .ret-col2 { width: 25%; }
-  .ret-col3 { width: 30%; }
-  .ret-uwagi { border: 1px solid #aaa; border-top: none; padding: 4px 6px; font-size: 9px; min-height: 45px; color: #888; }
-  
+  .big-uwagi { border: 1px solid #aaa; padding: 10px 12px; font-size: 10px; min-height: 140px; color: #888; }
+
   .note-line { font-size: 9px; font-style: italic; font-weight: bold; margin: 6px 0 10px; }
 
   /* PRZY WYDANIU / PRZY ODBIORZE */
@@ -211,16 +206,11 @@
 
   <!-- PUSH TO BOTTOM -->
   <div class="bottom-section">
-    
-    <!-- RETURN FORM -->
-    <table class="return-table">
-      <tr>
-        <td class="ret-col1">dane zwrotu przedmiotu najmu</td>
-        <td class="ret-col2">ilość dni</td>
-        <td class="ret-col3">kaucja zwrócono w wysokości</td>
-      </tr>
-    </table>
-    <div class="ret-uwagi">uwagi</div>
+
+    <!-- BIG UWAGI BOX -->
+    <div class="big-uwagi">
+      <div class="box-label" style="font-size:9px;color:#888;margin-bottom:6px;">uwagi do zwrotu</div>
+    </div>
 
     <div class="note-line">Ogólna weryfikacja maszyny następuje na terenie firmy w terminie do 14 dni od dnia jej przekazania</div>
 

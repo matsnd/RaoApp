@@ -106,6 +106,8 @@ Do obu wariantów umowy dodana została sekcja `Uwagi` umieszczona **przed podpi
 
 **Uwaga - tabela PWO (Przy wydaniu / Przy odbiorze):** Tabela w protocol_zo.html została powiększona wg RAO-P1-006: height wierszy 32px (z 20px), font-size 10px (z 8.5px), padding 5px 8px (z 2px 5px), wiersz "Uwagi" height 60px (z 36px). Tylko protocol_zo.html ma tę tabelę (inne protokoły mają uproszczone layouty).
 
+**Uwaga - dolna sekcja protokołu (uwagi do zwrotu):** W protocol_zo.html 3 elementy dolne zostały połączone w 1 dużą tabelę "uwagi do zwrotu" wg RAO-P1-007: usunięto tabelę return-table (3 kolumny: dane zwrotu / ilość dni / kaucja), zamieniono div ret-uwagi na div big-uwagi z większym wymiarem (min-height: 140px, padding: 10px 12px, font-size: 10px). Notatka "Ogólna weryfikacja maszyny..." i podpisy zachowane.
+
 ### 1.6 Font dokumentów — Montserrat (RAO-P1-015 scope-cut)
 
 ### 1.7 Sekcja "Ewidencja godzin operatora" w protokole usługi (RAO-P1-014)
