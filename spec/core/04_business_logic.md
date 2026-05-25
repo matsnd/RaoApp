@@ -941,6 +941,29 @@ UWAGA - różnice między typem S (najmu) a U (usługi) wg RAO-P1-004:
   ale nie są one wyświetlane w PDF (szablon contract_u.html usunął sekcję FEES).
 """
 
+## Seed domyślnych usług dodatkowych dla umów najmu (RAO-P2-001)
+
+**Cel:** Zautomatyzować dodawanie domyślnych usług dodatkowych do nowych umów najmu (typ S) zgodnie z wymaganiami klienta.
+
+**Lista i kolejność usług (wg klienta):**
+1. Transport: 500.00 zł / dostawa (500.00 zł odbiór)
+2. Czyszczenie maszyny po wynajmie (zabrudzenia drobne): 150.00 zł - 400.00 zł
+3. Czyszczenie maszyny po wynajmie (zabrudzenia trudnościeralne): 400.00 zł - 1500.00 zł
+4. Usługa tankowania: 200.00 zł (plus koszt paliwa)
+5. Ponadnormatywny przestój transportu: 200.00 zł / h - 300.00 zł / h
+6. Nieuzasadnione wezwanie serwisowe: 280.00 zł (plus transport)
+
+**Implementacja:**
+- Seed w `backend/main.py::startup_migrations` tworzy `FeePresetGroup` z `contract_type='S'` i `is_default=True`
+- Dodaje 6 `ServiceFeeTemplate` rekordów z powyższymi wartościami i kolejnością
+- Seed jest idempotentny (sprawdza czy preset istnieje przed utworzeniem)
+- Przy tworzeniu nowej umowy typu S, funkcja `copy_fee_templates` automatycznie kopiuje te usługi
+
+**Użycie:**
+- Nowa umowa najmu (typ S) → automatycznie ma 6 usług dodatkowych
+- Klient może modyfikować/usuwać/usuwać konkretne usługi w formularzu umowy
+- Można zresetować do domyślnych przez `POST /contracts/{id}/service-fees/reset`
+
 ## Formatowanie warunków kaskadowych rozliczenia (RAO-P1-008)
 
 ```python

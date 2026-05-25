@@ -1088,7 +1088,7 @@ p.ot strong { font-size: 7.5pt; }
 id: RAO-P2-001
 priority: P2
 size: M
-status: triaged
+status: review
 classification: feature/pdf
 roles: [backend-dev, db-agent]
 source: client-request

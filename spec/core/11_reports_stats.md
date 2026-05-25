@@ -112,6 +112,8 @@ Do obu wariantów umowy dodana została sekcja `Uwagi` umieszczona **przed podpi
 
 **Uwaga - ujednolicenie wcięć w listach numerowanych OWN (RAO-P1-012):** CSS dla OWN w contract.html i contract_u.html zostało ujednolicone wg RAO-P1-012: poziom 0 (p.ot) bez wcięcia, poziom 1 (.own-num) z padding-left: 7mm i text-indent: -7mm (numer wisi na 0mm, tekst zaczyna na 7mm), poziom 2 (.own-num-indent) z padding-left: 13mm i text-indent: -6mm (litera wisi na 7mm, tekst zaczyna na 13mm). Font-size ujednolicony na 7.5pt, line-height na 1.15, text-align: justify. To zapewnia spójne wyrównanie pionowe dla wszystkich numerów (1-17) i sub-list, zgodnie z wymaganiami klienta.
 
+**Uwaga - domyślne usługi dodatkowe dla umów najmu (RAO-P2-001):** Seed w backend/main.py::startup_migrations tworzy domyślny preset usług dodatkowych dla umów najmu (typ S) z 6 usługami w określonej kolejności: Transport (500 zł/dostawa), Czyszczenie drobne (150-400 zł), Czyszczenie trudne (400-1500 zł), Tankowanie (200 zł + paliwo), Prestój transportu (200-300 zł/h), Serwis (280 zł + transport). Seed jest idempotentny i automatycznie kopiowany do nowych umów typu S przez funkcję copy_fee_templates.
+
 ### 1.6 Font dokumentów — Montserrat (RAO-P1-015 scope-cut)
 
 ### 1.7 Sekcja "Ewidencja godzin operatora" w protokole usługi (RAO-P1-014)

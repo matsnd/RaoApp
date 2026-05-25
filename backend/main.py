@@ -41,6 +41,52 @@ async def startup_migrations():
     import settlements.models  # RAO-P1-012
     import integrations.fakturownia.models  # RAO-P2-012
 
+    # RAO-P2-001: seed default fees for contract type S (najmu)
+    async with AsyncSessionLocal() as db:
+        # Check if default preset for type S exists
+        existing = await db.execute(
+            sa.select(FeePresetGroup).where(
+                FeePresetGroup.contract_type == 'S',
+                FeePresetGroup.is_default == True
+            )
+        )
+        if not existing.scalar_one_or_none():
+            # Create default preset for type S
+            default_preset = FeePresetGroup(
+                company_id=1,
+                name="Domyślne usługi dodatkowe (najmu)",
+                contract_type='S',
+                description="Transport, czyszczenie, tankowanie - domyślne dla umów najmu",
+                is_default=True,
+                sort_order=0
+            )
+            db.add(default_preset)
+            await db.flush()
+
+            # Add default fees in specified order
+            default_fees = [
+                {"name": "Transport", "amount_from": 500.00, "amount_to": None, "unit": "dostawa", "description": "500.00 zł / dostawa / 500.00 zł odbiór", "sort_order": 1},
+                {"name": "Czyszczenie maszyny po wynajmie (zabrudzenia drobne)", "amount_from": 150.00, "amount_to": 400.00, "unit": "sztuka", "description": None, "sort_order": 2},
+                {"name": "Czyszczenie maszyny po wynajmie (zabrudzenia trudnościeralne)", "amount_from": 400.00, "amount_to": 1500.00, "unit": "sztuka", "description": None, "sort_order": 3},
+                {"name": "Usługa tankowania", "amount_from": 200.00, "amount_to": None, "unit": "tankowanie", "description": "plus koszt paliwa", "sort_order": 4},
+                {"name": "Ponadnormatywny przestój transportu", "amount_from": 200.00, "amount_to": 300.00, "unit": "godzina", "description": None, "sort_order": 5},
+                {"name": "Nieuzasadnione wezwanie serwisowe", "amount_from": 280.00, "amount_to": None, "unit": "wizyta", "description": "plus transport", "sort_order": 6},
+            ]
+            for fee_data in default_fees:
+                db.add(ServiceFeeTemplate(
+                    company_id=1,
+                    preset_id=default_preset.id,
+                    contract_type='S',
+                    name=fee_data["name"],
+                    amount_from=fee_data["amount_from"],
+                    amount_to=fee_data["amount_to"],
+                    unit=fee_data["unit"],
+                    description=fee_data["description"],
+                    is_active=True,
+                    sort_order=fee_data["sort_order"]
+                ))
+            await db.commit()
+
     # RAO-P3-002: katalog na logo firmy (startup guard)
     os.makedirs("static/logos", exist_ok=True)
 
