@@ -266,6 +266,15 @@ def _pdf_via_weasyprint(html: str, use_footer: bool = True) -> bytes:
         @bottom-left  {{ content: "Wydrukowano {now}"; font-size: 8px; color: #444; font-family: 'Roboto', sans-serif; }}
         @bottom-right {{ content: "Strona " counter(page) " z " counter(pages); font-size: 8px; color: #444; font-family: 'Roboto', sans-serif; }}
     }}
+    #footer-legal-running {{
+        position: absolute;
+        bottom: 0;
+        left: 14mm;
+        right: 14mm;
+        font-size: 8px;
+        line-height: 1.35;
+        color: #000;
+    }}
     """
     if "</head>" in html:
         html = html.replace("</head>", f"<style>{extra_css}</style></head>")

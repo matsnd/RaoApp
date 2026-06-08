@@ -16,7 +16,8 @@
   .hdr-right { width: 28%; text-align: right; padding: 10px 14mm 10px 10px; font-size: 8px; line-height: 1.6; vertical-align: middle; }
 
   /* CONTENT */
-  .content { padding: 8px 14mm 8px 14mm; }
+  .content { padding: 8px 14mm 0 14mm; }
+  .content-spacer { display: block; }
 
   /* TITLE */
   .doc-title { font-size: 16px; text-align: center; margin: 14px 0 2px; font-weight: normal; color: #1D2B53; }
@@ -42,8 +43,8 @@
   .legal-italic { font-size: 8.5px; font-style: italic; line-height: 1.4; margin: 4px 0 6px; }
 
   /* FOOTER LEGAL */
-  .footer-legal { font-size: 9px; line-height: 1.4; margin-top: 16px; border-top: 1px solid #aaa; padding-top: 8px; page-break-after: avoid; }
-  .footer-legal strong { font-size: 8.5px; }
+  .footer-legal { font-size: 8px; line-height: 1.35; margin-top: 4px; padding-top: 0; page-break-after: avoid; }
+  .footer-legal strong { font-size: 7.5px; }
 
   /* POSITIONS TABLE */
   table.pos { width: 100%; border-collapse: collapse; font-size: 8.5px; margin: 4px 0 6px; }
@@ -242,12 +243,14 @@
   </tr>
 </table>
 
+<div class="content-spacer" style="height: 35mm;"></div>
+
 <!-- SIGNATURES -->
 <table class="sigs">
   <tr>
     <td>
       <div style="text-align:center;">
-        <img src="../assets/company_stamp_fixed.jpg" alt="Pieczątka firmy" style="width:180px;height:70px;object-fit:contain;margin-bottom:2px;">
+        <img src="../assets/company_stamp_fixed.jpg" alt="Pieczątka firmy" style="width:180px;height:70px;object-fit:contain;margin-bottom:0;">
         <div class="sig-line">czytelny podpis Wynajmującego</div>
       </div>
     </td>
@@ -258,12 +261,10 @@
 </table>
 
 <!-- FOOTER LEGAL -->
-<div class="footer-legal">
-  <strong style="font-size: 11px; color: #c00; display: block; margin-bottom: 4px;">*ceny podane na umowie są cenami netto</strong>
-  Niniejszym zobowiązuje się do zabezpieczenia Przedmiotów Najmu przed kradzieżą i zniszczeniem przez cały okres trwania Umowy Najmu. W przypadku zniszczenia, zaginięcia lub uszkodzenia Przedmiotu Najmu, zobowiązuje się ponieść pełną odpowiedzialność materialną mającą na celu przwrócenie całości utraconego sprzętu lub kosztów jego naprawy. Najemca wyraża zgodę na wystawienie faktury bez jego podpisu i skompensowanie kwoty zobowiązań za wynajem z kwotą przedpłaty. Najemca zobowiązuje się do pisemnego poinformowania wynajmującego o zwrocie maszyny budowlanej najpóźniej z jednodniowym wyprzedzeniem. Pokwitowanie niniejszej Umowy Najmu jest jednoznaczne z oświadczeniem o zapoznaniu się z Ogólnymi Warunkami Umowy Najmu (dalej: OWN) oraz ich akceptacją. OWN jest integralną częścią Umowy Najmu.
+<div id="footer-legal-running">
+  <strong style="font-size: 8px; color: #c00; display: block; margin-bottom: 2px;">*ceny podane na umowie są cenami netto</strong>
+  Niniejszym zobowiązuje się do zabezpieczenia Przedmiotów Najmu przed kradzieżą i zniszczeniem przez cały okres trwania Umowy Najmu. W przypadku zniszczenia, zagińięcia lub uszkodzenia Przedmiotu Najmu, zobowiązuje się ponieść pełną odpowiedzialność materialną mającą na celu przwrócenie całości utraconego sprzętu lub kosztów jego naprawy. Najemca wyraża zgodę na wystawienie faktury bez jego podpisu i skompensowanie kwoty zobowiązań za wynajem z kwotą przedpłaty. Najemca zobowiązuje się do pisemnego poinformowania wynajmującego o zwrocie maszyny budowlanej najpóźniej z jednodniowym wyprzedzeniem. Pokwitowanie niniejszej Umowy Najmu jest jednoznaczne z oświadczeniem o zapoznaniu się z Ogólnymi Warunkami Umowy Najmu (dalej: OWN) oraz ich akceptacją. OWN jest integralną częścią Umowy Najmu.
 </div>
-
-<!-- Uwagi sekcja usunięta — duplikat względem 'Uwagi' w prawej kolumnie 'inne usługi' (zgodność z PDF WinForms) -->
 
 </div><!-- /content -->
 
@@ -392,7 +393,7 @@
   <table class="own-sigs">
     <tr>
       <td>
-        <img src="../assets/company_stamp_fixed.jpg" style="width:180px;height:70px;object-fit:contain;margin-bottom:2px;">
+        <img src="../assets/company_stamp_fixed.jpg" style="width:180px;height:70px;object-fit:contain;margin-bottom:0;">
         <div class="own-sig-line">czytelny podpis Najemcy</div>
       </td>
       <td style="vertical-align: bottom;">
