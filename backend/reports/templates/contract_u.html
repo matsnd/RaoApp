@@ -62,16 +62,21 @@
   .sig-line { border-top: 1px solid #aaa; display: inline-block; width: 220px; padding-top: 3px; }
 
   /* OWN */
-  .own-page { page-break-before: always; font-family: 'Tinos', 'Times New Roman', serif; padding: 4mm 14mm 4mm 14mm; }
+  .own-page { page-break-before: always; font-family: 'Tinos', 'Times New Roman', serif; padding: 3mm 6mm 3mm 6mm; }
   .own-title { font-size: 14pt; font-weight: bold; text-align: center; margin-bottom: 4px; }
   table.own-table { width: 100%; border-collapse: collapse; }
-  table.own-table td { width: 50%; vertical-align: top; padding: 0 8px 80px 8px; }
+  table.own-table td { width: 50%; vertical-align: top; padding: 0 5mm 80px 0; }
+  table.own-table td:last-child { padding-left: 5mm; padding-right: 0; }
   .own-par { font-size: 11pt; font-weight: bold; text-align: center; margin: 4px 0 0 0; }
   .own-sub { font-size: 10pt; font-weight: bold; text-align: center; margin: 0 0 3px 0; }
-  p.ot { font-size: 7pt; margin: 1px 0; text-align: justify; line-height: 1.14; padding-left: 0; text-indent: 0; }
+  p.ot { font-size: 7pt; margin: 1px 0; text-align: justify; line-height: 1.14; padding-left: 7mm; text-indent: 0; }
   p.ot strong { font-size: 7pt; }
-  .own-num,
-  .own-num-indent { font-size: 7pt; margin: 1px 0; padding-left: 5mm; text-indent: -5mm; line-height: 1.14; text-align: justify; }
+  .own-num { font-size: 7pt; margin: 1px 0; padding-left: 0; text-indent: 0; line-height: 1.14; text-align: justify; display: flex; gap: 0; }
+  .own-num .num { min-width: 7mm; flex-shrink: 0; }
+  .own-num .txt { flex: 1; text-align: justify; }
+  .own-num-indent { font-size: 7pt; margin: 1px 0; padding-left: 0; text-indent: 0; line-height: 1.14; text-align: justify; display: flex; gap: 0; }
+  .own-num-indent .num { min-width: 7mm; flex-shrink: 0; }
+  .own-num-indent .txt { flex: 1; text-align: justify; }
   /* Podpisy - normalny flow jak na stronie 1 */
   table.own-sigs { width: 100%; border-collapse: collapse; margin-top: 40px; }
   table.own-sigs td { text-align: center; width: 50%; font-size: 10px; vertical-align: bottom; }
@@ -218,7 +223,7 @@
   <tr>
     <td>
       <div style="text-align:center;">
-        <img src="../assets/company_stamp_fixed.jpg" alt="Pieczątka firmy" style="width:180px;height:70px;object-fit:contain;margin-bottom:10px;">
+        <img src="../assets/company_stamp_fixed.jpg" alt="Pieczątka firmy" style="width:180px;height:70px;object-fit:contain;margin-bottom:2px;">
         <div class="sig-line">czytelny podpis Wynajmującego</div>
       </div>
     </td>
@@ -263,28 +268,28 @@
       <div class="own-par">§ 2</div>
       <div class="own-sub">Najem urządzenia z operatorem</div>
 
-      <p class="own-num">1. Operator realizuje zadania zlecone przez Najemcę, ograniczając się do obsługi urządzenia zgodnie z obowiązującymi przepisami, instrukcjami użytkowania oraz zasadami BHP. Przy wykonywaniu pracy kieruje się swoim doświadczeniem, priorytetowo traktując bezpieczeństwo osób i mienia. Operator ma prawo odmówić wykonania pracy, jeśli uzna, że istnieje ryzyko dla bezpieczeństwa oraz ryzyko uszkodzenia maszyny.</p>
-      <p class="own-num">2. Operator nie podejmuje działań wykraczających poza standardową obsługę maszyny ani prac, które wymagają dodatkowych zezwoleń lub kwalifikacji.</p>
-      <p class="own-num">3. Potwierdzeniem wykonania usługi jest potwierdzony przez Najemcę, a w przypadku jego braku przez Operatora, Protokół Wykonania Usługi określający początek rozpoczęcia Usługi w podziale na godziny lub doby.</p>
-      <p class="own-num">4. W przypadku braku podpisu Najemcy, protokół wykonania usługi podpisany przez Operatora uznaje się za wiążący i stanowiący podstawę do rozliczenia usługi.</p>
+      <p class="own-num"><span class="num">1.</span><span class="txt">Operator realizuje zadania zlecone przez Najemcę, ograniczając się do obsługi urządzenia zgodnie z obowiązującymi przepisami, instrukcjami użytkowania oraz zasadami BHP. Przy wykonywaniu pracy kieruje się swoim doświadczeniem, priorytetowo traktując bezpieczeństwo osób i mienia. Operator ma prawo odmówić wykonania pracy, jeśli uzna, że istnieje ryzyko dla bezpieczeństwa oraz ryzyko uszkodzenia maszyny.</span></p>
+      <p class="own-num"><span class="num">2.</span><span class="txt">Operator nie podejmuje działań wykraczających poza standardową obsługę maszyny ani prac, które wymagają dodatkowych zezwoleń lub kwalifikacji.</span></p>
+      <p class="own-num"><span class="num">3.</span><span class="txt">Potwierdzeniem wykonania usługi jest potwierdzony przez Najemcę, a w przypadku jego braku przez Operatora, Protokół Wykonania Usługi określający początek rozpoczęcia Usługi w podziale na godziny lub doby.</span></p>
+      <p class="own-num"><span class="num">4.</span><span class="txt">W przypadku braku podpisu Najemcy, protokół wykonania usługi podpisany przez Operatora uznaje się za wiążący i stanowiący podstawę do rozliczenia usługi.</span></p>
     </td>
 
     <!-- KOLUMNA PRAWA: §2 pkt 5-12 -->
     <td>
-      <p class="own-num">5. Czas pracy Operatora obejmuje również czas przestoju, który nie wynika z winy Wynajmującego.</p>
-      <p class="own-num">6. Przedmiot Najmu pozostaje własnością Wynajmującego przez cały okres trwania najmu i usługi.</p>
-      <p class="own-num">7. W przypadku gdy czas świadczenia usługi ulega przedłużeniu i Przedmiot Najmu pozostaje na terenie Najemcy po zakończeniu pracy Operatora, Najemca ponosi pełną odpowiedzialność za Przedmiot Najmu w okresie, w którym znajduje się on na terenie dedykowanym do przechowywania. Dotyczy to m. in:</p>
-      <p class="own-num-indent">a. Wszelkie szkody, straty, kradzieże, zniszczenia lub inne uszkodzenia Przedmiotu Najmu, niezależnie od przyczyny ich powstania.</p>
-      <p class="own-num-indent">b. Najemca zobowiązany jest do podjęcia wszelkich działań w celu zabezpieczenia sprzętu, w tym zapewnienia odpowiednich warunków przechowywania oraz ochrony przed dostępem osób nieuprawionych.</p>
-      <p class="own-num-indent">c. W razie uszkodzenia, zniszczenia lub utraty Przedmiotu Najmu, Najemca zobowiązany jest do zapłaty odszkodowania odpowiadającego jego wartości (wartość odtworzeniowa), określonej w Umowie Usługi lub Protokole Wykonania Usługi, które Najemca akceptuje. Najemca ma obowiązek uiszczenia ustalonego w Umowie Najmu czynszu za okres od dnia zajścia tego zdarzenia do dnia zapłaty wspomnianego odszkodowania.</p>
-      <p class="own-num">8. Wynajmujący zobowiązuje się do podjęcia działań serwisowych w terminie do 24 godzin od momentu zgłoszenia przez Najemcę lub Operatora potrzeby serwisu Przedmiotu Najmu, pod warunkiem dokonania zgłoszenia w dniu roboczym oraz w godzinach pracy Wynajmującego.</p>
-      <p class="own-num">9. Wynajmujący nie ponosi odpowiedzialności za jakiekolwiek szkody materialne lub niematerialne wyrządzone przez Przedmiot Najmu lub inne maszyny budowlane w trakcie dostawy lub realizacji usług operatorskich na rzecz Najemcy, w tym, lecz nie wyłącznie, za szkody spowodowane:</p>
-      <p class="own-num-indent">a) Przypadkowym wyciekiem płynów eksploatacyjnych (np. oleju hydraulicznego, paliwa) na powierzchnie należące do klienta lub osoby trzecie.</p>
-      <p class="own-num-indent">b) Uszkodzeniem infrastruktury, terenu bądź innego mienia w wyniku standardowej pracy maszyny lub jej nieprzewidzianych awarii.</p>
-      <p class="own-num-indent">c) Zachowaniem operatora, o ile działał zgodnie z zasadami technicznymi i standardami użytkowania maszyny.</p>
-      <p class="own-num">10. Najemca zobowiązuje się do podjęcia działań mających na celu minimalizację ryzyka związanego z użytkowaniem maszyn, w tym zapewnienia odpowiednich warunków pracy dla maszyn oraz poinformowania Wynajmującego o wszelkich szczególnych wymaganiach dotyczących miejsca realizacji usługi lub dostawy Przedmiotu Najmu.</p>
-      <p class="own-num">11. Osoby przebywające w przestrzeni roboczej Operatora zobowiązane są do przestrzegania poleceń wydawanych przez operatora pod rygorem natychmiastowego przerwania pracy. Zobowiązane są również do stosowania wymaganej odzieży zabezpieczającej (kask, szelki, kamizelka odblaskowa, inne).</p>
-      <p class="own-num">12. Najemca oświadcza, iż jest uprawniony do odbioru faktur, o nadanym numerze NIP oraz jednocześnie upoważnia Wynajmującego do wystawiania faktur bez swojego podpisu.</p>
+      <p class="own-num"><span class="num">5.</span><span class="txt">Czas pracy Operatora obejmuje również czas przestoju, który nie wynika z winy Wynajmującego.</span></p>
+      <p class="own-num"><span class="num">6.</span><span class="txt">Przedmiot Najmu pozostaje własnością Wynajmującego przez cały okres trwania najmu i usługi.</span></p>
+      <p class="own-num"><span class="num">7.</span><span class="txt">W przypadku gdy czas świadczenia usługi ulega przedłużeniu i Przedmiot Najmu pozostaje na terenie Najemcy po zakończeniu pracy Operatora, Najemca ponosi pełną odpowiedzialność za Przedmiot Najmu w okresie, w którym znajduje się on na terenie dedykowanym do przechowywania. Dotyczy to m. in:</span></p>
+      <p class="own-num-indent"><span class="num">a.</span><span class="txt">Wszelkie szkody, straty, kradzieże, zniszczenia lub inne uszkodzenia Przedmiotu Najmu, niezależnie od przyczyny ich powstania.</span></p>
+      <p class="own-num-indent"><span class="num">b.</span><span class="txt">Najemca zobowiązany jest do podjęcia wszelkich działań w celu zabezpieczenia sprzętu, w tym zapewnienia odpowiednich warunków przechowywania oraz ochrony przed dostępem osób nieuprawionych.</span></p>
+      <p class="own-num-indent"><span class="num">c.</span><span class="txt">W razie uszkodzenia, zniszczenia lub utraty Przedmiotu Najmu, Najemca zobowiązany jest do zapłaty odszkodowania odpowiadającego jego wartości (wartość odtworzeniowa), określonej w Umowie Usługi lub Protokole Wykonania Usługi, które Najemca akceptuje. Najemca ma obowiązek uiszczenia ustalonego w Umowie Najmu czynszu za okres od dnia zajścia tego zdarzenia do dnia zapłaty wspomnianego odszkodowania.</span></p>
+      <p class="own-num"><span class="num">8.</span><span class="txt">Wynajmujący zobowiązuje się do podjęcia działań serwisowych w terminie do 24 godzin od momentu zgłoszenia przez Najemcę lub Operatora potrzeby serwisu Przedmiotu Najmu, pod warunkiem dokonania zgłoszenia w dniu roboczym oraz w godzinach pracy Wynajmującego.</span></p>
+      <p class="own-num"><span class="num">9.</span><span class="txt">Wynajmujący nie ponosi odpowiedzialności za jakiekolwiek szkody materialne lub niematerialne wyrządzone przez Przedmiot Najmu lub inne maszyny budowlane w trakcie dostawy lub realizacji usług operatorskich na rzecz Najemcy, w tym, lecz nie wyłącznie, za szkody spowodowane:</span></p>
+      <p class="own-num-indent"><span class="num">a)</span><span class="txt">Przypadkowym wyciekiem płynów eksploatacyjnych (np. oleju hydraulicznego, paliwa) na powierzchnie należące do klienta lub osoby trzecie.</span></p>
+      <p class="own-num-indent"><span class="num">b)</span><span class="txt">Uszkodzeniem infrastruktury, terenu bądź innego mienia w wyniku standardowej pracy maszyny lub jej nieprzewidzianych awarii.</span></p>
+      <p class="own-num-indent"><span class="num">c)</span><span class="txt">Zachowaniem operatora, o ile działał zgodnie z zasadami technicznymi i standardami użytkowania maszyny.</span></p>
+      <p class="own-num"><span class="num">10.</span><span class="txt">Najemca zobowiązuje się do podjęcia działań mających na celu minimalizację ryzyka związanego z użytkowaniem maszyn, w tym zapewnienia odpowiednich warunków pracy dla maszyn oraz poinformowania Wynajmującego o wszelkich szczególnych wymaganiach dotyczących miejsca realizacji usługi lub dostawy Przedmiotu Najmu.</span></p>
+      <p class="own-num"><span class="num">11.</span><span class="txt">Osoby przebywające w przestrzeni roboczej Operatora zobowiązane są do przestrzegania poleceń wydawanych przez operatora pod rygorem natychmiastowego przerwania pracy. Zobowiązane są również do stosowania wymaganej odzieży zabezpieczającej (kask, szelki, kamizelka odblaskowa, inne).</span></p>
+      <p class="own-num"><span class="num">12.</span><span class="txt">Najemca oświadcza, iż jest uprawniony do odbioru faktur, o nadanym numerze NIP oraz jednocześnie upoważnia Wynajmującego do wystawiania faktur bez swojego podpisu.</span></p>
     </td>
   </tr>
   </table>
@@ -292,7 +297,7 @@
   <table class="own-sigs">
     <tr>
       <td>
-        <img src="../assets/company_stamp_fixed.jpg" style="width:180px;height:70px;object-fit:contain;margin-bottom:10px;">
+        <img src="../assets/company_stamp_fixed.jpg" style="width:180px;height:70px;object-fit:contain;margin-bottom:2px;">
         <div class="own-sig-line">czytelny podpis Najemcy</div>
       </td>
       <td style="vertical-align: bottom;">
