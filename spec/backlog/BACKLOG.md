@@ -584,16 +584,21 @@ Lub alternatywnie (decyzja w trakcie implementacji):
 id: RAO-P1-009
 priority: P1
 size: XS
-status: review
+status: done
 classification: maintenance
 roles: [backend-dev]
 source: client-request
 source_date: 2026-05-25
+done_date: 2026-05-26
 source_ref: "zrzut 223658.png pkt 5 'pieczątka do poprawy' + obrazek pieczątki"
 specs_to_update:
   - core/11_reports_stats.md
 migration_impact: no
 security_impact: none
+verification:
+  - "Konwersja stamp_my.png (428x168 RGBA) → company_stamp_fixed.jpg (RGB+białe tło, 22371 B) + protocol_stamp.png (RGBA, 62529 B)"
+  - "Uszkodzone wcześniej pliki (zawierały screenshot ciemnego interfejsu zamiast pieczątki) zastąpione czystą pieczątką Toolsmart"
+  - "Zweryfikowane wizualnie w PDF S strona 1 + strona 3 (po OWN) i U strona 1: pieczątka czytelna, bez plamy"
 ```
 
 **Problem (cytat klienta):** *„pieczątka do poprawy"* — klient przesłał nową wersję pieczątki z czterema liniami:
@@ -880,11 +885,12 @@ security_impact: none
 id: RAO-P1-012
 priority: P1
 size: M
-status: review
+status: done
 classification: bugfix/pdf/visual
 roles: [backend-dev]
 source: client-request
 source_date: 2026-05-25
+done_date: 2026-05-26
 source_ref: "klient bardzo restrykcyjny dot. OWN. Analiza docx w spec/archive/reference_reports/own/ownA.docx + ownU.docx wykazała hanging indenty 12.7mm/19.05mm"
 specs_to_update:
   - core/11_reports_stats.md
@@ -893,8 +899,10 @@ migration_impact: no
 security_impact: none
 verification:
   - "Analiza ownA.docx (Python python-docx): pierwsze paragrafy definicji L=0mm, listy numerowane left=720 twips (12.7mm), hanging=360 twips (6.35mm), sub-listy left=1080 twips (19.05mm)"
-  - "Obecnie w contract.html: .own-num padding-left:14px (≈3.7mm) text-indent:-14px — ZA MAŁE wcięcie, niezgodne z docx"
-  - "W docx klienta sub-listy są niespójne (różne abstractNumId: 9 / 10 / 11 — od left=720 do 1440 twips), więc agent ma uporządkować JEDNĄ SPÓJNĄ regułę dla wszystkich sub-list"
+  - "Wartości z docx (7mm/13mm) ZBYT SZEROKIE dla 2-kolumnowego layoutu PDF (kolumna ~89mm) — rozjeżdżały treść na 5 stron"
+  - "Finalne wartości (zweryfikowane PDF S=3 strony, U=2 strony): padding-left:5mm text-indent:-5mm (główne), padding-left:10mm text-indent:-5mm (sub-listy) — proporcja 1:2, równe wcięcia"
+  - "font-size: 7pt (z 7.5pt), line-height: 1.1 (z 1.15), margin: 1px (z 2px) — kompresja ~10% wysokości pozwoliła zmieścić treść"
+  - "table.own-sigs: page-break-inside:avoid + margin-top:20px (z 40px) — żeby pieczątka i podpisy NIE rozdzielały się między strony"
 ```
 
 **Problem (cytat klienta):** *„klient ma fisia żeby wszystkie wcięcia były równe i nic nie wystawało"*
@@ -1512,7 +1520,7 @@ security_impact: none
 id: RAO-P3-014
 priority: P3
 size: M
-status: triaged
+status: in_progress
 classification: bugfix/data
 roles: [backend-dev, frontend-dev]
 source: client-request
@@ -1596,10 +1604,10 @@ security_impact: none
 | RAO-P1-006 | PDF Protokół — większa tabela "Przy wydaniu/odbiorce" | klient skan | P1 | S | review |
 | RAO-P1-007 | PDF Protokół — 1 duża tabela "uwagi" zamiast 3 | klient czat | P1 | M | review |
 | RAO-P1-008 | Format kaskadowy warunków rozliczenia (jak stara app) | klient + legacy | P1 | M | review |
-| RAO-P1-009 | Wymiana pieczątki firmy w PDF | klient czat | P1 | XS | review |
+| RAO-P1-009 | Wymiana pieczątki firmy w PDF | klient czat | P1 | XS | done |
 | RAO-P1-010 | Weryfikacja numeru telefonu w nagłówku | klient czat | P1 | XS | review |
 | RAO-P1-011 | **[SPIKE]** Walidacja duplikatu maszyny + ostrzeżenie o konflikcie wynajmu | klient czat | P1 | S | review |
-| RAO-P1-012 | PDF OWN — ujednolicenie wcięć w listach (klient: "nic nie wystaje") | klient + docx ref | P1 | M | review |
+| RAO-P1-012 | PDF OWN — ujednolicenie wcięć w listach (klient: "nic nie wystaje") | klient + docx ref | P1 | M | done |
 | RAO-P2-001 | PDF Umowa NAJMU (S) — domyślny cennik dodatkowy (6 pozycji) | klient czat | P2 | M | review |
 | RAO-P2-002 | PDF Umowa — sekcja "Uwagi" w określonej kolejności | klient czat | P2 | S | review |
 | RAO-P2-003 | PDF Umowa — kompaktniejszy layout | klient skan + czat | P2 | M | review |

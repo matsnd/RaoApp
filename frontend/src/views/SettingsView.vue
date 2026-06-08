@@ -307,15 +307,11 @@
                         <th style="width:64px;"></th>
                       </tr>
                     </thead>
-                    <!-- VueDraggable renderuje się jako <tbody> — NIE owijaj w zewnętrzne <tbody> -->
-                    <VueDraggable
-                      v-model="preset.templates"
-                      tag="tbody"
-                      handle=".drag-handle"
-                      @end="onTemplatesReorder(preset)"
-                    >
-                      <template #item="{ element: tpl }">
-                        <tr v-if="editingPresetItemId === tpl.id" style="background:#fffff0;">
+                    <!-- Tymczasowo: prosty v-for zamiast VueDraggable do debugowania -->
+                    <tbody v-if="preset.templates && preset.templates.length > 0">
+                      <tr v-for="tpl in preset.templates" :key="tpl.id">
+                        <template v-if="editingPresetItemId === tpl.id">
+                          <!-- Edit mode -->
                           <td></td>
                           <td>
                             <!-- RAO-P1-011: Article picker instead of text input -->
@@ -335,23 +331,31 @@
                             <button class="btn-icon" style="color:#22543D;" title="Zapisz" @click="savePresetItem(preset.id)">✓</button>
                             <button class="btn-icon" title="Anuluj" @click="editingPresetItemId = null">✕</button>
                           </td>
-                        </tr>
-                        <tr v-else @click="startEditPresetItem(tpl)" style="cursor:pointer;" :class="{ 'row-inactive-tpl': !tpl.is_active }">
-                          <td class="drag-handle" @click.stop title="Przeciągnij aby zmienić kolejność">⋮⋮</td>
-                          <td>{{ tpl.article_name || tpl.name }}</td>
-                          <td>{{ tpl.default_price ? Number(tpl.default_price).toFixed(2) + ' zł' : '—' }}</td>
-                          <td>{{ tpl.amount_from ? Number(tpl.amount_from).toFixed(2) + ' zł' : '—' }}</td>
-                          <td>{{ tpl.amount_to ? Number(tpl.amount_to).toFixed(2) + ' zł' : '—' }}</td>
-                          <td>{{ tpl.unit || '—' }}</td>
-                          <td style="font-size:11px;">{{ tpl.description || '—' }}</td>
-                          <td><span :class="['badge', tpl.is_active ? 'badge-success' : 'badge-muted']">{{ tpl.is_active ? 'Tak' : 'Nie' }}</span></td>
+                        </template>
+                        <template v-else>
+                          <!-- Display mode -->
+                          <td @click.stop title="Przeciągnij aby zmienić kolejność">⋮⋮</td>
+                          <td @click="startEditPresetItem(tpl)" style="cursor:pointer;">{{ tpl.article_name || tpl.name }}</td>
+                          <td @click="startEditPresetItem(tpl)" style="cursor:pointer;">{{ tpl.default_price ? Number(tpl.default_price).toFixed(2) + ' zł' : '—' }}</td>
+                          <td @click="startEditPresetItem(tpl)" style="cursor:pointer;">{{ tpl.amount_from ? Number(tpl.amount_from).toFixed(2) + ' zł' : '—' }}</td>
+                          <td @click="startEditPresetItem(tpl)" style="cursor:pointer;">{{ tpl.amount_to ? Number(tpl.amount_to).toFixed(2) + ' zł' : '—' }}</td>
+                          <td @click="startEditPresetItem(tpl)" style="cursor:pointer;">{{ tpl.unit || '—' }}</td>
+                          <td @click="startEditPresetItem(tpl)" style="cursor:pointer; font-size:11px;">{{ tpl.description || '—' }}</td>
+                          <td @click="startEditPresetItem(tpl)" style="cursor:pointer;"><span :class="['badge', tpl.is_active ? 'badge-success' : 'badge-muted']">{{ tpl.is_active ? 'Tak' : 'Nie' }}</span></td>
                           <td>
                             <button class="btn-icon" title="Edytuj" @click.stop="startEditPresetItem(tpl)">✎</button>
                             <button class="btn-icon" title="Usuń" @click.stop="deletePresetItem(preset.id, tpl.id)">✕</button>
                           </td>
-                        </tr>
-                      </template>
-                    </VueDraggable>
+                        </template>
+                      </tr>
+                    </tbody>
+                    <tbody v-else>
+                      <tr>
+                        <td colspan="9" style="text-align:center; padding: 20px; color: #718096;">
+                          Brak szablonów w tym zestawie
+                        </td>
+                      </tr>
+                    </tbody>
                     <!-- Nowy wiersz w osobnym <tbody> (HTML5 dozwala wiele tbody w tabeli) -->
                     <tbody>
                       <tr v-if="addingToPresetId === preset.id" style="background:#f0fff4;">
@@ -573,8 +577,15 @@ onMounted(async () => {
 })
 
 async function loadFeePresets() {
-  const { data } = await api.get('/settings/fee-preset-groups')
-  feePresets.value = data
+  console.log('loadFeePresets: starting...');
+  try {
+    const { data } = await api.get('/settings/fee-preset-groups')
+    console.log('loadFeePresets: API response', data);
+    feePresets.value = data
+    console.log('loadFeePresets: feePresets.value', feePresets.value);
+  } catch (error) {
+    console.error('loadFeePresets: error', error);
+  }
 }
 
 async function addPreset() {

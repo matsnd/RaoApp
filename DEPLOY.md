@@ -439,7 +439,99 @@ Otwórz `https://www.toolsmart.pl/rao` w przeglądarce → powinna pojawić się
 
 ---
 
-## KROK 6 — Utwórz pierwszego admina
+## KROK 6 — Migracje danych (po wdrożeniu)
+
+### 6a. Migracja RAO-P3-014: Placeholdery $1/$2 w opisach usług dodatkowych
+
+**Data:** 2026-05-25  
+**Cel:** Zamienić placeholdery `$1 zł`, `$2 zł` na konkretne wartości w `service_fee_templates`
+
+**Problem:** Opisy w bazie używały placeholderów `$1`, `$2` zamiast konkretnych wartości z `amount_from`/`amount_to`, co powodowało wyświetlanie `$1 zł`, `$2 zł` w PDF zamiast rzeczywistych kwot.
+
+**Rozwiązanie:** Skrypt SQL zastępuje placeholdery wartościami z kolumn `amount_from` i `amount_to`.
+
+#### Instrukcja migracji na produkcji
+
+1. **Zaloguj się do PhpMyAdmin** (panel hostingowy)
+2. **Wybierz bazę danych** `toolsmart_rao` (lub nazwa z panelu)
+3. **Zakładka SQL** (górna zakładka)
+4. **Wklej skrypt migracyjny:**
+
+```sql
+-- Migration 003: Fix placeholders $1/$2 in service_fee_templates descriptions
+-- Date: 2026-05-25
+-- Description: Replace placeholders $1/$2 with actual values from amount_from/amount_to
+
+-- Backup before migration
+CREATE TABLE IF NOT EXISTS service_fee_templates_backup_20260525 AS SELECT * FROM service_fee_templates;
+
+-- Update descriptions with actual values
+-- Pattern: replace $1 with amount_from, $2 with amount_to
+-- Format: "X zł" where X is the value formatted as decimal
+
+UPDATE service_fee_templates 
+SET description = REPLACE(
+    REPLACE(
+        description,
+        '$1 zł',
+        CONCAT(IFNULL(amount_from, ''), ' zł')
+    ),
+    '$2 zł',
+    CONCAT(IFNULL(amount_to, ''), ' zł')
+)
+WHERE description LIKE '%$1%' OR description LIKE '%$2%';
+
+-- Verify migration
+SELECT 
+    id, 
+    name, 
+    description, 
+    amount_from, 
+    amount_to,
+    CASE 
+        WHEN description LIKE '%$1%' OR description LIKE '%$2%' THEN 'STILL_HAS_PLACEHOLDERS'
+        ELSE 'OK'
+    END as status
+FROM service_fee_templates
+ORDER BY id;
+```
+
+5. **Kliknij "Wykonaj"** (Execute)
+6. **Sprawdź wynik weryfikacji** - wszystkie rekordy powinny mieć status = `OK`
+
+#### Przykłady zmian
+
+| ID | Przed | Po |
+|----|-------|----|
+| 1 | `- Usługa tankowania: $1 zł (plus koszt paliwa)` | `- Usługa tankowania: 150.00 zł (plus koszt paliwa)` |
+| 3 | `- Transport: $1 zł dostawa / $2 zł odbiór` | `- Transport: 400.00 zł dostawa / 400.00 zł odbiór` |
+| 5 | `- Ponadnormatywny przestój transportu: $1 zł / h - $2 zł / h` | `- Ponadnormatywny przestój transportu: 200.00 zł / h - 300.00 zł / h` |
+
+#### Rollback (jeśli coś pójdzie nie tak)
+
+```sql
+-- Przywrócić dane z backupu
+DROP TABLE service_fee_templates;
+RENAME TABLE service_fee_templates_backup_20260525 TO service_fee_templates;
+```
+
+#### Weryfikacja po migracji
+
+1. **Sprawdź PDF** - wygeneruj umowę z usługami dodatkowymi i sprawdź czy wartości są widoczne (bez $1/$2)
+2. **Sprawdź UI** - otwórz ustawienia → "Zestawy usług dodatkowych" i sprawdź czy opisy są poprawne
+3. **Sprawdź bazę** - w PhpMyAdmin wykonaj:
+   ```sql
+   SELECT id, name, description FROM service_fee_templates;
+   ```
+   - Żaden rekord nie powinien zawierać `$1` lub `$2`
+
+#### Automatyczna migracja w backend
+
+**Uwaga:** Backend automatycznie wykonuje tę migrację przy starcie (w `backend/main.py` startup_migrations), ale ręczne wykonanie skryptu SQL na produkcji jest zalecane dla pewności i audytu.
+
+---
+
+## KROK 7 — Utwórz pierwszego admina
 
 Po imporcie bazy sprawdź czy istnieje użytkownik admin:
 ```sql
@@ -504,3 +596,9 @@ VALUES ('admin', 'admin@toolsmart.pl', '$2b$12$HASH_TUTAJ', 'admin', 1);
 - [ ] `https://www.toolsmart.pl/rao` → strona logowania RAO
 - [ ] F5 na `/rao/home` nie daje 404
 - [ ] Login działa, dane się ładują z bazy
+
+**Migracje danych (KROK 6):**
+- [ ] Skrypt SQL `003_fix_service_fee_placeholders.sql` wykonany w PhpMyAdmin
+- [ ] Weryfikacja: wszystkie rekordy mają status = `OK` (brak $1/$2)
+- [ ] PDF z usługami dodatkowymi pokazuje konkretne wartości (nie placeholdery)
+- [ ] UI ustawienia → "Zestawy usług dodatkowych" pokazuje poprawne opisy

@@ -2,6 +2,9 @@ from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, LargeBina
 from sqlalchemy.orm import relationship
 from database import Base
 
+# Import dla relacji ServiceFeeTemplate -> Article
+from articles.models import Article
+
 
 class Company(Base):
     __tablename__ = "company"

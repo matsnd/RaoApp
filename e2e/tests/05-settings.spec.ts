@@ -163,6 +163,56 @@ test.describe('TEST-05: Ustawienia', () => {
     }
   })
 
+  test('weryfikuje wyświetlanie pozycji fee preset w UI', async ({ page }) => {
+    await page.goto('/rao/settings', { waitUntil: 'domcontentloaded', timeout: 15_000 })
+    
+    // Kliknij zakładkę "Zestawy usług"
+    const feePresetsTab = page.getByRole('button', { name: 'Zestawy usług' })
+    await expect(feePresetsTab).toBeVisible({ timeout: 5_000 })
+    await feePresetsTab.click()
+    await expect(page.locator('.panel-header').last()).toContainText('Zestawy usług', { timeout: 5_000 })
+    
+    // Zrób screenshot przed rozwinięciem
+    await page.screenshot({ path: 'test-results/fee-presets-collapsed.png', fullPage: false })
+    
+    // Sprawdź czy są karty presetów
+    const presetCards = page.locator('.preset-card')
+    await expect(presetCards.first()).toBeVisible({ timeout: 5_000 })
+    
+    // Rozwiń pierwszy preset (Domyślny — najem) jeśli jest zwinięty
+    const firstPreset = presetCards.first()
+    const expandButton = firstPreset.getByRole('button').filter({ hasText: /▼|▲/ })
+    await expect(expandButton).toBeVisible({ timeout: 3_000 })
+    
+    // Sprawdź czy preset jest już rozwinięty
+    const isExpanded = await expandButton.textContent().then(text => text?.includes('▲'))
+    
+    if (!isExpanded) {
+      await expandButton.click()
+    }
+    
+    // Poczekaj chwilę na renderowanie
+    await page.waitForTimeout(2000)
+    
+    // Zrób screenshot po rozwinięciu
+    await page.screenshot({ path: 'test-results/fee-presets-expanded.png', fullPage: false })
+    
+    // Sprawdź czy tabela jest widoczna
+    const firstPresetItems = firstPreset.locator('.preset-items')
+    await expect(firstPresetItems).toBeVisible({ timeout: 5_000 })
+    
+    // Sprawdź czy nagłówek tabeli jest widoczny
+    await expect(firstPresetItems.locator('table.data-grid thead')).toBeVisible({ timeout: 3_000 })
+    
+    // Sprawdź czy nazwy pozycji są widoczne w pierwszej karcie presetu
+    const expectedItems = ['Tankowanie', 'Transport', 'Ponadnormatywny przestój', 'Czyszczenie 1', 'Czyszczenie 2']
+    
+    for (const itemName of expectedItems) {
+      const itemLocator = firstPresetItems.getByText(itemName)
+      await expect(itemLocator).toBeVisible({ timeout: 5_000 })
+    }
+  })
+
   test.afterAll(async () => {
     const ctx = await newApiContext()
     try {
