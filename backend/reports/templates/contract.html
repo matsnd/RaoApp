@@ -217,11 +217,21 @@
     <td class="inne-left">
       {% if fees %}
       <div class="inne-label">Inne usługi</div>
-      <ul style="margin: 0; padding-left: 15px; font-size: 8.5px; line-height: 1.4;">
+      <div style="margin: 0; font-size: 8.5px; line-height: 1.4;">
         {% for f in fees %}{% if f.is_active %}
-        <li style="margin-bottom: 1px;">{{ f.name }}{% if f.description %} ({{ f.description }}){% endif %}: {% if f.amount_from %}{{ f.amount_from | money_plain }}{% endif %}{% if f.amount_to %} - {{ f.amount_to | money_plain }}{% endif %}{% if f.unit %} {{ f.unit }}{% endif %}</li>
+        <div style="margin-bottom: 1px;">
+          {% if f.description %}
+            {% if f.description[:1] == '-' or f.description[:1] == '•' %}
+              {{ f.description }}
+            {% else %}
+              - {{ f.description }}
+            {% endif %}
+          {% else %}
+            - {{ f.name }}: {% if f.amount_from %}{{ f.amount_from | money_plain }}{% endif %}{% if f.amount_to %} - {{ f.amount_to | money_plain }}{% endif %}{% if f.unit %} {{ f.unit }}{% endif %}
+          {% endif %}
+        </div>
         {% endif %}{% endfor %}
-      </ul>
+      </div>
       {% endif %}
     </td>
     <td class="inne-right">

@@ -72,6 +72,16 @@ async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
     positions = contract.positions
     fees = contract.service_fees
 
+    # Dynamiczne formatowanie placeholderów $1 i $2 w locie przed renderowaniem PDF
+    for f in fees:
+        if f.description:
+            if f.amount_from is not None:
+                val_from = f"{f.amount_from:.2f} zł"
+                f.description = f.description.replace("$1 zł", val_from).replace("$1", val_from)
+            if f.amount_to is not None:
+                val_to = f"{f.amount_to:.2f} zł"
+                f.description = f.description.replace("$2 zł", val_to).replace("$2", val_to)
+
     positions_data = []
     for pos in positions:
         conds_result = await db.execute(

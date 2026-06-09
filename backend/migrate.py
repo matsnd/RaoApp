@@ -733,6 +733,48 @@ async def step5b_contract_service_fees():
     print(f"   {inserted} service fee rows from {len(rows)} contracts ({skipped} unparseable skipped)")
 
 
+async def step5e_fix_placeholders():
+    """Replace $1/$2 placeholders with actual values directly in migrated database (Tech Lead fix)."""
+    print("[5e] Fixing fee templates and contract service fee placeholders ($1/$2) …")
+    conn = await aiomysql.connect(host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASS, db=DB_NAME)
+    cur = await conn.cursor()
+
+    # Fix service_fee_templates
+    await cur.execute("""
+        UPDATE service_fee_templates 
+        SET description = REPLACE(
+            REPLACE(
+                description,
+                '$1 zł',
+                CONCAT(IFNULL(amount_from, ''), ' zł')
+            ),
+            '$2 zł',
+            CONCAT(IFNULL(amount_to, ''), ' zł')
+        )
+        WHERE description LIKE '%$1%' OR description LIKE '%$2%'
+    """)
+
+    # Fix contract_service_fees
+    await cur.execute("""
+        UPDATE contract_service_fees 
+        SET description = REPLACE(
+            REPLACE(
+                description,
+                '$1 zł',
+                CONCAT(IFNULL(amount_from, ''), ' zł')
+            ),
+            '$2 zł',
+            CONCAT(IFNULL(amount_to, ''), ' zł')
+        )
+        WHERE description LIKE '%$1%' OR description LIKE '%$2%'
+    """)
+
+    await conn.commit()
+    await cur.close()
+    conn.close()
+    print("   OK: Placeholders fixed in templates and historical contracts.")
+
+
 async def step6_drop_old():
     print("[6/7] DROP old tables + views …")
     conn = await aiomysql.connect(host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASS, db=DB_NAME)
@@ -1481,6 +1523,7 @@ async def main():
         await step5c_create_preset_groups()
         await step5d_link_articles_to_templates()  # RAO-P1-011
         await step5b_contract_service_fees()
+        await step5e_fix_placeholders()  # Fix placeholder hotfix (RAO-P3-014)
         await step6_drop_old()
         # step7_rehash removed - passwords already hashed in step4b
         await step8_csv_categories()   # RAO-P1-017
