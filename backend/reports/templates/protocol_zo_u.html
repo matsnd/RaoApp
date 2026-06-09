@@ -44,6 +44,11 @@
   table.sigs { width: 100%; border-collapse: collapse; margin-top: 15px; }
   table.sigs td { text-align: center; width: 50%; font-size: 10px; vertical-align: bottom; }
   .sig-line { border-top: 1px solid #000; display: inline-block; width: 220px; padding-top: 3px; }
+
+  /* SERVICE HOURS TABLE (styled like pwo table) */
+  table.pwo { width: 100%; border-collapse: collapse; font-size: 9.5px; margin-bottom: 10px; }
+  table.pwo th { background: #1D2B53; color: #fff; padding: 4px 6px; font-weight: normal; border: 1px solid #1D2B53; text-align: center; font-size: 8.5px; }
+  table.pwo td { border: 1px solid #aaa; padding: 4px 8px; height: 28px; vertical-align: middle; text-align: center; }
   
   /* BOTTOM SECTION (Flex push) */
   .bottom-section { margin-top: auto; }
@@ -157,7 +162,7 @@
   <!-- SERVICE HOURS SECTION — dane z bazy lub puste wiersze -->
   {% for p in positions %}
   <div style="margin: 16px 0 10px; page-break-inside: avoid;">
-    <table class="pos" style="margin-bottom: 10px;">
+    <table class="pwo" style="margin-bottom: 10px;">
       <thead>
         <tr>
           <th style="width: 150px;">Data wykonania usługi</th>
@@ -193,10 +198,10 @@
   <div class="bottom-section">
 
     <!-- UWAGI BOX -->
-    <div class="ret-uwagi" style="border: 1px solid #aaa; padding: 6px; font-size: 9px; min-height: 80px; color: #888; margin-bottom: 4px;">uwagi</div>
+    <div class="ret-uwagi" style="border: 1px solid #aaa; padding: 8px 12px; font-size: 10px; min-height: 120px; color: #888; margin: 15px 0 15px 0;">uwagi</div>
 
-    <!-- SIGNATURE -->
-    <table class="sigs" style="margin-top: 20px;">
+    <!-- SIGNATURES -->
+    <table class="sigs" style="margin-top: 15px;">
       <tr>
         <td>
           <div style="text-align:center;">
@@ -204,8 +209,8 @@
             <div class="sig-line" style="margin-top:0;">czytelny podpis Wynajmującego</div>
           </div>
         </td>
-        <td style="padding-top:40px; vertical-align: bottom;">
-          <div class="sig-line" style="margin-top:10px;">czytelny podpis Najemcy</div>
+        <td style="vertical-align: bottom;">
+          <div class="sig-line" style="margin-top:4px;">czytelny podpis Najemcy</div>
         </td>
       </tr>
     </table>
