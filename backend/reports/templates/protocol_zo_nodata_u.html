@@ -12,7 +12,7 @@
   table.hdr { width: 100%; background: #1D2B53; color: #fff; border-collapse: collapse; flex-shrink: 0; }
   .hdr-left { width: 33%; padding: 10px 10px 10px 14mm; font-size: 8px; line-height: 1.6; vertical-align: middle; }
   .hdr-center { width: 34%; text-align: center; vertical-align: middle; padding: 8px; }
-  .hdr-logo { font-size: 22px; font-weight: bold; letter-spacing: 2px; line-height: 1.1; }
+  .hdr-logo-img { height: 18px; width: auto; display: block; margin: 0 auto 3px auto; object-fit: contain; }
   .hdr-slogan { font-size: 7.5px; letter-spacing: 3px; margin-top: 2px; }
   .hdr-right { width: 33%; text-align: right; padding: 10px 14mm 10px 10px; font-size: 8px; line-height: 1.6; vertical-align: middle; }
 
@@ -61,7 +61,7 @@
   <tr>
     <td class="hdr-left">toolsmart.pl<br>+48 888 992 015<br>biuro@toolsmart.pl</td>
     <td class="hdr-center">
-      <div class="hdr-logo">TOOLSMART</div>
+      <img src="../assets/logo.svg" alt="TOOLSMART" class="hdr-logo-img">
       <div class="hdr-slogan">WYNAJEM MASZYN BUDOWLANYCH</div>
     </td>
     <td class="hdr-right">{{ company.name if company else 'TOOLSMART Sp. z o.o.' }}<br>ul. {{ company.street if company else 'Kłobucka 6B/103' }},<br>{{ (company.postal_code + ' ' + company.city) if company else '02-699 Warszawa' }}<br>NIP {{ company.nip if company else '9512598092' }}</td>
