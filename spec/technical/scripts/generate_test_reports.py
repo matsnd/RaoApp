@@ -10,6 +10,21 @@ sys.path.insert(0, backend_dir)
 import fitz  # PyMuPDF
 from sqlalchemy import select
 from database import AsyncSessionLocal
+
+# Import all models to register them in SQLAlchemy Base.metadata
+import auth.models
+import contractors.models
+import categories.models
+import articles.models
+import settings.models
+import settlements.models
+import integrations.models
+import reservations.models
+import deliveries.models
+import contract_costs.models
+import audit.models
+import integrations.fakturownia.models
+
 from contracts.models import Contract
 from reports.service import generate_pdf
 

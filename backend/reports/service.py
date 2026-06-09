@@ -268,13 +268,15 @@ def _pdf_via_weasyprint(html: str, use_footer: bool = True) -> bytes:
     # Protocols declare their own internal padding; only need bottom margin for footer.
     # Contracts use generous margins for their layout.
     page_margin = "0 0 15mm 0" if not use_footer else "10mm 10mm 18mm 10mm"
+    bottom_left_padding = "" if use_footer else "padding-left: 10mm;"
+    bottom_right_padding = "" if use_footer else "padding-right: 10mm;"
     extra_css = f"""
     {font_face}
     @page {{
         size: A4;
         margin: {page_margin};
-        @bottom-left  {{ content: "Wydrukowano {now}"; font-size: 8px; color: #444; font-family: 'Roboto', sans-serif; }}
-        @bottom-right {{ content: "Strona " counter(page) " z " counter(pages); font-size: 8px; color: #444; font-family: 'Roboto', sans-serif; }}
+        @bottom-left  {{ content: "Wydrukowano {now}"; font-size: 8px; color: #444; font-family: 'Roboto', sans-serif; {bottom_left_padding} }}
+        @bottom-right {{ content: "Strona " counter(page) " z " counter(pages); font-size: 8px; color: #444; font-family: 'Roboto', sans-serif; {bottom_right_padding} }}
     }}
     #footer-legal-running {{
         position: absolute;
