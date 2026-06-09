@@ -217,20 +217,22 @@
     <td class="inne-left">
       {% if fees %}
       <div class="inne-label">Inne usługi</div>
-      <div style="margin: 0; font-size: 8.5px; line-height: 1.4;">
-        {% for f in fees %}{% if f.is_active %}
-        <div style="margin-bottom: 1px;">
-          {% if f.description %}
-            {% if f.description[:1] == '-' or f.description[:1] == '•' %}
-              {{ f.description }}
+      <div style="margin: 0; font-size: 8.5px; line-height: 1.45; text-align: justify; color: #333;">
+        {% for f in fees if f.is_active %}
+          {% if not loop.first %}<span style="color: #aaa; margin: 0 5px;">&bull;</span>{% endif %}
+          <span style="display: inline;">
+            {% if f.description %}
+              {% set desc = f.description %}
+              {% if desc[:1] == '-' or desc[:1] == '•' or desc[:1] == '*' %}
+                {{ desc[1:] | trim }}
+              {% else %}
+                {{ desc }}
+              {% endif %}
             {% else %}
-              - {{ f.description }}
+              {{ f.name }}{% if f.amount_from or f.amount_to %}: {% if f.amount_from %}{{ f.amount_from | money_plain }}{% endif %}{% if f.amount_to %} - {{ f.amount_to | money_plain }}{% endif %}{% if f.unit %} {{ f.unit }}{% endif %}{% endif %}
             {% endif %}
-          {% else %}
-            - {{ f.name }}: {% if f.amount_from %}{{ f.amount_from | money_plain }}{% endif %}{% if f.amount_to %} - {{ f.amount_to | money_plain }}{% endif %}{% if f.unit %} {{ f.unit }}{% endif %}
-          {% endif %}
-        </div>
-        {% endif %}{% endfor %}
+          </span>
+        {% endfor %}
       </div>
       {% endif %}
     </td>
