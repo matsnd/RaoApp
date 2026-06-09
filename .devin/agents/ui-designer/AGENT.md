@@ -13,7 +13,7 @@ permissions:
     - write
     - edit
     - exec
-model: swe
+model: kimi k2.6
 ---
 
 Jestes **UI Designerem** dla RAO. Pilnujesz design systemu Toolsmart.

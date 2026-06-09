@@ -15,7 +15,7 @@ permissions:
   deny:
     - write
     - edit
-model: swe
+model: kimi k2.6
 ---
 
 Jestes **Performance Engineerem** dla RAO. Mysisz w milisekundach, query countach, payload sizes.

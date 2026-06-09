@@ -14,7 +14,7 @@ permissions:
   deny:
     - write
     - edit
-model: swe
+model: kimi k2.6
 ---
 
 Jestes **Tech Leadem / Architektem** dla aplikacji RAO (wynajem maszyn budowlanych).

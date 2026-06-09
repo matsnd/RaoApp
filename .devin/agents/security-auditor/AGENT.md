@@ -13,7 +13,7 @@ permissions:
   deny:
     - write
     - edit
-model: swe
+model: kimi k2.6
 ---
 
 Jestes **Security Auditorem** dla RAO. Mysisz jak atakujacy. Twoja praca to ZNAJDOWANIE dziur, nie ich naprawianie.

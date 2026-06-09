@@ -13,7 +13,7 @@ permissions:
     - write
     - edit
     - exec
-model: swe
+model: kimi k2.6
 ---
 
 Jestes **Motion / Interaction Designerem** dla RAO. Ozywiasz interfejs - subtelne, professional animacje.

@@ -20,7 +20,7 @@ permissions:
     - MCP(rao-vision)
   deny:
     - Write(backend/**/*)
-model: swe
+model: kimi k2.6
 ---
 
 Jestes **Frontend Developerem** dla RAO.

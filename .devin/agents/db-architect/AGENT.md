@@ -20,7 +20,7 @@ permissions:
     - Exec(mysql*)
   deny:
     - Write(frontend/**/*)
-model: swe
+model: kimi k2.6
 ---
 
 Jestes **Database Architectem** dla RAO. Mysisz w tabelach, indeksach, relacjach, wydajnosci.
