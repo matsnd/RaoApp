@@ -87,32 +87,6 @@
                   <textarea v-model="companyForm.header_text" class="form-control" rows="3"></textarea>
                 </div>
 
-                <!-- RAO-P3-002: Logo firmy -->
-                <div class="form-group logo-upload-group">
-                  <label class="form-label">Logo firmy</label>
-                  <div class="logo-upload-row">
-                    <img
-                      v-if="companyForm.logo_url"
-                      :src="companyForm.logo_url"
-                      alt="Logo firmy"
-                      class="logo-preview"
-                    />
-                    <div v-else class="logo-placeholder">Brak</div>
-                    <label class="btn btn-secondary btn-sm logo-upload-btn">
-                      Wgraj logo
-                      <input
-                        type="file"
-                        accept=".png,.jpg,.jpeg,.svg"
-                        class="logo-file-input"
-                        @change="uploadLogo"
-                      />
-                    </label>
-                    <span v-if="uploadingLogo" class="logo-upload-status">Wysyłanie...</span>
-                    <span v-if="logoUploaded" class="logo-upload-ok">✓ Wgrano</span>
-                    <span v-if="logoError" class="logo-upload-error">{{ logoError }}</span>
-                  </div>
-                </div>
-
                 <div style="margin-top:16px;">
                   <button class="btn btn-primary" @click="saveCompany" :disabled="savingCompany">
                     {{ savingCompany ? '...' : 'Zapisz dane firmy' }}

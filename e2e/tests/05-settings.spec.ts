@@ -20,7 +20,7 @@ test.describe('TEST-05: Ustawienia', () => {
 
   test('zakładka Dane firmy ładuje dane z bazy', async ({ page }) => {
     await page.goto('/rao/settings', { waitUntil: 'domcontentloaded', timeout: 15_000 })
-    await expect(page.getByRole('button', { name: 'Dane firmy' })).toBeVisible({ timeout: 8_000 })
+    await expect(page.getByRole('button', { name: 'Dane firmy', exact: true })).toBeVisible({ timeout: 8_000 })
     await expect(page.locator('text=Dane firmy').first()).toBeVisible()
     await expect(page.getByRole('button', { name: 'Zapisz dane firmy' })).toBeVisible({ timeout: 5_000 })
   })
@@ -208,7 +208,7 @@ test.describe('TEST-05: Ustawienia', () => {
     const expectedItems = ['Tankowanie', 'Transport', 'Ponadnormatywny przestój', 'Czyszczenie 1', 'Czyszczenie 2']
     
     for (const itemName of expectedItems) {
-      const itemLocator = firstPresetItems.getByText(itemName)
+      const itemLocator = firstPresetItems.getByText(itemName).first()
       await expect(itemLocator).toBeVisible({ timeout: 5_000 })
     }
   })

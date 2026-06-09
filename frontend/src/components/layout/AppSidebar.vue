@@ -3,15 +3,10 @@
     <!-- RAO-P3-003: Logo firmy (jeśli wgrane) lub domyślna nazwa -->
     <div class="sidebar-logo">
       <img
-        v-if="settingsStore.company?.logo_url"
-        :src="settingsStore.company.logo_url"
-        alt="Logo firmy"
+        src="/logo.svg"
+        alt="TOOLSMART"
         class="sidebar-company-logo"
       />
-      <template v-else>
-        <span class="sidebar-logo-text">TOOLSMART</span>
-        <span class="sidebar-logo-sub">WYNAJEM MASZYN</span>
-      </template>
     </div>
     <button
       :class="['sidebar-btn', 'sidebar-btn-home', { active: activeSection === 'home' }]"
@@ -96,8 +91,8 @@ onMounted(async () => {
 }
 /* RAO-P3-003: logo firmy w sidebarze */
 .sidebar-company-logo {
-  max-height: 40px;
-  max-width: 140px;
+  max-height: 22px;
+  width: auto;
   object-fit: contain;
   display: block;
   margin: 0 auto;
