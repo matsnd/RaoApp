@@ -1592,6 +1592,45 @@ security_impact: none
 
 ---
 
+### [RAO-P1-013] Widok archiwalnych artykułów (toggle + label)
+
+```yaml
+id: RAO-P1-013
+priority: P1
+size: S
+status: done
+classification: feature/frontend-backend
+roles: [backend-dev, frontend-dev]
+source: client-request
+source_date: 2026-06-09
+source_ref: "user request: sa ukryte archiwalne produkty zrob zeby byly widoczne"
+specs_to_update:
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+migration_impact: no
+security_impact: none
+```
+
+**Problem:** Po migracji ze starej bazy ~1000+ artykułów oznaczonych jako `is_archival=TRUE` jest niewidocznych w UI. Użytkownik nie ma dostępu do historycznego parku maszyn.
+
+**Rozwiązanie:**
+- Backend: parametr `archival_status` (enum active/archival) na `GET /articles`, domyślnie `active` (backward compatible)
+- Frontend: toggle checkbox "Archiwalne" w grid-header sekcji Artykułów; toolbar pokazuje "Artykuły archiwalne (N)" gdy włączony
+- Archiwalne wiersze mają szare tło `.row-archival` w gridzie
+- Empty state warunkowy: brak archiwalnych -> "Brak artykułów archiwalnych"
+
+**Pliki do zmiany:**
+- `backend/articles/schemas.py` -- `ArticleArchivalFilter`
+- `backend/articles/service.py` -- parametr `archival_status` w `list_articles`
+- `backend/articles/router.py` -- query param `archival_status`
+- `frontend/src/views/DashboardView.vue` -- toggle + przekazanie param + toolbar + empty state
+- `frontend/src/assets/styles/tables.css` -- `.row-archival`, `.badge-archival`
+
+**Estimate:** 1.5h (S)
+
+---
+
+
 ## 📋 Tabela TL;DR
 
 | ID | Tytuł | Źródło | P | Est. | Status |

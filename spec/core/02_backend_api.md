@@ -544,7 +544,11 @@ class GusLookupResponse(BaseModel):
 ### `GET /articles`
 
 ```python
-# Query: ?search=koparka&category_id=1&owner_id=5&page=1&per_page=50
+# Query: ?search=koparka&category_id=1&owner_id=5&archival_status=active&page=1&per_page=50
+
+class ArticleArchivalFilter(str, Enum):
+    ACTIVE = "active"      # domyślnie — tylko aktywne (backward compatible)
+    ARCHIVAL = "archival"  # tylko archiwalne
 
 class ArticleListItem(BaseModel):
     id: int

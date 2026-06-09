@@ -359,6 +359,7 @@ const columnDefs = {
   ],
   articles: [
     { key: 'name', label: 'Nazwa', width: 200 },
+    { key: 'type', label: 'Typ', width: 80 },
     { key: 'registration_no', label: 'Nr rej.', width: 100 },
     { key: 'brand', label: 'Marka', width: 100 },
     { key: 'model', label: 'Model', width: 100 },
@@ -379,6 +380,16 @@ const columnDefs = {
 - Filtr **dat**: Data od / Data do
 - Kolumna **Status**: `Aktywna` (niebieski badge) | `Przeterminowana` (czerwony) | `Rozliczona` (zielony)
 - Wiersz `row-settled`: szare/wyciszone tło gdy `c.is_settled = true`
+
+**Lista artykułów — filtr archiwalny:**
+
+- Filtr **archiwalny** (toggle checkbox w grid-header): domyślnie `Aktywne`, toggle → `Archiwalne`
+- Parametr API: `archival_status=active|archival`
+- Wiersz `row-archival`: szare tło `#f8fafb`, przyciemniony tekst `#718096` gdy `is_archival=true`
+- Warunkowy empty state:
+  - Aktywne: "Brak artykułów — + Nowy artykuł"
+  - Archiwalne: "Brak artykułów archiwalnych"
+
 
 **Context Menu per sekcja:**
 

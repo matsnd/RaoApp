@@ -230,6 +230,10 @@
               <span class="search-icon">⌕</span>
               <input v-model="search" type="text" class="form-control" placeholder="Szukaj wg nazwy, numeru..." />
             </div>
+            <label class="toggle-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;font-size:13px;color:var(--color-text-body);">
+              <input v-model="archivalFilter" type="checkbox" true-value="archival" false-value="active" style="accent-color:var(--color-primary);width:16px;height:16px;" />
+              Archiwalne
+            </label>
           </div>
           <div class="grid-scroll">
             <table class="data-grid">
@@ -250,14 +254,19 @@
                 </tr>
                 <tr v-else-if="!articleStore.list.length">
                   <td colspan="7" class="empty-state">
-                    Brak artykułów —
-                    <button class="btn btn-primary btn-sm" style="margin-left:8px;" @click="router.push({ name: 'ArticleNew' })">+ Nowy artykuł</button>
+                    <template v-if="archivalFilter === 'active'">
+                      Brak artykułów —
+                      <button class="btn btn-primary btn-sm" style="margin-left:8px;" @click="router.push({ name: 'ArticleNew' })">+ Nowy artykuł</button>
+                    </template>
+                    <template v-else>
+                      Brak artykułów archiwalnych
+                    </template>
                   </td>
                 </tr>
                 <tr
                   v-for="a in articleStore.list"
                   :key="a.id"
-                  :class="{ selected: selectedId === a.id }"
+                  :class="['article-row', { selected: selectedId === a.id, 'row-archival': a.is_archival }]"
                   @click="selectedId = a.id"
                   @dblclick="editArticle(a.id)"
                 >
@@ -333,6 +342,7 @@ const articleStore = useArticleStore()
 const search = ref('')
 const contractTypeFilter = ref('')
 const settledFilter = ref('')   // RAO-P2-022: domyślnie wszystkie umowy (zmienione z 'false' na '' ze względu na pustą listę)
+const archivalFilter = ref('active')
 const dateFrom = ref('')
 const dateTo = ref('')
 const selectedId = ref(null)
@@ -376,7 +386,10 @@ const toolbarInfo = computed(() => {
   if (section.value === 'contracts') return `Umowy (${contractStore.total} rekordów)`
   if (section.value === 'overdue') return `Przeterminowane umowy (${contractStore.overdueTotal} rekordów)`
   if (section.value === 'contractors') return `Kontrahenci (${contractorStore.total} rekordów)`
-  if (section.value === 'articles') return `Artykuły (${articleStore.total} rekordów)`
+  if (section.value === 'articles') {
+    const prefix = archivalFilter.value === 'archival' ? 'Artykuły archiwalne' : 'Artykuły'
+    return `${prefix} (${articleStore.total} rekordów)`
+  }
   return ''
 })
 
@@ -395,6 +408,9 @@ async function loadData() {
   } else if (section.value === 'contractors') {
     await contractorStore.fetchList(params)
   } else if (section.value === 'articles') {
+    if (archivalFilter.value === 'archival') {
+      params.archival_status = 'archival'
+    }
     await articleStore.fetchList(params)
   }
 }
@@ -414,6 +430,7 @@ watch(search, () => {
 })
 watch(contractTypeFilter, () => { page.value = 1; loadData() })
 watch(settledFilter, () => { page.value = 1; loadData() })  // RAO-P2-022
+watch(archivalFilter, () => { page.value = 1; loadData() })
 watch(dateFrom, () => { page.value = 1; loadData() })
 watch(dateTo, () => { page.value = 1; loadData() })
 
