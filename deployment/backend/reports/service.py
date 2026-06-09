@@ -52,6 +52,7 @@ def _build_conditions_text(conditions, default_unit: str = "doba") -> str:
 
 async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
     from sqlalchemy.orm import selectinload
+    from contracts.service import format_position_conditions_cascading
     result = await db.execute(
         select(Contract)
         .options(selectinload(Contract.positions).selectinload(ContractPosition.article))
@@ -71,6 +72,16 @@ async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
     positions = contract.positions
     fees = contract.service_fees
 
+    # Dynamiczne formatowanie placeholderów $1 i $2 w locie przed renderowaniem PDF
+    for f in fees:
+        if f.description:
+            if f.amount_from is not None:
+                val_from = f"{f.amount_from:.2f} zł"
+                f.description = f.description.replace("$1 zł", val_from).replace("$1", val_from)
+            if f.amount_to is not None:
+                val_to = f"{f.amount_to:.2f} zł"
+                f.description = f.description.replace("$2 zł", val_to).replace("$2", val_to)
+
     positions_data = []
     for pos in positions:
         conds_result = await db.execute(
@@ -83,7 +94,8 @@ async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
 
         article = await db.get(ArticleModel, pos.article_id) if pos.article_id else None
 
-        conditions_text = _build_conditions_text(conditions, pos.billing_unit or "doba")
+        # Use new cascading formatter for conditions
+        conditions_text = format_position_conditions_cascading(conditions)
 
         # Fetch service hours for this position
         hours_result = await db.execute(
@@ -256,13 +268,24 @@ def _pdf_via_weasyprint(html: str, use_footer: bool = True) -> bytes:
     # Protocols declare their own internal padding; only need bottom margin for footer.
     # Contracts use generous margins for their layout.
     page_margin = "0 0 15mm 0" if not use_footer else "10mm 10mm 18mm 10mm"
+    bottom_left_padding = "" if use_footer else "padding-left: 10mm;"
+    bottom_right_padding = "" if use_footer else "padding-right: 10mm;"
     extra_css = f"""
     {font_face}
     @page {{
         size: A4;
         margin: {page_margin};
-        @bottom-left  {{ content: "Wydrukowano {now}"; font-size: 8px; color: #444; font-family: 'Roboto', sans-serif; }}
-        @bottom-right {{ content: "Strona " counter(page) " z " counter(pages); font-size: 8px; color: #444; font-family: 'Roboto', sans-serif; }}
+        @bottom-left  {{ content: "Wydrukowano {now}"; font-size: 8px; color: #444; font-family: 'Roboto', sans-serif; {bottom_left_padding} }}
+        @bottom-right {{ content: "Strona " counter(page) " z " counter(pages); font-size: 8px; color: #444; font-family: 'Roboto', sans-serif; {bottom_right_padding} }}
+    }}
+    #footer-legal-running {{
+        position: absolute;
+        bottom: 0;
+        left: 14mm;
+        right: 14mm;
+        font-size: 8px;
+        line-height: 1.35;
+        color: #000;
     }}
     """
     if "</head>" in html:

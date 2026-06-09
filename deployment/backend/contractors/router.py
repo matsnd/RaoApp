@@ -5,7 +5,7 @@ from auth.dependencies import get_current_user
 from auth.models import User
 from contractors.schemas import (
     AddressCreate, AddressResponse, ContractorCreate, ContractorDetail,
-    ContractorListItem, GusLookupRequest, GusLookupResponse,
+    ContractorListItem,
 )
 from contractors.service import contractor_service
 from database import get_db
@@ -105,12 +105,3 @@ async def delete_address(
     _: User = Depends(get_current_user),
 ):
     await contractor_service.delete_address(db, contractor_id, address_id)
-
-
-@router.post("/gus-lookup", response_model=GusLookupResponse)
-async def gus_lookup(
-    data: GusLookupRequest,
-    _: User = Depends(get_current_user),
-):
-    from integrations.gus import gus_client
-    return await gus_client.lookup(data.nip)

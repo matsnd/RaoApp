@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from articles.models import Article
-from articles.schemas import ArticleCreate, ArticleDetail, ArticleListItem, AvailabilityResponse
+from articles.schemas import ArticleCreate, ArticleDetail, ArticleListItem, AvailabilityResponse, ArticleArchivalFilter
 from articles.service import article_service
 from auth.dependencies import get_current_user
 from auth.models import User
@@ -49,12 +49,15 @@ async def list_articles(
     search: str | None = Query(None),
     category_id: int | None = Query(None),
     owner_id: int | None = Query(None),
+    archival_status: ArticleArchivalFilter = Query(ArticleArchivalFilter.ACTIVE),
     page: int = Query(1, ge=1),
     per_page: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    items, total = await article_service.list_articles(db, search, category_id, owner_id, page, per_page)
+    items, total = await article_service.list_articles(
+        db, search, category_id, owner_id, archival_status.value, page, per_page
+    )
     return PaginatedResponse(items=items, total=total, page=page, per_page=per_page)
 
 

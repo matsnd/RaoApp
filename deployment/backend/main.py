@@ -41,6 +41,53 @@ async def startup_migrations():
     import settlements.models  # RAO-P1-012
     import integrations.fakturownia.models  # RAO-P2-012
 
+    # RAO-P2-001: seed default fees for contract type S (najmu)
+    async with AsyncSessionLocal() as db:
+        # Check if default preset for type S exists
+        existing = await db.execute(
+            sa.select(FeePresetGroup).where(
+                FeePresetGroup.contract_type == 'S',
+                FeePresetGroup.is_default == True
+            )
+        )
+        if not existing.scalar_one_or_none():
+            # Create default preset for type S
+            default_preset = FeePresetGroup(
+                company_id=1,
+                name="Domyślne usługi dodatkowe (najmu)",
+                contract_type='S',
+                description="Transport, czyszczenie, tankowanie - domyślne dla umów najmu",
+                is_default=True,
+                sort_order=0
+            )
+            db.add(default_preset)
+            await db.flush()
+
+            # Add default fees in specified order
+            # RAO-P3-014: Use concrete values in descriptions instead of placeholders $1/$2
+            default_fees = [
+                {"name": "Transport", "amount_from": 500.00, "amount_to": 500.00, "unit": "dostawa", "description": "500.00 zł dostawa / 500.00 zł odbiór", "sort_order": 1},
+                {"name": "Czyszczenie maszyny po wynajmie (zabrudzenia drobne)", "amount_from": 150.00, "amount_to": 400.00, "unit": "sztuka", "description": "150.00 zł - 400.00 zł", "sort_order": 2},
+                {"name": "Czyszczenie maszyny po wynajmie (zabrudzenia trudnościeralne)", "amount_from": 400.00, "amount_to": 1500.00, "unit": "sztuka", "description": "400.00 zł - 1500.00 zł", "sort_order": 3},
+                {"name": "Usługa tankowania", "amount_from": 200.00, "amount_to": None, "unit": "tankowanie", "description": "200.00 zł (plus koszt paliwa)", "sort_order": 4},
+                {"name": "Ponadnormatywny przestój transportu", "amount_from": 200.00, "amount_to": 300.00, "unit": "godzina", "description": "200.00 zł / h - 300.00 zł / h", "sort_order": 5},
+                {"name": "Nieuzasadnione wezwanie serwisowe", "amount_from": 280.00, "amount_to": None, "unit": "wizyta", "description": "280.00 zł (plus transport)", "sort_order": 6},
+            ]
+            for fee_data in default_fees:
+                db.add(ServiceFeeTemplate(
+                    company_id=1,
+                    preset_id=default_preset.id,
+                    contract_type='S',
+                    name=fee_data["name"],
+                    amount_from=fee_data["amount_from"],
+                    amount_to=fee_data["amount_to"],
+                    unit=fee_data["unit"],
+                    description=fee_data["description"],
+                    is_active=True,
+                    sort_order=fee_data["sort_order"]
+                ))
+            await db.commit()
+
     # RAO-P3-002: katalog na logo firmy (startup guard)
     os.makedirs("static/logos", exist_ok=True)
 
@@ -124,8 +171,36 @@ async def startup_migrations():
                 updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 FOREIGN KEY (contract_id) REFERENCES contracts(id) ON DELETE CASCADE,
                 FOREIGN KEY (position_id) REFERENCES contract_positions(id) ON DELETE CASCADE,
-                FOREIGN KEY (service_fee_id) REFERENCES contract_service_fees(id) ON DELETE CASCADE
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_polish_ci
+                FOREIGN KEY (service_fee_id) REFERENCES service_fee_templates(id) ON DELETE SET NULL
+            )
+        """))
+        # RAO-P3-014: Fix placeholders $1/$2 in service_fee_templates descriptions
+        await conn.execute(sa.text("""
+            UPDATE service_fee_templates 
+            SET description = REPLACE(
+                REPLACE(
+                    description,
+                    '$1 zł',
+                    CONCAT(IFNULL(amount_from, ''), ' zł')
+                ),
+                '$2 zł',
+                CONCAT(IFNULL(amount_to, ''), ' zł')
+            )
+            WHERE description LIKE '%$1%' OR description LIKE '%$2%'
+        """))
+        # Fix placeholders $1/$2 in contract_service_fees descriptions (existing contracts)
+        await conn.execute(sa.text("""
+            UPDATE contract_service_fees 
+            SET description = REPLACE(
+                REPLACE(
+                    description,
+                    '$1 zł',
+                    CONCAT(IFNULL(amount_from, ''), ' zł')
+                ),
+                '$2 zł',
+                CONCAT(IFNULL(amount_to, ''), ' zł')
+            )
+            WHERE description LIKE '%$1%' OR description LIKE '%$2%'
         """))
         await conn.execute(sa.text(
             "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "

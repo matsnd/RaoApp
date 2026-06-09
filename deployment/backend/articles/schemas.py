@@ -1,6 +1,13 @@
 from datetime import datetime, date
 from decimal import Decimal
+from enum import Enum
 from pydantic import BaseModel, Field
+
+
+class ArticleArchivalFilter(str, Enum):
+    ACTIVE = "active"
+    ARCHIVAL = "archival"
+    ALL = "all"
 
 
 class ArticleListItem(BaseModel):

@@ -13,6 +13,7 @@ class ArticleService:
         search: str | None = None,
         category_id: int | None = None,
         owner_id: int | None = None,
+        archival_status: str = "active",
         page: int = 1,
         per_page: int = 50,
     ):
@@ -22,7 +23,11 @@ class ArticleService:
         from articles.schemas import ArticleListItem
         from sqlalchemy.orm import aliased
 
-        stmt = select(Article).where(Article.is_archival == False)  # noqa: E712
+        stmt = select(Article)
+        if archival_status == "active":
+            stmt = stmt.where(Article.is_archival == False)  # noqa: E712
+        elif archival_status == "archival":
+            stmt = stmt.where(Article.is_archival == True)   # noqa: E712
         if search:
             stmt = stmt.where(Article.name.ilike(f"%{search}%"))
         if category_id:

@@ -1,8 +1,8 @@
 # RAO Deployment Package
 
-**Data migracji:** 2026-05-23  
+**Data migracji:** 2026-06-09  
 **Wersja bazy:** rao_new  
-**Plik dump:** `rao_new_20260523_105752.sql`
+**Plik dump:** `rao_new_20260609_233620.sql`
 
 ---
 
@@ -12,7 +12,7 @@
 deployment/
 ├── backend/              # FastAPI backend (bez .venv i __pycache__)
 ├── frontend/             # Vue 3 frontend (zbuildowany - dist/)
-├── rao_new_20260523_105752.sql  # Dump bazy danych
+├── rao_new_20260609_233620.sql  # Dump bazy danych
 └── README.md            # Ten plik
 ```
 
@@ -37,7 +37,7 @@ mysql -u root -p -e "CREATE USER 'rao_user'@'localhost' IDENTIFIED BY 'RaoPass20
 mysql -u root -p -e "GRANT ALL PRIVILEGES ON rao_new.* TO 'rao_user'@'localhost'; FLUSH PRIVILEGES;"
 
 # Importuj dump
-mysql -u rao_user -pRaoPass2026! rao_new < rao_new_20260523_105752.sql
+mysql -u rao_user -pRaoPass2026! rao_new < rao_new_20260609_233620.sql
 ```
 
 ### 3. Konfiguracja backendu

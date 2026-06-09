@@ -8,6 +8,7 @@ from sqlalchemy import select
 from auth.dependencies import get_current_user
 from auth.models import User
 from database import AsyncSessionLocal
+from contractors.schemas import GusLookupRequest, GusLookupResponse
 
 PostalCodeType = Annotated[str, "Postal code in format XX-XXX"]
 
@@ -117,6 +118,30 @@ class TerytSyncResponse(BaseModel):
     success: bool
     message: str
     count: int
+
+
+@router.post("/gus-lookup")
+async def gus_lookup(
+    data: GusLookupRequest,
+    _: User = Depends(get_current_user),
+):
+    """Lookup company data from GUS REGON API by NIP (RAO-P1-030)."""
+    from integrations.gus import gus_client
+    result = await gus_client.lookup(data.nip)
+    # Return as dict to avoid Pydantic serialization issues
+    return {
+        "name": result.name,
+        "street": result.street,
+        "building_number": result.building_number,
+        "apartment_number": result.apartment_number,
+        "postal_code": result.postal_code,
+        "city": result.city,
+        "regon": result.regon,
+        "province": result.province,
+        "county": result.county,
+        "community": result.community,
+        "status": result.status,
+    }
 
 
 @router.post("/teryt/sync", response_model=TerytSyncResponse)
