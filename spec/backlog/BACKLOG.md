@@ -660,6 +660,102 @@ security_impact: none
 
 ---
 
+### [RAO-P2-029] Statystyki — audyt determinizmu + naprawa niespójności archiwalnych
+
+```yaml
+id: RAO-P2-029
+priority: P2
+size: M
+status: dev-verified
+classification: bugfix/stats
+roles: [backend-dev, qa-engineer]
+source: client-request
+source_date: 2026-06-29
+source_ref: "Klient: 'wykonaj audyt czy te statystyki są w ogóle miarodajne i napraw żeby były prawdziwe i deterministyczne'"
+specs_to_update:
+  - core/04_business_logic.md
+  - core/02_backend_api.md
+migration_impact: no
+security_impact: none
+done_date: 2026-06-29
+verification:
+  dev:
+    - "Root cause: _compute_position_revenues() ma exclude_archival=True domyślnie; 6 endpointów historycznych nie nadpisywało tego"
+    - "Wszystkie 419 artykuły w bazie są is_archival=1 (po migracji z WinForms) → exclude_archival=True wykluczało WSZYSTKIE pozycje"
+    - "Niespójność: /fleet-summary period_revenue=0, /by-category total_revenue=1.79M — ten sam okres!"
+    - "Fix: 6 endpointów historycznych dostało exclude_archival=False"
+    - "  /fleet-summary: period_revenue z archiwalnymi, total_machines/total_rented bez (stan teraz)"
+    - "  /top-machines: exclude_archival=False"
+    - "  /additional-fees: exclude_archival=False"
+    - "  /locations: exclude_archival=False"
+    - "  /positions: exclude_archival=False (oba wywołania)"
+    - "  /commissions: exclude_archival=False"
+    - "Co NIE zmienione: /currently-rented (stan teraz), /machine-roi (ma parametr include_archival)"
+    - "Spójność: /fleet-summary.period_revenue == /by-category.total_revenue == /positions.total_revenue == 1,790,119.63 ✅"
+    - "Determinizm: 2x ten sam request = identyczny wynik ✅"
+    - "Dokument dla klienta: spec/STATYSTYKI_AUDYT.md (10 sekcji, jak działają statystyki)"
+  team: []
+  user: []
+  client: []
+root_cause: "exclude_archival=True domyślnie w _compute_position_revenues(); 6 endpointów historycznych nie nadpisywało tego; wszystkie 419 artykuły są archiwalne po migracji → 0 przychodu w 'Ogólne' ale 1.79M w 'Kategorie'"
+fix: "6 endpointów historycznych: exclude_archival=False. Stan teraz (currently-rented, fleet-summary machines) zostaje z exclude_archival=True. Dokument MD dla klienta: spec/STATYSTYKI_AUDYT.md"
+next_step: "user-verified — klient zatwierdza dokument STATYSTYKI_AUDYT.md"
+```
+
+**Problem (audyt Tech Leada):**
+
+Audyt statystyk w module `/dashboard/reports` ujawnił **krytyczny bug niespójności**:
+
+1. **Wszystkie 419 artykuły w bazie są `is_archival=1`** (337 maszyn + 82 usługi)
+   - Zero aktywnych maszyn (`is_archival=0 AND is_service=0 AND is_external=0`)
+   - To jest stan danych po migracji z starej aplikacji WinForms
+
+2. **Niespójność `exclude_archival` między endpointami:**
+   - `/fleet-summary` → `period_revenue=0` (wyklucza archiwalne)
+   - `/currently-rented` → 0 maszyn (wyklucza archiwalne — poprawne dla "stan teraz")
+   - `/top-machines` → 0 (wyklucza archiwalne)
+   - `/additional-fees` → 0 (wyklucza archiwalne)
+   - `/locations` → 0 (wyklucza archiwalne)
+   - `/positions` → 0 (wyklucza archiwalne)
+   - **ALE** `/by-category` → 1.79M (uwzględnia archiwalne ✅)
+   - **ALE** `/by-period` → uwzględnia archiwalne ✅
+   - **WYNIK:** "Ogólne" pokazuje 0, "Kategorie" pokazuje 1.79M — ten sam okres!
+
+3. **Determinizm: ✅ POTWIERDZONY** — te same zapytania dają te same wyniki (test 2x)
+
+4. **Algorytm kaskadowy `calculate_position_value()`: ✅ DETERMINISTYCZNY**
+   - Decimal (nie float) — brak błędów zaokrąglania
+   - Conditions sortowane po period_count — kolejność gwarantowana
+   - Tiered calculation z fallback na ostatni non-zero rate
+
+**Root cause:**
+`_compute_position_revenues()` ma `exclude_archival=True` jako domyślne. Endpointy historyczne (/fleet-summary revenue, /top-machines, /additional-fees, /locations, /positions) nie nadpisują tego, więc wykluczają archiwalne — a wszystkie pozycje w bazie mają archiwalne artykuły.
+
+**Fix:**
+Endpointy historyczne powinny używać `exclude_archival=False` (uwzględniać archiwalne maszyny w statystykach historycznych). Endpointy "stan teraz" (/currently-rented, /fleet-summary machines count) zostają z `exclude_archival=True`.
+
+**Acceptance criteria (DoD):**
+- [ ] `/fleet-summary` period_revenue uwzględnia archiwalne (= /by-category total)
+- [ ] `/top-machines` uwzględnia archiwalne
+- [ ] `/additional-fees` uwzględnia archiwalne
+- [ ] `/locations` uwzględnia archiwalne
+- [ ] `/positions` uwzględnia archiwalne
+- [ ] `/commissions` uwzględnia archiwalne
+- [ ] `/currently-rented` nadal wyklucza archiwalne (stan teraz)
+- [ ] `/fleet-summary` total_machines/total_rented nadal wyklucza archiwalne
+- [ ] Spójność: /fleet-summary.period_revenue == /by-category.total_revenue (ten sam okres)
+- [ ] Determinizm: 2x ten sam zapytanie = ten sam wynik
+- [ ] Dokument MD dla klienta: jak działają statystyki, dlaczego są pewne
+
+**Pliki do zmiany:**
+- `backend/stats/router.py` (6 endpointów: exclude_archival=False)
+- `spec/core/04_business_logic.md` (sekcja statystyk)
+- `spec/INSTRUKCJA_DLA_KLIENTA.md` (dokumentacja statystyk)
+
+**Estimate:** 3-4h (M)
+
+---
+
 ### [RAO-P2-028] Statystyki — 100% pewna identyfikacja miasta (disambiguation via postal_code)
 
 ```yaml
@@ -796,8 +892,9 @@ W Polsce istnieje wiele miejscowości o tej samej nazwie. Aktualnie `/stats/loca
 | RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | triaged | → decyzja klienta |
 | RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | triaged | → in_progress |
 | RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | triaged | → decyzja PO |
+| RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | dev-verified | → user-verified |
 
-**Razem:** 10 zadań · ~25-36h pracy (P1: 17-25h, P2: 8-11h)
+**Razem:** 11 zadań · ~28-40h pracy (P1: 17-25h, P2: 11-15h)
 
 ### Pipeline weryfikacji (status flow)
 

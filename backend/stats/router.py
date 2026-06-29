@@ -224,7 +224,9 @@ async def fleet_summary(
     util_pct = round((total_rented / total_machines * 100) if total_machines else 0, 1)
 
     # Revenue — computed via spec algorithm
-    all_pos = await _compute_position_revenues(db, df, dt)
+    # RAO-P2-029: period_revenue uwzględnia archiwalne maszyny (statystyki historyczne)
+    # total_machines/total_rented pozostają bez archiwalnych (stan floty teraz)
+    all_pos = await _compute_position_revenues(db, df, dt, exclude_archival=False)
     if internal_number:
         all_pos = [p for p in all_pos if p["internal_number"] == internal_number]
     period_revenue = sum(p["revenue"] for p in all_pos)
@@ -272,7 +274,8 @@ async def top_machines(
     _: User = Depends(get_current_user),
 ):
     df, dt = _default_dates(date_from, date_to)
-    all_pos = await _compute_position_revenues(db, df, dt, service_filter=False)
+    # RAO-P2-029: uwzględnia archiwalne maszyny (statystyki historyczne)
+    all_pos = await _compute_position_revenues(db, df, dt, service_filter=False, exclude_archival=False)
     if internal_number:
         all_pos = [p for p in all_pos if p["internal_number"] == internal_number]
 
@@ -416,7 +419,8 @@ async def additional_fees(
     _: User = Depends(get_current_user),
 ):
     df, dt = _default_dates(date_from, date_to)
-    all_pos = await _compute_position_revenues(db, df, dt, service_filter=True)
+    # RAO-P2-029: uwzględnia archiwalne usługi (statystyki historyczne)
+    all_pos = await _compute_position_revenues(db, df, dt, service_filter=True, exclude_archival=False)
 
     # Aggregate by service article
     agg = defaultdict(lambda: {"name": "", "revenue": Decimal(0), "contracts": set()})
@@ -451,7 +455,8 @@ async def locations(
     _: User = Depends(get_current_user),
 ):
     df, dt = _default_dates(date_from, date_to)
-    all_pos = await _compute_position_revenues(db, df, dt)
+    # RAO-P2-029: uwzględnia archiwalne maszyny (statystyki historyczne)
+    all_pos = await _compute_position_revenues(db, df, dt, exclude_archival=False)
     if internal_number:
         all_pos = [p for p in all_pos if p["internal_number"] == internal_number]
 
@@ -712,7 +717,8 @@ async def positions(
         service_filter = True
 
     # Pobierz pozycje z odpowiednim filtrem
-    all_pos = await _compute_position_revenues(db, df, dt, service_filter=service_filter)
+    # RAO-P2-029: uwzględnia archiwalne maszyny (statystyki historyczne)
+    all_pos = await _compute_position_revenues(db, df, dt, service_filter=service_filter, exclude_archival=False)
 
     # Agregacja per article
     agg = defaultdict(lambda: {
@@ -738,7 +744,8 @@ async def positions(
         agg[key]["times_billed"] += 1
 
     # Oblicz total_machines_revenue i total_services_revenue (zawsze, niezależnie od filtra)
-    all_pos_unfiltered = await _compute_position_revenues(db, df, dt, service_filter=None)
+    # RAO-P2-029: uwzględnia archiwalne (spójne z głównym zapytaniem)
+    all_pos_unfiltered = await _compute_position_revenues(db, df, dt, service_filter=None, exclude_archival=False)
     total_machines_rev = sum(p["revenue"] for p in all_pos_unfiltered if not p["is_service"])
     total_services_rev = sum(p["revenue"] for p in all_pos_unfiltered if p["is_service"])
 
@@ -999,7 +1006,8 @@ async def commissions(
     salespeople = {r[0]: {"name": r[1], "rate": r[2]} for r in sp_q.all()}
 
     # Dla backward compatibility, oblicz również revenue (stara metoda)
-    all_pos = await _compute_position_revenues(db, df, dt)
+    # RAO-P2-029: uwzględnia archiwalne maszyny (statystyki historyczne)
+    all_pos = await _compute_position_revenues(db, df, dt, exclude_archival=False)
     contract_sp_q = await db.execute(
         select(Contract.id, Contract.salesperson_id)
         .where(and_(Contract.date_from <= dt, Contract.date_to >= df))
