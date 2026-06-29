@@ -69,7 +69,9 @@ const topItems = [
 
 function handleLogout() {
   authStore.logout()
-  router.push('/login')
+  // RAO-P1-042: hard redirect czyści wszystkie Pinia stores (memory safety)
+  // router.push zostawia cached data w stores (contracts, contractors, etc.)
+  window.location.href = '/login'
 }
 
 // RAO-P3-003: załaduj dane firmy (logo) jeśli nie są dostępne

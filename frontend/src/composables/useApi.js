@@ -1,7 +1,8 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: '/rao/api',
+  // RAO-P1-042: baseURL z env (produkcyjny .env.production ma VITE_API_URL)
+  baseURL: import.meta.env.VITE_API_URL || '/rao/api',
   timeout: 30000,
 })
 
@@ -20,7 +21,9 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !isAuthEndpoint) {
       localStorage.removeItem('rao_token')
       localStorage.removeItem('rao_user')
-      window.location.href = '/rao/login'
+      // RAO-P1-042: poprawny path do login (nie /rao/login) + redirect param
+      const current = window.location.pathname + window.location.search
+      window.location.href = `/login?redirect=${encodeURIComponent(current)}`
     }
     return Promise.reject(error)
   }
