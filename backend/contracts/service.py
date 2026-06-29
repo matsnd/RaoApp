@@ -587,19 +587,50 @@ class ContractService:
         await copy_fee_templates(db, contract_id, contract.contract_type)
 
     async def recalculate_total(self, db: AsyncSession, contract_id: int):
-        """Recalculate total_value = SUM(rate1 * period_count) for all conditions."""
+        """Recalculate total_value using the cascading tiered algorithm.
+
+        RAO-P0-033: Previously used SUM(rate1 * period_count) which ignored
+        quantity, billing_frequency, rate2 ("powyżej"), and the tiered
+        calculation. Now uses calculate_position_value from stats/calc.py
+        which is the single source of truth for position value.
+        """
+        from stats.calc import calculate_position_value
         contract = await self.get_contract(db, contract_id)
+        # Load all positions with conditions
         result = await db.execute(
-            select(func.coalesce(
-                func.sum(
-                    func.coalesce(PositionCondition.rate1, 0) *
-                    func.coalesce(PositionCondition.period_count, 0)
-                ), 0
-            ))
-            .join(ContractPosition, ContractPosition.id == PositionCondition.position_id)
+            select(ContractPosition)
+            .options(selectinload(ContractPosition.conditions))
             .where(ContractPosition.contract_id == contract_id)
         )
-        total = result.scalar_one()
+        positions = result.scalars().all()
+        total = Decimal("0.00")
+        for pos in positions:
+            # Build conditions dicts in the format calculate_position_value expects
+            sorted_conds = sorted(
+                [c for c in pos.conditions if c.rate1 and c.rate1 > 0],
+                key=lambda c: (c.period_count is None, c.period_count or 0)
+            )
+            cond_dicts = [
+                {
+                    "rate1": c.rate1,
+                    "rate2": c.rate2,
+                    "period_count": c.period_count,
+                    "minimum": c.minimum,
+                    "rate_type_id": c.rate_type_id,
+                }
+                for c in sorted_conds
+            ]
+            qty = pos.quantity or 1
+            # calculate_position_value already multiplies by quantity
+            # (RAO-P0-033 fix in stats/calc.py) — do NOT multiply again here
+            pos_value = calculate_position_value(
+                rental_days=pos.rental_days,
+                billing_frequency=pos.billing_frequency,
+                unit_price=pos.unit_price,
+                quantity=qty,
+                conditions=cond_dicts,
+            )
+            total += pos_value
         contract.total_value = total
         await db.commit()
         await db.refresh(contract)

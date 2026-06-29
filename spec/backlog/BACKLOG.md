@@ -936,7 +936,7 @@ W Polsce istnieje wiele miejscowości o tej samej nazwie. Aktualnie `/stats/loca
 | RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | triaged | → in_progress |
 | RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | triaged | → in_progress |
 | RAO-P0-032 | build_contract_data mutuje sesję — kopiuj description | P0 | XS | triaged | → in_progress |
-| RAO-P0-033 | recalculate_total — użyj algorytmu kaskadowego | P0 | S | triaged | → in_progress |
+| RAO-P0-033 | recalculate_total — użyj algorytmu kaskadowego | P0 | S | dev-verified | → team-verified |
 | RAO-P0-034 | ContractUpdate schema z exclude_unset=True (lost data) | P0 | M | triaged | → in_progress |
 | RAO-P0-035 | N+1 queries — selectinload w list_contracts/positions/articles | P0 | M | triaged | → in_progress |
 | RAO-P0-036 | Stack trace disclosure → detail="Błąd" + logging | P0 | XS | triaged | → in_progress |

@@ -96,3 +96,28 @@ def test_unknown_frequency_defaults_to_daily():
     conds = [{"rate1": d(50), "rate2": None, "period_count": 0, "minimum": 0, "rate_type_id": 1}]
     result = calculate_position_value(3, "nieznane_rozliczanie", None, 1, conds)
     assert result == d(150)
+
+
+# ── RAO-P0-033: quantity multiplication with conditions ──────────────────────
+
+def test_quantity_with_conditions_multiplies_once():
+    """Regression: calculate_position_value must multiply by quantity exactly once."""
+    conds = [{"rate1": d(100), "rate2": None, "period_count": 0, "minimum": 0, "rate_type_id": 1}]
+    # 5 days × 100 = 500 per unit; quantity 3 → 1500 (NOT 4500)
+    result = calculate_position_value(5, "dziennie", None, 3, conds)
+    assert result == d(1500)
+
+def test_quantity_two_tier():
+    conds = [
+        {"rate1": d(100), "rate2": None, "period_count": 7, "minimum": 0, "rate_type_id": 1},
+        {"rate1": d(80),  "rate2": None, "period_count": 0, "minimum": 0, "rate_type_id": 1},
+    ]
+    # 10 days: 7×100 + 3×80 = 940 per unit; quantity 2 → 1880
+    result = calculate_position_value(10, "dziennie", None, 2, conds)
+    assert result == d(1880)
+
+def test_quantity_null_defaults_to_one():
+    conds = [{"rate1": d(100), "rate2": None, "period_count": 0, "minimum": 0, "rate_type_id": 1}]
+    # None quantity → defaults to 1 (defensive, matches `or 1` pattern)
+    result = calculate_position_value(5, "dziennie", None, None, conds)
+    assert result == d(500)

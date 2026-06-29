@@ -107,7 +107,8 @@ def calculate_position_value(
                 total_value += rate * remaining
                 break
 
-    return total_value
+    # RAO-P0-033: multiply by quantity consistently (matches no-conditions branch)
+    return total_value * int(quantity or 1)
 
 
 # ── RAO-P1-017: Agregacja po kategoriach ─────────────────────────────────────
