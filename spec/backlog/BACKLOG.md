@@ -306,7 +306,7 @@ security_impact: none
 id: RAO-P1-018
 priority: P1
 size: XS
-status: dev-verified
+status: team-verified
 classification: bugfix/pdf
 roles: [backend-dev]
 source: client-request
@@ -324,11 +324,19 @@ verification:
     - "contract.html: <img> removed from SIGNATURES section, kept in own-sigs"
     - "contract_u.html: same — <img> removed from SIGNATURES, kept in own-sigs"
     - "Protocol templates (protocol_zo*.html) unchanged — stamp still on protocols"
-  team: []
+  team:
+    qa-engineer:
+      - "[PASS] HTML poprawny po usunięciu <img> z SIGNATURES (brak wiszących tagów)"
+      - "[PASS] sig-line renderowany dla obu stron (Wynajmujący/Najemca)"
+      - "[PASS] Pieczątka zachowana w own-sigs (strona OWN)"
+      - "[PASS] Protokoły niezmienione (pieczątka zostaje)"
+      - "[PASS] deployment/ zsynchronizowane z backend/ (git diff --no-index: brak różnic)"
+      - "[PASS] Layout shift kontrolowany (70px mniej, vertical-align: bottom, content-spacer 35mm)"
+      - "[RISK: niski] Niespójność stylistyczna <div text-align:center> w 1 komórce a nie w 2 (pre-existing)"
   user: []
   client: []
 fix: "Usunięto <img src='company_stamp_fixed.jpg'> z sekcji SIGNATURES w contract.html i contract_u.html (strona 1 umowy); zostawiono w sekcji own-sigs (strona OWN)"
-next_step: "team-verified — uruchom software-house subagenty (QA)"
+next_step: "user-verified — operator sprawdza PDF"
 ```
 
 **Problem (cytat klienta):** *„Na obydwu typach umów wywalić pieczątkę z pierwszej strony"*
@@ -582,7 +590,7 @@ security_impact: none
 | RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | P1 | XS | team-verified | → user-verified |
 | RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | P1 | S | triaged | → in_progress |
 | RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | triaged | → in_progress |
-| RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | P1 | XS | team-verified | → user-verified |
 | RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | triaged | → in_progress |
 | RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | triaged | → in_progress |
 | RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | triaged | → decyzja klienta |
