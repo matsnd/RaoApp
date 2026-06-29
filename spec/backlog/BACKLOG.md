@@ -957,8 +957,12 @@ W Polsce istnieje wiele miejscowości o tej samej nazwie. Aktualnie `/stats/loca
 | RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | triaged | → in_progress |
 | RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
 | RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
+| RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | triaged | → in_progress |
+| RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | triaged | → in_progress |
+| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
+| RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | triaged | → decyzja klienta |
 
-**Razem:** 28 zadań · ~80-110h pracy (P0: 20-30h, P1: 25-35h, P2: 35-45h)
+**Razem:** 33 zadania · ~90-120h pracy (P0: 25-35h, P1: 30-40h, P2: 35-45h)
 
 ### Pipeline weryfikacji (status flow)
 
