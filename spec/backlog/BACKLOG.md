@@ -284,7 +284,7 @@ security_impact: none
 id: RAO-P1-018
 priority: P1
 size: XS
-status: in_progress
+status: dev-verified
 classification: bugfix/pdf
 roles: [backend-dev]
 source: client-request
@@ -294,12 +294,19 @@ specs_to_update:
   - core/11_reports_stats.md
 migration_impact: no
 security_impact: none
+done_date: 2026-06-29
 verification:
-  dev: []
+  dev:
+    - "PyMuPDF image count: Page 1 = 0 images (was 1 = stamp) — stamp REMOVED"
+    - "PyMuPDF image count: Page 3 (OWN) = 1 image (428x168px) — stamp KEPT on OWN"
+    - "contract.html: <img> removed from SIGNATURES section, kept in own-sigs"
+    - "contract_u.html: same — <img> removed from SIGNATURES, kept in own-sigs"
+    - "Protocol templates (protocol_zo*.html) unchanged — stamp still on protocols"
   team: []
   user: []
   client: []
-next_step: "dev-verified — dokończyć weryfikację PyMuPDF (image count per page)"
+fix: "Usunięto <img src='company_stamp_fixed.jpg'> z sekcji SIGNATURES w contract.html i contract_u.html (strona 1 umowy); zostawiono w sekcji own-sigs (strona OWN)"
+next_step: "team-verified — uruchom software-house subagenty (QA)"
 ```
 
 **Problem (cytat klienta):** *„Na obydwu typach umów wywalić pieczątkę z pierwszej strony"*
@@ -553,7 +560,7 @@ security_impact: none
 | RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | P1 | XS | dev-verified | → team-verified |
 | RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | P1 | S | triaged | → in_progress |
 | RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | triaged | → in_progress |
-| RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | P1 | XS | in_progress | → dev-verified |
+| RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | P1 | XS | dev-verified | → team-verified |
 | RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | triaged | → in_progress |
 | RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | triaged | → in_progress |
 | RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | triaged | → decyzja klienta |
