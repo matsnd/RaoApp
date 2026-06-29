@@ -44,7 +44,7 @@
 id: RAO-P1-014
 priority: P1
 size: XS
-status: team-verified
+status: user-verified
 classification: bugfix/frontend-logic
 roles: [frontend-dev, qa-engineer]
 source: client-request
@@ -73,11 +73,14 @@ verification:
       - "[RISK: niski] Brak upper bound na daysInternal (przy 10000 pętla ~11400 iteracji)"
       - "[ISSUE] Brak testów jednostkowych (vitest) — tylko manualne Playwright"
       - "[ISSUE] E2E test 04-contract.spec.ts ma test.fixme — nieaktywny"
-  user: []
+  user:
+    operator:
+      - "[VERIFIED] 25.06+5=30.06 — zgodne z oczekiwaniem"
+      - "[VERIFIED] Algorytm naliczania dni opisany w spec/INSTRUKCJA_DLA_KLIENTA.md"
   client: []
 root_cause: "Trzy bugi: (1) toISOString() zwraca UTC, cofa datę o 1 dzień w CEST; (2) brak skip niedzieli; (3) desync forward/reverse gdy fromDate w niedzielę"
 fix: "toLocalISODate() zamiast toISOString(); liczenie dni roboczych 6/tydz (pon-sob); fromDate zawsze dzień 1 w reverse (symetria)"
-next_step: "user-verified — operator sprawdza w UI"
+next_step: "client-approved — klient zatwierdza"
 ```
 
 **Problem (cytat klienta):** *„źle oblicza. 25.06. - 5 dni to 25.06-30.06. przy naliczaniu 6 dniowym"*
@@ -586,7 +589,7 @@ security_impact: none
 
 | ID | Tytuł | P | Est. | Status | Następny krok |
 |----|-------|---|------|--------|---------------|
-| RAO-P1-014 | Frontend — błędne obliczanie daty końcowej okresu umowy | P1 | XS | team-verified | → user-verified |
+| RAO-P1-014 | Frontend — błędne obliczanie daty końcowej okresu umowy | P1 | XS | user-verified | → client-approved |
 | RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | P1 | XS | team-verified | → user-verified |
 | RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | P1 | S | triaged | → in_progress |
 | RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | triaged | → in_progress |
