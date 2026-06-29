@@ -199,7 +199,7 @@ next_step: "user-verified — operator sprawdza PDF"
 id: RAO-P1-016
 priority: P1
 size: S
-status: triaged
+status: dev-verified
 classification: bugfix/pdf
 roles: [backend-dev]
 source: client-request
@@ -209,6 +209,23 @@ specs_to_update:
   - core/11_reports_stats.md
 migration_impact: no
 security_impact: none
+done_date: 2026-06-29
+verification:
+  dev:
+    - "DB check: 716/742 contracts have delivery_address filled (26 empty — data issue, not code)"
+    - "Root cause: protocol_zo_nodata_u.html (U bez danych) brakował sekcji boksów z 'miejsce dostawy'"
+    - "Fix: dodano CSS .boxes/.box-cell/.box-inner + sekcję boksów (osoba upoważniona + miejsce dostawy) przed tabelą pozycji"
+    - "PyMuPDF: protocol_zo (S) — 'miejsce dostawy' + 'Magdalenka' obecne ✅"
+    - "PyMuPDF: protocol_zo_u (U) — 'miejsce dostawy' + 'Magdalenka' obecne ✅"
+    - "PyMuPDF: protocol_zo_nodata (S) — 'miejsce dostawy' + 'Magdalenka' obecne ✅"
+    - "PyMuPDF: protocol_zo_nodata_u (U) — 'miejsce dostawy' + 'Magdalenka' obecne ✅ (NAPRAWIONY)"
+    - "deployment/ zsynchronizowane"
+  team: []
+  user: []
+  client: []
+root_cause: "protocol_zo_nodata_u.html nie miał sekcji boksów (osoba upoważniona + miejsce dostawy) — brakujące pole w wariancie bez danych dla umowy usługi"
+fix: "Dodano CSS .boxes/.box-cell/.box-inner + sekcję boksów z 'miejsce dostawy i odbioru przedmiotu najmu' renderującą contract.delivery_address"
+next_step: "team-verified — uruchom QA subagent"
 ```
 
 **Problem (cytat klienta):** *„nie pokazuje adresu na protokole zdawczo odbiorczym - do weryfikacji"*
@@ -591,7 +608,7 @@ security_impact: none
 |----|-------|---|------|--------|---------------|
 | RAO-P1-014 | Frontend — błędne obliczanie daty końcowej okresu umowy | P1 | XS | user-verified | → client-approved |
 | RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | P1 | XS | team-verified | → user-verified |
-| RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | P1 | S | triaged | → in_progress |
+| RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | P1 | S | dev-verified | → team-verified |
 | RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | triaged | → in_progress |
 | RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | P1 | XS | team-verified | → user-verified |
 | RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | triaged | → in_progress |
