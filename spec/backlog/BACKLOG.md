@@ -933,8 +933,32 @@ W Polsce istnieje wiele miejscowości o tej samej nazwie. Aktualnie `/stats/loca
 | RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
 | RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | triaged | → decyzja PO |
 | RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | dev-verified | → user-verified |
+| RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | triaged | → in_progress |
+| RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | triaged | → in_progress |
+| RAO-P0-032 | build_contract_data mutuje sesję — kopiuj description | P0 | XS | triaged | → in_progress |
+| RAO-P0-033 | recalculate_total — użyj algorytmu kaskadowego | P0 | S | triaged | → in_progress |
+| RAO-P0-034 | ContractUpdate schema z exclude_unset=True (lost data) | P0 | M | triaged | → in_progress |
+| RAO-P0-035 | N+1 queries — selectinload w list_contracts/positions/articles | P0 | M | triaged | → in_progress |
+| RAO-P0-036 | Stack trace disclosure → detail="Błąd" + logging | P0 | XS | triaged | → in_progress |
+| RAO-P1-037 | delete_contract — guard na is_settled | P1 | XS | triaged | → in_progress |
+| RAO-P1-038 | Brak indeksów DB (is_settled, created_at, salesperson_id, print_date, delivery_date) | P1 | S | triaged | → in_progress |
+| RAO-P1-039 | Walidacja date_from > date_to + ujemne kwoty w ContractCreate | P1 | XS | triaged | → in_progress |
+| RAO-P1-040 | is_settled blokuje mutacje (update/delete positions) | P1 | S | triaged | → in_progress |
+| RAO-P1-041 | Hardcoded JWT fallback "change-me" — usuń + wymuś z env | P1 | XS | triaged | → in_progress |
+| RAO-P1-042 | Frontend: logout czyści stores + redirect po login + baseURL z env | P1 | S | triaged | → in_progress |
+| RAO-P1-043 | Frontend: memory leaks — cleanup event listenerów i timerów | P1 | S | triaged | → in_progress |
+| RAO-P1-044 | Frontend: localStorage.getItem('token') → 'rao_token' | P1 | XS | triaged | → in_progress |
+| RAO-P1-045 | _build_conditions_text — użyj format_position_conditions_cascading (dedup) | P1 | XS | triaged | → in_progress |
+| RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → decyzja architektoniczna |
+| RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | triaged | → in_progress |
+| RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | triaged | → in_progress |
+| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | triaged | → in_progress |
+| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | triaged | → in_progress |
+| RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | triaged | → in_progress |
+| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
+| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
 
-**Razem:** 11 zadań · ~28-40h pracy (P1: 17-25h, P2: 11-15h)
+**Razem:** 28 zadań · ~80-110h pracy (P0: 20-30h, P1: 25-35h, P2: 35-45h)
 
 ### Pipeline weryfikacji (status flow)
 
