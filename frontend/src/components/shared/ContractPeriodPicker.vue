@@ -46,14 +46,26 @@ const dateFromInternal = ref<string>(props.dateFrom || '')
 // Internal state for days
 const daysInternal = ref<number>(1)
 
-// Calculate days from date_to - date_from when both are provided
+// Format a Date as YYYY-MM-DD using LOCAL time (not UTC — avoids timezone bug)
+function toLocalISODate(d: Date): string {
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+// Count business days (Mon-Sat, skip Sundays) between from and to (inclusive)
 function calculateDaysFromDates(from: string | null, to: string | null): number {
   if (!from || !to) return 1
   const fromDate = new Date(from + 'T00:00:00')
   const toDate = new Date(to + 'T00:00:00')
-  const diffTime = toDate.getTime() - fromDate.getTime()
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-  return diffDays + 1 // Include both start and end day
+  let count = 0
+  const cur = new Date(fromDate)
+  while (cur <= toDate) {
+    if (cur.getDay() !== 0) count++ // 0 = Sunday → skip
+    cur.setDate(cur.getDate() + 1)
+  }
+  return count || 1
 }
 
 // Initialize days when both dates are provided on mount
@@ -61,13 +73,18 @@ if (props.dateFrom && props.dateTo) {
   daysInternal.value = calculateDaysFromDates(props.dateFrom, props.dateTo)
 }
 
-// Calculate date_to from date_from + (days - 1)
+// Calculate date_to from date_from + (days - 1) business days (skip Sundays)
 const dateToComputed = computed<string | null>(() => {
   if (!dateFromInternal.value || daysInternal.value < 1) return null
   const fromDate = new Date(dateFromInternal.value + 'T00:00:00')
   const toDate = new Date(fromDate)
-  toDate.setDate(fromDate.getDate() + (daysInternal.value - 1))
-  return toDate.toISOString().slice(0, 10)
+  // day 1 = fromDate itself; add (days-1) more business days
+  let added = 0
+  while (added < daysInternal.value - 1) {
+    toDate.setDate(toDate.getDate() + 1)
+    if (toDate.getDay() !== 0) added++ // skip Sundays
+  }
+  return toLocalISODate(toDate)
 })
 
 // Format dates for Polish display

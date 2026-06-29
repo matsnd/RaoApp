@@ -1637,7 +1637,7 @@ security_impact: none
 id: RAO-P1-014
 priority: P1
 size: XS
-status: triaged
+status: review
 classification: bugfix/frontend-logic
 roles: [frontend-dev, qa-engineer]
 source: client-request
@@ -1648,6 +1648,15 @@ specs_to_update:
   - core/04_business_logic.md
 migration_impact: no
 security_impact: none
+done_date: 2026-06-29
+verification:
+  - "Playwright: 25.06+5=30.06 (skip niedzieli 28.06) — zgodne z oczekiwaniem klienta"
+  - "Playwright: 25.06+1=25.06 (ten sam dzień)"
+  - "Playwright: 28.06 (niedz)+5=02.07 (skip 05.07)"
+  - "Playwright: 25.06+6=01.07"
+  - "Playwright reverse: umowa 10.06-27.06 → 16 dni (skip 14.06 i 21.06 niedziele)"
+root_cause: "Dwa bugi: (1) toISOString() zwraca UTC, cofa datę o 1 dzień w CEST; (2) brak skip niedzieli"
+fix: "toLocalISODate() zamiast toISOString(); liczenie dni roboczych 6/tydz (pon-sob)"
 ```
 
 **Problem (cytat klienta):** *„źle oblicza. 25.06. - 5 dni to 25.06-30.06. przy naliczaniu 6 dniowym"*
@@ -2284,7 +2293,7 @@ SG036/2026     ← G PO S (błędny format) ❌
 | RAO-P2-006 | Frontend — inline add artykułu | klient czat | P2 | M | done |
 | RAO-P2-007 | Frontend — pomoc UX jak wpisywać warunki | klient czat | P2 | S | done |
 | RAO-P3-014 | Placeholdery $1/$2 + nazwa zakładki | klient czat | P3 | M | in_progress |
-| RAO-P1-014 | Frontend — błędne obliczanie daty końcowej okresu umowy | klient czat 2026-06-29 | P1 | XS | triaged |
+| RAO-P1-014 | Frontend — błędne obliczanie daty końcowej okresu umowy | klient czat 2026-06-29 | P1 | XS | review |
 | RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | klient czat 2026-06-29 | P1 | XS | triaged |
 | RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | klient czat 2026-06-29 | P1 | S | triaged |
 | RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | klient czat 2026-06-29 | P1 | M | triaged |
