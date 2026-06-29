@@ -199,7 +199,7 @@ next_step: "user-verified — operator sprawdza PDF"
 id: RAO-P1-016
 priority: P1
 size: S
-status: dev-verified
+status: team-verified
 classification: bugfix/pdf
 roles: [backend-dev]
 source: client-request
@@ -220,12 +220,25 @@ verification:
     - "PyMuPDF: protocol_zo_nodata (S) — 'miejsce dostawy' + 'Magdalenka' obecne ✅"
     - "PyMuPDF: protocol_zo_nodata_u (U) — 'miejsce dostawy' + 'Magdalenka' obecne ✅ (NAPRAWIONY)"
     - "deployment/ zsynchronizowane"
-  team: []
+  team:
+    qa-engineer:
+      - "[PASS] HTML struktura boksów poprawna (table/tr/td/div)"
+      - "[PASS] Jinja2 {% if contract.delivery_address %} poprawne"
+      - "[PASS] white-space: pre-wrap obecne (adresy wieloliniowe)"
+      - "[PASS] deployment/ zsynchronizowane (git diff --no-index: pusty)"
+      - "[ISSUE FIXED] Boks NAJEMCA był w nodata_u (pre-existing) — usunięto, zastąpiono wycentrowanym tytułem (zgodnie z definicją 'bez danych' i decyzją PO)"
+      - "[ISSUE FIXED] Brak table-layout: fixed — dodano dla spójności z protocol_zo_nodata.html"
+      - "[RISK: niski] Pusty boks przy null delivery_address (pre-existing, identyczne w innych szablonach)"
+    product-owner:
+      - "[APPROVED] Adres dostawy w nodata ZOSTAJE — info operacyjne dla kierowcy"
+      - "[APPROVED] Boks 'osoba upoważniona' też zostaje — kierowca musi wiedzieć z kim kontakt"
+      - "[APPROVED] 'Bez danych' = bez boksu NAJEMCA + bez PWO + bez OWN, ale z adresem dostawy"
+      - "[DECISION] Nie pytać klienta — decyzja operacyjna, klient już zgłosił brak adresu jako bug"
   user: []
   client: []
-root_cause: "protocol_zo_nodata_u.html nie miał sekcji boksów (osoba upoważniona + miejsce dostawy) — brakujące pole w wariancie bez danych dla umowy usługi"
-fix: "Dodano CSS .boxes/.box-cell/.box-inner + sekcję boksów z 'miejsce dostawy i odbioru przedmiotu najmu' renderującą contract.delivery_address"
-next_step: "team-verified — uruchom QA subagent"
+root_cause: "protocol_zo_nodata_u.html nie miał sekcji boksów (osoba upoważniona + miejsce dostawy) ORAZ miał boks NAJEMCA który nie powinien być w wariancie 'bez danych'"
+fix: "Dodano CSS .boxes/.box-cell/.box-inner + sekcję boksów z 'miejsce dostawy'; usunięto boks NAJEMCA i zastąpiono wycentrowanym tytułem (zgodnie z protocol_zo_nodata.html)"
+next_step: "user-verified — operator sprawdza PDF protokołu"
 ```
 
 **Problem (cytat klienta):** *„nie pokazuje adresu na protokole zdawczo odbiorczym - do weryfikacji"*
@@ -608,7 +621,7 @@ security_impact: none
 |----|-------|---|------|--------|---------------|
 | RAO-P1-014 | Frontend — błędne obliczanie daty końcowej okresu umowy | P1 | XS | user-verified | → client-approved |
 | RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | P1 | XS | team-verified | → user-verified |
-| RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | P1 | S | dev-verified | → team-verified |
+| RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | P1 | S | team-verified | → user-verified |
 | RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | triaged | → in_progress |
 | RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | P1 | XS | team-verified | → user-verified |
 | RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | triaged | → in_progress |
