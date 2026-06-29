@@ -300,6 +300,22 @@ async def startup_migrations():
         await conn.execute(sa.text(
             "CREATE UNIQUE INDEX IF NOT EXISTS uq_contracts_number ON contracts(number)"
         ))
+        # RAO-P1-038: indeksy na często filtrowanych kolumnach contracts
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_contracts_is_settled ON contracts(is_settled)"
+        ))
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_contracts_created_at ON contracts(created_at)"
+        ))
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_contracts_salesperson_id ON contracts(salesperson_id)"
+        ))
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_contracts_print_date ON contracts(print_date)"
+        ))
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_contracts_delivery_date ON contracts(date_to)"
+        ))
         # RAO-P3-002: logo firmy — ścieżka do pliku statycznego
         await conn.execute(sa.text(
             "ALTER TABLE company ADD COLUMN IF NOT EXISTS logo_path VARCHAR(500) NULL"

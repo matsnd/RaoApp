@@ -416,6 +416,9 @@ class ContractService:
 
     async def update_contract(self, db: AsyncSession, contract_id: int, data) -> Contract:
         contract = await self.get_contract(db, contract_id)
+        # RAO-P1-040: is_settled blokuje mutacje
+        if contract.is_settled:
+            raise conflict("Umowa jest rozliczona — modyfikacja zablokowana. Najpierw cofnij rozliczenie.")
         # RAO-P0-034: exclude_unset=True — only fields the client explicitly sent
         # are applied. Prevents lost-data bug where omitted fields reset to defaults.
         update_data = data.model_dump(exclude_unset=True)
@@ -534,6 +537,10 @@ class ContractService:
         pos = result.scalar_one_or_none()
         if not pos:
             raise not_found("Pozycja")
+        # RAO-P1-040: is_settled blokuje mutacje
+        contract = await self.get_contract(db, pos.contract_id)
+        if contract.is_settled:
+            raise conflict("Umowa jest rozliczona — modyfikacja pozycji zablokowana.")
         # RAO-P0-034: exclude_unset=True — only fields explicitly sent are applied
         for field, value in data.model_dump(exclude_unset=True).items():
             setattr(pos, field, value)
@@ -542,6 +549,10 @@ class ContractService:
         return pos
 
     async def delete_position(self, db: AsyncSession, contract_id: int, pos_id: int):
+        # RAO-P1-040: is_settled blokuje mutacje
+        contract = await self.get_contract(db, contract_id)
+        if contract.is_settled:
+            raise conflict("Umowa jest rozliczona — usuwanie pozycji zablokowane.")
         await db.execute(delete(PositionCondition).where(PositionCondition.position_id == pos_id))
         await db.execute(delete(ContractPosition).where(ContractPosition.id == pos_id))
         await db.execute(
@@ -568,6 +579,15 @@ class ContractService:
         cond = result.scalar_one_or_none()
         if not cond:
             raise not_found("Warunek")
+        # RAO-P1-040: is_settled blokuje mutacje (sprawdź kontrakt nadrzędny)
+        pos_result = await db.execute(
+            select(ContractPosition.contract_id).where(ContractPosition.id == cond.position_id)
+        )
+        contract_id = pos_result.scalar_one_or_none()
+        if contract_id:
+            contract = await self.get_contract(db, contract_id)
+            if contract.is_settled:
+                raise conflict("Umowa jest rozliczona — modyfikacja warunku zablokowana.")
         # RAO-P0-034: exclude_unset=True — only fields explicitly sent are applied
         for field, value in data.model_dump(exclude_unset=True).items():
             setattr(cond, field, value)
@@ -576,6 +596,17 @@ class ContractService:
         return cond
 
     async def delete_condition(self, db: AsyncSession, cond_id: int):
+        # RAO-P1-040: is_settled blokuje mutacje (sprawdź kontrakt nadrzędny)
+        pos_result = await db.execute(
+            select(ContractPosition.contract_id)
+            .join(PositionCondition, PositionCondition.position_id == ContractPosition.id)
+            .where(PositionCondition.id == cond_id)
+        )
+        contract_id = pos_result.scalar_one_or_none()
+        if contract_id:
+            contract = await self.get_contract(db, contract_id)
+            if contract.is_settled:
+                raise conflict("Umowa jest rozliczona — usuwanie warunku zablokowane.")
         await db.execute(delete(PositionCondition).where(PositionCondition.id == cond_id))
         await db.commit()
 
