@@ -161,22 +161,18 @@
     <tr>
       <td style="width:130px;">reprezentowany przez:</td>
       <td><div class="fill">{{ contract.contact_person1 or '' }}</div></td>
-      <td style="width:60px;padding-left:8px;">nr tel:</td>
-      <td><div class="fill">{{ contract.contact_phone1 or '' }}</div></td>
     </tr>
     <tr>
       <td>osoba kontaktowa:</td>
       <td><div class="fill">{{ contract.contact_person2 or '' }}</div></td>
-      <td style="padding-left:8px;">nr tel:</td>
-      <td><div class="fill">{{ contract.contact_phone2 or '' }}</div></td>
     </tr>
     <tr>
       <td>na budowie:</td>
-      <td colspan="3"><div class="fill-wide"></div></td>
+      <td><div class="fill-wide"></div></td>
     </tr>
     <tr>
       <td>email do przesłania faktury:</td>
-      <td colspan="3"><div class="fill-wide">{{ contract.email or '' }}</div></td>
+      <td><div class="fill-wide">{{ contract.email or '' }}</div></td>
     </tr>
   </table>
 </div>

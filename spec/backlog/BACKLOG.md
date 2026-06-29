@@ -1710,7 +1710,7 @@ fix: "toLocalISODate() zamiast toISOString(); liczenie dni roboczych 6/tydz (pon
 id: RAO-P1-015
 priority: P1
 size: XS
-status: triaged
+status: review
 classification: bugfix/pdf
 roles: [backend-dev]
 source: client-request
@@ -1720,6 +1720,12 @@ specs_to_update:
   - core/11_reports_stats.md
 migration_impact: no
 security_impact: none
+done_date: 2026-06-29
+verification:
+  - "PyMuPDF extract: contract 15492 (S401/2026) — sekcja 'uzupełnij' pokazuje tylko: reprezentowany przez / osoba kontaktowa / na budowie / email do przesłania faktury (bez 'nr tel')"
+  - "Phone patterns ['nr tel', 'nr tel:', 'telefon klienta'] NOT found in PDF text"
+  - "Protokoły ZO zachowują 'nr tel' (RAO-P1-005 nadal działa)"
+fix: "Usunięto 2 kolumny ('nr tel:' label + wartość) z sekcji 'uzupełnij' w contract.html i contract_u.html; zaktualizowano colspan w wierszach 'na budowie' i 'email'"
 ```
 
 **Problem (cytat klienta):** *„wpisałam numery - ale niech się one na umowie nie pokazują nawet jak są wpisane. Numery mają się nie pojawiać na umowie"*
@@ -2294,7 +2300,7 @@ SG036/2026     ← G PO S (błędny format) ❌
 | RAO-P2-007 | Frontend — pomoc UX jak wpisywać warunki | klient czat | P2 | S | done |
 | RAO-P3-014 | Placeholdery $1/$2 + nazwa zakładki | klient czat | P3 | M | in_progress |
 | RAO-P1-014 | Frontend — błędne obliczanie daty końcowej okresu umowy | klient czat 2026-06-29 | P1 | XS | review |
-| RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | klient czat 2026-06-29 | P1 | XS | triaged |
+| RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | klient czat 2026-06-29 | P1 | XS | review |
 | RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | klient czat 2026-06-29 | P1 | S | triaged |
 | RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | klient czat 2026-06-29 | P1 | M | triaged |
 | RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | klient czat 2026-06-29 | P1 | XS | triaged |
