@@ -285,7 +285,7 @@ next_step: "user-verified — operator sprawdza PDF protokołu"
 id: RAO-P1-017
 priority: P1
 size: M
-status: triaged
+status: dev-verified
 classification: bugfix/integration
 roles: [backend-dev, qa-engineer]
 source: client-request
@@ -296,6 +296,26 @@ specs_to_update:
   - core/04_business_logic.md
 migration_impact: no
 security_impact: none
+done_date: 2026-06-29
+verification:
+  dev:
+    - "Root cause 1: Nominatim zwraca EMPTY dla adresów z prefiksem 'ul.' — dodano normalize_address() który usuwa ul./al./pl./os."
+    - "Root cause 2: Auto-fill z 'uwag dojazdowych' NIE ISTNIAŁ — geocode był wołany tylko przy wyborze adresu z listy (onAddressSelect)"
+    - "Root cause 3: city w Nominatim jest w różnych polach (city/town/village/hamlet) — dodano extract_city() z fallback"
+    - "Fix backend: nominatim.py — normalize_address() + extract_city() + geocode zwraca city/postal_code jako top-level"
+    - "Fix backend: router.py — GeocodeResponse z city i postal_code polami"
+    - "Fix frontend: ContractFormView.vue — onDeliveryAddressInput z 800ms debounce → auto-fill postal_code + city"
+    - "Test API: 'ul. Kłobucka 6B, 02-699 Warszawa' → city=Warszawa, postal_code=02-699 (wcześniej EMPTY!)"
+    - "Test API: 'Magdalenka' → city=Magdalenka, postal_code=05-825 (village → city fallback)"
+    - "Test Playwright: wpisanie 'ul. Kłobucka 6B, 02-699 Warszawa' w textarea → po 2.5s postal=02-699, city=Warszawa ✅"
+    - "Test Playwright: wpisanie 'Magdalenka' w textarea → po 2.5s postal=05-825, city=Magdalenka ✅"
+    - "vue-tsc --noEmit: pass (exit 0)"
+  team: []
+  user: []
+  client: []
+root_cause: "Trzy bugi: (1) Nominatim nie radzi sobie z 'ul.' prefiksem; (2) auto-fill z uwag dojazdowych nie istniał; (3) city w różnych polach Nominatim bez fallback"
+fix: "normalize_address() usuwa ul./al./pl./os.; extract_city() sprawdza city/town/village/hamlet; frontend debounce 800ms na delivery_address → geocode → auto-fill postal_code + city"
+next_step: "team-verified — uruchom QA subagent"
 ```
 
 **Problem (cytat klienta):** *„napraw mechanizm rozpoznający adres. ze wpisujesz w uwagi dojazdowe adres i wygrywa miasto i kod pocztowy, albo mi powiedz czemu nie działa"*
@@ -622,7 +642,7 @@ security_impact: none
 | RAO-P1-014 | Frontend — błędne obliczanie daty końcowej okresu umowy | P1 | XS | user-verified | → client-approved |
 | RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | P1 | XS | team-verified | → user-verified |
 | RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | P1 | S | team-verified | → user-verified |
-| RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | triaged | → in_progress |
+| RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | dev-verified | → team-verified |
 | RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | P1 | XS | team-verified | → user-verified |
 | RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | triaged | → in_progress |
 | RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | triaged | → in_progress |

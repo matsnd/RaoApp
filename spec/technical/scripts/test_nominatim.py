@@ -1,4 +1,7 @@
 """Test Nominatim API directly (P1-017 investigation)."""
+import sys
+import io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 import httpx
 import json
 

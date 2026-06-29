@@ -76,7 +76,7 @@
                 <input v-model="form.city" class="form-control city-input" placeholder="Miasto" />
               </div>
               <div class="address-row">
-                <textarea v-model="form.delivery_address" class="form-control" rows="2" placeholder="Uwagi dojazdowe (opcjonalnie)"></textarea>
+                <textarea v-model="form.delivery_address" @input="onDeliveryAddressInput" class="form-control" rows="2" placeholder="Uwagi dojazdowe (opcjonalnie) — auto-uzupełni miasto i kod pocztowy"></textarea>
               </div>
             </div>
           </div>
@@ -1081,6 +1081,27 @@ const onPostalCodeBlur = async () => {
   } catch (error) {
     console.warn('Postal code lookup failed:', error)
   }
+}
+
+// RAO-P1-017: Auto-fill city + postal_code from delivery_address via Nominatim
+let deliveryAddressTimer: ReturnType<typeof setTimeout> | null = null
+const onDeliveryAddressInput = () => {
+  if (deliveryAddressTimer) clearTimeout(deliveryAddressTimer)
+  deliveryAddressTimer = setTimeout(async () => {
+    const addr = form.value.delivery_address?.trim()
+    if (!addr || addr.length < 5) return  // too short, skip
+    try {
+      const { data } = await api.post('/integrations/geocode', { address: addr })
+      if (data.city) form.value.city = data.city
+      if (data.postal_code) form.value.postal_code = data.postal_code
+      if (data.lat && data.lon) {
+        form.value.latitude = data.lat
+        form.value.longitude = data.lon
+      }
+    } catch {
+      // Silently fail — Nominatim may not find the address
+    }
+  }, 800)  // 800ms debounce
 }
 
 const showPosModal = ref(false)
