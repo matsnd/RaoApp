@@ -1070,7 +1070,7 @@ const onPostalCodeBlur = async () => {
   if (!code || code.length !== 6) return
   
   try {
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem('rao_token')
     const response = await fetch(`${import.meta.env.VITE_API_URL}/integrations/postal-codes/${code}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })

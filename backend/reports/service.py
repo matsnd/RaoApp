@@ -41,26 +41,8 @@ def generate_fees_text(fees: list) -> str:
     return "\n".join(lines)
 
 
-def _build_conditions_text(conditions, default_unit: str = "doba") -> str:
-    if not conditions:
-        return ""
-    sorted_conds = sorted(conditions, key=lambda c: (c.period_count or 0))
-    lines = []
-    prev_count = 0
-    for i, c in enumerate(sorted_conds):
-        unit = c.billing_label or default_unit
-        rate = f"{float(c.rate1):.2f}" if c.rate1 else "0.00"
-        rate2_str = f" - {float(c.rate2):.2f}" if c.rate2 else ""
-        count = c.period_count or 0
-        if i == 0:
-            if count:
-                lines.append(f"1 - {count} {unit} - {rate}{rate2_str} / {unit}")
-            else:
-                lines.append(c.description or f"{rate} / {unit}")
-        else:
-            lines.append(f"powyżej {prev_count} {unit} - {rate}{rate2_str} / {unit}")
-        prev_count = count
-    return "\n".join(lines)
+# RAO-P1-045: _build_conditions_text removed — dead code.
+# build_contract_data already uses format_position_conditions_cascading (dedup + cascading).
 
 
 async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
