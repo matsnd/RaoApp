@@ -33,20 +33,25 @@ class ContractorService:
         contractors = result.scalars().all()
 
         from contracts.models import Contract
+
+        # RAO-P0-035: Batch-fetch active contract numbers to eliminate N+1
+        contractor_ids = [c.id for c in contractors]
+        active_map = {}
+        if contractor_ids:
+            today = datetime.utcnow().date()
+            active_result = await db.execute(
+                select(Contract.contractor_id, Contract.number)
+                .where(Contract.contractor_id.in_(contractor_ids))
+                .where(Contract.date_to >= today)
+                .order_by(Contract.date_to.desc())
+            )
+            for cid, num in active_result.all():
+                if cid not in active_map:
+                    active_map[cid] = num
+
         items = []
         for c in contractors:
-            active_num = None
-            try:
-                active = await db.execute(
-                    select(Contract.number)
-                    .where(Contract.contractor_id == c.id)
-                    .where(Contract.date_to >= datetime.utcnow().date())
-                    .order_by(Contract.date_to.desc())
-                    .limit(1)
-                )
-                active_num = active.scalar_one_or_none()
-            except Exception:
-                pass
+            active_num = active_map.get(c.id)
 
             from contractors.schemas import ContractorListItem
             items.append(ContractorListItem(

@@ -938,7 +938,7 @@ W Polsce istnieje wiele miejscowości o tej samej nazwie. Aktualnie `/stats/loca
 | RAO-P0-032 | build_contract_data mutuje sesję — kopiuj description | P0 | XS | triaged | → in_progress |
 | RAO-P0-033 | recalculate_total — użyj algorytmu kaskadowego | P0 | S | dev-verified | → team-verified |
 | RAO-P0-034 | ContractUpdate schema z exclude_unset=True (lost data) | P0 | M | dev-verified | → team-verified |
-| RAO-P0-035 | N+1 queries — selectinload w list_contracts/positions/articles | P0 | M | triaged | → in_progress |
+| RAO-P0-035 | N+1 queries — selectinload w list_contracts/positions/articles | P0 | M | dev-verified | → team-verified |
 | RAO-P0-036 | Stack trace disclosure → detail="Błąd" + logging | P0 | XS | triaged | → in_progress |
 | RAO-P1-037 | delete_contract — guard na is_settled | P1 | XS | triaged | → in_progress |
 | RAO-P1-038 | Brak indeksów DB (is_settled, created_at, salesperson_id, print_date, delivery_date) | P1 | S | triaged | → in_progress |

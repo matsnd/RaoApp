@@ -42,30 +42,45 @@ class ArticleService:
         result = await db.execute(stmt)
         articles = result.scalars().all()
 
+        # RAO-P0-035: Batch-fetch categories, owners & active contracts to eliminate N+1
+        article_ids = [a.id for a in articles]
+        category_ids = {a.category_id for a in articles if a.category_id}
+        owner_ids = {a.owner_id for a in articles if a.owner_id}
+
+        cat_map = {}
+        if category_ids:
+            cat_result = await db.execute(
+                select(Category.id, Category.name).where(Category.id.in_(category_ids))
+            )
+            cat_map = dict(cat_result.all())
+
+        owner_map = {}
+        if owner_ids:
+            own_result = await db.execute(
+                select(Contractor.id, Contractor.name).where(Contractor.id.in_(owner_ids))
+            )
+            owner_map = dict(own_result.all())
+
+        # Batch-fetch active contract numbers for all articles in one query
+        active_map = {}
+        if article_ids:
+            today = date.today()
+            active_result = await db.execute(
+                select(ContractPosition.article_id, Contract.number)
+                .join(Contract, ContractPosition.contract_id == Contract.id)
+                .where(ContractPosition.article_id.in_(article_ids))
+                .where(Contract.date_to >= today)
+                .distinct()
+            )
+            for aid, num in active_result.all():
+                if aid not in active_map:
+                    active_map[aid] = num
+
         items = []
         for a in articles:
-            cat_name = None
-            if a.category_id:
-                cat = await db.get(Category, a.category_id)
-                cat_name = cat.name if cat else None
-
-            own_name = None
-            if a.owner_id:
-                own = await db.get(Contractor, a.owner_id)
-                own_name = own.name if own else None
-
-            active_num = None
-            try:
-                active = await db.execute(
-                    select(Contract.number)
-                    .join(ContractPosition, ContractPosition.contract_id == Contract.id)
-                    .where(ContractPosition.article_id == a.id)
-                    .where(Contract.date_to >= date.today())
-                    .limit(1)
-                )
-                active_num = active.scalar_one_or_none()
-            except Exception:
-                pass
+            cat_name = cat_map.get(a.category_id) if a.category_id else None
+            own_name = owner_map.get(a.owner_id) if a.owner_id else None
+            active_num = active_map.get(a.id)
 
             cond_count = 0
             items.append(ArticleListItem(

@@ -192,17 +192,29 @@ class ContractService:
         result = await db.execute(stmt)
         contracts = result.scalars().all()
 
+        # RAO-P0-035: Batch-fetch contractors & salespeople to eliminate N+1 queries
+        contractor_ids = {c.contractor_id for c in contracts if not (c.contractor_name or "")}
+        salesperson_ids = {c.salesperson_id for c in contracts if c.salesperson_id}
+
+        contractor_map = {}
+        if contractor_ids:
+            ct_result = await db.execute(
+                select(Contractor.id, Contractor.name).where(Contractor.id.in_(contractor_ids))
+            )
+            contractor_map = dict(ct_result.all())
+
+        sp_map = {}
+        if salesperson_ids:
+            sp_result = await db.execute(
+                select(Salesperson.id, Salesperson.name).where(Salesperson.id.in_(salesperson_ids))
+            )
+            sp_map = dict(sp_result.all())
+
         items = []
         for c in contracts:
-            contractor_name = c.contractor_name or ""
-            if not contractor_name:
-                ct = await db.get(Contractor, c.contractor_id)
-                contractor_name = ct.name if ct else ""
+            contractor_name = c.contractor_name or contractor_map.get(c.contractor_id, "")
 
-            sp_name = None
-            if c.salesperson_id:
-                sp = await db.get(Salesperson, c.salesperson_id)
-                sp_name = sp.name if sp else None
+            sp_name = sp_map.get(c.salesperson_id) if c.salesperson_id else None
 
             duration = None
             if c.date_from and c.date_to:
@@ -278,17 +290,29 @@ class ContractService:
         result = await db.execute(stmt)
         contracts = result.scalars().all()
 
+        # RAO-P0-035: Batch-fetch contractors & salespeople to eliminate N+1 queries
+        contractor_ids = {c.contractor_id for c in contracts if not (c.contractor_name or "")}
+        salesperson_ids = {c.salesperson_id for c in contracts if c.salesperson_id}
+
+        contractor_map = {}
+        if contractor_ids:
+            ct_result = await db.execute(
+                select(Contractor.id, Contractor.name).where(Contractor.id.in_(contractor_ids))
+            )
+            contractor_map = dict(ct_result.all())
+
+        sp_map = {}
+        if salesperson_ids:
+            sp_result = await db.execute(
+                select(Salesperson.id, Salesperson.name).where(Salesperson.id.in_(salesperson_ids))
+            )
+            sp_map = dict(sp_result.all())
+
         items = []
         for c in contracts:
-            contractor_name = c.contractor_name or ""
-            if not contractor_name:
-                ct = await db.get(Contractor, c.contractor_id)
-                contractor_name = ct.name if ct else ""
+            contractor_name = c.contractor_name or contractor_map.get(c.contractor_id, "")
 
-            sp_name = None
-            if c.salesperson_id:
-                sp = await db.get(Salesperson, c.salesperson_id)
-                sp_name = sp.name if sp else None
+            sp_name = sp_map.get(c.salesperson_id) if c.salesperson_id else None
 
             duration = None
             if c.date_from and c.date_to:
@@ -437,22 +461,33 @@ class ContractService:
             .where(ContractPosition.contract_id == contract_id)
         )
         positions = result.scalars().all()
+
+        # RAO-P0-035: Batch-fetch RateTypes & Contractors (suppliers) to eliminate N+1
+        rate_type_ids = {p.rate_type_id for p in positions if p.rate_type_id}
+        rate_type_ids |= {cond.rate_type_id for p in positions for cond in p.conditions if cond.rate_type_id}
+        supplier_ids = {p.supplier_id for p in positions if p.supplier_id}
+
+        rt_map = {}
+        if rate_type_ids:
+            rt_result = await db.execute(
+                select(RateType.id, RateType.name).where(RateType.id.in_(rate_type_ids))
+            )
+            rt_map = dict(rt_result.all())
+
+        supplier_map = {}
+        if supplier_ids:
+            sp_result = await db.execute(
+                select(Contractor.id, Contractor.name).where(Contractor.id.in_(supplier_ids))
+            )
+            supplier_map = dict(sp_result.all())
+
         out = []
         for p in positions:
-            rt_name = None
-            if p.rate_type_id:
-                rt = await db.get(RateType, p.rate_type_id)
-                rt_name = rt.name if rt else None
-            sp_name = None
-            if p.supplier_id:
-                sp = await db.get(Contractor, p.supplier_id)
-                sp_name = sp.name if sp else None
+            rt_name = rt_map.get(p.rate_type_id) if p.rate_type_id else None
+            sp_name = supplier_map.get(p.supplier_id) if p.supplier_id else None
             conditions = []
             for cond in p.conditions:
-                crt_name = None
-                if cond.rate_type_id:
-                    crt = await db.get(RateType, cond.rate_type_id)
-                    crt_name = crt.name if crt else None
+                crt_name = rt_map.get(cond.rate_type_id) if cond.rate_type_id else None
                 conditions.append(ConditionResponse(
                     id=cond.id, position_id=cond.position_id,
                     rate_type_id=cond.rate_type_id, rate_type_name=crt_name,
