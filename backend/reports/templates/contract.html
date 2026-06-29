@@ -214,16 +214,16 @@
       {% if fees %}
       <div class="inne-label">Inne usługi</div>
       <div style="margin: 0; font-size: 8.5px; line-height: 1.45; color: #333;">
-        {% for f in fees if f.is_active %}
+        {% for fd in fees if fd.fee.is_active %}
         <div style="white-space: nowrap; margin-bottom: 1.5px;">
-          {% if f.description %}
-            {% if f.description[:1] == '-' or f.description[:1] == '•' %}
-              {{ f.description }}
+          {% if fd.description %}
+            {% if fd.description[:1] == '-' or fd.description[:1] == '•' %}
+              {{ fd.description }}
             {% else %}
-              - {{ f.description }}
+              - {{ fd.description }}
             {% endif %}
           {% else %}
-            - {{ f.name }}: {% if f.amount_from %}{{ f.amount_from | money_plain }}{% endif %}{% if f.amount_to %} - {{ f.amount_to | money_plain }}{% endif %}{% if f.unit %} {{ f.unit }}{% endif %}
+            - {{ fd.fee.name }}: {% if fd.fee.amount_from %}{{ fd.fee.amount_from | money_plain }}{% endif %}{% if fd.fee.amount_to %} - {{ fd.fee.amount_to | money_plain }}{% endif %}{% if fd.fee.unit %} {{ fd.fee.unit }}{% endif %}
           {% endif %}
         </div>
         {% endfor %}

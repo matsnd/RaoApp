@@ -33,9 +33,10 @@ async def generate_contract_report(
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Umowa nie znaleziona")
     except Exception as exc:
-        import traceback
+        import logging
         from fastapi import HTTPException
-        raise HTTPException(status_code=500, detail=traceback.format_exc())
+        logging.exception("PDF generation failed for contract_id=%s type=%s", contract_id, type)
+        raise HTTPException(status_code=500, detail="Błąd generowania raportu")
     contract = await db.get(Contract, contract_id)
     if contract:
         contract.print_date = datetime.utcnow()

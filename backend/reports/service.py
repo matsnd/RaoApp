@@ -12,8 +12,21 @@ from articles.models import Article as ArticleModel
 
 
 def generate_fees_text(fees: list) -> str:
+    """Build human-readable fees text.
+
+    RAO-P0-032: Accepts either raw ContractServiceFee objects (legacy) or
+    dicts with {"fee": ContractServiceFee, "description": str} (new format
+    that avoids mutating attached session objects).
+    """
     lines = []
-    for f in sorted(fees, key=lambda x: x.sort_order):
+    # Normalize: extract (fee, description) pairs
+    normalized = []
+    for item in fees:
+        if isinstance(item, dict) and "fee" in item:
+            normalized.append((item["fee"], item.get("description") or item["fee"].description))
+        else:
+            normalized.append((item, item.description))
+    for f, desc in sorted(normalized, key=lambda x: x[0].sort_order):
         if not f.is_active:
             continue
         if f.amount_from and f.amount_to:
@@ -23,8 +36,8 @@ def generate_fees_text(fees: list) -> str:
         else:
             kwota = ""
         unit = f" / {f.unit}" if f.unit else ""
-        desc = f" ({f.description})" if f.description else ""
-        lines.append(f"- {f.name}: {kwota}{unit}{desc}".strip())
+        desc_txt = f" ({desc})" if desc else ""
+        lines.append(f"- {f.name}: {kwota}{unit}{desc_txt}".strip())
     return "\n".join(lines)
 
 
@@ -72,15 +85,21 @@ async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
     positions = contract.positions
     fees = contract.service_fees
 
-    # Dynamiczne formatowanie placeholderów $1 i $2 w locie przed renderowaniem PDF
+    # RAO-P0-032: Nie mutuj obiektów sesji — buduj lokalne kopie description
+    # (wcześniej f.description = ... modyfikowało attached obiekt → trwała zmiana w DB)
+    fees_data = []
     for f in fees:
-        if f.description:
-            if f.amount_from is not None:
-                val_from = f"{f.amount_from:.2f} zł"
-                f.description = f.description.replace("$1 zł", val_from).replace("$1", val_from)
-            if f.amount_to is not None:
-                val_to = f"{f.amount_to:.2f} zł"
-                f.description = f.description.replace("$2 zł", val_to).replace("$2", val_to)
+        desc = f.description or ""
+        if f.amount_from is not None:
+            val_from = f"{f.amount_from:.2f} zł"
+            desc = desc.replace("$1 zł", val_from).replace("$1", val_from)
+        if f.amount_to is not None:
+            val_to = f"{f.amount_to:.2f} zł"
+            desc = desc.replace("$2 zł", val_to).replace("$2", val_to)
+        fees_data.append({
+            "fee": f,
+            "description": desc,
+        })
 
     positions_data = []
     for pos in positions:
@@ -120,8 +139,8 @@ async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
         "company": company,
         "salesperson": salesperson,
         "positions": positions_data,
-        "fees": fees,
-        "fees_text": generate_fees_text(fees),
+        "fees": fees_data,
+        "fees_text": generate_fees_text(fees_data),
     }
 
 
