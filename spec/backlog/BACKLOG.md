@@ -660,6 +660,128 @@ security_impact: none
 
 ---
 
+### [RAO-P2-028] Statystyki — 100% pewna identyfikacja miasta (disambiguation via postal_code)
+
+```yaml
+id: RAO-P2-028
+priority: P2
+size: L
+status: triaged
+classification: feature/stats
+roles: [db-architect, backend-dev, qa-engineer]
+source: tech-lead-analysis
+source_date: 2026-06-29
+source_ref: "Analiza P1-017 — problem duplikatów nazw miast w statystykach"
+specs_to_update:
+  - core/01_database.md
+  - core/04_business_logic.md
+  - core/07_integrations.md
+migration_impact: yes
+security_impact: none
+```
+
+**Problem (analiza Tech Leada):**
+
+W Polsce istnieje wiele miejscowości o tej samej nazwie. Aktualnie `/stats/locations` agreguje umowy po `contract.city` (sam tekst), co powoduje że:
+
+- **"Wola" (60 umów)** — 5 różnych kodów pocztowych (05-500, 05-506, 05-555, 05-600, 08-410) → to są **różne miejscowości**: Wola k. Pruszkowa, Wola (dzielnica Warszawy), Wola k. Radomia, itd.
+- **"Michałowice" (8 umów)** — minimum 3 różne wsie o tej nazwie w Polsce (k. Warszawy, k. Krakowa, k. Wrocławia)
+- **"Lesznowola"** — gmina vs konkretna wieś
+- **"Warszawa" (151 umów, 82 różne kody)** — tu disambiguation mniej krytyczny (to wszystko Warszawa), ale dla małych miejscowości jest błędna agregacja
+
+**Dane z bazy (742 umowy):**
+- 32.9% (244) — ma city + postal_code ✅
+- 22.6% (168) — ma city ale NIE ma postal_code ⚠️
+- 44.5% (330) — nie ma city ani postal_code ❌
+
+**Istniejący `postal_codes.json`:**
+- Tylko 220 wpisów covering 7 miast (Warszawa, Kraków, Wrocław, Poznań, Gdańsk, Łódź, Katowice)
+- Nie pokrywa małych miejscowości gdzie problem disambiguation jest największy
+
+**Propozycja rozwiązania (2 fazy):**
+
+**Faza 1 — Composite key w statystykach (S, 2-3h):**
+- Agreguj `/stats/locations` po `(city, postal_code)` zamiast tylko `city`
+- Frontend: wyświetl "Wola (05-506)" zamiast "Wola" gdy są duplikaty
+- Gdy `postal_code` jest NULL → agreguj po `city` (z oznaczeniem "?")
+- To NIE wymaga nowej bazy — tylko zmiana zapytania SQL + frontend display
+
+**Faza 2 — Pełna baza PNA / TERYT (L, 6-8h):**
+- Integracja z otwartymi danymi PNA (Pocztowe Numery Adresowe) z Poczty Polskiej
+- ~42 000 kodów pocztowych → (city, gmina, powiat, województwo, lat, lng)
+- Źródła danych (open data, free):
+  1. **Poczta Polska PNA** — oficjalny rejestr kodów pocztowych (XLSX, aktualizowany kwartalnie)
+  2. **TERYT (GUS)** — rejestr terytorialny, już częściowo zintegrowany (`backend/integrations/teryt/`)
+  3. **OpenStreetMap / Nominatim** — reverse geocoding dla lat/lng (już używane w P1-017)
+- Nowa tabela `postal_codes` (zastąpi `postal_codes.json`):
+  ```sql
+  CREATE TABLE postal_codes (
+    postal_code VARCHAR(6) PRIMARY KEY,  -- '05-506'
+    city VARCHAR(100) NOT NULL,           -- 'Kolonia Lesznowola'
+    gmina VARCHAR(100),                   -- 'Lesznowola'
+    powiat VARCHAR(100),                  -- 'piaseczyński'
+    wojewodztwo VARCHAR(50),              -- 'mazowieckie'
+    lat DECIMAL(10, 7),
+    lng DECIMAL(10, 7),
+    source ENUM('pna', 'teryt', 'nominatim') DEFAULT 'pna'
+  );
+  ```
+- Skrypt `backend/migrate_postal_codes.py` — jednorazowy import z PNA XLSX
+- Endpoint `GET /integrations/postal-codes/{code}` — zwraca pełne dane (już istnieje, rozszerzyć)
+- W `/stats/locations` — JOIN z `postal_codes` po `postal_code` → pełna hierarchia terytorialna
+
+**Decyzja biznesowa (wymaga PO/klienta):**
+1. Czy statystyki mają pokazywać "Wola (05-506)" czy "Kolonia Lesznowola" (oficjalna nazwa z PNA)?
+2. Czy chcemy hierarchię: województwo → powiat → gmina → miasto? (przydatne dla raportów regionalnych)
+3. Czy importować pełną bazę PNA (~42k wpisów, ~5MB) czy tylko Mazowsze + Pomorsze (główne obszary operacyjne)?
+
+**Acceptance criteria (DoD):**
+
+**Faza 1:**
+- [ ] `/stats/locations` agreguje po `(city, postal_code)` gdy postal_code jest present
+- [ ] Gdy postal_code NULL → agreguj po `city` z suffixem " (?)" w display
+- [ ] Frontend: wyświetl "Miasto (XX-XXX)" gdy duplikat nazwy miasta detected
+- [ ] Test: "Wola" z 5 kodami → 5 osobnych pozycji w statystykach
+
+**Faza 2:**
+- [ ] Tabela `postal_codes` z pełną bazą PNA (~42k wpisów)
+- [ ] Skrypt importu `backend/migrate_postal_codes.py` (idempotentny, INSERT...ON DUPLICATE KEY UPDATE)
+- [ ] Endpoint `GET /integrations/postal-codes/{code}` zwraca (city, gmina, powiat, wojewodztwo, lat, lng)
+- [ ] `/stats/locations` z opcjonalnym filtrem `wojewodztwo`, `powiat`
+- [ ] Auto-fill w formularzu umowy: po wpisaniu kodu pocztowego → pełne dane terytorialne
+- [ ] Test: 42k wpisów w `postal_codes`, zapytanie <10ms z indeksem na `postal_code`
+
+**Pliki do zmiany:**
+
+**Faza 1:**
+- `backend/stats/router.py` (zapytanie SQL — composite key)
+- `backend/stats/schemas.py` (LocationStatItem z postal_code)
+- `frontend/src/views/StatsView.vue` (display z postal_code)
+
+**Faza 2:**
+- `backend/integrations/teryt/models.py` (nowy model PostalCode)
+- `backend/integrations/teryt/router.py` (rozszerzony endpoint)
+- `backend/migrate_postal_codes.py` (skrypt importu PNA)
+- `backend/main.py` (startup — create_all + ALTER)
+- `spec/core/01_database.md` (DDL nowej tabeli)
+
+**Ryzyka:**
+- PNA XLSX ma niestandardowy format (puste wiersze, scalone komórki) — wymaga parsera
+- Aktualizacja PNA kwartalnie — potrzeba mechanizmu refresh
+- 42k wpisów w DB — dodatkowe ~5MB, zapytania z indeksem <10ms (nie problem)
+- "Wola" vs "Wola Gołkowska" — PNA czasem używa nieoficjalnych nazw miejscowości
+
+**Estimate:**
+- Faza 1: 2-3h (S)
+- Faza 2: 6-8h (L)
+- Razem: 8-11h (L)
+
+**Zależności:**
+- P1-017 (hybrydowy extract-address) dostarcza `postal_code` do umów — bez tego Faza 1 ma limited data (tylko 32.9% umów ma postal_code)
+- Po P1-017 w produkcji i ręcznym uzupełnieniu postal_code przez handlowców → Faza 1 będzie miała >80% coverage
+
+---
+
 ## 📋 Tabela TL;DR
 
 | ID | Tytuł | P | Est. | Status | Następny krok |
@@ -673,8 +795,9 @@ security_impact: none
 | RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | triaged | → in_progress |
 | RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | triaged | → decyzja klienta |
 | RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | triaged | → in_progress |
+| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | triaged | → decyzja PO |
 
-**Razem:** 9 zadań · ~17-25h pracy
+**Razem:** 10 zadań · ~25-36h pracy (P1: 17-25h, P2: 8-11h)
 
 ### Pipeline weryfikacji (status flow)
 
