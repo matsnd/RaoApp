@@ -44,7 +44,7 @@
 id: RAO-P1-014
 priority: P1
 size: XS
-status: dev-verified
+status: team-verified
 classification: bugfix/frontend-logic
 roles: [frontend-dev, qa-engineer]
 source: client-request
@@ -64,12 +64,20 @@ verification:
     - "Playwright: 25.06+6=01.07"
     - "Playwright reverse: umowa 10.06-27.06 → 16 dni (skip 14.06 i 21.06 niedziele)"
     - "vue-tsc --noEmit: pass (exit 0)"
-  team: []
+  team:
+    qa-engineer:
+      - "[PASS] Edge cases: daysInternal=0, dateFrom=null, cross-year, infinite loop — all safe"
+      - "[ISSUE FIXED] Desync forward/reverse gdy date_from w niedzielę — naprawiono: fromDate zawsze liczy się jako dzień 1 (symetryczne z forward)"
+      - "[PASS] Symetria po fix: 28.06→02.07 = 5 dni (forward i reverse zgodne)"
+      - "[RISK: niski] Brak walidacji date_from <= date_to (guard zwraca 1, nie blokuje)"
+      - "[RISK: niski] Brak upper bound na daysInternal (przy 10000 pętla ~11400 iteracji)"
+      - "[ISSUE] Brak testów jednostkowych (vitest) — tylko manualne Playwright"
+      - "[ISSUE] E2E test 04-contract.spec.ts ma test.fixme — nieaktywny"
   user: []
   client: []
-root_cause: "Dwa bugi: (1) toISOString() zwraca UTC, cofa datę o 1 dzień w CEST; (2) brak skip niedzieli"
-fix: "toLocalISODate() zamiast toISOString(); liczenie dni roboczych 6/tydz (pon-sob)"
-next_step: "team-verified — uruchom software-house subagenty (QA, Tech Lead)"
+root_cause: "Trzy bugi: (1) toISOString() zwraca UTC, cofa datę o 1 dzień w CEST; (2) brak skip niedzieli; (3) desync forward/reverse gdy fromDate w niedzielę"
+fix: "toLocalISODate() zamiast toISOString(); liczenie dni roboczych 6/tydz (pon-sob); fromDate zawsze dzień 1 w reverse (symetria)"
+next_step: "user-verified — operator sprawdza w UI"
 ```
 
 **Problem (cytat klienta):** *„źle oblicza. 25.06. - 5 dni to 25.06-30.06. przy naliczaniu 6 dniowym"*
@@ -118,7 +126,7 @@ next_step: "team-verified — uruchom software-house subagenty (QA, Tech Lead)"
 id: RAO-P1-015
 priority: P1
 size: XS
-status: dev-verified
+status: team-verified
 classification: bugfix/pdf
 roles: [backend-dev]
 source: client-request
@@ -134,11 +142,25 @@ verification:
     - "PyMuPDF extract: contract 15492 (S401/2026) — sekcja 'uzupełnij' pokazuje tylko: reprezentowany przez / osoba kontaktowa / na budowie / email do przesłania faktury (bez 'nr tel')"
     - "Phone patterns ['nr tel', 'nr tel:', 'telefon klienta'] NOT found in PDF text"
     - "Protokoły ZO zachowują 'nr tel' (RAO-P1-005 nadal działa)"
-  team: []
+  team:
+    qa-engineer:
+      - "[PASS] Struktura tabeli 'uzupełnij' poprawna (2 kolumny, brak colspan, brak wiszących <td>)"
+      - "[PASS] Telefony usunięte z contract.html i contract_u.html"
+      - "[PASS] Protokoły ZO nadal zawierają telefony"
+      - "[PASS] Null/empty safe — brak labeli bez wartości"
+      - "[ISSUE FIXED] deployment/backend/reports/templates/ zsynchronizowane z backend/"
+      - "[RISK: niski] Brak automatycznego testu regresji (skrypt check_pdf_phone.py jest manualny)"
+    security-auditor:
+      - "[PASS] Brak wycieku przez API (auth wymagany na wszystkich endpointach)"
+      - "[PASS] Brak wycieku przez logi"
+      - "[PASS] Usunięcie z template wystarczające (Jinja2 nie emituje nieużywanych zmiennych)"
+      - "[PRE-EXISTING] IDOR w /reports/contract/{id} — dodano jako RAO-SEC-001"
+      - "[PRE-EXISTING] Brak autoescape w Jinja2 — dodano jako RAO-SEC-002"
+      - "[RISK: niski] Data residue w context (telefony w memory ale nie w output)"
   user: []
   client: []
-fix: "Usunięto 2 kolumny ('nr tel:' label + wartość) z sekcji 'uzupełnij' w contract.html i contract_u.html; zaktualizowano colspan w wierszach 'na budowie' i 'email'"
-next_step: "team-verified — uruchom software-house subagenty (QA, Security)"
+fix: "Usunięto 2 kolumny ('nr tel:' label + wartość) z sekcji 'uzupełnij' w contract.html i contract_u.html; zaktualizowano colspan; zsynchronizowano deployment/"
+next_step: "user-verified — operator sprawdza PDF"
 ```
 
 **Problem (cytat klienta):** *„wpisałam numery - ale niech się one na umowie nie pokazują nawet jak są wpisane. Numery mają się nie pojawiać na umowie"*
@@ -556,8 +578,8 @@ security_impact: none
 
 | ID | Tytuł | P | Est. | Status | Następny krok |
 |----|-------|---|------|--------|---------------|
-| RAO-P1-014 | Frontend — błędne obliczanie daty końcowej okresu umowy | P1 | XS | dev-verified | → team-verified |
-| RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-014 | Frontend — błędne obliczanie daty końcowej okresu umowy | P1 | XS | team-verified | → user-verified |
+| RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | P1 | XS | team-verified | → user-verified |
 | RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | P1 | S | triaged | → in_progress |
 | RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | triaged | → in_progress |
 | RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | P1 | XS | dev-verified | → team-verified |
@@ -580,6 +602,73 @@ triaged → in_progress → dev-verified → team-verified → user-verified →
                            pytest,        Lead review)
                            vue-tsc)
 ```
+
+---
+
+## 🔍 Pre-existing issues (znalezione przez security audit P1-015)
+
+### [RAO-SEC-001] IDOR — `/reports/contract/{id}` bez ownership check
+
+```yaml
+id: RAO-SEC-001
+priority: P1
+size: S
+status: triaged
+classification: security/idor
+roles: [backend-dev, security-auditor]
+source: security-audit
+source_date: 2026-06-29
+source_ref: "Security audit P1-015 — subagent security-auditor"
+specs_to_update:
+  - core/25_security.md
+migration_impact: no
+security_impact: yes
+```
+
+**Problem:** Endpoint `POST /reports/contract/{contract_id}` wymaga autentykacji (`get_current_user`), ale **nie sprawdza ownership/tenant** — każdy zalogowany użytkownik może wygenerować PDF (z telefonami klienta) dla cudzej umowy znając `contract_id`.
+
+**Atak:** Enumeracja `contract_id` → pozyskanie danych kontaktowych (telefony, adres dostawy) klientów innych handlowców.
+
+**Fix:** W `reports/router.py` (lub `service.py`) dodać weryfikację:
+```python
+if contract.created_by != current_user.id and current_user.role != "admin":
+    raise HTTPException(403)
+```
+
+**Pliki do zmiany:**
+- `backend/reports/router.py`
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S)
+
+---
+
+### [RAO-SEC-002] Jinja2 bez `autoescape=True` w reports/service.py
+
+```yaml
+id: RAO-SEC-002
+priority: P1
+size: S
+status: triaged
+classification: security/injection
+roles: [backend-dev, security-auditor]
+source: security-audit
+source_date: 2026-06-29
+source_ref: "Security audit P1-015 — subagent security-auditor"
+specs_to_update:
+  - core/25_security.md
+migration_impact: no
+security_impact: yes
+```
+
+**Problem:** `Environment(loader=FileSystemLoader(template_dir))` w `backend/reports/service.py` utworzony **bez `autoescape=True`**. Użytkownik może wstrzyknąć HTML/JS w pola `notes`, `contractor_name`, `contact_person1` → trafia do PDF WeasyPrint (SSRF, data exfiltration).
+
+**Fix:** `Environment(loader=FileSystemLoader(template_dir), autoescape=True)` + przetestować wszystkie szablony PDF pod kątem niezamierzonego escapowania polskich znaków.
+
+**Pliki do zmiany:**
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S) — wymaga testów wszystkich szablonów PDF
 
 ---
 

@@ -144,22 +144,18 @@
     <tr>
       <td style="width:130px;">reprezentowany przez:</td>
       <td class="fill">{{ contract.contact_person1 or '' }}</td>
-      <td style="width:60px;padding-left:8px;">nr tel:</td>
-      <td class="fill">{{ contract.contact_phone1 or '' }}</td>
     </tr>
     <tr>
       <td>osoba kontaktowa:</td>
       <td class="fill">{{ contract.contact_person2 or '' }}</td>
-      <td style="padding-left:8px;">nr tel:</td>
-      <td class="fill">{{ contract.contact_phone2 or '' }}</td>
     </tr>
     <tr>
       <td>na budowie:</td>
-      <td colspan="3" class="fill-wide"></td>
+      <td class="fill-wide"></td>
     </tr>
     <tr>
       <td>email do przesłania faktury:</td>
-      <td colspan="3" class="fill-wide">{{ contract.email or '' }}</td>
+      <td class="fill-wide">{{ contract.email or '' }}</td>
     </tr>
   </table>
 </div>
@@ -226,7 +222,6 @@
   <tr>
     <td>
       <div style="text-align:center;">
-        <img src="../assets/company_stamp_fixed.jpg" alt="Pieczątka firmy" style="width:180px;height:70px;object-fit:contain;margin-bottom:0;">
         <div class="sig-line">czytelny podpis Wynajmującego</div>
       </div>
     </td>

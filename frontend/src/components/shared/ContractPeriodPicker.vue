@@ -55,17 +55,21 @@ function toLocalISODate(d: Date): string {
 }
 
 // Count business days (Mon-Sat, skip Sundays) between from and to (inclusive)
+// fromDate always counts as day 1 (symmetry with dateToComputed forward logic)
 function calculateDaysFromDates(from: string | null, to: string | null): number {
   if (!from || !to) return 1
   const fromDate = new Date(from + 'T00:00:00')
   const toDate = new Date(to + 'T00:00:00')
-  let count = 0
+  if (fromDate > toDate) return 1 // guard: reversed dates
+  // day 1 = fromDate itself (always, even if Sunday — matches forward logic)
+  let count = 1
   const cur = new Date(fromDate)
+  cur.setDate(cur.getDate() + 1) // start from next day
   while (cur <= toDate) {
     if (cur.getDay() !== 0) count++ // 0 = Sunday → skip
     cur.setDate(cur.getDate() + 1)
   }
-  return count || 1
+  return count
 }
 
 // Initialize days when both dates are provided on mount
