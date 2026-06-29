@@ -93,6 +93,89 @@ async def geocode(
     )
 
 
+class ExtractAddressRequest(BaseModel):
+    address: str
+
+
+class ExtractAddressResponse(BaseModel):
+    """Hybrid address extraction result (P1-017).
+
+    city/postal_code filled by offline regex first, Nominatim fallback.
+    self_pickup=True when 'odbiór własny' detected — skip Nominatim.
+    """
+    city: str | None = None
+    postal_code: str | None = None
+    lat: Decimal | None = None
+    lon: Decimal | None = None
+    self_pickup: bool = False
+    source: str = "none"  # "self_pickup" | "offline" | "nominatim" | "none"
+
+
+@router.post("/extract-address", response_model=ExtractAddressResponse)
+async def extract_address(
+    data: ExtractAddressRequest,
+    _: User = Depends(get_current_user),
+):
+    """Hybrid address extraction from free-text delivery_address (P1-017).
+
+    Algorithm (per PO recommendation):
+    1. Clean: remove \\r\\n, collapse whitespace
+    2. Early-exit: 'odbiór własny' → self_pickup=True, no city/postal
+    3. Offline postal_code regex \\d{2}-\\d{3}
+    4. Offline city match via explorer.extract_city() (40+ Polish cities)
+    5. Nominatim fallback (only if step 4 returned 'Nieznane')
+    """
+    from integrations.nominatim import (
+        nominatim_client, clean_address, is_self_pickup,
+        extract_postal_code, extract_city_from_nominatim,
+    )
+    from explorer.router import extract_city as extract_city_offline
+
+    cleaned = clean_address(data.address)
+    if not cleaned:
+        return ExtractAddressResponse()
+
+    # Step 2: self-pickup early exit
+    if is_self_pickup(cleaned):
+        return ExtractAddressResponse(self_pickup=True, source="self_pickup")
+
+    # Step 3: offline postal code
+    postal = extract_postal_code(cleaned)
+
+    # Step 4: offline city
+    city_offline = extract_city_offline(cleaned)
+    city = None if city_offline == "Nieznane" else city_offline
+
+    # If we have both from offline — done, no Nominatim call
+    if city and postal:
+        return ExtractAddressResponse(
+            city=city, postal_code=postal, source="offline",
+        )
+
+    # Step 5: Nominatim fallback (only if offline city not found)
+    if not city:
+        try:
+            result = await nominatim_client.geocode(cleaned)
+            if result:
+                nom_city = result.get("city")
+                nom_postal = result.get("postal_code")
+                return ExtractAddressResponse(
+                    city=nom_city or city,
+                    postal_code=postal or nom_postal,
+                    lat=result.get("lat"),
+                    lon=result.get("lon"),
+                    source="nominatim",
+                )
+        except Exception:
+            pass  # silent fail — Nominatim may be down or rate-limited
+
+    # Fallback: return what we have from offline
+    return ExtractAddressResponse(
+        city=city, postal_code=postal,
+        source="offline" if (city or postal) else "none",
+    )
+
+
 @router.get("/postal-codes/{code}", response_model=PostalCodeLookupResponse)
 async def lookup_postal_code(
     code: str,

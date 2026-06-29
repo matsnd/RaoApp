@@ -72,8 +72,8 @@
                 </select>
               </div>
               <div class="address-row">
-                <input v-model="form.postal_code" @blur="onPostalCodeBlur" class="form-control postal-input" placeholder="00-000" maxlength="6" />
-                <input v-model="form.city" class="form-control city-input" placeholder="Miasto" />
+                <input v-model="form.postal_code" @blur="onPostalCodeBlur" @input="onPostalInput" class="form-control postal-input" placeholder="00-000" maxlength="6" />
+                <input v-model="form.city" @input="onCityInput" class="form-control city-input" placeholder="Miasto" />
               </div>
               <div class="address-row">
                 <textarea v-model="form.delivery_address" @input="onDeliveryAddressInput" class="form-control" rows="2" placeholder="Uwagi dojazdowe (opcjonalnie) — auto-uzupełni miasto i kod pocztowy"></textarea>
@@ -971,7 +971,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useContractStore } from '@/stores/contracts'
 import { useContractorStore } from '@/stores/contractors'
@@ -1083,26 +1083,46 @@ const onPostalCodeBlur = async () => {
   }
 }
 
-// RAO-P1-017: Auto-fill city + postal_code from delivery_address via Nominatim
+// RAO-P1-017: Auto-fill city + postal_code from delivery_address (hybrid: offline + Nominatim)
 let deliveryAddressTimer: ReturnType<typeof setTimeout> | null = null
+let deliveryAddressAbort: AbortController | null = null
+let cityManuallyEdited = false
+let postalManuallyEdited = false
+
+const onCityInput = () => { cityManuallyEdited = true }
+const onPostalInput = () => { postalManuallyEdited = true }
+
 const onDeliveryAddressInput = () => {
   if (deliveryAddressTimer) clearTimeout(deliveryAddressTimer)
   deliveryAddressTimer = setTimeout(async () => {
     const addr = form.value.delivery_address?.trim()
     if (!addr || addr.length < 5) return  // too short, skip
+    // Cancel previous in-flight request (race condition guard)
+    if (deliveryAddressAbort) deliveryAddressAbort.abort()
+    deliveryAddressAbort = new AbortController()
     try {
-      const { data } = await api.post('/integrations/geocode', { address: addr })
-      if (data.city) form.value.city = data.city
-      if (data.postal_code) form.value.postal_code = data.postal_code
+      // Hybrid endpoint: offline regex first, Nominatim fallback
+      const { data } = await api.post('/integrations/extract-address', { address: addr }, { signal: deliveryAddressAbort.signal })
+      // Only fill if user hasn't manually edited these fields
+      if (data.city && !cityManuallyEdited) form.value.city = data.city
+      if (data.postal_code && !postalManuallyEdited) form.value.postal_code = data.postal_code
       if (data.lat && data.lon) {
         form.value.latitude = data.lat
         form.value.longitude = data.lon
       }
-    } catch {
-      // Silently fail — Nominatim may not find the address
+    } catch (e: any) {
+      // AbortError is expected when canceling previous request
+      if (e?.name !== 'AbortError') {
+        // Silently fail — Nominatim may not find the address
+      }
     }
   }, 800)  // 800ms debounce
 }
+
+onUnmounted(() => {
+  if (deliveryAddressTimer) clearTimeout(deliveryAddressTimer)
+  if (deliveryAddressAbort) deliveryAddressAbort.abort()
+})
 
 const showPosModal = ref(false)
 const editingPos = ref(null)

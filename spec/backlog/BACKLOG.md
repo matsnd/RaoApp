@@ -287,7 +287,7 @@ priority: P1
 size: M
 status: dev-verified
 classification: bugfix/integration
-roles: [backend-dev, qa-engineer]
+roles: [backend-dev, qa-engineer, product-owner]
 source: client-request
 source_date: 2026-06-29
 source_ref: "spec/backlog/do_wciagniecia_do_backlogu.md pkt 4"
@@ -299,23 +299,48 @@ security_impact: none
 done_date: 2026-06-29
 verification:
   dev:
-    - "Root cause 1: Nominatim zwraca EMPTY dla adresów z prefiksem 'ul.' — dodano normalize_address() który usuwa ul./al./pl./os."
-    - "Root cause 2: Auto-fill z 'uwag dojazdowych' NIE ISTNIAŁ — geocode był wołany tylko przy wyborze adresu z listy (onAddressSelect)"
-    - "Root cause 3: city w Nominatim jest w różnych polach (city/town/village/hamlet) — dodano extract_city() z fallback"
-    - "Fix backend: nominatim.py — normalize_address() + extract_city() + geocode zwraca city/postal_code jako top-level"
-    - "Fix backend: router.py — GeocodeResponse z city i postal_code polami"
-    - "Fix frontend: ContractFormView.vue — onDeliveryAddressInput z 800ms debounce → auto-fill postal_code + city"
-    - "Test API: 'ul. Kłobucka 6B, 02-699 Warszawa' → city=Warszawa, postal_code=02-699 (wcześniej EMPTY!)"
-    - "Test API: 'Magdalenka' → city=Magdalenka, postal_code=05-825 (village → city fallback)"
-    - "Test Playwright: wpisanie 'ul. Kłobucka 6B, 02-699 Warszawa' w textarea → po 2.5s postal=02-699, city=Warszawa ✅"
-    - "Test Playwright: wpisanie 'Magdalenka' w textarea → po 2.5s postal=05-825, city=Magdalenka ✅"
+    - "Root cause 1: Nominatim zwraca EMPTY dla adresów z prefiksem 'ul.' — dodano normalize_address()"
+    - "Root cause 2: Auto-fill z 'uwag dojazdowych' NIE ISTNIAŁ — geocode był wołany tylko przy wyborze adresu z listy"
+    - "Root cause 3: city w Nominatim jest w różnych polach (city/town/village/hamlet) — dodano extract_city_from_nominatim()"
+    - "Root cause 4 (PO): 42% najczęstszych wpisów to 'odbiór własny' — Nominatim bezsensownie geokodował frazy bez adresu"
+    - "Root cause 5 (PO): istnieje extract_city() w explorer/router.py (offline, 40+ miast) ale nie był używany"
+    - "Fix backend nominatim.py: normalize_address() + extract_city_from_nominatim() + clean_address() + is_self_pickup() + extract_postal_code()"
+    - "Fix backend router.py: nowy endpoint POST /integrations/extract-address (hybryda offline + Nominatim fallback)"
+    - "Fix frontend: onDeliveryAddressInput z 800ms debounce + AbortController + cityManuallyEdited/postalManuallyEdited flags + onUnmounted cleanup"
+    - "Algorytm hybrydowy (PO recommendation): 1) clean 2) self-pickup early-exit 3) offline postal regex 4) offline extract_city 5) Nominatim fallback"
+    - "Coverage test na 100 rzeczywistych delivery_address z DB: 97% offline (52% both + 45% city only), 3% self-pickup, 0% Nominatim needed"
+    - "API test: 'odbiór własny' → self_pickup=True, city=None, postal=None ✅"
+    - "API test: 'ul. Kłobucka 6B, 02-699 Warszawa' → city=Warszawa, postal=02-699, source=offline ✅"
+    - "API test: 'Gdańsku na ul. Szczęśliwa 3' → city=Gdańsk (rozpoznaje odmianę!) ✅"
+    - "API test: '27-220Mirzec Poddabrowa 48A' → postal=27-220 (kod bez spacji) ✅"
+    - "API test: 'Wroclaw, ul. Krzemieniecka 110 (wjazd z tyłu budynku)' → city=Wrocław (ignoruje info w nawiasach) ✅"
+    - "API test: 'Metro\\r\\nSzeligowska 30C, 01-320 Warszawa' → city=Warszawa, postal=01-320 (czyści \\r\\n) ✅"
+    - "Playwright: 'odbiór własny' w textarea → city i postal puste (self-pickup) ✅"
+    - "Playwright: 'ul. Kłobucka 6B, 02-699 Warszawa' → postal=02-699, city=Warszawa ✅"
+    - "Playwright: 'Wroclaw, ul. Krzemieniecka 110 (wjazd z tyłu budynku)' → city=Wroclaw ✅"
     - "vue-tsc --noEmit: pass (exit 0)"
-  team: []
+  team:
+    qa-engineer:
+      - "[ISSUE FIXED] Brak cleanup timer'a przy unmount — dodano onUnmounted()"
+      - "[ISSUE FIXED] Race condition — dodano AbortController"
+      - "[ISSUE FIXED] Backend Decimal(None) crash — dodano None guard"
+      - "[ISSUE FIXED] Nadpisywanie ręcznie edytowanych pól — dodano cityManuallyEdited/postalManuallyEdited flags"
+      - "[PASS] normalize_address obsługuje ul./al./pl./os."
+      - "[PASS] extract_city_from_nominatim fallback city→town→village→hamlet→municipality"
+      - "[PASS] debounce 800ms + guard min 5 znaków"
+      - "[PASS] silent fail na brak wyników"
+    product-owner:
+      - "[APPROVED] Hybrydowy algorytm: offline first (regex + extract_city), Nominatim fallback"
+      - "[APPROVED] 'odbiór własny' → early-exit, city=NULL, postal_code=NULL (bez zmiany schema)"
+      - "[APPROVED] postal_code nie jest używane w statystykach — lokalny regex wystarczy"
+      - "[APPROVED] /stats/locations pomija city=NULL — akceptowalne dla v1"
+      - "[APPROVED] Reuse istniejącego extract_city() z explorer/router.py"
+      - "[DECISION] Nie dodawać is_self_pickup flagi do DB (P2, poza scope)"
   user: []
   client: []
-root_cause: "Trzy bugi: (1) Nominatim nie radzi sobie z 'ul.' prefiksem; (2) auto-fill z uwag dojazdowych nie istniał; (3) city w różnych polach Nominatim bez fallback"
-fix: "normalize_address() usuwa ul./al./pl./os.; extract_city() sprawdza city/town/village/hamlet; frontend debounce 800ms na delivery_address → geocode → auto-fill postal_code + city"
-next_step: "team-verified — uruchom QA subagent"
+root_cause: "Pięć bugów: (1) Nominatim nie radzi sobie z 'ul.' prefiksem; (2) auto-fill z uwag dojazdowych nie istniał; (3) city w różnych polach Nominatim; (4) brak early-exit dla 'odbiór własny' (42% wpisów!); (5) istniejący offline extract_city() nie był używany"
+fix: "Hybrydowy algorytm 5-krokowy: clean → self-pickup early-exit → offline postal regex → offline extract_city (40+ miast) → Nominatim fallback. Nowy endpoint POST /integrations/extract-address. Frontend: debounce 800ms + AbortController + manual-edit flags + onUnmounted cleanup"
+next_step: "team-verified — uruchom QA subagent na hybrydowym algorytmie"
 ```
 
 **Problem (cytat klienta):** *„napraw mechanizm rozpoznający adres. ze wpisujesz w uwagi dojazdowe adres i wygrywa miasto i kod pocztowy, albo mi powiedz czemu nie działa"*
