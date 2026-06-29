@@ -6,9 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from auth.dependencies import get_current_user
 from auth.models import User
 from contracts.schemas import (
-    ConditionCreate, ConditionResponse, ContractCreate, ContractDetail,
+    ConditionCreate, ConditionResponse, ConditionUpdate, ContractCreate, ContractDetail,
     ContractListItem, ContractServiceFeeCreate, ContractServiceFeeReorder,
-    ContractServiceFeeResponse, PositionCreate, PositionResponse,
+    ContractServiceFeeResponse, ContractUpdate, PositionCreate, PositionResponse,
+    PositionUpdate,
     ServiceHourCreate, ServiceHourResponse, ServiceHourUpdate,
     SettleContractRequest,
 )
@@ -88,7 +89,7 @@ async def create_contract(
 @router.put("/{contract_id}", response_model=ContractDetail)
 async def update_contract(
     contract_id: int,
-    data: ContractCreate,
+    data: ContractUpdate,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
@@ -151,7 +152,7 @@ async def create_position(
 async def update_position(
     contract_id: int,
     pos_id: int,
-    data: PositionCreate,
+    data: PositionUpdate,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
@@ -223,7 +224,7 @@ async def update_condition(
     contract_id: int,
     pos_id: int,
     cond_id: int,
-    data: ConditionCreate,
+    data: ConditionUpdate,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):

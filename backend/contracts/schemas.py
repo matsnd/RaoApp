@@ -44,6 +44,17 @@ class ConditionCreate(BaseModel):
     minimum: int | None = None
 
 
+class ConditionUpdate(BaseModel):
+    """RAO-P0-034: Partial update — only fields explicitly sent are applied."""
+    rate_type_id: int | None = None
+    description: str | None = Field(None, max_length=400)
+    rate1: Decimal | None = None
+    rate2: Decimal | None = None
+    billing_label: str | None = None
+    period_count: int | None = None
+    minimum: int | None = None
+
+
 class PositionResponse(BaseModel):
     id: int
     contract_id: int
@@ -75,6 +86,22 @@ class PositionCreate(BaseModel):
     description: str | None = Field(None, max_length=400)
     rental_days: int | None = None
     quantity: int = 1
+    unit_price: Decimal | None = None
+    costs: Decimal | None = None
+    rate_type_id: int | None = None
+    billing_frequency: str | None = None
+    billing_unit: str | None = None
+    supplier_id: int | None = None
+    delivery_date: date | None = None
+
+
+class PositionUpdate(BaseModel):
+    """RAO-P0-034: Partial update — only fields explicitly sent are applied."""
+    article_id: int | None = None
+    rental_type: str | None = None
+    description: str | None = Field(None, max_length=400)
+    rental_days: int | None = None
+    quantity: int | None = None
     unit_price: Decimal | None = None
     costs: Decimal | None = None
     rate_type_id: int | None = None
@@ -208,7 +235,7 @@ class ContractCreate(BaseModel):
     longitude: Decimal | None = None
     date_from: date | None = None
     date_to: date | None = None
-    total_value: Decimal | None = None
+    total_value: Decimal | None = Decimal("0.00")
     prepayment_amount: Decimal | None = None
     prepayment_document: str | None = None
     invoice_amount: Decimal | None = None
@@ -227,6 +254,45 @@ class ContractCreate(BaseModel):
     report_without_data: bool = False
     hide_delivery_address: bool = False
     signatures_on_page1: bool = False
+
+
+class ContractUpdate(BaseModel):
+    """RAO-P0-034: Partial update — only fields explicitly sent are applied.
+
+    Fixes lost-data bug where PUT with partial body reset unspecified fields
+    to ContractCreate defaults (e.g. working_days_per_week=6, contract_type='S').
+    Used with model_dump(exclude_unset=True) in update_contract.
+    """
+    contractor_id: int | None = None
+    branch_id: int | None = None
+    salesperson_id: int | None = None
+    contract_type: Literal["S", "U"] | None = None
+    delivery_address: str | None = None
+    postal_code: PostalCode | None = None
+    city: CityName | None = None
+    latitude: Decimal | None = None
+    longitude: Decimal | None = None
+    date_from: date | None = None
+    date_to: date | None = None
+    total_value: Decimal | None = None
+    prepayment_amount: Decimal | None = None
+    prepayment_document: str | None = None
+    invoice_amount: Decimal | None = None
+    invoice_document: str | None = None
+    notes: str | None = None
+    contact_person1: str | None = None
+    contact_phone1: str | None = None
+    show_person1: bool | None = None
+    contact_person2: str | None = None
+    contact_phone2: str | None = None
+    show_person2: bool | None = None
+    email: str | None = None
+    phone: str | None = None
+    contractor_name: str | None = None
+    working_days_per_week: int | None = None
+    report_without_data: bool | None = None
+    hide_delivery_address: bool | None = None
+    signatures_on_page1: bool | None = None
 
 
 class ServiceHourResponse(BaseModel):

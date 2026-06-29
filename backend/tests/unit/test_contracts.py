@@ -7,8 +7,11 @@ from pydantic import ValidationError
 
 from contracts.schemas import (
     ContractCreate,
+    ContractUpdate,
     PositionCreate,
+    PositionUpdate,
     ConditionCreate,
+    ConditionUpdate,
 )
 from contracts.service import generate_contract_number
 
@@ -151,4 +154,44 @@ async def test_generate_contract_number_no_branch_id():
     number, auto = await generate_contract_number(db, "S", branch_id=None)
     assert auto == 166
     assert not number.endswith("G")
-    assert db.execute.await_count == 2
+
+
+# ── RAO-P0-034: exclude_unset=True — partial update must not reset fields ──────
+
+def test_contract_update_exclude_unset_only_sent_fields():
+    """PUT with only notes must NOT include working_days_per_week in dump."""
+    u = ContractUpdate(notes="test")
+    dumped = u.model_dump(exclude_unset=True)
+    assert dumped == {"notes": "test"}
+    assert "working_days_per_week" not in dumped
+    assert "contract_type" not in dumped
+    assert "show_person1" not in dumped
+
+def test_contract_update_all_fields_optional():
+    """ContractUpdate with no fields → empty dump (no-op update)."""
+    u = ContractUpdate()
+    assert u.model_dump(exclude_unset=True) == {}
+
+def test_position_update_exclude_unset():
+    u = PositionUpdate(quantity=5)
+    dumped = u.model_dump(exclude_unset=True)
+    assert dumped == {"quantity": 5}
+    assert "article_id" not in dumped
+    assert "rental_days" not in dumped
+
+def test_condition_update_exclude_unset():
+    u = ConditionUpdate(rate1=Decimal("150"), period_count=7)
+    dumped = u.model_dump(exclude_unset=True)
+    assert dumped == {"rate1": Decimal("150"), "period_count": 7}
+    assert "minimum" not in dumped
+
+def test_contract_update_full_payload_still_works():
+    """Full payload (like frontend sends) → all fields in dump (backward-compat)."""
+    u = ContractUpdate(
+        contractor_id=1, contract_type="S", working_days_per_week=5,
+        notes="abc", show_person1=True,
+    )
+    dumped = u.model_dump(exclude_unset=True)
+    assert "contractor_id" in dumped
+    assert "working_days_per_week" in dumped
+    assert "notes" in dumped

@@ -390,9 +390,11 @@ class ContractService:
                     ) from e
                 # Retry — another concurrent request took our number
 
-    async def update_contract(self, db: AsyncSession, contract_id: int, data: ContractCreate) -> Contract:
+    async def update_contract(self, db: AsyncSession, contract_id: int, data) -> Contract:
         contract = await self.get_contract(db, contract_id)
-        update_data = data.model_dump()
+        # RAO-P0-034: exclude_unset=True — only fields the client explicitly sent
+        # are applied. Prevents lost-data bug where omitted fields reset to defaults.
+        update_data = data.model_dump(exclude_unset=True)
         update_data.pop("contractor_name", None)
         for field, value in update_data.items():
             setattr(contract, field, value)
@@ -488,12 +490,13 @@ class ContractService:
         await db.refresh(pos)
         return pos
 
-    async def update_position(self, db: AsyncSession, pos_id: int, data: PositionCreate) -> ContractPosition:
+    async def update_position(self, db: AsyncSession, pos_id: int, data) -> ContractPosition:
         result = await db.execute(select(ContractPosition).where(ContractPosition.id == pos_id))
         pos = result.scalar_one_or_none()
         if not pos:
             raise not_found("Pozycja")
-        for field, value in data.model_dump().items():
+        # RAO-P0-034: exclude_unset=True — only fields explicitly sent are applied
+        for field, value in data.model_dump(exclude_unset=True).items():
             setattr(pos, field, value)
         await db.commit()
         await db.refresh(pos)
@@ -521,12 +524,13 @@ class ContractService:
         await db.refresh(cond)
         return cond
 
-    async def update_condition(self, db: AsyncSession, cond_id: int, data: ConditionCreate) -> PositionCondition:
+    async def update_condition(self, db: AsyncSession, cond_id: int, data) -> PositionCondition:
         result = await db.execute(select(PositionCondition).where(PositionCondition.id == cond_id))
         cond = result.scalar_one_or_none()
         if not cond:
             raise not_found("Warunek")
-        for field, value in data.model_dump().items():
+        # RAO-P0-034: exclude_unset=True — only fields explicitly sent are applied
+        for field, value in data.model_dump(exclude_unset=True).items():
             setattr(cond, field, value)
         await db.commit()
         await db.refresh(cond)
