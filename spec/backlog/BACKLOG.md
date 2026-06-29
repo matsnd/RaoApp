@@ -453,7 +453,7 @@ next_step: "user-verified — operator sprawdza PDF"
 id: RAO-P1-019
 priority: P1
 size: M
-status: triaged
+status: dev-verified
 classification: refactor/pdf-design
 roles: [backend-dev, ui-designer]
 source: client-request
@@ -464,6 +464,26 @@ specs_to_update:
   - core/09_design_reference.md
 migration_impact: no
 security_impact: none
+done_date: 2026-06-29
+verification:
+  dev:
+    - "Root cause: contract_u.html miał CSS niezgodny z contract.html (orange label, dotted red borders, brak navy)"
+    - "Kropki = border-bottom: 2px dotted #c00000 → zmienione na 1px solid #aaa (jak w S)"
+    - "Orange label #E07800 → gray #888 (jak w S)"
+    - "Title color: brak → navy #1D2B53 (jak w S)"
+    - "Party box width: 42% → 46% (jak w S)"
+    - "Content/header padding: 14mm → 11mm (jak w S)"
+    - "Dodano .art-name { color: #1D2B53; font-weight: bold; } (jak w S)"
+    - "Dodano .party-data { color: #1D2B53; } (jak w S)"
+    - "Weryfikacja: 0 wystąpień 'dotted' w CSS rules (tylko komentarz + own-sig-line identyczne jak w S)"
+    - "Weryfikacja: 0 wystąpień 'E07800' i 'c00000'"
+    - "PDF test: U contract id=15488 → 73,647 bytes ✅"
+  team: []
+  user: []
+  client: []
+root_cause: "contract_u.html miał niezgodny CSS z contract.html — orange label, dotted red borders (kropki), brak navy color"
+fix: "Wyrównano CSS contract_u.html z contract.html: solid borders, gray labels, navy colors, padding 11mm, width 46%"
+next_step: "team-verified → user-verified (weryfikacja wizualna klienta)"
 ```
 
 **Problem (cytat klienta):** *„umowa usługi do naprawienia design żeby było jak w umowie najmu (kropki do wywalenia — obejrzyj jak to wygląda i zaproponuj poprawę żeby było jak umowa najmu)"*
@@ -887,10 +907,10 @@ W Polsce istnieje wiele miejscowości o tej samej nazwie. Aktualnie `/stats/loca
 | RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | P1 | S | team-verified | → user-verified |
 | RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | dev-verified | → team-verified |
 | RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | P1 | XS | team-verified | → user-verified |
-| RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | triaged | → in_progress |
+| RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | dev-verified | → user-verified |
 | RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | triaged | → in_progress |
 | RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | triaged | → decyzja klienta |
-| RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → team-verified |
+| RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
 | RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | triaged | → decyzja PO |
 | RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | dev-verified | → user-verified |
 
