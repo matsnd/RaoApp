@@ -295,6 +295,11 @@ async def startup_migrations():
             "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
             "longitude DECIMAL(11,8) NULL"
         ))
+        # RAO-P0-030: UNIQUE constraint na contracts.number (zapobiega duplikatom)
+        # Idempotentne: CREATE UNIQUE INDEX IF NOT EXISTS
+        await conn.execute(sa.text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_contracts_number ON contracts(number)"
+        ))
         # RAO-P3-002: logo firmy — ścieżka do pliku statycznego
         await conn.execute(sa.text(
             "ALTER TABLE company ADD COLUMN IF NOT EXISTS logo_path VARCHAR(500) NULL"

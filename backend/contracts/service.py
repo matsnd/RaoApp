@@ -10,8 +10,19 @@ from shared.exceptions import not_found, conflict
 
 
 async def generate_contract_number(db: AsyncSession, contract_type: str, branch_id: int | None = None) -> tuple[str, int]:
+    """Generate a unique contract number.
+
+    RAO-P0-030: Uses SELECT ... FOR UPDATE on Company row to serialize
+    concurrent contract creation. Falls back to retry on IntegrityError
+    (defensive — UNIQUE index on contracts.number is the last line of defense).
+    """
     from settings.models import Company, Branch
-    company_result = await db.execute(select(Company.numbering_start).where(Company.id == 1))
+    from sqlalchemy import text as sa_text
+
+    # Lock the Company row to serialize concurrent number generation
+    company_result = await db.execute(
+        sa_text("SELECT numbering_start FROM company WHERE id = 1 FOR UPDATE")
+    )
     start = company_result.scalar_one_or_none() or 1
 
     max_result = await db.execute(select(func.max(Contract.auto_number)))
@@ -338,33 +349,46 @@ class ContractService:
         return contract
 
     async def create_contract(self, db: AsyncSession, data: ContractCreate) -> Contract:
-        number, auto_num = await generate_contract_number(db, data.contract_type, data.branch_id)
-        contractor_name = data.contractor_name
-        if not contractor_name:
-            from contractors.models import Contractor
-            ct = await db.get(Contractor, data.contractor_id)
-            if not ct:
-                from fastapi import HTTPException
-                raise HTTPException(status_code=422, detail="Kontrahent nie istnieje")
-            contractor_name = ct.name
+        # RAO-P0-030: Retry on IntegrityError (UNIQUE on contracts.number)
+        from sqlalchemy.exc import IntegrityError
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                number, auto_num = await generate_contract_number(db, data.contract_type, data.branch_id)
+                contractor_name = data.contractor_name
+                if not contractor_name:
+                    from contractors.models import Contractor
+                    ct = await db.get(Contractor, data.contractor_id)
+                    if not ct:
+                        from fastapi import HTTPException
+                        raise HTTPException(status_code=422, detail="Kontrahent nie istnieje")
+                    contractor_name = ct.name
 
-        contract = Contract(
-            **{k: v for k, v in data.model_dump().items() if k != "contractor_name"},
-            contractor_name=contractor_name,
-            number=number,
-            auto_number=auto_num,
-            created_at=datetime.utcnow(),
-        )
-        db.add(contract)
-        await db.commit()
-        await db.refresh(contract)
-        await copy_fee_templates(db, contract.id, data.contract_type)
-        # RAO-P1-012: Auto-create settlement records for all positions
-        from settlements.service import SettlementService
-        settlement_service = SettlementService()
-        position_ids = [p.id for p in data.positions] if hasattr(data, 'positions') and data.positions else []
-        await settlement_service.auto_create_settlements_for_contract(db, contract.id, position_ids)
-        return contract
+                contract = Contract(
+                    **{k: v for k, v in data.model_dump().items() if k != "contractor_name"},
+                    contractor_name=contractor_name,
+                    number=number,
+                    auto_number=auto_num,
+                    created_at=datetime.utcnow(),
+                )
+                db.add(contract)
+                await db.commit()
+                await db.refresh(contract)
+                await copy_fee_templates(db, contract.id, data.contract_type)
+                # RAO-P1-012: Auto-create settlement records for all positions
+                from settlements.service import SettlementService
+                settlement_service = SettlementService()
+                position_ids = [p.id for p in data.positions] if hasattr(data, 'positions') and data.positions else []
+                await settlement_service.auto_create_settlements_for_contract(db, contract.id, position_ids)
+                return contract
+            except IntegrityError as e:
+                await db.rollback()
+                if attempt == max_retries - 1:
+                    raise conflict(
+                        "Nie udało się wygenerować unikalnego numeru umowy po "
+                        f"{max_retries} próbach. Spróbuj ponownie."
+                    ) from e
+                # Retry — another concurrent request took our number
 
     async def update_contract(self, db: AsyncSession, contract_id: int, data: ContractCreate) -> Contract:
         contract = await self.get_contract(db, contract_id)
