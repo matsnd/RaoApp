@@ -9,8 +9,8 @@ from contracts.schemas import ContractCreate, PositionCreate, ConditionCreate, C
 from shared.exceptions import not_found, conflict
 
 
-async def generate_contract_number(db: AsyncSession, contract_type: str) -> tuple[str, int]:
-    from settings.models import Company
+async def generate_contract_number(db: AsyncSession, contract_type: str, branch_id: int | None = None) -> tuple[str, int]:
+    from settings.models import Company, Branch
     company_result = await db.execute(select(Company.numbering_start).where(Company.id == 1))
     start = company_result.scalar_one_or_none() or 1
 
@@ -19,7 +19,15 @@ async def generate_contract_number(db: AsyncSession, contract_type: str) -> tupl
 
     new_number = max(start, current_max) + 1
     year = datetime.now().year
-    return f"{contract_type}{new_number:03d}/{year}", new_number
+
+    suffix = ""
+    if branch_id:
+        branch_result = await db.execute(select(Branch.name).where(Branch.id == branch_id))
+        branch_name = branch_result.scalar_one_or_none()
+        if branch_name and branch_name.upper() == "GDAŃSK":
+            suffix = "G"
+
+    return f"{contract_type}{new_number:03d}/{year}{suffix}", new_number
 
 
 async def copy_fee_templates(db: AsyncSession, contract_id: int, contract_type: str):
@@ -318,7 +326,7 @@ class ContractService:
         return contract
 
     async def create_contract(self, db: AsyncSession, data: ContractCreate) -> Contract:
-        number, auto_num = await generate_contract_number(db, data.contract_type)
+        number, auto_num = await generate_contract_number(db, data.contract_type, data.branch_id)
         contractor_name = data.contractor_name
         if not contractor_name:
             from contractors.models import Contractor

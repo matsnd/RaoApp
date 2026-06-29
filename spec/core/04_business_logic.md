@@ -8,7 +8,8 @@
 ```python
 async def generate_contract_number(
     db: AsyncSession,
-    contract_type: Literal["S", "U"]
+    contract_type: Literal["S", "U"],
+    branch_id: int | None = None
 ) -> tuple[str, int]:
     """
     Źródło w WinForms: FormU4.cs → generowanie numeru przy nowej umowie.
@@ -17,12 +18,13 @@ async def generate_contract_number(
     1. Pobierz `numeracja` z tabeli `company` (id=1)
     2. Pobierz `max(auto_number)` z tabeli `contracts`
     3. new_auto = max(numeracja, max_auto) + 1
-    4. Format: "{type}{new_auto:03d}/{year}"
+    4. Jeśli branch_id wskazuje na oddział GDAŃSK (case-insensitive) → suffix = "G"
+    5. Format: "{type}{new_auto:03d}/{year}{suffix}"
        - type="S" → umowa najmu
        - type="U" → umowa usługi
-    5. Zwróć (numer_str, new_auto)
+    6. Zwróć (numer_str, new_auto)
 
-    Przykład: S001/2026, S002/2026, U003/2026
+    Przykład: S001/2026, S002/2026G (Gdańsk), U003/2026
     """
     result = await db.execute(
         select(Company.numbering_start).where(Company.id == 1)
@@ -34,7 +36,15 @@ async def generate_contract_number(
 
     new_auto = max(start, max_auto) + 1
     year = datetime.now().year
-    number = f"{contract_type}{new_auto:03d}/{year}"
+
+    suffix = ""
+    if branch_id:
+        branch_result = await db.execute(select(Branch.name).where(Branch.id == branch_id))
+        branch_name = branch_result.scalar_one_or_none()
+        if branch_name and branch_name.upper() == "GDAŃSK":
+            suffix = "G"
+
+    number = f"{contract_type}{new_auto:03d}/{year}{suffix}"
 
     return number, new_auto
 ```

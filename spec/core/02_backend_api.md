@@ -736,15 +736,17 @@ class ContractCreate(BaseModel):
 ```python
 async def generate_contract_number(
     db: AsyncSession,
-    contract_type: str  # "S" lub "U"
+    contract_type: str,  # "S" lub "U"
+    branch_id: int | None = None
 ) -> tuple[str, int]:
     """
-    Generuje numer w formacie: S001/2026 lub U001/2026
+    Generuje numer w formacie: S001/2026, S001/2026G (Gdańsk), U001/2026, U001/2026G
     1. Pobierz numerację startową z company
     2. Pobierz max(auto_number) z contracts
     3. Nowy auto_number = max(numeracja, max_auto) + 1
     4. Prefix = "S" dla najem, "U" dla usługa
-    5. Format: {prefix}{auto_number:03d}/{rok}
+    5. Jeśli branch_id wskazuje na oddział GDAŃSK (case-insensitive) → suffix = "G"
+    6. Format: {prefix}{auto_number:03d}/{rok}{suffix}
     """
     company = await db.execute(select(Company.numbering_start).where(Company.id == 1))
     start = company.scalar_one_or_none() or 1
@@ -758,7 +760,14 @@ async def generate_contract_number(
     year = datetime.now().year
     prefix = contract_type  # "S" or "U"
 
-    return f"{prefix}{new_number:03d}/{year}", new_number
+    suffix = ""
+    if branch_id:
+        branch = await db.execute(select(Branch.name).where(Branch.id == branch_id))
+        branch_name = branch.scalar_one_or_none()
+        if branch_name and branch_name.upper() == "GDAŃSK":
+            suffix = "G"
+
+    return f"{prefix}{new_number:03d}/{year}{suffix}", new_number
 ```
 
 ### `PUT /contracts/{id}`
