@@ -10,8 +10,22 @@
 ## ℹ️ Zasady
 
 1. **Każde zadanie zawiera:** opis problemu, lokalizację w kodzie, acceptance criteria, pliki do zmiany
-2. **Status flow:** `triaged → in_progress → review → done`
-3. **Weryfikacja:** programatyczna (Playwright/PyMuPDF) + wizualna (klient sprawdza w UI/PDF)
+2. **Status flow (4-etapowy pipeline weryfikacji):**
+
+   ```
+   triaged → in_progress → dev-verified → team-verified → user-verified → client-approved
+   ```
+
+   | Status | Kto weryfikuje | Co robi |
+   |--------|----------------|---------|
+   | `triaged` | — | Zadanie opisane, czeka na start |
+   | `in_progress` | Devin | Koduje zmianę |
+   | `dev-verified` | Devin | Testy programatyczne (Playwright, PyMuPDF, pytest, vue-tsc) |
+   | `team-verified` | Software-house subagenty | QA, Security, UX, PO, Tech Lead review |
+   | `user-verified` | Ty (operator) | Weryfikacja wzrokowa w UI/PDF |
+   | `client-approved` | Klient | Zatwierdzenie końcowe → `done` |
+
+3. **Zadanie zamykamy (`done`) TYLKO gdy klient zatwierdzi** — operator powiadamia Devina
 4. **Po zakończeniu zadania → lokalny commit**
 5. **Spec sync:** każda zmiana funkcjonalna → update `spec/core/`
 
@@ -30,7 +44,7 @@
 id: RAO-P1-014
 priority: P1
 size: XS
-status: review
+status: dev-verified
 classification: bugfix/frontend-logic
 roles: [frontend-dev, qa-engineer]
 source: client-request
@@ -43,13 +57,19 @@ migration_impact: no
 security_impact: none
 done_date: 2026-06-29
 verification:
-  - "Playwright: 25.06+5=30.06 (skip niedzieli 28.06) — zgodne z oczekiwaniem klienta"
-  - "Playwright: 25.06+1=25.06 (ten sam dzień)"
-  - "Playwright: 28.06 (niedz)+5=02.07 (skip 05.07)"
-  - "Playwright: 25.06+6=01.07"
-  - "Playwright reverse: umowa 10.06-27.06 → 16 dni (skip 14.06 i 21.06 niedziele)"
+  dev:
+    - "Playwright: 25.06+5=30.06 (skip niedzieli 28.06) — zgodne z oczekiwaniem klienta"
+    - "Playwright: 25.06+1=25.06 (ten sam dzień)"
+    - "Playwright: 28.06 (niedz)+5=02.07 (skip 05.07)"
+    - "Playwright: 25.06+6=01.07"
+    - "Playwright reverse: umowa 10.06-27.06 → 16 dni (skip 14.06 i 21.06 niedziele)"
+    - "vue-tsc --noEmit: pass (exit 0)"
+  team: []
+  user: []
+  client: []
 root_cause: "Dwa bugi: (1) toISOString() zwraca UTC, cofa datę o 1 dzień w CEST; (2) brak skip niedzieli"
 fix: "toLocalISODate() zamiast toISOString(); liczenie dni roboczych 6/tydz (pon-sob)"
+next_step: "team-verified — uruchom software-house subagenty (QA, Tech Lead)"
 ```
 
 **Problem (cytat klienta):** *„źle oblicza. 25.06. - 5 dni to 25.06-30.06. przy naliczaniu 6 dniowym"*
@@ -98,7 +118,7 @@ fix: "toLocalISODate() zamiast toISOString(); liczenie dni roboczych 6/tydz (pon
 id: RAO-P1-015
 priority: P1
 size: XS
-status: review
+status: dev-verified
 classification: bugfix/pdf
 roles: [backend-dev]
 source: client-request
@@ -110,10 +130,15 @@ migration_impact: no
 security_impact: none
 done_date: 2026-06-29
 verification:
-  - "PyMuPDF extract: contract 15492 (S401/2026) — sekcja 'uzupełnij' pokazuje tylko: reprezentowany przez / osoba kontaktowa / na budowie / email do przesłania faktury (bez 'nr tel')"
-  - "Phone patterns ['nr tel', 'nr tel:', 'telefon klienta'] NOT found in PDF text"
-  - "Protokoły ZO zachowują 'nr tel' (RAO-P1-005 nadal działa)"
+  dev:
+    - "PyMuPDF extract: contract 15492 (S401/2026) — sekcja 'uzupełnij' pokazuje tylko: reprezentowany przez / osoba kontaktowa / na budowie / email do przesłania faktury (bez 'nr tel')"
+    - "Phone patterns ['nr tel', 'nr tel:', 'telefon klienta'] NOT found in PDF text"
+    - "Protokoły ZO zachowują 'nr tel' (RAO-P1-005 nadal działa)"
+  team: []
+  user: []
+  client: []
 fix: "Usunięto 2 kolumny ('nr tel:' label + wartość) z sekcji 'uzupełnij' w contract.html i contract_u.html; zaktualizowano colspan w wierszach 'na budowie' i 'email'"
+next_step: "team-verified — uruchom software-house subagenty (QA, Security)"
 ```
 
 **Problem (cytat klienta):** *„wpisałam numery - ale niech się one na umowie nie pokazują nawet jak są wpisane. Numery mają się nie pojawiać na umowie"*
@@ -269,6 +294,12 @@ specs_to_update:
   - core/11_reports_stats.md
 migration_impact: no
 security_impact: none
+verification:
+  dev: []
+  team: []
+  user: []
+  client: []
+next_step: "dev-verified — dokończyć weryfikację PyMuPDF (image count per page)"
 ```
 
 **Problem (cytat klienta):** *„Na obydwu typach umów wywalić pieczątkę z pierwszej strony"*
@@ -516,19 +547,32 @@ security_impact: none
 
 ## 📋 Tabela TL;DR
 
-| ID | Tytuł | P | Est. | Status |
-|----|-------|---|------|--------|
-| RAO-P1-014 | Frontend — błędne obliczanie daty końcowej okresu umowy | P1 | XS | review |
-| RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | P1 | XS | review |
-| RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | P1 | S | triaged |
-| RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | triaged |
-| RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | P1 | XS | in_progress |
-| RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | triaged |
-| RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | triaged |
-| RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | triaged |
-| RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | triaged |
+| ID | Tytuł | P | Est. | Status | Następny krok |
+|----|-------|---|------|--------|---------------|
+| RAO-P1-014 | Frontend — błędne obliczanie daty końcowej okresu umowy | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | P1 | S | triaged | → in_progress |
+| RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | triaged | → in_progress |
+| RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | P1 | XS | in_progress | → dev-verified |
+| RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | triaged | → in_progress |
+| RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | triaged | → in_progress |
+| RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | triaged | → decyzja klienta |
+| RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | triaged | → in_progress |
 
 **Razem:** 9 zadań · ~17-25h pracy
+
+### Pipeline weryfikacji (status flow)
+
+```
+triaged → in_progress → dev-verified → team-verified → user-verified → client-approved (done)
+           │              │               │               │               │
+           Devin koduje   Devin testuje   Software-house  Ty wzrokowo    Klient zatwierdza
+           zmianę         programatycz.   subagenty       w UI/PDF        → zadanie zamknięte
+                          (Playwright,    (QA, Security,
+                           PyMuPDF,       UX, PO, Tech
+                           pytest,        Lead review)
+                           vue-tsc)
+```
 
 ---
 
