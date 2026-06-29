@@ -527,7 +527,7 @@ next_step: "team-verified → user-verified (weryfikacja wizualna klienta)"
 id: RAO-P1-020
 priority: P1
 size: M
-status: triaged
+status: dev-verified
 classification: feature/pdf
 roles: [backend-dev, frontend-dev]
 source: client-request
@@ -538,6 +538,26 @@ specs_to_update:
   - core/04_business_logic.md
 migration_impact: no
 security_impact: none
+done_date: 2026-06-29
+verification:
+  dev:
+    - "Funkcja format_position_conditions_cascading już istniała (P1-008) ale miała 2 bugi"
+    - "BUG 1: Duplikaty warunków (migracja stworzyła każdy warunek 2x) → dodano deduplikację po (period_count, rate1, rate2)"
+    - "BUG 2: Linia 'powyżej' nie działała — dane z migracji mają period_count=ostatni (nie None) z rate2>0 i rate1=0"
+    - "  Stara logika: elif c.rate2 is not None and prev_period > 0 (wymagała period_count=None)"
+    - "  Nowa logika: elif c.rate2 > 0 and prev_period > 0 (ignoruje period_count, patrzy na rate2)"
+    - "  Dodatkowo: warunek tier wymaga rate1 > 0 (nie rate1 is not None) — odrzuca rate1=0"
+    - "Test realnymi danymi (contract 7164, 8 warunków → 4 unikalne):"
+    - "  Przed: 8 linii z duplikatami i złymi zakresami (10-9, 21-20, 30-29 z rate=0)"
+    - "  Po: 4 linii poprawne: 1-9/600, 10-20/500, 21-29/400, powyżej 29/300"
+    - "Testy unit: 4 passed (test_format_conditions.py)"
+    - "PDF test: contract 7164 → 90,798 bytes ✅"
+  team: []
+  user: []
+  client: []
+root_cause: "format_position_conditions_cascading nie obsługiwała danych z migracji (duplikaty, rate2 z period_count zamiast None)"
+fix: "Deduplikacja warunków + logika 'powyżej' oparta na rate2>0 (nie period_count=None) + tier wymaga rate1>0"
+next_step: "team-verified → user-verified (weryfikacja wizualna klienta)"
 ```
 
 **Problem (cytat klienta):** *„rozliczenie ma się pokazywać jak na starej aplikacji"*
@@ -908,7 +928,7 @@ W Polsce istnieje wiele miejscowości o tej samej nazwie. Aktualnie `/stats/loca
 | RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | dev-verified | → team-verified |
 | RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | P1 | XS | team-verified | → user-verified |
 | RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | dev-verified | → user-verified |
-| RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | triaged | → in_progress |
+| RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
 | RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | triaged | → decyzja klienta |
 | RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
 | RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | triaged | → decyzja PO |

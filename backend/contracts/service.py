@@ -59,21 +59,32 @@ def format_position_conditions_cascading(conditions: list[PositionCondition]) ->
       1 - 3 dni - 540,00 / doba
       4 - 16 dni - 410,00 / doba
       powyżej 16 dni - 350,00 / doba
+
+    RAO-P1-020: naprawiono duplikaty warunków + logikę "powyżej" (rate2 z rate1=0).
     """
     if not conditions:
         return ""
 
+    # RAO-P1-020: Deduplikuj warunki po (period_count, rate1, rate2) — migracja mogła stworzyć duplikaty
+    seen = set()
+    unique_conds = []
+    for c in conditions:
+        key = (c.period_count, c.rate1, c.rate2)
+        if key not in seen:
+            seen.add(key)
+            unique_conds.append(c)
+
     # Sortuj warunki rosnąco po period_count (NULL na końcu)
     sorted_conds = sorted(
-        conditions,
+        unique_conds,
         key=lambda c: (c.period_count is None, c.period_count or 0)
     )
     lines = []
     prev_period = 0
     for i, c in enumerate(sorted_conds):
         label = c.billing_label or 'doba'
-        if c.period_count is not None and c.rate1 is not None:
-            # Zakres dni
+        if c.period_count is not None and c.rate1 is not None and c.rate1 > 0:
+            # Zakres dni (tier z rate1 > 0)
             start = prev_period + 1
             end = c.period_count
             if start == end:
@@ -85,8 +96,9 @@ def format_position_conditions_cascading(conditions: list[PositionCondition]) ->
             rate_text = f"{c.rate1:.2f}".replace('.', ',')
             lines.append(f"{range_text} - {rate_text} / {label}")
             prev_period = c.period_count
-        elif c.rate2 is not None and prev_period > 0:
-            # Linia "powyżej"
+        elif c.rate2 is not None and c.rate2 > 0 and prev_period > 0:
+            # RAO-P1-020: Linia "powyżej" — rate2 > 0, niezależnie od period_count
+            # (dane z migracji mają period_count=ostatni zamiast None)
             rate_text = f"{c.rate2:.2f}".replace('.', ',')
             lines.append(f"powyżej {prev_period} dni - {rate_text} / {label}")
     return '\n'.join(lines)
