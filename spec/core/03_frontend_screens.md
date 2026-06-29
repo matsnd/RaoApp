@@ -1632,3 +1632,46 @@ W modalu dodawania warunku:
 | 2026-05-25 | 10 | 2026-06-03 | 25.05.2026 – 03.06.2026 |
 | 2026-05-01 | 31 | 2026-05-31 | 01.05.2026 – 31.05.2026 |
 | 2026-12-25 | 10 | 2027-01-03 | 25.12.2026 – 03.01.2027 |
+
+## RAO-P1-043: Cleanup event listenerów i timerów (memory leaks)
+
+Każdy widok/komponent dodający `addEventListener` lub uruchamiający `setTimeout`/`setInterval` **musi** czyścić je w `onUnmounted` (lub `onBeforeUnmount`).
+
+### Wzorzec
+
+```ts
+import { onMounted, onUnmounted } from 'vue'
+
+let timer: ReturnType<typeof setTimeout> | null = null
+
+onMounted(() => {
+  document.addEventListener('click', handleClick)        // named function!
+  timer = setTimeout(() => { ... }, 1000)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClick)      // ta sama funkcja
+  if (timer) clearTimeout(timer)
+})
+```
+
+### Zasady
+
+- **`addEventListener` z inline arrow function NIE działa z `removeEventListener`** — zrefaktoruj na named function.
+- **Timer ID zapisany w zmiennej** — użyj tej samej zmiennej w `clearTimeout`/`clearInterval`.
+- **Wiele timerów UI** (np. feedback messages 3-5s) — zbieraj w tablicy `uiTimers[]` i czyść wszystkie w `onUnmounted`.
+- **Pliki bez `lang="ts"`** — używaj plain JS (`let x = null`), bez annotacji TypeScript.
+
+### Pliki objęte fixem P1-043
+
+| Plik | Co wyczyszczono |
+|------|-----------------|
+| `views/DashboardView.vue` | `document.addEventListener('click'/'keydown')` + `searchTimer` (refaktor inline arrow → `handleCtxKeydown`) |
+| `views/ContractFormView.vue` | `pickerTimer`, `artTimer`, `supTimer` (dodane do istniejącego `onUnmounted`) |
+| `views/ArticleFormView.vue` | `ownerTimer` (nowy `onUnmounted`) |
+| `views/SettingsView.vue` | 5× `setTimeout` (feedback messages) przez `scheduleUiTimer()` + `uiTimers[]` |
+| `views/LoginView.vue` | `shakeTimer` (nowy `onUnmounted`) |
+| `views/ChangePasswordView.vue` | `redirectTimer` (nowy `onUnmounted`) |
+| `views/ResetPasswordView.vue` | `redirectTimer` (nowy `onUnmounted`) |
+| `components/reports/ReportsSection.vue` | `machineSearchTimer`, `serviceSearchTimer` (dodane do istniejącego `onBeforeUnmount`) |
+

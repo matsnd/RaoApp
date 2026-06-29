@@ -176,7 +176,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useArticleStore } from '@/stores/articles'
 import { useSettingsStore } from '@/stores/settings'
@@ -315,12 +315,17 @@ async function handleDuplicate() {
 
 let ownerTimer = null
 async function searchOwners() {
-  clearTimeout(ownerTimer)
+  if (ownerTimer) clearTimeout(ownerTimer)
   ownerTimer = setTimeout(async () => {
     const { data } = await api.get('/contractors', { params: { search: pickerSearch.value, per_page: 50 } })
     pickerList.value = data.items
   }, 300)
 }
+
+// RAO-P1-043: cleanup timera pickera — zapobiega memory leakowi
+onUnmounted(() => {
+  if (ownerTimer) clearTimeout(ownerTimer)
+})
 
 function selectOwner(c) {
   form.value.owner_id = c.id

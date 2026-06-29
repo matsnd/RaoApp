@@ -324,7 +324,7 @@
 </template>
 
 <script setup>
-import { ref, watch, computed, onMounted } from 'vue'
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import AppToolbar from '@/components/layout/AppToolbar.vue'
 import ConfirmDialog from '@/components/shared/ConfirmDialog.vue'
@@ -372,6 +372,9 @@ function ctxPrint(type) {
 
 function closeCtxMenu() { ctxMenu.value.visible = false }
 
+// RAO-P1-043: named handler dla removeEventListener (inline arrow nie działa z removeEventListener)
+function handleCtxKeydown(e) { if (e.key === 'Escape') closeCtxMenu() }
+
 const totalPages = computed(() => {
   const total = section.value === 'contracts' ? contractStore.total
     : section.value === 'overdue' ? contractStore.overdueTotal
@@ -418,14 +421,21 @@ async function loadData() {
 onMounted(() => {
   loadData()
   document.addEventListener('click', closeCtxMenu)
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCtxMenu() })
+  document.addEventListener('keydown', handleCtxKeydown)
+})
+
+// RAO-P1-043: cleanup event listenerów i timerów — zapobiega memory leakom
+onUnmounted(() => {
+  document.removeEventListener('click', closeCtxMenu)
+  document.removeEventListener('keydown', handleCtxKeydown)
+  if (searchTimer) clearTimeout(searchTimer)
 })
 
 watch([section, page], loadData)
 
 let searchTimer = null
 watch(search, () => {
-  clearTimeout(searchTimer)
+  if (searchTimer) clearTimeout(searchTimer)
   searchTimer = setTimeout(() => { page.value = 1; loadData() }, 400)
 })
 watch(contractTypeFilter, () => { page.value = 1; loadData() })

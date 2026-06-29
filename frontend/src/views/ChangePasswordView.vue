@@ -29,7 +29,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/composables/useApi'
 
@@ -39,6 +39,12 @@ const error = ref('')
 const success = ref('')
 const loading = ref(false)
 
+// RAO-P1-043: cleanup timera przekierowania — zapobiega memory leakowi
+let redirectTimer = null
+onUnmounted(() => {
+  if (redirectTimer) clearTimeout(redirectTimer)
+})
+
 async function handleChange() {
   loading.value = true
   error.value = ''
@@ -46,7 +52,7 @@ async function handleChange() {
   try {
     await api.put('/auth/change-password', form.value)
     success.value = 'Hasło zmienione pomyślnie. Przekierowanie...'
-    setTimeout(() => router.push('/home'), 1500)
+    redirectTimer = setTimeout(() => router.push('/home'), 1500)
   } catch (e) {
     error.value = e.response?.data?.detail || 'Błąd zmiany hasła'
   } finally {

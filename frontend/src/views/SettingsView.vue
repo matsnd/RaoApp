@@ -443,7 +443,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import { useSettingsStore } from '@/stores/settings'
 import { useArticleStore } from '@/stores/articles'
@@ -454,6 +454,18 @@ import { useTargetFolder } from '@/composables/useTargetFolder.js'
 const settingsStore = useSettingsStore()
 const articleStore = useArticleStore()
 const fakturowniaStore = useFakturowniaStore()
+
+// RAO-P1-043: zbieracz timery UI (feedback messages) — cleanup w onUnmounted
+const uiTimers: ReturnType<typeof setTimeout>[] = []
+function scheduleUiTimer(fn: () => void, ms: number) {
+  const t = setTimeout(fn, ms)
+  uiTimers.push(t)
+  return t
+}
+onUnmounted(() => {
+  uiTimers.forEach(t => clearTimeout(t))
+  uiTimers.length = 0
+})
 
 const activeTab = ref('company')
 const tabs = [
@@ -527,7 +539,7 @@ async function handlePickFolder() {
     folderMsgOk.value = false
   } finally {
     pickingFolder.value = false
-    setTimeout(() => { folderMsg.value = '' }, 5000)
+    scheduleUiTimer(() => { folderMsg.value = '' }, 5000)
   }
 }
 
@@ -536,7 +548,7 @@ async function handleClearFolder() {
   folderName.value = null
   folderMsg.value = 'Konfiguracja folderu usunięta.'
   folderMsgOk.value = true
-  setTimeout(() => { folderMsg.value = '' }, 3000)
+  scheduleUiTimer(() => { folderMsg.value = '' }, 3000)
 }
 
 onMounted(async () => {
@@ -701,7 +713,7 @@ async function saveCompany() {
   try {
     await settingsStore.updateCompany(companyForm.value)
     companySaved.value = true
-    setTimeout(() => { companySaved.value = false }, 3000)
+    scheduleUiTimer(() => { companySaved.value = false }, 3000)
   } finally {
     savingCompany.value = false
   }
@@ -719,11 +731,11 @@ async function uploadLogo(event: Event) {
     const result = await settingsStore.uploadLogo(file)
     companyForm.value.logo_url = result.logo_url
     logoUploaded.value = true
-    setTimeout(() => { logoUploaded.value = false }, 3000)
+    scheduleUiTimer(() => { logoUploaded.value = false }, 3000)
   } catch (e: unknown) {
     const err = e as { response?: { data?: { detail?: string } } }
     logoError.value = err?.response?.data?.detail ?? 'Błąd wysyłania pliku'
-    setTimeout(() => { logoError.value = null }, 5000)
+    scheduleUiTimer(() => { logoError.value = null }, 5000)
   } finally {
     uploadingLogo.value = false
     // Reset input value so ten sam plik można wgrać ponownie

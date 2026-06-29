@@ -1122,6 +1122,10 @@ const onDeliveryAddressInput = () => {
 onUnmounted(() => {
   if (deliveryAddressTimer) clearTimeout(deliveryAddressTimer)
   if (deliveryAddressAbort) deliveryAddressAbort.abort()
+  // RAO-P1-043: cleanup timerów pickerów — zapobiega memory leakom
+  if (pickerTimer) clearTimeout(pickerTimer)
+  if (artTimer) clearTimeout(artTimer)
+  if (supTimer) clearTimeout(supTimer)
 })
 
 const showPosModal = ref(false)
@@ -1494,9 +1498,9 @@ async function initSettlementsFromFakturownia() {
   }
 }
 
-let pickerTimer = null
+let pickerTimer: ReturnType<typeof setTimeout> | null = null
 async function searchContractors() {
-  clearTimeout(pickerTimer)
+  if (pickerTimer) clearTimeout(pickerTimer)
   pickerTimer = setTimeout(async () => {
     const { data } = await api.get('/contractors', { params: { search: pickerSearch.value, per_page: 30 } })
     pickerList.value = data.items
@@ -1689,9 +1693,9 @@ function formatPickerDate(d: string): string {
   return d
 }
 
-let artTimer = null
+let artTimer: ReturnType<typeof setTimeout> | null = null
 async function searchArticles() {
-  clearTimeout(artTimer)
+  if (artTimer) clearTimeout(artTimer)
   artTimer = setTimeout(async () => {
     const { data } = await api.get('/articles', { params: { search: articlePickerSearch.value, per_page: 50, is_service: form.value.contract_type === 'U' ? true : false } })
     articlePickerList.value = data.items.map(a => ({ ...a, _avail: null }))
@@ -1777,7 +1781,7 @@ async function duplicateArticle(a) {
   }
 }
 
-let supTimer = null
+let supTimer: ReturnType<typeof setTimeout> | null = null
 async function openSupplierPicker() {
   supplierSearch.value = ''
   showSupplierPicker.value = true
@@ -1786,7 +1790,7 @@ async function openSupplierPicker() {
 }
 
 async function searchSuppliers() {
-  clearTimeout(supTimer)
+  if (supTimer) clearTimeout(supTimer)
   supTimer = setTimeout(async () => {
     const { data } = await api.get('/contractors', { params: { search: supplierSearch.value, per_page: 30 } })
     supplierList.value = data.items

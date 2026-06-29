@@ -946,7 +946,7 @@ W Polsce istnieje wiele miejscowości o tej samej nazwie. Aktualnie `/stats/loca
 | RAO-P1-040 | is_settled blokuje mutacje (update/delete positions) | P1 | S | dev-verified | → team-verified |
 | RAO-P1-041 | Hardcoded JWT fallback "change-me" — usuń + wymuś z env | P1 | XS | dev-verified | → team-verified |
 | RAO-P1-042 | Frontend: logout czyści stores + redirect po login + baseURL z env | P1 | S | dev-verified | → team-verified |
-| RAO-P1-043 | Frontend: memory leaks — cleanup event listenerów i timerów | P1 | S | triaged | → in_progress |
+| RAO-P1-043 | Frontend: memory leaks — cleanup event listenerów i timerów | P1 | S | dev-verified | → team-verified |
 | RAO-P1-044 | Frontend: localStorage.getItem('token') → 'rao_token' | P1 | XS | dev-verified | → team-verified |
 | RAO-P1-045 | _build_conditions_text — użyj format_position_conditions_cascading (dedup) | P1 | XS | dev-verified | → team-verified |
 | RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → decyzja architektoniczna |

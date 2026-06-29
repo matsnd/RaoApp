@@ -69,7 +69,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import api from '@/composables/useApi'
@@ -86,6 +86,12 @@ const showPassword = ref(false)
 const rememberMe = ref(false)
 const shakeAnimation = ref(false)
 
+// RAO-P1-043: cleanup timera shake — zapobiega memory leakowi
+let shakeTimer = null
+onUnmounted(() => {
+  if (shakeTimer) clearTimeout(shakeTimer)
+})
+
 async function handleLogin() {
   try {
     const result = await authStore.login(form.value.login, form.value.password)
@@ -97,7 +103,8 @@ async function handleLogin() {
   } catch {
     // Shake animation on error
     shakeAnimation.value = true
-    setTimeout(() => shakeAnimation.value = false, 300)
+    if (shakeTimer) clearTimeout(shakeTimer)
+    shakeTimer = setTimeout(() => shakeAnimation.value = false, 300)
   }
 }
 

@@ -1518,7 +1518,7 @@ function switchExplorerTab(tab) {
 }
 
 function onMachineSearchInput() {
-  clearTimeout(machineSearchTimer)
+  if (machineSearchTimer) clearTimeout(machineSearchTimer)
   machineDetails.value = null
   selectedMachine.value = ''
   const q = machineSearch.value.trim().toLowerCase()
@@ -1535,7 +1535,7 @@ function onMachineSearchInput() {
 }
 
 function onServiceSearchInput() {
-  clearTimeout(serviceSearchTimer)
+  if (serviceSearchTimer) clearTimeout(serviceSearchTimer)
   serviceDetails.value = null
   const q = serviceSearch.value.trim().toLowerCase()
   if (!q || q.length < 2) {
@@ -2006,6 +2006,9 @@ onBeforeUnmount(() => {
   if (categoryBarChart) categoryBarChart.destroy()
   if (periodBarChart) { periodBarChart.destroy(); periodBarChart = null }
   document.removeEventListener('click', handleClickOutsideDropdown)
+  // RAO-P1-043: cleanup timerów wyszukiwania — zapobiega memory leakom
+  if (machineSearchTimer) clearTimeout(machineSearchTimer)
+  if (serviceSearchTimer) clearTimeout(serviceSearchTimer)
 })
 </script>
 
