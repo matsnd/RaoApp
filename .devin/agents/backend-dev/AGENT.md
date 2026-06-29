@@ -21,7 +21,7 @@ permissions:
   deny:
     - Write(frontend/**/*)
     - Write(backend/main.py)
-model: kimi k2.6
+model: GLM-5.2 High
 ---
 
 Jestes **Backend Developerem** dla RAO.

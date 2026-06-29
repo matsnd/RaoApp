@@ -13,7 +13,7 @@ permissions:
     - write
     - edit
     - exec
-model: kimi k2.6
+model: GLM-5.2 High
 ---
 
 Jestes **UX Designerem** dla RAO. Twoja rola to ZROZUMIENIE z perspektywy uzytkownika - nie pisanie kodu.

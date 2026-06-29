@@ -1,8 +1,8 @@
-# RAO Backlog — Sprint Klient 2026-05-25
+# RAO Backlog — Sprint Klient 2026-05-25 + 2026-06-29
 
-> **Status:** Aktualizowany 2026-05-25 wg uwag klienta
+> **Status:** Aktualizowany 2026-06-29 wg uwag klienta (sprint 2026-05-25 + nowe zgłoszenia 2026-06-29)
 > **Poprzedni backlog:** Zarchiwizowany w `spec/backlog/archiwum/`
-> **Źródła uwag klienta:** `temp/uwagi klienta/` — skan PDF + screenshoty z czatu
+> **Źródła uwag klienta:** `temp/uwagi klienta/` (skan PDF + screenshoty z czatu 2026-05-25), `spec/backlog/do_wciagniecia_do_backlogu.md` + `Pasted image 20260629*.png` (2026-06-29)
 > **Cel:** Implementacja przez agenta SWE 1.6 (zadania szczegółowe, gotowe do wykonania)
 
 ---
@@ -1631,6 +1631,635 @@ security_impact: none
 ---
 
 
+### [RAO-P1-014] Frontend — błędne obliczanie daty końcowej okresu umowy
+
+```yaml
+id: RAO-P1-014
+priority: P1
+size: XS
+status: triaged
+classification: bugfix/frontend-logic
+roles: [frontend-dev, qa-engineer]
+source: client-request
+source_date: 2026-06-29
+source_ref: "spec/backlog/do_wciagniecia_do_backlogu.md pkt 1 + Pasted image 20260629223748.png"
+specs_to_update:
+  - core/03_frontend_screens.md
+  - core/04_business_logic.md
+migration_impact: no
+security_impact: none
+```
+
+**Problem (cytat klienta):** *„źle oblicza. 25.06. - 5 dni to 25.06-30.06. przy naliczaniu 6 dniowym"*
+
+**Analiza screenshota (`Pasted image 20260629223748.png`):**
+- Data od: `25.06.2026`, Liczba dni: `5`
+- Komunikat helpera: `Okres umowy: 25.06.2026 – 28.06.2026` ← **BŁĄD**
+- Oczekiwane (klient): `25.06.2026 – 30.06.2026` (5 dni = 25, 26, 27, 28, 29, 30 → 6 dni kalendarzowe przy naliczaniu 6-dniowym) LUB `25.06 – 29.06` przy naliczaniu 5-dniowym (25 + 4 = 29)
+
+**Wniosek:** Obecna logika prawdopodobnie robi `endDate = startDate + (days - 2)` zamiast `+ (days - 1)`. Klient używa "naliczania 6-dniowego" (czyli liczy dni robocze w tygodniu 6-dniowym — pon-sob). Trzeba ustalić czy `days` oznacza:
+- **Liczba dni kalendarzowych** → `endDate = startDate + (days - 1)` (25.06 + 4 = 29.06)
+- **Liczba dni wynajmu (roboczych, 6/tydz)** → skip niedziel → 25.06 + 5 dni roboczych = 30.06 (skip 28.06 = niedziela)
+
+**Lokalizacja w kodzie:**
+- `frontend/src/components/shared/ContractPeriodPicker.vue` — computed `date_to` (patrz RAO-P2-004, status done)
+- `frontend/src/views/ContractFormView.vue` — integracja pickera
+
+**Acceptance criteria (DoD):**
+
+**Frontend:**
+- [ ] Zweryfikuj obecną logikę w `ContractPeriodPicker.vue` — sprawdź wzór `date_to = date_from + (days - 1)` czy jest poprawny
+- [ ] **Decyzja biznesowa wymagana:** czy `days` = dni kalendarzowe czy dni robocze (6/tydz, skip niedziele)?
+  - Wariant A (kalendarzowe): 25.06 + 5 dni = 30.06 (25, 26, 27, 28, 29, 30 = 6 dni kalendarzowych, ale "5 dni" = 5 dob = 25+4=29)
+  - Wariant B (robocze 6/tydz): 25.06 + 5 dni roboczych = 30.06 (skip 28.06 niedziela)
+- [ ] Dodaj test jednostkowy dla `ContractPeriodPicker` z przypadkami:
+  - `25.06 + 5` → oczekiwane 30.06 (kalendarzowe) LUB 30.06 (robocze skip niedzieli)
+  - `25.06 + 1` → 25.06 (ten sam dzień)
+  - `25.06 + 6` → 30.06 (kalendarzowe) LUB 01.07 (robocze skip 28.06)
+  - Edge: weekend (start w sobotę)
+
+**Test:**
+- [ ] Smoke E2E `04-contract.spec.ts` — utwórz umowę z `date_from=25.06.2026`, `days=5` → sprawdź `date_to`
+- [ ] Manual: sprawdź w UI że komunikat helpera pokazuje poprawną datę
+
+**Spec:**
+- [ ] `spec/core/03_frontend_screens.md` — logika `ContractPeriodPicker`
+- [ ] `spec/core/04_business_logic.md` — definicja "dnia wynajmu" (kalendarzowy vs roboczy)
+
+**Pliki do zmiany:**
+- `frontend/src/components/shared/ContractPeriodPicker.vue` (logika computed)
+- `frontend/src/views/ContractFormView.vue` (jeśli trzeba przekazać tryb)
+- `backend/tests/unit/test_contract_period.py` (jeśli logika przechodzi na backend)
+
+**Estimate:** 1-2h (XS) — głównie ustalenie semantyki "dni" + fix formuły
+
+---
+
+### [RAO-P1-015] PDF Umowa — ukryć numery telefonów na wydruku nawet gdy wpisane
+
+```yaml
+id: RAO-P1-015
+priority: P1
+size: XS
+status: triaged
+classification: bugfix/pdf
+roles: [backend-dev]
+source: client-request
+source_date: 2026-06-29
+source_ref: "spec/backlog/do_wciagniecia_do_backlogu.md pkt 2"
+specs_to_update:
+  - core/11_reports_stats.md
+migration_impact: no
+security_impact: none
+```
+
+**Problem (cytat klienta):** *„wpisałam numery - ale niech się one na umowie nie pokazują nawet jak są wpisane. Numery mają się nie pojawiać na umowie"*
+
+**Analiza:** Numery telefonów (`contact_phone1`, `contact_phone2`) są zapisywane w bazie (używane w protokole ZO — patrz RAO-P1-005), ale **nie mogą** pojawiać się na PDF umowy (chronione dane kontaktowe najemcy — widoczne tylko w protokole dla kierowca/serwisanta).
+
+**Lokalizacja w kodzie:**
+- `backend/reports/templates/contract.html` — sekcja „uzupełnij" (linia ~150-153, boks kontaktu)
+- `backend/reports/templates/contract_u.html` — analogiczna sekcja
+- Szukaj: `contact_phone`, `nr tel`, `tel.`
+
+**Acceptance criteria (DoD):**
+
+**Backend:**
+- [ ] W `contract.html` i `contract_u.html` usuń WSZYSTKIE referencje do `contact_phone1` / `contact_phone2` / `nr tel` / `tel.` w sekcji „uzupełnij"
+- [ ] Sprawdź czy numer telefonu pojawia się w innych sekcjach umowy (np. nagłówek, dane najemcy) — jeśli tak, usuń
+- [ ] **NIE usuwaj** z protokołów (`protocol_zo*.html`) — tam telefon jest potrzebny (RAO-P1-005)
+
+**Test:**
+- [ ] Utwórz umowę z wypełnionym `contact_phone1` i `contact_phone2`
+- [ ] Wygeneruj PDF umowy (typ S i U) → numery telefonów NIE widoczne
+- [ ] Wygeneruj PDF protokołu → numery telefonów WIDOCZNE (RAO-P1-005 nadal działa)
+- [ ] Smoke E2E `04-contract.spec.ts` nadal przechodzi
+
+**Spec:**
+- [ ] `spec/core/11_reports_stats.md` — nota „numery telefonów NIE na umowie, TAK na protokole"
+
+**Pliki do zmiany:**
+- `backend/reports/templates/contract.html`
+- `backend/reports/templates/contract_u.html`
+
+**Estimate:** 15 min (XS)
+
+---
+
+### [RAO-P1-016] PDF Protokół ZO — brak adresu dostawy na protokole
+
+```yaml
+id: RAO-P1-016
+priority: P1
+size: S
+status: triaged
+classification: bugfix/pdf
+roles: [backend-dev]
+source: client-request
+source_date: 2026-06-29
+source_ref: "spec/backlog/do_wciagniecia_do_backlogu.md pkt 3 + Pasted image 20260629223936.png"
+specs_to_update:
+  - core/11_reports_stats.md
+migration_impact: no
+security_impact: none
+```
+
+**Problem (cytat klienta):** *„nie pokazuje adresu na protokole zdawczo odbiorczym - do weryfikacji"*
+
+**Analiza screenshota (`Pasted image 20260629223936.png`):**
+- Protokół dla umowy `S869/2026` z 25.06.2026, najemca „3P NSU Sp. z o.o.", przedmiot „Ładowarka teleskopowa 25m"
+- Pole „miejsce dostawy i odbioru przedmiotu najmu" jest **PUSTE**
+- Inne puste pola: osoba upoważniona, nr seryjny, data dostawy, wartość odtworzeniowa
+- Telefon widoczny: 515997186 (czyli `contact_phone1` jest w bazie)
+
+**Hipoteza:** Adres dostawy (`contract.delivery_address`) NIE jest przekazywany do kontekstu protokołu LUB pole w bazie jest puste LUB szablon nie renderuje tego pola.
+
+**Lokalizacja w kodzie:**
+- `backend/reports/templates/protocol_zo.html` — sekcja „miejsce dostawy i odbioru"
+- `backend/reports/templates/protocol_zo_u.html` — analogicznie
+- `backend/reports/templates/protocol_zo_nodata.html`, `protocol_zo_nodata_u.html`
+- `backend/reports/service.py` — kontekst dla protokołu (sprawdź czy `delivery_address` jest przekazywany)
+
+**Acceptance criteria (DoD):**
+
+**Backend (weryfikacja + naprawa):**
+- [ ] Sprawdź w bazie: `SELECT id, delivery_address FROM contracts WHERE id = <id umowy S869/2026>` — czy pole jest puste?
+- [ ] Sprawdź `backend/reports/service.py` — czy `contract.delivery_address` jest w kontekście template?
+- [ ] Sprawdź wszystkie 4 szablony protokołów — czy pole „miejsce dostawy" renderuje `{{ contract.delivery_address }}`?
+- [ ] Jeśli puste w bazie → to nie bug kodu, tylko brak danych (klient nie wpisał) → zgłoś klientowi
+- [ ] Jeśli brak w kontekście → dodaj do `context` w `service.py`
+- [ ] Jeśli brak w template → dodaj `{{ contract.delivery_address or '' }}` z etykietą „miejsce dostawy i odbioru przedmiotu najmu"
+
+**Test:**
+- [ ] Utwórz umowę z `delivery_address = "ul. Testowa 1, 00-001 Warszawa"`
+- [ ] Wygeneruj protokół → adres widoczny w polu „miejsce dostawy"
+- [ ] Utwórz umowę bez `delivery_address` → pole puste (z etykietą, gotowe do ręcznego wpisu)
+- [ ] Sprawdź wszystkie 4 typy protokołów
+
+**Spec:**
+- [ ] `spec/core/11_reports_stats.md` — pole „miejsce dostawy" w protokole
+
+**Pliki do zmiany:**
+- `backend/reports/templates/protocol_zo.html` (i warianty _u, _nodata, _nodata_u)
+- `backend/reports/service.py` (jeśli brak w kontekście)
+
+**Estimate:** 30-45 min (S) — głównie weryfikacja gdzie jest bug
+
+---
+
+### [RAO-P1-017] Naprawa mechanizmu rozpoznawania adresu (Nominatim) z uwag dojazdowych
+
+```yaml
+id: RAO-P1-017
+priority: P1
+size: M
+status: triaged
+classification: bugfix/integration
+roles: [backend-dev, qa-engineer]
+source: client-request
+source_date: 2026-06-29
+source_ref: "spec/backlog/do_wciagniecia_do_backlogu.md pkt 4"
+specs_to_update:
+  - core/07_integrations.md
+  - core/04_business_logic.md
+migration_impact: no
+security_impact: none
+```
+
+**Problem (cytat klienta):** *„napraw mechanizm rozpoznający adres. ze wpisujesz w uwagi dojazdowe adres i wygrywa miasto i kod pocztowy, albo mi powiedz czemu nie działa"*
+
+**Analiza:** Aplikacja ma integrację Nominatim (OpenStreetMap) do geokodowania adresów. Klient wpisuje adres w polu „uwagi dojazdowe" i oczekuje że system auto-wypełni `city` i `postal_code` na podstawie tego adresu. Obecnie nie działa.
+
+**Lokalizacja w kodzie:**
+- `backend/integrations/` — moduł Nominatim
+- `backend/contracts/service.py` — logika auto-fill adresu
+- `frontend/src/components/contracts/` — pole „uwagi dojazdowe" z auto-fill
+- Szukaj: `nominatim`, `geocode`, `lookup_address`, `auto_fill`, `delivery_address`
+
+**Acceptance criteria (DoD):**
+
+**Backend (weryfikacja + naprawa):**
+- [ ] Sprawdź `backend/integrations/nominatim.py` (lub podobny) — czy endpoint działa?
+- [ ] Test curl: `GET https://nominatim.openstreetmap.org/search?q=ul.+Kłobucka+6B,+02-699+Warszawa&format=json` → czy zwraca dane?
+- [ ] Sprawdź czy aplikacja ma `User-Agent` header (wymagane przez Nominatim API)
+- [ ] Sprawdź rate limiting (Nominatim: max 1 req/s)
+- [ ] Sprawdź logikę ekstrakcji `city` i `postal_code` z odpowiedzi Nominatim (OSM tags: `addr:city`, `addr:postcode`)
+
+**Frontend:**
+- [ ] Sprawdź pole „uwagi dojazdowe" — czy ma debounce trigger do auto-fill?
+- [ ] Czy po wywołaniu backendu wynik wypełnia `city` i `postal_code`?
+- [ ] Czy jest error handling gdy Nominatim nic nie znajdzie?
+
+**Test:**
+- [ ] Wpisz adres „ul. Kłobucka 6B, 02-699 Warszawa" w uwagi dojazdowe → `city` = Warszawa, `postal_code` = 02-699
+- [ ] Wpisz niepełny adres „Kłobucka 6B" → czy system radzi sobie z niepełnym?
+- [ ] Wpisz błędny adres → error handling (toast „nie znaleziono adresu")
+- [ ] Test rate limiting (szybkie wpisywanie → czy throttle działa)
+
+**Spec:**
+- [ ] `spec/core/07_integrations.md` — sekcja Nominatim z dokładnym API i ekstrakcją pól
+- [ ] `spec/core/04_business_logic.md` — logika auto-fill z uwag dojazdowych
+
+**Pliki do zmiany:**
+- `backend/integrations/nominatim.py` (lub podobny)
+- `backend/contracts/service.py` (jeśli logika auto-fill jest tu)
+- `frontend/src/components/contracts/*.vue` (jeśli trigger jest w frontendzie)
+
+**Estimate:** 2-3h (M) — weryfikacja integracji + naprawa + testy
+
+---
+
+### [RAO-P1-018] PDF Umowa — usunąć pieczątkę z pierwszej strony (oba typy S i U)
+
+```yaml
+id: RAO-P1-018
+priority: P1
+size: XS
+status: triaged
+classification: bugfix/pdf
+roles: [backend-dev]
+source: client-request
+source_date: 2026-06-29
+source_ref: "spec/backlog/do_wciagniecia_do_backlogu.md pkt 5"
+specs_to_update:
+  - core/11_reports_stats.md
+migration_impact: no
+security_impact: none
+```
+
+**Problem (cytat klienta):** *„Na obydwu typach umów wywalić pieczątkę z pierwszej strony"*
+
+**Analiza:** Pieczątka firmy (`protocol_stamp.png` / `company_stamp_fixed.jpg`) jest obecnie na stronie 1 umowy. Klient chce ją usunąć — prawdopodobnie pieczątka ma być tylko na protokole ZO, nie na umowie. Patrz RAO-P1-009 (pieczątka była wymieniana — teraz klient chce ją usunąć z umowy).
+
+**Lokalizacja w kodzie:**
+- `backend/reports/templates/contract.html` — linia ~242, ~387 (`<img src="../assets/company_stamp_fixed.jpg"` lub `protocol_stamp.png`)
+- `backend/reports/templates/contract_u.html` — linia ~242, ~316
+- Szukaj: `stamp`, `pieczątka`, `company_stamp`, `protocol_stamp`
+
+**Acceptance criteria (DoD):**
+
+**Backend:**
+- [ ] W `contract.html` usuń WSZYSTKIE `<img>` tagi z pieczątką z pierwszej strony (zachowaj na stronie OWN jeśli jest — do weryfikacji z klientem)
+- [ ] W `contract_u.html` analogicznie
+- [ ] **Decyzja wymagana:** czy pieczątka ma zostać na stronie OWN (podpisy)? Czy całkowicie usunąć z umowy?
+  - Wariant A: usuń tylko ze strony 1, zostaw na stronie podpisów (OWN)
+  - Wariant B: usuń całkowicie z umowy (pieczątka tylko na protokole ZO)
+- [ ] **NIE usuwaj** z protokołów (`protocol_zo*.html`)
+
+**Test:**
+- [ ] Wygeneruj PDF umowy typ S → brak pieczątki na stronie 1
+- [ ] Wygeneruj PDF umowy typ U → brak pieczątki na stronie 1
+- [ ] Wygeneruj PDF protokołu → pieczątka nadal widoczna (RAO-P1-009 nadal działa)
+- [ ] Smoke E2E `04-contract.spec.ts`
+
+**Spec:**
+- [ ] `spec/core/11_reports_stats.md` — nota „pieczątka tylko na protokole, nie na umowie"
+
+**Pliki do zmiany:**
+- `backend/reports/templates/contract.html`
+- `backend/reports/templates/contract_u.html`
+
+**Estimate:** 15-30 min (XS) — zależy od decyzji A/B
+
+---
+
+### [RAO-P1-019] PDF Umowa usługi (typ U) — redesign do wyglądu jak umowa najmu (typ S)
+
+```yaml
+id: RAO-P1-019
+priority: P1
+size: M
+status: triaged
+classification: refactor/pdf-design
+roles: [backend-dev, ui-designer]
+source: client-request
+source_date: 2026-06-29
+source_ref: "spec/backlog/do_wciagniecia_do_backlogu.md pkt 6+7 + Pasted image 20260629224212.png"
+specs_to_update:
+  - core/11_reports_stats.md
+  - core/09_design_reference.md
+migration_impact: no
+security_impact: none
+```
+
+**Problem (cytat klienta):** *„umowa usługi do naprawienia design żeby było jak w umowie najmu (kropki do wywalenia — obejrzyj jak to wygląda i zaproponuj poprawę żeby było jak umowa najmu)"*
+
+**Analiza screenshota (`Pasted image 20260629224212.png`):**
+- Umowa usługi nr `U872/2026` z 25.06.2026
+- Sekcja „uzupełnij" ma **żółte tło (#FFFF00)** i **przerywane ramki (dashed)** — wygląda jak „wytnij tutaj"
+- Nagłówki „wynajmujący" / „najemca" w kolorze pomarańczowym zamiast navy
+- Brak border-radius (ostre rogi)
+- W umowie najmu (typ S) design jest spójny z design systemem (navy, solid borders, radius 12px)
+
+**Lokalizacja w kodzie:**
+- `backend/reports/templates/contract_u.html` — cały szablon (CSS + struktura)
+- `backend/reports/templates/contract.html` — referencja (jak ma wyglądać)
+- Różnice do zidentyfikowania:
+  - Kolory nagłówków (orange vs navy)
+  - Tło sekcji „uzupełnij" (yellow vs subtle)
+  - Border style (dashed vs solid)
+  - Border-radius (0 vs 12px)
+  - Font (Arial vs Montserrat)
+
+**Acceptance criteria (DoD):**
+
+**Backend (redesign `contract_u.html`):**
+- [ ] Przeanalizuj różnice CSS między `contract.html` (S) a `contract_u.html` (U)
+- [ ] Ujednolić CSS `contract_u.html` z `contract.html`:
+  - Nagłówki sekcji: navy `#1D2B53` (nie orange)
+  - Tło sekcji „uzupełnij": `#F8F9FA` lub `#FFF3CD` (subtle, nie jaskrawe żółte)
+  - Border: solid 1px `#DEE2E6` (nie dashed)
+  - Border-radius: 6px/12px zgodnie z design system
+  - Font: Montserrat (jeśli PDF używa czcionki systemowej — sprawdź `@font-face` w WeasyPrint)
+- [ ] **„Kropki do wywalenia"** — zinterpretuj jako przerywane ramki (dashed borders) → zamień na solid
+- [ ] Zachowaj różnice treści (typ U ma inne sekcje niż S — np. brak cennika dodatkowego po RAO-P1-004)
+
+**Test:**
+- [ ] Wygeneruj PDF umowy typ U → wygląd spójny z typ S (kolory, ramki, radius)
+- [ ] Wygeneruj PDF umowy typ S → nadal wygląda OK (nie naruszony)
+- [ ] Porównanie wizualne side-by-side (vision verification przez `rao-vision`)
+- [ ] Sprawdź czytelność (font ≥ 8px)
+
+**Spec:**
+- [ ] `spec/core/11_reports_stats.md` — ujednolicenie designu umów S i U
+- [ ] `spec/core/09_design_reference.md` — wspólny CSS dla obu typów umów
+
+**Pliki do zmiany:**
+- `backend/reports/templates/contract_u.html` (CSS + struktura)
+
+**Estimate:** 2-3h (M) — głównie iteracja wizualna z porównaniem do typ S
+
+---
+
+### [RAO-P1-020] PDF Umowa — rozliczenie ma się pokazywać jak w starej aplikacji (kaskadowe)
+
+```yaml
+id: RAO-P1-020
+priority: P1
+size: M
+status: triaged
+classification: feature/pdf
+roles: [backend-dev, frontend-dev]
+source: client-request
+source_date: 2026-06-29
+source_ref: "spec/backlog/do_wciagniecia_do_backlogu.md pkt 8 + Pasted image 20260629224534.png"
+depends_on: [RAO-P1-008]
+specs_to_update:
+  - core/11_reports_stats.md
+  - core/04_business_logic.md
+migration_impact: no
+security_impact: none
+```
+
+**Problem (cytat klienta):** *„rozliczenie ma się pokazywać jak na starej aplikacji"*
+
+**Analiza screenshota (`Pasted image 20260629224534.png`):**
+- Pozycja: Ładowarka teleskopowa obrotowa 18m + żuraw, 2 dni, wartość odtworzeniowa 315 000 zł
+- Format rozliczenia widoczny:
+  ```
+  1 - 2 dni - 900,00 / doba
+  powyżej 2 dni - 800,00 / doba
+  ```
+- To jest **format kaskadowy** — ten sam co RAO-P1-008 (status: review)
+
+**Relacja do RAO-P1-008:** P1-008 jest w statusie `review` — implementacja kaskadowego formatu. To zadanie (P1-020) to **re-iteracja klienta** — potwierdzenie że format z P1-008 jest oczekiwany, ale klient znów to zgłasza, co znaczy że:
+- Albo P1-008 nie zostało wdrożone na produkcję
+- Albo format nie działa dla wszystkich przypadków (np. 2 warunki zamiast 3)
+- Albo klient widział stary PDF przed zmianą
+
+**Acceptance criteria (DoD):**
+
+**Weryfikacja:**
+- [ ] Sprawdź status wdrożenia P1-008 — czy `format_position_conditions_cascading` jest w `backend/contracts/service.py`?
+- [ ] Sprawdź czy `contract_u.html` i `contract.html` używają `p.conditions_text` (z P1-008)
+- [ ] Wygeneruj PDF dla umowy z 2 warunkami kaskadowymi (jak na screenshocie: 1-2 dni 900, powyżej 2 dni 800) → czy format jest poprawny?
+- [ ] Jeśli P1-008 nie wdrożone → wdróż teraz (patrz P1-008 acceptance criteria)
+- [ ] Jeśli wdrożone ale bug → diagnozuj root cause
+
+**Backend (jeśli P1-008 nie kompletne):**
+- [ ] Zaimplementuj `format_position_conditions_cascading` wg P1-008
+- [ ] Edge case: 2 warunki (1-2 dni, powyżej 2 dni) — sprawdź czy helper radzi sobie z mniej niż 3 warunkami
+- [ ] Edge case: 1 warunek (tylko stawka) — fallback do `description`
+
+**Frontend (jeśli P1-008 nie kompletne):**
+- [ ] Live-preview w `ConditionPanel.vue` (patrz P1-008 i P2-007)
+
+**Test:**
+- [ ] Wygeneruj PDF z 2 warunkami kaskadowymi → format jak na screenshocie klienta
+- [ ] Wygeneruj PDF z 3 warunkami → format jak w P1-008 (1-3, 4-16, powyżej 16)
+- [ ] Wygeneruj PDF z 1 warunkiem → fallback
+- [ ] Unit test `test_format_conditions.py` — przypadek 2-warunkowy
+
+**Spec:**
+- [ ] `spec/core/11_reports_stats.md` — format kaskadowy w PDF (cross-ref P1-008)
+- [ ] `spec/core/04_business_logic.md` — algorytm (cross-ref P1-008)
+
+**Pliki do zmiany:**
+- Zależne od statusu P1-008 — patrz P1-008
+
+**Estimate:** 1-3h (M) — zależne od tego ile P1-008 już jest gotowe
+
+---
+
+### [RAO-P1-021] Pole „Wartość (zł)" — decyzja biznesowa + propozycja zapisywania kwoty z rozliczenia
+
+```yaml
+id: RAO-P1-021
+priority: P1
+size: M
+status: triaged
+classification: feature/business-logic
+roles: [product-owner, backend-dev, db-architect]
+source: client-request
+source_date: 2026-06-29
+source_ref: "spec/backlog/do_wciagniecia_do_backlogu.md pkt 9 + Pasted image 20260629224602.png"
+specs_to_update:
+  - core/04_business_logic.md
+  - core/01_database.md
+  - core/03_frontend_screens.md
+migration_impact: maybe
+security_impact: none
+```
+
+**Problem (cytat klienta):** *„czy Wartość(zł) jest do czegokolwiek używane w historycznych? pracowniczka mi powiedziała że to nie było używane w ogóle się zastanówmy co będzie potrzebne, bo przedpłata jest tylko dopisana przed a wartość jest nieznana bo zależy jak będzie rozliczone, i tak naprawdę to jak będzie rozliczone to wynika z tego co pobierzemy z fakturowni i to będzie kwota umowy która wynika z rozliczenia i może to można zapisać żeby wiedzieć co ile zarabia na przyszłość? zastanów się nad tym i mi daj znać"*
+
+**Analiza screenshota (`Pasted image 20260629224602.png`):**
+- Sekcja „Warunki Finansowe" w widoku umowy
+- Pola: Handlowiec, Oddział, **Wartość (zł) [puste]**, Pozostało (zł) [-3597,75], Przedpłata (zł) [3597,75], Dok. przedpłaty [puste], Faktura (zł) [0,00], Dok. faktury [puste]
+- „Wartość" puste mimo że przedpłata = 3597,75 → „Pozostało" = -3597,75 (czyli `Wartość - Przedpłata - Faktura = 0 - 3597,75 - 0`)
+
+**Kluczowe pytania biznesowe (do decyzji klienta):**
+
+1. **Czy pole „Wartość (zł)" jest używane?** — pracowniczka mówi że NIE było używane w starej aplikacji
+2. **Skąd ma pochodzić wartość umowy?**
+   - Opcja A: Ręczne wpisanie przez handlowca (jak przedpłata)
+   - Opcja B: **Auto-obliczone z rozliczenia** (po rozliczeniu umowy — suma `rate × days` per pozycja)
+   - Opcja C: **Pobrane z Fakturowni** (po wystawieniu faktury — kwota z faktury = wartość umowy)
+3. **Czy zapisywać kwotę zarobku na przyszłość?** — klient pyta „żeby wiedzieć co ile zarabia na przyszłość"
+
+**Proponowane rozwiązanie (do akceptacji klienta):**
+
+**Wariant A: Auto-obliczenie z rozliczenia**
+- Pole „Wartość (zł)" = `SUM(position.rate × position.days)` po rozliczeniu umowy (`is_settled = true`)
+- Pole readonly w UI (nie edytowalne ręcznie)
+- Auto-aktualizacja przy zmianie statusu na „rozliczona"
+- **Plus:** spójność danych, auto-statystyki zarobków
+- **Minus:** wymaga logiki rozliczenia (czy jest już `settle_contract` endpoint?)
+
+**Wariant B: Pobranie z Fakturowni**
+- Integracja z Fakturowni API (czy istnieje? patrz `backend/integrations/`)
+- Po wystawieniu faktury → webhook/sync → `contract.invoice_amount = faktura.net_total`
+- **Plus:** realna kwota zarobku (z faktury)
+- **Minus:** wymaga integracji z Fakturowni (nowy feature)
+
+**Wariant C: Hybryda — ręczne + auto**
+- Handlowiec może wpisać szacunkową wartość przed rozliczeniem
+- Po rozliczeniu → auto-override z obliczonej kwoty
+- **Plus:** elastyczność
+- **Minus:** złożoność
+
+**Acceptance criteria (DoD — po decyzji klienta):**
+
+**Product Owner (analysis):**
+- [ ] Zbierz decyzję klienta: Wariant A / B / C
+- [ ] Dokumentuj w `spec/core/04_business_logic.md` sekcja „Wartość umowy"
+
+**Backend (implementacja — zależna od wariantu):**
+- [ ] Wariant A: dodaj `compute_contract_value(contract_id)` w `backend/contracts/service.py`
+- [ ] Wariant A: trigger przy `settle_contract` (jeśli istnieje) LUB przy zmianie `is_settled`
+- [ ] Wariant B: dodaj integrację Fakturowni (nowy moduł `backend/integrations/fakturownia.py`)
+- [ ] Wariant C: pole `value` edytowalne + auto-override przy rozliczeniu
+
+**DB (jeśli wariant A/B):**
+- [ ] Sprawdź czy `contracts.value` istnieje w modelu (patrz `backend/contracts/models.py`)
+- [ ] Jeśli nie — migracja: `ALTER TABLE contracts ADD COLUMN IF NOT EXISTS value DECIMAL(12,2) NULL`
+- [ ] Aktualizuj `spec/core/01_database.md`
+
+**Frontend:**
+- [ ] Pole „Wartość (zł)" — readonly (wariant A/B) lub edytowalne (wariant C)
+- [ ] Jeśli auto-obliczone → pokaż label „(auto z rozliczenia)" lub ikonę ℹ️
+- [ ] Jeśli puste i umowa nierozliczona → pokaż placeholder „Wartość po rozliczeniu"
+
+**Test:**
+- [ ] Wariant A: rozlicz umowę z 2 pozycjami (540×3 + 410×13 = 1620 + 5330 = 6950) → `value` = 6950
+- [ ] Wariant A: umowa nierozliczona → `value` = NULL
+- [ ] Wariant B: mock Fakturowni webhook → `value` = kwota z faktury
+
+**Spec:**
+- [ ] `spec/core/04_business_logic.md` — definicja „wartości umowy" + algorytm
+- [ ] `spec/core/01_database.md` — kolumna `value` (jeśli dodana)
+- [ ] `spec/core/03_frontend_screens.md` — pole „Wartość" w formularzu
+
+**Pliki do zmiany:**
+- Zależne od wariantu — do uzupełnienia po decyzji klienta
+
+**Estimate:** 3-5h (M) — zależne od wariantu (B = najwięcej, integracja Fakturowni)
+
+**⚠️ BLOCKER:** Wymaga decyzji biznesowej klienta przed implementacją. Product Owner powinien przygotować propozycję z ROI.
+
+---
+
+### [RAO-P1-022] Korekta nazewnictwa umów — zawsze S i G na końcu dla Gdańska
+
+```yaml
+id: RAO-P1-022
+priority: P1
+size: S
+status: triaged
+classification: bugfix/naming
+roles: [backend-dev, db-architect, frontend-dev]
+source: client-request
+source_date: 2026-06-29
+source_ref: "spec/backlog/do_wciagniecia_do_backlogu.md pkt 10 + Pasted image 20260629225003.png"
+specs_to_update:
+  - core/04_business_logic.md
+  - core/01_database.md
+  - core/03_frontend_screens.md
+migration_impact: yes
+security_impact: none
+```
+
+**Problem (cytat klienta):** *„skoryguj nazewnictwo umów zgodnie z tym co w starej aplikacji. czyli zawsze S i G na końcu dla Gdańska"*
+
+**Analiza screenshota (`Pasted image 20260629225003.png`):**
+Lista umów z niespójnym nazewnictwem:
+```
+S166/2026      ← brak G (Warszawa?)
+S165/2026      ← brak G
+S163/2026G     ← G na końcu (Gdańsk) ✅
+S160/2026G     ← G na końcu ✅
+S156/2026G     ← G na końcu ✅
+S147/2026G     ← G na końcu ✅
+S143/2026G     ← G na końcu ✅
+S045/2026G     ← G na końcu ✅
+SG043/2026     ← G PO S (błędny format) ❌
+SG036/2026     ← G PO S (błędny format) ❌
+```
+
+**Reguła klienta (z starej aplikacji):**
+- Format: `[Typ][Numer]/[Rok][Oddział]`
+- Typ: `S` (najem), `U` (usługa)
+- Oddział: `` (pusty = Warszawa), `G` (Gdańsk)
+- Przykłady poprawne: `S166/2026` (Warszawa), `S163/2026G` (Gdańsk), `U872/2026` (usługa Warszawa), `U100/2026G` (usługa Gdańsk)
+- **BŁĄD:** `SG043/2026` — G jest po S zamiast na końcu → powinno być `S043/2026G`
+
+**Lokalizacja w kodzie:**
+- `backend/contracts/service.py` — funkcja generująca `contract_number` (szukaj: `generate_contract_number`, `next_number`)
+- `backend/contracts/models.py` — pole `contract_number`, `branch` / `oddzial`
+- `backend/main.py` — ewentualnie seed/migracja
+- Frontend: wyświetlanie numeru (sprawdź czy nie przekształca)
+
+**Acceptance criteria (DoD):**
+
+**Backend (logika generowania):**
+- [ ] Sprawdź obecną funkcję `generate_contract_number` w `backend/contracts/service.py`
+- [ ] Zaimplementuj format: `{type}{number:03d}/{year}{branch_suffix}` gdzie `branch_suffix = 'G' if branch == 'Gdańsk' else ''`
+- [ ] Przykłady:
+  - Najem, numer 166, Warszawa, 2026 → `S166/2026`
+  - Najem, numer 163, Gdańsk, 2026 → `S163/2026G`
+  - Usługa, numer 872, Warszawa, 2026 → `U872/2026`
+  - Usługa, numer 100, Gdańsk, 2026 → `U100/2026G`
+
+**DB (migracja danych — naprawa istniejących):**
+- [ ] Znajdź wszystkie umowy z błędnym formatem `SG*` → napraw na `S*G`:
+  ```sql
+  UPDATE contracts SET contract_number = CONCAT(
+      REPLACE(REPLACE(contract_number, 'SG', 'S'), '/2026', '/2026G'),
+      ''
+  ) WHERE contract_number LIKE 'SG%';
+  ```
+  (Uwaga: dokładny SQL po weryfikacji danych)
+- [ ] Dodaj skrypt w `backend/migrate.py` (deterministyczny UPDATE)
+- [ ] Weryfikacja: `SELECT contract_number FROM contracts WHERE contract_number LIKE 'SG%'` → 0 wyników po migracji
+
+**Frontend:**
+- [ ] Sprawdź czy frontend nie przekształca numeru (ma wyświetlać jak z bazy)
+- [ ] Jeśli jest pole „oddział" w formularzu → upewnij się że wybór Gdańska generuje suffix G
+
+**Test:**
+- [ ] Utwórz nową umowę najmu, oddział Gdańsk → numer `S{next}/2026G`
+- [ ] Utwórz nową umowę najmu, oddział Warszawa → numer `S{next}/2026` (bez G)
+- [ ] Utwórz umowę usługi, Gdańsk → `U{next}/2026G`
+- [ ] Uruchom migrację → sprawdź że `SG*` są naprawione
+- [ ] Drugi raz migracja → idempotentna (0 zmian)
+- [ ] Smoke E2E `04-contract.spec.ts`
+
+**Spec:**
+- [ ] `spec/core/04_business_logic.md` — algorytm generowania numeru umowy
+- [ ] `spec/core/01_database.md` — pole `branch` / `oddzial` w `contracts`
+- [ ] `spec/core/03_frontend_screens.md` — pole oddziału w formularzu
+
+**Pliki do zmiany:**
+- `backend/contracts/service.py` (logika generowania numeru)
+- `backend/migrate.py` (skrypt naprawczy dla istniejących)
+- `backend/contracts/models.py` (jeśli brak pola `branch`)
+- `backend/main.py` (jeśli dodajemy kolumnę `branch` przez ALTER)
+- `frontend/src/views/ContractFormView.vue` (jeśli brak pola oddziału)
+
+**Estimate:** 2-3h (S) — logika + migracja danych + testy
+
+---
+
 ## 📋 Tabela TL;DR
 
 | ID | Tytuł | Źródło | P | Est. | Status |
@@ -1654,9 +2283,18 @@ security_impact: none
 | RAO-P2-005 | Frontend — inline add kontrahenta | klient czat | P2 | M | done |
 | RAO-P2-006 | Frontend — inline add artykułu | klient czat | P2 | M | done |
 | RAO-P2-007 | Frontend — pomoc UX jak wpisywać warunki | klient czat | P2 | S | done |
-| RAO-P3-014 | Placeholdery $1/$2 + nazwa zakładki | klient czat | P3 | M | triaged |
+| RAO-P3-014 | Placeholdery $1/$2 + nazwa zakładki | klient czat | P3 | M | in_progress |
+| RAO-P1-014 | Frontend — błędne obliczanie daty końcowej okresu umowy | klient czat 2026-06-29 | P1 | XS | triaged |
+| RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | klient czat 2026-06-29 | P1 | XS | triaged |
+| RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | klient czat 2026-06-29 | P1 | S | triaged |
+| RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | klient czat 2026-06-29 | P1 | M | triaged |
+| RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | klient czat 2026-06-29 | P1 | XS | triaged |
+| RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | klient czat 2026-06-29 | P1 | M | triaged |
+| RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji (re-iteracja P1-008) | klient czat 2026-06-29 | P1 | M | triaged |
+| RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia/Fakturowni | klient czat 2026-06-29 | P1 | M | triaged |
+| RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | klient czat 2026-06-29 | P1 | S | triaged |
 
-**Razem:** 20 zadań (w tym 1 spike) · ~31-39h pracy
+**Razem:** 29 zadań (w tym 1 spike) · ~48-62h pracy
 
 ---
 
@@ -1671,6 +2309,16 @@ security_impact: none
 - `temp/uwagi klienta/Zrzut ekranu 2026-05-25 224827.png` — UX formularz umowy 1-4 (czat)
 - `temp/uwagi klienta/stary_format.png` → skopiowane do `spec/backlog/stary_format_rozliczenie.png` — referencja formatu kaskadowego z starej aplikacji
 - `temp/uwagi klienta/pdf_pages/page_*.png` — strony PDF jako obrazy (do przeglądania w IDE)
+
+**Sprint 2026-06-29 (nowe zgłoszenia):**
+- `spec/backlog/do_wciagniecia_do_backlogu.md` — 10 punktów od klienta (surowy markdown)
+- `Pasted image 20260629223748.png` (root repo) — P1-014: błędne obliczenie daty (25.06 + 5 dni = 28.06 zamiast 30.06)
+- `Pasted image 20260629223936.png` (root repo) — P1-016: protokół ZO bez adresu dostawy (umowa S869/2026)
+- `Pasted image 20260629224212.png` (root repo) — P1-019: umowa usługi U872/2026 z żółtym tłem i dashed borders
+- `Pasted image 20260629224534.png` (root repo) — P1-020: format rozliczenia kaskadowego (1-2 dni 900, powyżej 2 dni 800)
+- `Pasted image 20260629224602.png` (root repo) — P1-021: sekcja Warunki Finansowe z pustym polem Wartość (zł)
+- `Pasted image 20260629225003.png` (root repo) — P1-022: lista umów z niespójnym nazewnictwem (SG043 vs S163/2026G)
+- Raporty vision (analiza screenshotów przez rao-vision MCP): `Pasted image 20260629*-vision-report.md` (root repo)
 
 **Stara aplikacja WinForms (referencja):**
 - `C:\projects\repos\AppRao\rao\FormW.cs` linia 690-750 — algorytm formatowania warunków kaskadowych

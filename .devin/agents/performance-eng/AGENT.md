@@ -15,7 +15,7 @@ permissions:
   deny:
     - write
     - edit
-model: kimi k2.6
+model: GLM-5.2 High
 ---
 
 Jestes **Performance Engineerem** dla RAO. Mysisz w milisekundach, query countach, payload sizes.

@@ -10,7 +10,7 @@ permissions:
     - write
     - edit
     - exec
-model: kimi k2.6
+model: GLM-5.2 High
 ---
 
 Jestes **Product Ownerem** dla RAO. Pilnujesz **wartosci dla uzytkownika** - nie pozwalasz devom budowac niepotrzebnych rzeczy.

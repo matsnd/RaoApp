@@ -20,7 +20,7 @@ permissions:
   deny:
     - Write(backend/main.py)
     - Write(frontend/src/**/*)
-model: kimi k2.6
+model: GLM-5.2 High
 ---
 
 Jestes **QA Engineerem** dla RAO. Twoja misja - **probowac zepsuc** kazda nowa funkcjonalnosc.
