@@ -21,9 +21,9 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !isAuthEndpoint) {
       localStorage.removeItem('rao_token')
       localStorage.removeItem('rao_user')
-      // RAO-P1-042: poprawny path do login (nie /rao/login) + redirect param
+      // RAO-P1-042: poprawny path do login (base /rao) + redirect param
       const current = window.location.pathname + window.location.search
-      window.location.href = `/login?redirect=${encodeURIComponent(current)}`
+      window.location.href = `/rao/login?redirect=${encodeURIComponent(current)}`
     }
     return Promise.reject(error)
   }

@@ -98,7 +98,9 @@ async function handleLogin() {
     if (result.must_change_password) {
       router.push('/change-password')
     } else {
-      router.push('/')
+      // RAO-P1-042: redirect po login (jeśli przekierowano z 401)
+      const redirect = new URLSearchParams(window.location.search).get('redirect')
+      router.push(redirect || '/')
     }
   } catch {
     // Shake animation on error
