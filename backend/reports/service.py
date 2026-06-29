@@ -149,6 +149,7 @@ async def generate_summary_pdf(db: AsyncSession, summary_type: str) -> bytes:
     from sqlalchemy import select
     from contractors.models import Contractor
     from articles.models import Article
+    from markupsafe import escape as _esc
 
     if summary_type == "contractors":
         result = await db.execute(select(Contractor).order_by(Contractor.name))
@@ -163,7 +164,7 @@ async def generate_summary_pdf(db: AsyncSession, summary_type: str) -> bytes:
         <h1>Zestawienie Kontrahentów</h1>
         <table><thead><tr><th>#</th><th>Nazwa</th><th>NIP</th><th>Miasto</th><th>Telefon</th><th>Email</th></tr></thead><tbody>"""
         for i, c in enumerate(items, 1):
-            html += f"<tr><td>{i}</td><td>{c.name or ''}</td><td>{c.nip or '—'}</td><td>{c.city or '—'}</td><td>{c.phone1 or '—'}</td><td>{c.email or '—'}</td></tr>"
+            html += f"<tr><td>{i}</td><td>{_esc(c.name or '')}</td><td>{_esc(c.nip or '—')}</td><td>{_esc(c.city or '—')}</td><td>{_esc(c.phone1 or '—')}</td><td>{_esc(c.email or '—')}</td></tr>"
         html += "</tbody></table></body></html>"
     else:
         result = await db.execute(select(Article).order_by(Article.name))
@@ -180,7 +181,7 @@ async def generate_summary_pdf(db: AsyncSession, summary_type: str) -> bytes:
         for i, a in enumerate(items, 1):
             typ = "Usługa" if a.is_service else "Sprzęt"
             marka = f"{a.brand or ''} {a.model or ''}".strip() or "—"
-            html += f"<tr><td>{i}</td><td>{a.name}</td><td>{typ}</td><td>{a.internal_number or '—'}</td><td>{a.registration_no or '—'}</td><td>{marka}</td></tr>"
+            html += f"<tr><td>{i}</td><td>{_esc(a.name)}</td><td>{typ}</td><td>{_esc(a.internal_number or '—')}</td><td>{_esc(a.registration_no or '—')}</td><td>{_esc(marka)}</td></tr>"
         html += "</tbody></table></body></html>"
 
     return await asyncio.get_event_loop().run_in_executor(None, _html_to_pdf_sync, html)
@@ -353,6 +354,7 @@ def _fmt_money_plain(v) -> str:
 
 async def generate_commissions_pdf(db: AsyncSession, date_from: date, date_to: date) -> bytes:
     from stats.router import _compute_position_revenues
+    from markupsafe import escape as _esc
     import asyncio
 
     df, dt = date_from, date_to
@@ -393,7 +395,7 @@ async def generate_commissions_pdf(db: AsyncSession, date_from: date, date_to: d
     grand_commission = sum(i["commission"] for i in items)
 
     rows_html = "".join(
-        f"<tr><td>{i}</td><td>{it['name']}</td><td class='num'>{it['contracts_count']}</td>"
+        f"<tr><td>{i}</td><td>{_esc(it['name'])}</td><td class='num'>{it['contracts_count']}</td>"
         f"<td class='num'>{it['rate'] if it['rate'] else '—'} %</td>"
         f"<td class='num'>{_fmt_money(it['revenue'])}</td>"
         f"<td class='num commission'>{_fmt_money(it['commission'])}</td></tr>"
@@ -436,6 +438,7 @@ td.commission{{color:#27ae60;font-weight:600;}}
 async def generate_stats_pdf(db: AsyncSession, date_from: date, date_to: date) -> bytes:
     from stats.router import _compute_position_revenues
     from articles.models import Article
+    from markupsafe import escape as _esc
     import asyncio
 
     df, dt = date_from, date_to
@@ -506,18 +509,18 @@ async def generate_stats_pdf(db: AsyncSession, date_from: date, date_to: date) -
 
     # Build HTML sections
     top10_rows = "".join(
-        f"<tr><td>{i}</td><td>{d['name']}</td><td class='num'>{d['internal_number'] or '—'}</td>"
+        f"<tr><td>{i}</td><td>{_esc(d['name'])}</td><td class='num'>{_esc(d['internal_number'] or '—')}</td>"
         f"<td class='num'>{d['days']}</td><td class='num'>{len(d['contracts'])}</td>"
         f"<td class='num'><strong>{_fmt_money(d['revenue'])}</strong></td></tr>"
         for i, (_, d) in enumerate(top10, 1)
     )
     svc_rows = "".join(
-        f"<tr><td>{i}</td><td>{d['name']}</td><td class='num'>{len(d['contracts'])}</td>"
+        f"<tr><td>{i}</td><td>{_esc(d['name'])}</td><td class='num'>{len(d['contracts'])}</td>"
         f"<td class='num'><strong>{_fmt_money(d['revenue'])}</strong></td></tr>"
         for i, (_, d) in enumerate(svc_sorted, 1)
     ) or "<tr><td colspan='4' class='empty'>Brak danych</td></tr>"
     loc_rows = "".join(
-        f"<tr><td>{i}</td><td>{city}</td><td class='num'>{d['cnt']}</td>"
+        f"<tr><td>{i}</td><td>{_esc(city)}</td><td class='num'>{d['cnt']}</td>"
         f"<td class='num'>{_fmt_money(d['rev'])}</td></tr>"
         for i, (city, d) in enumerate(top_locations, 1)
     ) or "<tr><td colspan='4' class='empty'>Brak danych</td></tr>"
@@ -597,7 +600,11 @@ async def generate_pdf(db: AsyncSession, contract_id: int, report_type: str = "c
     template_name = template_map.get(report_type, "contract.html")
 
     template_dir = os.path.join(os.path.dirname(__file__), "templates")
-    env = Environment(loader=FileSystemLoader(template_dir))
+    # RAO-P0-031: autoescape=True chroni przed XSS/HTML injection z danych DB
+    env = Environment(
+        loader=FileSystemLoader(template_dir),
+        autoescape=True,
+    )
     env.filters['datepl'] = _fmt_date_pl
     env.filters['money'] = _fmt_money
     env.filters['money_plain'] = _fmt_money_plain
