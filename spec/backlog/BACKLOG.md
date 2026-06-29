@@ -940,11 +940,11 @@ W Polsce istnieje wiele miejscowości o tej samej nazwie. Aktualnie `/stats/loca
 | RAO-P0-034 | ContractUpdate schema z exclude_unset=True (lost data) | P0 | M | dev-verified | → team-verified |
 | RAO-P0-035 | N+1 queries — selectinload w list_contracts/positions/articles | P0 | M | dev-verified | → team-verified |
 | RAO-P0-036 | Stack trace disclosure → detail="Błąd" + logging | P0 | XS | triaged | → in_progress |
-| RAO-P1-037 | delete_contract — guard na is_settled | P1 | XS | triaged | → in_progress |
+| RAO-P1-037 | delete_contract — guard na is_settled | P1 | XS | dev-verified | → team-verified |
 | RAO-P1-038 | Brak indeksów DB (is_settled, created_at, salesperson_id, print_date, delivery_date) | P1 | S | triaged | → in_progress |
-| RAO-P1-039 | Walidacja date_from > date_to + ujemne kwoty w ContractCreate | P1 | XS | triaged | → in_progress |
+| RAO-P1-039 | Walidacja date_from > date_to + ujemne kwoty w ContractCreate | P1 | XS | dev-verified | → team-verified |
 | RAO-P1-040 | is_settled blokuje mutacje (update/delete positions) | P1 | S | triaged | → in_progress |
-| RAO-P1-041 | Hardcoded JWT fallback "change-me" — usuń + wymuś z env | P1 | XS | triaged | → in_progress |
+| RAO-P1-041 | Hardcoded JWT fallback "change-me" — usuń + wymuś z env | P1 | XS | dev-verified | → team-verified |
 | RAO-P1-042 | Frontend: logout czyści stores + redirect po login + baseURL z env | P1 | S | triaged | → in_progress |
 | RAO-P1-043 | Frontend: memory leaks — cleanup event listenerów i timerów | P1 | S | triaged | → in_progress |
 | RAO-P1-044 | Frontend: localStorage.getItem('token') → 'rao_token' | P1 | XS | triaged | → in_progress |

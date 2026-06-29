@@ -1,11 +1,13 @@
 from pydantic_settings import BaseSettings
 from typing import List
 import json
+from pydantic import field_validator
 
 
 class Settings(BaseSettings):
     RAO_DATABASE_URL: str = "mysql+aiomysql://rao_user:<<DB_PASSWORD_PLACEHOLDER>>@localhost:3306/rao_new"
-    RAO_SECRET_KEY: str = "change-me"
+    # RAO-P1-041: No insecure fallback — must be set in .env
+    RAO_SECRET_KEY: str = ""
     RAO_ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
     RAO_SMTP_HOST: str = "localhost"
     RAO_SMTP_PORT: int = 1025
@@ -22,6 +24,17 @@ class Settings(BaseSettings):
     # Generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
     # Must be 32 URL-safe base64-encoded bytes (44 chars). Empty = encryption disabled.
     RAO_FAKTUROWNIA_ENC_KEY: str = ""
+
+    @field_validator("RAO_SECRET_KEY")
+    @classmethod
+    def _secret_key_must_be_set(cls, v: str) -> str:
+        # RAO-P1-041: Reject empty or insecure fallback values
+        if not v or v == "change-me":
+            raise ValueError(
+                "RAO_SECRET_KEY musi być ustawiony w .env (nie 'change-me', nie pusty). "
+                "Generuj: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+            )
+        return v
 
     def get_cors_origins(self) -> List[str]:
         return json.loads(self.RAO_CORS_ORIGINS)

@@ -1,7 +1,7 @@
 from datetime import datetime, date, time
 from decimal import Decimal
 from typing import Literal, Annotated
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 PostalCode = Annotated[str, Field(
@@ -255,6 +255,18 @@ class ContractCreate(BaseModel):
     hide_delivery_address: bool = False
     signatures_on_page1: bool = False
 
+    @model_validator(mode="after")
+    def _validate_dates_and_amounts(self):
+        # RAO-P1-039: date_from must not be after date_to
+        if self.date_from and self.date_to and self.date_from > self.date_to:
+            raise ValueError("Data rozpoczęcia (date_from) nie może być po dacie zakończenia (date_to).")
+        # RAO-P1-039: monetary fields must be non-negative
+        for field in ("total_value", "prepayment_amount", "invoice_amount"):
+            v = getattr(self, field)
+            if v is not None and v < 0:
+                raise ValueError(f"{field} nie może być ujemne.")
+        return self
+
 
 class ContractUpdate(BaseModel):
     """RAO-P0-034: Partial update — only fields explicitly sent are applied.
@@ -293,6 +305,17 @@ class ContractUpdate(BaseModel):
     report_without_data: bool | None = None
     hide_delivery_address: bool | None = None
     signatures_on_page1: bool | None = None
+
+    @model_validator(mode="after")
+    def _validate_dates_and_amounts(self):
+        # RAO-P1-039: same validation as ContractCreate (partial — only check set fields)
+        if self.date_from and self.date_to and self.date_from > self.date_to:
+            raise ValueError("Data rozpoczęcia (date_from) nie może być po dacie zakończenia (date_to).")
+        for field in ("total_value", "prepayment_amount", "invoice_amount"):
+            v = getattr(self, field)
+            if v is not None and v < 0:
+                raise ValueError(f"{field} nie może być ujemne.")
+        return self
 
 
 class ServiceHourResponse(BaseModel):

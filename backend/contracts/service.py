@@ -438,6 +438,10 @@ class ContractService:
         return contract
 
     async def delete_contract(self, db: AsyncSession, contract_id: int):
+        # RAO-P1-037: Guard — nie pozwól usunąć rozliczonej umowy
+        contract = await self.get_contract(db, contract_id)
+        if contract.is_settled:
+            raise conflict("Nie można usunąć rozliczonej umowy. Najpierw cofnij rozliczenie.")
         await db.execute(
             delete(PositionCondition).where(
                 PositionCondition.position_id.in_(

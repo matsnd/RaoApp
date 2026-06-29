@@ -195,3 +195,55 @@ def test_contract_update_full_payload_still_works():
     assert "contractor_id" in dumped
     assert "working_days_per_week" in dumped
     assert "notes" in dumped
+
+
+# ── RAO-P1-039: walidacja date_from > date_to + ujemne kwoty ──────────────────
+
+def test_contract_create_date_from_after_date_to_rejected():
+    with pytest.raises(ValidationError):
+        ContractCreate(contractor_id=1, date_from=date(2026, 7, 1), date_to=date(2026, 6, 1))
+
+def test_contract_create_negative_total_value_rejected():
+    with pytest.raises(ValidationError):
+        ContractCreate(contractor_id=1, total_value=Decimal("-100"))
+
+def test_contract_create_negative_prepayment_rejected():
+    with pytest.raises(ValidationError):
+        ContractCreate(contractor_id=1, prepayment_amount=Decimal("-50"))
+
+def test_contract_create_valid_dates_accepted():
+    c = ContractCreate(contractor_id=1, date_from=date(2026, 6, 1), date_to=date(2026, 7, 1))
+    assert c.date_from == date(2026, 6, 1)
+
+def test_contract_update_date_from_after_date_to_rejected():
+    with pytest.raises(ValidationError):
+        ContractUpdate(date_from=date(2026, 7, 1), date_to=date(2026, 6, 1))
+
+def test_contract_update_negative_amount_rejected():
+    with pytest.raises(ValidationError):
+        ContractUpdate(total_value=Decimal("-1"))
+
+
+# ── RAO-P1-041: JWT secret key validation ─────────────────────────────────────
+
+def test_config_rejects_empty_secret_key():
+    from config import Settings
+    import os
+    # Ensure no env override
+    old = os.environ.pop("RAO_SECRET_KEY", None)
+    try:
+        with pytest.raises(ValidationError):
+            Settings(RAO_SECRET_KEY="")
+    finally:
+        if old is not None:
+            os.environ["RAO_SECRET_KEY"] = old
+
+def test_config_rejects_change_me_secret_key():
+    from config import Settings
+    with pytest.raises(ValidationError):
+        Settings(RAO_SECRET_KEY="change-me")
+
+def test_config_accepts_real_secret_key():
+    from config import Settings
+    s = Settings(RAO_SECRET_KEY="a-valid-secret-key-with-sufficient-length-32chars")
+    assert s.RAO_SECRET_KEY == "a-valid-secret-key-with-sufficient-length-32chars"
