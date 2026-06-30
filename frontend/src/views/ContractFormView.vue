@@ -1043,11 +1043,19 @@ const remainingValue = computed(() => {
 })
 
 const contractorName = ref('')
-const contractorAddresses = ref([])
-const selectedAddressId = ref(null)
+interface ContractorAddress {
+  id: number
+  name?: string | null
+  city?: string | null
+  street?: string | null
+  postal_code?: string | null
+}
+const contractorAddresses = ref<ContractorAddress[]>([])
+const selectedAddressId = ref<number | null>(null)
 const showContractorPicker = ref(false)
 const pickerSearch = ref('')
-const pickerList = ref([])
+interface ContractorPick { id: number; name: string; nip?: string | null; city?: string | null }
+const pickerList = ref<ContractorPick[]>([])
 
 // RAO-P2-005: Inline contractor creation
 const showInlineContractorForm = ref(false)
@@ -1104,12 +1112,22 @@ const onPostalCodeBlur = async () => {
     pnaInfo.value = { city: '', gmina: null, powiat: null, voivodeship: null, found: false }
     return
   }
+  await lookupPna(code)
+}
 
+// RAO-P2-028: Reusable PNA lookup — wywoływane z onPostalCodeBlur, onDeliveryAddressInput, onAddressSelect
+const lookupPna = async (code: string, opts?: { fillCity?: boolean }) => {
+  const fillCity = opts?.fillCity ?? true
+  pnaError.value = null
+  if (!code || code.length !== 6) {
+    pnaInfo.value = { city: '', gmina: null, powiat: null, voivodeship: null, found: false }
+    return
+  }
   pnaLoading.value = true
   try {
     const { data } = await api.get(`/integrations/postal-codes/${encodeURIComponent(code)}`)
-    // Auto-fill city (sugestia — pole edytowalne)
-    if (data.city && !cityManuallyEdited) {
+    // Auto-fill city (sugestia — pole edytowalne, pomijaj gdy użytkownik ręcznie zmienił)
+    if (fillCity && data.city && !cityManuallyEdited) {
       form.value.city = data.city
     }
     pnaInfo.value = {
@@ -1120,7 +1138,6 @@ const onPostalCodeBlur = async () => {
       found: true,
     }
   } catch (error: any) {
-    // 404 — PNA nie znaleziony w bazie
     if (error?.response?.status === 404) {
       pnaError.value = `Nie znaleziono kodu ${code} w bazie. Wpisz miasto ręcznie.`
     } else {
@@ -1158,6 +1175,10 @@ const onDeliveryAddressInput = () => {
       if (data.lat && data.lon) {
         form.value.latitude = data.lat
         form.value.longitude = data.lon
+      }
+      // RAO-P2-028: Auto-trigger PNA lookup po extract-address — panel gmina/powiat/woj od razu
+      if (data.postal_code && data.postal_code.length === 6 && !postalManuallyEdited) {
+        await lookupPna(data.postal_code, { fillCity: !cityManuallyEdited })
       }
     } catch (e: any) {
       // AbortError is expected when canceling previous request
@@ -1255,14 +1276,31 @@ const showSupplierPicker = ref(false)
 const supplierSearch = ref('')
 const supplierList = ref([])
 
-const editingFeeId = ref(null)
-const editingFeeData = ref({})
+interface FeeData {
+  name: string
+  amount_from: number | null
+  amount_to: number | null
+  unit: string
+  description: string
+  is_active: boolean
+}
+const editingFeeId = ref<number | null>(null)
+const editingFeeData = ref<Partial<FeeData>>({})
 const showNewFeeRow = ref(false)
-const newFeeData = ref({ name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true })
+const newFeeData = ref<FeeData>({ name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true })
 const newFeeNameInput = ref(null)
 
 // RAO-P1-012: Settlements
-const settlements = ref([])
+interface Settlement {
+  id: number
+  cost_client: number | null
+  cost_company: number | null
+  margin: number | null
+  notes: string | null
+  service_fee_id?: number | null
+  service_fee_name?: string | null
+}
+const settlements = ref<Settlement[]>([])
 const initializingSettlements = ref(false)
 const initializingFromFakturownia = ref(false)
 
@@ -1360,6 +1398,20 @@ async function onAddressSelect() {
   if (addr) {
     const parts = [addr.street, addr.postal_code, addr.city].filter(Boolean)
     form.value.delivery_address = parts.join(', ')
+    // RAO-P2-028: Auto-wypełnij postal_code + city z adresu kontrahenta
+    // Reset flag ręcznej edycji — to auto-fill z listy, nie ręczna zmiana
+    if (addr.postal_code) {
+      form.value.postal_code = addr.postal_code
+      postalManuallyEdited = false
+    }
+    if (addr.city) {
+      form.value.city = addr.city
+      cityManuallyEdited = false
+    }
+    // RAO-P2-028: Auto-trigger PNA lookup — panel gmina/powiat/woj od razu
+    if (addr.postal_code && addr.postal_code.length === 6) {
+      await lookupPna(addr.postal_code, { fillCity: !addr.city })
+    }
     // RAO-P2-005: geocode address to get lat/lng
     try {
       const addressStr = parts.join(', ')

@@ -131,7 +131,8 @@ async def extract_address(
         nominatim_client, clean_address, is_self_pickup,
         extract_postal_code, extract_city_from_nominatim,
     )
-    from explorer.router import extract_city as extract_city_offline
+    from integrations.models import PostalCode
+    from sqlalchemy import select as sa_select
 
     cleaned = clean_address(data.address)
     if not cleaned:
@@ -144,9 +145,16 @@ async def extract_address(
     # Step 3: offline postal code
     postal = extract_postal_code(cleaned)
 
-    # Step 4: offline city
-    city_offline = extract_city_offline(cleaned)
-    city = None if city_offline == "Nieznane" else city_offline
+    # Step 4: RAO-P2-028 — city z PNA dictionary (zastępuje legacy extract_city regex)
+    city = None
+    if postal:
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                sa_select(PostalCode.city).where(PostalCode.postal_code == postal).limit(1)
+            )
+            row = result.scalar_one_or_none()
+            if row:
+                city = row
 
     # If we have both from offline — done, no Nominatim call
     if city and postal:

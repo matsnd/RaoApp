@@ -802,12 +802,13 @@ Endpointy historyczne powinny używać `exclude_archival=False` (uwzględniać a
 id: RAO-P2-028
 priority: P2
 size: L
-status: triaged
+status: dev-verified
 classification: feature/stats
 roles: [db-architect, backend-dev, qa-engineer]
 source: tech-lead-analysis
 source_date: 2026-06-29
 source_ref: "Analiza P1-017 — problem duplikatów nazw miast w statystykach"
+commit: 7bb2d1a (backend+DB), 0ee1751 (frontend)
 specs_to_update:
   - core/01_database.md
   - core/04_business_logic.md
@@ -1110,3 +1111,193 @@ Wraz z rozwojem aplikacji będziemy zarządzać uprawnieniami do różnych zasob
 - Sprawdzić vs **wyliczanie dni umowy** czy maszyny będą poprawnie blokowane
 - **Blokada = pytanie z informacją** gdzie i dlaczego jest zablokowana maszyna, czy na pewno chcesz ją dodać/wypożyczyć
 - **Obgadać z teamem** (subagenty: backend-dev + qa-engineer + product-owner)
+
+---
+
+## 📋 Audyt wymagań klienta (2026-07-01) — Tech Lead
+
+### Wymagania klienta — status spełnienia
+
+| # | Wymaganie | Status | Uwagi |
+|---|-----------|--------|-------|
+| 1 | Statystyki wynajmu maszyny (po nr wewn.) w okresie — stopa zwrotu | **SPEŁNIONE z błędem** | `top-machines` + `explorer/machines/{id}` (utilization_pct). BŁĄD: rozjazd przychodu 41% między explorer a stats |
+| 2 | Ile maszyn jest teraz wynajętych | **SPEŁNIONE** | `currently-rented` + `fleet-summary` |
+| 3 | Dodanie numeru wewnętrznego do maszyny | **SPEŁNIONE funkcjonalnie, 0% danych** | `articles.internal_number` istnieje, ale 0/337 maszyn ma wypełnione (CSV nie istnieje, INSERT nie mapuje) |
+| 4 | Filtrowanie pozycji dodatkowych (transport, mycie) w okresach | **SPEŁNIONE** | `additional-fees` endpoint + UI |
+| 5 | Filtrowanie miejscowości i ilości wynajmów | **SPEŁNIONE** | `stats/locations` + `explorer/locations` (po PNA, z gmina/powiat/woj) |
+| 6 | Rezerwacja maszyny (blokada, info kiedy dostępny) | **SPEŁNIONE** | `articles/{id}/availability` + ArticlePicker z badge |
+
+### Odkryte problemy — do analizy i decyzji
+
+#### [RAO-P2-030] internal_number puste (0% maszyn) — BLOKER dla wymagan 1+3
+
+```yaml
+id: RAO-P2-030
+priority: P2
+size: M
+status: triaged
+classification: bugfix/migration-data
+roles: [db-architect, backend-dev]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt wymagań klienta — wymaganie 3 (numer wewnętrzny)"
+```
+
+**Problem:** `articles.internal_number` jest puste dla 0/337 maszyn (0%).
+- `migrate.py` INSERT articles z `artykul3` NIE mapuje `internal_number` (kolumna nie istnieje w `artykul3`)
+- `step8_csv_categories` wypełniał `internal_number` z CSV `Asortyment*.csv`, ale ten plik **nie istnieje** na dysku
+- Bez `internal_number` wymaganie 1 (statystyki po nr wewn.) i 3 (dodawanie nr wewn.) są bezużyteczne
+
+**Opcje naprawy:**
+1. Znaleźć źródło numerów wewnętrznych (inny CSV? ręczne dopisanie w UI?)
+2. Sprawdzić czy `nr_rejestracyjny` z `artykul3` może służyć jako numer wewnętrzny (ale też 0% wypełnione)
+3. Ręczne wypełnienie przez użytkownika w UI (formularz maszyny już ma pole)
+
+**Acceptance criteria:**
+- [ ] Źródło numerów wewnętrznych zidentyfikowane
+- [ ] `internal_number` wypełnione dla >80% maszyn
+- [ ] Statystyki po `internal_number` działają (test API)
+
+---
+
+#### [RAO-P2-031] Rozjazd przychodu 41% — explorer vs stats
+
+```yaml
+id: RAO-P2-031
+priority: P2
+size: S
+status: triaged
+classification: bugfix/backend-logic
+roles: [backend-dev, qa-engineer]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt — explorer/machines używa rate1×period_count zamiast kaskadowego"
+```
+
+**Problem:** `explorer/machines/{id}` liczy przychód jako `rate1 × period_count` (simple), a `stats/top-machines` używa kaskadowego `calculate_position_value`. **Rozjazd 41%** (3.17M vs 5.37M zł). Explorer zawyża przychody maszyn o ~41%.
+
+**Lokalizacja:** `backend/explorer/router.py:218` — subquery `rev_subq` używa `func.sum(rate1 * period_count)` zamiast wywołania `shared.revenue.compute_position_revenues`.
+
+**Naprawa:** Refactor `get_machine_details` aby używał `shared.revenue.compute_position_revenues` (jak `stats/top-machines`).
+
+**Acceptance criteria:**
+- [ ] `explorer/machines/{id}` używa `shared.revenue.compute_position_revenues`
+- [ ] Przychody spójne między explorer a stats (delta <1%)
+- [ ] Test unit: porównanie przychodu per pozycja
+
+---
+
+#### [RAO-P2-032] Przychód z `rozliczenie` (legacy) — rzeczywiste kwoty
+
+```yaml
+id: RAO-P2-032
+priority: P2
+size: L
+status: triaged
+classification: feature/revenue-source
+roles: [db-architect, backend-dev, product-owner, tech-lead]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt — warunki rozliczenia są orientacyjne, nie wiemy co skasowano na fakturach"
+```
+
+**Problem:** Obecnie przychód liczony z `position_conditions.rate1 × period_count` (kaskadowe) — **orientacyjne stawki z umowy**, nie rzeczywiste kwoty zafakturowane. `contracts.total_value` jest NULL/0 dla 100% umów (martwe pole).
+
+**Odkrycie:** W dumpie starej bazy (`spec/backlog/archiwum/refinement/toolsmart_roa_*.sql`) jest tabela `rozliczenie` z **3836 wierszami** (~1951 sparsowanych, 792,384 zł) — **rzeczywiste rozliczenia per pozycja**:
+- `id, data, id_pozycji, wartosc`
+- 99.2% `id_pozycji` mapuje się na `contract_positions.id`
+- `wartosc` = rzeczywista kwota rozliczona (po fakcie)
+
+**Stara funkcja SQL (linia 11064-11070):** NIE używała `oplata1 × liczba_dni` (kaskadowe), ale **lookup** — wybierała jedną stawkę po `liczba_dni` (inny algorytm niż nasz `calculate_position_value`).
+
+**Koncepcja operatora — Data Cutoff + Dwa tryby:**
+1. **Dane historyczne (`is_legacy=1`, przed cutofficem):**
+   - Import `rozliczenie` → `contract_settlements` (cost_client=wartosc, source='legacy')
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty**
+   - Osobna sekcja UI: "Analiza danych historycznych" z label "rzeczywiste rozliczenia"
+2. **Nowe dane (`is_legacy=0`, po cutofficie):**
+   - Integracja Fakturownia (już istnieje! `init-from-fakturownia`)
+   - `contract.oid` + `article.fakturownia_product_id` → automatyczne mapowanie
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty zafakturowane**
+
+**Decyzje do podjęcia (wymaga operatora/klienta):**
+1. Czy importować `rozliczenie` (3836 wierszy) do `contract_settlements`?
+2. Kiedy następuje cutoff? (wszystkie 742 obecne umowy = legacy?)
+3. Czy zachować `position_conditions` (szacunek) jako fallback gdy brak rozliczenia?
+4. Czy UI ma mieć przełącznik "Dane historyczne / Dane bieżące"?
+
+**Acceptance criteria (po decyzji):**
+- [ ] Import `rozliczenie` do `contract_settlements` (deterministyczny, z dumpa SQL)
+- [ ] `shared/revenue.py` — źródło "actual" z `contract_settlements` (priorytet) + fallback "estimate" z `position_conditions`
+- [ ] UI toggle "Dane historyczne / Dane bieżące" w ReportsSection
+- [ ] Label "rzeczywiste rozliczenia" vs "orientacyjne stawki" w UI
+- [ ] Fix rozjada 41% (P2-031) jako część tego zadania
+
+**Pliki do zmiany:**
+- `backend/migrate.py` (nowy step: import `rozliczenie` z dumpa)
+- `backend/shared/revenue.py` (źródło "actual" z settlements)
+- `backend/stats/router.py` (filtr `is_legacy` + źródło przychodu)
+- `backend/explorer/router.py` (fix rozjada — użyj `shared.revenue`)
+- `frontend/src/components/reports/ReportsSection.vue` (toggle + label)
+
+**Dane:**
+- Dump SQL: `spec/backlog/archiwum/refinement/toolsmart_roa_1779053066.sql` (linie 4550-6524)
+- 3836 wierszy, 353 unikalnych pozycji, 792,384 zł, 99.2% mapuje się na contract_positions
+
+---
+
+#### [RAO-P2-033] `contracts.total_value` martwe pole (100% NULL)
+
+```yaml
+id: RAO-P2-033
+priority: P2
+size: XS
+status: triaged
+classification: cleanup/data
+roles: [db-architect]
+source: tech-lead-audit
+source_date: 2026-07-01
+```
+
+**Problem:** `contracts.total_value` jest NULL/0 dla 100% umów (742/742). Pole nie jest używane w statystykach (przychód z `position_conditions`), tylko w PDF umowy jako snapshot.
+
+**Opcje:**
+1. Zostawić (pole w PDF, nie blokuje) — rekomendowane
+2. Usunąć kolumnę (destructive — wymaga zgody)
+3. Wypełnić z `SUM(position_conditions)` (ale to szacunek, nie rzeczywistość)
+
+**Rekomendacja:** Zostawić jak jest. Pole jest w PDF umowy jako "Wartość (zł)" — decyzja P1-021 przenosi to do ekranu rozliczenia.
+
+---
+
+## ✅ Wykonane prace (2026-07-01)
+
+### P2-028 — Statystyki miast via PNA (DONE, dev-verified)
+- **Commit:** `7bb2d1a` (backend+DB), `0ee1751` (frontend)
+- **Co zrobiono:**
+  - Pełny Spis PNA Poczty Polskiej (21,904 wpisów) w tabeli `postal_codes`
+  - `contracts.postal_code_id` (FK) + `is_legacy` + backfill
+  - `shared/locations.py` + `shared/revenue.py` (unifikacja stats+explorer)
+  - `GET /explorer/locations/{postal_code}` (drill-down po PNA)
+  - `PostalCodeLookupResponse` z gmina/powiat/wojewodztwo
+  - Frontend: auto-fill PNA + panel gmina/powiat/woj + ReportsSection :key fix
+  - Deduplikacja legacy numerów umów (S142/2026, 111)
+  - Fix `extract_address` (integrations/router.py) — używa PNA zamiast usuniętego `extract_city`
+- **Weryfikacja:** 221 pytest passed, vue-tsc exit 0, build OK, smoke e2e 11 passed
+
+### Lint fixes — ContractFormView.vue (2026-07-01)
+- **Co zrobiono:** Naprawiono 20 pre-existing TS lint errors (`ref([])` → typed refs)
+  - `contractorAddresses` → `ref<ContractorAddress[]>([])`
+  - `pickerList` → `ref<ContractorPick[]>([])`
+  - `settlements` → `ref<Settlement[]>([])`
+  - `editingFeeData` → `ref<Partial<FeeData>>({})`
+  - `selectedAddressId` → `ref<number | null>(null)`
+  - `editingFeeId` → `ref<number | null>(null)`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+
+### Auto-fill PNA flow (2026-07-01)
+- **Co zrobiono:** 3 ścieżki auto-fill PNA w ContractFormView.vue
+  1. `onDeliveryAddressInput` — po extract-address auto-trigger PNA lookup
+  2. `onAddressSelect` — wypełnia postal_code+city z adresu kontrahenta + auto PNA lookup
+  3. `onPostalCodeBlur` — refactor na reusable `lookupPna()`
+- **Weryfikacja:** vue-tsc exit 0, build OK
