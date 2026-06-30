@@ -286,6 +286,7 @@ async def step4_migrate_data():
                  print_path, print_date, report_without_data,
                  hide_delivery_address, signatures_on_page1,
                  working_days_per_week, position_count, is_settled, settled_at,
+                 is_legacy,
                  created_at, updated_at)
             SELECT
                 id, id_kontrahenta, NULLIF(id_handlowca, 0),
@@ -299,6 +300,7 @@ async def step4_migrate_data():
                 sciezka_wydruku, data_wydruku, COALESCE(pz_bez, 0),
                 0, 0,
                 COALESCE(liczba_dni, 6), ilepoz, 1, data_do,
+                1,
                 COALESCE(data_wprowadzenia, NOW()),
                 COALESCE(data_modyfikacji, NOW())
             FROM umowa2
@@ -345,6 +347,23 @@ async def step4_migrate_data():
             print(f"   [{i:2d}/{len(M)}] {tbl}: ERROR — {e}")
 
     await cur.execute("SET FOREIGN_KEY_CHECKS = 1")
+
+    # RAO-P2-028: Deduplikacja numerów umów (legacy miał duplikaty — np. "111", "S142/2026")
+    # Dodajemy suffix _DUP{N} do duplikatów aby UNIQUE INDEX uq_contracts_number nie zawiesił startup
+    await cur.execute("""
+        UPDATE contracts c
+        JOIN (
+            SELECT id, number,
+                   ROW_NUMBER() OVER (PARTITION BY number ORDER BY id) as rn
+            FROM contracts
+        ) ranked ON c.id = ranked.id
+        SET c.number = CONCAT(ranked.number, '_DUP', ranked.rn)
+        WHERE ranked.rn > 1
+    """)
+    dup_fixed = cur.rowcount
+    if dup_fixed:
+        print(f"   [dedup] contracts.number: {dup_fixed} duplicates renamed with _DUP suffix")
+
     await conn.commit()
     await cur.close()
     conn.close()
@@ -1354,7 +1373,7 @@ async def step9_postal_codes_migration():
     conn = await aiomysql.connect(host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASS, db=DB_NAME)
     cur = await conn.cursor()
 
-    # 9.1 Seed postal_codes table from CSV
+    # 9.1 Seed postal_codes table from CSV (RAO-P2-028: full Spis PNA Poczty Polskiej, 5 kolumn)
     csv_path = os.path.join(project_root, "backend", "data", "postal_codes.csv")
     if os.path.exists(csv_path):
         print(f"   Seeding postal_codes from {csv_path}...")
@@ -1363,16 +1382,21 @@ async def step9_postal_codes_migration():
             next(reader, None)  # skip header
             inserted = 0
             for row in reader:
-                if len(row) >= 3:  # code, city, voivodeship
-                    code, city, voivodeship = row[0].strip(), row[1].strip(), row[2].strip() if len(row) > 2 else None
+                # CSV: postal_code, city, gmina, powiat, wojewodztwo (5 kolumn z oficjalnego Spisu PNA)
+                if len(row) >= 2:
+                    code = row[0].strip()
+                    city = row[1].strip()
+                    gmina = row[2].strip() if len(row) > 2 and row[2].strip() else None
+                    powiat = row[3].strip() if len(row) > 3 and row[3].strip() else None
+                    wojewodztwo = row[4].strip() if len(row) > 4 and row[4].strip() else None
                     if code and city:
                         await cur.execute(
-                            "INSERT IGNORE INTO postal_codes (postal_code, city, wojewodztwo) VALUES (%s, %s, %s)",
-                            (code, city, voivodeship)
+                            "INSERT IGNORE INTO postal_codes (postal_code, city, gmina, powiat, wojewodztwo) VALUES (%s, %s, %s, %s, %s)",
+                            (code, city, gmina, powiat, wojewodztwo)
                         )
                         inserted += 1
             await conn.commit()
-            print(f"   Seeded {inserted} postal codes")
+            print(f"   Seeded {inserted} postal codes (full Spis PNA: 5 kolumn)")
     else:
         print(f"   WARN: postal_codes.csv not found at {csv_path} - skipping seed")
 
@@ -1492,15 +1516,35 @@ async def step9_postal_codes_migration():
             updated += 1
     
     await conn.commit()
-    
-    # 9.3 Report
+
+    # 9.3 Backfill postal_code_id (RAO-P2-028: FK do postal_codes dla deterministycznych statystyk)
+    print("   Backfilling postal_code_id from postal_codes dictionary...")
+    await cur.execute("""
+        UPDATE contracts c
+        JOIN postal_codes p ON c.postal_code = p.postal_code
+        SET c.postal_code_id = p.id
+        WHERE c.postal_code IS NOT NULL AND c.postal_code != '' AND c.postal_code_id IS NULL
+    """)
+    await conn.commit()
+    await cur.execute("SELECT COUNT(*) FROM contracts WHERE postal_code_id IS NOT NULL")
+    with_fk = (await cur.fetchone())[0]
+    print(f"   Backfilled postal_code_id: {with_fk} contracts")
+
+    # 9.4 Report
     await cur.execute("SELECT COUNT(*) FROM contracts WHERE postal_code IS NOT NULL")
     with_code = (await cur.fetchone())[0]
     await cur.execute("SELECT COUNT(*) FROM contracts WHERE delivery_address IS NOT NULL")
     with_address = (await cur.fetchone())[0]
-    
+    await cur.execute("SELECT COUNT(*) FROM contracts WHERE is_legacy = 1")
+    legacy_ct = (await cur.fetchone())[0]
+    await cur.execute("SELECT COUNT(*) FROM postal_codes")
+    pna_total = (await cur.fetchone())[0]
+
     print(f"   Updated {updated}/{len(rows)} contracts with postal_code")
     print(f"   Coverage: {with_code}/{with_address} ({with_code*100//with_address if with_address else 0}%)")
+    print(f"   postal_code_id FK: {with_fk} contracts")
+    print(f"   is_legacy=1: {legacy_ct} contracts (data cut-off)")
+    print(f"   postal_codes dict: {pna_total} entries (full Spis PNA Poczty Polskiej)")
     print("   OK")
 
     await cur.close()

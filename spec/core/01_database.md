@@ -186,8 +186,12 @@ CREATE TABLE postal_codes (
     gmina        VARCHAR(100) NULL COMMENT 'Gmina',
     INDEX idx_postal_codes_code (postal_code),
     INDEX idx_postal_codes_city (city),
-    INDEX idx_postal_codes_wojewodztwo (wojewodztwo)
-) ENGINE=InnoDB COMMENT='Słownik kodów pocztowych Polski (RAO-P1-008, RAO-P2-015)';
+    INDEX idx_postal_codes_wojewodztwo (wojewodztwo),
+    INDEX idx_postal_codes_gmina (gmina),
+    INDEX idx_postal_codes_powiat (powiat),
+    INDEX idx_postal_codes_city_gmina (city, gmina),
+    INDEX idx_postal_codes_woj_pow (wojewodztwo, powiat)
+) ENGINE=InnoDB COMMENT='Słownik kodów pocztowych Polski (RAO-P1-008, RAO-P2-015, RAO-P2-028: pełny Spis PNA Poczty Polskiej 21,904 kody)';
 
 -- ============================================================
 -- 2. KONTRAHENCI (Contractors)
@@ -335,6 +339,8 @@ CREATE TABLE contracts (
     delivery_address    TEXT         NULL COMMENT 'Snapshot adresu dostawy',
     postal_code         VARCHAR(20)  NULL COMMENT 'RAO-P1-008: Kod pocztowy z adresu dostawy',
     city                VARCHAR(100) NULL COMMENT 'RAO-P1-008: Miasto z adresu dostawy',
+    postal_code_id      INT          NULL COMMENT 'RAO-P2-028: FK do postal_codes (deterministyczna lokalizacja PNA)',
+    is_legacy           TINYINT(1)   NOT NULL DEFAULT 0 COMMENT 'RAO-P2-028: umowa z legacy (data cut-off)',
     date_from           DATE         NULL,
     date_to             DATE         NULL,
     total_value         DECIMAL(18,2) NULL DEFAULT 0.00,

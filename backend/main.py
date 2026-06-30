@@ -229,6 +229,29 @@ async def startup_migrations():
             "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
             "city VARCHAR(100) NULL"
         ))
+        # RAO-P2-028: FK do postal_codes (deterministyczna lokalizacja PNA)
+        await conn.execute(sa.text(
+            "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
+            "postal_code_id INT NULL COMMENT 'RAO-P2-028: FK do postal_codes'"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
+            "is_legacy TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'RAO-P2-028: umowa z legacy (data cut-off)'"
+        ))
+        # FK + index (try/except bo MariaDB <10.6 nie wspiera IF NOT EXISTS dla CONSTRAINT)
+        try:
+            await conn.execute(sa.text(
+                "ALTER TABLE contracts ADD CONSTRAINT fk_contracts_postal_code "
+                "FOREIGN KEY (postal_code_id) REFERENCES postal_codes(id) ON DELETE SET NULL"
+            ))
+        except Exception:
+            pass  # FK już istnieje
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_contracts_postal_code_id ON contracts(postal_code_id)"
+        ))
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_contracts_is_legacy ON contracts(is_legacy)"
+        ))
         # RAO-P2-015: tabela postal_codes (słownik kodów pocztowych)
         await conn.execute(sa.text("""
             CREATE TABLE IF NOT EXISTS postal_codes (
@@ -252,6 +275,19 @@ async def startup_migrations():
         await conn.execute(sa.text(
             "ALTER TABLE postal_codes ADD COLUMN IF NOT EXISTS "
             "gmina VARCHAR(100) NULL"
+        ))
+        # RAO-P2-028: indeksy dla statystyk hierarchicznych
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_postal_codes_gmina ON postal_codes(gmina)"
+        ))
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_postal_codes_powiat ON postal_codes(powiat)"
+        ))
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_postal_codes_city_gmina ON postal_codes(city, gmina)"
+        ))
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_postal_codes_woj_pow ON postal_codes(wojewodztwo, powiat)"
         ))
         # RAO-P2-012: integracja Fakturownia — singleton settings + mapping produktu w articles
         await conn.execute(sa.text("""

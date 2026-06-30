@@ -67,6 +67,10 @@ class AdditionalFeesResponse(BaseModel):
 
 class LocationStatItem(BaseModel):
     city: str
+    postal_code: str | None = None  # RAO-P2-028: grupowanie po PNA
+    gmina: str | None = None        # RAO-P2-028: rollup z postal_codes (LEFT JOIN)
+    powiat: str | None = None       # RAO-P2-028: rollup z postal_codes (LEFT JOIN)
+    wojewodztwo: str | None = None  # RAO-P2-028: rollup z postal_codes (LEFT JOIN)
     rentals_count: int
     total_revenue: Decimal
 

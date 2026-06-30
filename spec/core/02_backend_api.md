@@ -1327,7 +1327,11 @@ Response: `AdditionalFeesResponse`
 
 ### `GET /stats/locations`
 Query: `?date_from&date_to&internal_number=<str>` (RAO-P2-008)
-Response: `list[LocationStatItem]`
+Response: `list[LocationStatItem]` — RAO-P2-028: agregacja po PNA (`postal_code`)
+z rollup po `city`/`gmina`/`powiat`/`wojewodztwo` z LEFT JOIN do `postal_codes`.
+NULL PNA → bucket `"(brak PNA)"` z city z `contracts.city`.
+Przychód liczony spójnym algorytmem kaskadowym (`shared.revenue.compute_position_revenues`).
+`LocationStatItem` pola: `city, postal_code, gmina, powiat, wojewodztwo, rentals_count, total_revenue`.
 
 ### `GET /stats/by-category` (RAO-P1-017, RAO-P1-026)
 Query:
@@ -1532,33 +1536,40 @@ class CommissionReportResponse(BaseModel):
 
 ### `GET /explorer/locations`
 
-**Opis:** Podsumowanie wynajmów po miastach (grupuje po `Contract.city`, nie raw `delivery_address` — RAO-P1-028).
+**Opis:** Podsumowanie wynajmów po PNA (RAO-P2-028: deterministyczny klucz `postal_code`
+z LEFT JOIN do `postal_codes` dla `city`/`gmina`/`powiat`/`wojewodztwo`).
+NULL PNA → bucket `"(brak PNA)"` z city z `contracts.city`. Przychód liczony spójnym
+algorytmem kaskadowym (`shared.revenue`), NIE `rate1 * period_count` — naprawia rozjazd
+ze statystykami. Helper: `shared.locations.aggregate_by_pna`.
 
 **Query:** `?date_from=&date_to=&limit=50`
 
-**Response:** `{"locations": [{rank, city, rentals_count, total_revenue}], "count": int, "period": {...}}`
+**Response:** `{"locations": [{rank, city, postal_code, gmina, powiat, wojewodztwo, rentals_count, total_revenue}], "count": int, "period": {...}}`
 **HTTP:** 200 | 401
 
 ---
 
 ### `GET /explorer/services/{article_id}`
 
-**Opis:** Szczegóły usługi: metryki, top kontrahenci (5), rozkład geograficzny (10 miast).
+**Opis:** Szczegóły usługi: metryki, top kontrahenci (5), rozkład geograficzny (10 lokalizacji po PNA — RAO-P2-028).
 
 **Query:** `?date_from=&date_to=`
 
-**Response:** `{service: {id, name}, metrics: {times_billed, total_revenue}, top_contractors: [...], location_breakdown: [...]}`
+**Response:** `{service: {id, name}, metrics: {times_billed, total_revenue}, top_contractors: [...], location_breakdown: [{city, postal_code, contract_count, total_revenue}]}`
 **HTTP:** 200 | 401 | 404
 
 ---
 
-### `GET /explorer/locations/{city}`
+### `GET /explorer/locations/{postal_code}`
 
-**Opis:** Szczegóły lokalizacji: metryki, top maszyny (10), top kontrahenci (5).
+**Opis:** Szczegóły lokalizacji — RAO-P2-028: drill-down po PNA (`postal_code`), NIE po mieście.
+**BC break:** dawniej `/locations/{city}` (legacy regex `extract_city` — USUNIĘTE).
+Bucket `"(brak PNA)"` oznacza umowy bez PNA (NULL/empty `postal_code`).
+Top maszyny (10) i top kontrahenci (5) filtrowani po PNA. Przychód ze `shared.revenue`.
 
 **Query:** `?date_from=&date_to=`
 
-**Response:** `{city, metrics: {contracts_count, unique_contractors, total_revenue, avg_revenue_per_contract}, top_machines: [...], top_contractors: [...]}`
+**Response:** `{postal_code, city, metrics: {contracts_count, unique_contractors, total_revenue, avg_revenue_per_contract}, top_machines: [...], top_contractors: [...], monthly_trend: []}`
 **HTTP:** 200 | 401 | 404
 
 ---

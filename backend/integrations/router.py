@@ -39,6 +39,8 @@ class PostalCodeLookupResponse(BaseModel):
     code: str
     city: str
     voivodeship: str | None = None
+    powiat: str | None = None      # RAO-P2-028: pełna hierarchia terytorialna
+    gmina: str | None = None       # RAO-P2-028: pełna hierarchia terytorialna
 
 
 class GeocodeRequest(BaseModel):
@@ -198,6 +200,8 @@ async def lookup_postal_code(
             code=postal.postal_code,
             city=postal.city,
             voivodeship=postal.wojewodztwo,
+            powiat=postal.powiat,
+            gmina=postal.gmina,
         )
 
 

@@ -20,6 +20,8 @@ class Contract(Base):
     delivery_address = Column(Text, nullable=True)
     postal_code = Column(String(20), nullable=True)
     city = Column(String(100), nullable=True)
+    postal_code_id = Column(Integer, ForeignKey("postal_codes.id", ondelete="SET NULL"), nullable=True, index=True, comment="RAO-P2-028: FK do postal_codes (deterministyczna lokalizacja)")
+    is_legacy = Column(Boolean, nullable=False, default=False, server_default="0", comment="RAO-P2-028: umowa z legacy (data cut-off)")
     latitude = Column(Numeric(10, 8), nullable=True)
     longitude = Column(Numeric(11, 8), nullable=True)
     date_from = Column(Date, nullable=True)
@@ -53,6 +55,7 @@ class Contract(Base):
 
     positions = relationship("ContractPosition", back_populates="contract", cascade="all, delete-orphan")
     service_fees = relationship("ContractServiceFee", back_populates="contract", cascade="all, delete-orphan")
+    postal_code_ref = relationship("PostalCode", lazy="selectin")  # RAO-P2-028: JOIN do słownika PNA
 
 
 class ContractPosition(Base):
