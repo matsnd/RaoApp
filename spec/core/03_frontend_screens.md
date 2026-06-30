@@ -569,7 +569,7 @@ Szczegółowy layout Row 1 (nagłówek):
 │ │ [+ Dodaj pozycję]                  │  │                        │
 │ └────────────────────────────────────┘  │                        │
 │ ┌─ Finanse ─────────────────────────┐   │ Oddział [__________▼]  │
-│ │ Wartość     [    15 000,00 zł   ] │   │ Dni/tyg [6]            │
+│ │ Wartość z rozliczenia [read-only] │   │ Dni/tyg [6]            │
 │ │ Przedpłata  [______] dok [_____] │   │                        │
 │ │ Faktura     [______] dok [_____] │   │                        │
 │ │ Pozostało   [    15 000,00 zł  ] │   │                        │
