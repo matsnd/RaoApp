@@ -229,15 +229,21 @@
                 <tr>
                   <th>#</th>
                   <th>Miasto</th>
+                  <th>Gmina</th>
+                  <th>Powiat</th>
+                  <th>Województwo</th>
                   <th style="text-align:right;">Umów</th>
                   <th style="text-align:right;">Przychód</th>
                   <th style="width:100px;"></th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(loc, i) in statsStore.locations" :key="loc.city">
+                <tr v-for="(loc, i) in statsStore.locations" :key="loc.postal_code || loc.city" data-testid="locations-row">
                   <td style="color:#718096;">{{ i + 1 }}</td>
                   <td style="font-weight:600;">{{ loc.city }}</td>
+                  <td class="muted-cell">{{ loc.gmina || '—' }}</td>
+                  <td class="muted-cell">{{ loc.powiat || '—' }}</td>
+                  <td class="muted-cell">{{ loc.wojewodztwo || loc.voivodeship || '—' }}</td>
                   <td style="text-align:right;">{{ loc.rentals_count }}</td>
                   <td style="text-align:right;">{{ formatMoney(loc.total_revenue) }}</td>
                   <td>
@@ -680,13 +686,21 @@
                 <thead>
                   <tr>
                     <th>Miasto</th>
+                    <th>PNA</th>
+                    <th>Gmina</th>
+                    <th>Powiat</th>
+                    <th>Województwo</th>
                     <th style="text-align:right;">Umow</th>
                     <th style="text-align:right;">Przychod</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="loc in serviceDetails.location_breakdown" :key="loc.city">
+                  <tr v-for="loc in serviceDetails.location_breakdown" :key="loc.postal_code || loc.city">
                     <td>{{ loc.city }}</td>
+                    <td class="muted-cell">{{ loc.postal_code || '—' }}</td>
+                    <td class="muted-cell">{{ loc.gmina || '—' }}</td>
+                    <td class="muted-cell">{{ loc.powiat || '—' }}</td>
+                    <td class="muted-cell">{{ loc.wojewodztwo || loc.voivodeship || '—' }}</td>
                     <td style="text-align:right;">{{ loc.contract_count }}</td>
                     <td style="text-align:right;font-weight:600;">{{ formatMoney(loc.total_revenue) }}</td>
                   </tr>
@@ -745,9 +759,9 @@
         <div v-show="explorerTab === 'locations'">
           <!-- Detail panel -->
           <div v-if="selectedLocation && locationMetrics" class="detail-panel">
-            <button class="machine-back-btn" @click="selectedLocation = ''; locationSearch = ''; locationMetrics = null">&#8592; Wroc</button>
+            <button class="machine-back-btn" @click="selectedLocation = ''; selectedLocationPostal = ''; locationSearch = ''; locationMetrics = null">&#8592; Wroc</button>
             <div class="metrics-header">
-              <h3>&#128205; {{ selectedLocation }}</h3>
+              <h3>&#128205; {{ selectedLocation }}<span v-if="selectedLocationPostal" class="muted-cell" style="font-size:14px;margin-left:8px;">{{ selectedLocationPostal }}</span></h3>
               <div class="period-info">&#128197; Okres: {{ getExplorerPeriodLabel() }}</div>
               <div class="metrics-grid">
                 <div class="metric-card">
@@ -813,8 +827,8 @@
               <label>Szukaj miasto:</label>
               <input v-model="locationSearch" type="text" placeholder="Wpisz nazwe miasta..." class="explorer-search" style="width:320px;" @input="onLocationSearchInput" />
               <div v-if="locationSearchResults.length" class="machine-search-results">
-                <div v-for="loc in locationSearchResults" :key="loc.city" class="machine-result-row" @click="pickLocation(loc.city)">
-                  <span class="machine-result-name">{{ loc.city }}</span>
+                <div v-for="loc in locationSearchResults" :key="(loc.postal_code || '') + loc.city" class="machine-result-row" @click="pickLocation(loc)">
+                  <span class="machine-result-name">{{ loc.city }} <span class="muted-cell" style="font-size:12px;">{{ loc.postal_code || '' }}</span></span>
                   <span class="machine-result-nr">{{ loc.rentals_count }} umow</span>
                 </div>
               </div>
@@ -827,14 +841,22 @@
                     <tr>
                       <th>#</th>
                       <th>Miasto</th>
+                      <th>PNA</th>
+                      <th>Gmina</th>
+                      <th>Powiat</th>
+                      <th>Województwo</th>
                       <th style="text-align:right;">Umow</th>
                       <th style="text-align:right;">Przychod</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="loc in locationsData.slice(0, 20)" :key="loc.city" @click="pickLocation(loc.city)" class="row-clickable">
+                    <tr v-for="loc in locationsData.slice(0, 20)" :key="(loc.postal_code || '') + loc.city" @click="pickLocation(loc)" class="row-clickable" data-testid="explorer-location-row">
                       <td style="color:#718096;">{{ loc.rank }}</td>
                       <td style="font-weight:600;">{{ loc.city }}</td>
+                      <td class="muted-cell">{{ loc.postal_code || '—' }}</td>
+                      <td class="muted-cell">{{ loc.gmina || '—' }}</td>
+                      <td class="muted-cell">{{ loc.powiat || '—' }}</td>
+                      <td class="muted-cell">{{ loc.wojewodztwo || loc.voivodeship || '—' }}</td>
                       <td style="text-align:right;">{{ loc.rentals_count }}</td>
                       <td style="text-align:right;font-weight:600;">{{ formatMoney(loc.total_revenue) }}</td>
                     </tr>
@@ -1448,6 +1470,7 @@ const serviceSearch = ref('')
 const serviceSearchResults = ref([])
 let serviceSearchTimer = null
 const selectedLocation = ref('')
+const selectedLocationPostal = ref('')   // RAO: drill-down po PNA (BC break)
 const locationSearch = ref('')
 const locationSearchResults = ref([])
 const locationMetrics = ref(null)
@@ -1699,18 +1722,24 @@ function onLocationSearchInput() {
     return
   }
   locationSearchResults.value = locationsData.value.filter(l =>
-    l.city.toLowerCase().includes(q)
+    l.city.toLowerCase().includes(q) || (l.postal_code || '').toLowerCase().includes(q)
   ).slice(0, 15)
 }
 
-function pickLocation(city) {
+// RAO: BC break — drill-down po PNA (nie po mieście). Backend endpoint:
+//   GET /explorer/locations/{postal_code}  (zamiast /{city})
+// pickLocation przyjmuje cały obiekt loc, żeby wydobyć postal_code (fallback na city).
+function pickLocation(loc) {
+  const city = loc?.city || ''
+  const postal = loc?.postal_code || ''
   selectedLocation.value = city
+  selectedLocationPostal.value = postal
   locationSearchResults.value = []
   locationSearch.value = city
-  loadLocationDetails(city)
+  loadLocationDetails(postal || city)
 }
 
-async function loadLocationDetails(city) {
+async function loadLocationDetails(identifier) {
   loadingExplorer.value = true
   try {
     const [from, to] = getExplorerDateRange()
@@ -1718,7 +1747,7 @@ async function loadLocationDetails(city) {
       date_from: from?.toISOString().slice(0, 10),
       date_to: to?.toISOString().slice(0, 10),
     }
-    const { data } = await api.get(`/explorer/locations/${encodeURIComponent(city)}`, { params })
+    const { data } = await api.get(`/explorer/locations/${encodeURIComponent(identifier)}`, { params })
     if (data.error) {
       console.error('Backend error:', data)
       // Instead of undefined, show zero data
@@ -1950,7 +1979,7 @@ watch(explorerPeriod, () => {
     loadServiceDetails(serviceDetails.value.service?.id)
   }
   if (locationMetrics.value && selectedLocation.value) {
-    loadLocationDetails(selectedLocation.value)
+    loadLocationDetails(selectedLocationPostal.value || selectedLocation.value)
   }
 })
 
@@ -1962,7 +1991,7 @@ watch(explorerCustomFrom, () => {
       loadServiceDetails(serviceDetails.value.service?.id)
     }
     if (locationMetrics.value && selectedLocation.value) {
-      loadLocationDetails(selectedLocation.value)
+      loadLocationDetails(selectedLocationPostal.value || selectedLocation.value)
     }
   }
 })
@@ -1975,7 +2004,7 @@ watch(explorerCustomTo, () => {
       loadServiceDetails(serviceDetails.value.service?.id)
     }
     if (locationMetrics.value && selectedLocation.value) {
-      loadLocationDetails(selectedLocation.value)
+      loadLocationDetails(selectedLocationPostal.value || selectedLocation.value)
     }
   }
 })
@@ -2277,6 +2306,11 @@ onBeforeUnmount(() => {
 .stats-table tbody tr:hover { background: #F7FAFC; }
 .stats-table tbody tr.row-clickable { cursor: pointer; }
 .stats-table tbody tr.row-clickable:hover { background: #EBF4FF; }
+/* RAO: muted cell — dodatkowe kolumny gmina/powiat/wojewodztwo/PNA */
+.muted-cell {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
 
 .bar-bg {
   height: 6px;

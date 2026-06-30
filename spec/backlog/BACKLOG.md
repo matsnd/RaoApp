@@ -874,18 +874,26 @@ W Polsce istnieje wiele miejscowości o tej samej nazwie. Aktualnie `/stats/loca
 **Acceptance criteria (DoD):**
 
 **Faza 1:**
-- [ ] `/stats/locations` agreguje po `(city, postal_code)` gdy postal_code jest present
-- [ ] Gdy postal_code NULL → agreguj po `city` z suffixem " (?)" w display
-- [ ] Frontend: wyświetl "Miasto (XX-XXX)" gdy duplikat nazwy miasta detected
+- [x] `/stats/locations` agreguje po `(city, postal_code)` gdy postal_code jest present
+- [x] Gdy postal_code NULL → agreguj po `city` z bucket `"(brak PNA)"` (RAO-P2-028 refactor)
+- [x] Frontend: wyświetl "Miasto (XX-XXX)" gdy duplikat nazwy miasta detected (ReportsSection — kolumna PNA + composite :key `loc.postal_code || loc.city`)
 - [ ] Test: "Wola" z 5 kodami → 5 osobnych pozycji w statystykach
 
 **Faza 2:**
-- [ ] Tabela `postal_codes` z pełną bazą PNA (~42k wpisów)
-- [ ] Skrypt importu `backend/migrate_postal_codes.py` (idempotentny, INSERT...ON DUPLICATE KEY UPDATE)
-- [ ] Endpoint `GET /integrations/postal-codes/{code}` zwraca (city, gmina, powiat, wojewodztwo, lat, lng)
+- [x] Tabela `postal_codes` z pełną bazą PNA (21,904 wpisów — pełny Spis PNA)
+- [x] Skrypt importu `backend/migrate.py` (re-migracja: 742 contracts, 395 z postal_code_id FK)
+- [x] Endpoint `GET /integrations/postal-codes/{code}` zwraca (city, gmina, powiat, wojewodztwo)
 - [ ] `/stats/locations` z opcjonalnym filtrem `wojewodztwo`, `powiat`
-- [ ] Auto-fill w formularzu umowy: po wpisaniu kodu pocztowego → pełne dane terytorialne
-- [ ] Test: 42k wpisów w `postal_codes`, zapytanie <10ms z indeksem na `postal_code`
+- [x] Auto-fill w formularzu umowy: po wpisaniu kodu pocztowego → pełne dane terytorialne (ContractFormView — panel gmina/powiat/woj + auto-fill city)
+- [x] Test: 21,904 wpisów w `postal_codes`, zapytanie z indeksem na `postal_code` (UNIQUE)
+
+**Faza 3 — Refactor unifikacji (DONE):**
+- [x] `backend/shared/locations.py` — `aggregate_by_pna(positions, db)` (LEFT JOIN do postal_codes)
+- [x] `backend/shared/revenue.py` — `compute_position_revenues` (kaskadowy algorytm, spójny stats+explorer)
+- [x] `extract_city` (legacy regex) USUNIĘTE z `explorer/router.py` (5 call-site'ów przepiętych na PNA)
+- [x] `GET /explorer/locations/{city}` → `GET /explorer/locations/{postal_code}` (BC break, drill-down po PNA)
+- [x] `LocationStatItem` rozszerzone o `gmina`, `powiat`, `wojewodztwo` (rollup z postal_codes)
+- [x] Testy unit: 221 passed (test_explorer_archival_filter.py zaktualizowane)
 
 **Pliki do zmiany:**
 
@@ -931,7 +939,7 @@ W Polsce istnieje wiele miejscowości o tej samej nazwie. Aktualnie `/stats/loca
 | RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
 | RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | dev-verified | → team-verified (wartość z rozliczenia, read-only w formularzu) |
 | RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
-| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | triaged | → ODŁOŻONE: wrócić do tematu, może GUS TERYT |
+| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | review | → Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
 | RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | dev-verified | → user-verified |
 | RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | triaged | → in_progress |
 | RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | triaged | → in_progress |

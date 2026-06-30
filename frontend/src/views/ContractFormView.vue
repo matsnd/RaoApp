@@ -72,8 +72,20 @@
                 </select>
               </div>
               <div class="address-row">
-                <input v-model="form.postal_code" @blur="onPostalCodeBlur" @input="onPostalInput" class="form-control postal-input" placeholder="00-000" maxlength="6" />
-                <input v-model="form.city" @input="onCityInput" class="form-control city-input" placeholder="Miasto" />
+                <input v-model="form.postal_code" @blur="onPostalCodeBlur" @input="onPostalInput" class="form-control postal-input" placeholder="00-000" maxlength="6" data-testid="contract-postal-code" />
+                <input v-model="form.city" @input="onCityInput" class="form-control city-input" placeholder="Miasto" :class="{ 'input-loading': pnaLoading }" data-testid="contract-city" />
+                <div v-if="pnaLoading" class="pna-spinner" data-testid="pna-spinner"></div>
+              </div>
+              <div v-if="pnaError" class="pna-error" data-testid="pna-error">{{ pnaError }}</div>
+              <div v-if="pnaInfo.found" class="pna-info-panel" data-testid="pna-info-panel">
+                <span class="pna-info-title">Wypełnione z PNA {{ form.postal_code }}</span>
+                <span class="pna-info-row">
+                  <span class="pna-info-item"><span class="pna-info-label">Gmina:</span> {{ pnaInfo.gmina || '—' }}</span>
+                  <span class="pna-info-sep">•</span>
+                  <span class="pna-info-item"><span class="pna-info-label">Powiat:</span> {{ pnaInfo.powiat || '—' }}</span>
+                  <span class="pna-info-sep">•</span>
+                  <span class="pna-info-item"><span class="pna-info-label">Woj:</span> {{ pnaInfo.voivodeship || '—' }}</span>
+                </span>
               </div>
               <div class="address-row">
                 <textarea v-model="form.delivery_address" @input="onDeliveryAddressInput" class="form-control" rows="2" placeholder="Uwagi dojazdowe (opcjonalnie) — auto-uzupełni miasto i kod pocztowy"></textarea>
@@ -1077,22 +1089,46 @@ async function toggleFakturowniaPanel() {
   await fakturowniaStore.fetchInvoicesByContractId(Number(props.id))
 }
 
-// RAO-P1-008: Auto-fill city from postal code
+// RAO-P1-008: Auto-fill city from postal code + panel PNA (gmina/powiat/wojewodztwo)
+const pnaLoading = ref(false)
+const pnaError = ref<string | null>(null)
+const pnaInfo = ref<{ city: string; gmina: string | null; powiat: string | null; voivodeship: string | null; found: boolean }>({
+  city: '', gmina: null, powiat: null, voivodeship: null, found: false,
+})
+
 const onPostalCodeBlur = async () => {
   const code = form.value.postal_code.trim()
-  if (!code || code.length !== 6) return
-  
+  // Reset state on every blur
+  pnaError.value = null
+  if (!code || code.length !== 6) {
+    pnaInfo.value = { city: '', gmina: null, powiat: null, voivodeship: null, found: false }
+    return
+  }
+
+  pnaLoading.value = true
   try {
-    const token = localStorage.getItem('rao_token')
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/integrations/postal-codes/${code}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    })
-    if (response.ok) {
-      const data = await response.json()
+    const { data } = await api.get(`/integrations/postal-codes/${encodeURIComponent(code)}`)
+    // Auto-fill city (sugestia — pole edytowalne)
+    if (data.city && !cityManuallyEdited) {
       form.value.city = data.city
     }
-  } catch (error) {
-    console.warn('Postal code lookup failed:', error)
+    pnaInfo.value = {
+      city: data.city ?? '',
+      gmina: data.gmina ?? null,
+      powiat: data.powiat ?? null,
+      voivodeship: data.voivodeship ?? null,
+      found: true,
+    }
+  } catch (error: any) {
+    // 404 — PNA nie znaleziony w bazie
+    if (error?.response?.status === 404) {
+      pnaError.value = `Nie znaleziono kodu ${code} w bazie. Wpisz miasto ręcznie.`
+    } else {
+      pnaError.value = 'Nie udało się pobrać danych PNA. Wpisz miasto ręcznie.'
+    }
+    pnaInfo.value = { city: '', gmina: null, powiat: null, voivodeship: null, found: false }
+  } finally {
+    pnaLoading.value = false
   }
 }
 
@@ -2024,6 +2060,64 @@ async function applyPreset(preset) {
 }
 .city-input {
   flex: 1;
+}
+/* RAO-P1-008: Panel PNA — read-only info z lookup */
+.pna-info-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border-radius: var(--border-radius-sm);
+  background: var(--color-bg-light);
+  border: 1px solid var(--color-border);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.pna-info-title {
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+}
+.pna-info-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.pna-info-item {
+  color: var(--color-text-body);
+}
+.pna-info-label {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-medium);
+}
+.pna-info-sep {
+  color: var(--color-border-hover);
+}
+.pna-error {
+  font-size: var(--font-size-sm);
+  color: var(--color-error);
+  background: var(--color-error-bg);
+  border: 1px solid var(--color-error-border);
+  border-radius: var(--border-radius-sm);
+  padding: 6px 10px;
+}
+.pna-spinner {
+  width: 14px;
+  height: 14px;
+  align-self: center;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: pna-spin 0.7s linear infinite;
+}
+.input-loading {
+  background: var(--color-bg-light);
+}
+@keyframes pna-spin {
+  to { transform: rotate(360deg); }
 }
 .btn-icon {
   background: none;

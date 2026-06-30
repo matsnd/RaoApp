@@ -859,6 +859,49 @@ Pole `internal_number` jest w pełni zaimplementowane:
 - Kolumna "Nr wewnętrzny" w tabeli wyników eksploratora
 - Wyświetlanie `[nr wewnętrzny]` w wynikach wyszukiwania maszyn
 
+### Auto-fill PNA + panel gmina/powiat/wojewodztwo (RAO-P1-008 rozszerzenie)
+
+**Frontend (`ContractFormView.vue`):**
+- Pole "Kod pocztowy" (`postal_code`) na `@blur` wywołuje `onPostalCodeBlur()`
+- Endpoint: `GET /integrations/postal-codes/{code}` → `{code, city, voivodeship, powiat, gmina}`
+- Auto-fill pola "Miasto" (sugestia — pole pozostaje edytowalne, NIE read-only)
+  - Pomija auto-fill jeśli użytkownik ręcznie edytował miasto (`cityManuallyEdited` flag)
+- Read-only panel pod polami PNA+Miasto (widoczny tylko gdy `pnaInfo.found === true`):
+  ```
+  ┌─ Wypełnione z PNA 00-001 ─────────────┐
+  │ Gmina: Warszawa • Powiat: Warszawa • Woj: mazowieckie │
+  └─────────────────────────────────────────┘
+  ```
+- Loading state: spinner w polu Miasto podczas lookup (`pnaLoading` ref, klasa `.input-loading`)
+- Error handling (inline, pod PNA):
+  - 404 → "Nie znaleziono kodu {code} w bazie. Wpisz miasto ręcznie."
+  - Inne błędy → "Nie udało się pobrać danych PNA. Wpisz miasto ręcznie."
+- `data-testid`: `contract-postal-code`, `contract-city`, `pna-spinner`, `pna-error`, `pna-info-panel`
+- Style wyłącznie przez zmienne CSS z `style.css` (`--color-bg-light`, `--color-border`, `--color-text-muted`, `--color-primary`, `--color-error`, `--border-radius-sm`, `--font-size-sm`, `--font-size-xs`)
+
+### Tabela lokalizacji — kolumny gmina/powiat/wojewodztwo + composite :key
+
+**Frontend (`ReportsSection.vue`):**
+- Tabela "Lokalizacje — ranking w okresie" (sub-tab Ogólne):
+  - Dodano kolumny: Gmina, Powiat, Województwo (muted, font-size-sm, klasa `.muted-cell`)
+  - `:key` zmieniony z `loc.city` → `loc.postal_code || loc.city` (composite key — naprawia duplikat klucza Vue gdy wiele PNA dla jednego miasta)
+- Tabela "Lokalizacje" w panelu serviceDetails (sub-tab Usługi):
+  - Dodano kolumny: PNA, Gmina, Powiat, Województwo
+  - `:key` zmieniony z `loc.city` → `loc.postal_code || loc.city`
+- Tabela "Ranking miast" w Explorer → Lokalizacje:
+  - Dodano kolumny: Gmina, Powiat, Województwo
+  - Wyszukiwarka obsługuje teraz też PNA (nie tylko miasto)
+
+### BC break: drill-down po PNA (Explorer → Lokalizacje)
+
+**Frontend (`ReportsSection.vue`):**
+- `pickLocation(loc)` przyjmuje cały obiekt (zamiast `city` string) — wydobywa `postal_code` (fallback `city`)
+- `loadLocationDetails(identifier)` wywołuje `GET /explorer/locations/{postal_code}` (zamiast `/{city}`)
+- Nowy ref `selectedLocationPostal` — przechowuje PNA wybranego drill-down
+- Nagłówek panelu szczegółów wyświetla miasto + PNA (muted)
+- Watchery `explorerPeriod` / `explorerCustomFrom` / `explorerCustomTo` reloadują po `selectedLocationPostal || selectedLocation`
+- Wyszukiwarka (`onLocationSearchInput`) filtruje po `city` OR `postal_code`
+
 **Backend (stats/router.py):**
 - Parametr `internal_number` w endpointach:
   - `GET /stats/fleet-summary?internal_number=<str>`
