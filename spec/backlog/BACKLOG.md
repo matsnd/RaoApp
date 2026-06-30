@@ -929,9 +929,9 @@ W Polsce istnieje wiele miejscowości o tej samej nazwie. Aktualnie `/stats/loca
 | RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | P1 | XS | team-verified | → user-verified |
 | RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | dev-verified | → user-verified |
 | RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
-| RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | triaged | → decyzja klienta |
+| RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | triaged | → DECYZJA: pole do rozliczenia (Fakturowni lub ręcznie) |
 | RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
-| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | triaged | → decyzja PO |
+| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | triaged | → DECYZJA: grupuj po PNA (PILNE — skąd uzupełnić?) |
 | RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | dev-verified | → user-verified |
 | RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | triaged | → in_progress |
 | RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | triaged | → in_progress |
@@ -949,7 +949,7 @@ W Polsce istnieje wiele miejscowości o tej samej nazwie. Aktualnie `/stats/loca
 | RAO-P1-043 | Frontend: memory leaks — cleanup event listenerów i timerów | P1 | S | dev-verified | → team-verified |
 | RAO-P1-044 | Frontend: localStorage.getItem('token') → 'rao_token' | P1 | XS | dev-verified | → team-verified |
 | RAO-P1-045 | _build_conditions_text — użyj format_position_conditions_cascading (dedup) | P1 | XS | dev-verified | → team-verified |
-| RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → decyzja architektoniczna |
+| RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
 | RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | triaged | → in_progress |
 | RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | triaged | → in_progress |
 | RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | triaged | → in_progress |
@@ -960,7 +960,7 @@ W Polsce istnieje wiele miejscowości o tej samej nazwie. Aktualnie `/stats/loca
 | RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | triaged | → in_progress |
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | triaged | → in_progress |
 | RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
-| RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | triaged | → decyzja klienta |
+| RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | triaged | → DECYZJA: wdróż w details maszyny + analiza blokowania |
 
 **Razem:** 33 zadania · ~90-120h pracy (P0: 25-35h, P1: 30-40h, P2: 35-45h)
 
@@ -1067,3 +1067,38 @@ security_impact: yes
 - `backend/reports/templates/protocol_zo.html` — protokół zdawczo-odbiorczy
 - `backend/reports/templates/protocol_zo_u.html` — protokół wykonania usługi
 - `backend/reports/templates/protocol_zo_nodata*.html` — warianty bez danych
+
+---
+
+## 📋 Decyzje operatora (2026-06-30)
+
+### RAO-P1-021 — Pole „Wartość (zł)" → ekran rozliczenia
+**Decyzja:** Pole „Wartość" przechodzi do **ekranu rozliczenia** (nie formularz umowy). Tam wartość jest pobierana:
+- Z **Fakturowni** (kwota z faktury), LUB
+- Wprowadzona **ręcznie** na bazie pozycji umowy z uzupełnionymi kwotami
+
+**Implementacja:** Ekran rozliczenia pobiera pozycje umowy, pozwala uzupełnić kwoty (auto z Fakturowni lub ręcznie), sumuje → wartość umowy. Pole „Wartość" w formularzu umowy zostaje ukryte/puste (przedpłata dopisana z góry, wartość nieznana do rozliczenia).
+
+---
+
+### RAO-P2-028 — Statystyki miast via PNA (PILNE)
+**Decyzja:** Grupuj po **postal_code (PNA)** + miasto (precyzyjne).
+**Uwaga operatora:** Jedno miasto ma wiele PNA — trzeba ustalić **skąd uzupełnić PNA** dla miast.
+**Pilne** — wymaga analizy źródeł danych PNA (tabela postal_codes, integracja TERYT, GUS).
+
+---
+
+### RAO-P2-046 — IDOR / RBAC
+**Decyzja:** **Brak izolacji** na ten moment (single-tenant, wszyscy widzą wszystko).
+Wraz z rozwojem aplikacji będziemy zarządzać uprawnieniami do różnych zasobów.
+**Akcja:** Zostaw tylko SEC-001 (PDF ownership check). P2-046 odłożone.
+
+---
+
+### RAO-P2-057 — is_external (maszyna zewnętrzna)
+**Decyzja:** Maszyna external **nie blokuje** dodawania w wielu miejscach (nie wpływa na rentowność).
+- Ma być **możliwe do wyboru w detailsach maszyny** podczas dodawania
+- Sprawdzić **mechanizm blokowania maszyn** (czy external poprawnie nie blokuje)
+- Sprawdzić vs **wyliczanie dni umowy** czy maszyny będą poprawnie blokowane
+- **Blokada = pytanie z informacją** gdzie i dlaczego jest zablokowana maszyna, czy na pewno chcesz ją dodać/wypożyczyć
+- **Obgadać z teamem** (subagenty: backend-dev + qa-engineer + product-owner)
