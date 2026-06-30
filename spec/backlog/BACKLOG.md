@@ -1166,13 +1166,16 @@ source_ref: "Audyt wymagań klienta — wymaganie 3 (numer wewnętrzny)"
 id: RAO-P2-031
 priority: P2
 size: S
-status: triaged
+status: done
 classification: bugfix/backend-logic
 roles: [backend-dev, qa-engineer]
 source: tech-lead-audit
 source_date: 2026-07-01
 source_ref: "Audyt — explorer/machines używa rate1×period_count zamiast kaskadowego"
-```
+commit: P2-032 (scalone)
+specs_to_update:
+  - core/01_database.md
+  - core/04_business_logic.md
 
 **Problem:** `explorer/machines/{id}` liczy przychód jako `rate1 × period_count` (simple), a `stats/top-machines` używa kaskadowego `calculate_position_value`. **Rozjazd 41%** (3.17M vs 5.37M zł). Explorer zawyża przychody maszyn o ~41%.
 
@@ -1191,15 +1194,21 @@ source_ref: "Audyt — explorer/machines używa rate1×period_count zamiast kask
 
 ```yaml
 id: RAO-P2-032
-priority: P2
+priority: P1
 size: L
-status: triaged
+status: done
 classification: feature/revenue-source
-roles: [db-architect, backend-dev, product-owner, tech-lead]
+roles: [db-architect, backend-dev, frontend-dev, product-owner, tech-lead, security-auditor]
 source: tech-lead-audit
 source_date: 2026-07-01
 source_ref: "Audyt — warunki rozliczenia są orientacyjne, nie wiemy co skasowano na fakturach"
-```
+implementation_date: 2026-07-01
+specs_to_update:
+  - core/01_database.md
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+  - core/04_business_logic.md
+  - core/08_migration_plan.md
 
 **Problem:** Obecnie przychód liczony z `position_conditions.rate1 × period_count` (kaskadowe) — **orientacyjne stawki z umowy**, nie rzeczywiste kwoty zafakturowane. `contracts.total_value` jest NULL/0 dla 100% umów (martwe pole).
 

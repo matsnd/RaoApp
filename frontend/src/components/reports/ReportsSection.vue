@@ -132,6 +132,35 @@
         </div>
       </div>
 
+      <!-- RAO-P2-032: Toggle Dane historyczne / Bieżące -->
+      <div class="legacy-toggle-bar" data-testid="legacy-toggle">
+        <span class="filter-label">Źródło danych:</span>
+        <button
+          :class="['pill', { active: statsStore.isLegacy === null }]"
+          @click="setLegacyMode(null)"
+          title="Wszystkie dane (historyczne + bieżące)"
+        >Wszystkie</button>
+        <button
+          :class="['pill', { active: statsStore.isLegacy === true }]"
+          @click="setLegacyMode(true)"
+          title="Dane historyczne z rozliczenie (rzeczywiste kwoty)"
+        >📊 Historyczne</button>
+        <button
+          :class="['pill', { active: statsStore.isLegacy === false }]"
+          @click="setLegacyMode(false)"
+          title="Dane bieżące z Fakturownia (rzeczywiste faktury)"
+        >🧾 Bieżące</button>
+        <span class="legacy-hint" v-if="statsStore.isLegacy === true">
+          (rzeczywiste rozliczenia z legacy)
+        </span>
+        <span class="legacy-hint" v-else-if="statsStore.isLegacy === false">
+          (rzeczywiste faktury z Fakturownia)
+        </span>
+        <span class="legacy-hint" v-else>
+          (mieszane: actual + szacunek)
+        </span>
+      </div>
+
       <!-- HISTORIA SUB-TABS -->
       <div class="explorer-subtabs" data-testid="history-subtabs">
         <button
@@ -1039,6 +1068,24 @@ function applyPeriodFilter() {
 // ── RAO-P1-026: Shared filter helpers ───────────────────────────────────────
 function setSharedArticleType(type) {
   sharedArticleType.value = type
+  reloadActiveSubTab()
+}
+
+// RAO-P2-032: Toggle Dane historyczne / Bieżące
+function setLegacyMode(mode) {
+  statsStore.isLegacy = mode
+  // Przeładuj wszystkie statystyki z nowym filtrem
+  reloadAllStats()
+}
+
+function reloadAllStats() {
+  // Przeładuj summary + top machines + additional fees + locations
+  loadPeriod()
+  // Przeładuj pozycje (sub-tab general)
+  if (historySubTab.value === 'general') {
+    loadPositions()
+  }
+  // Przeładuj aktywny sub-tab (categories/timeline)
   reloadActiveSubTab()
 }
 
@@ -2654,6 +2701,23 @@ onBeforeUnmount(() => {
   background: var(--color-bg-light, #F8F9FA);
   border-radius: var(--border-radius, 8px);
   align-items: center;
+}
+
+/* RAO-P2-032: Toggle Dane historyczne / Bieżące */
+.legacy-toggle-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: var(--color-bg-light, #F8F9FA);
+  border-radius: var(--border-radius, 8px);
+  align-items: center;
+}
+.legacy-hint {
+  color: var(--color-text-muted, #6c757d);
+  font-size: 0.85em;
+  font-style: italic;
 }
 
 .shared-cat-dropdown {

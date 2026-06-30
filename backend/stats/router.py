@@ -50,6 +50,7 @@ async def fleet_summary(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     internal_number: str | None = Query(None, description="Filtruj po numerze wewnętrznym maszyny"),
+    is_legacy: bool | None = Query(None, description="RAO-P2-032: True=dane historyczne, False=nowe, None=wszystkie"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
@@ -93,7 +94,8 @@ async def fleet_summary(
     # Revenue — computed via spec algorithm
     # RAO-P2-029: period_revenue uwzględnia archiwalne maszyny (statystyki historyczne)
     # total_machines/total_rented pozostają bez archiwalnych (stan floty teraz)
-    all_pos = await _compute_position_revenues(db, df, dt, exclude_archival=False)
+    # RAO-P2-032: is_legacy filter — split archival vs nowe
+    all_pos = await _compute_position_revenues(db, df, dt, exclude_archival=False, is_legacy=is_legacy)
     if internal_number:
         all_pos = [p for p in all_pos if p["internal_number"] == internal_number]
     period_revenue = sum(p["revenue"] for p in all_pos)
@@ -137,12 +139,14 @@ async def top_machines(
     date_to: date | None = Query(None),
     internal_number: str | None = Query(None, description="Filtruj po numerze wewnętrznym maszyny"),
     limit: int = Query(10, ge=1, le=50),
+    is_legacy: bool | None = Query(None, description="RAO-P2-032: True=dane historyczne, False=nowe, None=wszystkie"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
     df, dt = _default_dates(date_from, date_to)
     # RAO-P2-029: uwzględnia archiwalne maszyny (statystyki historyczne)
-    all_pos = await _compute_position_revenues(db, df, dt, service_filter=False, exclude_archival=False)
+    # RAO-P2-032: is_legacy filter
+    all_pos = await _compute_position_revenues(db, df, dt, service_filter=False, exclude_archival=False, is_legacy=is_legacy)
     if internal_number:
         all_pos = [p for p in all_pos if p["internal_number"] == internal_number]
 
@@ -282,12 +286,14 @@ async def machine_roi(
 async def additional_fees(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
+    is_legacy: bool | None = Query(None, description="RAO-P2-032: True=dane historyczne, False=nowe, None=wszystkie"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
     df, dt = _default_dates(date_from, date_to)
     # RAO-P2-029: uwzględnia archiwalne usługi (statystyki historyczne)
-    all_pos = await _compute_position_revenues(db, df, dt, service_filter=True, exclude_archival=False)
+    # RAO-P2-032: is_legacy filter
+    all_pos = await _compute_position_revenues(db, df, dt, service_filter=True, exclude_archival=False, is_legacy=is_legacy)
 
     # Aggregate by service article
     agg = defaultdict(lambda: {"name": "", "revenue": Decimal(0), "contracts": set()})
@@ -318,12 +324,14 @@ async def locations(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     internal_number: str | None = Query(None, description="Filtruj po numerze wewnętrznym maszyny"),
+    is_legacy: bool | None = Query(None, description="RAO-P2-032: True=dane historyczne, False=nowe, None=wszystkie"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
     df, dt = _default_dates(date_from, date_to)
     # RAO-P2-029: uwzględnia archiwalne maszyny (statystyki historyczne)
-    all_pos = await _compute_position_revenues(db, df, dt, exclude_archival=False)
+    # RAO-P2-032: is_legacy filter
+    all_pos = await _compute_position_revenues(db, df, dt, exclude_archival=False, is_legacy=is_legacy)
     if internal_number:
         all_pos = [p for p in all_pos if p["internal_number"] == internal_number]
 
@@ -361,6 +369,7 @@ async def by_category(
         pattern="^(all|machine|service)$",
         description="Filtr rodzaju: all|machine|service — RAO-P1-026",
     ),
+    is_legacy: bool | None = Query(None, description="RAO-P2-032: True=dane historyczne, False=nowe, None=wszystkie"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
@@ -382,6 +391,7 @@ async def by_category(
         db, df, dt,
         service_filter=service_filter,
         exclude_archival=False,  # kategorie zawsze zliczają archiwalne (stare umowy)
+        is_legacy=is_legacy,  # RAO-P2-032
         category_main_filter=category_main or None,
         category_sub1_filter=category_sub1,
         category_sub2_filter=category_sub2,
@@ -433,6 +443,7 @@ async def by_period(
         pattern="^(all|machine|service)$",
         description="Filtr rodzaju: all|machine|service",
     ),
+    is_legacy: bool | None = Query(None, description="RAO-P2-032: True=dane historyczne, False=nowe, None=wszystkie"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
@@ -452,6 +463,7 @@ async def by_period(
         db, df, dt,
         service_filter=service_filter,
         exclude_archival=False,  # kategorie zawsze zliczają archiwalne (stare umowy)
+        is_legacy=is_legacy,  # RAO-P2-032
         category_main_filter=category_main or None,
     )
 
@@ -533,6 +545,7 @@ async def positions(
     position_type: Literal["machines", "services", "all"] = Query("all", alias="type"),
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
+    is_legacy: bool | None = Query(None, description="RAO-P2-032: True=dane historyczne, False=nowe, None=wszystkie"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
@@ -554,7 +567,8 @@ async def positions(
 
     # Pobierz pozycje z odpowiednim filtrem
     # RAO-P2-029: uwzględnia archiwalne maszyny (statystyki historyczne)
-    all_pos = await _compute_position_revenues(db, df, dt, service_filter=service_filter, exclude_archival=False)
+    # RAO-P2-032: is_legacy filter
+    all_pos = await _compute_position_revenues(db, df, dt, service_filter=service_filter, exclude_archival=False, is_legacy=is_legacy)
 
     # Agregacja per article
     agg = defaultdict(lambda: {
@@ -581,7 +595,8 @@ async def positions(
 
     # Oblicz total_machines_revenue i total_services_revenue (zawsze, niezależnie od filtra)
     # RAO-P2-029: uwzględnia archiwalne (spójne z głównym zapytaniem)
-    all_pos_unfiltered = await _compute_position_revenues(db, df, dt, service_filter=None, exclude_archival=False)
+    # RAO-P2-032: is_legacy filter (spójne z głównym zapytaniem)
+    all_pos_unfiltered = await _compute_position_revenues(db, df, dt, service_filter=None, exclude_archival=False, is_legacy=is_legacy)
     total_machines_rev = sum(p["revenue"] for p in all_pos_unfiltered if not p["is_service"])
     total_services_rev = sum(p["revenue"] for p in all_pos_unfiltered if p["is_service"])
 

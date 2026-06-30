@@ -1,25 +1,97 @@
 """
-Shared revenue computation — RAO-P2-028.
+Shared revenue computation — RAO-P2-028 + RAO-P2-032.
 
-Wyciągnięte z `stats/router.py` aby uniknąć rozjazdu przychodu między
-statystykami (kaskadowe `calculate_position_value`) a eksploratorem
-(wcześniej `rate1 * period_count`).
+Trzy źródła przychodu (precedence: actual > lookup > tiered):
+1. **actual** — SUM(contract_settlements.cost_client) per pozycja (rzeczywiste rozliczenia)
+   - source='legacy': import z starej bazy (rozliczenie table)
+   - source='fakturownia': import z Fakturownia API
+   - source='manual': wpisane ręcznie w UI
+2. **estimate_lookup** — algorytm cena_pozycji (lookup oplata1 po liczba_dni)
+   - Reimplementacja starej funkcji SQL z WinForms
+   - Wybiera JEDNĄ stawkę na podstawie liczba_dni (nie kaskadowe)
+3. **estimate_tiered** — kaskadowy calculate_position_value (obecny algorytm)
+   - Używany gdy brak settlements i brak warunków lookup
 
 Public API:
     compute_position_revenues(db, df, dt, *, service_filter, exclude_archival,
-                              category_main_filter, category_sub1_filter,
-                              category_sub2_filter) -> list[dict]
+                              category_main_filter, ...) -> list[dict]
+
+Każdy dict zawiera:
+    revenue_actual: Decimal | None  — z settlements (rzeczywiste)
+    revenue_estimate_lookup: Decimal — z cena_pozycji (lookup, legacy algorytm)
+    revenue_estimate_tiered: Decimal — z calculate_position_value (kaskadowy)
+    revenue: Decimal — wybrane wg mode (actual > lookup > tiered)
+    revenue_source: str — "actual" | "estimate_lookup" | "estimate_tiered"
 """
 from collections import defaultdict
 from datetime import date
 from decimal import Decimal
+from typing import Literal
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from articles.models import Article
 from contracts.models import Contract, ContractPosition, PositionCondition
+from settlements.models import ContractSettlement
 from stats.calc import calculate_position_value
+
+
+# ── RAO-P2-032: Algorytm cena_pozycji (lookup) — reimplementacja starej funkcji SQL ──
+
+def compute_position_value_lookup(
+    rental_days: int | None,
+    conditions: list[dict],
+) -> Decimal:
+    """
+    Reimplementacja `cena_pozycji` z starej aplikacji WinForms.
+
+    Algorytm (lookup, NIE kaskadowe):
+    1. Jeśli liczba_dni > max(liczba_dni where oplata2>0):
+       - Weź ostatni warunek (order by id desc) gdzie liczba_dni >= w.liczba_dni
+       - cena = oplata2 (lub oplata1 jeśli oplata2=0)
+    2. W przeciwnym razie:
+       - Weź pierwszy warunek (order by id) gdzie liczba_dni <= w.liczba_dni
+       - cena = oplata2 (lub oplata1 jeśli oplata2=0)
+    3. revenue = cena × liczba_dni
+
+    Source: AppRao/rao/FormU4.cs:1390-1396 + migrator/translated_objects/SQL_SCALAR_FUNCTION_cena_pozycji.sql
+    """
+    if not conditions or not rental_days or rental_days <= 0:
+        return Decimal("0.00")
+
+    # Sort by period_count (liczba_dni) — zgodnie ze starą funkcją
+    sorted_conds = sorted(conditions, key=lambda c: c.get("period_count") or 0)
+
+    # max(liczba_dni where oplata2>0)
+    max_pc_with_oplata2 = max(
+        (c.get("period_count") or 0 for c in sorted_conds if (c.get("rate2") or 0) > 0),
+        default=0,
+    )
+
+    rate = Decimal("0.00")
+    if rental_days > max_pc_with_oplata2:
+        # powyżej zakresu: ostatni warunek gdzie liczba_dni <= rental_days
+        candidates = [c for c in sorted_conds if (c.get("period_count") or 0) <= rental_days]
+        if candidates:
+            c = candidates[-1]  # ostatni (najwyższy period_count)
+            op2 = Decimal(str(c.get("rate2") or 0))
+            op1 = Decimal(str(c.get("rate1") or 0))
+            rate = op2 if op2 > 0 else op1
+    else:
+        # w zakresie: pierwszy warunek gdzie liczba_dni >= rental_days
+        candidates = [c for c in sorted_conds if (c.get("period_count") or 0) >= rental_days]
+        if candidates:
+            c = candidates[0]  # pierwszy (najniższy period_count)
+            op2 = Decimal(str(c.get("rate2") or 0))
+            op1 = Decimal(str(c.get("rate1") or 0))
+            rate = op2 if op2 > 0 else op1
+
+    if rate <= 0:
+        return Decimal("0.00")
+
+    # revenue = cena × liczba_dni (zgodnie z FormU4.cs: rozliczenie insert per dzień)
+    return rate * rental_days
 
 
 async def compute_position_revenues(
@@ -32,17 +104,23 @@ async def compute_position_revenues(
     category_main_filter: list[str] | None = None,
     category_sub1_filter: str | None = None,
     category_sub2_filter: str | None = None,
+    is_legacy: bool | None = None,
 ) -> list[dict]:
     """
-    Fetch positions+conditions for contracts overlapping [df, dt],
-    compute value per position using spec algorithm (04_BUSINESS_LOGIC.md).
+    Fetch positions+conditions+settlements for contracts overlapping [df, dt],
+    compute value per position using 3 sources (actual > lookup > tiered).
+
+    Args:
+        is_legacy: filtr po Contract.is_legacy (None=wszystkie, True=archival, False=nowe)
 
     Returns list of dicts with keys:
         position_id, article_id, contract_id, contractor_id,
         article_name, internal_number, is_service, contract_number,
-        contractor_name, rental_days, revenue, date_from, date_to,
+        contractor_name, rental_days, date_from, date_to,
         category_main, category_sub1, category_sub2, category_sub3,
-        contract_date_from, clamped_days
+        contract_date_from, clamped_days,
+        revenue_actual, revenue_estimate_lookup, revenue_estimate_tiered,
+        revenue, revenue_source
     """
     stmt = (
         select(
@@ -65,6 +143,7 @@ async def compute_position_revenues(
             Article.category_sub1,          # p[16]
             Article.category_sub2,          # p[17]
             Article.category_sub3,          # p[18]
+            Contract.is_legacy,             # p[19] — RAO-P2-032
         )
         .select_from(ContractPosition)
         .join(Contract, Contract.id == ContractPosition.contract_id)
@@ -82,6 +161,8 @@ async def compute_position_revenues(
         stmt = stmt.where(Article.category_sub1 == category_sub1_filter)
     if category_sub2_filter:
         stmt = stmt.where(Article.category_sub2 == category_sub2_filter)
+    if is_legacy is not None:
+        stmt = stmt.where(Contract.is_legacy == is_legacy)
 
     pos_result = await db.execute(stmt)
     positions = pos_result.all()
@@ -90,6 +171,8 @@ async def compute_position_revenues(
         return []
 
     pos_ids = [p[0] for p in positions]
+
+    # 1. Pobierz warunki rozliczenia (position_conditions)
     cond_result = await db.execute(
         select(
             PositionCondition.position_id,
@@ -111,17 +194,49 @@ async def compute_position_revenues(
             "minimum": c[4], "rate_type_id": c[5],
         })
 
+    # 2. Pobierz settlements (rzeczywiste rozliczenia) — RAO-P2-032
+    sett_result = await db.execute(
+        select(
+            ContractSettlement.position_id,
+            func.sum(ContractSettlement.cost_client).label("total_cost_client"),
+        )
+        .where(ContractSettlement.position_id.in_(pos_ids))
+        .where(ContractSettlement.cost_client.isnot(None))
+        .group_by(ContractSettlement.position_id)
+    )
+    sett_rows = sett_result.all()
+    sett_by_pos = {r[0]: Decimal(str(r[1])) for r in sett_rows if r[1] is not None}
+
     results = []
     for p in positions:
         pid = p[0]
         conds = conds_by_pos.get(pid, [])
-        revenue = calculate_position_value(
+
+        # 3 źródła przychodu
+        revenue_actual = sett_by_pos.get(pid)  # None jeśli brak settlements
+        revenue_estimate_lookup = compute_position_value_lookup(
+            rental_days=p[3],
+            conditions=conds,
+        )
+        revenue_estimate_tiered = calculate_position_value(
             rental_days=p[3],
             billing_frequency=p[4],
             unit_price=p[5],
             quantity=p[6],
             conditions=conds,
         )
+
+        # Precedence: actual > lookup > tiered
+        if revenue_actual is not None and revenue_actual > 0:
+            revenue = revenue_actual
+            revenue_source = "actual"
+        elif revenue_estimate_lookup > 0:
+            revenue = revenue_estimate_lookup
+            revenue_source = "estimate_lookup"
+        else:
+            revenue = revenue_estimate_tiered
+            revenue_source = "estimate_tiered"
+
         c_from = p[13] if p[13] >= df else df
         c_to = p[14] if p[14] <= dt else dt
         clamped_days = max((c_to - c_from).days + 1, 0)
@@ -141,7 +256,14 @@ async def compute_position_revenues(
             "date_to": p[14],
             "contract_date_from": p[13],
             "clamped_days": clamped_days,
+            # RAO-P2-032: 3 źródła przychodu
+            "revenue_actual": revenue_actual,
+            "revenue_estimate_lookup": revenue_estimate_lookup,
+            "revenue_estimate_tiered": revenue_estimate_tiered,
             "revenue": revenue,
+            "revenue_source": revenue_source,
+            # RAO-P2-032: is_legacy flag
+            "is_legacy": bool(p[19]) if p[19] is not None else False,
             "category_main": p[15],
             "category_sub1": p[16],
             "category_sub2": p[17],

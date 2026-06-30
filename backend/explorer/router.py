@@ -189,6 +189,9 @@ async def get_machine_details(
 ):
     """
     Get detailed metrics for a specific machine.
+
+    RAO-P2-031: Używa shared.revenue.compute_position_revenues (3 źródła przychodu)
+    zamiast rate1 × period_count — eliminuje rozjazd 41% ze statystykami.
     """
     # Get article details
     article_result = await db.execute(
@@ -197,80 +200,65 @@ async def get_machine_details(
         .where(Article.id == article_id)
     )
     article_row = article_result.mappings().first()
-    
+
     if not article_row:
         raise HTTPException(status_code=404, detail="Machine not found")
-    
-    article = article_row.Article
-    
-    # Build date filter
-    date_conditions = []
-    if date_from:
-        date_conditions.append(Contract.date_from >= date_from)
-    if date_to:
-        date_conditions.append(Contract.date_to <= date_to)
-    
-    # Subquery: revenue per position from position_conditions
-    rev_subq = (
-        select(
-            PositionCondition.position_id,
-            func.sum(
-                func.coalesce(PositionCondition.rate1, 0) * func.coalesce(PositionCondition.period_count, 1)
-            ).label("pos_revenue"),
-        )
-        .group_by(PositionCondition.position_id)
-        .subquery()
-    )
 
-    # Get rental history
-    history_query = (
-        select(
-            Contract.id,
-            Contract.number,
-            Contract.date_from,
-            Contract.date_to,
-            Contractor.name.label("contractor_name"),
-            func.coalesce(rev_subq.c.pos_revenue, 0).label("revenue"),
-        )
-        .select_from(ContractPosition)
-        .join(Contract, ContractPosition.contract_id == Contract.id)
-        .outerjoin(Contractor, Contract.contractor_id == Contractor.id)
-        .outerjoin(rev_subq, rev_subq.c.position_id == ContractPosition.id)
-        .where(ContractPosition.article_id == article_id)
-        .order_by(Contract.date_from.desc())
+    article = article_row.Article
+
+    # RAO-P2-031: Użyj shared.revenue zamiast rate1 × period_count
+    # Pobierz wszystkie pozycje dla tego artykułu w okresie
+    df = date_from or date(2000, 1, 1)
+    dt = date_to or date(2100, 1, 1)
+    from shared.revenue import compute_position_revenues
+    all_positions = await compute_position_revenues(
+        db, df, dt, exclude_archival=False
     )
-    
-    if date_conditions:
-        history_query = history_query.where(and_(*date_conditions))
-    
-    history_result = await db.execute(history_query)
-    history_rows = history_result.mappings().all()
-    
-    # Calculate metrics
+    # Filtruj po article_id
+    machine_positions = [p for p in all_positions if p["article_id"] == article_id]
+
+    # Grupuj po contract_id (jeden wiersz historii per umowa)
+    from collections import defaultdict
+    by_contract = defaultdict(lambda: {
+        "contract_id": None, "contract_number": None,
+        "date_from": None, "date_to": None,
+        "contractor_name": None, "revenue": 0, "days": 0,
+        "revenue_source": None,
+    })
+    for p in machine_positions:
+        c = by_contract[p["contract_id"]]
+        c["contract_id"] = p["contract_id"]
+        c["contract_number"] = p["contract_number"]
+        c["date_from"] = p["date_from"]
+        c["date_to"] = p["date_to"]
+        c["contractor_name"] = p["contractor_name"]
+        c["revenue"] += float(p["revenue"])
+        c["days"] += p["clamped_days"]
+        c["revenue_source"] = p["revenue_source"]
+
+    # Sortuj po date_from desc
+    rentals = []
     total_revenue = 0
     total_days = 0
-    rental_count = len(history_rows)
-    
-    rentals = []
-    for row in history_rows:
-        days = 0
-        if row.date_from and row.date_to:
-            days = (row.date_to - row.date_from).days + 1
-        
-        revenue = float(row.revenue) if row.revenue else 0
+    for cid, info in sorted(by_contract.items(),
+                            key=lambda x: x[1]["date_from"] or date(2000, 1, 1),
+                            reverse=True):
+        days = info["days"]
+        revenue = info["revenue"]
         total_revenue += revenue
         total_days += days
-        
         rentals.append({
-            "contract_id": row.id,
-            "contract_number": row.number,
-            "date_from": row.date_from.isoformat() if row.date_from else None,
-            "date_to": row.date_to.isoformat() if row.date_to else None,
+            "contract_id": info["contract_id"],
+            "contract_number": info["contract_number"],
+            "date_from": info["date_from"].isoformat() if info["date_from"] else None,
+            "date_to": info["date_to"].isoformat() if info["date_to"] else None,
             "days": days,
-            "contractor_name": row.contractor_name,
-            "revenue": revenue,
+            "contractor_name": info["contractor_name"],
+            "revenue": round(revenue, 2),
+            "revenue_source": info["revenue_source"],
         })
-    
+
+    rental_count = len(rentals)
     avg_daily = total_revenue / total_days if total_days > 0 else 0
     
     # Calculate utilization (requires period to be specified)
@@ -311,61 +299,49 @@ async def get_services_summary(
 ):
     """
     Get summary of additional services (transport, cleaning, etc.).
-    """
-    # Subquery: revenue per position from position_conditions
-    svc_rev_subq = (
-        select(
-            PositionCondition.position_id,
-            func.sum(
-                func.coalesce(PositionCondition.rate1, 0) * func.coalesce(PositionCondition.period_count, 1)
-            ).label("pos_revenue"),
-        )
-        .group_by(PositionCondition.position_id)
-        .subquery()
-    )
 
-    # Base query for service positions
-    query = (
-        select(
-            Article.id,
-            Article.name,
-            func.count(ContractPosition.id).label("times_billed"),
-            func.sum(func.coalesce(svc_rev_subq.c.pos_revenue, 0)).label("total_revenue"),
-        )
-        .join(ContractPosition, ContractPosition.article_id == Article.id)
-        .join(Contract, ContractPosition.contract_id == Contract.id)
-        .outerjoin(svc_rev_subq, svc_rev_subq.c.position_id == ContractPosition.id)
-        .where(Article.is_service == True)
-        .where(Article.is_archival == False)  # RAO-P1-028: tylko niearchiwalne
-        .group_by(Article.id, Article.name)
-        .order_by(func.sum(func.coalesce(svc_rev_subq.c.pos_revenue, 0)).desc())
+    RAO-P2-031: Używa shared.revenue zamiast rate1 × period_count.
+    """
+    # RAO-P2-031: Użyj shared.revenue
+    df = date_from or date(2000, 1, 1)
+    dt = date_to or date(2100, 1, 1)
+    from shared.revenue import compute_position_revenues
+    all_positions = await compute_position_revenues(
+        db, df, dt, service_filter=True, exclude_archival=False
     )
-    
-    # Apply date filters
-    if date_from:
-        query = query.where(Contract.date_from >= date_from)
-    if date_to:
-        query = query.where(Contract.date_to <= date_to)
+    # Filtruj po service_type (name LIKE)
     if service_type:
-        query = query.where(Article.name.like(f"%{service_type}%"))
-    
-    result = await db.execute(query)
-    rows = result.mappings().all()
-    
-    # Calculate total for percentages
-    total_revenue = sum(float(row.total_revenue) for row in rows)
-    
+        all_positions = [p for p in all_positions
+                         if p["article_name"] and service_type.lower() in p["article_name"].lower()]
+
+    # Grupuj po article_id
+    from collections import defaultdict
+    by_article = defaultdict(lambda: {
+        "article_id": None, "service_name": None,
+        "times_billed": 0, "total_revenue": 0,
+    })
+    for p in all_positions:
+        a = by_article[p["article_id"]]
+        a["article_id"] = p["article_id"]
+        a["service_name"] = p["article_name"]
+        a["times_billed"] += 1
+        a["total_revenue"] += float(p["revenue"])
+
+    # Sortuj po revenue desc
+    services_list = sorted(by_article.values(), key=lambda x: x["total_revenue"], reverse=True)
+    total_revenue = sum(s["total_revenue"] for s in services_list)
+
     services = []
-    for row in rows:
-        revenue = float(row.total_revenue)
+    for s in services_list:
+        revenue = s["total_revenue"]
         services.append({
-            "article_id": row.id,
-            "service_name": row.name,
-            "times_billed": row.times_billed,
+            "article_id": s["article_id"],
+            "service_name": s["service_name"],
+            "times_billed": s["times_billed"],
             "total_revenue": round(revenue, 2),
             "percentage": round((revenue / total_revenue) * 100, 1) if total_revenue > 0 else 0,
         })
-    
+
     return {
         "services": services,
         "total_revenue": round(total_revenue, 2),
@@ -432,167 +408,115 @@ async def get_service_details(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    """Get detailed metrics for a specific service."""
-    # Revenue subquery
-    revenue_subq = (
-        select(
-            PositionCondition.position_id,
-            func.sum(
-                func.coalesce(PositionCondition.rate1, 0) * func.coalesce(PositionCondition.period_count, 1)
-            ).label("pos_revenue"),
-        )
-        .group_by(PositionCondition.position_id)
-        .subquery()
+    """Get detailed metrics for a specific service.
+
+    RAO-P2-031: Używa shared.revenue zamiast rate1 × period_count.
+    """
+    # RAO-P2-031: Użyj shared.revenue
+    df = date_from or date(2000, 1, 1)
+    dt = date_to or date(2100, 1, 1)
+    from shared.revenue import compute_position_revenues
+    all_positions = await compute_position_revenues(
+        db, df, dt, service_filter=True, exclude_archival=False
     )
+    # Filtruj po article_id
+    service_positions = [p for p in all_positions if p["article_id"] == article_id]
 
-    # Get service details with revenue
-    query = (
-        select(
-            Article.id,
-            Article.name,
-            func.count(ContractPosition.id).label("times_billed"),
-            func.coalesce(func.sum(revenue_subq.c.pos_revenue), 0).label("total_revenue"),
+    if not service_positions:
+        # Sprawdź czy artykuł istnieje
+        art_result = await db.execute(
+            select(Article).where(Article.id == article_id).where(Article.is_service == True)
         )
-        .select_from(Article)
-        .outerjoin(ContractPosition, Article.id == ContractPosition.article_id)
-        .outerjoin(Contract, ContractPosition.contract_id == Contract.id)
-        .outerjoin(revenue_subq, ContractPosition.id == revenue_subq.c.position_id)
-        .where(Article.id == article_id)
-        .where(Article.is_service == True)
-    )
+        art = art_result.scalars().first()
+        if not art:
+            return {"error": "Service not found", "debug": f"article_id={article_id}"}
+        return {
+            "service": {"id": art.id, "name": art.name},
+            "metrics": {"times_billed": 0, "total_revenue": 0},
+            "top_contractors": [],
+            "location_breakdown": [],
+        }
 
-    if date_from:
-        query = query.where(Contract.date_from >= date_from)
-    if date_to:
-        query = query.where(Contract.date_to <= date_to)
+    # Pobierz nazwę artykułu
+    service_name = service_positions[0]["article_name"]
 
-    query = query.group_by(Article.id, Article.name)
+    # Top contractors (grupuj po contractor_name)
+    from collections import defaultdict
+    by_contractor = defaultdict(lambda: {"contractor_name": None, "contract_count": 0, "total_revenue": 0})
+    for p in service_positions:
+        c = by_contractor[p["contractor_name"]]
+        c["contractor_name"] = p["contractor_name"]
+        c["contract_count"] += 1
+        c["total_revenue"] += float(p["revenue"])
+    top_contractors = sorted(by_contractor.values(), key=lambda x: x["total_revenue"], reverse=True)[:5]
+    top_contractors = [{"contractor_name": c["contractor_name"],
+                        "contract_count": c["contract_count"],
+                        "total_revenue": round(c["total_revenue"], 2)} for c in top_contractors]
 
-    result = await db.execute(query)
-    row = result.mappings().first()
-
-    if not row:
-        return {"error": "Service not found - no row", "debug": f"article_id={article_id}, date_from={date_from}, date_to={date_to}"}
-    
-    # Use dictionary-style access to avoid AttributeError
-    if 'id' not in row or not row['id']:
-        return {"error": "Service not found - no id", "debug": f"article_id={article_id}, row_keys={list(row.keys()) if row else 'none'}"}
-    contractors_query = (
-        select(
-            Contractor.name.label("contractor_name"),
-            func.count(Contract.id).label("contract_count"),
-            func.coalesce(func.sum(revenue_subq.c.pos_revenue), 0).label("total_revenue"),
+    # Location breakdown — potrzebuję postal_code_id per contract
+    contract_ids = list({p["contract_id"] for p in service_positions})
+    contract_loc = {}
+    if contract_ids:
+        loc_result = await db.execute(
+            select(
+                Contract.id, Contract.city, Contract.postal_code,
+                Contract.postal_code_id,
+            ).where(Contract.id.in_(contract_ids))
         )
-        .select_from(Article)
-        .join(ContractPosition, Article.id == ContractPosition.article_id)
-        .join(Contract, ContractPosition.contract_id == Contract.id)
-        .join(Contractor, Contract.contractor_id == Contractor.id)
-        .outerjoin(revenue_subq, ContractPosition.id == revenue_subq.c.position_id)
-        .where(Article.id == article_id)
-    )
+        contract_loc = {r[0]: {"city": r[1], "postal_code": r[2], "postal_code_id": r[3]}
+                        for r in loc_result.all()}
 
-    if date_from:
-        contractors_query = contractors_query.where(Contract.date_from >= date_from)
-    if date_to:
-        contractors_query = contractors_query.where(Contract.date_to <= date_to)
-
-    contractors_query = contractors_query.group_by(Contractor.name).order_by(func.sum(revenue_subq.c.pos_revenue).desc()).limit(5)
-
-    contractors_result = await db.execute(contractors_query)
-    top_contractors = [dict(row) for row in contractors_result.mappings().all()]
-
-    # Get location breakdown — RAO-P2-028: agregacja po PNA (deterministyczna),
-    # NIE legacy regex po delivery_address. Filtrujemy po article_id przez pozycje.
-    location_query = (
-        select(
-            Contract.id,
-            Contract.city,
-            Contract.postal_code,
-            Contract.postal_code_id,
-            func.coalesce(func.sum(revenue_subq.c.pos_revenue), 0).label("total_revenue"),
-        )
-        .select_from(Article)
-        .join(ContractPosition, Article.id == ContractPosition.article_id)
-        .join(Contract, ContractPosition.contract_id == Contract.id)
-        .outerjoin(revenue_subq, ContractPosition.id == revenue_subq.c.position_id)
-        .where(Article.id == article_id)
-        .group_by(Contract.id, Contract.city, Contract.postal_code, Contract.postal_code_id)
-    )
-
-    if date_from:
-        location_query = location_query.where(Contract.date_from >= date_from)
-    if date_to:
-        location_query = location_query.where(Contract.date_to <= date_to)
-
-    location_result = await db.execute(location_query)
-    raw_locations = location_result.all()
-
-    # LEFT JOIN do postal_codes dla kanonicznego city/woj/pow/gmina
-    pna_ids = {r[3] for r in raw_locations if r[3]}
+    # PNA dict
+    pna_ids = {c["postal_code_id"] for c in contract_loc.values() if c["postal_code_id"]}
     pna_dict: dict[int, dict] = {}
     if pna_ids:
         pc_q = await db.execute(
             select(
-                PostalCode.id,
-                PostalCode.postal_code,
-                PostalCode.city,
-                PostalCode.wojewodztwo,
-                PostalCode.powiat,
-                PostalCode.gmina,
+                PostalCode.id, PostalCode.postal_code, PostalCode.city,
+                PostalCode.wojewodztwo, PostalCode.powiat, PostalCode.gmina,
             ).where(PostalCode.id.in_(pna_ids))
         )
-        pna_dict = {
-            r[0]: {
-                "postal_code": r[1], "city": r[2], "wojewodztwo": r[3],
-                "powiat": r[4], "gmina": r[5],
-            }
-            for r in pc_q.all()
-        }
+        pna_dict = {r[0]: {"postal_code": r[1], "city": r[2], "wojewodztwo": r[3],
+                           "powiat": r[4], "gmina": r[5]} for r in pc_q.all()}
 
-    # Save service row before we overwrite 'row' variable
-    service_row = row
-
-    # Aggregate by (postal_code, city) — NULL PNA → bucket NO_PNA_BUCKET
+    # Agreguj po (postal_code, city)
     loc_data: dict[tuple[str | None, str], dict] = {}
-    for r in raw_locations:
-        _cid, city, pna_str, pna_id, rev = r
+    for p in service_positions:
+        cinfo = contract_loc.get(p["contract_id"], {})
+        pna_id = cinfo.get("postal_code_id")
         pna_ref = pna_dict.get(pna_id) if pna_id else None
         if pna_ref:
             postal_code = pna_ref["postal_code"]
-            city = pna_ref["city"] or (city or "").strip() or NO_PNA_BUCKET
+            city = pna_ref["city"] or (cinfo.get("city") or "").strip() or NO_PNA_BUCKET
         else:
-            postal_code = (pna_str or "").strip() or None
-            city = (city or "").strip() or NO_PNA_BUCKET
+            postal_code = (cinfo.get("postal_code") or "").strip() or None
+            city = (cinfo.get("city") or "").strip() or NO_PNA_BUCKET
         if not city:
             city = NO_PNA_BUCKET
         key = (postal_code, city)
         if key not in loc_data:
-            loc_data[key] = {"city": city, "postal_code": postal_code, "contract_count": 0, "total_revenue": 0.0}
+            loc_data[key] = {"city": city, "postal_code": postal_code,
+                             "contract_count": 0, "total_revenue": 0.0}
         loc_data[key]["contract_count"] += 1
-        loc_data[key]["total_revenue"] += float(rev) if rev else 0
+        loc_data[key]["total_revenue"] += float(p["revenue"])
 
     sorted_loc = sorted(loc_data.items(), key=lambda x: x[1]["total_revenue"], reverse=True)[:10]
     location_breakdown = [
         {"city": d["city"], "postal_code": d["postal_code"],
-         "contract_count": d["contract_count"], "total_revenue": d["total_revenue"]}
+         "contract_count": d["contract_count"], "total_revenue": round(d["total_revenue"], 2)}
         for _, d in sorted_loc
     ]
 
-    try:
-        return {
-            "service": {
-                "id": service_row['id'],
-                "name": service_row['name'],
-            },
-            "metrics": {
-                "times_billed": service_row['times_billed'] or 0,
-                "total_revenue": float(service_row['total_revenue']) if service_row['total_revenue'] else 0,
-            },
-            "top_contractors": top_contractors,
-            "location_breakdown": location_breakdown,
-        }
-    except (KeyError, AttributeError) as e:
-        return {"error": f"Error accessing row data: {str(e)}", "debug": f"row_keys={list(service_row.keys())}"}
+    total_revenue = sum(float(p["revenue"]) for p in service_positions)
+    return {
+        "service": {"id": article_id, "name": service_name},
+        "metrics": {
+            "times_billed": len(service_positions),
+            "total_revenue": round(total_revenue, 2),
+        },
+        "top_contractors": top_contractors,
+        "location_breakdown": location_breakdown,
+    }
 
 
 @router.get("/locations/{postal_code}")

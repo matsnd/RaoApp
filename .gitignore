@@ -55,6 +55,10 @@ nul
 .devin/config.local.json
 .devin/config.json
 
+# RAO-P2-032 security: dump SQL z produkcji (PII/PCI — NIE commitować)
+spec/backlog/archiwum/refinement/*.sql
+spec/backlog/archiwum/refinement/toolsmart_roa_*.sql
+
 # IDE config (personal)
 .windsurf/
 

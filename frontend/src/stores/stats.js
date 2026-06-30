@@ -17,11 +17,18 @@ export const useStatsStore = defineStore('stats', () => {
   const loadingByPeriod = ref(false)
   const byPeriodData = ref(null)        // ByPeriodResponse
   const categoriesList = ref([])         // list[CategoriesListNode]
+  // RAO-P2-032: toggle archival vs nowe — null=wszystkie, true=historyczne, false=nowe
+  const isLegacy = ref(null)
+
+  function _applyLegacy(params) {
+    if (isLegacy.value !== null) params.is_legacy = isLegacy.value
+  }
 
   async function fetchSummary(dateFrom, dateTo) {
     const params = {}
     if (dateFrom) params.date_from = dateFrom
     if (dateTo) params.date_to = dateTo
+    _applyLegacy(params)
     const { data } = await api.get('/stats/fleet-summary', { params })
     summary.value = data
     return data
@@ -31,6 +38,7 @@ export const useStatsStore = defineStore('stats', () => {
     const params = { limit }
     if (dateFrom) params.date_from = dateFrom
     if (dateTo) params.date_to = dateTo
+    _applyLegacy(params)
     const { data } = await api.get('/stats/top-machines', { params })
     topMachines.value = data
     return data
@@ -51,6 +59,7 @@ export const useStatsStore = defineStore('stats', () => {
     const params = {}
     if (dateFrom) params.date_from = dateFrom
     if (dateTo) params.date_to = dateTo
+    _applyLegacy(params)
     const { data } = await api.get('/stats/additional-fees', { params })
     additionalFees.value = data
     return data
@@ -60,6 +69,7 @@ export const useStatsStore = defineStore('stats', () => {
     const params = {}
     if (dateFrom) params.date_from = dateFrom
     if (dateTo) params.date_to = dateTo
+    _applyLegacy(params)
     const { data } = await api.get('/stats/locations', { params })
     locations.value = data
     return data
@@ -107,6 +117,7 @@ export const useStatsStore = defineStore('stats', () => {
       categoryMains.forEach(m => searchParams.append('category_main', m))
       if (categorySubOne) searchParams.set('category_sub1', categorySubOne)
       if (categorySubTwo) searchParams.set('category_sub2', categorySubTwo)
+      if (isLegacy.value !== null) searchParams.set('is_legacy', isLegacy.value)
       const { data } = await api.get('/stats/by-category?' + searchParams.toString())
       byCategoryData.value = data
       return data
@@ -132,6 +143,7 @@ export const useStatsStore = defineStore('stats', () => {
       if (dateTo) searchParams.set('date_to', dateTo)
       if (articleType !== 'all') searchParams.set('article_type', articleType)
       categoryMains.forEach(m => searchParams.append('category_main', m))
+      if (isLegacy.value !== null) searchParams.set('is_legacy', isLegacy.value)
       const { data } = await api.get('/stats/by-period?' + searchParams.toString())
       byPeriodData.value = data
       return data
@@ -152,6 +164,7 @@ export const useStatsStore = defineStore('stats', () => {
     const params = { type }
     if (dateFrom) params.date_from = dateFrom
     if (dateTo) params.date_to = dateTo
+    _applyLegacy(params)
     const { data } = await api.get('/stats/positions', { params })
     positionsData.value = data
     return data
@@ -161,6 +174,7 @@ export const useStatsStore = defineStore('stats', () => {
     loading, loadingLive, loadingByCategory, loadingByPeriod,
     summary, topMachines, currentlyRented, additionalFees, locations,
     byCategoryData, positionsData, byPeriodData, categoriesList,
+    isLegacy,
     fetchSummary, fetchTopMachines, fetchCurrentlyRented, fetchAdditionalFees, fetchLocations,
     fetchPeriod, fetchAll, fetchByCategory, fetchByPeriod, fetchCategoriesList, fetchPositions,
   }

@@ -162,12 +162,14 @@ async def init_contract_settlements_from_fakturownia(
     current_user: User = Depends(get_current_user),
 ):
     """RAO-P2-012: Inicjuj rozliczenia dla umowy z Fakturownia.
-    
+
     Pobiera faktury z Fakturownia dla umowy (przez OID) i mapuje pozycje faktury
     na pozycje umowy przez fakturownia_product_id (1:N mapping).
-    
+
     RAO-P2-012: Również pobiera usługi dodatkowe (contract_service_fees) z Fakturownia.
-    
+
+    RAO-P2-032 security: Rate limit 30/min/user (spójne z /integrations/fakturownia/invoices).
+
     Logika mapowania:
     - Pobiera faktury z Fakturownia przez integrations/fakturownia/service
     - Dla pozycji umowy: sprawdza czy są artykuły RAO ze zmapowanym fakturownia_product_id
@@ -177,18 +179,27 @@ async def init_contract_settlements_from_fakturownia(
     - Semantyka 1:N: jeśli produkt FA jest przypisany do wielu artykułów RAO,
       każdy artykuł na umowie dostaje pełną wartość z faktury (multiplikacja OK)
     """
+    # RAO-P2-032 security: rate limit (zapobiega DDoS Fakturownia API)
+    from integrations.fakturownia.router import _invoices_limiter
+    rl_key = f"invoices:user:{current_user.id}"
+    if not _invoices_limiter.is_allowed(rl_key):
+        raise HTTPException(
+            status_code=429,
+            detail="Zbyt wiele zapytan o faktury — odczekaj chwile (limit: 30/min)",
+        )
+
     from integrations.fakturownia.service import fetch_invoices_for_contract
     from articles.models import Article
     from contracts.models import ContractServiceFee
     from settings.models import ServiceFeeTemplate
-    
+
     # Pobierz faktury z Fakturownia
     try:
         invoices = await fetch_invoices_for_contract(db, contract_id, current_user)
     except HTTPException as e:
         if e.status_code == 422:
             raise HTTPException(
-                status_code=422, 
+                status_code=422,
                 detail="Umowa nie posiada numeru OID (zamówienie Fakturownia). Wpisz OID w polu 'OID (zamówienie Fakturownia)' przed pobraniem."
             )
         raise

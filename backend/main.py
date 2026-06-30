@@ -402,6 +402,36 @@ async def startup_migrations():
             "ALTER TABLE contract_settlements ADD COLUMN IF NOT EXISTS "
             "service_fee_id INT NULL"
         ))
+        # RAO-P2-032: settled_at (data rozliczenia z legacy rozliczenie.data lub Fakturownia)
+        await conn.execute(sa.text(
+            "ALTER TABLE contract_settlements ADD COLUMN IF NOT EXISTS "
+            "settled_at DATE NULL COMMENT 'RAO-P2-032: Data rozliczenia'"
+        ))
+        # RAO-P2-032: source (legacy/fakturownia/manual) — identyfikacja pochodzenia kwoty
+        await conn.execute(sa.text(
+            "ALTER TABLE contract_settlements ADD COLUMN IF NOT EXISTS "
+            "source VARCHAR(20) NULL DEFAULT 'manual' COMMENT 'RAO-P2-032: legacy/fakturownia/manual'"
+        ))
+        # RAO-P2-032: UNIQUE constraint — idempotentny import rozliczenie (zapobiega duplikatom)
+        try:
+            await conn.execute(sa.text(
+                "ALTER TABLE contract_settlements ADD UNIQUE INDEX IF NOT EXISTS "
+                "uq_settlements_contract_pos_fee_date "
+                "(contract_id, position_id, service_fee_id, settled_at)"
+            ))
+        except Exception:
+            pass  # MariaDB <10.6 nie wspiera IF NOT EXISTS na UNIQUE INDEX
+        # RAO-P2-032: tabela _import_errors — logowanie orphaned settlements (QA edge #1)
+        await conn.execute(sa.text(
+            "CREATE TABLE IF NOT EXISTS _import_errors ("
+            " id INT AUTO_INCREMENT PRIMARY KEY,"
+            " source VARCHAR(50) NOT NULL,"
+            " raw_data TEXT NOT NULL,"
+            " error_message TEXT NOT NULL,"
+            " created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"
+            ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_polish_ci"
+            " COMMENT='RAO-P2-032: Log błędów importu (orphaned settlements itp.)'"
+        ))
         # RAO-P1-011: article_id i default_price w contract_service_fees (kopia z szablonu)
         await conn.execute(sa.text(
             "ALTER TABLE contract_service_fees ADD COLUMN IF NOT EXISTS "
