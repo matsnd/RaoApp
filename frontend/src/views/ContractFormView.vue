@@ -101,8 +101,8 @@
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label">Wartość (zł)</label>
-              <input v-model="form.total_value" type="number" step="0.01" class="form-control" style="font-weight:700;" />
+              <label class="form-label" title="Wartość z rozliczenia (suma kosztów klienta z zakładki Rozliczenie)">Wartość z rozliczenia (zł)</label>
+              <input :value="settlementTotalFormatted" type="text" class="form-control" disabled style="font-weight:700;" />
             </div>
             <div class="form-group">
               <label class="form-label">Pozostało (zł)</label>
@@ -391,7 +391,7 @@
             <thead>
               <tr>
                 <th>Pozycja</th>
-                <th style="width:15%;">Koszt klienta (zł)</th>
+                <th style="width:15%;">Wartość (zł)</th>
                 <th style="width:15%;">Koszt firmy (zł)</th>
                 <th style="width:12%;">Marża (zł)</th>
                 <th>Uwagi</th>
@@ -1009,8 +1009,21 @@ const form = ref({
   is_settled: false, settled_at: null,  // RAO-P2-022
 })
 
+// RAO-P1-021: Wartość umowy z rozliczenia (suma cost_client z settlements)
+// Pole "Wartość (zł)" w formularzu jest read-only — wartość pochodzi z rozliczenia
+const settlementTotalValue = computed(() => {
+  if (!settlements.value.length) return 0
+  return settlements.value.reduce((sum, s) => sum + (Number(s.cost_client) || 0), 0)
+})
+
+const settlementTotalFormatted = computed(() => {
+  if (!settlements.value.length) return '— rozlicz umowę'
+  return settlementTotalValue.value.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' zł'
+})
+
 const remainingValue = computed(() => {
-  const total = Number(form.value.total_value) || 0
+  // RAO-P1-021: użyj wartości z rozliczenia jeśli są settlements, inaczej total_value
+  const total = settlements.value.length ? settlementTotalValue.value : (Number(form.value.total_value) || 0)
   const pre = Number(form.value.prepayment_amount) || 0
   const inv = Number(form.value.invoice_amount) || 0
   const remaining = total - pre - inv
