@@ -165,6 +165,12 @@ class ArticleService:
         from contractors.models import Contractor
         from articles.schemas import AvailabilityConflict, AvailabilityResponse
 
+        # RAO-P2-057: maszyna zewnętrzna (is_external) nie blokuje — można wypożyczyć
+        # w wielu umowach jednocześnie (nie wpływa na rentowność floty własnej)
+        article = await db.get(Article, article_id)
+        if article and article.is_external:
+            return AvailabilityResponse(is_available=True, conflicting_contracts=[])
+
         stmt = (
             select(Contract.id, Contract.number, Contract.date_from, Contract.date_to, Contractor.name)
             .join(ContractPosition, ContractPosition.contract_id == Contract.id)

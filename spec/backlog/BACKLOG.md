@@ -960,7 +960,7 @@ W Polsce istnieje wiele miejscowości o tej samej nazwie. Aktualnie `/stats/loca
 | RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | triaged | → in_progress |
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | triaged | → in_progress |
 | RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
-| RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | triaged | → DECYZJA: wdróż w details maszyny + analiza blokowania |
+| RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | dev-verified | → team-verified (is_external nie blokuje + checkbox w details) |
 
 **Razem:** 33 zadania · ~90-120h pracy (P0: 25-35h, P1: 30-40h, P2: 35-45h)
 
