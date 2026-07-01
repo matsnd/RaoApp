@@ -1,11 +1,11 @@
 """
-Shared revenue computation — RAO-P2-028 + RAO-P2-032.
+Shared revenue computation — RAO-P2-028 + RAO-P2-032 + RAO-P2-062 Faza 1.
 
 Trzy źródła przychodu (precedence: actual > lookup > tiered):
 1. **actual** — SUM(contract_settlements.cost_client) per pozycja (rzeczywiste rozliczenia)
-   - source='legacy': import z starej bazy (rozliczenie table)
    - source='fakturownia': import z Fakturownia API
    - source='manual': wpisane ręcznie w UI
+   (RAO-P2-062: source='legacy' usunięte — legacy settlements przeniesione do archive_*)
 2. **estimate_lookup** — algorytm cena_pozycji (lookup oplata1 po liczba_dni)
    - Reimplementacja starej funkcji SQL z WinForms
    - Wybiera JEDNĄ stawkę na podstawie liczba_dni (nie kaskadowe)
@@ -22,6 +22,10 @@ Każdy dict zawiera:
     revenue_estimate_tiered: Decimal — z calculate_position_value (kaskadowy)
     revenue: Decimal — wybrane wg mode (actual > lookup > tiered)
     revenue_source: str — "actual" | "estimate_lookup" | "estimate_tiered"
+
+RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy
+(legacy przeniesione do archive_*). Statystyki historyczne obsługiwane osobno
+przez moduł archive.
 """
 from collections import defaultdict
 from datetime import date
@@ -104,14 +108,13 @@ async def compute_position_revenues(
     category_main_filter: list[str] | None = None,
     category_sub1_filter: str | None = None,
     category_sub2_filter: str | None = None,
-    is_legacy: bool | None = None,
 ) -> list[dict]:
     """
     Fetch positions+conditions+settlements for contracts overlapping [df, dt],
     compute value per position using 3 sources (actual > lookup > tiered).
 
-    Args:
-        is_legacy: filtr po Contract.is_legacy (None=wszystkie, True=archival, False=nowe)
+    RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe
+    umowy (legacy przeniesione do archive_*). Statystyki archiwum osobno.
 
     Returns list of dicts with keys:
         position_id, article_id, contract_id, contractor_id,
@@ -143,7 +146,6 @@ async def compute_position_revenues(
             Article.category_sub1,          # p[16]
             Article.category_sub2,          # p[17]
             Article.category_sub3,          # p[18]
-            Contract.is_legacy,             # p[19] — RAO-P2-032
         )
         .select_from(ContractPosition)
         .join(Contract, Contract.id == ContractPosition.contract_id)
@@ -161,8 +163,6 @@ async def compute_position_revenues(
         stmt = stmt.where(Article.category_sub1 == category_sub1_filter)
     if category_sub2_filter:
         stmt = stmt.where(Article.category_sub2 == category_sub2_filter)
-    if is_legacy is not None:
-        stmt = stmt.where(Contract.is_legacy == is_legacy)
 
     pos_result = await db.execute(stmt)
     positions = pos_result.all()
@@ -262,8 +262,6 @@ async def compute_position_revenues(
             "revenue_estimate_tiered": revenue_estimate_tiered,
             "revenue": revenue,
             "revenue_source": revenue_source,
-            # RAO-P2-032: is_legacy flag
-            "is_legacy": bool(p[19]) if p[19] is not None else False,
             "category_main": p[15],
             "category_sub1": p[16],
             "category_sub2": p[17],

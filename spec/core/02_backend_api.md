@@ -1574,6 +1574,123 @@ Top maszyny (10) i top kontrahenci (5) filtrowani po PNA. Przychód ze `shared.r
 
 ---
 
+## ARCHIVE — Endpointy (RAO-P2-062 Faza 1)
+
+> Moduł `backend/archive/` — read-only dostęp do danych historycznych
+> (legacy umowy przeniesione z `contracts` do `archive_*` w Fazie 0).
+>
+> **Zasada:** archiwum = READ-ONLY z WYJĄTKIEM:
+>   - `archive_categories` (CRUD — edycja kategorii archiwum)
+>   - `archive_articles.category_id` (PATCH — przypisanie maszyny do kategorii)
+>
+> **Brak POST/PUT/DELETE** na umowach archiwum (read-only).
+> Wszystkie endpointy wymagają auth (`get_current_user`).
+> Write endpointy (POST/PUT/DELETE/PATCH) wymagają `require_admin`.
+>
+> **RAO-P2-062 Faza 1:** kolumna `contracts.is_legacy` USUNIĘTA —
+> `contracts` zawiera tylko nowe umowy; legacy dane wyłącznie w `archive_*`.
+
+### `GET /archive/contracts`
+
+**Opis:** Lista umów archiwum z paginacją i filtrami.
+
+**Query:** `?search=&contractor_id=<int>&date_from=&date_to=&contract_type=S|U&page=1&per_page=50`
+
+**Response:** `PaginatedResponse[ArchiveContractListItem]` (bez `is_legacy`)
+**HTTP:** 200 | 401
+
+### `GET /archive/contracts/{contract_id}`
+
+**Opis:** Szczegóły umowy archiwum z pozycjami, warunkami, opłatami i rozliczeniami.
+
+**Response:** `ArchiveContractDetail` (positions[], service_fees[], settlements[])
+**HTTP:** 200 | 401 | 404
+
+### `GET /archive/articles`
+
+**Query:** `?search=&category_id=<int>&page=1&per_page=50`
+**Response:** `PaginatedResponse[ArchiveArticleResponse]`
+**HTTP:** 200 | 401
+
+### `GET /archive/articles/{article_id}`
+
+**Response:** `ArchiveArticleResponse`
+**HTTP:** 200 | 401 | 404
+
+### `PATCH /archive/articles/{article_id}/category` (admin only)
+
+**Opis:** Jedyny write na `archive_articles` — zmiana `category_id` (FK do `archive_categories`).
+
+**Body:** `{"category_id": int | null}`
+
+**Response:** `ArchiveArticleResponse`
+**HTTP:** 200 | 401 | 403 | 404
+
+### `GET /archive/categories`
+
+**Response:** `list[ArchiveCategoryResponse]` (flat)
+**HTTP:** 200 | 401
+
+### `GET /archive/categories/tree`
+
+**Response:** `list[ArchiveCategoryTreeNode]` (drzewo 3-poziomowe)
+**HTTP:** 200 | 401
+
+### `POST /archive/categories` (admin only)
+
+**Body:** `ArchiveCategoryCreate` (`{name, code?, description?, parent_id?, level}`)
+**Response:** `ArchiveCategoryResponse` (201)
+**HTTP:** 201 | 401 | 403 | 409 (duplikat w hierarchii — case/diakrytyki-insensitive)
+
+### `PUT /archive/categories/{cat_id}` (admin only)
+
+**Body:** `ArchiveCategoryCreate`
+**Response:** `ArchiveCategoryResponse`
+**HTTP:** 200 | 401 | 403 | 404 | 409
+
+### `DELETE /archive/categories/{cat_id}` (admin only)
+
+**HTTP:** 204 | 401 | 403 | 404 | 409 (ma podkategorie / używana przez artykuły archiwum)
+
+### `GET /archive/stats/summary`
+
+**Query:** `?date_from=&date_to=`
+
+**Response:** `ArchiveStatsSummary` (`{date_from, date_to, contracts_count, positions_count, revenue_estimate}`)
+- `revenue_estimate` = SUM(unit_price × rental_days × quantity) per pozycja
+  (fallback: kaskadowy `calculate_position_value` z `stats.calc` gdy brak `unit_price`)
+**HTTP:** 200 | 401
+
+### `GET /archive/stats/top-machines`
+
+**Query:** `?date_from=&date_to=&limit=10` (max 50)
+**Response:** `list[ArchiveTopMachineItem]` (`{article_id, article_name, internal_number, contracts_count, rented_days, revenue_estimate}`)
+**HTTP:** 200 | 401
+
+### `GET /archive/stats/by-category`
+
+**Query:** `?date_from=&date_to=`
+**Response:** `list[ArchiveCategoryStatItem]` (`{category_id, category_name, contracts_count, positions_count, revenue_estimate}`)
+**HTTP:** 200 | 401
+
+### `GET /archive/stats/machine-roi`
+
+**Query:** `?article_id=<int>&date_from=&date_to=`
+**Response:** `ArchiveMachineRoiResponse` (`{article_id, name, internal_number, replacement_value, revenue_estimate, contracts_count, rented_days, roi_pct}`)
+- `roi_pct` = `revenue_estimate / replacement_value × 100` (null gdy brak `replacement_value`)
+**HTTP:** 200 | 401 | 404
+
+---
+
+## Zmiany RAO-P2-062 Faza 1 — usunięcie `is_legacy`
+
+- **`contracts.is_legacy`** — kolumna USUNIĘTA (idempotentny `ALTER TABLE contracts DROP COLUMN IF EXISTS is_legacy` w `main.py` startup).
+- **`shared/revenue.py`** — parametr `is_legacy` usunięty z `compute_position_revenues`; dict wynikowy nie zawiera klucza `is_legacy`. `revenue_source` = tylko `actual` / `estimate_lookup` / `estimate_tiered`.
+- **`stats/router.py`** — 9 endpointów (fleet-summary, top-machines, additional-fees, locations, by-category, by-period, positions, + unfiltered w positions) nie przyjmuje już parametru `is_legacy`. Wariant `"mieszane"` w `revenue_source_label` usunięty (archiwum osobno).
+- **Statystyki historyczne** — obsługiwane przez moduł `archive` (osobne endpointy `/archive/stats/*`), NIE przez filter `is_legacy` na `contracts`.
+
+---
+
 > Pełna specyfikacja raportów z obrazkami i endpointów statystyk znajduje się w pliku **[11_reports_stats.md](./11_reports_stats.md)**.
 
 ---

@@ -21,6 +21,7 @@ from integrations.fakturownia.router import router as fakturownia_router
 from stats.router import router as stats_router
 from explorer.router import router as explorer_router
 from reservations.router import router as reservations_router  # RAO-P1-015
+from archive.router import router as archive_router  # RAO-P2-062 Faza 1
 from database import engine, Base
 import auth.models  # Auth tables
 import integrations.models  # RAO-P1-008
@@ -28,6 +29,7 @@ import reservations.models  # RAO-P1-015
 import deliveries.models  # RAO-P3-005
 import contract_costs.models  # RAO-P3-005
 import audit.models  # RAO-P3-005
+import archive.models  # RAO-P2-062 Faza 1 — tabele archive_*
 
 app = FastAPI(
     title="RAO API",
@@ -255,10 +257,14 @@ async def startup_migrations():
             "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
             "postal_code_id INT NULL COMMENT 'RAO-P2-028: FK do postal_codes'"
         ))
-        await conn.execute(sa.text(
-            "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
-            "is_legacy TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'RAO-P2-028: umowa z legacy (data cut-off)'"
-        ))
+        # RAO-P2-062 Faza 1: kolumna is_legacy usunięta (legacy dane przeniesione
+        # do tabel archive_* w Fazie 0). Idempotentny DROP COLUMN IF EXISTS.
+        try:
+            await conn.execute(sa.text(
+                "ALTER TABLE contracts DROP COLUMN IF EXISTS is_legacy"
+            ))
+        except Exception:
+            pass  # MariaDB <10.6 nie wspiera IF EXISTS w DROP COLUMN — kolumna już nie istnieje
         # FK + index (try/except bo MariaDB <10.6 nie wspiera IF NOT EXISTS dla CONSTRAINT)
         try:
             await conn.execute(sa.text(
@@ -269,9 +275,6 @@ async def startup_migrations():
             pass  # FK już istnieje
         await conn.execute(sa.text(
             "CREATE INDEX IF NOT EXISTS idx_contracts_postal_code_id ON contracts(postal_code_id)"
-        ))
-        await conn.execute(sa.text(
-            "CREATE INDEX IF NOT EXISTS idx_contracts_is_legacy ON contracts(is_legacy)"
         ))
         # RAO-P2-015: tabela postal_codes (słownik kodów pocztowych)
         await conn.execute(sa.text("""
@@ -564,6 +567,7 @@ app.include_router(fakturownia_router)
 app.include_router(stats_router)
 app.include_router(explorer_router)
 app.include_router(reservations_router)  # RAO-P1-015
+app.include_router(archive_router)  # RAO-P2-062 Faza 1
 
 # RAO-P3-002: serwowanie statycznych plików (loga firmy itp.)
 # Katalog tworzony powyżej (os.makedirs), mount musi być po include_router
