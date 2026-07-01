@@ -1419,12 +1419,22 @@ async function handleFakturownia() {
    - Grid: Nazwa, Nr wewn., Kategoria (dropdown — `PATCH /archive/articles/{id}/category`, admin), Kontraktów count, Wartość wymiany
    - Zmiana kategorii przez `<select>` → `PATCH /archive/articles/{id}/category` z `category_id`
 
-3. **Statystyki** (`activeTab='stats'`) — `GET /archive/stats/summary` + `/top-machines` + `/by-category`
+3. **Statystyki** (`activeTab='stats'`) — `GET /archive/stats/summary` + `/top-machines` + `/by-category` + `/by-city`
    - Filtry dat: date_from, date_to + przycisk "Odśwież"
    - Karta podsumowania: liczba umów, liczba pozycji, przychód szacunkowy
-   - Top maszyny (limit 10): artykuł, kontraktów count, dni wynajmu, przychód szac.
+   - Top maszyny (limit 10): artykuł, kontraktów count, dni wynajmu, przychód szac. — **wiersze klikalne** (`.drill-row` z hover + ▸ strzałką), hint "Kliknij wiersz, aby zobaczyć umowy" w nagłówku
    - Per kategoria: kategoria, kontraktów, pozycji, przychód szac.
-   - ROI maszyny (opcjonalne): `GET /archive/stats/machine-roi?article_id=` — przychód szac. / wartość wymiany = ROI %
+   - ROI maszyny (opcjonalne): `GET /archive/stats/machine-roi?article_id=` — przychód szac. / wartość wymiany = ROI %; przycisk "Pokaż umowy ▸" otwiera drill-down
+   - **Miasta** (limit 20): `GET /archive/stats/by-city` — miasto, kontraktów, pozycji, kodów poczt., przychód szac. — wiersze klikalne (drill-down)
+   - **Drill-down drawer** (`<Teleport to="body">`, 60% szerokości, slide-in z prawej):
+     - Otwierany przez `openDrillDown(type, id, name, contractsCount, days, revenue)` z wierszy Top maszyny / Miasta / przycisku ROI
+     - Header: tytuł ("Umowy z maszyną: X" / "Umowy w mieście: Y") + subtitle (liczba umów, dni, przychód szac.) + przycisk ✕
+     - Search bar: filtr po numerze/kontrahencie (enter / "Szukaj" / "↺" clear)
+     - Tabela umów: Numer, Kontrahent, Okres, Dni, Wartość szac., Miasto (gdy type='city') — klik wiersza → `drillDownToContract(id)` (zamyka drawer, przełącza na zakładkę Umowy, otwiera szczegóły)
+     - Loading (skeleton 5 wierszy pulse), Error (retry), Empty (📋 + komunikat), Footer z paginacją (50/strona)
+     - Zamykanie: ✕, klik poza drawerem (overlay), **Esc** (globalny keydown listener w `onMounted`/`onUnmounted`)
+     - Style w osobnym **non-scoped** `<style>` bloku (Vue 3 nie aplikuje scoped attrs do treści teleportowanej do `<body>`)
+     - `reloadDrillDown()` → `archiveStore.fetchContractsForDrillDown({ article_id | city, search, date_from, date_to, page, per_page:50 })`
 
 4. **Kategorie** (`activeTab='categories'`) — `GET /archive/categories/tree` + CRUD (admin)
    - Read-only dla non-admin (drzewo kategorii bez akcji edycji/usuwania)

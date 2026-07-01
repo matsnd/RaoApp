@@ -320,17 +320,26 @@
 
           <!-- Top maszyny -->
           <div class="stats-card">
-            <div class="stats-card-header">🏆 Top maszyny</div>
+            <div class="stats-card-header">
+              🏆 Top maszyny
+              <span class="stats-card-hint">Kliknij wiersz, aby zobaczyć umowy</span>
+            </div>
             <div class="stats-card-body no-pad">
               <table class="data-grid">
                 <thead>
-                  <tr><th>Nazwa</th><th>Nr wewn.</th><th>Wypożyczeń</th><th>Dni</th><th>Przychód</th></tr>
+                  <tr><th>Nazwa</th><th>Nr wewn.</th><th>Wypożyczeń</th><th>Dni</th><th>Przychód</th><th></th></tr>
                 </thead>
                 <tbody>
                   <tr v-if="!archiveStore.topMachines.length">
-                    <td colspan="5" class="empty-state">Brak danych</td>
+                    <td colspan="6" class="empty-state">Brak danych</td>
                   </tr>
-                  <tr v-for="m in archiveStore.topMachines" :key="m.article_id">
+                  <tr
+                    v-for="m in archiveStore.topMachines"
+                    :key="m.article_id"
+                    class="drill-row"
+                    :title="`Kliknij, aby zobaczyć umowy z maszyną ${m.article_name}`"
+                    @click="openDrillDown('machine', m.article_id, m.article_name, m.contracts_count, m.rented_days, m.revenue_estimate)"
+                  >
                     <td>{{ m.article_name }}</td>
                     <td>{{ m.internal_number || '—' }}</td>
                     <td>{{ m.contracts_count }}</td>
@@ -339,6 +348,7 @@
                       <span class="est-value">{{ formatMoney(m.revenue_estimate) }}</span>
                       <span class="est-suffix">[szac.]</span>
                     </td>
+                    <td class="drill-arrow">▸</td>
                   </tr>
                 </tbody>
               </table>
@@ -381,6 +391,11 @@
                   <input v-model.number="roiArticleId" type="number" class="form-control" style="width:120px;" placeholder="article_id" />
                 </label>
                 <button class="btn btn-primary btn-sm" :disabled="!roiArticleId" @click="loadRoi">Oblicz ROI</button>
+                <button
+                  v-if="archiveStore.machineRoi"
+                  class="btn btn-secondary btn-sm"
+                  @click="openDrillDown('machine', archiveStore.machineRoi.article_id, archiveStore.machineRoi.name, archiveStore.machineRoi.contracts_count, archiveStore.machineRoi.rented_days, archiveStore.machineRoi.revenue_estimate)"
+                >Pokaż umowy ▸</button>
               </div>
 
               <div v-if="archiveStore.machineRoi" class="roi-result">
@@ -406,6 +421,43 @@
                   </span>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <!-- Miasta -->
+          <div class="stats-card">
+            <div class="stats-card-header">
+              📍 Miasta
+              <span class="stats-card-hint">Kliknij wiersz, aby zobaczyć umowy</span>
+            </div>
+            <div class="stats-card-body no-pad">
+              <table class="data-grid">
+                <thead>
+                  <tr><th>Miasto</th><th>Umów</th><th>Pozycji</th><th>Kodów poczt.</th><th>Przychód</th><th></th></tr>
+                </thead>
+                <tbody>
+                  <tr v-if="!archiveStore.byCity.length">
+                    <td colspan="6" class="empty-state">Brak danych</td>
+                  </tr>
+                  <tr
+                    v-for="c in archiveStore.byCity"
+                    :key="c.city"
+                    class="drill-row"
+                    :title="`Kliknij, aby zobaczyć umowy w mieście ${c.city}`"
+                    @click="openDrillDown('city', c.city, c.city, c.contracts_count, 0, c.revenue_estimate)"
+                  >
+                    <td style="font-weight:600;">{{ c.city }}</td>
+                    <td>{{ c.contracts_count }}</td>
+                    <td>{{ c.positions_count }}</td>
+                    <td>{{ c.postal_codes_count }}</td>
+                    <td>
+                      <span class="est-value">{{ formatMoney(c.revenue_estimate) }}</span>
+                      <span class="est-suffix">[szac.]</span>
+                    </td>
+                    <td class="drill-arrow">▸</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </template>
@@ -478,11 +530,106 @@
         </div>
       </div>
     </div>
+
+    <!-- DRILL-DOWN DRAWER (z prawej, 60% szerokości) -->
+    <Teleport to="body">
+      <div v-if="drillDown.open" class="drill-overlay" @click="closeDrillDown">
+        <div class="drill-drawer" @click.stop>
+          <!-- Header -->
+          <div class="drill-header">
+            <div class="drill-title-block">
+              <h3 class="drill-title">{{ drillDown.title }}</h3>
+              <p class="drill-subtitle">{{ drillDown.subtitle }}</p>
+            </div>
+            <button class="drill-close" @click="closeDrillDown" title="Zamknij (Esc)">✕</button>
+          </div>
+
+          <!-- Search -->
+          <div class="drill-search-bar">
+            <div class="search-input-wrap" style="flex:1;">
+              <span class="search-icon">⌕</span>
+              <input
+                v-model="drillDown.search"
+                type="text"
+                class="form-control"
+                placeholder="Szukaj wg numeru, kontrahenta..."
+                @keydown.enter="reloadDrillDown"
+              />
+            </div>
+            <button class="btn btn-primary btn-sm" @click="reloadDrillDown">Szukaj</button>
+            <button
+              v-if="drillDown.search"
+              class="btn-icon"
+              title="Wyczyść"
+              @click="drillDown.search = ''; reloadDrillDown()"
+            >↺</button>
+          </div>
+
+          <!-- Content -->
+          <div class="drill-body">
+            <div v-if="archiveStore.drillDownLoading" class="drill-skeleton">
+              <div class="skel-row" v-for="i in 5" :key="i"></div>
+            </div>
+
+            <div v-else-if="archiveStore.drillDownError" class="drill-error">
+              <p>Nie udało się pobrać danych. Spróbuj ponownie.</p>
+              <button class="btn btn-primary btn-sm" @click="reloadDrillDown">Spróbuj ponownie</button>
+            </div>
+
+            <div v-else-if="!archiveStore.drillDownContracts.length" class="drill-empty">
+              <span class="empty-icon">📋</span>
+              <p>Brak umów w wybranym okresie.</p>
+            </div>
+
+            <table v-else class="data-grid drill-table">
+              <thead>
+                <tr>
+                  <th>Numer</th>
+                  <th>Kontrahent</th>
+                  <th>Okres</th>
+                  <th>Dni</th>
+                  <th>Wartość szac.</th>
+                  <th v-if="drillDown.type === 'city'">Miasto</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="c in archiveStore.drillDownContracts"
+                  :key="c.id"
+                  class="drill-contract-row"
+                  @click="drillDownToContract(c.id)"
+                >
+                  <td style="font-weight:600;">{{ c.number }}</td>
+                  <td>{{ c.contractor_name || '—' }}</td>
+                  <td>{{ formatDate(c.date_from) }} – {{ formatDate(c.date_to) }}</td>
+                  <td>{{ c.date_from && c.date_to ? Math.round((new Date(c.date_to) - new Date(c.date_from)) / 86400000) : '—' }}</td>
+                  <td>
+                    <span class="est-value">{{ formatMoney(c.invoice_amount) }}</span>
+                    <span class="est-suffix">[szac.]</span>
+                  </td>
+                  <td v-if="drillDown.type === 'city'">{{ c.city || '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Footer (paginacja) -->
+          <div v-if="!archiveStore.drillDownLoading && archiveStore.drillDownContracts.length" class="drill-footer">
+            <span>Łącznie: {{ archiveStore.drillDownTotal }} umów</span>
+            <div class="pagination">
+              <button class="page-btn" :disabled="drillDown.page <= 1" @click="drillDown.page--; reloadDrillDown()">‹</button>
+              <span style="padding:0 8px;font-size:12px;">{{ drillDown.page }} / {{ Math.ceil(archiveStore.drillDownTotal / 50) || 1 }}</span>
+              <button class="page-btn" :disabled="drillDown.page >= Math.ceil(archiveStore.drillDownTotal / 50)" @click="drillDown.page++; reloadDrillDown()">›</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useArchiveStore } from '@/stores/archive'
 import { useAuthStore } from '@/stores/auth'
 import type {
@@ -659,6 +806,118 @@ async function loadRoi() {
     alert(err?.response?.data?.detail ?? 'Błąd pobierania ROI')
   }
 }
+
+// ── Drill-down drawer (Top maszyny / Miasta / ROI) ───────────────────────────
+const drillDown = ref<{
+  open: boolean
+  type: 'machine' | 'city'
+  id: number | string | null
+  name: string
+  title: string
+  subtitle: string
+  search: string
+  page: number
+}>({
+  open: false,
+  type: 'machine',
+  id: null,
+  name: '',
+  title: '',
+  subtitle: '',
+  search: '',
+  page: 1,
+})
+
+function openDrillDown(
+  type: 'machine' | 'city',
+  id: number | string,
+  name: string,
+  contractsCount: number,
+  days: number,
+  revenue: string | number | null,
+) {
+  drillDown.value.type = type
+  drillDown.value.id = id
+  drillDown.value.name = name
+  drillDown.value.title =
+    type === 'machine' ? `Umowy z maszyną: ${name}` : `Umowy w mieście: ${name}`
+  const daysLabel = type === 'machine' && days ? `${days} dni · ` : ''
+  const revenueLabel = revenue != null ? `${formatMoney(revenue)}` : '—'
+  drillDown.value.subtitle = `${contractsCount} umów · ${daysLabel}przychód szac. ${revenueLabel}`
+  drillDown.value.search = ''
+  drillDown.value.page = 1
+  drillDown.value.open = true
+  void reloadDrillDown()
+}
+
+async function reloadDrillDown() {
+  const filters: import('@/stores/archive').ArchiveContractFilters = {
+    page: drillDown.value.page,
+    per_page: 50,
+  }
+  if (drillDown.value.search) filters.search = drillDown.value.search
+  if (statsDateFrom.value) filters.date_from = statsDateFrom.value
+  if (statsDateTo.value) filters.date_to = statsDateTo.value
+  if (drillDown.value.type === 'machine') {
+    filters.article_id = drillDown.value.id as number
+  } else {
+    filters.city = drillDown.value.id as string
+  }
+  try {
+    await archiveStore.fetchContractsForDrillDown(filters)
+  } catch {
+    // błąd już w store.drillDownError
+  }
+}
+
+function closeDrillDown() {
+  drillDown.value.open = false
+}
+
+async function drillDownToContract(id: number) {
+  // Zamknij drawer i przejdź do zakładki Umowy, otwierając szczegóły tej umowy
+  drillDown.value.open = false
+  activeTab.value = 'contracts'
+  // Wyczyść filtry i ustaw wyszukiwanie po ID (umowy archiwum nie mają globalnego
+  // wyszukiwania po ID — przełączamy na pierwszą stronę i otwieramy szczegóły)
+  contractFilters.value = {
+    search: '',
+    contract_type: null,
+    date_from: null,
+    date_to: null,
+  }
+  try {
+    await archiveStore.fetchContracts({ page: 1, per_page: contractsPerPageLocal.value })
+    // Jeśli umowa jest na pierwszej stronie — otwórz; w przeciwnym razie pobierz szczegóły bezpośrednio
+    const onPage = archiveStore.contracts.find((c) => c.id === id)
+    if (onPage) {
+      await toggleContractDetails(id)
+    } else {
+      // Pobierz szczegóły umowy bezpośrednio (lista może nie zawierać tego ID)
+      selectedContractId.value = id
+      try {
+        await archiveStore.fetchContract(id)
+      } catch {
+        selectedContractId.value = null
+      }
+    }
+  } catch {
+    // błąd w store
+  }
+}
+
+// Esc — zamknij drawer
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && drillDown.value.open) {
+    closeDrillDown()
+  }
+}
+onMounted(() => {
+  window.addEventListener('keydown', onKeydown)
+})
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeydown)
+})
 
 // ── Kategorie (admin) ────────────────────────────────────────────────────────
 const newCat = ref<{ name: string; code: string; parent_id: number | null }>({
@@ -837,13 +1096,14 @@ onMounted(() => {
 /* ── Tabs ───────────────────────────────────────────────────────────────────── */
 .archive-tabs {
   display: flex;
-  gap: 2px;
-  padding: 0 var(--spacing-5);
+  gap: var(--spacing-2);
+  padding: var(--spacing-3) var(--spacing-5) 0;
   background: var(--color-bg-white);
   border-bottom: 1px solid var(--color-border);
 }
 .archive-tab {
   padding: var(--spacing-3) var(--spacing-5);
+  margin-right: var(--spacing-2);
   border: none;
   background: transparent;
   font-family: var(--font-family);
@@ -954,6 +1214,10 @@ h4 {
   overflow: hidden;
 }
 .stats-card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--spacing-3);
   padding: var(--spacing-3) var(--spacing-4);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
@@ -961,6 +1225,13 @@ h4 {
   border-bottom: 1px solid var(--color-border);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+.stats-card-hint {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-normal);
+  color: var(--color-text-muted);
+  text-transform: none;
+  letter-spacing: normal;
 }
 .stats-card-body {
   padding: var(--spacing-4);
@@ -1006,6 +1277,27 @@ h4 {
   border-top: 1px solid var(--color-border);
 }
 
+/* ── Klikalne wiersze w statystykach (Top maszyny / Miasta) ─────────────────── */
+.drill-row {
+  cursor: pointer;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+.drill-row:hover {
+  background: var(--color-bg-light);
+  box-shadow: inset 2px 0 0 var(--color-primary);
+}
+.drill-arrow {
+  color: var(--color-text-muted);
+  text-align: center;
+  width: 24px;
+  font-size: var(--font-size-md);
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+.drill-row:hover .drill-arrow {
+  color: var(--color-primary);
+  transform: translateX(2px);
+}
+
 /* ── Error state ────────────────────────────────────────────────────────────── */
 .empty-state.error {
   color: var(--color-error);
@@ -1015,5 +1307,163 @@ h4 {
 .form-control-xs {
   padding: 4px 8px;
   font-size: var(--font-size-xs);
+}
+</style>
+
+<!-- ────────────────────────────────────────────────────────────────────────── -->
+<!-- Style dla DRILL-DOWN DRAWER — NON-SCOPED (bo <Teleport to="body">)         -->
+<!-- Vue 3 nie aplikuje atrybutów scoped do treści teleportowanej do <body>.     -->
+<!-- Używamy wyłącznie zmiennych CSS z frontend/src/style.css.                    -->
+<!-- ────────────────────────────────────────────────────────────────────────── -->
+<style>
+.drill-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+  animation: drill-fade-in 0.15s ease-out;
+}
+
+.drill-drawer {
+  width: 60%;
+  min-width: 480px;
+  max-width: 900px;
+  height: 100%;
+  background: var(--color-bg-white);
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-modal);
+  font-family: var(--font-family);
+  animation: drill-slide-in 0.2s ease-out;
+}
+
+@keyframes drill-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes drill-slide-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.drill-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-4);
+  padding: var(--spacing-4) var(--spacing-5);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-white);
+}
+.drill-title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.drill-title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary);
+  line-height: 1.3;
+}
+.drill-subtitle {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.drill-close {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: var(--font-size-md);
+  color: var(--color-text-muted);
+  padding: var(--spacing-1) var(--spacing-2);
+  border-radius: var(--border-radius-sm);
+  transition: background 0.15s ease, color 0.15s ease;
+  line-height: 1;
+}
+.drill-close:hover {
+  background: var(--color-bg-light);
+  color: var(--color-text-heading);
+}
+
+.drill-search-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  padding: var(--spacing-3) var(--spacing-5);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-light);
+}
+
+.drill-body {
+  flex: 1;
+  overflow: auto;
+  padding: var(--spacing-4) var(--spacing-5);
+}
+
+/* Skeleton loading */
+.drill-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+.drill-skeleton .skel-row {
+  height: 40px;
+  background: var(--color-bg-light);
+  border-radius: var(--border-radius-sm);
+  animation: drill-pulse 1.2s ease-in-out infinite;
+}
+@keyframes drill-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Error / Empty */
+.drill-error,
+.drill-empty {
+  text-align: center;
+  padding: var(--spacing-8) var(--spacing-5);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+.drill-error p,
+.drill-empty p {
+  margin: var(--spacing-2) 0 var(--spacing-4);
+}
+.drill-empty .empty-icon {
+  font-size: 32px;
+  display: block;
+  margin-bottom: var(--spacing-2);
+}
+
+/* Tabela umów w drawerze */
+.drill-table {
+  width: 100%;
+}
+.drill-contract-row {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.drill-contract-row:hover {
+  background: var(--color-bg-light);
+}
+
+/* Footer z paginacją */
+.drill-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-3);
+  padding: var(--spacing-3) var(--spacing-5);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-body);
+  background: var(--color-bg-white);
 }
 </style>

@@ -2015,6 +2015,7 @@ source_date: 2026-07-01
 phase_0_status: done (2026-07-01) — migracja danych archive_* wykonana, backup_pre_archive_split.sql utworzony, weryfikacja COUNT zaliczona
 phase_1_status: done (2026-07-01) — modele SQLAlchemy archive_* + endpointy read-only + category CRUD + usunięcie is_legacy + uproszczenie shared/revenue.py i stats/router.py
 phase_2_status: done (2026-07-01) — ArchiveView.vue + stores/archive.ts + sidebar/router/layout; vue-tsc pass, build pass, smoke 01-login 11/11 pass, Playwright MCP weryfikacja 4 zakładek (Umowy 50 wierszy, Maszyny 50 wierszy, Statystyki, Kategorie admin)
+phase_3_status: done (2026-07-15) — drill-down drawer w statystykach archiwum: karta "Miasta" (GET /archive/stats/by-city) + klikalne wiersze Top maszyny/Miasta/ROI (openDrillDown) + Teleport drawer z paginacją + Esc/overlay/✕ close + drillDownToContract (przejście do zakładki Umowy) + style non-scoped (Vue 3 Teleport); vue-tsc pass, build pass
 specs_to_update:
   - core/01_database.md (archive_* tabele + usunięcie is_legacy)
   - core/02_backend_api.md (archive endpointy read-only + category edit)
