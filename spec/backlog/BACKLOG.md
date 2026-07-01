@@ -1264,6 +1264,69 @@ Operator dostarczył 4 PDFy (2 umowy + 2 protokoły PZO) — zanalizowano ekstra
 
 W nowej aplikacji te "uwagi" powinny trafić do `contract.notes` (lub zostać jako default gdy `notes` puste — już działa w `contract.html` template).
 
+#### Porównanie wydruków: STARY PDF vs NOWY RAO (KLUCZOWA RÓŻNICA LAYOUT)
+
+**STARY PDF (S129/2026, typ S — z ekstrakcji PyMuPDF):**
+
+Sekcja "Inne usługi" (lewa kolumna tabeli dwukolumnowej) — **10 linii razem**:
+```
+- Transport: 500.00 zł dostawa / 500.00 zł odbiór          ← usługa (kwota)
+- Czyszczenie maszyny (drobne): 150.00 zł - 400.00 zł      ← usługa (kwota)
+- Czyszczenie maszyny (trudne): 400.00 zł - 1500.00 zł     ← usługa (kwota)
+- Usługa tankowania: 200.00 zł (plus koszt paliwa)         ← usługa (kwota)
+- Ponadnormatywny przestój: 200.00 zł / h - 300.00 zł / h  ← usługa (kwota)
+- Nieuzasadnione wezwanie serwisowe: 280,00 zł (plus transport) ← usługa (kwota)
+- Doba wynajmu obejmuje 1 dzień kalendarzowy (do 8 godz.)  ← UWAGA (bez kwoty)
+- Zgłoszenie zwrotu urządzenia: pisemnie, min. 1 dzień     ← UWAGA (bez kwoty)
+- Ilość dni pracy w tygodniu: 6                            ← UWAGA (bez kwoty)
+- dokumentacja zdjęciowa: wykonano                        ← UWAGA (bez kwoty)
+```
+Sekcja "Uwagi" (prawa kolumna) — tekst zobowiązania (Niniejszym zobowiązuję się...).
+
+**Klucz:** w starym PDF usługi i uwagi są **W TYM SAMYM BLOKU** "Inne usługi" — wymieszane jako jeden tekst. Crystal Reports drukuje `umowa2.oplaty` + dokleja 4 defaultowe uwagi (prawdopodobnie hardcoded w raporcie, z `umowa2.liczba_dni` dla "Ilość dni").
+
+**Weryfikacja z dumpa bazy:** `umowa2.oplaty` (S397/2025) zawiera TYLKO 6 usług (bez 4 uwag) — potwierdza że 4 uwagi są doklejane z innego miejsca (nie z `oplaty`).
+
+**NOWY RAO (contract.html, linie 210-247):**
+
+Sekcja "Inne usługi" (lewa kolumna `.inne-left`) — **tylko fees**:
+```
+{% for fd in fees if fd.fee.is_active %}
+  - {{ fd.description }}  (lub "- {name}: {amount_from} zł - {amount_to} zł / {unit}")
+{% endfor %}
+```
+Sekcja "Uwagi" (prawa kolumna `.inne-right`) — **4 defaulty LUB contract.notes**:
+```
+{% if contract.notes %}
+  {{ contract.notes }}
+{% else %}
+  Doba wynajmu: obejmuje 1 dzień kalendarzowy (do 8 godz. pracy)
+  Zgłoszenie zwrotu urządzenia: pisemnie, min. z jednodniowym wyprzedzeniem
+  Ilość dni pracy w tygodniu: {{ contract.working_days_per_week or 6 }}
+  Dokumentacja zdjęciowa: wykonano
+{% endif %}
+```
+
+**Porównanie wizualne:**
+
+| Aspekt | STARY PDF | NOWY RAO |
+|--------|-----------|----------|
+| "Inne usługi" zawiera | 6 usług + 4 uwagi (10 linii) | tylko fees (6 usług) |
+| "Uwagi" zawiera | tekst zobowiązania | 4 defaulty LUB contract.notes |
+| Rozdział usług od uwag | NIE (wymieszane) | TAK (osobne kolumny) |
+| Źródło 4 uwag | hardcoded w Crystal Reports | default w contract.html gdy notes puste |
+| "Ilość dni" | z `umowa2.liczba_dni` | z `contract.working_days_per_week` |
+| Format kwot | mieszany (`280,00` vs `500.00`) | spójny (`money_plain` filter) |
+| Placeholdery `$1`/`$2` | w `oplaty` tekście | zastępowane w `build_contract_data()` |
+
+**Wniosek dla migracji (P2-059):**
+
+1. **Parser `umowa2.oplaty` → `contract_service_fees`:** migruje TYLKO 6 usług (linie z kwotami). 4 uwagi NIE są w `oplaty` (są doklejane z innego miejsca) — parser ich nie znajdzie.
+2. **4 defaultowe uwagi:** już działają w nowym RAO (default w `contract.html` gdy `notes` puste) — **brak migracji potrzebnej**.
+3. **`umowa2.liczba_dni` → `contract.working_days_per_week`:** to pole już istnieje w RAO — migracja mapuje `liczba_dni` → `working_days_per_week` (już w `migrate.py`).
+4. **Layout nowego jest LEPSZY:** rozdzielenie usług od uwag = czystszy PDF, łatwiejsza edycja w UI. Nie trzeba odtwarzać starego wymieszania.
+5. **Kryterium parsera:** linia jest usługą jeśli ma kwotę (regex `\d+[\.,]\d{2}\s*zł`), w przeciwnym razie skip (nie trafia do `contract_service_fees`).
+
 #### DWA równoległe systemy usług dodatkowych w starej aplikacji (KLUCZOWE)
 
 Analiza starej bazy + kodu WinForms ujawniła **dwa oddzielne systemy** usług dodatkowych:
