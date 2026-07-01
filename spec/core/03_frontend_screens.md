@@ -1230,10 +1230,15 @@ async function handleFakturownia() {
 
 **Zmiany:**
 - Pola pogrupowane w 4 sekcje/karty:
-  1. **Dane podstawowe** (typ, numer, okres umowy)
+  1. **Dane podstawowe** (typ, numer, OID Fakturownia, okres umowy)
   2. **Kontrahent i adres dostawy** (wybór kontrahenta, adres)
   3. **Warunki finansowe** (handlowiec, oddział, wartość, przedpłata, faktura)
   4. **Kontakt i uwagi** (osoby kontaktowe, email, telefon, uwagi, opcje)
+- **RAO-P2-058:** Pole `oid` (OID Fakturownia, opcjonalny)
+  - Input text, placeholder "(auto = numer umowy)", pattern `[A-Za-z0-9\-/_]+`, maxlength=40
+  - Help text: "Puste = użyj numeru umowy. Tylko litery, cyfry, -, /, _."
+  - Backend: `oid = contract.oid if contract.oid else contract.number` (hybrydowe)
+  - Walidacja backend: `^[A-Za-z0-9\-/_]+$` (OidStr Annotated type)
 - **RAO-P2-004:** Pola `date_from`/`date_to` zastąpione komponentem `ContractPeriodPicker.vue`
   - Komponent: `frontend/src/components/shared/ContractPeriodPicker.vue`
   - Input 1: `date_from` (date picker) - data rozpoczęcia umowy

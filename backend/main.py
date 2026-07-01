@@ -345,6 +345,19 @@ async def startup_migrations():
             "CREATE INDEX IF NOT EXISTS idx_articles_fakturownia_product "
             "ON articles(fakturownia_product_id)"
         ))
+        # RAO-P2-058: snapshot metadanych z Fakturownia na artykułach
+        await conn.execute(sa.text(
+            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "fakturownia_tax_rate VARCHAR(10) NULL COMMENT 'RAO-P2-058: Stawka VAT z FA (snapshot)'"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "fakturownia_gtu_code VARCHAR(20) NULL COMMENT 'RAO-P2-058: Kod GTU z FA (snapshot)'"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "fakturownia_pkwiu VARCHAR(50) NULL COMMENT 'RAO-P2-058: PKWiU z FA (snapshot)'"
+        ))
         await conn.execute(sa.text(
             "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
             "oid VARCHAR(40) NULL COMMENT 'RAO-P2-012: Numer zamówienia w Fakturownia'"

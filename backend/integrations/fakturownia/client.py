@@ -193,6 +193,11 @@ class FakturowniaClient:
                 price_net: Decimal | None = None
                 if p.get("price_net") is not None:
                     price_net = Decimal(str(p["price_net"]))
+                # RAO-P2-058: parse FA metadata for article snapshot
+                gtu_raw = p.get("gtu_code")
+                if not gtu_raw:
+                    gtu_list = p.get("gtu_codes") or []
+                    gtu_raw = gtu_list[0] if isinstance(gtu_list, list) and gtu_list else None
                 result.append(
                     FakturowniaProductOut(
                         id=int(p.get("id") or 0),
@@ -200,6 +205,9 @@ class FakturowniaClient:
                         code=p.get("code") or None,
                         price_net=price_net,
                         currency=p.get("currency") or None,
+                        tax=str(p.get("tax")) if p.get("tax") is not None else None,
+                        gtu_code=str(gtu_raw) if gtu_raw else None,
+                        pkwiu=p.get("additional_info") or None,
                     )
                 )
             except (TypeError, ValueError, InvalidOperation) as exc:

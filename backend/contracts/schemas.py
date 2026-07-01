@@ -1,7 +1,10 @@
 from datetime import datetime, date, time
 from decimal import Decimal
-from typing import Literal, Annotated
+from typing import Literal, Annotated, Optional
 from pydantic import BaseModel, Field, model_validator
+
+# RAO-P2-058: OID validation pattern (Fakturownia order ID)
+OidStr = Annotated[str, Field(pattern=r"^[A-Za-z0-9\-/_]+$", max_length=40)]
 
 
 PostalCode = Annotated[str, Field(
@@ -182,6 +185,7 @@ class ContractDetail(BaseModel):
     salesperson_id: int | None
     number: str
     auto_number: int | None
+    oid: str | None = None  # RAO-P2-058: Fakturownia order ID (hybrydowe: oid or number)
     contract_type: str
     delivery_address: str | None
     postal_code: str | None
@@ -228,6 +232,7 @@ class ContractCreate(BaseModel):
     branch_id: int | None = None
     salesperson_id: int | None = None
     contract_type: Literal["S", "U"] = "S"
+    oid: Optional[OidStr] = None  # RAO-P2-058: Fakturownia OID (puste = użyj number)
     delivery_address: str | None = None
     postal_code: PostalCode | None = None
     city: CityName | None = None
@@ -280,6 +285,7 @@ class ContractUpdate(BaseModel):
     branch_id: int | None = None
     salesperson_id: int | None = None
     contract_type: Literal["S", "U"] | None = None
+    oid: Optional[OidStr] = None  # RAO-P2-058: Fakturownia OID (puste = użyj number)
     delivery_address: str | None = None
     postal_code: PostalCode | None = None
     city: CityName | None = None

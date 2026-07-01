@@ -30,6 +30,10 @@ class ArticleListItem(BaseModel):
     active_contract_number: str | None
     # RAO-P2-012: Fakturownia product mapping (1:N global)
     fakturownia_product_id: int | None = None
+    # RAO-P2-058: snapshot metadanych z FA
+    fakturownia_tax_rate: str | None = None
+    fakturownia_gtu_code: str | None = None
+    fakturownia_pkwiu: str | None = None
     created_at: datetime
     updated_at: datetime | None
     conditions_count: int
@@ -70,6 +74,10 @@ class ArticleDetail(BaseModel):
     dodatki: str | None = None
     # RAO-P2-012: Fakturownia product mapping (1:N global)
     fakturownia_product_id: int | None = None
+    # RAO-P2-058: snapshot metadanych z FA
+    fakturownia_tax_rate: str | None = None
+    fakturownia_gtu_code: str | None = None
+    fakturownia_pkwiu: str | None = None
     created_at: datetime
     updated_at: datetime | None
 
@@ -100,6 +108,10 @@ class ArticleCreate(BaseModel):
     dodatki: str | None = None
     # RAO-P2-012: Fakturownia product mapping (1:N global)
     fakturownia_product_id: int | None = None
+    # RAO-P2-058: snapshot metadanych z FA
+    fakturownia_tax_rate: str | None = None
+    fakturownia_gtu_code: str | None = None
+    fakturownia_pkwiu: str | None = None
 
 
 class AvailabilityConflict(BaseModel):

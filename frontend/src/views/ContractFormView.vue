@@ -34,6 +34,11 @@
               <input :value="contractStore.current?.number || '(auto)'" type="text" class="form-control" disabled />
             </div>
             <div class="form-group">
+              <label class="form-label">OID Fakturownia (opcjonalny)</label>
+              <input v-model="form.oid" type="text" class="form-control" placeholder="(auto = numer umowy)" pattern="[A-Za-z0-9\-/_]+" maxlength="40" />
+              <small style="color:var(--color-text-muted);">Puste = użyj numeru umowy. Tylko litery, cyfry, -, /, _.</small>
+            </div>
+            <div class="form-group">
               <label class="form-label">Okres umowy *</label>
               <ContractPeriodPicker
                 :date-from="form.date_from"
@@ -1012,7 +1017,7 @@ const selectedPosId = ref(null)
 
 const form = ref({
   contractor_id: null, branch_id: null, salesperson_id: null,
-  contract_type: 'S', delivery_address: '', postal_code: '', city: '', latitude: null, longitude: null, date_from: '', date_to: '',
+  contract_type: 'S', oid: null, delivery_address: '', postal_code: '', city: '', latitude: null, longitude: null, date_from: '', date_to: '',
   // RAO-P1-021/P2-033: total_value usunięte (martwe pole)
   prepayment_amount: 0, prepayment_document: '',
   invoice_amount: 0, invoice_document: '', notes: '',

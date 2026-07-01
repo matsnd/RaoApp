@@ -65,6 +65,10 @@ class FakturowniaProductOut(BaseModel):
     code: Optional[str] = None
     price_net: Optional[Decimal] = None
     currency: Optional[str] = None
+    # RAO-P2-058: dodatkowe metadane dla snapshot na artykule
+    tax: Optional[str] = None
+    gtu_code: Optional[str] = None
+    pkwiu: Optional[str] = None
 
 
 # ── Invoices (raw from Fakturownia API) ───────────────────────────────────────

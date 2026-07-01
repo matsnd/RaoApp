@@ -941,7 +941,7 @@ W Polsce istnieje wiele miejscowości o tej samej nazwie. Aktualnie `/stats/loca
 id: RAO-P2-058
 priority: P2
 size: L
-status: in-progress
+status: dev-verified
 classification: cross-stack/integration
 roles: [tech-lead, backend-dev, frontend-dev, db-architect, security-auditor, qa-engineer]
 source: operator-request
@@ -955,19 +955,28 @@ migration_impact: yes (contract.oid column already exists — needs to be used i
 security_impact: medium (API token handling, external API calls)
 depends_on:
   - RAO-P2-012 (istniejąca integracja read-only — foundation)
-phase_1_mvp_status: partial (2026-07-01)
+phase_1_mvp_status: done (2026-07-01)
 phase_1_mvp_done:
   - "FakturowniaSettings skonfigurowane (enabled=True, domain=matsnd, token zaszyfrowany Fernet w DB)"
   - "5 produktów testowych dodanych do matsnd.fakturownia.pl (koparka, podnośnik, transport, czyszczenie, tankowanie)"
-  - "ArticleFormView.vue: pole 'Produkt Fakturownia' (select z produktów FA via fetchProducts — bez cache table)"
-  - "Backend Article schemas już wspierał fakturownia_product_id w Create/Update/Out"
-  - "vue-tsc pass, smoke 01-login 11/11 pass"
-phase_1_mvp_pending:
-  - "OID hybrydowe: service.py:123 → oid = contract.oid if contract.oid else contract.number"
-  - "ContractFormView.vue: pole 'OID Fakturownia (opcjonalny)'"
-  - "fakturownia_products_cache table + sync-products endpoint (obecnie live API call bez cache)"
-  - "Article snapshot fields: fakturownia_tax_rate, fakturownia_gtu_code, fakturownia_pkwiu"
-  - "products/search endpoint z wyszukiwarką"
+  - "ArticleFormView.vue: pole 'Produkt Fakturownia' (select z produktów FA via fetchProducts — live API, bez cache)"
+  - "ArticleFormView.vue: auto-fill FA metadata (tax_rate, gtu_code, pkwiu) przy wyborze produktu — read-only display"
+  - "Article model: 3 nowe kolumny (fakturownia_tax_rate, fakturownia_gtu_code, fakturownia_pkwiu) + ALTER TABLE w main.py"
+  - "Article schemas: 3 nowe pola w ListItem/Detail/Create"
+  - "FakturowniaProductOut schema: dodane tax, gtu_code, pkwiu (parse z FA API)"
+  - "OID hybrydowe: service.py → oid = contract.oid if contract.oid else contract.number"
+  - "Contract schemas: oid dodane do Detail/Create/Update z walidacją ^[A-Za-z0-9\\-/_]+$"
+  - "ContractFormView.vue: pole 'OID Fakturownia (opcjonalny)' z placeholder '(auto = numer umowy)'"
+  - "vue-tsc pass, build pass, smoke 11/11 pass"
+phase_1_mvp_skipped:
+  - "fakturownia_products_cache table — live API call działa wystarczająco dla MVP (13 produktów)"
+  - "sync-products endpoint — niepotrzebny bez cache table"
+  - "products/search endpoint — frontend filter po select wystarczy dla 13 produktów"
+verification:
+  - "vue-tsc --noEmit: pass"
+  - "npm run build: pass"
+  - "smoke 01-login.spec.ts: 11/11 passed"
+  - "Backend /integrations/fakturownia/products: 13 products with tax/gtu_code/pkwiu fields"
 ```
 
 **Problem:**

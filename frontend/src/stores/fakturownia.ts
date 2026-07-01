@@ -17,6 +17,9 @@ interface FakturowniaProduct {
   code: string | null
   price_net: number | null
   currency: string | null
+  tax: string | null
+  gtu_code: string | null
+  pkwiu: string | null
 }
 
 interface RaoArticleRef {

@@ -103,6 +103,20 @@
             Brak produktów w Fakturownia — dodaj produkty na matsnd.fakturownia.pl
           </small>
         </div>
+        <div v-if="form.fakturownia_product_id" class="form-row-3">
+          <div class="form-group">
+            <label class="form-label">VAT (z FA)</label>
+            <input :value="form.fakturownia_tax_rate ? form.fakturownia_tax_rate + '%' : '—'" type="text" class="form-control" disabled />
+          </div>
+          <div class="form-group">
+            <label class="form-label">GTU (z FA)</label>
+            <input :value="form.fakturownia_gtu_code || '—'" type="text" class="form-control" disabled />
+          </div>
+          <div class="form-group">
+            <label class="form-label">PKWiU (z FA)</label>
+            <input :value="form.fakturownia_pkwiu || '—'" type="text" class="form-control" disabled />
+          </div>
+        </div>
 
         <div class="form-group">
           <label class="form-label">Dodatkowe wyposażenie</label>
@@ -224,6 +238,25 @@ const form = ref({
   zasieg_m: null, udzwig_t: null, dodatki: null,
   is_archival: false, is_external: false,  // RAO-P1-027
   fakturownia_product_id: null,  // RAO-P2-058
+  fakturownia_tax_rate: null,    // RAO-P2-058: snapshot z FA
+  fakturownia_gtu_code: null,    // RAO-P2-058: snapshot z FA
+  fakturownia_pkwiu: null,       // RAO-P2-058: snapshot z FA
+})
+
+// RAO-P2-058: Auto-fill FA metadata when product selected
+watch(() => form.value.fakturownia_product_id, (newId) => {
+  if (!newId) {
+    form.value.fakturownia_tax_rate = null
+    form.value.fakturownia_gtu_code = null
+    form.value.fakturownia_pkwiu = null
+    return
+  }
+  const product = faProducts.value.find(p => p.id === newId)
+  if (product) {
+    form.value.fakturownia_tax_rate = product.tax || null
+    form.value.fakturownia_gtu_code = product.gtu_code || null
+    form.value.fakturownia_pkwiu = product.pkwiu || null
+  }
 })
 
 const showOwnerPicker = ref(false)
