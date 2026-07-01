@@ -2490,12 +2490,13 @@ Wraz z rozwojem aplikacji będziemy zarządzać uprawnieniami do różnych zasob
 id: RAO-P2-030
 priority: P2
 size: M
-status: triaged
+status: wont-fix
 classification: bugfix/migration-data
 roles: [db-architect, backend-dev]
 source: tech-lead-audit
 source_date: 2026-07-01
 source_ref: "Audyt wymagań klienta — wymaganie 3 (numer wewnętrzny)"
+resolution: "2026-07-01 — brak źródła danych w starej bazie (0/351 archive_articles ma internal_number, registration_no też 0%). Wymaga ręcznego uzupełnienia przez użytkownika w UI. Oznaczone wont-fix dla automatycznej migracji."
 ```
 
 **Problem:** `articles.internal_number` jest puste dla 0/337 maszyn (0%).
