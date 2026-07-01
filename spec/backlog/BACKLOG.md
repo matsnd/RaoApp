@@ -935,6 +935,152 @@ W Polsce istnieje wiele miejscowości o tej samej nazwie. Aktualnie `/stats/loca
 
 ---
 
+### [RAO-P2-058] Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi
+
+```yaml
+id: RAO-P2-058
+priority: P2
+size: L
+status: triaged
+classification: cross-stack/integration
+roles: [tech-lead, backend-dev, frontend-dev, db-architect, security-auditor, qa-engineer]
+source: operator-request
+source_date: 2026-07-01
+specs_to_update:
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+  - core/04_business_logic.md
+  - core/07_integrations.md
+migration_impact: yes (contract.oid column already exists — needs to be used instead of hardcoded contract.number)
+security_impact: medium (API token handling, external API calls)
+depends_on:
+  - RAO-P2-012 (istniejąca integracja read-only — foundation)
+```
+
+**Problem:**
+
+Integracja Fakturownia (RAO-P2-012) istnieje ale jest **read-only MVP** z dwoma problemami:
+
+1. **OID hardcoded:** `backend/integrations/fakturownia/service.py:123` robi `oid = contract.number` — kolumna `contract.oid` (VARCHAR(40)) istnieje w DB ale jest **martwym kodem** (nigdy nie czytana, nigdy nie zapisywana). User nie może ustawić własnego OID per umowę.
+
+2. **Brak mapowania metadanych artykułów:** `Article.fakturownia_product_id` (BIGINT) istnieje ale to tylko ID — brak synchronizacji metadanych (cena, GTU, PKWiU, stawka VAT) między RAO a Fakturownia. Brak UI do wyboru produktu FA w formularzu artykułu.
+
+**Analiza Tech Lead (2026-07-01):**
+
+#### Q1: Czy OID = numer umowy może tak być?
+
+**TAK — z zastrzeżeniem.** Pole `oid` w Fakturownia jest **dokładnie do tego** — "numer zamówienia (np z zewnętrznego systemu zamówień)". Wspiera `oid_unique: "yes"` (blokuje duplikaty).
+
+**Obecny stan (problem):**
+- `service.py:123`: `oid = contract.number` (hardcoded, ignores `contract.oid` column)
+- `contract.oid` column: istnieje, NULL dla 100% umów, nigdy nie używana
+- `contract.number`: VARCHAR(40), format np. "2026/06/001 S" — może zawierać spacje (Fakturownia oid przyjmuje dowolny string, ale spacje mogą utrudniać wyszukiwanie)
+
+**Rekomendacja — model hybrydowy:**
+```python
+oid = contract.oid if contract.oid else contract.number
+```
+- **Default:** `oid = contract.number` (auto-mapowanie, backward compat, zero konfiguracji)
+- **Override:** user może ustawić `contract.oid` w formularzu umowy (dla przypadków gdy faktura została wystawiona independently z innym numerem zamówienia)
+- **Walidacja:** `oid` nie może zawierać znaków specjalnych poza `-/_`; rekomendowane `^[A-Za-z0-9\-/_]+$`
+- **Unikalność:** Fakturownia `oid_unique: "yes"` przy tworzeniu faktury — ale RAO nie wymusza tego (wiele faktur może mieć ten sam OID = wiele rozliczeń jednej umowy)
+
+**Mapowanie OID → faktura (flow):**
+```
+RAO contract.number (lub contract.oid)
+  → Fakturownia faktura.oid (pole na fakturze, ustawiane przy tworzeniu)
+  → GET /invoices.json?oid=<numer> → lista faktur dla umowy
+  → positions[].product_id → Article.fakturownia_product_id (1:N mapping)
+  → ResolvedInvoiceOut (kwoty per artykuł RAO)
+```
+
+#### Q2: Jak zmapować artykuły z metadanymi na Fakturownia?
+
+**Obecny stan:** `Article.fakturownia_product_id` (BIGINT, 1:N) — jeden produkt FA mapuje się na N artykułów RAO (np. "Koparka CAT 320" → 5 fizycznych maszyn we flocie).
+
+**Pola Fakturownia Product dostępne do synchronizacji:**
+| Pole FA | Pole RAO Article | Kierunek | Uwagi |
+|---------|------------------|----------|-------|
+| `id` | `fakturownia_product_id` | FA→RAO | klucz mapowania (już istnieje) |
+| `name` | `name` | bidirectional | RAO name może być bardziej szczegółowy (z SN) |
+| `code` | `internal_number` | RAO→FA | kod produktu w FA |
+| `price_net` | `replacement_value` | FA→RAO | cena najmu = wartość odtworzeniowa? (do potwierdzenia) |
+| `tax` | (brak) | FA→RAO | stawka VAT — potrzebuje nowego pola |
+| `gtu_codes` | (brak) | FA→RAO | kod GTU — potrzebuje nowego pola |
+| `additional_info` | (brak) | FA→RAO | PKWiU — potrzebuje nowego pola |
+| `service` | `is_service` | RAO→FA | już mapowane semantycznie |
+| `description` | `description` | bidirectional | |
+| `quantity_unit` | (brak) | FA→RAO | jednostka (szt/h/dzień) |
+
+**Rekomendacja — 3 fazowe:**
+
+**Faza 1 (MVP, to zadanie):** Read-only sync + UI picker
+- Endpoint `POST /integrations/fakturownia/sync-products` — pobiera katalog FA, cache w DB (tabela `fakturownia_products_cache`)
+- UI: w formularzu Article, dropdown z produktami FA (searchable, z code + name + price)
+- Po wybraniu → zapis `fakturownia_product_id` na artykule
+- Nowe pola na Article (read-only z FA): `fakturownia_tax_rate`, `fakturownia_gtu_code`, `fakturownia_pkwiu`
+- Display kwoty z faktur per artykuł w widoku umowy (już działa via `ResolvedInvoiceOut`)
+
+**Faza 2 (przyszła):** Write-back RAO→FA
+- Tworzenie faktury z poziomu RAO (POST /invoices.json z oid=contract.number)
+- Auto-wypełnianie pozycji z `contract_positions` (product_id z mappingu, quantity, price)
+
+**Faza 3 (przyszła):** Full sync bidirectional
+- Webhook FA→RAO przy zmianie produktu
+- Auto-aktualizacja cen w RAO gdy cena FA się zmienia
+
+**Konfiguracja (operator dostarczył robocze konto):**
+- Domain: `matsnd.fakturownia.pl` (subdomain: `matsnd`)
+- API token: dostarczony operatora (roboczy) — **NIE commitować do git**
+- Token konfiguruje się przez: `PUT /rao/api/integrations/fakturownia/settings` (admin only, szyfrowany Fernet w DB)
+- Wymaga `RAO_FAKTUROWNIA_ENC_KEY` w `.env` (Fernet key — generuj: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`)
+
+**Acceptance criteria:**
+
+Faza 1 (to zadanie):
+- [ ] `service.py`: OID hybrydowe — `oid = contract.oid if contract.oid else contract.number` (zamiast hardcoded `contract.number`)
+- [ ] `schemas.py` ContractCreate/ContractUpdate: dodaj `oid: Optional[str]` z walidacją `^[A-Za-z0-9\-/_]+$`
+- [ ] `ContractFormView.vue`: pole "OID Fakturownia (opcjonalny)" z placeholder = numer umowy, help text "Puste = użyj numeru umowy"
+- [ ] `ContractDetail`: wyświetl `oid` (lub "auto: {number}" gdy puste)
+- [ ] DB: nowa tabela `fakturownia_products_cache` (id, name, code, price_net, tax, gtu_code, pkwiu, currency, synced_at)
+- [ ] Endpoint `POST /integrations/fakturownia/sync-products` — refresh cache z FA (admin only, rate-limited)
+- [ ] Endpoint `GET /integrations/fakturownia/products/search?q=...` — wyszukiwarka produktów dla UI picker
+- [ ] `ArticleForm.vue`: pole "Produkt Fakturownia" — searchable dropdown z cache, po wybraniu → `fakturownia_product_id` + auto-fill `fakturownia_tax_rate`, `fakturownia_gtu_code`, `fakturownia_pkwiu` (read-only)
+- [ ] `Article` model: nowe pola `fakturownia_tax_rate` (String(10)), `fakturownia_gtu_code` (String(20)), `fakturownia_pkwiu` (String(50)) — snapshot z cache, refresh przy sync
+- [ ] Walidacja: `fakturownia_product_id` musi istnieć w cache (lub NULL)
+- [ ] Test: `pytest` — OID hybrydowe (override + default), product sync, mapping 1:N
+- [ ] Test: `vue-tsc --noEmit` — pass
+- [ ] Smoke: `e2e/tests/01-login.spec.ts` — pass
+- [ ] Spec sync: `spec/core/02_backend_api.md`, `03_frontend_screens.md`, `04_business_logic.md`, `07_integrations.md`
+- [ ] Konfiguracja: operator wpisuje token przez Settings UI (nie w kodzie)
+
+**Pliki do zmiany:**
+- `backend/contracts/models.py` — `oid` już istnieje (użyć zamiast hardcoded number)
+- `backend/contracts/schemas.py` — dodaj `oid` do Create/Update
+- `backend/contracts/service.py` — walidacja OID
+- `backend/integrations/fakturownia/service.py:123` — `oid = contract.oid if contract.oid else contract.number`
+- `backend/integrations/fakturownia/client.py` — dodaj `create_product()`, `update_product()` (Faza 2)
+- `backend/integrations/fakturownia/router.py` — dodaj `/sync-products`, `/products/search`
+- `backend/articles/models.py` — nowe pola FA metadata
+- `backend/main.py` — migracja ALTER TABLE dla nowych pól + tabela cache
+- `frontend/src/views/ContractFormView.vue` — pole OID
+- `frontend/src/views/ArticleFormView.vue` (lub odpowiednik) — FA product picker
+- `frontend/src/stores/` — store dla FA products cache
+- `spec/core/07_integrations.md` — dokumentacja integracji FA
+
+**Edge cases (QA):**
+- OID pusty + number pusty → 422 "Umowa nie posiada numeru"
+- OID ze spacjami → walidacja odrzuca (regex `^[A-Za-z0-9\-/_]+$`)
+- Produkt FA usunięty w FA → cache stale, mapping pokazuje "produkt nie istnieje"
+- 1 produkt FA → N artykułów RAO → kwota z faktury mnożona × N (już działa w `ResolvedInvoiceOut`)
+- Token wygasł → 502 "nieprawidłowy token" (juś obsłużone)
+- Rate limit FA → 429 (już obsłużone)
+- Sync produktów gdy FA ma >100 produktów → paginacja (per_page=100, page=1..N)
+
+**Estymacja:** 12-16h (L) — Faza 1 MVP
+
+---
+
 ## 📋 Tabela TL;DR
 
 | ID | Tytuł | P | Est. | Status | Następny krok |
@@ -978,8 +1124,9 @@ W Polsce istnieje wiele miejscowości o tej samej nazwie. Aktualnie `/stats/loca
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | triaged | → in_progress |
 | RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | dev-verified | → team-verified (is_external nie blokuje + checkbox w details) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
 
-**Razem:** 33 zadania · ~90-120h pracy (P0: 25-35h, P1: 30-40h, P2: 35-45h)
+**Razem:** 34 zadania · ~102-136h pracy (P0: 25-35h, P1: 30-40h, P2: 47-61h)
 
 ### Pipeline weryfikacji (status flow)
 
