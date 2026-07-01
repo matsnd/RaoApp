@@ -12,9 +12,8 @@ graph TD
     B --> B1["Sidebar: <b>Umowy</b><br/>/dashboard/contracts"]
     B --> B2["Sidebar: <b>Kontrahenci</b><br/>/dashboard/contractors"]
     B --> B3["Sidebar: <b>Artykuły</b><br/>/dashboard/articles"]
-    B --> B4["Sidebar: <b>Raporty</b><br/>/dashboard/reports"]
+    B --> B7["Sidebar: <b>📊 Statystyki</b><br/>/analytics (merge Stats+Reports, RAO-P2-063)"]
     B --> B6["Sidebar: <b>📦 Archiwum</b><br/>/archive (RAO-P2-062)"]
-    B --> B7["Sidebar: <b>📊 Statystyki</b><br/>/stats (RAO-P2-060 Faza 2)"]
     B --> B5["Sidebar: <b>Ustawienia</b><br/>/settings"]
 
     B1 -->|"Toolbar [+] lub double-click"| C["<b>Formularz umowy</b><br/>ContractFormView.vue<br/>/contracts/new lub /contracts/:id/edit"]
@@ -52,7 +51,7 @@ graph TD
 | `Form2.cs` (Umowy tab) | `/dashboard/contracts` | Sidebar + content |
 | `Form2.cs` (Kontrahenci tab) | `/dashboard/contractors` | Sidebar + content |
 | `Form2.cs` (Artykuły tab) | `/dashboard/articles` | Sidebar + content |
-| `Form2.cs` (Raporty tab) | `/dashboard/reports` | Sidebar + content |
+| `Form2.cs` (Raporty tab) | `/analytics` (merge Stats+Reports, RAO-P2-063) | Sidebar + content |
 | `FormK.cs` | `/contractors/:id/edit` lub `/new` | Pełna strona (replace content) |
 | `FormU4.cs` | `/contracts/:id/edit` lub `/new` | Pełna strona (replace content) |
 | `FormA.cs` | Dialog (modal) | Overlay na Dashboard |
@@ -69,7 +68,7 @@ graph TD
 | `/reset-password` | `ResetPassword` | `ResetPasswordView.vue` | nie | Reset hasła z tokenu (query: `?token=...`) |
 | `/` | — | — | tak | Redirect → `/home` |
 | `/home` | `Home` | `HomeView.vue` | tak | KPI Dashboard, quick actions |
-| `/dashboard/:section` | `Dashboard` | `DashboardView.vue` | tak | Listy (contracts/contractors/articles/reports) |
+| `/dashboard/:section` | `Dashboard` | `DashboardView.vue` | tak | Listy (contracts/contractors/articles) — `reports` usunięte (merge do `/analytics`) |
 | `/contractors/new` | `ContractorNew` | `ContractorFormView.vue` | tak | Nowy kontrahent |
 | `/contractors/:id/edit` | `ContractorEdit` | `ContractorFormView.vue` | tak | Edycja kontrahenta |
 | `/articles/new` | `ArticleNew` | `ArticleFormView.vue` | tak | Nowy artykuł |
@@ -77,7 +76,8 @@ graph TD
 | `/contracts/new` | `ContractNew` | `ContractFormView.vue` | tak | Nowa umowa |
 | `/contracts/:id/edit` | `ContractEdit` | `ContractFormView.vue` | tak | Edycja umowy |
 | `/worker` | `Worker` | `WorkerView.vue` | tak | Pulpit operacyjny (kończące, dostawy) |
-| `/stats` | `Stats` | `StatsView.vue` | tak | Statystyki (Flota teraz + Wynajem w okresie) (RAO-P2-060) |
+| `/stats` | — | redirect → `/analytics` | tak | Backward compat (bookmarki) — RAO-P2-063 |
+| `/analytics` | `Analytics` | `AnalyticsView.vue` | tak | Statystyki (Flota teraz + Wynajem w okresie + Eksplorator) — merge Stats+Reports (RAO-P2-063) |
 | `/commissions` | `Commissions` | `CommissionView.vue` | tak | Raporty prowizji handlowców |
 | `/settings` | `Settings` | `SettingsView.vue` | tak | Konfiguracja firmy/szablonów/handlowców |
 | `/password` | `ChangePassword` | `ChangePasswordView.vue` | tak | Zmiana własnego hasła |

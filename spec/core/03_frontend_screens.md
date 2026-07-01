@@ -39,7 +39,7 @@ frontend/
 │   │   └── useFileDownload.js       # Pobieranie blob jako pliku przez <a download> (RAO-P2-018)
 │   ├── components/
 │   │   ├── layout/
-│   │   │   ├── AppSidebar.vue       # Lewy sidebar (Umowy/Kontrahenci/Artykuły/Raporty/Ustawienia)
+│   │   │   ├── AppSidebar.vue       # Lewy sidebar (Umowy/Kontrahenci/Artykuły/Statystyki/Prowizje/Ustawienia)
 │   │   │   ├── AppToolbar.vue       # Górny toolbar (info + ? - + przyciski)
 │   │   │   └── AppLayout.vue        # Sidebar + content wrapper
 │   │   ├── shared/
@@ -201,7 +201,10 @@ Layout (dokładna replika WinForms Form2 lewego panelu):
 ├─────────┤
 │         │  ← gap (flex-grow)
 ├─────────┤
-│ Raporty │  ← sidebar-btn
+│ Statys- │  ← sidebar-btn (section='analytics')
+│ tyki    │
+├─────────┤
+│ Prowizje│  ← sidebar-btn (section='commissions')
 ├─────────┤
 │ Ustaw.  │  ← sidebar-btn
 └─────────┘
@@ -224,9 +227,13 @@ Layout (dokładna replika WinForms Form2 lewego panelu):
     </button>
     <div class="sidebar-spacer"></div>
     <button
-      :class="['sidebar-btn', { active: activeSection === 'reports' }]"
-      @click="$emit('navigate', 'reports')"
-    >Raporty</button>
+      :class="['sidebar-btn', { active: activeSection === 'analytics' }]"
+      @click="$emit('navigate', 'analytics')"
+    >📊 Statystyki</button>
+    <button
+      :class="['sidebar-btn', { active: activeSection === 'commissions' }]"
+      @click="$emit('navigate', 'commissions')"
+    >Prowizje</button>
     <button
       :class="['sidebar-btn', { active: activeSection === 'settings' }]"
       @click="$emit('navigate', 'settings')"
@@ -802,9 +809,12 @@ Layout (replika WinForms Konfiguracjacs — scrollable):
 
 ---
 
-## Komponent: `ReportsSection.vue` (sekcja Raporty)
+## Komponent: `ReportsSection.vue` (sekcja Raporty) — USUNIĘTY
 
 > **Zaimplementowane:** 2026-05-18 | **RAO-P1-017**
+> **Usunięte:** 2026-07-02 (Frontend-3 cleanup) — funkcje wchłonięte przez `AnalyticsView.vue` + `stores/analytics.ts`.
+> Sidebar nie emituje już `section='reports'`; `DashboardView.vue` nie renderuje sekcji `reports`.
+> Route `/dashboard/reports` nie istnieje — tile w `HomeView.vue` kieruje do `/analytics`.
 
 ### Tabs (główne)
 
@@ -1453,36 +1463,16 @@ async function handleFakturownia() {
 
 ---
 
-### StatsView.vue — Statystyki (RAO-P2-060 Faza 2)
+### StatsView.vue — Statystyki (RAO-P2-060 Faza 2) — USUNIĘTY
 
-**Route:** `/stats` | **requiresAuth:** tak
+> **Usunięte:** 2026-07-02 (Frontend-3 cleanup) — funkcje wchłonięte przez `AnalyticsView.vue` + `stores/analytics.ts`.
+> Route `/stats` jest teraz `redirect: '/analytics'` (backward compat dla bookmarków).
+> Plik `frontend/src/stores/stats.js` usunięty (był używany wyłącznie przez StatsView i ReportsSection — oba usunięte).
+> Sidebar: przycisk "📊 Statystyki" emituje `section='analytics'` → `router.push('/analytics')`.
 
-**Opis:** Samodzielny widok statystyk z 2 zakładkami. Zastępuje sekcję statystyk w ReportsSection (która miała toggle legacy/nowe — usunięty w P2-062). Stats pokazują tylko nowe umowy (legacy w ArchiveView).
+**Route:** `/stats` → redirect `/analytics` | **requiresAuth:** tak
 
-**Sidebar:** Przycisk "📊 Statystyki" w `AppSidebar.vue` (między "Pulpit" a "Prowizje")
-
-**2 zakładki:**
-
-1. **Flota teraz** (`activeTab='fleet'`) — `GET /stats/currently-rented`
-   - KPI row: Dostępnych (total - rented), Wynajętych teraz, Wykorzystanie % (kolor: green ≥80%, blue ≥50%, orange <50%)
-   - Utilization bar (gradient green→blue)
-   - Tabela "Maszyny aktualnie wynajęte": Maszyna, Nr wewn., Kategoria, Umowa, Kontrahent, Planowany zwrot
-   - Empty state: "Brak aktywnych wynajmów — wszystkie maszyny dostępne"
-
-2. **Wynajem w okresie** (`activeTab='period'`, domyślna) — `GET /stats/fleet-summary` + `/top-machines` + `/additional-fees` + `/locations`
-   - Filtry: Presety (Miesiąc, 3 miesiące, Rok, Własny od-do) + Nr wewnętrzny (datalist z `/articles`)
-   - KPI row (4 karty): Przychód w okresie (z label "rzeczywiste"/"szacunek"/"brak danych"), Umów w okresie, Wynajętych teraz, Wykorzystanie %
-   - Revenue breakdown (gdy revenue_actual > 0): "Rzeczywiste (z rozliczeń): X zł" + "Szacunek (cennik): Y zł"
-   - Top maszyny (tabela): #, Maszyna, Nr wewn., Przychód, Dni wynajmu, Liczba umów
-   - Pozycje dodatkowe (tabela z tfoot sum): Usługa, Przychód, Liczba rozliczeń
-   - Lokalizacje (tabela): Miasto, Kod pocztowy, Gmina, Powiat, Województwo, Liczba wynajmów, Przychód
-   - Empty states per sekcja
-
-**Store:** `frontend/src/stores/stats.js` (Pinia) — `isLegacy` usunięte w P2-062, stats = tylko nowe umowy
-
-**Styl:** zmienne CSS z `style.css` (`--color-success`, `--color-accent-blue`, `--color-warning`, `--color-bg-light`, `--shadow-card`)
-
-**API:** endpointy pod `/rao/api/stats/*` (auth wymagany)
+Następca: patrz sekcja `AnalyticsView.vue` poniżej.
 
 ---
 
@@ -1874,7 +1864,7 @@ onUnmounted(() => {
 
 ## AnalyticsView — główny widok + 3 taby + store (Frontend-2, 2026-07-02)
 
-> Logika biznesowa używająca komponentów z Frontend-1. Route `/analytics` (sidebar „📈 Analytics").
+> Logika biznesowa używająca komponentów z Frontend-1. Route `/analytics` (sidebar „� Statystyki").
 > BEZ archiwalnych danych — tylko live contracts/articles (endpointy `/stats/*` i `/explorer/*`).
 
 ### `stores/analytics.ts` (Pinia, Composition API)

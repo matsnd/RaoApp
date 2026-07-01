@@ -99,9 +99,9 @@
           <span class="nav-tile-icon">🖥</span>
           <span>Pulpit</span>
         </button>
-        <button class="nav-tile" @click="$router.push('/dashboard/reports')">
+        <button class="nav-tile" @click="$router.push('/analytics')">
           <span class="nav-tile-icon">📊</span>
-          <span>Raporty</span>
+          <span>Statystyki</span>
         </button>
         <button class="nav-tile" @click="$router.push('/commissions')">
           <span class="nav-tile-icon">💰</span>

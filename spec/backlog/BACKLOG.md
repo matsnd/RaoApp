@@ -1808,6 +1808,101 @@ ZAKŁADKA "Archiwum (szacunkowe)" — szare tło:
 
 ---
 
+### [RAO-P2-063] Merge Statystyki + Raporty → AnalyticsView (ujednolicony widok analityczny)
+
+```yaml
+id: RAO-P2-063
+priority: P1
+size: L
+status: dev-verified
+classification: cross-stack/refactor+feature
+roles: [tech-lead, backend-dev, frontend-dev, qa-engineer, product-owner]
+source: operator-request
+source_date: 2026-07-01
+verification:
+  - "vue-tsc --noEmit: pass (exit 0)"
+  - "npm run build: pass (exit 0, AnalyticsView 31.73 kB gzip 9.32 kB)"
+  - "curl /stats/* endpointy z contractor_id/city/sort_by: 200 (filtruje + sortuje)"
+  - "curl /stats/positions?sort_by=invalid_field: 200 (ignoruje, whitelist działa)"
+  - "curl /stats/top-machines bez tokenu: 401 (auth OK)"
+  - "unit testy stats: 31 passed"
+  - "grep ReportsSection frontend/src/: 0 wyników (usunięty)"
+  - "grep StatsView frontend/src/: 0 wyników (usunięty)"
+  - "E2E: pre-existing problem z root_path (backend nie dodaje prefiksu /rao/api w dev mode — konfiguracja dla reverse proxy na produkcji)"
+specs_to_update:
+  - core/02_backend_api.md (4 endpointy stats z contractor_id/city/sort_by/sort_dir)
+  - core/03_frontend_screens.md (AnalyticsView + 3 taby + reusable komponenty + usunięcie ReportsSection/StatsView)
+  - core/06_navigation_flow.md (sidebar 1 przycisk Statystyki, routing /analytics + redirect /stats)
+  - core/11_reports_stats.md (merge Stats+Reports → Analityka, bez archiwalnych danych)
+migration_impact: no (brak zmian schema)
+security_impact: low (read-only stats, auth już na endpointach, sort_by whitelist SQL injection protection)
+depends_on:
+  - RAO-P2-060 (StatsView Faza 2 — foundation)
+  - RAO-P2-062 (archive_* tabele — archiwum osobny widok)
+```
+
+**Problem:**
+
+2 osobne widoki (StatsView 688 linii + ReportsSection 2635 linii) częściowo się duplikują:
+- "Flota teraz" (StatsView) ≈ "Stan floty teraz" (ReportsSection) — oba używają `/stats/currently-rented`
+- "Wynajem w okresie" (StatsView) ≈ "Analiza historyczna → Ogólne" (ReportsSection) — oba używają `/stats/fleet-summary` + `/top-machines` + `/additional-fees` + `/locations`
+
+User zdezorientowany: "który przycisk kliknąć?". ReportsSection.vue (2635 linii) = monster-komponent, trudny w utrzymaniu.
+
+**Rozwiązanie:**
+
+Merge do jednego widoku `AnalyticsView.vue` z 3 zakładkami:
+1. **Flota teraz** (live) — KPI + tabela maszyn wynajętych + drill-down maszyna
+2. **Wynajem w okresie** (period) — KPI + top maszyny + opłaty + lokalizacje + pozycje (sortowanie, filtry, drill-down)
+3. **Eksplorator** (explorer) — wyszukiwarka kontrahent/umowa/maszyna
+
+**Backend (commit 912c02a):**
+- `contractor_id`, `city` Query params dodane do `/stats/top-machines`, `/stats/positions`, `/stats/locations`, `/stats/additional-fees`
+- `sort_by`, `sort_dir` dodane do `/stats/positions` (z whitelist kolumn — SQL injection protection)
+- `shared/revenue.py`: dodano `city` do wyniku `compute_position_revenues`
+- Backward compat: nowe parametry opcjonalne (default None)
+
+**Frontend-1 (commit 8af41c9):**
+- 6 reusable komponentów w `components/analytics/`:
+  - `AnalyticsTable.vue` — generyczna sortowalna tabela (klik w nagłówek → sort, klik wiersz → drill-down)
+  - `KpiRow.vue` — rząd kart KPI
+  - `AnalyticsFilters.vue` — pasek filtrów (presets + custom + kontrahent + miasto + typ)
+  - `DrillDownDrawer.vue` — drawer z Teleport (Esc/click-overlay zamyka)
+  - `AnalyticsTabs.vue` — tab bar pills
+- `composables/useSort.ts` — client-side sortowanie (string/number/Date, null na końcu)
+
+**Frontend-2 (commit 060fac3):**
+- `stores/analytics.ts` — Pinia store (12 akcji API, drill-down orchestration)
+- `views/AnalyticsView.vue` — główny widok (~330 linii, 3 taby, współdzielone filtry, DrillDownDrawer)
+- `components/analytics/tabs/LiveFleetTab.vue` — KPI + utilization bar + tabela wynajętych
+- `components/analytics/tabs/PeriodRentalTab.vue` — KPI + 4 tabele (top maszyny/opłaty/lokalizacje/pozycje) z sortowaniem
+- `components/analytics/tabs/ExplorerTab.vue` — wyszukiwarka z wynikami mieszanymi
+
+**Frontend-3 (ten commit):**
+- Sidebar: usunięto "📊 Statystyki" + "Raporty", zostawiono "📊 Statystyki" → `/analytics`
+- Router: `/stats` → redirect `/analytics` (backward compat), `/analytics` → AnalyticsView
+- DashboardView: usunięto import + render ReportsSection
+- HomeView: tile "Statystyki" → `/analytics`
+- Usunięto: `ReportsSection.vue` (2635 linii), `StatsView.vue` (688 linii), `stores/stats.js` (nie używany nigdzie indziej)
+
+**Bez archiwalnych danych:**
+- AnalyticsView używa tylko `/stats/*` i `/explorer/*` (live contracts/articles)
+- Archiwum zostaje osobnym widokiem (`/archive`, ArchiveView.vue) — już zrealizowane w RAO-P2-062
+
+**Najlepsze "mięso" do klikalności:**
+- Sortowanie tabel (klik w nagłówek kolumny — rosnąco/malejąco) — NOWE, nie było nigdzie
+- Drill-down (klik wiersz → drawer z historią wynajmów maszyny / umowami w lokalizacji)
+- Filtry współdzielone (okres + kontrahent + miasto + typ) — zmiana w jednej zakładce = zmiana we wszystkich
+- Eksplorator (wyszukiwarka kontrahent/umowa/maszyna)
+
+**Zweryfikowano:**
+- 2026-07-01, commit hash: patrz `git log --oneline -5`
+- vue-tsc + build: PASS
+- curl endpointów: PASS (filtruje + sortuje + backward compat + auth)
+- grep ReportsSection/StatsView: 0 wyników (usunięte)
+
+---
+
 ### [RAO-P2-061] Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk
 
 ```yaml

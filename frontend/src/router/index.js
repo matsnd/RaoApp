@@ -100,8 +100,7 @@ const routes = [
       },
       {
         path: 'stats',
-        name: 'Stats',
-        component: () => import('@/views/StatsView.vue'),
+        redirect: '/analytics',
       },
       {
         path: 'analytics',

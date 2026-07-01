@@ -26,21 +26,13 @@
         @click="$emit('navigate', 'worker')"
       >Pulpit</button>
       <button
-        :class="['sidebar-btn', { active: activeSection === 'stats' }]"
-        @click="$emit('navigate', 'stats')"
-      >📊 Statystyki</button>
-      <button
         :class="['sidebar-btn', { active: activeSection === 'analytics' }]"
         @click="$emit('navigate', 'analytics')"
-      >📈 Analytics</button>
+      >📊 Statystyki</button>
       <button
         :class="['sidebar-btn', { active: activeSection === 'commissions' }]"
         @click="$emit('navigate', 'commissions')"
       >Prowizje</button>
-      <button
-        :class="['sidebar-btn', { active: activeSection === 'reports' }]"
-        @click="$emit('navigate', 'reports')"
-      >Raporty</button>
     </div>
     <!-- Wyraźny separator — Archiwum jako osobny dział (szacunkowe) -->
     <div class="sidebar-archive-divider"></div>

@@ -292,10 +292,6 @@
         </div>
       </template>
 
-      <!-- REPORTS -->
-      <template v-else-if="section === 'reports'">
-        <ReportsSection />
-      </template>
     </div>
 
     <ConfirmDialog
@@ -328,7 +324,6 @@ import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import AppToolbar from '@/components/layout/AppToolbar.vue'
 import ConfirmDialog from '@/components/shared/ConfirmDialog.vue'
-import ReportsSection from '@/components/reports/ReportsSection.vue'
 import { useContractStore } from '@/stores/contracts'
 import { useContractorStore } from '@/stores/contractors'
 import { useArticleStore } from '@/stores/articles'

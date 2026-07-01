@@ -1,0 +1,21 @@
+feat(analytics): merge Statystyki + Raporty → AnalyticsView (RAO-P2-063)
+
+Konsolidacja 2 duplikujących się widoków (StatsView 688 linii + ReportsSection
+2635 linii) do jednego ujednoliconego AnalyticsView z 3 zakładkami:
+- Flota teraz (live KPI + tabela wynajętych + drill-down maszyna)
+- Wynajem w okresie (KPI + 4 sortowalne tabele + filtry + drill-down)
+- Eksplorator (wyszukiwarka kontrahent/umowa/maszyna)
+
+Frontend-3: sidebar 1 przycisk "Statystyki" → /analytics, redirect /stats →
+/analytics (backward compat), usunięto ReportsSection.vue + StatsView.vue +
+stores/stats.js (nie używane nigdzie indziej), DashboardView nie renderuje
+już sekcji reports, HomeView tile → /analytics.
+
+BEZ archiwalnych danych — archiwum zostaje osobnym widokiem (RAO-P2-062).
+
+Spec sync: 03_frontend_screens.md, 06_navigation_flow.md, BACKLOG.md
+(RAO-P2-063 dev-verified).
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
