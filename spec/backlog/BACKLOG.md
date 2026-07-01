@@ -2020,11 +2020,16 @@ Obecnie 742 legacy umów (is_legacy=1) jest w tych samych tabelach co nowe umowy
 - **Uzasadnienie:** Maszyna może zmienić `replacement_value`, nazwę, być sprzedana. Archiwum pokazuje stan z tamtego czasu.
 - **Cross-referencja:** `internal_number` służy do powiązania ("czy to ta sama maszyna co w archiwum?")
 
-**Decyzja 4: Archiwum = read-only + edycja kategorii**
+**Decyzja 4: Archiwum = read-only + edycja kategorii (zarówno na articles jak i samych kategorii)**
 
-- **Wybrano:** Archiwum read-only **Z WYJĄTKIEM** edycji `category_id` na `archive_articles`
-- **Uzasadnienie użytkownika:** "tylko umożliwić żonglowanie kategoriami żeby poprawić ewentualnie wgląd w statystyki bo niektóre są być może źle podczas migracji skategoryzowane"
-- **Implementacja:** `PATCH /archive/articles/{id}/category` — jedyny write endpoint na archiwum
+- **Wybrano:** Archiwum read-only **Z WYJĄTKIEM** edycji kategorii:
+  1. `PATCH /archive/articles/{id}/category` — zmiana `category_id` na `archive_articles` (przypisanie maszyny do innej kategorii archiwum)
+  2. `PATCH /archive/categories/{id}` — edycja `archive_categories` (rename, zmiana parent_id, poprawa hierarchii)
+  3. `POST /archive/categories` — dodanie nowej kategorii w archiwum (gdy brakuje)
+  4. `DELETE /archive/categories/{id}` — usunięcie kategorii archiwum (gdy pusta)
+- **Uzasadnienie użytkownika:** "tylko umożliwić żonglowanie kategoriami żeby poprawić ewentualnie wgląd w statystyki bo niektóre są być może źle podczas migracji skategoryzowane" + "daj to zarządzanie kategoriami też krechę oddzielone w archive_categories z ustawieniami tych kategorii tam"
+- **Implementacja:** Kategorię archiwum mają własny CRUD (read + write) w `backend/archive/router.py` — pełne zarządzanie kategoriami archiwum (rename, hierarchy, add, delete) żeby poprawić kategoryzację bez dotykania nowych kategorii
+- **`archive_articles.category_id`** → `archive_categories.id` (archive FK, edytowalne przez PATCH)
 
 ---
 
@@ -2036,11 +2041,11 @@ contractors              ← współdzielone (legacy + nowe)
 users                    ← współdzielone
 fee_preset_groups        ← współdzielone (szablony usług)
 service_fee_templates    ← współdzielone
-articles_categories      ← współdzielone (słownik kategorii)
 ```
 
 **Nowa aplikacja (bez prefixu, czyste):**
 ```
+categories               ← nowe kategorie (edytowalne, żywe — zarządzane w Ustawieniach)
 articles                 ← nowe maszyny (edytowalne, żywe)
 contracts                ← TYLKO nowe umowy (is_legacy USUNIĘTE)
 contract_positions       ← tylko nowe
@@ -2051,7 +2056,8 @@ contract_settlements     ← tylko nowe (source='fakturownia'/'manual')
 
 **Archiwum (prefix `archive_`, frozen):**
 ```
-archive_articles         ← frozen snapshot maszyn z migracji (category_id edytowalne)
+archive_categories       ← frozen snapshot kategorii z migracji (edytowalne — poprawa kategoryzacji)
+archive_articles         ← frozen snapshot maszyn z migracji (category_id → archive_categories.id)
 archive_contracts        ← 742 legacy umów
 archive_contract_positions    ← legacy pozycje
 archive_position_conditions   ← legacy warunki (cennik)
@@ -2064,7 +2070,8 @@ archive_contract_settlements  ← legacy rozliczenia (source='legacy', cennik ×
 - `archive_contract_positions.article_id` → `archive_articles.id` (archive FK)
 - `archive_contract_positions.contract_id` → `archive_contracts.id` (archive FK)
 - `archive_contract_settlements.position_id` → `archive_contract_positions.id` (archive FK)
-- `archive_articles.category_id` → `articles_categories.id` (współdzielone kategorie)
+- `archive_articles.category_id` → `archive_categories.id` (archive FK — kategorie w archiwum)
+- `categories` (nowe) — niezależne od `archive_categories`
 
 ---
 
@@ -2073,7 +2080,8 @@ archive_contract_settlements  ← legacy rozliczenia (source='legacy', cennik ×
 **Faza 0: Migracja danych (db-architect + backend-dev) — BLOKER dla P2-060 i P2-061**
 
 1. **Utworzyć tabele `archive_*`** (mirror schema z `is_legacy` tabel):
-   - `archive_articles` — kopia `articles` gdzie `id IN (SELECT DISTINCT article_id FROM contract_positions WHERE contract_id IN (SELECT id FROM contracts WHERE is_legacy=1))`
+   - `archive_categories` — kopia WSZYSTKICH `categories` (frozen snapshot — kategorie używane przez legacy maszyny; edytowalne post-migration dla poprawy kategoryzacji)
+   - `archive_articles` — kopia `articles` gdzie `id IN (SELECT DISTINCT article_id FROM contract_positions WHERE contract_id IN (SELECT id FROM contracts WHERE is_legacy=1))` (z `category_id` przemapowanym na `archive_categories.id`)
    - `archive_contracts` — kopia `contracts WHERE is_legacy=1` (bez kolumny `is_legacy`)
    - `archive_contract_positions` — kopia pozycji dla legacy umów
    - `archive_position_conditions` — kopia warunków dla legacy pozycji
@@ -2081,6 +2089,7 @@ archive_contract_settlements  ← legacy rozliczenia (source='legacy', cennik ×
    - `archive_contract_settlements` — kopia rozliczeń dla legacy umów (source='legacy')
    - **Idempotentne:** `CREATE TABLE IF NOT EXISTS` + `INSERT IGNORE`
    - **W jednej transakcji:** backup → INSERT → DELETE → commit
+   - **Uwaga:** `categories` (nowe) zostaje nie tknięte — ale po migracji `categories` powinno być puste (wszystkie kategorie były używane przez legacy). User może od nowa zbudować kategorie dla nowych umów. Ewentualnie skopiować wybrane kategorie z `archive_categories` do `categories` ręcznie.
 
 2. **Usunąć legacy dane z tabel `rao_new`:**
    - `DELETE FROM contract_settlements WHERE contract_id IN (SELECT id FROM contracts WHERE is_legacy=1)`
@@ -2102,21 +2111,26 @@ archive_contract_settlements  ← legacy rozliczenia (source='legacy', cennik ×
 **Faza 1: Backend — modele + endpointy archiwum (backend-dev)**
 
 1. **Modele `archive_*`** w nowym module `backend/archive/`:
-   - `backend/archive/models.py` — `ArchiveArticle`, `ArchiveContract`, `ArchiveContractPosition`, `ArchivePositionCondition`, `ArchiveContractServiceFee`, `ArchiveContractSettlement`
+   - `backend/archive/models.py` — `ArchiveCategory`, `ArchiveArticle`, `ArchiveContract`, `ArchiveContractPosition`, `ArchivePositionCondition`, `ArchiveContractServiceFee`, `ArchiveContractSettlement`
    - Mirror schema z głównych modeli ale z `__tablename__ = "archive_*"`
-   - `ArchiveArticle` ma `category_id` (edytowalne) — reszta pól read-only
+   - `ArchiveCategory` — pełny mirror `Category` (name, code, description, parent_id, level) — edytowalna
+   - `ArchiveArticle` ma `category_id` → `archive_categories.id` (edytowalne) — reszta pól read-only
 
-2. **Endpointy archiwum (read-only + category edit):**
+2. **Endpointy archiwum (read-only + zarządzanie kategoriami):**
    - `GET /archive/contracts` — lista legacy umów (z paginacją, filtrowanie po contractor, date range)
    - `GET /archive/contracts/{id}` — szczegóły legacy umowy
    - `GET /archive/articles` — lista legacy maszyn
    - `GET /archive/articles/{id}` — szczegóły legacy maszyny
-   - `PATCH /archive/articles/{id}/category` — **jedyny write endpoint** — zmiana `category_id`
+   - `PATCH /archive/articles/{id}/category` — zmiana `category_id` na archive_articles
+   - `GET /archive/categories` — lista kategorii archiwum (tree)
+   - `POST /archive/categories` — dodanie nowej kategorii archiwum
+   - `PUT /archive/categories/{id}` — edycja kategorii archiwum (rename, parent, hierarchy)
+   - `DELETE /archive/categories/{id}` — usunięcie kategorii archiwum (gdy pusta)
    - `GET /archive/stats/fleet-summary` — stats archiwum (cennik × dni = szacunek)
    - `GET /archive/stats/top-machines` — top maszyny w archiwum
    - `GET /archive/stats/by-category` — kategorie w archiwum
    - `GET /archive/stats/machine-roi` — ROI orientacyjny (cennik / replacement_value)
-   - Brak POST/PUT/DELETE (poza PATCH category)
+   - Brak POST/PUT/DELETE na contracts/articles (poza PATCH category na articles + pełny CRUD na categories)
 
 3. **Uproszczenie `shared/revenue.py`:**
    - Usunąć `is_legacy` z query i z dict
@@ -2200,16 +2214,20 @@ archive_contract_settlements  ← legacy rozliczenia (source='legacy', cennik ×
 **Frontend:**
 - [ ] "Archiwum" w sidebarze (na dole, ikona 📦)
 - [ ] `ArchiveView.vue` — lista umów + maszyny + stats (read-only)
-- [ ] Edycja kategorii w archiwum (dropdown → `PATCH /archive/articles/{id}/category`)
+- [ ] Edycja kategorii maszyny w archiwum (dropdown → `PATCH /archive/articles/{id}/category`)
+- [ ] Zarządzanie kategoriami archiwum (CRUD: lista tree, dodaj, edytuj, usuń → `/archive/categories/*`)
 - [ ] Szare tło + banner "Archiwum — dane historyczne (szacunkowe)"
 - [ ] `StatsView.vue` (P2-060) — 2 zakładki (bez archiwum, bez toggle)
 - [ ] `vue-tsc --noEmit` przechodzi
 
 **QA:**
-- [ ] POST/PUT/DELETE na `/archive/*` → 405 (poza PATCH category)
+- [ ] POST/PUT/DELETE na `/archive/contracts/*` i `/archive/articles/*` → 405 (poza PATCH category na articles)
 - [ ] `PATCH /archive/articles/{id}/category` → 200, tylko `category_id` zmienione
+- [ ] `POST /archive/categories` → 201, nowa kategoria w `archive_categories`
+- [ ] `PUT /archive/categories/{id}` → 200, rename/hierarchy zmienione
+- [ ] `DELETE /archive/categories/{id}` → 204 (gdy pusta) lub 409 (gdy ma maszyny/podkategorie)
 - [ ] Smoke `01-login.spec.ts` przechodzi
-- [ ] E2E: nawigacja Archiwum, read-only, zmiana kategorii
+- [ ] E2E: nawigacja Archiwum, read-only umów, CRUD kategorii archiwum
 
 **Spec:**
 - [ ] `git diff --stat spec/core/` nie jest pusty (6 plików)
