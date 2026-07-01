@@ -146,6 +146,7 @@ async def compute_position_revenues(
             Article.category_sub1,          # p[16]
             Article.category_sub2,          # p[17]
             Article.category_sub3,          # p[18]
+            Contract.city,                  # p[19] — RAO: filtr city w stats
         )
         .select_from(ContractPosition)
         .join(Contract, Contract.id == ContractPosition.contract_id)
@@ -273,5 +274,6 @@ async def compute_position_revenues(
             "category_sub1": p[16],
             "category_sub2": p[17],
             "category_sub3": p[18],
+            "city": p[19],                  # RAO: filtr city w stats
         })
     return results

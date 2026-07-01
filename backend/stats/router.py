@@ -31,6 +31,33 @@ from stats.schemas import (
 router = APIRouter(prefix="/stats", tags=["stats"])
 
 
+# RAO: whitelist kolumn do sortowania /stats/positions (ochrona przed SQL injection)
+ALLOWED_SORT = {
+    "article_name", "internal_number", "category_main",
+    "revenue", "rented_days", "contracts_count", "times_settled",
+}
+# alias: nazwa z zadania → rzeczywiste pole na PositionStatItem
+_SORT_FIELD_ALIASES = {"times_settled": "times_billed"}
+
+
+def _apply_position_filters(
+    all_pos: list[dict],
+    *,
+    contractor_id: int | None = None,
+    city: str | None = None,
+    internal_number: str | None = None,
+) -> list[dict]:
+    """Filtruj listę pozycji z compute_position_revenues po contractor_id / city / internal_number."""
+    if contractor_id is not None:
+        all_pos = [p for p in all_pos if p.get("contractor_id") == contractor_id]
+    if city:
+        city_lc = city.lower()
+        all_pos = [p for p in all_pos if p.get("city") and p["city"].lower() == city_lc]
+    if internal_number:
+        all_pos = [p for p in all_pos if p["internal_number"] == internal_number]
+    return all_pos
+
+
 def _default_dates(date_from: date | None, date_to: date | None):
     today = date.today()
     if not date_from:
@@ -151,6 +178,8 @@ async def top_machines(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     internal_number: str | None = Query(None, description="Filtruj po numerze wewnętrznym maszyny"),
+    contractor_id: int | None = Query(None, description="Filtruj po kontrahencie"),
+    city: str | None = Query(None, description="Filtruj po mieście umowy (case-insensitive)"),
     limit: int = Query(10, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
@@ -159,8 +188,9 @@ async def top_machines(
     # RAO-P2-029: uwzględnia archiwalne maszyny (statystyki historyczne)
     # RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
     all_pos = await _compute_position_revenues(db, df, dt, service_filter=False, exclude_archival=False)
-    if internal_number:
-        all_pos = [p for p in all_pos if p["internal_number"] == internal_number]
+    all_pos = _apply_position_filters(
+        all_pos, contractor_id=contractor_id, city=city, internal_number=internal_number
+    )
 
     # Aggregate by article
     agg = defaultdict(lambda: {
@@ -298,6 +328,7 @@ async def machine_roi(
 async def additional_fees(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
+    contractor_id: int | None = Query(None, description="Filtruj po kontrahencie"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
@@ -305,6 +336,7 @@ async def additional_fees(
     # RAO-P2-029: uwzględnia archiwalne usługi (statystyki historyczne)
     # RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
     all_pos = await _compute_position_revenues(db, df, dt, service_filter=True, exclude_archival=False)
+    all_pos = _apply_position_filters(all_pos, contractor_id=contractor_id)
 
     # Aggregate by service article
     agg = defaultdict(lambda: {"name": "", "revenue": Decimal(0), "contracts": set()})
@@ -335,6 +367,7 @@ async def locations(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     internal_number: str | None = Query(None, description="Filtruj po numerze wewnętrznym maszyny"),
+    contractor_id: int | None = Query(None, description="Filtruj po kontrahencie"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
@@ -342,8 +375,9 @@ async def locations(
     # RAO-P2-029: uwzględnia archiwalne maszyny (statystyki historyczne)
     # RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
     all_pos = await _compute_position_revenues(db, df, dt, exclude_archival=False)
-    if internal_number:
-        all_pos = [p for p in all_pos if p["internal_number"] == internal_number]
+    all_pos = _apply_position_filters(
+        all_pos, contractor_id=contractor_id, internal_number=internal_number
+    )
 
     # RAO-P2-028: agregacja po PNA z rollup po city/woj/pow/gmina (shared helper)
     return await aggregate_by_pna(all_pos, db, limit=20)
@@ -553,6 +587,17 @@ async def positions(
     position_type: Literal["machines", "services", "all"] = Query("all", alias="type"),
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
+    contractor_id: int | None = Query(None, description="Filtruj po kontrahencie"),
+    city: str | None = Query(None, description="Filtruj po mieście umowy (case-insensitive)"),
+    sort_by: str | None = Query(
+        None,
+        description=(
+            "Pole sortowania: article_name | internal_number | category_main | "
+            "revenue | rented_days | contracts_count | times_settled "
+            "(wartości spoza whitelist są ignorowane)"
+        ),
+    ),
+    sort_dir: str = Query("desc", pattern="^(asc|desc)$", description="Kierunek sortowania: asc|desc"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
@@ -562,6 +607,10 @@ async def positions(
     - type=machines → tylko maszyny (service_filter=False)
     - type=services → tylko usługi (service_filter=True)
     - type=all → wszystkie pozycje (service_filter=None, default)
+    - contractor_id → filtr po kontrahencie (opcjonalny)
+    - city → filtr po mieście umowy, case-insensitive (opcjonalny)
+    - sort_by → pole sortowania z whitelist ALLOWED_SORT (nieznane = ignorowane)
+    - sort_dir → asc|desc (default desc)
     - RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
     """
     df, dt = _default_dates(date_from, date_to)
@@ -576,6 +625,7 @@ async def positions(
     # Pobierz pozycje z odpowiednim filtrem
     # RAO-P2-029: uwzględnia archiwalne maszyny (statystyki historyczne)
     all_pos = await _compute_position_revenues(db, df, dt, service_filter=service_filter, exclude_archival=False)
+    all_pos = _apply_position_filters(all_pos, contractor_id=contractor_id, city=city)
 
     # Agregacja per article
     agg = defaultdict(lambda: {
@@ -623,8 +673,19 @@ async def positions(
         for aid, d in agg.items()
     ]
 
-    # Sortuj po revenue descending
-    items.sort(key=lambda x: x.revenue, reverse=True)
+    # Sortuj po revenue descending (default) lub po sort_by z whitelist
+    if sort_by and sort_by in ALLOWED_SORT:
+        field = _SORT_FIELD_ALIASES.get(sort_by, sort_by)
+        reverse = sort_dir == "desc"
+        # string-safe klucz: dla pól tekstowych użyj "", dla liczbowych 0
+        def _key(x: PositionStatItem):
+            v = getattr(x, field, None)
+            if v is None:
+                return "" if field in ("article_name", "internal_number", "category_main") else 0
+            return v
+        items.sort(key=_key, reverse=reverse)
+    else:
+        items.sort(key=lambda x: x.revenue, reverse=True)
 
     total_revenue = sum(item.revenue for item in items)
 

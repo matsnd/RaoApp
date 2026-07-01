@@ -1321,12 +1321,21 @@ Response: `MachineRoiResponse` (zawiera `category_main` — RAO-P1-017)
 Response: `CurrentlyRentedResponse` (items zawierają `category_main` — RAO-P1-017)
 Filtr: domyślnie `is_archival=FALSE AND is_external=FALSE` (RAO-P1-027)
 
+### `GET /stats/top-machines`
+Query: `?date_from&date_to&internal_number=<str>&contractor_id=<int>&city=<str>&limit=<int>` (limit 1-50, default 10)
+- `contractor_id` — filtr po kontrahencie (opcjonalny, tylko pozycje z umów tego kontrahenta)
+- `city` — filtr po mieście umowy, case-insensitive (opcjonalny)
+Response: `list[TopMachineItem]` (article_id, name, internal_number, revenue, rented_days, contracts_count)
+HTTP: 200 | 401
+
 ### `GET /stats/additional-fees`
-Query: `?date_from&date_to&internal_number=<str>` (RAO-P2-008)
+Query: `?date_from&date_to&contractor_id=<int>` (RAO-P2-008)
+- `contractor_id` — filtr po kontrahencie (opcjonalny)
 Response: `AdditionalFeesResponse`
 
 ### `GET /stats/locations`
-Query: `?date_from&date_to&internal_number=<str>` (RAO-P2-008)
+Query: `?date_from&date_to&internal_number=<str>&contractor_id=<int>` (RAO-P2-008)
+- `contractor_id` — filtr po kontrahencie (opcjonalny)
 Response: `list[LocationStatItem]` — RAO-P2-028: agregacja po PNA (`postal_code`)
 z rollup po `city`/`gmina`/`powiat`/`wojewodztwo` z LEFT JOIN do `postal_codes`.
 NULL PNA → bucket `"(brak PNA)"` z city z `contracts.city`.
@@ -1385,12 +1394,16 @@ Zlicza tylko aktywne (nie-archiwalne) artykuły (`is_archival=false`) przypisane
 HTTP: 200 | 401
 
 ### `GET /stats/positions` (RAO-P2-010, NOWY)
-Query: `?type=machines|services|all&date_from&date_to`
+Query: `?type=machines|services|all&date_from&date_to&contractor_id=<int>&city=<str>&sort_by=<str>&sort_dir=asc|desc`
+- `contractor_id` — filtr po kontrahencie (opcjonalny)
+- `city` — filtr po mieście umowy, case-insensitive (opcjonalny)
+- `sort_by` — pole sortowania z whitelist: `article_name | internal_number | category_main | revenue | rented_days | contracts_count | times_settled` (wartości spoza whitelist ignorowane, brak błędu; alias `times_settled` → pole `times_billed`)
+- `sort_dir` — `asc|desc` (default `desc`); gdy `sort_by` niepodany lub spoza whitelist → domyślne sortowanie po `revenue` desc
 Response: `PositionStatsResponse` with:
 - date_from, date_to, type (applied filter)
-- total_revenue, total_machines_revenue, total_services_revenue
+- total_revenue, total_machines_revenue, total_services_revenue (globalne, bez filtrów contractor_id/city — podsumowanie per typ)
 - items[]: list[PositionStatItem] (article_id, article_name, internal_number, is_service, category_main, revenue, rented_days, contracts_count, times_billed)
-HTTP: 200 | 401 | 422 (nieprawidłowy `type`)
+HTTP: 200 | 401 | 422 (nieprawidłowy `type` lub `sort_dir`)
 
 ### `GET /explorer/machines/{article_id}` (RAO-P2-009)
 Query: `?date_from&date_to`
