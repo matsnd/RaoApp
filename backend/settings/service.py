@@ -1,4 +1,6 @@
 from datetime import datetime
+import re
+import unicodedata
 from sqlalchemy import select, func, update, delete
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,6 +10,29 @@ from settings.models import Company, FeePresetGroup, ServiceFeeTemplate, Salespe
 from settings.schemas import CompanyUpdate, FeePresetGroupCreate, ServiceFeeTemplateCreate, SalespersonCreate, CategoryCreate, BranchCreate, RateTypeCreate
 from categories.models import Category
 from shared.exceptions import not_found, conflict
+
+
+def _normalize_category_name(name: str) -> str:
+    """RAO-P0-054: Normalizacja nazwy kategorii — trim + collapse whitespace.
+    Zachowuje polskie znaki (DB ma utf8mb4_polish_ci), ale usuwa podwójne spacje
+    i leading/trailing whitespace. Nie usuwa diakrytyków (to robi tylko migrate.py
+    do porównania, nie do przechowywania).
+    """
+    if not name:
+        return ""
+    return re.sub(r"\s+", " ", name.strip())
+
+
+def _normalize_category_key(name: str) -> str:
+    """RAO-P0-054: Klucz normalizacji do porównania (NFD + usuwanie Mn + ł→l + lower).
+    Używane do wykrywania duplikatów (np. 'Koparki' vs 'koparki ' vs 'Koparki  ').
+    """
+    if not name:
+        return ""
+    nfd = unicodedata.normalize("NFD", name.strip())
+    no_dia = "".join(ch for ch in nfd if unicodedata.category(ch) != "Mn")
+    no_dia = no_dia.replace("\u0142", "l").replace("\u0141", "L")
+    return re.sub(r"\s+", " ", no_dia.lower()).strip()
 
 
 class SettingsService:
@@ -285,7 +310,20 @@ class SettingsService:
         return result.scalars().all()
 
     async def create_category(self, db: AsyncSession, data: CategoryCreate) -> Category:
-        cat = Category(**data.model_dump())
+        # RAO-P0-054: Normalizacja nazwy + wykrywanie duplikatów (case/diakrytyki-insensitive)
+        payload = data.model_dump()
+        payload["name"] = _normalize_category_name(payload.get("name", ""))
+        if not payload["name"]:
+            raise conflict("Nazwa kategorii nie może być pusta")
+        # Sprawdź duplikat w tej samej hierarchii (parent_id) po znormalizowanej nazwie
+        new_key = _normalize_category_key(payload["name"])
+        existing = await db.execute(
+            select(Category).where(Category.parent_id == payload.get("parent_id"))
+        )
+        for cat in existing.scalars().all():
+            if _normalize_category_key(cat.name) == new_key:
+                raise conflict(f"Kategoria '{cat.name}' już istnieje w tej hierarchii")
+        cat = Category(**payload)
         db.add(cat)
         await db.commit()
         await db.refresh(cat)
@@ -296,7 +334,23 @@ class SettingsService:
         cat = result.scalar_one_or_none()
         if not cat:
             raise not_found("Kategoria")
-        for field, value in data.model_dump().items():
+        # RAO-P0-054: Normalizacja nazwy + wykrywanie duplikatów
+        payload = data.model_dump()
+        payload["name"] = _normalize_category_name(payload.get("name", ""))
+        if not payload["name"]:
+            raise conflict("Nazwa kategorii nie może być pusta")
+        new_key = _normalize_category_key(payload["name"])
+        new_parent = payload.get("parent_id")
+        dup_check = await db.execute(
+            select(Category).where(
+                Category.parent_id == new_parent,
+                Category.id != cat_id,
+            )
+        )
+        for other in dup_check.scalars().all():
+            if _normalize_category_key(other.name) == new_key:
+                raise conflict(f"Kategoria '{other.name}' już istnieje w tej hierarchii")
+        for field, value in payload.items():
             setattr(cat, field, value)
         await db.commit()
         await db.refresh(cat)

@@ -13,7 +13,7 @@ class Contract(Base):
     contractor_id = Column(Integer, ForeignKey("contractors.id"), nullable=False)
     branch_id = Column(Integer, ForeignKey("branches.id", ondelete="SET NULL"), nullable=True)
     salesperson_id = Column(Integer, ForeignKey("salespeople.id", ondelete="SET NULL"), nullable=True)
-    number = Column(String(40), nullable=False)
+    number = Column(String(40), nullable=False, unique=True)  # RAO-P0-030: UNIQUE constraint (DB index uq_contracts_number już istnieje w main.py)
     oid = Column(String(40), nullable=True, comment="Numer zamówienia w Fakturownia (dla integracji RAO-P2-012)")
     auto_number = Column(Integer, nullable=True)
     contract_type = Column(String(1), nullable=False, default="S")

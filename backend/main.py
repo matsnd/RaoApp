@@ -1,9 +1,13 @@
 import os
+import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from config import settings
+
+logger = logging.getLogger("rao.errors")
 
 from auth.router import router as auth_router, admin_router
 from contractors.router import router as contractors_router
@@ -31,6 +35,16 @@ app = FastAPI(
     version="1.0.0",
     root_path="/rao/api",
 )
+
+
+# RAO-P0-036: Global exception handler — nie ujawniaj stack trace klientowi
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Błąd serwera"},
+    )
 
 
 @app.on_event("startup")
@@ -124,6 +138,13 @@ async def startup_migrations():
             "ALTER TABLE categories ADD COLUMN IF NOT EXISTS "
             "level ENUM('main','sub1','sub2','sub3') NOT NULL DEFAULT 'main'"
         ))
+        # RAO-P0-054: Collation polish_ci dla kategorii (normalizacja diakrytyk + spacji)
+        try:
+            await conn.execute(sa.text(
+                "ALTER TABLE categories CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_polish_ci"
+            ))
+        except Exception:
+            pass  # Już jest polish_ci lub MariaDB nie wspiera — idempotentne
         await conn.execute(sa.text(
             "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
             "category_main VARCHAR(100) NULL"
