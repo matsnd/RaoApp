@@ -1391,6 +1391,49 @@ async function handleFakturownia() {
 
 ---
 
+### ArchiveView.vue — Archiwum danych historycznych (RAO-P2-062 Faza 2)
+
+**Route:** `/archive` | **requiresAuth:** tak | **requiresAdmin:** częściowo (zakładka Kategorie)
+
+**Opis:** Read-only przegląd danych historycznych (legacy umowy/maszyny przeniesione do tabel `archive_*` w Fazie 0). Wartości są szacunkowe (cennik × dni), nie z systemu rozliczeń. Jedyny write to edycja kategorii (admin).
+
+**Sidebar:** Przycisk "📦 Archiwum" w `AppSidebar.vue` (po "Raporty", przed "Ustawienia")
+
+**Banner ostrzegawczy** (góra widoku):
+> ⚠️ Archiwum — dane historyczne (szacunkowe). Wartości pochodzą z cenników sprzed migracji, nie z systemu rozliczeń.
+
+**4 zakładki:**
+
+1. **Umowy** (`activeTab='contracts'`) — `GET /archive/contracts` (paginacja 50, filtry: search, contract_type S/U, date_from, date_to)
+   - Grid: Numer, Typ (badge S/U), Kontrahent, Data od, Data do, Pozycji, Wartość szac. (z suffix `[szac.]`), Status (Rozliczona/Nierozliczona badge)
+   - Klik wiersza → rozwija panel szczegółów: `GET /archive/contracts/{id}` (kontrahent, adres dostawy, okres, osoba kontaktowa, zaliczka, faktura szac., pozycje z warunkami, opłaty dodatkowe, rozliczenia)
+
+2. **Maszyny** (`activeTab='articles'`) — `GET /archive/articles` (paginacja 50, filtry: search, category_id)
+   - Grid: Nazwa, Nr wewn., Kategoria (dropdown — `PATCH /archive/articles/{id}/category`, admin), Kontraktów count, Wartość wymiany
+   - Zmiana kategorii przez `<select>` → `PATCH /archive/articles/{id}/category` z `category_id`
+
+3. **Statystyki** (`activeTab='stats'`) — `GET /archive/stats/summary` + `/top-machines` + `/by-category`
+   - Filtry dat: date_from, date_to + przycisk "Odśwież"
+   - Karta podsumowania: liczba umów, liczba pozycji, przychód szacunkowy
+   - Top maszyny (limit 10): artykuł, kontraktów count, dni wynajmu, przychód szac.
+   - Per kategoria: kategoria, kontraktów, pozycji, przychód szac.
+   - ROI maszyny (opcjonalne): `GET /archive/stats/machine-roi?article_id=` — przychód szac. / wartość wymiany = ROI %
+
+4. **Kategorie (admin)** (`activeTab='categories'`, `adminOnly: true`) — `GET /archive/categories/tree` + CRUD
+   - Drzewo kategorii (flatten z depth indent)
+   - Dodaj kategorię: `POST /archive/categories` (name, code, parent_id, level auto-z parent)
+   - Edytuj: `PUT /archive/categories/{id}` (rename, code)
+   - Usuń: `DELETE /archive/categories/{id}` (z confirm, tylko gdy pusta)
+   - Non-admin widzi "Sekcja dostępna tylko dla administratora"
+
+**Store:** `frontend/src/stores/archive.ts` (Pinia, composition API) — mirror endpointów `/archive/*`, typy TS zgodne z `backend/archive/schemas.py`
+
+**Styl:** `--color-bg-light` tło, banner z `--color-warning` border-left, badge `[szac.]` przy kwotach
+
+**API:** wszystkie endpointy pod `/rao/api/archive/*` (auth wymagany, admin dla category CRUD + article category PATCH)
+
+---
+
 ### WorkerView.vue — Pulpit operacyjny
 
 **Route:** `/worker` | **requiresAuth:** tak

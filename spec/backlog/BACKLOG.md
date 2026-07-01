@@ -1966,13 +1966,14 @@ Aby zaprezentować moc statystyk RAO (RAO-P2-060: ROI maszyn, top wypożyczenia,
 id: RAO-P2-062
 priority: P1
 size: L
-status: in-progress
+status: dev-verified
 classification: cross-stack/refactor+migration
 roles: [tech-lead, db-architect, backend-dev, frontend-dev, qa-engineer]
 source: operator-request
 source_date: 2026-07-01
 phase_0_status: done (2026-07-01) — migracja danych archive_* wykonana, backup_pre_archive_split.sql utworzony, weryfikacja COUNT zaliczona
 phase_1_status: done (2026-07-01) — modele SQLAlchemy archive_* + endpointy read-only + category CRUD + usunięcie is_legacy + uproszczenie shared/revenue.py i stats/router.py
+phase_2_status: done (2026-07-01) — ArchiveView.vue + stores/archive.ts + sidebar/router/layout; vue-tsc pass, build pass, smoke 01-login 11/11 pass, Playwright MCP weryfikacja 4 zakładek (Umowy 50 wierszy, Maszyny 50 wierszy, Statystyki, Kategorie admin)
 specs_to_update:
   - core/01_database.md (archive_* tabele + usunięcie is_legacy)
   - core/02_backend_api.md (archive endpointy read-only + category edit)
@@ -2308,7 +2309,7 @@ archive_contract_settlements  ← legacy rozliczenia (source='legacy', cennik ×
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | triaged | → in_progress (Faza 1: parser legacy + migracja + UI + template items) |
 | RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | triaged | → in_progress (decyzje użytkownika zarejestrowane 2026-07-01) |
 | RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | triaged | → in_progress (demo dane tymczasowe — zaoranie przed właściwą migracją) |
-| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | in_progress (Faza 1 done — backend; Faza 2 todo — frontend) |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
 
 **Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
 

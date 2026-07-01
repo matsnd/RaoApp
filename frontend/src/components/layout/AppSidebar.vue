@@ -34,6 +34,10 @@
         @click="$emit('navigate', 'reports')"
       >Raporty</button>
       <button
+        :class="['sidebar-btn', { active: activeSection === 'archive' }]"
+        @click="$emit('navigate', 'archive')"
+      >📦 Archiwum</button>
+      <button
         :class="['sidebar-btn', { active: activeSection === 'settings' }]"
         @click="$emit('navigate', 'settings')"
       >Ustawienia</button>

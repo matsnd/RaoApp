@@ -13,6 +13,7 @@ graph TD
     B --> B2["Sidebar: <b>Kontrahenci</b><br/>/dashboard/contractors"]
     B --> B3["Sidebar: <b>Artykuły</b><br/>/dashboard/articles"]
     B --> B4["Sidebar: <b>Raporty</b><br/>/dashboard/reports"]
+    B --> B6["Sidebar: <b>📦 Archiwum</b><br/>/archive (RAO-P2-062)"]
     B --> B5["Sidebar: <b>Ustawienia</b><br/>/settings"]
 
     B1 -->|"Toolbar [+] lub double-click"| C["<b>Formularz umowy</b><br/>ContractFormView.vue<br/>/contracts/new lub /contracts/:id/edit"]

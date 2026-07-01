@@ -93,6 +93,11 @@ const routes = [
         component: () => import('@/views/AdminView.vue'),
         meta: { requiresAdmin: true },
       },
+      {
+        path: 'archive',
+        name: 'Archive',
+        component: () => import('@/views/ArchiveView.vue'),
+      },
     ],
   },
   { path: '/:pathMatch(.*)*', redirect: '/' },
