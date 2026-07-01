@@ -527,12 +527,16 @@ next_step: "team-verified → user-verified (weryfikacja wizualna klienta)"
 id: RAO-P1-020
 priority: P1
 size: M
-status: dev-verified
+status: done
 classification: feature/pdf
 roles: [backend-dev, frontend-dev]
 source: client-request
 source_date: 2026-06-29
 source_ref: "spec/backlog/do_wciagniecia_do_backlogu.md pkt 8 + Pasted image 20260629224534.png"
+implementation_date: 2026-07-01
+specs_to_update:
+  - core/11_reports_stats.md
+  - core/04_business_logic.md
 specs_to_update:
   - core/11_reports_stats.md
   - core/04_business_logic.md
@@ -597,12 +601,14 @@ next_step: "team-verified → user-verified (weryfikacja wizualna klienta)"
 id: RAO-P1-021
 priority: P1
 size: M
-status: triaged
+status: done
 classification: feature/business-logic
 roles: [product-owner, backend-dev, db-architect]
 source: client-request
 source_date: 2026-06-29
 source_ref: "spec/backlog/do_wciagniecia_do_backlogu.md pkt 9 + Pasted image 20260629224602.png"
+implementation_date: 2026-07-01
+decision: "Usuń pole Wartość (zł) z PDF/ekranu + usuń kolumnę contracts.total_value (P2-033)"
 specs_to_update:
   - core/04_business_logic.md
   - core/01_database.md
@@ -648,12 +654,14 @@ security_impact: none
 id: RAO-P1-022
 priority: P1
 size: S
-status: triaged
+status: done
 classification: bugfix/naming
 roles: [backend-dev, db-architect, frontend-dev]
 source: client-request
 source_date: 2026-06-29
 source_ref: "spec/backlog/do_wciagniecia_do_backlogu.md pkt 10 + Pasted image 20260629225003.png"
+implementation_date: 2026-07-01
+decision: "Format S{NNN}/{ROK}[G] — wszystkie umowy na S, G dla oddziału ≠ Warszawa (id=1). Zgodne z FormU4.cs:734-764 + 2645-2655."
 specs_to_update:
   - core/04_business_logic.md
   - core/01_database.md
@@ -1032,12 +1040,14 @@ if contract.created_by != current_user.id and current_user.role != "admin":
 id: RAO-SEC-002
 priority: P1
 size: S
-status: triaged
+status: done
 classification: security/injection
 roles: [backend-dev, security-auditor]
 source: security-audit
 source_date: 2026-06-29
 source_ref: "Security audit P1-015 — subagent security-auditor"
+implementation_date: 2026-07-01
+note: "Już naprawione — autoescape=True w reports/service.py:588"
 specs_to_update:
   - core/25_security.md
 migration_impact: no
@@ -1261,11 +1271,13 @@ specs_to_update:
 id: RAO-P2-033
 priority: P2
 size: XS
-status: triaged
+status: done
 classification: cleanup/data
 roles: [db-architect]
 source: tech-lead-audit
 source_date: 2026-07-01
+implementation_date: 2026-07-01
+note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone z P1-021)"
 ```
 
 **Problem:** `contracts.total_value` jest NULL/0 dla 100% umów (742/742). Pole nie jest używane w statystykach (przychód z `position_conditions`), tylko w PDF umowy jako snapshot.

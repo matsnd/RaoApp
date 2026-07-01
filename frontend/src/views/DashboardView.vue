@@ -42,7 +42,7 @@
                   <th>Typ</th>
                   <th>Data od</th>
                   <th>Data do</th>
-                  <th>Wartość</th>
+                  <!-- RAO-P1-021/P2-033: Wartość usunięte (martwe pole) -->
                   <th>Handlowiec</th>
                   <th>Status</th>
                   <th>Wydruk</th>
@@ -77,7 +77,7 @@
                       {{ daysLeft(c) + 'd' }}
                     </span>
                   </td>
-                  <td style="font-weight:600;">{{ formatMoney(c.total_value) }}</td>
+                  <!-- RAO-P1-021/P2-033: Wartość usunięte -->
                   <td>{{ c.salesperson_name || '—' }}</td>
                   <!-- RAO-P2-022: kolumna statusu -->
                   <td>
@@ -123,7 +123,7 @@
                   <th>Data od</th>
                   <th>Data do</th>
                   <th>Dni po terminie</th>
-                  <th>Wartość</th>
+                  <!-- RAO-P1-021/P2-033: Wartość usunięte -->
                   <th>Handlowiec</th>
                 </tr>
               </thead>
@@ -151,7 +151,7 @@
                   <td>{{ formatDate(c.date_from) }}</td>
                   <td>{{ formatDate(c.date_to) }}</td>
                   <td style="font-weight:700;color:#c53030;">{{ daysOverdue(c) }} dni</td>
-                  <td style="font-weight:600;">{{ formatMoney(c.total_value) }}</td>
+                  <!-- RAO-P1-021/P2-033: Wartość usunięte -->
                   <td>{{ c.salesperson_name || '—' }}</td>
                 </tr>
               </tbody>

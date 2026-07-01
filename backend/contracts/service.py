@@ -15,6 +15,10 @@ async def generate_contract_number(db: AsyncSession, contract_type: str, branch_
     RAO-P0-030: Uses SELECT ... FOR UPDATE on Company row to serialize
     concurrent contract creation. Falls back to retry on IntegrityError
     (defensive — UNIQUE index on contracts.number is the last line of defense).
+
+    RAO-P1-022: Format S{NNN}/{ROK}[G] — wszystkie umowy zaczynają się na S.
+    G na końcu jeśli oddział ≠ Warszawa (id=1).
+    Zgodne ze starą aplikacją WinForms (FormU4.cs:734-764 + 2645-2655).
     """
     from settings.models import Company, Branch
     from sqlalchemy import text as sa_text
@@ -31,14 +35,14 @@ async def generate_contract_number(db: AsyncSession, contract_type: str, branch_
     new_number = max(start, current_max) + 1
     year = datetime.now().year
 
+    # RAO-P1-022: G na końcu jeśli oddział ≠ Warszawa (id=1)
+    # Zgodne ze starą aplikacją: cbxoddzial_SelectedIndexChanged (FormU4.cs:2645-2655)
     suffix = ""
-    if branch_id:
-        branch_result = await db.execute(select(Branch.name).where(Branch.id == branch_id))
-        branch_name = branch_result.scalar_one_or_none()
-        if branch_name and branch_name.upper() == "GDAŃSK":
-            suffix = "G"
+    if branch_id and branch_id != 1:  # id=1 = Warszawa, wszystko inne = Gdańsk
+        suffix = "G"
 
-    return f"{contract_type}{new_number:03d}/{year}{suffix}", new_number
+    # RAO-P1-022: Zawsze prefiks "S" (nie contract_type) — zgodne z wymogiem klienta
+    return f"S{new_number:03d}/{year}{suffix}", new_number
 
 
 async def copy_fee_templates(db: AsyncSession, contract_id: int, contract_type: str):
@@ -236,7 +240,7 @@ class ContractService:
                 latitude=c.latitude,
                 longitude=c.longitude,
                 date_from=c.date_from, date_to=c.date_to,
-                total_value=c.total_value,
+                # RAO-P1-021/P2-033: total_value usunięte
                 prepayment_amount=c.prepayment_amount,
                 prepayment_document=c.prepayment_document,
                 invoice_amount=c.invoice_amount,
@@ -334,7 +338,7 @@ class ContractService:
                 latitude=c.latitude,
                 longitude=c.longitude,
                 date_from=c.date_from, date_to=c.date_to,
-                total_value=c.total_value,
+                # RAO-P1-021/P2-033: total_value usunięte
                 prepayment_amount=c.prepayment_amount,
                 prepayment_document=c.prepayment_document,
                 invoice_amount=c.invoice_amount,
@@ -660,13 +664,16 @@ class ContractService:
         await db.commit()
         await copy_fee_templates(db, contract_id, contract.contract_type)
 
-    async def recalculate_total(self, db: AsyncSession, contract_id: int):
-        """Recalculate total_value using the cascading tiered algorithm.
+    async def recalculate_total(self, db: AsyncSession, contract_id: int) -> Decimal:
+        """Recalculate contract total using the cascading tiered algorithm.
 
         RAO-P0-033: Previously used SUM(rate1 * period_count) which ignored
         quantity, billing_frequency, rate2 ("powyżej"), and the tiered
         calculation. Now uses calculate_position_value from stats/calc.py
         which is the single source of truth for position value.
+
+        RAO-P1-021/P2-033: Nie zapisuje już do contracts.total_value (kolumna usunięta).
+        Zwraca tylko total do wyświetlenia w UI.
         """
         from stats.calc import calculate_position_value
         contract = await self.get_contract(db, contract_id)
@@ -705,9 +712,8 @@ class ContractService:
                 conditions=cond_dicts,
             )
             total += pos_value
-        contract.total_value = total
-        await db.commit()
-        await db.refresh(contract)
+        # RAO-P1-021/P2-033: nie zapisujemy do DB (total_value usunięte)
+        return total
         return total
 
 

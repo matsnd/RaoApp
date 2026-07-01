@@ -1013,7 +1013,8 @@ const selectedPosId = ref(null)
 const form = ref({
   contractor_id: null, branch_id: null, salesperson_id: null,
   contract_type: 'S', delivery_address: '', postal_code: '', city: '', latitude: null, longitude: null, date_from: '', date_to: '',
-  total_value: 0, prepayment_amount: 0, prepayment_document: '',
+  // RAO-P1-021/P2-033: total_value usunięte (martwe pole)
+  prepayment_amount: 0, prepayment_document: '',
   invoice_amount: 0, invoice_document: '', notes: '',
   contact_person1: '', contact_phone1: '', show_person1: true,
   contact_person2: '', contact_phone2: '', show_person2: true,
@@ -1034,8 +1035,8 @@ const settlementTotalFormatted = computed(() => {
 })
 
 const remainingValue = computed(() => {
-  // RAO-P1-021: użyj wartości z rozliczenia jeśli są settlements, inaczej total_value
-  const total = settlements.value.length ? settlementTotalValue.value : (Number(form.value.total_value) || 0)
+  // RAO-P1-021/P2-033: użyj wartości z rozliczenia (total_value usunięte)
+  const total = settlements.value.length ? settlementTotalValue.value : 0
   const pre = Number(form.value.prepayment_amount) || 0
   const inv = Number(form.value.invoice_amount) || 0
   const remaining = total - pre - inv
@@ -1481,8 +1482,8 @@ async function handleSave() {
 async function recalcTotal() {
   if (!isEdit.value) return
   try {
-    const { data } = await api.post(`/contracts/${props.id}/recalculate`)
-    form.value.total_value = data.total_value
+    // RAO-P1-021/P2-033: nie zapisujemy total_value (usunięte), tylko odświeżamy settlements
+    await api.post(`/contracts/${props.id}/recalculate`)
     await contractStore.fetchOne(Number(props.id))
   } catch (e) {
     alert(e.response?.data?.detail || 'Błąd kalkulacji')

@@ -241,9 +241,7 @@
         <p style="margin:0 0 4px 0;"><strong>Ilość dni pracy w tygodniu:</strong> {% if contract.working_days_per_week %}{{ contract.working_days_per_week }}{% else %}6{% endif %}.</p>
         <p style="margin:0;"><strong>Dokumentacja zdjęciowa:</strong> wykonano.</p>
         {% endif %}
-        {% if contract.total_value %}
-        <div style="margin-top:8px;font-size:9px;"><strong>Wartość umowy: {{ contract.total_value | money }}</strong></div>
-        {% endif %}
+        {# RAO-P1-021/P2-033: Wartość umowy usunięte (martwe pole) #}
       </div>
     </td>
   </tr>

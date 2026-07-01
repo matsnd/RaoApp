@@ -26,7 +26,7 @@ class Contract(Base):
     longitude = Column(Numeric(11, 8), nullable=True)
     date_from = Column(Date, nullable=True)
     date_to = Column(Date, nullable=True)
-    total_value = Column(Numeric(18, 2), nullable=True, default=0)
+    # RAO-P1-021/P2-033: total_value usunięte (martwe pole, 100% NULL)
     prepayment_amount = Column(Numeric(18, 2), nullable=True, default=0)
     prepayment_document = Column(String(200), nullable=True)
     invoice_amount = Column(Numeric(18, 2), nullable=True, default=0)

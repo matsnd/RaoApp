@@ -99,6 +99,15 @@ async def fleet_summary(
     if internal_number:
         all_pos = [p for p in all_pos if p["internal_number"] == internal_number]
     period_revenue = sum(p["revenue"] for p in all_pos)
+    # RAO-P2-032: breakdown po źródłach (actual vs estimate)
+    revenue_actual = sum(p["revenue"] for p in all_pos if p.get("revenue_source") == "actual")
+    revenue_estimate = sum(p["revenue"] for p in all_pos if p.get("revenue_source") in ("estimate_lookup", "estimate_tiered"))
+    if revenue_estimate == 0:
+        revenue_source_label = "rzeczywiste"
+    elif revenue_actual == 0:
+        revenue_source_label = "szacunek"
+    else:
+        revenue_source_label = "mieszane"
 
     # Contracts in period
     cnt_q = await db.execute(
@@ -130,6 +139,9 @@ async def fleet_summary(
         top_machine_name=top_name,
         top_machine_revenue=top_rev,
         contracts_in_period=contracts_in_period,
+        revenue_actual=revenue_actual,
+        revenue_estimate=revenue_estimate,
+        revenue_source_label=revenue_source_label,
     )
 
 

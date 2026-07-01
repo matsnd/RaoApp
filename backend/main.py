@@ -441,6 +441,15 @@ async def startup_migrations():
             "ALTER TABLE contract_service_fees ADD COLUMN IF NOT EXISTS "
             "default_price DECIMAL(18,2) NULL"
         ))
+        # RAO-P1-021/P2-033: DROP COLUMN contracts.total_value (martwe pole, 100% NULL)
+        # Zgoda użytkownika: potwierdzone w przepytywaniu backlogu.
+        # try/except bo MariaDB <10.6 nie wspiera IF EXISTS w DROP COLUMN.
+        try:
+            await conn.execute(sa.text(
+                "ALTER TABLE contracts DROP COLUMN total_value"
+            ))
+        except Exception:
+            pass  # kolumna już nie istnieje — OK
 
     # FK + index dodawane z IF NOT EXISTS (MariaDB 10.0.2+ dla FK, 10.0.9+ dla indeksów)
     # RAO-P2-012 spike: commented out FK constraints due to MariaDB version compatibility (not in scope)

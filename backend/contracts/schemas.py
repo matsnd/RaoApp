@@ -154,7 +154,7 @@ class ContractListItem(BaseModel):
     longitude: Decimal | None
     date_from: date | None
     date_to: date | None
-    total_value: Decimal | None
+    # RAO-P1-021/P2-033: total_value usunięte (martwe pole, 100% NULL)
     prepayment_amount: Decimal | None
     invoice_amount: Decimal | None
     notes: str | None
@@ -190,7 +190,7 @@ class ContractDetail(BaseModel):
     longitude: Decimal | None
     date_from: date | None
     date_to: date | None
-    total_value: Decimal | None
+    # RAO-P1-021/P2-033: total_value usunięte
     prepayment_amount: Decimal | None
     prepayment_document: str | None
     invoice_amount: Decimal | None
@@ -235,7 +235,7 @@ class ContractCreate(BaseModel):
     longitude: Decimal | None = None
     date_from: date | None = None
     date_to: date | None = None
-    total_value: Decimal | None = Decimal("0.00")
+    # RAO-P1-021/P2-033: total_value usunięte
     prepayment_amount: Decimal | None = None
     prepayment_document: str | None = None
     invoice_amount: Decimal | None = None
@@ -261,7 +261,8 @@ class ContractCreate(BaseModel):
         if self.date_from and self.date_to and self.date_from > self.date_to:
             raise ValueError("Data rozpoczęcia (date_from) nie może być po dacie zakończenia (date_to).")
         # RAO-P1-039: monetary fields must be non-negative
-        for field in ("total_value", "prepayment_amount", "invoice_amount"):
+        # RAO-P1-021/P2-033: total_value usunięte z walidacji
+        for field in ("prepayment_amount", "invoice_amount"):
             v = getattr(self, field)
             if v is not None and v < 0:
                 raise ValueError(f"{field} nie może być ujemne.")
@@ -286,7 +287,7 @@ class ContractUpdate(BaseModel):
     longitude: Decimal | None = None
     date_from: date | None = None
     date_to: date | None = None
-    total_value: Decimal | None = None
+    # RAO-P1-021/P2-033: total_value usunięte
     prepayment_amount: Decimal | None = None
     prepayment_document: str | None = None
     invoice_amount: Decimal | None = None
@@ -311,7 +312,7 @@ class ContractUpdate(BaseModel):
         # RAO-P1-039: same validation as ContractCreate (partial — only check set fields)
         if self.date_from and self.date_to and self.date_from > self.date_to:
             raise ValueError("Data rozpoczęcia (date_from) nie może być po dacie zakończenia (date_to).")
-        for field in ("total_value", "prepayment_amount", "invoice_amount"):
+        for field in ("prepayment_amount", "invoice_amount"):
             v = getattr(self, field)
             if v is not None and v < 0:
                 raise ValueError(f"{field} nie może być ujemne.")

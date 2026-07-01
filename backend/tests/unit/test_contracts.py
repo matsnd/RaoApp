@@ -20,7 +20,7 @@ def test_contract_create_minimal_valid():
     c = ContractCreate(contractor_id=1)
     assert c.contractor_id == 1
     assert c.contract_type == "S"
-    assert c.total_value == Decimal("0.00")
+    # RAO-P1-021/P2-033: total_value usunięte
     assert c.working_days_per_week == 6
 
 
@@ -88,35 +88,31 @@ def test_condition_description_max_length():
 
 @pytest.mark.asyncio
 async def test_generate_contract_number_warsaw_no_suffix():
-    """Branch other than Gdańsk (or no branch) → no suffix."""
+    """Branch Warszawa (id=1) → no suffix. RAO-P1-022: branch_id=1 = Warszawa."""
     db = AsyncMock()
     company_result = MagicMock()
     company_result.scalar_one_or_none.return_value = 100
     max_result = MagicMock()
     max_result.scalar_one_or_none.return_value = 165
-    branch_result = MagicMock()
-    branch_result.scalar_one_or_none.return_value = "Warszawa"
 
-    db.execute = AsyncMock(side_effect=[company_result, max_result, branch_result])
+    db.execute = AsyncMock(side_effect=[company_result, max_result])
 
     number, auto = await generate_contract_number(db, "S", branch_id=1)
     assert auto == 166
-    assert number.endswith("/2026")
+    assert number == "S166/2026"
     assert "G" not in number
 
 
 @pytest.mark.asyncio
 async def test_generate_contract_number_gdansk_suffix():
-    """Branch Gdańsk → suffix 'G'."""
+    """Branch Gdańsk (id≠1) → suffix 'G'. RAO-P1-022: branch_id≠1 = Gdańsk."""
     db = AsyncMock()
     company_result = MagicMock()
     company_result.scalar_one_or_none.return_value = 100
     max_result = MagicMock()
     max_result.scalar_one_or_none.return_value = 165
-    branch_result = MagicMock()
-    branch_result.scalar_one_or_none.return_value = "Gdańsk"
 
-    db.execute = AsyncMock(side_effect=[company_result, max_result, branch_result])
+    db.execute = AsyncMock(side_effect=[company_result, max_result])
 
     number, auto = await generate_contract_number(db, "S", branch_id=2)
     assert auto == 166
@@ -124,20 +120,19 @@ async def test_generate_contract_number_gdansk_suffix():
 
 
 @pytest.mark.asyncio
-async def test_generate_contract_number_gdansk_case_insensitive():
-    """Branch name case-insensitive match for GDAŃSK."""
+async def test_generate_contract_number_always_S_prefix():
+    """RAO-P1-022: Wszystkie umowy zaczynają się na S, nawet typ U."""
     db = AsyncMock()
     company_result = MagicMock()
     company_result.scalar_one_or_none.return_value = 100
     max_result = MagicMock()
     max_result.scalar_one_or_none.return_value = 165
-    branch_result = MagicMock()
-    branch_result.scalar_one_or_none.return_value = "GDAŃSK"
 
-    db.execute = AsyncMock(side_effect=[company_result, max_result, branch_result])
+    db.execute = AsyncMock(side_effect=[company_result, max_result])
 
-    number, auto = await generate_contract_number(db, "U", branch_id=2)
-    assert number.endswith("/2026G")
+    number, auto = await generate_contract_number(db, "U", branch_id=1)
+    assert number.startswith("S")  # nie "U" — wszystkie na S
+    assert number == "S166/2026"
 
 
 @pytest.mark.asyncio
@@ -203,10 +198,6 @@ def test_contract_create_date_from_after_date_to_rejected():
     with pytest.raises(ValidationError):
         ContractCreate(contractor_id=1, date_from=date(2026, 7, 1), date_to=date(2026, 6, 1))
 
-def test_contract_create_negative_total_value_rejected():
-    with pytest.raises(ValidationError):
-        ContractCreate(contractor_id=1, total_value=Decimal("-100"))
-
 def test_contract_create_negative_prepayment_rejected():
     with pytest.raises(ValidationError):
         ContractCreate(contractor_id=1, prepayment_amount=Decimal("-50"))
@@ -220,8 +211,9 @@ def test_contract_update_date_from_after_date_to_rejected():
         ContractUpdate(date_from=date(2026, 7, 1), date_to=date(2026, 6, 1))
 
 def test_contract_update_negative_amount_rejected():
+    # RAO-P1-021/P2-033: total_value usunięte — testujemy prepayment_amount
     with pytest.raises(ValidationError):
-        ContractUpdate(total_value=Decimal("-1"))
+        ContractUpdate(prepayment_amount=Decimal("-1"))
 
 
 # ── RAO-P1-041: JWT secret key validation ─────────────────────────────────────

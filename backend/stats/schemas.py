@@ -11,6 +11,10 @@ class FleetSummary(BaseModel):
     top_machine_name: str | None
     top_machine_revenue: Decimal | None
     contracts_in_period: int
+    # RAO-P2-032: breakdown po źródłach przychodu (actual/estimate_lookup/estimate_tiered)
+    revenue_actual: Decimal | None = None
+    revenue_estimate: Decimal | None = None
+    revenue_source_label: str | None = None  # "rzeczywiste" | "szacunek" | "mieszane"
 
 
 class TopMachineItem(BaseModel):

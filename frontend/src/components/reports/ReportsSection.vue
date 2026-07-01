@@ -192,6 +192,16 @@
             <div class="kpi-value">{{ formatMoney(statsStore.summary.period_revenue) }}</div>
             <div class="kpi-label">Przychód w okresie</div>
             <div class="kpi-sub">{{ statsStore.summary.contracts_in_period }} umów</div>
+            <div class="kpi-sub" v-if="statsStore.summary.revenue_source_label" :class="{
+              'kpi-source-actual': statsStore.summary.revenue_source_label === 'rzeczywiste',
+              'kpi-source-estimate': statsStore.summary.revenue_source_label === 'szacunek',
+              'kpi-source-mixed': statsStore.summary.revenue_source_label === 'mieszane'
+            }">
+              {{ statsStore.summary.revenue_source_label }}
+              <span v-if="statsStore.summary.revenue_actual > 0 && statsStore.summary.revenue_estimate > 0">
+                ({{ formatMoney(statsStore.summary.revenue_actual) }} rzeczywiste + {{ formatMoney(statsStore.summary.revenue_estimate) }} szacunek)
+              </span>
+            </div>
           </div>
           <div class="kpi-card kpi-highlight" v-if="statsStore.summary.top_machine_name">
             <div class="kpi-value kpi-small">{{ statsStore.summary.top_machine_name }}</div>
@@ -2273,6 +2283,10 @@ onBeforeUnmount(() => {
   color: #A0AEC0;
   margin-top: 2px;
 }
+/* RAO-P2-032: label źródła przychodu */
+.kpi-source-actual { color: #38a169; font-weight: 600; }
+.kpi-source-estimate { color: #d69e2e; font-weight: 600; }
+.kpi-source-mixed { color: #805ad5; font-weight: 600; }
 
 .charts-row {
   display: grid;
