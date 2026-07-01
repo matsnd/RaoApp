@@ -1264,6 +1264,44 @@ Operator dostarczył 4 PDFy (2 umowy + 2 protokoły PZO) — zanalizowano ekstra
 
 W nowej aplikacji te "uwagi" powinny trafić do `contract.notes` (lub zostać jako default gdy `notes` puste — już działa w `contract.html` template).
 
+#### DWA równoległe systemy usług dodatkowych w starej aplikacji (KLUCZOWE)
+
+Analiza starej bazy + kodu WinForms ujawniła **dwa oddzielne systemy** usług dodatkowych:
+
+**System 1 — "oplaty" (per UMOWA, plain text, na PDF):**
+- Tabela: `umowa2.oplaty` VARCHAR(1000) — snapshot tekstu per umowa
+- Szablon: `firma.uslugi1` (typ S) / `firma.uslugi2` (typ U)
+- Flow: auto-fill z szablonu → ręczna edycja multiline → zapis do `umowa2.oplaty`
+- Render: sekcja "Inne usługi" na PDF umowy (1:1, bez parsowania)
+- **To ten system jest używany w praktyce** (742 umów z danymi w `oplaty`)
+
+**System 2 — "koszt" (per POZYCJA, strukturalny, do rozliczenia):**
+- Tabele: `koszt_typ` (słownik) + `koszt` (per pozycja umowy)
+- `koszt_typ` — 5 typów (słownik):
+  ```
+  1002: Tankowanie
+  1003: Ponadnormatywny koszt przestoju
+  1004: Transport
+  1005: Czyszczenie drobne
+  1006: Czyszczenie pelne
+  ```
+- `koszt` — rekordy: id, id_typu (FK), id_umowa_pozyjca (FK do pozycji), opis, kwota, data
+- Flow: `FormKoszt.cs` — menu kontekstowe na pozycji umowy → "Dodaj koszt" → wybór z `koszt_typ` + kwota
+- Sumowanie: `podsumujkoszty()` w `FormU4.cs:1362` — `SELECT SUM(kwota) FROM koszt WHERE id_umowa_pozyjca=X`
+- **Tabela `koszt` jest PUSTA w dumpie (0 rekordów)** — system zaimplementowany ale nieużywany w praktyce
+
+**Wniosek dla migracji (P2-059):**
+
+1. **Migracja danych:** `umowa2.oplaty` (System 1) → `contract_service_fees` (per umowa) — to główny strumień
+2. **Słownik `koszt_typ` (5 typów) → artykuły `is_service=1`:** to są dokładnie te same typy co regex wzorce! Można ich użyć jako bazowych artykułów usług przy migracji:
+   - 1002 Tankowanie → Article "Tankowanie" (is_service=1)
+   - 1003 Przestój → Article "Ponadnormatywny przestój" (is_service=1)
+   - 1004 Transport → Article "Transport" (is_service=1)
+   - 1005 Czyszczenie drobne → Article "Czyszczenie (drobne)" (is_service=1)
+   - 1006 Czyszczenie pelne → Article "Czyszczenie (trudne)" (is_service=1)
+3. **System 2 (per pozycja) — przyszła ewolucja:** RAO ma obecnie `contract_service_fees` (per umowa). System per pozycja (jak `koszt`) może być Faza 3 — dodanie `ContractPositionServiceFee` gdy biznes tego wymaga (np. różne koszty transportu per maszyna w jednej umowie)
+4. **Brak danych do migracji z `koszt`:** tabela pusta, nie wymaga migracji rekordów
+
 #### Acceptance criteria
 
 Faza 1 (to zadanie):
