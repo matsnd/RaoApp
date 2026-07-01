@@ -119,6 +119,19 @@ async def list_archive_contracts(
     )
     rows = (await db.execute(stmt)).scalars().all()
 
+    # Bulk load pozycji z warunkami dla umów na tej stronie — obliczenie revenue_estimate
+    contract_ids = [c.id for c in rows]
+    revenue_by_contract: dict[int, Decimal] = defaultdict(lambda: Decimal("0.00"))
+    if contract_ids:
+        pos_stmt = (
+            select(ArchiveContractPosition)
+            .where(ArchiveContractPosition.contract_id.in_(contract_ids))
+            .options(selectinload(ArchiveContractPosition.conditions))
+        )
+        positions = (await db.execute(pos_stmt)).scalars().all()
+        for p in positions:
+            revenue_by_contract[p.contract_id] += _estimate_position_value(p)
+
     items: list[ArchiveContractListItem] = []
     for c in rows:
         duration = (c.date_to - c.date_from).days if c.date_from and c.date_to else None
@@ -146,6 +159,7 @@ async def list_archive_contracts(
                 settled_at=c.settled_at,
                 position_count=c.position_count,
                 duration_days=duration,
+                revenue_estimate=revenue_by_contract.get(c.id, Decimal("0.00")),
                 created_at=c.created_at,
             )
         )

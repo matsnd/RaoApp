@@ -1598,7 +1598,7 @@ Top maszyny (10) i top kontrahenci (5) filtrowani po PNA. Przychód ze `shared.r
 
 **Filtry drill-down** (RAO-P2-062 Faza 3): `city` + `article_id` — używane przez drawer w statystykach (klik wiersz Top maszyny → `article_id`, klik wiersz Miasta → `city`).
 
-**Response:** `PaginatedResponse[ArchiveContractListItem]` (bez `is_legacy`)
+**Response:** `PaginatedResponse[ArchiveContractListItem]` (bez `is_legacy`, z `revenue_estimate` — suma `_estimate_position_value` z pozycji umowy)
 **HTTP:** 200 | 401
 
 ### `GET /archive/contracts/{contract_id}`

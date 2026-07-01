@@ -188,6 +188,7 @@ class ArchiveContractListItem(BaseModel):
     settled_at: datetime | None = None
     position_count: int | None = None
     duration_days: int | None = None
+    revenue_estimate: Decimal = Decimal("0.00")
     created_at: datetime
 
     class Config:

@@ -88,7 +88,7 @@
                   <td>{{ formatDate(c.date_to) }}</td>
                   <td>{{ c.position_count ?? '—' }}</td>
                   <td>
-                    <span class="est-value">{{ formatMoney(c.invoice_amount) }}</span>
+                    <span class="est-value">{{ formatMoney(c.revenue_estimate) }}</span>
                     <span class="est-suffix">[szac.]</span>
                   </td>
                   <td>
@@ -604,7 +604,7 @@
                   <td>{{ formatDate(c.date_from) }} – {{ formatDate(c.date_to) }}</td>
                   <td>{{ c.date_from && c.date_to ? Math.round((new Date(c.date_to) - new Date(c.date_from)) / 86400000) : '—' }}</td>
                   <td>
-                    <span class="est-value">{{ formatMoney(c.invoice_amount) }}</span>
+                    <span class="est-value">{{ formatMoney(c.revenue_estimate) }}</span>
                     <span class="est-suffix">[szac.]</span>
                   </td>
                   <td v-if="drillDown.type === 'city'">{{ c.city || '—' }}</td>
@@ -1135,13 +1135,10 @@ onMounted(() => {
   gap: var(--spacing-4);
 }
 
-/* ── Szacunkowe wartości (kreska — przekreślone) ───────────────────────────── */
+/* ── Szacunkowe wartości (bez przekreślenia — czytelne) ────────────────────── */
 .est-value {
-  color: var(--color-text-muted);
+  color: var(--color-text-body);
   font-weight: var(--font-weight-medium);
-  text-decoration: line-through;
-  text-decoration-color: var(--color-warning);
-  text-decoration-thickness: 2px;
 }
 .est-suffix {
   color: var(--color-warning);

@@ -32,6 +32,7 @@ export interface ArchiveContractListItem {
   settled_at: string | null
   position_count: number | null
   duration_days: number | null
+  revenue_estimate: string
   created_at: string
 }
 
