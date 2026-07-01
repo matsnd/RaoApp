@@ -1408,6 +1408,319 @@ Faza 1 (to zadanie):
 
 ---
 
+### [RAO-P2-060] Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA
+
+```yaml
+id: RAO-P2-060
+priority: P1
+size: L
+status: triaged
+classification: cross-stack/feature+bugfix
+roles: [tech-lead, db-architect, backend-dev, frontend-dev, ux-designer, qa-engineer, product-owner]
+source: operator-request
+source_date: 2026-07-01
+specs_to_update:
+  - core/01_database.md (indeksy + sync contract_settlements DDL)
+  - core/02_backend_api.md (6 schemas z revenue_source_label)
+  - core/03_frontend_screens.md (StatsView + sidebar)
+  - core/04_business_logic.md (ortogonalność is_legacy vs revenue_source vs settlements.source)
+  - core/11_reports_stats.md (rozróżnienie legacy vs nowe)
+migration_impact: no (brak zmian schema, tylko indeksy)
+security_impact: low (read-only stats, auth już na endpointach)
+depends_on:
+  - RAO-P2-028 (is_legacy flag — foundation istnieje)
+  - RAO-P2-032 (contract_settlements.source — foundation istnieje)
+```
+
+**Problem:**
+
+Klient wyraźnie zaznaczył: "wartości w starej aplikacji to tylko cennik, nie finalne wartości — nie możemy tego pokazywać jako wartości, jedynie szacunek. Trzeba odkreślić legacy umowy i nowe".
+
+Stare umowy (legacy, `is_legacy=1`) mają tylko `position_conditions.rate1 × period_count` = **cennik teoretyczny**. Nowe umowy mają `contract_settlements.cost_client` = **prawdziwe kwoty z rozliczeń**. Mieszanie tych dwóch źródeł w statystykach = **zafałszowane ROI**, błędne decyzje o wycofaniu/zakupie maszyn.
+
+Dodatkowo klient wymaga 6 funkcji analitycznych:
+1. Ile razy maszyna (z nr wewnętrznym) wynajęta w okresie (mies/3mies/rok) — stopa zwrotu
+2. Ile maszyn wynajętych teraz
+3. Numer wewnętrzny dla każdej maszyny (już istnieje — założenie spełnione)
+4. Sumowanie pozycji dodatkowych (transport, mycie, ładowanie) za okresy
+5. Top maszyny po ilości wypożyczeń + kategorie
+6. Gruba krecha: legacy archiwalne (szacunek) vs nowe (prawdziwe wartości)
+
+**Co już istnieje (konsensus zespołu):**
+
+| Element | Status |
+|---------|--------|
+| `contracts.is_legacy` TINYINT(1) | ✓ (RAO-P2-028) |
+| `contract_settlements.source` (legacy/fakturownia/manual) | ✓ (RAO-P2-032) |
+| `revenue_source` computed per-pozycja (actual/estimate_lookup/estimate_tiered) | ✓ w `shared/revenue.py` |
+| `rozliczenie` zmigrowane do `contract_settlements` (source='legacy') | ✓ `step10_import_rozliczenie()` |
+| 16 endpointów stats z filtrem `is_legacy` | ✓ backend gotowy w 70% |
+| `Article.internal_number` (nr wewnętrzny) | ✓ |
+| `Article.replacement_value` (do ROI) | ✓ |
+| `FleetSummary` zwraca `revenue_actual`/`revenue_estimate`/`revenue_source_label` | ✓ (tylko ten endpoint) |
+
+**Kluczowa wiedza biznesowa — 3 ortogonalne osie (Tech Lead):**
+
+| `is_legacy` | `revenue_source` | Niezawodność kwoty | Interpretacja |
+|-------------|------------------|---------------------|---------------|
+| `true` | `actual` | **NIEZAWODNA** | Archiwalna umowa z `rozliczenie` import — prawdziwa kwota |
+| `true` | `estimate_*` | NIEPEWNA | Archiwalna umowa, brak rozliczenia → szacunek z cennika |
+| `false` | `actual` | **NIEZAWODNA** | Nowa umowa rozliczona (Fakturownia/manual) |
+| `false` | `estimate_*` | NIEPEWNA | Nowa umowa, aktywna/nierozliczona (oczekiwane) |
+
+**Wniosek:** "Gruba krecha" musi być per-KPI (na `revenue_source`), nie per-widok (na `is_legacy`) — bo archiwalna umowa z `source='legacy'` settlement ma **prawdziwą** kwotę.
+
+---
+
+#### DECYZJE UŻYTKOWNIKA (zarejestrowane 2026-07-01)
+
+**Decyzja 1: Gruba krecha = Osobna zakładka "Archiwum (szacunkowe)"**
+
+- **Wybrano:** Osobna zakładka "Archiwum (szacunkowe)" z szarym tłem + banner + suffix `[szac.]` przy każdej liczbie
+- **Odrzucono:** Toggle 3-stanowy (miesza dane), sekcja na dole (scroll zaciera kreskę)
+- **Realizacja (UX Designer):**
+  - 3 zakładki w `StatsView.vue`: `[ Flota teraz ] [ Wynajem w okresie ] [ Archiwum (szacunkowe) 📦 ]`
+  - Zakładka "Archiwum" — szare tło (`--color-bg-light` #F8F9FA) + żółty border (`--color-warning` 30% opacity)
+  - Banner na górze: "⚠️ Dane historyczne (szacunkowe) — wartości przed migracją do RAO. Nie pochodzą z systemu rozliczeń. NIE sumuj z 'Wynajem w okresie'."
+  - Każda liczba w archiwum ma suffix `[szac.]` w kolorze `--color-warning`
+  - Tooltip na `[szac.]`: "Wartość oszacowana na podstawie stawek katalogowych. Dokładna kwota nie jest znana — dane pochodzą z systemu sprzed migracji."
+  - W zakładce "Wynajem w okresie" gdy `revenue_source_label === "mieszane"`: rozkład "12 500 zł (rzeczywiste) + 3 200 zł [szac.]" z tooltipem
+- **User nigdy nie ma wątpliwości** czy patrzy na prawdziwe dane czy szacunek
+
+**Decyzja 2: Lokalizacja = Nowy StatsView + nowa pozycja w sidebarze**
+
+- **Wybrano:** Nowy widok `StatsView.vue` z 3 zakładkami + nowa pozycja "Statystyki" w sidebarze
+- **Odrzucono:** Rozbudowa WorkerView (staje się duży, mieszanie concerns)
+- **Realizacja (UX Designer):**
+  - Nowy plik: `frontend/src/views/StatsView.vue`
+  - Nowa pozycja w sidebarze: między "Pulpit" a "Prowizje"
+  - Routing: `dashboard/stats` (rozszerzenie patternu `dashboard/:section`)
+  - Domyślna zakładka: "Wynajem w okresie" (najczęstszy use case)
+  - Nie ruszać `DashboardView.vue` (grid operacyjny), `WorkerView.vue` (Pulpit), `HomeView.vue` (operacyjne)
+
+**Decyzja 3: Bugfix QA = Wszystkie 9 bugów w tym zadaniu**
+
+- **Wybrano:** Naprawić wszystkie 9 bugów razem ze statystykami (jeden PR, jeden review)
+- **Odrzucono:** Tylko 3 krytyczne, osobne zadanie
+- **Bugy do naprawy (QA Engineer):**
+
+| # | Bug | Plik:linia | Krytyczność | Fix |
+|---|-----|-----------|-------------|-----|
+| 1 | `overdue_contracts` zasypane legacy umowami (brak filtra `is_legacy`) | `stats/router.py:712` | 🔴 P0 | Dodać `is_legacy=False` domyślnie + param `include_legacy=true` |
+| 2 | `contracts_in_period` w `fleet_summary` ignoruje filtr `is_legacy` | `stats/router.py:117` | 🔴 P0 | Dodać `is_legacy` do query |
+| 3 | Umowa z `date_to=NULL` (na czas nieokreślony) nie liczona w `currently_rented` | `stats/router.py:223` | 🔴 P0 | `(date_to IS NULL OR date_to >= today) AND date_from <= today` |
+| 4 | Settlement z `cost_client=0` traktowany jak brak settlement | `shared/revenue.py:230` | 🟡 P1 | `IS NOT NULL` zamiast `> 0` |
+| 5 | Settlement z ujemnym `cost_client` (korekta) traktowany jak brak | `shared/revenue.py:230` | 🟡 P1 | Obsługa korekt |
+| 6 | `Contract.date_from=NULL` crashuje `compute_position_revenues` (TypeError) | `shared/revenue.py:240` | 🔴 P0 | `if p[13] is None or p[14] is None: continue` |
+| 7 | `Contract.date_to=NULL` — jw. | `shared/revenue.py:241` | 🔴 P0 | jw. |
+| 8 | `revenue_source_label="rzeczywiste"` gdy revenue=0 (pusta baza) | `stats/router.py:105-110` | 🟡 P1 | "brak danych" gdy revenue=0 |
+| 9 | `unprinted_contracts` łapie niedawno zmigrowane legacy | `stats/router.py:781` | 🟡 P1 | Filtr `is_legacy=False` |
+
+**Decyzja 4: Indeksy DB = 3 indeksy obowiązkowe**
+
+- **Wybrano:** Dodać 3 indeksy w `main.py` startup (idempotentne `ALTER TABLE ADD INDEX IF NOT EXISTS`)
+- **Odrzucono:** + 2 optional composite (zostaw na później), nie dodawaj (3.8k umów OK bez indeksów)
+- **Indeksy do dodania (DB Architect):**
+  - `idx_contracts_legacy (is_legacy)` — dla filtra `WHERE is_legacy = :is_legacy`
+  - `idx_settlements_source (source)` — dla filtra `WHERE source='legacy'`
+  - `idx_settlements_settled_at (settled_at)` — dla filtra po dacie rozliczenia
+- **Synchronizacja:** `spec/core/01_database.md` — sync DDL `contract_settlements` (dodać `settled_at`, `source`, `UNIQUE` — spec drift wykryty przez DB Architect)
+
+---
+
+#### Scope implementacji
+
+**Faza 1: Backend (ujednolicenie + bugfix) — backend-dev + db-architect**
+
+1. **DB (db-architect):** 3 indeksy w `main.py` startup + sync `spec/core/01_database.md`
+2. **Backend ujednolicenie (backend-dev):**
+   - Dodać pola `revenue_actual`, `revenue_estimate`, `revenue_source_label` do 6 schemas: `TopMachineItem`, `PositionStatsResponse`, `CategoryStatsResponse`, `ByPeriodResponse`, `AdditionalFeesResponse`, `MachineRoiResponse`
+   - Wyciągnąć helper `summarize_revenue_sources(all_pos) -> dict` do `shared/revenue.py` (DRY — uniknąć 7 kopii z `fleet_summary:103-110`)
+   - W 7 endpointach (top-machines, machine-roi, additional-fees, by-category, by-period, positions, locations) dodać sumację po `revenue_source`
+   - Dodać `is_legacy` filter do `/machine-roi` i `/commissions`
+   - **NIE zmieniać** algorytmu w `shared/revenue.py` (precedence `actual > lookup > tiered` jest poprawna)
+3. **Backend bugfix (backend-dev):** 9 bugów z tabeli powyżej
+4. **Backend luka funkcjonalna (backend-dev):** `compute_position_revenues` nie agreguje service_fees — dodać `compute_service_fee_revenues()` lub rozszerzyć istniejącą funkcję (settlements z `service_fee_id IS NOT NULL`)
+
+**Faza 2: Frontend (StatsView + gruba krecha) — frontend-dev + ux-designer**
+
+1. **Nowy plik `StatsView.vue`** z 3 zakładkami:
+   - **Flota teraz:** KPI "Wynajęte teraz X/Y" + pasek + rozwijana lista (endpoint `/stats/currently-rented`)
+   - **Wynajem w okresie:** KPI row (4 karty) + Stopa zwrotu (karta z % + pasek + kontekst) + Top maszyny (tabela) + Pozycje dodatkowe (tabela z sumą) + Top kategorie (bar chart)
+   - **Archiwum (szacunkowe):** szare tło + banner + suffix `[szac.]` + te same widgety ale z `is_legacy=true`
+2. **Filtry (wspólne dla zakładek 2 i 3):**
+   - Presety: `[ Miesiąc ] [ 3 miesiące ] [ Rok ] [ Własny: od ___ do ___ ]`
+   - `internal_number` — input z autouzupełnianiem (datalist z `/articles`)
+   - Walidacja: `od ≤ do`, numer wewn. musi istnieć
+3. **Sidebar:** nowa pozycja "Statystyki" między "Pulpit" a "Prowizje"
+4. **Routing:** `dashboard/stats` (rozszerzenie `dashboard/:section`)
+5. **Komponenty reużywalne:**
+   - `RevenueSourceBadge.vue` — wizualizuje `revenue_source_label` + proporcję actual/estimate
+   - `LegacyFilterBanner.vue` — banner ostrzegawczy dla archiwum
+   - `MachineRoiCard.vue` — karta ROI z obsługą `roi_pct=null` (CTA do edycji artykułu)
+6. **Empty states (6 dedykowanych — patrz UX Designer):**
+   - Brak danych legacy / brak settlements / brak wynajętych / brak pozycji dodatkowych / maszyna nie wynajmowana / błąd ładowania
+7. **Loading state:** skeleton loader na każdej karcie (NIE biała strona, NIE sam spinner)
+8. **Styl:** wyłącznie zmienne CSS z `style.css` (`--color-warning`, `--color-success`, `--color-text-muted`, `--color-bg-light`)
+
+**Faza 3: QA — qa-engineer**
+
+1. **Unit tests (pytest):** edge cases z raportu QA (30+ testów)
+   - `compute_position_value_lookup` — None/0/ujemne dni, puste conditions, NULL period_count
+   - `compute_position_revenues` — NULL dates, NULL cost_client, ujemne kwoty
+2. **Integration tests (pytest):** 16 endpointów z `is_legacy` filter, 9 bugów (regresja)
+3. **E2E (Playwright):**
+   - Smoke `01-login.spec.ts` (regresja)
+   - Nowy test: nawigacja do StatsView, przełączanie zakładek, weryfikacja badge'ów
+   - Weryfikacja: archiwum ma szare tło + banner + suffix `[szac.]`
+4. **Auth tests:** 401 bez tokenu na wszystkich 16 endpointach
+
+**Faza 4: Spec sync — tech-lead**
+
+- `spec/core/01_database.md` — 3 indeksy + sync `contract_settlements` DDL (settled_at, source, UNIQUE)
+- `spec/core/02_backend_api.md` — 6 schemas z nowymi polami
+- `spec/core/03_frontend_screens.md` — sekcja StatsView + sidebar
+- `spec/core/04_business_logic.md` — ortogonalność `is_legacy` vs `revenue_source` vs `settlements.source` (KLUCZOWE)
+- `spec/core/11_reports_stats.md` — rozróżnienie legacy vs nowe
+- `spec/technical/TECHNICAL_SOLUTIONS.md` — wzorzec "Ortogonalne flagi: is_legacy vs revenue_source"
+
+---
+
+#### Kryteria akceptacji (DoD)
+
+**Backend:**
+- [ ] 3 indeksy dodane (idempotentne, weryfikacja `SHOW INDEX`)
+- [ ] 6 schemas ma `revenue_actual`/`revenue_estimate`/`revenue_source_label`
+- [ ] 7 endpointów agreguje po `revenue_source` (nie "gubi" breakdown)
+- [ ] `/machine-roi` ma filtr `is_legacy`
+- [ ] 9 bugów naprawionych (testy regresji przechodzą)
+- [ ] `compute_position_revenues` agreguje service_fees (lub nowa funkcja)
+- [ ] `summarize_revenue_sources()` w `shared/revenue.py` (DRY, nie 7 kopii)
+- [ ] `pytest -x` przechodzi (30+ nowych testów)
+
+**Frontend:**
+- [ ] `StatsView.vue` z 3 zakładkami (Flota teraz / Wynajem w okresie / Archiwum)
+- [ ] Nowa pozycja "Statystyki" w sidebarze
+- [ ] Zakładka "Archiwum" ma szare tło + banner + suffix `[szac.]`
+- [ ] Filtry: presety (Mies/3mies/Rok) + własny zakres + `internal_number`
+- [ ] Stopa zwrotu: karta z % + pasek + kontekst (dni, umowy, wartość odtworzeniowa)
+- [ ] "Wynajęte teraz": licznik KPI + pasek + rozwijana lista
+- [ ] "Pozycje dodatkowe": tabela z sumą sticky + mini słupek + sortowanie
+- [ ] "Top kategorie": bar chart z `by-category`
+- [ ] 6 empty states z CTA
+- [ ] Loading state (skeleton)
+- [ ] `vue-tsc --noEmit` przechodzi
+- [ ] `npm run build` przechodzi
+
+**QA:**
+- [ ] Smoke `01-login.spec.ts` przechodzi
+- [ ] E2E StatsView przechodzi (nawigacja, zakładki, badge, archiwum)
+- [ ] Auth: 401 bez tokenu na 16 endpointach
+
+**Spec:**
+- [ ] `git diff --stat spec/core/` nie jest pusty
+- [ ] 5 plików spec zaktualizowanych
+- [ ] `spec/technical/` — wzorzec ortogonalnych flag
+
+---
+
+#### Edge cases (z raportu QA — do pokrycia testami)
+
+- `is_legacy=0` ale brak `contract_settlements` (nowa umowa bez rozliczenia) → `revenue_source="estimate_*"`, UI: "Nowa umowa, kwota szacunkowa (brak rozliczenia)"
+- `is_legacy=1` ale MA `contract_settlements` (legacy z ręcznym rozliczeniem) → `revenue_source="actual"`, UI: "legacy + ręczne rozliczenie = kwota rzeczywista"
+- `cost_client` NULL (częściowe rozliczenie) → flaga `settlement_incomplete=true`, UI: ostrzeżenie
+- Maszyna `is_archival=1` (sprzedana) → revenue liczone, ale `total_machines` jej nie liczy → UI: "N maszyn archiwalnych wniosło X przychodu"
+- `data_do` w przeszłości, brak rozliczenia (umowa niezamknięta) → w `overdue_contracts` (ale NIE legacy — bug #1)
+- `period_count` NULL → `compute_position_value_lookup` deterministyczny (zwraca 0 z flagą `conditions_incomplete`)
+- Ta sama maszyna na 2 pozycjach w 1 umowie → `top_machines.contracts_count=1`, `revenue=suma`, `total_rented_days`=suma (dokumentować)
+- `replacement_value=0` lub NULL → `roi_pct=null`, UI: "Brak wartości odtworzeniowej — ustaw w karcie artykułu" + link
+- Umowa bez `data_do` (na czas nieokreślony) → liczona w `currently_rented` (po bugfix #3)
+- `revenue_source_label="rzeczywiste"` gdy revenue=0 → "Brak danych o przychodzie" (po bugfix #8)
+
+---
+
+#### Priorytetyzacja 6 wymagań klienta (Product Owner)
+
+| # | Wymaganie | Priorytet | Uzasadnienie |
+|---|-----------|-----------|--------------|
+| 2 | Ile maszyn wynajętych teraz | **P0** | KPI operacyjny, backend gotowy, frontend podłączyć |
+| 6 | Legacy vs nowe rozróżnienie | **P0** | Fundament wiarygodności statystyk |
+| 1 | ROI maszyny (model + nr wewn.) w okresie | **P1** | Kluczowa decyzja inwestycyjna, wymaga `replacement_value` |
+| 5 | Top maszyny + kategorie | **P1** | Szybkie podłączenie, wysoka wartość |
+| 4 | Sumowanie pozycji dodatkowych | **P1** | Analiza kosztów klienta |
+| 3 | Numer wewnętrzny | **P2** | Założenie spełnione (już istnieje) |
+
+**Warunek brzegowy ROI:** Przed implementacją sprawdzić `SELECT COUNT(*) FILTER (WHERE replacement_value IS NULL) / COUNT(*) FROM articles WHERE is_service=0 AND is_archival=0`. Jeśli >30% NULL → dodać sub-zadanie "uzupełnij replacement_value z legacy".
+
+---
+
+#### Mockup layoutu StatsView (UX Designer)
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ [Toolbar: Statystyki — wynajem w okresie (bieżący miesiąc)]    [?]  │
+├─────────────────────────────────────────────────────────────────────┤
+│  ┌─ Filtry ──────────────────────────────────────────────────────┐  │
+│  │ Okres: [● Miesiąc] [ 3 mies. ] [ Rok ] [ Własny ▼ ]           │  │
+│  │ Numer wewn.: [ NW-014        ▼ ]  [ Wyczyść filtry ]          │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│  ┌─ Zakładki ────────────────────────────────────────────────────┐  │
+│  │ [ Flota teraz ] [● Wynajem w okresie ] [ Archiwum (szac.) 📦] │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│  ┌─ KPI row (4 karty) ───────────────────────────────────────────┐  │
+│  │ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐               │  │
+│  │ │Przychód │ │ Umowy   │ │ Dni     │ │ Śred.   │               │  │
+│  │ │ 45 200zł│ │   12    │ │  127    │ │ 3 767zł │               │  │
+│  │ └─────────┘ └─────────┘ └─────────┘ └─────────┘               │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│  ┌─ Stopa zwrotu (gdy wpisano NW) ───────────────────────────────┐  │
+│  │ Stopa zwrotu — Koparka CAT 320 (NW-014)                       │  │
+│  │   127%   ▓▓▓▓▓▓▓▓▓▓░░░ 127/200   cel: 200%                   │  │
+│  │   Wynajęta 47 dni · 8 umów · 12 500 zł                        │  │
+│  │   Wartość odtworzeniowa: 9 800 zł  [Edytuj artykuł →]         │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│  ┌─ Top maszyny ──────────────────┐ ┌─ Pozycje dodatkowe ──────┐  │
+│  │ #  Maszyna       Ile  Przychód │ │ Usługa      Ile  Przych. │  │
+│  │ 1  Koparka CAT   8    12 500 zł│ │ Transport   47   9 400 zł│  │
+│  │ 2  Spychacz JCB  5     7 200 zł│ │ Mycie       28   2 800 zł│  │
+│  │ [Pokaż wszystkie →]            │ │ RAZEM       94  17 900 zł│  │
+│  └────────────────────────────────┘ └──────────────────────────┘  │
+│  ┌─ Top kategorie ───────────────────────────────────────────────┐  │
+│  │ Koparki      ▓▓▓▓▓▓▓▓░░  62%  (28 000 zł, 7 maszyn)          │  │
+│  │ Spychacze    ▓▓▓░░░░░░░  22%  (9 900 zł, 3 maszyny)           │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+
+ZAKŁADKA "Archiwum (szacunkowe)" — szare tło:
+┌─────────────────────────────────────────────────────────────────────┐
+│ ⚠️ Dane historyczne (szacunkowe) — wartości przed migracją do RAO.  │
+│   Nie pochodzą z systemu rozliczeń. NIE sumuj z "Wynajem w okresie". │
+├─────────────────────────────────────────────────────────────────────┤
+│  ┌─────────┐ ┌─────────┐ ┌─────────┐                               │
+│  │Przychód │ │ Umowy   │ │ Dni     │                               │
+│  │ 8 700zł │ │   6     │ │  89     │                               │
+│  │ [szac.] │ │ [szac.] │ │ [szac.] │                               │
+│  └─────────┘ └─────────┘ └─────────┘                               │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### Poza scope (na później)
+
+- Eksport statystyk do PDF/Excel (osobne zadanie)
+- Wykresy czasowe (trendy miesiąc-po-miesiącu) — `by-period` endpoint istnieje ale to v2
+- Alerty o niskim ROI (maszyna poniżej X% ROI) — po v1
+- Porównanie side-by-side legacy vs nowe w tym samym widoku (teraz osobne zakładki)
+- Automatyczne sugestie "wycofaj maszynę X" — to analityka, nie statystyki
+- Zapisywanie preferencji filtrów w localStorage (v2)
+- Drill-down z top-machines do listy umów (v2)
+- Mapa geolokalizacji (`/stats/locations` — osobna zakładka "Mapa" jako P2)
+
+**Estymacja:** 24-32h (L) — Faza 1 (backend ujednolicenie + 9 bugfix + indeksy) + Faza 2 (frontend StatsView + 3 zakładki) + Faza 3 (QA 30+ testów) + Faza 4 (spec sync)
+
+---
+
 ## 📋 Tabela TL;DR
 
 | ID | Tytuł | P | Est. | Status | Następny krok |
@@ -1453,8 +1766,9 @@ Faza 1 (to zadanie):
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | dev-verified | → team-verified (is_external nie blokuje + checkbox w details) |
 | RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | triaged | → in_progress (Faza 1: parser legacy + migracja + UI + template items) |
+| RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | triaged | → in_progress (decyzje użytkownika zarejestrowane 2026-07-01) |
 
-**Razem:** 35 zadań · ~118-156h pracy (P0: 25-35h, P1: 30-40h, P2: 63-81h)
+**Razem:** 36 zadań · ~130-172h pracy (P0: 25-35h, P1: 42-55h, P2: 63-81h)
 
 ### Pipeline weryfikacji (status flow)
 
