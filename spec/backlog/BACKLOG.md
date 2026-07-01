@@ -1081,6 +1081,193 @@ Faza 1 (to zadanie):
 
 ---
 
+### [RAO-P2-059] Usługi dodatkowe — migracja z plain-text (legacy) na per-artikel (nowoczesna konfiguracja)
+
+```yaml
+id: RAO-P2-059
+priority: P2
+size: L
+status: triaged
+classification: cross-stack/refactor
+roles: [tech-lead, db-architect, backend-dev, frontend-dev, qa-engineer, product-owner]
+source: operator-request
+source_date: 2026-07-01
+specs_to_update:
+  - core/01_database.md
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+  - core/04_business_logic.md
+  - core/08_migration_plan.md
+migration_impact: yes (umowa2.oplaty VARCHAR(1000) → contract_service_fees, 742 umów do migracji)
+security_impact: low (CRUD na service fees, już chronione auth)
+depends_on:
+  - RAO-P1-011 (ServiceFeeTemplate + article_id — foundation istnieje)
+```
+
+**Problem:**
+
+Stara aplikacja WinForms przechowuje usługi dodatkowe jako **jeden blob tekstowy** (`umowa2.oplaty VARCHAR(1000)`) — ręcznie edytowany multiline tekst. Nowa aplikacja RAO ma już nowoczesną strukturę (`contract_service_fees` z `article_id`, `amount_from/to`, `unit`, `description`), ale:
+
+1. **Migracja danych legacy nie jest zrobiona** — `umowa2.oplaty` (plain text) nie jest mapowane na `contract_service_fees` (structured)
+2. **Brak auto-fill z szablonów per artykuł** — `ServiceFeeTemplateItem` (N:M artykuł↔szablon) istnieje w DB ale nie jest używane w UI
+3. **Brak spójności z Fakturownia** — usługi dodatkowe nie są linkowane do produktów FA (P2-058)
+
+**Dogłębna analiza Tech Lead (2026-07-01):**
+
+#### Stan w starej aplikacji (WinForms + MariaDB)
+
+**Tabela `firma` (konfiguracja globalna):**
+- `firma.uslugi1` VARCHAR(2000) — szablon usług dla umów najmu (typ "S")
+- `firma.uslugi2` VARCHAR(2000) — szablon usług dla umów usług (typ "U")
+- **Format:** multiline tekst z `- ` bulletami, placeholdery `$1`/`$2` dla kwot
+- **Przykład (z dumpa, firma.id=1, uslugi1):**
+  ```
+  - Transport: 400.00 zł dostawa / 400.00 zł odbiór
+  - Czyszczenie maszyny po wynajmie (zabrudzenia drobne): 150.00 zł - 400.00 zł
+  - Czyszczenie maszyny po wynajmie (zabrudzenia trudnościeralne): 400.00 zł - 1500.00 zł
+  - Usługa tankowania: 200.00 zł (plus koszt paliwa)
+  - Ponadnormatywny przestój transportu: 200.00 zł / h - 300.00 zł / h
+  - Nieuzasadnione wezwanie serwisowe: 280,00 zł (plus transport)
+  ```
+- **Przykład (uslugi2 — typ U):**
+  ```
+  - Transport: 350zł
+  - Praca operatora: Minimum 8 h / w ciągu dnia
+  ```
+
+**Tabela `umowa2` (umowa):**
+- `umowa2.oplaty` VARCHAR(1000) — **snapshot** tekstu usług dla tej konkretnej umowy
+- **Flow w WinForms (FormU4.cs):**
+  1. Nowa umowa typ "S" → `tbxuslugi.Text = SELECT uslugi1 FROM firma` (auto-fill z szablonu)
+  2. Nowa umowa typ "U" → `tbxuslugi.Text = SELECT uslugi2 FROM firma` (auto-fill z szablonu)
+  3. User może edytować tekst ręcznie (multiline TextBox)
+  4. Zapis: `INSERT INTO umowa2 (..., oplaty, ...) VALUES (..., @oplaty, ...)` z `@oplaty = tbxuslugi.Text`
+  5. Edycja: `UPDATE umowa2 SET oplaty=@oplaty WHERE id=X`
+- **Edycja umowy:** `tbxuslugi.Text = u[16].ToString()` (ładowanie z `umowa2.oplaty`)
+
+**Raport (Crystal Reports):**
+- `umowa2.oplaty` → drukowane bezpośrednio na PDF jako blok tekstu w sekcji "Inne usługi"
+- **Brak parsowania** — tekst idzie 1:1 z DB na wydruk
+
+**Wzorce w danych (analiza dumpa — 742 umów):**
+- Większość umów "S" ma ~6-7 linii usług (Transport, Czyszczenie×2, Tankowanie, Przestój, Serwis)
+- Kwoty **różnią się per umowa** (Transport: 300/400/450/500/600 zł — negocjowane)
+- Niektóre umowy mają puste `oplaty` (np. S398/2025 typ "U" — puste)
+- Format kwot **mieszany**: `150.00 zł` (kropka) vs `280,00 zł` (przecinek) — niespójne
+- **Brak ID artykułów** — usługi to czysty tekst, nie linkowane do maszyn/usług
+
+#### Stan w nowej aplikacji (RAO)
+
+**Tabele (już istnieją):**
+- `contract_service_fees` — per-umowa usługi (id, contract_id, sort_order, name, amount_from, amount_to, unit, description, is_active, article_id, default_price)
+- `service_fee_templates` — szablony globalne (z `article_id` — RAO-P1-011)
+- `fee_preset_groups` — grupy szablonów per typ umowy (S/U)
+- `service_fee_template_items` — N:M szablon↔artykuł z domyślną ceną (RAO-P1-011, **nieużywane w UI**)
+
+**Backend (`reports/service.py`):**
+- `generate_fees_text()` — buduje tekst z `ContractServiceFee` (structured)
+- `build_contract_data()` — zastępuje placeholdery `$1`/`$2` w `description` kwotami z `amount_from`/`amount_to`
+- **Format na PDF:** `- {name}: {amount_from} zł - {amount_to} zł / {unit} ({description})`
+
+**Frontend (`ContractFormView.vue`):**
+- Sekcja "Inne usługi" — inline edit, add row, delete, reset do szablonu
+- `openPresetPicker()` — wybór grupy szablonów (fee_preset_groups) per typ umowy
+- `resetServiceFees()` — POST `/contracts/{id}/service-fees/reset` (reset z szablonu)
+- **Brak:** wyboru artykułu z listy (article_id nie jest ustawiane z UI), brak auto-fill kwot z `default_price`
+
+**Luka:** `ServiceFeeTemplateItem` (N:M artykuł↔szablon) istnieje w DB ale **nie ma UI** do zarządzania tą relacją. Reset szablonu kopiuje `ServiceFeeTemplate` → `ContractServiceFee` ale **nie używa** `ServiceFeeTemplateItem`.
+
+#### Rekomendacja — model docelowy (per-artikel)
+
+**Zasada:** Każda usługa dodatkowa = artykuł (z `articles.is_service=1`) + cena + opis. Nie plain text.
+
+**Faza 1 (to zadanie): Spójność danych + UI per-artikel**
+
+1. **Migracja danych legacy (deterministyczna):**
+   - Parser `umowa2.oplaty` → `contract_service_fees` (best-effort, z fallback)
+   - Algorytm: regex match znanych wzorców (Transport, Czyszczenie, Tankowanie, Przestój, Serwis) → utwórz `ContractServiceFee` z `article_id=NULL` (legacy, nie linkowane)
+   - Nieparsowalne linie → jeden `ContractServiceFee` z `name="Inne"`, `description=pełny tekst`
+   - **Forward-only:** `umowa2.oplaty` nie jest usuwane (backup), nowe umowy używają structured
+
+2. **UI — ArticlePicker dla usług dodatkowych:**
+   - W formularzu umowy, sekcja "Inne usługi": przy dodawaniu nowej usługi, dropdown z artykułami `is_service=1` (searchable)
+   - Po wybraniu artykułu → auto-fill `name` (z `article.name`), `default_price` (z `article.replacement_value` lub z `ServiceFeeTemplateItem.default_price`)
+   - User może override `amount_from`/`amount_to`/`unit`/`description` per umowa
+   - `article_id` zapisywane na `ContractServiceFee` (już ma kolumnę)
+
+3. **UI — zarządzanie `ServiceFeeTemplateItem`:**
+   - W Settings → Szablony usług → edycja grupy → lista artykułów w szablonie (N:M)
+   - Dodawanie/usuwanie artykułów z szablonu z `default_price` per artykuł
+   - Reset umowy do szablonu → kopiuje `ServiceFeeTemplateItem` → `ContractServiceFee` (z `article_id` + `default_price`)
+
+4. **Raport PDF — bez zmian** (`generate_fees_text` już działa ze structured danymi)
+
+**Faza 2 (przyszła, po P2-058): Integracja z Fakturownia**
+- `ContractServiceFee.article_id` → `Article.fakturownia_product_id` → produkt na fakturze
+- Auto-uzupełnianie pozycji faktury z `contract_service_fees`
+
+**Faza 3 (przyszła): Cennik per artykuł**
+- `Article.default_service_price` — domyślna cena najmu usługi
+- Auto-suggest przy dodawaniu usługi do umowy
+
+#### Mapowanie starych wzorców → artykuły RAO
+
+| Wzorzec w `umowa2.oplaty` (regex) | Artykuł RAO (is_service=1) | Pola |
+|-----------------------------------|---------------------------|------|
+| `Transport: (\d+).*dostawa / (\d+).*odbiór` | "Transport" | amount_from=$1, amount_to=$2, unit="dostawa/odbiór" |
+| `Czyszczenie.*drobne.*: (\d+).* - (\d+.*)` | "Czyszczenie maszyny (drobne)" | amount_from=$1, amount_to=$2 |
+| `Czyszczenie.*trudno.*: (\d+).* - (\d+.*)` | "Czyszczenie maszyny (trudne)" | amount_from=$1, amount_to=$2 |
+| `Tankowania?: (\d+).*` | "Tankowanie" | amount_from=$1, description="plus koszt paliwa" |
+| `Przestój.*: (\d+).* - (\d+).*` | "Ponadnormatywny przestój" | amount_from=$1, amount_to=$2, unit="h" |
+| `Serwis.*: (\d+).*` | "Wezwanie serwisowe" | amount_from=$1 |
+| `Butla gazowa: (\d+).*` | "Butla gazowa" | amount_from=$1 |
+| `Operator.*Minimum 8 h` | "Praca operatora" | description="Minimum 8 h / dzień" |
+
+**Wymaga:** istnienie tych artykułów w `articles` z `is_service=1`. Jeśli nie istnieją → auto-utworzenie przy migracji (z `name` z wzorca, `is_service=1`).
+
+#### Acceptance criteria
+
+Faza 1 (to zadanie):
+- [ ] **Parser legacy:** skrypt `backend/migrate_service_fees.py` — parsuje `umowa2.oplaty` → `contract_service_fees` (best-effort, loguje nieparsowane)
+- [ ] **Auto-utworzenie artykułów usług:** jeśli artykuł `is_service=1` o nazwie z wzorca nie istnieje → utwórz (idempotentne, IF NOT EXISTS po nazwie)
+- [ ] **Migracja:** 742 umów → `contract_service_fees` z `article_id` (gdzie match) lub `article_id=NULL` (legacy unmatched)
+- [ ] **Weryfikacja:** diff count — `SELECT COUNT(*) FROM umowa2 WHERE oplaty != ''` vs `SELECT COUNT(DISTINCT contract_id) FROM contract_service_fees`
+- [ ] **UI ArticlePicker:** w `ContractFormView.vue` sekcja "Inne usługi" — dropdown z artykułami `is_service=1` (searchable, z name + default_price)
+- [ ] **Auto-fill:** po wybraniu artykułu → `name`, `default_price` → `amount_from`, `unit` auto-uzupełnione (user może override)
+- [ ] **UI Template Items:** w Settings → Szablony → edycja grupy → zarządzanie listą artykułów (N:M) z `default_price`
+- [ ] **Reset z szablonu:** `POST /contracts/{id}/service-fees/reset` — kopiuje `ServiceFeeTemplateItem` → `ContractServiceFee` (z `article_id` + `default_price`)
+- [ ] **Backend:** `GET /settings/fee-preset-groups/{id}/items` — lista artykułów w grupie
+- [ ] **Backend:** `POST/DELETE /settings/fee-preset-groups/{id}/items` — dodaj/usuń artykuł z grupy
+- [ ] **Raport PDF:** bez regresji — `generate_fees_text` działa (juś działa, tylko weryfikacja)
+- [ ] **Test:** `pytest` — parser, migracja, reset z szablonu
+- [ ] **Test:** `vue-tsc --noEmit` — pass
+- [ ] **Smoke:** `e2e/tests/01-login.spec.ts` — pass
+- [ ] **Spec sync:** `spec/core/01_database.md`, `02_backend_api.md`, `03_frontend_screens.md`, `04_business_logic.md`, `08_migration_plan.md`
+
+**Pliki do zmiany:**
+- `backend/migrate_service_fees.py` (nowy) — parser + migracja
+- `backend/contracts/models.py` — `ContractServiceFee` już ma `article_id` (użyć)
+- `backend/contracts/service.py` — reset z szablonu używa `ServiceFeeTemplateItem`
+- `backend/settings/router.py` — endpointy dla template items
+- `backend/settings/service.py` — CRUD dla template items
+- `frontend/src/views/ContractFormView.vue` — ArticlePicker dla usług
+- `frontend/src/views/SettingsView.vue` (lub odpowiednik) — zarządzanie template items
+- `spec/core/08_migration_plan.md` — dodaj sekcję migracji `oplaty` → `contract_service_fees`
+
+**Edge cases (QA):**
+- `umowa2.oplaty` puste → 0 `contract_service_fees` (skip)
+- `umowa2.oplaty` z nieparsowalnym tekstem → 1 `ContractServiceFee` z `name="Inne"`, `description=pełny tekst`, `article_id=NULL`
+- Kwota z przecinkiem `280,00 zł` vs kropką `280.00 zł` — parser normalizuje (replace `,` → `.`)
+- Artykuł usunięty po migracji (`article_id` orphan) — `ON DELETE SET NULL` (już w schema)
+- Duplikat artykułu w szablonie — UNIQUE constraint na `(template_id, article_id)`
+- Reset umowy z usługami → usunięcie starych + dodanie z szablonu (juś działa, tylko z `article_id`)
+- Umowa z `oplaty` ale bez `contract_id` w nowej DB (niezmigrowana umowa) — skip z logiem
+- Parsowanie wielokrotne (re-run migracji) — idempotentne (DELETE + INSERT lub UPSERT po `(contract_id, sort_order)`)
+
+**Estymacja:** 16-20h (L) — Faza 1 (parser + migracja + UI + template items)
+
+---
+
 ## 📋 Tabela TL;DR
 
 | ID | Tytuł | P | Est. | Status | Następny krok |
@@ -1125,8 +1312,9 @@ Faza 1 (to zadanie):
 | RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | dev-verified | → team-verified (is_external nie blokuje + checkbox w details) |
 | RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
+| RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | triaged | → in_progress (Faza 1: parser legacy + migracja + UI + template items) |
 
-**Razem:** 34 zadania · ~102-136h pracy (P0: 25-35h, P1: 30-40h, P2: 47-61h)
+**Razem:** 35 zadań · ~118-156h pracy (P0: 25-35h, P1: 30-40h, P2: 63-81h)
 
 ### Pipeline weryfikacji (status flow)
 
