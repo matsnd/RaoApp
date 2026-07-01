@@ -1545,6 +1545,12 @@ async function handleFakturownia() {
 - `branch_id` — Filia (select)
 - `description` — Opis (textarea)
 - `notes` — Uwagi (textarea)
+- **Sekcja "Integracja Fakturownia"** (RAO-P2-058):
+  - `fakturownia_product_id` — Produkt Fakturownia (select z `fakturowniaStore.products`, opcjonalny, default null = brak mapowania)
+  - Opcje: `— brak mapowania —` + lista produktów z FA (name + code + price_net)
+  - Source: `useFakturowniaStore.fetchProducts()` → `GET /integrations/fakturownia/products` (live API call, bez cache)
+  - Empty state: "Brak produktów w Fakturownia — dodaj produkty na {domain}.fakturownia.pl"
+  - Error state: `fakturowniaStore.error` wyświetlany pod polem
 
 **Layout sekcji "Dane techniczne":**
 - `zasieg_m` + `udzwig_t` — grid 2 kolumny (`form-row-2`)

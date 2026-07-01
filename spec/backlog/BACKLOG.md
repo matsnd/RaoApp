@@ -941,7 +941,7 @@ W Polsce istnieje wiele miejscowości o tej samej nazwie. Aktualnie `/stats/loca
 id: RAO-P2-058
 priority: P2
 size: L
-status: triaged
+status: in-progress
 classification: cross-stack/integration
 roles: [tech-lead, backend-dev, frontend-dev, db-architect, security-auditor, qa-engineer]
 source: operator-request
@@ -955,6 +955,19 @@ migration_impact: yes (contract.oid column already exists — needs to be used i
 security_impact: medium (API token handling, external API calls)
 depends_on:
   - RAO-P2-012 (istniejąca integracja read-only — foundation)
+phase_1_mvp_status: partial (2026-07-01)
+phase_1_mvp_done:
+  - "FakturowniaSettings skonfigurowane (enabled=True, domain=matsnd, token zaszyfrowany Fernet w DB)"
+  - "5 produktów testowych dodanych do matsnd.fakturownia.pl (koparka, podnośnik, transport, czyszczenie, tankowanie)"
+  - "ArticleFormView.vue: pole 'Produkt Fakturownia' (select z produktów FA via fetchProducts — bez cache table)"
+  - "Backend Article schemas już wspierał fakturownia_product_id w Create/Update/Out"
+  - "vue-tsc pass, smoke 01-login 11/11 pass"
+phase_1_mvp_pending:
+  - "OID hybrydowe: service.py:123 → oid = contract.oid if contract.oid else contract.number"
+  - "ContractFormView.vue: pole 'OID Fakturownia (opcjonalny)'"
+  - "fakturownia_products_cache table + sync-products endpoint (obecnie live API call bez cache)"
+  - "Article snapshot fields: fakturownia_tax_rate, fakturownia_gtu_code, fakturownia_pkwiu"
+  - "products/search endpoint z wyszukiwarką"
 ```
 
 **Problem:**
