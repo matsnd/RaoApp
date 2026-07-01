@@ -276,6 +276,13 @@ async def startup_migrations():
         await conn.execute(sa.text(
             "CREATE INDEX IF NOT EXISTS idx_contracts_postal_code_id ON contracts(postal_code_id)"
         ))
+        # RAO-P2-060: indeksy dla statystyk rozliczeń (source + settled_at)
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_settlements_source ON contract_settlements(source)"
+        ))
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_settlements_settled_at ON contract_settlements(settled_at)"
+        ))
         # RAO-P2-015: tabela postal_codes (słownik kodów pocztowych)
         await conn.execute(sa.text("""
             CREATE TABLE IF NOT EXISTS postal_codes (

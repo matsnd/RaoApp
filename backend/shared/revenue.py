@@ -227,7 +227,8 @@ async def compute_position_revenues(
         )
 
         # Precedence: actual > lookup > tiered
-        if revenue_actual is not None and revenue_actual > 0:
+        # RAO-P2-060 bug #4/#5: cost_client=0 (bezpłatny wynajem) i ujemny (korekta) = nadal actual
+        if revenue_actual is not None:
             revenue = revenue_actual
             revenue_source = "actual"
         elif revenue_estimate_lookup > 0:
@@ -237,8 +238,14 @@ async def compute_position_revenues(
             revenue = revenue_estimate_tiered
             revenue_source = "estimate_tiered"
 
-        c_from = p[13] if p[13] >= df else df
-        c_to = p[14] if p[14] <= dt else dt
+        # RAO-P2-060 bug #6/#7: date_from/date_to=NULL crash (umowa na czas nieokreślony)
+        if p[13] is None or p[14] is None:
+            # Umowa bez daty końcowej — użyj df/dt jako fallback dla clamped_days
+            c_from = df
+            c_to = dt
+        else:
+            c_from = p[13] if p[13] >= df else df
+            c_to = p[14] if p[14] <= dt else dt
         clamped_days = max((c_to - c_from).days + 1, 0)
 
         results.append({

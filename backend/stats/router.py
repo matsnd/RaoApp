@@ -79,7 +79,8 @@ async def fleet_summary(
                 Article.is_archival == False,       # RAO-P1-017
                 Article.is_external == False,       # RAO-P1-027
                 Contract.date_from <= today,
-                Contract.date_to >= today,
+                # RAO-P2-060 bug #3: umowa na czas nieokreślony (date_to=NULL) = wciąż wynajęta
+                (Contract.date_to.is_(None)) | (Contract.date_to >= today),
             )
         )
     )
@@ -101,9 +102,10 @@ async def fleet_summary(
     # RAO-P2-032: breakdown po źródłach (actual vs estimate)
     revenue_actual = sum(p["revenue"] for p in all_pos if p.get("revenue_source") == "actual")
     revenue_estimate = sum(p["revenue"] for p in all_pos if p.get("revenue_source") in ("estimate_lookup", "estimate_tiered"))
-    # RAO-P2-062 Faza 1: wariant "mieszane" usunięty — archiwum osobno (stats archive_*).
-    # Pozostają tylko "rzeczywiste" lub "szacunek" (gdy brak settlements w contracts).
-    if revenue_actual == 0:
+    # RAO-P2-060 bug #8: "brak danych" gdy nie ma pozycji (pusta baza), nie "szacunek"
+    if not all_pos:
+        revenue_source_label = "brak danych"
+    elif revenue_actual == 0:
         revenue_source_label = "szacunek"
     else:
         revenue_source_label = "rzeczywiste"

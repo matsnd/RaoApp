@@ -132,35 +132,7 @@
         </div>
       </div>
 
-      <!-- RAO-P2-032: Toggle Dane historyczne / Bieżące -->
-      <div class="legacy-toggle-bar" data-testid="legacy-toggle">
-        <span class="filter-label">Źródło danych:</span>
-        <button
-          :class="['pill', { active: statsStore.isLegacy === null }]"
-          @click="setLegacyMode(null)"
-          title="Wszystkie dane (historyczne + bieżące)"
-        >Wszystkie</button>
-        <button
-          :class="['pill', { active: statsStore.isLegacy === true }]"
-          @click="setLegacyMode(true)"
-          title="Dane historyczne z rozliczenie (rzeczywiste kwoty)"
-        >📊 Historyczne</button>
-        <button
-          :class="['pill', { active: statsStore.isLegacy === false }]"
-          @click="setLegacyMode(false)"
-          title="Dane bieżące z Fakturownia (rzeczywiste faktury)"
-        >🧾 Bieżące</button>
-        <span class="legacy-hint" v-if="statsStore.isLegacy === true">
-          (rzeczywiste rozliczenia z legacy)
-        </span>
-        <span class="legacy-hint" v-else-if="statsStore.isLegacy === false">
-          (rzeczywiste faktury z Fakturownia)
-        </span>
-        <span class="legacy-hint" v-else>
-          (mieszane: actual + szacunek)
-        </span>
-      </div>
-
+      <!-- RAO-P2-062: Toggle legacy usunięty — legacy umowy w archive_* tabelach, stats = tylko nowe -->
       <!-- HISTORIA SUB-TABS -->
       <div class="explorer-subtabs" data-testid="history-subtabs">
         <button
@@ -1081,12 +1053,7 @@ function setSharedArticleType(type) {
   reloadActiveSubTab()
 }
 
-// RAO-P2-032: Toggle Dane historyczne / Bieżące
-function setLegacyMode(mode) {
-  statsStore.isLegacy = mode
-  // Przeładuj wszystkie statystyki z nowym filtrem
-  reloadAllStats()
-}
+// RAO-P2-062: setLegacyMode usunięte — legacy w archive_*, stats = tylko nowe
 
 function reloadAllStats() {
   // Przeładuj summary + top machines + additional fees + locations
