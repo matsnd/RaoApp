@@ -1225,6 +1225,45 @@ Stara aplikacja WinForms przechowuje usługi dodatkowe jako **jeden blob tekstow
 
 **Wymaga:** istnienie tych artykułów w `articles` z `is_service=1`. Jeśli nie istnieją → auto-utworzenie przy migracji (z `name` z wzorca, `is_service=1`).
 
+#### Weryfikacja z realnych PDFów (legacy samples, 2026-07-01)
+
+Operator dostarczył 4 PDFy (2 umowy + 2 protokoły PZO) — zanalizowano ekstrakcją PyMuPDF:
+- `spec/technical/legacy_samples/pzo_umowy/` — source PDFs
+- `spec/technical/legacy_samples/pzo_umowy_extracted/` — wyekstraktowany tekst
+- `spec/technical/scripts/extract_legacy_pdfs.md` — opis analizy
+
+**S129/2026 (typ S - najem) — sekcja "Inne usługi":**
+```
+- Transport: 500.00 zł dostawa / 500.00 zł odbiór
+- Czyszczenie maszyny po wynajmie (zabrudzenia drobne): 150.00 zł - 400.00 zł
+- Czyszczenie maszyny po wynajmie (zabrudzenia trudnościeralne): 400.00 zł - 1500.00 zł
+- Usługa tankowania: 200.00 zł (plus koszt paliwa)
+- Ponadnormatywny przestój transportu: 200.00 zł / h - 300.00 zł / h
+- Nieuzasadnione wezwanie serwisowe: 280,00 zł (plus transport)
+```
+**Potwierdza:** 6 usług dodatkowych dla typ S, format z `$1`/`$2` placeholderami, kwoty mieszane (kropka vs przecinek: `280,00` vs `500.00`).
+
+**S130/2026G (typ U - usługa) — sekcja "Inne usługi":**
+```
+(PUSTA — tylko tekst zobowiązania, bez listy usług)
+```
+**Potwierdza:** umowy typ U często mają pustą sekcję usług (uslugi2 w firma = "Transport + Operator" ale nie zawsze kopiowane).
+
+**PZO (protokoły):** nie zawierają usług dodatkowych — tylko dane maszyny, daty, podpisy. Nie wymagają migracji.
+
+**Sekcja "Uwagi" (w tym samym bloku co "Inne usługi" na PDF):**
+```
+- Doba wynajmu obejmuje 1 dzień kalendarzowy (do 8 godz. pracy jednego dnia)
+- Zgłoszenie zwrotu urządzenia: pisemnie, min. z jednodniowym wyprzedzeniem
+- Ilość dni pracy w tygodniu: 6
+- dokumentacja zdjęciowa: wykonano
+```
+**Ważne dla parsera:** te 4 pozycje to **NIE usługi dodatkowe** — to warunki umowy. Parser musi rozróżnić:
+- Usługi = linie z kwotami (regex `\d+[\.,]\d{2}\s*zł`)
+- Uwagi = linie bez kwot (default warunki umowy)
+
+W nowej aplikacji te "uwagi" powinny trafić do `contract.notes` (lub zostać jako default gdy `notes` puste — już działa w `contract.html` template).
+
 #### Acceptance criteria
 
 Faza 1 (to zadanie):

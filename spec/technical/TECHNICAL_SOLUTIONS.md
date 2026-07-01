@@ -57,6 +57,12 @@ spec/technical/
 - **Script:** `e2e/tests/10-ux-screenshots.spec.ts` — Automatyczne screenshoty wszystkich widoków dla UX review
 - **Doc:** `spec/technical/scripts/playwright_ux_screenshots.md` — Opis użycia, lista 17 screenshotów, integracja z UX review
 
+### Legacy PDF Extraction (RAO-P2-059)
+- **Script:** `spec/technical/scripts/extract_legacy_pdfs.py` — Ekstrakcja tekstu z legacy PDFów (PZO + umowy) używając PyMuPDF (fitz)
+- **Doc:** `spec/technical/scripts/extract_legacy_pdfs.md` — Opis analizy 4 PDFów, wzorce usług dodatkowych
+- **Samples:** `spec/technical/legacy_samples/pzo_umowy/` — source PDFs, `pzo_umowy_extracted/` — wyekstraktowany tekst
+- **Wzorzec:** PyMuPDF `page.get_text("text")` ekstraktuje tekst z PDF binarnego (read tool nie działa na PDF)
+
 ### Vision AI UX Analysis (RAO-P2-016 + RAO-P2-017)
 - **Tool:** MCP `rao-vision` — Automatyczna analiza UX/UI przez Claude Vision
 - **Doc:** `spec/technical/scripts/vision_ux_analysis.md` — Opis użycia, wzorce pytań, optymalizacja kosztów
