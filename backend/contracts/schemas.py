@@ -137,6 +137,8 @@ class ContractServiceFeeCreate(BaseModel):
     unit: str | None = Field(None, max_length=50)
     description: str | None = Field(None, max_length=400)
     is_active: bool = True
+    article_id: int | None = None  # RAO-P2-059: link do artykułu usługi
+    default_price: Decimal | None = None  # RAO-P2-059: snapshot ceny z artykułu
 
 
 class ContractServiceFeeReorder(BaseModel):

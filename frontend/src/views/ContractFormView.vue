@@ -318,7 +318,13 @@
               </template>
               <!-- NEW ROW -->
               <tr v-if="showNewFeeRow" class="row-editing">
-                <td><input v-model="newFeeData.name" class="form-control form-control-xs" placeholder="Nazwa usługi" ref="newFeeNameInput" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" /></td>
+                <td>
+                  <select v-if="serviceArticles.length" class="form-control form-control-xs" style="margin-bottom:4px;" @change="onServiceArticleSelect" :value="newFeeData.article_id || ''">
+                    <option value="">— wybierz usługę z listy —</option>
+                    <option v-for="a in serviceArticles" :key="a.id" :value="a.id">{{ a.name }}{{ a.replacement_value ? ` (${a.replacement_value} zł)` : '' }}</option>
+                  </select>
+                  <input v-model="newFeeData.name" class="form-control form-control-xs" placeholder="Nazwa usługi" ref="newFeeNameInput" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" />
+                </td>
                 <td><input v-model="newFeeData.amount_from" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" /></td>
                 <td><input v-model="newFeeData.amount_to" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" /></td>
                 <td><input v-model="newFeeData.unit" class="form-control form-control-xs" placeholder="h, km…" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" /></td>
@@ -1289,12 +1295,42 @@ interface FeeData {
   unit: string
   description: string
   is_active: boolean
+  article_id?: number | null  // RAO-P2-059
+  default_price?: number | null  // RAO-P2-059
 }
 const editingFeeId = ref<number | null>(null)
 const editingFeeData = ref<Partial<FeeData>>({})
 const showNewFeeRow = ref(false)
-const newFeeData = ref<FeeData>({ name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true })
+const newFeeData = ref<FeeData>({ name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true, article_id: null, default_price: null })
 const newFeeNameInput = ref(null)
+
+// RAO-P2-059: ArticlePicker dla usług dodatkowych
+const serviceArticles = ref<any[]>([])
+async function fetchServiceArticles() {
+  try {
+    const { data } = await api.get('/articles', { params: { is_service: true, per_page: 100 } })
+    serviceArticles.value = data.items || []
+  } catch { serviceArticles.value = [] }
+}
+function onServiceArticleSelect(event: Event) {
+  const select = event.target as HTMLSelectElement
+  const articleId = Number(select.value)
+  if (!articleId) {
+    newFeeData.value.article_id = null
+    newFeeData.value.default_price = null
+    return
+  }
+  const article = serviceArticles.value.find(a => a.id === articleId)
+  if (article) {
+    newFeeData.value.article_id = article.id
+    newFeeData.value.name = article.name
+    const price = article.replacement_value ? Number(article.replacement_value) : null
+    newFeeData.value.default_price = price
+    if (price !== null && newFeeData.value.amount_from === null) {
+      newFeeData.value.amount_from = price
+    }
+  }
+}
 
 // RAO-P1-012: Settlements
 interface Settlement {
@@ -1353,6 +1389,7 @@ onMounted(async () => {
     settingsStore.fetchRateTypes(),
     settingsStore.fetchCategoriesTree(), // RAO-P2-006: Load categories for inline article form
     fakturowniaStore.fetchSettings(),
+    fetchServiceArticles(), // RAO-P2-059: Load service articles for fee picker
   ])
 
   const [ctRes, artRes] = await Promise.allSettled([
@@ -1945,7 +1982,7 @@ async function saveInlineFee() {
 
 function addFeeRow() {
   editingFeeId.value = null
-  newFeeData.value = { name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true }
+  newFeeData.value = { name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true, article_id: null, default_price: null }
   showNewFeeRow.value = true
   nextTick(() => { newFeeNameInput.value?.focus() })
 }
@@ -1963,7 +2000,7 @@ async function saveNewFeeRow() {
     await api.post(`/contracts/${props.id}/service-fees`, payload)
     await contractStore.fetchServiceFees(Number(props.id))
     showNewFeeRow.value = false
-    newFeeData.value = { name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true }
+    newFeeData.value = { name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true, article_id: null, default_price: null }
   } catch (e) {
     alert(e.response?.data?.detail || 'Błąd dodawania')
   }

@@ -1109,7 +1109,7 @@ Faza 1 (to zadanie):
 id: RAO-P2-059
 priority: P2
 size: L
-status: triaged
+status: in-progress
 classification: cross-stack/refactor
 roles: [tech-lead, db-architect, backend-dev, frontend-dev, qa-engineer, product-owner]
 source: operator-request
@@ -1124,6 +1124,18 @@ migration_impact: yes (umowa2.oplaty VARCHAR(1000) → contract_service_fees, 74
 security_impact: low (CRUD na service fees, już chronione auth)
 depends_on:
   - RAO-P1-011 (ServiceFeeTemplate + article_id — foundation istnieje)
+phase_1_mvp_status: partial (2026-07-01)
+phase_1_mvp_done:
+  - "ContractServiceFeeCreate schema: dodane article_id + default_price (były w Response ale nie w Create)"
+  - "ContractFormView: ArticlePicker dla usług dodatkowych — select z artykułami is_service=1 w NEW ROW"
+  - "Auto-fill: po wybraniu artykułu → name z article.name, amount_from z replacement_value, default_price snapshot"
+  - "vue-tsc pass, build pass, smoke 11/11 pass"
+phase_1_mvp_pending:
+  - "Migracja legacy: umowa2.oplaty → contract_service_fees (parser regex, 742 umów w archive)"
+  - "Auto-utworzenie artykułów usług (Transport, Czyszczenie, Tankowanie, Przestój, Serwis)"
+  - "UI Template Items: Settings → Szablony → zarządzanie N:M artykuł↔szablon"
+  - "Reset z szablonu z ServiceFeeTemplateItem (z article_id + default_price)"
+  - "Backend endpointy dla template items CRUD"
 ```
 
 **Problem:**
