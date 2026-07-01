@@ -98,6 +98,11 @@ const routes = [
         name: 'Archive',
         component: () => import('@/views/ArchiveView.vue'),
       },
+      {
+        path: 'stats',
+        name: 'Stats',
+        component: () => import('@/views/StatsView.vue'),
+      },
     ],
   },
   { path: '/:pathMatch(.*)*', redirect: '/' },

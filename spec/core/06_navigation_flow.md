@@ -14,6 +14,7 @@ graph TD
     B --> B3["Sidebar: <b>Artykuły</b><br/>/dashboard/articles"]
     B --> B4["Sidebar: <b>Raporty</b><br/>/dashboard/reports"]
     B --> B6["Sidebar: <b>📦 Archiwum</b><br/>/archive (RAO-P2-062)"]
+    B --> B7["Sidebar: <b>📊 Statystyki</b><br/>/stats (RAO-P2-060 Faza 2)"]
     B --> B5["Sidebar: <b>Ustawienia</b><br/>/settings"]
 
     B1 -->|"Toolbar [+] lub double-click"| C["<b>Formularz umowy</b><br/>ContractFormView.vue<br/>/contracts/new lub /contracts/:id/edit"]
@@ -76,6 +77,7 @@ graph TD
 | `/contracts/new` | `ContractNew` | `ContractFormView.vue` | tak | Nowa umowa |
 | `/contracts/:id/edit` | `ContractEdit` | `ContractFormView.vue` | tak | Edycja umowy |
 | `/worker` | `Worker` | `WorkerView.vue` | tak | Pulpit operacyjny (kończące, dostawy) |
+| `/stats` | `Stats` | `StatsView.vue` | tak | Statystyki (Flota teraz + Wynajem w okresie) (RAO-P2-060) |
 | `/commissions` | `Commissions` | `CommissionView.vue` | tak | Raporty prowizji handlowców |
 | `/settings` | `Settings` | `SettingsView.vue` | tak | Konfiguracja firmy/szablonów/handlowców |
 | `/password` | `ChangePassword` | `ChangePasswordView.vue` | tak | Zmiana własnego hasła |

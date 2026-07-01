@@ -1414,13 +1414,18 @@ Faza 1 (to zadanie):
 id: RAO-P2-060
 priority: P1
 size: L
-status: in-progress
+status: dev-verified
 classification: cross-stack/feature+bugfix
 roles: [tech-lead, db-architect, backend-dev, frontend-dev, ux-designer, qa-engineer, product-owner]
 source: operator-request
 source_date: 2026-07-01
 phase_1_status: done (2026-07-01) — 6 bugów naprawionych (3 już przez P2-062), 2 indeksy, cleanup isLegacy z frontend store + ReportsSection toggle
-phase_2_status: todo — StatsView.vue (2 zakładki: Flota teraz + Wynajem w okresie, bez Archiwum bo osobny widok)
+phase_2_status: done (2026-07-01) — StatsView.vue (2 zakładki: Flota teraz + Wynajem w okresie), sidebar "📊 Statystyki", routing /stats, CORS 5176
+verification:
+  - "vue-tsc --noEmit: pass"
+  - "npm run build: pass"
+  - "smoke 01-login.spec.ts: 11/11 passed"
+  - "Playwright MCP: StatsView renderuje 2 tabs, 7 KPI cards, 2 filter bars, empty states (pusta baza)"
 specs_to_update:
   - core/01_database.md (indeksy + sync contract_settlements DDL)
   - core/02_backend_api.md (6 schemas z revenue_source_label)

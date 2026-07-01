@@ -26,6 +26,10 @@
         @click="$emit('navigate', 'worker')"
       >Pulpit</button>
       <button
+        :class="['sidebar-btn', { active: activeSection === 'stats' }]"
+        @click="$emit('navigate', 'stats')"
+      >📊 Statystyki</button>
+      <button
         :class="['sidebar-btn', { active: activeSection === 'commissions' }]"
         @click="$emit('navigate', 'commissions')"
       >Prowizje</button>
