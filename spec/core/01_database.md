@@ -163,6 +163,9 @@ CREATE TABLE service_fee_templates (
 -- 1.8b Pozycje szablonów usług dodatkowych (RAO-P1-011)
 -- Relacja N:M szablon (fee_preset_group) → artykuł z domyślną ceną
 -- Pozwala budować zestawy usług jako listę konkretnych artykułów + cena
+-- DEPRECATED (RAO-P2-059, 2026-07-01): 0 wierszy, 0 odwołań w kodzie.
+-- ServiceFeeTemplate.article_id (sekcja 1.8a) daje ten sam rezultat relacyjnie.
+-- Nie drop (forward-only), ale nie rozwijać. UI używa ServiceFeeTemplate z article_id.
 CREATE TABLE service_fee_template_items (
     id           INT AUTO_INCREMENT PRIMARY KEY,
     template_id  INT          NOT NULL COMMENT 'ID grupy szablonów (fee_preset_groups)',

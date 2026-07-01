@@ -555,6 +555,14 @@ def calculate_remaining(
 
 ## 12. Linkowanie szablonów usług dodatkowych z artykułami (RAO-P1-011)
 
+> **RAO-P2-059 (2026-07-01, done):** Model per-artikel jest **source of truth**.
+> `ServiceFeeTemplate.article_id` + `default_price` = podstawowa relacja szablon↔artykuł.
+> `ServiceFeeTemplateItem` (N:M, osobna tabela) jest **DEPRECATED** — 0 wierszy, 0 odwołań w kodzie,
+> nie rozwijać. `ServiceFeeTemplate` z `article_id` daje ten sam rezultat relacyjnie.
+> Migracja legacy `umowa2.oplaty → contract_service_fees` wykonana historycznie (migrate.py step5b,
+> 3396 wierszy → archive_contract_service_fees przez P2-062). Artykuły usług id 14137-14141
+> (Tankowanie, Transport, Przestój, Czyszczenie 1, Czyszczenie 2).
+
 ```python
 async def resolve_article_name_for_template(
     db: AsyncSession,

@@ -1109,33 +1109,42 @@ Faza 1 (to zadanie):
 id: RAO-P2-059
 priority: P2
 size: L
-status: in-progress
+status: done (2026-07-01, re-scoped po team review)
 classification: cross-stack/refactor
 roles: [tech-lead, db-architect, backend-dev, frontend-dev, qa-engineer, product-owner]
 source: operator-request
 source_date: 2026-07-01
 specs_to_update:
-  - core/01_database.md
-  - core/02_backend_api.md
-  - core/03_frontend_screens.md
-  - core/04_business_logic.md
-  - core/08_migration_plan.md
-migration_impact: yes (umowa2.oplaty VARCHAR(1000) → contract_service_fees, 742 umów do migracji)
+  - core/01_database.md (ServiceFeeTemplateItem deprecated marker)
+  - core/04_business_logic.md (per-artikel model — ServiceFeeTemplate.article_id = source of truth)
+migration_impact: no (migracja już wykonana historycznie przez migrate.py step5b + P2-062 archive split)
 security_impact: low (CRUD na service fees, już chronione auth)
 depends_on:
   - RAO-P1-011 (ServiceFeeTemplate + article_id — foundation istnieje)
-phase_1_mvp_status: partial (2026-07-01)
+  - RAO-P2-062 (archive split — przeniósł legacy contract_service_fees → archive_contract_service_fees)
+phase_1_mvp_status: done (2026-07-01, re-scoped po team review)
 phase_1_mvp_done:
   - "ContractServiceFeeCreate schema: dodane article_id + default_price (były w Response ale nie w Create)"
   - "ContractFormView: ArticlePicker dla usług dodatkowych — select z artykułami is_service=1 w NEW ROW"
   - "Auto-fill: po wybraniu artykułu → name z article.name, amount_from z replacement_value, default_price snapshot"
   - "vue-tsc pass, build pass, smoke 11/11 pass"
-phase_1_mvp_pending:
-  - "Migracja legacy: umowa2.oplaty → contract_service_fees (parser regex, 742 umów w archive)"
-  - "Auto-utworzenie artykułów usług (Transport, Czyszczenie, Tankowanie, Przestój, Serwis)"
-  - "UI Template Items: Settings → Szablony → zarządzanie N:M artykuł↔szablon"
-  - "Reset z szablonu z ServiceFeeTemplateItem (z article_id + default_price)"
-  - "Backend endpointy dla template items CRUD"
+  - "Migracja legacy umowa2.oplaty → contract_service_fees: WYKONANA historycznie przez migrate.py step5b (3396 wierszy), następnie przeniesiona do archive_contract_service_fees przez RAO-P2-062 (archive split). umowa2 DROPnięte w migrate.py step6. contract_service_fees=72 (nowe umowy), archive_contract_service_fees=3396 (legacy)."
+  - "Auto-utworzenie artykułów usług: JUŻ ISTNIEJĄ (id 14137-14141: Tankowanie, Transport, Ponadnormatywny przestój, Czyszczenie 1, Czyszczenie 2, is_service=1). ServiceFeeTemplate 10/10 z article_id + default_price (5 usług × 2 preset groups S/U)."
+  - "Reset z szablonu: apply_preset_to_contract (service.py:122-153) kopiuje article_id + default_price z ServiceFeeTemplate → ContractServiceFee. DZIAŁA."
+  - "UI zarządzania szablonami: SettingsView.vue linie 285-358 — edycja preset.templates z article_id picker (select z is_service=1), default_price, amount_from/to/unit/description. DZIAŁA."
+phase_1_mvp_rejected (zombie-spec po team review 2026-07-01):
+  - "UI Template Items (ServiceFeeTemplateItem N:M): ODRZUCONE jako duplicate — SettingsView już ma edycję preset.templates z article_id picker przez ServiceFeeTemplate. N:M tabela jest redundantna (ServiceFeeTemplate z article_id daje ten sam rezultat). ServiceFeeTemplateItem: 0 wierszy, 0 odwołań w kodzie — deprecated, nie drop."
+  - "Backend CRUD dla ServiceFeeTemplateItem: ODRZUCONE — endpointy dla ServiceFeeTemplate z article_id już istnieją (POST/PUT/DELETE /settings/fee-preset-groups/{id}/templates)."
+  - "Parser regex umowa2.oplaty: NIEPOTRZEBNY — migracja już wykonana historycznie, umowa2 nie istnieje."
+verification:
+  - "DB: articles is_service=1 = 88 (5 znanych usług id 14137-14141 + 83 usługi wynajmu maszyn)"
+  - "DB: ServiceFeeTemplate = 10, all with article_id NOT NULL (10/10)"
+  - "DB: ServiceFeeTemplateItem = 0 (martwa tabela, deprecated)"
+  - "DB: contract_service_fees = 72 (nowe umowy), archive_contract_service_fees = 3396 (legacy)"
+  - "DB: FeePresetGroups = 2 (Domyślny S najem, Domyślny U usługa)"
+  - "Backend: apply_preset_to_contract kopiuje article_id + default_price (service.py:122-153)"
+  - "Frontend: SettingsView.vue:285-358 edycja preset.templates z article_id picker"
+  - "Frontend: ContractFormView ArticlePicker dla usług (Phase 1 MVP done)"
 ```
 
 **Problem:**

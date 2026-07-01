@@ -1,20 +1,23 @@
-feat(analytics): merge Statystyki + Raporty → AnalyticsView (RAO-P2-063)
+chore(backlog): RAO-P2-059 re-scope + close — już done, zombie pending items usunięte
 
-Konsolidacja 2 duplikujących się widoków (StatsView 688 linii + ReportsSection
-2635 linii) do jednego ujednoliconego AnalyticsView z 3 zakładkami:
-- Flota teraz (live KPI + tabela wynajętych + drill-down maszyna)
-- Wynajem w okresie (KPI + 4 sortowalne tabele + filtry + drill-down)
-- Eksplorator (wyszukiwarka kontrahent/umowa/maszyna)
+Team review (PO + tech-lead + db-architect) wykazał że P2-059 jest już complete:
+- Migracja legacy umowa2.oplaty → contract_service_fees: WYKONANA historycznie
+  (migrate.py step5b, 3396 wierszy → archive_contract_service_fees przez P2-062)
+- Artykuły usług: JUŻ ISTNIEJĄ (id 14137-14141: Tankowanie, Transport, Przestój,
+  Czyszczenie 1, Czyszczenie 2, is_service=1)
+- ServiceFeeTemplate: 10/10 z article_id + default_price (5 usług × 2 preset groups)
+- Reset z szablonu: apply_preset_to_contract kopiuje article_id + default_price
+- UI szablonów: SettingsView.vue:285-358 edycja preset.templates z article_id picker
 
-Frontend-3: sidebar 1 przycisk "Statystyki" → /analytics, redirect /stats →
-/analytics (backward compat), usunięto ReportsSection.vue + StatsView.vue +
-stores/stats.js (nie używane nigdzie indziej), DashboardView nie renderuje
-już sekcji reports, HomeView tile → /analytics.
+Zombie pending items (odrzucone jako duplicate/redundant):
+- UI Template Items (ServiceFeeTemplateItem N:M) — duplicate z istniejącym UI
+- Backend CRUD dla ServiceFeeTemplateItem — endpointy dla ServiceFeeTemplate istnieją
+- Parser regex umowa2.oplaty — niepotrzebny (migracja done, umowa2 DROPnięte)
 
-BEZ archiwalnych danych — archiwum zostaje osobnym widokiem (RAO-P2-062).
+ServiceFeeTemplateItem: 0 wierszy, 0 odwołań — DEPRECATED (nie drop, nie rozwijać).
 
-Spec sync: 03_frontend_screens.md, 06_navigation_flow.md, BACKLOG.md
-(RAO-P2-063 dev-verified).
+Backlog: 17/17 done. Spec sync: 04_business_logic.md (per-artikel model source of truth),
+01_database.md (ServiceFeeTemplateItem deprecated marker).
 
 Generated with [Devin](https://devin.ai)
 
