@@ -1819,3 +1819,54 @@ onUnmounted(() => {
 | `views/ResetPasswordView.vue` | `redirectTimer` (nowy `onUnmounted`) |
 | `components/reports/ReportsSection.vue` | `machineSearchTimer`, `serviceSearchTimer` (dodane do istniejącego `onBeforeUnmount`) |
 
+
+## Komponenty reusable dla AnalyticsView (Frontend-1, 2026-07-01)
+
+> Czyste komponenty dumb (bez logiki biznesowej / store / API). Używane przez przyszły
+> `views/AnalyticsView.vue`. Wszystkie style przez zmienne CSS z `assets/styles/variables.css`.
+
+### `composables/useSort.ts`
+- Client-side sortowanie tabel.
+- API: `useSort<T>(initialKey, initialDir='desc')` → `{ sortKey, sortDir, toggleSort, sortedRows }`
+- `toggleSort(key)`: ta sama kolumna → odwróć dir; nowa kolumna → key + dir='desc'.
+- `sortedRows(rows)`: nowa posortowana kopia (nie mutuje). null/undefined → na końcu.
+- Obsługa: string (localeCompare 'pl'), number, boolean, Date, fallback toString.
+
+### `components/analytics/AnalyticsTable.vue`
+- Props: `columns: AnalyticsColumn[]`, `rows: AnalyticsRow[]`, `sortKey`, `sortDir`, `rowKey`, `clickable?`, `loading?`, `skeletonRows?`.
+- Emits: `@sort(key)`, `@rowClick(row)`.
+- Stany: loading (skeleton), empty (slot `empty`), data.
+- Slot `cell-<key>` dla custom renderu komórki; sloty `loading` / `empty`.
+- data-testid: `analytics-table`, `analytics-table-loading`, `analytics-table-empty`, `th-<key>`, `sort-icon-<key>`, `row-<id>`.
+
+### `components/analytics/KpiRow.vue`
+- Props: `cards: KpiCard[]` (`{ value, label, sub?, variant?, icon?, testId? }`).
+- Grid auto-fit, min 180px / kartę. Varianty: default/success/accent/danger/warn → kolor wartości.
+- data-testid: `kpi-row`, `kpi-card-<idx>` (lub `card.testId`).
+
+### `components/analytics/AnalyticsFilters.vue`
+- v-model: `modelValue: AnalyticsFiltersValue` (`{ dateFrom, dateTo, preset, articleType, contractorId, city }`).
+- Props dodatkowe: `contractors: {id, name}[]`.
+- Emits: `@update:modelValue`.
+- Presets: Dziś / Tydzień / Miesiąc / Kwartał / Rok / Wszystko / Własny (pills).
+- Custom range (2x input date) tylko gdy `preset='custom'`.
+- Typ (select), Kontrahent (input+datalist), Miasto (text), przycisk "Wyczyść".
+- data-testid: `analytics-filters`, `preset-<key>`, `preset-custom`, `custom-range`, `filter-date-from`, `filter-date-to`, `filter-article-type`, `filter-contractor`, `filter-city`, `filter-clear`.
+
+### `components/analytics/DrillDownDrawer.vue`
+- Props: `open`, `title`, `subtitle?`, `loading?`, `error?`. Emits: `@close`.
+- `<Teleport to="body">` + **NON-SCOPED** `<style>` (prefiks klas `drill-` — kolizja z ArchiveView nie grozi bo klasy są globalne i identyczne semantycznie).
+- Overlay rgba(0,0,0,0.4) z-index 1000; drawer 60% / min 480 / max 900px, height 100%.
+- Transition `drill-fade`: slide-in z prawej (translateX 100% → 0) + fade overlay.
+- Esc zamyka (window keydown listener w onMounted/onUnmounted). Click na overlay zamyka (click w drawerze stopPropagation).
+- Slot default = treść; slot `footer` = np. paginacja. Blokuje scroll body gdy open.
+- data-testid: `drill-overlay`, `drill-drawer`, `drill-close`, `drill-loading`, `drill-error`, `drill-footer`.
+
+### `components/analytics/AnalyticsTabs.vue`
+- Props: `tabs: AnalyticsTab[]` (`{ key, label, icon? }`), `active`. Emits: `@change(key)`.
+- Pills w flex row; aktywna = bg primary + color on-primary; nieaktywna hover = bg light.
+- data-testid: `analytics-tabs`, `tab-<key>`.
+
+### Weryfikacja
+- `npx vue-tsc --noEmit` → PASS (exit 0)
+- `npm run build` → PASS (build OK)
