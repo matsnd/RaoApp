@@ -1528,6 +1528,52 @@ Dodatkowo klient wymaga 6 funkcji analitycznych:
 
 ---
 
+#### DECYZJE ARCHITEKTONICZNE (sesja 2026-07-01, po pytaniach do użytkownika)
+
+**Decyzja 5: Legacy umowy = TYLKO cennik (korekta Tech Lead)**
+
+- **Źródło:** Użytkownik po rozmowie z klientem: "w starej aplikacji czyli legacy umowy nie mają żadnej prawdziwej kwoty, to sa tylko cenniki w tej bazie, żadna kwota nie jest realna"
+- **Weryfikacja DB:** 742 legacy umów, 1945 settlements (source='legacy', cost_client=776k zł) — ale to `rate × days` (cennik), NIE faktury
+- **Poprzednia analiza Tech Lead (BŁĘDNA):** "archiwalna umowa z source='legacy' settlement ma prawdziwą kwotę" → "gruba krecha per-KPI na revenue_source"
+- **NOWA analiza Tech Lead (POPRAWNA):** UX miał rację — "gruba krecha" per-widok na `is_legacy` jest poprawna
+- **Implementacja (Option B — reclassify, nie recompute):**
+  - Dodać `estimate_legacy` do enum `revenue_source` w `shared/revenue.py`
+  - W precedence block (L229-238): gdy `revenue_actual > 0 AND is_legacy=true` → `revenue_source = "estimate_legacy"` (nie "actual")
+  - Liczba się NIE zmienia (brak dryfu numerycznego), zmienia się tylko etykieta
+  - `revenue_actual` w stats liczy TYLKO `source='fakturownia'`/`'manual'` (is_legacy=0)
+  - `revenue_estimate` w stats liczy `estimate_legacy` + `estimate_lookup` + `estimate_tiered`
+- **Dlaczego Option B nie Option A (filter out):** Option A (filtrowanie settlements po source) → legacy pozycje spadają do `estimate_lookup` który może dać INNĄ kwotę niż zapisany cennik → dryf numeryczny w stats historycznych
+- **Wpływ:** Po zmianie `revenue_actual` w stats = 0 zł (do czasu nowych umów z Fakturownia). To poprawne — nie mamy dziś realnych faktur.
+
+**Decyzja 6: ROI = tylko actual (rozliczone z fakturownia/manual)**
+
+- **Wybrano:** `ROI = SUM(cost_client gdzie source IN ('fakturownia','manual')) / replacement_value × 100%`
+- **Odrzucono:** Actual + estimate z badge, osobne karty (ROI rzeczywisty vs potencjalny)
+- **Implikacja:** Nowa maszyna z 1 umową nierozliczoną → ROI=0% (mylące, maszyna pracuje) — ale spójne z "prawdziwe wartości"
+- **UI:** Gdy ROI=0% i są nierozliczone umowy → tooltip "Maszyna pracuje ale brak rozliczeń — ROI obliczone z realnych faktur"
+
+**Decyzja 7: is_demo — brak flagi, cała baza jest demo**
+
+- **Wybrano:** "Walic to, nie rob żadnej kolumny, cała baza będzie demem, po prostu od nowa uruchomimy migracje bez żadnych demo danych jak skończymy prezentacje i testy"
+- **Odrzucono:** Kolumna `is_demo TINYINT(1)`, notes prefix `[DEMO]`, prefix numeru `DEMO/%`
+- **Implikacja dla RAO-P2-061:**
+  - `seed_demo_data.py` — bez oznaczania demo danych (brak flagi)
+  - `wipe_demo_data.py` — zastąpione przez pełny re-run migracji (`migrate.py` od zera po `DROP DATABASE + CREATE`)
+  - Backup przed wipe → `mariadb-dump rao_new > backup_pre_wipe.sql`
+  - Po prezentacji: `DROP DATABASE rao_new; CREATE DATABASE rao_new;` + re-run `migrate.py` (legacy migration od zera) + ręczne uzupełnienie
+
+**Decyzja 8: Fakturownia env — narazie bez toggle, wystawiaj na tym samym koncie**
+
+- **Wybrano:** "Narazie teraz wystawiaj i się nie przejmuj bo to jest tylko dla demo potem nie będziemy wystawiac, możesz rozdzielić tokeny i najwyżej narazie ten sam powielic jeśli masz obawy"
+- **Odrzucono:** `FAKTUROWNIA_ENV=test|prod` toggle, dry-run mode
+- **Implikacja dla RAO-P2-061:**
+  - Używać istniejącego `FAKTUROWNIA_API_TOKEN` z `.env` (to samo konto)
+  - Rozdzielić na `FAKTUROWNIA_TEST_TOKEN` + `FAKTUROWNIA_TEST_URL` w `.env` (najwyżej ten sam token powielony)
+  - Po prezentacji: faktury demo można usunąć z FA (lub zignorować — konto i tak testowe)
+  - Brak walidacji env przy startupie (nie blokować)
+
+---
+
 #### Scope implementacji
 
 **Faza 1: Backend (ujednolicenie + bugfix) — backend-dev + db-architect**
@@ -1823,42 +1869,44 @@ Aby zaprezentować moc statystyk RAO (RAO-P2-060: ROI maszyn, top wypożyczenia,
    - Spójność: `SUM(contract_settlements.cost_client)` per pozycja = `revenue_actual` w stats
    - Brak podwójnego liczenia: 1 maszyna na 2 pozycjach w 1 umowie → `contracts_count=1`, `revenue=suma`
 
-**Faza 4: Cleanup script — db-architect**
+**Faza 4: Cleanup — pełny re-run migracji (bez wipe script)**
 
-1. **Skrypt `wipe_demo_data.py`:**
-   - Usuwa WSZYSTKIE demo dane (umowy, pozycje, warunki, usługi, rozliczenia oznaczone `[DEMO]` lub `is_demo=1`)
-   - **NIE usuwa** artykułów, kontrahentów, użytkowników, szablonów (te zostają z proper migration)
-   - Idempotentny (można re-run)
-   - Backup przed wipe (`mariadb-dump rao_new > backup_demo.sql`)
-   - **Uwaga:** ten skrypt będzie użyty PRZED właściwą migracją legacy — user to potwierdził
+1. **Brak `wipe_demo_data.py`** — user zdecydował: "cała baza będzie demem, po prostu od nowa uruchomimy migracje"
+2. **Procedura cleanup po prezentacji:**
+   - Backup: `mariadb-dump rao_new > backup_pre_wipe.sql`
+   - `DROP DATABASE rao_new; CREATE DATABASE rao_new;`
+   - Re-run `migrate.py` (legacy migration od zera)
+   - Ręczne uzupełnienie tego co potrzebne
+3. **Faktury FA:** usunąć z konta FA lub zignorować (konto testowe)
 
 ---
 
-#### Kluczowe decyzje (do potwierdzenia przy implementacji)
+#### Kluczowe decyzje (POTWIERDZONE przez użytkownika 2026-07-01)
 
-1. **Flaga `is_demo`:** Dodać `is_demo TINYINT(1) DEFAULT 0` na `contracts`? Czy oznaczać przez `contract.notes LIKE '%[DEMO]%'`?
-   - **Rekomendacja Tech Lead:** `is_demo` flaga — czystsze, szybsze query przy wipe, nie koliduje z `notes`
-   - **Alternatywa:** `notes` prefix — brak zmiany schema, ale fragile (user może edytować notes)
+1. **Flaga `is_demo`:** **NIE DODAJEMY** — "walic to, nie rob żadnej kolumny, cała baza będzie demem"
+   - Cała baza RAO jest traktowana jako demo do czasu prezentacji
+   - Po prezentacji: pełny re-run migracji od zera (`DROP DATABASE + CREATE + migrate.py`)
+   - Backup przed wipe: `mariadb-dump rao_new > backup_pre_wipe.sql`
+   - Brak `is_demo` kolumny, brak `notes` prefix, brak `DEMO/%` numeracji
 
-2. **Fakturownia env toggle:** `FAKTUROWNIA_ENV=test|prod` w `.env`?
-   - **Rekomendacja:** TAK — zapobiega przypadkowemu wystawieniu faktur na prod podczas demo
-   - **Walidacja:** przy `ENV=test` — URL musi zawierać `test` lub `.demo`
+2. **Fakturownia env toggle:** **NIE ROBIMY** — "narazie wystawiaj i się nie przejmuj"
+   - Używać istniejącego `FAKTUROWNIA_API_TOKEN` z `.env` (to samo konto)
+   - Opcjonalnie rozdzielić na `FAKTUROWNIA_TEST_TOKEN` + `FAKTUROWNIA_TEST_URL` (najwyżej ten sam token powielony)
+   - Brak walidacji env przy startupie
+   - Po prezentacji: faktury demo usunąć z FA lub zignorować
 
-3. **Ile danych?** 20-30 umów / 40-60 pozycji / 60-90 usług / 80% rozliczonych
-   - **Rekomendacja PO:** tyle wystarczy żeby showcase działał, nie za dużo żeby nie zaciemniać
+3. **Ile danych?** 20-30 umów / 40-60 pozycji / 60-90 usług / 80% rozliczonych (zatwierdzone)
 
-4. **Realizm danych:** Czy stawki mają być realistyczne (rynkowe) czy dowolne?
-   - **Rekomendacja:** Realistyczne (koparka 800-1200 zł/doba, transport 400-600 zł, tankowanie 150-200 zł) — żeby ROI miało sens biznesowy
+4. **Realizm danych:** Realistyczne rynkowe (koparka 800-1200 zł/doba, transport 400-600 zł, tankowanie 150-200 zł) — żeby ROI miało sens biznesowy (zatwierdzone)
 
 ---
 
 #### Kryteria akceptacji (DoD)
 
 **Fakturownia:**
-- [ ] Testowe konto FA skonfigurowane (`FAKTUROWNIA_TEST_TOKEN` w `.env`)
 - [ ] 10-15 produktów FA utworzonych i zmapowanych (`Article.fakturownia_product_id`)
 - [ ] 5-8 kontrahentów demo zmapowanych
-- [ ] `FAKTUROWNIA_ENV=test` toggle działa (blokuje prod)
+- [ ] Faktury wystawiane przez istniejący `FAKTUROWNIA_API_TOKEN` (brak env toggle)
 
 **Seed:**
 - [ ] `seed_demo_data.py` idempotentny (re-run nie tworzy duplikatów)
@@ -1879,13 +1927,12 @@ Aby zaprezentować moc statystyk RAO (RAO-P2-060: ROI maszyn, top wypożyczenia,
 - [ ] "Mieszane" — `revenue_actual` > 0 AND `revenue_estimate` > 0
 
 **Cleanup:**
-- [ ] `wipe_demo_data.py` usuwa tylko demo dane (oznaczone `is_demo=1`)
-- [ ] Backup przed wipe (`mariadb-dump`)
-- [ ] Idempotentny (re-run safe)
-- [ ] Nie usuwa artykułów/kontrahentów/szablonów
+- [ ] Backup przed wipe (`mariadb-dump rao_new > backup_pre_wipe.sql`)
+- [ ] `DROP DATABASE rao_new; CREATE DATABASE rao_new;` + re-run `migrate.py`
+- [ ] Faktury FA demo usunięte lub zignorowane
 
 **Spec:**
-- [ ] `spec/core/07_integrations.md` — sekcja Fakturownia test env
+- [ ] `spec/core/07_integrations.md` — sekcja Fakturownia (brak env toggle, demo factorowanie)
 - [ ] `spec/core/04_business_logic.md` — demo data lifecycle (seed → showcase → wipe → proper migration)
 - [ ] `spec/technical/scripts/seed_demo_data.md` — dokumentacja skryptu
 
@@ -1910,6 +1957,287 @@ Aby zaprezentować moc statystyk RAO (RAO-P2-060: ROI maszyn, top wypożyczenia,
 - Multi-branch demo dane — po RAO-P1-055 (branch_id)
 
 **Estymacja:** 12-16h (M) — Faza 1 (FA test config + produkty) + Faza 2 (seed skrypt + faktury) + Faza 3 (showcase weryfikacja) + Faza 4 (cleanup script)
+
+---
+
+### [RAO-P2-062] Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel)
+
+```yaml
+id: RAO-P2-062
+priority: P1
+size: L
+status: triaged
+classification: cross-stack/refactor+migration
+roles: [tech-lead, db-architect, backend-dev, frontend-dev, qa-engineer]
+source: operator-request
+source_date: 2026-07-01
+specs_to_update:
+  - core/01_database.md (archive_* tabele + usunięcie is_legacy)
+  - core/02_backend_api.md (archive endpointy read-only + category edit)
+  - core/03_frontend_screens.md (Archiwum widok w sidebarze)
+  - core/04_business_logic.md (archive = frozen snapshot, tylko kategorie edytowalne)
+  - core/06_navigation_flow.md (sidebar: Archiwum)
+  - core/11_reports_stats.md (stats nowe = czyste, stats archiwum = osobne endpointy)
+migration_impact: yes (przeniesienie 742 umów + powiązanych do archive_* tabel)
+security_impact: low (read-only archiwum + auth)
+depends_on:
+  - RAO-P2-028 (is_legacy flag — dane do przeniesienia)
+  - RAO-P2-032 (contract_settlements.source — dane do przeniesienia)
+blocks:
+  - RAO-P2-060 (statystyki — upraszcza: 6 z 9 bugów znika, brak is_legacy filtra)
+  - RAO-P2-061 (demo data — idą do czystej rao_new bez legacy)
+```
+
+**Problem:**
+
+Obecnie 742 legacy umów (is_legacy=1) jest w tych samych tabelach co nowe umowy. Wymaga to filtra `is_legacy` w 16 endpointach stats, prowadzi do 9 bugów (3 krytyczne), i wymaga `estimate_legacy` enum w `shared/revenue.py`. Klient potwierdził: **legacy umowy to tylko cenniki, żadna kwota nie jest realna** — więc mieszanie ich z nowymi umowami (które będą miały prawdziwe rozliczenia z Fakturownia) zafałszowuje statystyki.
+
+**Rozwiązanie:** Przenieść legacy dane do tabel z prefixem `archive_` w tej samej bazie. Nowa aplikacja (`contracts`, `articles`, etc.) = czysta, tylko nowe umowy. Archiwum (`archive_*`) = frozen snapshot, read-only (z wyjątkiem edycji kategorii).
+
+**Kluczowa decyzja użytkownika (2026-07-01):**
+> "Może w jednej bazie zrobimy z archive_articles, archive_inne i wszystko będzie tam zjeżdżało, a nowe artykuły do zwykłe articles. Kontrahenci współdzielone. Artykuły - osobne tabele. Umowy - osobne tabele. Tylko umożliwić żonglowanie kategoriami żeby poprawić ewentualnie wgląd w statystyki bo niektóre są być może źle podczas migracji skategoryzowane."
+
+---
+
+#### DECYZJE UŻYTKOWNIKA (zarejestrowane 2026-07-01)
+
+**Decyzja 1: Tabele `archive_*` w jednej bazie (nie osobna DB)**
+
+- **Wybrano:** `archive_articles`, `archive_contracts`, `archive_contract_positions`, etc. w `rao_new`
+- **Odrzucono:** Osobna baza `rao_archive` (cross-DB FK tricky, więcej infra)
+- **Plusy:** Brak cross-DB FK, JOIN możliwy, prostsze infra, prefix `archive_` = oczywiste
+
+**Decyzja 2: Kontrahenci współdzielone (jedna tabela `contractors`)**
+
+- **Wybrano:** `contractors` współdzielone między archiwum a nową aplikacją
+- **Uzasadnienie użytkownika:** "tych chyba warto zostawić do crossa pomiędzy starymi a nowymi"
+- **Plusy:** Jedno miejsce edycji, pełna historia kontrahenta (legacy + nowe), brak duplikacji NIP
+- **Biznesowo poprawne:** kontrahent = żywa encja prawna, umowa = zamrożony event
+
+**Decyzja 3: Artykuły osobne (`articles` + `archive_articles`)**
+
+- **Wybrano:** `archive_articles` = frozen snapshot z czasu migracji, `articles` = nowe (edytowalne)
+- **Uzasadnienie:** Maszyna może zmienić `replacement_value`, nazwę, być sprzedana. Archiwum pokazuje stan z tamtego czasu.
+- **Cross-referencja:** `internal_number` służy do powiązania ("czy to ta sama maszyna co w archiwum?")
+
+**Decyzja 4: Archiwum = read-only + edycja kategorii**
+
+- **Wybrano:** Archiwum read-only **Z WYJĄTKIEM** edycji `category_id` na `archive_articles`
+- **Uzasadnienie użytkownika:** "tylko umożliwić żonglowanie kategoriami żeby poprawić ewentualnie wgląd w statystyki bo niektóre są być może źle podczas migracji skategoryzowane"
+- **Implementacja:** `PATCH /archive/articles/{id}/category` — jedyny write endpoint na archiwum
+
+---
+
+#### Struktura tabel po migracji
+
+**Współdzielone (bez prefixu):**
+```
+contractors              ← współdzielone (legacy + nowe)
+users                    ← współdzielone
+fee_preset_groups        ← współdzielone (szablony usług)
+service_fee_templates    ← współdzielone
+articles_categories      ← współdzielone (słownik kategorii)
+```
+
+**Nowa aplikacja (bez prefixu, czyste):**
+```
+articles                 ← nowe maszyny (edytowalne, żywe)
+contracts                ← TYLKO nowe umowy (is_legacy USUNIĘTE)
+contract_positions       ← tylko nowe
+position_conditions      ← tylko nowe
+contract_service_fees    ← tylko nowe
+contract_settlements     ← tylko nowe (source='fakturownia'/'manual')
+```
+
+**Archiwum (prefix `archive_`, frozen):**
+```
+archive_articles         ← frozen snapshot maszyn z migracji (category_id edytowalne)
+archive_contracts        ← 742 legacy umów
+archive_contract_positions    ← legacy pozycje
+archive_position_conditions   ← legacy warunki (cennik)
+archive_contract_service_fees ← legacy usługi dodatkowe
+archive_contract_settlements  ← legacy rozliczenia (source='legacy', cennik × dni)
+```
+
+**Relacje:**
+- `archive_contracts.contractor_id` → `contractors.id` (współdzielone, FK OK)
+- `archive_contract_positions.article_id` → `archive_articles.id` (archive FK)
+- `archive_contract_positions.contract_id` → `archive_contracts.id` (archive FK)
+- `archive_contract_settlements.position_id` → `archive_contract_positions.id` (archive FK)
+- `archive_articles.category_id` → `articles_categories.id` (współdzielone kategorie)
+
+---
+
+#### Scope implementacji
+
+**Faza 0: Migracja danych (db-architect + backend-dev) — BLOKER dla P2-060 i P2-061**
+
+1. **Utworzyć tabele `archive_*`** (mirror schema z `is_legacy` tabel):
+   - `archive_articles` — kopia `articles` gdzie `id IN (SELECT DISTINCT article_id FROM contract_positions WHERE contract_id IN (SELECT id FROM contracts WHERE is_legacy=1))`
+   - `archive_contracts` — kopia `contracts WHERE is_legacy=1` (bez kolumny `is_legacy`)
+   - `archive_contract_positions` — kopia pozycji dla legacy umów
+   - `archive_position_conditions` — kopia warunków dla legacy pozycji
+   - `archive_contract_service_fees` — kopia usług dla legacy umów
+   - `archive_contract_settlements` — kopia rozliczeń dla legacy umów (source='legacy')
+   - **Idempotentne:** `CREATE TABLE IF NOT EXISTS` + `INSERT IGNORE`
+   - **W jednej transakcji:** backup → INSERT → DELETE → commit
+
+2. **Usunąć legacy dane z tabel `rao_new`:**
+   - `DELETE FROM contract_settlements WHERE contract_id IN (SELECT id FROM contracts WHERE is_legacy=1)`
+   - `DELETE FROM contract_service_fees WHERE contract_id IN (...)`
+   - `DELETE FROM position_conditions WHERE position_id IN (...)`
+   - `DELETE FROM contract_positions WHERE contract_id IN (...)`
+   - `DELETE FROM contracts WHERE is_legacy=1`
+   - **Cascade lub manualne DELETE w odpowiedniej kolejności**
+
+3. **Usunąć kolumnę `is_legacy` z `contracts`:**
+   - `ALTER TABLE contracts DROP COLUMN is_legacy` (nie potrzebna — wszystkie umowy w `contracts` są nowe)
+   - Usunąć `idx_contracts_legacy` indeks
+   - Zaktualizować `backend/contracts/models.py` (usunąć `is_legacy = Column(...)`)
+   - Zaktualizować `backend/shared/revenue.py` (usunąć `is_legacy` z query i z dict)
+
+4. **Backup przed migracją:**
+   - `mariadb-dump rao_new > backup_pre_archive_split.sql`
+
+**Faza 1: Backend — modele + endpointy archiwum (backend-dev)**
+
+1. **Modele `archive_*`** w nowym module `backend/archive/`:
+   - `backend/archive/models.py` — `ArchiveArticle`, `ArchiveContract`, `ArchiveContractPosition`, `ArchivePositionCondition`, `ArchiveContractServiceFee`, `ArchiveContractSettlement`
+   - Mirror schema z głównych modeli ale z `__tablename__ = "archive_*"`
+   - `ArchiveArticle` ma `category_id` (edytowalne) — reszta pól read-only
+
+2. **Endpointy archiwum (read-only + category edit):**
+   - `GET /archive/contracts` — lista legacy umów (z paginacją, filtrowanie po contractor, date range)
+   - `GET /archive/contracts/{id}` — szczegóły legacy umowy
+   - `GET /archive/articles` — lista legacy maszyn
+   - `GET /archive/articles/{id}` — szczegóły legacy maszyny
+   - `PATCH /archive/articles/{id}/category` — **jedyny write endpoint** — zmiana `category_id`
+   - `GET /archive/stats/fleet-summary` — stats archiwum (cennik × dni = szacunek)
+   - `GET /archive/stats/top-machines` — top maszyny w archiwum
+   - `GET /archive/stats/by-category` — kategorie w archiwum
+   - `GET /archive/stats/machine-roi` — ROI orientacyjny (cennik / replacement_value)
+   - Brak POST/PUT/DELETE (poza PATCH category)
+
+3. **Uproszczenie `shared/revenue.py`:**
+   - Usunąć `is_legacy` z query i z dict
+   - `revenue_source` = tylko `actual` / `estimate_lookup` / `estimate_tiered` (bez `estimate_legacy`)
+   - `revenue_actual` = tylko `source='fakturownia'` / `'manual'` (settlements w `contract_settlements` są tylko nowe)
+   - Algorytm precedence bez zmian (actual > lookup > tiered)
+
+4. **Uproszczenie `stats/router.py`:**
+   - Usunąć `is_legacy` parametr z 16 endpointów (nie potrzebny — `contracts` ma tylko nowe)
+   - Usunąć `revenue_source_label` wariant "mieszane" (nie będzie mieszane — archiwum osobno)
+   - Bug #1, #2, #9 **ZNICNĄ AUTOMATYCZNIE** (legacy nie ma w `contracts`)
+
+**Faza 2: Frontend — widok Archiwum (frontend-dev + ux-designer)**
+
+1. **Nowa pozycja w sidebarze:** "Archiwum" (na dole, po "Ustawienia", z ikoną 📦)
+2. **Widok `ArchiveView.vue`:**
+   - Lista legacy umów (read-only, z filtrowaniem po kontrahencie, dacie)
+   - Szczegóły legacy umowy (read-only)
+   - Lista legacy maszyn (read-only, z możliwością zmiany kategorii — dropdown)
+   - Stats archiwum (orientacyjne — z label "wartości szacunkowe z cennika")
+3. **StatsView.vue (RAO-P2-060) — uproszczone:**
+   - Brak zakładki "Archiwum" (archiwum = osobny widok w sidebarze)
+   - 2 zakładki: "Flota teraz" + "Wynajem w okresie" (tylko nowe umowy)
+   - Brak toggle `is_legacy` (nie potrzebny)
+   - Brak badge "rzeczywiste/szacunek" (wszystko w nowej aplikacji = rzeczywiste)
+4. **Styl archiwum:** szare tło (`--color-bg-light`), banner "Archiwum — dane historyczne (szacunkowe)"
+
+**Faza 3: QA — qa-engineer**
+
+1. **Test migracji:** po migracji `SELECT COUNT(*) FROM contracts` = 0 (brak legacy), `SELECT COUNT(*) FROM archive_contracts` = 742
+2. **Test read-only:** POST/PUT/DELETE na `/archive/*` → 405 Method Not Allowed
+3. **Test category edit:** `PATCH /archive/articles/{id}/category` → 200, inne pola niezmienione
+4. **Test stats:** `/stats/fleet-summary` (nowe) — `revenue_actual` = 0 (brak nowych umów), `revenue_estimate` = 0 (brak pozycji)
+5. **Test archiwum stats:** `/archive/stats/fleet-summary` — `revenue_estimate` > 0 (cennik × dni)
+6. **Smoke:** `e2e/tests/01-login.spec.ts` (regresja)
+7. **E2E:** nawigacja do Archiwum, weryfikacja read-only, zmiana kategorii
+
+**Faza 4: Spec sync — tech-lead**
+
+- `spec/core/01_database.md` — tabele `archive_*` + usunięcie `is_legacy`
+- `spec/core/02_backend_api.md` — endpointy `/archive/*` (read-only + category edit)
+- `spec/core/03_frontend_screens.md` — `ArchiveView.vue` + sidebar
+- `spec/core/04_business_logic.md` — archiwum = frozen snapshot, kategorie edytowalne, kontrahenci współdzielone
+- `spec/core/06_navigation_flow.md` — sidebar: Archiwum (na dole)
+- `spec/core/11_reports_stats.md` — stats nowe (czyste) vs stats archiwum (osobne endpointy)
+
+---
+
+#### Wpływ na inne zadania
+
+| Zadanie | Wpływ | Korzyść |
+|---------|-------|---------|
+| **RAO-P2-060** (statystyki) | Uproszczenie: brak `is_legacy` filtra, brak `estimate_legacy`, brak toggle | 6 z 9 bugów znika, prostszy `shared/revenue.py`, prostszy StatsView (2 zakładki zamiast 3) |
+| **RAO-P2-061** (demo data) | Demo dane idą do czystej `rao_new` (brak legacy) | Brak mieszania demo z legacy, prostszy seed |
+| **RAO-P2-058** (Fakturownia) | Brak wpływu (integracja działa na `contracts`) | — |
+| **RAO-P2-059** (usługi dodatkowe) | Brak wpływu (szablony współdzielone) | — |
+
+---
+
+#### Kryteria akceptacji (DoD)
+
+**Migracja:**
+- [ ] Backup `backup_pre_archive_split.sql` utworzony
+- [ ] 6 tabel `archive_*` utworzonych (idempotentne)
+- [ ] 742 legacy umów przeniesionych do `archive_contracts`
+- [ ] 1945 legacy settlements przeniesionych do `archive_contract_settlements`
+- [ ] Legacy dane usunięte z `contracts`, `contract_positions`, etc.
+- [ ] `SELECT COUNT(*) FROM contracts` = 0 (brak legacy)
+- [ ] `SELECT COUNT(*) FROM archive_contracts` = 742
+- [ ] Kolumna `is_legacy` usunięta z `contracts`
+- [ ] `idx_contracts_legacy` indeks usunięty
+
+**Backend:**
+- [ ] `backend/archive/models.py` — 6 modeli `Archive*`
+- [ ] `backend/archive/router.py` — endpointy read-only + `PATCH /archive/articles/{id}/category`
+- [ ] `shared/revenue.py` — `is_legacy` usunięte, `revenue_source` bez `estimate_legacy`
+- [ ] `stats/router.py` — `is_legacy` parametr usunięty z 16 endpointów
+- [ ] Bug #1, #2, #9 **nie występują** (legacy nie ma w `contracts`)
+- [ ] `pytest -x` przechodzi
+
+**Frontend:**
+- [ ] "Archiwum" w sidebarze (na dole, ikona 📦)
+- [ ] `ArchiveView.vue` — lista umów + maszyny + stats (read-only)
+- [ ] Edycja kategorii w archiwum (dropdown → `PATCH /archive/articles/{id}/category`)
+- [ ] Szare tło + banner "Archiwum — dane historyczne (szacunkowe)"
+- [ ] `StatsView.vue` (P2-060) — 2 zakładki (bez archiwum, bez toggle)
+- [ ] `vue-tsc --noEmit` przechodzi
+
+**QA:**
+- [ ] POST/PUT/DELETE na `/archive/*` → 405 (poza PATCH category)
+- [ ] `PATCH /archive/articles/{id}/category` → 200, tylko `category_id` zmienione
+- [ ] Smoke `01-login.spec.ts` przechodzi
+- [ ] E2E: nawigacja Archiwum, read-only, zmiana kategorii
+
+**Spec:**
+- [ ] `git diff --stat spec/core/` nie jest pusty (6 plików)
+- [ ] `spec/core/01_database.md` — tabele `archive_*` + usunięcie `is_legacy`
+
+---
+
+#### Edge cases
+
+- Kontrahent z umowami legacy + nowymi — `contractors` współdzielone, archiwum i nowe pokazują tego samego kontrahenta
+- Maszyna sprzedana (is_archival=1) — czy trafia do `archive_articles`? TAK (jeśli była w legacy umowach) — frozen snapshot
+- Maszyna w `archive_articles` z `category_id=NULL` — można ustawić kategorię przez `PATCH`
+- Umowa z `date_to=NULL` w archiwum — stats archiwum muszą obsłużyć (jak bug #3 ale w archive endpointach)
+- Re-run migracji — idempotentne (`INSERT IGNORE`, `CREATE TABLE IF NOT EXISTS`)
+- Po migracji `shared/revenue.py` — `is_legacy` nie istnieje w query → czy code crashuje? (weryfikacja backend-dev)
+
+---
+
+#### Poza scope (na później)
+
+- Eksport archiwum do PDF/Excel
+- Porównanie side-by-side archiwum vs nowe (ten sam kontrahent/maszyna)
+- Import korekt do archiwum (poza kategoriami)
+- Automatyczne sugestie kategorii dla `archive_articles` (AI/ML)
+
+**Estymacja:** 16-20h (L) — Faza 0 (migracja 4-6h) + Faza 1 (backend 6-8h) + Faza 2 (frontend 4-6h) + Faza 3 (QA 2-3h) + Faza 4 (spec sync 1-2h)
+
+**Kolejność:** **RAO-P2-062 FIRST** (przed P2-060 i P2-061) — bo upraszcza oba zadania
 
 ---
 
@@ -1960,8 +2288,9 @@ Aby zaprezentować moc statystyk RAO (RAO-P2-060: ROI maszyn, top wypożyczenia,
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | triaged | → in_progress (Faza 1: parser legacy + migracja + UI + template items) |
 | RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | triaged | → in_progress (decyzje użytkownika zarejestrowane 2026-07-01) |
 | RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | triaged | → in_progress (demo dane tymczasowe — zaoranie przed właściwą migracją) |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | triaged | → in_progress (BLOKER dla P2-060 i P2-061 — upraszcza oba) |
 
-**Razem:** 37 zadań · ~142-188h pracy (P0: 25-35h, P1: 42-55h, P2: 75-98h)
+**Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
 
 ### Pipeline weryfikacji (status flow)
 
