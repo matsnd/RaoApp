@@ -411,10 +411,10 @@
         </template>
       </div>
 
-      <!-- KATEGORIE (admin only) -->
-      <div v-else-if="activeTab === 'categories' && authStore.isAdmin" class="tab-pane">
+      <!-- KATEGORIE (admin: edycja, user: read-only) -->
+      <div v-else-if="activeTab === 'categories'" class="tab-pane">
         <div class="grid-container">
-          <div class="grid-header">
+          <div v-if="authStore.isAdmin" class="grid-header">
             <input v-model="newCat.name" type="text" class="form-control" placeholder="Nazwa nowej kategorii" style="max-width:240px;" />
             <input v-model="newCat.code" type="text" class="form-control" placeholder="Kod (opcj.)" style="max-width:120px;" />
             <select v-model="newCat.parent_id" class="form-control" style="width:200px;">
@@ -425,21 +425,24 @@
             </select>
             <button class="btn btn-primary btn-sm" @click="addCategory">+ Dodaj kategorię</button>
           </div>
+          <div v-else class="grid-header">
+            <span class="est-suffix" style="font-size:13px;">Kategorie historyczne (szacunkowe) — read-only</span>
+          </div>
 
           <div class="grid-scroll">
             <table class="data-grid">
               <thead>
-                <tr><th>Nazwa</th><th>Kod</th><th>Poziom</th><th style="width:120px;"></th></tr>
+                <tr><th>Nazwa</th><th>Kod</th><th>Poziom</th><th v-if="authStore.isAdmin" style="width:120px;"></th></tr>
               </thead>
               <tbody>
                 <tr v-if="archiveStore.categoriesLoading">
-                  <td colspan="4" class="empty-state">Ładowanie...</td>
+                  <td :colspan="authStore.isAdmin ? 4 : 3" class="empty-state">Ładowanie...</td>
                 </tr>
                 <tr v-else-if="!flatCategoryTree.length">
-                  <td colspan="4" class="empty-state">Brak kategorii archiwum</td>
+                  <td :colspan="authStore.isAdmin ? 4 : 3" class="empty-state">Brak kategorii archiwum</td>
                 </tr>
                 <template v-for="cat in flatCategoryTree" :key="cat.id">
-                  <tr v-if="editingCatId === cat.id" class="row-editing">
+                  <tr v-if="editingCatId === cat.id && authStore.isAdmin" class="row-editing">
                     <td :style="{ paddingLeft: (cat._depth * 20 + 8) + 'px' }">
                       <input v-model="editingCatData.name" class="form-control form-control-xs" @keydown.enter="saveEditCat" @keydown.esc="editingCatId = null" />
                     </td>
@@ -458,7 +461,7 @@
                     </td>
                     <td>{{ cat.code || '—' }}</td>
                     <td style="color:var(--color-text-muted);font-size:11px;">{{ cat.level }}</td>
-                    <td>
+                    <td v-if="authStore.isAdmin">
                       <button class="btn-icon" @click="startEditCat(cat)" title="Edytuj">✎</button>
                       <button
                         class="btn-icon"
@@ -473,11 +476,6 @@
             </table>
           </div>
         </div>
-      </div>
-
-      <!-- Brak uprawnień -->
-      <div v-else-if="activeTab === 'categories'" class="tab-pane">
-        <div class="empty-state">Sekcja dostępna tylko dla administratora.</div>
       </div>
     </div>
   </div>
@@ -501,7 +499,7 @@ const allTabs: { id: TabId; label: string; adminOnly?: boolean }[] = [
   { id: 'contracts', label: 'Umowy' },
   { id: 'articles', label: 'Maszyny' },
   { id: 'stats', label: 'Statystyki' },
-  { id: 'categories', label: 'Kategorie (admin)', adminOnly: true },
+  { id: 'categories', label: 'Kategorie' },
 ]
 const visibleTabs = computed(() =>
   allTabs.filter((t) => !t.adminOnly || authStore.isAdmin),
@@ -877,15 +875,19 @@ onMounted(() => {
   gap: var(--spacing-4);
 }
 
-/* ── Szacunkowe wartości ────────────────────────────────────────────────────── */
+/* ── Szacunkowe wartości (kreska — przekreślone) ───────────────────────────── */
 .est-value {
-  color: var(--color-text-heading);
+  color: var(--color-text-muted);
   font-weight: var(--font-weight-medium);
+  text-decoration: line-through;
+  text-decoration-color: var(--color-warning);
+  text-decoration-thickness: 2px;
 }
 .est-suffix {
   color: var(--color-warning);
   font-size: var(--font-size-xs);
   margin-left: 4px;
+  font-weight: var(--font-weight-semibold);
 }
 
 /* ── Contract details ───────────────────────────────────────────────────────── */

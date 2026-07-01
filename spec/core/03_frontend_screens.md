@@ -1398,14 +1398,16 @@ async function handleFakturownia() {
 
 ### ArchiveView.vue — Archiwum danych historycznych (RAO-P2-062 Faza 2)
 
-**Route:** `/archive` | **requiresAuth:** tak | **requiresAdmin:** częściowo (zakładka Kategorie)
+**Route:** `/archive` | **requiresAuth:** tak | **requiresAdmin:** częściowo (edycja kategorii — admin)
 
 **Opis:** Read-only przegląd danych historycznych (legacy umowy/maszyny przeniesione do tabel `archive_*` w Fazie 0). Wartości są szacunkowe (cennik × dni), nie z systemu rozliczeń. Jedyny write to edycja kategorii (admin).
 
-**Sidebar:** Przycisk "📦 Archiwum" w `AppSidebar.vue` (po "Raporty", przed "Ustawienia")
+**Sidebar:** Przycisk "📦 Archiwum" w `AppSidebar.vue` — wyraźny dział główny z pomarańczowym separatorem (2px) + label "ARCHIWUM (szacunkowe)" + border-left na przycisku. Oddzielone od sekcji głównej (Umowy/Kontrahenci/Artykuły/Pulpit/Statystyki/Prowizje/Raporty) i od sekcji konta (Ustawienia/Admin/Hasło/Wyloguj).
 
 **Banner ostrzegawczy** (góra widoku):
 > ⚠️ Archiwum — dane historyczne (szacunkowe). Wartości pochodzą z cenników sprzed migracji, nie z systemu rozliczeń.
+
+**Kreska na wartościach szacunkowych:** Wszystkie wartości szacunkowe (`.est-value`) są **przekreślone** (`text-decoration: line-through` w kolorze warning) + suffix `[szac.]` — wizualnie oddziela dane historyczne od rzeczywistych.
 
 **4 zakładki:**
 
@@ -1424,7 +1426,9 @@ async function handleFakturownia() {
    - Per kategoria: kategoria, kontraktów, pozycji, przychód szac.
    - ROI maszyny (opcjonalne): `GET /archive/stats/machine-roi?article_id=` — przychód szac. / wartość wymiany = ROI %
 
-4. **Kategorie (admin)** (`activeTab='categories'`, `adminOnly: true`) — `GET /archive/categories/tree` + CRUD
+4. **Kategorie** (`activeTab='categories'`) — `GET /archive/categories/tree` + CRUD (admin)
+   - Read-only dla non-admin (drzewo kategorii bez akcji edycji/usuwania)
+   - Admin: dodawanie/edycja/usuwanie kategorii (jak wcześniej)
    - Drzewo kategorii (flatten z depth indent)
    - Dodaj kategorię: `POST /archive/categories` (name, code, parent_id, level auto-z parent)
    - Edytuj: `PUT /archive/categories/{id}` (rename, code)

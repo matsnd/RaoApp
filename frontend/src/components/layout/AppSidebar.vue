@@ -37,10 +37,18 @@
         :class="['sidebar-btn', { active: activeSection === 'reports' }]"
         @click="$emit('navigate', 'reports')"
       >Raporty</button>
+    </div>
+    <!-- Wyraźny separator — Archiwum jako osobny dział (szacunkowe) -->
+    <div class="sidebar-archive-divider"></div>
+    <div class="sidebar-archive-section">
+      <div class="sidebar-archive-label">ARCHIWUM (szacunkowe)</div>
       <button
-        :class="['sidebar-btn', { active: activeSection === 'archive' }]"
+        :class="['sidebar-btn', 'sidebar-btn-archive', { active: activeSection === 'archive' }]"
         @click="$emit('navigate', 'archive')"
       >📦 Archiwum</button>
+    </div>
+    <!-- Ustawienia / Admin / Konto -->
+    <div class="sidebar-bottom">
       <button
         :class="['sidebar-btn', { active: activeSection === 'settings' }]"
         @click="$emit('navigate', 'settings')"
@@ -99,6 +107,28 @@ onMounted(async () => {
 }
 .sidebar-btn-home {
   font-size: 13px;
+}
+/* Wyraźny separator — Archiwum jako osobny dział (szacunkowe) */
+.sidebar-archive-divider {
+  height: 2px;
+  background: rgba(245, 158, 11, 0.5);
+  margin: 8px 12px;
+  border-radius: 1px;
+}
+.sidebar-archive-section {
+  padding: 4px 0;
+}
+.sidebar-archive-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: rgba(245, 158, 11, 0.85);
+  padding: 4px 16px 6px;
+  text-transform: uppercase;
+}
+.sidebar-btn-archive {
+  font-size: 13px;
+  border-left: 3px solid rgba(245, 158, 11, 0.5);
 }
 /* RAO-P3-003: logo firmy w sidebarze */
 .sidebar-company-logo {

@@ -1,7 +1,0 @@
-OK: 260564910 | Invest S.A. | Kraków
-OK: 260564912 | Terra-Masz Budownictwo | Poznań
-OK: 260564913 | Wod-Bud Sp. z o.o. | Wrocław
-OK: 260564914 | Fundament Sp. z o.o. | Łódź
-OK: 260564915 | Trakcja-Polska S.A. | Gdynia
-OK: 260564917 | Eko-Bud Nowoczesne Budownictwo | Katowice
-OK: 260564918 | Miejskie Inwestycje Sp. z o.o. | Bydgoszcz
