@@ -188,7 +188,6 @@
             <div class="form-group">
               <label class="form-label">Opcje</label>
               <div style="display:flex;gap:16px;padding-top:6px;">
-                <label class="checkbox-group"><input type="checkbox" v-model="form.report_without_data" /> Wydruk bez danych</label>
                 <label class="checkbox-group"><input type="checkbox" v-model="form.hide_delivery_address" /> Ukryj adres dostawy na umowie (klient wpisze ręcznie)</label>
                 <label class="checkbox-group"><input type="checkbox" v-model="form.signatures_on_page1" /> Podpisy wymagane na stronie 1</label>
                 <div style="display:flex;align-items:center;gap:6px;">

@@ -149,7 +149,7 @@
       </div>
     </td>
     <td class="info-col" style="vertical-align:top;padding-top:6px;">
-      {% if contract.delivery_address %}Adres dostawy: {{ contract.delivery_address }}<br>{% endif %}
+      {% if contract.hide_delivery_address %}Adres dostawy: <span style="border-bottom:1px solid #888;display:inline-block;min-width:220px;">&nbsp;</span><br>{% elif contract.delivery_address and contract.delivery_address.strip() %}Adres dostawy: {{ contract.delivery_address }}<br>{% endif %}
     </td>
   </tr>
 </table>
@@ -249,7 +249,8 @@
 
 <div class="content-spacer" style="height: 35mm;"></div>
 
-<!-- SIGNATURES -->
+<!-- SIGNATURES (RAO-P2-064: warunkowo na str 1 gdy signatures_on_page1=TRUE) -->
+{% if contract.signatures_on_page1 %}
 <table class="sigs">
   <tr>
     <td>
@@ -262,6 +263,7 @@
     </td>
   </tr>
 </table>
+{% endif %}
 
 <!-- FOOTER LEGAL -->
 <div id="footer-legal-running">

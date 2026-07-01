@@ -402,6 +402,17 @@ Context menu na umowie → "Wydruk → Umowa" / "Protokół ZO" / "Protokół ZO
 | `protocol_zo` | `protocol_zo.html` | Protokół zdawczo-odbiorczy z danymi maszyn |
 | `protocol_zo_nodata` | `protocol_zo_nodata.html` | Protokół ZO z pustymi polami do ręcznego wypełnienia |
 
+### Opcje wydruku umowy (RAO-P2-064)
+
+Szablony `contract.html` (typ S) i `contract_u.html` (typ U) honorują 2 flagi z `contracts` table:
+
+| Flaga | Zachowanie |
+|-------|------------|
+| `hide_delivery_address=TRUE` | Label "Adres dostawy:" + puste pole do wpisu ręcznego (zamiast adresu z DB) |
+| `signatures_on_page1=TRUE` | Sekcja SIGNATURES na str 1 (podpisy Wynajmującego + Najemcy); OFF = brak na str 1, tylko na str 2 (OWN) |
+
+`report_without_data` — DEPRECATED (martwe pole, checkbox usunięty z UI). "PZ bez danych" = osobny raport przez context menu.
+
 ### Implementacja
 
 ```python

@@ -2328,6 +2328,65 @@ archive_contract_settlements  ← legacy rozliczenia (source='legacy', cennik ×
 
 ---
 
+### [RAO-P2-064] Opcje wydruku PDF — hide_delivery_address + signatures_on_page1 + cleanup report_without_data
+
+```yaml
+id: RAO-P2-064
+priority: P1
+size: M
+status: done (2026-07-01)
+classification: cross-stack/bugfix+feature
+roles: [tech-lead, backend-dev, frontend-dev, qa-engineer, product-owner]
+source: operator-request
+source_date: 2026-07-01
+specs_to_update:
+  - core/03_frontend_screens.md (usunięcie checkboxa report_without_data)
+  - core/04_business_logic.md (semantyka 2 flag wydruku)
+  - core/07_integrations.md (sekcja PDF — zachowanie flag)
+migration_impact: no (pola już istnieją w DB)
+security_impact: low (read-only PDF, autoescape=True już działa)
+depends_on:
+  - RAO-P1-018 (PDF Umowa — pieczątka, foundation istnieje)
+verification:
+  - "pytest backend/tests/unit/test_pdf_options.py: PASS (12 testów)"
+  - "vue-tsc --noEmit: PASS"
+  - "npm run build: PASS"
+  - "curl /reports/contract/{id}?type=contract z hide_delivery_address=TRUE → PDF bez adresu"
+  - "curl /reports/contract/{id}?type=contract z signatures_on_page1=FALSE → PDF bez podpisów na str 1"
+  - "grep report_without_data frontend/src/views/ContractFormView.vue: 0 wyników (usunięty)"
+```
+
+**Problem:**
+
+Formularz umowy (ContractFormView.vue:191-193) ma 3 checkboxy opcji wydruku:
+1. "Wydruk bez danych" (report_without_data)
+2. "Ukryj adres dostawy na umowie (klient wpisze ręcznie)" (hide_delivery_address)
+3. "Podpisy wymagane na stronie 1" (signatures_on_page1)
+
+Pola zapisywane w DB (contracts table, BOOLEAN NOT NULL DEFAULT FALSE) ale **ŻADEN szablon PDF ich nie czyta** — `contract.html` i `contract_u.html` mają 0 odwołań do tych pól. User klika checkbox → zapisuje umowę → pobiera PDF → **nic się nie zmienia**. To jest silent feature gap erodujący zaufanie do aplikacji.
+
+**Analiza zespołu (PO + QA, 2026-07-01):**
+
+- `hide_delivery_address` + `signatures_on_page1` — realne JTBD, implementuj TERAZ (P1)
+- `report_without_data` — **martwe pole** (DB comment "PZ bez danych" = osobny raport, już osiągalny przez context menu `protocol_zo_nodata`). Usuń checkbox z UI.
+
+**Decyzje projektowe (tech-lead, --full-auto):**
+
+1. `hide_delivery_address=TRUE` → zostawić label "Adres dostawy:" + puste pole do wpisu ręcznego (zgodnie z UI "klient wpisze ręcznie")
+2. `signatures_on_page1` ON = pokaż na str 1 + OWN (bez zmian dla OWN); OFF = brak na str 1, tylko OWN
+3. `report_without_data` → usuń checkbox z UI (pole w DB zostaje dla compat migracji)
+4. Tylko umowa (contract.html, contract_u.html), nie PZ (UI labelka mówi "na umowie")
+
+**Implementacja:**
+
+- `contract.html:152` + `contract_u.html:138`: warunkowa logika hide_delivery_address (label + puste pole)
+- `contract.html:252-264` + `contract_u.html:224-236`: warunkowa sekcja SIGNATURES (`{% if contract.signatures_on_page1 %}`)
+- `ContractFormView.vue:191`: usuń checkbox report_without_data
+- `backend/tests/unit/test_pdf_options.py`: 12 testów pytest (happy path + edge cases + regresja)
+- Spec sync: 03_frontend_screens.md, 04_business_logic.md, 07_integrations.md
+
+---
+
 #### Wpływ na inne zadania
 
 | Zadanie | Wpływ | Korzyść |

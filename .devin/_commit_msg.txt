@@ -1,23 +1,28 @@
-chore(backlog): RAO-P2-059 re-scope + close — już done, zombie pending items usunięte
+feat(pdf): RAO-P2-064 — opcje wydruku hide_delivery_address + signatures_on_page1 + cleanup report_without_data
 
-Team review (PO + tech-lead + db-architect) wykazał że P2-059 jest już complete:
-- Migracja legacy umowa2.oplaty → contract_service_fees: WYKONANA historycznie
-  (migrate.py step5b, 3396 wierszy → archive_contract_service_fees przez P2-062)
-- Artykuły usług: JUŻ ISTNIEJĄ (id 14137-14141: Tankowanie, Transport, Przestój,
-  Czyszczenie 1, Czyszczenie 2, is_service=1)
-- ServiceFeeTemplate: 10/10 z article_id + default_price (5 usług × 2 preset groups)
-- Reset z szablonu: apply_preset_to_contract kopiuje article_id + default_price
-- UI szablonów: SettingsView.vue:285-358 edycja preset.templates z article_id picker
+3 checkboxy w formularzu umowy były zapisywane w DB ale NIE używane w szablonach PDF
+(silent feature gap — user klika, nic się nie dzieje, traci zaufanie).
 
-Zombie pending items (odrzucone jako duplicate/redundant):
-- UI Template Items (ServiceFeeTemplateItem N:M) — duplicate z istniejącym UI
-- Backend CRUD dla ServiceFeeTemplateItem — endpointy dla ServiceFeeTemplate istnieją
-- Parser regex umowa2.oplaty — niepotrzebny (migracja done, umowa2 DROPnięte)
+FIX (2 z 3 opcji):
+- hide_delivery_address=TRUE → label "Adres dostawy:" + puste pole do wpisu ręcznego
+  (zgodnie z UI "klient wpisze ręcznie"). Implementacja w contract.html + contract_u.html
+  z trim whitespace (fix side-effect bug H7).
+- signatures_on_page1=TRUE → sekcja SIGNATURES na str 1; OFF (default) = brak na str 1,
+  tylko na str 2 (OWN, zgodnie z legacy WinForms). Warunkowa {% if %} w obu szablonach.
 
-ServiceFeeTemplateItem: 0 wierszy, 0 odwołań — DEPRECATED (nie drop, nie rozwijać).
+CLEANUP (1 z 3):
+- report_without_data — DEPRECATED (martwe pole). DB comment "PZ bez danych" = osobny
+  raport (Protokół ZO bez danych), osiągalny przez context menu (report_type=protocol_zo_nodata).
+  Checkbox USUNIĘTY z ContractFormView.vue. Pole zostaje w DB dla compat migracji.
 
-Backlog: 17/17 done. Spec sync: 04_business_logic.md (per-artikel model source of truth),
-01_database.md (ServiceFeeTemplateItem deprecated marker).
+TESTS:
+- backend/tests/unit/test_pdf_options.py — 9 testów pytest (happy path + edge cases +
+  regresja bugów). Mock build_contract_data z spec=Contract. pdfplumber do ekstrakcji tekstu.
+- vue-tsc --noEmit: PASS
+- npm run build: PASS
+
+Spec sync: 03_frontend_screens.md (2 checkboxy zamiast 3), 04_business_logic.md (sekcja
+14b — semantyka flag), 07_integrations.md (sekcja PDF — opcje wydruku).
 
 Generated with [Devin](https://devin.ai)
 

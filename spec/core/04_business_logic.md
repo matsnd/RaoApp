@@ -1058,6 +1058,30 @@ def generate_fees_text_for_pdf(fees: list) -> str:
     return "\n".join(lines)
 ```
 
+## 14b. Opcje wydruku PDF umowy (RAO-P2-064)
+
+Formularz umowy ma 2 flagi kontrolujące wydruk PDF (`contract.html` typ S, `contract_u.html` typ U):
+
+| Flaga | Default | Zachowanie w PDF |
+|-------|---------|------------------|
+| `hide_delivery_address` | FALSE | ON: label "Adres dostawy:" + puste pole do wpisu ręcznego (klient wpisze na wydruku). OFF: pełny adres z `contract.delivery_address` (jeśli niepusty po trim). |
+| `signatures_on_page1` | FALSE | ON: sekcja SIGNATURES na str 1 (podpisy Wynajmującego + Najemcy) + podpisy na str 2 (OWN, zawsze). OFF: brak podpisów na str 1, tylko na str 2 (zgodnie z legacy WinForms). |
+
+**`report_without_data` — DEPRECATED (martwe pole):**
+- DB comment: "PZ bez danych" = osobny raport (Protokół ZO bez danych), osiągalny przez context menu (`report_type=protocol_zo_nodata`).
+- Checkbox USUNIĘTY z `ContractFormView.vue` (RAO-P2-064). Pole zostaje w DB dla compat migracji, ale nie jest edytowalne z UI.
+- NIE wpływa na wydruk umowy (test pytest potwierdza NO-OP).
+
+**Implementacja w szablonach Jinja:**
+```jinja
+{# hide_delivery_address #}
+{% if contract.hide_delivery_address %}Adres dostawy: <span style="border-bottom:1px solid #888;...">&nbsp;</span><br>
+{% elif contract.delivery_address and contract.delivery_address.strip() %}Adres dostawy: {{ contract.delivery_address }}<br>{% endif %}
+
+{# signatures_on_page1 #}
+{% if contract.signatures_on_page1 %}<table class="sigs">...</table>{% endif %}
+```
+
 ## 15. Statusy umowy (RAO-P2-022)
 
 Umowa NIE posiada kolumny `status` (enum). Stan jest obliczany deterministycznie z `is_settled` + `date_to` + dziś.

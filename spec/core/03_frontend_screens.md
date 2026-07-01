@@ -583,7 +583,7 @@ Szczegółowy layout Row 1 (nagłówek):
 │ └───────────────────────────────────┘   │                        │
 │ Uwagi ┌──────────────────────────┐      │                        │
 │       └──────────────────────────┘      │                        │
-│ ☐ Wydruk bez danych ☐ Ukryj adres dostawy na umowie (klient wpisze ręcznie) ☐ Podpisy wymagane na stronie 1 │                        │
+│ ☐ Ukryj adres dostawy na umowie (klient wpisze ręcznie) ☐ Podpisy wymagane na stronie 1 │                        │
 └─────────────────────────────────────────┴────────────────────────┘
 ```
 
