@@ -1,31 +1,17 @@
-docs(audit): kategoryzacje nie feeduja statystyk — dodatkowe znaleziska
+feat(demo): RAO-P2-061 — Demo data seeding + Fakturownia configuration
 
-Kontekst uzytkownika: "pamietaj ze te kategoryzacje mialy pomoc w zbieraniu
-statystyk"
+- seed_demo_data.py: 11 artykułów (5 maszyn + 6 usług, bez duplikatów),
+  8 kontrahentów, 2 handlowców, 1 oddział, 3 rate types, 24 umowy z pozycjami,
+  warunkami rozliczeniowymi, usługami dodatkowymi i rozliczeniami
+- seed_fa_invoices.py: 12 faktur w Fakturownia dla rozliczonych umów
+  z source=fakturownia (OID = numer umowy w description)
+- 74 rozliczenia: 53 fakturownia (72%), 17 manual (23%), 4 legacy (5%)
+- Konto matsnd.fakturownia.pl skonfigurowane: dział RAO, 11 produktów,
+  8 klientów demo (tax_no_kind=other omija walidację NIP)
+- Mapowanie Article.fakturownia_product_id ↔ FA product ID
+- Dokumentacja: spec/technical/fakturownia_demo_setup.md
+- Smoke test 11/11 passed
 
-Audyt wykazal ze kategoryzacje sa niekompletne lub niespojne:
-
-K-1 (P0): Kategorie maszyn — nazwy niespojne (diakrytyki + spacje)
-- 'Ladowarki Teleskopowe' (242 pozycje) vs 'Ladowarki teleskopowe ' (72 pozycje)
-- To samo wydzierżawienie — split na 2 kategorie w /by-category!
-- Root cause: kolumna category_main uzywa utf8mb4_unicode_ci (nie polish_ci)
-- W unicode_ci 'L' != 'L' → GROUP BY traktuje jako 2 osobne kategorie
-
-K-2 (P1): Branch — branch_id=NULL dla wszystkich 742 umow
-- 50 umow z G suffix ale branch_id=NULL
-- Brak endpointu stats-by-branch
-- S/G w numerze nie feeduje zadnych statystyk
-
-K-3 (P2): is_external — flaga istnieje ale nigdy nie uzyta
-- 419 artykulow, wszystkie is_external=0
-- Brak filtrowania w statystykach
-
-K-6 (P2): contract_type (S/U) — nie feeduje statystyk
-- 535 S + 207 U, brak grupowania w statystykach
-
-Dodano 5 nowych taskow: P0-054, P1-055, P2-056, P2-057
-Backlog: 33 zadania, ~90-120h
-
-Generated with [Devin](https://cli.devin.ai/docs)
+Generated with [Devin](https://devin.ai)
 
 Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

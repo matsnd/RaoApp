@@ -30,12 +30,19 @@ spec/technical/
 
 ### Fakturownia Integration (RAO-P2-012)
 - **Pattern:** `spec/technical/patterns/fakturownia_integration.md` — Pełny scrum refinement (PO, Tech Lead, QA, Security)
-- **Status:** ODŁOŻONE po refinement — PO rekomenduje po P0/P1
+- **Status:** WDROŻONE (RAO-P2-058 Faza 1 MVP + RAO-P2-061 demo setup)
 - **Security impact:** HIGH (12 krytycznych zagrożeń zidentyfikowanych)
 - **Architecture:** Full module `integrations/fakturownia/` (models, schemas, service, client, router)
 - **Schema:** fakturownia_settings (singleton), fakturownia_product_mapping (FK → articles)
 - **Edge cases:** 32 zidentyfikowanych (API, OID, mapping, wiele faktur, UI, security)
 - **Testing strategy:** Unit (15+ testów), Integration (8 testów), E2E (10 scenariuszy), Manual (8-item checklist)
+
+### Fakturownia Demo Setup (RAO-P2-061)
+- **Doc:** `spec/technical/fakturownia_demo_setup.md` — Pełna dokumentacja konta matsnd.fakturownia.pl
+- **Script:** `backend/seed_demo_data.py` — Idempotentny skrypt seedujący dane demo w RAO DB
+- **Script:** `backend/seed_fa_invoices.py` — Idempotentny skrypt wystawiający faktury w FA
+- **API quirks:** `gtu_codes` (array nie string), `price_gross` required, `tax_no` (nie `nip`), `tax_no_kind: "other"` omija walidację NIP
+- **Demo data:** 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA
 
 ## Skrypty (Scripts)
 
@@ -89,3 +96,4 @@ Po każdym zadaniu:
 - **2026-05-19:** RAO-P2-015 — TERYT postal codes integration (200+ kodów z głównych miast, endpointy lookup + sync)
 - **2026-05-19:** RAO-P2-016 — Playwright UX screenshots spike (17 screenshotów dla design review, checklist UX)
 - **2026-05-19:** RAO-P2-016 + RAO-P2-017 — Vision AI UX analysis (4 analizy, 20+ problemów UX/UI zidentyfikowanych, backlog item utworzony)
+- **2026-07-01:** RAO-P2-061 — Demo data seeding (11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia, 12 faktur FA, konto matsnd.fakturownia.pl skonfigurowane)
