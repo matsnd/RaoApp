@@ -2336,7 +2336,7 @@ triaged → in_progress → dev-verified → team-verified → user-verified →
 id: RAO-SEC-001
 priority: P1
 size: S
-status: triaged
+status: done
 classification: security/idor
 roles: [backend-dev, security-auditor]
 source: security-audit
@@ -2346,6 +2346,12 @@ specs_to_update:
   - core/25_security.md
 migration_impact: no
 security_impact: yes
+done_date: 2026-07-01
+fix: "_check_contract_access() w reports/router.py — admin full access, non-admin tylko własny branch, fetch contract przed PDF gen (early 404/403)"
+verification:
+  - "py_compile reports/router.py: OK"
+  - "curl POST /reports/contract/999999 (admin): 404 (contract not found)"
+  - "smoke 01-login.spec.ts: 11/11 passed"
 ```
 
 **Problem:** Endpoint `POST /reports/contract/{contract_id}` wymaga autentykacji (`get_current_user`), ale **nie sprawdza ownership/tenant** — każdy zalogowany użytkownik może wygenerować PDF (z telefonami klienta) dla cudzej umowy znając `contract_id`.

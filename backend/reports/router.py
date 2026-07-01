@@ -1,6 +1,6 @@
 from datetime import datetime, date
 from urllib.parse import quote
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,24 +20,46 @@ def _content_disposition(filename: str) -> str:
     return f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{utf8_name}"
 
 
+def _check_contract_access(contract: Contract, current_user: User) -> None:
+    """RAO-SEC-001: IDOR fix — ownership check na poziomie branch.
+
+    Admin: pełny dostęp do wszystkich umów.
+    Non-admin: tylko umowy z własnego branch (branch_id match).
+    Umowy bez branch (NULL) = legacy, dostępne dla wszystkich zalogowanych.
+    """
+    if current_user.role == "admin":
+        return
+    # Non-admin: umowa z innego branch = odmowa
+    if contract.branch_id is not None and current_user.branch_id is not None:
+        if contract.branch_id != current_user.branch_id:
+            raise HTTPException(status_code=403, detail="Brak uprawnień do tej umowy")
+    elif contract.branch_id is not None and current_user.branch_id is None:
+        # Użytkownik bez branch, umowa z branch — odmowa
+        raise HTTPException(status_code=403, detail="Brak uprawnień do tej umowy")
+    # contract.branch_id is None → legacy/bez branch, pozwól
+
+
 @router.post("/contract/{contract_id}")
 async def generate_contract_report(
     contract_id: int,
     type: str = Query("contract", pattern="^(contract|protocol_zo|protocol_zo_s|protocol_zo_u|protocol_zo_nodata|protocol_zo_nodata_s|protocol_zo_nodata_u)$"),
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    # RAO-SEC-001: IDOR fix — fetch contract first, check ownership before PDF generation
+    contract = await db.get(Contract, contract_id)
+    if not contract:
+        raise HTTPException(status_code=404, detail="Umowa nie znaleziona")
+    _check_contract_access(contract, current_user)
+
     try:
         pdf_bytes = await generate_pdf(db, contract_id, type)
     except ValueError:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Umowa nie znaleziona")
     except Exception as exc:
         import logging
-        from fastapi import HTTPException
         logging.exception("PDF generation failed for contract_id=%s type=%s", contract_id, type)
         raise HTTPException(status_code=500, detail="Błąd generowania raportu")
-    contract = await db.get(Contract, contract_id)
     if contract:
         contract.print_date = datetime.utcnow()
         await db.commit()

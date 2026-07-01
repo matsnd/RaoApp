@@ -8,6 +8,18 @@
 - **Zasoby chronione:** NIP/REGON/adresy kontrahentów, ceny umów, hasła handlowców
 - **Aktorzy:** handlowiec (RBAC user), kierownik (admin), zewnętrzny atakujący (VPN/intranet)
 - **Wektory:** brute-force loginu, IDOR na /contracts/{id}, XSS w PDF, leak przez export
+
+### IDOR — `/reports/contract/{id}` (RAO-SEC-001, fixed 2026-07-01)
+
+**Problem:** Endpoint `POST /reports/contract/{contract_id}` wymagał autentykacji ale nie sprawdzał ownership — każdy zalogowany user mógł wygenerować PDF (z danymi kontaktowymi klienta) dla cudzej umowy.
+
+**Fix:** `backend/reports/router.py` — `_check_contract_access()`:
+- Admin: pełny dostęp (role == "admin")
+- Non-admin: tylko umowy z własnego branch (`contract.branch_id == user.branch_id`)
+- Umowy bez branch (NULL) = legacy, dostępne dla wszystkich zalogowanych
+- Fetch contract BEFORE PDF generation (early 404/403)
+
+**Status:** done (2026-07-01) — commit w historii git
 - **Out-of-scope:** ataki na MariaDB hosta, fizyczny dostęp do serwera
 
 ## 2. AuthN (Authentication)
