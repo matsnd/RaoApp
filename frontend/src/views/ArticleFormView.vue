@@ -88,6 +88,22 @@
           </div>
         </div>
 
+        <!-- RAO-P2-058: Mapowanie artykułu z produktem Fakturownia -->
+        <div class="section-title" style="font-size:var(--font-size-sm);margin-top:var(--spacing-4);margin-bottom:var(--spacing-3);padding-bottom:var(--spacing-2);">Integracja Fakturownia</div>
+        <div class="form-group">
+          <label class="form-label">Produkt Fakturownia</label>
+          <select v-model="form.fakturownia_product_id" class="form-control" :disabled="faLoading">
+            <option :value="null">— brak mapowania —</option>
+            <option v-for="p in faProducts" :key="p.id" :value="p.id">
+              {{ p.name }}{{ p.code ? ` (${p.code})` : '' }}{{ p.price_net ? ` — ${p.price_net} zł` : '' }}
+            </option>
+          </select>
+          <small v-if="faError" style="color:var(--color-error);">{{ faError }}</small>
+          <small v-else-if="!faProducts.length && !faLoading" style="color:var(--color-text-muted);">
+            Brak produktów w Fakturownia — dodaj produkty na matsnd.fakturownia.pl
+          </small>
+        </div>
+
         <div class="form-group">
           <label class="form-label">Dodatkowe wyposażenie</label>
           <textarea v-model="form.dodatki" class="form-control" rows="3" placeholder="np. Kosz osobowy, wciągarka..."></textarea>
@@ -180,18 +196,25 @@ import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useArticleStore } from '@/stores/articles'
 import { useSettingsStore } from '@/stores/settings'
+import { useFakturowniaStore } from '@/stores/fakturownia'
 import api from '@/composables/useApi'
 
 const props = defineProps({ id: String })
 const router = useRouter()
 const store = useArticleStore()
 const settingsStore = useSettingsStore()
+const fakturowniaStore = useFakturowniaStore()
 
 const isEdit = computed(() => !!props.id)
 const loading = ref(false)
 const saving = ref(false)
 const errorMsg = ref('')
 const ownerName = ref('')
+
+// RAO-P2-058: Fakturownia product mapping
+const faProducts = computed(() => fakturowniaStore.products || [])
+const faLoading = computed(() => fakturowniaStore.loading)
+const faError = computed(() => fakturowniaStore.error)
 
 const form = ref({
   name: '', is_service: false, internal_number: '', registration_no: '',
@@ -200,6 +223,7 @@ const form = ref({
   description: '', notes: '', rental_days: null, article_type: '',
   zasieg_m: null, udzwig_t: null, dodatki: null,
   is_archival: false, is_external: false,  // RAO-P1-027
+  fakturownia_product_id: null,  // RAO-P2-058
 })
 
 const showOwnerPicker = ref(false)
@@ -260,6 +284,9 @@ onMounted(async () => {
 
   const { data } = await api.get('/contractors', { params: { supplier: true, per_page: 50 } })
   pickerList.value = data.items
+
+  // RAO-P2-058: Załaduj produkty Fakturownia do mapowania
+  try { await fakturowniaStore.fetchProducts() } catch {}
 
   if (isEdit.value) {
     loading.value = true
