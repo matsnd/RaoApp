@@ -30,6 +30,10 @@
         @click="$emit('navigate', 'stats')"
       >📊 Statystyki</button>
       <button
+        :class="['sidebar-btn', { active: activeSection === 'analytics' }]"
+        @click="$emit('navigate', 'analytics')"
+      >📈 Analytics</button>
+      <button
         :class="['sidebar-btn', { active: activeSection === 'commissions' }]"
         @click="$emit('navigate', 'commissions')"
       >Prowizje</button>

@@ -103,6 +103,11 @@ const routes = [
         name: 'Stats',
         component: () => import('@/views/StatsView.vue'),
       },
+      {
+        path: 'analytics',
+        name: 'Analytics',
+        component: () => import('@/views/AnalyticsView.vue'),
+      },
     ],
   },
   { path: '/:pathMatch(.*)*', redirect: '/' },

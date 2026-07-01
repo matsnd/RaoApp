@@ -1870,3 +1870,92 @@ onUnmounted(() => {
 ### Weryfikacja
 - `npx vue-tsc --noEmit` → PASS (exit 0)
 - `npm run build` → PASS (build OK)
+
+
+## AnalyticsView — główny widok + 3 taby + store (Frontend-2, 2026-07-02)
+
+> Logika biznesowa używająca komponentów z Frontend-1. Route `/analytics` (sidebar „📈 Analytics").
+> BEZ archiwalnych danych — tylko live contracts/articles (endpointy `/stats/*` i `/explorer/*`).
+
+### `stores/analytics.ts` (Pinia, Composition API)
+- State: `loading, loadingLive, loadingExplorer, drillLoading, drillError, summary, currentlyRented,
+  topMachines, additionalFees, locations, positionsData, byCategoryData, byPeriodData, categoriesList,
+  explorerResults, explorerSummary, machineDetails, locationDetails, drillDown` (ref z `open/kind/id/name/title/subtitle`).
+- Getters: `liveUtilPct`, `revenueSourceClass`.
+- Actions (async, axios z `@/composables/useApi`):
+  - `fetchCurrentlyRented()` → GET `/stats/currently-rented`
+  - `fetchSummary(dateFrom, dateTo, internalNumber?)` → GET `/stats/fleet-summary`
+  - `fetchTopMachines(dateFrom, dateTo, filters?, limit=10)` → GET `/stats/top-machines` (contractor_id, city, internal_number, limit)
+  - `fetchAdditionalFees(dateFrom, dateTo, contractorId?)` → GET `/stats/additional-fees`
+  - `fetchLocations(dateFrom, dateTo, filters?)` → GET `/stats/locations`
+  - `fetchPositions(type, dateFrom, dateTo, filters?, sortBy?, sortDir='desc')` → GET `/stats/positions`
+  - `fetchByCategory(level, dateFrom, dateTo, categoryMain[], articleType)` → GET `/stats/by-category`
+  - `fetchByPeriod(granularity, dateFrom, dateTo, categoryMain[], articleType)` → GET `/stats/by-period`
+  - `fetchCategoriesList()` → GET `/stats/categories-list`
+  - `searchExplorer(q, dateFrom, dateTo, limit=50)` → GET `/explorer/search`
+  - `fetchMachineDetails(articleId, dateFrom, dateTo)` → GET `/explorer/machines/{id}`
+  - `fetchLocationDetails(postalCode, dateFrom, dateTo)` → GET `/explorer/locations/{postal_code}`
+  - `openDrillDown(kind, id, name, dateFrom, dateTo)` — ustawia `drillDown` ref + fetch details
+    (kind='machine' → machineDetails z historią wynajmów; kind='location' → locationDetails z umowami).
+  - `closeDrillDown()` — reset `drillDown` + czyszczenie `machineDetails`/`locationDetails`.
+- Typy eksportowane: `FleetSummary`, `TopMachineItem`, `CurrentlyRentedResponse`, `AdditionalFeesResponse`,
+  `LocationStatItem`, `PositionStatsResponse`, `CategoryStatsResponse`, `ByPeriodResponse`,
+  `CategoriesListNode`, `ExplorerResultItem`, `MachineDetailsResponse`, `LocationDetailsResponse`,
+  `DrillDownKind`, `DrillDownState`, `AnalyticsFiltersPayload`.
+
+### `views/AnalyticsView.vue` (~330 linii)
+- Shell z 3 zakładkami przez `AnalyticsTabs`: `live` (🚜 Flota teraz), `period` (📅 Wynajem w okresie), `explorer` (🔍 Eksplorator).
+- Współdzielony stan filtrów (`ref<AnalyticsFiltersValue>` z dateFrom/dateTo/preset/articleType/contractorId/city).
+- `AnalyticsFilters` na górze — **ukryte na zakładce 'live'** (live = "teraz", niezależne od dat).
+- Renderuje aktywną tabę: `<LiveFleetTab v-if="activeTab==='live'"/>` itd. (lazy mount przez `v-if`).
+- `DrillDownDrawer` na poziomie widoku (jeden, współdzielony). Treść zależna od `store.drillDown.kind`:
+  - `machine` → tabela historii wynajmów (Umowa, Kontrahent, Od, Do, Dni, Kwota) + 4 KPI metrics.
+  - `location` → 4 KPI metrics + Top maszyny + Top kontrahenci.
+- `provide('analytics:openDrillDown', openDrillDown)` — taby injectują i wywołują przy `@rowClick`.
+- Header: `<h1>Statystyki</h1>` + dzisiejsza data (toLocaleDateString 'pl-PL').
+- onMounted: ładuje listę kontrahentów (datalist filtra).
+- data-testid: `analytics-view`.
+
+### `components/analytics/tabs/LiveFleetTab.vue`
+- KPI row (KpiRow): Dostępne maszyny (success), Wynajęte teraz (accent), Wykorzystanie % (variant dynamiczny: ≥80 success / ≥50 accent / <50 warn).
+- Utilization bar (pasek postępu — width = utilPct%).
+- AnalyticsTable: Maszyny aktualnie wynajęte (kolumny: Maszyna [sortable], Nr wewnętrzny, Kategoria, Umowa, Kontrahent, Planowany zwrot).
+  - `clickable=true`, `@rowClick` → `openDrillDown('machine', article_id, name)`.
+  - Sortowanie przez `useSort('name', 'asc')`.
+- Stany: loading (`store.loadingLive`), empty (slot empty „Brak aktywnych wynajmów…"), data.
+- Fetch: `store.fetchCurrentlyRented()` onMounted (tylko gdy brak danych).
+- data-testid: `live-fleet-tab`, `kpi-live-available`, `kpi-live-rented`, `kpi-live-util`, `live-util-bar`.
+
+### `components/analytics/tabs/PeriodRentalTab.vue`
+- Props: `dateFrom, dateTo, filters: AnalyticsFiltersPayload`.
+- KPI row: Przychód w okresie, Umów w okresie, Wynajętych teraz, Wykorzystanie (z `store.summary`).
+- Revenue breakdown (rzeczywiste vs szacunek — gdy `revenue_actual>0` lub `revenue_estimate>0`).
+- AnalyticsTable × 4:
+  1. Top maszyny (#, Maszyna, Nr wewnętrzny, Przychód, Dni, Umów) — sortable: revenue/rented_days/contracts_count; clickable → drill machine.
+  2. Dodatkowe opłaty (Usługa, Przychód, Razy).
+  3. Lokalizacje (Miasto, Kod PNA, Wynajmów, Przychód) — clickable → drill location (po PNA).
+  4. Pozycje (Nazwa, Nr wewnętrzny, Kategoria, Przychód, Dni, Umów, Razy) — sortable: article_name/internal_number/category_main/revenue/rented_days/contracts_count/times_billed.
+- Sortowanie: `useSort` per tabela (topMachinesSort, positionsSort).
+- Fetch: `Promise.all` 5 endpointów (summary, topMachines, additionalFees, locations, positions) onMounted + watch props.
+- data-testid: `period-rental-tab`, `kpi-period-revenue`, `kpi-period-contracts`, `kpi-period-rented`, `kpi-period-util`, `revenue-breakdown`.
+
+### `components/analytics/tabs/ExplorerTab.vue`
+- Props: `dateFrom, dateTo`.
+- Wyszukiwarka: input text + przycisk „Szukaj" (Enter lub klik).
+- AnalyticsTable: wyniki mieszane (Typ [badge], Nazwa, Nr wewn., Kontrahent, Data, Kwota).
+  - `clickable=true`, `@rowClick` → `router.push('/articles/{article_id}/edit')`.
+  - Sortowanie: `useSort('amount', 'desc')` (po amount/date/name/internal_number/contractor_name).
+- Podsumowanie: liczba wyników, łączny przychód (z `store.explorerSummary`).
+- Fetch: `store.searchExplorer(q, dateFrom, dateTo)`.
+- Empty state: „Wpisz frazę i kliknij „Szukaj"" (przed pierwszym search) / „Brak wyników dla zapytania…" (po search).
+- data-testid: `explorer-tab`, `explorer-search-bar`, `explorer-query`, `explorer-search-btn`, `explorer-summary`.
+
+### Routing / nawigacja
+- `router/index.js`: dodany route `path: 'analytics'`, `name: 'Analytics'`, lazy import `AnalyticsView.vue`.
+- `components/layout/AppLayout.vue`: `activeSection` rozpoznaje `/analytics`; `handleNavigate('analytics')` → `router.push('/analytics')`.
+- `components/layout/AppSidebar.vue`: przycisk „📈 Analytics" (aktywny gdy `activeSection === 'analytics'`).
+
+### Weryfikacja (Frontend-2)
+- `npx vue-tsc --noEmit` → PASS (exit 0, strict + noUnusedLocals/Parameters)
+- `npm run build` → PASS (chunk `AnalyticsView-*.js` ~31.7 kB / ~9.3 kB gzip; CSS `AnalyticsView-*.css` ~16 kB)
+
