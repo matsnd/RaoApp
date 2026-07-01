@@ -67,3 +67,7 @@ db/
 
 # Root package-lock (pusty, pakiety są w frontend/)
 package-lock.json
+
+# RAO-P2-062: backupy migracji (lokalne, nie w repo)
+backup_pre_archive_split.sql
+backup_*.sql

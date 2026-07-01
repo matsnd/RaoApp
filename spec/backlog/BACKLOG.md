@@ -1966,11 +1966,13 @@ Aby zaprezentować moc statystyk RAO (RAO-P2-060: ROI maszyn, top wypożyczenia,
 id: RAO-P2-062
 priority: P1
 size: L
-status: triaged
+status: in-progress
 classification: cross-stack/refactor+migration
 roles: [tech-lead, db-architect, backend-dev, frontend-dev, qa-engineer]
 source: operator-request
 source_date: 2026-07-01
+phase_0_status: done (2026-07-01) — migracja danych archive_* wykonana, backup_pre_archive_split.sql utworzony, weryfikacja COUNT zaliczona
+phase_1_status: todo — modele SQLAlchemy archive_* + endpointy read-only + category CRUD
 specs_to_update:
   - core/01_database.md (archive_* tabele + usunięcie is_legacy)
   - core/02_backend_api.md (archive endpointy read-only + category edit)

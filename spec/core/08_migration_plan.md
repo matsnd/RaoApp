@@ -62,6 +62,59 @@ Po migracji aplikacja **MUSI** zaimplementować:
 - [BACKLOG.md RAO-P0-009](../backlog/BACKLOG.md#rao-p0-009) — task implementacyjny
 - [BACKLOG.md RAO-P1-036](../backlog/BACKLOG.md#rao-p1-036) — toggle archiwalnych
 - [BACKLOG.md RAO-P1-037](../backlog/BACKLOG.md#rao-p1-037) — walidacja nowych umów
+- [BACKLOG.md RAO-P2-062](../backlog/BACKLOG.md#rao-p2-062) — archiwum: migracja legacy do `archive_*`
+
+---
+
+## RAO-P2-062 Faza 0 — Offload legacy do tabel `archive_*` (WYKONANE 2026-07-01)
+
+> **Status:** DONE. Migracja danych wykonana skryptem `backend/migrate_to_archive.py`.
+> **Backup:** `backup_pre_archive_split.sql` (2.96 MB, mariadb-dump --single-transaction).
+> **Faza 1 (backend — modele + endpointy):** TODO.
+
+### Co zostało zrobione
+
+1. **Backup** `rao_new` → `backup_pre_archive_split.sql` (PRZED migracją, krytyczne).
+2. **Utworzono 7 tabel `archive_*`** (`CREATE TABLE IF NOT EXISTS`) w `rao_new`:
+   `archive_categories`, `archive_articles`, `archive_contracts`,
+   `archive_contract_positions`, `archive_position_conditions`,
+   `archive_contract_service_fees`, `archive_contract_settlements`.
+   Schema = mirror oryginalnych tabel; `archive_contracts` bez kolumny `is_legacy`.
+   FK wewnętrzne archiwum (np. `archive_contract_positions.article_id` →
+   `archive_articles.id`) + FK do współdzielonych (`contractors`, `branches`,
+   `salespeople`, `rate_types`, `postal_codes`).
+3. **Skopiowano legacy dane** (`INSERT IGNORE`, idempotentne):
+   - `archive_categories`: 64 (wszystkie — używane przez legacy maszyny)
+   - `archive_articles`: 351 (tylko maszyny z legacy pozycji)
+   - `archive_contracts`: 742 (legacy umowy)
+   - `archive_contract_positions`: 878
+   - `archive_position_conditions`: 1274
+   - `archive_contract_service_fees`: 3396
+   - `archive_contract_settlements`: 1945
+4. **Usunięto legacy z tabel oryginalnych** (kolejność cascade-safe, w jednej transakcji):
+   `contract_settlements` → `contract_service_fees` → `position_conditions` →
+   `contract_positions` → `contracts` (WHERE `is_legacy=1`).
+5. **Weryfikacja COUNT** — wszystkie zaliczone (poza 3 pre-existing orphan pozycjami).
+
+### Czego NIE zrobiono (Faza 1 — backend)
+
+- Modele SQLAlchemy `archive_*` w `backend/archive/models.py`
+- Endpointy read-only + CRUD kategorii archiwum w `backend/archive/router.py`
+- `ALTER TABLE contracts DROP COLUMN is_legacy` + usunięcie z modelu
+- Czyszczenie `articles` / `categories` (współdzielone/zostają — decyzja usera)
+- Frontend: widok Archiwum w sidebarze
+
+### Idempotentność
+
+Skrypt można re-run: `CREATE TABLE IF NOT EXISTS` + `INSERT IGNORE` + `DELETE`
+(no-op po pierwszym uruchomieniu — brak `is_legacy=1` wierszy). Weryfikowane:
+drugi run — brak błędów, brak duplikatów, COUNT identyczny.
+
+### Uwaga: 3 osierocone pozycje
+
+3 wiersze w `contract_positions` (contract_id=9204) nie mają pasującego
+rekordu w `contracts` (pre-existing data issue z `migrate.py`). Nie są legacy,
+nie zostały zmigrowane do `archive_*` ani usunięte. Pozostają w `contract_positions`.
 
 ---
 

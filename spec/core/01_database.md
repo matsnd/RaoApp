@@ -610,6 +610,290 @@ CREATE TABLE audit_log (
   COMMENT='RAO-P3-005: Dziennik zmian (kto, co, kiedy, JSON diff)';
 ```
 
+## Tabele archiwum (archive_*) — RAO-P2-062 Faza 0
+
+> **Decyzja użytkownika (2026-07-01):** Legacy dane (742 umów `is_legacy=1` + powiązane)
+> zostały przeniesione do tabel `archive_*` w tej samej bazie `rao_new`.
+> Kontrahenci (`contractors`), `users`, `branches`, `salespeople`, `rate_types`,
+> `postal_codes` są **współdzielone** między archiwum a nową aplikacją.
+> `articles` i `categories` są **osobne** — `archive_*` = frozen snapshot z migracji.
+>
+> **Migracja wykonana:** `backend/migrate_to_archive.py` (idempotentny, INSERT IGNORE).
+> **Backup:** `backup_pre_archive_split.sql` (przed migracją).
+> **Archiwum = read-only Z WYJĄTKKIEM** edycji kategorii (`archive_categories` CRUD +
+> `PATCH archive_articles.category_id`) — implementacja w Fazie 1 (backend).
+>
+> **FK w archive_*:**
+> - `archive_contracts.contractor_id` → `contractors.id` (współdzielone)
+> - `archive_contracts.branch_id` → `branches.id` (współdzielone, ON DELETE SET NULL)
+> - `archive_contracts.salesperson_id` → `salespeople.id` (współdzielone, ON DELETE SET NULL)
+> - `archive_contracts.postal_code_id` → `postal_codes.id` (współdzielone, ON DELETE SET NULL)
+> - `archive_articles.category_id` → `archive_categories.id` (archive FK, edytowalne)
+> - `archive_articles.owner_id` → `contractors.id` (współdzielone)
+> - `archive_articles.branch_id` → `branches.id` (współdzielone)
+> - `archive_contract_positions.contract_id` → `archive_contracts.id` (CASCADE)
+> - `archive_contract_positions.article_id` → `archive_articles.id`
+> - `archive_contract_positions.rate_type_id` → `rate_types.id` (współdzielone, SET NULL)
+> - `archive_contract_positions.supplier_id` → `contractors.id` (współdzielone, SET NULL)
+> - `archive_position_conditions.position_id` → `archive_contract_positions.id` (CASCADE)
+> - `archive_position_conditions.rate_type_id` → `rate_types.id` (SET NULL)
+> - `archive_contract_service_fees.contract_id` → `archive_contracts.id` (CASCADE)
+> - `archive_contract_service_fees.article_id` — **brak FK** (service article może
+>   nie być w `archive_articles`, bo kopiujemy tylko maszyny z legacy pozycji;
+>   kolumna z indeksem, wartość pozostaje jako referencja historyczna)
+> - `archive_contract_settlements.contract_id` → `archive_contracts.id` (CASCADE)
+> - `archive_contract_settlements.position_id` → `archive_contract_positions.id` (CASCADE)
+> - `archive_contract_settlements.service_fee_id` → `archive_contract_service_fees.id` (CASCADE)
+
+```sql
+-- ============================================================
+-- ARCHIVE_* — frozen snapshot legacy (RAO-P2-062 Faza 0)
+-- Kolejność: categories → articles → contracts → positions →
+--            conditions → service_fees → settlements
+-- ============================================================
+
+-- archive_categories — mirror categories (self-ref FK)
+CREATE TABLE IF NOT EXISTS archive_categories (
+  id          INT AUTO_INCREMENT PRIMARY KEY,
+  name        VARCHAR(200) NOT NULL,
+  code        VARCHAR(40)  NULL,
+  description VARCHAR(400) NULL,
+  parent_id   INT NULL,
+  level       ENUM('main','sub1','sub2','sub3') NOT NULL DEFAULT 'main',
+  CONSTRAINT fk_archive_categories_parent_id
+    FOREIGN KEY (parent_id) REFERENCES archive_categories(id) ON DELETE SET NULL,
+  INDEX idx_archive_categories_name (name),
+  INDEX idx_archive_categories_parent (parent_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_polish_ci;
+
+-- archive_articles — mirror articles, category_id → archive_categories.id
+CREATE TABLE IF NOT EXISTS archive_articles (
+  id                    INT AUTO_INCREMENT PRIMARY KEY,
+  name                  VARCHAR(200) NOT NULL,
+  is_service            TINYINT(1) NOT NULL,
+  internal_number       VARCHAR(50)  NULL,
+  registration_no       VARCHAR(40)  NULL,
+  serial_no             VARCHAR(40)  NULL,
+  brand                 VARCHAR(100) NULL,
+  model                 VARCHAR(100) NULL,
+  replacement_value     DECIMAL(18,2) NULL,
+  category_id           INT NULL,
+  owner_id              INT NULL,
+  branch_id             INT NULL,
+  description           VARCHAR(400) NULL,
+  notes                 VARCHAR(200) NULL,
+  rental_days           INT NULL,
+  article_type          VARCHAR(20)  NULL,
+  category_main         VARCHAR(100) NULL,
+  category_sub1         VARCHAR(100) NULL,
+  category_sub2         VARCHAR(100) NULL,
+  category_sub3         VARCHAR(100) NULL,
+  is_archival           TINYINT(1) NOT NULL DEFAULT 0,
+  is_external           TINYINT(1) NOT NULL DEFAULT 0,
+  technical_attributes  LONGTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL
+    CHECK (json_valid(technical_attributes)),
+  zasieg_m              DECIMAL(8,2) NULL COMMENT 'Zasięg w metrach',
+  udzwig_t              DECIMAL(8,2) NULL COMMENT 'Udźwig w tonach',
+  dodatki               TEXT NULL COMMENT 'Dodatkowe akcesoria / wyposażenie',
+  fakturownia_product_id BIGINT NULL COMMENT 'ID produktu w Fakturownia (mapping 1:N)',
+  created_at            DATETIME NOT NULL,
+  updated_at            DATETIME NULL,
+  CONSTRAINT fk_archive_articles_branch_id
+    FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE SET NULL,
+  CONSTRAINT fk_archive_articles_category_id
+    FOREIGN KEY (category_id) REFERENCES archive_categories(id) ON DELETE SET NULL,
+  CONSTRAINT fk_archive_articles_owner_id
+    FOREIGN KEY (owner_id) REFERENCES contractors(id) ON DELETE SET NULL,
+  INDEX idx_archive_art_name (name),
+  INDEX idx_archive_art_category (category_id),
+  INDEX idx_archive_art_owner (owner_id),
+  INDEX idx_archive_art_registration (registration_no),
+  INDEX idx_archive_articles_category_main (category_main),
+  INDEX idx_archive_articles_archival (is_archival),
+  INDEX idx_archive_articles_fakturownia_product (fakturownia_product_id),
+  INDEX idx_archive_articles_zasieg (zasieg_m),
+  INDEX idx_archive_articles_udzwig (udzwig_t),
+  INDEX idx_archive_articles_external (is_external)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_polish_ci;
+
+-- archive_contracts — mirror contracts BEZ is_legacy
+CREATE TABLE IF NOT EXISTS archive_contracts (
+  id                    INT AUTO_INCREMENT PRIMARY KEY,
+  contractor_id         INT NOT NULL,
+  branch_id             INT NULL,
+  salesperson_id        INT NULL,
+  number                VARCHAR(40) NOT NULL,
+  oid                   VARCHAR(40) NULL COMMENT 'Numer zamówienia w Fakturownia',
+  auto_number           INT NULL,
+  contract_type         VARCHAR(1) NOT NULL,
+  delivery_address      TEXT NULL,
+  postal_code           VARCHAR(20)  NULL,
+  city                  VARCHAR(100) NULL,
+  postal_code_id        INT NULL COMMENT 'FK do postal_codes',
+  latitude              DECIMAL(10,8) NULL,
+  longitude             DECIMAL(11,8) NULL,
+  date_from             DATE NULL,
+  date_to               DATE NULL,
+  prepayment_amount     DECIMAL(18,2) NULL,
+  prepayment_document   VARCHAR(200) NULL,
+  invoice_amount        DECIMAL(18,2) NULL,
+  invoice_document      VARCHAR(40)  NULL,
+  notes                 TEXT NULL,
+  contact_person1       VARCHAR(100) NULL,
+  contact_phone1        VARCHAR(100) NULL,
+  show_person1          TINYINT(1) NOT NULL,
+  contact_person2       VARCHAR(100) NULL,
+  contact_phone2        VARCHAR(100) NULL,
+  show_person2          TINYINT(1) NOT NULL,
+  email                 VARCHAR(100) NULL,
+  phone                 VARCHAR(40)  NULL,
+  contractor_name       VARCHAR(200) NULL,
+  print_path            VARCHAR(100) NULL,
+  print_date            DATETIME NULL,
+  report_without_data   TINYINT(1) NOT NULL,
+  hide_delivery_address TINYINT(1) NOT NULL,
+  signatures_on_page1   TINYINT(1) NOT NULL,
+  working_days_per_week INT NULL,
+  position_count        INT NULL,
+  is_settled            TINYINT(1) NOT NULL,
+  settled_at            DATETIME NULL,
+  created_at            DATETIME NOT NULL,
+  updated_at            DATETIME NULL,
+  UNIQUE KEY uq_archive_contracts_number (number),
+  CONSTRAINT fk_archive_contracts_branch_id
+    FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE SET NULL,
+  CONSTRAINT fk_archive_contracts_contractor_id
+    FOREIGN KEY (contractor_id) REFERENCES contractors(id),
+  CONSTRAINT fk_archive_contracts_postal_code_id
+    FOREIGN KEY (postal_code_id) REFERENCES postal_codes(id) ON DELETE SET NULL,
+  CONSTRAINT fk_archive_contracts_salesperson_id
+    FOREIGN KEY (salesperson_id) REFERENCES salespeople(id) ON DELETE SET NULL,
+  INDEX fk_archive_contracts_contractor_id (contractor_id),
+  INDEX fk_archive_contracts_branch_id (branch_id),
+  INDEX idx_archive_contracts_postal_code_id (postal_code_id),
+  INDEX idx_archive_contracts_is_settled (is_settled),
+  INDEX idx_archive_contracts_created_at (created_at),
+  INDEX idx_archive_contracts_salesperson_id (salesperson_id),
+  INDEX idx_archive_contracts_print_date (print_date),
+  INDEX idx_archive_contracts_delivery_date (date_to),
+  INDEX idx_archive_contracts_postal_code (postal_code),
+  INDEX idx_archive_contracts_city (city)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_polish_ci;
+
+-- archive_contract_positions — contract_id → archive_contracts, article_id → archive_articles
+CREATE TABLE IF NOT EXISTS archive_contract_positions (
+  id                INT AUTO_INCREMENT PRIMARY KEY,
+  contract_id       INT NOT NULL,
+  article_id        INT NOT NULL,
+  rental_type       VARCHAR(20)  NULL,
+  description       VARCHAR(400) NULL,
+  rental_days       INT NULL,
+  quantity          INT NULL,
+  unit_price        DECIMAL(18,2) NULL,
+  costs             DECIMAL(18,2) NULL,
+  rate_type_id      INT NULL,
+  billing_frequency VARCHAR(20)  NULL,
+  billing_unit      VARCHAR(20)  NULL,
+  supplier_id       INT NULL,
+  delivery_date     DATE NULL,
+  article_name      VARCHAR(400) NULL,
+  CONSTRAINT fk_archive_cp_contract_id
+    FOREIGN KEY (contract_id) REFERENCES archive_contracts(id) ON DELETE CASCADE,
+  CONSTRAINT fk_archive_cp_article_id
+    FOREIGN KEY (article_id) REFERENCES archive_articles(id),
+  CONSTRAINT fk_archive_cp_rate_type_id
+    FOREIGN KEY (rate_type_id) REFERENCES rate_types(id) ON DELETE SET NULL,
+  CONSTRAINT fk_archive_cp_supplier_id
+    FOREIGN KEY (supplier_id) REFERENCES contractors(id) ON DELETE SET NULL,
+  INDEX fk_archive_cp_contract_id (contract_id),
+  INDEX fk_archive_cp_article_id (article_id),
+  INDEX fk_archive_cp_rate_type_id (rate_type_id),
+  INDEX fk_archive_cp_supplier_id (supplier_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_polish_ci;
+
+-- archive_position_conditions — position_id → archive_contract_positions
+CREATE TABLE IF NOT EXISTS archive_position_conditions (
+  id            INT AUTO_INCREMENT PRIMARY KEY,
+  position_id   INT NOT NULL,
+  rate_type_id  INT NULL,
+  description   VARCHAR(400) NULL,
+  rate1         DECIMAL(18,2) NULL,
+  rate2         DECIMAL(18,2) NULL,
+  billing_label VARCHAR(20)  NULL,
+  period_count  INT NULL,
+  minimum       INT NULL,
+  CONSTRAINT fk_archive_pc_position_id
+    FOREIGN KEY (position_id) REFERENCES archive_contract_positions(id) ON DELETE CASCADE,
+  CONSTRAINT fk_archive_pc_rate_type_id
+    FOREIGN KEY (rate_type_id) REFERENCES rate_types(id) ON DELETE SET NULL,
+  INDEX fk_archive_pc_position_id (position_id),
+  INDEX fk_archive_pc_rate_type_id (rate_type_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_polish_ci;
+
+-- archive_contract_service_fees — contract_id → archive_contracts
+-- article_id: brak FK (service article może nie być w archive_articles)
+CREATE TABLE IF NOT EXISTS archive_contract_service_fees (
+  id             INT AUTO_INCREMENT PRIMARY KEY,
+  contract_id    INT NOT NULL,
+  sort_order     INT NOT NULL,
+  name           VARCHAR(200) NOT NULL,
+  amount_from    DECIMAL(18,2) NULL,
+  amount_to      DECIMAL(18,2) NULL,
+  unit           VARCHAR(50)  NULL,
+  description    VARCHAR(400) NULL,
+  is_active      TINYINT(1) NOT NULL,
+  article_id     INT NULL,
+  default_price  DECIMAL(18,2) NULL,
+  CONSTRAINT fk_archive_csf_contract_id
+    FOREIGN KEY (contract_id) REFERENCES archive_contracts(id) ON DELETE CASCADE,
+  INDEX fk_archive_csf_contract_id (contract_id),
+  INDEX idx_archive_csf_article_id (article_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_polish_ci;
+
+-- archive_contract_settlements — contract/position/service_fee → archive_*
+CREATE TABLE IF NOT EXISTS archive_contract_settlements (
+  id             INT AUTO_INCREMENT PRIMARY KEY,
+  contract_id    INT NOT NULL,
+  position_id    INT NULL,
+  service_fee_id INT NULL,
+  cost_client    DECIMAL(18,2) NULL,
+  cost_company   DECIMAL(18,2) NULL,
+  notes          TEXT NULL,
+  created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP(),
+  updated_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP(),
+  settled_at     DATE NULL COMMENT 'Data rozliczenia',
+  source         VARCHAR(20) DEFAULT 'manual' COMMENT 'legacy/fakturownia/manual',
+  UNIQUE KEY uq_archive_settlements_contract_pos_fee_date
+    (contract_id, position_id, service_fee_id, settled_at),
+  CONSTRAINT fk_archive_cs_contract_id
+    FOREIGN KEY (contract_id) REFERENCES archive_contracts(id) ON DELETE CASCADE,
+  CONSTRAINT fk_archive_cs_position_id
+    FOREIGN KEY (position_id) REFERENCES archive_contract_positions(id) ON DELETE CASCADE,
+  CONSTRAINT fk_archive_cs_service_fee_id
+    FOREIGN KEY (service_fee_id) REFERENCES archive_contract_service_fees(id) ON DELETE CASCADE,
+  INDEX fk_archive_cs_position_id (position_id),
+  INDEX fk_archive_cs_service_fee_id (service_fee_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_polish_ci;
+```
+
+**Stan po migracji (2026-07-01, weryfikacja DB):**
+
+| Tabela oryginalna | COUNT po | Tabela archive | COUNT po |
+|-------------------|----------|----------------|----------|
+| `contracts` | 0 | `archive_contracts` | 742 |
+| `contract_positions` | 3 (orphans, pre-existing) | `archive_contract_positions` | 878 |
+| `position_conditions` | 0 | `archive_position_conditions` | 1274 |
+| `contract_service_fees` | 0 | `archive_contract_service_fees` | 3396 |
+| `contract_settlements` | 0 | `archive_contract_settlements` | 1945 |
+| `categories` | 64 (nietknięte) | `archive_categories` | 64 |
+| `articles` | 419 (nietknięte) | `archive_articles` | 351 |
+| `contractors` | 662 (współdzielone) | — | — |
+
+> **Uwaga:** 3 osierocone pozycje (contract_id=9204 nie istnieje w `contracts`)
+> to pre-existing data issue z pierwszej migracji (`migrate.py`) — nie są legacy,
+> nie zostały zmigrowane do archive ani usunięte. Kolumna `is_legacy` w `contracts`
+> zostaje (usunięcie w Fazie 1 razem z modelem SQLAlchemy).
+
 ## Mapowanie starych tabel → nowe
 
 | Stara tabela | Nowa tabela | Uwagi |
