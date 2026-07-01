@@ -1721,6 +1721,198 @@ ZAKŁADKA "Archiwum (szacunkowe)" — szare tło:
 
 ---
 
+### [RAO-P2-061] Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk
+
+```yaml
+id: RAO-P2-061
+priority: P2
+size: M
+status: triaged
+classification: cross-stack/integration+data-seeding
+roles: [tech-lead, backend-dev, db-architect, qa-engineer, product-owner]
+source: operator-request
+source_date: 2026-07-01
+specs_to_update:
+  - core/07_integrations.md (Fakturownia test env + seeding)
+  - core/04_business_logic.md (demo data lifecycle)
+  - core/11_reports_stats.md (showcase scenarios)
+migration_impact: yes (demo dane zostaną zaorane przed właściwą migracją legacy)
+security_impact: low (test Fakturownia account, brak prod danych)
+depends_on:
+  - RAO-P2-058 (Fakturownia integracja — OID + product mapping)
+  - RAO-P2-060 (Statystyki — StatsView + gruba krecha — showcase target)
+```
+
+**Problem:**
+
+Aby zaprezentować moc statystyk RAO (RAO-P2-060: ROI maszyn, top wypożyczenia, sumowanie pozycji dodatkowych, "ile wynajętych teraz", gruba krecha legacy vs nowe), potrzebujemy **prawdziwych danych rozliczeniowych** w nowej aplikacji. Legacy dane (zmigrowane z `rozliczenie`) pokazują tylko szacunki — nie demonstrują pełnej mocy `revenue_source="actual"` z Fakturownia.
+
+**Cel:** Zasil aplikację RAO kompletnymi danymi demo używając testowej Fakturownia, z poprawnymi rozliczeniami (`contract_settlements` z `source='fakturownia'`), żeby statystyki pokazywały realne wartości — nie szacunki.
+
+**Kluczowa uwaga użytkownika (2026-07-01):**
+> "Później i tak migrację zaoramy od nowa — zrobimy zerowanie i start po migracji starej bazy do nowej, i ręcznie będzie uzupełniane to co jest potrzebne."
+
+**Implikacja:** Demo dane są **tymczasowe** — zostaną usunięte przed właściwą migracją. Nie trzeba się martwić o jakość/realizm każdego rekordu, ale dane muszą być **spójne i kompletne** żeby showcase statystyk działał.
+
+---
+
+#### Scope implementacji
+
+**Faza 1: Konfiguracja Fakturownia testowej — backend-dev**
+
+1. **Konto testowe Fakturownia:**
+   - Założyć konto na testowym środowisku Fakturownia (lub użyć istniejącego demo)
+   - Skonfigurować API token w `.env` (separate od prod: `FAKTUROWNIA_TEST_TOKEN`, `FAKTUROWNIA_TEST_URL`)
+   - Dodać toggle `FAKTUROWNIA_ENV=test|prod` w `config.py`
+2. **Seed produktów Fakturownia:**
+   - Utworzyć 10-15 produktów w testowej FA odpowiadających artykułom RAO (maszyny + usługi)
+   - Mapować `Article.fakturownia_product_id` → ID produktów testowych
+   - Produkty: 5 maszyn (koparka, ładowarka, podnośnik, spycharz, zagęszczarka) + 5 usług (transport, tankowanie, czyszczenie, przestój, serwis)
+3. **Seed kontrahentów:**
+   - Utworzyć 5-8 kontrahentów demo w RAO + zmapować na klientów FA
+
+**Faza 2: Seed umów + pozycji + rozliczeń — backend-dev + db-architect**
+
+1. **Skrypt `seed_demo_data.py`:**
+   - **Idempotentny** (można re-run, `INSERT IGNORE` / `ON DUPLICATE KEY UPDATE`)
+   - **Deterministyczny** (fixed seed dla reproducibility)
+   - **Scoped** (wszystkie demo dane oznaczone — np. `contract.notes LIKE '%[DEMO]%'` lub dedykowana flaga `is_demo TINYINT(1)`)
+2. **Umowy demo (20-30 szt):**
+   - Różne typy: S (najem) / U (usługa) — 50/50
+   - Różne okresy: ostatnie 12 miesięcy (żeby filtry mies/3mies/rok miały sens)
+   - Różne maszyny: 5 maszyn × różne kombinacje
+   - Różne kontrahenci: 5-8
+   - Różne stany: aktywne (data_do >= today), zakończone (data_do < today), przeterminowane (data_do < today, is_settled=false)
+   - `is_legacy=0` (nowe umowy — to ma być showcase `revenue_source="actual"`)
+   - 2-3 umowy z `is_legacy=1` (żeby "gruba krecha" archiwum miała co pokazać)
+3. **Pozycje umów (40-60 szt):**
+   - 1-3 pozycje per umowa
+   - `position_conditions` z realnymi stawkami (rate1/rate2/period_count)
+   - `replacement_value` uzupełnione dla wszystkich maszyn (żeby ROI działało)
+4. **Usługi dodatkowe (60-90 szt):**
+   - 2-4 usługi per umowa (transport, tankowanie, czyszczenie)
+   - Z `article_id` linkowanym (nie NULL — żeby `additional-fees` stats działały)
+5. **Rozliczenia (`contract_settlements`):**
+   - **Kluczowe:** `source='fakturownia'` (nie 'legacy', nie 'manual')
+   - `cost_client` = realna kwota z faktury FA (nie szacunek)
+   - `cost_company` = koszt własny (do marży)
+   - `settled_at` = data rozliczenia (w okresie umowy)
+   - **80% umów rozliczonych** (żeby `revenue_source="actual"` dominowało)
+   - **20% umów nierozliczonych** (żeby `revenue_source="estimate_*"` też się pokazało)
+6. **Faktury Fakturownia (synchronizacja):**
+   - Dla każdej rozliczonej umowy — utworzyć fakturę w testowej FA z `oid=contract.number`
+   - Pozycje faktury = pozycje umowy (z `product_id` mapowanym)
+   - Po wystawieniu — pobrać przez `GET /invoices.json?oid=<numer>` i potwierdzić `contract_settlements.cost_client` = kwota z faktury
+
+**Faza 3: Showcase scenarios — product-owner + qa-engineer**
+
+1. **Scenariusze demo (do weryfikacji statystyk RAO-P2-060):**
+
+| Scenariusz | Endpoint | Oczekiwany wynik | Weryfikacja |
+|------------|----------|------------------|-------------|
+| ROI maszyny NW-014 (12 mies) | `/stats/machine-roi?article_id=X&date_from=2025-07-01&date_to=2026-07-01` | ROI > 100% (maszyna się opłaca), `revenue_source="actual"` | `cost_client` sum > 0, `replacement_value` > 0 |
+| Top maszyny po wypożyczeniach (3 mies) | `/stats/top-machines?date_from=2026-04-01&date_to=2026-07-01` | 5 maszyn, sortowane po liczbie umów desc | `contracts_count` > 0 dla top 5 |
+| Ile wynajętych teraz | `/stats/currently-rented` | 2-4 maszyny aktywne (data_do >= today) | `total_rented` > 0 |
+| Pozycje dodatkowe (rok) | `/stats/additional-fees?date_from=2026-01-01&date_to=2026-07-01` | Transport + tankowanie + czyszczenie z sumami | `revenue` per usługa > 0 |
+| Kategorie (rok) | `/stats/by-category?date_from=2026-01-01&date_to=2026-07-01` | 2-3 kategorie z liczbami | `count` > 0 |
+| Gruba kresha archiwum | `/stats/fleet-summary?is_legacy=true` | 2-3 umowy legacy, `revenue_source_label="szacunek"` | `revenue_estimate` > 0, `revenue_actual` = 0 |
+| Nowe vs legacy (mieszane) | `/stats/fleet-summary?is_legacy=null` | `revenue_source_label="mieszane"` | `revenue_actual` > 0 AND `revenue_estimate` > 0 |
+
+2. **QA weryfikacja:**
+   - Każdy scenariusz — `curl` + sprawdzenie JSON
+   - Spójność: `SUM(contract_settlements.cost_client)` per pozycja = `revenue_actual` w stats
+   - Brak podwójnego liczenia: 1 maszyna na 2 pozycjach w 1 umowie → `contracts_count=1`, `revenue=suma`
+
+**Faza 4: Cleanup script — db-architect**
+
+1. **Skrypt `wipe_demo_data.py`:**
+   - Usuwa WSZYSTKIE demo dane (umowy, pozycje, warunki, usługi, rozliczenia oznaczone `[DEMO]` lub `is_demo=1`)
+   - **NIE usuwa** artykułów, kontrahentów, użytkowników, szablonów (te zostają z proper migration)
+   - Idempotentny (można re-run)
+   - Backup przed wipe (`mariadb-dump rao_new > backup_demo.sql`)
+   - **Uwaga:** ten skrypt będzie użyty PRZED właściwą migracją legacy — user to potwierdził
+
+---
+
+#### Kluczowe decyzje (do potwierdzenia przy implementacji)
+
+1. **Flaga `is_demo`:** Dodać `is_demo TINYINT(1) DEFAULT 0` na `contracts`? Czy oznaczać przez `contract.notes LIKE '%[DEMO]%'`?
+   - **Rekomendacja Tech Lead:** `is_demo` flaga — czystsze, szybsze query przy wipe, nie koliduje z `notes`
+   - **Alternatywa:** `notes` prefix — brak zmiany schema, ale fragile (user może edytować notes)
+
+2. **Fakturownia env toggle:** `FAKTUROWNIA_ENV=test|prod` w `.env`?
+   - **Rekomendacja:** TAK — zapobiega przypadkowemu wystawieniu faktur na prod podczas demo
+   - **Walidacja:** przy `ENV=test` — URL musi zawierać `test` lub `.demo`
+
+3. **Ile danych?** 20-30 umów / 40-60 pozycji / 60-90 usług / 80% rozliczonych
+   - **Rekomendacja PO:** tyle wystarczy żeby showcase działał, nie za dużo żeby nie zaciemniać
+
+4. **Realizm danych:** Czy stawki mają być realistyczne (rynkowe) czy dowolne?
+   - **Rekomendacja:** Realistyczne (koparka 800-1200 zł/doba, transport 400-600 zł, tankowanie 150-200 zł) — żeby ROI miało sens biznesowy
+
+---
+
+#### Kryteria akceptacji (DoD)
+
+**Fakturownia:**
+- [ ] Testowe konto FA skonfigurowane (`FAKTUROWNIA_TEST_TOKEN` w `.env`)
+- [ ] 10-15 produktów FA utworzonych i zmapowanych (`Article.fakturownia_product_id`)
+- [ ] 5-8 kontrahentów demo zmapowanych
+- [ ] `FAKTUROWNIA_ENV=test` toggle działa (blokuje prod)
+
+**Seed:**
+- [ ] `seed_demo_data.py` idempotentny (re-run nie tworzy duplikatów)
+- [ ] 20-30 umów demo (różne typy, okresy, stany)
+- [ ] 40-60 pozycji z `position_conditions` i `replacement_value`
+- [ ] 60-90 usług dodatkowych z `article_id` (nie NULL)
+- [ ] 80% umów rozliczonych (`source='fakturownia'`, `cost_client` > 0)
+- [ ] 20% umów nierozliczonych (żeby `estimate_*` też się pokazało)
+- [ ] 2-3 umowy `is_legacy=1` (dla "grubej kreski" archiwum)
+- [ ] Faktury FA wystawione dla rozliczonych umów (`oid=contract.number`)
+
+**Showcase:**
+- [ ] 7 scenariuszy demo z tabeli powyżej — wszystkie zaliczone (curl + JSON check)
+- [ ] ROI maszyny > 100% z `revenue_source="actual"`
+- [ ] "Wynajęte teraz" > 0
+- [ ] "Pozycje dodatkowe" — transport/tankowanie/czyszczenie z sumami
+- [ ] "Gruba krecha" — archiwum pokazuje `revenue_source_label="szacunek"`
+- [ ] "Mieszane" — `revenue_actual` > 0 AND `revenue_estimate` > 0
+
+**Cleanup:**
+- [ ] `wipe_demo_data.py` usuwa tylko demo dane (oznaczone `is_demo=1`)
+- [ ] Backup przed wipe (`mariadb-dump`)
+- [ ] Idempotentny (re-run safe)
+- [ ] Nie usuwa artykułów/kontrahentów/szablonów
+
+**Spec:**
+- [ ] `spec/core/07_integrations.md` — sekcja Fakturownia test env
+- [ ] `spec/core/04_business_logic.md` — demo data lifecycle (seed → showcase → wipe → proper migration)
+- [ ] `spec/technical/scripts/seed_demo_data.md` — dokumentacja skryptu
+
+---
+
+#### Edge cases
+
+- Fakturownia testowe konto ma limit faktur/miesiąc — seed musi być oszczędny (20-30 faktur, nie 100)
+- `FAKTUROWNIA_ENV=test` ale token prod → blokada (walidacja przy starcie)
+- Re-run `seed_demo_data.py` po wipe — czy tworzy od nowa? (TAK, idempotentny)
+- Umowa demo z `is_legacy=1` ale `source='fakturownia'` — czy to ma sens? (NIE — legacy umowy mają `source='legacy'`. Demo legacy umowy = `source='legacy'` z `cost_client` z `rozliczenie`-style)
+- `replacement_value` = 0 dla maszyny demo → ROI = null → scenariusz ROI fail (wszystkie maszyny demo muszą mieć `replacement_value` > 0)
+- Faktura FA odrzucona (np. błędny product_id) — seed musi logować błędy i kontynuować
+
+---
+
+#### Poza scope (na później)
+
+- Automatyczne odświeżanie rozliczeń z FA (cron) — to RAO-P2-058 Faza 2
+- Eksport statystyk do PDF (RAO-P2-060 v2)
+- Realistyczne dane historyczne (2018-2022) — to przy właściwej migracji legacy
+- Multi-branch demo dane — po RAO-P1-055 (branch_id)
+
+**Estymacja:** 12-16h (M) — Faza 1 (FA test config + produkty) + Faza 2 (seed skrypt + faktury) + Faza 3 (showcase weryfikacja) + Faza 4 (cleanup script)
+
+---
+
 ## 📋 Tabela TL;DR
 
 | ID | Tytuł | P | Est. | Status | Następny krok |
@@ -1767,8 +1959,9 @@ ZAKŁADKA "Archiwum (szacunkowe)" — szare tło:
 | RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | triaged | → in_progress (Faza 1: parser legacy + migracja + UI + template items) |
 | RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | triaged | → in_progress (decyzje użytkownika zarejestrowane 2026-07-01) |
+| RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | triaged | → in_progress (demo dane tymczasowe — zaoranie przed właściwą migracją) |
 
-**Razem:** 36 zadań · ~130-172h pracy (P0: 25-35h, P1: 42-55h, P2: 63-81h)
+**Razem:** 37 zadań · ~142-188h pracy (P0: 25-35h, P1: 42-55h, P2: 75-98h)
 
 ### Pipeline weryfikacji (status flow)
 
