@@ -13,7 +13,7 @@
   "mcpServers": {
     "rao-vision": {
       "command": "node",
-      "args": ["C:/projects/repos/RaoApp/mcp-vision/index.js"],
+      "args": ["C:/projects/repos/RaoApp_new/mcp-vision/index.js"],
       "env": {
         "ANTHROPIC_API_KEY": "sk-ant-api03-TWOJ-KLUCZ-TUTAJ"
       }

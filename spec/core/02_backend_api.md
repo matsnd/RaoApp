@@ -1594,7 +1594,9 @@ Top maszyny (10) i top kontrahenci (5) filtrowani po PNA. Przychód ze `shared.r
 
 **Opis:** Lista umów archiwum z paginacją i filtrami.
 
-**Query:** `?search=&contractor_id=<int>&date_from=&date_to=&contract_type=S|U&page=1&per_page=50`
+**Query:** `?search=&contractor_id=<int>&date_from=&date_to=&contract_type=S|U&city=<str>&article_id=<int>&page=1&per_page=50`
+
+**Filtry drill-down** (RAO-P2-062 Faza 3): `city` + `article_id` — używane przez drawer w statystykach (klik wiersz Top maszyny → `article_id`, klik wiersz Miasta → `city`).
 
 **Response:** `PaginatedResponse[ArchiveContractListItem]` (bez `is_legacy`)
 **HTTP:** 200 | 401
@@ -1679,6 +1681,16 @@ Top maszyny (10) i top kontrahenci (5) filtrowani po PNA. Przychód ze `shared.r
 **Response:** `ArchiveMachineRoiResponse` (`{article_id, name, internal_number, replacement_value, revenue_estimate, contracts_count, rented_days, roi_pct}`)
 - `roi_pct` = `revenue_estimate / replacement_value × 100` (null gdy brak `replacement_value`)
 **HTTP:** 200 | 401 | 404
+
+### `GET /archive/stats/by-city` (RAO-P2-062 Faza 3)
+
+**Opis:** Statystyki szacunkowe po miastach (drill-down w statystykach archiwum).
+
+**Query:** `?date_from=&date_to=&limit=20` (max 50)
+**Response:** `list[ArchiveCityStatItem]` (`{city, contracts_count, positions_count, revenue_estimate, postal_codes_count}`)
+- `city` — nazwa miasta (z `archive_contract_positions.delivery_city`, may be null → "Nieokreślone")
+- Sort: `contracts_count DESC`
+**HTTP:** 200 | 401
 
 ---
 

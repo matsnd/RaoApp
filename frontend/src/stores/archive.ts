@@ -195,6 +195,14 @@ export interface ArchiveMachineRoi {
   roi_pct: number | null
 }
 
+export interface ArchiveCityStatItem {
+  city: string
+  contracts_count: number
+  positions_count: number
+  revenue_estimate: string
+  postal_codes_count: number
+}
+
 interface Paginated<T> {
   items: T[]
   total: number
@@ -208,6 +216,8 @@ export interface ArchiveContractFilters {
   date_from?: string | null
   date_to?: string | null
   contract_type?: 'S' | 'U' | null
+  city?: string | null
+  article_id?: number | null
   page?: number
   per_page?: number
 }
@@ -256,9 +266,16 @@ export const useArchiveStore = defineStore('archive', () => {
   const statsSummary = ref<ArchiveStatsSummary | null>(null)
   const topMachines = ref<ArchiveTopMachineItem[]>([])
   const byCategory = ref<ArchiveCategoryStatItem[]>([])
+  const byCity = ref<ArchiveCityStatItem[]>([])
   const machineRoi = ref<ArchiveMachineRoi | null>(null)
   const statsLoading = ref(false)
   const statsError = ref<string | null>(null)
+
+  // Drill-down (lokalny stan, nie globalny)
+  const drillDownContracts = ref<ArchiveContractListItem[]>([])
+  const drillDownTotal = ref(0)
+  const drillDownLoading = ref(false)
+  const drillDownError = ref<string | null>(null)
 
   // Gettery
   const totalContracts = computed(() => contractsTotal.value)
@@ -279,6 +296,8 @@ export const useArchiveStore = defineStore('archive', () => {
       if (filters.date_from) params.date_from = filters.date_from
       if (filters.date_to) params.date_to = filters.date_to
       if (filters.contract_type) params.contract_type = filters.contract_type
+      if (filters.city) params.city = filters.city
+      if (filters.article_id) params.article_id = filters.article_id
       const { data } = await api.get<Paginated<ArchiveContractListItem>>('/archive/contracts', { params })
       contracts.value = data.items
       contractsTotal.value = data.total
@@ -420,6 +439,41 @@ export const useArchiveStore = defineStore('archive', () => {
     return data
   }
 
+  async function fetchByCity(dateFrom?: string | null, dateTo?: string | null, limit = 20) {
+    const params: Record<string, unknown> = { limit }
+    if (dateFrom) params.date_from = dateFrom
+    if (dateTo) params.date_to = dateTo
+    const { data } = await api.get<ArchiveCityStatItem[]>('/archive/stats/by-city', { params })
+    byCity.value = data
+    return data
+  }
+
+  async function fetchContractsForDrillDown(filters: ArchiveContractFilters = {}) {
+    drillDownLoading.value = true
+    drillDownError.value = null
+    try {
+      const params: Record<string, unknown> = {
+        page: filters.page ?? 1,
+        per_page: filters.per_page ?? 50,
+      }
+      if (filters.search) params.search = filters.search
+      if (filters.date_from) params.date_from = filters.date_from
+      if (filters.date_to) params.date_to = filters.date_to
+      if (filters.city) params.city = filters.city
+      if (filters.article_id) params.article_id = filters.article_id
+      const { data } = await api.get<Paginated<ArchiveContractListItem>>('/archive/contracts', { params })
+      drillDownContracts.value = data.items
+      drillDownTotal.value = data.total
+      return data
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { detail?: string } } }
+      drillDownError.value = err?.response?.data?.detail ?? 'Błąd pobierania umów'
+      throw e
+    } finally {
+      drillDownLoading.value = false
+    }
+  }
+
   async function fetchAllStats(dateFrom?: string | null, dateTo?: string | null) {
     statsLoading.value = true
     statsError.value = null
@@ -428,6 +482,7 @@ export const useArchiveStore = defineStore('archive', () => {
         fetchStatsSummary(dateFrom, dateTo),
         fetchTopMachines(dateFrom, dateTo),
         fetchStatsByCategory(dateFrom, dateTo),
+        fetchByCity(dateFrom, dateTo),
       ])
     } catch (e: unknown) {
       const err = e as { response?: { data?: { detail?: string } } }
@@ -445,8 +500,9 @@ export const useArchiveStore = defineStore('archive', () => {
     articles, articlesTotal, articlesPage, articlesPerPage,
     articlesLoading, articlesError,
     categories, categoriesTree, categoriesLoading,
-    statsSummary, topMachines, byCategory, machineRoi,
+    statsSummary, topMachines, byCategory, byCity, machineRoi,
     statsLoading, statsError,
+    drillDownContracts, drillDownTotal, drillDownLoading, drillDownError,
     // getters
     totalContracts, totalArticles, hasCategories,
     // actions
@@ -455,6 +511,7 @@ export const useArchiveStore = defineStore('archive', () => {
     fetchCategories, fetchCategoriesTree,
     createCategory, updateCategory, deleteCategory,
     fetchStatsSummary, fetchTopMachines, fetchStatsByCategory, fetchMachineRoi,
+    fetchByCity, fetchContractsForDrillDown,
     fetchAllStats,
   }
 })

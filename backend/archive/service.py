@@ -79,6 +79,8 @@ async def list_archive_contracts(
     date_from: date | None = None,
     date_to: date | None = None,
     contract_type: str | None = None,
+    city: str | None = None,
+    article_id: int | None = None,
     page: int = 1,
     per_page: int = 50,
 ) -> tuple[list[ArchiveContractListItem], int]:
@@ -96,6 +98,17 @@ async def list_archive_contracts(
         stmt = stmt.where(ArchiveContract.date_to <= date_to)
     if contract_type:
         stmt = stmt.where(ArchiveContract.contract_type == contract_type)
+    if city:
+        # Exact match (case-insensitive) — drill-down Miasta → umowy
+        stmt = stmt.where(ArchiveContract.city == city)
+    if article_id:
+        # Umowy zawierające pozycję z tym article_id — drill-down Top maszyny → umowy
+        stmt = stmt.where(
+            ArchiveContract.id.in_(
+                select(ArchiveContractPosition.contract_id)
+                .where(ArchiveContractPosition.article_id == article_id)
+            )
+        )
 
     total = (await db.execute(select(func.count()).select_from(stmt.subquery()))).scalar_one()
 
@@ -482,3 +495,47 @@ async def get_archive_machine_roi(
         rented_days=days,
         roi_pct=roi_pct,
     )
+
+
+async def get_archive_stats_by_city(
+    db: AsyncSession,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    limit: int = 20,
+):
+    """Statystyki szacunkowe po miastach (z archive_contracts.city)."""
+    from archive.schemas import ArchiveCityStatItem
+
+    positions = await _fetch_positions_with_conds(db, date_from, date_to)
+    agg: dict[str, dict] = defaultdict(
+        lambda: {
+            "contracts": set(),
+            "positions_count": 0,
+            "revenue_estimate": Decimal("0.00"),
+            "postal_codes": set(),
+        }
+    )
+    for p in positions:
+        contract = p.contract
+        if not contract or not contract.city:
+            continue
+        city = contract.city.strip()
+        if not city:
+            continue
+        agg[city]["contracts"].add(p.contract_id)
+        agg[city]["positions_count"] += 1
+        agg[city]["revenue_estimate"] += _estimate_position_value(p)
+        if contract.postal_code:
+            agg[city]["postal_codes"].add(contract.postal_code)
+
+    sorted_items = sorted(agg.items(), key=lambda x: x[1]["revenue_estimate"], reverse=True)[:limit]
+    return [
+        ArchiveCityStatItem(
+            city=city,
+            contracts_count=len(d["contracts"]),
+            positions_count=d["positions_count"],
+            revenue_estimate=d["revenue_estimate"],
+            postal_codes_count=len(d["postal_codes"]),
+        )
+        for city, d in sorted_items
+    ]

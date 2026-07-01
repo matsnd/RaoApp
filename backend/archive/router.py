@@ -15,6 +15,7 @@ from archive.schemas import (
     ArchiveCategoryResponse,
     ArchiveCategoryStatItem,
     ArchiveCategoryTreeNode,
+    ArchiveCityStatItem,
     ArchiveContractDetail,
     ArchiveContractListItem,
     ArchiveMachineRoiResponse,
@@ -39,6 +40,8 @@ async def list_archive_contracts(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     contract_type: str | None = Query(None, pattern="^[SU]$"),
+    city: str | None = Query(None, description="Filtr po mieście (exact match) — drill-down Miasta"),
+    article_id: int | None = Query(None, description="Filtr po article_id (umowy z tą maszyną) — drill-down Top maszyny"),
     page: int = Query(1, ge=1),
     per_page: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
@@ -51,6 +54,8 @@ async def list_archive_contracts(
         date_from=date_from,
         date_to=date_to,
         contract_type=contract_type,
+        city=city,
+        article_id=article_id,
         page=page,
         per_page=per_page,
     )
@@ -190,3 +195,15 @@ async def archive_machine_roi(
     _: User = Depends(get_current_user),
 ):
     return await service.get_archive_machine_roi(db, article_id, date_from, date_to)
+
+
+@router.get("/stats/by-city", response_model=list[ArchiveCityStatItem])
+async def archive_stats_by_city(
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    limit: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Statystyki szacunkowe po miastach (z archive_contracts.city)."""
+    return await service.get_archive_stats_by_city(db, date_from, date_to, limit=limit)

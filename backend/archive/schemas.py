@@ -278,6 +278,14 @@ class ArchiveMachineRoiResponse(BaseModel):
     roi_pct: float | None = None
 
 
+class ArchiveCityStatItem(BaseModel):
+    city: str
+    contracts_count: int = 0
+    positions_count: int = 0
+    revenue_estimate: Decimal = Decimal("0.00")
+    postal_codes_count: int = 0
+
+
 # Re-eksport dla wygody routerow
 __all__ = [
     "PaginatedResponse",
@@ -296,4 +304,5 @@ __all__ = [
     "ArchiveTopMachineItem",
     "ArchiveCategoryStatItem",
     "ArchiveMachineRoiResponse",
+    "ArchiveCityStatItem",
 ]

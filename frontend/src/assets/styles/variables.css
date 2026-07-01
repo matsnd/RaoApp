@@ -65,4 +65,38 @@
   /* === Transitions === */
   --transition-fast: 150ms ease;
   --transition-normal: 250ms ease;
+
+  /* === Aliasy (kompatybilność ze style.css — martwe nazwy używane w widokach) === */
+  /* Spacing: --spacing-N → --spacing-xs/sm/md/lg/xl/2xl */
+  --spacing-1: var(--spacing-xs);   /* 4px */
+  --spacing-2: var(--spacing-sm);   /* 8px */
+  --spacing-3: var(--spacing-md);   /* 12px */
+  --spacing-4: var(--spacing-lg);   /* 16px */
+  --spacing-5: 20px;                /* brak odpowiednika w variables.css — dodane */
+  --spacing-6: var(--spacing-xl);   /* 24px */
+  --spacing-8: var(--spacing-2xl);  /* 32px */
+  --spacing-10: 40px;               /* brak odpowiednika — dodane */
+  --spacing-12: 48px;               /* brak odpowiednika — dodane */
+  --spacing-16: 64px;               /* brak odpowiednika — dodane */
+
+  /* Border-radius: --border-radius-md/pill → istniejące */
+  --border-radius-md: var(--border-radius);  /* 12px */
+  --border-radius-pill: 24px;
+
+  /* Kolory: --color-error* → --color-danger (alias) */
+  --color-error: var(--color-danger);
+  --color-error-bg: #FFF5F5;
+  --color-error-border: #FED7D7;
+
+  /* Pozostałe martwe zmienne używane w kodzie */
+  --color-accent-blue: var(--color-info);
+  --color-border-hover: #CBD5E1;
+  --color-bg-card-hover: #FCFCFE;
+  --font-size-xxl: 32px;
+  --font-weight-extrabold: 800;
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.7;
+  --shadow-navbar: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-button: 0 2px 4px rgba(29,43,83,0.2);
 }

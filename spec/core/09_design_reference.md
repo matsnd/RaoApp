@@ -195,12 +195,22 @@ Użyj wartości z sekcji poniżej — są zweryfikowane i aktualne na dzień two
 }
 ```
 
+> **UWAGA — dwa systemy zmiennych (RAO-P2-062 fix 2026-07-01):**
+> `frontend/src/style.css` definiuje `--spacing-N` (1/2/3/4/5/6/8/10/12/16) ale **NIE jest importowany** w `main.ts`.
+> Aktywne zmienne są w `frontend/src/assets/styles/variables.css` (`--spacing-xs/sm/md/lg/xl/2xl`).
+> Aby uniknąć pustych wartości (0px padding/border-radius — root cause broken layout archiwum),
+> `variables.css` zawiera **aliasy** mapujące stare nazwy na nowe:
+> `--spacing-1` → `--spacing-xs` (4px), `--spacing-5` → 20px (dodane), itd.
+> To samo dotyczy `--border-radius-md` → `--border-radius` (12px), `--color-error` → `--color-danger`.
+> **Nowy kod powinien używać nazw z `variables.css`** (`--spacing-lg`, `--border-radius`), ale aliasy
+> zapewniają backward-compat dla istniejących widoków.
+
 ## Border Radius
 
 ```css
 :root {
   --border-radius-sm: 8px;      /* Form inputs, small elements */
-  --border-radius-md: 12px;     /* Cards, panels, buttons */
+  --border-radius-md: 12px;     /* Cards, panels, buttons (alias → --border-radius) */
   --border-radius-lg: 12px;     /* Large cards */
   --border-radius-pill: 24px;   /* Pill-shaped buttons */
 }
