@@ -1,6 +1,8 @@
 # RAO MCP Vision Server
 
-Lokalny MCP server który daje Cascade (Windsurf) narzędzia do analizy screenshotów UI przez Claude Vision API.
+Lokalny MCP server który daje agentom narzędzia do analizy screenshotów UI.
+
+**Strategia kosztów:** Najpierw darmowy Nemotron Nano 12B v2 VL (OpenRouter), fallback Claude Vision gdy free model nie poradzi. Większość analiz = $0.
 
 ## Setup (jednorazowy)
 
@@ -9,22 +11,19 @@ Lokalny MCP server który daje Cascade (Windsurf) narzędzia do analizy screensh
 cd mcp-vision
 npm install
 
-# 2. Dodaj klucz do .env (w root projektu)
-# ANTHROPIC_API_KEY=sk-ant-...
-# Uzyskaj na: https://console.anthropic.com/settings/keys
+# 2. Klucze API — w .devin/config.json (env rao-vision):
+#    OPENROUTER_API_KEY — darmowy, uzyskaj na https://openrouter.ai/keys
+#    ANTHROPIC_API_KEY — fallback (płatny), uzyskaj na https://console.anthropic.com/settings/keys
 ```
 
-## Konfiguracja Windsurf
+## Konfiguracja MCP
 
-Plik `.windsurf/mcp.json` jest już skonfigurowany. Windsurf załaduje serwer automatycznie.
-
-**Uwaga:** Windsurf czyta `ANTHROPIC_API_KEY` ze zmiennych środowiskowych systemowych LUB z `${VAR}` w mcp.json.
-Ustaw zmienną systemową:
-
-```powershell
-# PowerShell (trwałe)
-[System.Environment]::SetEnvironmentVariable("ANTHROPIC_API_KEY", "sk-ant-twoj-klucz", "User")
-# Restart Windsurf po ustawieniu
+W `.devin/config.json` (sekcja `mcpServers.rao-vision.env`):
+```json
+{
+  "OPENROUTER_API_KEY": "sk-or-v1-...",
+  "ANTHROPIC_API_KEY": "sk-ant-..."
+}
 ```
 
 ## Narzędzia MCP
@@ -33,9 +32,7 @@ Ustaw zmienną systemową:
 Analizuje istniejący plik PNG/JPG.
 
 ```
-Użycie w Cascade:
-"Przeanalizuj screenshot w temp/screen.png"
-→ Cascade wywołuje analyze_screenshot({image_path: "...", question: "..."})
+→ analyze_screenshot({image_path: "...", question: "..."})
 → Zwraca ocenę UI + zapisuje raport obok pliku
 ```
 
@@ -43,27 +40,24 @@ Użycie w Cascade:
 Robi screenshot podanego URL i od razu analizuje. Wymaga działającego frontendu.
 
 ```
-Użycie w Cascade:
-"Zrób screenshot http://localhost:5173/contracts i oceń UI"
-→ Cascade wywołuje screenshot_and_analyze({url: "...", question: "..."})
+→ screenshot_and_analyze({url: "http://localhost:5173/contracts", question: "..."})
 → Zapisuje screenshot do temp/ + raport
 ```
 
-## Jak Devin może to używać
+## Fallback chain
 
-Devin nie ma dostępu do MCP Cascade — ale może:
-1. Zapisać screenshot do `temp/vision-request.png`
-2. Zapisać pytanie do `temp/vision-request.md`
-3. Cascade (Windsurf) wywołuje `analyze_screenshot` na żądanie
-
-Protokół pliku requestu (`temp/vision-request.md`):
-```markdown
-# Vision Request
-screenshot: temp/vision-request.png
-question: Czy formularz umowy wygląda poprawnie po dodaniu pola delivery_address?
 ```
+1. Nemotron Nano 12B v2 VL (free, OpenRouter) — first choice, $0
+   └─ jeśli brak klucza / HTTP error / pusta odpowiedź
+2. Claude Vision (Anthropic, płatny) — fallback, ~$0.01-0.03/screenshot
+   └─ jeśli oba niedostępne
+3. Error report
+```
+
+Raport zawiera pole `Model:` wskazujący który provider odpowiedział.
 
 ## Koszty
 
-- Claude claude-opus-4-5 vision: ~$0.01-0.03 za jeden screenshot (zależnie od rozmiaru)
-- Wywoływany TYLKO gdy Cascade explicite użyje toola — zero pollingu, zero idle costs
+- **Nemotron (free):** $0 — większość analiz UI
+- **Claude fallback:** ~$0.01-0.03 za screenshot (tylko gdy Nemotron nie poradzi)
+- Wywoływany TYLKO gdy agent explicite użyje toola — zero pollingu, zero idle costs

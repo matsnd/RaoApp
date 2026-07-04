@@ -1,7 +1,7 @@
 {
   "name": "rao-mcp-vision",
-  "version": "1.0.0",
-  "description": "MCP server — Anthropic Claude Vision dla analizy screenshotów UI (RAO)",
+  "version": "2.0.0",
+  "description": "MCP server — vision analysis dla RAO. Qwen2.5-VL (free, OpenRouter) first → Claude Vision fallback.",
   "type": "module",
   "main": "index.js",
   "scripts": {
