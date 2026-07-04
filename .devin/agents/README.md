@@ -12,12 +12,28 @@ Każdy `.devin/agents/*/AGENT.md` ma sekcję "Handoff & Shared Context" z rolą-
 
 ## Agents z dostępem do vision (rao-vision MCP)
 
-| Agent | Dostęp do vision | Kiedy używać | Priorytet |
-|-------|-----------------|--------------|-----------|
-| **ui-designer** | ✅ `mcp_call_tool` + `MCP(rao-vision)` | Layout, kolory, wzory wizualne | WYSOKI — design system to wizualne |
-| **motion-designer** | ✅ `mcp_call_tool` + `MCP(rao-vision)` | Animacje, płynność, mikro-interakcje | WYSOKI — animacje są czysto wizualne |
-| **ux-designer** | ✅ `mcp_call_tool` + `MCP(rao-vision)` | Intuicyjność layoutu | BARDZO NISKI — rzadko, tylko gdy programatyczna niemożliwa |
-| **frontend-dev** | ✅ W sekcji "Po zmianie" | Layout/spacing/kolory/animacje | ŚREDNI — tylko gdy zmiana jest wizualna |
+> **⚠️ ZWERYFIKOWANE 2026-07-05 (CLI 2026.8.18) testem runtime:**
+> Custom subagenty (`AGENT.md`) **NIE dostają narzędzi MCP** w runtime — dostają tylko 5 narzędzi filesystem/shell (`read`, `grep`, `edit`, `exec`, `find_file_by_name`), mimo poprawnych `mcp__serwer__*` w `allowed-tools` i `permissions.allow`. To jest **bug CLI**, nie błąd konfiguracji (configi parsują się OK, `subagent_general` z tymi samymi serwerami działa).
+>
+> **Workaround (testowany, działa):** używaj wbudowanego profilu `subagent_general` z instrukcją roli w prompcie. `subagent_general` ma pełny dostęp do MCP (11 serwerów). Tech Lead (główny agent) spawnuje `subagent_general` z treścią roli z `AGENT.md` wklejoną do promptu.
+>
+> **Nie używaj `subagent_explore` dla zadań MCP** — też nie ma MCP (tylko filesystem + web_search).
+>
+> | Profil | MCP w runtime? | Narzędzia |
+> |---|---|---|
+> | `subagent_general` (wbudowany) | ✅ TAK | pełny zestaw + 11 serwerów MCP |
+> | `subagent_explore` (wbudowany) | ❌ NIE | filesystem + web_search |
+> | custom `AGENT.md` (db-architect, backend-dev, …) | ❌ NIE | 5 narzędzi filesystem/shell |
+>
+> **Dowód runtime (2026-07-05):** `subagent_general` wywołał `mcp__mariadb__query_database({"query":"SHOW TABLES"})` → 33 tabele; `mcp__codebase-memory__search_graph(...)` → 199 wyników. `db-architect` (custom) przy tym samym zadaniu: "narzędzie nie istnieje w moim runtime".
+
+| Agent | Vision dostęp | Kto uruchamia | Kiedy używać | Priorytet |
+|-------|---------------|---------------|--------------|-----------|
+| **ui-designer** | przez `subagent_general` | Tech Lead → `subagent_general` z rolą ui-designer | Layout, kolory, wzory wizualne | WYSOKI — design system to wizualne |
+| **motion-designer** | przez `subagent_general` | Tech Lead → `subagent_general` z rolą motion-designer | Animacje, płynność, mikro-interakcje | WYSOKI — animacje są czysto wizualne |
+| **ux-designer** | przez `subagent_general` | Tech Lead → `subagent_general` z rolą ux-designer | Intuicyjność layoutu | BARDZO NISKI — rzadko, tylko gdy programatyczna niemożliwa |
+| **frontend-dev** | przez `subagent_general` | Tech Lead → `subagent_general` z rolą frontend-dev | Layout/spacing/kolory/animacje | ŚREDNI — tylko gdy zmiana jest wizualna |
+| **tech-lead** | ✅ bezpośrednio | Tech Lead (sam, główny agent) | Weryfikacja po raporcie subagenta | ŚREDNI — finalna weryfikacja UI |
 
 ## Agents BEZ dostępu do vision
 
@@ -102,24 +118,26 @@ Vision: NIE potrzebne
 
 ## Implementacja w agentach
 
+> **MCP w subagentach:** kazdy profil deklaruje narzedzia MCP w `allowed-tools` (format `mcp__serwer__*`) oraz w `permissions.allow` (auto-approval, wymagane dla trybu background). Jesli wywolanie MCP zwroci blad, wklej DOSLOWNY komunikat do raportu ("unknown tool" vs "permission denied" to rozne diagnozy) i dopiero wtedy uzyj fallbacku (grep / exec / prosba do Tech Leada o MCP context).
+
 ### ui-designer
-- Dostęp: `mcp_call_tool` + `MCP(rao-vision)`
+- Dostęp: `mcp__rao-vision__*`
 - Używaj gdy: layout, kolory, wzory wizualne
 - Nie używaj gdy: sprawdzenie CSS variables (grep)
 
 ### motion-designer
-- Dostęp: `mcp_call_tool` + `MCP(rao-vision)`
+- Dostęp: `mcp__rao-vision__*`
 - Używaj gdy: animacje, płynność, hover effects
 - Nie używaj gdy: sprawdzenie CSS duration/properties (grep)
 - Ograniczenie: Vision nie oceni timing — tylko czy "wygląda płynnie"
 
 ### ux-designer
-- Dostęp: `mcp_call_tool` + `MCP(rao-vision)`
+- Dostęp: `mcp__rao-vision__*`
 - Używaj gdy: intuicyjność layoutu (bardzo rzadko)
 - Nie używaj gdy: teksty, flow, walidacja (read template)
 
 ### frontend-dev
-- Dostęp: Opis w sekcji "Po zmianie" (nie w allowed-tools)
+- Dostęp: `mcp__rao-vision__*`
 - Używaj gdy: layout/spacing/kolory/animacje w implementacji
 - Nie używaj gdy: dodanie pól, tekstów, logiki
 
