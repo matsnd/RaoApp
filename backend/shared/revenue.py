@@ -154,6 +154,7 @@ async def compute_position_revenues(
             Article.category_sub3,          # p[18]
             Contract.city,                  # p[19] — RAO: filtr city w stats
             Contract.contract_type,         # p[20] — RAO-P2-056: grupowanie po S/U
+            Contract.branch_id,             # p[21] — RAO-P1-055: grupowanie po oddziale
         )
         .select_from(ContractPosition)
         .join(Contract, Contract.id == ContractPosition.contract_id)
@@ -289,5 +290,6 @@ async def compute_position_revenues(
             "category_sub3": p[18],
             "city": p[19],                  # RAO: filtr city w stats
             "contract_type": p[20] or "S",  # RAO-P2-056: "S" (najem) | "U" (usługa); fallback "S"
+            "branch_id": p[21],             # RAO-P1-055: FK do branches (może być NULL dla starych umów)
         })
     return results

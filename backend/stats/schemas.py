@@ -252,3 +252,24 @@ class ContractTypeStatsResponse(BaseModel):
     date_to: date
     total_revenue: Decimal
     items: list[ContractTypeStatItem]
+
+
+# ── RAO-P1-055: Statystyki po oddziałach (branch) ─────────────────────────────
+
+class BranchStatItem(BaseModel):
+    """Agregat statystyk dla jednego oddziału (branch)."""
+    branch_id: int | None              # None = umowy bez przypisanego oddziału
+    branch_name: str                   # nazwa oddziału lub "(bez oddziału)"
+    contracts_count: int               # unikalne umowy danego oddziału
+    positions_count: int               # łączna liczba pozycji
+    articles_count: int                # unikalne maszyny/artykuły
+    rented_days: int                   # suma dni wynajmu (maszyny; 0 dla usług)
+    revenue: Decimal                   # suma przychodu
+
+
+class ByBranchStatsResponse(BaseModel):
+    """Odpowiedź endpointu GET /stats/by-branch — RAO-P1-055."""
+    date_from: date
+    date_to: date
+    total_revenue: Decimal
+    items: list[BranchStatItem]

@@ -499,6 +499,29 @@ async def startup_migrations():
         except Exception:
             pass  # kolumna już nie istnieje — OK
 
+        # RAO-P1-055: Migracja branch_id z suffixu "G" w numerze umowy (Gdańsk).
+        # Idempotentna: WHERE branch_id IS NULL — kolejne uruchomienia nie modyfikują.
+        # Numer umowy format: "{type}{auto:03d}/{year}{suffix}" gdzie suffix="G" dla GDAŃSK.
+        # 1) Umowy z suffixem "G" → przypisz do oddziału GDAŃSK (case-insensitive).
+        await conn.execute(sa.text(
+            "UPDATE contracts c SET c.branch_id = ("
+            "  SELECT b.id FROM branches b WHERE UPPER(b.name) = 'GDAŃSK' LIMIT 1"
+            ") WHERE c.number LIKE '%G' AND c.branch_id IS NULL"
+            "  AND EXISTS (SELECT 1 FROM branches b WHERE UPPER(b.name) = 'GDAŃSK')"
+        ))
+        # 2) Umowy BEZ suffixu "G" → przypisz do domyślnego oddziału (najniższe id,
+        #    który NIE jest GDAŃSK = oddział główny/siedziba). Idempotentne.
+        await conn.execute(sa.text(
+            "UPDATE contracts c SET c.branch_id = ("
+            "  SELECT b.id FROM branches b WHERE UPPER(b.name) <> 'GDAŃSK' ORDER BY b.id LIMIT 1"
+            ") WHERE c.number NOT LIKE '%G' AND c.branch_id IS NULL"
+            "  AND EXISTS (SELECT 1 FROM branches b WHERE UPPER(b.name) <> 'GDAŃSK')"
+        ))
+        # RAO-P1-055: indeks na branch_id dla statystyk /stats/by-branch (WHERE + JOIN)
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_contracts_branch_id ON contracts(branch_id)"
+        ))
+
     # FK + index dodawane z IF NOT EXISTS (MariaDB 10.0.2+ dla FK, 10.0.9+ dla indeksów)
     # RAO-P2-012 spike: commented out FK constraints due to MariaDB version compatibility (not in scope)
     async with engine.begin() as conn2:

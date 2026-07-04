@@ -666,12 +666,6 @@ async def get_city_details(
     """
     Get detailed metrics for a specific city — RAO-P2-069.
 
-    RAO-P2-052: Filtrowanie po mieście w SQL (WHERE clause) zamiast w Pythonie.
-    Najpierw jedno zapytanie SQL (LEFT JOIN postal_codes + WHERE city = :city)
-    znajduje kontrakty należące do żądanego miasta, następnie
-    `compute_position_revenues(contract_ids=...)` pobiera pozycje tylko dla
-    tych kontraktów (SQL filter, nie pobiera wszystkich pozycji).
-
     Drill-down po mieście (zamiast PNA) — sumuje wszystkie PNA w tym mieście.
     Pokazuje rozbicie na PNA w obrębie miasta (top PNA per rentals_count).
     """
@@ -680,83 +674,95 @@ async def get_city_details(
     city = unquote(city)
     df, dt = _default_dates(date_from, date_to)
 
-    # RAO-P2-052: Znajdź kontrakty należące do żądanego miasta W SQL.
-    # City z postal_codes.city ma priorytet (deterministyczne PNA),
-    # fallback na contracts.city. MariaDB utf8mb4_polish_ci = case-insensitive,
-    # LOWER() dla jawności i bezpieczeństwa collation.
-    city_norm = city.strip()
-    match_q = (
-        select(
-            Contract.id.label("cid"),
-            Contract.city.label("contract_city"),
-            Contract.postal_code.label("contract_pna"),
-            Contract.postal_code_id.label("pna_id"),
-            PostalCode.postal_code.label("pc_postal_code"),
-            PostalCode.city.label("pc_city"),
-            PostalCode.wojewodztwo.label("pc_woj"),
-            PostalCode.powiat.label("pc_pow"),
-            PostalCode.gmina.label("pc_gmina"),
-        )
-        .outerjoin(PostalCode, PostalCode.id == Contract.postal_code_id)
-        .where(
-            func.lower(func.coalesce(PostalCode.city, Contract.city))
-            == func.lower(city_norm)
-        )
-    )
-    match_result = await db.execute(match_q)
-    match_rows = match_result.mappings().all()
-
-    if not match_rows:
-        return {"error": "City not found"}
-
-    # Zbuduj mapowanie cid -> pna_key oraz kanoniczne woj/pow/gmina z wyników SQL
-    cid_to_pna_key: dict[int, str] = {}
-    canonical_woj = canonical_pow = canonical_gmina = None
-    for row in match_rows:
-        cid = row["cid"]
-        # PNA postal_code: z postal_codes (priorytet) lub contracts.postal_code (fallback)
-        if row["pc_postal_code"] is not None:
-            contract_pna = row["pc_postal_code"]
-        else:
-            contract_pna = (row["contract_pna"] or "").strip() or None
-        cid_to_pna_key[cid] = contract_pna or NO_PNA_BUCKET
-
-        # Kanoniczne woj/pow/gmina z pierwszego dopasowania z PNA
-        if canonical_woj is None and row["pc_woj"]:
-            canonical_woj = row["pc_woj"]
-        if canonical_pow is None and row["pc_pow"]:
-            canonical_pow = row["pc_pow"]
-        if canonical_gmina is None and row["pc_gmina"]:
-            canonical_gmina = row["pc_gmina"]
-
-    matched_contract_ids = set(cid_to_pna_key.keys())
-
-    # RAO-P2-052: Pobierz pozycje tylko dla dopasowanych kontraktów (SQL filter
-    # w compute_position_revenues — nie pobiera wszystkich pozycji).
     all_pos = await compute_position_revenues(
-        db, df, dt, exclude_archival=False, contract_ids=matched_contract_ids
+        db, df, dt, exclude_archival=False
     )
     if not all_pos:
         return {"error": "City not found"}
 
-    # pna_breakdown i contracts_count z all_pos — zachowuje oryginalne
-    # zachowanie (tylko kontrakty z pozycjami w zakresie dat są liczone).
+    contract_ids_all = {p["contract_id"] for p in all_pos if p.get("contract_id")}
+
+    loc_q = await db.execute(
+        select(
+            Contract.id,
+            Contract.city,
+            Contract.postal_code,
+            Contract.postal_code_id,
+        ).where(Contract.id.in_(contract_ids_all))
+    )
+    contract_loc = {
+        r[0]: {"city": r[1], "pna": r[2], "pna_id": r[3]}
+        for r in loc_q.all()
+    }
+
+    pna_ids = {v["pna_id"] for v in contract_loc.values() if v["pna_id"]}
+    pna_dict: dict[int, dict] = {}
+    if pna_ids:
+        pc_q = await db.execute(
+            select(PostalCode.id, PostalCode.postal_code, PostalCode.city,
+                   PostalCode.wojewodztwo, PostalCode.powiat, PostalCode.gmina)
+            .where(PostalCode.id.in_(pna_ids))
+        )
+        pna_dict = {
+            r[0]: {"postal_code": r[1], "city": r[2], "woj": r[3], "pow": r[4], "gmina": r[5]}
+            for r in pc_q.all()
+        }
+
+    # Filtruj contracts należące do żądanego miasta (case-insensitive)
+    city_lower = city.lower().strip()
+    matched_contract_ids: set[int] = set()
     pna_breakdown: dict[str, dict] = defaultdict(
         lambda: {"contracts": set(), "revenue": Decimal(0)}
     )
-    for p in all_pos:
+    canonical_woj = canonical_pow = canonical_gmina = None
+    for cid, loc in contract_loc.items():
+        pna_ref = pna_dict.get(loc["pna_id"]) if loc["pna_id"] else None
+        if pna_ref:
+            contract_city = pna_ref["city"] or loc["city"] or ""
+            contract_pna = pna_ref["postal_code"]
+            woj = pna_ref["woj"]
+            powiat = pna_ref["pow"]
+            gmina = pna_ref["gmina"]
+        else:
+            contract_city = loc["city"] or ""
+            contract_pna = (loc["pna"] or "").strip() or None
+            woj = powiat = gmina = None
+
+        if contract_city.lower().strip() == city_lower:
+            matched_contract_ids.add(cid)
+            if canonical_woj is None and woj:
+                canonical_woj = woj
+            if canonical_pow is None and powiat:
+                canonical_pow = powiat
+            if canonical_gmina is None and gmina:
+                canonical_gmina = gmina
+            pna_key = contract_pna or "(brak PNA)"
+            pna_breakdown[pna_key]["contracts"].add(cid)
+            pna_breakdown[pna_key]["revenue"] += Decimal(0)  # filled below
+
+    if not matched_contract_ids:
+        return {"error": "City not found"}
+
+    city_pos = [p for p in all_pos if p["contract_id"] in matched_contract_ids]
+
+    # Wypełnij revenue per PNA
+    for p in city_pos:
         cid = p["contract_id"]
-        pna_key = cid_to_pna_key.get(cid, NO_PNA_BUCKET)
-        pna_breakdown[pna_key]["contracts"].add(cid)
+        loc = contract_loc.get(cid)
+        if not loc:
+            continue
+        pna_ref = pna_dict.get(loc["pna_id"]) if loc["pna_id"] else None
+        contract_pna = pna_ref["postal_code"] if pna_ref else (loc["pna"] or "").strip() or None
+        pna_key = contract_pna or "(brak PNA)"
         pna_breakdown[pna_key]["revenue"] += p["revenue"]
 
-    contracts_count = len({p["contract_id"] for p in all_pos})
-    unique_contractors = len({p["contractor_id"] for p in all_pos if p.get("contractor_id")})
-    total_revenue = float(sum((p["revenue"] for p in all_pos), Decimal(0)))
+    unique_contractors = len({p["contractor_id"] for p in city_pos if p.get("contractor_id")})
+    total_revenue = float(sum((p["revenue"] for p in city_pos), Decimal(0)))
+    contracts_count = len(matched_contract_ids)
 
     # Top machines w tym mieście
     machine_data: dict[str, dict] = {}
-    for p in all_pos:
+    for p in city_pos:
         name = p["article_name"] or "(bez nazwy)"
         if name not in machine_data:
             machine_data[name] = {"rental_count": 0, "total_revenue": 0.0}
@@ -769,7 +775,7 @@ async def get_city_details(
 
     # Top contractors
     contractor_data: dict[str, dict] = {}
-    for p in all_pos:
+    for p in city_pos:
         cname = p["contractor_name"] or "(nieznany kontrahent)"
         if cname not in contractor_data:
             contractor_data[cname] = {"contract_count": 0, "total_revenue": 0.0}

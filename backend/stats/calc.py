@@ -293,6 +293,81 @@ def aggregate_by_contract_type(positions: list[dict]) -> list[dict]:
     )
 
 
+# ── RAO-P1-055: Agregacja po oddziale (branch) ────────────────────────────────
+
+_UNASSIGNED_BRANCH_KEY = "__none__"
+_UNASSIGNED_BRANCH_LABEL = "(bez oddziału)"
+
+
+def aggregate_by_branch(
+    positions: list[dict],
+    branches: list[dict] | None = None,
+) -> list[dict]:
+    """
+    Agreguje pozycje umów po oddziale (branch_id) umowy nadrzędnej (RAO-P1-055).
+
+    Args:
+        positions: lista dict-ów z compute_position_revenues
+                   (wymagane klucze: contract_id, article_id, revenue,
+                    clamped_days, is_service, branch_id)
+        branches: opcjonalna lista dict-ów {id, name} z tabeli branches
+                  (do mapowania branch_id → branch_name). Gdy None lub
+                  brak mapowania → etykieta "(bez oddziału)".
+
+    Returns:
+        lista dict-ów posortowana malejąco po revenue:
+            branch_id, branch_name, contracts_count, positions_count,
+            articles_count, rented_days, revenue
+        Wiersz "bez oddziału" (branch_id=None) zawsze na końcu.
+    """
+    branch_name_map: dict[int, str] = {}
+    if branches:
+        for b in branches:
+            bid = b.get("id")
+            if bid is not None:
+                branch_name_map[int(bid)] = b.get("name") or f"Oddział #{bid}"
+
+    agg: dict[object, dict] = defaultdict(lambda: {
+        "contracts": set(),
+        "positions": 0,
+        "articles": set(),
+        "rented_days": 0,
+        "revenue": Decimal("0"),
+    })
+
+    for p in positions:
+        bid = p.get("branch_id")
+        key = bid if bid is not None else _UNASSIGNED_BRANCH_KEY
+        agg[key]["contracts"].add(p.get("contract_id"))
+        agg[key]["positions"] += 1
+        agg[key]["articles"].add(p.get("article_id"))
+        if not p.get("is_service"):
+            agg[key]["rented_days"] += p.get("clamped_days", 0)
+        agg[key]["revenue"] += p.get("revenue", Decimal("0"))
+
+    items = []
+    for key, d in agg.items():
+        if key == _UNASSIGNED_BRANCH_KEY:
+            branch_id = None
+            branch_name = _UNASSIGNED_BRANCH_LABEL
+        else:
+            branch_id = int(key)
+            branch_name = branch_name_map.get(branch_id, f"Oddział #{branch_id}")
+        items.append({
+            "branch_id": branch_id,
+            "branch_name": branch_name,
+            "contracts_count": len(d["contracts"]),
+            "positions_count": d["positions"],
+            "articles_count": len(d["articles"]),
+            "rented_days": d["rented_days"],
+            "revenue": d["revenue"],
+        })
+
+    # Sortuj malejąco po revenue; wiersz "bez oddziału" zawsze na końcu
+    items.sort(key=lambda x: (x["branch_id"] is None, -x["revenue"]))
+    return items
+
+
 # City extraction for location reports
 # Priority list of Polish cities (top 20 by population)
 KNOWN_CITIES = [

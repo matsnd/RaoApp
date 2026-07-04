@@ -15,9 +15,10 @@ from articles.models import Article
 from contracts.models import Contract, ContractPosition, PositionCondition
 from contractors.models import Contractor
 from sqlalchemy import func as sqlfunc
-from stats.calc import calculate_position_value, aggregate_by_category, aggregate_by_period, aggregate_by_contract_type
+from stats.calc import calculate_position_value, aggregate_by_category, aggregate_by_period, aggregate_by_contract_type, aggregate_by_branch
 from shared.revenue import compute_position_revenues as _compute_position_revenues  # RAO-P2-028
 from shared.locations import aggregate_by_pna  # RAO-P2-028
+from shared.cache import cache, cached_or_compute, TTL_STATS  # RAO-P2-051: cache TTL 5 min
 from stats.schemas import (
     FleetSummary, TopMachineItem, CurrentlyRentedResponse, CurrentlyRentedItem,
     MachineRoiResponse, AdditionalFeesResponse, ServiceFeeItem, LocationStatItem,
@@ -27,6 +28,7 @@ from stats.schemas import (
     PositionStatItem, PositionStatsResponse,
     ByPeriodItem, ByPeriodResponse, CategoriesListNode,
     ContractTypeStatItem, ContractTypeStatsResponse,
+    BranchStatItem, ByBranchStatsResponse,
 )
 
 router = APIRouter(prefix="/stats", tags=["stats"])
@@ -83,6 +85,12 @@ async def fleet_summary(
 ):
     df, dt = _default_dates(date_from, date_to)
     today = date.today()
+
+    # RAO-P2-051: cache TTL 5 min — stats read-heavy
+    _ckey = cache.make_key("stats:fleet-summary", _.id, {"df": str(df), "dt": str(dt), "in": internal_number})
+    _cached = cache.get(_ckey)
+    if _cached is not None:
+        return _cached
 
     # Build base query for machines
     machines_query = select(func.count(Article.id)).where(
@@ -160,7 +168,7 @@ async def fleet_summary(
         top_name = top["name"]
         top_rev = top["rev"]
 
-    return FleetSummary(
+    result = FleetSummary(
         total_rented=total_rented,
         total_machines=total_machines,
         utilization_pct=util_pct,
@@ -172,6 +180,8 @@ async def fleet_summary(
         revenue_estimate=revenue_estimate,
         revenue_source_label=revenue_source_label,
     )
+    cache.set(_ckey, result, ttl=TTL_STATS)  # RAO-P2-051
+    return result
 
 
 @router.get("/top-machines", response_model=list[TopMachineItem])
@@ -186,6 +196,14 @@ async def top_machines(
     _: User = Depends(get_current_user),
 ):
     df, dt = _default_dates(date_from, date_to)
+    # RAO-P2-051: cache TTL 5 min
+    _ckey = cache.make_key("stats:top-machines", _.id, {
+        "df": str(df), "dt": str(dt), "in": internal_number,
+        "cid": contractor_id, "city": city, "lim": limit,
+    })
+    _cached = cache.get(_ckey)
+    if _cached is not None:
+        return _cached
     # RAO-P2-029: uwzględnia archiwalne maszyny (statystyki historyczne)
     # RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
     all_pos = await _compute_position_revenues(db, df, dt, service_filter=False, exclude_archival=False)
@@ -207,7 +225,7 @@ async def top_machines(
         agg[key]["contracts"].add(p["contract_id"])
 
     sorted_items = sorted(agg.items(), key=lambda x: x[1]["revenue"], reverse=True)[:limit]
-    return [
+    result = [
         TopMachineItem(
             article_id=aid, name=d["name"], internal_number=d["internal_number"],
             revenue=d["revenue"], rented_days=d["days"],
@@ -215,6 +233,8 @@ async def top_machines(
         )
         for aid, d in sorted_items
     ]
+    cache.set(_ckey, result, ttl=TTL_STATS)  # RAO-P2-051
+    return result
 
 
 @router.get("/currently-rented", response_model=CurrentlyRentedResponse)
@@ -223,6 +243,12 @@ async def currently_rented(
     _: User = Depends(get_current_user),
 ):
     today = date.today()
+
+    # RAO-P2-051: cache TTL 5 min
+    _ckey = cache.make_key("stats:currently-rented", _.id, {})
+    _cached = cache.get(_ckey)
+    if _cached is not None:
+        return _cached
 
     # RAO-P1-017: wyklucz maszyny archiwalne z licznika floty
     total_q = await db.execute(
@@ -272,10 +298,12 @@ async def currently_rented(
     rented = len(items)
     util = round((rented / total_machines * 100) if total_machines else 0, 1)
 
-    return CurrentlyRentedResponse(
+    result = CurrentlyRentedResponse(
         total_rented=rented, total_machines=total_machines,
         utilization_pct=util, items=items,
     )
+    cache.set(_ckey, result, ttl=TTL_STATS)  # RAO-P2-051
+    return result
 
 
 @router.get("/machine-roi", response_model=MachineRoiResponse)
@@ -292,6 +320,14 @@ async def machine_roi(
     include_archival=False (domyślnie) — jeśli maszyna jest archiwalna, zwraca 404.
     """
     df, dt = _default_dates(date_from, date_to)
+
+    # RAO-P2-051: cache TTL 5 min (per article + params)
+    _ckey = cache.make_key("stats:machine-roi", _.id, {
+        "aid": article_id, "df": str(df), "dt": str(dt), "ia": include_archival,
+    })
+    _cached = cache.get(_ckey)
+    if _cached is not None:
+        return _cached
 
     art_q = await db.execute(
         select(Article).where(Article.id == article_id)
@@ -316,13 +352,15 @@ async def machine_roi(
     if art.replacement_value and art.replacement_value > 0:
         roi_pct = round(float(revenue) / float(art.replacement_value) * 100, 2)
 
-    return MachineRoiResponse(
+    result = MachineRoiResponse(
         article_id=art.id, name=art.name, internal_number=art.internal_number,
         category_main=art.category_main,                # RAO-P1-017
         replacement_value=art.replacement_value,
         total_rented_days=days, estimated_revenue=revenue,
         contracts_count=cnt, roi_pct=roi_pct,
     )
+    cache.set(_ckey, result, ttl=TTL_STATS)  # RAO-P2-051
+    return result
 
 
 @router.get("/additional-fees", response_model=AdditionalFeesResponse)
@@ -334,6 +372,11 @@ async def additional_fees(
     _: User = Depends(get_current_user),
 ):
     df, dt = _default_dates(date_from, date_to)
+    # RAO-P2-051: cache TTL 5 min
+    _ckey = cache.make_key("stats:additional-fees", _.id, {"df": str(df), "dt": str(dt), "cid": contractor_id})
+    _cached = cache.get(_ckey)
+    if _cached is not None:
+        return _cached
     # RAO-P2-029: uwzględnia archiwalne usługi (statystyki historyczne)
     # RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
     all_pos = await _compute_position_revenues(db, df, dt, service_filter=True, exclude_archival=False)
@@ -357,10 +400,12 @@ async def additional_fees(
     ]
     total = sum(item.total_revenue for item in breakdown)
 
-    return AdditionalFeesResponse(
+    result = AdditionalFeesResponse(
         date_from=df, date_to=dt,
         total_services_revenue=total, breakdown=breakdown,
     )
+    cache.set(_ckey, result, ttl=TTL_STATS)  # RAO-P2-051
+    return result
 
 
 @router.get("/locations", response_model=list[LocationStatItem])
@@ -373,6 +418,13 @@ async def locations(
     _: User = Depends(get_current_user),
 ):
     df, dt = _default_dates(date_from, date_to)
+    # RAO-P2-051: cache TTL 5 min
+    _ckey = cache.make_key("stats:locations", _.id, {
+        "df": str(df), "dt": str(dt), "in": internal_number, "cid": contractor_id,
+    })
+    _cached = cache.get(_ckey)
+    if _cached is not None:
+        return _cached
     # RAO-P2-029: uwzględnia archiwalne maszyny (statystyki historyczne)
     # RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
     all_pos = await _compute_position_revenues(db, df, dt, exclude_archival=False)
@@ -381,7 +433,9 @@ async def locations(
     )
 
     # RAO-P2-028: agregacja po PNA z rollup po city/woj/pow/gmina (shared helper)
-    return await aggregate_by_pna(all_pos, db, limit=20)
+    result = await aggregate_by_pna(all_pos, db, limit=20)
+    cache.set(_ckey, result, ttl=TTL_STATS)  # RAO-P2-051
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -432,6 +486,15 @@ async def by_category(
     df, dt = _default_dates(date_from, date_to)
     service_filter = {"machine": False, "service": True}.get(article_type)  # None dla "all"
 
+    # RAO-P2-051: cache TTL 5 min
+    _ckey = cache.make_key("stats:by-category", _.id, {
+        "lvl": level, "df": str(df), "dt": str(dt),
+        "cm": sorted(category_main), "cs1": category_sub1, "cs2": category_sub2, "at": article_type,
+    })
+    _cached = cache.get(_ckey)
+    if _cached is not None:
+        return _cached
+
     all_pos = await _compute_position_revenues(
         db, df, dt,
         service_filter=service_filter,
@@ -456,13 +519,15 @@ async def by_category(
     ]
     total_revenue = sum(item.revenue for item in items)
 
-    return CategoryStatsResponse(
+    result = CategoryStatsResponse(
         date_from=df,
         date_to=dt,
         level=level,
         total_revenue=total_revenue,
         items=items,
     )
+    cache.set(_ckey, result, ttl=TTL_STATS)  # RAO-P2-051
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -503,6 +568,15 @@ async def by_period(
     df, dt = _default_dates(date_from, date_to)
     service_filter = {"machine": False, "service": True}.get(article_type)
 
+    # RAO-P2-051: cache TTL 5 min
+    _ckey = cache.make_key("stats:by-period", _.id, {
+        "g": granularity, "df": str(df), "dt": str(dt),
+        "cm": sorted(category_main), "at": article_type,
+    })
+    _cached = cache.get(_ckey)
+    if _cached is not None:
+        return _cached
+
     all_pos = await _compute_position_revenues(
         db, df, dt,
         service_filter=service_filter,
@@ -516,12 +590,14 @@ async def by_period(
         category_main_filter=category_main or None,
     )
 
-    return ByPeriodResponse(
+    result = ByPeriodResponse(
         date_from=df,
         date_to=dt,
         granularity=granularity,
         items=[ByPeriodItem(**item) for item in items_raw],
     )
+    cache.set(_ckey, result, ttl=TTL_STATS)  # RAO-P2-051
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -539,6 +615,12 @@ async def categories_list(
     Używane przez frontend do drilldown i detekcji klikowalnych wierszy.
     Zlicza tylko aktywne (nie-archiwalne) artykuły przypisane do każdej kategorii.
     """
+    # RAO-P2-051: cache TTL 5 min (drzewo kategorii + liczniki — read-heavy)
+    _ckey = cache.make_key("stats:categories-list", _.id, {})
+    _cached = cache.get(_ckey)
+    if _cached is not None:
+        return _cached
+
     from categories.models import Category
 
     # Pobierz wszystkie kategorie posortowane alfabetycznie
@@ -576,6 +658,7 @@ async def categories_list(
         elif cat.parent_id in nodes:
             nodes[cat.parent_id].children.append(node)
 
+    cache.set(_ckey, roots, ttl=TTL_STATS)  # RAO-P2-051
     return roots
 
 
@@ -626,6 +709,16 @@ async def positions(
     - RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
     """
     df, dt = _default_dates(date_from, date_to)
+
+    # RAO-P2-051: cache TTL 5 min
+    _ckey = cache.make_key("stats:positions", _.id, {
+        "t": position_type, "df": str(df), "dt": str(dt),
+        "cid": contractor_id, "city": city, "lim": limit, "off": offset,
+        "sb": sort_by, "sd": sort_dir,
+    })
+    _cached = cache.get(_ckey)
+    if _cached is not None:
+        return _cached
 
     # RAO-P2-053: pojedyncze wywołanie z service_filter=None (pobiera wszystkie pozycje).
     # Filtrowanie po type robione in-memory — totale liczone z tego samego zbioru.
@@ -775,6 +868,91 @@ async def by_contract_type(
         total_revenue=total_revenue,
         items=items,
     )
+
+
+@router.get("/by-branch", response_model=ByBranchStatsResponse)
+async def by_branch(
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    contractor_id: int | None = Query(None, description="Filtruj po kontrahencie"),
+    city: str | None = Query(None, description="Filtruj po mieście umowy (case-insensitive)"),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """
+    Statystyki zagregowane po oddziale (branch) — RAO-P1-055.
+
+    Grupuje pozycje umów po `contracts.branch_id` (FK do branches).
+    Umowy bez przypisanego oddziału (branch_id IS NULL) trafiają do
+    wiersza "(bez oddziału)" — na końcu listy.
+
+    Zwraca per-oddział: liczbę umów, pozycji, unikalnych artykułów,
+    dni wynajmu, przychód.
+
+    Filtry `contractor_id` / `city` opcjonalne (analogicznie do /stats/positions).
+    Archiwalne maszyny uwzględnione (statystyki historyczne).
+    RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
+    """
+    from settings.models import Branch
+
+    df, dt = _default_dates(date_from, date_to)
+
+    all_pos = await _compute_position_revenues(db, df, dt, service_filter=None, exclude_archival=False)
+    all_pos = _apply_position_filters(all_pos, contractor_id=contractor_id, city=city)
+
+    # Pobierz nazwy oddziałów do mapowania branch_id → branch_name
+    branches_q = await db.execute(select(Branch.id, Branch.name))
+    branches = [{"id": r[0], "name": r[1]} for r in branches_q.all()]
+
+    # Agregacja per branch (logika w calc.py — testowalny pure function)
+    grouped = aggregate_by_branch(all_pos, branches=branches)
+
+    items = [
+        BranchStatItem(
+            branch_id=g["branch_id"],
+            branch_name=g["branch_name"],
+            contracts_count=g["contracts_count"],
+            positions_count=g["positions_count"],
+            articles_count=g["articles_count"],
+            rented_days=g["rented_days"],
+            revenue=g["revenue"],
+        )
+        for g in grouped
+    ]
+    total_revenue = sum(item.revenue for item in items)
+
+    return ByBranchStatsResponse(
+        date_from=df,
+        date_to=dt,
+        total_revenue=total_revenue,
+        items=items,
+    )
+
+
+
+# ---------------------------------------------------------------------------
+# RAO-P2-051: Cache management (admin only)
+# ---------------------------------------------------------------------------
+
+@router.post("/cache/clear")
+async def clear_cache(
+    _: User = Depends(get_current_user),
+):
+    """Wyczyść cały cache statystyk/słowników (admin). Zwraca liczbę usuniętych wpisów."""
+    from auth.models import User as _U
+    # tylko admin może czyścić cache
+    if _.role != "admin":
+        raise HTTPException(status_code=403, detail="Tylko admin może czyścić cache")
+    removed = cache.clear()
+    return {"cleared": removed, "remaining": cache.stats()["entries"]}
+
+
+@router.get("/cache/stats")
+async def cache_stats(
+    _: User = Depends(get_current_user),
+):
+    """Statystyki cache (liczba wpisów)."""
+    return cache.stats()
 
 
 # ---------------------------------------------------------------------------
