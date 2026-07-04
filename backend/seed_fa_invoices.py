@@ -48,10 +48,17 @@ from contractors.models import Contractor
 from articles.models import Article
 from settlements.models import ContractSettlement
 
-# FA config
-FA_TOKEN = os.environ.get("FA_TOKEN", "sejjNboMz7zZ3fFLxtoW")
-FA_DOMAIN = "matsnd"
+# FA config — token WYŁĄCZNIE z env (nigdy hardcoded — bezpieczeństwo).
+# Akceptuje FA_TOKEN lub FAKTUROWNIA_API_TOKEN (root .env).
+FA_TOKEN = os.environ.get("FA_TOKEN") or os.environ.get("FAKTUROWNIA_API_TOKEN")
+FA_DOMAIN = os.environ.get("FA_DOMAIN", "matsnd")
 FA_BASE = f"https://{FA_DOMAIN}.fakturownia.pl"
+
+
+def _require_token() -> None:
+    if not FA_TOKEN:
+        print("BŁĄD: brak tokenu Fakturownia. Ustaw FA_TOKEN lub FAKTUROWNIA_API_TOKEN w env/.env")
+        sys.exit(1)
 
 # Mapowanie NIP -> FA client ID
 NIP_TO_FA_CLIENT = {
@@ -132,23 +139,101 @@ async def get_contracts_with_fa_settlements(db):
     return list(contracts.values())
 
 
+async def get_fa_pending_contracts(db):
+    """RAO-P2-067: umowy zakończone NIEROZLICZONE bez żadnych settlements w RAO.
+
+    Dla nich wystawiamy fakturę w FA (OID = numer umowy), ale NIE tworzymy
+    rozliczeń w RAO — to zrobi user na demo klikając "Pobierz z Fakturowni"
+    (POST /settlements/contract/{id}/init-from-fakturownia).
+
+    Pozycje faktury liczone z warunków umowy:
+    - pozycje maszyn: unit_price × rental_days
+    - usługi dodatkowe: amount_from
+    """
+    query = text("""
+        SELECT c.id, c.number, c.date_from, c.date_to,
+               ct.id as contractor_id, ct.nip, ct.name as contractor_name,
+               cp.id as position_id, cp.article_id, cp.article_name,
+               cp.unit_price, cp.rental_days,
+               NULL as fee_article_id, NULL as fee_name, NULL as fee_amount
+        FROM contracts c
+        JOIN contractors ct ON c.contractor_id = ct.id
+        JOIN contract_positions cp ON cp.contract_id = c.id
+        WHERE c.is_settled = 0
+          AND c.date_to < CURDATE()
+          AND NOT EXISTS (SELECT 1 FROM contract_settlements cs WHERE cs.contract_id = c.id)
+        UNION ALL
+        SELECT c.id, c.number, c.date_from, c.date_to,
+               ct.id, ct.nip, ct.name,
+               NULL, NULL, NULL, NULL, NULL,
+               csf.article_id, csf.name, csf.amount_from
+        FROM contracts c
+        JOIN contractors ct ON c.contractor_id = ct.id
+        JOIN contract_service_fees csf ON csf.contract_id = c.id
+        WHERE c.is_settled = 0
+          AND c.date_to < CURDATE()
+          AND NOT EXISTS (SELECT 1 FROM contract_settlements cs WHERE cs.contract_id = c.id)
+        ORDER BY 1
+    """)
+    result = await db.execute(query)
+    rows = result.fetchall()
+
+    contracts = {}
+    for row in rows:
+        cid = row[0]
+        if cid not in contracts:
+            contracts[cid] = {
+                "contract_id": cid,
+                "contract_number": row[1],
+                "date_from": row[2],
+                "date_to": row[3],
+                "contractor_id": row[4],
+                "contractor_nip": row[5],
+                "contractor_name": row[6],
+                "settlements": [],  # kompatybilny kształt dla create_fa_invoice
+            }
+        if row[7] is not None:  # pozycja maszyny
+            amount = float(row[10] or 0) * int(row[11] or 0)
+            contracts[cid]["settlements"].append({
+                "settlement_id": None,
+                "position_id": row[7],
+                "service_fee_id": None,
+                "cost_client": amount,
+                "pos_article_id": row[8],
+                "pos_article_name": row[9],
+                "fee_article_id": None,
+                "fee_name": None,
+            })
+        elif row[13] is not None:  # usługa dodatkowa
+            contracts[cid]["settlements"].append({
+                "settlement_id": None,
+                "position_id": None,
+                "service_fee_id": None,
+                "cost_client": float(row[14] or 0),
+                "pos_article_id": None,
+                "pos_article_name": None,
+                "fee_article_id": row[12],
+                "fee_name": row[13],
+            })
+    return list(contracts.values())
+
+
 async def check_invoice_exists_by_oid(client, oid):
-    """Sprawdza czy faktura z danym OID już istnieje w FA."""
-    # FA nie ma bezpośredniego endpointu do szukania po OID,
-    # ale możemy pobrać wszystkie faktury i sprawdzić description
+    """Sprawdza czy faktura z danym OID już istnieje w FA.
+
+    RAO-P2-067 fix: FA MA wyszukiwanie po OID (GET /invoices.json?oid=...) —
+    to samo pole używa integracja RAO (get_invoices_by_oid). Wcześniejsze
+    skanowanie po description nie zgadzało się z mechanizmem syncu.
+    """
     resp = await client.get(
         f"{FA_BASE}/invoices.json",
-        params={"api_token": FA_TOKEN, "per_page": 100},
+        params={"api_token": FA_TOKEN, "oid": oid},
         timeout=15.0,
     )
     resp.raise_for_status()
     invoices = resp.json()
-    for inv in invoices:
-        # OID jest zapisany w opisie lub w polu description
-        desc = inv.get("description", "") or ""
-        number = inv.get("number", "") or ""
-        if oid in desc or oid in number:
-            return inv["id"]
+    if isinstance(invoices, list) and invoices:
+        return invoices[0]["id"]
     return None
 
 
@@ -199,6 +284,9 @@ async def create_fa_invoice(client, contract_data, art_map):
             "payment_to": issue_date_str,
             "client_id": fa_client_id,
             "buyer_tax_no_kind": "other",  # omija walidację NIP (demo NIP-y nie w GUS)
+            # RAO-P2-067 fix: OID w dedykowanym polu — integracja RAO szuka
+            # faktur przez GET /invoices.json?oid=<numer umowy> (nie po description!)
+            "oid": oid,
             "description": f"Rozliczenie umowy {oid}",
             "positions": positions,
         },
@@ -235,30 +323,26 @@ async def update_settlements_with_invoice_id(db, contract_id, invoice_id):
 
 async def main():
     print("=" * 60)
-    print("RAO-P2-061: Fakturownia invoices seeding")
+    print("RAO-P2-061/067: Fakturownia invoices seeding")
     print("=" * 60)
+    _require_token()
 
     async with AsyncSessionLocal() as db:
         art_map = await get_article_fa_product_map(db)
         print(f"\nArtykuły z mapowaniem FA: {len(art_map)}")
-
-        contracts = await get_contracts_with_fa_settlements(db)
-        print(f"Umów z rozliczeniami fakturownia (bez faktury): {len(contracts)}")
-
-        if not contracts:
-            print("Brak umów do zafakturowania. Done.")
-            return
 
         created = 0
         skipped = 0
         failed = 0
 
         async with httpx.AsyncClient() as client:
+            # ── Część 1: umowy rozliczone source=fakturownia (backfill invoice_id) ──
+            contracts = await get_contracts_with_fa_settlements(db)
+            print(f"\n[1/2] Umowy z rozliczeniami fakturownia (bez faktury): {len(contracts)}")
             for cd in contracts:
                 print(f"\n[{cd['contract_number']}] {cd['contractor_name']} (NIP {cd['contractor_nip']})")
                 print(f"  Rozliczenia: {len(cd['settlements'])}")
 
-                # Sprawdź czy faktura już istnieje
                 existing_inv = await check_invoice_exists_by_oid(client, cd["contract_number"])
                 if existing_inv:
                     print(f"  EXISTS: Faktura ID={existing_inv} już istnieje — aktualizuję rozliczenia")
@@ -266,10 +350,31 @@ async def main():
                     skipped += 1
                     continue
 
-                # Utwórz fakturę
                 inv_id = await create_fa_invoice(client, cd, art_map)
                 if inv_id:
                     await update_settlements_with_invoice_id(db, cd["contract_id"], inv_id)
+                    created += 1
+                else:
+                    failed += 1
+
+            # ── Część 2 (RAO-P2-067): FA-pending — faktury dla umów NIEROZLICZONYCH ──
+            # Faktura powstaje w FA (OID = numer umowy), rozliczeń w RAO NIE tworzymy —
+            # user na demo klika "Pobierz z Fakturowni" i widzi jak wpadają.
+            pending = await get_fa_pending_contracts(db)
+            print(f"\n[2/2] Umowy FA-pending (nierozliczone, faktura czeka w FA): {len(pending)}")
+            for cd in pending:
+                print(f"\n[{cd['contract_number']}] {cd['contractor_name']} — FA-pending")
+                print(f"  Pozycje faktury: {len(cd['settlements'])}")
+
+                existing_inv = await check_invoice_exists_by_oid(client, cd["contract_number"])
+                if existing_inv:
+                    print(f"  EXISTS: Faktura ID={existing_inv} już czeka w FA — OK (demo ready)")
+                    skipped += 1
+                    continue
+
+                inv_id = await create_fa_invoice(client, cd, art_map)
+                if inv_id:
+                    print(f"  READY: faktura czeka w FA — demo 'Pobierz z Fakturowni' dla {cd['contract_number']}")
                     created += 1
                 else:
                     failed += 1

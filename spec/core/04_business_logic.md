@@ -1299,3 +1299,42 @@ async def auto_fill_city_by_postal_code(
 
     return city
 ```
+
+## Demo data lifecycle (RAO-P2-061 + RAO-P2-067)
+
+**Cel:** Zapewnić spójne, realistyczne dane demo do showcase statystyk, lokalizacji i integracji Fakturownia.
+
+**Orchestrator `migrate_all.py`:**
+
+```bash
+cd backend
+python migrate_all.py --steps recreate_db,import_dump,seed_demo_data,seed_fa_invoices,verify
+python migrate_all.py --list  # wyświetla dostępne kroki
+```
+
+**Kroki (idempotentne, re-run safe):**
+1. `recreate_db` — DROP + CREATE database (czysty start)
+2. `import_dump` — import legacy dump (jeśli dostępny)
+3. `seed_demo_data` — umowy, pozycje, kontrahenci, artykuły, warunki, usługi dodatkowe, `delivery_address`
+4. `seed_fa_invoices` — faktury FA (wymaga `FAKTUROWNIA_API_TOKEN` w env)
+5. `verify` — sprawdź spójność (count umów, pozycji, rozliczeń, faktur FA, lokalizacji)
+
+**Dane demo (po P2-067):**
+- **Umowy:** 24 rozliczone (2024-10 → 2026-07) + 12 FA-pending (2026, nierozliczone)
+- **`delivery_address`:** wszystkie umowy mają realistyczne adresy (10 miast PL z PNA: Warszawa, Gdańsk, Kraków, Wrocław, Poznań, Łódź, Lublin, Katowice, Bydgoszcz, Szczecin)
+- **Faktury FA:** 31 (19 backfill + 12 FA-pending czekających na "Pobierz z Fakturowni")
+- **Konfiguracja:** default service fee presets (S/U), dane firmy, warunki rozliczeń
+
+**FA-pending flow (demo "Pobierz z Fakturowni"):**
+1. `seed_demo_data.py` tworzy umowę z `is_settled=0` (brak `contract_settlements`)
+2. `seed_fa_invoices.py` tworzy fakturę w FA z `oid=contract.number` (bez tworzenia settlements)
+3. User w UI klika "Pobierz z Fakturowni" → sync pobiera fakturę → tworzy `contract_settlements` z `source='fakturownia'`
+
+**Security:** `FAKTUROWNIA_API_TOKEN` czytane z env (brak hardcoded w kodzie). Brak tokenu → error z instrukcją.
+
+**Cleanup po prezentacji:**
+```bash
+mariadb-dump rao_new > backup_pre_wipe.sql
+sudo mariadb -e "DROP DATABASE rao_new; CREATE DATABASE rao_new CHARACTER SET utf8mb4 COLLATE utf8mb4_polish_ci;"
+# Re-run migrate.py (legacy migration od zera) lub migrate_all.py
+```

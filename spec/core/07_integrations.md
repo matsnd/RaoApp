@@ -770,16 +770,20 @@ Przykład:
 - `frontend/src/views/SettingsView.vue` — sekcja Fakturownia
 - `frontend/src/views/ContractFormView.vue` — pole OID + guzik 💰
 
-### Demo setup (RAO-P2-061)
+### Demo setup (RAO-P2-061 + RAO-P2-067)
 
 Konto testowe `matsnd.fakturownia.pl` skonfigurowane jako demo produkcyjne:
 
 - **Dział firmy:** RAO Sp. z o.o. (NIP 1234563218, Warszawa)
 - **11 produktów:** 5 maszyn + 6 usług (wszystkie GTU_12, PKWiU 77.32.19.0, 23% VAT)
 - **8 klientów demo:** Bud-Plus, Invest, Terra-Masz, Wod-Bud, Fundament, Trakcja, Eko-Bud, Miejskie (wszystkie `tax_no_kind: "other"` — omija walidację NIP)
-- **12 faktur:** dla rozliczonych umów z `source=fakturownia`, OID = numer umowy w `description`
+- **31 faktur:** 19 backfill (rozliczone umowy z `source=fakturownia`) + 12 FA-pending (czekają na "Pobierz z Fakturowni" w UI)
+- **OID = numer umowy** w `description` faktury (np. "S005/2026")
 - **Mapowanie:** `Article.fakturownia_product_id` ↔ FA product ID (w `seed_demo_data.py`)
-- **Skrypty:** `backend/seed_demo_data.py` (dane RAO) + `backend/seed_fa_invoices.py` (faktury FA)
+- **`delivery_address`:** wszystkie umowy demo mają realistyczne adresy (10 miast PL z PNA) → zakładka "Lokalizacje" w AnalyticsView pokazuje dane
+- **Skrypty:** `backend/seed_demo_data.py` (dane RAO) + `backend/seed_fa_invoices.py` (faktury FA, token z env) + `backend/migrate_all.py` (orchestrator)
+- **FA-pending flow:** 12 umów nierozliczonych z fakturą czekającą w FA → demo "Pobierz z Fakturowni" tworzy rozliczenie
+- **Security:** `FAKTUROWNIA_API_TOKEN` czytane z env (brak hardcoded w kodzie)
 - **Dokumentacja:** `spec/technical/fakturownia_demo_setup.md`
 
 Implementacja z `smtplib` lub usługą zewnętrzną (SendGrid/Mailgun). Wymaga konfiguracji SMTP w `.env`.

@@ -2568,6 +2568,144 @@ depends_on:
 
 ---
 
+### [RAO-P2-067] Demo data refactor — migrate_all.py orchestrator + FA-pending contracts + delivery_address
+
+```yaml
+id: RAO-P2-067
+priority: P2
+size: M
+status: done
+classification: backend/data-seeding+tooling
+roles: [tech-lead, backend-dev, db-architect, qa-engineer, product-owner]
+source: demo-showcase-prep
+source_date: 2026-07-04
+specs_to_update:
+  - core/07_integrations.md (Fakturownia seeding — FA-pending flow)
+  - core/04_business_logic.md (demo data lifecycle — migrate_all steps)
+  - core/11_reports_stats.md (showcase scenarios — FA-pending demo)
+migration_impact: no (demo dane tylko)
+security_impact: medium (hardcoded FA token usunięty → env-only)
+depends_on:
+  - RAO-P2-061 (Demo data seeding — foundation)
+  - RAO-P2-058 (Fakturownia integracja — OID + product mapping)
+verification:
+  - "python migrate_all.py --steps recreate_db,import_dump,seed_demo_data,seed_fa_invoices,verify: PASS"
+  - "31 faktur FA utworzonych (19 backfill + 12 FA-pending)"
+  - "12 umów FA-pending z fakturą czekającą w FA (demo 'Pobierz z Fakturowni')"
+  - "delivery_address wypełnione dla wszystkich umów demo (miasta + PNA)"
+  - "Lokalizacje w AnalyticsView pokazują miasta (nie '(brak PNA)')"
+  - "grep FAKTUROWNIA_API_TOKEN seed_fa_invoices.py: tylko env read (brak hardcoded)"
+```
+
+**Problem:**
+
+Po P2-061 demo data było funkcjonalne ale ograniczone:
+1. **Brak `delivery_address`** we wszystkich umowach demo → zakładka "Lokalizacje" w AnalyticsView pokazywała "(brak PNA)" zamiast miast (regresja wykryta w P2-065 4b)
+2. **Brak umów FA-pending** (nierozliczonych z fakturą czekającą w FA) → nie można demonstrować flow "Pobierz z Fakturowni" dla nowej umowy
+3. **Hardcoded Fakturownia API token** w `seed_fa_invoices.py` → security risk (sekrety w kodzie)
+4. **Brak orchestratora** — każdy skrypt seedujący uruchamiany ręcznie w odpowiedniej kolejności, bez weryfikacji
+5. **Krótki okres danych** (tylko 2026) → filtry roczne pokazywały mało danych
+
+**Cel:** Robust demo environment z realistycznymi adresami, umowami FA-pending do demonstracji sync FA, i orchestratorem `migrate_all.py` zarządzającym pełnym flow seedowania.
+
+---
+
+#### Scope implementacji
+
+**Faza 1: `seed_demo_data.py` enhancements**
+
+1. **`delivery_address` z miastami/PNA:**
+   - Pula 10 polskich miast z realnymi PNA (Warszawa, Gdańsk, Kraków, Wrocław, Poznań, Łódź, Lublin, Katowice, Bydgoszcz, Szczecin)
+   - Każda umowa demo dostaje `delivery_address` w formacie "ulica, miasto, PNA"
+   - Zakładka "Lokalizacje" w AnalyticsView pokazuje miasta zamiast "(brak PNA)"
+2. **Pula 2025 wstecz:**
+   - Umowy rozciągnięte na okres 2024-10 do 2026-07 (żeby filtry roczne 2025 miały dane)
+   - `contract_positions` z `date_from`/`date_to` w odpowiednich okresach
+3. **Pula FA-pending (12 umów):**
+   - Umowy z 2026 nierozliczone (`is_settled=0`, brak `contract_settlements`)
+   - Oznaczone w `notes` jako "[FA-pending]" (do identyfikacji przez `seed_fa_invoices.py`)
+   - Pozwala demonstrować: user klika "Pobierz z Fakturowni" → faktura pobrana → rozliczenie utworzone
+4. **Konfiguracja 'jak od klienta':**
+   - Default service fee presets (zestawy S/U)
+   - Company configuration (dane firmy, NIP, adres)
+   - `contract_conditions` z realnymi stawkami (rate1/rate2/period_count)
+5. **`is_legacy` cleanup:**
+   - Martwy kod związany z flagą `is_legacy` usunięty (P2-062 przeniosło legacy do `archive_*`)
+
+**Faza 2: `seed_fa_invoices.py` enhancements**
+
+1. **Token z env (security fix):**
+   - `FAKTUROWNIA_API_TOKEN` czytane z env (brak hardcoded)
+   - Brak tokenu → error z instrukcją (nie silent fail)
+2. **FA-pending handling:**
+   - Skrypt wykrywa umowy FA-pending (bez settlements)
+   - Tworzy fakturę w FA z `oid=contract.number` (pozycje = pozycje umowy)
+   - **NIE tworzy `contract_settlements`** — faktura czeka w FA na "Pobierz"
+   - Demo: user w UI klika "Pobierz z Fakturowni" → sync pobiera fakturę → tworzy rozliczenie
+3. **Backfill (istniejące rozliczenia):**
+   - Dla umów z `contract_settlements` ale bez faktury FA → tworzy fakturę
+   - `source='fakturownia'` w settlements zachowane
+
+**Faza 3: `migrate_all.py` orchestrator**
+
+1. **CLI z krokami:**
+   - `--steps recreate_db,import_dump,seed_demo_data,seed_fa_invoices,verify`
+   - `--list` — wyświetla dostępne kroki
+   - Każdy krok idempotentny (re-run safe)
+2. **Kroki:**
+   - `recreate_db` — DROP + CREATE database (czysty start)
+   - `import_dump` — import legacy dump (jeśli dostępny)
+   - `seed_demo_data` — uruchom `seed_demo_data.py`
+   - `seed_fa_invoices` — uruchom `seed_fa_invoices.py` (wymaga `FAKTUROWNIA_API_TOKEN` w env)
+   - `verify` — sprawdź spójność (count umów, pozycji, rozliczeń, faktur FA, lokalizacji)
+3. **Output:**
+   - Progress per krok (PASS/FAIL)
+   - Podsumowanie na końcu (count utworzonych rekordów)
+
+---
+
+#### Weryfikacja (2026-07-04)
+
+**Uruchomienie:**
+```bash
+cd backend
+python migrate_all.py --steps recreate_db,import_dump,seed_demo_data,seed_fa_invoices,verify
+```
+
+**Wynik:**
+- 31 faktur FA utworzonych (19 backfill + 12 FA-pending)
+- 12 umów FA-pending z fakturą czekającą w FA
+- `delivery_address` wypełnione dla wszystkich umów demo
+- Lokalizacje w AnalyticsView pokazują miasta (Warszawa, Gdańsk, Kraków, etc.)
+- `grep FAKTUROWNIA_API_TOKEN seed_fa_invoices.py`: tylko `os.environ.get()` (brak hardcoded)
+
+**Demo scenarios dostępne:**
+1. **"Pobierz z Fakturowni"** — 12 umów FA-pending czeka na sync (S005/2026, S010/2026, U015/2026, etc.)
+2. **Lokalizacje** — ranking miast z danymi (nie puste)
+3. **Statystyki roczne** — dane za 2025 i 2026 (filtry roczne mają sens)
+
+---
+
+#### Pliki zmienione
+
+| Plik | Zmiana |
+|------|--------|
+| `backend/seed_demo_data.py` | +delivery_address, +pula 2025, +12 FA-pending, +company config, -is_legacy cleanup |
+| `backend/seed_fa_invoices.py` | +env token (security fix), +FA-pending handling, +backfill |
+| `backend/migrate_all.py` | NOWY — orchestrator z CLI --steps/--list |
+
+---
+
+#### Security impact
+
+**HARDcoded Fakturownia API token usunięty** z `seed_fa_invoices.py`. Token czytany z `FAKTUROWNIA_API_TOKEN` env var. Brak tokenu → error z instrukcją. To eliminuje ryzyko wycieku sekretu przez commit do repo.
+
+---
+
+**Estymacja:** 6-8h (M) — Faza 1 (3-4h) + Faza 2 (2h) + Faza 3 (1-2h) + weryfikacja (1h)
+
+---
+
 ## 📋 Tabela TL;DR
 
 | ID | Tytuł | P | Est. | Status | Następny krok |
@@ -2615,6 +2753,7 @@ depends_on:
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | triaged | → in_progress (Faza 1: parser legacy + migracja + UI + template items) |
 | RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | in-progress (Faza 1 done — 6 bugów + indeksy + cleanup; Faza 2 todo — StatsView.vue) |
 | RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
+| RAO-P2-067 | Demo data refactor — migrate_all.py orchestrator + FA-pending contracts + delivery_address | P2 | M | done | 31 faktur FA (19 backfill + 12 FA-pending), delivery_address z miastami, hardcoded token usunięty |
 | RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
 
 **Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)

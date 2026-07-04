@@ -217,6 +217,25 @@ CENY_WYNAJMU = {
     "Zagęszczarka Ammann APF 15/50": Decimal("150.00"),
 }
 
+# ── Lokalizacje budów (RAO-P2-067) ────────────────────────────────────────────
+# PNA ZWERYFIKOWANE w tabeli postal_codes (city = prawdziwa nazwa miasta,
+# nie placówka FUP/UP) — dzięki temu zakładka Lokalizacje pokazuje ranking miast
+# z rollup gmina/powiat/województwo.
+LOKALIZACJE_BUDOWY = [
+    {"city": "Warszawa",  "postal_code": "00-002", "street": "ul. Świętokrzyska 14"},
+    {"city": "Kraków",    "postal_code": "30-001", "street": "ul. Wielicka 28"},
+    {"city": "Poznań",    "postal_code": "60-001", "street": "ul. Głogowska 108"},
+    {"city": "Wrocław",   "postal_code": "50-001", "street": "ul. Legnicka 55"},
+    {"city": "Łódź",      "postal_code": "90-002", "street": "ul. Piotrkowska 200"},
+    {"city": "Gdynia",    "postal_code": "81-001", "street": "ul. Morska 81"},
+    {"city": "Gdańsk",    "postal_code": "80-001", "street": "ul. Grunwaldzka 301"},
+    {"city": "Katowice",  "postal_code": "40-002", "street": "ul. Chorzowska 12"},
+    {"city": "Bydgoszcz", "postal_code": "85-004", "street": "ul. Fordońska 44"},
+    {"city": "Lublin",    "postal_code": "20-002", "street": "ul. Kraśnicka 31"},
+    {"city": "Szczecin",  "postal_code": "70-001", "street": "ul. Gdańska 15"},
+    {"city": "Radom",     "postal_code": "26-603", "street": "ul. Kielecka 78"},
+]
+
 
 async def get_or_create(db: AsyncSession, model, filter_dict, create_dict=None):
     """Idempotent get-or-create."""
@@ -337,109 +356,289 @@ async def seed_rate_types(db: AsyncSession):
 
 # ── Umowy demo ────────────────────────────────────────────────────────────────
 
+def _build_positions_and_fees(i, days, maszyny, uslugi, rt_dniowy):
+    """Wspólny generator pozycji + usług dodatkowych dla umowy o indeksie i."""
+    positions = []
+    num_positions = 1 if i % 3 != 0 else 2
+    for j in range(num_positions):
+        maszyna = maszyny[(i + j) % len(maszyny)]
+        cena = CENY_WYNAJMU[maszyna.name]
+        positions.append({
+            "article_id": maszyna.id,
+            "article_name": maszyna.name,
+            "rental_days": days,
+            "quantity": 1,
+            "unit_price": cena,
+            "rate_type_id": rt_dniowy.id if rt_dniowy else None,
+            "billing_frequency": "dniowa",
+            "billing_unit": "doba",
+            "conditions": [
+                {"rate1": cena, "rate2": None, "period_count": days, "minimum": 1, "billing_label": "doba", "description": f"Wynajem {maszyna.name}", "rate_type_id": rt_dniowy.id if rt_dniowy else None},
+            ],
+        })
+
+    fees = []
+    num_fees = 2 + (i % 3)  # 2, 3, 4
+    for j in range(num_fees):
+        usluga = uslugi[(i + j) % len(uslugi)]
+        cena_usl = usluga.replacement_value or Decimal("100")
+        fees.append({
+            "name": usluga.name,
+            "article_id": usluga.id,
+            "default_price": cena_usl,
+            "amount_from": cena_usl,
+            "amount_to": None,
+            "unit": "szt" if "Transport" in usluga.name else "kpl",
+            "description": f"{usluga.name} — usługa dodatkowa",
+            "is_active": True,
+        })
+    return positions, fees
+
+
+def _lokalizacja(i):
+    """Deterministyczna lokalizacja budowy dla umowy o indeksie i."""
+    loc = LOKALIZACJE_BUDOWY[i % len(LOKALIZACJE_BUDOWY)]
+    return {
+        "city": loc["city"],
+        "postal_code": loc["postal_code"],
+        "delivery_address": f"{loc['street']}, {loc['postal_code']} {loc['city']}",
+    }
+
+
 def generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_name):
-    """Generuje 24 umowy demo z różnymi typami/okresami/stanami."""
+    """Generuje umowy demo (RAO-P2-067): 3 pule.
+
+    Pula A — historia 2025 (24 umowy, 12-24 mies. wstecz, wszystkie rozliczone)
+             → bogate statystyki roczne, wykresy by-period, lokalizacje.
+    Pula B — bieżące 2026 (24 umowy, 0-12 mies. wstecz, mix stanów)
+             → aktywne wynajmy, flota teraz, KPI.
+    Pula C — FA-pending (8 umów, zakończone NIEROZLICZONE, bez settlements w RAO)
+             → faktury czekają w Fakturowni (seed_fa_invoices) — demo integracji:
+               user klika "Pobierz z Fakturowni" → rozliczenia się tworzą na żywo.
+    """
     contractors = list(con_by_name.values())
     salespeople = list(sp_by_name.values())
     branches = list(br_by_name.values())
     maszyny = [art_by_name[m["name"]] for m in MASZYNY]
     uslugi = [art_by_name[u["name"]] for u in USLUGI]
     rt_dniowy = rt_by_name.get("Stawka dniowa")
-    rt_km = rt_by_name.get("Stawka km")
 
     contracts = []
     today = date.today()
 
-    # 24 umów: różne okresy (ostatnie 12 miesięcy), różne stany
-    for i in range(24):
-        contractor = contractors[i % len(contractors)]
-        salesperson = salespeople[i % len(salespeople)]
-        branch = branches[0]
-        contract_type = "S" if i % 3 != 2 else "U"  # 2/3 typ S, 1/3 typ U
-        is_legacy = i >= 21  # ostatnie 3 umowy = legacy (oznaczone w rozliczeniach source=legacy)
-
-        # Okres: cofaj się w czasie
-        months_back = i // 2  # 0,0,1,1,2,2,...,11,11
-        date_from = today - timedelta(days=months_back * 30 + (i % 2) * 15)
-        days = 7 + (i % 4) * 7  # 7, 14, 21, 28 dni
+    def _add(number, i, date_from, days, contract_type, is_settled, fa_pending=False):
         date_to = date_from + timedelta(days=days)
-
-        # Stan: aktywne (data_do >= today), zakończone, przeterminowane
         is_active = date_to >= today
-        is_settled = (not is_active) and (i % 5 != 4)  # 80% zakończonych rozliczone
-
-        number = f"{'S' if contract_type == 'S' else 'U'}{i+1:03d}/2026"
-
-        # Pozycje: 1-2 maszyny per umowa
-        positions = []
-        num_positions = 1 if i % 3 != 0 else 2
-        for j in range(num_positions):
-            maszyna = maszyny[(i + j) % len(maszyny)]
-            cena = CENY_WYNAJMU[maszyna.name]
-            positions.append({
-                "article_id": maszyna.id,
-                "article_name": maszyna.name,
-                "rental_days": days,
-                "quantity": 1,
-                "unit_price": cena,
-                "rate_type_id": rt_dniowy.id if rt_dniowy else None,
-                "billing_frequency": "dniowa",
-                "billing_unit": "doba",
-                "conditions": [
-                    {"rate1": cena, "rate2": None, "period_count": days, "minimum": 1, "billing_label": "doba", "description": f"Wynajem {maszyna.name}", "rate_type_id": rt_dniowy.id if rt_dniowy else None},
-                ],
-            })
-
-        # Usługi dodatkowe: 2-4 per umowa
-        fees = []
-        num_fees = 2 + (i % 3)  # 2, 3, 4
-        for j in range(num_fees):
-            usluga = uslugi[(i + j) % len(uslugi)]
-            cena_usl = usluga.replacement_value or Decimal("100")
-            fees.append({
-                "name": usluga.name,
-                "article_id": usluga.id,
-                "default_price": cena_usl,
-                "amount_from": cena_usl,
-                "amount_to": None,
-                "unit": "szt" if "Transport" in usluga.name else "kpl",
-                "description": f"{usluga.name} — usługa dodatkowa",
-                "is_active": True,
-            })
-
+        positions, fees = _build_positions_and_fees(i, days, maszyny, uslugi, rt_dniowy)
         contracts.append({
             "number": number,
-            "contractor_id": contractor.id,
-            "branch_id": branch.id,
-            "salesperson_id": salesperson.id,
+            "contractor_id": contractors[i % len(contractors)].id,
+            "branch_id": branches[0].id,
+            "salesperson_id": salespeople[i % len(salespeople)].id,
             "contract_type": contract_type,
             "date_from": date_from,
             "date_to": date_to,
-            "is_legacy": is_legacy,
             "is_settled": is_settled,
             "settled_at": datetime.combine(date_to, datetime.min.time()) if is_settled else None,
             "positions": positions,
             "fees": fees,
             "is_active_contract": is_active,
+            "fa_pending": fa_pending,
+            **_lokalizacja(i),
         })
+
+    # ── Pula A: historia 2025 (12-24 miesiące wstecz, wszystkie rozliczone) ──
+    for i in range(24):
+        contract_type = "S" if i % 3 != 2 else "U"
+        months_back = 12 + i // 2  # 12,12,13,13,...,23,23
+        date_from = today - timedelta(days=months_back * 30 + (i % 2) * 15)
+        days = 7 + (i % 4) * 7
+        number = f"{contract_type}{i + 1:03d}/2025"
+        _add(number, i, date_from, days, contract_type, is_settled=True)
+
+    # ── Pula B: bieżące 2026 (0-12 miesięcy wstecz, mix stanów) ──────────────
+    for i in range(24):
+        contract_type = "S" if i % 3 != 2 else "U"
+        months_back = i // 2  # 0,0,1,1,...,11,11
+        date_from = today - timedelta(days=months_back * 30 + (i % 2) * 15)
+        days = 7 + (i % 4) * 7
+        date_to = date_from + timedelta(days=days)
+        is_active = date_to >= today
+        is_settled = (not is_active) and (i % 5 != 4)  # 80% zakończonych rozliczone
+        number = f"{contract_type}{i + 1:03d}/2026"
+        _add(number, i, date_from, days, contract_type, is_settled=is_settled)
+
+    # ── Pula C: FA-pending — zakończone, NIEROZLICZONE, faktura czeka w FA ──
+    # (demo integracji: "Pobierz z Fakturowni" tworzy rozliczenia na żywo)
+    for k in range(8):
+        i = k + 3  # offset — inne kombinacje maszyn/kontrahentów niż pula B
+        contract_type = "S" if k % 4 != 3 else "U"
+        date_from = today - timedelta(days=20 + k * 9)  # zakończone niedawno
+        days = 7 + (k % 3) * 7
+        number = f"{contract_type}{k + 25:03d}/2026"  # S025..S032/2026 — kontynuacja numeracji
+        _add(number, i, date_from, days, contract_type, is_settled=False, fa_pending=True)
 
     return contracts
 
 
+# ── Konfiguracja "jak od klienta" (RAO-P2-067) ────────────────────────────────
+# Zestawy usług dodatkowych do wydruku umowy — prawdziwy cennik (jak w legacy
+# firma.uslugi1/2), skonfigurowany tak jakby klient sam ustawił w Ustawieniach.
+# Ceny/opisy z produkcyjnego cennika Toolsmart 2026.
+
+ZESTAWY_USLUG = [
+    {
+        "group_name": "Cennik usług — najem 2026",
+        "contract_type": "S",
+        "is_default": True,
+        "description": "Standardowy cennik usług dodatkowych do umów najmu (aktualizacja 2026)",
+        "templates": [
+            {"article": "Transport maszyny", "name": "Transport", "amount_from": Decimal("500.00"), "amount_to": Decimal("500.00"), "unit": "dostawa", "description": "500.00 zł dostawa / 500.00 zł odbiór", "default_price": Decimal("500.00")},
+            {"article": "Czyszczenie maszyny — drobne", "name": "Czyszczenie maszyny po wynajmie (zabrudzenia drobne)", "amount_from": Decimal("150.00"), "amount_to": Decimal("400.00"), "unit": "sztuka", "description": "150.00 zł - 400.00 zł", "default_price": Decimal("150.00")},
+            {"article": "Czyszczenie maszyny — trudne zabrudzenia", "name": "Czyszczenie maszyny po wynajmie (zabrudzenia trudnościeralne)", "amount_from": Decimal("400.00"), "amount_to": Decimal("1500.00"), "unit": "sztuka", "description": "400.00 zł - 1500.00 zł", "default_price": Decimal("400.00")},
+            {"article": "Tankowanie paliwa", "name": "Usługa tankowania", "amount_from": Decimal("200.00"), "amount_to": None, "unit": "tankowanie", "description": "200.00 zł (plus koszt paliwa)", "default_price": Decimal("200.00")},
+            {"article": "Przestój maszyny", "name": "Ponadnormatywny przestój transportu", "amount_from": Decimal("200.00"), "amount_to": Decimal("300.00"), "unit": "godzina", "description": "200.00 zł / h - 300.00 zł / h", "default_price": Decimal("200.00")},
+            {"article": "Serwis maszyny", "name": "Nieuzasadnione wezwanie serwisowe", "amount_from": Decimal("280.00"), "amount_to": None, "unit": "wizyta", "description": "280.00 zł (plus transport)", "default_price": Decimal("280.00")},
+        ],
+    },
+    {
+        "group_name": "Cennik usług — usługa z operatorem 2026",
+        "contract_type": "U",
+        "is_default": True,
+        "description": "Cennik usług dodatkowych do umów usługowych (praca z operatorem)",
+        "templates": [
+            {"article": "Transport maszyny", "name": "Transport", "amount_from": Decimal("350.00"), "amount_to": None, "unit": "dostawa", "description": "350.00 zł", "default_price": Decimal("350.00")},
+            {"article": None, "name": "Praca operatora", "amount_from": None, "amount_to": None, "unit": "dzień", "description": "Minimum 8 h / w ciągu dnia", "default_price": None},
+            {"article": "Tankowanie paliwa", "name": "Usługa tankowania", "amount_from": Decimal("200.00"), "amount_to": None, "unit": "tankowanie", "description": "200.00 zł (plus koszt paliwa)", "default_price": Decimal("200.00")},
+        ],
+    },
+    {
+        "group_name": "Kontrakt długoterminowy (rabat)",
+        "contract_type": "S",
+        "is_default": False,
+        "description": "Zestaw dla umów 30+ dni — obniżone stawki usług (do wyboru przy wydruku)",
+        "templates": [
+            {"article": "Transport maszyny", "name": "Transport", "amount_from": Decimal("350.00"), "amount_to": Decimal("350.00"), "unit": "dostawa", "description": "350.00 zł dostawa / 350.00 zł odbiór (rabat kontraktowy)", "default_price": Decimal("350.00")},
+            {"article": "Czyszczenie maszyny — drobne", "name": "Czyszczenie maszyny po wynajmie (zabrudzenia drobne)", "amount_from": Decimal("100.00"), "amount_to": Decimal("300.00"), "unit": "sztuka", "description": "100.00 zł - 300.00 zł", "default_price": Decimal("100.00")},
+            {"article": "Tankowanie paliwa", "name": "Usługa tankowania", "amount_from": Decimal("150.00"), "amount_to": None, "unit": "tankowanie", "description": "150.00 zł (plus koszt paliwa)", "default_price": Decimal("150.00")},
+            {"article": "Serwis maszyny", "name": "Przegląd okresowy w cenie", "amount_from": Decimal("0.00"), "amount_to": None, "unit": "wizyta", "description": "W ramach kontraktu długoterminowego", "default_price": Decimal("0.00")},
+        ],
+    },
+]
+
+
+async def seed_konfiguracja(db: AsyncSession, art_by_name):
+    """Konfiguracja zestawów usług do wydruku — jak gdyby klient ustawił w Ustawieniach.
+
+    - Upsert grup presetów po nazwie (nie duplikuje istniejących default z main.py —
+      przejmuje flagę is_default: stare defaulty tracą flagę na rzecz nowych).
+    - Szablony idempotentne po (preset_id, name), z article_id + default_price.
+    """
+    from settings.models import FeePresetGroup, ServiceFeeTemplate
+
+    created_groups = 0
+    created_templates = 0
+
+    for zestaw in ZESTAWY_USLUG:
+        result = await db.execute(
+            select(FeePresetGroup).where(FeePresetGroup.name == zestaw["group_name"])
+        )
+        group = result.scalar_one_or_none()
+        if not group:
+            group = FeePresetGroup(
+                company_id=1,
+                name=zestaw["group_name"],
+                contract_type=zestaw["contract_type"],
+                description=zestaw["description"],
+                is_default=False,  # flagę ustawiamy niżej (po zdjęciu ze starych)
+                sort_order=0,
+            )
+            db.add(group)
+            await db.flush()
+            created_groups += 1
+
+        # is_default: nowy zestaw przejmuje flagę default dla swojego typu
+        if zestaw["is_default"] and not group.is_default:
+            old_defaults = await db.execute(
+                select(FeePresetGroup).where(
+                    FeePresetGroup.contract_type == zestaw["contract_type"],
+                    FeePresetGroup.is_default == True,  # noqa: E712
+                    FeePresetGroup.id != group.id,
+                )
+            )
+            for old in old_defaults.scalars().all():
+                old.is_default = False
+            group.is_default = True
+
+        for idx, tpl in enumerate(zestaw["templates"], start=1):
+            existing_tpl = await db.execute(
+                select(ServiceFeeTemplate).where(
+                    ServiceFeeTemplate.preset_id == group.id,
+                    ServiceFeeTemplate.name == tpl["name"],
+                )
+            )
+            if existing_tpl.scalar_one_or_none():
+                continue
+            article = art_by_name.get(tpl["article"]) if tpl["article"] else None
+            db.add(ServiceFeeTemplate(
+                company_id=1,
+                preset_id=group.id,
+                contract_type=zestaw["contract_type"],
+                sort_order=idx,
+                article_id=article.id if article else None,
+                default_price=tpl["default_price"],
+                name=tpl["name"],
+                amount_from=tpl["amount_from"],
+                amount_to=tpl["amount_to"],
+                unit=tpl["unit"],
+                description=tpl["description"],
+                is_active=True,
+            ))
+            created_templates += 1
+
+    await db.commit()
+    print(f"  Zestawy usług: {created_groups} nowych grup, {created_templates} szablonów")
+
+
+async def _resolve_postal_code_id(db: AsyncSession, postal_code: str) -> int | None:
+    """Znajdź FK do postal_codes po PNA (deterministyczna lokalizacja — RAO-P2-028)."""
+    from integrations.models import PostalCode
+    result = await db.execute(
+        select(PostalCode.id).where(PostalCode.postal_code == postal_code).limit(1)
+    )
+    row = result.scalar_one_or_none()
+    return row
+
+
 async def seed_umowy(db: AsyncSession, contracts_data, art_by_name):
-    """Tworzy umowy + pozycje + warunki + usługi dodatkowe + rozliczenia."""
+    """Tworzy umowy + pozycje + warunki + usługi dodatkowe + rozliczenia.
+
+    Idempotentne + enrich: istniejące umowy bez lokalizacji dostają
+    city/postal_code/delivery_address/postal_code_id (update-in-place).
+    Umowy fa_pending NIE dostają rozliczeń (faktura czeka w FA — demo integracji).
+    """
     created_contracts = 0
     created_positions = 0
     created_conditions = 0
     created_fees = 0
     created_settlements = 0
+    enriched_contracts = 0
 
     for cd in contracts_data:
+        pna_id = await _resolve_postal_code_id(db, cd["postal_code"])
+
         # Sprawdź czy umowa istnieje po numerze
         existing = await db.execute(select(Contract).where(Contract.number == cd["number"]))
         contract = existing.scalar_one_or_none()
         if contract:
-            continue  # idempotent — skip
+            # Enrich: uzupełnij lokalizację jeśli brak (idempotentny update)
+            if not contract.city:
+                contract.city = cd["city"]
+                contract.postal_code = cd["postal_code"]
+                contract.delivery_address = cd["delivery_address"]
+                contract.postal_code_id = pna_id
+                enriched_contracts += 1
+            continue
 
         contract = Contract(
             number=cd["number"],
@@ -451,6 +650,10 @@ async def seed_umowy(db: AsyncSession, contracts_data, art_by_name):
             date_to=cd["date_to"],
             is_settled=cd["is_settled"],
             settled_at=cd["settled_at"],
+            city=cd["city"],
+            postal_code=cd["postal_code"],
+            postal_code_id=pna_id,
+            delivery_address=cd["delivery_address"],
             auto_number=int(cd["number"].split("/")[0].split("S")[-1].split("U")[-1]),
             created_at=datetime.now(),
             updated_at=datetime.now(),
@@ -491,10 +694,10 @@ async def seed_umowy(db: AsyncSession, contracts_data, art_by_name):
                 db.add(cond)
                 created_conditions += 1
 
-            # Rozliczenie dla pozycji (80% source=fakturownia, 20% estimate/manual)
+            # Rozliczenie dla pozycji (80% source=fakturownia, 20% manual).
+            # fa_pending → BEZ rozliczeń (faktura czeka w FA — "Pobierz z Fakturowni" na demo)
             is_settled = cd["is_settled"]
-            if is_settled and not cd["is_legacy"]:
-                # 80% faktura, 20% manual
+            if is_settled and not cd.get("fa_pending"):
                 source = "fakturownia" if (created_contracts % 5 != 4) else "manual"
                 cost_client = pos_data["unit_price"] * pos_data["rental_days"]
                 cost_company = cost_client * Decimal("0.6")  # 60% koszt własny
@@ -506,20 +709,6 @@ async def seed_umowy(db: AsyncSession, contracts_data, art_by_name):
                     source=source,
                     settled_at=cd["date_to"],
                     notes=f"Rozliczenie {source} — {cd['number']}",
-                )
-                db.add(settlement)
-                created_settlements += 1
-            elif cd["is_legacy"] and is_settled:
-                # Legacy — source=legacy (szacunek)
-                cost_client = pos_data["unit_price"] * pos_data["rental_days"]
-                settlement = ContractSettlement(
-                    contract_id=contract.id,
-                    position_id=pos.id,
-                    cost_client=cost_client,
-                    cost_company=cost_client * Decimal("0.5"),
-                    source="legacy",
-                    settled_at=cd["date_to"],
-                    notes=f"Rozliczenie legacy — {cd['number']}",
                 )
                 db.add(settlement)
                 created_settlements += 1
@@ -548,8 +737,8 @@ async def seed_umowy(db: AsyncSession, contracts_data, art_by_name):
             await db.flush()
             created_fees += 1
 
-            # Rozliczenie usługi (jeśli umowa rozliczona)
-            if is_settled and not cd["is_legacy"]:
+            # Rozliczenie usługi (jeśli umowa rozliczona; fa_pending → bez rozliczeń)
+            if is_settled and not cd.get("fa_pending"):
                 source = "fakturownia" if (created_contracts % 5 != 4) else "manual"
                 cost_client = fee_data["amount_from"] or Decimal("0")
                 settlement = ContractSettlement(
@@ -565,7 +754,7 @@ async def seed_umowy(db: AsyncSession, contracts_data, art_by_name):
                 created_settlements += 1
 
     await db.commit()
-    print(f"  Umowy: {created_contracts} nowych")
+    print(f"  Umowy: {created_contracts} nowych, {enriched_contracts} wzbogaconych o lokalizację")
     print(f"  Pozycje: {created_positions} nowych")
     print(f"  Warunki: {created_conditions} nowych")
     print(f"  Usługi dodatkowe: {created_fees} nowych")
@@ -579,25 +768,28 @@ async def main():
     print("=" * 60)
 
     async with AsyncSessionLocal() as db:
-        print("\n[1/7] Kategorie...")
+        print("\n[1/8] Kategorie...")
         await seed_kategorie(db)
 
-        print("\n[2/7] Artykuły (maszyny + usługi)...")
+        print("\n[2/8] Artykuły (maszyny + usługi)...")
         art_by_name = await seed_artykuly(db)
 
-        print("\n[3/7] Kontrahenci...")
+        print("\n[3/8] Kontrahenci...")
         con_by_name = await seed_kontrahenci(db)
 
-        print("\n[4/7] Handlowcy...")
+        print("\n[4/8] Handlowcy...")
         sp_by_name = await seed_handlowcy(db)
 
-        print("\n[5/7] Oddziały...")
+        print("\n[5/8] Oddziały...")
         br_by_name = await seed_oddzialy(db)
 
-        print("\n[6/7] Rate types...")
+        print("\n[6/8] Rate types...")
         rt_by_name = await seed_rate_types(db)
 
-        print("\n[7/7] Umowy + pozycje + warunki + usługi + rozliczenia...")
+        print("\n[7/8] Konfiguracja zestawów usług (jak od klienta)...")
+        await seed_konfiguracja(db, art_by_name)
+
+        print("\n[8/8] Umowy + pozycje + warunki + usługi + rozliczenia...")
         contracts_data = generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_name)
         await seed_umowy(db, contracts_data, art_by_name)
 
