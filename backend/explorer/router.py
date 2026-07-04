@@ -1,3 +1,4 @@
+from collections import defaultdict
 from datetime import date
 from decimal import Decimal
 from typing import Optional
@@ -358,15 +359,21 @@ async def get_locations_summary(
     date_from: Optional[date] = Query(None),
     date_to: Optional[date] = Query(None),
     limit: int = Query(50, ge=1, le=100),
+    group_by: str = Query("city", pattern="^(city|pna)$",
+                          description="Grupowanie: 'city' (1 wiersz per miasto, domyślnie) lub 'pna' (1 wiersz per PNA)"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
     """
-    Get rental summary by location (RAO-P2-028: aggregated by PNA + city
-    with rollup po gmina/powiat/wojewodztwo z LEFT JOIN do postal_codes).
+    Get rental summary by location (RAO-P2-028/069).
 
-    Przychód liczony spójnym algorytmem kaskadowym (`shared.revenue`),
-    NIE `rate1 * period_count` — naprawia rozjazd ze statystykami.
+    - group_by='city' (domyślnie, RAO-P2-069): 1 wiersz per miasto — sumuje
+      wszystkie PNA w tym mieście. Warszawa (3978 PNA) → 1 wiersz.
+    - group_by='pna' (legacy RAO-P2-028): 1 wiersz per PNA — rozbicie miasta
+      na kody pocztowe.
+
+    Rollup po gmina/powiat/wojewodztwo z LEFT JOIN do postal_codes.
+    Przychód liczony spójnym algorytmem kaskadowym (`shared.revenue`).
     """
     # RAO-P2-028: domyślne daty jak w stats/router.py (None → początek miesiąca / dziś)
     from stats.router import _default_dates
@@ -375,7 +382,7 @@ async def get_locations_summary(
     all_pos = await compute_position_revenues(
         db, df, dt, exclude_archival=False  # uwzględnia archiwalne (statystyki historyczne)
     )
-    items = await aggregate_by_pna(all_pos, db, limit=limit)
+    items = await aggregate_by_pna(all_pos, db, limit=limit, group_by=group_by)
 
     locations = []
     for i, item in enumerate(items):
@@ -393,6 +400,7 @@ async def get_locations_summary(
     return {
         "locations": locations,
         "count": len(locations),
+        "group_by": group_by,
         "period": {
             "from": date_from.isoformat() if date_from else None,
             "to": date_to.isoformat() if date_to else None,
@@ -644,4 +652,167 @@ async def get_location_details(
         "top_machines": top_machines,
         "top_contractors": top_contractors,
         "monthly_trend": monthly_trend,
+    }
+
+
+@router.get("/locations/city/{city}")
+async def get_city_details(
+    city: str,
+    date_from: Optional[date] = Query(None),
+    date_to: Optional[date] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """
+    Get detailed metrics for a specific city — RAO-P2-069.
+
+    Drill-down po mieście (zamiast PNA) — sumuje wszystkie PNA w tym mieście.
+    Pokazuje rozbicie na PNA w obrębie miasta (top PNA per rentals_count).
+    """
+    from stats.router import _default_dates
+    from urllib.parse import unquote
+    city = unquote(city)
+    df, dt = _default_dates(date_from, date_to)
+
+    all_pos = await compute_position_revenues(
+        db, df, dt, exclude_archival=False
+    )
+    if not all_pos:
+        return {"error": "City not found"}
+
+    contract_ids_all = {p["contract_id"] for p in all_pos if p.get("contract_id")}
+
+    loc_q = await db.execute(
+        select(
+            Contract.id,
+            Contract.city,
+            Contract.postal_code,
+            Contract.postal_code_id,
+        ).where(Contract.id.in_(contract_ids_all))
+    )
+    contract_loc = {
+        r[0]: {"city": r[1], "pna": r[2], "pna_id": r[3]}
+        for r in loc_q.all()
+    }
+
+    pna_ids = {v["pna_id"] for v in contract_loc.values() if v["pna_id"]}
+    pna_dict: dict[int, dict] = {}
+    if pna_ids:
+        pc_q = await db.execute(
+            select(PostalCode.id, PostalCode.postal_code, PostalCode.city,
+                   PostalCode.wojewodztwo, PostalCode.powiat, PostalCode.gmina)
+            .where(PostalCode.id.in_(pna_ids))
+        )
+        pna_dict = {
+            r[0]: {"postal_code": r[1], "city": r[2], "woj": r[3], "pow": r[4], "gmina": r[5]}
+            for r in pc_q.all()
+        }
+
+    # Filtruj contracts należące do żądanego miasta (case-insensitive)
+    city_lower = city.lower().strip()
+    matched_contract_ids: set[int] = set()
+    pna_breakdown: dict[str, dict] = defaultdict(
+        lambda: {"contracts": set(), "revenue": Decimal(0)}
+    )
+    canonical_woj = canonical_pow = canonical_gmina = None
+    for cid, loc in contract_loc.items():
+        pna_ref = pna_dict.get(loc["pna_id"]) if loc["pna_id"] else None
+        if pna_ref:
+            contract_city = pna_ref["city"] or loc["city"] or ""
+            contract_pna = pna_ref["postal_code"]
+            woj = pna_ref["woj"]
+            powiat = pna_ref["pow"]
+            gmina = pna_ref["gmina"]
+        else:
+            contract_city = loc["city"] or ""
+            contract_pna = (loc["pna"] or "").strip() or None
+            woj = powiat = gmina = None
+
+        if contract_city.lower().strip() == city_lower:
+            matched_contract_ids.add(cid)
+            if canonical_woj is None and woj:
+                canonical_woj = woj
+            if canonical_pow is None and powiat:
+                canonical_pow = powiat
+            if canonical_gmina is None and gmina:
+                canonical_gmina = gmina
+            pna_key = contract_pna or "(brak PNA)"
+            pna_breakdown[pna_key]["contracts"].add(cid)
+            pna_breakdown[pna_key]["revenue"] += Decimal(0)  # filled below
+
+    if not matched_contract_ids:
+        return {"error": "City not found"}
+
+    city_pos = [p for p in all_pos if p["contract_id"] in matched_contract_ids]
+
+    # Wypełnij revenue per PNA
+    for p in city_pos:
+        cid = p["contract_id"]
+        loc = contract_loc.get(cid)
+        if not loc:
+            continue
+        pna_ref = pna_dict.get(loc["pna_id"]) if loc["pna_id"] else None
+        contract_pna = pna_ref["postal_code"] if pna_ref else (loc["pna"] or "").strip() or None
+        pna_key = contract_pna or "(brak PNA)"
+        pna_breakdown[pna_key]["revenue"] += p["revenue"]
+
+    unique_contractors = len({p["contractor_id"] for p in city_pos if p.get("contractor_id")})
+    total_revenue = float(sum((p["revenue"] for p in city_pos), Decimal(0)))
+    contracts_count = len(matched_contract_ids)
+
+    # Top machines w tym mieście
+    machine_data: dict[str, dict] = {}
+    for p in city_pos:
+        name = p["article_name"] or "(bez nazwy)"
+        if name not in machine_data:
+            machine_data[name] = {"rental_count": 0, "total_revenue": 0.0}
+        machine_data[name]["rental_count"] += 1
+        machine_data[name]["total_revenue"] += float(p["revenue"])
+    top_machines = [
+        {"name": k, "rental_count": v["rental_count"], "total_revenue": v["total_revenue"]}
+        for k, v in sorted(machine_data.items(), key=lambda x: x[1]["rental_count"], reverse=True)[:10]
+    ]
+
+    # Top contractors
+    contractor_data: dict[str, dict] = {}
+    for p in city_pos:
+        cname = p["contractor_name"] or "(nieznany kontrahent)"
+        if cname not in contractor_data:
+            contractor_data[cname] = {"contract_count": 0, "total_revenue": 0.0}
+        contractor_data[cname]["contract_count"] += 1
+        contractor_data[cname]["total_revenue"] += float(p["revenue"])
+    top_contractors = [
+        {"contractor_name": k, "contract_count": v["contract_count"], "total_revenue": v["total_revenue"]}
+        for k, v in sorted(contractor_data.items(), key=lambda x: x[1]["total_revenue"], reverse=True)[:5]
+    ]
+
+    # PNA breakdown (rozbicie miasta na kody pocztowe)
+    pna_list = [
+        {
+            "postal_code": k,
+            "rentals_count": len(v["contracts"]),
+            "total_revenue": float(v["revenue"]),
+        }
+        for k, v in sorted(pna_breakdown.items(), key=lambda x: x[1]["revenue"], reverse=True)
+    ]
+
+    avg_per_contract = total_revenue / contracts_count if contracts_count else 0
+
+    return {
+        "city": city,
+        "postal_code": None,  # miasto = suma wielu PNA
+        "gmina": canonical_gmina,
+        "powiat": canonical_pow,
+        "wojewodztwo": canonical_woj,
+        "metrics": {
+            "contracts_count": contracts_count,
+            "unique_contractors": unique_contractors,
+            "total_revenue": round(total_revenue, 2),
+            "avg_revenue_per_contract": round(avg_per_contract, 2),
+            "pna_count": len(pna_list),
+        },
+        "pna_breakdown": pna_list,
+        "top_machines": top_machines,
+        "top_contractors": top_contractors,
+        "monthly_trend": [],
     }

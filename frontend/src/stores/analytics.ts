@@ -189,18 +189,24 @@ export interface LocationRankingItem {
 export interface LocationsRankingResponse {
   locations: LocationRankingItem[]
   count: number
+  group_by?: 'city' | 'pna'
   period: { from: string | null; to: string | null }
 }
 
 export interface LocationDetailsResponse {
-  postal_code: string
+  postal_code: string | null
   city: string
+  gmina?: string | null
+  powiat?: string | null
+  wojewodztwo?: string | null
   metrics: {
     contracts_count: number
     unique_contractors: number
     total_revenue: number
     avg_revenue_per_contract: number
+    pna_count?: number
   }
+  pna_breakdown?: { postal_code: string; rentals_count: number; total_revenue: number }[]
   top_machines: { name: string; rental_count: number; total_revenue: number }[]
   top_contractors: { contractor_name: string; contract_count: number; total_revenue: number }[]
   monthly_trend: unknown[]
@@ -433,15 +439,16 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     }
   }
 
-  // RAO-P2-065 4b: ranking miast (przywrócony z legacy ReportsSection → tab Lokalizacje)
+  // RAO-P2-065 4b / RAO-P2-069: ranking miast (toggle miasto/PNA)
   async function fetchLocationsRanking(
     dateFrom: string,
     dateTo: string,
     limit = 50,
+    groupBy: 'city' | 'pna' = 'city',
   ): Promise<LocationRankingItem[]> {
     loadingLocations.value = true
     try {
-      const params: Record<string, string | number> = { limit }
+      const params: Record<string, string | number> = { limit, group_by: groupBy }
       if (dateFrom) params.date_from = dateFrom
       if (dateTo) params.date_to = dateTo
       const { data } = await api.get<LocationsRankingResponse>('/explorer/locations', { params })
@@ -488,6 +495,27 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     return data
   }
 
+  // RAO-P2-069: drill-down po mieście (sumuje wszystkie PNA w mieście)
+  async function fetchCityDetails(
+    city: string,
+    dateFrom: string,
+    dateTo: string,
+  ): Promise<LocationDetailsResponse | { error: string }> {
+    const params: Record<string, string> = {}
+    if (dateFrom) params.date_from = dateFrom
+    if (dateTo) params.date_to = dateTo
+    const { data } = await api.get<LocationDetailsResponse | { error: string }>(
+      `/explorer/locations/city/${encodeURIComponent(city)}`,
+      { params },
+    )
+    if (data && 'error' in data) {
+      locationDetails.value = null
+    } else {
+      locationDetails.value = data as LocationDetailsResponse
+    }
+    return data
+  }
+
   // ── Drill-down orchestration ───────────────────────────────────────────────
   async function openDrillDown(
     kind: DrillDownKind,
@@ -496,16 +524,23 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     dateFrom: string,
     dateTo: string,
   ): Promise<void> {
+    // RAO-P2-069: 'location' z id numerycznym/city → miasto; PNA string → PNA
+    // Konwencja: jeśli id zaczyna się od "city:" → drill po mieście
+    const isCityDrill = typeof id === 'string' && id.startsWith('city:')
+    const drillKind: DrillDownKind = isCityDrill ? 'location' : kind
+
     drillDown.value = {
       open: true,
-      kind,
+      kind: drillKind,
       id,
       name,
       title: kind === 'machine' ? `🏗️ ${name}` : `📍 ${name}`,
       subtitle:
         kind === 'machine'
           ? 'Historia wynajmów maszyny'
-          : 'Umowy w lokalizacji (PNA)',
+          : isCityDrill
+            ? 'Umowy w mieście (wszystkie PNA)'
+            : 'Umowy w lokalizacji (PNA)',
     }
     drillLoading.value = true
     drillError.value = null
@@ -514,6 +549,8 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     try {
       if (kind === 'machine') {
         await fetchMachineDetails(Number(id), dateFrom, dateTo)
+      } else if (isCityDrill) {
+        await fetchCityDetails(String(id).slice(5), dateFrom, dateTo)
       } else {
         await fetchLocationDetails(String(id), dateFrom, dateTo)
       }
@@ -572,6 +609,7 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     fetchLocationsRanking,
     fetchMachineDetails,
     fetchLocationDetails,
+    fetchCityDetails,
     openDrillDown,
     closeDrillDown,
   }

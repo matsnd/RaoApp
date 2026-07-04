@@ -255,6 +255,27 @@ onMounted(async () => {
             <span class="dm-value">{{ formatCurrency(store.locationDetails.metrics.avg_revenue_per_contract) }}</span>
             <span class="dm-label">Średnio/umowę</span>
           </div>
+          <div v-if="store.locationDetails.metrics.pna_count" class="drill-metric">
+            <span class="dm-value">{{ store.locationDetails.metrics.pna_count }}</span>
+            <span class="dm-label">Kodów PNA</span>
+          </div>
+        </div>
+
+        <!-- PNA breakdown (tylko dla drill po mieście — RAO-P2-069) -->
+        <div v-if="store.locationDetails.pna_breakdown?.length" class="drill-subsection">
+          <div class="drill-subtitle">📮 Rozbicie na kody PNA</div>
+          <table class="drill-table">
+            <thead>
+              <tr><th>PNA</th><th>Wynajmów</th><th>Przychód</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="p in store.locationDetails.pna_breakdown" :key="p.postal_code">
+                <td>{{ p.postal_code }}</td>
+                <td>{{ p.rentals_count }}×</td>
+                <td class="td-strong">{{ formatCurrency(p.total_revenue) }}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
         <div v-if="store.locationDetails.top_machines.length" class="drill-subsection">

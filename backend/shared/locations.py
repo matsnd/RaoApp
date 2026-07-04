@@ -1,14 +1,18 @@
 """
-Shared location aggregation by PNA — RAO-P2-028.
+Shared location aggregation — RAO-P2-028 + RAO-P2-069.
 
-Strategia PNA (deterministyczna):
-- Klucz grupowania: postal_code (PNA) — UNIQUE w `postal_codes`.
+Strategia:
+- group_by='city' (domyślnie, RAO-P2-069): klucz = (city, gmina, powiat, wojewodztwo).
+  Jeden wiersz per miasto — sumuje wszystkie PNA w tym mieście.
+  Warszawa (3978 PNA) → 1 wiersz. Kraków (1061 PNA) → 1 wiersz.
+- group_by='pna' (legacy RAO-P2-028): klucz = (postal_code, city).
+  Jeden wiersz per PNA — rozbicie miasta na kody pocztowe.
 - Rollup po (city, wojewodztwo, powiat, gmina) z LEFT JOIN do `postal_codes`.
 - NULL PNA → bucket "(brak PNA)" z city z `contracts.city` (NIE regex fallback).
 - Przychód z `shared.revenue.compute_position_revenues` (kaskadowy algorytm).
 
 Public API:
-    aggregate_by_pna(positions, db, *, limit=None) -> list[LocationStatItem]
+    aggregate_by_pna(positions, db, *, limit=None, group_by='city') -> list[LocationStatItem]
 """
 from collections import defaultdict
 from decimal import Decimal
@@ -29,15 +33,18 @@ async def aggregate_by_pna(
     db: AsyncSession,
     *,
     limit: int | None = None,
+    group_by: str = "city",
 ) -> list[LocationStatItem]:
     """
-    Zagreguj pozycje po PNA (postal_code) z rollup po city/woj/pow/gmina.
+    Zagreguj pozycje po lokalizacji z rollup po city/woj/pow/gmina.
 
     Args:
         positions: lista dictów z `compute_position_revenues`
                    (wymaga `contract_id`, `revenue`).
         db: AsyncSession — do LEFT JOIN z `postal_codes`.
         limit: opcjonalnie uciąć wynik (top-N po rentals_count).
+        group_by: 'city' (domyślnie — 1 wiersz per miasto) lub 'pna'
+                  (1 wiersz per PNA — rozbicie miasta na kody pocztowe).
 
     Returns:
         list[LocationStatItem] posortowany po rentals_count desc.
@@ -85,9 +92,11 @@ async def aggregate_by_pna(
             for r in pc_q.all()
         }
 
-    # Agregacja: klucz = (postal_code, city)
+    # Agregacja:
+    # - group_by='city': klucz = (city, gmina, powiat, wojewodztwo) — 1 wiersz per miasto
+    # - group_by='pna':  klucz = (postal_code, city) — 1 wiersz per PNA (rozbicie miasta)
     # NULL PNA → bucket NO_PNA_BUCKET, city z contracts.city
-    agg: dict[tuple[str | None, str], dict] = defaultdict(
+    agg: dict[tuple, dict] = defaultdict(
         lambda: {
             "rev": Decimal(0),
             "contracts": set(),
@@ -131,18 +140,24 @@ async def aggregate_by_pna(
         if not city:
             city = NO_PNA_BUCKET
 
-        key = (postal_code, city)
+        # Klucz agregacji zależny od group_by
+        if group_by == "pna":
+            key = (postal_code, city)
+        else:  # 'city' — 1 wiersz per miasto (klucz: city + gmina + powiat + woj)
+            key = (city, gmina, powiat, wojewodztwo)
+
         bucket = agg[key]
         bucket["rev"] += p["revenue"]
         bucket["contracts"].add(cid)
         bucket["city"] = city
-        bucket["postal_code"] = postal_code
+        # Przy group_by='city' postal_code = None (sumujemy wiele PNA)
+        bucket["postal_code"] = postal_code if group_by == "pna" else None
         bucket["gmina"] = gmina
         bucket["powiat"] = powiat
         bucket["wojewodztwo"] = wojewodztwo
 
     items: list[LocationStatItem] = []
-    for (_, _city), d in agg.items():
+    for _key, d in agg.items():
         items.append(
             LocationStatItem(
                 city=d["city"],

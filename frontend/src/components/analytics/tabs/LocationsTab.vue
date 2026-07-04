@@ -20,6 +20,9 @@ const openDrillDown = inject<
   (kind: 'machine' | 'location', id: number | string, name: string) => void
 >('analytics:openDrillDown', () => {})
 
+// ── Toggle grupowania: miasto (1 wiersz per miasto) / PNA (rozbicie) ─────────
+const groupBy = ref<'city' | 'pna'>('city')
+
 // ── Wyszukiwarka miast (client-side) ─────────────────────────────────────────
 const search = ref('')
 
@@ -108,23 +111,36 @@ const chartData = computed(() => {
 })
 
 function onChartBarClick(bar: { city: string; postal_code: string | null }): void {
-  if (!bar.postal_code) return
-  openDrillDown('location', bar.postal_code, `${bar.city} ${bar.postal_code}`.trim())
+  if (groupBy.value === 'pna') {
+    if (!bar.postal_code) return
+    openDrillDown('location', bar.postal_code, `${bar.city} ${bar.postal_code}`.trim())
+  } else {
+    if (!bar.city) return
+    openDrillDown('location', `city:${bar.city}`, bar.city)
+  }
 }
 
 // ── Tabela rankingu ──────────────────────────────────────────────────────────
 const rankingSort = useSort<AnalyticsRow>('total_revenue', 'desc')
 
-const rankingColumns: AnalyticsColumn[] = [
-  { key: 'rank', label: '#', align: 'right', width: '48px' },
-  { key: 'city', label: 'Miasto', sortable: true },
-  { key: 'postal_code', label: 'PNA' },
-  { key: 'gmina', label: 'Gmina', sortable: true },
-  { key: 'powiat', label: 'Powiat', sortable: true },
-  { key: 'wojewodztwo', label: 'Województwo', sortable: true },
-  { key: 'rentals_count', label: 'Wynajmów', align: 'right', sortable: true },
-  { key: 'total_revenue', label: 'Przychód', align: 'right', sortable: true },
-]
+// Kolumna PNA tylko w trybie 'pna' (rozbicie miasta na kody pocztowe)
+const rankingColumns = computed<AnalyticsColumn[]>(() => {
+  const cols: AnalyticsColumn[] = [
+    { key: 'rank', label: '#', align: 'right', width: '48px' },
+    { key: 'city', label: 'Miasto', sortable: true },
+  ]
+  if (groupBy.value === 'pna') {
+    cols.push({ key: 'postal_code', label: 'PNA' })
+  }
+  cols.push(
+    { key: 'gmina', label: 'Gmina', sortable: true },
+    { key: 'powiat', label: 'Powiat', sortable: true },
+    { key: 'wojewodztwo', label: 'Województwo', sortable: true },
+    { key: 'rentals_count', label: 'Wynajmów', align: 'right', sortable: true },
+    { key: 'total_revenue', label: 'Przychód', align: 'right', sortable: true },
+  )
+  return cols
+})
 
 const rankingRows = computed<AnalyticsRow[]>(() =>
   filteredLocations.value.map((l) => ({
@@ -142,9 +158,17 @@ const rankingRows = computed<AnalyticsRow[]>(() =>
 const sortedRankingRows = computed(() => rankingSort.sortedRows(rankingRows.value))
 
 function onRowClick(row: AnalyticsRow): void {
-  const pna = String(row.postal_code ?? '')
-  if (!pna) return
-  openDrillDown('location', pna, `${row.city} ${pna}`.trim())
+  if (groupBy.value === 'pna') {
+    // Drill-down po PNA
+    const pna = String(row.postal_code ?? '')
+    if (!pna) return
+    openDrillDown('location', pna, `${row.city} ${pna}`.trim())
+  } else {
+    // Drill-down po mieście (sumuje wszystkie PNA w mieście)
+    const city = String(row.city ?? '')
+    if (!city) return
+    openDrillDown('location', `city:${city}`, city)
+  }
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -161,11 +185,12 @@ function formatCurrency(v: string | number | null | undefined): string {
 
 // ── Fetch ────────────────────────────────────────────────────────────────────
 async function load(): Promise<void> {
-  await store.fetchLocationsRanking(props.dateFrom, props.dateTo, 100)
+  await store.fetchLocationsRanking(props.dateFrom, props.dateTo, 100, groupBy.value)
 }
 
 onMounted(load)
 watch(() => [props.dateFrom, props.dateTo], load)
+watch(groupBy, load)
 </script>
 
 <template>
@@ -199,7 +224,7 @@ watch(() => [props.dateFrom, props.dateTo], load)
           <div
             v-for="bar in chartData"
             :key="bar.key"
-            :class="['loc-bar-row', { clickable: !!bar.postal_code }]"
+            :class="['loc-bar-row', { clickable: groupBy === 'pna' ? !!bar.postal_code : !!bar.city }]"
             @click="onChartBarClick(bar)"
           >
             <span class="loc-bar-city" :title="bar.city">
@@ -217,7 +242,19 @@ watch(() => [props.dateFrom, props.dateTo], load)
       <!-- WYSZUKIWARKA + RANKING -->
       <div class="loc-section">
         <div class="loc-section-head">
-          <span class="loc-section-title">📍 Ranking miast ({{ filteredLocations.length }})</span>
+          <span class="loc-section-title">📍 Ranking {{ groupBy === 'city' ? 'miast' : 'PNA' }} ({{ filteredLocations.length }})</span>
+          <div class="loc-group-toggle" role="group" aria-label="Grupowanie">
+            <button
+              :class="['loc-toggle-btn', { active: groupBy === 'city' }]"
+              data-testid="loc-group-city"
+              @click="groupBy = 'city'"
+            >Miasto</button>
+            <button
+              :class="['loc-toggle-btn', { active: groupBy === 'pna' }]"
+              data-testid="loc-group-pna"
+              @click="groupBy = 'pna'"
+            >PNA</button>
+          </div>
           <input
             v-model="search"
             type="text"
@@ -280,7 +317,8 @@ watch(() => [props.dateFrom, props.dateTo], load)
   color: var(--color-text-heading);
 }
 /* Toggle metryki wykresu */
-.loc-chart-toggle {
+.loc-chart-toggle,
+.loc-group-toggle {
   display: flex;
   gap: var(--spacing-xs);
 }

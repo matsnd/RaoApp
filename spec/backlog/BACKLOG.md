@@ -2797,6 +2797,89 @@ Po P2-067 demo data miało jeszcze braki:
 
 ---
 
+### [RAO-P2-069] Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście
+
+```yaml
+id: RAO-P2-069
+priority: P2
+size: M
+status: done
+classification: cross-stack
+roles: [backend-dev, frontend-dev, product-owner]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/02_backend_api.md (endpoint /locations/city/{city} + group_by param)
+migration_impact: no
+security_impact: no
+depends_on:
+  - RAO-P2-028 (Agregacja PNA z LEFT JOIN do postal_codes)
+verification:
+  - "vue-tsc --noEmit: PASS"
+  - "npm run build: PASS (643ms)"
+  - "curl /explorer/locations?group_by=city: Warszawa → 1 wiersz (postal_code=null)"
+  - "curl /explorer/locations?group_by=pna: Warszawa 00-002 → 1 wiersz z PNA"
+  - "curl /explorer/locations/city/Warszawa: 200 OK z pna_breakdown + top_machines"
+  - "Playwright screenshot: toggle Miasto/PNA działa, kolumna PNA warunkowa"
+```
+
+**Problem:**
+
+W zakładce "Lokalizacje" w AnalyticsView każde miasto było rozbite na kody pocztowe — Warszawa (3978 PNA w słowniku) mogła mieć wiele wierszy zamiast jednego. User chciał: "ma być miasto do wielu kodów pocztowych" — jeden wiersz per miasto, z opcją rozbicia na PNA jeśli potrzeba.
+
+**Cel:** Toggle Miasto/PNA w UI. Domyślnie miasto (1 wiersz per miasto, sumuje wszystkie PNA). Drill-down po mieście pokazuje rozbicie na PNA.
+
+---
+
+#### Scope implementacji
+
+**Backend:**
+1. `shared/locations.py` — `aggregate_by_pna()` dostaje `group_by='city'|'pna'` (domyślnie 'city'):
+   - `city`: klucz = (city, gmina, powiat, wojewodztwo) — 1 wiersz per miasto, `postal_code=null`
+   - `pna`: klucz = (postal_code, city) — 1 wiersz per PNA (legacy)
+2. `explorer/router.py` — `GET /explorer/locations` dostaje `?group_by=city|pna` (domyślnie city)
+3. `explorer/router.py` — nowy `GET /explorer/locations/city/{city}` — drill-down po mieście:
+   - Sumuje wszystkie PNA w mieście (case-insensitive)
+   - Zwraca `pna_breakdown` (rozbicie na kody pocztowe)
+   - Top maszyny (10) + top kontrahenci (5) filtrowani po mieście
+   - `metrics.pna_count` — ile kodów PNA w mieście
+
+**Frontend:**
+1. `stores/analytics.ts` — `fetchLocationsRanking()` dostaje `groupBy` param; nowy `fetchCityDetails()`
+2. `LocationsTab.vue` — toggle "Miasto / PNA" w nagłówku sekcji ranking
+3. Kolumna PNA warunkowa (tylko w trybie PNA)
+4. `onRowClick` — w trybie city wywołuje `openDrillDown('location', 'city:'+city, city)`
+5. `AnalyticsView.vue` — drill-down po mieście pokazuje `pna_breakdown` sekcję + `pna_count` w metrics
+
+---
+
+#### Weryfikacja (2026-07-04)
+
+- `vue-tsc --noEmit`: PASS
+- `npm run build`: PASS (643ms)
+- `curl /explorer/locations?group_by=city`: Warszawa → 1 wiersz (postal_code=null, gmina=Warszawa, woj=mazowieckie)
+- `curl /explorer/locations?group_by=pna`: Warszawa 00-002 → 1 wiersz z PNA
+- `curl /explorer/locations/city/Warszawa`: 200 OK — city, gmina, powiat, wojewodztwo, metrics (pna_count=1), pna_breakdown, top_machines, top_contractors
+- Playwright: toggle Miasto/PNA działa, kolumna PNA pojawia się tylko w trybie PNA, drill-down po mieście otwiera drawer "📍 Kraków / Umowy w mieście (wszystkie PNA)"
+
+---
+
+#### Pliki zmienione
+
+| Plik | Zmiana |
+|------|--------|
+| `backend/shared/locations.py` | +`group_by` param (city/pna), klucz agregacji zależny od trybu |
+| `backend/explorer/router.py` | +`group_by` query param, +`/locations/city/{city}` endpoint, +import defaultdict |
+| `frontend/src/stores/analytics.ts` | +`groupBy` param w fetchLocationsRanking, +fetchCityDetails, +pna_breakdown w LocationDetailsResponse |
+| `frontend/src/components/analytics/tabs/LocationsTab.vue` | +toggle Miasto/PNA, kolumna PNA warunkowa, onRowClick per tryb |
+| `frontend/src/views/AnalyticsView.vue` | +sekcja pna_breakdown w drill-down, +metric pna_count |
+
+---
+
+**Estymacja:** 3-4h (M) — backend (1.5h) + frontend (1.5h) + weryfikacja (0.5h)
+
+---
+
 ## 📋 Tabela TL;DR
 
 | ID | Tytuł | P | Est. | Status | Następny krok |
@@ -2846,6 +2929,7 @@ Po P2-067 demo data miało jeszcze braki:
 | RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
 | RAO-P2-067 | Demo data refactor — migrate_all.py orchestrator + FA-pending contracts + delivery_address | P2 | M | done | 31 faktur FA (19 backfill + 12 FA-pending), delivery_address z miastami, hardcoded token usunięty |
 | RAO-P2-068 | Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta" | P2 | M | done | 5 cenników kaskadowych per maszyna, 6 presetów usług, 22 ServiceFeeTemplateItem, 6 rate types, pełna konfiguracja firmy |
+| RAO-P2-069 | Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście | P2 | M | done | Toggle Miasto/PNA w LocationsTab, 1 wiersz per miasto (Warszawa 3978 PNA → 1), drill-down /locations/city/{city} z pna_breakdown |
 | RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
 
 **Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)

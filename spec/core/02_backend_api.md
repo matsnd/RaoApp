@@ -1510,15 +1510,17 @@ class CommissionReportResponse(BaseModel):
 
 ### `GET /explorer/locations`
 
-**Opis:** Podsumowanie wynajmów po PNA (RAO-P2-028: deterministyczny klucz `postal_code`
-z LEFT JOIN do `postal_codes` dla `city`/`gmina`/`powiat`/`wojewodztwo`).
-NULL PNA → bucket `"(brak PNA)"` z city z `contracts.city`. Przychód liczony spójnym
-algorytmem kaskadowym (`shared.revenue`), NIE `rate1 * period_count` — naprawia rozjazd
-ze statystykami. Helper: `shared.locations.aggregate_by_pna`.
+**Opis:** Podsumowanie wynajmów po lokalizacji (RAO-P2-028/069).
+- `group_by=city` (domyślnie, RAO-P2-069): 1 wiersz per miasto — sumuje wszystkie PNA
+  w tym mieście. Warszawa (3978 PNA) → 1 wiersz. `postal_code=null`.
+- `group_by=pna` (legacy RAO-P2-028): 1 wiersz per PNA — rozbicie miasta na kody pocztowe.
+Rollup po `city`/`gmina`/`powiat`/`wojewodztwo` z LEFT JOIN do `postal_codes`.
+NULL PNA → bucket `"(brak PNA)"`. Przychód ze `shared.revenue` (kaskadowy algorytm).
+Helper: `shared.locations.aggregate_by_pna`.
 
-**Query:** `?date_from=&date_to=&limit=50`
+**Query:** `?date_from=&date_to=&limit=50&group_by=city|pna`
 
-**Response:** `{"locations": [{rank, city, postal_code, gmina, powiat, wojewodztwo, rentals_count, total_revenue}], "count": int, "period": {...}}`
+**Response:** `{"locations": [{rank, city, postal_code, gmina, powiat, wojewodztwo, rentals_count, total_revenue}], "count": int, "group_by": "city"|"pna", "period": {...}}`
 **HTTP:** 200 | 401
 
 ---
@@ -1544,6 +1546,20 @@ Top maszyny (10) i top kontrahenci (5) filtrowani po PNA. Przychód ze `shared.r
 **Query:** `?date_from=&date_to=`
 
 **Response:** `{postal_code, city, metrics: {contracts_count, unique_contractors, total_revenue, avg_revenue_per_contract}, top_machines: [...], top_contractors: [...], monthly_trend: []}`
+**HTTP:** 200 | 401 | 404
+
+---
+
+### `GET /explorer/locations/city/{city}`
+
+**Opis:** Szczegóły lokalizacji — RAO-P2-069: drill-down po mieście (sumuje wszystkie PNA).
+Klik w wiersz miasta w trybie `group_by=city` wywołuje ten endpoint.
+Zwraca `pna_breakdown` — rozbicie miasta na kody pocztowe (top PNA per rentals_count).
+Top maszyny (10) i top kontrahenci (5) filtrowani po mieście (case-insensitive).
+
+**Query:** `?date_from=&date_to=`
+
+**Response:** `{city, postal_code: null, gmina, powiat, wojewodztwo, metrics: {contracts_count, unique_contractors, total_revenue, avg_revenue_per_contract, pna_count}, pna_breakdown: [{postal_code, rentals_count, total_revenue}], top_machines: [...], top_contractors: [...], monthly_trend: []}`
 **HTTP:** 200 | 401 | 404
 
 ---
