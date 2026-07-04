@@ -379,14 +379,32 @@ const columnDefs = {
 }
 ```
 
-**Lista umów — filtry i sortowanie (RAO-P2-022):**
+**Lista umów — filtry i sortowanie (RAO-P2-022 + RAO-P2-070 Faza 3/4):**
 
 - Sortowanie: `ORDER BY auto_number DESC` (najnowsze na górze) — po stronie backendu
 - Filtr **statusu rozliczenia** (select): `Aktywne` (domyślnie, `is_settled=false`) | `Rozliczone` | `Wszystkie`
 - Filtr **typ umowy**: Wszystkie typy | Umowy najmu (S) | Umowy usługi (U)
 - Filtr **dat**: Data od / Data do
+- **RAO-P2-070 Faza 4 — filtr Handlowiec** (select, client-side): opcje z `settingsStore.salespeople`, filtruje po `salesperson_name`. Domyślnie "Wszyscy handlowcy".
+- **RAO-P2-070 Faza 4 — filtr Miasto** (text input, client-side): filtruje po `c.city` (case-insensitive, contains).
+- **RAO-P2-070 Faza 3 — sortowanie po kolumnach** (client-side): klik nagłówka → toggle ASC/DESC, wskaźnik `▲`/`▼` (klasa `.sort-indicator`, kolor `--color-primary`). Domyślnie `date_from DESC`. Sortowalne: Numer, Kontrahent, Data od, Data do, Handlowiec. Komparator `compareValues` obsługuje string/number/date(ISO).
 - Kolumna **Status**: `Aktywna` (niebieski badge) | `Przeterminowana` (czerwony) | `Rozliczona` (zielony)
 - Wiersz `row-settled`: szare/wyciszone tło gdy `c.is_settled = true`
+- **RAO-P2-070 Faza 2 — drilldowny cross-view:**
+  - Kolumna "Kontrahent" → link (`.drilldown-link`) → `/contractors/:contractorId/edit` (`goToContractor`)
+  - Double-click wiersz → `/contracts/:id/edit` (istniejące)
+  - Kontrahent "Aktywna umowa" → `/dashboard/contracts?search=<numer>` (`goToContractByNumber`)
+  - Artykuł "Nazwa" → `/analytics?article=<id>` (`goToArticleAnalytics`) — AnalyticsView auto-otwiera DrillDownDrawer `machine`
+
+**RAO-P2-070 Faza 5 — przycisk "← Wstecz" w formularzach:**
+- `ContractFormView`, `ContractorFormView`, `ArticleFormView` — toolbar, lewa strona
+- `goBack()`: `router.back()` z fallbackiem do `/dashboard/<section>` gdy `window.history.length <= 1`
+
+**RAO-P2-070 Faza 1 — toasty zamiast alert():**
+- Wszystkie `alert()` w widokach zastąpione `useToastStore()` (`@/stores/toast`).
+- Komponent `AppToast.vue` mountowany w `App.vue`, renderuje stack toastów top-right.
+- API store: `toastStore.success/error/info/warning(message, duration?)` + `push/showToast/dismiss/clear`.
+- 0 wystąpień `alert(` w `frontend/src/`.
 
 **Lista artykułów — filtr archiwalny:**
 

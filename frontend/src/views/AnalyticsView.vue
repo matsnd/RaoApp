@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, provide, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useAnalyticsStore, type DrillDownKind } from '@/stores/analytics'
 import { useContractorStore } from '@/stores/contractors'
+import { useArticleStore } from '@/stores/articles'
 import AnalyticsTabs, { type AnalyticsTab } from '@/components/analytics/AnalyticsTabs.vue'
 import AnalyticsFilters, {
   type AnalyticsFiltersValue,
@@ -15,6 +17,8 @@ import { formatCurrency, formatDate } from '@/utils/format'
 
 const store = useAnalyticsStore()
 const contractorsStore = useContractorStore()
+const articleStore = useArticleStore()
+const route = useRoute()
 
 const tabs: AnalyticsTab[] = [
   { key: 'live', label: 'Flota teraz', icon: '🚜' },
@@ -117,6 +121,24 @@ onMounted(async () => {
       await contractorsStore.fetchList({ per_page: 500 })
     } catch {
       // ignore — filtr opcjonalny
+    }
+  }
+  // RAO-P2-070 Faza 2: drilldown z DashboardView /articles → ?article=<id>
+  // Otwórz historię wynajmów maszyny w drawerze
+  const articleId = route.query.article
+  if (articleId) {
+    const id = Number(articleId)
+    if (!Number.isNaN(id)) {
+      activeTab.value = 'period'
+      let articleName = `Maszyna #${id}`
+      try {
+        await articleStore.fetchOne(id)
+        const fetched = articleStore.current as { name?: string } | null
+        if (fetched?.name) articleName = fetched.name
+      } catch {
+        // ignore — użyjemy placeholder nazwy
+      }
+      openDrillDown('machine', id, articleName, filters.value.dateFrom, filters.value.dateTo)
     }
   }
 })

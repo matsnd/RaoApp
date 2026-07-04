@@ -1,7 +1,7 @@
 <template>
   <div style="display:flex;flex-direction:column;height:100vh;overflow:hidden;">
     <div class="toolbar">
-      <button class="toolbar-btn" @click="goBack">←</button>
+      <button class="toolbar-btn" @click="goBack" title="Wstecz">← Wstecz</button>
       <span class="toolbar-info">{{ isEdit ? (contractStore.current?.number ? `Umowa: ${contractStore.current.number}` : 'Ładowanie...') : 'Nowa umowa' }}</span>
       <!-- RAO-P2-022: badge rozliczona -->
       <span v-if="isEdit && form.is_settled" class="settled-badge">✓ Rozliczona</span>
