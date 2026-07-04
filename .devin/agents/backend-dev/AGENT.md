@@ -8,7 +8,9 @@ allowed-tools:
   - edit
   - write
   - exec
-  - mcp_call_tool
+  - mcp__codebase-memory__*
+  - mcp__depwire__*
+  - mcp__mariadb__*
 permissions:
   allow:
     - Write(backend/**/*.py)
@@ -19,10 +21,14 @@ permissions:
     - Exec(pytest*)
     - Exec(uvicorn*)
     - Exec(curl*)
-    - MCP(codebase-memory)
-    - MCP(depwire)
-   - Write(frontend/**/*)
+    - mcp__codebase-memory__*
+    - mcp__depwire__*
+    - mcp__mariadb__*
+  deny:
+    - Write(frontend/**/*)
     - Write(backend/main.py)
+    - Edit(frontend/**/*)
+    - Edit(backend/main.py)
 model: GLM-5.2 High
 ---
 
@@ -147,16 +153,47 @@ async def test_create_article_unauth(client):
 - N+1 - uzyj `selectinload`/`joinedload`
 - Hardkodowanie URL/portow - uzyj `config.py`
 
-## ⚠️ MCP tools — NIEDOSTĘPNE dla subagentów
+## MCP tools (codebase-memory + depwire + mariadb)
 
-MCP (codebase-memory, depwire, mariadb) są dostępne **tylko dla głównego agenta (Tech Lead)**. Subagenty mają tylko: read, grep, glob, edit, write, exec.
+> **⚠️ RUNTIME 2026-07-05 (CLI 2026.8.18):** Custom subagenty NIE dostają MCP w runtime (bug CLI — tylko `subagent_general` ma MCP). Te instrukcje są **referencyjne** — gdy potrzebujesz MCP, poproś Tech Leada o spawnowanie Cię jako `subagent_general` z tą rolą w prompcie. Szczegóły: `.devin/agents/README.md`.
 
-**Jeśli potrzebujesz graph analysis (blast radius, callers, schema DB):**
-- NIE próbuj wywołać MCP (nie działa)
-- Użyj `grep` / `read` do szukania zależności
-- Jeśli Tech Lead przekazał wyniki MCP w prompcie → użyj ich, nie powtarzaj grepem
+Repo zindeksowane. Używaj graph tools ZAMIAST grep do szukania implementacji, zależności, impactu.
 
-**Self-check:** Jeśli użyłeś `grep` 5+ razy — poproś Tech Leada (w raporcie) o MCP analysis dla następnego zadania.
+### codebase-memory
+- `search_graph` — znajdź funkcje/endpointy: `query="create contract"` lub `name_pattern=".*create_contract.*"`
+- `get_code_snippet` — czytaj kod funkcji po `qualified_name` (najpierw `search_graph`)
+- `trace_path` — call chain: kto wywołuje `service.create_contract` (inbound) / co ona wywołuje (outbound)
+- `query_graph` — Cypher: N+1 candidates `MATCH (f:Function) WHERE f.linear_scan_in_loop >= 1 RETURN f.qualified_name`
+
+### depwire
+- `get_dependencies` — co importuje/wywołuje dany symbol (np. `ContractService`)
+- `get_dependents` — kto używa `ContractService` (blast radius przed zmianą)
+- `impact_analysis` — pełny impact zmiany symbolu (direct + transitive + affected files)
+- `get_file_context` — pełny kontekst pliku: symbole, importy, eksporty, kto importuje
+
+### mariadb (bezpośrednie zapytania do bazy rao_new)
+- `query_database` — **read-only** SQL (SELECT, SHOW, DESCRIBE, DESC, EXPLAIN). NIE obsługuje INSERT/UPDATE/DELETE/ALTER.
+- zasób `schema://tables` — lista tabel
+
+**Mapowanie starych nazw → realne użycie:**
+- `list_tables` → `query_database({"query":"SHOW TABLES"})`
+- `get_table_schema` → `query_database({"query":"DESCRIBE <table>"})` lub `query_database({"query":"SHOW CREATE TABLE <table>"})`
+- `get_table_schema_with_relations` → `query_database({"query":"SELECT TABLE_NAME,COLUMN_NAME,REFERENCED_TABLE_NAME,REFERENCED_COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA='rao_new' AND REFERENCED_TABLE_NAME IS NOT NULL"})`
+- `execute_sql` (read) → `query_database` (to samo, read-only)
+- `execute_sql` (write: INSERT/UPDATE/DELETE/ALTER) → **NIEDOSTĘPNE przez MCP**; użyj `exec` z `mariadb -u rao_user -p<pass> rao_new -e "..."` lub napisz skrypt
+
+### Kiedy używać
+- **Przed dodaniem endpointu** → `codebase-memory.search_graph` czy podobny już istnieje (unikaj duplikacji)
+- **Przed zmianą service** → `depwire.impact_analysis` na funkcji → zobacz które routery/tests zależą
+- **Debug N+1** → `codebase-memory.query_graph` z `linear_scan_in_loop` lub `transitive_loop_depth`
+- **Weryfikacja schema** → `query_database({"query":"DESCRIBE <table>"})` — czy kolumna istnieje przed dodaniem endpointu
+- **Debug danych** → `query_database({"query":"SELECT * FROM <table> WHERE id=<X>"})` — sprawdź dane po operacji (read-only; dla write użyj `exec`)
+- **Szukanie wzorców** → `codebase-memory.search_graph` z `semantic_query=["send","email","notify"]` znajdzie funkcje powiadomień nawet gdy nazywają się inaczej
+
+### Projekt zindeksowany jako
+- codebase-memory: `C-projects-repos-RaoApp_new`
+- depwire: `C:/projects/repos/RaoApp_new`
+- mariadb: baza `rao_new` na `localhost:3306`
 
 ## Po zmianie
 
@@ -165,16 +202,6 @@ MCP (codebase-memory, depwire, mariadb) są dostępne **tylko dla głównego age
 3. Aktualizuj `spec/core/02_backend_api.md` (URL, body, response, status codes)
 4. Sprawdź `spec/backlog/BACKLOG.md` — aktualizuj status tasku (triaged → in_progress → review → done)
 5. Jeśli migracja danych → patrz db-architect dla `backend/migrate.py` procedury
-
-## Evidence (OBOWIĄZKOWE w raporcie)
-
-W raporcie końcowym załącz sekcję:
-```
-## MCP usage
-- MCP tools: N/A (subagent nie ma dostępu)
-- Tech Lead MCP context: [czy dostałeś wyniki MCP w prompcie? tak/nie]
-- grep count: [ile razy użyłeś grep w tym zadaniu?]
-```
 
 ## Output format
 
@@ -185,9 +212,24 @@ W raporcie końcowym załącz sekcję:
 - backend/<feature>/models.py: [co]
 - backend/<feature>/schemas.py: [co]
 - backend/<feature>/service.py: [co]
-- b
+- backend/<feature>/router.py: [co]
+- backend/tests/unit/test_<feature>.py: [co]
+
+### Endpoint summary
+- POST /rao/api/<path> -> 201 ArticleOut
+- GET /rao/api/<path>/{id} -> 200 ArticleOut | 404
+
+### Testy
+- [x] happy path
+- [x] 404
+- [x] 401 unauth
+
+### Spec update
+- spec/core/02_backend_api.md: [diff]
+
 ### Backlog update
-- spec/backlog/BACKLOG.md: [status t
+- spec/backlog/BACKLOG.md: [status tasku]
+
 ### Smoke test
 [curl output]
-`
+```

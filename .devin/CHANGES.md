@@ -21,8 +21,8 @@ Test empiryczny (3 profile, foreground, to samo zadanie):
 - `.devin/agents/db-architect/AGENT.md` — banner runtime w sekcji MCP + naprawione nazwy narzędzi mariadb (`execute_sql`/`list_tables`/`get_table_schema` → `query_database` z odpowiednim SQL)
 
 **Pozostało do naprawy (follow-up):**
-- Nazwy narzędzi mariadb w 7 pozostałych `AGENT.md` (`backend-dev`, `frontend-dev`, `tech-lead`, `qa-engineer`, `performance-eng`, `security-auditor`, `product-owner`) — te same błędne nazwy (`execute_sql`, `list_tables`, `get_table_schema`, `get_table_schema_with_relations`). Realne narzędzie: `query_database` (read-only: SELECT/SHOW/DESCRIBE/EXPLAIN). 45 błędnych odniesień.
-- Banner runtime w 10 pozostałych `AGENT.md` (sekcje MCP bez informacji o braku MCP w runtime)
+- ~~Nazwy narzędzi mariadb w 7 pozostałych `AGENT.md`~~ — **ZROBIONE 2026-07-05** (commit poniżej): `backend-dev`, `frontend-dev`, `tech-lead`, `qa-engineer`, `performance-eng`, `security-auditor`, `product-owner` — wszystkie 45 błędnych odniesień zamienione na `query_database` z mapowaniami.
+- ~~Banner runtime w 10 pozostałych `AGENT.md`~~ — **ZROBIONE 2026-07-05**: wszystkie 11 `AGENT.md` ma banner "RUNTIME 2026-07-05" w sekcji MCP/Vision.
 - Zgłoszenie buga do Cognition: custom `AGENT.md` subagenty nie dostają MCP tools mimo poprawnych `mcp__serwer__*` w `allowed-tools` (CLI 2026.8.18)
 
 ## Krytyczne (to blokowało MCP w subagentach) — poprzednia tura

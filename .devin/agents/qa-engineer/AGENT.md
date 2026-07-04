@@ -8,7 +8,10 @@ allowed-tools:
   - edit
   - write
   - exec
-  - mcp_call_tool
+  - mcp__codebase-memory__*
+  - mcp__depwire__*
+  - mcp__playwright__*
+  - mcp__mariadb__*
 permissions:
   allow:
     - Write(backend/tests/**/*)
@@ -18,13 +21,15 @@ permissions:
     - Exec(pytest*)
     - Exec(npx playwright*)
     - Exec(curl*)
-    - MCP(codebase-memory)
-    - MCP(depwire)
-    - MCP(playwright)
-    - MCP(mariadb)
+    - mcp__codebase-memory__*
+    - mcp__depwire__*
+    - mcp__playwright__*
+    - mcp__mariadb__*
   deny:
     - Write(backend/main.py)
     - Write(frontend/src/**/*)
+    - Edit(backend/main.py)
+    - Edit(frontend/src/**/*)
 model: GLM-5.2 High
 ---
 
@@ -186,17 +191,46 @@ test.describe('Contract CRUD', () => {
 });
 ```
 
-## ⚠️ MCP tools — NIEDOSTĘPNE dla subagentów
+## MCP tools (codebase-memory + depwire + playwright + mariadb)
 
-MCP (codebase-memory, depwire, mariadb, playwright) są dostępne **tylko dla głównego agenta (Tech Lead)**. Subagenty mają tylko: read, grep, glob, edit, write, exec.
+> **⚠️ RUNTIME 2026-07-05 (CLI 2026.8.18):** Custom subagenty NIE dostają MCP w runtime (bug CLI — tylko `subagent_general` ma MCP). Te instrukcje są **referencyjne** — gdy potrzebujesz MCP, poproś Tech Leada o spawnowanie Cię jako `subagent_general` z tą rolą w prompcie. Szczegóły: `.devin/agents/README.md`.
 
-**Jeśli potrzebujesz:**
-- Test gap analysis → `grep -r "test_.*<feature>" backend/tests/`
-- Dead code → `grep` + manualna analiza importów
-- Weryfikacja danych DB → poproś Tech Leada o `mariadb.execute_sql` w prompcie
-- Browser automation → `npx playwright test` przez exec (nie MCP playwright)
+Repo zindeksowane. Używaj graph tools do test discovery, impact analysis, dead code.
 
-**Jeśli Tech Lead przekazał wyniki MCP w prompcie** → użyj ich, nie powtarzaj grepem.
+### codebase-memory
+- `search_graph` — znajdź testy: `query="test contract"` lub `name_pattern="test_.*contract.*"`
+- `query_graph` — Cypher: wszystkie testy `MATCH (t:Function) WHERE t.is_test=true RETURN t.file, t.name`
+- `trace_path` — co testuje dany endpoint (inbound do testów)
+
+### depwire
+- `find_dead_code` — nieużywane symbole (często = nieotestowane, bo nikt nie wywołuje)
+- `impact_analysis` — co się zepsuje po zmianie (pokrycie testowe = czy w affected files są testy)
+- `simulate_change` — symuluj zmianę przed faktem → broken imports, affected files
+- `verify_change` — safety report przed apply: broken imports, circular deps, health delta
+
+### mariadb (weryfikacja danych po testach)
+- `query_database` — **read-only** SQL (SELECT, SHOW, DESCRIBE, DESC, EXPLAIN). NIE obsługuje INSERT/UPDATE/DELETE/ALTER.
+- zasób `schema://tables` — lista tabel
+
+**Mapowanie starych nazw → realne użycie:**
+- `execute_sql` (read) → `query_database` — np. `SELECT COUNT(*) FROM contracts WHERE contractor_id = 999` — sprawdź czy test nie zostawił śmieci; weryfikuj stan danych po teście (czy rekord został utworzony, czy usunięty)
+- `get_table_schema` → `query_database({"query":"DESCRIBE <table>"})` — sprawdź schema przed testem migracji
+- `execute_sql` (write: INSERT/UPDATE/DELETE/ALTER) → **NIEDOSTĘPNE przez MCP**; użyj `exec` z `mariadb -u rao_user -p<pass> rao_new -e "..."` (np. cleanup po teście)
+
+### playwright (browser automation)
+- Już dostępny — używaj do E2E testów (headless)
+
+### Kiedy używać
+- **Test gap analysis** → `depwire.impact_analysis` na zmienionym symbolu → czy affected files mają testy?
+- **Dead code = untested** → `depwire.find_dead_code` (high confidence) → prawdopodobnie brak testów
+- **Szukanie testów do uruchomienia** → `codebase-memory.search_graph` z `name_pattern="test_.*<feature>.*"`
+- **Przed merge** → `depwire.verify_change` → safety report
+- **Weryfikacja danych** → `query_database({"query":"SELECT COUNT(*) FROM <table> WHERE <condition>"})` po teście — sprawdź stan bazy (read-only; dla cleanup użyj `exec`)
+
+### Projekt zindeksowany jako
+- codebase-memory: `C-projects-repos-RaoApp_new`
+- depwire: `C:/projects/repos/RaoApp_new`
+- mariadb: baza `rao_new` na `localhost:3306`
 
 ## Smoke regression test
 

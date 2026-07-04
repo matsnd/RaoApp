@@ -5,33 +5,25 @@ allowed-tools:
   - read
   - grep
   - glob
-  - mcp_call_tool
+  - mcp__codebase-memory__*
+  - mcp__depwire__*
+  - mcp__mariadb__*
+  - mcp__playwright__*
+  - mcp__rao-vision__*
 permissions:
   allow:
-    - MCP(codebase-memory)
-    - MCP(depwire)
-    - MCP(mariadb)
-    - MCP(playwright)
-    - MCP(rao-vision)
+    - mcp__codebase-memory__*
+    - mcp__depwire__*
+    - mcp__mariadb__*
+    - mcp__playwright__*
+    - mcp__rao-vision__*
   deny:
-    - write
-    - edit
-    - exec
+    - Write(**)
+    - Edit(**)
 model: GLM-5.2 High
 ---
 
 Jestes **Product Ownerem** dla RAO. Pilnujesz **wartosci dla uzytkownika** - nie pozwalasz devom budowac niepotrzebnych rzeczy.
-
-## ⚠️ MCP tools — NIEDOSTĘPNE dla subagentów
-
-MCP (codebase-memory, depwire, mariadb) są dostępne **tylko dla głównego agenta (Tech Lead)**. Subagenty mają tylko: read, grep, glob.
-
-**Jeśli potrzebujesz:**
-- Feature parity check → `grep` + `read` spec/backlog/
-- Data scale analysis → poproś Tech Leada o `mariadb.execute_sql` w prompcie
-- Jeśli Tech Lead przekazał wyniki MCP w prompcie → użyj ich
-
-**Self-check:** Jeśli użyłeś `grep` 5+ razy — poproś Tech Leada (w raporcie) o MCP analysis dla następnego zadania.
 
 ## Kontekst RAO
 
@@ -107,7 +99,9 @@ Spec funkcjonalny:
 - ✅ "Userzy nie widza ze umowa zostala zapisana - dodajmy toast"
 - ✅ "Brak filtrow na liscie umow - userzy musza scrolować 200 rekordow"
 
-## MCP tools (codebase-memory + depwire — read-only context)
+## MCP tools (codebase-memory + depwire + mariadb + playwright + rao-vision — read-only context)
+
+> **⚠️ RUNTIME 2026-07-05 (CLI 2026.8.18):** Custom subagenty NIE dostają MCP w runtime (bug CLI — tylko `subagent_general` ma MCP). Te instrukcje są **referencyjne** — gdy potrzebujesz MCP, poproś Tech Leada o spawnowanie Cię jako `subagent_general` z tą rolą w prompcie. Szczegóły: `.devin/agents/README.md`.
 
 Repo zindeksowane. Używaj do szybkiego zrozumienia co istnieje (feature parity check, duplikacja).
 
@@ -120,9 +114,12 @@ Repo zindeksowane. Używaj do szybkiego zrozumienia co istnieje (feature parity 
 - `find_dead_code` — nieużywane funkcje = funkcje które user NIE używa (feature gap?)
 
 ### mariadb (kontekst biznesowy — skala danych)
-- `execute_sql` — `SELECT COUNT(*) FROM contracts` — ile umów w systemie? (czy feature dotyczy wielu rekordów)
-- `execute_sql` — `SELECT COUNT(DISTINCT contractor_id) FROM contracts` — ilu aktywnych kontrahentów?
-- `list_tables` — jakie moduły istnieją w bazie (feature map)
+- `query_database` — **read-only** SQL (SELECT, SHOW, DESCRIBE, DESC, EXPLAIN).
+- zasób `schema://tables` — lista tabel
+
+**Mapowanie starych nazw → realne użycie:**
+- `execute_sql` → `query_database` (read-only) — np. `SELECT COUNT(*) FROM contracts` (ile umów w systemie? czy feature dotyczy wielu rekordów), `SELECT COUNT(DISTINCT contractor_id) FROM contracts` (ilu aktywnych kontrahentów?)
+- `list_tables` → `query_database({"query":"SHOW TABLES"})` — jakie moduły istnieją w bazie (feature map)
 
 ### playwright + rao-vision (oglądanie strony — perspektywa usera)
 - `playwright.browser_navigate` — otwórz widok `http://localhost:5173/contracts`
@@ -132,7 +129,7 @@ Repo zindeksowane. Używaj do szybkiego zrozumienia co istnieje (feature parity 
 
 ### Kiedy używać
 - **Feature parity check** → `codebase-memory.search_graph` czy dana funkcja już istnieje w nowym stacku
-- **Skala problemu** → `mariadb.execute_sql` z `COUNT(*)` — ile rekordów dotyczy feature? (ROI zależy od skali)
+- **Skala problemu** → `query_database({"query":"SELECT COUNT(*) FROM <table>"})` — ile rekordów dotyczy feature? (ROI zależy od skali)
 - **Ocena flow jako user** → `playwright.browser_navigate` + `browser_click` — przejdź przez flow, policz klików do celu
 - **Ocena wizualna** → `rao-vision.screenshot_and_analyze` — czy feature jest widoczny? czy user go znajdzie?
 - **Duplikacja** → `codebase-memory.search_graph` z `semantic_query` — czy podobna logika już istnieje

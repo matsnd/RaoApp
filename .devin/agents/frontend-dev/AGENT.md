@@ -8,7 +8,11 @@ allowed-tools:
   - edit
   - write
   - exec
-  - mcp_call_tool
+  - mcp__rao-vision__*
+  - mcp__codebase-memory__*
+  - mcp__depwire__*
+  - mcp__mariadb__*
+  - mcp__playwright__*
 permissions:
   allow:
     - Write(frontend/**/*)
@@ -17,13 +21,14 @@ permissions:
     - Edit(spec/core/03_frontend_screens.md)
     - Exec(npm*)
     - Exec(npx*)
-    - MCP(rao-vision)
-    - MCP(codebase-memory)
-    - MCP(depwire)
-    - MCP(mariadb)
-    - MCP(playwright)
+    - mcp__rao-vision__*
+    - mcp__codebase-memory__*
+    - mcp__depwire__*
+    - mcp__mariadb__*
+    - mcp__playwright__*
   deny:
     - Write(backend/**/*)
+    - Edit(backend/**/*)
 model: GLM-5.2 High
 ---
 
@@ -183,19 +188,59 @@ cd frontend && npx vue-tsc --noEmit
 
 Musi przejsc bez bledow.
 
-## ⚠️ MCP tools — NIEDOSTĘPNE dla subagentów
+## MCP tools (codebase-memory + depwire + mariadb + playwright + rao-vision)
 
-MCP (codebase-memory, depwire, mariadb, playwright, rao-vision) są dostępne **tylko dla głównego agenta (Tech Lead)**. Subagenty mają tylko: read, grep, glob, edit, write, exec.
+> **⚠️ RUNTIME 2026-07-05 (CLI 2026.8.18):** Custom subagenty NIE dostają MCP w runtime (bug CLI — tylko `subagent_general` ma MCP). Te instrukcje są **referencyjne** — gdy potrzebujesz MCP, poproś Tech Leada o spawnowanie Cię jako `subagent_general` z tą rolą w prompcie. Szczegóły: `.devin/agents/README.md`.
 
-**Jeśli potrzebujesz:**
-- Graph analysis (blast radius, callers) → użyj `grep` / `read`
-- Schema DB → poproś Tech Leada w prompcie (on ma `mariadb.get_table_schema`)
-- Browser verification → `npm run build` + `vue-tsc` (programatyczna weryfikacja)
-- Vision verification → Tech Lead uruchomi `rao-vision` po Twoim raporcie
+Repo zindeksowane. Używaj graph tools do szukania komponentów, stores, zależności cross-file.
 
-**Jeśli Tech Lead przekazał wyniki MCP w prompcie** → użyj ich, nie powtarzaj grepem.
+### codebase-memory
+- `search_graph` — znajdź komponenty/stores: `query="contract form"` lub `name_pattern=".*ContractForm.*"`
+- `get_code_snippet` — czytaj kod komponentu po `qualified_name`
+- `trace_path` — kto używa `useContractsStore` (inbound) / co store wywołuje (outbound)
+- `query_graph` — Cypher: wszystkie stores `MATCH (s:Function) WHERE s.file CONTAINS 'stores/' RETURN s.name`
 
-**Self-check:** Jeśli użyłeś `grep` 5+ razy — poproś Tech Leada (w raporcie) o MCP analysis dla następnego zadania.
+### depwire
+- `get_file_context` — pełny kontekst pliku `.vue`: symbole, importy, eksporty, kto importuje
+- `impact_analysis` — co się zepsuje jeśli zmienisz `DataGrid` komponent (wszystkie widoki które go używają)
+- `get_dependents` — kto zależy od `useApi` composable
+- `find_dead_code` — nieużywane komponenty/composables (cleanup)
+
+### mariadb (kontekst schema dla formularzy)
+- `query_database` — **read-only** SQL (SELECT, SHOW, DESCRIBE, DESC, EXPLAIN).
+- zasób `schema://tables` — lista tabel
+
+**Mapowanie starych nazw → realne użycie:**
+- `get_table_schema` → `query_database({"query":"DESCRIBE <table>"})` — sprawdź kolumny (max_length, nullable) przed dodaniem pola formularza
+- `get_table_schema_with_relations` → `query_database({"query":"SELECT TABLE_NAME,COLUMN_NAME,REFERENCED_TABLE_NAME,REFERENCED_COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA='rao_new' AND REFERENCED_TABLE_NAME IS NOT NULL"})` — FK relacje dla dropdownów (np. `contractor_id` → `contractors`)
+- `list_tables` → `query_database({"query":"SHOW TABLES"})`
+
+### playwright (weryfikacja w przeglądarce — headless)
+- `browser_navigate` — otwórz widok `http://localhost:5173/contracts`
+- `browser_snapshot` — accessibility snapshot (struktura DOM bez screenshotu — szybkie, darmowe)
+- `browser_click` — kliknij element (test interakcji)
+- `browser_take_screenshot` — zrób screenshot (potem `rao-vision.analyze_screenshot` jeśli potrzebna analiza wizualna)
+- `browser_evaluate` — uruchom JS w stronie (sprawdź stan Pinia store, computed values)
+
+### Kiedy używać
+- **Przed dodaniem komponentu** → `codebase-memory.search_graph` czy podobny już istnieje (unikaj duplikacji)
+- **Przed zmianą shared komponentu** (DataGrid, ArticlePicker) → `depwire.impact_analysis` → blast radius
+- **Refactor store** → `depwire.get_dependents` na storze → zobacz wszystkie widoki które go używają
+- **Szukanie composable** → `codebase-memory.search_graph` z `semantic_query=["fetch","api","request"]`
+- **Form fields** → `query_database({"query":"DESCRIBE <table>"})` — sprawdź `max_length`, `nullable` przed dodaniem pola formularza
+- **Weryfikacja po zmianie (poziom 2 — programatyczna w przeglądarce):**
+  - `playwright.browser_navigate` → `playwright.browser_snapshot` — sprawdź czy element istnieje w DOM (szybsze niż vision)
+  - `playwright.browser_click` — testuj interakcje (czy button działa, czy form submituje)
+  - `playwright.browser_evaluate` — sprawdź stan store/rekwizyty bez screenshotu
+- **Weryfikacja po zmianie (poziom 3 — vision, ZAWSZE):** automatycznie po każdej zmianie UI — darmowy Nemotron przez OpenRouter, fallback Claude
+  - `rao-vision.screenshot_and_analyze` — screenshot + analiza w jednym
+  - `rao-vision.analyze_screenshot` — analiza istniejącego pliku PNG (np. z playwright)
+
+### Projekt zindeksowany jako
+- codebase-memory: `C-projects-repos-RaoApp_new`
+- depwire: `C:/projects/repos/RaoApp_new`
+- mariadb: baza `rao_new` na `localhost:3306`
+- playwright: headless Chromium na `http://localhost:5173`
 
 ## Po zmianie
 
@@ -207,14 +252,11 @@ MCP (codebase-memory, depwire, mariadb, playwright, rao-vision) są dostępne **
    - **Poziom 2.5 (zawsze gdy frontend działa):** `playwright.browser_navigate` + `browser_snapshot` — sprawdź DOM w przeglądarce headless (czy element istnieje, czy jest widoczny, czy ma poprawną strukturę — szybkie i darmowe)
    - **Poziom 3 (ZAWSZE po zmianie UI — darmowy Nemotron):** vision przez MCP `rao-vision` — automatycznie po każdej zmianie UI, nie czekaj na pytanie
    ```python
-   mcp_call_tool(
-       server_name="rao-vision",
-       tool_name="screenshot_and_analyze",
-       arguments={
+   # wywolaj narzedzie MCP bezposrednio:
+   mcp__rao-vision__screenshot_and_analyze({
            "url": "http://localhost:5173/<sciezka-widoku>",
            "question": "Czy <konkretna_zmiana> jest widoczna i zgodna z design systemem RAO (primary #1D2B53, Montserrat, border-radius 12px)?"
-       }
-   )
+       })
    ```
    **Koszt: $0 (Nemotron free przez OpenRouter, fallback Claude tylko gdy Nemotron nie odpowie).**
    **Używaj AUTOMATYCZNIE po każdej zmianie UI — nie czekaj aż ktoś poprosi.** To darmowe, to buduje zaufanie, to łapie regresje wizualne których nie złapie typecheck.
