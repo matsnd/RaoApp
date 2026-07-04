@@ -211,21 +211,16 @@ Repo zindeksowane. Używaj graph tools do szukania komponentów i sprawdzania sp
 - codebase-memory: `C-projects-repos-RaoApp_new`
 - depwire: `C:/projects/repos/RaoApp_new`
 
-## Vision Verification (kiedy używać rao-vision)
+## Vision Verification (ZAWSZE używaj rao-vision — darmowy Nemotron)
 
-**Zasada:** Używaj MCP `rao-vision` TYLKO gdy nie możesz ocenić programatycznie (np. layout, spacing, kolory).
+**Zasada:** Używaj MCP `rao-vision` AUTOMATYCZNIE po każdej zmianie UI. Koszt: $0 (Nemotron free przez OpenRouter, fallback Claude tylko gdy Nemotron nie odpowie).
 
-**Użyj vision gdy:**
-- ❌ Zmiana layout/spacing/alignments (nie da się wywnioskować z CSS)
-- ❌ Zmiana kolorów/gradients (visual inspection wymagana)
-- ❌ Nowy wzór wizualny (karty, modale, dropdowns)
-- ❌ Ocena czy interfejs "wygląda zgodnie z design systemem"
-
-**Nie używaj vision gdy:**
-- ✅ Sprawdzanie czy używa `var(--color-*)` (grep)
-- ✅ Sprawdzanie czy używa `var(--font-family)` (grep)
-- ✅ Sprawdzanie czy border-radius jest 6px/12px (grep)
-- ✅ Sprawdzanie czy spacing jest na siatce 8px (grep)
+**Użyj vision ZAWSZE gdy:**
+- ✅ Zmiana layout/spacing/alignments (nie da się wywnioskować z CSS)
+- ✅ Zmiana kolorów/gradients (visual inspection wymagana)
+- ✅ Nowy wzór wizualny (karty, modale, dropdowns)
+- ✅ Animacje/transitions (visual inspection wymagana)
+- ✅ Po każdej zmianie komponentu UI (regresja wizualna)
 
 **Jak używać:**
 ```python
@@ -239,4 +234,10 @@ mcp_call_tool(
 )
 ```
 
-**Priorytet:** Programatyczna weryfikacja (darmowa) → Vision (kosztowne ~$0.01-0.03 per screenshot)
+**Priorytet:** Programatyczna weryfikacja (darmowa) → Vision (DARMOWY Nemotron — używaj swobodnie, nie oszczędzaj)
+
+**Nie używaj vision gdy (wystarczy grep):**
+- ✅ Sprawdzanie czy używa `var(--color-*)` (grep)
+- ✅ Sprawdzanie czy używa `var(--font-family)` (grep)
+- ✅ Sprawdzanie czy border-radius jest 6px/12px (grep)
+- ✅ Sprawdzanie czy spacing jest na siatce 8px (grep)

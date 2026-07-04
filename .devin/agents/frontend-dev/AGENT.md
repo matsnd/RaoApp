@@ -220,7 +220,9 @@ Repo zindeksowane. Używaj graph tools do szukania komponentów, stores, zależn
   - `playwright.browser_navigate` → `playwright.browser_snapshot` — sprawdź czy element istnieje w DOM (szybsze niż vision)
   - `playwright.browser_click` — testuj interakcje (czy button działa, czy form submituje)
   - `playwright.browser_evaluate` — sprawdź stan store/rekwizyty bez screenshotu
-- **Weryfikacja po zmianie (poziom 3 — vision):** tylko gdy zmiana dotyczy layout/spacing/kolorów/animacji (kosztowne ~$0.01-0.03)
+- **Weryfikacja po zmianie (poziom 3 — vision, ZAWSZE):** automatycznie po każdej zmianie UI — darmowy Nemotron przez OpenRouter, fallback Claude
+  - `rao-vision.screenshot_and_analyze` — screenshot + analiza w jednym
+  - `rao-vision.analyze_screenshot` — analiza istniejącego pliku PNG (np. z playwright)
 
 ### Projekt zindeksowany jako
 - codebase-memory: `C-projects-repos-RaoApp_new`
@@ -232,22 +234,23 @@ Repo zindeksowane. Używaj graph tools do szukania komponentów, stores, zależn
 
 1. `npx vue-tsc --noEmit` - typy OK
 2. `npm run build` - build OK
-3. **Weryfikacja (4-poziomowa):**
+3. **Weryfikacja (4-poziomowa — WSZYSTKIE automatycznie po zmianie):**
    - **Poziom 1 (zawsze):** `npx vue-tsc --noEmit` + `npm run build` — typy i build
    - **Poziom 2 (zawsze):** programatycznie — grep/read Vue template dla pól, tekstów, logiki
-   - **Poziom 2.5 (gdy frontend działa):** `playwright.browser_navigate` + `browser_snapshot` — sprawdź DOM w przeglądarce headless (czy element istnieje, czy jest widoczny, czy ma poprawną strukturę — szybsze i tańsze niż vision)
-   - **Poziom 3 (UI changes):** vision przez MCP `rao-vision` — TYLKO gdy zmiana dotyczy layout/spacing/kolorów/animacji
+   - **Poziom 2.5 (zawsze gdy frontend działa):** `playwright.browser_navigate` + `browser_snapshot` — sprawdź DOM w przeglądarce headless (czy element istnieje, czy jest widoczny, czy ma poprawną strukturę — szybkie i darmowe)
+   - **Poziom 3 (ZAWSZE po zmianie UI — darmowy Nemotron):** vision przez MCP `rao-vision` — automatycznie po każdej zmianie UI, nie czekaj na pytanie
    ```python
    mcp_call_tool(
        server_name="rao-vision",
        tool_name="screenshot_and_analyze",
        arguments={
            "url": "http://localhost:5173/<sciezka-widoku>",
-           "question": "Czy <konkretna_zmiana> jest widoczna i zgodna z design systemem?"
+           "question": "Czy <konkretna_zmiana> jest widoczna i zgodna z design systemem RAO (primary #1D2B53, Montserrat, border-radius 12px)?"
        }
    )
    ```
-   **Priorytet:** poziom 1+2 (darmowe) → poziom 2.5 playwright (darmowe, headless) → poziom 3 vision (~$0.01-0.03 per screenshot, używaj rzadko)
+   **Koszt: $0 (Nemotron free przez OpenRouter, fallback Claude tylko gdy Nemotron nie odpowie).**
+   **Używaj AUTOMATYCZNIE po każdej zmianie UI — nie czekaj aż ktoś poprosi.** To darmowe, to buduje zaufanie, to łapie regresje wizualne których nie złapie typecheck.
 4. Aktualizuj `spec/core/03_frontend_screens.md`
 5. Sprawdź `spec/backlog/BACKLOG.md` — aktualizuj status tasku jeśli applicable
 

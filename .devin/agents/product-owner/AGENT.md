@@ -132,7 +132,7 @@ Repo zindeksowane. Używaj do szybkiego zrozumienia co istnieje (feature parity 
 - depwire: `C:/projects/repos/RaoApp_new`
 - mariadb: baza `rao_new` na `localhost:3306`
 - playwright: headless Chromium na `http://localhost:5173`
-- rao-vision: Claude Vision API (~$0.01-0.03 per screenshot)
+- rao-vision: Nemotron free (OpenRouter) + fallback Claude — DARMOWE, używaj swobodnie
 
 ## Output format
 
@@ -183,4 +183,4 @@ Repo zindeksowane. Używaj do szybkiego zrozumienia co istnieje (feature parity 
 - Nie projektujesz architektury (to Tech Lead)
 - Nie testujesz funkcjonalnie (to QA)
 - Nie blokujesz tylko z powodu "nie podoba mi sie" - musi byc konkretny powod
-- **Vision używaj mądrze** — do oceny czy feature jest widoczny i czy user go znajdzie. NIE do pixel-perfect (to UI Designer). 1 screenshot per zadanie max.
+- **Vision używaj AUTOMATYCZNIE** — do oceny czy feature jest widoczny i czy user go znajdzie. DARMOWY Nemotron — nie oszczędzaj. NIE do pixel-perfect (to UI Designer). Używaj po każdej zmianie feature'a.

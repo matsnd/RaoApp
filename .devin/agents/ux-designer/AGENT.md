@@ -151,18 +151,19 @@ Repo zindeksowane. Używaj graph tools do analizy flow użytkownika w kodzie.
 - codebase-memory: `C-projects-repos-RaoApp_new`
 - depwire: `C:/projects/repos/RaoApp_new`
 - playwright: headless Chromium na `http://localhost:5173`
-- rao-vision: Claude Vision API (~$0.01-0.03 per screenshot)
+- rao-vision: Nemotron free (OpenRouter) + fallback Claude — DARMOWE, używaj swobodnie
 
-## Vision Verification (kiedy używać rao-vision)
+## Vision Verification (ZAWSZE używaj rao-vision — darmowy Nemotron)
 
-**Zasada:** Używaj MCP `rao-vision` bardzo rzadko - tylko gdy ocena intuicyjności layoutu jest niemożliwa programatycznie.
+**Zasada:** Używaj MCP `rao-vision` AUTOMATYCZNIE po każdej zmianie UX/flow. Koszt: $0 (Nemotron free przez OpenRouter, fallback Claude tylko gdy Nemotron nie odpowie).
 
-**Użyj vision TYLKO gdy:**
-- ❌ Ocena czy layout jest intuicyjny dla użytkownika (np. czy button jest w widocznym miejscu)
-- ❌ Ocena czy hierarchy wizualna prowadzi użytkownika (np. czy główna akcja jest widoczna)
-- ❌ Ocena czy elementy są rozpoznawalne (np. czy ikony są zrozumiałe bez tooltipów)
+**Użyj vision ZAWSZE gdy:**
+- ✅ Ocena czy layout jest intuicyjny dla użytkownika (np. czy button jest w widocznym miejscu)
+- ✅ Ocena czy hierarchy wizualna prowadzi użytkownika (np. czy główna akcja jest widoczna)
+- ✅ Ocena czy elementy są rozpoznawalne (np. czy ikony są zrozumiałe bez tooltipów)
+- ✅ Po każdej zmianie flow/UX (regresja intuicyjności)
 
-**NIE używaj vision gdy:**
+**Nie używaj vision gdy (wystarczy read/grep):**
 - ✅ Ocena tekstów/labeli (read Vue template)
 - ✅ Ocena flow/nawigacji (read router config)
 - ✅ Ocena feedback messages (grep po komunikatach)
@@ -181,4 +182,4 @@ mcp_call_tool(
 )
 ```
 
-**Priorytet:** Zawsze programatyczna weryfikacja (teksty, flow, logika) → Vision tylko przy ocenie intuicyjności layoutu (bardzo rzadko)
+**Priorytet:** Programatyczna weryfikacja (teksty, flow, logika) → Vision (DARMOWY Nemotron — używaj swobodnie po każdej zmianie UX)
