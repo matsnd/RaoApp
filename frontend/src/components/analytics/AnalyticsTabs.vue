@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import AppIcon, { type AppIconName } from '@/components/shared/AppIcon.vue'
+
 export interface AnalyticsTab {
   key: string
   label: string
-  icon?: string
+  icon?: AppIconName
 }
 
 interface Props {
@@ -31,7 +33,7 @@ function select(key: string): void {
       :data-testid="`tab-${tab.key}`"
       @click="select(tab.key)"
     >
-      <span v-if="tab.icon" class="at-tab-icon">{{ tab.icon }}</span>
+      <AppIcon v-if="tab.icon" :name="tab.icon" :size="16" class="at-tab-icon" />
       <span class="at-tab-label">{{ tab.label }}</span>
     </button>
   </div>
@@ -74,7 +76,7 @@ function select(key: string): void {
 }
 
 .at-tab-icon {
-  font-size: var(--font-size-base);
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
 }
 </style>

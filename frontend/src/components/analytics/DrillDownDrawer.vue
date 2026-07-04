@@ -81,6 +81,11 @@ function close(): void {
             >✕</button>
           </div>
 
+          <!-- RAO-P2-065 #15: opcjonalny slot toolbar (np. pasek wyszukiwania w ArchiveView) -->
+          <div v-if="$slots.toolbar" class="drill-toolbar" data-testid="drill-toolbar">
+            <slot name="toolbar"></slot>
+          </div>
+
           <!-- Body -->
           <div class="drill-body">
             <!-- Loading -->
@@ -199,6 +204,13 @@ function close(): void {
   flex: 1;
   overflow: auto;
   padding: var(--spacing-lg) var(--spacing-5);
+}
+
+/* RAO-P2-065 #15: toolbar (slot między header a body) */
+.drill-toolbar {
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-light);
 }
 
 /* Skeleton */

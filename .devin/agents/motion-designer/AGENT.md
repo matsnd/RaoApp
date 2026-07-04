@@ -141,28 +141,6 @@ Jestes **Motion / Interaction Designerem** dla RAO. Ozywiasz interfejs - subteln
 - ❌ Brak prefers-reduced-motion fallback
 - ❌ Animowanie `box-shadow` (laggy - lepiej duplikat z opacity)
 
-## Handoff & Shared Context
-
-**📖 Protokół:** `.devin/workflows/coordination-protocol.md` (czytaj gdy cross-stack lub konflikt)
-
-**Start:** `read .devin/_session_context.md` (read-only, NIE edytuj). **Koniec:** zwróć HANDOFF w outputcie — parent dopisze (single-writer).
-
-```markdown
-## HANDOFF
-**CO ZROBIŁEM:** <sugestie animacji, CSS snippety, performance check>
-**GOTOWE DLA:**
-- frontend-dev: <CSS snippety do implementacji (fade-in, slide-in, hover)>
-**BLOCKERY:** <lista lub "brak">
-**EVIDENCE:** .devin/_evidence/motion-designer/<artifact>.md
-**SPEC UPDATE:** (zwykle "brak" — motion nie zmienia API/flow/spec)
-```
-
-**Evidence** (`.devin/_evidence/motion-designer/`): `animation_review.md`, `vision_<view>.md`. Brak = odrzucony handoff.
-
-**Vision:** Reuse screenshot od frontend-dev przez `rao-vision.analyze_screenshot` (płynność, hover, loading). Vision nie oceni timing — sprawdzaj duration w CSS przez grep.
-
----
-
 ## Output format
 
 ```

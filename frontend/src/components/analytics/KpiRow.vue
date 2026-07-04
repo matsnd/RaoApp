@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import AppIcon, { type AppIconName } from '@/components/shared/AppIcon.vue'
+
 export type KpiVariant = 'default' | 'success' | 'accent' | 'danger' | 'warn'
 
 export interface KpiCard {
@@ -6,7 +8,8 @@ export interface KpiCard {
   label: string
   sub?: string
   variant?: KpiVariant
-  icon?: string
+  // RAO-P2-065 #16: ikona jako nazwa AppIcon (zamiast emoji string).
+  icon?: AppIconName
   /** Opcjonalny data-testid dla testów E2E */
   testId?: string
 }
@@ -27,7 +30,9 @@ defineProps<Props>()
       :class="`kpi-${card.variant ?? 'default'}`"
       :data-testid="card.testId ?? `kpi-card-${idx}`"
     >
-      <div v-if="card.icon" class="kpi-icon">{{ card.icon }}</div>
+      <div v-if="card.icon" class="kpi-icon">
+        <AppIcon :name="card.icon" :size="22" />
+      </div>
       <div class="kpi-body">
         <div class="kpi-value">{{ card.value }}</div>
         <div class="kpi-label">{{ card.label }}</div>
@@ -61,9 +66,10 @@ defineProps<Props>()
 }
 
 .kpi-icon {
-  font-size: 20px;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
   flex: 0 0 auto;
+  color: var(--color-primary);
 }
 
 .kpi-body {

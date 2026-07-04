@@ -105,39 +105,6 @@ cd e2e && npx playwright test tests/01-login.spec.ts
 
 ## Konwencje kodu
 
-### ⚠️ MCP tools — UŻYWAJ NAPRZÓD grep/read (KRYTYCZNE)
-
-**Zasada:** Zanim użyjesz `grep`/`read`/`findstr` do szukania kodu, **SPRÓBUJ MCP POLECEŃ**. Graf kodu (9548 węzłów, 27500 krawędzi) jest szybszy i dokładniejszy niż tekstowe wyszukiwanie.
-
-| Co chcesz zrobić | NIE używaj | UŻYJ MCP |
-|------------------|-----------|----------|
-| Znaleźć funkcję/klasę/route | `grep "function_name"` | `codebase-memory.search_graph` z `query="..."` |
-| Sprawdzić kto wywołuje funkcję | `grep "func_name"` × 5 plików | `codebase-memory.trace_path` z `direction=inbound` |
-| Sprawdzić jakie funkcje funkcja wywołuje | czytanie pliku linia po linii | `codebase-memory.trace_path` z `direction=outbound` |
-| Znaleźć wzorce semantyczne ("send email", "notify") | `grep -r "send\|email\|notify"` | `codebase-memory.search_graph` z `semantic_query=["send","email","notify"]` |
-| Sprawdzić blast radius zmiany | ręczne grepowanie zależności | `depwire.impact_analysis` na symbolu |
-| Sprawdzić strukturę plików / hotspots | `ls` + czytanie | `depwire.get_architecture_summary` |
-| Sprawdzić schema tabeli | `DESCRIBE` w CLI | `mariadb.get_table_schema` |
-| Sprawdzić dane / debug | `mariadb` CLI | `mariadb.execute_sql` |
-| EXPLAIN zapytania | CLI | `mariadb.execute_sql` z `EXPLAIN SELECT ...` |
-| Znaleźć N+1 / hot paths | ręczne czytanie pętli | `codebase-memory.query_graph` z `MATCH (f:Function) WHERE f.linear_scan_in_loop >= 1 RETURN f` |
-
-**Kiedy MCP NIE jest odpowiednie (użyj grep/read):**
-- Szukanie string literal (np. `"TODO"`, `"FIXME"`)
-- Sprawdzanie dokładnej zawartości pliku (wtedy `read`)
-- Proste regex na 1-2 plikach
-- Sprawdzanie czy plik istnieje (wtedy `find_file_by_name`)
-
-**Workflow zalecany (zawsze w tej kolejności):**
-1. `codebase-memory.search_graph` — znajdź symbol/funkcję
-2. `codebase-memory.trace_path` — zobacz zależności (callers/callees)
-3. `depwire.impact_analysis` — blast radius przed zmianą
-4. `mariadb.get_table_schema` — sprawdź DB schema
-5. `read` — dopiero teraz czytaj konkretny plik dla szczegółów
-6. `edit` — modyfikuj
-
-**Self-check:** Jeśli użyłeś `grep` 3+ razy w jednym zadaniu — ZATRZYMAJ SIĘ i przepuść przez `codebase-memory.search_graph`. Graf jest szybszy.
-
 ### Backend (FastAPI)
 
 Każdy moduł `backend/<feature>/`:
@@ -249,7 +216,6 @@ Po zakończeniu zadania sprawdź `git diff --stat spec/core/` — pusty diff prz
 6. **Po każdej zmianie kodu → smoke `e2e/tests/01-login.spec.ts`** (najszybsza ochrona przed regresją)
 7. **Port zajęty?** Użyj kolejnego wolnego (8001, 5174). NIGDY `kill-port`/`pkill`/`taskkill` cudzych procesów. Po zmianie portu backendu zaktualizuj `VITE_API_URL` w `frontend/.env`.
 8. **Sekrety w `.env`**, nigdy w kodzie. `.env` jest w `.gitignore`. Szablon: `.env.example`.
-9. **Koordynacja między agentami** — w trybie software-house (`/software-house`), używaj **Coordination Protocol** z `.devin/workflows/coordination-protocol.md` (shared context, handoff, review chain, conflict hierarchy, evidence). Patrz sekcję "Handoff & Shared Context" w swoim `.devin/agents/<rola>/AGENT.md`.
 
 ## Lokalne commity — śledzenie postępów
 

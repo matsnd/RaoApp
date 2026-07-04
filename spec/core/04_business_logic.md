@@ -562,13 +562,6 @@ def calculate_remaining(
 > Migracja legacy `umowa2.oplaty → contract_service_fees` wykonana historycznie (migrate.py step5b,
 > 3396 wierszy → archive_contract_service_fees przez P2-062). Artykuły usług id 14137-14141
 > (Tankowanie, Transport, Przestój, Czyszczenie 1, Czyszczenie 2).
->
-> **RAO-P2-059 Faza 1 (2026-07-04):** Standalone skrypt `backend/migrate_service_fees.py` —
-> idempotentny parser `umowa2.oplaty` → `contract_service_fees` z auto-utworzeniem artykułów-usług
-> (is_service=1) i linkowaniem `article_id` + `default_price`. Skrypt jest narzędziem do fresh
-> migracji (gdy `umowa2` istnieje po import dumpa); na aktualnej bazie jest no-op (tabela DROPnięta).
-> UI: `ContractFormView.vue` — wyszukiwalny modal ArticlePicker dla usług (is_service=1) zamiast
-> bare `<select>`; auto-fill name + amount_from + default_price po wyborze.
 
 ```python
 async def resolve_article_name_for_template(
@@ -1065,75 +1058,6 @@ def generate_fees_text_for_pdf(fees: list) -> str:
     return "\n".join(lines)
 ```
 
-## 14a. Parser `umowa2.oplaty` → `contract_service_fees` (RAO-P2-059 Faza 1)
-
-Standalone skrypt `backend/migrate_service_fees.py` parsuje legacy free-text `umowa2.oplaty`
-(multiline VARCHAR(1000)) na ustrukturyzowane wiersze `contract_service_fees` z linkowaniem
-`article_id` do artykułów-usług (`is_service=1`).
-
-**Algorytm (best-effort, forward-only, idempotentny):**
-
-1. **Guard:** Jeśli tabela `umowa2` nie istnieje → exit 0 (migracja już wykonana / brak dumpa).
-2. **Read:** `SELECT id, OPLATY FROM umowa2 WHERE OPLATY IS NOT NULL AND TRIM(OPLATY) != ''`
-3. **Parse** każdej linii blobu przez regex w kolejności priorytetu:
-   - Strip list-prefix (`1. `, `- `, `2) `)
-   - Skip pustych i metadanych (`-zedytowane`, `czas trwania`, `opłata w gotówce`)
-   - Jeśli `:` w linii → split name:value, parsuj value kwotowo
-   - Jeśli bez `:` → dopasuj `Name X zł/unit` (z jednostką lub bez)
-   - Formaty kwot rozpoznawane (regex `_A = [\d]+(?:\s[\d]{3})*(?:[,.][\d]+)?`):
-     - `Dostawa: 100 zł - 200 zł/odbiór` → range + desc
-     - `50 zł/h - 80 zł/h` → hourly range
-     - `500 zł/dzień` → per-unit
-     - `100 zł - 200 zł` → range
-     - `50 zł (po powrocie)` → single + desc
-     - `280 zł` → single
-     - `Transport 280,00 zł` → no-colon + amount (fallback)
-   - Nieparsowane linie → log WARN (NIE crashują migracji)
-4. **Article link** per fee: find by name (case-insensitive, prefer `is_service=1`),
-   else prefix LIKE, else CREATE (`is_service=1, article_type='usluga_dodatkowa'`).
-5. **UPSERT** po `(contract_id, sort_order)`: SELECT existing → UPDATE / INSERT.
-   `article_id` + `default_price = COALESCE(amount_from, amount_to)`.
-6. **Idempotencja:** re-run bezpieczny (UPDATE istniejących, INSERT nowych, brak DROP/DELETE).
-   Artykuły tworzone IF NOT EXISTS po nazwie.
-
-**Użycie:**
-```bash
-python migrate_service_fees.py             # pełna migracja (LIVE)
-python migrate_service_fees.py --dry-run   # statystyki bez zapisu
-python migrate_service_fees.py --verify    # weryfikacja stanu (read-only)
-```
-
-**UI ArticlePicker dla usług (`ContractFormView.vue`):**
-- NEW fee row: przycisk `⌕` otwiera wyszukiwalny modal z artykułami `is_service=1`
-- Auto-fill po wyborze: `name` ← `article.name`, `amount_from` ← `article.replacement_value`,
-  `default_price` ← snapshot ceny, `article_id` ← link
-- Przycisk `✕` odłącza artykuł (czyści article_id + default_price)
-- Search: debounced 250ms, API `/articles?search=...&is_service=true`, fallback lokalny
-
-## 14b. Opcje wydruku PDF umowy (RAO-P2-064)
-
-Formularz umowy ma 2 flagi kontrolujące wydruk PDF (`contract.html` typ S, `contract_u.html` typ U):
-
-| Flaga | Default | Zachowanie w PDF |
-|-------|---------|------------------|
-| `hide_delivery_address` | FALSE | ON: label "Adres dostawy:" + puste pole do wpisu ręcznego (klient wpisze na wydruku). OFF: pełny adres z `contract.delivery_address` (jeśli niepusty po trim). |
-| `signatures_on_page1` | FALSE | ON: sekcja SIGNATURES na str 1 (podpisy Wynajmującego + Najemcy) + podpisy na str 2 (OWN, zawsze). OFF: brak podpisów na str 1, tylko na str 2 (zgodnie z legacy WinForms). |
-
-**`report_without_data` — DEPRECATED (martwe pole):**
-- DB comment: "PZ bez danych" = osobny raport (Protokół ZO bez danych), osiągalny przez context menu (`report_type=protocol_zo_nodata`).
-- Checkbox USUNIĘTY z `ContractFormView.vue` (RAO-P2-064). Pole zostaje w DB dla compat migracji, ale nie jest edytowalne z UI.
-- NIE wpływa na wydruk umowy (test pytest potwierdza NO-OP).
-
-**Implementacja w szablonach Jinja:**
-```jinja
-{# hide_delivery_address #}
-{% if contract.hide_delivery_address %}Adres dostawy: <span style="border-bottom:1px solid #888;...">&nbsp;</span><br>
-{% elif contract.delivery_address and contract.delivery_address.strip() %}Adres dostawy: {{ contract.delivery_address }}<br>{% endif %}
-
-{# signatures_on_page1 #}
-{% if contract.signatures_on_page1 %}<table class="sigs">...</table>{% endif %}
-```
-
 ## 15. Statusy umowy (RAO-P2-022)
 
 Umowa NIE posiada kolumny `status` (enum). Stan jest obliczany deterministycznie z `is_settled` + `date_to` + dziś.
@@ -1371,4 +1295,91 @@ async def auto_fill_city_by_postal_code(
     result = await db.execute(
         select(PostalCode.city).where(PostalCode.code == postal_code)
     )
-    city = re
+    city = result.scalar_one_or_none()
+
+    return city
+```
+
+## Demo data lifecycle (RAO-P2-061 + RAO-P2-067)
+
+**Cel:** Zapewnić spójne, realistyczne dane demo do showcase statystyk, lokalizacji i integracji Fakturownia.
+
+**Orchestrator `migrate_all.py`:**
+
+```bash
+cd backend
+python migrate_all.py --steps recreate_db,import_dump,seed_demo_data,seed_fa_invoices,verify
+python migrate_all.py --list  # wyświetla dostępne kroki
+```
+
+**Kroki (idempotentne, re-run safe):**
+1. `recreate_db` — DROP + CREATE database (czysty start)
+2. `import_dump` — import legacy dump (jeśli dostępny)
+3. `seed_demo_data` — umowy, pozycje, kontrahenci, artykuły, warunki, usługi dodatkowe, `delivery_address`
+4. `seed_fa_invoices` — faktury FA (wymaga `FAKTUROWNIA_API_TOKEN` w env)
+5. `verify` — sprawdź spójność (count umów, pozycji, rozliczeń, faktur FA, lokalizacji)
+
+**Dane demo (po P2-067):**
+- **Umowy:** 24 rozliczone (2024-10 → 2026-07) + 12 FA-pending (2026, nierozliczone)
+- **`delivery_address`:** wszystkie umowy mają realistyczne adresy (10 miast PL z PNA: Warszawa, Gdańsk, Kraków, Wrocław, Poznań, Łódź, Lublin, Katowice, Bydgoszcz, Szczecin)
+- **Faktury FA:** 31 (19 backfill + 12 FA-pending czekających na "Pobierz z Fakturowni")
+- **Konfiguracja:** default service fee presets (S/U), dane firmy, warunki rozliczeń
+
+**FA-pending flow (demo "Pobierz z Fakturowni"):**
+1. `seed_demo_data.py` tworzy umowę z `is_settled=0` (brak `contract_settlements`)
+2. `seed_fa_invoices.py` tworzy fakturę w FA z `oid=contract.number` (bez tworzenia settlements)
+3. User w UI klika "Pobierz z Fakturowni" → sync pobiera fakturę → tworzy `contract_settlements` z `source='fakturownia'`
+
+**Security:** `FAKTUROWNIA_API_TOKEN` czytane z env (brak hardcoded w kodzie). Brak tokenu → error z instrukcją.
+
+**Cleanup po prezentacji:**
+```bash
+mariadb-dump rao_new > backup_pre_wipe.sql
+sudo mariadb -e "DROP DATABASE rao_new; CREATE DATABASE rao_new CHARACTER SET utf8mb4 COLLATE utf8mb4_polish_ci;"
+# Re-run migrate.py (legacy migration od zera) lub migrate_all.py
+```
+
+## Predefiniowane cenniki kaskadowe + pełna konfiguracja (RAO-P2-068)
+
+**Cel:** User klika maszynę i ma gotowy cennik kaskadowy (1-3 dni, 4-16 dni, powyżej 16 dni) — nie musi ręcznie wpisywać każdego warunku rozliczenia. Jak w starej aplikacji WinForms: "rozliczenie = cennik".
+
+**CENNIKI_KASKADOWE per maszyna** (w `seed_demo_data.py`):
+
+Każda maszyna ma 3 warunki kaskadowe:
+- Warunek 1: `rate1` = stawka krótkoterminowa, `period_count=3` (1-3 dni)
+- Warunek 2: `rate1` = stawka średnioterminowa, `period_count=16` (4-16 dni)
+- Warunek 3: `rate2` = stawka długoterminowa, `period_count=None` (powyżej 16 dni)
+
+| Maszyna | 1-3 dni | 4-16 dni | powyżej 16 dni |
+|---------|---------|----------|----------------|
+| Koparka JCB 8035 | 900 zł/doba | 750 zł/doba | 600 zł/doba |
+| Ładowarka Manuscop 6.36 | 720 zł/doba | 600 zł/doba | 480 zł/doba |
+| Podnośnik Haulotte HA16PX | 500 zł/doba | 420 zł/doba | 340 zł/doba |
+| Spychacz Wirtgen W100CFi | 1300 zł/doba | 1100 zł/doba | 900 zł/doba |
+| Zagęszczarka Ammann APF 15/50 | 180 zł/doba | 150 zł/doba | 120 zł/doba |
+
+**STAWKA_EFEKTYWNA** (do rozliczeń): stawka średnioterminowa (4-16 dni) — typowy wynajem.
+
+**Zestawy usług dodatkowych (6 presetów):**
+
+| Preset | Typ | Default | Szablonów | Scenariusz |
+|--------|-----|---------|-----------|------------|
+| Cennik usług — najem 2026 | S | ✓ | 6 | Standardowy najem (transport, czyszczenie, tankowanie, przestój, serwis) |
+| Cennik usług — usługa z operatorem 2026 | U | ✓ | 3 | Praca z operatorem (transport, operator, tankowanie) |
+| Kontrakt długoterminowy (rabat) | S | – | 4 | Umowy 30+ dni (obniżone stawki) |
+| Weekend / krótkoterminowy (1-3 dni) | S | – | 3 | Wynajem weekendowy (wyższy transport) |
+| Kontrakt zagraniczny (export) | S | – | 4 | Umowy zagraniczne (transport międzynarodowy) |
+| Usługa z operatorem — premium | U | – | 4 | Premium: operator + serwis 24/7 + paliwo w cenie |
+
+**ServiceFeeTemplateItem** (relacja N:M preset → artykuł): 22 relacji — frontend pokazuje konkretne artykuły w pickerze presetów.
+
+**Rate types (6 typów):**
+- Stawka dniowa, godzinowa, km (istniejące)
+- Stawka tygodniowa, miesięczna, jednorazowa (nowe — ułatwiają tworzenie umów)
+
+**Konfiguracja firmy** (pełne dane w `company` table):
+- NIP: 1234563218, REGON: 012345678
+- Adres: ul. Przykładowa 1, 00-001 Warszawa
+- Bank: PKO BP, konto: PL 12 1020 1026 0000 1234 5678 9012
+- header_text do PDF: pełne dane firmy (NIP, konto, adres)
+- numbering_start=1, increment_step=50

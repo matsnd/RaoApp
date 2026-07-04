@@ -51,7 +51,7 @@ graph TD
 | `Form2.cs` (Umowy tab) | `/dashboard/contracts` | Sidebar + content |
 | `Form2.cs` (Kontrahenci tab) | `/dashboard/contractors` | Sidebar + content |
 | `Form2.cs` (Artykuły tab) | `/dashboard/articles` | Sidebar + content |
-| `Form2.cs` (Raporty tab) | `/dashboard/reports` | Sidebar + content |
+| `Form2.cs` (Raporty tab) | `/analytics` (merge Stats+Reports, RAO-P2-063) | Sidebar + content |
 | `FormK.cs` | `/contractors/:id/edit` lub `/new` | Pełna strona (replace content) |
 | `FormU4.cs` | `/contracts/:id/edit` lub `/new` | Pełna strona (replace content) |
 | `FormA.cs` | Dialog (modal) | Overlay na Dashboard |
@@ -68,7 +68,7 @@ graph TD
 | `/reset-password` | `ResetPassword` | `ResetPasswordView.vue` | nie | Reset hasła z tokenu (query: `?token=...`) |
 | `/` | — | — | tak | Redirect → `/home` |
 | `/home` | `Home` | `HomeView.vue` | tak | KPI Dashboard, quick actions |
-| `/dashboard/:section` | `Dashboard` | `DashboardView.vue` | tak | Listy (contracts/contractors/articles/rts) |
+| `/dashboard/:section` | `Dashboard` | `DashboardView.vue` | tak | Listy (contracts/contractors/articles) — `reports` usunięte (merge do `/analytics`) |
 | `/contractors/new` | `ContractorNew` | `ContractorFormView.vue` | tak | Nowy kontrahent |
 | `/contractors/:id/edit` | `ContractorEdit` | `ContractorFormView.vue` | tak | Edycja kontrahenta |
 | `/articles/new` | `ArticleNew` | `ArticleFormView.vue` | tak | Nowy artykuł |
@@ -76,7 +76,10 @@ graph TD
 | `/contracts/new` | `ContractNew` | `ContractFormView.vue` | tak | Nowa umowa |
 | `/contracts/:id/edit` | `ContractEdit` | `ContractFormView.vue` | tak | Edycja umowy |
 | `/worker` | `Worker` | `WorkerView.vue` | tak | Pulpit operacyjny (kończące, dostawy) |
-| `/stats`StaiS pw` | `SSgisew.vue` | tak | Konfiguracja firmy/szablonów/handlowców |0
+| `/stats` | — | redirect → `/analytics` | tak | Backward compat (bookmarki) — RAO-P2-063 |
+| `/analytics` | `Analytics` | `AnalyticsView.vue` | tak | Statystyki (Flota teraz + Wynajem w okresie + Eksplorator) — merge Stats+Reports (RAO-P2-063) |
+| `/commissions` | `Commissions` | `CommissionView.vue` | tak | Raporty prowizji handlowców |
+| `/settings` | `Settings` | `SettingsView.vue` | tak | Konfiguracja firmy/szablonów/handlowców |
 | `/password` | `ChangePassword` | `ChangePasswordView.vue` | tak | Zmiana własnego hasła |
 | `/admin` | `Admin` | `AdminView.vue` | tak + admin | Panel administracyjny (CRUD użytkowników) |
 
@@ -85,31 +88,9 @@ graph TD
 ### 1. Powrót z formularza
 Po zapisie kontrahenta lub umowy → `router.push({ name: 'Dashboard', params: { section: previousSection } })`
 
-**RAO-P2-070 Faza 5 — przycisk "← Wstecz":** w `ContractFormView`, `ContractorFormView`, `ArticleFormView`
-(toolbar, lewa strona) wywołuje `goBack()`:
-```ts
-function goBack() {
-  if (window.history.length > 1) router.back()
-  else router.push('/dashboard/<section>')   // fallback gdy brak historii
-}
-```
-Fallbacki: contracts → `/dashboard/contracts`, contractors → `/dashboard/contractors`, articles → `/dashboard/articles`.
-
 ### 2. Otwarcie umowy z kontekstu kontrahenta
 Kliknięcie "Dodaj umowę" w context menu kontrahentów → `router.push({ name: 'ContractNew', query: { contractor_id: selectedItem.id } })`
 Formularz umowy automatycznie wypełnia kontrahenta.
-
-### 2b. RAO-P2-070 Faza 2 — Cross-view drilldowny
-| Skąd | Klik | Dokąd | Mechanizm |
-|------|------|-------|-----------|
-| Dashboard `/contracts` | kolumna "Kontrahent" (link) | `/contractors/:contractorId/edit` | `goToContractor(c.contractor_id)` |
-| Dashboard `/contracts` | double-click wiersz | `/contracts/:id/edit` | `editContract(c.id)` (istniejące) |
-| Dashboard `/contractors` | "Aktywna umowa" (link) | `/dashboard/contracts?search=<numer>` | `goToContractByNumber(c.active_contract_number)` — filtr po numerze |
-| Dashboard `/articles` | kolumna "Nazwa" (link) | `/analytics?article=<id>` | `goToArticleAnalytics(a.id)` |
-| ContractFormView | "✎ Edytuj" obok kontrahenta | `/contractors/:contractorId/edit` | `goToContractorEdit()` |
-| AnalyticsView | `?article=<id>` (query) | auto-otwiera DrillDownDrawer `machine` | `onMounted` czyta `route.query.article`, pobiera nazwę przez `articleStore.fetchOne`, wywołuje `openDrillDown('machine', id, name, ...)` |
-
-Linki drilldown renderowane są z klasą `.drilldown-link` (kolor `--color-primary`, przerywane podkreślenie, hover → ciągłe).
 
 ### 3. Kalendarz
 Kliknięcie na dzień w kalendarzu → filtruje listę umów do tych z `data_od <= dzień AND data_do >= dzień`.
@@ -127,26 +108,9 @@ Token wygasły → refresh lub redirect do `/login`.
 ### 6. Sortowanie
 Kliknięcie nagłówka kolumny w DataGrid → sortowanie ASC/DESC (client-side).
 Domyślne sortowanie:
-- Umowy: po `date_from` DESC (najnowsze na górze) — RAO-P2-070 Faza 3
+- Umowy: po `number` DESC (najnowsze na górze)
 - Kontrahenci: po `name` ASC
 - Artykuły: po `name` ASC
-
-**RAO-P2-070 Faza 3 — wskaźnik sortowania:** aktywna kolumna pokazuje `▲` (ASC) / `▼` (DESC)
-obok nagłówka (klasa `.sort-indicator`, kolor `--color-primary`). Nagłówki sortowalne
-mają klasę `.th-sortable` (cursor: pointer, hover → `--color-primary`).
-
-Kolumny sortowalne w DashboardView:
-- `/contracts`: Numer, Kontrahent, Data od, Data do, Handlowiec
-- `/contractors`: Nazwa, NIP, Miasto
-- `/articles`: Nazwa, Nr wew., Nr rej., Marka
-
-### 6b. RAO-P2-070 Faza 4 — Filtry (DashboardView `/contracts`)
-Poza istniejącymi filtrami (search, typ umowy, status rozliczenia, data od/do) dodano client-side:
-- **Handlowiec** — dropdown (`salespersonFilter`), opcje z `settingsStore.salespeople`, filtruje po `salesperson_name`
-- **Miasto** — text input (`cityFilter`), filtruje po `c.city` (case-insensitive, contains)
-
-Filtry client-side działają na załadowanej stronie (nie wywołują backendu). Lista wyników
-przechodzi przez `sortedFilteredContracts` (computed: filtry → sortowanie).
 
 ### 7. Wydruki (PDF)
 W WinForms: Crystal Reports → window dialog.

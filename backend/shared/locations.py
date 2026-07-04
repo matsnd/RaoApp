@@ -16,6 +16,7 @@ Public API:
 """
 from collections import defaultdict
 from decimal import Decimal
+import re
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -53,14 +54,15 @@ async def aggregate_by_pna(
     if not contract_ids:
         return []
 
-    # Pobierz contracts.city + postal_code + postal_code_id (FK) + delivery_address (fallback city)
+    # Pobierz contracts.city + postal_code + postal_code_id (FK)
+    # RAO-P2-065 bug #9: pobierz też delivery_address jako fallback city
     loc_q = await db.execute(
         select(
             Contract.id,
             Contract.city,
             Contract.postal_code,
             Contract.postal_code_id,
-            Contract.delivery_address,  # RAO-P2-065 #9: fallback city gdy contracts.city NULL
+            Contract.delivery_address,
         ).where(Contract.id.in_(contract_ids))
     )
     contract_loc = {
@@ -118,19 +120,6 @@ async def aggregate_by_pna(
             continue
 
         city = (loc["city"] or "").strip()
-        # RAO-P2-065 #9: fallback — gdy contracts.city NULL, spróbuj wyciągnąć miasto z delivery_address
-        # (delivery_address często zawiera "ul. X, 00-001 Miasto" — bierzemy ostatni segment po przecinku)
-        if not city and loc.get("delivery_address"):
-            addr = loc["delivery_address"].strip()
-            # Heurystyka: ostatni segment po przecinku, obcięty o kod pocztowy (XX-XXX)
-            parts = [p.strip() for p in addr.split(",") if p.strip()]
-            if parts:
-                last = parts[-1]
-                # Usuń kod pocztowy z początku segmentu (np. "00-001 Warszawa" → "Warszawa")
-                import re
-                last = re.sub(r"^\d{2}-\d{3}\s+", "", last).strip()
-                if last and not last.isdigit():
-                    city = last
         pna_id = loc["pna_id"]
         pna_ref = pna_dict.get(pna_id) if pna_id else None
 
@@ -146,7 +135,18 @@ async def aggregate_by_pna(
             # Brak FK — fallback na contracts.postal_code (legacy) lub bucket NO_PNA
             postal_code = (loc["pna"] or "").strip() or None
             if not city:
-                city = NO_PNA_BUCKET
+                # RAO-P2-065 bug #9: fallback city z delivery_address (regex)
+                # ekstrahuj miasto: obetnij kod pocztowy (XX-XXX) i resztę adresu
+                da = loc.get("delivery_address") or ""
+                if da:
+                    # usuń kod pocztowy i wszystko po przecinku/ulica
+                    extracted = re.sub(r"\b\d{2}-\d{3}\b", "", da)
+                    # weź pierwszą część przed przecinkiem (często "Miasto, ulica...")
+                    extracted = extracted.split(",")[0].strip()
+                    if extracted:
+                        city = extracted
+                if not city:
+                    city = NO_PNA_BUCKET
             gmina = None
             powiat = None
             wojewodztwo = None

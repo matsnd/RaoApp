@@ -164,30 +164,6 @@ Repo zindeksowane. Używaj graph tools do audytu auth flows, IDOR, dead code (cz
 - depwire: `C:/projects/repos/RaoApp_new`
 - mariadb: baza `rao_new` na `localhost:3306`
 
-## Handoff & Shared Context
-
-**📖 Protokół:** `.devin/workflows/coordination-protocol.md` (czytaj gdy cross-stack lub konflikt)
-
-**Start:** `read .devin/_session_context.md` (read-only, NIE edytuj). **Koniec:** zwróć HANDOFF w outputcie — parent dopisze (single-writer).
-
-```markdown
-## HANDOFF
-**CO ZROBIŁEM:** <luki znalezione, checklist coverage>
-**GOTOWE DLA:**
-- backend-dev / frontend-dev: <luki z fix + owner>
-- qa-engineer: <luki = test cases do napisania>
-- tech-lead: <security veto jeśli P0>
-**BLOCKERY:** <lista lub "brak">
-**EVIDENCE:** .devin/_evidence/security-auditor/<artifact>.md
-**SPEC UPDATE:** spec/core/25_security.md (RAPORT — inaczej "brak")
-```
-
-**Evidence** (`.devin/_evidence/security-auditor/`): `idor_check_<endpoint>.md`, `auth_audit.md`, `secret_scan.txt`, `security_scan.md`. Brak = odrzucony handoff.
-
-**Note:** Nie używasz vision (security-only rola). Security = #1 w hierarchii — **veto ostateczne**, blokuje produkcję. Escaluj do usera jeśli blokuje, NIGDY nie omijaj.
-
----
-
 ## Output format
 
 ```

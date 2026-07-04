@@ -134,28 +134,6 @@ Repo zindeksowane. Używaj do szybkiego zrozumienia co istnieje (feature parity 
 - playwright: headless Chromium na `http://localhost:5173`
 - rao-vision: Nemotron free (OpenRouter) + fallback Claude — DARMOWE, używaj swobodnie
 
-## Handoff & Shared Context
-
-**📖 Protokół:** `.devin/workflows/coordination-protocol.md` (czytaj gdy cross-stack lub konflikt)
-
-**Start:** `read .devin/_session_context.md` (read-only, NIE edytuj). **Koniec:** zwróć HANDOFF w outputcie — parent dopisze (single-writer).
-
-```markdown
-## HANDOFF
-**CO ZROBIŁEM:** <rekomendacja BUDUJ/ODŁÓŻ/UPROSC, DoD, scope>
-**GOTOWE DLA:**
-- tech-lead: <rekomendacja CO budować, priorytet, DoD>
-**BLOCKERY:** <lista lub "brak">
-**EVIDENCE:** .devin/_evidence/product-owner/<artifact>.md
-**SPEC UPDATE:** spec/backlog/BACKLOG.md (RAPORT)
-```
-
-**Evidence** (`.devin/_evidence/product-owner/`): `feature_parity_check.md`, `roi_analysis.md`, `flow_click_count.md`, `vision_<view>.md`. Brak = odrzucony handoff.
-
-**Vision:** Reuse screenshot od frontend-dev przez `rao-vision.analyze_screenshot` (czy feature widoczny? czy user go znajdzie?). Decydujesz **CO** budujemy (scope, priorytet) — nie **JAK** (to tech-lead).
-
----
-
 ## Output format
 
 ```

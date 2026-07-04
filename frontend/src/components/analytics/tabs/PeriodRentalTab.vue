@@ -7,12 +7,14 @@ import {
   type ServiceFeeItem,
   type LocationStatItem,
   type PositionStatItem,
+  type CategoryStatItem,
 } from '@/stores/analytics'
 import KpiRow, { type KpiCard } from '@/components/analytics/KpiRow.vue'
 import AnalyticsTable, {
   type AnalyticsColumn,
   type AnalyticsRow,
 } from '@/components/analytics/AnalyticsTable.vue'
+import AppIcon, { type AppIconName } from '@/components/shared/AppIcon.vue'
 import StateMessage from '@/components/StateMessage.vue'
 import { useSort } from '@/composables/useSort'
 import { formatCurrency } from '@/utils/format'
@@ -67,6 +69,15 @@ const positionsColumns: AnalyticsColumn[] = [
   { key: 'times_billed', label: 'Razy', align: 'right', sortable: true },
 ]
 
+// RAO-P2-065 #6: kolumny dla sekcji "Kategorie" (agregat przychodu per kategoria).
+const categoriesColumns: AnalyticsColumn[] = [
+  { key: 'category_name', label: 'Kategoria', sortable: true },
+  { key: 'articles_count', label: 'Maszyn', align: 'right', sortable: true },
+  { key: 'rented_days', label: 'Dni', align: 'right', sortable: true },
+  { key: 'contracts_count', label: 'Umów', align: 'right', sortable: true },
+  { key: 'revenue', label: 'Przychód', align: 'right', sortable: true },
+]
+
 // ── Mapowanie danych na wiersze tabeli ───────────────────────────────────────
 const topMachinesRows = computed<AnalyticsRow[]>(() =>
   store.topMachines.map((m: TopMachineItem, idx: number) => ({
@@ -115,6 +126,20 @@ const positionsRows = computed<AnalyticsRow[]>(() =>
 
 const sortedPositionsRows = computed(() => positionsSort.sortedRows(positionsRows.value))
 
+// RAO-P2-065 #6: wiersze dla sekcji "Kategorie" (z /stats/by-category).
+const categoriesRows = computed<AnalyticsRow[]>(() =>
+  (store.byCategoryData?.items ?? []).map((c: CategoryStatItem) => ({
+    category_name: c.category_name,
+    articles_count: c.articles_count,
+    rented_days: c.rented_days,
+    contracts_count: c.contracts_count,
+    revenue: Number(c.revenue),
+  })),
+)
+
+const categoriesSort = useSort<AnalyticsRow>('revenue', 'desc')
+const sortedCategoriesRows = computed(() => categoriesSort.sortedRows(categoriesRows.value))
+
 // ── KPI ──────────────────────────────────────────────────────────────────────
 const kpiCards = computed<KpiCard[]>(() => {
   const s = store.summary
@@ -125,16 +150,17 @@ const kpiCards = computed<KpiCard[]>(() => {
     {
       value: formatCurrency(s.period_revenue),
       label: 'Przychód w okresie',
+      // RAO-P2-065 #11: backend zwraca "razem (rzecz.+szac.)" gdy oba źródła > 0.
       sub: s.revenue_source_label ?? '',
       variant: 'accent',
-      icon: '💰',
+      icon: 'dollar' as AppIconName,
       testId: 'kpi-period-revenue',
     },
     {
       value: s.contracts_in_period,
       label: 'Umów w okresie',
       sub: 'aktywnych umów',
-      icon: '📄',
+      icon: 'file' as AppIconName,
       testId: 'kpi-period-contracts',
     },
     {
@@ -142,7 +168,7 @@ const kpiCards = computed<KpiCard[]>(() => {
       label: 'Wynajętych teraz',
       sub: `z ${s.total_machines} maszyn`,
       variant: 'success',
-      icon: '🚜',
+      icon: 'tractor' as AppIconName,
       testId: 'kpi-period-rented',
     },
     {
@@ -150,7 +176,7 @@ const kpiCards = computed<KpiCard[]>(() => {
       label: 'Wykorzystanie',
       sub: 'floty teraz',
       variant: utilVariant,
-      icon: '📈',
+      icon: 'chart' as AppIconName,
       testId: 'kpi-period-util',
     },
   ]
@@ -159,7 +185,9 @@ const kpiCards = computed<KpiCard[]>(() => {
 function onMachineRowClick(row: AnalyticsRow): void {
   const id = Number(row.article_id)
   if (!Number.isFinite(id)) return
-  openDrillDown('machine', id, String(row.name))
+  // RAO-P2-065 #7: przekaż internal_number, by tytuł drawera zawierał nr wewnętrzny.
+  const internalNumber = row.internal_number ? String(row.internal_number) : null
+  openDrillDown('machine', id, String(row.name), internalNumber)
 }
 
 function onLocationRowClick(row: AnalyticsRow): void {
@@ -182,6 +210,8 @@ async function loadAll(): Promise<void> {
       store.fetchAdditionalFees(props.dateFrom, props.dateTo, props.filters.contractorId),
       store.fetchLocations(props.dateFrom, props.dateTo, props.filters),
       store.fetchPositions('all', props.dateFrom, props.dateTo, props.filters),
+      // RAO-P2-065 #6: agregat przychodu per kategoria (level=main).
+      store.fetchByCategory('main', props.dateFrom, props.dateTo, [], 'all'),
     ])
   } catch (e: any) {
     loadError.value = e?.response?.data?.detail || e?.message || 'Nie udalo sie pobrac statystyk'
@@ -229,7 +259,10 @@ watch(
 
       <!-- Top maszyny -->
       <div class="pr-section">
-        <div class="pr-section-title">🏆 Top maszyny po przychodzie ({{ topMachinesRows.length }})</div>
+        <div class="pr-section-title">
+          <AppIcon name="trophy" :size="16" class="pr-section-icon" />
+          Top maszyny po przychodzie ({{ topMachinesRows.length }})
+        </div>
         <AnalyticsTable
           :columns="topMachinesColumns"
           :rows="sortedTopMachinesRows"
@@ -246,9 +279,33 @@ watch(
         </AnalyticsTable>
       </div>
 
+      <!-- RAO-P2-065 #6: Kategorie — agregat przychodu per kategoria główna -->
+      <div class="pr-section">
+        <div class="pr-section-title">
+          <AppIcon name="layers" :size="16" class="pr-section-icon" />
+          Kategorie ({{ categoriesRows.length }})
+        </div>
+        <AnalyticsTable
+          :columns="categoriesColumns"
+          :rows="sortedCategoriesRows"
+          :sort-key="String(categoriesSort.sortKey.value)"
+          :sort-dir="categoriesSort.sortDir.value"
+          row-key="category_name"
+          :loading="store.loading"
+          data-testid="categories-table"
+          @sort="categoriesSort.toggleSort"
+        >
+          <template #cell-revenue="{ value }">{{ formatCurrency(value as number) }}</template>
+          <template #empty>Brak kategorii w wybranym okresie</template>
+        </AnalyticsTable>
+      </div>
+
       <!-- Dodatkowe opłaty -->
       <div class="pr-section">
-        <div class="pr-section-title">💰 Pozycje dodatkowe (usługi)</div>
+        <div class="pr-section-title">
+          <AppIcon name="dollar" :size="16" class="pr-section-icon" />
+          Pozycje dodatkowe (usługi)
+        </div>
         <AnalyticsTable
           :columns="feesColumns"
           :rows="feesRows"
@@ -264,7 +321,10 @@ watch(
 
       <!-- Lokalizacje -->
       <div class="pr-section">
-        <div class="pr-section-title">📍 Lokalizacje wynajmu</div>
+        <div class="pr-section-title">
+          <AppIcon name="map-pin" :size="16" class="pr-section-icon" />
+          Lokalizacje wynajmu
+        </div>
         <AnalyticsTable
           :columns="locationsColumns"
           :rows="locationsRows"
@@ -282,7 +342,10 @@ watch(
 
       <!-- Pozycje -->
       <div class="pr-section">
-        <div class="pr-section-title">📋 Pozycje umów</div>
+        <div class="pr-section-title">
+          <AppIcon name="file" :size="16" class="pr-section-icon" />
+          Pozycje umów
+        </div>
         <AnalyticsTable
           :columns="positionsColumns"
           :rows="sortedPositionsRows"
@@ -355,8 +418,15 @@ watch(
   gap: var(--spacing-sm);
 }
 .pr-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-heading);
+}
+.pr-section-icon {
+  color: var(--color-primary);
+  flex: 0 0 auto;
 }
 </style>

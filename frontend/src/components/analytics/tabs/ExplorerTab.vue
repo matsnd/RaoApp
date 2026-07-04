@@ -6,6 +6,7 @@ import AnalyticsTable, {
   type AnalyticsColumn,
   type AnalyticsRow,
 } from '@/components/analytics/AnalyticsTable.vue'
+import AppIcon from '@/components/shared/AppIcon.vue'
 import { useSort } from '@/composables/useSort'
 import { formatCurrency, formatDate } from '@/utils/format'
 
@@ -121,8 +122,15 @@ function onRowClick(row: AnalyticsRow): void {
       >
         <template #cell-date="{ value }">{{ formatDate(String(value)) }}</template>
         <template #cell-amount="{ value }">{{ formatCurrency(value as number) }}</template>
-        <template #cell-type_label="{ value }">
-          <span class="ex-type-badge">{{ value }}</span>
+        <template #cell-type_label="{ row, value }">
+          <span class="ex-type-badge" :data-type="String(row.type)">
+            <AppIcon
+              :name="row.type === 'service' ? 'wrench' : 'tractor'"
+              :size="14"
+              class="ex-type-icon"
+            />
+            {{ value }}
+          </span>
         </template>
         <template #empty>
           <template v-if="!hasSearched">Wpisz frazę i kliknij „Szukaj"</template>
@@ -209,11 +217,19 @@ function onRowClick(row: AnalyticsRow): void {
 }
 
 .ex-type-badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   padding: 2px var(--spacing-sm);
   background: var(--color-bg-light);
   border-radius: var(--border-radius-pill);
   font-size: var(--font-size-xs);
   color: var(--color-text-body);
+}
+.ex-type-icon {
+  color: var(--color-primary);
+}
+.ex-type-badge[data-type='service'] .ex-type-icon {
+  color: var(--color-warning);
 }
 </style>

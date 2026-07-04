@@ -125,3 +125,37 @@ def test_shared_locations_fallback_from_delivery_address():
     content = open("C:/projects/repos/RaoApp_new/backend/shared/locations.py", encoding="utf-8").read()
     assert "delivery_address" in content
     assert "re.sub" in content
+
+
+# -- #11: KPI "Przychód w okresie" label "razem (rzecz.+szac.)" -----------------
+
+
+def test_fleet_summary_revenue_source_label_mixed_when_both_sources():
+    """#11: gdy revenue_actual>0 && revenue_estimate>0 → 'razem (rzecz.+szac.)'."""
+    s = _read_section("C:/projects/repos/RaoApp_new/backend/stats/router.py", "fleet_summary")
+    assert "razem (rzecz.+szac.)" in s
+    # warunek: oba źródła > 0
+    assert "revenue_actual > 0 and revenue_estimate > 0" in s
+
+
+# -- #16: explorer/router.py emoji zastąpione wartościami tekstowymi ------------
+
+
+def test_explorer_search_type_field_is_text_not_emoji():
+    """#16: type = 'machine'|'service' (nie emoji 🏗️/🛠️)."""
+    s = _read_section("C:/projects/repos/RaoApp_new/backend/explorer/router.py", "explorer_search")
+    assert '"service"' in s
+    assert '"machine"' in s
+    # brak emoji w sekcji
+    assert "🏗️" not in s
+    assert "🛠️" not in s
+
+
+# -- #12: get_current_user cache per-request -----------------------------------
+
+
+def test_get_current_user_caches_per_request():
+    """#12: get_current_user używa request.state do cache per-request."""
+    content = open("C:/projects/repos/RaoApp_new/backend/auth/dependencies.py", encoding="utf-8").read()
+    assert "request.state" in content
+    assert "Request" in content

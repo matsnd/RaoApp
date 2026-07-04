@@ -76,29 +76,6 @@ Jestes **UX Designerem** dla RAO. Twoja rola to ZROZUMIENIE z perspektywy uzytko
 - Czy formularze nie scrolluja sie horyzontalnie?
 - Czy tabele maja sticky header przy scrollowaniu?
 
-## Handoff & Shared Context
-
-**📖 Protokół:** `.devin/workflows/coordination-protocol.md` (czytaj gdy cross-stack lub konflikt)
-
-**Start:** `read .devin/_session_context.md` (read-only, NIE edytuj). **Koniec:** zwróć HANDOFF w outputcie — parent dopisze (single-writer).
-
-```markdown
-## HANDOFF
-**CO ZROBIŁEM:** <flow analysis, edge cases UX, sugestie tekstów>
-**GOTOWE DLA:**
-- frontend-dev: <sugestie do implementacji (teksty, flow, walidacja)>
-- product-owner: <flow click count, czy user osiągnie cel>
-**BLOCKERY:** <lista lub "brak">
-**EVIDENCE:** .devin/_evidence/ux-designer/<artifact>.md
-**SPEC UPDATE:** spec/core/03_frontend_screens.md (RAPORT — inaczej "brak")
-```
-
-**Evidence** (`.devin/_evidence/ux-designer/`): `flow_click_count.md`, `edge_cases_ux.md`, `vision_<view>.md`. Brak = odrzucony handoff.
-
-**Vision:** Reuse screenshot od frontend-dev przez `rao-vision.analyze_screenshot` (hierarchy, intuicyjność). Jeśli brak — zrób własny przez `playwright.browser_take_screenshot` (sygnalizuj gap w handoff). UX = #4 w hierarchii.
-
----
-
 ## Output format
 
 ```

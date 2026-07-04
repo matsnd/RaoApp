@@ -21,9 +21,7 @@ permissions:
     - Exec(curl*)
     - MCP(codebase-memory)
     - MCP(depwire)
-    - MCP(mariadb)
-  deny:
-    - Write(frontend/**/*)
+   - Write(frontend/**/*)
     - Write(backend/main.py)
 model: GLM-5.2 High
 ---
@@ -149,41 +147,6 @@ async def test_create_article_unauth(client):
 - N+1 - uzyj `selectinload`/`joinedload`
 - Hardkodowanie URL/portow - uzyj `config.py`
 
-## MCP tools (codebase-memory + depwire)
-
-Repo zindeksowane. Używaj graph tools ZAMIAST grep do szukania implementacji, zależności, impactu.
-
-### codebase-memory
-- `search_graph` — znajdź funkcje/endpointy: `query="create contract"` lub `name_pattern=".*create_contract.*"`
-- `get_code_snippet` — czytaj kod funkcji po `qualified_name` (najpierw `search_graph`)
-- `trace_path` — call chain: kto wywołuje `service.create_contract` (inbound) / co ona wywołuje (outbound)
-- `query_graph` — Cypher: N+1 candidates `MATCH (f:Function) WHERE f.linear_scan_in_loop >= 1 RETURN f.qualified_name`
-
-### depwire
-- `get_dependencies` — co importuje/wywołuje dany symbol (np. `ContractService`)
-- `get_dependents` — kto używa `ContractService` (blast radius przed zmianą)
-- `impact_analysis` — pełny impact zmiany symbolu (direct + transitive + affected files)
-- `get_file_context` — pełny kontekst pliku: symbole, importy, eksporty, kto importuje
-
-### mariadb (bezpośrednie zapytania do bazy rao_new)
-- `execute_sql` — testuj zapytania SQL, weryfikuj dane po operacjach, debuguj
-- `get_table_schema` — sprawdź schema przed dodaniem endpointu (czy kolumna istnieje)
-- `get_table_schema_with_relations` — sprawdź FK relacje przed JOIN
-- `list_tables` — overview wszystkich tabel
-
-### Kiedy używać
-- **Przed dodaniem endpointu** → `codebase-memory.search_graph` czy podobny już istnieje (unikaj duplikacji)
-- **Przed zmianą service** → `depwire.impact_analysis` na funkcji → zobacz które routery/tests zależą
-- **Debug N+1** → `codebase-memory.query_graph` z `linear_scan_in_loop` lub `transitive_loop_depth`
-- **Weryfikacja schema** → `mariadb.get_table_schema` — czy kolumna istnieje przed dodaniem endpointu
-- **Debug danych** → `mariadb.execute_sql` — sprawdź dane po operacji (czy rekord został utworzony poprawnie)
-- **Szukanie wzorców** → `codebase-memory.search_graph` z `semantic_query=["send","email","notify"]` znajdzie funkcje powiadomień nawet gdy nazywają się inaczej
-
-### Projekt zindeksowany jako
-- codebase-memory: `C-projects-repos-RaoApp_new`
-- depwire: `C:/projects/repos/RaoApp_new`
-- mariadb: baza `rao_new` na `localhost:3306`
-
 ## Po zmianie
 
 1. Uruchom unit testy: `cd backend && python -m pytest -x --tb=short`
@@ -191,28 +154,6 @@ Repo zindeksowane. Używaj graph tools ZAMIAST grep do szukania implementacji, z
 3. Aktualizuj `spec/core/02_backend_api.md` (URL, body, response, status codes)
 4. Sprawdź `spec/backlog/BACKLOG.md` — aktualizuj status tasku (triaged → in_progress → review → done)
 5. Jeśli migracja danych → patrz db-architect dla `backend/migrate.py` procedury
-
-## Handoff & Shared Context
-
-**📖 Protokół:** `.devin/workflows/coordination-protocol.md` (czytaj gdy cross-stack lub konflikt)
-
-**Start:** `read .devin/_session_context.md` (read-only, NIE edytuj). **Koniec:** zwróć HANDOFF w outputcie — parent dopisze (single-writer).
-
-```markdown
-## HANDOFF
-**CO ZROBIŁEM:** <endpointy, schema, pliki>
-**GOTOWE DLA:**
-- frontend-dev: <endpoint URL, method, request/response schema, status codes>
-- qa-engineer: <endpoint + edge cases>
-- security-auditor: <endpoint do audytu auth/IDOR>
-**BLOCKERY:** <lista lub "brak">
-**EVIDENCE:** .devin/_evidence/backend-dev/<artifact>.txt
-**SPEC UPDATE:** spec/core/02_backend_api.md, spec/backlog/BACKLOG.md (RAPORT)
-```
-
-**Evidence** (`.devin/_evidence/backend-dev/`): `curl_<endpoint>_<status>.json`, `pytest_unit_pass.txt`, `pytest_<test>_pass.txt`. Brak = odrzucony handoff.
-
----
 
 ## Output format
 
@@ -223,24 +164,9 @@ Repo zindeksowane. Używaj graph tools ZAMIAST grep do szukania implementacji, z
 - backend/<feature>/models.py: [co]
 - backend/<feature>/schemas.py: [co]
 - backend/<feature>/service.py: [co]
-- backend/<feature>/router.py: [co]
-- backend/tests/unit/test_<feature>.py: [co]
-
-### Endpoint summary
-- POST /rao/api/<path> -> 201 ArticleOut
-- GET /rao/api/<path>/{id} -> 200 ArticleOut | 404
-
-### Testy
-- [x] happy path
-- [x] 404
-- [x] 401 unauth
-
-### Spec update
-- spec/core/02_backend_api.md: [diff]
-
+- b
 ### Backlog update
-- spec/backlog/BACKLOG.md: [status tasku]
-
+- spec/backlog/BACKLOG.md: [status t
 ### Smoke test
 [curl output]
-```
+`

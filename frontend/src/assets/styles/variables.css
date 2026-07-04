@@ -29,20 +29,14 @@
   --color-row-even: #F8F9FA;
 
   /* === Typografia === */
-  /* RAO-P3-071 Faza 1: zwiekszone font-size dla czytelnosci po 8h pracy
-     (audyt UX: 11px -> 13px w tabelach, 10px -> 12px metadane, 9px -> 11px).
-     Wartosci zsynchronizowane z frontend/src/style.css (single source of truth). */
   --font-family: 'Montserrat', 'Inter', sans-serif;
-  --font-size-xs: 12px;        /* bylo 11px — metadane, badge, sidebar-logo-sub */
-  --font-size-sm: 13px;        /* dane w tabelach (zgodne z audytem) */
-  --font-size-base: 14px;      /* body text */
-  --font-size-md: 16px;
-  --font-size-lg: 20px;
-  --font-size-xl: 24px;
+  --font-size-xs: 11px;
+  --font-size-sm: 13px;
+  --font-size-base: 14px;
+  --font-size-md: 15px;
+  --font-size-lg: 16px;
+  --font-size-xl: 20px;
   --font-size-2xl: 24px;
-  /* RAO-P3-071: KPI card wartosci 24px -> 28px (czytelnosc kluczowych metryk) */
-  --font-size-kpi: 28px;
-  --font-size-table-header: 14px; /* bylo 13px — bold header tabel */
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;

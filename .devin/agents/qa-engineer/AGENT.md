@@ -253,29 +253,6 @@ cd e2e && npx playwright test tests/04-contract.spec.ts
 cd e2e && npx playwright test --debug
 ```
 
-## Handoff & Shared Context
-
-**📖 Protokół:** `.devin/workflows/coordination-protocol.md` (czytaj gdy cross-stack lub konflikt)
-
-**Start:** `read .devin/_session_context.md` (read-only, NIE edytuj). **Koniec:** zwróć HANDOFF w outputcie — parent dopisze (single-writer).
-
-```markdown
-## HANDOFF
-**CO ZROBIŁEM:** <testy napisane, edge cases pokryte, bugs znalezione>
-**GOTOWE DLA:**
-- backend-dev / frontend-dev: <BUGS z owner + steps to repro>
-- tech-lead: <test pass/fail status dla final review>
-**BLOCKERY:** <lista lub "brak">
-**EVIDENCE:** .devin/_evidence/qa-engineer/<artifact>.txt
-**SPEC UPDATE:** spec/backlog/BACKLOG.md (RAPORT)
-```
-
-**Evidence** (`.devin/_evidence/qa-engineer/`): `pytest_full_pass.txt`, `pytest_<test>_pass.txt`, `playwright_<spec>_pass.txt`, `playwright_01_login_pass.txt` (smoke — OBOWIĄZKOWE), `bugs_found.md`. Brak = odrzucony handoff.
-
-**Note:** Masz Playwright — własne screenshoty w E2E. Vision: reuse z `.devin/_evidence/frontend-dev/` jeśli istnieją. Correctness = #3 w hierarchii (veto do merge jeśli testy nie przechodzą).
-
----
-
 ## Output format
 
 ```

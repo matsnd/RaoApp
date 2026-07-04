@@ -45,9 +45,35 @@ const articleTypeOptions: { value: ArticleTypeFilter; label: string }[] = [
   { value: 'service', label: 'Usługi' },
 ]
 
+// RAO-P2-065 #5: filtr kontrahenta jako <select> (pokazuje nazwę, nie ID).
+// Walidacja: Number("") = 0 → traktujemy jako "brak filtra" (null).
+// Nie wysyłamy contractorId=NaN — select zawsze zwraca poprawne ID lub pusty string.
 const selectedContractorId = computed({
   get: () => (props.modelValue.contractorId == null ? '' : String(props.modelValue.contractorId)),
-  set: (v: string) => patch({ contractorId: v === '' ? null : Number(v) }),
+  set: (v: string) => {
+    if (v === '') {
+      patch({ contractorId: null })
+      return
+    }
+    const parsed = Number(v)
+    // Walidacja: tylko poprawne liczby całkowite dodatnie trafiają do filtra.
+    // "abc" / NaN / ułamki → null (brak filtra, nie wysyłamy NaN do backendu).
+    if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed <= 0) {
+      patch({ contractorId: null })
+      return
+    }
+    patch({ contractorId: parsed })
+  },
+})
+
+// RAO-P2-065 #5: empty state — czy wybrane ID istnieje na liście kontrahentów?
+// (gdy lista załadowana, ale ID nie ma w opcjach → pokaż komunikat).
+const contractorNotFound = computed(() => {
+  const id = props.modelValue.contractorId
+  if (id == null) return false
+  // Jeśli lista pusta (jeszcze nie załadowana) — nie pokazuj ostrzeżenia.
+  if (!props.contractors.length) return false
+  return !props.contractors.some((c) => c.id === id)
 })
 
 function patch(delta: Partial<AnalyticsFiltersValue>): void {
@@ -127,21 +153,26 @@ function clearFilters(): void {
       </select>
     </div>
 
-    <!-- Contractor (datalist) -->
+    <!-- RAO-P2-065 #5: Kontrahent — <select> (nazwa, nie ID) + walidacja + empty state -->
     <div class="af-group">
       <span class="af-label">Kontrahent:</span>
-      <input
-        type="text"
-        class="af-input"
-        list="af-contractors-list"
-        placeholder="Wszyscy"
+      <select
+        class="af-input af-select"
         :value="selectedContractorId"
         data-testid="filter-contractor"
-        @change="selectedContractorId = ($event.target as HTMLInputElement).value"
-      />
-      <datalist id="af-contractors-list">
+        @change="selectedContractorId = ($event.target as HTMLSelectElement).value"
+      >
+        <option value="">Wszyscy</option>
         <option v-for="c in contractors" :key="c.id" :value="c.id">{{ c.name }}</option>
-      </datalist>
+      </select>
+      <span
+        v-if="contractorNotFound"
+        class="af-contractor-warn"
+        data-testid="filter-contractor-not-found"
+        title="Wybrany kontrahent nie istnieje — filtr zostanie wyczyszczony"
+      >
+        ID {{ modelValue.contractorId }} nie istnieje
+      </span>
     </div>
 
     <!-- City -->
@@ -242,6 +273,11 @@ function clearFilters(): void {
 .af-select {
   min-width: 120px;
   cursor: pointer;
+}
+.af-contractor-warn {
+  font-size: var(--font-size-xs);
+  color: var(--color-warning);
+  font-weight: var(--font-weight-semibold);
 }
 .af-date {
   min-width: 130px;

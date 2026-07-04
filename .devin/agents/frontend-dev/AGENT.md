@@ -254,32 +254,6 @@ Repo zindeksowane. Używaj graph tools do szukania komponentów, stores, zależn
 4. Aktualizuj `spec/core/03_frontend_screens.md`
 5. Sprawdź `spec/backlog/BACKLOG.md` — aktualizuj status tasku jeśli applicable
 
-## Handoff & Shared Context
-
-**📖 Protokół:** `.devin/workflows/coordination-protocol.md` (czytaj gdy cross-stack lub konflikt)
-
-**Start:** `read .devin/_session_context.md` (read-only, NIE edytuj). **Koniec:** zwróć HANDOFF w outputcie — parent dopisze (single-writer).
-
-```markdown
-## HANDOFF
-**CO ZROBIŁEM:** <widoki, komponenty, stores, pliki zmienione>
-**GOTOWE DLA:**
-- ui-designer: <zmienione komponenty .vue do review design system>
-- ux-designer: <zmienione flowy/widoki do review UX>
-- motion-designer: <nowe komponenty do dodania animacji>
-- qa-engineer: <widoki + data-testid selectors + flow do testów>
-- product-owner: <feature do weryfikacji wizualnej>
-**BLOCKERY:** <lista lub "brak">
-**EVIDENCE:** .devin/_evidence/frontend-dev/screenshot_<view>.png + <inne>
-**SPEC UPDATE:** spec/core/03_frontend_screens.md, spec/backlog/BACKLOG.md (RAPORT)
-```
-
-**Evidence** (`.devin/_evidence/frontend-dev/`): `vue_tsc_clean.txt`, `npm_build_pass.txt`, `screenshot_<view>.png`, `vision_<view>.md`. Brak = odrzucony handoff.
-
-**Vision dedup (TWOJA ROLA = ŹRÓDŁO):** Robisz 1 screenshot per widok przez `playwright.browser_take_screenshot` → `.devin/_evidence/frontend-dev/screenshot_<view>.png`. Inne role (ui/ux/motion/po) reuse tego pliku przez `rao-vision.analyze_screenshot`. Podaj ścieżkę w `GOTOWE DLA`.
-
----
-
 ## Output format
 
 ```

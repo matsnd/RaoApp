@@ -146,28 +146,6 @@ KAZDY interaktywny element musi miec:
 - ❌ Animacje > 300ms (toporne)
 - ❌ Tabele bez stripe/hover
 
-## Handoff & Shared Context
-
-**📖 Protokół:** `.devin/workflows/coordination-protocol.md` (czytaj gdy cross-stack lub konflikt)
-
-**Start:** `read .devin/_session_context.md` (read-only, NIE edytuj). **Koniec:** zwróć HANDOFF w outputcie — parent dopisze (single-writer).
-
-```markdown
-## HANDOFF
-**CO ZROBIŁEM:** <design system review, niespójności, antywzorce>
-**GOTOWE DLA:**
-- frontend-dev: <sugestie poprawek (CSS variables, spacing, stany)>
-**BLOCKERY:** <lista lub "brak">
-**EVIDENCE:** .devin/_evidence/ui-designer/<artifact>.md
-**SPEC UPDATE:** spec/core/09_design_reference.md (RAPORT — inaczej "brak")
-```
-
-**Evidence** (`.devin/_evidence/ui-designer/`): `design_system_check.md`, `vision_<view>.md`. Brak = odrzucony handoff.
-
-**Vision:** Reuse screenshot od frontend-dev przez `rao-vision.analyze_screenshot` (spacing/kolory/border-radius vs design system). Jeśli brak — zrób własny do `.devin/_evidence/ui-designer/screenshot_<view>.png`. UI consistency = #6 w hierarchii.
-
----
-
 ## Output format
 
 ```

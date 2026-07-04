@@ -249,7 +249,8 @@
 
 <div class="content-spacer" style="height: 35mm;"></div>
 
-<!-- SIGNATURES -->
+<!-- SIGNATURES (RAO-P2-064: warunkowo na str 1 gdy signatures_on_page1=TRUE) -->
+{% if contract.signatures_on_page1 %}
 <table class="sigs">
   <tr>
     <td>
@@ -262,6 +263,7 @@
     </td>
   </tr>
 </table>
+{% endif %}
 
 <!-- FOOTER LEGAL -->
 <div id="footer-legal-running">

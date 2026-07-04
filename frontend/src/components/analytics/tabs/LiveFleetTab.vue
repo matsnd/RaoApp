@@ -6,6 +6,7 @@ import AnalyticsTable, {
   type AnalyticsColumn,
   type AnalyticsRow,
 } from '@/components/analytics/AnalyticsTable.vue'
+import { type AppIconName } from '@/components/shared/AppIcon.vue'
 import { useSort } from '@/composables/useSort'
 import { formatDate } from '@/utils/format'
 
@@ -56,7 +57,7 @@ const kpiCards = computed<KpiCard[]>(() => {
       label: 'Dostępne maszyny',
       sub: `z ${cr.total_machines} łącznie`,
       variant: 'success',
-      icon: '✅',
+      icon: 'check-circle' as AppIconName,
       testId: 'kpi-live-available',
     },
     {
@@ -64,7 +65,7 @@ const kpiCards = computed<KpiCard[]>(() => {
       label: 'Wynajęte teraz',
       sub: 'maszyn u klientów',
       variant: 'accent',
-      icon: '🚜',
+      icon: 'tractor' as AppIconName,
       testId: 'kpi-live-rented',
     },
     {
@@ -72,7 +73,7 @@ const kpiCards = computed<KpiCard[]>(() => {
       label: 'Wykorzystanie floty',
       sub: '% maszyn u klientów teraz',
       variant: utilVariant,
-      icon: '📈',
+      icon: 'chart' as AppIconName,
       testId: 'kpi-live-util',
     },
   ]

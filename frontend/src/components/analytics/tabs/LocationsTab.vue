@@ -7,8 +7,6 @@ import AnalyticsTable, {
   type AnalyticsRow,
 } from '@/components/analytics/AnalyticsTable.vue'
 import { useSort } from '@/composables/useSort'
-import { formatCurrency } from '@/utils/format'
-import GlossaryTip from '@/components/GlossaryTip.vue'
 
 interface Props {
   dateFrom: string
@@ -173,6 +171,18 @@ function onRowClick(row: AnalyticsRow): void {
   }
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function formatCurrency(v: string | number | null | undefined): string {
+  if (v === null || v === undefined || v === '') return '0 zł'
+  const n = typeof v === 'string' ? parseFloat(v) : v
+  if (Number.isNaN(n)) return '0 zł'
+  return n.toLocaleString('pl-PL', {
+    style: 'currency',
+    currency: 'PLN',
+    minimumFractionDigits: 2,
+  })
+}
+
 // ── Fetch ────────────────────────────────────────────────────────────────────
 async function load(): Promise<void> {
   await store.fetchLocationsRanking(props.dateFrom, props.dateTo, 100, groupBy.value)
@@ -244,7 +254,6 @@ watch(groupBy, load)
               data-testid="loc-group-pna"
               @click="groupBy = 'pna'"
             >PNA</button>
-            <GlossaryTip term="PNA" definition="Pocztowy Numer Adresowy — kod pocztowy" description="Kod pocztowy nadawany przez Pocztę Polską. W RAO służy do auto-uzupełniania miasta, gminy, powiatu i województwa." placement="bottom" :size="14" />
           </div>
           <input
             v-model="search"
@@ -426,6 +435,20 @@ watch(groupBy, load)
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   opacity: 0.8;
+}
+@media (max-width: 900px) {
+  .loc-bar-row {
+    grid-template-columns: 140px 1fr 110px;
+  }
+}
+</style>
+}
+@media (max-width: 900px) {
+  .loc-bar-row {
+    grid-template-columns: 140px 1fr 110px;
+  }
+}
+</style>
 }
 @media (max-width: 900px) {
   .loc-bar-row {

@@ -286,45 +286,11 @@ git commit -m "feat(category): krotki opis co i dlaczego"
 
 To tworzy historie zmian do rollbacku (`git revert HEAD`) i sledzenia postepow.
 
-## Koordynacja między subagentami — Coordination Protocol
-
-**📖 Pełny protokół:** `.devin/workflows/coordination-protocol.md` (106 linii — read zanim zaczniesz cross-stack zadanie)
-
-**⚡ TL;DR (parent czyta to):**
-1. Tworzysz `.devin/_session_context.md` na starcie (zadanie, decyzja, DoD, plan z statusami)
-2. Subagenty czytają `_session_context.md` (read-only, NIE edytują) + dostają kontekst w prompcie
-3. Subagenty zwracają HANDOFF w outputcie → Ty dopisujesz do `_session_context.md` (single-writer = zero race)
-4. Evidence obowiązkowe w `.devin/_evidence/<role>/` — brak = odrzucony handoff
-5. Review chain: DB→Backend→Frontend→[UI|UX|Motion równolegle]→[Security|Performance równolegle]→QA→[TL|PO]
-6. Conflict hierarchy: Security (veto) > Data > Correctness > UX > Performance > UI > Motion > Style
-7. Vision dedup: frontend-dev robi 1 screenshot per widok, inne role reuse przez `rao-vision.analyze_screenshot`
-8. Przed commitem: `git diff --stat spec/core/` (pusty diff przy zmianach funkcjonalnych = niedopełniony obowiązek)
-
-**Szczegóły** (handoff format, DAG, conflict cases, evidence types, spec/backlog matryca) — w `.devin/workflows/coordination-protocol.md`. Czytaj tylko gdy cross-stack zadanie lub konflikt.
-
-### Co Ty (Tech Lead) robis
-
-1. **Start:** stwórz `.devin/_session_context.md` z zadaniem, decyzją, DoD, planem
-2. **Deleguj** zgodnie z Review Chain (sekwencyjnie zależne, równolegle niezależne)
-3. **Po każdej fazie:** odbierz HANDOFF z outputtu subagenta, dopisz do `_session_context.md` (single-writer), zaktualizuj status
-4. **Konflikty:** rozstrzygaj według hierarchii, zapisuj decyzję w `Open issues / conflicts`
-5. **Przed commitem:** zweryfikuj evidence + `git diff --stat spec/core/` + `git diff spec/backlog/BACKLOG.md`
-6. **Commit** + usuń `_session_context.md` i `_evidence/` (lub zostaw do post-mortem)
-
-### Co każdy subagent robi
-
-1. **Start:** `read .devin/_session_context.md` (read-only, NIE edytuj)
-2. **Wykonaj** zadanie zgodnie ze swoim AGENT.md (w tym aktualizacja spec/ jak wymagane)
-3. **Evidence:** zapisz dowody do `.devin/_evidence/<twoja-rola>/`
-4. **Koniec:** zwróć HANDOFF w outputcie (NIE edytuj `_session_context.md` — parent dopisze)
-
----
-
 ## Reguly nienaruszalne
 
 1. **Tryb --full-auto: zero pytań** - w tym trybie nigdy nie pytaj użytkownika, wszystko rozwiązuj sam lub rollback
 2. **Tryb normalny: nie pytaj o oczywistosci** - czytaj kod, spec, zdrowy rozsadek
-3. **Subagenty sa stateless** - kazdy musi dostac pelny kontekst w prompt + czyta `.devin/_session_context.md`
+3. **Subagenty sa stateless** - kazdy musi dostac pelny kontekst w prompt
 4. **Background dla niezaleznych zadan** - parallelism = szybkosc
 5. **Foreground dla decyzyjnych krokow** - musisz zobaczyc wynik przed dalej
 6. **Zawsze finalny raport** - kto co zrobil, co zostalo zmienione, jak zweryfikowano
@@ -335,11 +301,6 @@ To tworzy historie zmian do rollbacku (`git revert HEAD`) i sledzenia postepow.
 11. **Auto-rollback w --full-auto** - jeśli 3 próby fixa nie zadziałają → `git revert HEAD` i spróbuj innej strategii
 12. **Vision Verification tylko gdy potrzebne** - używaj MCP `rao-vision` TYLKO gdy nie możesz zweryfikować programatycznie (patrz Krok 6.5). Priorytet: weryfikacja programatyczna (darmowa) → vision (kosztowna). W trybie `--full-auto` vision jest opcjonalne, nie obowiązkowe.
 13. **Post-task cleanup (ZAPISYWANIE ROZWIĄZAŃ)** - po każdym zadaniu zapisz odkryte rozwiązania do `spec/technical/` (skrypty do `scripts/`, wzorce do `patterns/`, indeks w `TECHNICAL_SOLUTIONS.md`). To zapobiega utracie wiedzy po restarcie AI agenta.
-14. **Koordynacja przez Shared Context** - każde zadanie z >1 subagentem używa `.devin/_session_context.md` (patrz Coordination Protocol wyżej + `.devin/workflows/coordination-protocol.md`)
-15. **Handoff protocol obowiązkowy** - każdy subagent kończy sekcją HANDOFF (CO ZROBIŁEM / GOTOWE DLA / BLOCKERY / EVIDENCE / SPEC UPDATE)
-16. **Evidence obowiązkowe** - każdy subagent zapisuje dowody do `.devin/_evidence/<role>/`. Brak evidence = odrzucony handoff
-17. **Vision deduplikacja** - 1 screenshot per widok per faza (frontend-dev), inne role reuse przez `rao-vision.analyze_screenshot`
-18. **Conflict resolution** - konflikty rozstrzygaj według hierarchii (Security > Data > Correctness > UX > Performance > UI > Motion > Style)
 
 ## Wzor prompta dla subagenta
 

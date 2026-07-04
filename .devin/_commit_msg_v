@@ -1,0 +1,21 @@
+fix(agents): coordination protocol v2 — single-writer model (race condition fix) + TL;DR + spec/backlog alignment
+
+Naprawione problemy z v1 (samoocena 6/10):
+
+1. RACE CONDITION na _session_context.md — subagenty w tle (Phase 4: ui+ux+motion+po) edytowały ten sam plik równolegle → konflikty edit tool.
+   FIX: single-writer model — subagenty CZYTAJĄ (read-only) i ZWRACAJĄ HANDOFF w outputcie, parent (Tech Lead) dopisuje sekwencyjnie. Zero race.
+
+2. BRAK TL;DR — protokół 477 linii, subagent musi czytać wszystko = dużo tokenów.
+   FIX: sekcja "⚡ TL;DR (10 linii)" na górze — parent wystarczy to, subagenty czytają swoją sekcję w AGENT.md.
+
+3. KONFLIKT Z OBSŁUGĄ SPEC/BACKLOG — anti-pattern mówił "Subagent nie aktualizuje spec/" ale AGENT.md każdej roli wymaga aktualizacji spec/.
+   FIX: doprecyzowano — subagent aktualizuje spec/ zgodnie ze swoim AGENT.md (NIE zmienia się), w handoff "SPEC UPDATE" to RAPORT (co zaktualizowano), parent weryfikuje git diff --stat spec/core/ przed commitem. Dodana sekcja 2.2 "Relacja z obsługą spec/ i backlogu" z matrycą kto aktualizuje co.
+
+Pliki:
+- .devin/workflows/coordination-protocol.md — TL;DR + sekcja 1.2 (race fix) + sekcja 2.2 (spec/backlog alignment) + zaktualizowane anti-patterns + sekcja 8 (single-writer)
+- .devin/skills/software-house/SKILL.md — TL;DR + single-writer + punkt 7 (relacja ze spec/backlog) + weryfikacja git diff przed commitem
+- 11x .devin/agents/*/AGENT.md — "Dopisz sekcję" → "Zwróć w outputcie (NIE edytuj pliku, parent dopisze)"
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

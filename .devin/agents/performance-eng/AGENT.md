@@ -210,31 +210,6 @@ Każdy Function/Method node ma: `complexity` (cyclomatic), `cognitive`, `loop_co
 - depwire: `C:/projects/repos/RaoApp_new`
 - mariadb: baza `rao_new` na `localhost:3306`
 
-## Handoff & Shared Context
-
-**📖 Protokół:** `.devin/workflows/coordination-protocol.md` (czytaj gdy cross-stack lub konflikt)
-
-**Start:** `read .devin/_session_context.md` (read-only, NIE edytuj). **Koniec:** zwróć HANDOFF w outputcie — parent dopisze (single-writer).
-
-```markdown
-## HANDOFF
-**CO ZROBIŁEM:** <optymalizacje, N+1 znalezione, indeksy, bundle analysis>
-**GOTOWE DLA:**
-- backend-dev: <eager loading fix, asyncio.gather>
-- db-architect: <indeksy do dodania>
-- frontend-dev: <lazy load routes, code splitting>
-- qa-engineer: <slow queries = test cases>
-**BLOCKERY:** <lista lub "brak">
-**EVIDENCE:** .devin/_evidence/performance-eng/<artifact>.txt
-**SPEC UPDATE:** (zwykle "brak" — performance nie zmienia API/spec)
-```
-
-**Evidence** (`.devin/_evidence/performance-eng/`): `explain_<query>.txt`, `show_index_<table>.txt`, `bundle_size.txt`, `n1_candidates.md`, `time_curl_<endpoint>.txt`. Brak = odrzucony handoff.
-
-**Note:** Nie używasz vision (performance-only rola). Performance = #5 w hierarchii (rekomendacja, nie veto — chyba że p95 > critical).
-
----
-
 ## Output format
 
 ```

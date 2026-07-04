@@ -45,7 +45,7 @@
             <input v-model="contractFilters.date_from" type="date" class="form-control" style="width:140px;" placeholder="Data od" @change="applyContractFilters" />
             <input v-model="contractFilters.date_to" type="date" class="form-control" style="width:140px;" placeholder="Data do" @change="applyContractFilters" />
             <button class="btn btn-primary btn-sm" @click="applyContractFilters">Filtruj</button>
-            <button class="btn-icon" aria-label="Wyczyść filtry" title="Wyczyść filtry" @click="clearContractFilters">↺</button>
+            <button class="btn-icon" title="Wyczyść filtry" @click="clearContractFilters">↺</button>
           </div>
 
           <div class="grid-scroll">
@@ -64,13 +64,13 @@
               </thead>
               <tbody>
                 <tr v-if="archiveStore.contractsLoading">
-                  <td colspan="8"><StateMessage type="loading" compact message="Ladowanie umow archiwum..." /></td>
+                  <td colspan="8" class="empty-state">Ładowanie...</td>
                 </tr>
                 <tr v-else-if="archiveStore.contractsError">
-                  <td colspan="8"><StateMessage type="error" compact :message="archiveStore.contractsError" @action="applyContractFilters" /></td>
+                  <td colspan="8" class="empty-state error">Błąd: {{ archiveStore.contractsError }}</td>
                 </tr>
                 <tr v-else-if="!archiveStore.contracts.length">
-                  <td colspan="8"><StateMessage type="empty" compact message="Brak umow archiwum" /></td>
+                  <td colspan="8" class="empty-state">Brak umów archiwum</td>
                 </tr>
                 <tr
                   v-for="c in archiveStore.contracts"
@@ -88,7 +88,7 @@
                   <td>{{ formatDate(c.date_to) }}</td>
                   <td>{{ c.position_count ?? '—' }}</td>
                   <td>
-                    <span class="est-value">{{ formatCurrency(c.revenue_estimate) }}</span>
+                    <span class="est-value">{{ formatMoney(c.revenue_estimate) }}</span>
                     <span class="est-suffix">[szac.]</span>
                   </td>
                   <td>
@@ -106,7 +106,7 @@
               <div v-else-if="archiveStore.currentContract" class="details-body">
                 <div class="details-header">
                   <h3>Szczegóły umowy {{ archiveStore.currentContract.number }}</h3>
-                  <button class="btn-icon" aria-label="Zamknij" title="Zamknij" @click="selectedContractId = null">✕</button>
+                  <button class="btn-icon" title="Zamknij" @click="selectedContractId = null">✕</button>
                 </div>
 
                 <div class="details-grid">
@@ -114,8 +114,8 @@
                   <div><strong>Adres dostawy:</strong> {{ archiveStore.currentContract.delivery_address || '—' }}</div>
                   <div><strong>Okres:</strong> {{ formatDate(archiveStore.currentContract.date_from) }} – {{ formatDate(archiveStore.currentContract.date_to) }}</div>
                   <div><strong>Osoba kontaktowa:</strong> {{ archiveStore.currentContract.contact_person1 || '—' }} {{ archiveStore.currentContract.contact_phone1 || '' }}</div>
-                  <div><strong>Zaliczka:</strong> {{ formatCurrency(archiveStore.currentContract.prepayment_amount) }}</div>
-                  <div><strong>Faktura:</strong> <span class="est-value">{{ formatCurrency(archiveStore.currentContract.invoice_amount) }}</span> <span class="est-suffix">[szac.]</span></div>
+                  <div><strong>Zaliczka:</strong> {{ formatMoney(archiveStore.currentContract.prepayment_amount) }}</div>
+                  <div><strong>Faktura:</strong> <span class="est-value">{{ formatMoney(archiveStore.currentContract.invoice_amount) }}</span> <span class="est-suffix">[szac.]</span></div>
                 </div>
 
                 <h4>Pozycje ({{ archiveStore.currentContract.positions.length }})</h4>
@@ -136,7 +136,7 @@
                       <td>{{ p.rental_type || '—' }}</td>
                       <td>{{ p.rental_days ?? '—' }}</td>
                       <td>{{ p.quantity ?? '—' }}</td>
-                      <td>{{ formatCurrency(p.unit_price) }}</td>
+                      <td>{{ formatMoney(p.unit_price) }}</td>
                       <td>{{ p.conditions.length }}</td>
                     </tr>
                   </tbody>
@@ -150,8 +150,8 @@
                   <tbody>
                     <tr v-for="f in archiveStore.currentContract.service_fees" :key="f.id">
                       <td>{{ f.name }}</td>
-                      <td>{{ formatCurrency(f.amount_from) }}</td>
-                      <td>{{ formatCurrency(f.amount_to) }}</td>
+                      <td>{{ formatMoney(f.amount_from) }}</td>
+                      <td>{{ formatMoney(f.amount_to) }}</td>
                       <td>{{ f.unit || '—' }}</td>
                       <td>
                         <span :class="['badge', f.is_active ? 'badge-success' : 'badge-muted']">{{ f.is_active ? 'Tak' : 'Nie' }}</span>
@@ -167,8 +167,8 @@
                   </thead>
                   <tbody>
                     <tr v-for="s in archiveStore.currentContract.settlements" :key="s.id">
-                      <td>{{ formatCurrency(s.cost_client) }}</td>
-                      <td>{{ formatCurrency(s.cost_company) }}</td>
+                      <td>{{ formatMoney(s.cost_client) }}</td>
+                      <td>{{ formatMoney(s.cost_company) }}</td>
                       <td>{{ s.notes || '—' }}</td>
                       <td>{{ formatDate(s.settled_at) }}</td>
                       <td>{{ s.source || '—' }}</td>
@@ -216,7 +216,7 @@
               </option>
             </select>
             <button class="btn btn-primary btn-sm" @click="applyArticleFilters">Filtruj</button>
-            <button class="btn-icon" aria-label="Wyczyść filtry" title="Wyczyść filtry" @click="clearArticleFilters">↺</button>
+            <button class="btn-icon" title="Wyczyść filtry" @click="clearArticleFilters">↺</button>
           </div>
 
           <div class="grid-scroll">
@@ -232,13 +232,13 @@
               </thead>
               <tbody>
                 <tr v-if="archiveStore.articlesLoading">
-                  <td colspan="5"><StateMessage type="loading" compact message="Ladowanie maszyn archiwum..." /></td>
+                  <td colspan="5" class="empty-state">Ładowanie...</td>
                 </tr>
                 <tr v-else-if="archiveStore.articlesError">
-                  <td colspan="5"><StateMessage type="error" compact :message="archiveStore.articlesError" @action="applyArticleFilters" /></td>
+                  <td colspan="5" class="empty-state error">Błąd: {{ archiveStore.articlesError }}</td>
                 </tr>
                 <tr v-else-if="!archiveStore.articles.length">
-                  <td colspan="5"><StateMessage type="empty" compact message="Brak maszyn archiwum" /></td>
+                  <td colspan="5" class="empty-state">Brak maszyn archiwum</td>
                 </tr>
                 <tr v-for="a in archiveStore.articles" :key="a.id">
                   <td>{{ a.internal_number || '—' }}</td>
@@ -292,8 +292,8 @@
           <button class="btn btn-primary btn-sm" @click="loadStats">Odśwież</button>
         </div>
 
-        <StateMessage v-if="archiveStore.statsLoading" type="loading" message="Ladowanie statystyk archiwum..." />
-        <StateMessage v-else-if="archiveStore.statsError" type="error" :message="archiveStore.statsError" @action="loadStats" />
+        <div v-if="archiveStore.statsLoading" class="empty-state">Ładowanie statystyk...</div>
+        <div v-else-if="archiveStore.statsError" class="empty-state error">Błąd: {{ archiveStore.statsError }}</div>
 
         <template v-else>
           <!-- Podsumowanie -->
@@ -311,7 +311,7 @@
               <div class="stat-item">
                 <span class="stat-label">Przychód</span>
                 <span class="stat-value">
-                  {{ formatCurrency(archiveStore.statsSummary?.revenue_estimate) }}
+                  {{ formatMoney(archiveStore.statsSummary?.revenue_estimate) }}
                   <span class="est-suffix">[szac.]</span>
                 </span>
               </div>
@@ -345,7 +345,7 @@
                     <td>{{ m.contracts_count }}</td>
                     <td>{{ m.rented_days }}</td>
                     <td>
-                      <span class="est-value">{{ formatCurrency(m.revenue_estimate) }}</span>
+                      <span class="est-value">{{ formatMoney(m.revenue_estimate) }}</span>
                       <span class="est-suffix">[szac.]</span>
                     </td>
                     <td class="drill-arrow">▸</td>
@@ -372,7 +372,7 @@
                     <td>{{ c.contracts_count }}</td>
                     <td>{{ c.positions_count }}</td>
                     <td>
-                      <span class="est-value">{{ formatCurrency(c.revenue_estimate) }}</span>
+                      <span class="est-value">{{ formatMoney(c.revenue_estimate) }}</span>
                       <span class="est-suffix">[szac.]</span>
                     </td>
                   </tr>
@@ -405,12 +405,12 @@
                 </div>
                 <div class="stat-item">
                   <span class="stat-label">Wartość zakupu</span>
-                  <span class="stat-value">{{ formatCurrency(archiveStore.machineRoi.replacement_value) }}</span>
+                  <span class="stat-value">{{ formatMoney(archiveStore.machineRoi.replacement_value) }}</span>
                 </div>
                 <div class="stat-item">
                   <span class="stat-label">Przychód</span>
                   <span class="stat-value">
-                    {{ formatCurrency(archiveStore.machineRoi.revenue_estimate) }}
+                    {{ formatMoney(archiveStore.machineRoi.revenue_estimate) }}
                     <span class="est-suffix">[szac.]</span>
                   </span>
                 </div>
@@ -451,7 +451,7 @@
                     <td>{{ c.positions_count }}</td>
                     <td>{{ c.postal_codes_count }}</td>
                     <td>
-                      <span class="est-value">{{ formatCurrency(c.revenue_estimate) }}</span>
+                      <span class="est-value">{{ formatMoney(c.revenue_estimate) }}</span>
                       <span class="est-suffix">[szac.]</span>
                     </td>
                     <td class="drill-arrow">▸</td>
@@ -501,8 +501,8 @@
                     <td><input v-model="editingCatData.code" class="form-control form-control-xs" @keydown.enter="saveEditCat" @keydown.esc="editingCatId = null" /></td>
                     <td style="color:var(--color-text-muted);font-size:11px;">{{ cat.level }}</td>
                     <td>
-                      <button class="btn-icon" style="color:var(--color-success);" @click="saveEditCat" aria-label="Zapisz" title="Zapisz">✓</button>
-                      <button class="btn-icon" @click="editingCatId = null" aria-label="Anuluj" title="Anuluj">✕</button>
+                      <button class="btn-icon" style="color:var(--color-success);" @click="saveEditCat" title="Zapisz">✓</button>
+                      <button class="btn-icon" @click="editingCatId = null" title="Anuluj">✕</button>
                     </td>
                   </tr>
                   <tr v-else>
@@ -514,7 +514,7 @@
                     <td>{{ cat.code || '—' }}</td>
                     <td style="color:var(--color-text-muted);font-size:11px;">{{ cat.level }}</td>
                     <td v-if="authStore.isAdmin">
-                      <button class="btn-icon" @click="startEditCat(cat)" aria-label="Edytuj" title="Edytuj">✎</button>
+                      <button class="btn-icon" @click="startEditCat(cat)" title="Edytuj">✎</button>
                       <button
                         class="btn-icon"
                         :disabled="cat.children && cat.children.length > 0"
@@ -560,7 +560,7 @@
             <button
               v-if="drillDown.search"
               class="btn-icon"
-              aria-label="Wyczyść" title="Wyczyść"
+              title="Wyczyść"
               @click="drillDown.search = ''; reloadDrillDown()"
             >↺</button>
           </div>
@@ -604,7 +604,7 @@
                   <td>{{ formatDate(c.date_from) }} – {{ formatDate(c.date_to) }}</td>
                   <td>{{ c.date_from && c.date_to ? Math.round((new Date(c.date_to) - new Date(c.date_from)) / 86400000) : '—' }}</td>
                   <td>
-                    <span class="est-value">{{ formatCurrency(c.invoice_amount) }}</span>
+                    <span class="est-value">{{ formatMoney(c.revenue_estimate) }}</span>
                     <span class="est-suffix">[szac.]</span>
                   </td>
                   <td v-if="drillDown.type === 'city'">{{ c.city || '—' }}</td>
@@ -632,9 +632,6 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useArchiveStore } from '@/stores/archive'
 import { useAuthStore } from '@/stores/auth'
-import { useToastStore } from '@/stores/toast'
-import StateMessage from '@/components/StateMessage.vue'
-import { formatDate, formatCurrency } from '@/utils/format'
 import type {
   ArchiveCategoryPayload,
   ArchiveCategoryTreeNode,
@@ -642,7 +639,6 @@ import type {
 
 const archiveStore = useArchiveStore()
 const authStore = useAuthStore()
-const toastStore = useToastStore()
 
 // ── Zakładki ─────────────────────────────────────────────────────────────────
 type TabId = 'contracts' | 'articles' | 'stats' | 'categories'
@@ -776,7 +772,7 @@ async function onArticleCategoryChange(articleId: number, event: Event) {
     await archiveStore.updateArticleCategory(articleId, categoryId)
   } catch (e: unknown) {
     const err = e as { response?: { data?: { detail?: string } } }
-    toastStore.error(err?.response?.data?.detail ?? 'Błąd zmiany kategorii')
+    alert(err?.response?.data?.detail ?? 'Błąd zmiany kategorii')
     // Odśwież listę aby przywrócić poprawny stan
     void applyArticleFilters()
   }
@@ -807,7 +803,7 @@ async function loadRoi() {
     await archiveStore.fetchMachineRoi(roiArticleId.value, statsDateFrom.value, statsDateTo.value)
   } catch (e: unknown) {
     const err = e as { response?: { data?: { detail?: string } } }
-    toastStore.error(err?.response?.data?.detail ?? 'Błąd pobierania ROI')
+    alert(err?.response?.data?.detail ?? 'Błąd pobierania ROI')
   }
 }
 
@@ -846,7 +842,7 @@ function openDrillDown(
   drillDown.value.title =
     type === 'machine' ? `Umowy z maszyną: ${name}` : `Umowy w mieście: ${name}`
   const daysLabel = type === 'machine' && days ? `${days} dni · ` : ''
-  const revenueLabel = revenue != null ? `${formatCurrency(revenue)}` : '—'
+  const revenueLabel = revenue != null ? `${formatMoney(revenue)}` : '—'
   drillDown.value.subtitle = `${contractsCount} umów · ${daysLabel}przychód szac. ${revenueLabel}`
   drillDown.value.search = ''
   drillDown.value.page = 1
@@ -977,7 +973,7 @@ async function addCategory() {
     newCat.value = { name: '', code: '', parent_id: null }
   } catch (e: unknown) {
     const err = e as { response?: { data?: { detail?: string } } }
-    toastStore.error(err?.response?.data?.detail ?? 'Błąd dodawania kategorii')
+    alert(err?.response?.data?.detail ?? 'Błąd dodawania kategorii')
   }
 }
 
@@ -1001,7 +997,7 @@ async function saveEditCat() {
     editingCatId.value = null
   } catch (e: unknown) {
     const err = e as { response?: { data?: { detail?: string } } }
-    toastStore.error(err?.response?.data?.detail ?? 'Błąd zapisu kategorii')
+    alert(err?.response?.data?.detail ?? 'Błąd zapisu kategorii')
   }
 }
 
@@ -1011,8 +1007,25 @@ async function deleteCat(id: number) {
     await archiveStore.deleteCategory(id)
   } catch (e: unknown) {
     const err = e as { response?: { data?: { detail?: string } } }
-    toastStore.error(err?.response?.data?.detail ?? 'Błąd usuwania kategorii')
+    alert(err?.response?.data?.detail ?? 'Błąd usuwania kategorii')
   }
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function formatDate(d: string | null | undefined): string {
+  if (!d) return '—'
+  try {
+    return new Date(d).toLocaleDateString('pl-PL')
+  } catch {
+    return String(d)
+  }
+}
+
+function formatMoney(v: string | number | null | undefined): string {
+  if (v == null || v === '') return '—'
+  const num = typeof v === 'string' ? parseFloat(v) : v
+  if (isNaN(num)) return '—'
+  return num.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' zł'
 }
 
 // ── Ładowanie danych przy zmianie zakładki ───────────────────────────────────
@@ -1122,16 +1135,10 @@ onMounted(() => {
   gap: var(--spacing-4);
 }
 
-/* ── Szacunkowe wartości (krrskas— ka — przeor──────────────────────────────── */
+/* ── Szacunkowe wartości (bez przekreślenia — czytelne) ────────────────────── */
 .est-value {
-  color: var(--color-text-mutetd);
+  color: var(--color-text-body);
   font-weight: var(--font-weight-medium);
-  text-decoration: line-through;
-  text-decoration-color: var(--color-warning);
-  text-decoration-thickness: 2px;
-  text-decoration: line-through;
-  text-decoration-color: var(--color-warning);
-  text-decoration-thickness: 2px;
 }
 .est-suffix {
   color: var(--color-warning);
@@ -1309,6 +1316,302 @@ h4 {
 .drill-overlay {
   position: fixed;
   inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+  animation: drill-fade-in 0.15s ease-out;
+}
+
+.drill-drawer {
+  width: 60%;
+  min-width: 480px;
+  max-width: 900px;
+  height: 100%;
+  background: var(--color-bg-white);
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-modal);
+  font-family: var(--font-family);
+  animation: drill-slide-in 0.2s ease-out;
+}
+
+@keyframes drill-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes drill-slide-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.drill-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-4);
+  padding: var(--spacing-4) var(--spacing-5);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-white);
+}
+.drill-title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.drill-title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary);
+  line-height: 1.3;
+}
+.drill-subtitle {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.drill-close {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: var(--font-size-md);
+  color: var(--color-text-muted);
+  padding: var(--spacing-1) var(--spacing-2);
+  border-radius: var(--border-radius-sm);
+  transition: background 0.15s ease, color 0.15s ease;
+  line-height: 1;
+}
+.drill-close:hover {
+  background: var(--color-bg-light);
+  color: var(--color-text-heading);
+}
+
+.drill-search-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  padding: var(--spacing-3) var(--spacing-5);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-light);
+}
+
+.drill-body {
+  flex: 1;
+  overflow: auto;
+  padding: var(--spacing-4) var(--spacing-5);
+}
+
+/* Skeleton loading */
+.drill-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+.drill-skeleton .skel-row {
+  height: 40px;
+  background: var(--color-bg-light);
+  border-radius: var(--border-radius-sm);
+  animation: drill-pulse 1.2s ease-in-out infinite;
+}
+@keyframes drill-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Error / Empty */
+.drill-error,
+.drill-empty {
+  text-align: center;
+  padding: var(--spacing-8) var(--spacing-5);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+.drill-error p,
+.drill-empty p {
+  margin: var(--spacing-2) 0 var(--spacing-4);
+}
+.drill-empty .empty-icon {
+  font-size: 32px;
+  display: block;
+  margin-bottom: var(--spacing-2);
+}
+
+/* Tabela umów w drawerze */
+.drill-table {
+  width: 100%;
+}
+.drill-contract-row {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.drill-contract-row:hover {
+  background: var(--color-bg-light);
+}
+
+/* Footer z paginacją */
+.drill-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-3);
+  padding: var(--spacing-3) var(--spacing-5);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-body);
+  background: var(--color-bg-white);
+}
+</style>
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+  animation: drill-fade-in 0.15s ease-out;
+}
+
+.drill-drawer {
+  width: 60%;
+  min-width: 480px;
+  max-width: 900px;
+  height: 100%;
+  background: var(--color-bg-white);
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-modal);
+  font-family: var(--font-family);
+  animation: drill-slide-in 0.2s ease-out;
+}
+
+@keyframes drill-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes drill-slide-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.drill-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-4);
+  padding: var(--spacing-4) var(--spacing-5);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-white);
+}
+.drill-title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.drill-title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary);
+  line-height: 1.3;
+}
+.drill-subtitle {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.drill-close {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: var(--font-size-md);
+  color: var(--color-text-muted);
+  padding: var(--spacing-1) var(--spacing-2);
+  border-radius: var(--border-radius-sm);
+  transition: background 0.15s ease, color 0.15s ease;
+  line-height: 1;
+}
+.drill-close:hover {
+  background: var(--color-bg-light);
+  color: var(--color-text-heading);
+}
+
+.drill-search-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  padding: var(--spacing-3) var(--spacing-5);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-light);
+}
+
+.drill-body {
+  flex: 1;
+  overflow: auto;
+  padding: var(--spacing-4) var(--spacing-5);
+}
+
+/* Skeleton loading */
+.drill-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+.drill-skeleton .skel-row {
+  height: 40px;
+  background: var(--color-bg-light);
+  border-radius: var(--border-radius-sm);
+  animation: drill-pulse 1.2s ease-in-out infinite;
+}
+@keyframes drill-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Error / Empty */
+.drill-error,
+.drill-empty {
+  text-align: center;
+  padding: var(--spacing-8) var(--spacing-5);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+.drill-error p,
+.drill-empty p {
+  margin: var(--spacing-2) 0 var(--spacing-4);
+}
+.drill-empty .empty-icon {
+  font-size: 32px;
+  display: block;
+  margin-bottom: var(--spacing-2);
+}
+
+/* Tabela umów w drawerze */
+.drill-table {
+  width: 100%;
+}
+.drill-contract-row {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.drill-contract-row:hover {
+  background: var(--color-bg-light);
+}
+
+/* Footer z paginacją */
+.drill-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-3);
+  padding: var(--spacing-3) var(--spacing-5);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-body);
+  background: var(--color-bg-white);
+}
+</style>
   background: rgba(0, 0, 0, 0.4);
   z-index: 1000;
   display: flex;

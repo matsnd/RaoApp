@@ -379,32 +379,14 @@ const columnDefs = {
 }
 ```
 
-**Lista umów — filtry i sortowanie (RAO-P2-022 + RAO-P2-070 Faza 3/4):**
+**Lista umów — filtry i sortowanie (RAO-P2-022):**
 
 - Sortowanie: `ORDER BY auto_number DESC` (najnowsze na górze) — po stronie backendu
 - Filtr **statusu rozliczenia** (select): `Aktywne` (domyślnie, `is_settled=false`) | `Rozliczone` | `Wszystkie`
 - Filtr **typ umowy**: Wszystkie typy | Umowy najmu (S) | Umowy usługi (U)
 - Filtr **dat**: Data od / Data do
-- **RAO-P2-070 Faza 4 — filtr Handlowiec** (select, client-side): opcje z `settingsStore.salespeople`, filtruje po `salesperson_name`. Domyślnie "Wszyscy handlowcy".
-- **RAO-P2-070 Faza 4 — filtr Miasto** (text input, client-side): filtruje po `c.city` (case-insensitive, contains).
-- **RAO-P2-070 Faza 3 — sortowanie po kolumnach** (client-side): klik nagłówka → toggle ASC/DESC, wskaźnik `▲`/`▼` (klasa `.sort-indicator`, kolor `--color-primary`). Domyślnie `date_from DESC`. Sortowalne: Numer, Kontrahent, Data od, Data do, Handlowiec. Komparator `compareValues` obsługuje string/number/date(ISO).
 - Kolumna **Status**: `Aktywna` (niebieski badge) | `Przeterminowana` (czerwony) | `Rozliczona` (zielony)
 - Wiersz `row-settled`: szare/wyciszone tło gdy `c.is_settled = true`
-- **RAO-P2-070 Faza 2 — drilldowny cross-view:**
-  - Kolumna "Kontrahent" → link (`.drilldown-link`) → `/contractors/:contractorId/edit` (`goToContractor`)
-  - Double-click wiersz → `/contracts/:id/edit` (istniejące)
-  - Kontrahent "Aktywna umowa" → `/dashboard/contracts?search=<numer>` (`goToContractByNumber`)
-  - Artykuł "Nazwa" → `/analytics?article=<id>` (`goToArticleAnalytics`) — AnalyticsView auto-otwiera DrillDownDrawer `machine`
-
-**RAO-P2-070 Faza 5 — przycisk "← Wstecz" w formularzach:**
-- `ContractFormView`, `ContractorFormView`, `ArticleFormView` — toolbar, lewa strona
-- `goBack()`: `router.back()` z fallbackiem do `/dashboard/<section>` gdy `window.history.length <= 1`
-
-**RAO-P2-070 Faza 1 — toasty zamiast alert():**
-- Wszystkie `alert()` w widokach zastąpione `useToastStore()` (`@/stores/toast`).
-- Komponent `AppToast.vue` mountowany w `App.vue`, renderuje stack toastów top-right.
-- API store: `toastStore.success/error/info/warning(message, duration?)` + `push/showToast/dismiss/clear`.
-- 0 wystąpień `alert(` w `frontend/src/`.
 
 **Lista artykułów — filtr archiwalny:**
 
@@ -535,14 +517,6 @@ const addresses = ref([])
 const selectedAddress = ref(null)
 const isNew = computed(() => !route.params.id)
 ```
-
-- **RAO-P2-050 (2026-07-15):** Walidacja po stronie klienta — blokada submit + widoczne błędy per-pole
-  - `fieldErrors: Record<string, string>` ref + funkcja `validateForm()` wywoływana w `handleSave()`
-  - Reguły:
-    - **Pełna nazwa** — wymagana (`fieldErrors.name`)
-    - **NIP** — jeśli podany, musi mieć 10 cyfr + poprawna suma kontrolna (`isValidNIP`, algorytm wag `[6,5,7,2,3,4,5,6,7]`)
-  - Widoczność: czerwony border (`.form-control.error`) + komunikat `.field-error` pod polem
-  - Submit zablokowany gdy błędy walidacji
 
 ---
 
@@ -1293,14 +1267,6 @@ async function handleFakturownia() {
   - Nazwy pól są mapowane na język polski (postal_code → Kod pocztowy, city → Miasto)
   - Funkcja `handleSave()` w `ContractFormView.vue` parsuje `e.response?.data?.detail`
 - Inline validation dla required fields (data od, kontrahent)
-- **RAO-P2-050 (2026-07-15):** Walidacja po stronie klienta — blokada submit + widoczne błędy per-pole
-  - `fieldErrors: Record<string, string>` ref + funkcja `validateForm()` wywoływana w `handleSave()`
-  - Reguły:
-    - **Kontrahent** — wymagany (`fieldErrors.contractor_id`)
-    - **Data od / Data do** — wymagane; `date_from` musi być ≤ `date_to` (`fieldErrors.date_to` = „Data do musi być późniejsza niż data od")
-    - **Przedpłata / Faktura** — liczby nieujemne (`fieldErrors.prepayment_amount` / `fieldErrors.invoice_amount`)
-  - Widoczność: czerwony border (`.form-control.error` → `--color-error` + `--color-error-bg`) + komunikat pod polem (`.field-error`)
-  - Submit zablokowany gdy `Object.keys(fieldErrors).length > 0`
 - **RAO-P2-005:** Inline dodawanie kontrahenta z formularza umowy
   - W pickerze kontrahentów przycisk "➕ Dodaj nowego kontrahenta" (prominent CTA)
   - Gdy wyszukiwanie nie zwraca wyników, wyświetlany jest komunikat "Brak wyników dla {search}"
@@ -1567,15 +1533,6 @@ Następca: patrz sekcja `AnalyticsView.vue` poniżej.
 **Route:** `/articles/new` | `/articles/:id/edit` | **requiresAuth:** tak
 
 **Opis:** Pełnoekranowy formularz tworzenia i edycji artykułu (maszyny/narzędzia/usługi).
-
-- **RAO-P2-050 (2026-07-15):** Walidacja po stronie klienta — blokada submit + widoczne błędy per-pole
-  - `fieldErrors: Record<string, string>` ref + funkcja `validateForm()` wywoływana w `handleSave()`
-  - Reguły:
-    - **Nazwa artykułu** — wymagana (`fieldErrors.name`)
-    - **Wartość odtworzeniowa** — jeśli podana, liczba nieujemna (`fieldErrors.replacement_value`)
-    - **Min. dni najmu** — jeśli podane, liczba ≥ 1 (`fieldErrors.rental_days`)
-  - Widoczność: czerwony border (`.form-control.error`) + komunikat `.field-error` pod polem
-  - Submit zablokowany gdy błędy walidacji
 
 **Pola formularza:**
 - `name` — Nazwa artykułu * (wymagana)
@@ -1900,39 +1857,6 @@ onUnmounted(() => {
 - Pills w flex row; aktywna = bg primary + color on-primary; nieaktywna hover = bg light.
 - data-testid: `analytics-tabs`, `tab-<key>`.
 
-## Komponent `components/StateMessage.vue` (RAO-P2-049, 2026-07-15)
-
-> Reużywalny komponent stanów loading / error / empty — spójne stany we wszystkich widokach listowych.
-> Zastępuje rozproszone inline `class="empty-state"` komunikaty. Style wyłącznie przez zmienne CSS z `style.css`.
-
-### Props
-| Prop | Typ | Domyślnie | Opis |
-|------|-----|-----------|------|
-| `type` | `'loading' \| 'error' \| 'empty'` | — (wymagany) | Rodzaj stanu |
-| `message` | `string` | auto (`Ładowanie...` / `Wystąpił błąd` / `Brak danych`) | Tekst komunikatu |
-| `actionLabel` | `string` | `''` | Etykieta przycisku akcji (np. `+ Nowa umowa`) |
-| `retryLabel` | `string` | `''` | Alias `actionLabel` (kompatybilność) |
-| `compact` | `boolean` | `false` | Tryb kompaktowy — mniejsze paddingi (np. wewnątrz `<td>` tabeli) |
-
-### Emits
-- `action` — klik przycisku. Dla `type='error'` przycisk domyślnie „Spróbuj ponownie" nawet bez `actionLabel`.
-
-### Renderowanie
-- `loading`: spinner (CSS animation, `--color-primary` border-top) + tekst.
-- `error`: ikona ⚠️ + tekst w `--color-error` + przycisk retry.
-- `empty`: ikona 📭 + tekst w `--color-text-muted` + opcjonalny przycisk CTA.
-- `role="status"`, `aria-live` = `assertive` dla error / `polite` dla loading/empty.
-- `prefers-reduced-motion`: wolniejsza animacja spinnera.
-
-### data-testid
-- `state-loading`, `state-error`, `state-empty`, `state-<type>-action`.
-
-### Integracja (RAO-P2-049)
-- `DashboardView.vue` — sekcje contracts / overdue / contractors / articles: loading + error (retry `loadData`) + empty (CTA dodawania).
-- `ArchiveView.vue` — zakładki contracts / articles / stats: loading + error (retry `applyContractFilters` / `applyArticleFilters` / `loadStats`) + empty.
-- `SettingsView.vue` — zakładka company: loading + error (retry `reloadAll`).
-- `components/analytics/tabs/PeriodRentalTab.vue` — loading + error (retry `loadAll`).
-
 ### Weryfikacja
 - `npx vue-tsc --noEmit` → PASS (exit 0)
 - `npm run build` → PASS (build OK)
@@ -2034,82 +1958,4 @@ onUnmounted(() => {
 ### Weryfikacja (Frontend-2)
 - `npx vue-tsc --noEmit` → PASS (exit 0, strict + noUnusedLocals/Parameters)
 - `npm run build` → PASS (chunk `AnalyticsView-*.js` ~31.7 kB / ~9.3 kB gzip; CSS `AnalyticsView-*.css` ~16 kB)
-
-## Komponent `components/GlossaryTip.vue` (RAO-P3-071 Faza 5, 2026-07-04)
-
-> Tooltip dla skrótów (PNA, ZO, FA, OID, S/U) w formularzach i widokach listowych.
-> Dostępny z klawiatury (`:focus-visible` pokazuje tooltip), respektuje hover.
-> Style w `frontend/src/style.css` (sekcja `.glossary-tip`).
-
-### Props
-| Prop | Typ | Domyślnie | Opis |
-|------|-----|-----------|------|
-| `term` | `string` | — (wymagany) | Skrót wyświetlany w tooltipie jako `<strong>` (np. `"PNA"`) |
-| `definition` | `string` | — (wymagany) | Pełna nazwa — główna treść tooltipa |
-| `description?` | `string` | `undefined` | Krótki opis 1-2 zdania — druga linia tooltipa |
-| `placement?` | `'top' \| 'bottom'` | `'top'` | Pozycja tooltipa względem triggera |
-| `size?` | `12 \| 14 \| 16` | `16` | Rozmiar ikony triggera w px (12 = compact w tabelach) |
-
-### A11y
-- `tabindex="0"`, `role="button"`, `:aria-expanded` reactive (focus/hover/keydown)
-- `:aria-label` = `"{term}: {definition} — {description}"` (pełna treść czytana przez SR)
-- `:title` — natywny tooltip dla myszy
-- `role="tooltip"` na tekście tooltipa
-- `@keydown.enter.prevent` / `@keydown.space.prevent` — toggle `aria-expanded`
-- `:focus-visible` pokazuje tooltip (CSS), outline `2px solid var(--color-primary)` + box-shadow 4px
-- `prefers-reduced-motion` — wyłącza transition opacity
-
-### Style (modyfikatory)
-- `.glossary-tip--12` / `.glossary-tip--14` / `.glossary-tip--16` — rozmiar triggera
-- `.glossary-tip--bottom` — tooltip pod triggerem (strzałka `border-bottom-color`)
-- `.glossary-tip-desc` — druga linia (11px, opacity 0.85, margin-top 4px)
-- Tooltip `max-width: min(280px, calc(100vw - 32px))`, `width: 280px`, `white-space: normal`
-
-### Lokalizacje użycia
-- **ContractFormView**: OID (label), PNA (`.pna-info-title`), ZO (przycisk 📄 w toolbarze), FA (przycisk „Pokaż faktury z FA"), S/U (label „Typ umowy")
-- **AnalyticsView**: PNA (metryka „Kodów PNA" + nagłówek „Rozbicie na kody PNA")
-- **LocationsTab**: PNA (toggle grupowania miasto/PNA)
-- **ArticleFormView**: FA × 3 (labelki „VAT (z FA)", „GTU (z FA)", „PKWiU (z FA)")
-- **DashboardView**: S/U (filtr typu umowy)
-
-## Komponent `components/SkeletonRow.vue` (RAO-P3-071 Faza 5, 2026-07-04)
-
-> Animowany skeleton loader (shimmer 1.4s linear) dla tabel ładowanych asynchronicznie.
-> Zastępuje tekst „Ładowanie..." lepszą percepcją wydajności (perceived performance).
-> Style w `frontend/src/style.css` (sekcja `.skeleton-row`).
-
-### Props
-| Prop | Typ | Domyślnie | Opis |
-|------|-----|-----------|------|
-| `cols` | `number` | `5` | Liczba kolumn-skeletonów w wierszu |
-| `label` | `string` | `"Ladowanie danych"` | Etykieta dla screen readerów (`aria-label` + `sr-only`) |
-| `variant` | `'mix' \| 'even'` | `'mix'` | `mix` = różne szerokości (short 80px / medium 140px / long 200px), `even` = równe |
-
-### A11y
-- `role="status"`, `aria-live="polite"`, `:aria-label="label"`
-- `<span class="sr-only">{{ label }}</span>` — tekstu czytany przez SR
-- `prefers-reduced-motion` — `animation: none; background: var(--color-bg-light)`
-
-### Lokalizacje użycia
-- **DashboardView**: contracts (`:cols="6"`), overdue (`:cols="6"`), contractors (`:cols="6"`, zastąpił `StateMessage type="loading"`), articles (`:cols="7"`, zastąpił `StateMessage type="loading"`)
-- **AnalyticsView**: drill-tables (planowane — obecnie `store.drillLoading` pokazuje tekst)
-
-## RAO-P3-071 — A11y: aria-label dla ikon-buttonów (2026-07-04)
-
-Każdy `<button>` zawierający wyłącznie emoji/ikonę (⎙, 📄, ∑, 💰, ✎, ✕, ⌕, +, −, ?, ⎘) ma `aria-label` z opisem akcji. `title` NIE jest czytany niezawodnie przez screen readery — wymaga `aria-label`. Jeśli button ma tekst („Wstecz", „Zapisz", „Edytuj") — `aria-label` NIE potrzebny.
-
-### Zasady
-- AppToolbar.vue: 4 buttony (Podgląd, Szczegóły, Usuń, Dodaj)
-- ContractFormView.vue: 5 buttonów w toolbarze (Drukuj PDF, Protokół ZO, Przelicz wartość, Pobierz koszty z Fakturownia, + pozycje/usługi mają już `aria-label`)
-- ArticleFormView.vue: Duplikuj (⎘)
-
-## RAO-P3-071 — A11y: role="table" dla tabel niestandardowych (2026-07-04)
-
-Tabele `data-grid` i `drill-table` (niestandardowe — nie są natywnymi `<table>` z semantyką DOM) mają `role="table"` + `aria-label` + `role="row"` / `role="columnheader"` / `role="cell"` na komórkach.
-
-### Pokryte widoki
-- **DashboardView**: 4 tabele (contracts, overdue, contractors, articles)
-- **AnalyticsView**: 4 drill-tables (machine rentals, PNA breakdown, top machines, top contractors)
-- **ContractFormView**: 4 tabele (pozycje, usługi dodatkowe, faktury FA, rozliczenie)
-
 

@@ -4,7 +4,63 @@
 > Każdy endpoint ma dokładną sygnaturę, request/response body, i algorytm.
 > Architektura: Vertical Slice — każda feature w osobnym folderze.
 
-##      ├── contract.html
+## Struktura projektu
+
+```
+backend/
+├── main.py                          # FastAPI app, CORS, lifespan
+├── config.py                        # Settings (pydantic-settings, env vars)
+├── database.py                      # AsyncEngine, AsyncSession, get_db()
+├── auth/
+│   ├── __init__.py
+│   ├── router.py                    # /auth/login, register, reset-password, change-password, profile
+│   ├── service.py                   # AuthService: verify, create_token, reset_password, send_email
+│   ├── schemas.py                   # LoginRequest, TokenResponse, ResetRequest, ProfileUpdate
+│   ├── models.py                    # User SQLAlchemy model
+│   ├── dependencies.py              # get_current_user dependency
+│   └── email_service.py             # SMTP email sending (reset password, notifications)
+├── contractors/
+│   ├── __init__.py
+│   ├── router.py                    # CRUD /contractors, /contractors/{id}/addresses
+│   ├── service.py                   # ContractorService
+│   ├── schemas.py                   # Pydantic models
+│   └── models.py                    # Contractor, ContractorAddress SQLAlchemy
+├── articles/
+│   ├── __init__.py
+│   ├── router.py                    # CRUD /articles, /articles/{id}/duplicate
+│   ├── service.py                   # ArticleService (incl. duplicate, availability)
+│   ├── schemas.py
+│   └── models.py
+├── contracts/
+│   ├── __init__.py
+│   ├── router.py                    # CRUD /contracts
+│   ├── service.py                   # ContractService (incl. numbering, value calc)
+│   ├── schemas.py
+│   └── models.py
+├── positions/
+│   ├── __init__.py
+│   ├── router.py                    # CRUD /positions
+│   ├── service.py                   # PositionService
+│   ├── schemas.py
+│   └── models.py
+├── conditions/
+│   ├── __init__.py
+│   ├── router.py                    # CRUD /conditions
+│   ├── service.py
+│   ├── schemas.py
+│   └── models.py
+├── settings/
+│   ├── __init__.py
+│   ├── router.py                    # GET/PUT /settings/company, /settings/fees, /settings/salespeople
+│   ├── service.py
+│   ├── schemas.py
+│   └── models.py
+├── reports/
+│   ├── __init__.py
+│   ├── router.py                    # GET /reports/{type}
+│   ├── service.py                   # PDF generation
+│   └── templates/                   # Jinja2 HTML templates
+│       ├── contract.html
 │       ├── protocol_zo.html
 │       └── protocol_zo_nodata.html
 ├── integrations/
@@ -18,6 +74,7 @@
 ```
 
 ---
+
 ## config.py — Konfiguracja
 
 ```python
@@ -67,7 +124,11 @@ class UserResponse(BaseModel):
     id: int
     login: str
     email: str | None
-    first_name: s 
+    first_name: str | None
+    last_name: str | None
+    role: str
+    branch_id: int | None
+    is_active: bool
     last_login: datetime | None
 ```
 
@@ -86,7 +147,11 @@ class UserResponse(BaseModel):
 ### `POST /auth/register` (admin only)
 
 ```python
-class RegisterRequeo
+class RegisterRequest(BaseModel):
+    login: str = Field(..., min_length=1, max_length=50, pattern=r"^[a-zA-Z0-9_]+$")
+    email: str = Field(..., max_length=100)  # Wymagany do resetu hasła
+    password: str = Field(..., min_length=6, max_length=100)
+    first_name: str | None = None
     last_name: str | None = None
     role: Literal["admin", "user", "viewer"] = "user"
     branch_id: int | None = None
@@ -105,7 +170,11 @@ class ChangePasswordRequest(BaseModel):
     new_password: str = Field(..., min_length=6, description="Min 6 znaków")
     confirm_password: str
 ```
-sdw
+
+**Algorytm:**
+1. Sprawdź `current_password` vs `user.password` (bcrypt)
+2. Sprawdź `new_password == confirm_password`
+3. Sprawdź że `new_password != current_password`
 4. Hash nowe hasło: `bcrypt.hashpw(new_password, bcrypt.gensalt())`
 5. `UPDATE users SET password = :hash, must_change_password = FALSE WHERE id = :id`
 6. Return 200 `{"message": "Hasło zmienione pomyślnie"}`
@@ -136,7 +205,8 @@ Cześć {{ user.first_name or user.login }},
 
 Otrzymaliśmy prośbę o resetowanie hasła do Twojego konta w systemie RAO.
 
-
+Kliknij poniższy link, aby ustawić nowe hasło:
+{{ reset_link }}
 
 Link jest ważny przez 1 godzinę.
 
@@ -158,7 +228,8 @@ class ResetPasswordRequest(BaseModel):
 **Algorytm:**
 1. Hash token: `hashlib.sha256(token.encode()).hexdigest()`
 2. `SELECT * FROM users WHERE password_reset_token = :hash AND password_reset_expires > NOW()`
-3. Jeśli nie znaleziono → 400 "Token nieprawidłowyn
+3. Jeśli nie znaleziono → 400 "Token nieprawidłowy lub wygasł"
+4. Sprawdź `new_password == confirm_password`
 5. `UPDATE users SET password = bcrypt(:new_password), password_reset_token = NULL, password_reset_expires = NULL, must_change_password = FALSE`
 6. Return 200 `{"message": "Hasło zostało ustawione. Możesz się zalogować."}`
 
@@ -183,6 +254,7 @@ class ProfileUpdate(BaseModel):
 
 **Walidacja:** email unikalny (z wyłączeniem current user)
 
+### `GET /admin/users` (admin only)
 
 > Lista wszystkich użytkowników.
 
@@ -1249,78 +1321,24 @@ Response: `MachineRoiResponse` (zawiera `category_main` — RAO-P1-017)
 Response: `CurrentlyRentedResponse` (items zawierają `category_main` — RAO-P1-017)
 Filtr: domyślnie `is_archival=FALSE AND is_external=FALSE` (RAO-P1-027)
 
-### `GET /stats/additional-fees`
-Query: `?date_from&date_to&internal_number=<str>` (RAO-P2-008)
-Response: `AdditionalFeesResponse`
-
-### `GET /stats/locations`
-Query: `?date_from&date_to&internal_number=<str>` (RAO-P2-008)
-Response: `list[LocationStatItem]` — RAO-P2-028: agregacja po PNA (`postal_code`)
-z rollup po `city`/`gmina`/`powiat`/`wojewodztwo` z LEFT JOIN do `postal_codes`.
-NULL PNA → bucket `"(brak PNA)"` z city z `contracts.city`.
-Przychód liczony spójnym algorytmem kaskadowym (`shared.revenue.compute_position_revenues`).
-`LocationStatItem` pola: `city, postal_code, gmina, powiat, wojewodztwo, rentals_count, total_revenue`.
-
-### `GET /stats/by-category` (RAO-P1-017, RAO-P1-026)
-Query:
-- `level=main|sub1|sub2|sub3` (default: `main`) — poziom hierarchii kategorii
-- `date_from`, `date_to` — zakres dat (default: bieżący miesiąc)
-- `include_archival=false` — uwzględnij maszyny archiwalne
-- `category_main=<str>` — filtr kategorii głównych (multi-value, opcjonalny)
-- `category_sub1=<str>` — filtr sub1 (opcjonalny)
+### `GET /stats/iddatiolal-f-ef-efees`
+Query: `?date_from&date_to&internal_number=<str># (multi-value, opcjonalny)
 - `category_sub2=<str>` — filtr sub2 (opcjonalny)
 - `article_type=all|machine|service` (default: `all`) — filtr rodzaju
 
-Response: `CategoryStatsResponse` (`date_from`, `date_to`, `level`, `total_revenue`, `items[]`)
-HTTP: 200 | 401 | 422 (nieprawidłowy `level` lub `article_type`)
-ainees`
-Query: `?dat_rom&date_to&internal_number=<str>` (RAO-P2008)
-Response: `AdditionalFsRspone
+Response: `CategoryStatsResponse` (`date_from`  `total_revenue`, `items[]`)
 
-### `GET /stats/locations`
-### `GET /stats/by-period` (RAO-P1-026, NOWY)` (RAO-P2-008)
-Response: `list[LocationStatItem]` — RAO-P2-028: agregacja po PNA (`postal_code`)
-z rollup po `city`/`gmina`/`powiat`/`wojewodztwo` z LEFT JOIN do `postal_codes`.
-NULL PNA → bucket `"(brak PNA)"` z city z `contracts.city`.
-Przychód liczony spójnym algorytmem kaskadowym (`shared.revenue.compute_position_revenues`).
-`LocationStatItem` pola: `city, postal_code, gmina, powiat, wojewodztwo, rentals_count, total_revenue`.
-
-## `GET /stats/by-category`RAO-P1-017, RAO-P1-026)
-Query:
-- `level=ain|sub1|sub2|sb3` (default: `main`) — poziom hierarchii kategorii
-- `date_from`, `date_to` — zakres dat (defau: bieżący mesiąc)
- `include_archi=false` — względnij maszyny archiwalne
-- `catgory_main=<str>` — filtr kategorii głównych (multi-value opcjonalny)
--`categry_sub1=<str>` — filtr sub1 (o
+### `GET /stats/by-period` (RAO-P1-026, NOWY)
 Query:
 - `granularity=month|year` (default: `month`) — granulacja czasowa
 - `date_from`, `date_to` — zakres dat
-- `category_main=<str>` — filtr/seria kategori,i`date_to`, (level`, `multi-value; gdy podany → osobna seria per kategorię)
-HTTP: 200 | 401 | 422 (nieprawidłowy `level` lub `article_type`)
-- `article_type=allimacnine|ees`
-Query: `?date_rrom&date_to&internal_number=<str>` (RAO-P2v008)
-Response: `AdditionalFeisRespons``
+- `category_main=<str>` — filtr/seria kategorii (multi-value; gdy podany → osobna seria per kategorię)
+- `article_type=all|machine|service` (default: `all`)
+- `include_archival=false`
 
-### `GET /stat /locations(default: `all`)
-- `include_archival=false`` (RAO-P2-008)
-Response: `list[LocationStatItem]` — RAO-P2-028: agregacja po PNA (`postal_code`)
-z rollup po `city`/`gmina`/`powiat`/`wojewodztwo` z LEFT JOIN do `postal_codes`.
-NULL PNA → bucket `"(brak PNA)"` z city z `contracts.city`.
-Przychód liczony spójnym algorytmem kaskadowym (`shared.revenue.compute_position_revenues`).
-`LocationStatItem` pola: `city, postal_code, gmina, powiat, wojewodztwo, rentals_count, total_revenue`.
-
-## `GET /stats/by-category` (RAO-P1-017, RAO-P1-026)
-Query:
-- `level=main|sub1|sub2|sub3` (default: `main`) — poziom hierarchii kategorii
-- `date_from`, `date_to` — zakres dat (default: bieżący miesiąc)
-- `include_archival=false` — uwzględnij maszyny archiwalne
-- `category_main=<str>` — filtr kategoriigłównych 
-sub1=<str>` — filtr 1 (opcjonalny)
-- `category_sub
 Response: `ByPeriodResponse`:
 ```json
-{,`date_to`,level`, ``)
-HTTP: 200 | 401 | 422 (nieprawidłowy `level` lub article_type`
+{
   "date_from": "2024-01-01",
   "date_to": "2024-12-31",
   "granularity": "month",
@@ -1354,26 +1372,110 @@ Response: `PositionStatsResponse` with:
 - date_from, date_to, type (applied filter)
 - total_revenue, total_machines_revenue, total_services_revenue
 - items[]: list[PositionStatItem] (article_id, article_name, internal_number, is_service, category_main, revenue, rented_days, contracts_count, times_billed)
-HTTP: 200 | 401 | 422 (nieprawidłowy `tyN`WY
-sumber, contractor_name, date_from, date_to, days, revenue)
+HTTP: 200 | 401 | 422 (nieprawidłowy `type`)
+
+### `GET /explorer/machines/{article_id}` (RAO-P2-009)
+Query: `?date_from&date_to`
+Response: Machine metrics object with:
+---
+
+### `GET /stats/expiring-contracts`
+
+**Opis:** Umowy kończące się w ciągu N dni
+
+**Query:** `?days=14` (opcjonalny, zakres 1-90, default=14)
+
+**Response:** `list[ExpiringContractItem]`h 
+    contractor_name: str | None
+    date_from: date | None
+    date_to: date | None
+    days_left: int
+    delivery_address: str | None
+    contact_person1: str | None
+    contact_phone1: str | None
+    salesperson_name: str | None
+```
+**HTTP:** 200 | 401
 
 ---
 
-:
-```pythonNWY
-class ExpiringContractItem(BaseModel):
-* jącą w ciągu N dni.
+### `GET /stats/overdue-contracts`
+
+**Opis:** Umowy przeterminowane (date_to < dziś).
+
+**Response:** `list[OverdueContractItem]` (pola jak ExpiringContractItem + `days_overdue: int`)
+**HTTP:** 200 | 401
+
+---
+
+### `GET /stats/deliveries-today`
+
+**Opis:** Pozycje umów z datą dostawy przypadającą w ciągu N dni.
 
 **Query:** `?lookahead=1` (opcjonalny, zakres 1-7, default=1)
-Dle DeliveryTodayItem(BaseModel):
-``pytonNWY
-class ExpiringContractItem(BaseModel)::t4(Rono* `iun[)intContractItem]` (id, number, contractor_name, date_from, date_to, print_date, updated_at)
 
+**Response:** `list[DeliveryTodayItem]`
+```python
+class DeliveryTodayItem(BaseModel):
+    contract_id: int
+    contract_number: str
+    contractor_name: str | None
+    article_name: str | None
+    delivery_date: date | None
+    delivery_address: str | None
+    contact_person1: str | None
+    contact_phone1: str | None
+```
+**HTTP:** 200 | 401
 
 ---
+
+### `GET /stats/unprinted-contracts`
+
+**Opis:** Umowy nigdy nie wydrukowane (print_date IS NULL), aktywne lub utworzone w ostatnich 60 dniach.
+
+**Response:** `list[UnprintedContractItem]` (id, number, contractor_name, date_from, date_to, created_at)
+**HTTP:** 200 | 401
+
+---
+
+### `GET /stats/stale-print-contracts`
+
+**Opis:** Umowy edytowane po wydruku (print_date < updated_at), aktywne lub zmodyfikowane w ostatnich 30 dniach.
+
+**Response:** `list[StalePrintContractItem]` (id, number, contractor_name, date_from, date_to, print_date, updated_at)
+**HTTP:** 200 | 401
+
+---
+
+### `GET /stats/commissions`
+
 **Opis:** Raport prowizji handlowców za okres. Prowizja obliczana z marży (contract_settlements).
-``pytonpl:
+
+**Query:** `?date_from&date_to` (opcjonalne, default: bieżący miesiąc)
+
+**Response:** `CommissionReportResponse`
+```python
+class SalespersonCommissionItem(BaseModel):
+    salesperson_id: int
+    salesperson_name: str
+    commission_rate: Decimal | None
+    contracts_count: int
+    total_revenue: Decimal
+    commission_amount: Decimal         # margin × rate / 100
+
+class CommissionReportResponse(BaseModel):
+    date_from: date
+    date_to: date
+    items: list[SalespersonCommissionItem]
+    grand_total_revenue: Decimal
+    grand_total_commission: Decimal
+```
+**HTTP:** 200 | 401
+
 ---
+
+### `GET /explorer/search` (RAO-P1-028: only non-archival articles)
 
 **Opis:** Uniwersalne wyszukiwanie po pozycjach umów (maszyny + usługi).
 
@@ -1408,15 +1510,17 @@ class ExpiringContractItem(BaseModel)::t4(Rono* `iun[)intContractItem]` (id, num
 
 ### `GET /explorer/locations`
 
-**Opis:** Podsumowanie wynajmów po PNA (RAO-P2-028: deterministyczny klucz `postal_code`
-z LEFT JOIN do `postal_codes` dla `city`/`gmina`/`powiat`/`wojewodztwo`).
-NULL PNA → bucket `"(brak PNA)"` z city z `contracts.city`. Przychód liczony spójnym
-algorytmem kaskadowym (`shared.revenue`), NIE `rate1 * period_count` — naprawia rozjazd
-ze statystykami. Helper: `shared.locations.aggregate_by_pna`.
+**Opis:** Podsumowanie wynajmów po lokalizacji (RAO-P2-028/069).
+- `group_by=city` (domyślnie, RAO-P2-069): 1 wiersz per miasto — sumuje wszystkie PNA
+  w tym mieście. Warszawa (3978 PNA) → 1 wiersz. `postal_code=null`.
+- `group_by=pna` (legacy RAO-P2-028): 1 wiersz per PNA — rozbicie miasta na kody pocztowe.
+Rollup po `city`/`gmina`/`powiat`/`wojewodztwo` z LEFT JOIN do `postal_codes`.
+NULL PNA → bucket `"(brak PNA)"`. Przychód ze `shared.revenue` (kaskadowy algorytm).
+Helper: `shared.locations.aggregate_by_pna`.
 
-**Query:** `?date_from=&date_to=&limit=50`
+**Query:** `?date_from=&date_to=&limit=50&group_by=city|pna`
 
-**Response:** `{"locations": [{rank, city, postal_code, gmina, powiat, wojewodztwo, rentals_count, total_revenue}], "count": int, "period": {...}}`
+**Response:** `{"locations": [{rank, city, postal_code, gmina, powiat, wojewodztwo, rentals_count, total_revenue}], "count": int, "group_by": "city"|"pna", "period": {...}}`
 **HTTP:** 200 | 401
 
 ---
@@ -1442,11 +1546,27 @@ Top maszyny (10) i top kontrahenci (5) filtrowani po PNA. Przychód ze `shared.r
 **Query:** `?date_from=&date_to=`
 
 **Response:** `{postal_code, city, metrics: {contracts_count, unique_contractors, total_revenue, avg_revenue_per_contract}, top_machines: [...], top_contractors: [...], monthly_trend: []}`
-**HTTP:** 200 | 401 | 404PNA:tinnykluc
-zLEFTJINdo`l_ces`dAaE — Endpointy (RAO-P2-062 Faza 1))
-` z city z `contracts.citylicony spójnym
-algorytmm kaskadowym(), NIE`rte1 * perio_cunt` — napraia rozjazd
-zesttsykai > Moduł `backend/archive/` — read-only dostęp do danych historycznych
+**HTTP:** 200 | 401 | 404
+
+---
+
+### `GET /explorer/locations/city/{city}`
+
+**Opis:** Szczegóły lokalizacji — RAO-P2-069: drill-down po mieście (sumuje wszystkie PNA).
+Klik w wiersz miasta w trybie `group_by=city` wywołuje ten endpoint.
+Zwraca `pna_breakdown` — rozbicie miasta na kody pocztowe (top PNA per rentals_count).
+Top maszyny (10) i top kontrahenci (5) filtrowani po mieście (case-insensitive).
+
+**Query:** `?date_from=&date_to=`
+
+**Response:** `{city, postal_code: null, gmina, powiat, wojewodztwo, metrics: {contracts_count, unique_contractors, total_revenue, avg_revenue_per_contract, pna_count}, pna_breakdown: [{postal_code, rentals_count, total_revenue}], top_machines: [...], top_contractors: [...], monthly_trend: []}`
+**HTTP:** 200 | 401 | 404
+
+---
+
+## ARCHIVE — Endpointy (RAO-P2-062 Faza 1)
+
+> Moduł `backend/archive/` — read-only dostęp do danych historycznych
 > (legacy umowy przeniesione z `contracts` do `archive_*` w Fazie 0).
 >
 > **Zasada:** archiwum = READ-ONLY z WYJĄTKIEM:
@@ -1476,11 +1596,32 @@ zesttsykai > Moduł `backend/archive/` — read-only dostęp do danych historycz
 **Opis:** Szczegóły umowy archiwum z pozycjami, warunkami, opłatami i rozliczeniami.
 
 **Response:** `ArchiveContractDetail` (positions[], service_fees[], settlements[])
-**HTTP:** 200 | 401 | 404PNA:tin`Gcinykluc
-zLEFTJINdo`l_ces`dHa)
-**Response:** `list[ArchiveCate` z city z `contracts.citygoryResponselic]ony spójnym
-algorytm`m kaskadowym ((flat)), NIE`rte1 * perio_cunt` — napraia rozjazd
-zesttsykai **HTTP:** 200 | 401
+**HTTP:** 200 | 401 | 404
+
+### `GET /archive/articles`
+
+**Query:** `?search=&category_id=<int>&page=1&per_page=50`
+**Response:** `PaginatedResponse[ArchiveArticleResponse]`
+**HTTP:** 200 | 401
+
+### `GET /archive/articles/{article_id}`
+
+**Response:** `ArchiveArticleResponse`
+**HTTP:** 200 | 401 | 404
+
+### `PATCH /archive/articles/{article_id}/category` (admin only)
+
+**Opis:** Jedyny write na `archive_articles` — zmiana `category_id` (FK do `archive_categories`).
+
+**Body:** `{"category_id": int | null}`
+
+**Response:** `ArchiveArticleResponse`
+**HTTP:** 200 | 401 | 403 | 404
+
+### `GET /archive/categories`
+
+**Response:** `list[ArchiveCategoryResponse]` (flat)
+**HTTP:** 200 | 401
 
 ### `GET /archive/categories/tree`
 
@@ -1514,7 +1655,26 @@ zesttsykai **HTTP:** 200 | 401
 
 ### `GET /archive/stats/top-machines`
 
-*QR|#Ty RAO-P2-062 Faza 1 — usunięcie `is_legacy`
+**Query:** `?date_from=&date_to=&limit=10` (max 50)
+**Response:** `list[ArchiveTopMachineItem]` (`{article_id, article_name, internal_number, contracts_count, rented_days, revenue_estimate}`)
+**HTTP:** 200 | 401
+
+### `GET /archive/stats/by-category`
+
+**Query:** `?date_from=&date_to=`
+**Response:** `list[ArchiveCategoryStatItem]` (`{category_id, category_name, contracts_count, positions_count, revenue_estimate}`)
+**HTTP:** 200 | 401
+
+### `GET /archive/stats/machine-roi`
+
+**Query:** `?article_id=<int>&date_from=&date_to=`
+**Response:** `ArchiveMachineRoiResponse` (`{article_id, name, internal_number, replacement_value, revenue_estimate, contracts_count, rented_days, roi_pct}`)
+- `roi_pct` = `revenue_estimate / replacement_value × 100` (null gdy brak `replacement_value`)
+**HTTP:** 200 | 401 | 404
+
+---
+
+## Zmiany RAO-P2-062 Faza 1 — usunięcie `is_legacy`
 
 - **`contracts.is_legacy`** — kolumna USUNIĘTA (idempotentny `ALTER TABLE contracts DROP COLUMN IF EXISTS is_legacy` w `main.py` startup).
 - **`shared/revenue.py`** — parametr `is_legacy` usunięty z `compute_position_revenues`; dict wynikowy nie zawiera klucza `is_legacy`. `revenue_source` = tylko `actual` / `estimate_lookup` / `estimate_tiered`.
@@ -1538,7 +1698,7 @@ zesttsykai **HTTP:** 200 | 401
 class ReverseGeocodeRequest(BaseModel):
     latitude: Decimal
     longitude: Decimal
-`, z `revenue_estimate` — suma `_estimate_position_value z pozycji umowy
+
 class ReverseGeocodeResponse(BaseModel):
     street: str | None
     house_number: str | None
@@ -1556,21 +1716,16 @@ class ReverseGeocodeResponse(BaseModel):
 
 **Algorytm:**
 ```python
+async def reverse_geocode(lat: Decimal, lng: Decimal) -> dict:
+    url = f"{NOMINATIM_URL}/reverse?lat={lat}&lon={lng}&format=json&addressdetails=1"
+    headers = {"User-Agent": "RAO-App/1.0", "Accept-Language": "pl"}
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(url, headers=headers)
         data = resp.json()
         return data.get("address", {})
 ```
 
-### `GET /integrations40/
-
-### `GET /archive/stats/by-city` (RAO-P2-062 Faza 3)
-
-**Opis:** Statystyki szacunkowe po miastach (drill-down w statystykach archiwum).
-
-**Query:** `?date_from=&date_to=&limit=2p` (max 50)
-**Response:** `list[ArchiveCityStatItem]` (`{city, contracts_count, positions_count, revenue_estimate, postal_codes_count}`)
-- `city` — nazwa miasta (z `archive_contract_positions.delivery_city`, may be null → "Nieokreślone")
-- Sort: `contracts_count DESC`
-**HTTP:** 200 | o01stal-codes/{code}` (RAO-P1-008)
+### `GET /integrations/postal-codes/{code}` (RAO-P1-008)
 
 **Opis:** Auto-uzupełnianie miasta po kodzie pocztowym
 
@@ -1615,17 +1770,7 @@ async def lookup_postal_code(code: str, db: AsyncSession) -> dict:
 **Request Body:** brak
 **Response:** `TerytSyncResponse`
 ```python
-class TerytSyncResponse(B
-
-### `GET /archive/stats/by-city` (RAO-P2-062 Faza 3)
-
-**Opis:** Statystyki szacunkowe po miastach (drill-down w statystykach archiwum).
-
-**Query:** `?date_from=&date_to=&limit=20` (max 50)
-**Response:** `list[ArchiveCityStatItem]` (`{city, contracts_count, positions_count, revenue_estimate, postal_codes_count}`)
-- `city` — nazwa miasta (z `archive_contract_positions.delivery_city`, may be null → "Nieokreślone")
-- Sort: `contracts_count DESC`
-**HTTP:** 200 | 401aseModel):
+class TerytSyncResponse(BaseModel):
     success: bool
     message: str
     count: int    # Liczba zsynchronizowanych rekordów
@@ -1716,6 +1861,491 @@ class ResolvedInvoiceOut(BaseModel):
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+```
+
+**Uwaga:** Przy zmianie portu frontend (np. gdy 5173 jest zajęty i Vite używa 5174), 
+należy zaktualizować `RAO_CORS_ORIGINS` w `.env` aby zawierał nowy port:
+```bash
+RAO_CORS_ORIGINS=["http://localhost:5173","http://localhost:5174","http://localhost:3000"]
+```
+
+### Auth Dependency
+
+```python
+async def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db)
+) -> User:
+    payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
+    user_id = payload.get("sub")
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(401, "User not found")
+    return user
+```
+
+### Pagination
+
+```python
+class PaginationParams(BaseModel):
+    page: int = Field(1, ge=1)
+    per_page: int = Field(50, ge=1, le=200)
+
+    @property
+    def offset(self) -> int:
+        return (self.page - 1) * self.per_page
+```
+
+---
+
+## HEALTH CHECK & VERSION
+
+### `GET /health`
+
+**Opis:** Sprawdzenie stanu aplikacji. Endpoint publiczny (bez autentykacji).
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "version": "1.0.0"
+}
+```
+**HTTP:** 200
+
+---
+
+### `GET /version`
+
+**Opis:** Zwraca informacje o wersji aplikacji (git commit hash). Endpoint publiczny (bez autentykacji). Używany do weryfikacji wersji deploymentu na produkcji vs. branch lokalny.
+
+**Response:**
+```json
+{
+  "app": "RAO API",
+  "version": "1.0.0",
+  "git_hash": "37dd754867cf85482596bc43f9da1081249a8b3d",
+  "git_short": "37dd754",
+  "git_branch": "main"
+}
+```
+
+**Pola:**
+- `app` — nazwa aplikacji
+- `version` — wersja API (semantic versioning)
+- `git_hash` — pełny SHA-1 commit hash (40 znaków)
+- `git_short` — skrócony commit hash (7 znaków)
+- `git_branch` — nazwa brancha git
+
+**Logika:**
+1. Próba pobrania hashu z `git rev-parse HEAD` (jeśli `.git` dostępny)
+2. Fallback: czytanie z pliku `VERSION` w root projektu (jeśli git niedostępny na prodzie)
+3. Fallback: `"unknown"` jeśli obie metody zawiodą
+
+**Weryfikacja deploymentu:**
+```bash
+# Produkcja
+curl https://toolsmart.pl/rao/api/version
+
+# Lokalnie
+git rev-parse HEAD
+git log -1 --oneline
+```
+
+**HTTP:** 200
+
+---
+
+## Znane problemy i naprawy
+
+### Problem: Błąd CORS przy zmianie portu frontend
+**Symptom:** `Access to XMLHttpRequest at 'http://localhost:8000/...' from origin 'http://localhost:5174' has been blocked by CORS policy`
+
+**Rozwiązanie:** Zaktualizuj `RAO_CORS_ORIGINS` w `.env` aby zawierał aktualny port frontendu:
+```bash
+RAO_CORS_ORIGINS=["http://localhost:5173","http://localhost:5174","http://localhost:3000"]
+```
+
+**Pliki do zmiany:** `.env`
+
+---
+
+### Problem: TypeError w /stats/fleet-summary (backend/stats/router.py:202)
+**Symptom:** `TypeError: unsupported operand type(s) for /: 'int' and 'Article'`
+
+**Przyczyna:** Zapytanie `select(Article)` zwraca obiekty Article zamiast liczby.
+
+**Rozwiązanie:** Użyj `func.count(Article.id)`:
+```python
+# Błędne:
+machines_query = select(Article).where(...)
+
+# Poprawne:
+machines_query = select(func.count(Article.id)).where(...)
+```
+
+**Pliki do zmiany:** `backend/stats/router.py` (linia ~172)
+
+---
+
+### Problem: Nieprawidłowe hasło admin po migracji
+**Symptom:** Logowanie jako admin z hasłem `admin123` nie działa
+
+**Rozwiązanie:** Uruchom skrypt resetujący hasło:
+```bash
+cd backend
+. .venv/bin/activate
+python reset_admin_password.py
+```
+
+**Pliki:** `backend/reset_admin_password.py`
+
+---
+
+### Problem: Brakujące zależności npm po czystej instalacji
+**Symptom:** `Failed to run dependency scan... vue-draggable-plus`, `@vuepic/vue-datepicker`
+
+**Rozwiązanie:** Zainstaluj brakujące pakiety:
+```bash
+cd frontend
+npm install vue-draggable-plus @vuepic/vue-datepicker
+```
+
+**Pliki:** `frontend/package.json`
+---
+
+## Middleware & Dependencies
+
+### CORS
+
+```python
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+```
+
+**Uwaga:** Przy zmianie portu frontend (np. gdy 5173 jest zajęty i Vite używa 5174), 
+należy zaktualizować `RAO_CORS_ORIGINS` w `.env` aby zawierał nowy port:
+```bash
+RAO_CORS_ORIGINS=["http://localhost:5173","http://localhost:5174","http://localhost:3000"]
+```
+
+### Auth Dependency
+
+```python
+async def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db)
+) -> User:
+    payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
+    user_id = payload.get("sub")
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(401, "User not found")
+    return user
+```
+
+### Pagination
+
+```python
+class PaginationParams(BaseModel):
+    page: int = Field(1, ge=1)
+    per_page: int = Field(50, ge=1, le=200)
+
+    @property
+    def offset(self) -> int:
+        return (self.page - 1) * self.per_page
+```
+
+---
+
+## HEALTH CHECK & VERSION
+
+### `GET /health`
+
+**Opis:** Sprawdzenie stanu aplikacji. Endpoint publiczny (bez autentykacji).
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "version": "1.0.0"
+}
+```
+**HTTP:** 200
+
+---
+
+### `GET /version`
+
+**Opis:** Zwraca informacje o wersji aplikacji (git commit hash). Endpoint publiczny (bez autentykacji). Używany do weryfikacji wersji deploymentu na produkcji vs. branch lokalny.
+
+**Response:**
+```json
+{
+  "app": "RAO API",
+  "version": "1.0.0",
+  "git_hash": "37dd754867cf85482596bc43f9da1081249a8b3d",
+  "git_short": "37dd754",
+  "git_branch": "main"
+}
+```
+
+**Pola:**
+- `app` — nazwa aplikacji
+- `version` — wersja API (semantic versioning)
+- `git_hash` — pełny SHA-1 commit hash (40 znaków)
+- `git_short` — skrócony commit hash (7 znaków)
+- `git_branch` — nazwa brancha git
+
+**Logika:**
+1. Próba pobrania hashu z `git rev-parse HEAD` (jeśli `.git` dostępny)
+2. Fallback: czytanie z pliku `VERSION` w root projektu (jeśli git niedostępny na prodzie)
+3. Fallback: `"unknown"` jeśli obie metody zawiodą
+
+**Weryfikacja deploymentu:**
+```bash
+# Produkcja
+curl https://toolsmart.pl/rao/api/version
+
+# Lokalnie
+git rev-parse HEAD
+git log -1 --oneline
+```
+
+**HTTP:** 200
+
+---
+
+## Znane problemy i naprawy
+
+### Problem: Błąd CORS przy zmianie portu frontend
+**Symptom:** `Access to XMLHttpRequest at 'http://localhost:8000/...' from origin 'http://localhost:5174' has been blocked by CORS policy`
+
+**Rozwiązanie:** Zaktualizuj `RAO_CORS_ORIGINS` w `.env` aby zawierał aktualny port frontendu:
+```bash
+RAO_CORS_ORIGINS=["http://localhost:5173","http://localhost:5174","http://localhost:3000"]
+```
+
+**Pliki do zmiany:** `.env`
+
+---
+
+### Problem: TypeError w /stats/fleet-summary (backend/stats/router.py:202)
+**Symptom:** `TypeError: unsupported operand type(s) for /: 'int' and 'Article'`
+
+**Przyczyna:** Zapytanie `select(Article)` zwraca obiekty Article zamiast liczby.
+
+**Rozwiązanie:** Użyj `func.count(Article.id)`:
+```python
+# Błędne:
+machines_query = select(Article).where(...)
+
+# Poprawne:
+machines_query = select(func.count(Article.id)).where(...)
+```
+
+**Pliki do zmiany:** `backend/stats/router.py` (linia ~172)
+
+---
+
+### Problem: Nieprawidłowe hasło admin po migracji
+**Symptom:** Logowanie jako admin z hasłem `admin123` nie działa
+
+**Rozwiązanie:** Uruchom skrypt resetujący hasło:
+```bash
+cd backend
+. .venv/bin/activate
+python reset_admin_password.py
+```
+
+**Pliki:** `backend/reset_admin_password.py`
+
+---
+
+### Problem: Brakujące zależności npm po czystej instalacji
+**Symptom:** `Failed to run dependency scan... vue-draggable-plus`, `@vuepic/vue-datepicker`
+
+**Rozwiązanie:** Zainstaluj brakujące pakiety:
+```bash
+cd frontend
+npm install vue-draggable-plus @vuepic/vue-datepicker
+```
+
+**Pliki:** `frontend/package.json`
+---
+
+## Middleware & Dependencies
+
+### CORS
+
+```python
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+```
+
+**Uwaga:** Przy zmianie portu frontend (np. gdy 5173 jest zajęty i Vite używa 5174), 
+należy zaktualizować `RAO_CORS_ORIGINS` w `.env` aby zawierał nowy port:
+```bash
+RAO_CORS_ORIGINS=["http://localhost:5173","http://localhost:5174","http://localhost:3000"]
+```
+
+### Auth Dependency
+
+```python
+async def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db)
+) -> User:
+    payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
+    user_id = payload.get("sub")
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(401, "User not found")
+    return user
+```
+
+### Pagination
+
+```python
+class PaginationParams(BaseModel):
+    page: int = Field(1, ge=1)
+    per_page: int = Field(50, ge=1, le=200)
+
+    @property
+    def offset(self) -> int:
+        return (self.page - 1) * self.per_page
+```
+
+---
+
+## HEALTH CHECK & VERSION
+
+### `GET /health`
+
+**Opis:** Sprawdzenie stanu aplikacji. Endpoint publiczny (bez autentykacji).
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "version": "1.0.0"
+}
+```
+**HTTP:** 200
+
+---
+
+### `GET /version`
+
+**Opis:** Zwraca informacje o wersji aplikacji (git commit hash). Endpoint publiczny (bez autentykacji). Używany do weryfikacji wersji deploymentu na produkcji vs. branch lokalny.
+
+**Response:**
+```json
+{
+  "app": "RAO API",
+  "version": "1.0.0",
+  "git_hash": "37dd754867cf85482596bc43f9da1081249a8b3d",
+  "git_short": "37dd754",
+  "git_branch": "main"
+}
+```
+
+**Pola:**
+- `app` — nazwa aplikacji
+- `version` — wersja API (semantic versioning)
+- `git_hash` — pełny SHA-1 commit hash (40 znaków)
+- `git_short` — skrócony commit hash (7 znaków)
+- `git_branch` — nazwa brancha git
+
+**Logika:**
+1. Próba pobrania hashu z `git rev-parse HEAD` (jeśli `.git` dostępny)
+2. Fallback: czytanie z pliku `VERSION` w root projektu (jeśli git niedostępny na prodzie)
+3. Fallback: `"unknown"` jeśli obie metody zawiodą
+
+**Weryfikacja deploymentu:**
+```bash
+# Produkcja
+curl https://toolsmart.pl/rao/api/version
+
+# Lokalnie
+git rev-parse HEAD
+git log -1 --oneline
+```
+
+**HTTP:** 200
+
+---
+
+## Znane problemy i naprawy
+
+### Problem: Błąd CORS przy zmianie portu frontend
+**Symptom:** `Access to XMLHttpRequest at 'http://localhost:8000/...' from origin 'http://localhost:5174' has been blocked by CORS policy`
+
+**Rozwiązanie:** Zaktualizuj `RAO_CORS_ORIGINS` w `.env` aby zawierał aktualny port frontendu:
+```bash
+RAO_CORS_ORIGINS=["http://localhost:5173","http://localhost:5174","http://localhost:3000"]
+```
+
+**Pliki do zmiany:** `.env`
+
+---
+
+### Problem: TypeError w /stats/fleet-summary (backend/stats/router.py:202)
+**Symptom:** `TypeError: unsupported operand type(s) for /: 'int' and 'Article'`
+
+**Przyczyna:** Zapytanie `select(Article)` zwraca obiekty Article zamiast liczby.
+
+**Rozwiązanie:** Użyj `func.count(Article.id)`:
+```python
+# Błędne:
+machines_query = select(Article).where(...)
+
+# Poprawne:
+machines_query = select(func.count(Article.id)).where(...)
+```
+
+**Pliki do zmiany:** `backend/stats/router.py` (linia ~172)
+
+---
+
+### Problem: Nieprawidłowe hasło admin po migracji
+**Symptom:** Logowanie jako admin z hasłem `admin123` nie działa
+
+**Rozwiązanie:** Uruchom skrypt resetujący hasło:
+```bash
+cd backend
+. .venv/bin/activate
+python reset_admin_password.py
+```
+
+**Pliki:** `backend/reset_admin_password.py`
+
+---
+
+### Problem: Brakujące zależności npm po czystej instalacji
+**Symptom:** `Failed to run dependency scan... vue-draggable-plus`, `@vuepic/vue-datepicker`
+
+**Rozwiązanie:** Zainstaluj brakujące pakiety:
+```bash
+cd frontend
+npm install vue-draggable-plus @vuepic/vue-datepicker
+```
+
+**Pliki:** `frontend/package.json`
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
