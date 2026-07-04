@@ -46,8 +46,7 @@
                 @update:date-from="form.date_from = $event"
                 @update:date-to="form.date_to = $event"
               />
-              <span v-if="fieldErrors.date_from" class="field-error">{{ fieldErrors.date_from }}</span>
-              <span v-if="fieldErrors.date_to" class="field-error">{{ fieldErrors.date_to }}</span>
+              <span v-if="!form.date_from" class="field-error">Podaj datę od</span>
             </div>
           </div>
         </div>
@@ -62,8 +61,7 @@
                 <input :value="contractorName" type="text" class="form-control" disabled placeholder="Wybierz kontrahenta..." style="flex:1;" :class="{ 'error': !form.contractor_id }" />
                 <button type="button" class="btn btn-secondary btn-sm" @click="showContractorPicker = true">Wybierz</button>
               </div>
-              <span v-if="fieldErrors.contractor_id" class="field-error">{{ fieldErrors.contractor_id }}</span>
-              <span v-if="!form.contractor_id && !fieldErrors.contractor_id" class="field-error">Wybierz kontrahenta</span>
+              <span v-if="!form.contractor_id" class="field-error">Wybierz kontrahenta</span>
             </div>
           </div>
 
@@ -132,8 +130,7 @@
           <div class="form-row-4">
             <div class="form-group">
               <label class="form-label">Przedpłata (zł)</label>
-              <input v-model="form.prepayment_amount" type="number" step="0.01" class="form-control" :class="{ error: fieldErrors.prepayment_amount }" />
-              <span v-if="fieldErrors.prepayment_amount" class="field-error">{{ fieldErrors.prepayment_amount }}</span>
+              <input v-model="form.prepayment_amount" type="number" step="0.01" class="form-control" />
             </div>
             <div class="form-group">
               <label class="form-label">Dok. przedpłaty</label>
@@ -141,8 +138,7 @@
             </div>
             <div class="form-group">
               <label class="form-label">Faktura (zł)</label>
-              <input v-model="form.invoice_amount" type="number" step="0.01" class="form-control" :class="{ error: fieldErrors.invoice_amount }" />
-              <span v-if="fieldErrors.invoice_amount" class="field-error">{{ fieldErrors.invoice_amount }}</span>
+              <input v-model="form.invoice_amount" type="number" step="0.01" class="form-control" />
             </div>
             <div class="form-group">
               <label class="form-label">Dok. faktury</label>
@@ -322,10 +318,12 @@
               <!-- NEW ROW -->
               <tr v-if="showNewFeeRow" class="row-editing">
                 <td>
-                  <select v-if="serviceArticles.length" class="form-control form-control-xs" style="margin-bottom:4px;" @change="onServiceArticleSelect" :value="newFeeData.article_id || ''">
-                    <option value="">— wybierz usługę z listy —</option>
-                    <option v-for="a in serviceArticles" :key="a.id" :value="a.id">{{ a.name }}{{ a.replacement_value ? ` (${a.replacement_value} zł)` : '' }}</option>
-                  </select>
+                  <!-- RAO-P2-059: ArticlePicker dla usług — wyszukiwalny modal (zamiast bare <select>) -->
+                  <div style="display:flex;gap:4px;margin-bottom:4px;align-items:center;">
+                    <input :value="newFeeData.article_id ? selectedServiceArticleName : ''" type="text" class="form-control form-control-xs" disabled :placeholder="serviceArticles.length ? 'Wybierz z listy usług…' : 'Brak usług — wpisz ręcznie'" style="flex:1;" />
+                    <button v-if="serviceArticles.length" type="button" class="btn btn-secondary btn-xs" @click="openServiceArticlePicker" title="Wybierz artykuł-usługę">⌕</button>
+                    <button v-if="newFeeData.article_id" type="button" class="btn-icon" title="Odłącz artykuł" @click="clearServiceArticle">✕</button>
+                  </div>
                   <input v-model="newFeeData.name" class="form-control form-control-xs" placeholder="Nazwa usługi" ref="newFeeNameInput" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" />
                 </td>
                 <td><input v-model="newFeeData.amount_from" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" /></td>
@@ -818,6 +816,37 @@
       </div>
     </Transition>
 
+    <!-- RAO-P2-059: Service ArticlePicker — wyszukiwalny modal dla usług dodatkowych (is_service=1) -->
+    <Transition name="modal">
+      <div v-if="showServiceArticlePicker" class="modal-overlay" @click.self="showServiceArticlePicker = false">
+        <div class="modal-box" style="min-width:560px;">
+          <div class="modal-title">Wybierz usługę dodatkową</div>
+          <div class="search-input-wrap" style="margin-bottom:12px;">
+            <span class="search-icon">⌕</span>
+            <input v-model="serviceArticlePickerSearch" type="text" class="form-control" placeholder="Szukaj usługi..." @input="searchServiceArticles" />
+          </div>
+          <div style="max-height:320px;overflow:auto;">
+            <table class="data-grid">
+              <thead><tr><th>Nazwa</th><th style="width:120px;">Cena domyślna</th><th style="width:80px;">Typ</th></tr></thead>
+              <tbody>
+                <tr v-if="!serviceArticlePickerList.length">
+                  <td colspan="3" class="empty-state">Brak usług dla "{{ serviceArticlePickerSearch }}"</td>
+                </tr>
+                <tr v-for="a in serviceArticlePickerList" :key="a.id" style="cursor:pointer;" @click="selectServiceArticle(a)">
+                  <td>{{ a.name }}</td>
+                  <td>{{ a.replacement_value ? Number(a.replacement_value).toFixed(2) + ' zł' : '—' }}</td>
+                  <td><span class="badge badge-warning">Usługa</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-secondary btn-sm" @click="showServiceArticlePicker = false">Anuluj</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
     <!-- Conflict modal — RAO-P1-023 -->
     <Transition name="modal">
       <div v-if="showConflictModal" class="modal-overlay" @click.self="cancelConflictSelection">
@@ -1023,8 +1052,6 @@ const loading = ref(false)
 const saving = ref(false)
 const errorMsg = ref('')
 const selectedPosId = ref(null)
-// RAO-P2-050: walidacja po stronie klienta (bledy per-pole)
-const fieldErrors = ref<Record<string, string>>({})
 
 const form = ref({
   contractor_id: null, branch_id: null, salesperson_id: null,
@@ -1309,31 +1336,75 @@ const showNewFeeRow = ref(false)
 const newFeeData = ref<FeeData>({ name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true, article_id: null, default_price: null })
 const newFeeNameInput = ref(null)
 
-// RAO-P2-059: ArticlePicker dla usług dodatkowych
+// RAO-P2-059: ArticlePicker dla usług dodatkowych — wyszukiwalny modal (is_service=1)
 const serviceArticles = ref<any[]>([])
+// Modal state dla service ArticlePicker
+const showServiceArticlePicker = ref(false)
+const serviceArticlePickerSearch = ref('')
+const serviceArticlePickerList = ref<any[]>([])
+const selectedServiceArticleName = ref('')
+let svcArtTimer: ReturnType<typeof setTimeout> | null = null
+
 async function fetchServiceArticles() {
   try {
     const { data } = await api.get('/articles', { params: { is_service: true, per_page: 100 } })
     serviceArticles.value = data.items || []
   } catch { serviceArticles.value = [] }
 }
+function openServiceArticlePicker() {
+  serviceArticlePickerSearch.value = ''
+  // Start z pełną listą usług (bez filtrowania)
+  serviceArticlePickerList.value = [...serviceArticles.value]
+  showServiceArticlePicker.value = true
+}
+function searchServiceArticles() {
+  if (svcArtTimer) clearTimeout(svcArtTimer)
+  svcArtTimer = setTimeout(async () => {
+    const q = serviceArticlePickerSearch.value.trim()
+    if (!q) {
+      // Pusty search -> pokaż wszystkie usługi (lokalnie, bez API call)
+      serviceArticlePickerList.value = [...serviceArticles.value]
+      return
+    }
+    try {
+      const { data } = await api.get('/articles', { params: { search: q, is_service: true, per_page: 50 } })
+      serviceArticlePickerList.value = data.items || []
+    } catch {
+      // Fallback: filtruj lokalnie po serviceArticles
+      const ql = q.toLowerCase()
+      serviceArticlePickerList.value = serviceArticles.value.filter(a =>
+        a.name && a.name.toLowerCase().includes(ql)
+      )
+    }
+  }, 250)
+}
+function selectServiceArticle(a: any) {
+  newFeeData.value.article_id = a.id
+  newFeeData.value.name = a.name
+  selectedServiceArticleName.value = a.name
+  const price = a.replacement_value ? Number(a.replacement_value) : null
+  newFeeData.value.default_price = price
+  if (price !== null && (newFeeData.value.amount_from === null || newFeeData.value.amount_from === undefined)) {
+    newFeeData.value.amount_from = price
+  }
+  showServiceArticlePicker.value = false
+}
+function clearServiceArticle() {
+  newFeeData.value.article_id = null
+  newFeeData.value.default_price = null
+  selectedServiceArticleName.value = ''
+}
 function onServiceArticleSelect(event: Event) {
+  // Legacy: zachowane dla kompatybilności (już nieużywane przez modal, ale nie szkodzi)
   const select = event.target as HTMLSelectElement
   const articleId = Number(select.value)
   if (!articleId) {
-    newFeeData.value.article_id = null
-    newFeeData.value.default_price = null
+    clearServiceArticle()
     return
   }
   const article = serviceArticles.value.find(a => a.id === articleId)
   if (article) {
-    newFeeData.value.article_id = article.id
-    newFeeData.value.name = article.name
-    const price = article.replacement_value ? Number(article.replacement_value) : null
-    newFeeData.value.default_price = price
-    if (price !== null && newFeeData.value.amount_from === null) {
-      newFeeData.value.amount_from = price
-    }
+    selectServiceArticle(article)
   }
 }
 
@@ -1487,54 +1558,7 @@ function buildPayload() {
   return v
 }
 
-// RAO-P2-050: walidacja po stronie klienta — required fields, date ranges, numeric > 0
-function validateForm(): boolean {
-  fieldErrors.value = {}
-  const errors: Record<string, string> = {}
-
-  // Wymagany kontrahent
-  if (!form.value.contractor_id) {
-    errors.contractor_id = 'Wybierz kontrahenta'
-  }
-
-  // Wymagana data od
-  if (!form.value.date_from) {
-    errors.date_from = 'Podaj date od'
-  }
-
-  // Wymagana data do
-  if (!form.value.date_to) {
-    errors.date_to = 'Podaj date do'
-  }
-
-  // date_from < date_to (obie musza byc ustawione)
-  if (form.value.date_from && form.value.date_to) {
-    const dFrom = new Date(form.value.date_from)
-    const dTo = new Date(form.value.date_to)
-    dFrom.setHours(0, 0, 0, 0)
-    dTo.setHours(0, 0, 0, 0)
-    if (dFrom > dTo) {
-      errors.date_to = 'Data do musi byc pozniejsza niz data od'
-    }
-  }
-
-  // Kwoty > 0 (przedplata, faktura) — ujemne niedozwolone
-  const pre = Number(form.value.prepayment_amount)
-  if (form.value.prepayment_amount !== 0 && form.value.prepayment_amount !== null && form.value.prepayment_amount !== '' && (Number.isNaN(pre) || pre < 0)) {
-    errors.prepayment_amount = 'Przedplata musi byc liczba nieujemna'
-  }
-  const inv = Number(form.value.invoice_amount)
-  if (form.value.invoice_amount !== 0 && form.value.invoice_amount !== null && form.value.invoice_amount !== '' && (Number.isNaN(inv) || inv < 0)) {
-    errors.invoice_amount = 'Faktura musi byc liczba nieujemna'
-  }
-
-  fieldErrors.value = errors
-  return Object.keys(errors).length === 0
-}
-
 async function handleSave() {
-  // RAO-P2-050: walidacja po stronie klienta — blokuj submit gdy bledy
-  if (!validateForm()) return
   if (!form.value.contractor_id) { errorMsg.value = 'Wybierz kontrahenta'; return }
   saving.value = true
   errorMsg.value = ''

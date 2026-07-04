@@ -972,6 +972,16 @@ phase_1_mvp_skipped:
   - "fakturownia_products_cache table — live API call działa wystarczająco dla MVP (13 produktów)"
   - "sync-products endpoint — niepotrzebny bez cache table"
   - "products/search endpoint — frontend filter po select wystarczy dla 13 produktów"
+phase_1_cache_done:
+  - "fakturownia_products_cache table utworzona (auto via Base.metadata.create_all, model w integrations/fakturownia/models.py)"
+  - "POST /integrations/fakturownia/sync-products — paginacja per_page=100, atomic upsert (INSERT ... ON DUPLICATE KEY UPDATE), rate limit 3/min/user, admin-only"
+  - "GET /integrations/fakturownia/products/search?q=... — LIKE %q% po name/code, limit 1-200 (default 50), authenticated"
+  - "FakturowniaClient.get_all_products() — paginacja z auto-stop na ostatniej stronie"
+  - "FakturowniaProductCacheOut + SyncProductsResultOut schemas (Pydantic v2)"
+  - "ArticleFormView.vue: searchable dropdown (debounced 250ms) z cache + przycisk ↻ sync + ✕ clear"
+  - "useFakturowniaStore: syncProducts() + searchCachedProducts(q, limit)"
+  - "Testy: 7 unit tests (sync happy/empty/disabled + search happy/empty/no-results/limit) — 28/28 fakturownia tests pass"
+  - "Smoke: sync-products 11 products upserted, search 'kop' → 1 result, 401 unauth, 422 empty q"
 verification:
   - "vue-tsc --noEmit: pass"
   - "npm run build: pass"
@@ -1109,7 +1119,7 @@ Faza 1 (to zadanie):
 id: RAO-P2-059
 priority: P2
 size: L
-status: done (2026-07-01, re-scoped po team review)
+status: done (2026-07-04, Faza 1 — standalone migrate_service_fees.py + UI ArticlePicker modal)
 classification: cross-stack/refactor
 roles: [tech-lead, db-architect, backend-dev, frontend-dev, qa-engineer, product-owner]
 source: operator-request
@@ -3235,8 +3245,8 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
 | RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | dev-verified | → team-verified (wartość z rozliczenia, read-only w formularzu) |
 | RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
-| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | review | → Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
-| RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | dev-verified | → user-verified |
+| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | done | Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
+| RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | done | dev-verified → user-verified |
 | RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | dev-verified | → team-verified (unique=True w model + DB index uq_contracts_number) |
 | RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | done | → done (autoescape=True w reports/service.py:588) |
 | RAO-P0-032 | build_contract_data mutuje sesję — kopiuj description | P0 | XS | done | → done (lokalne kopie description w fees_data) |
@@ -3254,19 +3264,19 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P1-044 | Frontend: localStorage.getItem('token') → 'rao_token' | P1 | XS | dev-verified | → team-verified |
 | RAO-P1-045 | _build_conditions_text — użyj format_position_conditions_cascading (dedup) | P1 | XS | dev-verified | → team-verified |
 | RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
-| RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | triaged | → in_progress |
-| RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | triaged | → in_progress |
-| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | triaged | → in_progress |
-| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | triaged | → in_progress |
-| RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | triaged | → in_progress |
-| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
-| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
+| RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | done | in-memory limiter 5/60s/IP, 429+Retry-After |
+| RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | done | warunkowe docs_url/redoc_url z RAO_ENV |
+| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | done | StateMessage.vue + integracja w 4 widokach |
+| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | done | walidacja w 3 formularzach, blokada submit |
+| RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | done | TTLCache in-memory, 11 endpointow stats, /cache/clear |
+| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | done | SQL WHERE + LEFT JOIN, contract_ids param |
+| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | done | single compute + limit/offset/total_count |
 | RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | dev-verified | → team-verified (normalize w settings/service.py + ALTER TABLE polish_ci w main.py) |
-| RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | triaged | → in_progress |
-| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
+| RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | done | migracja + indeks + /stats/by-branch endpoint |
+| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | done | /stats/by-contract-type endpoint + aggregate_by_contract_type |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | dev-verified | → team-verified (is_external nie blokuje + checkbox w details) |
-| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
-| RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | triaged | → in_progress (Faza 1: parser legacy + migracja + UI + template items) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | done | Faza 1 ukończona: OID hybrydowe + product cache (sync-products + search) + UI searchable dropdown |
+| RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | done | Faza 1 done: migrate_service_fees.py (idempotentny parser + auto-utworzenie artykułów) + UI ArticlePicker modal (is_service=1, searchable) |
 | RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | in-progress (Faza 1 done — 6 bugów + indeksy + cleanup; Faza 2 todo — StatsView.vue) |
 | RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
 | RAO-P2-067 | Demo data refactor — migrate_all.py orchestrator + FA-pending contracts + delivery_address | P2 | M | done | 31 faktur FA (19 backfill + 12 FA-pending), delivery_address z miastami, hardcoded token usunięty |
