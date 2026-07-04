@@ -21,6 +21,7 @@ permissions:
     - MCP(codebase-memory)
     - MCP(depwire)
     - MCP(mariadb)
+    - MCP(playwright)
   deny:
     - Write(backend/**/*)
 model: GLM-5.2 High
@@ -202,25 +203,39 @@ Repo zindeksowane. Używaj graph tools do szukania komponentów, stores, zależn
 - `get_table_schema` — sprawdź kolumny tabeli przed dodaniem pola formularza (czy `max_length`, `nullable`)
 - `get_table_schema_with_relations` — sprawdź FK relacje dla dropdownów (np. `contractor_id` → `contractors`)
 
+### playwright (weryfikacja w przeglądarce — headless)
+- `browser_navigate` — otwórz widok `http://localhost:5173/contracts`
+- `browser_snapshot` — accessibility snapshot (struktura DOM bez screenshotu — szybkie, darmowe)
+- `browser_click` — kliknij element (test interakcji)
+- `browser_take_screenshot` — zrób screenshot (potem `rao-vision.analyze_screenshot` jeśli potrzebna analiza wizualna)
+- `browser_evaluate` — uruchom JS w stronie (sprawdź stan Pinia store, computed values)
+
 ### Kiedy używać
 - **Przed dodaniem komponentu** → `codebase-memory.search_graph` czy podobny już istnieje (unikaj duplikacji)
 - **Przed zmianą shared komponentu** (DataGrid, ArticlePicker) → `depwire.impact_analysis` → blast radius
 - **Refactor store** → `depwire.get_dependents` na storze → zobacz wszystkie widoki które go używają
 - **Szukanie composable** → `codebase-memory.search_graph` z `semantic_query=["fetch","api","request"]`
 - **Form fields** → `mariadb.get_table_schema` — sprawdź `max_length`, `nullable` przed dodaniem pola formularza
+- **Weryfikacja po zmianie (poziom 2 — programatyczna w przeglądarce):**
+  - `playwright.browser_navigate` → `playwright.browser_snapshot` — sprawdź czy element istnieje w DOM (szybsze niż vision)
+  - `playwright.browser_click` — testuj interakcje (czy button działa, czy form submituje)
+  - `playwright.browser_evaluate` — sprawdź stan store/rekwizyty bez screenshotu
+- **Weryfikacja po zmianie (poziom 3 — vision):** tylko gdy zmiana dotyczy layout/spacing/kolorów/animacji (kosztowne ~$0.01-0.03)
 
 ### Projekt zindeksowany jako
 - codebase-memory: `C-projects-repos-RaoApp_new`
 - depwire: `C:/projects/repos/RaoApp_new`
 - mariadb: baza `rao_new` na `localhost:3306`
+- playwright: headless Chromium na `http://localhost:5173`
 
 ## Po zmianie
 
 1. `npx vue-tsc --noEmit` - typy OK
 2. `npm run build` - build OK
-3. **Weryfikacja (3-poziomowa):**
+3. **Weryfikacja (4-poziomowa):**
    - **Poziom 1 (zawsze):** `npx vue-tsc --noEmit` + `npm run build` — typy i build
    - **Poziom 2 (zawsze):** programatycznie — grep/read Vue template dla pól, tekstów, logiki
+   - **Poziom 2.5 (gdy frontend działa):** `playwright.browser_navigate` + `browser_snapshot` — sprawdź DOM w przeglądarce headless (czy element istnieje, czy jest widoczny, czy ma poprawną strukturę — szybsze i tańsze niż vision)
    - **Poziom 3 (UI changes):** vision przez MCP `rao-vision` — TYLKO gdy zmiana dotyczy layout/spacing/kolorów/animacji
    ```python
    mcp_call_tool(
@@ -232,7 +247,7 @@ Repo zindeksowane. Używaj graph tools do szukania komponentów, stores, zależn
        }
    )
    ```
-   **Priorytet:** poziom 1+2 (darmowe) → poziom 3 vision (~$0.01-0.03 per screenshot, używaj rzadko)
+   **Priorytet:** poziom 1+2 (darmowe) → poziom 2.5 playwright (darmowe, headless) → poziom 3 vision (~$0.01-0.03 per screenshot, używaj rzadko)
 4. Aktualizuj `spec/core/03_frontend_screens.md`
 5. Sprawdź `spec/backlog/BACKLOG.md` — aktualizuj status tasku jeśli applicable
 
