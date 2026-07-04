@@ -80,6 +80,36 @@ class FakturowniaClient:
             return []
         return self._parse_products(raw)
 
+    async def get_all_products(self, per_page: int = 100) -> tuple[List[FakturowniaProductOut], int]:
+        """Fetch ALL products with pagination (RAO-P2-058).
+
+        Returns (products, pages_fetched).
+        Fakturownia API: GET /products.json?page=N&per_page=100&api_token=...
+        """
+        all_products: List[FakturowniaProductOut] = []
+        page = 1
+        pages = 0
+        while True:
+            raw = await self._get(
+                "/products.json",
+                params={
+                    "api_token": self._api_token,
+                    "page": page,
+                    "per_page": per_page,
+                },
+            )
+            if not isinstance(raw, list) or len(raw) == 0:
+                break
+            all_products.extend(self._parse_products(raw))
+            pages += 1
+            if len(raw) < per_page:
+                break  # last page
+            page += 1
+            if page > 50:  # safety guard — 50 × 100 = 5000 products max
+                logger.warning("Fakturownia get_all_products: hit safety guard at page 50")
+                break
+        return all_products, pages
+
     # ── HTTP layer ────────────────────────────────────────────────────────────
 
     async def _get(self, path: str, params: dict) -> object:

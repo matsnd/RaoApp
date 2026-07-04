@@ -16,12 +16,14 @@ from .client import FakturowniaClient
 from .crypto import decrypt_token, encrypt_token, mask_token
 from .models import FakturowniaSettings
 from .schemas import (
+    FakturowniaProductCacheOut,
     FakturowniaProductOut,
     FakturowniaSettingsIn,
     InvoiceOut,
     RaoArticleRef,
     ResolvedInvoiceLine,
     ResolvedInvoiceOut,
+    SyncProductsResultOut,
 )
 
 logger = logging.getLogger(__name__)
@@ -103,6 +105,88 @@ async def fetch_products(db: AsyncSession) -> List[FakturowniaProductOut]:
     obj = await get_or_create_settings(db)
     client = _build_client(obj)
     return await client.get_products()
+
+
+# ── RAO-P2-058: Product cache (sync + search) ────────────────────────────────
+
+async def sync_products(db: AsyncSession) -> SyncProductsResultOut:
+    """Pobierz wszystkie produkty z FA (paginated) i upsert do lokalnego cache.
+
+    Returns: SyncProductsResultOut (fetched, upserted, pages, synced_at).
+    """
+    from sqlalchemy.dialects.mysql import insert as mysql_insert
+    from .models import FakturowniaProductCache
+
+    obj = await get_or_create_settings(db)
+    client = _build_client(obj)
+
+    products, pages = await client.get_all_products(per_page=100)
+    if not products:
+        return SyncProductsResultOut(
+            fetched=0, upserted=0, pages=0, synced_at=datetime.now(timezone.utc).replace(tzinfo=None),
+        )
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    rows = []
+    for p in products:
+        rows.append({
+            "product_id": p.id,
+            "code": p.code,
+            "name": p.name,
+            "price_net": p.price_net,
+            "currency": p.currency or "PLN",
+            "tax_rate": p.tax,
+            "gtu_code": p.gtu_code,
+            "pkwiu": p.pkwiu,
+            "synced_at": now,
+        })
+
+    # Atomic upsert (MariaDB INSERT ... ON DUPLICATE KEY UPDATE)
+    stmt = mysql_insert(FakturowniaProductCache).values(rows)
+    stmt = stmt.on_duplicate_key_update(
+        code=stmt.inserted.code,
+        name=stmt.inserted.name,
+        price_net=stmt.inserted.price_net,
+        currency=stmt.inserted.currency,
+        tax_rate=stmt.inserted.tax_rate,
+        gtu_code=stmt.inserted.gtu_code,
+        pkwiu=stmt.inserted.pkwiu,
+        synced_at=stmt.inserted.synced_at,
+    )
+    await db.execute(stmt)
+    await db.commit()
+
+    return SyncProductsResultOut(
+        fetched=len(products),
+        upserted=len(rows),
+        pages=pages,
+        synced_at=now,
+    )
+
+
+async def search_products(db: AsyncSession, query: str, limit: int = 50) -> List[FakturowniaProductCacheOut]:
+    """Przeszukaj lokalny cache produktów FA (LIKE %q% na name/code).
+
+    Empty/whitespace query → returns [] without DB call.
+    """
+    from .models import FakturowniaProductCache
+
+    q = (query or "").strip()
+    if not q:
+        return []
+
+    pattern = f"%{q}%"
+    result = await db.execute(
+        select(FakturowniaProductCache)
+        .where(
+            (FakturowniaProductCache.name.ilike(pattern))
+            | (FakturowniaProductCache.code.ilike(pattern))
+        )
+        .order_by(FakturowniaProductCache.name.asc())
+        .limit(limit)
+    )
+    rows = result.scalars().all()
+    return [FakturowniaProductCacheOut.model_validate(r) for r in rows]
 
 
 async def fetch_invoices_for_contract(

@@ -140,3 +140,31 @@ class ResolvedInvoiceOut(BaseModel):
     total_net: Decimal
     mapped_total_net: Decimal
     unmapped_count: int
+
+
+# ── RAO-P2-058: Product cache (sync + search) ─────────────────────────────────
+
+class SyncProductsResultOut(BaseModel):
+    """Wynik synchronizacji katalogu produktów FA → lokalny cache."""
+    model_config = {"extra": "forbid"}
+
+    fetched: int
+    upserted: int
+    pages: int
+    synced_at: datetime
+
+
+class FakturowniaProductCacheOut(BaseModel):
+    """Pojedynczy produkt z lokalnego cache (zapisany po sync-products)."""
+    model_config = {"from_attributes": True, "extra": "forbid"}
+
+    id: int
+    product_id: int
+    code: Optional[str] = None
+    name: str
+    price_net: Optional[Decimal] = None
+    currency: Optional[str] = None
+    tax_rate: Optional[str] = None
+    gtu_code: Optional[str] = None
+    pkwiu: Optional[str] = None
+    synced_at: datetime
