@@ -18,11 +18,12 @@
               <span class="search-icon">⌕</span>
               <input v-model="search" type="text" class="form-control" placeholder="Szukaj wg numeru, kontrahenta..." />
             </div>
-            <select v-model="contractTypeFilter" class="form-control" style="width:160px;">
+            <select v-model="contractTypeFilter" class="form-control" style="width:160px;" aria-label="Filtr typu umowy">
               <option value="">Wszystkie typy</option>
-              <option value="S">Umowy najmu</option>
-              <option value="U">Umowy usługi</option>
+              <option value="S">Umowy najmu (S)</option>
+              <option value="U">Umowy usługi (U)</option>
             </select>
+            <GlossaryTip term="S/U" definition="S = umowa najmu, U = umowa usługi" description="S — klient płaci za dni/miesiące użytkowania maszyny. U — klient płaci za wykonaną usługę (godz. pracy + operator)." placement="bottom" :size="12" />
             <!-- RAO-P2-022: filtr statusu rozliczenia -->
             <select v-model="settledFilter" class="form-control" style="width:160px;">
               <option value="false">Aktywne</option>
@@ -40,67 +41,71 @@
             <input v-model="cityFilter" type="text" class="form-control" style="width:160px;" placeholder="Miasto..." />
           </div>
           <div class="grid-scroll">
-            <table class="data-grid">
+            <table class="data-grid" role="table" aria-label="Lista umów">
               <thead>
-                <tr>
-                  <th class="th-sortable" @click="toggleSort('number')">Numer <span class="sort-indicator">{{ sortIndicator('number') }}</span></th>
-                  <th class="th-sortable" @click="toggleSort('contractor_name')">Kontrahent <span class="sort-indicator">{{ sortIndicator('contractor_name') }}</span></th>
-                  <th>Adres dostawy</th>
-                  <th>Typ</th>
-                  <th class="th-sortable" @click="toggleSort('date_from')">Data od <span class="sort-indicator">{{ sortIndicator('date_from') }}</span></th>
-                  <th class="th-sortable" @click="toggleSort('date_to')">Data do <span class="sort-indicator">{{ sortIndicator('date_to') }}</span></th>
+                <tr role="row">
+                  <th class="th-sortable" role="columnheader" @click="toggleSort('number')" aria-sort="other">Numer <span class="sort-indicator" aria-hidden="true">{{ sortIndicator('number') }}</span></th>
+                  <th class="th-sortable" role="columnheader" @click="toggleSort('contractor_name')" aria-sort="other">Kontrahent <span class="sort-indicator" aria-hidden="true">{{ sortIndicator('contractor_name') }}</span></th>
+                  <th role="columnheader">Adres dostawy</th>
+                  <th role="columnheader">Typ</th>
+                  <th class="th-sortable" role="columnheader" @click="toggleSort('date_from')" aria-sort="other">Data od <span class="sort-indicator" aria-hidden="true">{{ sortIndicator('date_from') }}</span></th>
+                  <th class="th-sortable" role="columnheader" @click="toggleSort('date_to')" aria-sort="other">Data do <span class="sort-indicator" aria-hidden="true">{{ sortIndicator('date_to') }}</span></th>
                   <!-- RAO-P1-021/P2-033: Wartość usunięte (martwe pole) -->
-                  <th class="th-sortable" @click="toggleSort('salesperson_name')">Handlowiec <span class="sort-indicator">{{ sortIndicator('salesperson_name') }}</span></th>
-                  <th>Status</th>
-                  <th>Wydruk</th>
+                  <th class="th-sortable" role="columnheader" @click="toggleSort('salesperson_name')" aria-sort="other">Handlowiec <span class="sort-indicator" aria-hidden="true">{{ sortIndicator('salesperson_name') }}</span></th>
+                  <th role="columnheader">Status</th>
+                  <th role="columnheader">Wydruk</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-if="contractStore.loading">
-                  <td colspan="10"><StateMessage type="loading" compact message="Ladowanie umow..." /></td>
+                <tr v-if="contractStore.loading" role="row">
+                  <td colspan="10" role="cell"><SkeletonRow :cols="6" label="Ładowanie umów" /></td>
                 </tr>
-                <tr v-else-if="loadError">
-                  <td colspan="10"><StateMessage type="error" compact :message="loadError" @action="loadData" /></td>
+                <tr v-else-if="loadError" role="row">
+                  <td colspan="10" role="cell"><StateMessage type="error" compact :message="loadError" @action="loadData" /></td>
                 </tr>
-                <tr v-else-if="!contractStore.list.length">
-                  <td colspan="10">
+                <tr v-else-if="!contractStore.list.length" role="row">
+                  <td colspan="10" role="cell">
                     <StateMessage type="empty" compact message="Brak umow" action-label="+ Nowa umowa" @action="router.push({ name: 'ContractNew' })" />
                   </td>
                 </tr>
-                <tr v-else-if="!sortedFilteredContracts.length">
-                  <td colspan="10"><StateMessage type="empty" compact message="Brak umow spelniajacych filtry" /></td>
+                <tr v-else-if="!sortedFilteredContracts.length" role="row">
+                  <td colspan="10" role="cell"><StateMessage type="empty" compact message="Brak umow spelniajacych filtry" /></td>
                 </tr>
                 <tr
                   v-for="c in sortedFilteredContracts"
                   :key="c.id"
+                  role="row"
+                  tabindex="0"
+                  :aria-label="`Umowa ${c.number}, kontrahent ${c.contractor_name}`"
                   :class="['contract-row', { selected: selectedId === c.id }, c.is_settled ? 'row-settled' : expiryClass(c)]"
                   @click="selectedId = c.id"
                   @dblclick="editContract(c.id)"
                   @contextmenu.prevent="openContextMenu($event, c)"
+                  @keydown.enter.prevent="editContract(c.id)"
                 >
-                  <td>{{ c.number }}</td>
-                  <td>
+                  <td role="cell">{{ c.number }}</td>
+                  <td role="cell">
                     <!-- RAO-P2-070 Faza 2: drilldown do edycji kontrahenta -->
-                    <a class="drilldown-link" :title="`Edytuj kontrahenta: ${c.contractor_name}`" @click.stop="goToContractor(c.contractor_id)">{{ c.contractor_name }}</a>
+                    <a class="drilldown-link" role="button" tabindex="0" :aria-label="`Edytuj kontrahenta: ${c.contractor_name}`" :title="`Edytuj kontrahenta: ${c.contractor_name}`" @click.stop="goToContractor(c.contractor_id)" @keydown.enter.stop.prevent="goToContractor(c.contractor_id)">{{ c.contractor_name }}</a>
                   </td>
-                  <td style="max-width:180px;white-space:pre-wrap;font-size:11px;">{{ c.delivery_address || '—' }}</td>
-                  <td><span :class="['badge', c.contract_type === 'S' ? 'badge-info' : 'badge-warning']">{{ c.type_label }}</span></td>
-                  <td>{{ formatDate(c.date_from) }}</td>
-                  <td>
+                  <td role="cell" class="cell-address">{{ c.delivery_address || '—' }}</td>
+                  <td role="cell"><span :class="['badge', c.contract_type === 'S' ? 'badge-info' : 'badge-warning']">{{ c.type_label }}</span></td>
+                  <td role="cell">{{ formatDate(c.date_from) }}</td>
+                  <td role="cell">
                     <span :title="expiryTitle(c)">{{ formatDate(c.date_to) }}</span>
-                    <span v-if="!c.is_settled && daysLeft(c) !== null && daysLeft(c) >= 0 && daysLeft(c) <= 14" class="expiry-chip" :class="expiryClass(c)">
+                    <span v-if="!c.is_settled && daysLeft(c) !== null && daysLeft(c) >= 0 && daysLeft(c) <= 14" class="expiry-chip" :class="expiryClass(c)" :aria-label="expiryTitle(c)">
                       {{ daysLeft(c) + 'd' }}
                     </span>
                   </td>
                   <!-- RAO-P1-021/P2-033: Wartość usunięte -->
-                  <td>{{ c.salesperson_name || '—' }}</td>
+                  <td role="cell">{{ c.salesperson_name || '—' }}</td>
                   <!-- RAO-P2-022: kolumna statusu -->
-                  <td>
+                  <td role="cell">
                     <span v-if="c.is_settled" class="badge badge-settled">Rozliczona</span>
                     <span v-else-if="daysLeft(c) !== null && daysLeft(c) < 0" class="badge badge-overdue">Zamknięta</span>
                     <span v-else class="badge badge-active">Aktywna</span>
                   </td>
-                  <td>
+                  <td role="cell">
                     <span :class="['badge', c.is_print_current ? 'badge-success' : 'badge-muted']">
                       {{ c.is_print_current ? 'Aktualny' : (c.print_date ? 'Nieaktualny' : 'Brak') }}
                     </span>
@@ -124,51 +129,55 @@
       <template v-else-if="section === 'overdue'">
         <div class="grid-container">
           <div class="grid-header">
-            <h2 style="margin:0;font-size:18px;font-weight:700;color:var(--color-primary);">🔴 Przeterminowane umowy</h2>
-            <span style="color:#718096;font-size:13px;">Umowy z datą zakończenia w przeszłości — nierozliczone</span>
+            <h2 class="section-title-overdue">🔴 Przeterminowane umowy</h2>
+            <span class="section-subtitle">Umowy z datą zakończenia w przeszłości — nierozliczone</span>
           </div>
           <div class="grid-scroll">
-            <table class="data-grid">
+            <table class="data-grid" role="table" aria-label="Przeterminowane umowy">
               <thead>
-                <tr>
-                  <th>Numer</th>
-                  <th>Kontrahent</th>
-                  <th>Adres dostawy</th>
-                  <th>Typ</th>
-                  <th>Data od</th>
-                  <th>Data do</th>
-                  <th>Dni po terminie</th>
+                <tr role="row">
+                  <th role="columnheader">Numer</th>
+                  <th role="columnheader">Kontrahent</th>
+                  <th role="columnheader">Adres dostawy</th>
+                  <th role="columnheader">Typ</th>
+                  <th role="columnheader">Data od</th>
+                  <th role="columnheader">Data do</th>
+                  <th role="columnheader">Dni po terminie</th>
                   <!-- RAO-P1-021/P2-033: Wartość usunięte -->
-                  <th>Handlowiec</th>
+                  <th role="columnheader">Handlowiec</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-if="contractStore.overdueLoading">
-                  <td colspan="9"><StateMessage type="loading" compact message="Ladowanie przeterminowanych umow..." /></td>
+                <tr v-if="contractStore.overdueLoading" role="row">
+                  <td colspan="9" role="cell"><SkeletonRow :cols="6" label="Ładowanie przeterminowanych umów" /></td>
                 </tr>
-                <tr v-else-if="loadError">
-                  <td colspan="9"><StateMessage type="error" compact :message="loadError" @action="loadData" /></td>
+                <tr v-else-if="loadError" role="row">
+                  <td colspan="9" role="cell"><StateMessage type="error" compact :message="loadError" @action="loadData" /></td>
                 </tr>
-                <tr v-else-if="!contractStore.overdueList.length">
-                  <td colspan="9"><StateMessage type="empty" compact message="Brak przeterminowanych umow" /></td>
+                <tr v-else-if="!contractStore.overdueList.length" role="row">
+                  <td colspan="9" role="cell"><StateMessage type="empty" compact message="Brak przeterminowanych umow" /></td>
                 </tr>
                 <tr
                   v-for="c in contractStore.overdueList"
                   :key="c.id"
+                  role="row"
+                  tabindex="0"
+                  :aria-label="`Przeterminowana umowa ${c.number}, ${daysOverdue(c)} dni po terminie`"
                   :class="['contract-row', 'row-overdue']"
                   @click="selectedId = c.id"
                   @dblclick="editContract(c.id)"
                   @contextmenu.prevent="openContextMenu($event, c)"
+                  @keydown.enter.prevent="editContract(c.id)"
                 >
-                  <td style="font-weight:600;">{{ c.number }}</td>
-                  <td>{{ c.contractor_name }}</td>
-                  <td style="max-width:180px;white-space:pre-wrap;font-size:11px;">{{ c.delivery_address || '—' }}</td>
-                  <td><span :class="['badge', c.contract_type === 'S' ? 'badge-info' : 'badge-warning']">{{ c.type_label }}</span></td>
-                  <td>{{ formatDate(c.date_from) }}</td>
-                  <td>{{ formatDate(c.date_to) }}</td>
-                  <td style="font-weight:700;color:#c53030;">{{ daysOverdue(c) }} dni</td>
+                  <td role="cell" class="cell-strong">{{ c.number }}</td>
+                  <td role="cell">{{ c.contractor_name }}</td>
+                  <td role="cell" class="cell-address">{{ c.delivery_address || '—' }}</td>
+                  <td role="cell"><span :class="['badge', c.contract_type === 'S' ? 'badge-info' : 'badge-warning']">{{ c.type_label }}</span></td>
+                  <td role="cell">{{ formatDate(c.date_from) }}</td>
+                  <td role="cell">{{ formatDate(c.date_to) }}</td>
+                  <td role="cell" class="cell-overdue-days">{{ daysOverdue(c) }} dni</td>
                   <!-- RAO-P1-021/P2-033: Wartość usunięte -->
-                  <td>{{ c.salesperson_name || '—' }}</td>
+                  <td role="cell">{{ c.salesperson_name || '—' }}</td>
                 </tr>
               </tbody>
             </table>
@@ -189,42 +198,43 @@
             </div>
           </div>
           <div class="grid-scroll">
-            <table class="data-grid">
+            <table class="data-grid" role="table" aria-label="Lista kontrahentów">
               <thead>
-                <tr>
-                  <th class="th-sortable" @click="toggleSort('name')">Nazwa <span class="sort-indicator">{{ sortIndicator('name') }}</span></th>
-                  <th class="th-sortable" @click="toggleSort('nip')">NIP <span class="sort-indicator">{{ sortIndicator('nip') }}</span></th>
-                  <th class="th-sortable" @click="toggleSort('city')">Miasto <span class="sort-indicator">{{ sortIndicator('city') }}</span></th>
-                  <th>Telefon</th>
-                  <th>Email</th>
-                  <th>Aktywna umowa</th>
+                <tr role="row">
+                  <th class="th-sortable" role="columnheader" @click="toggleSort('name')">Nazwa <span class="sort-indicator">{{ sortIndicator('name') }}</span></th>
+                  <th class="th-sortable" role="columnheader" @click="toggleSort('nip')">NIP <span class="sort-indicator">{{ sortIndicator('nip') }}</span></th>
+                  <th class="th-sortable" role="columnheader" @click="toggleSort('city')">Miasto <span class="sort-indicator">{{ sortIndicator('city') }}</span></th>
+                  <th role="columnheader">Telefon</th>
+                  <th role="columnheader">Email</th>
+                  <th role="columnheader">Aktywna umowa</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-if="contractorStore.loading">
-                  <td colspan="6"><StateMessage type="loading" compact message="Ladowanie kontrahentow..." /></td>
+                <tr v-if="contractorStore.loading" role="row">
+                  <td colspan="6" role="cell"><SkeletonRow :cols="6" label="Ładowanie kontrahentów" /></td>
                 </tr>
-                <tr v-else-if="loadError">
-                  <td colspan="6"><StateMessage type="error" compact :message="loadError" @action="loadData" /></td>
+                <tr v-else-if="loadError" role="row">
+                  <td colspan="6" role="cell"><StateMessage type="error" compact :message="loadError" @action="loadData" /></td>
                 </tr>
-                <tr v-else-if="!contractorStore.list.length">
-                  <td colspan="6">
+                <tr v-else-if="!contractorStore.list.length" role="row">
+                  <td colspan="6" role="cell">
                     <StateMessage type="empty" compact message="Brak kontrahentow" action-label="+ Nowy kontrahent" @action="router.push({ name: 'ContractorNew' })" />
                   </td>
                 </tr>
                 <tr
                   v-for="c in sortedContractors"
                   :key="c.id"
+                  role="row"
                   :class="{ selected: selectedId === c.id }"
                   @click="selectedId = c.id"
                   @dblclick="editContractor(c.id)"
                 >
-                  <td>{{ c.name }}</td>
-                  <td>{{ c.nip || '—' }}</td>
-                  <td>{{ c.city || '—' }}</td>
-                  <td>{{ c.phone1 || '—' }}</td>
-                  <td>{{ c.email || '—' }}</td>
-                  <td>
+                  <td role="cell">{{ c.name }}</td>
+                  <td role="cell">{{ c.nip || '—' }}</td>
+                  <td role="cell">{{ c.city || '—' }}</td>
+                  <td role="cell">{{ c.phone1 || '—' }}</td>
+                  <td role="cell">{{ c.email || '—' }}</td>
+                  <td role="cell">
                     <!-- RAO-P2-070 Faza 2: drilldown do listy umow filtrowanej po numerze -->
                     <a v-if="c.active_contract_number" class="drilldown-link" :title="`Pokaż umowę: ${c.active_contract_number}`" @click.stop="goToContractByNumber(c.active_contract_number)">{{ c.active_contract_number }}</a>
                     <span v-else>—</span>
@@ -258,27 +268,27 @@
             </label>
           </div>
           <div class="grid-scroll">
-            <table class="data-grid">
+            <table class="data-grid" role="table" aria-label="Lista maszyn">
               <thead>
-                <tr>
-                  <th class="th-sortable" @click="toggleSort('name')">Nazwa <span class="sort-indicator">{{ sortIndicator('name') }}</span></th>
-                  <th>Typ</th>
-                  <th class="th-sortable" @click="toggleSort('internal_number')">Nr wew. <span class="sort-indicator">{{ sortIndicator('internal_number') }}</span></th>
-                  <th class="th-sortable" @click="toggleSort('registration_no')">Nr rej. <span class="sort-indicator">{{ sortIndicator('registration_no') }}</span></th>
-                  <th class="th-sortable" @click="toggleSort('brand')">Marka <span class="sort-indicator">{{ sortIndicator('brand') }}</span></th>
-                  <th>Kategoria</th>
-                  <th>Aktywna umowa</th>
+                <tr role="row">
+                  <th class="th-sortable" role="columnheader" @click="toggleSort('name')">Nazwa <span class="sort-indicator">{{ sortIndicator('name') }}</span></th>
+                  <th role="columnheader">Typ</th>
+                  <th class="th-sortable" role="columnheader" @click="toggleSort('internal_number')">Nr wew. <span class="sort-indicator">{{ sortIndicator('internal_number') }}</span></th>
+                  <th class="th-sortable" role="columnheader" @click="toggleSort('registration_no')">Nr rej. <span class="sort-indicator">{{ sortIndicator('registration_no') }}</span></th>
+                  <th class="th-sortable" role="columnheader" @click="toggleSort('brand')">Marka <span class="sort-indicator">{{ sortIndicator('brand') }}</span></th>
+                  <th role="columnheader">Kategoria</th>
+                  <th role="columnheader">Aktywna umowa</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-if="articleStore.loading">
-                  <td colspan="7"><StateMessage type="loading" compact message="Ladowanie artykulow..." /></td>
+                <tr v-if="articleStore.loading" role="row">
+                  <td colspan="7" role="cell"><SkeletonRow :cols="7" label="Ładowanie maszyn" /></td>
                 </tr>
-                <tr v-else-if="loadError">
-                  <td colspan="7"><StateMessage type="error" compact :message="loadError" @action="loadData" /></td>
+                <tr v-else-if="loadError" role="row">
+                  <td colspan="7" role="cell"><StateMessage type="error" compact :message="loadError" @action="loadData" /></td>
                 </tr>
-                <tr v-else-if="!articleStore.list.length">
-                  <td colspan="7">
+                <tr v-else-if="!articleStore.list.length" role="row">
+                  <td colspan="7" role="cell">
                     <StateMessage
                       v-if="archivalFilter === 'active'"
                       type="empty"
@@ -293,20 +303,21 @@
                 <tr
                   v-for="a in sortedArticles"
                   :key="a.id"
+                  role="row"
                   :class="['article-row', { selected: selectedId === a.id, 'row-archival': a.is_archival }]"
                   @click="selectedId = a.id"
                   @dblclick="editArticle(a.id)"
                 >
-                  <td>
+                  <td role="cell">
                     <!-- RAO-P2-070 Faza 2: drilldown do historii wynajmów w Analytics -->
                     <a class="drilldown-link" :title="`Historia wynajmów: ${a.name}`" @click.stop="goToArticleAnalytics(a.id)">{{ a.name }}</a>
                   </td>
-                  <td><span :class="['badge', a.is_service ? 'badge-warning' : 'badge-info']">{{ a.is_service ? 'Usługa' : 'Sprzęt' }}</span></td>
-                  <td>{{ a.internal_number || '—' }}</td>
-                  <td>{{ a.registration_no || '—' }}</td>
-                  <td>{{ a.brand || '—' }}</td>
-                  <td>{{ a.category_name || '—' }}</td>
-                  <td>{{ a.active_contract_number || '—' }}</td>
+                  <td role="cell"><span :class="['badge', a.is_service ? 'badge-warning' : 'badge-info']">{{ a.is_service ? 'Usługa' : 'Sprzęt' }}</span></td>
+                  <td role="cell">{{ a.internal_number || '—' }}</td>
+                  <td role="cell">{{ a.registration_no || '—' }}</td>
+                  <td role="cell">{{ a.brand || '—' }}</td>
+                  <td role="cell">{{ a.category_name || '—' }}</td>
+                  <td role="cell">{{ a.active_contract_number || '—' }}</td>
                 </tr>
               </tbody>
             </table>
@@ -355,6 +366,8 @@ import { useRouter, useRoute } from 'vue-router'
 import AppToolbar from '@/components/layout/AppToolbar.vue'
 import ConfirmDialog from '@/components/shared/ConfirmDialog.vue'
 import StateMessage from '@/components/StateMessage.vue'
+import SkeletonRow from '@/components/SkeletonRow.vue'
+import GlossaryTip from '@/components/GlossaryTip.vue'
 import { useContractStore } from '@/stores/contracts'
 import { useContractorStore } from '@/stores/contractors'
 import { useArticleStore } from '@/stores/articles'

@@ -3,7 +3,7 @@
     <div class="toolbar">
       <button class="toolbar-btn" @click="goBack" title="Wstecz">← Wstecz</button>
       <span class="toolbar-info">{{ isEdit ? `Edycja artykułu: ${form.name}` : 'Nowy artykuł' }}</span>
-      <button v-if="isEdit" class="toolbar-btn" title="Duplikuj" @click="handleDuplicate">⎘</button>
+      <button v-if="isEdit" class="toolbar-btn" title="Duplikuj" aria-label="Duplikuj artykuł" @click="handleDuplicate">⎘</button>
       <button class="btn btn-primary btn-sm" @click="handleSave" :disabled="saving">
         {{ saving ? '...' : 'Zapisz' }}
       </button>
@@ -107,15 +107,15 @@
         </div>
         <div v-if="form.fakturownia_product_id" class="form-row-3">
           <div class="form-group">
-            <label class="form-label">VAT (z FA)</label>
+            <label class="form-label">VAT (z FA)<GlossaryTip term="FA" definition="Faktura — dokument księgowy z Fakturownia" description="W RAO służy do rozliczania kosztów firmy. VAT pobierany z wybranego produktu Fakturownia." placement="top" :size="12" /></label>
             <input :value="form.fakturownia_tax_rate ? form.fakturownia_tax_rate + '%' : '—'" type="text" class="form-control" disabled />
           </div>
           <div class="form-group">
-            <label class="form-label">GTU (z FA)</label>
+            <label class="form-label">GTU (z FA)<GlossaryTip term="FA" definition="Faktura — dokument księgowy z Fakturownia" description="GTU — kod grupy towarowej usługi, pobierany z produktu Fakturownia." placement="top" :size="12" /></label>
             <input :value="form.fakturownia_gtu_code || '—'" type="text" class="form-control" disabled />
           </div>
           <div class="form-group">
-            <label class="form-label">PKWiU (z FA)</label>
+            <label class="form-label">PKWiU (z FA)<GlossaryTip term="FA" definition="Faktura — dokument księgowy z Fakturownia" description="PKWiU — Polska Klasyfikacja Wyrobów i Usług, pobierana z produktu Fakturownia." placement="top" :size="12" /></label>
             <input :value="form.fakturownia_pkwiu || '—'" type="text" class="form-control" disabled />
           </div>
         </div>
@@ -286,6 +286,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { useFakturowniaStore } from '@/stores/fakturownia'
 import { useToastStore } from '@/stores/toast'
 import { useReservationsStore } from '@/stores/reservations'
+import GlossaryTip from '@/components/GlossaryTip.vue'
 import api from '@/composables/useApi'
 
 const props = defineProps({ id: String })

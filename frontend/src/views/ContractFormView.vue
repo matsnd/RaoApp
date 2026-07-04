@@ -5,10 +5,10 @@
       <span class="toolbar-info">{{ isEdit ? (contractStore.current?.number ? `Umowa: ${contractStore.current.number}` : 'Ładowanie...') : 'Nowa umowa' }}</span>
       <!-- RAO-P2-022: badge rozliczona -->
       <span v-if="isEdit && form.is_settled" class="settled-badge">✓ Rozliczona</span>
-      <button v-if="isEdit" class="toolbar-btn" title="Drukuj PDF" @click="generateReport('contract')">⎙</button>
-      <button v-if="isEdit" class="toolbar-btn" title="Protokół ZO" @click="generateReport('protocol_zo')">📄</button>
-      <button v-if="isEdit" class="toolbar-btn" title="Przelicz wartość" @click="recalcTotal">∑</button>
-      <button v-if="isEdit" class="toolbar-btn" title="Pobierz koszty z Fakturownia" @click="handleFakturownia">💰</button>
+      <button v-if="isEdit" class="toolbar-btn" title="Drukuj PDF" aria-label="Drukuj umowę jako PDF" @click="generateReport('contract')">⎙</button>
+      <button v-if="isEdit" class="toolbar-btn" title="Protokół ZO" aria-label="Generuj protokół ZO (zapotrzebowanie obciążeniowe)" @click="generateReport('protocol_zo')">📄<GlossaryTip term="ZO" definition="Zapotrzebowanie Obciążeniowe — protokół zdawczo-odbiorczy" description="Dokument PDF potwierdzający przekazanie maszyny kontrahentowi." placement="bottom" :size="12" /></button>
+      <button v-if="isEdit" class="toolbar-btn" title="Przelicz wartość" aria-label="Przelicz wartość umowy" @click="recalcTotal">∑</button>
+      <button v-if="isEdit" class="toolbar-btn" title="Pobierz koszty z Fakturownia" aria-label="Pobierz koszty z Fakturownia" @click="handleFakturownia">💰</button>
       <button class="btn btn-primary btn-sm" @click="handleSave" :disabled="saving">
         {{ saving ? '...' : 'Zapisz' }}
       </button>
@@ -23,7 +23,7 @@
           <div v-if="errorMsg" class="error-message">{{ errorMsg }}</div>
           <div class="form-row-4" style="align-items:start;">
             <div class="form-group">
-              <label class="form-label">Typ umowy</label>
+              <label class="form-label">Typ umowy<GlossaryTip term="S/U" definition="S = umowa najmu, U = umowa usługi" description="S — klient płaci za dni/miesiące użytkowania maszyny. U — klient płaci za wykonaną usługę (godz. pracy + operator)." placement="top" :size="12" /></label>
               <select v-model="form.contract_type" class="form-control" :disabled="isEdit">
                 <option value="S">Umowa najmu (S)</option>
                 <option value="U">Umowa usługi (U)</option>
@@ -34,7 +34,7 @@
               <input :value="contractStore.current?.number || '(auto)'" type="text" class="form-control" disabled />
             </div>
             <div class="form-group">
-              <label class="form-label">OID Fakturownia (opcjonalny)</label>
+              <label class="form-label">OID Fakturownia (opcjonalny)<GlossaryTip term="OID" definition="Object ID — identyfikator umowy w Fakturownia" description="Domyślnie = numer umowy. Używany do synchronizacji faktur z kontrahentem." placement="top" :size="12" /></label>
               <input v-model="form.oid" type="text" class="form-control" placeholder="(auto = numer umowy)" pattern="[A-Za-z0-9\-/_]+" maxlength="40" />
               <small style="color:var(--color-text-muted);">Puste = użyj numeru umowy. Tylko litery, cyfry, -, /, _.</small>
             </div>
@@ -85,7 +85,7 @@
               </div>
               <div v-if="pnaError" class="pna-error" data-testid="pna-error">{{ pnaError }}</div>
               <div v-if="pnaInfo.found" class="pna-info-panel" data-testid="pna-info-panel">
-                <span class="pna-info-title">Wypełnione z PNA {{ form.postal_code }}</span>
+                <span class="pna-info-title">Wypełnione z PNA {{ form.postal_code }}<GlossaryTip term="PNA" definition="Pocztowy Numer Adresowy — kod pocztowy" description="Kod pocztowy nadawany przez Pocztę Polską. W RAO służy do auto-uzupełniania miasta, gminy, powiatu i województwa po wpisaniu kodu." placement="top" :size="12" /></span>
                 <span class="pna-info-row">
                   <span class="pna-info-item"><span class="pna-info-label">Gmina:</span> {{ pnaInfo.gmina || '—' }}</span>
                   <span class="pna-info-sep">•</span>
@@ -207,42 +207,43 @@
             <span class="section-title" style="margin:0;border:none;">Pozycje umowy</span>
             <button class="btn btn-primary btn-sm" style="margin-left:auto;" @click="addPosition">+ Dodaj pozycję</button>
           </div>
-          <table class="data-grid">
+          <table class="data-grid" role="table" aria-label="Pozycje umowy">
             <thead>
-              <tr>
-                <th>#</th>
-                <th>Artykuł</th>
-                <th>Typ</th>
-                <th>Dni</th>
-                <th>Ilość</th>
-                <th>Rozliczanie</th>
-                <th>Warunki</th>
-                <th>Dostawca</th>
-                <th>Data dost.</th>
-                <th style="width:80px;"></th>
+              <tr role="row">
+                <th role="columnheader">#</th>
+                <th role="columnheader">Artykuł</th>
+                <th role="columnheader">Typ</th>
+                <th role="columnheader">Dni</th>
+                <th role="columnheader">Ilość</th>
+                <th role="columnheader">Rozliczanie</th>
+                <th role="columnheader">Warunki</th>
+                <th role="columnheader">Dostawca</th>
+                <th role="columnheader">Data dost.</th>
+                <th role="columnheader" style="width:80px;"></th>
               </tr>
             </thead>
             <tbody>
-              <tr v-if="!contractStore.positions.length">
-                <td colspan="10" class="empty-state">Brak pozycji</td>
+              <tr v-if="!contractStore.positions.length" role="row">
+                <td colspan="10" role="cell" class="empty-state">Brak pozycji</td>
               </tr>
               <tr
                 v-for="(pos, idx) in contractStore.positions"
                 :key="pos.id"
+                role="row"
                 :class="{ selected: selectedPosId === pos.id }"
                 @click="selectPosition(pos)"
                 @dblclick="editPosition(pos)"
               >
-                <td>{{ idx + 1 }}</td>
-                <td>{{ pos.article_name }}</td>
-                <td>{{ pos.rental_type || '—' }}</td>
-                <td>{{ pos.rental_days || '—' }}</td>
-                <td>{{ pos.quantity || 1 }}</td>
-                <td>{{ pos.billing_frequency || '—' }}</td>
-                <td><span class="badge badge-info">{{ pos.conditions_count || 0 }}</span></td>
-                <td>{{ pos.supplier_name || '—' }}</td>
-                <td>{{ formatDate(pos.delivery_date) }}</td>
-                <td>
+                <td role="cell">{{ idx + 1 }}</td>
+                <td role="cell">{{ pos.article_name }}</td>
+                <td role="cell">{{ pos.rental_type || '—' }}</td>
+                <td role="cell">{{ pos.rental_days || '—' }}</td>
+                <td role="cell">{{ pos.quantity || 1 }}</td>
+                <td role="cell">{{ pos.billing_frequency || '—' }}</td>
+                <td role="cell"><span class="badge badge-info">{{ pos.conditions_count || 0 }}</span></td>
+                <td role="cell">{{ pos.supplier_name || '—' }}</td>
+                <td role="cell">{{ formatDate(pos.delivery_date) }}</td>
+                <td role="cell">
                   <button class="btn-icon" aria-label="Edytuj" title="Edytuj" @click.stop="editPosition(pos)">✎</button>
                   <button class="btn-icon" aria-label="Usuń" title="Usuń" @click.stop="deletePosition(pos)">✕</button>
                 </td>
@@ -273,16 +274,16 @@
             <button class="btn btn-secondary btn-sm" style="margin-right:8px;" @click="resetServiceFees" title="Reset do domyślnego szablonu">↻ Reset</button>
             <button class="btn btn-primary btn-sm" @click="addFeeRow">+ Dodaj</button>
           </div>
-          <table class="data-grid">
+          <table class="data-grid" role="table" aria-label="Usługi dodatkowe">
             <thead>
-              <tr>
-                <th style="width:26%;">Nazwa</th>
-                <th style="width:11%;">Kwota od</th>
-                <th style="width:11%;">Kwota do</th>
-                <th style="width:8%;">J.m.</th>
-                <th>Opis</th>
-                <th style="width:62px;">Aktywna</th>
-                <th style="width:56px;"></th>
+              <tr role="row">
+                <th role="columnheader" style="width:26%;">Nazwa</th>
+                <th role="columnheader" style="width:11%;">Kwota od</th>
+                <th role="columnheader" style="width:11%;">Kwota do</th>
+                <th role="columnheader" style="width:8%;">J.m.</th>
+                <th role="columnheader">Opis</th>
+                <th role="columnheader" style="width:62px;">Aktywna</th>
+                <th role="columnheader" style="width:56px;"></th>
               </tr>
             </thead>
             <tbody>
@@ -369,7 +370,7 @@
                 @click="toggleFakturowniaPanel"
                 :disabled="fakturowniaStore.loading"
               >
-                {{ fakturowniaStore.loading ? 'Ładowanie...' : 'Pokaż faktury z FA' }}
+                {{ fakturowniaStore.loading ? 'Ładowanie...' : 'Pokaż faktury z FA' }}<GlossaryTip term="FA" definition="Faktura — dokument księgowy z Fakturownia" description="W RAO służy do rozliczania kosztów firmy (przycisk 💰 pobiera faktury powiązane z kontrahentem)." placement="top" :size="12" />
               </button>
             </div>
           </div>
@@ -391,21 +392,21 @@
                 <div style="font-weight:600;font-size:12px;color:#2d3748;margin-bottom:4px;">
                   Faktura {{ inv.invoice_number }} — Netto: {{ formatCurrency(inv.total_net) }}
                 </div>
-                <table style="width:100%;font-size:11px;border-collapse:collapse;">
+                <table role="table" aria-label="Pozycje faktury z Fakturownia" style="width:100%;font-size:11px;border-collapse:collapse;">
                   <thead>
-                    <tr style="background:#f7fafc;">
-                      <th style="text-align:left;padding:4px;">Produkt FA</th>
-                      <th style="text-align:right;padding:4px;">Ilość</th>
-                      <th style="text-align:right;padding:4px;">Cena netto</th>
-                      <th style="text-align:right;padding:4px;">Suma netto</th>
+                    <tr role="row" style="background:#f7fafc;">
+                      <th role="columnheader" style="text-align:left;padding:4px;">Produkt FA</th>
+                      <th role="columnheader" style="text-align:right;padding:4px;">Ilość</th>
+                      <th role="columnheader" style="text-align:right;padding:4px;">Cena netto</th>
+                      <th role="columnheader" style="text-align:right;padding:4px;">Suma netto</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="line in inv.lines" :key="line.funkurownia_product_id" style="border-bottom:1px solid #edf2f7;">
-                      <td style="padding:4px;">{{ line.funkurownia_product_name }}</td>
-                      <td style="text-align:right;padding:4px;">{{ line.quantity }}</td>
-                      <td style="text-align:right;padding:4px;">{{ formatCurrency(line.price_net) }}</td>
-                      <td style="text-align:right;padding:4px;">{{ formatCurrency(line.total_net) }}</td>
+                    <tr v-for="line in inv.lines" :key="line.funkurownia_product_id" role="row" style="border-bottom:1px solid #edf2f7;">
+                      <td role="cell" style="padding:4px;">{{ line.funkurownia_product_name }}</td>
+                      <td role="cell" style="text-align:right;padding:4px;">{{ line.quantity }}</td>
+                      <td role="cell" style="text-align:right;padding:4px;">{{ formatCurrency(line.price_net) }}</td>
+                      <td role="cell" style="text-align:right;padding:4px;">{{ formatCurrency(line.total_net) }}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -413,14 +414,14 @@
             </div>
           </div>
 
-          <table class="data-grid">
+          <table class="data-grid" role="table" aria-label="Rozliczenie umowy">
             <thead>
-              <tr>
-                <th>Pozycja</th>
-                <th style="width:15%;">Wartość (zł)</th>
-                <th style="width:15%;">Koszt firmy (zł)</th>
-                <th style="width:12%;">Marża (zł)</th>
-                <th>Uwagi</th>
+              <tr role="row">
+                <th role="columnheader">Pozycja</th>
+                <th role="columnheader" style="width:15%;">Wartość (zł)</th>
+                <th role="columnheader" style="width:15%;">Koszt firmy (zł)</th>
+                <th role="columnheader" style="width:12%;">Marża (zł)</th>
+                <th role="columnheader">Uwagi</th>
               </tr>
             </thead>
             <tbody>
@@ -1066,6 +1067,7 @@ import { useToastStore } from '@/stores/toast'
 import ConditionPanel from '@/components/contracts/ConditionPanel.vue'
 import ServiceHourGrid from '@/components/contracts/ServiceHourGrid.vue'
 import ContractPeriodPicker from '@/components/shared/ContractPeriodPicker.vue'
+import GlossaryTip from '@/components/GlossaryTip.vue'
 import api from '@/composables/useApi'
 import { formatDate, formatCurrency } from '@/utils/format'
 

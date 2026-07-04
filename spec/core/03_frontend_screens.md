@@ -2035,3 +2035,81 @@ onUnmounted(() => {
 - `npx vue-tsc --noEmit` → PASS (exit 0, strict + noUnusedLocals/Parameters)
 - `npm run build` → PASS (chunk `AnalyticsView-*.js` ~31.7 kB / ~9.3 kB gzip; CSS `AnalyticsView-*.css` ~16 kB)
 
+## Komponent `components/GlossaryTip.vue` (RAO-P3-071 Faza 5, 2026-07-04)
+
+> Tooltip dla skrótów (PNA, ZO, FA, OID, S/U) w formularzach i widokach listowych.
+> Dostępny z klawiatury (`:focus-visible` pokazuje tooltip), respektuje hover.
+> Style w `frontend/src/style.css` (sekcja `.glossary-tip`).
+
+### Props
+| Prop | Typ | Domyślnie | Opis |
+|------|-----|-----------|------|
+| `term` | `string` | — (wymagany) | Skrót wyświetlany w tooltipie jako `<strong>` (np. `"PNA"`) |
+| `definition` | `string` | — (wymagany) | Pełna nazwa — główna treść tooltipa |
+| `description?` | `string` | `undefined` | Krótki opis 1-2 zdania — druga linia tooltipa |
+| `placement?` | `'top' \| 'bottom'` | `'top'` | Pozycja tooltipa względem triggera |
+| `size?` | `12 \| 14 \| 16` | `16` | Rozmiar ikony triggera w px (12 = compact w tabelach) |
+
+### A11y
+- `tabindex="0"`, `role="button"`, `:aria-expanded` reactive (focus/hover/keydown)
+- `:aria-label` = `"{term}: {definition} — {description}"` (pełna treść czytana przez SR)
+- `:title` — natywny tooltip dla myszy
+- `role="tooltip"` na tekście tooltipa
+- `@keydown.enter.prevent` / `@keydown.space.prevent` — toggle `aria-expanded`
+- `:focus-visible` pokazuje tooltip (CSS), outline `2px solid var(--color-primary)` + box-shadow 4px
+- `prefers-reduced-motion` — wyłącza transition opacity
+
+### Style (modyfikatory)
+- `.glossary-tip--12` / `.glossary-tip--14` / `.glossary-tip--16` — rozmiar triggera
+- `.glossary-tip--bottom` — tooltip pod triggerem (strzałka `border-bottom-color`)
+- `.glossary-tip-desc` — druga linia (11px, opacity 0.85, margin-top 4px)
+- Tooltip `max-width: min(280px, calc(100vw - 32px))`, `width: 280px`, `white-space: normal`
+
+### Lokalizacje użycia
+- **ContractFormView**: OID (label), PNA (`.pna-info-title`), ZO (przycisk 📄 w toolbarze), FA (przycisk „Pokaż faktury z FA"), S/U (label „Typ umowy")
+- **AnalyticsView**: PNA (metryka „Kodów PNA" + nagłówek „Rozbicie na kody PNA")
+- **LocationsTab**: PNA (toggle grupowania miasto/PNA)
+- **ArticleFormView**: FA × 3 (labelki „VAT (z FA)", „GTU (z FA)", „PKWiU (z FA)")
+- **DashboardView**: S/U (filtr typu umowy)
+
+## Komponent `components/SkeletonRow.vue` (RAO-P3-071 Faza 5, 2026-07-04)
+
+> Animowany skeleton loader (shimmer 1.4s linear) dla tabel ładowanych asynchronicznie.
+> Zastępuje tekst „Ładowanie..." lepszą percepcją wydajności (perceived performance).
+> Style w `frontend/src/style.css` (sekcja `.skeleton-row`).
+
+### Props
+| Prop | Typ | Domyślnie | Opis |
+|------|-----|-----------|------|
+| `cols` | `number` | `5` | Liczba kolumn-skeletonów w wierszu |
+| `label` | `string` | `"Ladowanie danych"` | Etykieta dla screen readerów (`aria-label` + `sr-only`) |
+| `variant` | `'mix' \| 'even'` | `'mix'` | `mix` = różne szerokości (short 80px / medium 140px / long 200px), `even` = równe |
+
+### A11y
+- `role="status"`, `aria-live="polite"`, `:aria-label="label"`
+- `<span class="sr-only">{{ label }}</span>` — tekstu czytany przez SR
+- `prefers-reduced-motion` — `animation: none; background: var(--color-bg-light)`
+
+### Lokalizacje użycia
+- **DashboardView**: contracts (`:cols="6"`), overdue (`:cols="6"`), contractors (`:cols="6"`, zastąpił `StateMessage type="loading"`), articles (`:cols="7"`, zastąpił `StateMessage type="loading"`)
+- **AnalyticsView**: drill-tables (planowane — obecnie `store.drillLoading` pokazuje tekst)
+
+## RAO-P3-071 — A11y: aria-label dla ikon-buttonów (2026-07-04)
+
+Każdy `<button>` zawierający wyłącznie emoji/ikonę (⎙, 📄, ∑, 💰, ✎, ✕, ⌕, +, −, ?, ⎘) ma `aria-label` z opisem akcji. `title` NIE jest czytany niezawodnie przez screen readery — wymaga `aria-label`. Jeśli button ma tekst („Wstecz", „Zapisz", „Edytuj") — `aria-label` NIE potrzebny.
+
+### Zasady
+- AppToolbar.vue: 4 buttony (Podgląd, Szczegóły, Usuń, Dodaj)
+- ContractFormView.vue: 5 buttonów w toolbarze (Drukuj PDF, Protokół ZO, Przelicz wartość, Pobierz koszty z Fakturownia, + pozycje/usługi mają już `aria-label`)
+- ArticleFormView.vue: Duplikuj (⎘)
+
+## RAO-P3-071 — A11y: role="table" dla tabel niestandardowych (2026-07-04)
+
+Tabele `data-grid` i `drill-table` (niestandardowe — nie są natywnymi `<table>` z semantyką DOM) mają `role="table"` + `aria-label` + `role="row"` / `role="columnheader"` / `role="cell"` na komórkach.
+
+### Pokryte widoki
+- **DashboardView**: 4 tabele (contracts, overdue, contractors, articles)
+- **AnalyticsView**: 4 drill-tables (machine rentals, PNA breakdown, top machines, top contractors)
+- **ContractFormView**: 4 tabele (pozycje, usługi dodatkowe, faktury FA, rozliczenie)
+
+

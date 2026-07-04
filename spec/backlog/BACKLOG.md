@@ -3065,7 +3065,7 @@ Aplikacja ma solidne podstawy (drilldown w Analytics/Archive, skeleton loadery, 
 id: RAO-P3-071
 priority: P3
 size: L
-status: triaged
+status: done
 classification: frontend/ux
 roles: [ux-designer, ui-designer, frontend-dev]
 source: operator-request
@@ -3398,7 +3398,7 @@ Depwire ma dedykowane narzędzie `find_dead_code` zwracające symbole nieużywan
 | RAO-P2-068 | Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta" | P2 | M | done | 5 cenników kaskadowych per maszyna, 6 presetów usług, 22 ServiceFeeTemplateItem, 6 rate types, pełna konfiguracja firmy |
 | RAO-P2-069 | Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście | P2 | M | done | Toggle Miasto/PNA w LocationsTab, 1 wiersz per miasto (Warszawa 3978 PNA → 1), drill-down /locations/city/{city} z pna_breakdown |
 | RAO-P2-070 | Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation) | P2 | L | done | 30 usterek UX (8 HIGH, 13 MEDIUM, 9 LOW); 5 faz: toasty, cross-view drilldown, sort, filtry, goBack |
-| RAO-P3-071 | Audyt UX — czytelność, spójność, przyjemność poruszania się | P3 | L | triaged | 14 usterek (5 HIGH, 6 MEDIUM, 3 LOW) + a11y + polish; 5 faz: font-size, formatowanie, a11y, design system, skeleton |
+| RAO-P3-071 | Audyt UX — czytelność, spójność, przyjemność poruszania się | P3 | L | done | 14 usterek (5 HIGH, 6 MEDIUM, 3 LOW) + a11y + polish; 5 faz: font-size, formatowanie, a11y, design system, skeleton |
 | RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
 
 **Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)

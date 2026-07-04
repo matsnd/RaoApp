@@ -428,6 +428,40 @@ h3 { font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); }
 }
 ```
 
+### RAO-P3-071 — Audyt UX: czytelność, a11y, skeleton, glossary (Faza 5)
+
+**Zmienne CSS (single source of truth — `frontend/src/style.css` + `frontend/src/assets/styles/variables.css`):**
+
+| Zmienna | Wartość | Uwagi |
+|---------|---------|-------|
+| `--font-size-xs` | `12px` | było 11px — metadane, badge, sidebar-logo-sub |
+| `--font-size-sm` | `13px` | dane w tabelach (audyt: 11px→13px) |
+| `--font-size-base` | `14px` | body text |
+| `--font-size-table-header` | `14px` | było 13px — bold header tabel |
+| `--font-size-kpi` | `28px` | było 24px — kluczowe metryki KPI |
+
+**Komponenty UX wprowadzone / rozszerzone:**
+
+- **`GlossaryTip.vue`** — tooltip dla skrótów (PNA, ZO, FA, OID, S/U). Props: `term`, `definition`, `description?`, `placement?: 'top'|'bottom'` (default `'top'`), `size?: 12|14|16` (default `16`). A11y: `tabindex="0"`, `role="button"`, `aria-expanded` reactive (focus/hover), `aria-label` z pełną treścią, `@keydown.enter.prevent` / `@keydown.space.prevent`. Style: `.glossary-tip--12/14/16`, `.glossary-tip--bottom`, `.glossary-tip-desc` (druga linia 11px opacity 0.85), tooltip max-width 280px (było 240px), `prefers-reduced-motion` wyłącza transition. Używany w: ContractFormView (OID, PNA, ZO, FA, S/U), AnalyticsView (PNA), LocationsTab (PNA), ArticleFormView (FA × 3), DashboardView (S/U).
+- **`SkeletonRow.vue`** — animowany skeleton loader (shimmer 1.4s). Props: `cols`, `label`, `variant: 'mix'|'even'`. `role="status"` + `aria-live="polite"` + `sr-only`. Respektuje `prefers-reduced-motion`. Używany w: DashboardView (contracts, overdue, contractors, articles), AnalyticsView (drill-tables).
+- **`:focus-visible`** — globalny outline `2px solid var(--color-primary)` (offset 2px). Wzmocnienie dla `.btn-icon`, `button[aria-label]`, `a[aria-label]`, `.toolbar-btn` — dodatkowy `box-shadow: 0 0 0 4px rgba(29,43,83,0.12)`. `[role="row"]` / `[tabindex="0"]` — outline offset -2px (wewnątrz wiersza). Kontrast `#1D2B53` na białym = 12.6:1 (WCAG AAA). `:focus:not(:focus-visible)` — `outline: none` (mysz nie widzi outline).
+
+**A11y — ikon-buttony (aria-label):**
+
+Każdy `<button>` zawierający wyłącznie emoji/ikonę (⎙, 📄, ∑, 💰, ✎, ✕, ⌕, +, −, ?, ⎘) ma `aria-label` z opisem akcji (np. `aria-label="Drukuj umowę jako PDF"`). AppToolbar (4 buttony), ContractFormView (5 buttonów w toolbarze), ArticleFormView (Duplikuj).
+
+**A11y — tabele niestandardowe (role):**
+
+Tabele `data-grid` i `drill-table` mają `role="table"` + `aria-label` + `role="row"` / `role="columnheader"` / `role="cell"` na komórkach. DashboardView (4 tabele), AnalyticsView (4 drill-tables), ContractFormView (pozycje, usługi dodatkowe, faktury FA, rozliczenie).
+
+**Formatowanie (Faza 2 — `frontend/src/utils/format.ts`):**
+
+- `formatDate(value)` → `"04.07.2026"` (pl-PL, dd.MM.yyyy, leading zero, `—` dla null)
+- `formatCurrency(value)` → `"10 150,00 zł"` (spacja nierozdzielająca U+00A0 jako separator tysięcy, przecinek dziesiętny, suffix `" zł"`)
+- `formatNumber(value)` → `"1 234"` (separator tysięcy, bez cyfr po przecinku)
+
+Wszystkie widoki listowe/formularze używają funkcji z `@/utils/format` — brak inline `toFixed` / `toLocaleDateString` dla walut i dat podstawowych (specjalne formaty z weekday/month long pozostają w AdminView/HomeView/WorkerView — nie są objęte `format.ts`).
+
 ### Sidebar (nawigacja aplikacji — nowy styl Toolsmart)
 ```css
 .sidebar {

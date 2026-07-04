@@ -13,6 +13,7 @@ import LiveFleetTab from '@/components/analytics/tabs/LiveFleetTab.vue'
 import PeriodRentalTab from '@/components/analytics/tabs/PeriodRentalTab.vue'
 import LocationsTab from '@/components/analytics/tabs/LocationsTab.vue'
 import ExplorerTab from '@/components/analytics/tabs/ExplorerTab.vue'
+import GlossaryTip from '@/components/GlossaryTip.vue'
 import { formatCurrency, formatDate } from '@/utils/format'
 
 const store = useAnalyticsStore()
@@ -219,25 +220,25 @@ onMounted(async () => {
             <span class="dm-label">Średnio/dzień</span>
           </div>
         </div>
-        <table class="drill-table" data-testid="drill-machine-rentals">
+        <table class="drill-table" role="table" aria-label="Historia wynajmów maszyny" data-testid="drill-machine-rentals">
           <thead>
-            <tr>
-              <th>Umowa</th>
-              <th>Kontrahent</th>
-              <th>Od</th>
-              <th>Do</th>
-              <th>Dni</th>
-              <th>Kwota</th>
+            <tr role="row">
+              <th role="columnheader">Umowa</th>
+              <th role="columnheader">Kontrahent</th>
+              <th role="columnheader">Od</th>
+              <th role="columnheader">Do</th>
+              <th role="columnheader">Dni</th>
+              <th role="columnheader">Kwota</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="r in store.machineDetails.rentals" :key="r.contract_id">
-              <td>{{ r.contract_number }}</td>
-              <td>{{ r.contractor_name || '—' }}</td>
-              <td>{{ formatDate(r.date_from) }}</td>
-              <td>{{ formatDate(r.date_to) }}</td>
-              <td>{{ r.days }}</td>
-              <td class="td-strong">{{ formatCurrency(r.revenue) }}</td>
+            <tr v-for="r in store.machineDetails.rentals" :key="r.contract_id" role="row">
+              <td role="cell">{{ r.contract_number }}</td>
+              <td role="cell">{{ r.contractor_name || '—' }}</td>
+              <td role="cell">{{ formatDate(r.date_from) }}</td>
+              <td role="cell">{{ formatDate(r.date_to) }}</td>
+              <td role="cell">{{ r.days }}</td>
+              <td role="cell" class="td-strong">{{ formatCurrency(r.revenue) }}</td>
             </tr>
           </tbody>
         </table>
@@ -264,22 +265,22 @@ onMounted(async () => {
           </div>
           <div v-if="store.locationDetails.metrics.pna_count" class="drill-metric">
             <span class="dm-value">{{ store.locationDetails.metrics.pna_count }}</span>
-            <span class="dm-label">Kodów PNA</span>
+            <span class="dm-label">Kodów PNA<GlossaryTip term="PNA" definition="Pocztowy Numer Adresowy — kod pocztowy" description="Kod pocztowy nadawany przez Pocztę Polską. W RAO służy do auto-uzupełniania miasta, gminy, powiatu i województwa." placement="bottom" :size="12" /></span>
           </div>
         </div>
 
         <!-- PNA breakdown (tylko dla drill po mieście — RAO-P2-069) -->
         <div v-if="store.locationDetails.pna_breakdown?.length" class="drill-subsection">
-          <div class="drill-subtitle">📮 Rozbicie na kody PNA</div>
-          <table class="drill-table">
+          <div class="drill-subtitle">📮 Rozbicie na kody PNA<GlossaryTip term="PNA" definition="Pocztowy Numer Adresowy — kod pocztowy" description="Kod pocztowy nadawany przez Pocztę Polską. W RAO służy do auto-uzupełniania miasta, gminy, powiatu i województwa." placement="bottom" :size="12" /></div>
+          <table class="drill-table" role="table" aria-label="Rozbicie na kody PNA">
             <thead>
-              <tr><th>PNA</th><th>Wynajmów</th><th>Przychód</th></tr>
+              <tr role="row"><th role="columnheader">PNA</th><th role="columnheader">Wynajmów</th><th role="columnheader">Przychód</th></tr>
             </thead>
             <tbody>
-              <tr v-for="p in store.locationDetails.pna_breakdown" :key="p.postal_code">
-                <td>{{ p.postal_code }}</td>
-                <td>{{ p.rentals_count }}×</td>
-                <td class="td-strong">{{ formatCurrency(p.total_revenue) }}</td>
+              <tr v-for="p in store.locationDetails.pna_breakdown" :key="p.postal_code" role="row">
+                <td role="cell">{{ p.postal_code }}</td>
+                <td role="cell">{{ p.rentals_count }}×</td>
+                <td role="cell" class="td-strong">{{ formatCurrency(p.total_revenue) }}</td>
               </tr>
             </tbody>
           </table>
@@ -287,15 +288,15 @@ onMounted(async () => {
 
         <div v-if="store.locationDetails.top_machines.length" class="drill-subsection">
           <div class="drill-subtitle">🚜 Top maszyny</div>
-          <table class="drill-table">
+          <table class="drill-table" role="table" aria-label="Top maszyny w lokalizacji">
             <thead>
-              <tr><th>Maszyna</th><th>Razy</th><th>Przychód</th></tr>
+              <tr role="row"><th role="columnheader">Maszyna</th><th role="columnheader">Razy</th><th role="columnheader">Przychód</th></tr>
             </thead>
             <tbody>
-              <tr v-for="m in store.locationDetails.top_machines" :key="m.name">
-                <td>{{ m.name }}</td>
-                <td>{{ m.rental_count }}×</td>
-                <td class="td-strong">{{ formatCurrency(m.total_revenue) }}</td>
+              <tr v-for="m in store.locationDetails.top_machines" :key="m.name" role="row">
+                <td role="cell">{{ m.name }}</td>
+                <td role="cell">{{ m.rental_count }}×</td>
+                <td role="cell" class="td-strong">{{ formatCurrency(m.total_revenue) }}</td>
               </tr>
             </tbody>
           </table>
@@ -303,15 +304,15 @@ onMounted(async () => {
 
         <div v-if="store.locationDetails.top_contractors.length" class="drill-subsection">
           <div class="drill-subtitle">🏆 Top kontrahenci</div>
-          <table class="drill-table">
+          <table class="drill-table" role="table" aria-label="Top kontrahenci w lokalizacji">
             <thead>
-              <tr><th>Kontrahent</th><th>Umów</th><th>Przychód</th></tr>
+              <tr role="row"><th role="columnheader">Kontrahent</th><th role="columnheader">Umów</th><th role="columnheader">Przychód</th></tr>
             </thead>
             <tbody>
-              <tr v-for="c in store.locationDetails.top_contractors" :key="c.contractor_name">
-                <td>{{ c.contractor_name }}</td>
-                <td>{{ c.contract_count }}</td>
-                <td class="td-strong">{{ formatCurrency(c.total_revenue) }}</td>
+              <tr v-for="c in store.locationDetails.top_contractors" :key="c.contractor_name" role="row">
+                <td role="cell">{{ c.contractor_name }}</td>
+                <td role="cell">{{ c.contract_count }}</td>
+                <td role="cell" class="td-strong">{{ formatCurrency(c.total_revenue) }}</td>
               </tr>
             </tbody>
           </table>

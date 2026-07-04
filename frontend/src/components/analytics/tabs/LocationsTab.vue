@@ -8,6 +8,7 @@ import AnalyticsTable, {
 } from '@/components/analytics/AnalyticsTable.vue'
 import { useSort } from '@/composables/useSort'
 import { formatCurrency } from '@/utils/format'
+import GlossaryTip from '@/components/GlossaryTip.vue'
 
 interface Props {
   dateFrom: string
@@ -243,6 +244,7 @@ watch(groupBy, load)
               data-testid="loc-group-pna"
               @click="groupBy = 'pna'"
             >PNA</button>
+            <GlossaryTip term="PNA" definition="Pocztowy Numer Adresowy — kod pocztowy" description="Kod pocztowy nadawany przez Pocztę Polską. W RAO służy do auto-uzupełniania miasta, gminy, powiatu i województwa." placement="bottom" :size="14" />
           </div>
           <input
             v-model="search"
