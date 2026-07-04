@@ -9,6 +9,7 @@ import AnalyticsFilters, {
 import DrillDownDrawer from '@/components/analytics/DrillDownDrawer.vue'
 import LiveFleetTab from '@/components/analytics/tabs/LiveFleetTab.vue'
 import PeriodRentalTab from '@/components/analytics/tabs/PeriodRentalTab.vue'
+import LocationsTab from '@/components/analytics/tabs/LocationsTab.vue'
 import ExplorerTab from '@/components/analytics/tabs/ExplorerTab.vue'
 
 const store = useAnalyticsStore()
@@ -17,10 +18,11 @@ const contractorsStore = useContractorStore()
 const tabs: AnalyticsTab[] = [
   { key: 'live', label: 'Flota teraz', icon: '🚜' },
   { key: 'period', label: 'Wynajem w okresie', icon: '📅' },
+  { key: 'locations', label: 'Lokalizacje', icon: '📍' },
   { key: 'explorer', label: 'Eksplorator', icon: '🔍' },
 ]
 
-const activeTab = ref<'live' | 'period' | 'explorer'>('period')
+const activeTab = ref<'live' | 'period' | 'locations' | 'explorer'>('period')
 
 const today = computed(() =>
   new Date().toLocaleDateString('pl-PL', {
@@ -168,6 +170,11 @@ onMounted(async () => {
           city: filters.city,
           articleType: filters.articleType,
         }"
+      />
+      <LocationsTab
+        v-else-if="activeTab === 'locations'"
+        :date-from="filters.dateFrom"
+        :date-to="filters.dateTo"
       />
       <ExplorerTab
         v-else-if="activeTab === 'explorer'"

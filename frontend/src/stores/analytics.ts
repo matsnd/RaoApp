@@ -175,6 +175,23 @@ export interface MachineDetailsResponse {
   rentals: MachineRentalRow[]
 }
 
+export interface LocationRankingItem {
+  rank: number
+  city: string
+  postal_code: string | null
+  gmina: string | null
+  powiat: string | null
+  wojewodztwo: string | null
+  rentals_count: number
+  total_revenue: number
+}
+
+export interface LocationsRankingResponse {
+  locations: LocationRankingItem[]
+  count: number
+  period: { from: string | null; to: string | null }
+}
+
 export interface LocationDetailsResponse {
   postal_code: string
   city: string
@@ -240,6 +257,9 @@ export const useAnalyticsStore = defineStore('analytics', () => {
 
   const explorerResults = ref<ExplorerResultItem[]>([])
   const explorerSummary = ref<{ count: number; revenue: number }>({ count: 0, revenue: 0 })
+
+  const locationsRanking = ref<LocationRankingItem[]>([])
+  const loadingLocations = ref(false)
 
   const machineDetails = ref<MachineDetailsResponse | null>(null)
   const locationDetails = ref<LocationDetailsResponse | null>(null)
@@ -413,6 +433,25 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     }
   }
 
+  // RAO-P2-065 4b: ranking miast (przywrócony z legacy ReportsSection → tab Lokalizacje)
+  async function fetchLocationsRanking(
+    dateFrom: string,
+    dateTo: string,
+    limit = 50,
+  ): Promise<LocationRankingItem[]> {
+    loadingLocations.value = true
+    try {
+      const params: Record<string, string | number> = { limit }
+      if (dateFrom) params.date_from = dateFrom
+      if (dateTo) params.date_to = dateTo
+      const { data } = await api.get<LocationsRankingResponse>('/explorer/locations', { params })
+      locationsRanking.value = data.locations || []
+      return locationsRanking.value
+    } finally {
+      loadingLocations.value = false
+    }
+  }
+
   async function fetchMachineDetails(
     articleId: number,
     dateFrom: string,
@@ -511,6 +550,8 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     categoriesList,
     explorerResults,
     explorerSummary,
+    locationsRanking,
+    loadingLocations,
     machineDetails,
     locationDetails,
     drillDown,
@@ -528,6 +569,7 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     fetchByPeriod,
     fetchCategoriesList,
     searchExplorer,
+    fetchLocationsRanking,
     fetchMachineDetails,
     fetchLocationDetails,
     openDrillDown,

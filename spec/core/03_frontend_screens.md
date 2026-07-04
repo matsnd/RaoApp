@@ -1894,7 +1894,7 @@ onUnmounted(() => {
   `DrillDownKind`, `DrillDownState`, `AnalyticsFiltersPayload`.
 
 ### `views/AnalyticsView.vue` (~330 linii)
-- Shell z 3 zakładkami przez `AnalyticsTabs`: `live` (🚜 Flota teraz), `period` (📅 Wynajem w okresie), `explorer` (🔍 Eksplorator).
+- Shell z 4 zakładkami przez `AnalyticsTabs`: `live` (🚜 Flota teraz), `period` (📅 Wynajem w okresie), `locations` (📍 Lokalizacje — RAO-P2-065 4b), `explorer` (🔍 Eksplorator).
 - Współdzielony stan filtrów (`ref<AnalyticsFiltersValue>` z dateFrom/dateTo/preset/articleType/contractorId/city).
 - `AnalyticsFilters` na górze — **ukryte na zakładce 'live'** (live = "teraz", niezależne od dat).
 - Renderuje aktywną tabę: `<LiveFleetTab v-if="activeTab==='live'"/>` itd. (lazy mount przez `v-if`).
@@ -1928,6 +1928,16 @@ onUnmounted(() => {
 - Sortowanie: `useSort` per tabela (topMachinesSort, positionsSort).
 - Fetch: `Promise.all` 5 endpointów (summary, topMachines, additionalFees, locations, positions) onMounted + watch props.
 - data-testid: `period-rental-tab`, `kpi-period-revenue`, `kpi-period-contracts`, `kpi-period-rented`, `kpi-period-util`, `revenue-breakdown`.
+
+### `components/analytics/tabs/LocationsTab.vue` (RAO-P2-065 4b, 2026-07-04)
+- Props: `dateFrom, dateTo`. Przywrócona funkcjonalność paneli miast z legacy ReportsSection (zgubiona przy merge P2-063).
+- Fetch: `store.fetchLocationsRanking(dateFrom, dateTo, 100)` → GET `/explorer/locations` (ranking z rollup gmina/powiat/województwo).
+- KPI row: Lokalizacji, Wynajmów (suma), Przychód (suma, accent), Top miasto (success).
+- **Wykres słupkowy poziomy (CSS bars)**: top 10 miast, toggle metryki Przychód/Wynajmy (pill buttons), klik słupka → drill-down lokalizacji (gdy postal_code). Spójny wizualnie z util-bar z LiveFleetTab.
+- Wyszukiwarka miast (client-side filter po city/postal_code/gmina/powiat/wojewodztwo).
+- AnalyticsTable ranking: #, Miasto, PNA, Gmina, Powiat, Województwo, Wynajmów, Przychód (sortable, slot cell-total_revenue z formatCurrency); clickable → drill location (po PNA).
+- Empty state z hintem: "Lokalizacje wykrywane są z adresu dostawy umowy (kod pocztowy)".
+- data-testid: `locations-tab`, `kpi-loc-count/rentals/revenue/top`, `loc-chart`, `loc-chart-revenue/rentals`, `loc-search`, `loc-ranking-table`, `loc-empty`.
 
 ### `components/analytics/tabs/ExplorerTab.vue`
 - Props: `dateFrom, dateTo`.

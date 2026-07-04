@@ -1321,39 +1321,12 @@ Response: `MachineRoiResponse` (zawiera `category_main` — RAO-P1-017)
 Response: `CurrentlyRentedResponse` (items zawierają `category_main` — RAO-P1-017)
 Filtr: domyślnie `is_archival=FALSE AND is_external=FALSE` (RAO-P1-027)
 
-### `GET /stats/top-machines`
-Query: `?date_from&date_to&internal_number=<str>&contractor_id=<int>&city=<str>&limit=<int>` (limit 1-50, default 10)
-- `contractor_id` — filtr po kontrahencie (opcjonalny, tylko pozycje z umów tego kontrahenta)
-- `city` — filtr po mieście umowy, case-insensitive (opcjonalny)
-Response: `list[TopMachineItem]` (article_id, name, internal_number, revenue, rented_days, contracts_count)
-HTTP: 200 | 401
-
-### `GET /stats/additional-fees`
-Query: `?date_from&date_to&contractor_id=<int>` (RAO-P2-008)
-- `contractor_id` — filtr po kontrahencie (opcjonalny)
-Response: `AdditionalFeesResponse`
-
-### `GET /stats/locations`
-Query: `?date_from&date_to&internal_number=<str>&contractor_id=<int>` (RAO-P2-008)
-- `contractor_id` — filtr po kontrahencie (opcjonalny)
-Response: `list[LocationStatItem]` — RAO-P2-028: agregacja po PNA (`postal_code`)
-z rollup po `city`/`gmina`/`powiat`/`wojewodztwo` z LEFT JOIN do `postal_codes`.
-NULL PNA → bucket `"(brak PNA)"` z city z `contracts.city`.
-Przychód liczony spójnym algorytmem kaskadowym (`shared.revenue.compute_position_revenues`).
-`LocationStatItem` pola: `city, postal_code, gmina, powiat, wojewodztwo, rentals_count, total_revenue`.
-
-### `GET /stats/by-category` (RAO-P1-017, RAO-P1-026)
-Query:
-- `level=main|sub1|sub2|sub3` (default: `main`) — poziom hierarchii kategorii
-- `date_from`, `date_to` — zakres dat (default: bieżący miesiąc)
-- `include_archival=false` — uwzględnij maszyny archiwalne
-- `category_main=<str>` — filtr kategorii głównych (multi-value, opcjonalny)
-- `category_sub1=<str>` — filtr sub1 (opcjonalny)
+### `GET /stats/iddatiolal-f-ef-efees`
+Query: `?date_from&date_to&internal_number=<str># (multi-value, opcjonalny)
 - `category_sub2=<str>` — filtr sub2 (opcjonalny)
 - `article_type=all|machine|service` (default: `all`) — filtr rodzaju
 
-Response: `CategoryStatsResponse` (`date_from`, `date_to`, `level`, `total_revenue`, `items[]`)
-HTTP: 200 | 401 | 422 (nieprawidłowy `level` lub `article_type`)
+Response: `CategoryStatsResponse` (`date_from`  `total_revenue`, `items[]`)
 
 ### `GET /stats/by-period` (RAO-P1-026, NOWY)
 Query:
@@ -1394,37 +1367,25 @@ Zlicza tylko aktywne (nie-archiwalne) artykuły (`is_archival=false`) przypisane
 HTTP: 200 | 401
 
 ### `GET /stats/positions` (RAO-P2-010, NOWY)
-Query: `?type=machines|services|all&date_from&date_to&contractor_id=<int>&city=<str>&sort_by=<str>&sort_dir=asc|desc`
-- `contractor_id` — filtr po kontrahencie (opcjonalny)
-- `city` — filtr po mieście umowy, case-insensitive (opcjonalny)
-- `sort_by` — pole sortowania z whitelist: `article_name | internal_number | category_main | revenue | rented_days | contracts_count | times_settled` (wartości spoza whitelist ignorowane, brak błędu; alias `times_settled` → pole `times_billed`)
-- `sort_dir` — `asc|desc` (default `desc`); gdy `sort_by` niepodany lub spoza whitelist → domyślne sortowanie po `revenue` desc
+Query: `?type=machines|services|all&date_from&date_to`
 Response: `PositionStatsResponse` with:
 - date_from, date_to, type (applied filter)
-- total_revenue, total_machines_revenue, total_services_revenue (globalne, bez filtrów contractor_id/city — podsumowanie per typ)
+- total_revenue, total_machines_revenue, total_services_revenue
 - items[]: list[PositionStatItem] (article_id, article_name, internal_number, is_service, category_main, revenue, rented_days, contracts_count, times_billed)
-HTTP: 200 | 401 | 422 (nieprawidłowy `type` lub `sort_dir`)
+HTTP: 200 | 401 | 422 (nieprawidłowy `type`)
 
 ### `GET /explorer/machines/{article_id}` (RAO-P2-009)
 Query: `?date_from&date_to`
 Response: Machine metrics object with:
-- total_revenue, total_days, avg_daily, utilization_pct
-- rentals[]: historia wynajmów (contract_number, contractor_name, date_from, date_to, days, revenue)
-HTTP: 200 | 404 (machine not found)
-
 ---
 
 ### `GET /stats/expiring-contracts`
 
-**Opis:** Umowy kończące się w ciągu N dni.
+**Opis:** Umowy kończące się w ciągu N dni
 
 **Query:** `?days=14` (opcjonalny, zakres 1-90, default=14)
 
-**Response:** `list[ExpiringContractItem]`
-```python
-class ExpiringContractItem(BaseModel):
-    id: int
-    number: str
+**Response:** `list[ExpiringContractItem]`h 
     contractor_name: str | None
     date_from: date | None
     date_to: date | None
@@ -1611,7 +1572,7 @@ Top maszyny (10) i top kontrahenci (5) filtrowani po PNA. Przychód ze `shared.r
 
 **Filtry drill-down** (RAO-P2-062 Faza 3): `city` + `article_id` — używane przez drawer w statystykach (klik wiersz Top maszyny → `article_id`, klik wiersz Miasta → `city`).
 
-**Response:** `PaginatedResponse[ArchiveContractListItem]` (bez `is_legacy`, z `revenue_estimate` — suma `_estimate_position_value` z pozycji umowy)
+**Response:** `PaginatedResponse[ArchiveContractListItem]` (bez `is_legacy`)
 **HTTP:** 200 | 401
 
 ### `GET /archive/contracts/{contract_id}`
@@ -1694,16 +1655,6 @@ Top maszyny (10) i top kontrahenci (5) filtrowani po PNA. Przychód ze `shared.r
 **Response:** `ArchiveMachineRoiResponse` (`{article_id, name, internal_number, replacement_value, revenue_estimate, contracts_count, rented_days, roi_pct}`)
 - `roi_pct` = `revenue_estimate / replacement_value × 100` (null gdy brak `replacement_value`)
 **HTTP:** 200 | 401 | 404
-
-### `GET /archive/stats/by-city` (RAO-P2-062 Faza 3)
-
-**Opis:** Statystyki szacunkowe po miastach (drill-down w statystykach archiwum).
-
-**Query:** `?date_from=&date_to=&limit=20` (max 50)
-**Response:** `list[ArchiveCityStatItem]` (`{city, contracts_count, positions_count, revenue_estimate, postal_codes_count}`)
-- `city` — nazwa miasta (z `archive_contract_positions.delivery_city`, may be null → "Nieokreślone")
-- Sort: `contracts_count DESC`
-**HTTP:** 200 | 401
 
 ---
 

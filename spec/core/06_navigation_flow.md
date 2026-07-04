@@ -51,7 +51,7 @@ graph TD
 | `Form2.cs` (Umowy tab) | `/dashboard/contracts` | Sidebar + content |
 | `Form2.cs` (Kontrahenci tab) | `/dashboard/contractors` | Sidebar + content |
 | `Form2.cs` (Artykuły tab) | `/dashboard/articles` | Sidebar + content |
-| `Form2.cs` (Raporty tab) | `/analytics` (merge Stats+Reports, RAO-P2-063) | Sidebar + content |
+| `Form2.cs` (Raporty tab) | `/dashboard/reports` | Sidebar + content |
 | `FormK.cs` | `/contractors/:id/edit` lub `/new` | Pełna strona (replace content) |
 | `FormU4.cs` | `/contracts/:id/edit` lub `/new` | Pełna strona (replace content) |
 | `FormA.cs` | Dialog (modal) | Overlay na Dashboard |
@@ -68,7 +68,7 @@ graph TD
 | `/reset-password` | `ResetPassword` | `ResetPasswordView.vue` | nie | Reset hasła z tokenu (query: `?token=...`) |
 | `/` | — | — | tak | Redirect → `/home` |
 | `/home` | `Home` | `HomeView.vue` | tak | KPI Dashboard, quick actions |
-| `/dashboard/:section` | `Dashboard` | `DashboardView.vue` | tak | Listy (contracts/contractors/articles) — `reports` usunięte (merge do `/analytics`) |
+| `/dashboard/:section` | `Dashboard` | `DashboardView.vue` | tak | Listy (contracts/contractors/articles/rts) |
 | `/contractors/new` | `ContractorNew` | `ContractorFormView.vue` | tak | Nowy kontrahent |
 | `/contractors/:id/edit` | `ContractorEdit` | `ContractorFormView.vue` | tak | Edycja kontrahenta |
 | `/articles/new` | `ArticleNew` | `ArticleFormView.vue` | tak | Nowy artykuł |
@@ -76,10 +76,7 @@ graph TD
 | `/contracts/new` | `ContractNew` | `ContractFormView.vue` | tak | Nowa umowa |
 | `/contracts/:id/edit` | `ContractEdit` | `ContractFormView.vue` | tak | Edycja umowy |
 | `/worker` | `Worker` | `WorkerView.vue` | tak | Pulpit operacyjny (kończące, dostawy) |
-| `/stats` | — | redirect → `/analytics` | tak | Backward compat (bookmarki) — RAO-P2-063 |
-| `/analytics` | `Analytics` | `AnalyticsView.vue` | tak | Statystyki (Flota teraz + Wynajem w okresie + Eksplorator) — merge Stats+Reports (RAO-P2-063) |
-| `/commissions` | `Commissions` | `CommissionView.vue` | tak | Raporty prowizji handlowców |
-| `/settings` | `Settings` | `SettingsView.vue` | tak | Konfiguracja firmy/szablonów/handlowców |
+| `/stats`StaiS pw` | `SSgisew.vue` | tak | Konfiguracja firmy/szablonów/handlowców |0
 | `/password` | `ChangePassword` | `ChangePasswordView.vue` | tak | Zmiana własnego hasła |
 | `/admin` | `Admin` | `AdminView.vue` | tak + admin | Panel administracyjny (CRUD użytkowników) |
 

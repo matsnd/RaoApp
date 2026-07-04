@@ -1,13 +1,20 @@
-docs(backlog): RAO-P2-065 — findings z full-team review statystyk
+feat(analytics): RAO-P2-065 4b — przywrócenie paneli miast jako zakładka Lokalizacje z wykresem
 
-Review zespołowy (PO + QA + UI designer + tech-lead vision review przez Playwright):
-- Separacja legacy/nowe: POTWIERDZONA na 3 warstwach (modele, dane, frontend)
-- 5/6 wymagań klienta spełnionych — brak ROI w AnalyticsView (endpoint istnieje,
-  nie podpięty do UI)
-- 4 bugi P1 (ROI, contractor_name=null, 422 per_page=500, currently-rented bez
-  is_settled), 9 P2 (UX/funkcjonalność), 6 P3 (design system, w tym literówka
-  --color-text-mutetd)
-- Oceny: PO 7/10, QA 7/10, UI 6.5/10
+Regresja z merge P2-063 (zgłoszona przez usera): stary ReportsSection miał panel
+miast w Eksploratorze (wyszukiwarka + ranking z Gmina/Powiat + drill-down), nowy
+AnalyticsView tego nie miał. Backend przetrwał merge (/explorer/locations).
+
+Realizacja jako 4. zakładka "Lokalizacje" w AnalyticsView (decyzja: osobny tab —
+period już długi, miasta zasługują na dedykowany widok):
+- stores/analytics.ts: fetchLocationsRanking + typy LocationRankingItem
+- LocationsTab.vue (NOWY): KPI row + wykres słupkowy poziomy top 10 miast
+  (toggle Przychód/Wynajmy, CSS bars spójne z util-bar, klik → drill-down) +
+  wyszukiwarka miast (client-side) + sortowalny ranking (Miasto/PNA/Gmina/
+  Powiat/Województwo/Wynajmów/Przychód) + drill-down po PNA (reuse drawer)
+- AnalyticsView: 4 taby (live/period/locations/explorer)
+
+Weryfikacja: vue-tsc PASS, build PASS, smoke e2e 11/11 PASS, screenshot na żywo.
+Spec sync: 03_frontend_screens.md (LocationsTab), BACKLOG.md (4b done).
 
 Generated with [Devin](https://devin.ai)
 
