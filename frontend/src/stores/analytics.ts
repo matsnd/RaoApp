@@ -175,6 +175,19 @@ export interface MachineDetailsResponse {
   rentals: MachineRentalRow[]
 }
 
+// RAO-P2-065 #1: ROI maszyny — mirror backend MachineRoiResponse
+export interface MachineRoi {
+  article_id: number
+  name: string
+  internal_number: string | null
+  category_main: string | null
+  replacement_value: number | null
+  total_rented_days: number
+  estimated_revenue: number
+  contracts_count: number
+  roi_pct: number | null
+}
+
 export interface LocationRankingItem {
   rank: number
   city: string
@@ -268,6 +281,7 @@ export const useAnalyticsStore = defineStore('analytics', () => {
   const loadingLocations = ref(false)
 
   const machineDetails = ref<MachineDetailsResponse | null>(null)
+  const machineRoi = ref<MachineRoi | null>(null)
   const locationDetails = ref<LocationDetailsResponse | null>(null)
 
   const drillDown = ref<DrillDownState>({ ...emptyDrillDown })
@@ -475,6 +489,20 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     return data
   }
 
+  // RAO-P2-065 #1: ROI maszyny — główne wymaganie klienta, podpięte do drill-down
+  async function fetchMachineRoi(
+    articleId: number,
+    dateFrom: string,
+    dateTo: string,
+  ): Promise<MachineRoi> {
+    const params: Record<string, string> = { article_id: String(articleId) }
+    if (dateFrom) params.date_from = dateFrom
+    if (dateTo) params.date_to = dateTo
+    const { data } = await api.get<MachineRoi>('/stats/machine-roi', { params })
+    machineRoi.value = data
+    return data
+  }
+
   async function fetchLocationDetails(
     postalCode: string,
     dateFrom: string,
@@ -545,10 +573,20 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     drillLoading.value = true
     drillError.value = null
     machineDetails.value = null
+    machineRoi.value = null
     locationDetails.value = null
     try {
       if (kind === 'machine') {
-        await fetchMachineDetails(Number(id), dateFrom, dateTo)
+        // RAO-P2-065 #1: równolegle details + ROI (niezależne endpointy)
+        await Promise.all([
+          fetchMachineDetails(Number(id), dateFrom, dateTo),
+          fetchMachineRoi(Number(id), dateFrom, dateTo).catch((e: unknown) => {
+            // ROI best-effort: 404 dla archiwalnych bez include_archival — nie blokuj details
+            const err = e as { response?: { status?: number } }
+            if (err?.response?.status !== 404) throw e
+            return null
+          }),
+        ])
       } else if (isCityDrill) {
         await fetchCityDetails(String(id).slice(5), dateFrom, dateTo)
       } else {
@@ -566,6 +604,7 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     drillDown.value = { ...emptyDrillDown }
     drillError.value = null
     machineDetails.value = null
+    machineRoi.value = null
     locationDetails.value = null
   }
 
@@ -590,6 +629,7 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     locationsRanking,
     loadingLocations,
     machineDetails,
+    machineRoi,
     locationDetails,
     drillDown,
     // getters
@@ -608,6 +648,7 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     searchExplorer,
     fetchLocationsRanking,
     fetchMachineDetails,
+    fetchMachineRoi,
     fetchLocationDetails,
     fetchCityDetails,
     openDrillDown,

@@ -2393,7 +2393,7 @@ Pola zapisywane w DB (contracts table, BOOLEAN NOT NULL DEFAULT FALSE) ale **ŻA
 id: RAO-P2-065
 priority: P1
 size: M
-status: review
+status: in-progress
 classification: cross-stack/bugfix+feature
 roles: [tech-lead, backend-dev, frontend-dev, ui-designer, qa-engineer, product-owner]
 source: full-team review 2026-07-04 (PO 7/10, QA 7/10, UI 6.5/10 + tech-lead vision review)
@@ -2413,9 +2413,9 @@ depends_on:
 
 #### 🔴 P1 — bugi funkcjonalne
 
-1. **Brak ROI (stopy zwrotu) w AnalyticsView** — GŁÓWNE wymaganie klienta #1. Endpoint `/stats/machine-roi` istnieje ale NIE jest podpięty (analytics.ts nie ma fetchMachineRoi, żaden tab nie renderuje ROI). Paradoks: ROI jest tylko w Archiwum (szacunki), a nie tam gdzie realne kwoty. FIX: dodać metric ROI + replacement_value do DrillDownDrawer maszyny (~4h).
+1. ✅ **DONE (2026-07-05): Brak ROI (stopy zwrotu) w AnalyticsView** — główne wymaganie klienta #1. Endpoint `/stats/machine-roi` istnieje ale NIE był podpięty. FIX: dodano `fetchMachineRoi` + `MachineRoi` interface w `analytics.ts`, sekcja ROI w `DrillDownDrawer` maszyny (AnalyticsView.vue), wywołanie równoległe z `fetchMachineDetails` w `openDrillDown` (best-effort: 404 dla archiwalnych nie blokuje details). Weryfikacja: vue-tsc PASS, build PASS, Playwright drill-down maszyny → sekcja ROI renderuje (3.25% na Ładowarce Manuscop 6.36, wartość zastępcza 420k, przychód 13.65k).
 2. **`contractor_name: null` w /stats/currently-rented** — tabela "Maszyny aktualnie wynajęte" i drill-down pokazują "—" zamiast kontrahenta. Root cause: router.py:241 bierze `Contract.contractor_name` (snapshot, NULL dla umów z contractor_id) zamiast JOIN z contractors. FIX: `func.coalesce(Contractor.name, Contract.contractor_name)` + LEFT JOIN (~1h).
-3. **422 na /contractors?per_page=500 → pusty dropdown kontrahentów w filtrach** — AnalyticsView.vue:130 woła per_page=500, backend ma le=200. Filtr KONTRAHENT nie ma żadnych opcji. FIX: per_page=200 lub podnieść limit backendu (~15min).
+3. ✅ **DONE (2026-07-05): 422 na /contractors?per_page=500 → pusty dropdown kontrahentów w filtrach** — AnalyticsView.vue:130 woła per_page=500, backend miał le=200. FIX: podniesiono backend limit do le=500 (commit 6a96b43). Weryfikacja: Playwright — dropdown kontrahentów w AnalyticsView ma pełną listę (setki opcji).
 4. **/stats/currently-rented bez `is_settled==False` i bez `date_to IS NULL`** — rozliczone umowy liczone jako wynajęte; umowy na czas nieokreślony pomijane. Niespójność z fleet-summary (ma oba warunki) → utylizacja % może się rozjechać. FIX: dodać warunki jak w fleet-summary:110 (~30min).
 
 #### 🟡 P2 — funkcjonalność / UX
@@ -3626,6 +3626,659 @@ note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone
   2. `onAddressSelect` — wypełnia postal_code+city z adresu kontrahenta + auto PNA lookup
   3. `onPostalCodeBlur` — refactor na reusable `lookupPna()`
 - **Weryfikacja:** vue-tsc exit 0, build OK
+
+```yaml
+id: RAO-P2-069
+priority: P2
+size: M
+status: done
+classification: cross-stack
+roles: [backend-dev, frontend-dev, product-owner]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/02_backend_api.md (endpoint /locations/city/{city} + group_by param)
+migration_impact: no
+security_impact: no
+depends_on:
+  - RAO-P2-028 (Agregacja PNA z LEFT JOIN do postal_codes)
+verification:
+  - "vue-tsc --noEmit: PASS"
+  - "npm run build: PASS (643ms)"
+  - "curl /explorer/locations?group_by=city: Warszawa → 1 wiersz (postal_code=null)"
+  - "curl /explorer/locations?group_by=pna: Warszawa 00-002 → 1 wiersz z PNA"
+  - "curl /explorer/locations/city/Warszawa: 200 OK z pna_breakdown + top_machines"
+  - "Playwright screenshot: toggle Miasto/PNA działa, kolumna PNA warunkowa"
+```
+
+**Problem:**
+
+W zakładce "Lokalizacje" w AnalyticsView każde miasto było rozbite na kody pocztowe — Warszawa (3978 PNA w słowniku) mogła mieć wiele wierszy zamiast jednego. User chciał: "ma być miasto do wielu kodów pocztowych" — jeden wiersz per miasto, z opcją rozbicia na PNA jeśli potrzeba.
+
+**Cel:** Toggle Miasto/PNA w UI. Domyślnie miasto (1 wiersz per miasto, sumuje wszystkie PNA). Drill-down po mieście pokazuje rozbicie na PNA.
+
+---
+
+#### Scope implementacji
+
+**Backend:**
+1. `shared/locations.py` — `aggregate_by_pna()` dostaje `group_by='city'|'pna'` (domyślnie 'city'):
+   - `city`: klucz = (city, gmina, powiat, wojewodztwo) — 1 wiersz per miasto, `postal_code=null`
+   - `pna`: klucz = (postal_code, city) — 1 wiersz per PNA (legacy)
+2. `explorer/router.py` — `GET /explorer/locations` dostaje `?group_by=city|pna` (domyślnie city)
+3. `explorer/router.py` — nowy `GET /explorer/locations/city/{city}` — drill-down po mieście:
+   - Sumuje wszystkie PNA w mieście (case-insensitive)
+   - Zwraca `pna_breakdown` (rozbicie na kody pocztowe)
+   - Top maszyny (10) + top kontrahenci (5) filtrowani po mieście
+   - `metrics.pna_count` — ile kodów PNA w mieście
+
+**Frontend:**
+1. `stores/analytics.ts` — `fetchLocationsRanking()` dostaje `groupBy` param; nowy `fetchCityDetails()`
+2. `LocationsTab.vue` — toggle "Miasto / PNA" w nagłówku sekcji ranking
+3. Kolumna PNA warunkowa (tylko w trybie PNA)
+4. `onRowClick` — w trybie city wywołuje `openDrillDown('location', 'city:'+city, city)`
+5. `AnalyticsView.vue` — drill-down po mieście pokazuje `pna_breakdown` sekcję + `pna_count` w metrics
+
+---
+
+#### Weryfikacja (2026-07-04)
+
+- `vue-tsc --noEmit`: PASS
+- `npm run build`: PASS (643ms)
+- `curl /explorer/locations?group_by=city`: Warszawa → 1 wiersz (postal_code=null, gmina=Warszawa, woj=mazowieckie)
+- `curl /explorer/locations?group_by=pna`: Warszawa 00-002 → 1 wiersz z PNA
+- `curl /explorer/locations/city/Warszawa`: 200 OK — city, gmina, powiat, wojewodztwo, metrics (pna_count=1), pna_breakdown, top_machines, top_contractors
+- Playwright: toggle Miasto/PNA działa, kolumna PNA pojawia się tylko w trybie PNA, drill-down po mieście otwiera drawer "📍 Kraków / Umowy w mieście (wszystkie PNA)"
+
+---
+
+#### Pliki zmienione
+
+| Plik | Zmiana |
+|------|--------|
+| `backend/shared/locations.py` | +`group_by` param (city/pna), klucz agregacji zależny od trybu |
+| `backend/explorer/router.py` | +`group_by` query param, +`/locations/city/{city}` endpoint, +import defaultdict |
+| `frontend/src/stores/analytics.ts` | +`groupBy` param w fetchLocationsRanking, +fetchCityDetails, +pna_breakdown w LocationDetailsResponse |
+| `frontend/src/components/analytics/tabs/LocationsTab.vue` | +toggle Miasto/PNA, kolumna PNA warunkowa, onRowClick per tryb |
+| `frontend/src/views/AnalyticsView.vue` | +sekcja pna_breakdown w drill-down, +metric pna_count |
+
+---
+
+**Estymacja:** 3-4h (M) — backend (1.5h) + frontend (1.5h) + weryfikacja (0.5h)
+
+---
+
+### [RAO-P2-070] Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation)
+
+```yaml
+id: RAO-P2-070
+priority: P2
+size: L
+status: triaged
+classification: frontend/ux
+roles: [ux-designer, frontend-dev, product-owner]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/03_frontend_screens.md (drilldowny cross-view)
+  - core/06_navigation_flow.md (cross-view navigation, goBack → router.back)
+  - core/18_ux_improvements.md (toast zamiast alert, feedback po zapisie)
+migration_impact: no
+security_impact: no
+depends_on: []
+blocks: []
+verification: []
+```
+
+**Problem:**
+
+Aplikacja ma solidne podstawy (drilldown w Analytics/Archive, skeleton loadery, empty states, active sidebar). Ale **codzienne flow usera** jest utrudnione — brakuje cross-view drilldownów (kontrahent↔umowa↔maszyna), sortowania po kolumnach w Dashboard, kluczowych filtrów (handlowiec, miasto), oraz `alert()` zamiast toastów w 25+ miejscach.
+
+**Cel:** Aplikacja w pełni interaktywna — user może "przeskakiwać" między encjami bez ręcznego szukania, każdy zapis/akcja ma feedback, każda lista ma filtry i sortowanie.
+
+---
+
+#### Audyt UX (2026-07-04) — 30 usterek w 3 priorytetach
+
+##### 🔴 HIGH — Blokuje codzienną pracę (8 usterek)
+
+| # | Usterka | Widok | User pain | Stara aplikacja |
+|---|---------|-------|-----------|-----------------|
+| B1 | Brak drilldown z listy umów → kontrahent | DashboardView /contracts | Ręczne szukanie kontrahenta w sidebar | WinForms: context menu / double-click |
+| B2 | Brak kolumny "Maszyny" w liście umów | DashboardView /contracts | Trzeba otwierać każdą umowę | WinForms: tooltip / dialog "?" |
+| B3 | Brak drilldown z kontrahenta → jego umowy | DashboardView /contractors | "Aktywna umowa" nie jest klikalna | WinForms: double-click → historia umów |
+| B4 | Brak drilldown z artykułu → historia wynajmów | DashboardView /articles | Trzeba kombinować z Analytics | WinForms: FormA.cs podgląd historii |
+| B5 | Brak sortowania po kolumnach w DashboardView | DashboardView (3 sekcje) | Klik w nagłówek nie sortuje | WinForms: DataGridView sortował |
+| B6 | `alert()` zamiast toastów — 25+ miejsc | 9 widoków (ContractForm 18×, ContractorForm 5×, Archive 5×, Admin 6×, inne) | Blokuje aplikację, legacy pattern | WinForms: MessageBox (web ≠ MessageBox) |
+| B7 | Brak toastu po zapisie umowy/kontrahenta/artykułu | ContractForm, ContractorForm, ArticleForm | User nie wie czy zapisano → duplikat | WinForms: "Zapisano" w status bar |
+| B8 | Brak filtra "Handlowiec" i "Miasto" w liście umów | DashboardView /contracts | Handlowiec nie widzi swoich umów | WinForms: filtry handlowca w toolbarze |
+
+##### 🟡 MEDIUM — Frustrujące, user radzi sobie obejściem (13 usterek)
+
+| # | Usterka | Widok |
+|---|---------|-------|
+| B9 | Brak drilldown z umowy → edycja kontrahenta | ContractFormView |
+| B10 | Brak drilldown z umowy → edycja maszyny (z pozycji) | ContractFormView (PositionGrid) |
+| B11 | Brak drilldown z umowy → faktura w Fakturownia | ContractFormView (panel FA) |
+| B12 | Brak drilldown z CommissionView → umowy handlowca | CommissionView |
+| B13 | Brak drilldown z drill-machine-rentals → konkretna umowa | AnalyticsView (drawer machine) |
+| B14 | Brak drilldown z top_contractors → kontrahent | AnalyticsView (drawer location) |
+| B15 | Brak breadcrumb w formularzach | ContractForm, ContractorForm, ArticleForm |
+| B16 | `goBack` hardcoded zamiast `router.back()` | ContractForm, ContractorForm, ArticleForm |
+| B17 | Brak filtra "Tylko z aktywną umową" w kontrahentach | DashboardView /contractors |
+| B18 | Brak filtra kategoria/marka/typ w artykułach | DashboardView /articles |
+| B19 | Brak kalendarza umów (spec 06 sekcja 3) | DashboardView /contracts |
+| B20 | Brak toolbar [?] — podgląd szczegółów bez edycji | DashboardView |
+| B21 | Brak context menu "Dodaj umowę" w kontrahentach | DashboardView /contractors |
+
+##### 🟢 LOW — Polish / nice-to-have (9 usterek)
+
+| # | Usterka | Widok |
+|---|---------|-------|
+| B22 | Brak hover indicatora na klikalnych wierszach | ArchiveView |
+| B23 | Brak undo dla destruktywnych akcji | DashboardView, ContractorForm |
+| B24 | Brak sticky header w tabelach | DashboardView, ArchiveView |
+| B25 | Brak filtra "Okres" w kontrahentach i artykułach | DashboardView |
+| B26 | Brak paginacji w drilldown drawers | AnalyticsView |
+| B27 | Brak "Eksportuj CSV/PDF" z list | DashboardView, AnalyticsView |
+| B28 | Brak tooltipów na ikonach w toolbarze | ContractFormView |
+| B29 | Brak drilldown z HomeView KPI → filtrowana lista | HomeView |
+| B30 | Brak drilldown z HomeView "Dostawy" → umowa | HomeView |
+
+---
+
+#### Mapa pożądanych interakcji (cross-view navigation)
+
+| Z widoku | Klik w | Powinno otworzyć | Priorytet |
+|----------|--------|------------------|-----------|
+| Dashboard /contracts | Nazwa kontrahenta | `/contractors/:id/edit` | HIGH |
+| Dashboard /contracts | Maszyna (nowa kolumna) | `/articles/:id/edit` lub drilldown | HIGH |
+| Dashboard /contracts | Nagłówek kolumny | Sort ASC/DESC | HIGH |
+| Dashboard /contracts | Filtr Handlowiec | Lista filtrowana po `salesperson_id` | HIGH |
+| Dashboard /contracts | Filtr Miasto | Lista filtrowana po `city` | HIGH |
+| Dashboard /contractors | Numer aktywnej umowy | `/contracts/:id/edit` | HIGH |
+| Dashboard /contractors | Right-click → "Dodaj umowę" | `/contracts/new?contractor_id=:id` | HIGH |
+| Dashboard /articles | Numer aktywnej umowy | `/contracts/:id/edit` | HIGH |
+| Dashboard /articles | "Historia wynajmów" | Drawer jak w Analytics | HIGH |
+| ContractForm | "✎ Edytuj" obok kontrahenta | `/contractors/:id/edit` (nowa karta) | MEDIUM |
+| ContractForm | Nazwa artykułu w pozycji | `/articles/:id/edit` (nowa karta) | MEDIUM |
+| ContractForm | Faktura w panelu FA | `window.open(invoice.url)` | MEDIUM |
+| Analytics /drill-machine | Wiersz rental (umowa) | `/contracts/:contract_id/edit` | MEDIUM |
+| Analytics /drill-location | Wiersz top_contractor | `/contractors/:id/edit` | MEDIUM |
+| Commission | Wiersz handlowca | `/dashboard/contracts?salesperson_id=:id` | MEDIUM |
+| HomeView | KPI card | `/worker` lub `/dashboard/contracts` z filtrem | MEDIUM |
+| HomeView | Dostawa (delivery-row) | `/contracts/:contract_id/edit` | MEDIUM |
+| Wszystkie formularze | Toolbar "←" | `router.back()` z fallbackiem | MEDIUM |
+| Wszystkie błędy | API error | Toast error (NIE `alert()`) | HIGH |
+| Wszystkie formularze | Po Zapisz | Toast success | HIGH |
+
+---
+
+#### Rekomendowana kolejność implementacji (5 faz)
+
+**Faza 1 — Toasty zamiast alert() + feedback po zapisie (B6, B7)** — quick win, 25+ miejsc
+- Komponent `Toast.vue` i `useToastStore` już istnieją (używane w 1 miejscu)
+- Czysta zamiana `alert(err)` → `toastStore.showToast(msg, 'error')`
+- Dodać toast success po zapisie we wszystkich formularzach
+- Est: 4-6h (S)
+
+**Faza 2 — Cross-view drilldown z list (B1, B3, B4)** — najczęstszy flow codzienny
+- DashboardView /contracts: nazwa kontrahenta → link, kolumna "Maszyny" → link
+- DashboardView /contractors: `active_contract_number` → link, context menu "Dodaj umowę"
+- DashboardView /articles: `active_contract_number` → link, akcja "Historia wynajmów"
+- Est: 6-8h (M)
+
+**Faza 3 — Sortowanie po kolumnach w DashboardView (B5)** — `useSort` już istnieje
+- Przenieść pattern z `ExplorerTab.vue` / `AnalyticsTable.vue`
+- 3 tabele: contracts, contractors, articles
+- Est: 3-4h (S)
+
+**Faza 4 — Filtry: Handlowiec + Miasto w liście umów (B8)** — wymaga backend
+- Dodać `salesperson_id` i `city` do `GET /contracts` query params (backend)
+- Dodać `<select>` i `<input>` w grid-header (frontend)
+- `settingsStore.salespeople` już załadowany
+- Est: 4-5h (S)
+
+**Faza 5 — goBack → router.back() + drilldown w Analytics/HomeView (B13-B16, B29-B30)** — polish
+- `goBack` używające `router.back()` z fallbackiem
+- Drilldown z drawer Analytics → konkretna umowa
+- KPI cards w HomeView klikalne
+- Est: 4-6h (S)
+
+**Łączna estymacja:** 21-29h (L) — 5 faz, każda niezależna (można robić sekwencyjnie)
+
+---
+
+#### Co działa dobrze (nie wymaga zmian)
+
+- ✅ HomeView — klik w umowę w panelach → edycja
+- ✅ WorkerView — klik w umowę/dostawy → edycja, filtry dni
+- ✅ AnalyticsView — drilldown machine/location, filtry (date, type, contractor, city)
+- ✅ ArchiveView — drilldown umów, filtry (search, typ, data, kategoria), paginacja
+- ✅ ExplorerTab — klik w wynik → edycja, search + sort
+- ✅ ContractFormView — picker kontrahenta/art/dostawcy, inline form, conflict modal
+- ✅ ContractorFormView — "+ Umowa" → auto-fill, GUS lookup
+- ✅ AppSidebar — active state per section
+- ✅ AppLayout — Ctrl+N = nowy, Esc = back
+
+---
+
+#### Edge cases do obsługi w implementacji
+
+- [ ] **Error state:** Tylko ArchiveView/AnalyticsView mają retry; reszta = `alert('Błąd')`
+- [ ] **Success feedback:** Tylko CommissionView (toast); reszta = brak
+- [ ] **Slow connection:** Brak timeout indicatora
+- [ ] **Long content:** DashboardView paginacja (50/strona, brak wyboru per-page)
+- [ ] **Soft delete vs hard delete:** Usunięcie kontrahenta z aktywnymi umowami — blokować LUB soft-delete
+
+---
+
+**Estymacja:** 21-29h (L) — 5 faz, każda niezależna
+
+---
+
+### [RAO-P3-071] Audyt UX — czytelność, spójność, przyjemność poruszania się
+
+```yaml
+id: RAO-P3-071
+priority: P3
+size: L
+status: triaged
+classification: frontend/ux
+roles: [ux-designer, ui-designer, frontend-dev]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/09_design_reference.md (jeden source of truth zmiennych CSS, font-size minima)
+  - core/03_frontend_screens.md (skeleton loaders, breadcrumb, page-title)
+  - core/18_ux_improvements.md (glossary skrótów, ConfirmDialog konkretne obiekty)
+migration_impact: no
+security_impact: no
+depends_on: []
+blocks: []
+verification: []
+```
+
+**Problem:**
+
+Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z semantycznym kolorem, mikro-animacje, sticky headers, keyboard shortcuts). Ale po 8h pracy operatora boli głowa od czytania — 56 miejsc z `font-size: 11px`, 3 różne formaty walut, 2 różne formaty dat, żargon bez tooltipów (PNA, ZO, FA), niespójny design system (CommissionView łamie wszystko), brak a11y (aria-label, focus states, kontrast poniżej WCAG AA).
+
+**Cel:** Aplikacja przyjemna w użyciu po 8h pracy — czytelna, spójna, dostępna, z mikro-polishem.
+
+---
+
+#### Audyt UX (2026-07-04) — czytelność, spójność, przyjemność
+
+##### Co działa dobrze (nie wymaga zmian)
+
+- ✅ Skeleton loaders (HomeView, WorkerView, AnalyticsTable, DrillDownDrawer)
+- ✅ Empty states z CTA (DashboardView, HomeView panele)
+- ✅ KPI cards z semantycznym kolorem (kpi-ok/warn/danger/info)
+- ✅ Live preview warunków kaskadowych (ConditionPanel)
+- ✅ Help section wbudowany ("📖 Jak wpisać warunki?")
+- ✅ Polskie formatowanie w AnalyticsView (Intl PLN, toLocaleDateString pl-PL)
+- ✅ Mikro-animacje (LoginView shake, nav-tile hover, KPI hover, btn:active scale)
+- ✅ Archive separator pomarańczowy + banner ostrzegawczy
+- ✅ Keyboard shortcuts (Ctrl+N, Escape, Enter/Esc inline edit)
+- ✅ Print CSS, sticky table headers, DrillDownDrawer z Teleport + Esc
+
+##### 🔴 HIGH — 5 usterek blokujących czytelność
+
+| # | Usterka | Widok | User pain |
+|---|---------|-------|-----------|
+| B1 | `font-size: 11px` × 56 miejsc — za mały do 8h pracy | DashboardView, HomeView, WorkerView, AdminView, SettingsView, ContractFormView | Ból głowy po 2h, starsi pracownicy nie przeczytają |
+| B2 | `font-size: 10px` (del-chip) i `9px` (sidebar-logo-sub) | WorkerView, AppSidebar | Kluczowa informacja (data dostawy) nieczytelna |
+| B3 | 3 różne formaty walut — `Intl PLN` vs `toFixed(2)+' zł'` vs `toLocaleString` | AnalyticsView ✅, ContractFormView ❌, ConditionPanel ❌, CommissionView ✅ | Pomyłki w odczycie przy porównywaniu z fakturą |
+| B4 | 2 różne formaty dat — "01.02.2026" vs "1.2.2026" | HomeView ✅ (leading zero), DashboardView/ContractFormView ❌ | Skanowanie tabeli przerywane — wygląda jak inna data |
+| B5 | Żargon bez tooltipów — PNA, ZO, FA, OID, S/U | ContractFormView, DashboardView, ArticleFormView, ArchiveView | Nowy user pyta kolegę "co to ZO?" — wstyd, strata czasu |
+
+##### 🟡 MEDIUM — 6 usterek spójności i komfortu
+
+| # | Usterka | Widok |
+|---|---------|-------|
+| B6 | Kolumna "Adres dostawy" 11px + max 180px + pre-wrap | DashboardView |
+| B7 | "X rekordów" zamiast "X umów" — żargon bazodanowy | DashboardView (4 sekcje) |
+| B8 | Toolbar ikony `− + ⎙ ? ∑ 💰` bez etykiet tekstowych | AppToolbar, ContractFormView |
+| B9 | Numbers nie wyrównane do prawej w tabelach | DashboardView, ArchiveView |
+| B10 | CommissionView całkowicie własny styl — hardcoded kolory, rem, 4-8px radius, `.data-table` zamiast `.data-grid` | CommissionView |
+| B11 | Dwa konfliktujące systemy zmiennych CSS — `style.css` vs `variables.css` (różne odcienie navy, różne font-size) | Global |
+
+##### 🟢 LOW — 3 usterek polish
+
+| # | Usterka |
+|---|---------|
+| B12 | Spacing niespójny między widokami (padding 12px/20px/24px/32px) |
+| B13 | "Pulpit" w sidebar vs "Pulpit operacyjny" w WorkerView — niespójna nazwa |
+| B14 | ArchiveView tab labels identyczne jak sekcje główne (ryzyko pomyłki) |
+
+##### Usterki spójności wizualnej (tabela)
+
+| Element | Gdzie spójne | Gdzie niespójne |
+|---------|-------------|-----------------|
+| Kolor primary | variables.css `#0F234E` | style.css `#1D2B53`, WorkerView hardcoded, CommissionView hardcoded |
+| Border-radius kart | 12px (layout.css) | WorkerView 10px, CommissionView 8px, HomeView nav-tile 6px |
+| Styl tabeli | `.data-grid` (navy header, zebra, hover) | CommissionView `.data-table` (jasny header, brak zebra) |
+| Styl przycisków | `.btn` (pill 24px) | CommissionView 5px, HomeView 12px, LoginView redefine |
+| Badge statusu | tables.css (success/warning/danger/info/muted) | DashboardView (badge-settled/overdue/active — nie zdefiniowane!) |
+| Karty KPI | HomeView własny, KpiRow.vue własny | Dwa różne komponenty KPI, różny styling |
+| Loading state | HomeView/WorkerView skeleton | DashboardView/AdminView/SettingsView/ArchiveView tekst "Ładowanie..." |
+| Ikony | Emoji (📊📦⏰🖨) | Unicode symbole (⌕ ⎙ ∑ −) — mix |
+| Toast kolory | hardcoded `#10b981/#ef4444` | Design system `--color-success/danger` (inne odcienie) |
+| Tło widoku | `#F8F9FA` (layout.css) | HomeView `#F4F6FB`, WorkerView `#F4F6FB`, CommissionView białe |
+
+##### Usterki dostępności (a11y)
+
+| Element | Stan | Priorytet |
+|---------|------|-----------|
+| aria-label na icon buttons | Brak (16 aria/role w całej apce) | HIGH |
+| Label ↔ input powiązanie (for/id) | Brak | HIGH |
+| Focus state na przyciskach | Tylko `.form-control:focus`, brak na `.btn`/`.btn-icon`/`.toolbar-btn` | HIGH |
+| Kontrast muted text `#718096` na białym | ~4.0:1 — poniżej WCAG AA 4.5:1, przy 11px = fail | HIGH |
+| role="alert" na błędach | Brak | MEDIUM |
+| aria-invalid na polach z błędem | Brak | MEDIUM |
+| Modal focus trap | Brak (Tab wychodzi z modala) | MEDIUM |
+| Modal aria-modal | Brak `role="dialog" aria-modal="true"` | MEDIUM |
+| Skip-to-content link | Brak | LOW |
+| Touch target size | `.page-btn` 28×28, `.days-filter` ~24×20 — poniżej 44×44 | LOW |
+
+##### Usterki przyjemności/polish
+
+| Element | Stan | Rekomendacja |
+|---------|------|--------------|
+| View transitions | Brak `<Transition>` na router-view | `<Transition name="fade" mode="out-in">` |
+| Loading w 4 widokach | Tekst "Ładowanie..." | Skeleton rows (`.skeleton` już w animations.css) |
+| Toast bez ikony | Tylko kolor + tekst | Ikona ✓/⚠️/ℹ — szybsze skanowanie |
+| Toast bez undo | Success = info only | Przycisk "Cofnij" dla destruktywnych (5s) |
+| KPI hover ale nie clickable | `:hover { box-shadow }` bez `@click` | Albo usuń hover, albo dodaj cursor:pointer + klik |
+| ConfirmDialog generyczny | "Czy na pewno chcesz usunąć ten element?" | "Usuniesz umowę XYZ. Tej akcji nie można cofnąć." |
+| Brak "recently viewed" | — | Lista "Ostatnio otwarte umowy" w HomeView |
+| Brak keyboard hint w UI | Ctrl+N, Esc działają ale user nie wie | Tooltip w sidebar lub help overlay |
+
+---
+
+#### Rekomendowana kolejność implementacji (5 faz)
+
+**Faza 1 — Font-size + kontrast (HIGH impact, LOW effort)** — 1 dzień
+- Zamień `font-size: 11px` → 13px (dane), 12px (metadane); `10px` → 12px; `9px` → 11px
+- Sciemnij `--color-text-muted` z `#718096` → `#5A6B7E` (WCAG AA 4.5:1)
+- Każdy operator poczuje natychmiast
+
+**Faza 2 — Unifikacja formatowania dat i walut (HIGH impact, LOW effort)** — 0.5 dnia
+- Stwórz `composables/useFormat.ts` z `formatDate()`, `formatCurrency()`, `formatNumber()`
+- Zastąp 5 różnych implementacji (AnalyticsView ✅ wzorzec, ContractFormView ❌, ConditionPanel ❌, CommissionView ✅, HomeView ✅)
+- Zawsze `pl-PL` + `PLN` + 2 cyfry + leading zero w datach
+
+**Faza 3 — a11y: aria-label + focus states (HIGH impact, MEDIUM effort)** — 1-2 dni
+- `aria-label` na wszystkich icon buttons (−, +, ⎙, ?, ∑, 💰, ←, ✎, ✕)
+- `:focus-visible { outline: 2px solid var(--color-primary) }` globalnie
+- `for`/`id` na label/input, `role="alert"` na błędach, `aria-invalid` na polach z błędem
+- `role="dialog" aria-modal="true"` na modalach
+
+**Faza 4 — Unifikacja design system (MEDIUM impact, MEDIUM effort)** — 1 dzień
+- CommissionView — usuń scoped CSS, użyj `.data-grid`, `.page-card`, `.btn`, `--color-*`
+- WorkerView — zamień hardcoded `#0F234E` na `var(--color-primary)`, `#F4F6FB` na `var(--color-bg-app)`
+- Jeden plik zmiennych — usuń definicje kolorów/typografii z `style.css`, zostaw `variables.css`
+- Dodaj `badge-settled/overdue/active` do tables.css (lub użyj istniejących)
+- Połącz KPI komponenty (HomeView + KpiRow.vue → jeden)
+
+**Faza 5 — Skeleton loaders + polish (MEDIUM impact, LOW effort)** — 0.5-1 dzień
+- DashboardView, AdminView, SettingsView, ArchiveView — skeleton rows zamiast "Ładowanie..."
+- Komponent `<TableSkeleton :rows="5" />`
+- View transitions (`<Transition name="fade" mode="out-in">`)
+- Toast z ikoną (✓/⚠️/ℹ)
+- ConfirmDialog z konkretnym obiektem ("Usuniesz umowę U/2024/123...")
+- Glossary skrótów (PNA, ZO, FA, OID, S/U) — tooltip lub legenda
+
+**Łączna estymacja:** 4-5.5 dni (L) — 5 faz, każda niezależna
+
+---
+
+#### Glossary skrótów (do implementacji w Faza 5)
+
+| Skrót | Pełna nazwa |
+|-------|-------------|
+| PNA | Kod pocztowy (PNA) |
+| ZO | Protokół zdania obiektu (ZO) |
+| FA | Faktura (FA) |
+| OID | Identyfikator w Fakturownia (OID) |
+| S | Umowa najmu (S) |
+| U | Umowa usługi (U) |
+
+---
+
+**Estymacja:** 4-5.5 dni (L) — 5 faz, każda niezależna
+
+---
+
+## 📋 Tabela TL;DR
+
+| ID | Tytuł | P | Est. | Status | Następny krok |
+|----|-------|---|------|--------|---------------|
+| RAO-P1-014 | Frontend — błędne obliczanie daty końcowej okresu umowy | P1 | XS | user-verified | → client-approved |
+| RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | P1 | XS | team-verified | → user-verified |
+| RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | P1 | S | team-verified | → user-verified |
+| RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | dev-verified | → team-verified |
+| RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | P1 | XS | team-verified | → user-verified |
+| RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | dev-verified | → user-verified |
+| RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
+| RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | dev-verified | → team-verified (wartość z rozliczenia, read-only w formularzu) |
+| RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
+| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | done | Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
+| RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | done | dev-verified → user-verified |
+| RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | dev-verified | → team-verified (unique=True w model + DB index uq_contracts_number) |
+| RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | done | → done (autoescape=True w reports/service.py:588) |
+| RAO-P0-032 | build_contract_data mutuje sesję — kopiuj description | P0 | XS | done | → done (lokalne kopie description w fees_data) |
+| RAO-P0-033 | recalculate_total — użyj algorytmu kaskadowego | P0 | S | dev-verified | → team-verified |
+| RAO-P0-034 | ContractUpdate schema z exclude_unset=True (lost data) | P0 | M | dev-verified | → team-verified |
+| RAO-P0-035 | N+1 queries — selectinload w list_contracts/positions/articles | P0 | M | dev-verified | → team-verified |
+| RAO-P0-036 | Stack trace disclosure → detail="Błąd" + logging | P0 | XS | dev-verified | → team-verified (global exception handler w main.py) |
+| RAO-P1-037 | delete_contract — guard na is_settled | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-038 | Brak indeksów DB (is_settled, created_at, salesperson_id, print_date, delivery_date) | P1 | S | dev-verified | → team-verified |
+| RAO-P1-039 | Walidacja date_from > date_to + ujemne kwoty w ContractCreate | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-040 | is_settled blokuje mutacje (update/delete positions) | P1 | S | dev-verified | → team-verified |
+| RAO-P1-041 | Hardcoded JWT fallback "change-me" — usuń + wymuś z env | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-042 | Frontend: logout czyści stores + redirect po login + baseURL z env | P1 | S | dev-verified | → team-verified |
+| RAO-P1-043 | Frontend: memory leaks — cleanup event listenerów i timerów | P1 | S | dev-verified | → team-verified |
+| RAO-P1-044 | Frontend: localStorage.getItem('token') → 'rao_token' | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-045 | _build_conditions_text — użyj format_position_conditions_cascading (dedup) | P1 | XS | dev-verified | → team-verified |
+| RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
+| RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | done | in-memory limiter 5/60s/IP, 429+Retry-After |
+| RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | done | warunkowe docs_url/redoc_url z RAO_ENV |
+| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | done | StateMessage.vue + integracja w 4 widokach |
+| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | done | walidacja w 3 formularzach, blokada submit |
+| RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | done | TTLCache in-memory, 11 endpointow stats, /cache/clear |
+| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | done | SQL WHERE + LEFT JOIN, contract_ids param |
+| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | done | single compute + limit/offset/total_count |
+| RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | dev-verified | → team-verified (normalize w settings/service.py + ALTER TABLE polish_ci w main.py) |
+| RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | triaged | → in_progress |
+| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
+| RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | dev-verified | → team-verified (is_external nie blokuje + checkbox w details) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
+| RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | triaged | → in_progress (Faza 1: parser legacy + migracja + UI + template items) |
+| RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | in-progress (Faza 1 done — 6 bugów + indeksy + cleanup; Faza 2 todo — StatsView.vue) |
+| RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
+| RAO-P2-067 | Demo data refactor — migrate_all.py orchestrator + FA-pending contracts + delivery_address | P2 | M | done | 31 faktur FA (19 backfill + 12 FA-pending), delivery_address z miastami, hardcoded token usunięty |
+| RAO-P2-068 | Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta" | P2 | M | done | 5 cenników kaskadowych per maszyna, 6 presetów usług, 22 ServiceFeeTemplateItem, 6 rate types, pełna konfiguracja firmy |
+| RAO-P2-069 | Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście | P2 | M | done | Toggle Miasto/PNA w LocationsTab, 1 wiersz per miasto (Warszawa 3978 PNA → 1), drill-down /locations/city/{city} z pna_breakdown |
+| RAO-P2-070 | Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation) | P2 | L | triaged | 30 usterek UX (8 HIGH, 13 MEDIUM, 9 LOW); 5 faz: toasty, cross-view drilldown, sort, filtry, goBack |
+| RAO-P3-071 | Audyt UX — czytelność, spójność, przyjemność poruszania się | P3 | L | triaged | 14 usterek (5 HIGH, 6 MEDIUM, 3 LOW) + a11y + polish; 5 faz: font-size, formatowanie, a11y, design system, skeleton |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
+
+**Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
+
+### Pipeline weryfikacji (status flow)
+
+```
+triaged → in_progress → dev-verified → team-verified → user-verified → client-approved (done)
+           │              │               │               │               │
+           Devin koduje   Devin testuje   Software-house  Ty wzrokowo    Klient zatwierdza
+           zmianę         programatycz.   subagenty       w UI/PDF        → zadanie zamknięte
+                          (Playwright,    (QA, Security,
+                           PyMuPDF,       UX, PO, Tech
+                           pytest,        Lead review)
+                           vue-tsc)
+```
+
+---
+
+## 🔍 Pre-existing issues (znalezione przez security audit P1-015)
+
+### [RAO-SEC-001] IDOR — `/reports/contract/{id}` bez ownership check
+
+```yaml
+id: RAO-SEC-001
+priority: P1
+size: S
+status: done
+classification: security/idor
+roles: [backend-dev, security-auditor]
+source: security-audit
+source_date: 2026-06-29
+source_ref: "Security audit P1-015 — subagent security-auditor"
+specs_to_update:
+  - core/25_security.md
+migration_impact: no
+security_impact: yes
+done_date: 2026-07-01
+fix: "_check_contract_access() w reports/router.py — admin full access, non-admin tylko własny branch, fetch contract przed PDF gen (early 404/403)"
+verification:
+  - "py_compile reports/router.py: OK"
+  - "curl POST /reports/contract/999999 (admin): 404 (contract not found)"
+  - "smoke 01-login.spec.ts: 11/11 passed"
+```
+
+**Problem:** Endpoint `POST /reports/contract/{contract_id}` wymaga autentykacji (`get_current_user`), ale **nie sprawdza ownership/tenant** — każdy zalogowany użytkownik może wygenerować PDF (z telefonami klienta) dla cudzej umowy znając `contract_id`.
+
+**Atak:** Enumeracja `contract_id` → pozyskanie danych kontaktowych (telefony, adres dostawy) klientów innych handlowców.
+
+**Fix:** W `reports/router.py` (lub `service.py`) dodać weryfikację:
+```python
+if contract.created_by != current_user.id and current_user.role != "admin":
+    raise HTTPException(403)
+```
+
+**Pliki do zmiany:**
+- `backend/reports/router.py`
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S)
+
+---
+
+### [RAO-SEC-002] Jinja2 bez `autoescape=True` w reports/service.py
+
+```yaml
+id: RAO-SEC-002
+priority: P1
+size: S
+status: done
+classification: security/injection
+roles: [backend-dev, security-auditor]
+source: security-audit
+source_date: 2026-06-29
+source_ref: "Security audit P1-015 — subagent security-auditor"
+implementation_date: 2026-07-01
+note: "Już naprawione — autoescape=True w reports/service.py:588"
+specs_to_update:
+  - core/25_security.md
+migration_impact: no
+security_impact: yes
+```
+
+**Problem:** `Environment(loader=FileSystemLoader(template_dir))` w `backend/reports/service.py` utworzony **bez `autoescape=True`**. Użytkownik może wstrzyknąć HTML/JS w pola `notes`, `contractor_name`, `contact_person1` → trafia do PDF WeasyPrint (SSRF, data exfiltration).
+
+**Fix:** `Environment(loader=FileSystemLoader(template_dir), autoescape=True)` + przetestować wszystkie szablony PDF pod kątem niezamierzonego escapowania polskich znaków.
+
+**Pliki do zmiany:**
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S) — wymaga testów wszystkich szablonów PDF
+
+---
+
+## 🗂️ Materiały referencyjne
+
+**Sprint 2026-06-29 (nowe zgłoszenia):**
+- `spec/backlog/do_wciagniecia_do_backlogu.md` — 10 punktów od klienta (surowy markdown)
+- `Pasted image 20260629223748.png` (root repo) — P1-014: błędne obliczenie daty
+- `Pasted image 20260629223936.png` (root repo) — P1-016: protokół ZO bez adresu dostawy
+- `Pasted image 20260629224212.png` (root repo) — P1-019: umowa usługi U872/2026 z żółtym tłem
+- `Pasted image 20260629224534.png` (root repo) — P1-020: format rozliczenia kaskadowego
+- `Pasted image 20260629224602.png` (root repo) — P1-021: sekcja Warunki Finansowe z pustym Wartość
+- `Pasted image 20260629225003.png` (root repo) — P1-022: lista umów z niespójnym nazewnictwem
+- Raporty vision: `Pasted image 20260629*-vision-report.md` (root repo)
+
+**Stara aplikacja WinForms (referencja):**
+- `C:\projects\repos\AppRao\rao\FormW.cs` linia 690-750 — algorytm formatowania warunków kaskadowych
+
+**Aktualne szablony PDF:**
+- `backend/reports/templates/contract_u.html` — umowa usługi (typ U)
+- `backend/reports/templates/contract.html` — umowa najmu (typ S)
+- `backend/reports/templates/protocol_zo.html` — protokół zdawczo-odbiorczy
+- `backend/reports/templates/protocol_zo_u.html` — protokół wykonania usługi
+- `backend/reports/templates/protocol_zo_nodata*.html` — warianty bez danych
+
+---
+
+## 📋 Decyzje operatora (2026-06-30)
+
+### RAO-P1-021 — Pole „Wartość (zł)" → ekran rozliczenia
+**Decyzja:** Pole „Wartość" przechodzi do **ekranu rozliczenia** (nie formularz umowy). Tam wartość jest pobierana:
+- Z **Fakturowni** (kwota z faktury), LUB
+- Wprowadzona **ręcznie** na bazie pozycji umowy z uzupełnionymi kwotami
+
+**Implementacja:** Ekran rozliczenia pobiera pozycje umowy, pozwala uzupełnić kwoty (auto z Fakturowni lub ręcznie), sumuje → wartość umowy. Pole „Wartość" w formularzu umowy zostaje ukryte/puste (przedpłata dopisana z góry, wartość nieznana do rozliczenia).
+
+---
+
+### RAO-P2-028 — Statystyki miast via PNA (PILNE)
+**Decyzja:** Grupuj po **postal_code (PNA)** + miasto (precyzyjne).
+**Uwaga operatora:** Jedno miasto ma wiele PNA — trzeba ustalić **skąd uzupełnić PNA** dla miast.
+**Pilne** — wymaga analizy źródeł danych PNA (tabela postal_codes, integracja TERYT, GUS).
+
+---
+
+### RAO-P2-046 — IDOR / RBAC
+**Decyzja:** **Brak izolacji** na ten moment (single-tenant, wszyscy widzą wszystko).
+Wraz z rozwojem aplikacji będziemy zarządzać uprawnieniami do różnych zasobów.
+**Akcja:** Zostaw tylko SEC-001 (PDF ownership check). P2-046 odłożone.
+
+---
+
+### RAO-P2-057 — is_external (maszyna zewnętrzna)
+**Decyzja:** Maszyna external **nie blokuje** dodawania w wielu miejscach (nie wpływa na rentowność).
+- Ma być **możliwe do wyboru w detailsach maszyny** podczas dodawania
+- Sprawdzić **mechanizm blokowania maszyn** (czy external poprawnie nie blokuje)
+- Sprawdzić vs **wyliczanie dni umowy** czy maszyny będą poprawnie blokowane
+- **Blokada = pytanie z informacją** gdzie i dlaczego jest zablokowana maszyna, czy na pewno chcesz ją dodać/wypożyczyć
+- **Obgadać z teamem** (subagenty: backend-dev + qa-engineer + product-owner)
+
+---
+
+## 📋 Audyt wymagań klienta (2026-07-01) — Tech Lead
+
+### Wymagania klienta — status spełnienia
+
+| # | Wymaganie | Status | Uwagi |
+|---|-----------|--------|-------|
+| 1 | Statystyki wynajmu maszyny (po nr wewn.) w okresie — stopa zwrotu | **SPEŁNIONE z błędem** | `top-machines` + `explorer/machines/{id}` (utilization_pct). BŁĄD: rozjazd przychodu 41% między explorer a stats |
+| 2 | Ile maszyn jest teraz wynajętych | **SPEŁNIONE** | `currently-rented` + `fleet-summary` |
+| 3 | Dodanie numeru wewnętrznego do maszyny | **SPEŁNIONE funkcjonalnie, 0% danych** | `articles.internal_number` istnieje, ale 0/337 maszyn ma wypełnione (CSV nie istnieje, INSERT nie mapuje) |
+| 4 | Filtrowanie pozycji dodatkowych (transport, mycie) w okresach | **SPEŁNIONE** | `additional-fees` endpoint + UI |
+| 5 | Filtrowanie miejscowości i ilości wynajmów | **SPEŁNIONE** | `stats/locations` + `explorer/locations` (po PNA, z gmina/powiat/woj) |
+| 6 | Rezerwacja maszyny (blokada, info kiedy dostępny) | **SPEŁNIONE** | `articles/{id}/availability` + ArticlePicker z badge |
+
+### Odkryte problemy — do analizy i decyzji
+
+#### [RAO-P2-030] internal_number puste (0% maszyn) — BLOKER dla wymagan 1+3
+
+```yaml
+id: RAO-P2-030
+priority: P2
+size: M
+status: wont-fix
+classification: bugfix/migration-data
+roles: [db-architect, backend-dev]
 source: tech-lead-audit
 source_date: 2026-07-01
 source_ref: "Audyt wymagań klienta — wymaganie 3 (numer wewnętrzny)"
@@ -3801,6 +4454,659 @@ note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone
   2. `onAddressSelect` — wypełnia postal_code+city z adresu kontrahenta + auto PNA lookup
   3. `onPostalCodeBlur` — refactor na reusable `lookupPna()`
 - **Weryfikacja:** vue-tsc exit 0, build OK
+
+```yaml
+id: RAO-P2-069
+priority: P2
+size: M
+status: done
+classification: cross-stack
+roles: [backend-dev, frontend-dev, product-owner]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/02_backend_api.md (endpoint /locations/city/{city} + group_by param)
+migration_impact: no
+security_impact: no
+depends_on:
+  - RAO-P2-028 (Agregacja PNA z LEFT JOIN do postal_codes)
+verification:
+  - "vue-tsc --noEmit: PASS"
+  - "npm run build: PASS (643ms)"
+  - "curl /explorer/locations?group_by=city: Warszawa → 1 wiersz (postal_code=null)"
+  - "curl /explorer/locations?group_by=pna: Warszawa 00-002 → 1 wiersz z PNA"
+  - "curl /explorer/locations/city/Warszawa: 200 OK z pna_breakdown + top_machines"
+  - "Playwright screenshot: toggle Miasto/PNA działa, kolumna PNA warunkowa"
+```
+
+**Problem:**
+
+W zakładce "Lokalizacje" w AnalyticsView każde miasto było rozbite na kody pocztowe — Warszawa (3978 PNA w słowniku) mogła mieć wiele wierszy zamiast jednego. User chciał: "ma być miasto do wielu kodów pocztowych" — jeden wiersz per miasto, z opcją rozbicia na PNA jeśli potrzeba.
+
+**Cel:** Toggle Miasto/PNA w UI. Domyślnie miasto (1 wiersz per miasto, sumuje wszystkie PNA). Drill-down po mieście pokazuje rozbicie na PNA.
+
+---
+
+#### Scope implementacji
+
+**Backend:**
+1. `shared/locations.py` — `aggregate_by_pna()` dostaje `group_by='city'|'pna'` (domyślnie 'city'):
+   - `city`: klucz = (city, gmina, powiat, wojewodztwo) — 1 wiersz per miasto, `postal_code=null`
+   - `pna`: klucz = (postal_code, city) — 1 wiersz per PNA (legacy)
+2. `explorer/router.py` — `GET /explorer/locations` dostaje `?group_by=city|pna` (domyślnie city)
+3. `explorer/router.py` — nowy `GET /explorer/locations/city/{city}` — drill-down po mieście:
+   - Sumuje wszystkie PNA w mieście (case-insensitive)
+   - Zwraca `pna_breakdown` (rozbicie na kody pocztowe)
+   - Top maszyny (10) + top kontrahenci (5) filtrowani po mieście
+   - `metrics.pna_count` — ile kodów PNA w mieście
+
+**Frontend:**
+1. `stores/analytics.ts` — `fetchLocationsRanking()` dostaje `groupBy` param; nowy `fetchCityDetails()`
+2. `LocationsTab.vue` — toggle "Miasto / PNA" w nagłówku sekcji ranking
+3. Kolumna PNA warunkowa (tylko w trybie PNA)
+4. `onRowClick` — w trybie city wywołuje `openDrillDown('location', 'city:'+city, city)`
+5. `AnalyticsView.vue` — drill-down po mieście pokazuje `pna_breakdown` sekcję + `pna_count` w metrics
+
+---
+
+#### Weryfikacja (2026-07-04)
+
+- `vue-tsc --noEmit`: PASS
+- `npm run build`: PASS (643ms)
+- `curl /explorer/locations?group_by=city`: Warszawa → 1 wiersz (postal_code=null, gmina=Warszawa, woj=mazowieckie)
+- `curl /explorer/locations?group_by=pna`: Warszawa 00-002 → 1 wiersz z PNA
+- `curl /explorer/locations/city/Warszawa`: 200 OK — city, gmina, powiat, wojewodztwo, metrics (pna_count=1), pna_breakdown, top_machines, top_contractors
+- Playwright: toggle Miasto/PNA działa, kolumna PNA pojawia się tylko w trybie PNA, drill-down po mieście otwiera drawer "📍 Kraków / Umowy w mieście (wszystkie PNA)"
+
+---
+
+#### Pliki zmienione
+
+| Plik | Zmiana |
+|------|--------|
+| `backend/shared/locations.py` | +`group_by` param (city/pna), klucz agregacji zależny od trybu |
+| `backend/explorer/router.py` | +`group_by` query param, +`/locations/city/{city}` endpoint, +import defaultdict |
+| `frontend/src/stores/analytics.ts` | +`groupBy` param w fetchLocationsRanking, +fetchCityDetails, +pna_breakdown w LocationDetailsResponse |
+| `frontend/src/components/analytics/tabs/LocationsTab.vue` | +toggle Miasto/PNA, kolumna PNA warunkowa, onRowClick per tryb |
+| `frontend/src/views/AnalyticsView.vue` | +sekcja pna_breakdown w drill-down, +metric pna_count |
+
+---
+
+**Estymacja:** 3-4h (M) — backend (1.5h) + frontend (1.5h) + weryfikacja (0.5h)
+
+---
+
+### [RAO-P2-070] Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation)
+
+```yaml
+id: RAO-P2-070
+priority: P2
+size: L
+status: triaged
+classification: frontend/ux
+roles: [ux-designer, frontend-dev, product-owner]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/03_frontend_screens.md (drilldowny cross-view)
+  - core/06_navigation_flow.md (cross-view navigation, goBack → router.back)
+  - core/18_ux_improvements.md (toast zamiast alert, feedback po zapisie)
+migration_impact: no
+security_impact: no
+depends_on: []
+blocks: []
+verification: []
+```
+
+**Problem:**
+
+Aplikacja ma solidne podstawy (drilldown w Analytics/Archive, skeleton loadery, empty states, active sidebar). Ale **codzienne flow usera** jest utrudnione — brakuje cross-view drilldownów (kontrahent↔umowa↔maszyna), sortowania po kolumnach w Dashboard, kluczowych filtrów (handlowiec, miasto), oraz `alert()` zamiast toastów w 25+ miejscach.
+
+**Cel:** Aplikacja w pełni interaktywna — user może "przeskakiwać" między encjami bez ręcznego szukania, każdy zapis/akcja ma feedback, każda lista ma filtry i sortowanie.
+
+---
+
+#### Audyt UX (2026-07-04) — 30 usterek w 3 priorytetach
+
+##### 🔴 HIGH — Blokuje codzienną pracę (8 usterek)
+
+| # | Usterka | Widok | User pain | Stara aplikacja |
+|---|---------|-------|-----------|-----------------|
+| B1 | Brak drilldown z listy umów → kontrahent | DashboardView /contracts | Ręczne szukanie kontrahenta w sidebar | WinForms: context menu / double-click |
+| B2 | Brak kolumny "Maszyny" w liście umów | DashboardView /contracts | Trzeba otwierać każdą umowę | WinForms: tooltip / dialog "?" |
+| B3 | Brak drilldown z kontrahenta → jego umowy | DashboardView /contractors | "Aktywna umowa" nie jest klikalna | WinForms: double-click → historia umów |
+| B4 | Brak drilldown z artykułu → historia wynajmów | DashboardView /articles | Trzeba kombinować z Analytics | WinForms: FormA.cs podgląd historii |
+| B5 | Brak sortowania po kolumnach w DashboardView | DashboardView (3 sekcje) | Klik w nagłówek nie sortuje | WinForms: DataGridView sortował |
+| B6 | `alert()` zamiast toastów — 25+ miejsc | 9 widoków (ContractForm 18×, ContractorForm 5×, Archive 5×, Admin 6×, inne) | Blokuje aplikację, legacy pattern | WinForms: MessageBox (web ≠ MessageBox) |
+| B7 | Brak toastu po zapisie umowy/kontrahenta/artykułu | ContractForm, ContractorForm, ArticleForm | User nie wie czy zapisano → duplikat | WinForms: "Zapisano" w status bar |
+| B8 | Brak filtra "Handlowiec" i "Miasto" w liście umów | DashboardView /contracts | Handlowiec nie widzi swoich umów | WinForms: filtry handlowca w toolbarze |
+
+##### 🟡 MEDIUM — Frustrujące, user radzi sobie obejściem (13 usterek)
+
+| # | Usterka | Widok |
+|---|---------|-------|
+| B9 | Brak drilldown z umowy → edycja kontrahenta | ContractFormView |
+| B10 | Brak drilldown z umowy → edycja maszyny (z pozycji) | ContractFormView (PositionGrid) |
+| B11 | Brak drilldown z umowy → faktura w Fakturownia | ContractFormView (panel FA) |
+| B12 | Brak drilldown z CommissionView → umowy handlowca | CommissionView |
+| B13 | Brak drilldown z drill-machine-rentals → konkretna umowa | AnalyticsView (drawer machine) |
+| B14 | Brak drilldown z top_contractors → kontrahent | AnalyticsView (drawer location) |
+| B15 | Brak breadcrumb w formularzach | ContractForm, ContractorForm, ArticleForm |
+| B16 | `goBack` hardcoded zamiast `router.back()` | ContractForm, ContractorForm, ArticleForm |
+| B17 | Brak filtra "Tylko z aktywną umową" w kontrahentach | DashboardView /contractors |
+| B18 | Brak filtra kategoria/marka/typ w artykułach | DashboardView /articles |
+| B19 | Brak kalendarza umów (spec 06 sekcja 3) | DashboardView /contracts |
+| B20 | Brak toolbar [?] — podgląd szczegółów bez edycji | DashboardView |
+| B21 | Brak context menu "Dodaj umowę" w kontrahentach | DashboardView /contractors |
+
+##### 🟢 LOW — Polish / nice-to-have (9 usterek)
+
+| # | Usterka | Widok |
+|---|---------|-------|
+| B22 | Brak hover indicatora na klikalnych wierszach | ArchiveView |
+| B23 | Brak undo dla destruktywnych akcji | DashboardView, ContractorForm |
+| B24 | Brak sticky header w tabelach | DashboardView, ArchiveView |
+| B25 | Brak filtra "Okres" w kontrahentach i artykułach | DashboardView |
+| B26 | Brak paginacji w drilldown drawers | AnalyticsView |
+| B27 | Brak "Eksportuj CSV/PDF" z list | DashboardView, AnalyticsView |
+| B28 | Brak tooltipów na ikonach w toolbarze | ContractFormView |
+| B29 | Brak drilldown z HomeView KPI → filtrowana lista | HomeView |
+| B30 | Brak drilldown z HomeView "Dostawy" → umowa | HomeView |
+
+---
+
+#### Mapa pożądanych interakcji (cross-view navigation)
+
+| Z widoku | Klik w | Powinno otworzyć | Priorytet |
+|----------|--------|------------------|-----------|
+| Dashboard /contracts | Nazwa kontrahenta | `/contractors/:id/edit` | HIGH |
+| Dashboard /contracts | Maszyna (nowa kolumna) | `/articles/:id/edit` lub drilldown | HIGH |
+| Dashboard /contracts | Nagłówek kolumny | Sort ASC/DESC | HIGH |
+| Dashboard /contracts | Filtr Handlowiec | Lista filtrowana po `salesperson_id` | HIGH |
+| Dashboard /contracts | Filtr Miasto | Lista filtrowana po `city` | HIGH |
+| Dashboard /contractors | Numer aktywnej umowy | `/contracts/:id/edit` | HIGH |
+| Dashboard /contractors | Right-click → "Dodaj umowę" | `/contracts/new?contractor_id=:id` | HIGH |
+| Dashboard /articles | Numer aktywnej umowy | `/contracts/:id/edit` | HIGH |
+| Dashboard /articles | "Historia wynajmów" | Drawer jak w Analytics | HIGH |
+| ContractForm | "✎ Edytuj" obok kontrahenta | `/contractors/:id/edit` (nowa karta) | MEDIUM |
+| ContractForm | Nazwa artykułu w pozycji | `/articles/:id/edit` (nowa karta) | MEDIUM |
+| ContractForm | Faktura w panelu FA | `window.open(invoice.url)` | MEDIUM |
+| Analytics /drill-machine | Wiersz rental (umowa) | `/contracts/:contract_id/edit` | MEDIUM |
+| Analytics /drill-location | Wiersz top_contractor | `/contractors/:id/edit` | MEDIUM |
+| Commission | Wiersz handlowca | `/dashboard/contracts?salesperson_id=:id` | MEDIUM |
+| HomeView | KPI card | `/worker` lub `/dashboard/contracts` z filtrem | MEDIUM |
+| HomeView | Dostawa (delivery-row) | `/contracts/:contract_id/edit` | MEDIUM |
+| Wszystkie formularze | Toolbar "←" | `router.back()` z fallbackiem | MEDIUM |
+| Wszystkie błędy | API error | Toast error (NIE `alert()`) | HIGH |
+| Wszystkie formularze | Po Zapisz | Toast success | HIGH |
+
+---
+
+#### Rekomendowana kolejność implementacji (5 faz)
+
+**Faza 1 — Toasty zamiast alert() + feedback po zapisie (B6, B7)** — quick win, 25+ miejsc
+- Komponent `Toast.vue` i `useToastStore` już istnieją (używane w 1 miejscu)
+- Czysta zamiana `alert(err)` → `toastStore.showToast(msg, 'error')`
+- Dodać toast success po zapisie we wszystkich formularzach
+- Est: 4-6h (S)
+
+**Faza 2 — Cross-view drilldown z list (B1, B3, B4)** — najczęstszy flow codzienny
+- DashboardView /contracts: nazwa kontrahenta → link, kolumna "Maszyny" → link
+- DashboardView /contractors: `active_contract_number` → link, context menu "Dodaj umowę"
+- DashboardView /articles: `active_contract_number` → link, akcja "Historia wynajmów"
+- Est: 6-8h (M)
+
+**Faza 3 — Sortowanie po kolumnach w DashboardView (B5)** — `useSort` już istnieje
+- Przenieść pattern z `ExplorerTab.vue` / `AnalyticsTable.vue`
+- 3 tabele: contracts, contractors, articles
+- Est: 3-4h (S)
+
+**Faza 4 — Filtry: Handlowiec + Miasto w liście umów (B8)** — wymaga backend
+- Dodać `salesperson_id` i `city` do `GET /contracts` query params (backend)
+- Dodać `<select>` i `<input>` w grid-header (frontend)
+- `settingsStore.salespeople` już załadowany
+- Est: 4-5h (S)
+
+**Faza 5 — goBack → router.back() + drilldown w Analytics/HomeView (B13-B16, B29-B30)** — polish
+- `goBack` używające `router.back()` z fallbackiem
+- Drilldown z drawer Analytics → konkretna umowa
+- KPI cards w HomeView klikalne
+- Est: 4-6h (S)
+
+**Łączna estymacja:** 21-29h (L) — 5 faz, każda niezależna (można robić sekwencyjnie)
+
+---
+
+#### Co działa dobrze (nie wymaga zmian)
+
+- ✅ HomeView — klik w umowę w panelach → edycja
+- ✅ WorkerView — klik w umowę/dostawy → edycja, filtry dni
+- ✅ AnalyticsView — drilldown machine/location, filtry (date, type, contractor, city)
+- ✅ ArchiveView — drilldown umów, filtry (search, typ, data, kategoria), paginacja
+- ✅ ExplorerTab — klik w wynik → edycja, search + sort
+- ✅ ContractFormView — picker kontrahenta/art/dostawcy, inline form, conflict modal
+- ✅ ContractorFormView — "+ Umowa" → auto-fill, GUS lookup
+- ✅ AppSidebar — active state per section
+- ✅ AppLayout — Ctrl+N = nowy, Esc = back
+
+---
+
+#### Edge cases do obsługi w implementacji
+
+- [ ] **Error state:** Tylko ArchiveView/AnalyticsView mają retry; reszta = `alert('Błąd')`
+- [ ] **Success feedback:** Tylko CommissionView (toast); reszta = brak
+- [ ] **Slow connection:** Brak timeout indicatora
+- [ ] **Long content:** DashboardView paginacja (50/strona, brak wyboru per-page)
+- [ ] **Soft delete vs hard delete:** Usunięcie kontrahenta z aktywnymi umowami — blokować LUB soft-delete
+
+---
+
+**Estymacja:** 21-29h (L) — 5 faz, każda niezależna
+
+---
+
+### [RAO-P3-071] Audyt UX — czytelność, spójność, przyjemność poruszania się
+
+```yaml
+id: RAO-P3-071
+priority: P3
+size: L
+status: triaged
+classification: frontend/ux
+roles: [ux-designer, ui-designer, frontend-dev]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/09_design_reference.md (jeden source of truth zmiennych CSS, font-size minima)
+  - core/03_frontend_screens.md (skeleton loaders, breadcrumb, page-title)
+  - core/18_ux_improvements.md (glossary skrótów, ConfirmDialog konkretne obiekty)
+migration_impact: no
+security_impact: no
+depends_on: []
+blocks: []
+verification: []
+```
+
+**Problem:**
+
+Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z semantycznym kolorem, mikro-animacje, sticky headers, keyboard shortcuts). Ale po 8h pracy operatora boli głowa od czytania — 56 miejsc z `font-size: 11px`, 3 różne formaty walut, 2 różne formaty dat, żargon bez tooltipów (PNA, ZO, FA), niespójny design system (CommissionView łamie wszystko), brak a11y (aria-label, focus states, kontrast poniżej WCAG AA).
+
+**Cel:** Aplikacja przyjemna w użyciu po 8h pracy — czytelna, spójna, dostępna, z mikro-polishem.
+
+---
+
+#### Audyt UX (2026-07-04) — czytelność, spójność, przyjemność
+
+##### Co działa dobrze (nie wymaga zmian)
+
+- ✅ Skeleton loaders (HomeView, WorkerView, AnalyticsTable, DrillDownDrawer)
+- ✅ Empty states z CTA (DashboardView, HomeView panele)
+- ✅ KPI cards z semantycznym kolorem (kpi-ok/warn/danger/info)
+- ✅ Live preview warunków kaskadowych (ConditionPanel)
+- ✅ Help section wbudowany ("📖 Jak wpisać warunki?")
+- ✅ Polskie formatowanie w AnalyticsView (Intl PLN, toLocaleDateString pl-PL)
+- ✅ Mikro-animacje (LoginView shake, nav-tile hover, KPI hover, btn:active scale)
+- ✅ Archive separator pomarańczowy + banner ostrzegawczy
+- ✅ Keyboard shortcuts (Ctrl+N, Escape, Enter/Esc inline edit)
+- ✅ Print CSS, sticky table headers, DrillDownDrawer z Teleport + Esc
+
+##### 🔴 HIGH — 5 usterek blokujących czytelność
+
+| # | Usterka | Widok | User pain |
+|---|---------|-------|-----------|
+| B1 | `font-size: 11px` × 56 miejsc — za mały do 8h pracy | DashboardView, HomeView, WorkerView, AdminView, SettingsView, ContractFormView | Ból głowy po 2h, starsi pracownicy nie przeczytają |
+| B2 | `font-size: 10px` (del-chip) i `9px` (sidebar-logo-sub) | WorkerView, AppSidebar | Kluczowa informacja (data dostawy) nieczytelna |
+| B3 | 3 różne formaty walut — `Intl PLN` vs `toFixed(2)+' zł'` vs `toLocaleString` | AnalyticsView ✅, ContractFormView ❌, ConditionPanel ❌, CommissionView ✅ | Pomyłki w odczycie przy porównywaniu z fakturą |
+| B4 | 2 różne formaty dat — "01.02.2026" vs "1.2.2026" | HomeView ✅ (leading zero), DashboardView/ContractFormView ❌ | Skanowanie tabeli przerywane — wygląda jak inna data |
+| B5 | Żargon bez tooltipów — PNA, ZO, FA, OID, S/U | ContractFormView, DashboardView, ArticleFormView, ArchiveView | Nowy user pyta kolegę "co to ZO?" — wstyd, strata czasu |
+
+##### 🟡 MEDIUM — 6 usterek spójności i komfortu
+
+| # | Usterka | Widok |
+|---|---------|-------|
+| B6 | Kolumna "Adres dostawy" 11px + max 180px + pre-wrap | DashboardView |
+| B7 | "X rekordów" zamiast "X umów" — żargon bazodanowy | DashboardView (4 sekcje) |
+| B8 | Toolbar ikony `− + ⎙ ? ∑ 💰` bez etykiet tekstowych | AppToolbar, ContractFormView |
+| B9 | Numbers nie wyrównane do prawej w tabelach | DashboardView, ArchiveView |
+| B10 | CommissionView całkowicie własny styl — hardcoded kolory, rem, 4-8px radius, `.data-table` zamiast `.data-grid` | CommissionView |
+| B11 | Dwa konfliktujące systemy zmiennych CSS — `style.css` vs `variables.css` (różne odcienie navy, różne font-size) | Global |
+
+##### 🟢 LOW — 3 usterek polish
+
+| # | Usterka |
+|---|---------|
+| B12 | Spacing niespójny między widokami (padding 12px/20px/24px/32px) |
+| B13 | "Pulpit" w sidebar vs "Pulpit operacyjny" w WorkerView — niespójna nazwa |
+| B14 | ArchiveView tab labels identyczne jak sekcje główne (ryzyko pomyłki) |
+
+##### Usterki spójności wizualnej (tabela)
+
+| Element | Gdzie spójne | Gdzie niespójne |
+|---------|-------------|-----------------|
+| Kolor primary | variables.css `#0F234E` | style.css `#1D2B53`, WorkerView hardcoded, CommissionView hardcoded |
+| Border-radius kart | 12px (layout.css) | WorkerView 10px, CommissionView 8px, HomeView nav-tile 6px |
+| Styl tabeli | `.data-grid` (navy header, zebra, hover) | CommissionView `.data-table` (jasny header, brak zebra) |
+| Styl przycisków | `.btn` (pill 24px) | CommissionView 5px, HomeView 12px, LoginView redefine |
+| Badge statusu | tables.css (success/warning/danger/info/muted) | DashboardView (badge-settled/overdue/active — nie zdefiniowane!) |
+| Karty KPI | HomeView własny, KpiRow.vue własny | Dwa różne komponenty KPI, różny styling |
+| Loading state | HomeView/WorkerView skeleton | DashboardView/AdminView/SettingsView/ArchiveView tekst "Ładowanie..." |
+| Ikony | Emoji (📊📦⏰🖨) | Unicode symbole (⌕ ⎙ ∑ −) — mix |
+| Toast kolory | hardcoded `#10b981/#ef4444` | Design system `--color-success/danger` (inne odcienie) |
+| Tło widoku | `#F8F9FA` (layout.css) | HomeView `#F4F6FB`, WorkerView `#F4F6FB`, CommissionView białe |
+
+##### Usterki dostępności (a11y)
+
+| Element | Stan | Priorytet |
+|---------|------|-----------|
+| aria-label na icon buttons | Brak (16 aria/role w całej apce) | HIGH |
+| Label ↔ input powiązanie (for/id) | Brak | HIGH |
+| Focus state na przyciskach | Tylko `.form-control:focus`, brak na `.btn`/`.btn-icon`/`.toolbar-btn` | HIGH |
+| Kontrast muted text `#718096` na białym | ~4.0:1 — poniżej WCAG AA 4.5:1, przy 11px = fail | HIGH |
+| role="alert" na błędach | Brak | MEDIUM |
+| aria-invalid na polach z błędem | Brak | MEDIUM |
+| Modal focus trap | Brak (Tab wychodzi z modala) | MEDIUM |
+| Modal aria-modal | Brak `role="dialog" aria-modal="true"` | MEDIUM |
+| Skip-to-content link | Brak | LOW |
+| Touch target size | `.page-btn` 28×28, `.days-filter` ~24×20 — poniżej 44×44 | LOW |
+
+##### Usterki przyjemności/polish
+
+| Element | Stan | Rekomendacja |
+|---------|------|--------------|
+| View transitions | Brak `<Transition>` na router-view | `<Transition name="fade" mode="out-in">` |
+| Loading w 4 widokach | Tekst "Ładowanie..." | Skeleton rows (`.skeleton` już w animations.css) |
+| Toast bez ikony | Tylko kolor + tekst | Ikona ✓/⚠️/ℹ — szybsze skanowanie |
+| Toast bez undo | Success = info only | Przycisk "Cofnij" dla destruktywnych (5s) |
+| KPI hover ale nie clickable | `:hover { box-shadow }` bez `@click` | Albo usuń hover, albo dodaj cursor:pointer + klik |
+| ConfirmDialog generyczny | "Czy na pewno chcesz usunąć ten element?" | "Usuniesz umowę XYZ. Tej akcji nie można cofnąć." |
+| Brak "recently viewed" | — | Lista "Ostatnio otwarte umowy" w HomeView |
+| Brak keyboard hint w UI | Ctrl+N, Esc działają ale user nie wie | Tooltip w sidebar lub help overlay |
+
+---
+
+#### Rekomendowana kolejność implementacji (5 faz)
+
+**Faza 1 — Font-size + kontrast (HIGH impact, LOW effort)** — 1 dzień
+- Zamień `font-size: 11px` → 13px (dane), 12px (metadane); `10px` → 12px; `9px` → 11px
+- Sciemnij `--color-text-muted` z `#718096` → `#5A6B7E` (WCAG AA 4.5:1)
+- Każdy operator poczuje natychmiast
+
+**Faza 2 — Unifikacja formatowania dat i walut (HIGH impact, LOW effort)** — 0.5 dnia
+- Stwórz `composables/useFormat.ts` z `formatDate()`, `formatCurrency()`, `formatNumber()`
+- Zastąp 5 różnych implementacji (AnalyticsView ✅ wzorzec, ContractFormView ❌, ConditionPanel ❌, CommissionView ✅, HomeView ✅)
+- Zawsze `pl-PL` + `PLN` + 2 cyfry + leading zero w datach
+
+**Faza 3 — a11y: aria-label + focus states (HIGH impact, MEDIUM effort)** — 1-2 dni
+- `aria-label` na wszystkich icon buttons (−, +, ⎙, ?, ∑, 💰, ←, ✎, ✕)
+- `:focus-visible { outline: 2px solid var(--color-primary) }` globalnie
+- `for`/`id` na label/input, `role="alert"` na błędach, `aria-invalid` na polach z błędem
+- `role="dialog" aria-modal="true"` na modalach
+
+**Faza 4 — Unifikacja design system (MEDIUM impact, MEDIUM effort)** — 1 dzień
+- CommissionView — usuń scoped CSS, użyj `.data-grid`, `.page-card`, `.btn`, `--color-*`
+- WorkerView — zamień hardcoded `#0F234E` na `var(--color-primary)`, `#F4F6FB` na `var(--color-bg-app)`
+- Jeden plik zmiennych — usuń definicje kolorów/typografii z `style.css`, zostaw `variables.css`
+- Dodaj `badge-settled/overdue/active` do tables.css (lub użyj istniejących)
+- Połącz KPI komponenty (HomeView + KpiRow.vue → jeden)
+
+**Faza 5 — Skeleton loaders + polish (MEDIUM impact, LOW effort)** — 0.5-1 dzień
+- DashboardView, AdminView, SettingsView, ArchiveView — skeleton rows zamiast "Ładowanie..."
+- Komponent `<TableSkeleton :rows="5" />`
+- View transitions (`<Transition name="fade" mode="out-in">`)
+- Toast z ikoną (✓/⚠️/ℹ)
+- ConfirmDialog z konkretnym obiektem ("Usuniesz umowę U/2024/123...")
+- Glossary skrótów (PNA, ZO, FA, OID, S/U) — tooltip lub legenda
+
+**Łączna estymacja:** 4-5.5 dni (L) — 5 faz, każda niezależna
+
+---
+
+#### Glossary skrótów (do implementacji w Faza 5)
+
+| Skrót | Pełna nazwa |
+|-------|-------------|
+| PNA | Kod pocztowy (PNA) |
+| ZO | Protokół zdania obiektu (ZO) |
+| FA | Faktura (FA) |
+| OID | Identyfikator w Fakturownia (OID) |
+| S | Umowa najmu (S) |
+| U | Umowa usługi (U) |
+
+---
+
+**Estymacja:** 4-5.5 dni (L) — 5 faz, każda niezależna
+
+---
+
+## 📋 Tabela TL;DR
+
+| ID | Tytuł | P | Est. | Status | Następny krok |
+|----|-------|---|------|--------|---------------|
+| RAO-P1-014 | Frontend — błędne obliczanie daty końcowej okresu umowy | P1 | XS | user-verified | → client-approved |
+| RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | P1 | XS | team-verified | → user-verified |
+| RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | P1 | S | team-verified | → user-verified |
+| RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | dev-verified | → team-verified |
+| RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | P1 | XS | team-verified | → user-verified |
+| RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | dev-verified | → user-verified |
+| RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
+| RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | dev-verified | → team-verified (wartość z rozliczenia, read-only w formularzu) |
+| RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
+| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | done | Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
+| RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | done | dev-verified → user-verified |
+| RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | dev-verified | → team-verified (unique=True w model + DB index uq_contracts_number) |
+| RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | done | → done (autoescape=True w reports/service.py:588) |
+| RAO-P0-032 | build_contract_data mutuje sesję — kopiuj description | P0 | XS | done | → done (lokalne kopie description w fees_data) |
+| RAO-P0-033 | recalculate_total — użyj algorytmu kaskadowego | P0 | S | dev-verified | → team-verified |
+| RAO-P0-034 | ContractUpdate schema z exclude_unset=True (lost data) | P0 | M | dev-verified | → team-verified |
+| RAO-P0-035 | N+1 queries — selectinload w list_contracts/positions/articles | P0 | M | dev-verified | → team-verified |
+| RAO-P0-036 | Stack trace disclosure → detail="Błąd" + logging | P0 | XS | dev-verified | → team-verified (global exception handler w main.py) |
+| RAO-P1-037 | delete_contract — guard na is_settled | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-038 | Brak indeksów DB (is_settled, created_at, salesperson_id, print_date, delivery_date) | P1 | S | dev-verified | → team-verified |
+| RAO-P1-039 | Walidacja date_from > date_to + ujemne kwoty w ContractCreate | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-040 | is_settled blokuje mutacje (update/delete positions) | P1 | S | dev-verified | → team-verified |
+| RAO-P1-041 | Hardcoded JWT fallback "change-me" — usuń + wymuś z env | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-042 | Frontend: logout czyści stores + redirect po login + baseURL z env | P1 | S | dev-verified | → team-verified |
+| RAO-P1-043 | Frontend: memory leaks — cleanup event listenerów i timerów | P1 | S | dev-verified | → team-verified |
+| RAO-P1-044 | Frontend: localStorage.getItem('token') → 'rao_token' | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-045 | _build_conditions_text — użyj format_position_conditions_cascading (dedup) | P1 | XS | dev-verified | → team-verified |
+| RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
+| RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | triaged | → in_progress |
+| RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | triaged | → in_progress |
+| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | triaged | → in_progress |
+| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | triaged | → in_progress |
+| RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | triaged | → in_progress |
+| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
+| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
+| RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | dev-verified | → team-verified (normalize w settings/service.py + ALTER TABLE polish_ci w main.py) |
+| RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | triaged | → in_progress |
+| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
+| RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | dev-verified | → team-verified (is_external nie blokuje + checkbox w details) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
+| RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | triaged | → in_progress (Faza 1: parser legacy + migracja + UI + template items) |
+| RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | in-progress (Faza 1 done — 6 bugów + indeksy + cleanup; Faza 2 todo — StatsView.vue) |
+| RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
+| RAO-P2-067 | Demo data refactor — migrate_all.py orchestrator + FA-pending contracts + delivery_address | P2 | M | done | 31 faktur FA (19 backfill + 12 FA-pending), delivery_address z miastami, hardcoded token usunięty |
+| RAO-P2-068 | Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta" | P2 | M | done | 5 cenników kaskadowych per maszyna, 6 presetów usług, 22 ServiceFeeTemplateItem, 6 rate types, pełna konfiguracja firmy |
+| RAO-P2-069 | Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście | P2 | M | done | Toggle Miasto/PNA w LocationsTab, 1 wiersz per miasto (Warszawa 3978 PNA → 1), drill-down /locations/city/{city} z pna_breakdown |
+| RAO-P2-070 | Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation) | P2 | L | triaged | 30 usterek UX (8 HIGH, 13 MEDIUM, 9 LOW); 5 faz: toasty, cross-view drilldown, sort, filtry, goBack |
+| RAO-P3-071 | Audyt UX — czytelność, spójność, przyjemność poruszania się | P3 | L | triaged | 14 usterek (5 HIGH, 6 MEDIUM, 3 LOW) + a11y + polish; 5 faz: font-size, formatowanie, a11y, design system, skeleton |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
+
+**Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
+
+### Pipeline weryfikacji (status flow)
+
+```
+triaged → in_progress → dev-verified → team-verified → user-verified → client-approved (done)
+           │              │               │               │               │
+           Devin koduje   Devin testuje   Software-house  Ty wzrokowo    Klient zatwierdza
+           zmianę         programatycz.   subagenty       w UI/PDF        → zadanie zamknięte
+                          (Playwright,    (QA, Security,
+                           PyMuPDF,       UX, PO, Tech
+                           pytest,        Lead review)
+                           vue-tsc)
+```
+
+---
+
+## 🔍 Pre-existing issues (znalezione przez security audit P1-015)
+
+### [RAO-SEC-001] IDOR — `/reports/contract/{id}` bez ownership check
+
+```yaml
+id: RAO-SEC-001
+priority: P1
+size: S
+status: done
+classification: security/idor
+roles: [backend-dev, security-auditor]
+source: security-audit
+source_date: 2026-06-29
+source_ref: "Security audit P1-015 — subagent security-auditor"
+specs_to_update:
+  - core/25_security.md
+migration_impact: no
+security_impact: yes
+done_date: 2026-07-01
+fix: "_check_contract_access() w reports/router.py — admin full access, non-admin tylko własny branch, fetch contract przed PDF gen (early 404/403)"
+verification:
+  - "py_compile reports/router.py: OK"
+  - "curl POST /reports/contract/999999 (admin): 404 (contract not found)"
+  - "smoke 01-login.spec.ts: 11/11 passed"
+```
+
+**Problem:** Endpoint `POST /reports/contract/{contract_id}` wymaga autentykacji (`get_current_user`), ale **nie sprawdza ownership/tenant** — każdy zalogowany użytkownik może wygenerować PDF (z telefonami klienta) dla cudzej umowy znając `contract_id`.
+
+**Atak:** Enumeracja `contract_id` → pozyskanie danych kontaktowych (telefony, adres dostawy) klientów innych handlowców.
+
+**Fix:** W `reports/router.py` (lub `service.py`) dodać weryfikację:
+```python
+if contract.created_by != current_user.id and current_user.role != "admin":
+    raise HTTPException(403)
+```
+
+**Pliki do zmiany:**
+- `backend/reports/router.py`
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S)
+
+---
+
+### [RAO-SEC-002] Jinja2 bez `autoescape=True` w reports/service.py
+
+```yaml
+id: RAO-SEC-002
+priority: P1
+size: S
+status: done
+classification: security/injection
+roles: [backend-dev, security-auditor]
+source: security-audit
+source_date: 2026-06-29
+source_ref: "Security audit P1-015 — subagent security-auditor"
+implementation_date: 2026-07-01
+note: "Już naprawione — autoescape=True w reports/service.py:588"
+specs_to_update:
+  - core/25_security.md
+migration_impact: no
+security_impact: yes
+```
+
+**Problem:** `Environment(loader=FileSystemLoader(template_dir))` w `backend/reports/service.py` utworzony **bez `autoescape=True`**. Użytkownik może wstrzyknąć HTML/JS w pola `notes`, `contractor_name`, `contact_person1` → trafia do PDF WeasyPrint (SSRF, data exfiltration).
+
+**Fix:** `Environment(loader=FileSystemLoader(template_dir), autoescape=True)` + przetestować wszystkie szablony PDF pod kątem niezamierzonego escapowania polskich znaków.
+
+**Pliki do zmiany:**
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S) — wymaga testów wszystkich szablonów PDF
+
+---
+
+## 🗂️ Materiały referencyjne
+
+**Sprint 2026-06-29 (nowe zgłoszenia):**
+- `spec/backlog/do_wciagniecia_do_backlogu.md` — 10 punktów od klienta (surowy markdown)
+- `Pasted image 20260629223748.png` (root repo) — P1-014: błędne obliczenie daty
+- `Pasted image 20260629223936.png` (root repo) — P1-016: protokół ZO bez adresu dostawy
+- `Pasted image 20260629224212.png` (root repo) — P1-019: umowa usługi U872/2026 z żółtym tłem
+- `Pasted image 20260629224534.png` (root repo) — P1-020: format rozliczenia kaskadowego
+- `Pasted image 20260629224602.png` (root repo) — P1-021: sekcja Warunki Finansowe z pustym Wartość
+- `Pasted image 20260629225003.png` (root repo) — P1-022: lista umów z niespójnym nazewnictwem
+- Raporty vision: `Pasted image 20260629*-vision-report.md` (root repo)
+
+**Stara aplikacja WinForms (referencja):**
+- `C:\projects\repos\AppRao\rao\FormW.cs` linia 690-750 — algorytm formatowania warunków kaskadowych
+
+**Aktualne szablony PDF:**
+- `backend/reports/templates/contract_u.html` — umowa usługi (typ U)
+- `backend/reports/templates/contract.html` — umowa najmu (typ S)
+- `backend/reports/templates/protocol_zo.html` — protokół zdawczo-odbiorczy
+- `backend/reports/templates/protocol_zo_u.html` — protokół wykonania usługi
+- `backend/reports/templates/protocol_zo_nodata*.html` — warianty bez danych
+
+---
+
+## 📋 Decyzje operatora (2026-06-30)
+
+### RAO-P1-021 — Pole „Wartość (zł)" → ekran rozliczenia
+**Decyzja:** Pole „Wartość" przechodzi do **ekranu rozliczenia** (nie formularz umowy). Tam wartość jest pobierana:
+- Z **Fakturowni** (kwota z faktury), LUB
+- Wprowadzona **ręcznie** na bazie pozycji umowy z uzupełnionymi kwotami
+
+**Implementacja:** Ekran rozliczenia pobiera pozycje umowy, pozwala uzupełnić kwoty (auto z Fakturowni lub ręcznie), sumuje → wartość umowy. Pole „Wartość" w formularzu umowy zostaje ukryte/puste (przedpłata dopisana z góry, wartość nieznana do rozliczenia).
+
+---
+
+### RAO-P2-028 — Statystyki miast via PNA (PILNE)
+**Decyzja:** Grupuj po **postal_code (PNA)** + miasto (precyzyjne).
+**Uwaga operatora:** Jedno miasto ma wiele PNA — trzeba ustalić **skąd uzupełnić PNA** dla miast.
+**Pilne** — wymaga analizy źródeł danych PNA (tabela postal_codes, integracja TERYT, GUS).
+
+---
+
+### RAO-P2-046 — IDOR / RBAC
+**Decyzja:** **Brak izolacji** na ten moment (single-tenant, wszyscy widzą wszystko).
+Wraz z rozwojem aplikacji będziemy zarządzać uprawnieniami do różnych zasobów.
+**Akcja:** Zostaw tylko SEC-001 (PDF ownership check). P2-046 odłożone.
+
+---
+
+### RAO-P2-057 — is_external (maszyna zewnętrzna)
+**Decyzja:** Maszyna external **nie blokuje** dodawania w wielu miejscach (nie wpływa na rentowność).
+- Ma być **możliwe do wyboru w detailsach maszyny** podczas dodawania
+- Sprawdzić **mechanizm blokowania maszyn** (czy external poprawnie nie blokuje)
+- Sprawdzić vs **wyliczanie dni umowy** czy maszyny będą poprawnie blokowane
+- **Blokada = pytanie z informacją** gdzie i dlaczego jest zablokowana maszyna, czy na pewno chcesz ją dodać/wypożyczyć
+- **Obgadać z teamem** (subagenty: backend-dev + qa-engineer + product-owner)
+
+---
+
+## 📋 Audyt wymagań klienta (2026-07-01) — Tech Lead
+
+### Wymagania klienta — status spełnienia
+
+| # | Wymaganie | Status | Uwagi |
+|---|-----------|--------|-------|
+| 1 | Statystyki wynajmu maszyny (po nr wewn.) w okresie — stopa zwrotu | **SPEŁNIONE z błędem** | `top-machines` + `explorer/machines/{id}` (utilization_pct). BŁĄD: rozjazd przychodu 41% między explorer a stats |
+| 2 | Ile maszyn jest teraz wynajętych | **SPEŁNIONE** | `currently-rented` + `fleet-summary` |
+| 3 | Dodanie numeru wewnętrznego do maszyny | **SPEŁNIONE funkcjonalnie, 0% danych** | `articles.internal_number` istnieje, ale 0/337 maszyn ma wypełnione (CSV nie istnieje, INSERT nie mapuje) |
+| 4 | Filtrowanie pozycji dodatkowych (transport, mycie) w okresach | **SPEŁNIONE** | `additional-fees` endpoint + UI |
+| 5 | Filtrowanie miejscowości i ilości wynajmów | **SPEŁNIONE** | `stats/locations` + `explorer/locations` (po PNA, z gmina/powiat/woj) |
+| 6 | Rezerwacja maszyny (blokada, info kiedy dostępny) | **SPEŁNIONE** | `articles/{id}/availability` + ArticlePicker z badge |
+
+### Odkryte problemy — do analizy i decyzji
+
+#### [RAO-P2-030] internal_number puste (0% maszyn) — BLOKER dla wymagan 1+3
+
+```yaml
+id: RAO-P2-030
+priority: P2
+size: M
+status: wont-fix
+classification: bugfix/migration-data
+roles: [db-architect, backend-dev]
 source: tech-lead-audit
 source_date: 2026-07-01
 source_ref: "Audyt wymagań klienta — wymaganie 3 (numer wewnętrzny)"
@@ -3976,6 +5282,659 @@ note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone
   2. `onAddressSelect` — wypełnia postal_code+city z adresu kontrahenta + auto PNA lookup
   3. `onPostalCodeBlur` — refactor na reusable `lookupPna()`
 - **Weryfikacja:** vue-tsc exit 0, build OK
+
+```yaml
+id: RAO-P2-069
+priority: P2
+size: M
+status: done
+classification: cross-stack
+roles: [backend-dev, frontend-dev, product-owner]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/02_backend_api.md (endpoint /locations/city/{city} + group_by param)
+migration_impact: no
+security_impact: no
+depends_on:
+  - RAO-P2-028 (Agregacja PNA z LEFT JOIN do postal_codes)
+verification:
+  - "vue-tsc --noEmit: PASS"
+  - "npm run build: PASS (643ms)"
+  - "curl /explorer/locations?group_by=city: Warszawa → 1 wiersz (postal_code=null)"
+  - "curl /explorer/locations?group_by=pna: Warszawa 00-002 → 1 wiersz z PNA"
+  - "curl /explorer/locations/city/Warszawa: 200 OK z pna_breakdown + top_machines"
+  - "Playwright screenshot: toggle Miasto/PNA działa, kolumna PNA warunkowa"
+```
+
+**Problem:**
+
+W zakładce "Lokalizacje" w AnalyticsView każde miasto było rozbite na kody pocztowe — Warszawa (3978 PNA w słowniku) mogła mieć wiele wierszy zamiast jednego. User chciał: "ma być miasto do wielu kodów pocztowych" — jeden wiersz per miasto, z opcją rozbicia na PNA jeśli potrzeba.
+
+**Cel:** Toggle Miasto/PNA w UI. Domyślnie miasto (1 wiersz per miasto, sumuje wszystkie PNA). Drill-down po mieście pokazuje rozbicie na PNA.
+
+---
+
+#### Scope implementacji
+
+**Backend:**
+1. `shared/locations.py` — `aggregate_by_pna()` dostaje `group_by='city'|'pna'` (domyślnie 'city'):
+   - `city`: klucz = (city, gmina, powiat, wojewodztwo) — 1 wiersz per miasto, `postal_code=null`
+   - `pna`: klucz = (postal_code, city) — 1 wiersz per PNA (legacy)
+2. `explorer/router.py` — `GET /explorer/locations` dostaje `?group_by=city|pna` (domyślnie city)
+3. `explorer/router.py` — nowy `GET /explorer/locations/city/{city}` — drill-down po mieście:
+   - Sumuje wszystkie PNA w mieście (case-insensitive)
+   - Zwraca `pna_breakdown` (rozbicie na kody pocztowe)
+   - Top maszyny (10) + top kontrahenci (5) filtrowani po mieście
+   - `metrics.pna_count` — ile kodów PNA w mieście
+
+**Frontend:**
+1. `stores/analytics.ts` — `fetchLocationsRanking()` dostaje `groupBy` param; nowy `fetchCityDetails()`
+2. `LocationsTab.vue` — toggle "Miasto / PNA" w nagłówku sekcji ranking
+3. Kolumna PNA warunkowa (tylko w trybie PNA)
+4. `onRowClick` — w trybie city wywołuje `openDrillDown('location', 'city:'+city, city)`
+5. `AnalyticsView.vue` — drill-down po mieście pokazuje `pna_breakdown` sekcję + `pna_count` w metrics
+
+---
+
+#### Weryfikacja (2026-07-04)
+
+- `vue-tsc --noEmit`: PASS
+- `npm run build`: PASS (643ms)
+- `curl /explorer/locations?group_by=city`: Warszawa → 1 wiersz (postal_code=null, gmina=Warszawa, woj=mazowieckie)
+- `curl /explorer/locations?group_by=pna`: Warszawa 00-002 → 1 wiersz z PNA
+- `curl /explorer/locations/city/Warszawa`: 200 OK — city, gmina, powiat, wojewodztwo, metrics (pna_count=1), pna_breakdown, top_machines, top_contractors
+- Playwright: toggle Miasto/PNA działa, kolumna PNA pojawia się tylko w trybie PNA, drill-down po mieście otwiera drawer "📍 Kraków / Umowy w mieście (wszystkie PNA)"
+
+---
+
+#### Pliki zmienione
+
+| Plik | Zmiana |
+|------|--------|
+| `backend/shared/locations.py` | +`group_by` param (city/pna), klucz agregacji zależny od trybu |
+| `backend/explorer/router.py` | +`group_by` query param, +`/locations/city/{city}` endpoint, +import defaultdict |
+| `frontend/src/stores/analytics.ts` | +`groupBy` param w fetchLocationsRanking, +fetchCityDetails, +pna_breakdown w LocationDetailsResponse |
+| `frontend/src/components/analytics/tabs/LocationsTab.vue` | +toggle Miasto/PNA, kolumna PNA warunkowa, onRowClick per tryb |
+| `frontend/src/views/AnalyticsView.vue` | +sekcja pna_breakdown w drill-down, +metric pna_count |
+
+---
+
+**Estymacja:** 3-4h (M) — backend (1.5h) + frontend (1.5h) + weryfikacja (0.5h)
+
+---
+
+### [RAO-P2-070] Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation)
+
+```yaml
+id: RAO-P2-070
+priority: P2
+size: L
+status: triaged
+classification: frontend/ux
+roles: [ux-designer, frontend-dev, product-owner]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/03_frontend_screens.md (drilldowny cross-view)
+  - core/06_navigation_flow.md (cross-view navigation, goBack → router.back)
+  - core/18_ux_improvements.md (toast zamiast alert, feedback po zapisie)
+migration_impact: no
+security_impact: no
+depends_on: []
+blocks: []
+verification: []
+```
+
+**Problem:**
+
+Aplikacja ma solidne podstawy (drilldown w Analytics/Archive, skeleton loadery, empty states, active sidebar). Ale **codzienne flow usera** jest utrudnione — brakuje cross-view drilldownów (kontrahent↔umowa↔maszyna), sortowania po kolumnach w Dashboard, kluczowych filtrów (handlowiec, miasto), oraz `alert()` zamiast toastów w 25+ miejscach.
+
+**Cel:** Aplikacja w pełni interaktywna — user może "przeskakiwać" między encjami bez ręcznego szukania, każdy zapis/akcja ma feedback, każda lista ma filtry i sortowanie.
+
+---
+
+#### Audyt UX (2026-07-04) — 30 usterek w 3 priorytetach
+
+##### 🔴 HIGH — Blokuje codzienną pracę (8 usterek)
+
+| # | Usterka | Widok | User pain | Stara aplikacja |
+|---|---------|-------|-----------|-----------------|
+| B1 | Brak drilldown z listy umów → kontrahent | DashboardView /contracts | Ręczne szukanie kontrahenta w sidebar | WinForms: context menu / double-click |
+| B2 | Brak kolumny "Maszyny" w liście umów | DashboardView /contracts | Trzeba otwierać każdą umowę | WinForms: tooltip / dialog "?" |
+| B3 | Brak drilldown z kontrahenta → jego umowy | DashboardView /contractors | "Aktywna umowa" nie jest klikalna | WinForms: double-click → historia umów |
+| B4 | Brak drilldown z artykułu → historia wynajmów | DashboardView /articles | Trzeba kombinować z Analytics | WinForms: FormA.cs podgląd historii |
+| B5 | Brak sortowania po kolumnach w DashboardView | DashboardView (3 sekcje) | Klik w nagłówek nie sortuje | WinForms: DataGridView sortował |
+| B6 | `alert()` zamiast toastów — 25+ miejsc | 9 widoków (ContractForm 18×, ContractorForm 5×, Archive 5×, Admin 6×, inne) | Blokuje aplikację, legacy pattern | WinForms: MessageBox (web ≠ MessageBox) |
+| B7 | Brak toastu po zapisie umowy/kontrahenta/artykułu | ContractForm, ContractorForm, ArticleForm | User nie wie czy zapisano → duplikat | WinForms: "Zapisano" w status bar |
+| B8 | Brak filtra "Handlowiec" i "Miasto" w liście umów | DashboardView /contracts | Handlowiec nie widzi swoich umów | WinForms: filtry handlowca w toolbarze |
+
+##### 🟡 MEDIUM — Frustrujące, user radzi sobie obejściem (13 usterek)
+
+| # | Usterka | Widok |
+|---|---------|-------|
+| B9 | Brak drilldown z umowy → edycja kontrahenta | ContractFormView |
+| B10 | Brak drilldown z umowy → edycja maszyny (z pozycji) | ContractFormView (PositionGrid) |
+| B11 | Brak drilldown z umowy → faktura w Fakturownia | ContractFormView (panel FA) |
+| B12 | Brak drilldown z CommissionView → umowy handlowca | CommissionView |
+| B13 | Brak drilldown z drill-machine-rentals → konkretna umowa | AnalyticsView (drawer machine) |
+| B14 | Brak drilldown z top_contractors → kontrahent | AnalyticsView (drawer location) |
+| B15 | Brak breadcrumb w formularzach | ContractForm, ContractorForm, ArticleForm |
+| B16 | `goBack` hardcoded zamiast `router.back()` | ContractForm, ContractorForm, ArticleForm |
+| B17 | Brak filtra "Tylko z aktywną umową" w kontrahentach | DashboardView /contractors |
+| B18 | Brak filtra kategoria/marka/typ w artykułach | DashboardView /articles |
+| B19 | Brak kalendarza umów (spec 06 sekcja 3) | DashboardView /contracts |
+| B20 | Brak toolbar [?] — podgląd szczegółów bez edycji | DashboardView |
+| B21 | Brak context menu "Dodaj umowę" w kontrahentach | DashboardView /contractors |
+
+##### 🟢 LOW — Polish / nice-to-have (9 usterek)
+
+| # | Usterka | Widok |
+|---|---------|-------|
+| B22 | Brak hover indicatora na klikalnych wierszach | ArchiveView |
+| B23 | Brak undo dla destruktywnych akcji | DashboardView, ContractorForm |
+| B24 | Brak sticky header w tabelach | DashboardView, ArchiveView |
+| B25 | Brak filtra "Okres" w kontrahentach i artykułach | DashboardView |
+| B26 | Brak paginacji w drilldown drawers | AnalyticsView |
+| B27 | Brak "Eksportuj CSV/PDF" z list | DashboardView, AnalyticsView |
+| B28 | Brak tooltipów na ikonach w toolbarze | ContractFormView |
+| B29 | Brak drilldown z HomeView KPI → filtrowana lista | HomeView |
+| B30 | Brak drilldown z HomeView "Dostawy" → umowa | HomeView |
+
+---
+
+#### Mapa pożądanych interakcji (cross-view navigation)
+
+| Z widoku | Klik w | Powinno otworzyć | Priorytet |
+|----------|--------|------------------|-----------|
+| Dashboard /contracts | Nazwa kontrahenta | `/contractors/:id/edit` | HIGH |
+| Dashboard /contracts | Maszyna (nowa kolumna) | `/articles/:id/edit` lub drilldown | HIGH |
+| Dashboard /contracts | Nagłówek kolumny | Sort ASC/DESC | HIGH |
+| Dashboard /contracts | Filtr Handlowiec | Lista filtrowana po `salesperson_id` | HIGH |
+| Dashboard /contracts | Filtr Miasto | Lista filtrowana po `city` | HIGH |
+| Dashboard /contractors | Numer aktywnej umowy | `/contracts/:id/edit` | HIGH |
+| Dashboard /contractors | Right-click → "Dodaj umowę" | `/contracts/new?contractor_id=:id` | HIGH |
+| Dashboard /articles | Numer aktywnej umowy | `/contracts/:id/edit` | HIGH |
+| Dashboard /articles | "Historia wynajmów" | Drawer jak w Analytics | HIGH |
+| ContractForm | "✎ Edytuj" obok kontrahenta | `/contractors/:id/edit` (nowa karta) | MEDIUM |
+| ContractForm | Nazwa artykułu w pozycji | `/articles/:id/edit` (nowa karta) | MEDIUM |
+| ContractForm | Faktura w panelu FA | `window.open(invoice.url)` | MEDIUM |
+| Analytics /drill-machine | Wiersz rental (umowa) | `/contracts/:contract_id/edit` | MEDIUM |
+| Analytics /drill-location | Wiersz top_contractor | `/contractors/:id/edit` | MEDIUM |
+| Commission | Wiersz handlowca | `/dashboard/contracts?salesperson_id=:id` | MEDIUM |
+| HomeView | KPI card | `/worker` lub `/dashboard/contracts` z filtrem | MEDIUM |
+| HomeView | Dostawa (delivery-row) | `/contracts/:contract_id/edit` | MEDIUM |
+| Wszystkie formularze | Toolbar "←" | `router.back()` z fallbackiem | MEDIUM |
+| Wszystkie błędy | API error | Toast error (NIE `alert()`) | HIGH |
+| Wszystkie formularze | Po Zapisz | Toast success | HIGH |
+
+---
+
+#### Rekomendowana kolejność implementacji (5 faz)
+
+**Faza 1 — Toasty zamiast alert() + feedback po zapisie (B6, B7)** — quick win, 25+ miejsc
+- Komponent `Toast.vue` i `useToastStore` już istnieją (używane w 1 miejscu)
+- Czysta zamiana `alert(err)` → `toastStore.showToast(msg, 'error')`
+- Dodać toast success po zapisie we wszystkich formularzach
+- Est: 4-6h (S)
+
+**Faza 2 — Cross-view drilldown z list (B1, B3, B4)** — najczęstszy flow codzienny
+- DashboardView /contracts: nazwa kontrahenta → link, kolumna "Maszyny" → link
+- DashboardView /contractors: `active_contract_number` → link, context menu "Dodaj umowę"
+- DashboardView /articles: `active_contract_number` → link, akcja "Historia wynajmów"
+- Est: 6-8h (M)
+
+**Faza 3 — Sortowanie po kolumnach w DashboardView (B5)** — `useSort` już istnieje
+- Przenieść pattern z `ExplorerTab.vue` / `AnalyticsTable.vue`
+- 3 tabele: contracts, contractors, articles
+- Est: 3-4h (S)
+
+**Faza 4 — Filtry: Handlowiec + Miasto w liście umów (B8)** — wymaga backend
+- Dodać `salesperson_id` i `city` do `GET /contracts` query params (backend)
+- Dodać `<select>` i `<input>` w grid-header (frontend)
+- `settingsStore.salespeople` już załadowany
+- Est: 4-5h (S)
+
+**Faza 5 — goBack → router.back() + drilldown w Analytics/HomeView (B13-B16, B29-B30)** — polish
+- `goBack` używające `router.back()` z fallbackiem
+- Drilldown z drawer Analytics → konkretna umowa
+- KPI cards w HomeView klikalne
+- Est: 4-6h (S)
+
+**Łączna estymacja:** 21-29h (L) — 5 faz, każda niezależna (można robić sekwencyjnie)
+
+---
+
+#### Co działa dobrze (nie wymaga zmian)
+
+- ✅ HomeView — klik w umowę w panelach → edycja
+- ✅ WorkerView — klik w umowę/dostawy → edycja, filtry dni
+- ✅ AnalyticsView — drilldown machine/location, filtry (date, type, contractor, city)
+- ✅ ArchiveView — drilldown umów, filtry (search, typ, data, kategoria), paginacja
+- ✅ ExplorerTab — klik w wynik → edycja, search + sort
+- ✅ ContractFormView — picker kontrahenta/art/dostawcy, inline form, conflict modal
+- ✅ ContractorFormView — "+ Umowa" → auto-fill, GUS lookup
+- ✅ AppSidebar — active state per section
+- ✅ AppLayout — Ctrl+N = nowy, Esc = back
+
+---
+
+#### Edge cases do obsługi w implementacji
+
+- [ ] **Error state:** Tylko ArchiveView/AnalyticsView mają retry; reszta = `alert('Błąd')`
+- [ ] **Success feedback:** Tylko CommissionView (toast); reszta = brak
+- [ ] **Slow connection:** Brak timeout indicatora
+- [ ] **Long content:** DashboardView paginacja (50/strona, brak wyboru per-page)
+- [ ] **Soft delete vs hard delete:** Usunięcie kontrahenta z aktywnymi umowami — blokować LUB soft-delete
+
+---
+
+**Estymacja:** 21-29h (L) — 5 faz, każda niezależna
+
+---
+
+### [RAO-P3-071] Audyt UX — czytelność, spójność, przyjemność poruszania się
+
+```yaml
+id: RAO-P3-071
+priority: P3
+size: L
+status: triaged
+classification: frontend/ux
+roles: [ux-designer, ui-designer, frontend-dev]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/09_design_reference.md (jeden source of truth zmiennych CSS, font-size minima)
+  - core/03_frontend_screens.md (skeleton loaders, breadcrumb, page-title)
+  - core/18_ux_improvements.md (glossary skrótów, ConfirmDialog konkretne obiekty)
+migration_impact: no
+security_impact: no
+depends_on: []
+blocks: []
+verification: []
+```
+
+**Problem:**
+
+Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z semantycznym kolorem, mikro-animacje, sticky headers, keyboard shortcuts). Ale po 8h pracy operatora boli głowa od czytania — 56 miejsc z `font-size: 11px`, 3 różne formaty walut, 2 różne formaty dat, żargon bez tooltipów (PNA, ZO, FA), niespójny design system (CommissionView łamie wszystko), brak a11y (aria-label, focus states, kontrast poniżej WCAG AA).
+
+**Cel:** Aplikacja przyjemna w użyciu po 8h pracy — czytelna, spójna, dostępna, z mikro-polishem.
+
+---
+
+#### Audyt UX (2026-07-04) — czytelność, spójność, przyjemność
+
+##### Co działa dobrze (nie wymaga zmian)
+
+- ✅ Skeleton loaders (HomeView, WorkerView, AnalyticsTable, DrillDownDrawer)
+- ✅ Empty states z CTA (DashboardView, HomeView panele)
+- ✅ KPI cards z semantycznym kolorem (kpi-ok/warn/danger/info)
+- ✅ Live preview warunków kaskadowych (ConditionPanel)
+- ✅ Help section wbudowany ("📖 Jak wpisać warunki?")
+- ✅ Polskie formatowanie w AnalyticsView (Intl PLN, toLocaleDateString pl-PL)
+- ✅ Mikro-animacje (LoginView shake, nav-tile hover, KPI hover, btn:active scale)
+- ✅ Archive separator pomarańczowy + banner ostrzegawczy
+- ✅ Keyboard shortcuts (Ctrl+N, Escape, Enter/Esc inline edit)
+- ✅ Print CSS, sticky table headers, DrillDownDrawer z Teleport + Esc
+
+##### 🔴 HIGH — 5 usterek blokujących czytelność
+
+| # | Usterka | Widok | User pain |
+|---|---------|-------|-----------|
+| B1 | `font-size: 11px` × 56 miejsc — za mały do 8h pracy | DashboardView, HomeView, WorkerView, AdminView, SettingsView, ContractFormView | Ból głowy po 2h, starsi pracownicy nie przeczytają |
+| B2 | `font-size: 10px` (del-chip) i `9px` (sidebar-logo-sub) | WorkerView, AppSidebar | Kluczowa informacja (data dostawy) nieczytelna |
+| B3 | 3 różne formaty walut — `Intl PLN` vs `toFixed(2)+' zł'` vs `toLocaleString` | AnalyticsView ✅, ContractFormView ❌, ConditionPanel ❌, CommissionView ✅ | Pomyłki w odczycie przy porównywaniu z fakturą |
+| B4 | 2 różne formaty dat — "01.02.2026" vs "1.2.2026" | HomeView ✅ (leading zero), DashboardView/ContractFormView ❌ | Skanowanie tabeli przerywane — wygląda jak inna data |
+| B5 | Żargon bez tooltipów — PNA, ZO, FA, OID, S/U | ContractFormView, DashboardView, ArticleFormView, ArchiveView | Nowy user pyta kolegę "co to ZO?" — wstyd, strata czasu |
+
+##### 🟡 MEDIUM — 6 usterek spójności i komfortu
+
+| # | Usterka | Widok |
+|---|---------|-------|
+| B6 | Kolumna "Adres dostawy" 11px + max 180px + pre-wrap | DashboardView |
+| B7 | "X rekordów" zamiast "X umów" — żargon bazodanowy | DashboardView (4 sekcje) |
+| B8 | Toolbar ikony `− + ⎙ ? ∑ 💰` bez etykiet tekstowych | AppToolbar, ContractFormView |
+| B9 | Numbers nie wyrównane do prawej w tabelach | DashboardView, ArchiveView |
+| B10 | CommissionView całkowicie własny styl — hardcoded kolory, rem, 4-8px radius, `.data-table` zamiast `.data-grid` | CommissionView |
+| B11 | Dwa konfliktujące systemy zmiennych CSS — `style.css` vs `variables.css` (różne odcienie navy, różne font-size) | Global |
+
+##### 🟢 LOW — 3 usterek polish
+
+| # | Usterka |
+|---|---------|
+| B12 | Spacing niespójny między widokami (padding 12px/20px/24px/32px) |
+| B13 | "Pulpit" w sidebar vs "Pulpit operacyjny" w WorkerView — niespójna nazwa |
+| B14 | ArchiveView tab labels identyczne jak sekcje główne (ryzyko pomyłki) |
+
+##### Usterki spójności wizualnej (tabela)
+
+| Element | Gdzie spójne | Gdzie niespójne |
+|---------|-------------|-----------------|
+| Kolor primary | variables.css `#0F234E` | style.css `#1D2B53`, WorkerView hardcoded, CommissionView hardcoded |
+| Border-radius kart | 12px (layout.css) | WorkerView 10px, CommissionView 8px, HomeView nav-tile 6px |
+| Styl tabeli | `.data-grid` (navy header, zebra, hover) | CommissionView `.data-table` (jasny header, brak zebra) |
+| Styl przycisków | `.btn` (pill 24px) | CommissionView 5px, HomeView 12px, LoginView redefine |
+| Badge statusu | tables.css (success/warning/danger/info/muted) | DashboardView (badge-settled/overdue/active — nie zdefiniowane!) |
+| Karty KPI | HomeView własny, KpiRow.vue własny | Dwa różne komponenty KPI, różny styling |
+| Loading state | HomeView/WorkerView skeleton | DashboardView/AdminView/SettingsView/ArchiveView tekst "Ładowanie..." |
+| Ikony | Emoji (📊📦⏰🖨) | Unicode symbole (⌕ ⎙ ∑ −) — mix |
+| Toast kolory | hardcoded `#10b981/#ef4444` | Design system `--color-success/danger` (inne odcienie) |
+| Tło widoku | `#F8F9FA` (layout.css) | HomeView `#F4F6FB`, WorkerView `#F4F6FB`, CommissionView białe |
+
+##### Usterki dostępności (a11y)
+
+| Element | Stan | Priorytet |
+|---------|------|-----------|
+| aria-label na icon buttons | Brak (16 aria/role w całej apce) | HIGH |
+| Label ↔ input powiązanie (for/id) | Brak | HIGH |
+| Focus state na przyciskach | Tylko `.form-control:focus`, brak na `.btn`/`.btn-icon`/`.toolbar-btn` | HIGH |
+| Kontrast muted text `#718096` na białym | ~4.0:1 — poniżej WCAG AA 4.5:1, przy 11px = fail | HIGH |
+| role="alert" na błędach | Brak | MEDIUM |
+| aria-invalid na polach z błędem | Brak | MEDIUM |
+| Modal focus trap | Brak (Tab wychodzi z modala) | MEDIUM |
+| Modal aria-modal | Brak `role="dialog" aria-modal="true"` | MEDIUM |
+| Skip-to-content link | Brak | LOW |
+| Touch target size | `.page-btn` 28×28, `.days-filter` ~24×20 — poniżej 44×44 | LOW |
+
+##### Usterki przyjemności/polish
+
+| Element | Stan | Rekomendacja |
+|---------|------|--------------|
+| View transitions | Brak `<Transition>` na router-view | `<Transition name="fade" mode="out-in">` |
+| Loading w 4 widokach | Tekst "Ładowanie..." | Skeleton rows (`.skeleton` już w animations.css) |
+| Toast bez ikony | Tylko kolor + tekst | Ikona ✓/⚠️/ℹ — szybsze skanowanie |
+| Toast bez undo | Success = info only | Przycisk "Cofnij" dla destruktywnych (5s) |
+| KPI hover ale nie clickable | `:hover { box-shadow }` bez `@click` | Albo usuń hover, albo dodaj cursor:pointer + klik |
+| ConfirmDialog generyczny | "Czy na pewno chcesz usunąć ten element?" | "Usuniesz umowę XYZ. Tej akcji nie można cofnąć." |
+| Brak "recently viewed" | — | Lista "Ostatnio otwarte umowy" w HomeView |
+| Brak keyboard hint w UI | Ctrl+N, Esc działają ale user nie wie | Tooltip w sidebar lub help overlay |
+
+---
+
+#### Rekomendowana kolejność implementacji (5 faz)
+
+**Faza 1 — Font-size + kontrast (HIGH impact, LOW effort)** — 1 dzień
+- Zamień `font-size: 11px` → 13px (dane), 12px (metadane); `10px` → 12px; `9px` → 11px
+- Sciemnij `--color-text-muted` z `#718096` → `#5A6B7E` (WCAG AA 4.5:1)
+- Każdy operator poczuje natychmiast
+
+**Faza 2 — Unifikacja formatowania dat i walut (HIGH impact, LOW effort)** — 0.5 dnia
+- Stwórz `composables/useFormat.ts` z `formatDate()`, `formatCurrency()`, `formatNumber()`
+- Zastąp 5 różnych implementacji (AnalyticsView ✅ wzorzec, ContractFormView ❌, ConditionPanel ❌, CommissionView ✅, HomeView ✅)
+- Zawsze `pl-PL` + `PLN` + 2 cyfry + leading zero w datach
+
+**Faza 3 — a11y: aria-label + focus states (HIGH impact, MEDIUM effort)** — 1-2 dni
+- `aria-label` na wszystkich icon buttons (−, +, ⎙, ?, ∑, 💰, ←, ✎, ✕)
+- `:focus-visible { outline: 2px solid var(--color-primary) }` globalnie
+- `for`/`id` na label/input, `role="alert"` na błędach, `aria-invalid` na polach z błędem
+- `role="dialog" aria-modal="true"` na modalach
+
+**Faza 4 — Unifikacja design system (MEDIUM impact, MEDIUM effort)** — 1 dzień
+- CommissionView — usuń scoped CSS, użyj `.data-grid`, `.page-card`, `.btn`, `--color-*`
+- WorkerView — zamień hardcoded `#0F234E` na `var(--color-primary)`, `#F4F6FB` na `var(--color-bg-app)`
+- Jeden plik zmiennych — usuń definicje kolorów/typografii z `style.css`, zostaw `variables.css`
+- Dodaj `badge-settled/overdue/active` do tables.css (lub użyj istniejących)
+- Połącz KPI komponenty (HomeView + KpiRow.vue → jeden)
+
+**Faza 5 — Skeleton loaders + polish (MEDIUM impact, LOW effort)** — 0.5-1 dzień
+- DashboardView, AdminView, SettingsView, ArchiveView — skeleton rows zamiast "Ładowanie..."
+- Komponent `<TableSkeleton :rows="5" />`
+- View transitions (`<Transition name="fade" mode="out-in">`)
+- Toast z ikoną (✓/⚠️/ℹ)
+- ConfirmDialog z konkretnym obiektem ("Usuniesz umowę U/2024/123...")
+- Glossary skrótów (PNA, ZO, FA, OID, S/U) — tooltip lub legenda
+
+**Łączna estymacja:** 4-5.5 dni (L) — 5 faz, każda niezależna
+
+---
+
+#### Glossary skrótów (do implementacji w Faza 5)
+
+| Skrót | Pełna nazwa |
+|-------|-------------|
+| PNA | Kod pocztowy (PNA) |
+| ZO | Protokół zdania obiektu (ZO) |
+| FA | Faktura (FA) |
+| OID | Identyfikator w Fakturownia (OID) |
+| S | Umowa najmu (S) |
+| U | Umowa usługi (U) |
+
+---
+
+**Estymacja:** 4-5.5 dni (L) — 5 faz, każda niezależna
+
+---
+
+## 📋 Tabela TL;DR
+
+| ID | Tytuł | P | Est. | Status | Następny krok |
+|----|-------|---|------|--------|---------------|
+| RAO-P1-014 | Frontend — błędne obliczanie daty końcowej okresu umowy | P1 | XS | user-verified | → client-approved |
+| RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | P1 | XS | team-verified | → user-verified |
+| RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | P1 | S | team-verified | → user-verified |
+| RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | dev-verified | → team-verified |
+| RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | P1 | XS | team-verified | → user-verified |
+| RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | dev-verified | → user-verified |
+| RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
+| RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | dev-verified | → team-verified (wartość z rozliczenia, read-only w formularzu) |
+| RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
+| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | done | Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
+| RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | dev-verified | → user-verified |
+| RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | dev-verified | → team-verified (unique=True w model + DB index uq_contracts_number) |
+| RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | done | → done (autoescape=True w reports/service.py:588) |
+| RAO-P0-032 | build_contract_data mutuje sesję — kopiuj description | P0 | XS | done | → done (lokalne kopie description w fees_data) |
+| RAO-P0-033 | recalculate_total — użyj algorytmu kaskadowego | P0 | S | dev-verified | → team-verified |
+| RAO-P0-034 | ContractUpdate schema z exclude_unset=True (lost data) | P0 | M | dev-verified | → team-verified |
+| RAO-P0-035 | N+1 queries — selectinload w list_contracts/positions/articles | P0 | M | dev-verified | → team-verified |
+| RAO-P0-036 | Stack trace disclosure → detail="Błąd" + logging | P0 | XS | dev-verified | → team-verified (global exception handler w main.py) |
+| RAO-P1-037 | delete_contract — guard na is_settled | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-038 | Brak indeksów DB (is_settled, created_at, salesperson_id, print_date, delivery_date) | P1 | S | dev-verified | → team-verified |
+| RAO-P1-039 | Walidacja date_from > date_to + ujemne kwoty w ContractCreate | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-040 | is_settled blokuje mutacje (update/delete positions) | P1 | S | dev-verified | → team-verified |
+| RAO-P1-041 | Hardcoded JWT fallback "change-me" — usuń + wymuś z env | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-042 | Frontend: logout czyści stores + redirect po login + baseURL z env | P1 | S | dev-verified | → team-verified |
+| RAO-P1-043 | Frontend: memory leaks — cleanup event listenerów i timerów | P1 | S | dev-verified | → team-verified |
+| RAO-P1-044 | Frontend: localStorage.getItem('token') → 'rao_token' | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-045 | _build_conditions_text — użyj format_position_conditions_cascading (dedup) | P1 | XS | dev-verified | → team-verified |
+| RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
+| RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | triaged | → in_progress |
+| RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | triaged | → in_progress |
+| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | triaged | → in_progress |
+| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | triaged | → in_progress |
+| RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | triaged | → in_progress |
+| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
+| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
+| RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | dev-verified | → team-verified (normalize w settings/service.py + ALTER TABLE polish_ci w main.py) |
+| RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | triaged | → in_progress |
+| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
+| RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | dev-verified | → team-verified (is_external nie blokuje + checkbox w details) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
+| RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | triaged | → in_progress (Faza 1: parser legacy + migracja + UI + template items) |
+| RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | in-progress (Faza 1 done — 6 bugów + indeksy + cleanup; Faza 2 todo — StatsView.vue) |
+| RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
+| RAO-P2-067 | Demo data refactor — migrate_all.py orchestrator + FA-pending contracts + delivery_address | P2 | M | done | 31 faktur FA (19 backfill + 12 FA-pending), delivery_address z miastami, hardcoded token usunięty |
+| RAO-P2-068 | Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta" | P2 | M | done | 5 cenników kaskadowych per maszyna, 6 presetów usług, 22 ServiceFeeTemplateItem, 6 rate types, pełna konfiguracja firmy |
+| RAO-P2-069 | Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście | P2 | M | done | Toggle Miasto/PNA w LocationsTab, 1 wiersz per miasto (Warszawa 3978 PNA → 1), drill-down /locations/city/{city} z pna_breakdown |
+| RAO-P2-070 | Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation) | P2 | L | triaged | 30 usterek UX (8 HIGH, 13 MEDIUM, 9 LOW); 5 faz: toasty, cross-view drilldown, sort, filtry, goBack |
+| RAO-P3-071 | Audyt UX — czytelność, spójność, przyjemność poruszania się | P3 | L | triaged | 14 usterek (5 HIGH, 6 MEDIUM, 3 LOW) + a11y + polish; 5 faz: font-size, formatowanie, a11y, design system, skeleton |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
+
+**Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
+
+### Pipeline weryfikacji (status flow)
+
+```
+triaged → in_progress → dev-verified → team-verified → user-verified → client-approved (done)
+           │              │               │               │               │
+           Devin koduje   Devin testuje   Software-house  Ty wzrokowo    Klient zatwierdza
+           zmianę         programatycz.   subagenty       w UI/PDF        → zadanie zamknięte
+                          (Playwright,    (QA, Security,
+                           PyMuPDF,       UX, PO, Tech
+                           pytest,        Lead review)
+                           vue-tsc)
+```
+
+---
+
+## 🔍 Pre-existing issues (znalezione przez security audit P1-015)
+
+### [RAO-SEC-001] IDOR — `/reports/contract/{id}` bez ownership check
+
+```yaml
+id: RAO-SEC-001
+priority: P1
+size: S
+status: done
+classification: security/idor
+roles: [backend-dev, security-auditor]
+source: security-audit
+source_date: 2026-06-29
+source_ref: "Security audit P1-015 — subagent security-auditor"
+specs_to_update:
+  - core/25_security.md
+migration_impact: no
+security_impact: yes
+done_date: 2026-07-01
+fix: "_check_contract_access() w reports/router.py — admin full access, non-admin tylko własny branch, fetch contract przed PDF gen (early 404/403)"
+verification:
+  - "py_compile reports/router.py: OK"
+  - "curl POST /reports/contract/999999 (admin): 404 (contract not found)"
+  - "smoke 01-login.spec.ts: 11/11 passed"
+```
+
+**Problem:** Endpoint `POST /reports/contract/{contract_id}` wymaga autentykacji (`get_current_user`), ale **nie sprawdza ownership/tenant** — każdy zalogowany użytkownik może wygenerować PDF (z telefonami klienta) dla cudzej umowy znając `contract_id`.
+
+**Atak:** Enumeracja `contract_id` → pozyskanie danych kontaktowych (telefony, adres dostawy) klientów innych handlowców.
+
+**Fix:** W `reports/router.py` (lub `service.py`) dodać weryfikację:
+```python
+if contract.created_by != current_user.id and current_user.role != "admin":
+    raise HTTPException(403)
+```
+
+**Pliki do zmiany:**
+- `backend/reports/router.py`
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S)
+
+---
+
+### [RAO-SEC-002] Jinja2 bez `autoescape=True` w reports/service.py
+
+```yaml
+id: RAO-SEC-002
+priority: P1
+size: S
+status: done
+classification: security/injection
+roles: [backend-dev, security-auditor]
+source: security-audit
+source_date: 2026-06-29
+source_ref: "Security audit P1-015 — subagent security-auditor"
+implementation_date: 2026-07-01
+note: "Już naprawione — autoescape=True w reports/service.py:588"
+specs_to_update:
+  - core/25_security.md
+migration_impact: no
+security_impact: yes
+```
+
+**Problem:** `Environment(loader=FileSystemLoader(template_dir))` w `backend/reports/service.py` utworzony **bez `autoescape=True`**. Użytkownik może wstrzyknąć HTML/JS w pola `notes`, `contractor_name`, `contact_person1` → trafia do PDF WeasyPrint (SSRF, data exfiltration).
+
+**Fix:** `Environment(loader=FileSystemLoader(template_dir), autoescape=True)` + przetestować wszystkie szablony PDF pod kątem niezamierzonego escapowania polskich znaków.
+
+**Pliki do zmiany:**
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S) — wymaga testów wszystkich szablonów PDF
+
+---
+
+## 🗂️ Materiały referencyjne
+
+**Sprint 2026-06-29 (nowe zgłoszenia):**
+- `spec/backlog/do_wciagniecia_do_backlogu.md` — 10 punktów od klienta (surowy markdown)
+- `Pasted image 20260629223748.png` (root repo) — P1-014: błędne obliczenie daty
+- `Pasted image 20260629223936.png` (root repo) — P1-016: protokół ZO bez adresu dostawy
+- `Pasted image 20260629224212.png` (root repo) — P1-019: umowa usługi U872/2026 z żółtym tłem
+- `Pasted image 20260629224534.png` (root repo) — P1-020: format rozliczenia kaskadowego
+- `Pasted image 20260629224602.png` (root repo) — P1-021: sekcja Warunki Finansowe z pustym Wartość
+- `Pasted image 20260629225003.png` (root repo) — P1-022: lista umów z niespójnym nazewnictwem
+- Raporty vision: `Pasted image 20260629*-vision-report.md` (root repo)
+
+**Stara aplikacja WinForms (referencja):**
+- `C:\projects\repos\AppRao\rao\FormW.cs` linia 690-750 — algorytm formatowania warunków kaskadowych
+
+**Aktualne szablony PDF:**
+- `backend/reports/templates/contract_u.html` — umowa usługi (typ U)
+- `backend/reports/templates/contract.html` — umowa najmu (typ S)
+- `backend/reports/templates/protocol_zo.html` — protokół zdawczo-odbiorczy
+- `backend/reports/templates/protocol_zo_u.html` — protokół wykonania usługi
+- `backend/reports/templates/protocol_zo_nodata*.html` — warianty bez danych
+
+---
+
+## 📋 Decyzje operatora (2026-06-30)
+
+### RAO-P1-021 — Pole „Wartość (zł)" → ekran rozliczenia
+**Decyzja:** Pole „Wartość" przechodzi do **ekranu rozliczenia** (nie formularz umowy). Tam wartość jest pobierana:
+- Z **Fakturowni** (kwota z faktury), LUB
+- Wprowadzona **ręcznie** na bazie pozycji umowy z uzupełnionymi kwotami
+
+**Implementacja:** Ekran rozliczenia pobiera pozycje umowy, pozwala uzupełnić kwoty (auto z Fakturowni lub ręcznie), sumuje → wartość umowy. Pole „Wartość" w formularzu umowy zostaje ukryte/puste (przedpłata dopisana z góry, wartość nieznana do rozliczenia).
+
+---
+
+### RAO-P2-028 — Statystyki miast via PNA (PILNE)
+**Decyzja:** Grupuj po **postal_code (PNA)** + miasto (precyzyjne).
+**Uwaga operatora:** Jedno miasto ma wiele PNA — trzeba ustalić **skąd uzupełnić PNA** dla miast.
+**Pilne** — wymaga analizy źródeł danych PNA (tabela postal_codes, integracja TERYT, GUS).
+
+---
+
+### RAO-P2-046 — IDOR / RBAC
+**Decyzja:** **Brak izolacji** na ten moment (single-tenant, wszyscy widzą wszystko).
+Wraz z rozwojem aplikacji będziemy zarządzać uprawnieniami do różnych zasobów.
+**Akcja:** Zostaw tylko SEC-001 (PDF ownership check). P2-046 odłożone.
+
+---
+
+### RAO-P2-057 — is_external (maszyna zewnętrzna)
+**Decyzja:** Maszyna external **nie blokuje** dodawania w wielu miejscach (nie wpływa na rentowność).
+- Ma być **możliwe do wyboru w detailsach maszyny** podczas dodawania
+- Sprawdzić **mechanizm blokowania maszyn** (czy external poprawnie nie blokuje)
+- Sprawdzić vs **wyliczanie dni umowy** czy maszyny będą poprawnie blokowane
+- **Blokada = pytanie z informacją** gdzie i dlaczego jest zablokowana maszyna, czy na pewno chcesz ją dodać/wypożyczyć
+- **Obgadać z teamem** (subagenty: backend-dev + qa-engineer + product-owner)
+
+---
+
+## 📋 Audyt wymagań klienta (2026-07-01) — Tech Lead
+
+### Wymagania klienta — status spełnienia
+
+| # | Wymaganie | Status | Uwagi |
+|---|-----------|--------|-------|
+| 1 | Statystyki wynajmu maszyny (po nr wewn.) w okresie — stopa zwrotu | **SPEŁNIONE z błędem** | `top-machines` + `explorer/machines/{id}` (utilization_pct). BŁĄD: rozjazd przychodu 41% między explorer a stats |
+| 2 | Ile maszyn jest teraz wynajętych | **SPEŁNIONE** | `currently-rented` + `fleet-summary` |
+| 3 | Dodanie numeru wewnętrznego do maszyny | **SPEŁNIONE funkcjonalnie, 0% danych** | `articles.internal_number` istnieje, ale 0/337 maszyn ma wypełnione (CSV nie istnieje, INSERT nie mapuje) |
+| 4 | Filtrowanie pozycji dodatkowych (transport, mycie) w okresach | **SPEŁNIONE** | `additional-fees` endpoint + UI |
+| 5 | Filtrowanie miejscowości i ilości wynajmów | **SPEŁNIONE** | `stats/locations` + `explorer/locations` (po PNA, z gmina/powiat/woj) |
+| 6 | Rezerwacja maszyny (blokada, info kiedy dostępny) | **SPEŁNIONE** | `articles/{id}/availability` + ArticlePicker z badge |
+
+### Odkryte problemy — do analizy i decyzji
+
+#### [RAO-P2-030] internal_number puste (0% maszyn) — BLOKER dla wymagan 1+3
+
+```yaml
+id: RAO-P2-030
+priority: P2
+size: M
+status: wont-fix
+classification: bugfix/migration-data
+roles: [db-architect, backend-dev]
 source: tech-lead-audit
 source_date: 2026-07-01
 source_ref: "Audyt wymagań klienta — wymaganie 3 (numer wewnętrzny)"
@@ -4151,6 +6110,659 @@ note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone
   2. `onAddressSelect` — wypełnia postal_code+city z adresu kontrahenta + auto PNA lookup
   3. `onPostalCodeBlur` — refactor na reusable `lookupPna()`
 - **Weryfikacja:** vue-tsc exit 0, build OK
+
+```yaml
+id: RAO-P2-069
+priority: P2
+size: M
+status: done
+classification: cross-stack
+roles: [backend-dev, frontend-dev, product-owner]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/02_backend_api.md (endpoint /locations/city/{city} + group_by param)
+migration_impact: no
+security_impact: no
+depends_on:
+  - RAO-P2-028 (Agregacja PNA z LEFT JOIN do postal_codes)
+verification:
+  - "vue-tsc --noEmit: PASS"
+  - "npm run build: PASS (643ms)"
+  - "curl /explorer/locations?group_by=city: Warszawa → 1 wiersz (postal_code=null)"
+  - "curl /explorer/locations?group_by=pna: Warszawa 00-002 → 1 wiersz z PNA"
+  - "curl /explorer/locations/city/Warszawa: 200 OK z pna_breakdown + top_machines"
+  - "Playwright screenshot: toggle Miasto/PNA działa, kolumna PNA warunkowa"
+```
+
+**Problem:**
+
+W zakładce "Lokalizacje" w AnalyticsView każde miasto było rozbite na kody pocztowe — Warszawa (3978 PNA w słowniku) mogła mieć wiele wierszy zamiast jednego. User chciał: "ma być miasto do wielu kodów pocztowych" — jeden wiersz per miasto, z opcją rozbicia na PNA jeśli potrzeba.
+
+**Cel:** Toggle Miasto/PNA w UI. Domyślnie miasto (1 wiersz per miasto, sumuje wszystkie PNA). Drill-down po mieście pokazuje rozbicie na PNA.
+
+---
+
+#### Scope implementacji
+
+**Backend:**
+1. `shared/locations.py` — `aggregate_by_pna()` dostaje `group_by='city'|'pna'` (domyślnie 'city'):
+   - `city`: klucz = (city, gmina, powiat, wojewodztwo) — 1 wiersz per miasto, `postal_code=null`
+   - `pna`: klucz = (postal_code, city) — 1 wiersz per PNA (legacy)
+2. `explorer/router.py` — `GET /explorer/locations` dostaje `?group_by=city|pna` (domyślnie city)
+3. `explorer/router.py` — nowy `GET /explorer/locations/city/{city}` — drill-down po mieście:
+   - Sumuje wszystkie PNA w mieście (case-insensitive)
+   - Zwraca `pna_breakdown` (rozbicie na kody pocztowe)
+   - Top maszyny (10) + top kontrahenci (5) filtrowani po mieście
+   - `metrics.pna_count` — ile kodów PNA w mieście
+
+**Frontend:**
+1. `stores/analytics.ts` — `fetchLocationsRanking()` dostaje `groupBy` param; nowy `fetchCityDetails()`
+2. `LocationsTab.vue` — toggle "Miasto / PNA" w nagłówku sekcji ranking
+3. Kolumna PNA warunkowa (tylko w trybie PNA)
+4. `onRowClick` — w trybie city wywołuje `openDrillDown('location', 'city:'+city, city)`
+5. `AnalyticsView.vue` — drill-down po mieście pokazuje `pna_breakdown` sekcję + `pna_count` w metrics
+
+---
+
+#### Weryfikacja (2026-07-04)
+
+- `vue-tsc --noEmit`: PASS
+- `npm run build`: PASS (643ms)
+- `curl /explorer/locations?group_by=city`: Warszawa → 1 wiersz (postal_code=null, gmina=Warszawa, woj=mazowieckie)
+- `curl /explorer/locations?group_by=pna`: Warszawa 00-002 → 1 wiersz z PNA
+- `curl /explorer/locations/city/Warszawa`: 200 OK — city, gmina, powiat, wojewodztwo, metrics (pna_count=1), pna_breakdown, top_machines, top_contractors
+- Playwright: toggle Miasto/PNA działa, kolumna PNA pojawia się tylko w trybie PNA, drill-down po mieście otwiera drawer "📍 Kraków / Umowy w mieście (wszystkie PNA)"
+
+---
+
+#### Pliki zmienione
+
+| Plik | Zmiana |
+|------|--------|
+| `backend/shared/locations.py` | +`group_by` param (city/pna), klucz agregacji zależny od trybu |
+| `backend/explorer/router.py` | +`group_by` query param, +`/locations/city/{city}` endpoint, +import defaultdict |
+| `frontend/src/stores/analytics.ts` | +`groupBy` param w fetchLocationsRanking, +fetchCityDetails, +pna_breakdown w LocationDetailsResponse |
+| `frontend/src/components/analytics/tabs/LocationsTab.vue` | +toggle Miasto/PNA, kolumna PNA warunkowa, onRowClick per tryb |
+| `frontend/src/views/AnalyticsView.vue` | +sekcja pna_breakdown w drill-down, +metric pna_count |
+
+---
+
+**Estymacja:** 3-4h (M) — backend (1.5h) + frontend (1.5h) + weryfikacja (0.5h)
+
+---
+
+### [RAO-P2-070] Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation)
+
+```yaml
+id: RAO-P2-070
+priority: P2
+size: L
+status: triaged
+classification: frontend/ux
+roles: [ux-designer, frontend-dev, product-owner]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/03_frontend_screens.md (drilldowny cross-view)
+  - core/06_navigation_flow.md (cross-view navigation, goBack → router.back)
+  - core/18_ux_improvements.md (toast zamiast alert, feedback po zapisie)
+migration_impact: no
+security_impact: no
+depends_on: []
+blocks: []
+verification: []
+```
+
+**Problem:**
+
+Aplikacja ma solidne podstawy (drilldown w Analytics/Archive, skeleton loadery, empty states, active sidebar). Ale **codzienne flow usera** jest utrudnione — brakuje cross-view drilldownów (kontrahent↔umowa↔maszyna), sortowania po kolumnach w Dashboard, kluczowych filtrów (handlowiec, miasto), oraz `alert()` zamiast toastów w 25+ miejscach.
+
+**Cel:** Aplikacja w pełni interaktywna — user może "przeskakiwać" między encjami bez ręcznego szukania, każdy zapis/akcja ma feedback, każda lista ma filtry i sortowanie.
+
+---
+
+#### Audyt UX (2026-07-04) — 30 usterek w 3 priorytetach
+
+##### 🔴 HIGH — Blokuje codzienną pracę (8 usterek)
+
+| # | Usterka | Widok | User pain | Stara aplikacja |
+|---|---------|-------|-----------|-----------------|
+| B1 | Brak drilldown z listy umów → kontrahent | DashboardView /contracts | Ręczne szukanie kontrahenta w sidebar | WinForms: context menu / double-click |
+| B2 | Brak kolumny "Maszyny" w liście umów | DashboardView /contracts | Trzeba otwierać każdą umowę | WinForms: tooltip / dialog "?" |
+| B3 | Brak drilldown z kontrahenta → jego umowy | DashboardView /contractors | "Aktywna umowa" nie jest klikalna | WinForms: double-click → historia umów |
+| B4 | Brak drilldown z artykułu → historia wynajmów | DashboardView /articles | Trzeba kombinować z Analytics | WinForms: FormA.cs podgląd historii |
+| B5 | Brak sortowania po kolumnach w DashboardView | DashboardView (3 sekcje) | Klik w nagłówek nie sortuje | WinForms: DataGridView sortował |
+| B6 | `alert()` zamiast toastów — 25+ miejsc | 9 widoków (ContractForm 18×, ContractorForm 5×, Archive 5×, Admin 6×, inne) | Blokuje aplikację, legacy pattern | WinForms: MessageBox (web ≠ MessageBox) |
+| B7 | Brak toastu po zapisie umowy/kontrahenta/artykułu | ContractForm, ContractorForm, ArticleForm | User nie wie czy zapisano → duplikat | WinForms: "Zapisano" w status bar |
+| B8 | Brak filtra "Handlowiec" i "Miasto" w liście umów | DashboardView /contracts | Handlowiec nie widzi swoich umów | WinForms: filtry handlowca w toolbarze |
+
+##### 🟡 MEDIUM — Frustrujące, user radzi sobie obejściem (13 usterek)
+
+| # | Usterka | Widok |
+|---|---------|-------|
+| B9 | Brak drilldown z umowy → edycja kontrahenta | ContractFormView |
+| B10 | Brak drilldown z umowy → edycja maszyny (z pozycji) | ContractFormView (PositionGrid) |
+| B11 | Brak drilldown z umowy → faktura w Fakturownia | ContractFormView (panel FA) |
+| B12 | Brak drilldown z CommissionView → umowy handlowca | CommissionView |
+| B13 | Brak drilldown z drill-machine-rentals → konkretna umowa | AnalyticsView (drawer machine) |
+| B14 | Brak drilldown z top_contractors → kontrahent | AnalyticsView (drawer location) |
+| B15 | Brak breadcrumb w formularzach | ContractForm, ContractorForm, ArticleForm |
+| B16 | `goBack` hardcoded zamiast `router.back()` | ContractForm, ContractorForm, ArticleForm |
+| B17 | Brak filtra "Tylko z aktywną umową" w kontrahentach | DashboardView /contractors |
+| B18 | Brak filtra kategoria/marka/typ w artykułach | DashboardView /articles |
+| B19 | Brak kalendarza umów (spec 06 sekcja 3) | DashboardView /contracts |
+| B20 | Brak toolbar [?] — podgląd szczegółów bez edycji | DashboardView |
+| B21 | Brak context menu "Dodaj umowę" w kontrahentach | DashboardView /contractors |
+
+##### 🟢 LOW — Polish / nice-to-have (9 usterek)
+
+| # | Usterka | Widok |
+|---|---------|-------|
+| B22 | Brak hover indicatora na klikalnych wierszach | ArchiveView |
+| B23 | Brak undo dla destruktywnych akcji | DashboardView, ContractorForm |
+| B24 | Brak sticky header w tabelach | DashboardView, ArchiveView |
+| B25 | Brak filtra "Okres" w kontrahentach i artykułach | DashboardView |
+| B26 | Brak paginacji w drilldown drawers | AnalyticsView |
+| B27 | Brak "Eksportuj CSV/PDF" z list | DashboardView, AnalyticsView |
+| B28 | Brak tooltipów na ikonach w toolbarze | ContractFormView |
+| B29 | Brak drilldown z HomeView KPI → filtrowana lista | HomeView |
+| B30 | Brak drilldown z HomeView "Dostawy" → umowa | HomeView |
+
+---
+
+#### Mapa pożądanych interakcji (cross-view navigation)
+
+| Z widoku | Klik w | Powinno otworzyć | Priorytet |
+|----------|--------|------------------|-----------|
+| Dashboard /contracts | Nazwa kontrahenta | `/contractors/:id/edit` | HIGH |
+| Dashboard /contracts | Maszyna (nowa kolumna) | `/articles/:id/edit` lub drilldown | HIGH |
+| Dashboard /contracts | Nagłówek kolumny | Sort ASC/DESC | HIGH |
+| Dashboard /contracts | Filtr Handlowiec | Lista filtrowana po `salesperson_id` | HIGH |
+| Dashboard /contracts | Filtr Miasto | Lista filtrowana po `city` | HIGH |
+| Dashboard /contractors | Numer aktywnej umowy | `/contracts/:id/edit` | HIGH |
+| Dashboard /contractors | Right-click → "Dodaj umowę" | `/contracts/new?contractor_id=:id` | HIGH |
+| Dashboard /articles | Numer aktywnej umowy | `/contracts/:id/edit` | HIGH |
+| Dashboard /articles | "Historia wynajmów" | Drawer jak w Analytics | HIGH |
+| ContractForm | "✎ Edytuj" obok kontrahenta | `/contractors/:id/edit` (nowa karta) | MEDIUM |
+| ContractForm | Nazwa artykułu w pozycji | `/articles/:id/edit` (nowa karta) | MEDIUM |
+| ContractForm | Faktura w panelu FA | `window.open(invoice.url)` | MEDIUM |
+| Analytics /drill-machine | Wiersz rental (umowa) | `/contracts/:contract_id/edit` | MEDIUM |
+| Analytics /drill-location | Wiersz top_contractor | `/contractors/:id/edit` | MEDIUM |
+| Commission | Wiersz handlowca | `/dashboard/contracts?salesperson_id=:id` | MEDIUM |
+| HomeView | KPI card | `/worker` lub `/dashboard/contracts` z filtrem | MEDIUM |
+| HomeView | Dostawa (delivery-row) | `/contracts/:contract_id/edit` | MEDIUM |
+| Wszystkie formularze | Toolbar "←" | `router.back()` z fallbackiem | MEDIUM |
+| Wszystkie błędy | API error | Toast error (NIE `alert()`) | HIGH |
+| Wszystkie formularze | Po Zapisz | Toast success | HIGH |
+
+---
+
+#### Rekomendowana kolejność implementacji (5 faz)
+
+**Faza 1 — Toasty zamiast alert() + feedback po zapisie (B6, B7)** — quick win, 25+ miejsc
+- Komponent `Toast.vue` i `useToastStore` już istnieją (używane w 1 miejscu)
+- Czysta zamiana `alert(err)` → `toastStore.showToast(msg, 'error')`
+- Dodać toast success po zapisie we wszystkich formularzach
+- Est: 4-6h (S)
+
+**Faza 2 — Cross-view drilldown z list (B1, B3, B4)** — najczęstszy flow codzienny
+- DashboardView /contracts: nazwa kontrahenta → link, kolumna "Maszyny" → link
+- DashboardView /contractors: `active_contract_number` → link, context menu "Dodaj umowę"
+- DashboardView /articles: `active_contract_number` → link, akcja "Historia wynajmów"
+- Est: 6-8h (M)
+
+**Faza 3 — Sortowanie po kolumnach w DashboardView (B5)** — `useSort` już istnieje
+- Przenieść pattern z `ExplorerTab.vue` / `AnalyticsTable.vue`
+- 3 tabele: contracts, contractors, articles
+- Est: 3-4h (S)
+
+**Faza 4 — Filtry: Handlowiec + Miasto w liście umów (B8)** — wymaga backend
+- Dodać `salesperson_id` i `city` do `GET /contracts` query params (backend)
+- Dodać `<select>` i `<input>` w grid-header (frontend)
+- `settingsStore.salespeople` już załadowany
+- Est: 4-5h (S)
+
+**Faza 5 — goBack → router.back() + drilldown w Analytics/HomeView (B13-B16, B29-B30)** — polish
+- `goBack` używające `router.back()` z fallbackiem
+- Drilldown z drawer Analytics → konkretna umowa
+- KPI cards w HomeView klikalne
+- Est: 4-6h (S)
+
+**Łączna estymacja:** 21-29h (L) — 5 faz, każda niezależna (można robić sekwencyjnie)
+
+---
+
+#### Co działa dobrze (nie wymaga zmian)
+
+- ✅ HomeView — klik w umowę w panelach → edycja
+- ✅ WorkerView — klik w umowę/dostawy → edycja, filtry dni
+- ✅ AnalyticsView — drilldown machine/location, filtry (date, type, contractor, city)
+- ✅ ArchiveView — drilldown umów, filtry (search, typ, data, kategoria), paginacja
+- ✅ ExplorerTab — klik w wynik → edycja, search + sort
+- ✅ ContractFormView — picker kontrahenta/art/dostawcy, inline form, conflict modal
+- ✅ ContractorFormView — "+ Umowa" → auto-fill, GUS lookup
+- ✅ AppSidebar — active state per section
+- ✅ AppLayout — Ctrl+N = nowy, Esc = back
+
+---
+
+#### Edge cases do obsługi w implementacji
+
+- [ ] **Error state:** Tylko ArchiveView/AnalyticsView mają retry; reszta = `alert('Błąd')`
+- [ ] **Success feedback:** Tylko CommissionView (toast); reszta = brak
+- [ ] **Slow connection:** Brak timeout indicatora
+- [ ] **Long content:** DashboardView paginacja (50/strona, brak wyboru per-page)
+- [ ] **Soft delete vs hard delete:** Usunięcie kontrahenta z aktywnymi umowami — blokować LUB soft-delete
+
+---
+
+**Estymacja:** 21-29h (L) — 5 faz, każda niezależna
+
+---
+
+### [RAO-P3-071] Audyt UX — czytelność, spójność, przyjemność poruszania się
+
+```yaml
+id: RAO-P3-071
+priority: P3
+size: L
+status: triaged
+classification: frontend/ux
+roles: [ux-designer, ui-designer, frontend-dev]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/09_design_reference.md (jeden source of truth zmiennych CSS, font-size minima)
+  - core/03_frontend_screens.md (skeleton loaders, breadcrumb, page-title)
+  - core/18_ux_improvements.md (glossary skrótów, ConfirmDialog konkretne obiekty)
+migration_impact: no
+security_impact: no
+depends_on: []
+blocks: []
+verification: []
+```
+
+**Problem:**
+
+Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z semantycznym kolorem, mikro-animacje, sticky headers, keyboard shortcuts). Ale po 8h pracy operatora boli głowa od czytania — 56 miejsc z `font-size: 11px`, 3 różne formaty walut, 2 różne formaty dat, żargon bez tooltipów (PNA, ZO, FA), niespójny design system (CommissionView łamie wszystko), brak a11y (aria-label, focus states, kontrast poniżej WCAG AA).
+
+**Cel:** Aplikacja przyjemna w użyciu po 8h pracy — czytelna, spójna, dostępna, z mikro-polishem.
+
+---
+
+#### Audyt UX (2026-07-04) — czytelność, spójność, przyjemność
+
+##### Co działa dobrze (nie wymaga zmian)
+
+- ✅ Skeleton loaders (HomeView, WorkerView, AnalyticsTable, DrillDownDrawer)
+- ✅ Empty states z CTA (DashboardView, HomeView panele)
+- ✅ KPI cards z semantycznym kolorem (kpi-ok/warn/danger/info)
+- ✅ Live preview warunków kaskadowych (ConditionPanel)
+- ✅ Help section wbudowany ("📖 Jak wpisać warunki?")
+- ✅ Polskie formatowanie w AnalyticsView (Intl PLN, toLocaleDateString pl-PL)
+- ✅ Mikro-animacje (LoginView shake, nav-tile hover, KPI hover, btn:active scale)
+- ✅ Archive separator pomarańczowy + banner ostrzegawczy
+- ✅ Keyboard shortcuts (Ctrl+N, Escape, Enter/Esc inline edit)
+- ✅ Print CSS, sticky table headers, DrillDownDrawer z Teleport + Esc
+
+##### 🔴 HIGH — 5 usterek blokujących czytelność
+
+| # | Usterka | Widok | User pain |
+|---|---------|-------|-----------|
+| B1 | `font-size: 11px` × 56 miejsc — za mały do 8h pracy | DashboardView, HomeView, WorkerView, AdminView, SettingsView, ContractFormView | Ból głowy po 2h, starsi pracownicy nie przeczytają |
+| B2 | `font-size: 10px` (del-chip) i `9px` (sidebar-logo-sub) | WorkerView, AppSidebar | Kluczowa informacja (data dostawy) nieczytelna |
+| B3 | 3 różne formaty walut — `Intl PLN` vs `toFixed(2)+' zł'` vs `toLocaleString` | AnalyticsView ✅, ContractFormView ❌, ConditionPanel ❌, CommissionView ✅ | Pomyłki w odczycie przy porównywaniu z fakturą |
+| B4 | 2 różne formaty dat — "01.02.2026" vs "1.2.2026" | HomeView ✅ (leading zero), DashboardView/ContractFormView ❌ | Skanowanie tabeli przerywane — wygląda jak inna data |
+| B5 | Żargon bez tooltipów — PNA, ZO, FA, OID, S/U | ContractFormView, DashboardView, ArticleFormView, ArchiveView | Nowy user pyta kolegę "co to ZO?" — wstyd, strata czasu |
+
+##### 🟡 MEDIUM — 6 usterek spójności i komfortu
+
+| # | Usterka | Widok |
+|---|---------|-------|
+| B6 | Kolumna "Adres dostawy" 11px + max 180px + pre-wrap | DashboardView |
+| B7 | "X rekordów" zamiast "X umów" — żargon bazodanowy | DashboardView (4 sekcje) |
+| B8 | Toolbar ikony `− + ⎙ ? ∑ 💰` bez etykiet tekstowych | AppToolbar, ContractFormView |
+| B9 | Numbers nie wyrównane do prawej w tabelach | DashboardView, ArchiveView |
+| B10 | CommissionView całkowicie własny styl — hardcoded kolory, rem, 4-8px radius, `.data-table` zamiast `.data-grid` | CommissionView |
+| B11 | Dwa konfliktujące systemy zmiennych CSS — `style.css` vs `variables.css` (różne odcienie navy, różne font-size) | Global |
+
+##### 🟢 LOW — 3 usterek polish
+
+| # | Usterka |
+|---|---------|
+| B12 | Spacing niespójny między widokami (padding 12px/20px/24px/32px) |
+| B13 | "Pulpit" w sidebar vs "Pulpit operacyjny" w WorkerView — niespójna nazwa |
+| B14 | ArchiveView tab labels identyczne jak sekcje główne (ryzyko pomyłki) |
+
+##### Usterki spójności wizualnej (tabela)
+
+| Element | Gdzie spójne | Gdzie niespójne |
+|---------|-------------|-----------------|
+| Kolor primary | variables.css `#0F234E` | style.css `#1D2B53`, WorkerView hardcoded, CommissionView hardcoded |
+| Border-radius kart | 12px (layout.css) | WorkerView 10px, CommissionView 8px, HomeView nav-tile 6px |
+| Styl tabeli | `.data-grid` (navy header, zebra, hover) | CommissionView `.data-table` (jasny header, brak zebra) |
+| Styl przycisków | `.btn` (pill 24px) | CommissionView 5px, HomeView 12px, LoginView redefine |
+| Badge statusu | tables.css (success/warning/danger/info/muted) | DashboardView (badge-settled/overdue/active — nie zdefiniowane!) |
+| Karty KPI | HomeView własny, KpiRow.vue własny | Dwa różne komponenty KPI, różny styling |
+| Loading state | HomeView/WorkerView skeleton | DashboardView/AdminView/SettingsView/ArchiveView tekst "Ładowanie..." |
+| Ikony | Emoji (📊📦⏰🖨) | Unicode symbole (⌕ ⎙ ∑ −) — mix |
+| Toast kolory | hardcoded `#10b981/#ef4444` | Design system `--color-success/danger` (inne odcienie) |
+| Tło widoku | `#F8F9FA` (layout.css) | HomeView `#F4F6FB`, WorkerView `#F4F6FB`, CommissionView białe |
+
+##### Usterki dostępności (a11y)
+
+| Element | Stan | Priorytet |
+|---------|------|-----------|
+| aria-label na icon buttons | Brak (16 aria/role w całej apce) | HIGH |
+| Label ↔ input powiązanie (for/id) | Brak | HIGH |
+| Focus state na przyciskach | Tylko `.form-control:focus`, brak na `.btn`/`.btn-icon`/`.toolbar-btn` | HIGH |
+| Kontrast muted text `#718096` na białym | ~4.0:1 — poniżej WCAG AA 4.5:1, przy 11px = fail | HIGH |
+| role="alert" na błędach | Brak | MEDIUM |
+| aria-invalid na polach z błędem | Brak | MEDIUM |
+| Modal focus trap | Brak (Tab wychodzi z modala) | MEDIUM |
+| Modal aria-modal | Brak `role="dialog" aria-modal="true"` | MEDIUM |
+| Skip-to-content link | Brak | LOW |
+| Touch target size | `.page-btn` 28×28, `.days-filter` ~24×20 — poniżej 44×44 | LOW |
+
+##### Usterki przyjemności/polish
+
+| Element | Stan | Rekomendacja |
+|---------|------|--------------|
+| View transitions | Brak `<Transition>` na router-view | `<Transition name="fade" mode="out-in">` |
+| Loading w 4 widokach | Tekst "Ładowanie..." | Skeleton rows (`.skeleton` już w animations.css) |
+| Toast bez ikony | Tylko kolor + tekst | Ikona ✓/⚠️/ℹ — szybsze skanowanie |
+| Toast bez undo | Success = info only | Przycisk "Cofnij" dla destruktywnych (5s) |
+| KPI hover ale nie clickable | `:hover { box-shadow }` bez `@click` | Albo usuń hover, albo dodaj cursor:pointer + klik |
+| ConfirmDialog generyczny | "Czy na pewno chcesz usunąć ten element?" | "Usuniesz umowę XYZ. Tej akcji nie można cofnąć." |
+| Brak "recently viewed" | — | Lista "Ostatnio otwarte umowy" w HomeView |
+| Brak keyboard hint w UI | Ctrl+N, Esc działają ale user nie wie | Tooltip w sidebar lub help overlay |
+
+---
+
+#### Rekomendowana kolejność implementacji (5 faz)
+
+**Faza 1 — Font-size + kontrast (HIGH impact, LOW effort)** — 1 dzień
+- Zamień `font-size: 11px` → 13px (dane), 12px (metadane); `10px` → 12px; `9px` → 11px
+- Sciemnij `--color-text-muted` z `#718096` → `#5A6B7E` (WCAG AA 4.5:1)
+- Każdy operator poczuje natychmiast
+
+**Faza 2 — Unifikacja formatowania dat i walut (HIGH impact, LOW effort)** — 0.5 dnia
+- Stwórz `composables/useFormat.ts` z `formatDate()`, `formatCurrency()`, `formatNumber()`
+- Zastąp 5 różnych implementacji (AnalyticsView ✅ wzorzec, ContractFormView ❌, ConditionPanel ❌, CommissionView ✅, HomeView ✅)
+- Zawsze `pl-PL` + `PLN` + 2 cyfry + leading zero w datach
+
+**Faza 3 — a11y: aria-label + focus states (HIGH impact, MEDIUM effort)** — 1-2 dni
+- `aria-label` na wszystkich icon buttons (−, +, ⎙, ?, ∑, 💰, ←, ✎, ✕)
+- `:focus-visible { outline: 2px solid var(--color-primary) }` globalnie
+- `for`/`id` na label/input, `role="alert"` na błędach, `aria-invalid` na polach z błędem
+- `role="dialog" aria-modal="true"` na modalach
+
+**Faza 4 — Unifikacja design system (MEDIUM impact, MEDIUM effort)** — 1 dzień
+- CommissionView — usuń scoped CSS, użyj `.data-grid`, `.page-card`, `.btn`, `--color-*`
+- WorkerView — zamień hardcoded `#0F234E` na `var(--color-primary)`, `#F4F6FB` na `var(--color-bg-app)`
+- Jeden plik zmiennych — usuń definicje kolorów/typografii z `style.css`, zostaw `variables.css`
+- Dodaj `badge-settled/overdue/active` do tables.css (lub użyj istniejących)
+- Połącz KPI komponenty (HomeView + KpiRow.vue → jeden)
+
+**Faza 5 — Skeleton loaders + polish (MEDIUM impact, LOW effort)** — 0.5-1 dzień
+- DashboardView, AdminView, SettingsView, ArchiveView — skeleton rows zamiast "Ładowanie..."
+- Komponent `<TableSkeleton :rows="5" />`
+- View transitions (`<Transition name="fade" mode="out-in">`)
+- Toast z ikoną (✓/⚠️/ℹ)
+- ConfirmDialog z konkretnym obiektem ("Usuniesz umowę U/2024/123...")
+- Glossary skrótów (PNA, ZO, FA, OID, S/U) — tooltip lub legenda
+
+**Łączna estymacja:** 4-5.5 dni (L) — 5 faz, każda niezależna
+
+---
+
+#### Glossary skrótów (do implementacji w Faza 5)
+
+| Skrót | Pełna nazwa |
+|-------|-------------|
+| PNA | Kod pocztowy (PNA) |
+| ZO | Protokół zdania obiektu (ZO) |
+| FA | Faktura (FA) |
+| OID | Identyfikator w Fakturownia (OID) |
+| S | Umowa najmu (S) |
+| U | Umowa usługi (U) |
+
+---
+
+**Estymacja:** 4-5.5 dni (L) — 5 faz, każda niezależna
+
+---
+
+## 📋 Tabela TL;DR
+
+| ID | Tytuł | P | Est. | Status | Następny krok |
+|----|-------|---|------|--------|---------------|
+| RAO-P1-014 | Frontend — błędne obliczanie daty końcowej okresu umowy | P1 | XS | user-verified | → client-approved |
+| RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | P1 | XS | team-verified | → user-verified |
+| RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | P1 | S | team-verified | → user-verified |
+| RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | dev-verified | → team-verified |
+| RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | P1 | XS | team-verified | → user-verified |
+| RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | dev-verified | → user-verified |
+| RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
+| RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | dev-verified | → team-verified (wartość z rozliczenia, read-only w formularzu) |
+| RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
+| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | review | → Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
+| RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | dev-verified | → user-verified |
+| RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | dev-verified | → team-verified (unique=True w model + DB index uq_contracts_number) |
+| RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | done | → done (autoescape=True w reports/service.py:588) |
+| RAO-P0-032 | build_contract_data mutuje sesję — kopiuj description | P0 | XS | done | → done (lokalne kopie description w fees_data) |
+| RAO-P0-033 | recalculate_total — użyj algorytmu kaskadowego | P0 | S | dev-verified | → team-verified |
+| RAO-P0-034 | ContractUpdate schema z exclude_unset=True (lost data) | P0 | M | dev-verified | → team-verified |
+| RAO-P0-035 | N+1 queries — selectinload w list_contracts/positions/articles | P0 | M | dev-verified | → team-verified |
+| RAO-P0-036 | Stack trace disclosure → detail="Błąd" + logging | P0 | XS | dev-verified | → team-verified (global exception handler w main.py) |
+| RAO-P1-037 | delete_contract — guard na is_settled | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-038 | Brak indeksów DB (is_settled, created_at, salesperson_id, print_date, delivery_date) | P1 | S | dev-verified | → team-verified |
+| RAO-P1-039 | Walidacja date_from > date_to + ujemne kwoty w ContractCreate | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-040 | is_settled blokuje mutacje (update/delete positions) | P1 | S | dev-verified | → team-verified |
+| RAO-P1-041 | Hardcoded JWT fallback "change-me" — usuń + wymuś z env | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-042 | Frontend: logout czyści stores + redirect po login + baseURL z env | P1 | S | dev-verified | → team-verified |
+| RAO-P1-043 | Frontend: memory leaks — cleanup event listenerów i timerów | P1 | S | dev-verified | → team-verified |
+| RAO-P1-044 | Frontend: localStorage.getItem('token') → 'rao_token' | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-045 | _build_conditions_text — użyj format_position_conditions_cascading (dedup) | P1 | XS | dev-verified | → team-verified |
+| RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
+| RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | dev-verified | → team-verified (in-memory limiter w auth/rate_limit.py, 5/60s/IP, 429+Retry-After) |
+| RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | dev-verified | → team-verified (warunkowe docs_url/redoc_url/openapi_url z RAO_ENV w main.py) |
+| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | dev-verified | → team-verified (komponent StateMessage.vue + integracja w DashboardView/ArchiveView/SettingsView/PeriodRentalTab; vue-tsc + build PASS) |
+| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | dev-verified | → team-verified (validateForm w ContractFormView/ContractorFormView/ArticleFormView; fieldErrors + czerwony border + blokada submit; vue-tsc + build PASS) |
+| RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | triaged | → in_progress |
+| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → done |
+| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → done (single compute + limit/offset/total_count, backward compat) |
+| RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | dev-verified | → team-verified (normalize w settings/service.py + ALTER TABLE polish_ci w main.py) |
+| RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | triaged | → in_progress |
+| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → done (endpoint /stats/by-contract-type + aggregate_by_contract_type w calc.py) |
+| RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | dev-verified | → team-verified (is_external nie blokuje + checkbox w details) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
+| RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | triaged | → in_progress (Faza 1: parser legacy + migracja + UI + template items) |
+| RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | done | Faza 1+2 done (6 bugów + indeksy + StatsView), merge do AnalyticsView via P2-063 |
+| RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
+| RAO-P2-067 | Demo data refactor — migrate_all.py orchestrator + FA-pending contracts + delivery_address | P2 | M | done | 31 faktur FA (19 backfill + 12 FA-pending), delivery_address z miastami, hardcoded token usunięty |
+| RAO-P2-068 | Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta" | P2 | M | done | 5 cenników kaskadowych per maszyna, 6 presetów usług, 22 ServiceFeeTemplateItem, 6 rate types, pełna konfiguracja firmy |
+| RAO-P2-069 | Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście | P2 | M | done | Toggle Miasto/PNA w LocationsTab, 1 wiersz per miasto (Warszawa 3978 PNA → 1), drill-down /locations/city/{city} z pna_breakdown |
+| RAO-P2-070 | Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation) | P2 | L | triaged | 30 usterek UX (8 HIGH, 13 MEDIUM, 9 LOW); 5 faz: toasty, cross-view drilldown, sort, filtry, goBack |
+| RAO-P3-071 | Audyt UX — czytelność, spójność, przyjemność poruszania się | P3 | L | triaged | 14 usterek (5 HIGH, 6 MEDIUM, 3 LOW) + a11y + polish; 5 faz: font-size, formatowanie, a11y, design system, skeleton |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
+
+**Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
+
+### Pipeline weryfikacji (status flow)
+
+```
+triaged → in_progress → dev-verified → team-verified → user-verified → client-approved (done)
+           │              │               │               │               │
+           Devin koduje   Devin testuje   Software-house  Ty wzrokowo    Klient zatwierdza
+           zmianę         programatycz.   subagenty       w UI/PDF        → zadanie zamknięte
+                          (Playwright,    (QA, Security,
+                           PyMuPDF,       UX, PO, Tech
+                           pytest,        Lead review)
+                           vue-tsc)
+```
+
+---
+
+## 🔍 Pre-existing issues (znalezione przez security audit P1-015)
+
+### [RAO-SEC-001] IDOR — `/reports/contract/{id}` bez ownership check
+
+```yaml
+id: RAO-SEC-001
+priority: P1
+size: S
+status: done
+classification: security/idor
+roles: [backend-dev, security-auditor]
+source: security-audit
+source_date: 2026-06-29
+source_ref: "Security audit P1-015 — subagent security-auditor"
+specs_to_update:
+  - core/25_security.md
+migration_impact: no
+security_impact: yes
+done_date: 2026-07-01
+fix: "_check_contract_access() w reports/router.py — admin full access, non-admin tylko własny branch, fetch contract przed PDF gen (early 404/403)"
+verification:
+  - "py_compile reports/router.py: OK"
+  - "curl POST /reports/contract/999999 (admin): 404 (contract not found)"
+  - "smoke 01-login.spec.ts: 11/11 passed"
+```
+
+**Problem:** Endpoint `POST /reports/contract/{contract_id}` wymaga autentykacji (`get_current_user`), ale **nie sprawdza ownership/tenant** — każdy zalogowany użytkownik może wygenerować PDF (z telefonami klienta) dla cudzej umowy znając `contract_id`.
+
+**Atak:** Enumeracja `contract_id` → pozyskanie danych kontaktowych (telefony, adres dostawy) klientów innych handlowców.
+
+**Fix:** W `reports/router.py` (lub `service.py`) dodać weryfikację:
+```python
+if contract.created_by != current_user.id and current_user.role != "admin":
+    raise HTTPException(403)
+```
+
+**Pliki do zmiany:**
+- `backend/reports/router.py`
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S)
+
+---
+
+### [RAO-SEC-002] Jinja2 bez `autoescape=True` w reports/service.py
+
+```yaml
+id: RAO-SEC-002
+priority: P1
+size: S
+status: done
+classification: security/injection
+roles: [backend-dev, security-auditor]
+source: security-audit
+source_date: 2026-06-29
+source_ref: "Security audit P1-015 — subagent security-auditor"
+implementation_date: 2026-07-01
+note: "Już naprawione — autoescape=True w reports/service.py:588"
+specs_to_update:
+  - core/25_security.md
+migration_impact: no
+security_impact: yes
+```
+
+**Problem:** `Environment(loader=FileSystemLoader(template_dir))` w `backend/reports/service.py` utworzony **bez `autoescape=True`**. Użytkownik może wstrzyknąć HTML/JS w pola `notes`, `contractor_name`, `contact_person1` → trafia do PDF WeasyPrint (SSRF, data exfiltration).
+
+**Fix:** `Environment(loader=FileSystemLoader(template_dir), autoescape=True)` + przetestować wszystkie szablony PDF pod kątem niezamierzonego escapowania polskich znaków.
+
+**Pliki do zmiany:**
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S) — wymaga testów wszystkich szablonów PDF
+
+---
+
+## 🗂️ Materiały referencyjne
+
+**Sprint 2026-06-29 (nowe zgłoszenia):**
+- `spec/backlog/do_wciagniecia_do_backlogu.md` — 10 punktów od klienta (surowy markdown)
+- `Pasted image 20260629223748.png` (root repo) — P1-014: błędne obliczenie daty
+- `Pasted image 20260629223936.png` (root repo) — P1-016: protokół ZO bez adresu dostawy
+- `Pasted image 20260629224212.png` (root repo) — P1-019: umowa usługi U872/2026 z żółtym tłem
+- `Pasted image 20260629224534.png` (root repo) — P1-020: format rozliczenia kaskadowego
+- `Pasted image 20260629224602.png` (root repo) — P1-021: sekcja Warunki Finansowe z pustym Wartość
+- `Pasted image 20260629225003.png` (root repo) — P1-022: lista umów z niespójnym nazewnictwem
+- Raporty vision: `Pasted image 20260629*-vision-report.md` (root repo)
+
+**Stara aplikacja WinForms (referencja):**
+- `C:\projects\repos\AppRao\rao\FormW.cs` linia 690-750 — algorytm formatowania warunków kaskadowych
+
+**Aktualne szablony PDF:**
+- `backend/reports/templates/contract_u.html` — umowa usługi (typ U)
+- `backend/reports/templates/contract.html` — umowa najmu (typ S)
+- `backend/reports/templates/protocol_zo.html` — protokół zdawczo-odbiorczy
+- `backend/reports/templates/protocol_zo_u.html` — protokół wykonania usługi
+- `backend/reports/templates/protocol_zo_nodata*.html` — warianty bez danych
+
+---
+
+## 📋 Decyzje operatora (2026-06-30)
+
+### RAO-P1-021 — Pole „Wartość (zł)" → ekran rozliczenia
+**Decyzja:** Pole „Wartość" przechodzi do **ekranu rozliczenia** (nie formularz umowy). Tam wartość jest pobierana:
+- Z **Fakturowni** (kwota z faktury), LUB
+- Wprowadzona **ręcznie** na bazie pozycji umowy z uzupełnionymi kwotami
+
+**Implementacja:** Ekran rozliczenia pobiera pozycje umowy, pozwala uzupełnić kwoty (auto z Fakturowni lub ręcznie), sumuje → wartość umowy. Pole „Wartość" w formularzu umowy zostaje ukryte/puste (przedpłata dopisana z góry, wartość nieznana do rozliczenia).
+
+---
+
+### RAO-P2-028 — Statystyki miast via PNA (PILNE)
+**Decyzja:** Grupuj po **postal_code (PNA)** + miasto (precyzyjne).
+**Uwaga operatora:** Jedno miasto ma wiele PNA — trzeba ustalić **skąd uzupełnić PNA** dla miast.
+**Pilne** — wymaga analizy źródeł danych PNA (tabela postal_codes, integracja TERYT, GUS).
+
+---
+
+### RAO-P2-046 — IDOR / RBAC
+**Decyzja:** **Brak izolacji** na ten moment (single-tenant, wszyscy widzą wszystko).
+Wraz z rozwojem aplikacji będziemy zarządzać uprawnieniami do różnych zasobów.
+**Akcja:** Zostaw tylko SEC-001 (PDF ownership check). P2-046 odłożone.
+
+---
+
+### RAO-P2-057 — is_external (maszyna zewnętrzna)
+**Decyzja:** Maszyna external **nie blokuje** dodawania w wielu miejscach (nie wpływa na rentowność).
+- Ma być **możliwe do wyboru w detailsach maszyny** podczas dodawania
+- Sprawdzić **mechanizm blokowania maszyn** (czy external poprawnie nie blokuje)
+- Sprawdzić vs **wyliczanie dni umowy** czy maszyny będą poprawnie blokowane
+- **Blokada = pytanie z informacją** gdzie i dlaczego jest zablokowana maszyna, czy na pewno chcesz ją dodać/wypożyczyć
+- **Obgadać z teamem** (subagenty: backend-dev + qa-engineer + product-owner)
+
+---
+
+## 📋 Audyt wymagań klienta (2026-07-01) — Tech Lead
+
+### Wymagania klienta — status spełnienia
+
+| # | Wymaganie | Status | Uwagi |
+|---|-----------|--------|-------|
+| 1 | Statystyki wynajmu maszyny (po nr wewn.) w okresie — stopa zwrotu | **SPEŁNIONE z błędem** | `top-machines` + `explorer/machines/{id}` (utilization_pct). BŁĄD: rozjazd przychodu 41% między explorer a stats |
+| 2 | Ile maszyn jest teraz wynajętych | **SPEŁNIONE** | `currently-rented` + `fleet-summary` |
+| 3 | Dodanie numeru wewnętrznego do maszyny | **SPEŁNIONE funkcjonalnie, 0% danych** | `articles.internal_number` istnieje, ale 0/337 maszyn ma wypełnione (CSV nie istnieje, INSERT nie mapuje) |
+| 4 | Filtrowanie pozycji dodatkowych (transport, mycie) w okresach | **SPEŁNIONE** | `additional-fees` endpoint + UI |
+| 5 | Filtrowanie miejscowości i ilości wynajmów | **SPEŁNIONE** | `stats/locations` + `explorer/locations` (po PNA, z gmina/powiat/woj) |
+| 6 | Rezerwacja maszyny (blokada, info kiedy dostępny) | **SPEŁNIONE** | `articles/{id}/availability` + ArticlePicker z badge |
+
+### Odkryte problemy — do analizy i decyzji
+
+#### [RAO-P2-030] internal_number puste (0% maszyn) — BLOKER dla wymagan 1+3
+
+```yaml
+id: RAO-P2-030
+priority: P2
+size: M
+status: wont-fix
+classification: bugfix/migration-data
+roles: [db-architect, backend-dev]
 source: tech-lead-audit
 source_date: 2026-07-01
 source_ref: "Audyt wymagań klienta — wymaganie 3 (numer wewnętrzny)"
@@ -4326,6 +6938,659 @@ note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone
   2. `onAddressSelect` — wypełnia postal_code+city z adresu kontrahenta + auto PNA lookup
   3. `onPostalCodeBlur` — refactor na reusable `lookupPna()`
 - **Weryfikacja:** vue-tsc exit 0, build OK
+
+```yaml
+id: RAO-P2-069
+priority: P2
+size: M
+status: done
+classification: cross-stack
+roles: [backend-dev, frontend-dev, product-owner]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/02_backend_api.md (endpoint /locations/city/{city} + group_by param)
+migration_impact: no
+security_impact: no
+depends_on:
+  - RAO-P2-028 (Agregacja PNA z LEFT JOIN do postal_codes)
+verification:
+  - "vue-tsc --noEmit: PASS"
+  - "npm run build: PASS (643ms)"
+  - "curl /explorer/locations?group_by=city: Warszawa → 1 wiersz (postal_code=null)"
+  - "curl /explorer/locations?group_by=pna: Warszawa 00-002 → 1 wiersz z PNA"
+  - "curl /explorer/locations/city/Warszawa: 200 OK z pna_breakdown + top_machines"
+  - "Playwright screenshot: toggle Miasto/PNA działa, kolumna PNA warunkowa"
+```
+
+**Problem:**
+
+W zakładce "Lokalizacje" w AnalyticsView każde miasto było rozbite na kody pocztowe — Warszawa (3978 PNA w słowniku) mogła mieć wiele wierszy zamiast jednego. User chciał: "ma być miasto do wielu kodów pocztowych" — jeden wiersz per miasto, z opcją rozbicia na PNA jeśli potrzeba.
+
+**Cel:** Toggle Miasto/PNA w UI. Domyślnie miasto (1 wiersz per miasto, sumuje wszystkie PNA). Drill-down po mieście pokazuje rozbicie na PNA.
+
+---
+
+#### Scope implementacji
+
+**Backend:**
+1. `shared/locations.py` — `aggregate_by_pna()` dostaje `group_by='city'|'pna'` (domyślnie 'city'):
+   - `city`: klucz = (city, gmina, powiat, wojewodztwo) — 1 wiersz per miasto, `postal_code=null`
+   - `pna`: klucz = (postal_code, city) — 1 wiersz per PNA (legacy)
+2. `explorer/router.py` — `GET /explorer/locations` dostaje `?group_by=city|pna` (domyślnie city)
+3. `explorer/router.py` — nowy `GET /explorer/locations/city/{city}` — drill-down po mieście:
+   - Sumuje wszystkie PNA w mieście (case-insensitive)
+   - Zwraca `pna_breakdown` (rozbicie na kody pocztowe)
+   - Top maszyny (10) + top kontrahenci (5) filtrowani po mieście
+   - `metrics.pna_count` — ile kodów PNA w mieście
+
+**Frontend:**
+1. `stores/analytics.ts` — `fetchLocationsRanking()` dostaje `groupBy` param; nowy `fetchCityDetails()`
+2. `LocationsTab.vue` — toggle "Miasto / PNA" w nagłówku sekcji ranking
+3. Kolumna PNA warunkowa (tylko w trybie PNA)
+4. `onRowClick` — w trybie city wywołuje `openDrillDown('location', 'city:'+city, city)`
+5. `AnalyticsView.vue` — drill-down po mieście pokazuje `pna_breakdown` sekcję + `pna_count` w metrics
+
+---
+
+#### Weryfikacja (2026-07-04)
+
+- `vue-tsc --noEmit`: PASS
+- `npm run build`: PASS (643ms)
+- `curl /explorer/locations?group_by=city`: Warszawa → 1 wiersz (postal_code=null, gmina=Warszawa, woj=mazowieckie)
+- `curl /explorer/locations?group_by=pna`: Warszawa 00-002 → 1 wiersz z PNA
+- `curl /explorer/locations/city/Warszawa`: 200 OK — city, gmina, powiat, wojewodztwo, metrics (pna_count=1), pna_breakdown, top_machines, top_contractors
+- Playwright: toggle Miasto/PNA działa, kolumna PNA pojawia się tylko w trybie PNA, drill-down po mieście otwiera drawer "📍 Kraków / Umowy w mieście (wszystkie PNA)"
+
+---
+
+#### Pliki zmienione
+
+| Plik | Zmiana |
+|------|--------|
+| `backend/shared/locations.py` | +`group_by` param (city/pna), klucz agregacji zależny od trybu |
+| `backend/explorer/router.py` | +`group_by` query param, +`/locations/city/{city}` endpoint, +import defaultdict |
+| `frontend/src/stores/analytics.ts` | +`groupBy` param w fetchLocationsRanking, +fetchCityDetails, +pna_breakdown w LocationDetailsResponse |
+| `frontend/src/components/analytics/tabs/LocationsTab.vue` | +toggle Miasto/PNA, kolumna PNA warunkowa, onRowClick per tryb |
+| `frontend/src/views/AnalyticsView.vue` | +sekcja pna_breakdown w drill-down, +metric pna_count |
+
+---
+
+**Estymacja:** 3-4h (M) — backend (1.5h) + frontend (1.5h) + weryfikacja (0.5h)
+
+---
+
+### [RAO-P2-070] Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation)
+
+```yaml
+id: RAO-P2-070
+priority: P2
+size: L
+status: triaged
+classification: frontend/ux
+roles: [ux-designer, frontend-dev, product-owner]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/03_frontend_screens.md (drilldowny cross-view)
+  - core/06_navigation_flow.md (cross-view navigation, goBack → router.back)
+  - core/18_ux_improvements.md (toast zamiast alert, feedback po zapisie)
+migration_impact: no
+security_impact: no
+depends_on: []
+blocks: []
+verification: []
+```
+
+**Problem:**
+
+Aplikacja ma solidne podstawy (drilldown w Analytics/Archive, skeleton loadery, empty states, active sidebar). Ale **codzienne flow usera** jest utrudnione — brakuje cross-view drilldownów (kontrahent↔umowa↔maszyna), sortowania po kolumnach w Dashboard, kluczowych filtrów (handlowiec, miasto), oraz `alert()` zamiast toastów w 25+ miejscach.
+
+**Cel:** Aplikacja w pełni interaktywna — user może "przeskakiwać" między encjami bez ręcznego szukania, każdy zapis/akcja ma feedback, każda lista ma filtry i sortowanie.
+
+---
+
+#### Audyt UX (2026-07-04) — 30 usterek w 3 priorytetach
+
+##### 🔴 HIGH — Blokuje codzienną pracę (8 usterek)
+
+| # | Usterka | Widok | User pain | Stara aplikacja |
+|---|---------|-------|-----------|-----------------|
+| B1 | Brak drilldown z listy umów → kontrahent | DashboardView /contracts | Ręczne szukanie kontrahenta w sidebar | WinForms: context menu / double-click |
+| B2 | Brak kolumny "Maszyny" w liście umów | DashboardView /contracts | Trzeba otwierać każdą umowę | WinForms: tooltip / dialog "?" |
+| B3 | Brak drilldown z kontrahenta → jego umowy | DashboardView /contractors | "Aktywna umowa" nie jest klikalna | WinForms: double-click → historia umów |
+| B4 | Brak drilldown z artykułu → historia wynajmów | DashboardView /articles | Trzeba kombinować z Analytics | WinForms: FormA.cs podgląd historii |
+| B5 | Brak sortowania po kolumnach w DashboardView | DashboardView (3 sekcje) | Klik w nagłówek nie sortuje | WinForms: DataGridView sortował |
+| B6 | `alert()` zamiast toastów — 25+ miejsc | 9 widoków (ContractForm 18×, ContractorForm 5×, Archive 5×, Admin 6×, inne) | Blokuje aplikację, legacy pattern | WinForms: MessageBox (web ≠ MessageBox) |
+| B7 | Brak toastu po zapisie umowy/kontrahenta/artykułu | ContractForm, ContractorForm, ArticleForm | User nie wie czy zapisano → duplikat | WinForms: "Zapisano" w status bar |
+| B8 | Brak filtra "Handlowiec" i "Miasto" w liście umów | DashboardView /contracts | Handlowiec nie widzi swoich umów | WinForms: filtry handlowca w toolbarze |
+
+##### 🟡 MEDIUM — Frustrujące, user radzi sobie obejściem (13 usterek)
+
+| # | Usterka | Widok |
+|---|---------|-------|
+| B9 | Brak drilldown z umowy → edycja kontrahenta | ContractFormView |
+| B10 | Brak drilldown z umowy → edycja maszyny (z pozycji) | ContractFormView (PositionGrid) |
+| B11 | Brak drilldown z umowy → faktura w Fakturownia | ContractFormView (panel FA) |
+| B12 | Brak drilldown z CommissionView → umowy handlowca | CommissionView |
+| B13 | Brak drilldown z drill-machine-rentals → konkretna umowa | AnalyticsView (drawer machine) |
+| B14 | Brak drilldown z top_contractors → kontrahent | AnalyticsView (drawer location) |
+| B15 | Brak breadcrumb w formularzach | ContractForm, ContractorForm, ArticleForm |
+| B16 | `goBack` hardcoded zamiast `router.back()` | ContractForm, ContractorForm, ArticleForm |
+| B17 | Brak filtra "Tylko z aktywną umową" w kontrahentach | DashboardView /contractors |
+| B18 | Brak filtra kategoria/marka/typ w artykułach | DashboardView /articles |
+| B19 | Brak kalendarza umów (spec 06 sekcja 3) | DashboardView /contracts |
+| B20 | Brak toolbar [?] — podgląd szczegółów bez edycji | DashboardView |
+| B21 | Brak context menu "Dodaj umowę" w kontrahentach | DashboardView /contractors |
+
+##### 🟢 LOW — Polish / nice-to-have (9 usterek)
+
+| # | Usterka | Widok |
+|---|---------|-------|
+| B22 | Brak hover indicatora na klikalnych wierszach | ArchiveView |
+| B23 | Brak undo dla destruktywnych akcji | DashboardView, ContractorForm |
+| B24 | Brak sticky header w tabelach | DashboardView, ArchiveView |
+| B25 | Brak filtra "Okres" w kontrahentach i artykułach | DashboardView |
+| B26 | Brak paginacji w drilldown drawers | AnalyticsView |
+| B27 | Brak "Eksportuj CSV/PDF" z list | DashboardView, AnalyticsView |
+| B28 | Brak tooltipów na ikonach w toolbarze | ContractFormView |
+| B29 | Brak drilldown z HomeView KPI → filtrowana lista | HomeView |
+| B30 | Brak drilldown z HomeView "Dostawy" → umowa | HomeView |
+
+---
+
+#### Mapa pożądanych interakcji (cross-view navigation)
+
+| Z widoku | Klik w | Powinno otworzyć | Priorytet |
+|----------|--------|------------------|-----------|
+| Dashboard /contracts | Nazwa kontrahenta | `/contractors/:id/edit` | HIGH |
+| Dashboard /contracts | Maszyna (nowa kolumna) | `/articles/:id/edit` lub drilldown | HIGH |
+| Dashboard /contracts | Nagłówek kolumny | Sort ASC/DESC | HIGH |
+| Dashboard /contracts | Filtr Handlowiec | Lista filtrowana po `salesperson_id` | HIGH |
+| Dashboard /contracts | Filtr Miasto | Lista filtrowana po `city` | HIGH |
+| Dashboard /contractors | Numer aktywnej umowy | `/contracts/:id/edit` | HIGH |
+| Dashboard /contractors | Right-click → "Dodaj umowę" | `/contracts/new?contractor_id=:id` | HIGH |
+| Dashboard /articles | Numer aktywnej umowy | `/contracts/:id/edit` | HIGH |
+| Dashboard /articles | "Historia wynajmów" | Drawer jak w Analytics | HIGH |
+| ContractForm | "✎ Edytuj" obok kontrahenta | `/contractors/:id/edit` (nowa karta) | MEDIUM |
+| ContractForm | Nazwa artykułu w pozycji | `/articles/:id/edit` (nowa karta) | MEDIUM |
+| ContractForm | Faktura w panelu FA | `window.open(invoice.url)` | MEDIUM |
+| Analytics /drill-machine | Wiersz rental (umowa) | `/contracts/:contract_id/edit` | MEDIUM |
+| Analytics /drill-location | Wiersz top_contractor | `/contractors/:id/edit` | MEDIUM |
+| Commission | Wiersz handlowca | `/dashboard/contracts?salesperson_id=:id` | MEDIUM |
+| HomeView | KPI card | `/worker` lub `/dashboard/contracts` z filtrem | MEDIUM |
+| HomeView | Dostawa (delivery-row) | `/contracts/:contract_id/edit` | MEDIUM |
+| Wszystkie formularze | Toolbar "←" | `router.back()` z fallbackiem | MEDIUM |
+| Wszystkie błędy | API error | Toast error (NIE `alert()`) | HIGH |
+| Wszystkie formularze | Po Zapisz | Toast success | HIGH |
+
+---
+
+#### Rekomendowana kolejność implementacji (5 faz)
+
+**Faza 1 — Toasty zamiast alert() + feedback po zapisie (B6, B7)** — quick win, 25+ miejsc
+- Komponent `Toast.vue` i `useToastStore` już istnieją (używane w 1 miejscu)
+- Czysta zamiana `alert(err)` → `toastStore.showToast(msg, 'error')`
+- Dodać toast success po zapisie we wszystkich formularzach
+- Est: 4-6h (S)
+
+**Faza 2 — Cross-view drilldown z list (B1, B3, B4)** — najczęstszy flow codzienny
+- DashboardView /contracts: nazwa kontrahenta → link, kolumna "Maszyny" → link
+- DashboardView /contractors: `active_contract_number` → link, context menu "Dodaj umowę"
+- DashboardView /articles: `active_contract_number` → link, akcja "Historia wynajmów"
+- Est: 6-8h (M)
+
+**Faza 3 — Sortowanie po kolumnach w DashboardView (B5)** — `useSort` już istnieje
+- Przenieść pattern z `ExplorerTab.vue` / `AnalyticsTable.vue`
+- 3 tabele: contracts, contractors, articles
+- Est: 3-4h (S)
+
+**Faza 4 — Filtry: Handlowiec + Miasto w liście umów (B8)** — wymaga backend
+- Dodać `salesperson_id` i `city` do `GET /contracts` query params (backend)
+- Dodać `<select>` i `<input>` w grid-header (frontend)
+- `settingsStore.salespeople` już załadowany
+- Est: 4-5h (S)
+
+**Faza 5 — goBack → router.back() + drilldown w Analytics/HomeView (B13-B16, B29-B30)** — polish
+- `goBack` używające `router.back()` z fallbackiem
+- Drilldown z drawer Analytics → konkretna umowa
+- KPI cards w HomeView klikalne
+- Est: 4-6h (S)
+
+**Łączna estymacja:** 21-29h (L) — 5 faz, każda niezależna (można robić sekwencyjnie)
+
+---
+
+#### Co działa dobrze (nie wymaga zmian)
+
+- ✅ HomeView — klik w umowę w panelach → edycja
+- ✅ WorkerView — klik w umowę/dostawy → edycja, filtry dni
+- ✅ AnalyticsView — drilldown machine/location, filtry (date, type, contractor, city)
+- ✅ ArchiveView — drilldown umów, filtry (search, typ, data, kategoria), paginacja
+- ✅ ExplorerTab — klik w wynik → edycja, search + sort
+- ✅ ContractFormView — picker kontrahenta/art/dostawcy, inline form, conflict modal
+- ✅ ContractorFormView — "+ Umowa" → auto-fill, GUS lookup
+- ✅ AppSidebar — active state per section
+- ✅ AppLayout — Ctrl+N = nowy, Esc = back
+
+---
+
+#### Edge cases do obsługi w implementacji
+
+- [ ] **Error state:** Tylko ArchiveView/AnalyticsView mają retry; reszta = `alert('Błąd')`
+- [ ] **Success feedback:** Tylko CommissionView (toast); reszta = brak
+- [ ] **Slow connection:** Brak timeout indicatora
+- [ ] **Long content:** DashboardView paginacja (50/strona, brak wyboru per-page)
+- [ ] **Soft delete vs hard delete:** Usunięcie kontrahenta z aktywnymi umowami — blokować LUB soft-delete
+
+---
+
+**Estymacja:** 21-29h (L) — 5 faz, każda niezależna
+
+---
+
+### [RAO-P3-071] Audyt UX — czytelność, spójność, przyjemność poruszania się
+
+```yaml
+id: RAO-P3-071
+priority: P3
+size: L
+status: triaged
+classification: frontend/ux
+roles: [ux-designer, ui-designer, frontend-dev]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/09_design_reference.md (jeden source of truth zmiennych CSS, font-size minima)
+  - core/03_frontend_screens.md (skeleton loaders, breadcrumb, page-title)
+  - core/18_ux_improvements.md (glossary skrótów, ConfirmDialog konkretne obiekty)
+migration_impact: no
+security_impact: no
+depends_on: []
+blocks: []
+verification: []
+```
+
+**Problem:**
+
+Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z semantycznym kolorem, mikro-animacje, sticky headers, keyboard shortcuts). Ale po 8h pracy operatora boli głowa od czytania — 56 miejsc z `font-size: 11px`, 3 różne formaty walut, 2 różne formaty dat, żargon bez tooltipów (PNA, ZO, FA), niespójny design system (CommissionView łamie wszystko), brak a11y (aria-label, focus states, kontrast poniżej WCAG AA).
+
+**Cel:** Aplikacja przyjemna w użyciu po 8h pracy — czytelna, spójna, dostępna, z mikro-polishem.
+
+---
+
+#### Audyt UX (2026-07-04) — czytelność, spójność, przyjemność
+
+##### Co działa dobrze (nie wymaga zmian)
+
+- ✅ Skeleton loaders (HomeView, WorkerView, AnalyticsTable, DrillDownDrawer)
+- ✅ Empty states z CTA (DashboardView, HomeView panele)
+- ✅ KPI cards z semantycznym kolorem (kpi-ok/warn/danger/info)
+- ✅ Live preview warunków kaskadowych (ConditionPanel)
+- ✅ Help section wbudowany ("📖 Jak wpisać warunki?")
+- ✅ Polskie formatowanie w AnalyticsView (Intl PLN, toLocaleDateString pl-PL)
+- ✅ Mikro-animacje (LoginView shake, nav-tile hover, KPI hover, btn:active scale)
+- ✅ Archive separator pomarańczowy + banner ostrzegawczy
+- ✅ Keyboard shortcuts (Ctrl+N, Escape, Enter/Esc inline edit)
+- ✅ Print CSS, sticky table headers, DrillDownDrawer z Teleport + Esc
+
+##### 🔴 HIGH — 5 usterek blokujących czytelność
+
+| # | Usterka | Widok | User pain |
+|---|---------|-------|-----------|
+| B1 | `font-size: 11px` × 56 miejsc — za mały do 8h pracy | DashboardView, HomeView, WorkerView, AdminView, SettingsView, ContractFormView | Ból głowy po 2h, starsi pracownicy nie przeczytają |
+| B2 | `font-size: 10px` (del-chip) i `9px` (sidebar-logo-sub) | WorkerView, AppSidebar | Kluczowa informacja (data dostawy) nieczytelna |
+| B3 | 3 różne formaty walut — `Intl PLN` vs `toFixed(2)+' zł'` vs `toLocaleString` | AnalyticsView ✅, ContractFormView ❌, ConditionPanel ❌, CommissionView ✅ | Pomyłki w odczycie przy porównywaniu z fakturą |
+| B4 | 2 różne formaty dat — "01.02.2026" vs "1.2.2026" | HomeView ✅ (leading zero), DashboardView/ContractFormView ❌ | Skanowanie tabeli przerywane — wygląda jak inna data |
+| B5 | Żargon bez tooltipów — PNA, ZO, FA, OID, S/U | ContractFormView, DashboardView, ArticleFormView, ArchiveView | Nowy user pyta kolegę "co to ZO?" — wstyd, strata czasu |
+
+##### 🟡 MEDIUM — 6 usterek spójności i komfortu
+
+| # | Usterka | Widok |
+|---|---------|-------|
+| B6 | Kolumna "Adres dostawy" 11px + max 180px + pre-wrap | DashboardView |
+| B7 | "X rekordów" zamiast "X umów" — żargon bazodanowy | DashboardView (4 sekcje) |
+| B8 | Toolbar ikony `− + ⎙ ? ∑ 💰` bez etykiet tekstowych | AppToolbar, ContractFormView |
+| B9 | Numbers nie wyrównane do prawej w tabelach | DashboardView, ArchiveView |
+| B10 | CommissionView całkowicie własny styl — hardcoded kolory, rem, 4-8px radius, `.data-table` zamiast `.data-grid` | CommissionView |
+| B11 | Dwa konfliktujące systemy zmiennych CSS — `style.css` vs `variables.css` (różne odcienie navy, różne font-size) | Global |
+
+##### 🟢 LOW — 3 usterek polish
+
+| # | Usterka |
+|---|---------|
+| B12 | Spacing niespójny między widokami (padding 12px/20px/24px/32px) |
+| B13 | "Pulpit" w sidebar vs "Pulpit operacyjny" w WorkerView — niespójna nazwa |
+| B14 | ArchiveView tab labels identyczne jak sekcje główne (ryzyko pomyłki) |
+
+##### Usterki spójności wizualnej (tabela)
+
+| Element | Gdzie spójne | Gdzie niespójne |
+|---------|-------------|-----------------|
+| Kolor primary | variables.css `#0F234E` | style.css `#1D2B53`, WorkerView hardcoded, CommissionView hardcoded |
+| Border-radius kart | 12px (layout.css) | WorkerView 10px, CommissionView 8px, HomeView nav-tile 6px |
+| Styl tabeli | `.data-grid` (navy header, zebra, hover) | CommissionView `.data-table` (jasny header, brak zebra) |
+| Styl przycisków | `.btn` (pill 24px) | CommissionView 5px, HomeView 12px, LoginView redefine |
+| Badge statusu | tables.css (success/warning/danger/info/muted) | DashboardView (badge-settled/overdue/active — nie zdefiniowane!) |
+| Karty KPI | HomeView własny, KpiRow.vue własny | Dwa różne komponenty KPI, różny styling |
+| Loading state | HomeView/WorkerView skeleton | DashboardView/AdminView/SettingsView/ArchiveView tekst "Ładowanie..." |
+| Ikony | Emoji (📊📦⏰🖨) | Unicode symbole (⌕ ⎙ ∑ −) — mix |
+| Toast kolory | hardcoded `#10b981/#ef4444` | Design system `--color-success/danger` (inne odcienie) |
+| Tło widoku | `#F8F9FA` (layout.css) | HomeView `#F4F6FB`, WorkerView `#F4F6FB`, CommissionView białe |
+
+##### Usterki dostępności (a11y)
+
+| Element | Stan | Priorytet |
+|---------|------|-----------|
+| aria-label na icon buttons | Brak (16 aria/role w całej apce) | HIGH |
+| Label ↔ input powiązanie (for/id) | Brak | HIGH |
+| Focus state na przyciskach | Tylko `.form-control:focus`, brak na `.btn`/`.btn-icon`/`.toolbar-btn` | HIGH |
+| Kontrast muted text `#718096` na białym | ~4.0:1 — poniżej WCAG AA 4.5:1, przy 11px = fail | HIGH |
+| role="alert" na błędach | Brak | MEDIUM |
+| aria-invalid na polach z błędem | Brak | MEDIUM |
+| Modal focus trap | Brak (Tab wychodzi z modala) | MEDIUM |
+| Modal aria-modal | Brak `role="dialog" aria-modal="true"` | MEDIUM |
+| Skip-to-content link | Brak | LOW |
+| Touch target size | `.page-btn` 28×28, `.days-filter` ~24×20 — poniżej 44×44 | LOW |
+
+##### Usterki przyjemności/polish
+
+| Element | Stan | Rekomendacja |
+|---------|------|--------------|
+| View transitions | Brak `<Transition>` na router-view | `<Transition name="fade" mode="out-in">` |
+| Loading w 4 widokach | Tekst "Ładowanie..." | Skeleton rows (`.skeleton` już w animations.css) |
+| Toast bez ikony | Tylko kolor + tekst | Ikona ✓/⚠️/ℹ — szybsze skanowanie |
+| Toast bez undo | Success = info only | Przycisk "Cofnij" dla destruktywnych (5s) |
+| KPI hover ale nie clickable | `:hover { box-shadow }` bez `@click` | Albo usuń hover, albo dodaj cursor:pointer + klik |
+| ConfirmDialog generyczny | "Czy na pewno chcesz usunąć ten element?" | "Usuniesz umowę XYZ. Tej akcji nie można cofnąć." |
+| Brak "recently viewed" | — | Lista "Ostatnio otwarte umowy" w HomeView |
+| Brak keyboard hint w UI | Ctrl+N, Esc działają ale user nie wie | Tooltip w sidebar lub help overlay |
+
+---
+
+#### Rekomendowana kolejność implementacji (5 faz)
+
+**Faza 1 — Font-size + kontrast (HIGH impact, LOW effort)** — 1 dzień
+- Zamień `font-size: 11px` → 13px (dane), 12px (metadane); `10px` → 12px; `9px` → 11px
+- Sciemnij `--color-text-muted` z `#718096` → `#5A6B7E` (WCAG AA 4.5:1)
+- Każdy operator poczuje natychmiast
+
+**Faza 2 — Unifikacja formatowania dat i walut (HIGH impact, LOW effort)** — 0.5 dnia
+- Stwórz `composables/useFormat.ts` z `formatDate()`, `formatCurrency()`, `formatNumber()`
+- Zastąp 5 różnych implementacji (AnalyticsView ✅ wzorzec, ContractFormView ❌, ConditionPanel ❌, CommissionView ✅, HomeView ✅)
+- Zawsze `pl-PL` + `PLN` + 2 cyfry + leading zero w datach
+
+**Faza 3 — a11y: aria-label + focus states (HIGH impact, MEDIUM effort)** — 1-2 dni
+- `aria-label` na wszystkich icon buttons (−, +, ⎙, ?, ∑, 💰, ←, ✎, ✕)
+- `:focus-visible { outline: 2px solid var(--color-primary) }` globalnie
+- `for`/`id` na label/input, `role="alert"` na błędach, `aria-invalid` na polach z błędem
+- `role="dialog" aria-modal="true"` na modalach
+
+**Faza 4 — Unifikacja design system (MEDIUM impact, MEDIUM effort)** — 1 dzień
+- CommissionView — usuń scoped CSS, użyj `.data-grid`, `.page-card`, `.btn`, `--color-*`
+- WorkerView — zamień hardcoded `#0F234E` na `var(--color-primary)`, `#F4F6FB` na `var(--color-bg-app)`
+- Jeden plik zmiennych — usuń definicje kolorów/typografii z `style.css`, zostaw `variables.css`
+- Dodaj `badge-settled/overdue/active` do tables.css (lub użyj istniejących)
+- Połącz KPI komponenty (HomeView + KpiRow.vue → jeden)
+
+**Faza 5 — Skeleton loaders + polish (MEDIUM impact, LOW effort)** — 0.5-1 dzień
+- DashboardView, AdminView, SettingsView, ArchiveView — skeleton rows zamiast "Ładowanie..."
+- Komponent `<TableSkeleton :rows="5" />`
+- View transitions (`<Transition name="fade" mode="out-in">`)
+- Toast z ikoną (✓/⚠️/ℹ)
+- ConfirmDialog z konkretnym obiektem ("Usuniesz umowę U/2024/123...")
+- Glossary skrótów (PNA, ZO, FA, OID, S/U) — tooltip lub legenda
+
+**Łączna estymacja:** 4-5.5 dni (L) — 5 faz, każda niezależna
+
+---
+
+#### Glossary skrótów (do implementacji w Faza 5)
+
+| Skrót | Pełna nazwa |
+|-------|-------------|
+| PNA | Kod pocztowy (PNA) |
+| ZO | Protokół zdania obiektu (ZO) |
+| FA | Faktura (FA) |
+| OID | Identyfikator w Fakturownia (OID) |
+| S | Umowa najmu (S) |
+| U | Umowa usługi (U) |
+
+---
+
+**Estymacja:** 4-5.5 dni (L) — 5 faz, każda niezależna
+
+---
+
+## 📋 Tabela TL;DR
+
+| ID | Tytuł | P | Est. | Status | Następny krok |
+|----|-------|---|------|--------|---------------|
+| RAO-P1-014 | Frontend — błędne obliczanie daty końcowej okresu umowy | P1 | XS | user-verified | → client-approved |
+| RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | P1 | XS | team-verified | → user-verified |
+| RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | P1 | S | team-verified | → user-verified |
+| RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | dev-verified | → team-verified |
+| RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | P1 | XS | team-verified | → user-verified |
+| RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | dev-verified | → user-verified |
+| RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
+| RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | dev-verified | → team-verified (wartość z rozliczenia, read-only w formularzu) |
+| RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
+| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | review | → Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
+| RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | dev-verified | → user-verified |
+| RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | dev-verified | → team-verified (unique=True w model + DB index uq_contracts_number) |
+| RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | done | → done (autoescape=True w reports/service.py:588) |
+| RAO-P0-032 | build_contract_data mutuje sesję — kopiuj description | P0 | XS | done | → done (lokalne kopie description w fees_data) |
+| RAO-P0-033 | recalculate_total — użyj algorytmu kaskadowego | P0 | S | dev-verified | → team-verified |
+| RAO-P0-034 | ContractUpdate schema z exclude_unset=True (lost data) | P0 | M | dev-verified | → team-verified |
+| RAO-P0-035 | N+1 queries — selectinload w list_contracts/positions/articles | P0 | M | dev-verified | → team-verified |
+| RAO-P0-036 | Stack trace disclosure → detail="Błąd" + logging | P0 | XS | dev-verified | → team-verified (global exception handler w main.py) |
+| RAO-P1-037 | delete_contract — guard na is_settled | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-038 | Brak indeksów DB (is_settled, created_at, salesperson_id, print_date, delivery_date) | P1 | S | dev-verified | → team-verified |
+| RAO-P1-039 | Walidacja date_from > date_to + ujemne kwoty w ContractCreate | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-040 | is_settled blokuje mutacje (update/delete positions) | P1 | S | dev-verified | → team-verified |
+| RAO-P1-041 | Hardcoded JWT fallback "change-me" — usuń + wymuś z env | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-042 | Frontend: logout czyści stores + redirect po login + baseURL z env | P1 | S | dev-verified | → team-verified |
+| RAO-P1-043 | Frontend: memory leaks — cleanup event listenerów i timerów | P1 | S | dev-verified | → team-verified |
+| RAO-P1-044 | Frontend: localStorage.getItem('token') → 'rao_token' | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-045 | _build_conditions_text — użyj format_position_conditions_cascading (dedup) | P1 | XS | dev-verified | → team-verified |
+| RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
+| RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | triaged | → in_progress |
+| RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | triaged | → in_progress |
+| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | triaged | → in_progress |
+| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | triaged | → in_progress |
+| RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | triaged | → in_progress |
+| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
+| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
+| RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | dev-verified | → team-verified (normalize w settings/service.py + ALTER TABLE polish_ci w main.py) |
+| RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | triaged | → in_progress |
+| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
+| RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | dev-verified | → team-verified (is_external nie blokuje + checkbox w details) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
+| RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | triaged | → in_progress (Faza 1: parser legacy + migracja + UI + template items) |
+| RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | in-progress (Faza 1 done — 6 bugów + indeksy + cleanup; Faza 2 todo — StatsView.vue) |
+| RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
+| RAO-P2-067 | Demo data refactor — migrate_all.py orchestrator + FA-pending contracts + delivery_address | P2 | M | done | 31 faktur FA (19 backfill + 12 FA-pending), delivery_address z miastami, hardcoded token usunięty |
+| RAO-P2-068 | Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta" | P2 | M | done | 5 cenników kaskadowych per maszyna, 6 presetów usług, 22 ServiceFeeTemplateItem, 6 rate types, pełna konfiguracja firmy |
+| RAO-P2-069 | Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście | P2 | M | done | Toggle Miasto/PNA w LocationsTab, 1 wiersz per miasto (Warszawa 3978 PNA → 1), drill-down /locations/city/{city} z pna_breakdown |
+| RAO-P2-070 | Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation) | P2 | L | triaged | 30 usterek UX (8 HIGH, 13 MEDIUM, 9 LOW); 5 faz: toasty, cross-view drilldown, sort, filtry, goBack |
+| RAO-P3-071 | Audyt UX — czytelność, spójność, przyjemność poruszania się | P3 | L | triaged | 14 usterek (5 HIGH, 6 MEDIUM, 3 LOW) + a11y + polish; 5 faz: font-size, formatowanie, a11y, design system, skeleton |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
+
+**Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
+
+### Pipeline weryfikacji (status flow)
+
+```
+triaged → in_progress → dev-verified → team-verified → user-verified → client-approved (done)
+           │              │               │               │               │
+           Devin koduje   Devin testuje   Software-house  Ty wzrokowo    Klient zatwierdza
+           zmianę         programatycz.   subagenty       w UI/PDF        → zadanie zamknięte
+                          (Playwright,    (QA, Security,
+                           PyMuPDF,       UX, PO, Tech
+                           pytest,        Lead review)
+                           vue-tsc)
+```
+
+---
+
+## 🔍 Pre-existing issues (znalezione przez security audit P1-015)
+
+### [RAO-SEC-001] IDOR — `/reports/contract/{id}` bez ownership check
+
+```yaml
+id: RAO-SEC-001
+priority: P1
+size: S
+status: done
+classification: security/idor
+roles: [backend-dev, security-auditor]
+source: security-audit
+source_date: 2026-06-29
+source_ref: "Security audit P1-015 — subagent security-auditor"
+specs_to_update:
+  - core/25_security.md
+migration_impact: no
+security_impact: yes
+done_date: 2026-07-01
+fix: "_check_contract_access() w reports/router.py — admin full access, non-admin tylko własny branch, fetch contract przed PDF gen (early 404/403)"
+verification:
+  - "py_compile reports/router.py: OK"
+  - "curl POST /reports/contract/999999 (admin): 404 (contract not found)"
+  - "smoke 01-login.spec.ts: 11/11 passed"
+```
+
+**Problem:** Endpoint `POST /reports/contract/{contract_id}` wymaga autentykacji (`get_current_user`), ale **nie sprawdza ownership/tenant** — każdy zalogowany użytkownik może wygenerować PDF (z telefonami klienta) dla cudzej umowy znając `contract_id`.
+
+**Atak:** Enumeracja `contract_id` → pozyskanie danych kontaktowych (telefony, adres dostawy) klientów innych handlowców.
+
+**Fix:** W `reports/router.py` (lub `service.py`) dodać weryfikację:
+```python
+if contract.created_by != current_user.id and current_user.role != "admin":
+    raise HTTPException(403)
+```
+
+**Pliki do zmiany:**
+- `backend/reports/router.py`
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S)
+
+---
+
+### [RAO-SEC-002] Jinja2 bez `autoescape=True` w reports/service.py
+
+```yaml
+id: RAO-SEC-002
+priority: P1
+size: S
+status: done
+classification: security/injection
+roles: [backend-dev, security-auditor]
+source: security-audit
+source_date: 2026-06-29
+source_ref: "Security audit P1-015 — subagent security-auditor"
+implementation_date: 2026-07-01
+note: "Już naprawione — autoescape=True w reports/service.py:588"
+specs_to_update:
+  - core/25_security.md
+migration_impact: no
+security_impact: yes
+```
+
+**Problem:** `Environment(loader=FileSystemLoader(template_dir))` w `backend/reports/service.py` utworzony **bez `autoescape=True`**. Użytkownik może wstrzyknąć HTML/JS w pola `notes`, `contractor_name`, `contact_person1` → trafia do PDF WeasyPrint (SSRF, data exfiltration).
+
+**Fix:** `Environment(loader=FileSystemLoader(template_dir), autoescape=True)` + przetestować wszystkie szablony PDF pod kątem niezamierzonego escapowania polskich znaków.
+
+**Pliki do zmiany:**
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S) — wymaga testów wszystkich szablonów PDF
+
+---
+
+## 🗂️ Materiały referencyjne
+
+**Sprint 2026-06-29 (nowe zgłoszenia):**
+- `spec/backlog/do_wciagniecia_do_backlogu.md` — 10 punktów od klienta (surowy markdown)
+- `Pasted image 20260629223748.png` (root repo) — P1-014: błędne obliczenie daty
+- `Pasted image 20260629223936.png` (root repo) — P1-016: protokół ZO bez adresu dostawy
+- `Pasted image 20260629224212.png` (root repo) — P1-019: umowa usługi U872/2026 z żółtym tłem
+- `Pasted image 20260629224534.png` (root repo) — P1-020: format rozliczenia kaskadowego
+- `Pasted image 20260629224602.png` (root repo) — P1-021: sekcja Warunki Finansowe z pustym Wartość
+- `Pasted image 20260629225003.png` (root repo) — P1-022: lista umów z niespójnym nazewnictwem
+- Raporty vision: `Pasted image 20260629*-vision-report.md` (root repo)
+
+**Stara aplikacja WinForms (referencja):**
+- `C:\projects\repos\AppRao\rao\FormW.cs` linia 690-750 — algorytm formatowania warunków kaskadowych
+
+**Aktualne szablony PDF:**
+- `backend/reports/templates/contract_u.html` — umowa usługi (typ U)
+- `backend/reports/templates/contract.html` — umowa najmu (typ S)
+- `backend/reports/templates/protocol_zo.html` — protokół zdawczo-odbiorczy
+- `backend/reports/templates/protocol_zo_u.html` — protokół wykonania usługi
+- `backend/reports/templates/protocol_zo_nodata*.html` — warianty bez danych
+
+---
+
+## 📋 Decyzje operatora (2026-06-30)
+
+### RAO-P1-021 — Pole „Wartość (zł)" → ekran rozliczenia
+**Decyzja:** Pole „Wartość" przechodzi do **ekranu rozliczenia** (nie formularz umowy). Tam wartość jest pobierana:
+- Z **Fakturowni** (kwota z faktury), LUB
+- Wprowadzona **ręcznie** na bazie pozycji umowy z uzupełnionymi kwotami
+
+**Implementacja:** Ekran rozliczenia pobiera pozycje umowy, pozwala uzupełnić kwoty (auto z Fakturowni lub ręcznie), sumuje → wartość umowy. Pole „Wartość" w formularzu umowy zostaje ukryte/puste (przedpłata dopisana z góry, wartość nieznana do rozliczenia).
+
+---
+
+### RAO-P2-028 — Statystyki miast via PNA (PILNE)
+**Decyzja:** Grupuj po **postal_code (PNA)** + miasto (precyzyjne).
+**Uwaga operatora:** Jedno miasto ma wiele PNA — trzeba ustalić **skąd uzupełnić PNA** dla miast.
+**Pilne** — wymaga analizy źródeł danych PNA (tabela postal_codes, integracja TERYT, GUS).
+
+---
+
+### RAO-P2-046 — IDOR / RBAC
+**Decyzja:** **Brak izolacji** na ten moment (single-tenant, wszyscy widzą wszystko).
+Wraz z rozwojem aplikacji będziemy zarządzać uprawnieniami do różnych zasobów.
+**Akcja:** Zostaw tylko SEC-001 (PDF ownership check). P2-046 odłożone.
+
+---
+
+### RAO-P2-057 — is_external (maszyna zewnętrzna)
+**Decyzja:** Maszyna external **nie blokuje** dodawania w wielu miejscach (nie wpływa na rentowność).
+- Ma być **możliwe do wyboru w detailsach maszyny** podczas dodawania
+- Sprawdzić **mechanizm blokowania maszyn** (czy external poprawnie nie blokuje)
+- Sprawdzić vs **wyliczanie dni umowy** czy maszyny będą poprawnie blokowane
+- **Blokada = pytanie z informacją** gdzie i dlaczego jest zablokowana maszyna, czy na pewno chcesz ją dodać/wypożyczyć
+- **Obgadać z teamem** (subagenty: backend-dev + qa-engineer + product-owner)
+
+---
+
+## 📋 Audyt wymagań klienta (2026-07-01) — Tech Lead
+
+### Wymagania klienta — status spełnienia
+
+| # | Wymaganie | Status | Uwagi |
+|---|-----------|--------|-------|
+| 1 | Statystyki wynajmu maszyny (po nr wewn.) w okresie — stopa zwrotu | **SPEŁNIONE z błędem** | `top-machines` + `explorer/machines/{id}` (utilization_pct). BŁĄD: rozjazd przychodu 41% między explorer a stats |
+| 2 | Ile maszyn jest teraz wynajętych | **SPEŁNIONE** | `currently-rented` + `fleet-summary` |
+| 3 | Dodanie numeru wewnętrznego do maszyny | **SPEŁNIONE funkcjonalnie, 0% danych** | `articles.internal_number` istnieje, ale 0/337 maszyn ma wypełnione (CSV nie istnieje, INSERT nie mapuje) |
+| 4 | Filtrowanie pozycji dodatkowych (transport, mycie) w okresach | **SPEŁNIONE** | `additional-fees` endpoint + UI |
+| 5 | Filtrowanie miejscowości i ilości wynajmów | **SPEŁNIONE** | `stats/locations` + `explorer/locations` (po PNA, z gmina/powiat/woj) |
+| 6 | Rezerwacja maszyny (blokada, info kiedy dostępny) | **SPEŁNIONE** | `articles/{id}/availability` + ArticlePicker z badge |
+
+### Odkryte problemy — do analizy i decyzji
+
+#### [RAO-P2-030] internal_number puste (0% maszyn) — BLOKER dla wymagan 1+3
+
+```yaml
+id: RAO-P2-030
+priority: P2
+size: M
+status: wont-fix
+classification: bugfix/migration-data
+roles: [db-architect, backend-dev]
 source: tech-lead-audit
 source_date: 2026-07-01
 source_ref: "Audyt wymagań klienta — wymaganie 3 (numer wewnętrzny)"
@@ -4501,6 +7766,754 @@ note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone
   2. `onAddressSelect` — wypełnia postal_code+city z adresu kontrahenta + auto PNA lookup
   3. `onPostalCodeBlur` — refactor na reusable `lookupPna()`
 - **Weryfikacja:** vue-tsc exit 0, build OK
+
+---
+
+### [RAO-P2-068] Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta"
+
+```yaml
+id: RAO-P2-068
+priority: P2
+size: M
+status: done
+classification: backend/data-seeding+config
+roles: [tech-lead, backend-dev, db-architect, product-owner]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/04_business_logic.md (cenniki kaskadowe + pełna konfiguracja firmy)
+  - core/07_integrations.md (demo setup — cenniki + presety + rate types)
+migration_impact: no (demo dane tylko)
+security_impact: no
+depends_on:
+  - RAO-P2-067 (Demo data refactor — migrate_all.py orchestrator)
+verification:
+  - "python seed_demo_data.py: PASS (idempotentny re-run)"
+  - "CENNIKI_KASKADOWE: 5 maszyn × 3 warunki kaskadowe (1-3 dni, 4-16 dni, powyżej 16 dni)"
+  - "ZESTAWY_USLUG: 6 presetów (najem, usługa z operatorem, kontrakt długoterminowy, weekend, kontrakt zagraniczny, operator premium)"
+  - "ServiceFeeTemplateItem: 22 relacji N:M preset → artykuł"
+  - "Rate types: 6 typów (dniowa, godzinowa, km, tygodniowa, miesięczna, jednorazowa)"
+  - "Firma: NIP=1234563218, bank_account=PL 12 1020..., header_text do PDF"
+```
+
+**Problem:**
+
+Po P2-067 demo data miało jeszcze braki:
+1. **Brak cenników kaskadowych** — każda pozycja umowy miała tylko 1 warunek (płaska stawka). W starej aplikacji WinForms warunki były kaskadowe (1-3 dni 540zł/doba, 4-16 dni 410zł/doba, powyżej 16 dni 350zł/doba). User musiał ręcznie wpisywać każdy warunek.
+2. **Brak pełnej konfiguracji firmy** — `company` table miała tylko `name="RAO — Wynajem Maszyn"` (z main.py). Brak NIP, adres, konto bankowe, header_text do PDF.
+3. **Tylko 3 presety usług** — brak scenariuszy weekend, kontrakt zagraniczny, operator premium.
+4. **ServiceFeeTemplateItem pusta** — relacja N:M preset → artykuł nie była wypełniana.
+5. **Tylko 3 rate types** — brak tygodniowa, miesięczna, jednorazowa.
+
+**Cel:** "Rozliczenie = cennik" — user klika maszynę i ma gotowy cennik kaskadowy, nie musi ciągle wpisywać tego samego. Wszystkie rzeczy konfigurowalne zeseedowane pod demo.
+
+---
+
+#### Scope implementacji
+
+**1. CENNIKI_KASKADOWE per maszyna (5 maszyn × 3 warunki):**
+
+| Maszyna | 1-3 dni | 4-16 dni | powyżej 16 dni |
+|---------|---------|----------|----------------|
+| Koparka JCB 8035 | 900 zł/doba | 750 zł/doba | 600 zł/doba |
+| Ładowarka Manuscop 6.36 | 720 zł/doba | 600 zł/doba | 480 zł/doba |
+| Podnośnik Haulotte HA16PX | 500 zł/doba | 420 zł/doba | 340 zł/doba |
+| Spychacz Wirtgen W100CFi | 1300 zł/doba | 1100 zł/doba | 900 zł/doba |
+| Zagęszczarka Ammann APF 15/50 | 180 zł/doba | 150 zł/doba | 120 zł/doba |
+
+**2. 6 presetów usług dodatkowych:**
+- Cennik usług — najem 2026 (S, default) — 6 szablonów
+- Cennik usług — usługa z operatorem 2026 (U, default) — 3 szablony
+- Kontrakt długoterminowy (rabat) (S) — 4 szablony
+- Weekend / krótkoterminowy (1-3 dni) (S) — 3 szablony
+- Kontrakt zagraniczny (export) (S) — 4 szablony
+- Usługa z operatorem — premium (U) — 4 szablony
+
+**3. ServiceFeeTemplateItem:** 22 relacji N:M preset → artykuł z domyślną ceną.
+
+**4. 6 rate types:** dniowa, godzinowa, km (istniejące) + tygodniowa, miesięczna, jednorazowa (nowe).
+
+**5. Pełna konfiguracja firmy:** NIP 1234563218, REGON, adres Warszawa, konto PKO BP, header_text do PDF, numbering_start=1, increment_step=50.
+
+**6. `_build_positions_and_fees`** używa cenników kaskadowych zamiast płaskiej stawki.
+
+---
+
+#### Weryfikacja (2026-07-04)
+
+- `python seed_demo_data.py`: PASS (idempotentny re-run, 0 nowych bo dane istnieją)
+- `python _verify_cennik.py`: CENNIKI_KASKADOWE=5, ZESTAWY_USLUG=6, RATE_TYPES=6, FIRMA_CONFIG OK
+- DB check: 8 presetów (2 stare default + 6 nowych), 22 ServiceFeeTemplateItem, 9 rate types (3 legacy + 6 nowych)
+- Firma: NIP=1234563218, bank_account=PL 12 1020..., header_text z pełnymi danymi
+
+---
+
+#### Pliki zmienione
+
+| Plik | Zmiana |
+|------|--------|
+| `backend/seed_demo_data.py` | +CENNIKI_KASKADOWE (5 maszyn × 3 warunki), +STAWKA_EFEKTYWNA, +FIRMA_CONFIG, +3 nowe presety, +ServiceFeeTemplateItem, +3 rate types, +seed_company(), _build_positions_and_fees używa cenników kaskadowych |
+
+---
+
+**Estymacja:** 4-5h (M) — cenniki kaskadowe (1.5h) + presety + ServiceFeeTemplateItem (1h) + rate types + firma (1h) + weryfikacja (0.5h)
+
+---
+
+### [RAO-P2-069] Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście
+
+```yaml
+id: RAO-P2-069
+priority: P2
+size: M
+status: done
+classification: cross-stack
+roles: [backend-dev, frontend-dev, product-owner]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/02_backend_api.md (endpoint /locations/city/{city} + group_by param)
+migration_impact: no
+security_impact: no
+depends_on:
+  - RAO-P2-028 (Agregacja PNA z LEFT JOIN do postal_codes)
+verification:
+  - "vue-tsc --noEmit: PASS"
+  - "npm run build: PASS (643ms)"
+  - "curl /explorer/locations?group_by=city: Warszawa → 1 wiersz (postal_code=null)"
+  - "curl /explorer/locations?group_by=pna: Warszawa 00-002 → 1 wiersz z PNA"
+  - "curl /explorer/locations/city/Warszawa: 200 OK z pna_breakdown + top_machines"
+  - "Playwright screenshot: toggle Miasto/PNA działa, kolumna PNA warunkowa"
+```
+
+**Problem:**
+
+W zakładce "Lokalizacje" w AnalyticsView każde miasto było rozbite na kody pocztowe — Warszawa (3978 PNA w słowniku) mogła mieć wiele wierszy zamiast jednego. User chciał: "ma być miasto do wielu kodów pocztowych" — jeden wiersz per miasto, z opcją rozbicia na PNA jeśli potrzeba.
+
+**Cel:** Toggle Miasto/PNA w UI. Domyślnie miasto (1 wiersz per miasto, sumuje wszystkie PNA). Drill-down po mieście pokazuje rozbicie na PNA.
+
+---
+
+#### Scope implementacji
+
+**Backend:**
+1. `shared/locations.py` — `aggregate_by_pna()` dostaje `group_by='city'|'pna'` (domyślnie 'city'):
+   - `city`: klucz = (city, gmina, powiat, wojewodztwo) — 1 wiersz per miasto, `postal_code=null`
+   - `pna`: klucz = (postal_code, city) — 1 wiersz per PNA (legacy)
+2. `explorer/router.py` — `GET /explorer/locations` dostaje `?group_by=city|pna` (domyślnie city)
+3. `explorer/router.py` — nowy `GET /explorer/locations/city/{city}` — drill-down po mieście:
+   - Sumuje wszystkie PNA w mieście (case-insensitive)
+   - Zwraca `pna_breakdown` (rozbicie na kody pocztowe)
+   - Top maszyny (10) + top kontrahenci (5) filtrowani po mieście
+   - `metrics.pna_count` — ile kodów PNA w mieście
+
+**Frontend:**
+1. `stores/analytics.ts` — `fetchLocationsRanking()` dostaje `groupBy` param; nowy `fetchCityDetails()`
+2. `LocationsTab.vue` — toggle "Miasto / PNA" w nagłówku sekcji ranking
+3. Kolumna PNA warunkowa (tylko w trybie PNA)
+4. `onRowClick` — w trybie city wywołuje `openDrillDown('location', 'city:'+city, city)`
+5. `AnalyticsView.vue` — drill-down po mieście pokazuje `pna_breakdown` sekcję + `pna_count` w metrics
+
+---
+
+#### Weryfikacja (2026-07-04)
+
+- `vue-tsc --noEmit`: PASS
+- `npm run build`: PASS (643ms)
+- `curl /explorer/locations?group_by=city`: Warszawa → 1 wiersz (postal_code=null, gmina=Warszawa, woj=mazowieckie)
+- `curl /explorer/locations?group_by=pna`: Warszawa 00-002 → 1 wiersz z PNA
+- `curl /explorer/locations/city/Warszawa`: 200 OK — city, gmina, powiat, wojewodztwo, metrics (pna_count=1), pna_breakdown, top_machines, top_contractors
+- Playwright: toggle Miasto/PNA działa, kolumna PNA pojawia się tylko w trybie PNA, drill-down po mieście otwiera drawer "📍 Kraków / Umowy w mieście (wszystkie PNA)"
+
+---
+
+#### Pliki zmienione
+
+| Plik | Zmiana |
+|------|--------|
+| `backend/shared/locations.py` | +`group_by` param (city/pna), klucz agregacji zależny od trybu |
+| `backend/explorer/router.py` | +`group_by` query param, +`/locations/city/{city}` endpoint, +import defaultdict |
+| `frontend/src/stores/analytics.ts` | +`groupBy` param w fetchLocationsRanking, +fetchCityDetails, +pna_breakdown w LocationDetailsResponse |
+| `frontend/src/components/analytics/tabs/LocationsTab.vue` | +toggle Miasto/PNA, kolumna PNA warunkowa, onRowClick per tryb |
+| `frontend/src/views/AnalyticsView.vue` | +sekcja pna_breakdown w drill-down, +metric pna_count |
+
+---
+
+**Estymacja:** 3-4h (M) — backend (1.5h) + frontend (1.5h) + weryfikacja (0.5h)
+
+---
+
+### [RAO-P2-070] Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation)
+
+```yaml
+id: RAO-P2-070
+priority: P2
+size: L
+status: triaged
+classification: frontend/ux
+roles: [ux-designer, frontend-dev, product-owner]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/03_frontend_screens.md (drilldowny cross-view)
+  - core/06_navigation_flow.md (cross-view navigation, goBack → router.back)
+  - core/18_ux_improvements.md (toast zamiast alert, feedback po zapisie)
+migration_impact: no
+security_impact: no
+depends_on: []
+blocks: []
+verification: []
+```
+
+**Problem:**
+
+Aplikacja ma solidne podstawy (drilldown w Analytics/Archive, skeleton loadery, empty states, active sidebar). Ale **codzienne flow usera** jest utrudnione — brakuje cross-view drilldownów (kontrahent↔umowa↔maszyna), sortowania po kolumnach w Dashboard, kluczowych filtrów (handlowiec, miasto), oraz `alert()` zamiast toastów w 25+ miejscach.
+
+**Cel:** Aplikacja w pełni interaktywna — user może "przeskakiwać" między encjami bez ręcznego szukania, każdy zapis/akcja ma feedback, każda lista ma filtry i sortowanie.
+
+---
+
+#### Audyt UX (2026-07-04) — 30 usterek w 3 priorytetach
+
+##### 🔴 HIGH — Blokuje codzienną pracę (8 usterek)
+
+| # | Usterka | Widok | User pain | Stara aplikacja |
+|---|---------|-------|-----------|-----------------|
+| B1 | Brak drilldown z listy umów → kontrahent | DashboardView /contracts | Ręczne szukanie kontrahenta w sidebar | WinForms: context menu / double-click |
+| B2 | Brak kolumny "Maszyny" w liście umów | DashboardView /contracts | Trzeba otwierać każdą umowę | WinForms: tooltip / dialog "?" |
+| B3 | Brak drilldown z kontrahenta → jego umowy | DashboardView /contractors | "Aktywna umowa" nie jest klikalna | WinForms: double-click → historia umów |
+| B4 | Brak drilldown z artykułu → historia wynajmów | DashboardView /articles | Trzeba kombinować z Analytics | WinForms: FormA.cs podgląd historii |
+| B5 | Brak sortowania po kolumnach w DashboardView | DashboardView (3 sekcje) | Klik w nagłówek nie sortuje | WinForms: DataGridView sortował |
+| B6 | `alert()` zamiast toastów — 25+ miejsc | 9 widoków (ContractForm 18×, ContractorForm 5×, Archive 5×, Admin 6×, inne) | Blokuje aplikację, legacy pattern | WinForms: MessageBox (web ≠ MessageBox) |
+| B7 | Brak toastu po zapisie umowy/kontrahenta/artykułu | ContractForm, ContractorForm, ArticleForm | User nie wie czy zapisano → duplikat | WinForms: "Zapisano" w status bar |
+| B8 | Brak filtra "Handlowiec" i "Miasto" w liście umów | DashboardView /contracts | Handlowiec nie widzi swoich umów | WinForms: filtry handlowca w toolbarze |
+
+##### 🟡 MEDIUM — Frustrujące, user radzi sobie obejściem (13 usterek)
+
+| # | Usterka | Widok |
+|---|---------|-------|
+| B9 | Brak drilldown z umowy → edycja kontrahenta | ContractFormView |
+| B10 | Brak drilldown z umowy → edycja maszyny (z pozycji) | ContractFormView (PositionGrid) |
+| B11 | Brak drilldown z umowy → faktura w Fakturownia | ContractFormView (panel FA) |
+| B12 | Brak drilldown z CommissionView → umowy handlowca | CommissionView |
+| B13 | Brak drilldown z drill-machine-rentals → konkretna umowa | AnalyticsView (drawer machine) |
+| B14 | Brak drilldown z top_contractors → kontrahent | AnalyticsView (drawer location) |
+| B15 | Brak breadcrumb w formularzach | ContractForm, ContractorForm, ArticleForm |
+| B16 | `goBack` hardcoded zamiast `router.back()` | ContractForm, ContractorForm, ArticleForm |
+| B17 | Brak filtra "Tylko z aktywną umową" w kontrahentach | DashboardView /contractors |
+| B18 | Brak filtra kategoria/marka/typ w artykułach | DashboardView /articles |
+| B19 | Brak kalendarza umów (spec 06 sekcja 3) | DashboardView /contracts |
+| B20 | Brak toolbar [?] — podgląd szczegółów bez edycji | DashboardView |
+| B21 | Brak context menu "Dodaj umowę" w kontrahentach | DashboardView /contractors |
+
+##### 🟢 LOW — Polish / nice-to-have (9 usterek)
+
+| # | Usterka | Widok |
+|---|---------|-------|
+| B22 | Brak hover indicatora na klikalnych wierszach | ArchiveView |
+| B23 | Brak undo dla destruktywnych akcji | DashboardView, ContractorForm |
+| B24 | Brak sticky header w tabelach | DashboardView, ArchiveView |
+| B25 | Brak filtra "Okres" w kontrahentach i artykułach | DashboardView |
+| B26 | Brak paginacji w drilldown drawers | AnalyticsView |
+| B27 | Brak "Eksportuj CSV/PDF" z list | DashboardView, AnalyticsView |
+| B28 | Brak tooltipów na ikonach w toolbarze | ContractFormView |
+| B29 | Brak drilldown z HomeView KPI → filtrowana lista | HomeView |
+| B30 | Brak drilldown z HomeView "Dostawy" → umowa | HomeView |
+
+---
+
+#### Mapa pożądanych interakcji (cross-view navigation)
+
+| Z widoku | Klik w | Powinno otworzyć | Priorytet |
+|----------|--------|------------------|-----------|
+| Dashboard /contracts | Nazwa kontrahenta | `/contractors/:id/edit` | HIGH |
+| Dashboard /contracts | Maszyna (nowa kolumna) | `/articles/:id/edit` lub drilldown | HIGH |
+| Dashboard /contracts | Nagłówek kolumny | Sort ASC/DESC | HIGH |
+| Dashboard /contracts | Filtr Handlowiec | Lista filtrowana po `salesperson_id` | HIGH |
+| Dashboard /contracts | Filtr Miasto | Lista filtrowana po `city` | HIGH |
+| Dashboard /contractors | Numer aktywnej umowy | `/contracts/:id/edit` | HIGH |
+| Dashboard /contractors | Right-click → "Dodaj umowę" | `/contracts/new?contractor_id=:id` | HIGH |
+| Dashboard /articles | Numer aktywnej umowy | `/contracts/:id/edit` | HIGH |
+| Dashboard /articles | "Historia wynajmów" | Drawer jak w Analytics | HIGH |
+| ContractForm | "✎ Edytuj" obok kontrahenta | `/contractors/:id/edit` (nowa karta) | MEDIUM |
+| ContractForm | Nazwa artykułu w pozycji | `/articles/:id/edit` (nowa karta) | MEDIUM |
+| ContractForm | Faktura w panelu FA | `window.open(invoice.url)` | MEDIUM |
+| Analytics /drill-machine | Wiersz rental (umowa) | `/contracts/:contract_id/edit` | MEDIUM |
+| Analytics /drill-location | Wiersz top_contractor | `/contractors/:id/edit` | MEDIUM |
+| Commission | Wiersz handlowca | `/dashboard/contracts?salesperson_id=:id` | MEDIUM |
+| HomeView | KPI card | `/worker` lub `/dashboard/contracts` z filtrem | MEDIUM |
+| HomeView | Dostawa (delivery-row) | `/contracts/:contract_id/edit` | MEDIUM |
+| Wszystkie formularze | Toolbar "←" | `router.back()` z fallbackiem | MEDIUM |
+| Wszystkie błędy | API error | Toast error (NIE `alert()`) | HIGH |
+| Wszystkie formularze | Po Zapisz | Toast success | HIGH |
+
+---
+
+#### Rekomendowana kolejność implementacji (5 faz)
+
+**Faza 1 — Toasty zamiast alert() + feedback po zapisie (B6, B7)** — quick win, 25+ miejsc
+- Komponent `Toast.vue` i `useToastStore` już istnieją (używane w 1 miejscu)
+- Czysta zamiana `alert(err)` → `toastStore.showToast(msg, 'error')`
+- Dodać toast success po zapisie we wszystkich formularzach
+- Est: 4-6h (S)
+
+**Faza 2 — Cross-view drilldown z list (B1, B3, B4)** — najczęstszy flow codzienny
+- DashboardView /contracts: nazwa kontrahenta → link, kolumna "Maszyny" → link
+- DashboardView /contractors: `active_contract_number` → link, context menu "Dodaj umowę"
+- DashboardView /articles: `active_contract_number` → link, akcja "Historia wynajmów"
+- Est: 6-8h (M)
+
+**Faza 3 — Sortowanie po kolumnach w DashboardView (B5)** — `useSort` już istnieje
+- Przenieść pattern z `ExplorerTab.vue` / `AnalyticsTable.vue`
+- 3 tabele: contracts, contractors, articles
+- Est: 3-4h (S)
+
+**Faza 4 — Filtry: Handlowiec + Miasto w liście umów (B8)** — wymaga backend
+- Dodać `salesperson_id` i `city` do `GET /contracts` query params (backend)
+- Dodać `<select>` i `<input>` w grid-header (frontend)
+- `settingsStore.salespeople` już załadowany
+- Est: 4-5h (S)
+
+**Faza 5 — goBack → router.back() + drilldown w Analytics/HomeView (B13-B16, B29-B30)** — polish
+- `goBack` używające `router.back()` z fallbackiem
+- Drilldown z drawer Analytics → konkretna umowa
+- KPI cards w HomeView klikalne
+- Est: 4-6h (S)
+
+**Łączna estymacja:** 21-29h (L) — 5 faz, każda niezależna (można robić sekwencyjnie)
+
+---
+
+#### Co działa dobrze (nie wymaga zmian)
+
+- ✅ HomeView — klik w umowę w panelach → edycja
+- ✅ WorkerView — klik w umowę/dostawy → edycja, filtry dni
+- ✅ AnalyticsView — drilldown machine/location, filtry (date, type, contractor, city)
+- ✅ ArchiveView — drilldown umów, filtry (search, typ, data, kategoria), paginacja
+- ✅ ExplorerTab — klik w wynik → edycja, search + sort
+- ✅ ContractFormView — picker kontrahenta/art/dostawcy, inline form, conflict modal
+- ✅ ContractorFormView — "+ Umowa" → auto-fill, GUS lookup
+- ✅ AppSidebar — active state per section
+- ✅ AppLayout — Ctrl+N = nowy, Esc = back
+
+---
+
+#### Edge cases do obsługi w implementacji
+
+- [ ] **Error state:** Tylko ArchiveView/AnalyticsView mają retry; reszta = `alert('Błąd')`
+- [ ] **Success feedback:** Tylko CommissionView (toast); reszta = brak
+- [ ] **Slow connection:** Brak timeout indicatora
+- [ ] **Long content:** DashboardView paginacja (50/strona, brak wyboru per-page)
+- [ ] **Soft delete vs hard delete:** Usunięcie kontrahenta z aktywnymi umowami — blokować LUB soft-delete
+
+---
+
+**Estymacja:** 21-29h (L) — 5 faz, każda niezależna
+
+---
+
+### [RAO-P3-071] Audyt UX — czytelność, spójność, przyjemność poruszania się
+
+```yaml
+id: RAO-P3-071
+priority: P3
+size: L
+status: triaged
+classification: frontend/ux
+roles: [ux-designer, ui-designer, frontend-dev]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/09_design_reference.md (jeden source of truth zmiennych CSS, font-size minima)
+  - core/03_frontend_screens.md (skeleton loaders, breadcrumb, page-title)
+  - core/18_ux_improvements.md (glossary skrótów, ConfirmDialog konkretne obiekty)
+migration_impact: no
+security_impact: no
+depends_on: []
+blocks: []
+verification: []
+```
+
+**Problem:**
+
+Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z semantycznym kolorem, mikro-animacje, sticky headers, keyboard shortcuts). Ale po 8h pracy operatora boli głowa od czytania — 56 miejsc z `font-size: 11px`, 3 różne formaty walut, 2 różne formaty dat, żargon bez tooltipów (PNA, ZO, FA), niespójny design system (CommissionView łamie wszystko), brak a11y (aria-label, focus states, kontrast poniżej WCAG AA).
+
+**Cel:** Aplikacja przyjemna w użyciu po 8h pracy — czytelna, spójna, dostępna, z mikro-polishem.
+
+---
+
+#### Audyt UX (2026-07-04) — czytelność, spójność, przyjemność
+
+##### Co działa dobrze (nie wymaga zmian)
+
+- ✅ Skeleton loaders (HomeView, WorkerView, AnalyticsTable, DrillDownDrawer)
+- ✅ Empty states z CTA (DashboardView, HomeView panele)
+- ✅ KPI cards z semantycznym kolorem (kpi-ok/warn/danger/info)
+- ✅ Live preview warunków kaskadowych (ConditionPanel)
+- ✅ Help section wbudowany ("📖 Jak wpisać warunki?")
+- ✅ Polskie formatowanie w AnalyticsView (Intl PLN, toLocaleDateString pl-PL)
+- ✅ Mikro-animacje (LoginView shake, nav-tile hover, KPI hover, btn:active scale)
+- ✅ Archive separator pomarańczowy + banner ostrzegawczy
+- ✅ Keyboard shortcuts (Ctrl+N, Escape, Enter/Esc inline edit)
+- ✅ Print CSS, sticky table headers, DrillDownDrawer z Teleport + Esc
+
+##### 🔴 HIGH — 5 usterek blokujących czytelność
+
+| # | Usterka | Widok | User pain |
+|---|---------|-------|-----------|
+| B1 | `font-size: 11px` × 56 miejsc — za mały do 8h pracy | DashboardView, HomeView, WorkerView, AdminView, SettingsView, ContractFormView | Ból głowy po 2h, starsi pracownicy nie przeczytają |
+| B2 | `font-size: 10px` (del-chip) i `9px` (sidebar-logo-sub) | WorkerView, AppSidebar | Kluczowa informacja (data dostawy) nieczytelna |
+| B3 | 3 różne formaty walut — `Intl PLN` vs `toFixed(2)+' zł'` vs `toLocaleString` | AnalyticsView ✅, ContractFormView ❌, ConditionPanel ❌, CommissionView ✅ | Pomyłki w odczycie przy porównywaniu z fakturą |
+| B4 | 2 różne formaty dat — "01.02.2026" vs "1.2.2026" | HomeView ✅ (leading zero), DashboardView/ContractFormView ❌ | Skanowanie tabeli przerywane — wygląda jak inna data |
+| B5 | Żargon bez tooltipów — PNA, ZO, FA, OID, S/U | ContractFormView, DashboardView, ArticleFormView, ArchiveView | Nowy user pyta kolegę "co to ZO?" — wstyd, strata czasu |
+
+##### 🟡 MEDIUM — 6 usterek spójności i komfortu
+
+| # | Usterka | Widok |
+|---|---------|-------|
+| B6 | Kolumna "Adres dostawy" 11px + max 180px + pre-wrap | DashboardView |
+| B7 | "X rekordów" zamiast "X umów" — żargon bazodanowy | DashboardView (4 sekcje) |
+| B8 | Toolbar ikony `− + ⎙ ? ∑ 💰` bez etykiet tekstowych | AppToolbar, ContractFormView |
+| B9 | Numbers nie wyrównane do prawej w tabelach | DashboardView, ArchiveView |
+| B10 | CommissionView całkowicie własny styl — hardcoded kolory, rem, 4-8px radius, `.data-table` zamiast `.data-grid` | CommissionView |
+| B11 | Dwa konfliktujące systemy zmiennych CSS — `style.css` vs `variables.css` (różne odcienie navy, różne font-size) | Global |
+
+##### 🟢 LOW — 3 usterek polish
+
+| # | Usterka |
+|---|---------|
+| B12 | Spacing niespójny między widokami (padding 12px/20px/24px/32px) |
+| B13 | "Pulpit" w sidebar vs "Pulpit operacyjny" w WorkerView — niespójna nazwa |
+| B14 | ArchiveView tab labels identyczne jak sekcje główne (ryzyko pomyłki) |
+
+##### Usterki spójności wizualnej (tabela)
+
+| Element | Gdzie spójne | Gdzie niespójne |
+|---------|-------------|-----------------|
+| Kolor primary | variables.css `#0F234E` | style.css `#1D2B53`, WorkerView hardcoded, CommissionView hardcoded |
+| Border-radius kart | 12px (layout.css) | WorkerView 10px, CommissionView 8px, HomeView nav-tile 6px |
+| Styl tabeli | `.data-grid` (navy header, zebra, hover) | CommissionView `.data-table` (jasny header, brak zebra) |
+| Styl przycisków | `.btn` (pill 24px) | CommissionView 5px, HomeView 12px, LoginView redefine |
+| Badge statusu | tables.css (success/warning/danger/info/muted) | DashboardView (badge-settled/overdue/active — nie zdefiniowane!) |
+| Karty KPI | HomeView własny, KpiRow.vue własny | Dwa różne komponenty KPI, różny styling |
+| Loading state | HomeView/WorkerView skeleton | DashboardView/AdminView/SettingsView/ArchiveView tekst "Ładowanie..." |
+| Ikony | Emoji (📊📦⏰🖨) | Unicode symbole (⌕ ⎙ ∑ −) — mix |
+| Toast kolory | hardcoded `#10b981/#ef4444` | Design system `--color-success/danger` (inne odcienie) |
+| Tło widoku | `#F8F9FA` (layout.css) | HomeView `#F4F6FB`, WorkerView `#F4F6FB`, CommissionView białe |
+
+##### Usterki dostępności (a11y)
+
+| Element | Stan | Priorytet |
+|---------|------|-----------|
+| aria-label na icon buttons | Brak (16 aria/role w całej apce) | HIGH |
+| Label ↔ input powiązanie (for/id) | Brak | HIGH |
+| Focus state na przyciskach | Tylko `.form-control:focus`, brak na `.btn`/`.btn-icon`/`.toolbar-btn` | HIGH |
+| Kontrast muted text `#718096` na białym | ~4.0:1 — poniżej WCAG AA 4.5:1, przy 11px = fail | HIGH |
+| role="alert" na błędach | Brak | MEDIUM |
+| aria-invalid na polach z błędem | Brak | MEDIUM |
+| Modal focus trap | Brak (Tab wychodzi z modala) | MEDIUM |
+| Modal aria-modal | Brak `role="dialog" aria-modal="true"` | MEDIUM |
+| Skip-to-content link | Brak | LOW |
+| Touch target size | `.page-btn` 28×28, `.days-filter` ~24×20 — poniżej 44×44 | LOW |
+
+##### Usterki przyjemności/polish
+
+| Element | Stan | Rekomendacja |
+|---------|------|--------------|
+| View transitions | Brak `<Transition>` na router-view | `<Transition name="fade" mode="out-in">` |
+| Loading w 4 widokach | Tekst "Ładowanie..." | Skeleton rows (`.skeleton` już w animations.css) |
+| Toast bez ikony | Tylko kolor + tekst | Ikona ✓/⚠️/ℹ — szybsze skanowanie |
+| Toast bez undo | Success = info only | Przycisk "Cofnij" dla destruktywnych (5s) |
+| KPI hover ale nie clickable | `:hover { box-shadow }` bez `@click` | Albo usuń hover, albo dodaj cursor:pointer + klik |
+| ConfirmDialog generyczny | "Czy na pewno chcesz usunąć ten element?" | "Usuniesz umowę XYZ. Tej akcji nie można cofnąć." |
+| Brak "recently viewed" | — | Lista "Ostatnio otwarte umowy" w HomeView |
+| Brak keyboard hint w UI | Ctrl+N, Esc działają ale user nie wie | Tooltip w sidebar lub help overlay |
+
+---
+
+#### Rekomendowana kolejność implementacji (5 faz)
+
+**Faza 1 — Font-size + kontrast (HIGH impact, LOW effort)** — 1 dzień
+- Zamień `font-size: 11px` → 13px (dane), 12px (metadane); `10px` → 12px; `9px` → 11px
+- Sciemnij `--color-text-muted` z `#718096` → `#5A6B7E` (WCAG AA 4.5:1)
+- Każdy operator poczuje natychmiast
+
+**Faza 2 — Unifikacja formatowania dat i walut (HIGH impact, LOW effort)** — 0.5 dnia
+- Stwórz `composables/useFormat.ts` z `formatDate()`, `formatCurrency()`, `formatNumber()`
+- Zastąp 5 różnych implementacji (AnalyticsView ✅ wzorzec, ContractFormView ❌, ConditionPanel ❌, CommissionView ✅, HomeView ✅)
+- Zawsze `pl-PL` + `PLN` + 2 cyfry + leading zero w datach
+
+**Faza 3 — a11y: aria-label + focus states (HIGH impact, MEDIUM effort)** — 1-2 dni
+- `aria-label` na wszystkich icon buttons (−, +, ⎙, ?, ∑, 💰, ←, ✎, ✕)
+- `:focus-visible { outline: 2px solid var(--color-primary) }` globalnie
+- `for`/`id` na label/input, `role="alert"` na błędach, `aria-invalid` na polach z błędem
+- `role="dialog" aria-modal="true"` na modalach
+
+**Faza 4 — Unifikacja design system (MEDIUM impact, MEDIUM effort)** — 1 dzień
+- CommissionView — usuń scoped CSS, użyj `.data-grid`, `.page-card`, `.btn`, `--color-*`
+- WorkerView — zamień hardcoded `#0F234E` na `var(--color-primary)`, `#F4F6FB` na `var(--color-bg-app)`
+- Jeden plik zmiennych — usuń definicje kolorów/typografii z `style.css`, zostaw `variables.css`
+- Dodaj `badge-settled/overdue/active` do tables.css (lub użyj istniejących)
+- Połącz KPI komponenty (HomeView + KpiRow.vue → jeden)
+
+**Faza 5 — Skeleton loaders + polish (MEDIUM impact, LOW effort)** — 0.5-1 dzień
+- DashboardView, AdminView, SettingsView, ArchiveView — skeleton rows zamiast "Ładowanie..."
+- Komponent `<TableSkeleton :rows="5" />`
+- View transitions (`<Transition name="fade" mode="out-in">`)
+- Toast z ikoną (✓/⚠️/ℹ)
+- ConfirmDialog z konkretnym obiektem ("Usuniesz umowę U/2024/123...")
+- Glossary skrótów (PNA, ZO, FA, OID, S/U) — tooltip lub legenda
+
+**Łączna estymacja:** 4-5.5 dni (L) — 5 faz, każda niezależna
+
+---
+
+#### Glossary skrótów (do implementacji w Faza 5)
+
+| Skrót | Pełna nazwa |
+|-------|-------------|
+| PNA | Kod pocztowy (PNA) |
+| ZO | Protokół zdania obiektu (ZO) |
+| FA | Faktura (FA) |
+| OID | Identyfikator w Fakturownia (OID) |
+| S | Umowa najmu (S) |
+| U | Umowa usługi (U) |
+
+---
+
+**Estymacja:** 4-5.5 dni (L) — 5 faz, każda niezależna
+
+---
+
+## 📋 Tabela TL;DR
+
+| ID | Tytuł | P | Est. | Status | Następny krok |
+|----|-------|---|------|--------|---------------|
+| RAO-P1-014 | Frontend — błędne obliczanie daty końcowej okresu umowy | P1 | XS | user-verified | → client-approved |
+| RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | P1 | XS | team-verified | → user-verified |
+| RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | P1 | S | team-verified | → user-verified |
+| RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | dev-verified | → team-verified |
+| RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | P1 | XS | team-verified | → user-verified |
+| RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | dev-verified | → user-verified |
+| RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
+| RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | dev-verified | → team-verified (wartość z rozliczenia, read-only w formularzu) |
+| RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
+| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | review | → Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
+| RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | dev-verified | → user-verified |
+| RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | dev-verified | → team-verified (unique=True w model + DB index uq_contracts_number) |
+| RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | done | → done (autoescape=True w reports/service.py:588) |
+| RAO-P0-032 | build_contract_data mutuje sesję — kopiuj description | P0 | XS | done | → done (lokalne kopie description w fees_data) |
+| RAO-P0-033 | recalculate_total — użyj algorytmu kaskadowego | P0 | S | dev-verified | → team-verified |
+| RAO-P0-034 | ContractUpdate schema z exclude_unset=True (lost data) | P0 | M | dev-verified | → team-verified |
+| RAO-P0-035 | N+1 queries — selectinload w list_contracts/positions/articles | P0 | M | dev-verified | → team-verified |
+| RAO-P0-036 | Stack trace disclosure → detail="Błąd" + logging | P0 | XS | dev-verified | → team-verified (global exception handler w main.py) |
+| RAO-P1-037 | delete_contract — guard na is_settled | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-038 | Brak indeksów DB (is_settled, created_at, salesperson_id, print_date, delivery_date) | P1 | S | dev-verified | → team-verified |
+| RAO-P1-039 | Walidacja date_from > date_to + ujemne kwoty w ContractCreate | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-040 | is_settled blokuje mutacje (update/delete positions) | P1 | S | dev-verified | → team-verified |
+| RAO-P1-041 | Hardcoded JWT fallback "change-me" — usuń + wymuś z env | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-042 | Frontend: logout czyści stores + redirect po login + baseURL z env | P1 | S | dev-verified | → team-verified |
+| RAO-P1-043 | Frontend: memory leaks — cleanup event listenerów i timerów | P1 | S | dev-verified | → team-verified |
+| RAO-P1-044 | Frontend: localStorage.getItem('token') → 'rao_token' | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-045 | _build_conditions_text — użyj format_position_conditions_cascading (dedup) | P1 | XS | dev-verified | → team-verified |
+| RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
+| RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | triaged | → in_progress |
+| RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | triaged | → in_progress |
+| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | triaged | → in_progress |
+| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | triaged | → in_progress |
+| RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | triaged | → in_progress |
+| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
+| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
+| RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | dev-verified | → team-verified (normalize w settings/service.py + ALTER TABLE polish_ci w main.py) |
+| RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | triaged | → in_progress |
+| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
+| RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | dev-verified | → team-verified (is_external nie blokuje + checkbox w details) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
+| RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | triaged | → in_progress (Faza 1: parser legacy + migracja + UI + template items) |
+| RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | in-progress (Faza 1 done — 6 bugów + indeksy + cleanup; Faza 2 todo — StatsView.vue) |
+| RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
+| RAO-P2-067 | Demo data refactor — migrate_all.py orchestrator + FA-pending contracts + delivery_address | P2 | M | done | 31 faktur FA (19 backfill + 12 FA-pending), delivery_address z miastami, hardcoded token usunięty |
+| RAO-P2-068 | Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta" | P2 | M | done | 5 cenników kaskadowych per maszyna, 6 presetów usług, 22 ServiceFeeTemplateItem, 6 rate types, pełna konfiguracja firmy |
+| RAO-P2-069 | Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście | P2 | M | done | Toggle Miasto/PNA w LocationsTab, 1 wiersz per miasto (Warszawa 3978 PNA → 1), drill-down /locations/city/{city} z pna_breakdown |
+| RAO-P2-070 | Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation) | P2 | L | triaged | 30 usterek UX (8 HIGH, 13 MEDIUM, 9 LOW); 5 faz: toasty, cross-view drilldown, sort, filtry, goBack |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
+
+**Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
+
+### Pipeline weryfikacji (status flow)
+
+```
+triaged → in_progress → dev-verified → team-verified → user-verified → client-approved (done)
+           │              │               │               │               │
+           Devin koduje   Devin testuje   Software-house  Ty wzrokowo    Klient zatwierdza
+           zmianę         programatycz.   subagenty       w UI/PDF        → zadanie zamknięte
+                          (Playwright,    (QA, Security,
+                           PyMuPDF,       UX, PO, Tech
+                           pytest,        Lead review)
+                           vue-tsc)
+```
+
+---
+
+## 🔍 Pre-existing issues (znalezione przez security audit P1-015)
+
+### [RAO-SEC-001] IDOR — `/reports/contract/{id}` bez ownership check
+
+```yaml
+id: RAO-SEC-001
+priority: P1
+size: S
+status: done
+classification: security/idor
+roles: [backend-dev, security-auditor]
+source: security-audit
+source_date: 2026-06-29
+source_ref: "Security audit P1-015 — subagent security-auditor"
+specs_to_update:
+  - core/25_security.md
+migration_impact: no
+security_impact: yes
+done_date: 2026-07-01
+fix: "_check_contract_access() w reports/router.py — admin full access, non-admin tylko własny branch, fetch contract przed PDF gen (early 404/403)"
+verification:
+  - "py_compile reports/router.py: OK"
+  - "curl POST /reports/contract/999999 (admin): 404 (contract not found)"
+  - "smoke 01-login.spec.ts: 11/11 passed"
+```
+
+**Problem:** Endpoint `POST /reports/contract/{contract_id}` wymaga autentykacji (`get_current_user`), ale **nie sprawdza ownership/tenant** — każdy zalogowany użytkownik może wygenerować PDF (z telefonami klienta) dla cudzej umowy znając `contract_id`.
+
+**Atak:** Enumeracja `contract_id` → pozyskanie danych kontaktowych (telefony, adres dostawy) klientów innych handlowców.
+
+**Fix:** W `reports/router.py` (lub `service.py`) dodać weryfikację:
+```python
+if contract.created_by != current_user.id and current_user.role != "admin":
+    raise HTTPException(403)
+```
+
+**Pliki do zmiany:**
+- `backend/reports/router.py`
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S)
+
+---
+
+### [RAO-SEC-002] Jinja2 bez `autoescape=True` w reports/service.py
+
+```yaml
+id: RAO-SEC-002
+priority: P1
+size: S
+status: done
+classification: security/injection
+roles: [backend-dev, security-auditor]
+source: security-audit
+source_date: 2026-06-29
+source_ref: "Security audit P1-015 — subagent security-auditor"
+implementation_date: 2026-07-01
+note: "Już naprawione — autoescape=True w reports/service.py:588"
+specs_to_update:
+  - core/25_security.md
+migration_impact: no
+security_impact: yes
+```
+
+**Problem:** `Environment(loader=FileSystemLoader(template_dir))` w `backend/reports/service.py` utworzony **bez `autoescape=True`**. Użytkownik może wstrzyknąć HTML/JS w pola `notes`, `contractor_name`, `contact_person1` → trafia do PDF WeasyPrint (SSRF, data exfiltration).
+
+**Fix:** `Environment(loader=FileSystemLoader(template_dir), autoescape=True)` + przetestować wszystkie szablony PDF pod kątem niezamierzonego escapowania polskich znaków.
+
+**Pliki do zmiany:**
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S) — wymaga testów wszystkich szablonów PDF
+
+---
+
+## 🗂️ Materiały referencyjne
+
+**Sprint 2026-06-29 (nowe zgłoszenia):**
+- `spec/backlog/do_wciagniecia_do_backlogu.md` — 10 punktów od klienta (surowy markdown)
+- `Pasted image 20260629223748.png` (root repo) — P1-014: błędne obliczenie daty
+- `Pasted image 20260629223936.png` (root repo) — P1-016: protokół ZO bez adresu dostawy
+- `Pasted image 20260629224212.png` (root repo) — P1-019: umowa usługi U872/2026 z żółtym tłem
+- `Pasted image 20260629224534.png` (root repo) — P1-020: format rozliczenia kaskadowego
+- `Pasted image 20260629224602.png` (root repo) — P1-021: sekcja Warunki Finansowe z pustym Wartość
+- `Pasted image 20260629225003.png` (root repo) — P1-022: lista umów z niespójnym nazewnictwem
+- Raporty vision: `Pasted image 20260629*-vision-report.md` (root repo)
+
+**Stara aplikacja WinForms (referencja):**
+- `C:\projects\repos\AppRao\rao\FormW.cs` linia 690-750 — algorytm formatowania warunków kaskadowych
+
+**Aktualne szablony PDF:**
+- `backend/reports/templates/contract_u.html` — umowa usługi (typ U)
+- `backend/reports/templates/contract.html` — umowa najmu (typ S)
+- `backend/reports/templates/protocol_zo.html` — protokół zdawczo-odbiorczy
+- `backend/reports/templates/protocol_zo_u.html` — protokół wykonania usługi
+- `backend/reports/templates/protocol_zo_nodata*.html` — warianty bez danych
+
+---
+
+## 📋 Decyzje operatora (2026-06-30)
+
+### RAO-P1-021 — Pole „Wartość (zł)" → ekran rozliczenia
+**Decyzja:** Pole „Wartość" przechodzi do **ekranu rozliczenia** (nie formularz umowy). Tam wartość jest pobierana:
+- Z **Fakturowni** (kwota z faktury), LUB
+- Wprowadzona **ręcznie** na bazie pozycji umowy z uzupełnionymi kwotami
+
+**Implementacja:** Ekran rozliczenia pobiera pozycje umowy, pozwala uzupełnić kwoty (auto z Fakturowni lub ręcznie), sumuje → wartość umowy. Pole „Wartość" w formularzu umowy zostaje ukryte/puste (przedpłata dopisana z góry, wartość nieznana do rozliczenia).
+
+---
+
+### RAO-P2-028 — Statystyki miast via PNA (PILNE)
+**Decyzja:** Grupuj po **postal_code (PNA)** + miasto (precyzyjne).
+**Uwaga operatora:** Jedno miasto ma wiele PNA — trzeba ustalić **skąd uzupełnić PNA** dla miast.
+**Pilne** — wymaga analizy źródeł danych PNA (tabela postal_codes, integracja TERYT, GUS).
+
+---
+
+### RAO-P2-046 — IDOR / RBAC
+**Decyzja:** **Brak izolacji** na ten moment (single-tenant, wszyscy widzą wszystko).
+Wraz z rozwojem aplikacji będziemy zarządzać uprawnieniami do różnych zasobów.
+**Akcja:** Zostaw tylko SEC-001 (PDF ownership check). P2-046 odłożone.
+
+---
+
+### RAO-P2-057 — is_external (maszyna zewnętrzna)
+**Decyzja:** Maszyna external **nie blokuje** dodawania w wielu miejscach (nie wpływa na rentowność).
+- Ma być **możliwe do wyboru w detailsach maszyny** podczas dodawania
+- Sprawdzić **mechanizm blokowania maszyn** (czy external poprawnie nie blokuje)
+- Sprawdzić vs **wyliczanie dni umowy** czy maszyny będą poprawnie blokowane
+- **Blokada = pytanie z informacją** gdzie i dlaczego jest zablokowana maszyna, czy na pewno chcesz ją dodać/wypożyczyć
+- **Obgadać z teamem** (subagenty: backend-dev + qa-engineer + product-owner)
+
+---
+
+## 📋 Audyt wymagań klienta (2026-07-01) — Tech Lead
+
+### Wymagania klienta — status spełnienia
+
+| # | Wymaganie | Status | Uwagi |
+|---|-----------|--------|-------|
+| 1 | Statystyki wynajmu maszyny (po nr wewn.) w okresie — stopa zwrotu | **SPEŁNIONE z błędem** | `top-machines` + `explorer/machines/{id}` (utilization_pct). BŁĄD: rozjazd przychodu 41% między explorer a stats |
+| 2 | Ile maszyn jest teraz wynajętych | **SPEŁNIONE** | `currently-rented` + `fleet-summary` |
+| 3 | Dodanie numeru wewnętrznego do maszyny | **SPEŁNIONE funkcjonalnie, 0% danych** | `articles.internal_number` istnieje, ale 0/337 maszyn ma wypełnione (CSV nie istnieje, INSERT nie mapuje) |
+| 4 | Filtrowanie pozycji dodatkowych (transport, mycie) w okresach | **SPEŁNIONE** | `additional-fees` endpoint + UI |
+| 5 | Filtrowanie miejscowości i ilości wynajmów | **SPEŁNIONE** | `stats/locations` + `explorer/locations` (po PNA, z gmina/powiat/woj) |
+| 6 | Rezerwacja maszyny (blokada, info kiedy dostępny) | **SPEŁNIONE** | `articles/{id}/availability` + ArticlePicker z badge |
+
+### Odkryte problemy — do analizy i decyzji
+
+#### [RAO-P2-030] internal_number puste (0% maszyn) — BLOKER dla wymagan 1+3
+
+```yaml
+id: RAO-P2-030
+priority: P2
+size: M
+status: wont-fix
+classification: bugfix/migration-data
+roles: [db-architect, backend-dev]
+source: tech-lead-audit
 source_date: 2026-07-01
 source_ref: "Audyt wymagań klienta — wymaganie 3 (numer wewnętrzny)"
 resolution: "2026-07-01 — brak źródła danych w starej bazie (0/351 archive_articles ma internal_number, registration_no też 0%). Wymaga ręcznego uzupełnienia przez użytkownika w UI. Oznaczone wont-fix dla automatycznej migracji."
@@ -4675,4 +8688,5895 @@ note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone
   2. `onAddressSelect` — wypełnia postal_code+city z adresu kontrahenta + auto PNA lookup
   3. `onPostalCodeBlur` — refactor na reusable `lookupPna()`
 - **Weryfikacja:** vue-tsc exit 0, build OK
+
+---
+
+### [RAO-P2-068] Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta"
+
+```yaml
+id: RAO-P2-068
+priority: P2
+size: M
+status: done
+classification: backend/data-seeding+config
+roles: [tech-lead, backend-dev, db-architect, product-owner]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/04_business_logic.md (cenniki kaskadowe + pełna konfiguracja firmy)
+  - core/07_integrations.md (demo setup — cenniki + presety + rate types)
+migration_impact: no (demo dane tylko)
+security_impact: no
+depends_on:
+  - RAO-P2-067 (Demo data refactor — migrate_all.py orchestrator)
+verification:
+  - "python seed_demo_data.py: PASS (idempotentny re-run)"
+  - "CENNIKI_KASKADOWE: 5 maszyn × 3 warunki kaskadowe (1-3 dni, 4-16 dni, powyżej 16 dni)"
+  - "ZESTAWY_USLUG: 6 presetów (najem, usługa z operatorem, kontrakt długoterminowy, weekend, kontrakt zagraniczny, operator premium)"
+  - "ServiceFeeTemplateItem: 22 relacji N:M preset → artykuł"
+  - "Rate types: 6 typów (dniowa, godzinowa, km, tygodniowa, miesięczna, jednorazowa)"
+  - "Firma: NIP=1234563218, bank_account=PL 12 1020..., header_text do PDF"
+```
+
+**Problem:**
+
+Po P2-067 demo data miało jeszcze braki:
+1. **Brak cenników kaskadowych** — każda pozycja umowy miała tylko 1 warunek (płaska stawka). W starej aplikacji WinForms warunki były kaskadowe (1-3 dni 540zł/doba, 4-16 dni 410zł/doba, powyżej 16 dni 350zł/doba). User musiał ręcznie wpisywać każdy warunek.
+2. **Brak pełnej konfiguracji firmy** — `company` table miała tylko `name="RAO — Wynajem Maszyn"` (z main.py). Brak NIP, adres, konto bankowe, header_text do PDF.
+3. **Tylko 3 presety usług** — brak scenariuszy weekend, kontrakt zagraniczny, operator premium.
+4. **ServiceFeeTemplateItem pusta** — relacja N:M preset → artykuł nie była wypełniana.
+5. **Tylko 3 rate types** — brak tygodniowa, miesięczna, jednorazowa.
+
+**Cel:** "Rozliczenie = cennik" — user klika maszynę i ma gotowy cennik kaskadowy, nie musi ciągle wpisywać tego samego. Wszystkie rzeczy konfigurowalne zeseedowane pod demo.
+
+---
+
+#### Scope implementacji
+
+**1. CENNIKI_KASKADOWE per maszyna (5 maszyn × 3 warunki):**
+
+| Maszyna | 1-3 dni | 4-16 dni | powyżej 16 dni |
+|---------|---------|----------|----------------|
+| Koparka JCB 8035 | 900 zł/doba | 750 zł/doba | 600 zł/doba |
+| Ładowarka Manuscop 6.36 | 720 zł/doba | 600 zł/doba | 480 zł/doba |
+| Podnośnik Haulotte HA16PX | 500 zł/doba | 420 zł/doba | 340 zł/doba |
+| Spychacz Wirtgen W100CFi | 1300 zł/doba | 1100 zł/doba | 900 zł/doba |
+| Zagęszczarka Ammann APF 15/50 | 180 zł/doba | 150 zł/doba | 120 zł/doba |
+
+**2. 6 presetów usług dodatkowych:**
+- Cennik usług — najem 2026 (S, default) — 6 szablonów
+- Cennik usług — usługa z operatorem 2026 (U, default) — 3 szablony
+- Kontrakt długoterminowy (rabat) (S) — 4 szablony
+- Weekend / krótkoterminowy (1-3 dni) (S) — 3 szablony
+- Kontrakt zagraniczny (export) (S) — 4 szablony
+- Usługa z operatorem — premium (U) — 4 szablony
+
+**3. ServiceFeeTemplateItem:** 22 relacji N:M preset → artykuł z domyślną ceną.
+
+**4. 6 rate types:** dniowa, godzinowa, km (istniejące) + tygodniowa, miesięczna, jednorazowa (nowe).
+
+**5. Pełna konfiguracja firmy:** NIP 1234563218, REGON, adres Warszawa, konto PKO BP, header_text do PDF, numbering_start=1, increment_step=50.
+
+**6. `_build_positions_and_fees`** używa cenników kaskadowych zamiast płaskiej stawki.
+
+---
+
+#### Weryfikacja (2026-07-04)
+
+- `python seed_demo_data.py`: PASS (idempotentny re-run, 0 nowych bo dane istnieją)
+- `python _verify_cennik.py`: CENNIKI_KASKADOWE=5, ZESTAWY_USLUG=6, RATE_TYPES=6, FIRMA_CONFIG OK
+- DB check: 8 presetów (2 stare default + 6 nowych), 22 ServiceFeeTemplateItem, 9 rate types (3 legacy + 6 nowych)
+- Firma: NIP=1234563218, bank_account=PL 12 1020..., header_text z pełnymi danymi
+
+---
+
+#### Pliki zmienione
+
+| Plik | Zmiana |
+|------|--------|
+| `backend/seed_demo_data.py` | +CENNIKI_KASKADOWE (5 maszyn × 3 warunki), +STAWKA_EFEKTYWNA, +FIRMA_CONFIG, +3 nowe presety, +ServiceFeeTemplateItem, +3 rate types, +seed_company(), _build_positions_and_fees używa cenników kaskadowych |
+
+---
+
+**Estymacja:** 4-5h (M) — cenniki kaskadowe (1.5h) + presety + ServiceFeeTemplateItem (1h) + rate types + firma (1h) + weryfikacja (0.5h)
+
+---
+
+### [RAO-P2-069] Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście
+
+```yaml
+id: RAO-P2-069
+priority: P2
+size: M
+status: done
+classification: cross-stack
+roles: [backend-dev, frontend-dev, product-owner]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/02_backend_api.md (endpoint /locations/city/{city} + group_by param)
+migration_impact: no
+security_impact: no
+depends_on:
+  - RAO-P2-028 (Agregacja PNA z LEFT JOIN do postal_codes)
+verification:
+  - "vue-tsc --noEmit: PASS"
+  - "npm run build: PASS (643ms)"
+  - "curl /explorer/locations?group_by=city: Warszawa → 1 wiersz (postal_code=null)"
+  - "curl /explorer/locations?group_by=pna: Warszawa 00-002 → 1 wiersz z PNA"
+  - "curl /explorer/locations/city/Warszawa: 200 OK z pna_breakdown + top_machines"
+  - "Playwright screenshot: toggle Miasto/PNA działa, kolumna PNA warunkowa"
+```
+
+**Problem:**
+
+W zakładce "Lokalizacje" w AnalyticsView każde miasto było rozbite na kody pocztowe — Warszawa (3978 PNA w słowniku) mogła mieć wiele wierszy zamiast jednego. User chciał: "ma być miasto do wielu kodów pocztowych" — jeden wiersz per miasto, z opcją rozbicia na PNA jeśli potrzeba.
+
+**Cel:** Toggle Miasto/PNA w UI. Domyślnie miasto (1 wiersz per miasto, sumuje wszystkie PNA). Drill-down po mieście pokazuje rozbicie na PNA.
+
+---
+
+#### Scope implementacji
+
+**Backend:**
+1. `shared/locations.py` — `aggregate_by_pna()` dostaje `group_by='city'|'pna'` (domyślnie 'city'):
+   - `city`: klucz = (city, gmina, powiat, wojewodztwo) — 1 wiersz per miasto, `postal_code=null`
+   - `pna`: klucz = (postal_code, city) — 1 wiersz per PNA (legacy)
+2. `explorer/router.py` — `GET /explorer/locations` dostaje `?group_by=city|pna` (domyślnie city)
+3. `explorer/router.py` — nowy `GET /explorer/locations/city/{city}` — drill-down po mieście:
+   - Sumuje wszystkie PNA w mieście (case-insensitive)
+   - Zwraca `pna_breakdown` (rozbicie na kody pocztowe)
+   - Top maszyny (10) + top kontrahenci (5) filtrowani po mieście
+   - `metrics.pna_count` — ile kodów PNA w mieście
+
+**Frontend:**
+1. `stores/analytics.ts` — `fetchLocationsRanking()` dostaje `groupBy` param; nowy `fetchCityDetails()`
+2. `LocationsTab.vue` — toggle "Miasto / PNA" w nagłówku sekcji ranking
+3. Kolumna PNA warunkowa (tylko w trybie PNA)
+4. `onRowClick` — w trybie city wywołuje `openDrillDown('location', 'city:'+city, city)`
+5. `AnalyticsView.vue` — drill-down po mieście pokazuje `pna_breakdown` sekcję + `pna_count` w metrics
+
+---
+
+#### Weryfikacja (2026-07-04)
+
+- `vue-tsc --noEmit`: PASS
+- `npm run build`: PASS (643ms)
+- `curl /explorer/locations?group_by=city`: Warszawa → 1 wiersz (postal_code=null, gmina=Warszawa, woj=mazowieckie)
+- `curl /explorer/locations?group_by=pna`: Warszawa 00-002 → 1 wiersz z PNA
+- `curl /explorer/locations/city/Warszawa`: 200 OK — city, gmina, powiat, wojewodztwo, metrics (pna_count=1), pna_breakdown, top_machines, top_contractors
+- Playwright: toggle Miasto/PNA działa, kolumna PNA pojawia się tylko w trybie PNA, drill-down po mieście otwiera drawer "📍 Kraków / Umowy w mieście (wszystkie PNA)"
+
+---
+
+#### Pliki zmienione
+
+| Plik | Zmiana |
+|------|--------|
+| `backend/shared/locations.py` | +`group_by` param (city/pna), klucz agregacji zależny od trybu |
+| `backend/explorer/router.py` | +`group_by` query param, +`/locations/city/{city}` endpoint, +import defaultdict |
+| `frontend/src/stores/analytics.ts` | +`groupBy` param w fetchLocationsRanking, +fetchCityDetails, +pna_breakdown w LocationDetailsResponse |
+| `frontend/src/components/analytics/tabs/LocationsTab.vue` | +toggle Miasto/PNA, kolumna PNA warunkowa, onRowClick per tryb |
+| `frontend/src/views/AnalyticsView.vue` | +sekcja pna_breakdown w drill-down, +metric pna_count |
+
+---
+
+**Estymacja:** 3-4h (M) — backend (1.5h) + frontend (1.5h) + weryfikacja (0.5h)
+
+---
+
+### [RAO-P2-070] Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation)
+
+```yaml
+id: RAO-P2-070
+priority: P2
+size: L
+status: triaged
+classification: frontend/ux
+roles: [ux-designer, frontend-dev, product-owner]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/03_frontend_screens.md (drilldowny cross-view)
+  - core/06_navigation_flow.md (cross-view navigation, goBack → router.back)
+  - core/18_ux_improvements.md (toast zamiast alert, feedback po zapisie)
+migration_impact: no
+security_impact: no
+depends_on: []
+blocks: []
+verification: []
+```
+
+**Problem:**
+
+Aplikacja ma solidne podstawy (drilldown w Analytics/Archive, skeleton loadery, empty states, active sidebar). Ale **codzienne flow usera** jest utrudnione — brakuje cross-view drilldownów (kontrahent↔umowa↔maszyna), sortowania po kolumnach w Dashboard, kluczowych filtrów (handlowiec, miasto), oraz `alert()` zamiast toastów w 25+ miejscach.
+
+**Cel:** Aplikacja w pełni interaktywna — user może "przeskakiwać" między encjami bez ręcznego szukania, każdy zapis/akcja ma feedback, każda lista ma filtry i sortowanie.
+
+---
+
+#### Audyt UX (2026-07-04) — 30 usterek w 3 priorytetach
+
+##### 🔴 HIGH — Blokuje codzienną pracę (8 usterek)
+
+| # | Usterka | Widok | User pain | Stara aplikacja |
+|---|---------|-------|-----------|-----------------|
+| B1 | Brak drilldown z listy umów → kontrahent | DashboardView /contracts | Ręczne szukanie kontrahenta w sidebar | WinForms: context menu / double-click |
+| B2 | Brak kolumny "Maszyny" w liście umów | DashboardView /contracts | Trzeba otwierać każdą umowę | WinForms: tooltip / dialog "?" |
+| B3 | Brak drilldown z kontrahenta → jego umowy | DashboardView /contractors | "Aktywna umowa" nie jest klikalna | WinForms: double-click → historia umów |
+| B4 | Brak drilldown z artykułu → historia wynajmów | DashboardView /articles | Trzeba kombinować z Analytics | WinForms: FormA.cs podgląd historii |
+| B5 | Brak sortowania po kolumnach w DashboardView | DashboardView (3 sekcje) | Klik w nagłówek nie sortuje | WinForms: DataGridView sortował |
+| B6 | `alert()` zamiast toastów — 25+ miejsc | 9 widoków (ContractForm 18×, ContractorForm 5×, Archive 5×, Admin 6×, inne) | Blokuje aplikację, legacy pattern | WinForms: MessageBox (web ≠ MessageBox) |
+| B7 | Brak toastu po zapisie umowy/kontrahenta/artykułu | ContractForm, ContractorForm, ArticleForm | User nie wie czy zapisano → duplikat | WinForms: "Zapisano" w status bar |
+| B8 | Brak filtra "Handlowiec" i "Miasto" w liście umów | DashboardView /contracts | Handlowiec nie widzi swoich umów | WinForms: filtry handlowca w toolbarze |
+
+##### 🟡 MEDIUM — Frustrujące, user radzi sobie obejściem (13 usterek)
+
+| # | Usterka | Widok |
+|---|---------|-------|
+| B9 | Brak drilldown z umowy → edycja kontrahenta | ContractFormView |
+| B10 | Brak drilldown z umowy → edycja maszyny (z pozycji) | ContractFormView (PositionGrid) |
+| B11 | Brak drilldown z umowy → faktura w Fakturownia | ContractFormView (panel FA) |
+| B12 | Brak drilldown z CommissionView → umowy handlowca | CommissionView |
+| B13 | Brak drilldown z drill-machine-rentals → konkretna umowa | AnalyticsView (drawer machine) |
+| B14 | Brak drilldown z top_contractors → kontrahent | AnalyticsView (drawer location) |
+| B15 | Brak breadcrumb w formularzach | ContractForm, ContractorForm, ArticleForm |
+| B16 | `goBack` hardcoded zamiast `router.back()` | ContractForm, ContractorForm, ArticleForm |
+| B17 | Brak filtra "Tylko z aktywną umową" w kontrahentach | DashboardView /contractors |
+| B18 | Brak filtra kategoria/marka/typ w artykułach | DashboardView /articles |
+| B19 | Brak kalendarza umów (spec 06 sekcja 3) | DashboardView /contracts |
+| B20 | Brak toolbar [?] — podgląd szczegółów bez edycji | DashboardView |
+| B21 | Brak context menu "Dodaj umowę" w kontrahentach | DashboardView /contractors |
+
+##### 🟢 LOW — Polish / nice-to-have (9 usterek)
+
+| # | Usterka | Widok |
+|---|---------|-------|
+| B22 | Brak hover indicatora na klikalnych wierszach | ArchiveView |
+| B23 | Brak undo dla destruktywnych akcji | DashboardView, ContractorForm |
+| B24 | Brak sticky header w tabelach | DashboardView, ArchiveView |
+| B25 | Brak filtra "Okres" w kontrahentach i artykułach | DashboardView |
+| B26 | Brak paginacji w drilldown drawers | AnalyticsView |
+| B27 | Brak "Eksportuj CSV/PDF" z list | DashboardView, AnalyticsView |
+| B28 | Brak tooltipów na ikonach w toolbarze | ContractFormView |
+| B29 | Brak drilldown z HomeView KPI → filtrowana lista | HomeView |
+| B30 | Brak drilldown z HomeView "Dostawy" → umowa | HomeView |
+
+---
+
+#### Mapa pożądanych interakcji (cross-view navigation)
+
+| Z widoku | Klik w | Powinno otworzyć | Priorytet |
+|----------|--------|------------------|-----------|
+| Dashboard /contracts | Nazwa kontrahenta | `/contractors/:id/edit` | HIGH |
+| Dashboard /contracts | Maszyna (nowa kolumna) | `/articles/:id/edit` lub drilldown | HIGH |
+| Dashboard /contracts | Nagłówek kolumny | Sort ASC/DESC | HIGH |
+| Dashboard /contracts | Filtr Handlowiec | Lista filtrowana po `salesperson_id` | HIGH |
+| Dashboard /contracts | Filtr Miasto | Lista filtrowana po `city` | HIGH |
+| Dashboard /contractors | Numer aktywnej umowy | `/contracts/:id/edit` | HIGH |
+| Dashboard /contractors | Right-click → "Dodaj umowę" | `/contracts/new?contractor_id=:id` | HIGH |
+| Dashboard /articles | Numer aktywnej umowy | `/contracts/:id/edit` | HIGH |
+| Dashboard /articles | "Historia wynajmów" | Drawer jak w Analytics | HIGH |
+| ContractForm | "✎ Edytuj" obok kontrahenta | `/contractors/:id/edit` (nowa karta) | MEDIUM |
+| ContractForm | Nazwa artykułu w pozycji | `/articles/:id/edit` (nowa karta) | MEDIUM |
+| ContractForm | Faktura w panelu FA | `window.open(invoice.url)` | MEDIUM |
+| Analytics /drill-machine | Wiersz rental (umowa) | `/contracts/:contract_id/edit` | MEDIUM |
+| Analytics /drill-location | Wiersz top_contractor | `/contractors/:id/edit` | MEDIUM |
+| Commission | Wiersz handlowca | `/dashboard/contracts?salesperson_id=:id` | MEDIUM |
+| HomeView | KPI card | `/worker` lub `/dashboard/contracts` z filtrem | MEDIUM |
+| HomeView | Dostawa (delivery-row) | `/contracts/:contract_id/edit` | MEDIUM |
+| Wszystkie formularze | Toolbar "←" | `router.back()` z fallbackiem | MEDIUM |
+| Wszystkie błędy | API error | Toast error (NIE `alert()`) | HIGH |
+| Wszystkie formularze | Po Zapisz | Toast success | HIGH |
+
+---
+
+#### Rekomendowana kolejność implementacji (5 faz)
+
+**Faza 1 — Toasty zamiast alert() + feedback po zapisie (B6, B7)** — quick win, 25+ miejsc
+- Komponent `Toast.vue` i `useToastStore` już istnieją (używane w 1 miejscu)
+- Czysta zamiana `alert(err)` → `toastStore.showToast(msg, 'error')`
+- Dodać toast success po zapisie we wszystkich formularzach
+- Est: 4-6h (S)
+
+**Faza 2 — Cross-view drilldown z list (B1, B3, B4)** — najczęstszy flow codzienny
+- DashboardView /contracts: nazwa kontrahenta → link, kolumna "Maszyny" → link
+- DashboardView /contractors: `active_contract_number` → link, context menu "Dodaj umowę"
+- DashboardView /articles: `active_contract_number` → link, akcja "Historia wynajmów"
+- Est: 6-8h (M)
+
+**Faza 3 — Sortowanie po kolumnach w DashboardView (B5)** — `useSort` już istnieje
+- Przenieść pattern z `ExplorerTab.vue` / `AnalyticsTable.vue`
+- 3 tabele: contracts, contractors, articles
+- Est: 3-4h (S)
+
+**Faza 4 — Filtry: Handlowiec + Miasto w liście umów (B8)** — wymaga backend
+- Dodać `salesperson_id` i `city` do `GET /contracts` query params (backend)
+- Dodać `<select>` i `<input>` w grid-header (frontend)
+- `settingsStore.salespeople` już załadowany
+- Est: 4-5h (S)
+
+**Faza 5 — goBack → router.back() + drilldown w Analytics/HomeView (B13-B16, B29-B30)** — polish
+- `goBack` używające `router.back()` z fallbackiem
+- Drilldown z drawer Analytics → konkretna umowa
+- KPI cards w HomeView klikalne
+- Est: 4-6h (S)
+
+**Łączna estymacja:** 21-29h (L) — 5 faz, każda niezależna (można robić sekwencyjnie)
+
+---
+
+#### Co działa dobrze (nie wymaga zmian)
+
+- ✅ HomeView — klik w umowę w panelach → edycja
+- ✅ WorkerView — klik w umowę/dostawy → edycja, filtry dni
+- ✅ AnalyticsView — drilldown machine/location, filtry (date, type, contractor, city)
+- ✅ ArchiveView — drilldown umów, filtry (search, typ, data, kategoria), paginacja
+- ✅ ExplorerTab — klik w wynik → edycja, search + sort
+- ✅ ContractFormView — picker kontrahenta/art/dostawcy, inline form, conflict modal
+- ✅ ContractorFormView — "+ Umowa" → auto-fill, GUS lookup
+- ✅ AppSidebar — active state per section
+- ✅ AppLayout — Ctrl+N = nowy, Esc = back
+
+---
+
+#### Edge cases do obsługi w implementacji
+
+- [ ] **Error state:** Tylko ArchiveView/AnalyticsView mają retry; reszta = `alert('Błąd')`
+- [ ] **Success feedback:** Tylko CommissionView (toast); reszta = brak
+- [ ] **Slow connection:** Brak timeout indicatora
+- [ ] **Long content:** DashboardView paginacja (50/strona, brak wyboru per-page)
+- [ ] **Soft delete vs hard delete:** Usunięcie kontrahenta z aktywnymi umowami — blokować LUB soft-delete
+
+---
+
+**Estymacja:** 21-29h (L) — 5 faz, każda niezależna
+
+---
+
+## 📋 Tabela TL;DR
+
+| ID | Tytuł | P | Est. | Status | Następny krok |
+|----|-------|---|------|--------|---------------|
+| RAO-P1-014 | Frontend — błędne obliczanie daty końcowej okresu umowy | P1 | XS | user-verified | → client-approved |
+| RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | P1 | XS | team-verified | → user-verified |
+| RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | P1 | S | team-verified | → user-verified |
+| RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | dev-verified | → team-verified |
+| RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | P1 | XS | team-verified | → user-verified |
+| RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | dev-verified | → user-verified |
+| RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
+| RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | dev-verified | → team-verified (wartość z rozliczenia, read-only w formularzu) |
+| RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
+| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | review | → Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
+| RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | dev-verified | → user-verified |
+| RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | dev-verified | → team-verified (unique=True w model + DB index uq_contracts_number) |
+| RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | done | → done (autoescape=True w reports/service.py:588) |
+| RAO-P0-032 | build_contract_data mutuje sesję — kopiuj description | P0 | XS | done | → done (lokalne kopie description w fees_data) |
+| RAO-P0-033 | recalculate_total — użyj algorytmu kaskadowego | P0 | S | dev-verified | → team-verified |
+| RAO-P0-034 | ContractUpdate schema z exclude_unset=True (lost data) | P0 | M | dev-verified | → team-verified |
+| RAO-P0-035 | N+1 queries — selectinload w list_contracts/positions/articles | P0 | M | dev-verified | → team-verified |
+| RAO-P0-036 | Stack trace disclosure → detail="Błąd" + logging | P0 | XS | dev-verified | → team-verified (global exception handler w main.py) |
+| RAO-P1-037 | delete_contract — guard na is_settled | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-038 | Brak indeksów DB (is_settled, created_at, salesperson_id, print_date, delivery_date) | P1 | S | dev-verified | → team-verified |
+| RAO-P1-039 | Walidacja date_from > date_to + ujemne kwoty w ContractCreate | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-040 | is_settled blokuje mutacje (update/delete positions) | P1 | S | dev-verified | → team-verified |
+| RAO-P1-041 | Hardcoded JWT fallback "change-me" — usuń + wymuś z env | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-042 | Frontend: logout czyści stores + redirect po login + baseURL z env | P1 | S | dev-verified | → team-verified |
+| RAO-P1-043 | Frontend: memory leaks — cleanup event listenerów i timerów | P1 | S | dev-verified | → team-verified |
+| RAO-P1-044 | Frontend: localStorage.getItem('token') → 'rao_token' | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-045 | _build_conditions_text — użyj format_position_conditions_cascading (dedup) | P1 | XS | dev-verified | → team-verified |
+| RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
+| RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | triaged | → in_progress |
+| RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | triaged | → in_progress |
+| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | triaged | → in_progress |
+| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | triaged | → in_progress |
+| RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | triaged | → in_progress |
+| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
+| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
+| RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | dev-verified | → team-verified (normalize w settings/service.py + ALTER TABLE polish_ci w main.py) |
+| RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | triaged | → in_progress |
+| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
+| RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | dev-verified | → team-verified (is_external nie blokuje + checkbox w details) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
+| RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | triaged | → in_progress (Faza 1: parser legacy + migracja + UI + template items) |
+| RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | in-progress (Faza 1 done — 6 bugów + indeksy + cleanup; Faza 2 todo — StatsView.vue) |
+| RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
+| RAO-P2-067 | Demo data refactor — migrate_all.py orchestrator + FA-pending contracts + delivery_address | P2 | M | done | 31 faktur FA (19 backfill + 12 FA-pending), delivery_address z miastami, hardcoded token usunięty |
+| RAO-P2-068 | Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta" | P2 | M | done | 5 cenników kaskadowych per maszyna, 6 presetów usług, 22 ServiceFeeTemplateItem, 6 rate types, pełna konfiguracja firmy |
+| RAO-P2-069 | Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście | P2 | M | done | Toggle Miasto/PNA w LocationsTab, 1 wiersz per miasto (Warszawa 3978 PNA → 1), drill-down /locations/city/{city} z pna_breakdown |
+| RAO-P2-070 | Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation) | P2 | L | triaged | 30 usterek UX (8 HIGH, 13 MEDIUM, 9 LOW); 5 faz: toasty, cross-view drilldown, sort, filtry, goBack |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
+
+**Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
+
+### Pipeline weryfikacji (status flow)
+
+```
+triaged → in_progress → dev-verified → team-verified → user-verified → client-approved (done)
+           │              │               │               │               │
+           Devin koduje   Devin testuje   Software-house  Ty wzrokowo    Klient zatwierdza
+           zmianę         programatycz.   subagenty       w UI/PDF        → zadanie zamknięte
+                          (Playwright,    (QA, Security,
+                           PyMuPDF,       UX, PO, Tech
+                           pytest,        Lead review)
+                           vue-tsc)
+```
+
+---
+
+## 🔍 Pre-existing issues (znalezione przez security audit P1-015)
+
+### [RAO-SEC-001] IDOR — `/reports/contract/{id}` bez ownership check
+
+```yaml
+id: RAO-SEC-001
+priority: P1
+size: S
+status: done
+classification: security/idor
+roles: [backend-dev, security-auditor]
+source: security-audit
+source_date: 2026-06-29
+source_ref: "Security audit P1-015 — subagent security-auditor"
+specs_to_update:
+  - core/25_security.md
+migration_impact: no
+security_impact: yes
+done_date: 2026-07-01
+fix: "_check_contract_access() w reports/router.py — admin full access, non-admin tylko własny branch, fetch contract przed PDF gen (early 404/403)"
+verification:
+  - "py_compile reports/router.py: OK"
+  - "curl POST /reports/contract/999999 (admin): 404 (contract not found)"
+  - "smoke 01-login.spec.ts: 11/11 passed"
+```
+
+**Problem:** Endpoint `POST /reports/contract/{contract_id}` wymaga autentykacji (`get_current_user`), ale **nie sprawdza ownership/tenant** — każdy zalogowany użytkownik może wygenerować PDF (z telefonami klienta) dla cudzej umowy znając `contract_id`.
+
+**Atak:** Enumeracja `contract_id` → pozyskanie danych kontaktowych (telefony, adres dostawy) klientów innych handlowców.
+
+**Fix:** W `reports/router.py` (lub `service.py`) dodać weryfikację:
+```python
+if contract.created_by != current_user.id and current_user.role != "admin":
+    raise HTTPException(403)
+```
+
+**Pliki do zmiany:**
+- `backend/reports/router.py`
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S)
+
+---
+
+### [RAO-SEC-002] Jinja2 bez `autoescape=True` w reports/service.py
+
+```yaml
+id: RAO-SEC-002
+priority: P1
+size: S
+status: done
+classification: security/injection
+roles: [backend-dev, security-auditor]
+source: security-audit
+source_date: 2026-06-29
+source_ref: "Security audit P1-015 — subagent security-auditor"
+implementation_date: 2026-07-01
+note: "Już naprawione — autoescape=True w reports/service.py:588"
+specs_to_update:
+  - core/25_security.md
+migration_impact: no
+security_impact: yes
+```
+
+**Problem:** `Environment(loader=FileSystemLoader(template_dir))` w `backend/reports/service.py` utworzony **bez `autoescape=True`**. Użytkownik może wstrzyknąć HTML/JS w pola `notes`, `contractor_name`, `contact_person1` → trafia do PDF WeasyPrint (SSRF, data exfiltration).
+
+**Fix:** `Environment(loader=FileSystemLoader(template_dir), autoescape=True)` + przetestować wszystkie szablony PDF pod kątem niezamierzonego escapowania polskich znaków.
+
+**Pliki do zmiany:**
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S) — wymaga testów wszystkich szablonów PDF
+
+---
+
+## 🗂️ Materiały referencyjne
+
+**Sprint 2026-06-29 (nowe zgłoszenia):**
+- `spec/backlog/do_wciagniecia_do_backlogu.md` — 10 punktów od klienta (surowy markdown)
+- `Pasted image 20260629223748.png` (root repo) — P1-014: błędne obliczenie daty
+- `Pasted image 20260629223936.png` (root repo) — P1-016: protokół ZO bez adresu dostawy
+- `Pasted image 20260629224212.png` (root repo) — P1-019: umowa usługi U872/2026 z żółtym tłem
+- `Pasted image 20260629224534.png` (root repo) — P1-020: format rozliczenia kaskadowego
+- `Pasted image 20260629224602.png` (root repo) — P1-021: sekcja Warunki Finansowe z pustym Wartość
+- `Pasted image 20260629225003.png` (root repo) — P1-022: lista umów z niespójnym nazewnictwem
+- Raporty vision: `Pasted image 20260629*-vision-report.md` (root repo)
+
+**Stara aplikacja WinForms (referencja):**
+- `C:\projects\repos\AppRao\rao\FormW.cs` linia 690-750 — algorytm formatowania warunków kaskadowych
+
+**Aktualne szablony PDF:**
+- `backend/reports/templates/contract_u.html` — umowa usługi (typ U)
+- `backend/reports/templates/contract.html` — umowa najmu (typ S)
+- `backend/reports/templates/protocol_zo.html` — protokół zdawczo-odbiorczy
+- `backend/reports/templates/protocol_zo_u.html` — protokół wykonania usługi
+- `backend/reports/templates/protocol_zo_nodata*.html` — warianty bez danych
+
+---
+
+## 📋 Decyzje operatora (2026-06-30)
+
+### RAO-P1-021 — Pole „Wartość (zł)" → ekran rozliczenia
+**Decyzja:** Pole „Wartość" przechodzi do **ekranu rozliczenia** (nie formularz umowy). Tam wartość jest pobierana:
+- Z **Fakturowni** (kwota z faktury), LUB
+- Wprowadzona **ręcznie** na bazie pozycji umowy z uzupełnionymi kwotami
+
+**Implementacja:** Ekran rozliczenia pobiera pozycje umowy, pozwala uzupełnić kwoty (auto z Fakturowni lub ręcznie), sumuje → wartość umowy. Pole „Wartość" w formularzu umowy zostaje ukryte/puste (przedpłata dopisana z góry, wartość nieznana do rozliczenia).
+
+---
+
+### RAO-P2-028 — Statystyki miast via PNA (PILNE)
+**Decyzja:** Grupuj po **postal_code (PNA)** + miasto (precyzyjne).
+**Uwaga operatora:** Jedno miasto ma wiele PNA — trzeba ustalić **skąd uzupełnić PNA** dla miast.
+**Pilne** — wymaga analizy źródeł danych PNA (tabela postal_codes, integracja TERYT, GUS).
+
+---
+
+### RAO-P2-046 — IDOR / RBAC
+**Decyzja:** **Brak izolacji** na ten moment (single-tenant, wszyscy widzą wszystko).
+Wraz z rozwojem aplikacji będziemy zarządzać uprawnieniami do różnych zasobów.
+**Akcja:** Zostaw tylko SEC-001 (PDF ownership check). P2-046 odłożone.
+
+---
+
+### RAO-P2-057 — is_external (maszyna zewnętrzna)
+**Decyzja:** Maszyna external **nie blokuje** dodawania w wielu miejscach (nie wpływa na rentowność).
+- Ma być **możliwe do wyboru w detailsach maszyny** podczas dodawania
+- Sprawdzić **mechanizm blokowania maszyn** (czy external poprawnie nie blokuje)
+- Sprawdzić vs **wyliczanie dni umowy** czy maszyny będą poprawnie blokowane
+- **Blokada = pytanie z informacją** gdzie i dlaczego jest zablokowana maszyna, czy na pewno chcesz ją dodać/wypożyczyć
+- **Obgadać z teamem** (subagenty: backend-dev + qa-engineer + product-owner)
+
+---
+
+## 📋 Audyt wymagań klienta (2026-07-01) — Tech Lead
+
+### Wymagania klienta — status spełnienia
+
+| # | Wymaganie | Status | Uwagi |
+|---|-----------|--------|-------|
+| 1 | Statystyki wynajmu maszyny (po nr wewn.) w okresie — stopa zwrotu | **SPEŁNIONE z błędem** | `top-machines` + `explorer/machines/{id}` (utilization_pct). BŁĄD: rozjazd przychodu 41% między explorer a stats |
+| 2 | Ile maszyn jest teraz wynajętych | **SPEŁNIONE** | `currently-rented` + `fleet-summary` |
+| 3 | Dodanie numeru wewnętrznego do maszyny | **SPEŁNIONE funkcjonalnie, 0% danych** | `articles.internal_number` istnieje, ale 0/337 maszyn ma wypełnione (CSV nie istnieje, INSERT nie mapuje) |
+| 4 | Filtrowanie pozycji dodatkowych (transport, mycie) w okresach | **SPEŁNIONE** | `additional-fees` endpoint + UI |
+| 5 | Filtrowanie miejscowości i ilości wynajmów | **SPEŁNIONE** | `stats/locations` + `explorer/locations` (po PNA, z gmina/powiat/woj) |
+| 6 | Rezerwacja maszyny (blokada, info kiedy dostępny) | **SPEŁNIONE** | `articles/{id}/availability` + ArticlePicker z badge |
+
+### Odkryte problemy — do analizy i decyzji
+
+#### [RAO-P2-030] internal_number puste (0% maszyn) — BLOKER dla wymagan 1+3
+
+```yaml
+id: RAO-P2-030
+priority: P2
+size: M
+status: wont-fix
+classification: bugfix/migration-data
+roles: [db-architect, backend-dev]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt wymagań klienta — wymaganie 3 (numer wewnętrzny)"
+resolution: "2026-07-01 — brak źródła danych w starej bazie (0/351 archive_articles ma internal_number, registration_no też 0%). Wymaga ręcznego uzupełnienia przez użytkownika w UI. Oznaczone wont-fix dla automatycznej migracji."
+```
+
+**Problem:** `articles.internal_number` jest puste dla 0/337 maszyn (0%).
+- `migrate.py` INSERT articles z `artykul3` NIE mapuje `internal_number` (kolumna nie istnieje w `artykul3`)
+- `step8_csv_categories` wypełniał `internal_number` z CSV `Asortyment*.csv`, ale ten plik **nie istnieje** na dysku
+- Bez `internal_number` wymaganie 1 (statystyki po nr wewn.) i 3 (dodawanie nr wewn.) są bezużyteczne
+
+**Opcje naprawy:**
+1. Znaleźć źródło numerów wewnętrznych (inny CSV? ręczne dopisanie w UI?)
+2. Sprawdzić czy `nr_rejestracyjny` z `artykul3` może służyć jako numer wewnętrzny (ale też 0% wypełnione)
+3. Ręczne wypełnienie przez użytkownika w UI (formularz maszyny już ma pole)
+
+**Acceptance criteria:**
+- [ ] Źródło numerów wewnętrznych zidentyfikowane
+- [ ] `internal_number` wypełnione dla >80% maszyn
+- [ ] Statystyki po `internal_number` działają (test API)
+
+---
+
+#### [RAO-P2-031] Rozjazd przychodu 41% — explorer vs stats
+
+```yaml
+id: RAO-P2-031
+priority: P2
+size: S
+status: done
+classification: bugfix/backend-logic
+roles: [backend-dev, qa-engineer]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt — explorer/machines używa rate1×period_count zamiast kaskadowego"
+commit: P2-032 (scalone)
+specs_to_update:
+  - core/01_database.md
+  - core/04_business_logic.md
+
+**Problem:** `explorer/machines/{id}` liczy przychód jako `rate1 × period_count` (simple), a `stats/top-machines` używa kaskadowego `calculate_position_value`. **Rozjazd 41%** (3.17M vs 5.37M zł). Explorer zawyża przychody maszyn o ~41%.
+
+**Lokalizacja:** `backend/explorer/router.py:218` — subquery `rev_subq` używa `func.sum(rate1 * period_count)` zamiast wywołania `shared.revenue.compute_position_revenues`.
+
+**Naprawa:** Refactor `get_machine_details` aby używał `shared.revenue.compute_position_revenues` (jak `stats/top-machines`).
+
+**Acceptance criteria:**
+- [ ] `explorer/machines/{id}` używa `shared.revenue.compute_position_revenues`
+- [ ] Przychody spójne między explorer a stats (delta <1%)
+- [ ] Test unit: porównanie przychodu per pozycja
+
+---
+
+#### [RAO-P2-032] Przychód z `rozliczenie` (legacy) — rzeczywiste kwoty
+
+```yaml
+id: RAO-P2-032
+priority: P1
+size: L
+status: done
+classification: feature/revenue-source
+roles: [db-architect, backend-dev, frontend-dev, product-owner, tech-lead, security-auditor]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt — warunki rozliczenia są orientacyjne, nie wiemy co skasowano na fakturach"
+implementation_date: 2026-07-01
+specs_to_update:
+  - core/01_database.md
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+  - core/04_business_logic.md
+  - core/08_migration_plan.md
+
+**Problem:** Obecnie przychód liczony z `position_conditions.rate1 × period_count` (kaskadowe) — **orientacyjne stawki z umowy**, nie rzeczywiste kwoty zafakturowane. `contracts.total_value` jest NULL/0 dla 100% umów (martwe pole).
+
+**Odkrycie:** W dumpie starej bazy (`spec/backlog/archiwum/refinement/toolsmart_roa_*.sql`) jest tabela `rozliczenie` z **3836 wierszami** (~1951 sparsowanych, 792,384 zł) — **rzeczywiste rozliczenia per pozycja**:
+- `id, data, id_pozycji, wartosc`
+- 99.2% `id_pozycji` mapuje się na `contract_positions.id`
+- `wartosc` = rzeczywista kwota rozliczona (po fakcie)
+
+**Stara funkcja SQL (linia 11064-11070):** NIE używała `oplata1 × liczba_dni` (kaskadowe), ale **lookup** — wybierała jedną stawkę po `liczba_dni` (inny algorytm niż nasz `calculate_position_value`).
+
+**Koncepcja operatora — Data Cutoff + Dwa tryby:**
+1. **Dane historyczne (`is_legacy=1`, przed cutofficem):**
+   - Import `rozliczenie` → `contract_settlements` (cost_client=wartosc, source='legacy')
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty**
+   - Osobna sekcja UI: "Analiza danych historycznych" z label "rzeczywiste rozliczenia"
+2. **Nowe dane (`is_legacy=0`, po cutofficie):**
+   - Integracja Fakturownia (już istnieje! `init-from-fakturownia`)
+   - `contract.oid` + `article.fakturownia_product_id` → automatyczne mapowanie
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty zafakturowane**
+
+**Decyzje do podjęcia (wymaga operatora/klienta):**
+1. Czy importować `rozliczenie` (3836 wierszy) do `contract_settlements`?
+2. Kiedy następuje cutoff? (wszystkie 742 obecne umowy = legacy?)
+3. Czy zachować `position_conditions` (szacunek) jako fallback gdy brak rozliczenia?
+4. Czy UI ma mieć przełącznik "Dane historyczne / Dane bieżące"?
+
+**Acceptance criteria (po decyzji):**
+- [ ] Import `rozliczenie` do `contract_settlements` (deterministyczny, z dumpa SQL)
+- [ ] `shared/revenue.py` — źródło "actual" z `contract_settlements` (priorytet) + fallback "estimate" z `position_conditions`
+- [ ] UI toggle "Dane historyczne / Dane bieżące" w ReportsSection
+- [ ] Label "rzeczywiste rozliczenia" vs "orientacyjne stawki" w UI
+- [ ] Fix rozjada 41% (P2-031) jako część tego zadania
+
+**Pliki do zmiany:**
+- `backend/migrate.py` (nowy step: import `rozliczenie` z dumpa)
+- `backend/shared/revenue.py` (źródło "actual" z settlements)
+- `backend/stats/router.py` (filtr `is_legacy` + źródło przychodu)
+- `backend/explorer/router.py` (fix rozjada — użyj `shared.revenue`)
+- `frontend/src/components/reports/ReportsSection.vue` (toggle + label)
+
+**Dane:**
+- Dump SQL: `spec/backlog/archiwum/refinement/toolsmart_roa_1779053066.sql` (linie 4550-6524)
+- 3836 wierszy, 353 unikalnych pozycji, 792,384 zł, 99.2% mapuje się na contract_positions
+
+---
+
+#### [RAO-P2-033] `contracts.total_value` martwe pole (100% NULL)
+
+```yaml
+id: RAO-P2-033
+priority: P2
+size: XS
+status: done
+classification: cleanup/data
+roles: [db-architect]
+source: tech-lead-audit
+source_date: 2026-07-01
+implementation_date: 2026-07-01
+note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone z P1-021)"
+```
+
+**Problem:** `contracts.total_value` jest NULL/0 dla 100% umów (742/742). Pole nie jest używane w statystykach (przychód z `position_conditions`), tylko w PDF umowy jako snapshot.
+
+**Opcje:**
+1. Zostawić (pole w PDF, nie blokuje) — rekomendowane
+2. Usunąć kolumnę (destructive — wymaga zgody)
+3. Wypełnić z `SUM(position_conditions)` (ale to szacunek, nie rzeczywistość)
+
+**Rekomendacja:** Zostawić jak jest. Pole jest w PDF umowy jako "Wartość (zł)" — decyzja P1-021 przenosi to do ekranu rozliczenia.
+
+---
+
+## ✅ Wykonane prace (2026-07-01)
+
+### P2-028 — Statystyki miast via PNA (DONE, dev-verified)
+- **Commit:** `7bb2d1a` (backend+DB), `0ee1751` (frontend)
+- **Co zrobiono:**
+  - Pełny Spis PNA Poczty Polskiej (21,904 wpisów) w tabeli `postal_codes`
+  - `contracts.postal_code_id` (FK) + `is_legacy` + backfill
+  - `shared/locations.py` + `shared/revenue.py` (unifikacja stats+explorer)
+  - `GET /explorer/locations/{postal_code}` (drill-down po PNA)
+  - `PostalCodeLookupResponse` z gmina/powiat/wojewodztwo
+  - Frontend: auto-fill PNA + panel gmina/powiat/woj + ReportsSection :key fix
+  - Deduplikacja legacy numerów umów (S142/2026, 111)
+  - Fix `extract_address` (integrations/router.py) — używa PNA zamiast usuniętego `extract_city`
+- **Weryfikacja:** 221 pytest passed, vue-tsc exit 0, build OK, smoke e2e 11 passed
+
+### Lint fixes — ContractFormView.vue (2026-07-01)
+- **Co zrobiono:** Naprawiono 20 pre-existing TS lint errors (`ref([])` → typed refs)
+  - `contractorAddresses` → `ref<ContractorAddress[]>([])`
+  - `pickerList` → `ref<ContractorPick[]>([])`
+  - `settlements` → `ref<Settlement[]>([])`
+  - `editingFeeData` → `ref<Partial<FeeData>>({})`
+  - `selectedAddressId` → `ref<number | null>(null)`
+  - `editingFeeId` → `ref<number | null>(null)`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+
+### Auto-fill PNA flow (2026-07-01)
+- **Co zrobiono:** 3 ścieżki auto-fill PNA w ContractFormView.vue
+  1. `onDeliveryAddressInput` — po extract-address auto-trigger PNA lookup
+  2. `onAddressSelect` — wypełnia postal_code+city z adresu kontrahenta + auto PNA lookup
+  3. `onPostalCodeBlur` — refactor na reusable `lookupPna()`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+
+---
+
+### [RAO-P2-068] Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta"
+
+```yaml
+id: RAO-P2-068
+priority: P2
+size: M
+status: done
+classification: backend/data-seeding+config
+roles: [tech-lead, backend-dev, db-architect, product-owner]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/04_business_logic.md (cenniki kaskadowe + pełna konfiguracja firmy)
+  - core/07_integrations.md (demo setup — cenniki + presety + rate types)
+migration_impact: no (demo dane tylko)
+security_impact: no
+depends_on:
+  - RAO-P2-067 (Demo data refactor — migrate_all.py orchestrator)
+verification:
+  - "python seed_demo_data.py: PASS (idempotentny re-run)"
+  - "CENNIKI_KASKADOWE: 5 maszyn × 3 warunki kaskadowe (1-3 dni, 4-16 dni, powyżej 16 dni)"
+  - "ZESTAWY_USLUG: 6 presetów (najem, usługa z operatorem, kontrakt długoterminowy, weekend, kontrakt zagraniczny, operator premium)"
+  - "ServiceFeeTemplateItem: 22 relacji N:M preset → artykuł"
+  - "Rate types: 6 typów (dniowa, godzinowa, km, tygodniowa, miesięczna, jednorazowa)"
+  - "Firma: NIP=1234563218, bank_account=PL 12 1020..., header_text do PDF"
+```
+
+**Problem:**
+
+Po P2-067 demo data miało jeszcze braki:
+1. **Brak cenników kaskadowych** — każda pozycja umowy miała tylko 1 warunek (płaska stawka). W starej aplikacji WinForms warunki były kaskadowe (1-3 dni 540zł/doba, 4-16 dni 410zł/doba, powyżej 16 dni 350zł/doba). User musiał ręcznie wpisywać każdy warunek.
+2. **Brak pełnej konfiguracji firmy** — `company` table miała tylko `name="RAO — Wynajem Maszyn"` (z main.py). Brak NIP, adres, konto bankowe, header_text do PDF.
+3. **Tylko 3 presety usług** — brak scenariuszy weekend, kontrakt zagraniczny, operator premium.
+4. **ServiceFeeTemplateItem pusta** — relacja N:M preset → artykuł nie była wypełniana.
+5. **Tylko 3 rate types** — brak tygodniowa, miesięczna, jednorazowa.
+
+**Cel:** "Rozliczenie = cennik" — user klika maszynę i ma gotowy cennik kaskadowy, nie musi ciągle wpisywać tego samego. Wszystkie rzeczy konfigurowalne zeseedowane pod demo.
+
+---
+
+#### Scope implementacji
+
+**1. CENNIKI_KASKADOWE per maszyna (5 maszyn × 3 warunki):**
+
+| Maszyna | 1-3 dni | 4-16 dni | powyżej 16 dni |
+|---------|---------|----------|----------------|
+| Koparka JCB 8035 | 900 zł/doba | 750 zł/doba | 600 zł/doba |
+| Ładowarka Manuscop 6.36 | 720 zł/doba | 600 zł/doba | 480 zł/doba |
+| Podnośnik Haulotte HA16PX | 500 zł/doba | 420 zł/doba | 340 zł/doba |
+| Spychacz Wirtgen W100CFi | 1300 zł/doba | 1100 zł/doba | 900 zł/doba |
+| Zagęszczarka Ammann APF 15/50 | 180 zł/doba | 150 zł/doba | 120 zł/doba |
+
+**2. 6 presetów usług dodatkowych:**
+- Cennik usług — najem 2026 (S, default) — 6 szablonów
+- Cennik usług — usługa z operatorem 2026 (U, default) — 3 szablony
+- Kontrakt długoterminowy (rabat) (S) — 4 szablony
+- Weekend / krótkoterminowy (1-3 dni) (S) — 3 szablony
+- Kontrakt zagraniczny (export) (S) — 4 szablony
+- Usługa z operatorem — premium (U) — 4 szablony
+
+**3. ServiceFeeTemplateItem:** 22 relacji N:M preset → artykuł z domyślną ceną.
+
+**4. 6 rate types:** dniowa, godzinowa, km (istniejące) + tygodniowa, miesięczna, jednorazowa (nowe).
+
+**5. Pełna konfiguracja firmy:** NIP 1234563218, REGON, adres Warszawa, konto PKO BP, header_text do PDF, numbering_start=1, increment_step=50.
+
+**6. `_build_positions_and_fees`** używa cenników kaskadowych zamiast płaskiej stawki.
+
+---
+
+#### Weryfikacja (2026-07-04)
+
+- `python seed_demo_data.py`: PASS (idempotentny re-run, 0 nowych bo dane istnieją)
+- `python _verify_cennik.py`: CENNIKI_KASKADOWE=5, ZESTAWY_USLUG=6, RATE_TYPES=6, FIRMA_CONFIG OK
+- DB check: 8 presetów (2 stare default + 6 nowych), 22 ServiceFeeTemplateItem, 9 rate types (3 legacy + 6 nowych)
+- Firma: NIP=1234563218, bank_account=PL 12 1020..., header_text z pełnymi danymi
+
+---
+
+#### Pliki zmienione
+
+| Plik | Zmiana |
+|------|--------|
+| `backend/seed_demo_data.py` | +CENNIKI_KASKADOWE (5 maszyn × 3 warunki), +STAWKA_EFEKTYWNA, +FIRMA_CONFIG, +3 nowe presety, +ServiceFeeTemplateItem, +3 rate types, +seed_company(), _build_positions_and_fees używa cenników kaskadowych |
+
+---
+
+**Estymacja:** 4-5h (M) — cenniki kaskadowe (1.5h) + presety + ServiceFeeTemplateItem (1h) + rate types + firma (1h) + weryfikacja (0.5h)
+
+---
+
+### [RAO-P2-069] Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście
+
+```yaml
+id: RAO-P2-069
+priority: P2
+size: M
+status: done
+classification: cross-stack
+roles: [backend-dev, frontend-dev, product-owner]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/02_backend_api.md (endpoint /locations/city/{city} + group_by param)
+migration_impact: no
+security_impact: no
+depends_on:
+  - RAO-P2-028 (Agregacja PNA z LEFT JOIN do postal_codes)
+verification:
+  - "vue-tsc --noEmit: PASS"
+  - "npm run build: PASS (643ms)"
+  - "curl /explorer/locations?group_by=city: Warszawa → 1 wiersz (postal_code=null)"
+  - "curl /explorer/locations?group_by=pna: Warszawa 00-002 → 1 wiersz z PNA"
+  - "curl /explorer/locations/city/Warszawa: 200 OK z pna_breakdown + top_machines"
+  - "Playwright screenshot: toggle Miasto/PNA działa, kolumna PNA warunkowa"
+```
+
+**Problem:**
+
+W zakładce "Lokalizacje" w AnalyticsView każde miasto było rozbite na kody pocztowe — Warszawa (3978 PNA w słowniku) mogła mieć wiele wierszy zamiast jednego. User chciał: "ma być miasto do wielu kodów pocztowych" — jeden wiersz per miasto, z opcją rozbicia na PNA jeśli potrzeba.
+
+**Cel:** Toggle Miasto/PNA w UI. Domyślnie miasto (1 wiersz per miasto, sumuje wszystkie PNA). Drill-down po mieście pokazuje rozbicie na PNA.
+
+---
+
+#### Scope implementacji
+
+**Backend:**
+1. `shared/locations.py` — `aggregate_by_pna()` dostaje `group_by='city'|'pna'` (domyślnie 'city'):
+   - `city`: klucz = (city, gmina, powiat, wojewodztwo) — 1 wiersz per miasto, `postal_code=null`
+   - `pna`: klucz = (postal_code, city) — 1 wiersz per PNA (legacy)
+2. `explorer/router.py` — `GET /explorer/locations` dostaje `?group_by=city|pna` (domyślnie city)
+3. `explorer/router.py` — nowy `GET /explorer/locations/city/{city}` — drill-down po mieście:
+   - Sumuje wszystkie PNA w mieście (case-insensitive)
+   - Zwraca `pna_breakdown` (rozbicie na kody pocztowe)
+   - Top maszyny (10) + top kontrahenci (5) filtrowani po mieście
+   - `metrics.pna_count` — ile kodów PNA w mieście
+
+**Frontend:**
+1. `stores/analytics.ts` — `fetchLocationsRanking()` dostaje `groupBy` param; nowy `fetchCityDetails()`
+2. `LocationsTab.vue` — toggle "Miasto / PNA" w nagłówku sekcji ranking
+3. Kolumna PNA warunkowa (tylko w trybie PNA)
+4. `onRowClick` — w trybie city wywołuje `openDrillDown('location', 'city:'+city, city)`
+5. `AnalyticsView.vue` — drill-down po mieście pokazuje `pna_breakdown` sekcję + `pna_count` w metrics
+
+---
+
+#### Weryfikacja (2026-07-04)
+
+- `vue-tsc --noEmit`: PASS
+- `npm run build`: PASS (643ms)
+- `curl /explorer/locations?group_by=city`: Warszawa → 1 wiersz (postal_code=null, gmina=Warszawa, woj=mazowieckie)
+- `curl /explorer/locations?group_by=pna`: Warszawa 00-002 → 1 wiersz z PNA
+- `curl /explorer/locations/city/Warszawa`: 200 OK — city, gmina, powiat, wojewodztwo, metrics (pna_count=1), pna_breakdown, top_machines, top_contractors
+- Playwright: toggle Miasto/PNA działa, kolumna PNA pojawia się tylko w trybie PNA, drill-down po mieście otwiera drawer "📍 Kraków / Umowy w mieście (wszystkie PNA)"
+
+---
+
+#### Pliki zmienione
+
+| Plik | Zmiana |
+|------|--------|
+| `backend/shared/locations.py` | +`group_by` param (city/pna), klucz agregacji zależny od trybu |
+| `backend/explorer/router.py` | +`group_by` query param, +`/locations/city/{city}` endpoint, +import defaultdict |
+| `frontend/src/stores/analytics.ts` | +`groupBy` param w fetchLocationsRanking, +fetchCityDetails, +pna_breakdown w LocationDetailsResponse |
+| `frontend/src/components/analytics/tabs/LocationsTab.vue` | +toggle Miasto/PNA, kolumna PNA warunkowa, onRowClick per tryb |
+| `frontend/src/views/AnalyticsView.vue` | +sekcja pna_breakdown w drill-down, +metric pna_count |
+
+---
+
+**Estymacja:** 3-4h (M) — backend (1.5h) + frontend (1.5h) + weryfikacja (0.5h)
+
+---
+
+### [RAO-P2-070] Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation)
+
+```yaml
+id: RAO-P2-070
+priority: P2
+size: L
+status: triaged
+classification: frontend/ux
+roles: [ux-designer, frontend-dev, product-owner]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/03_frontend_screens.md (drilldowny cross-view)
+  - core/06_navigation_flow.md (cross-view navigation, goBack → router.back)
+  - core/18_ux_improvements.md (toast zamiast alert, feedback po zapisie)
+migration_impact: no
+security_impact: no
+depends_on: []
+blocks: []
+verification: []
+```
+
+**Problem:**
+
+Aplikacja ma solidne podstawy (drilldown w Analytics/Archive, skeleton loadery, empty states, active sidebar). Ale **codzienne flow usera** jest utrudnione — brakuje cross-view drilldownów (kontrahent↔umowa↔maszyna), sortowania po kolumnach w Dashboard, kluczowych filtrów (handlowiec, miasto), oraz `alert()` zamiast toastów w 25+ miejscach.
+
+**Cel:** Aplikacja w pełni interaktywna — user może "przeskakiwać" między encjami bez ręcznego szukania, każdy zapis/akcja ma feedback, każda lista ma filtry i sortowanie.
+
+---
+
+#### Audyt UX (2026-07-04) — 30 usterek w 3 priorytetach
+
+##### 🔴 HIGH — Blokuje codzienną pracę (8 usterek)
+
+| # | Usterka | Widok | User pain | Stara aplikacja |
+|---|---------|-------|-----------|-----------------|
+| B1 | Brak drilldown z listy umów → kontrahent | DashboardView /contracts | Ręczne szukanie kontrahenta w sidebar | WinForms: context menu / double-click |
+| B2 | Brak kolumny "Maszyny" w liście umów | DashboardView /contracts | Trzeba otwierać każdą umowę | WinForms: tooltip / dialog "?" |
+| B3 | Brak drilldown z kontrahenta → jego umowy | DashboardView /contractors | "Aktywna umowa" nie jest klikalna | WinForms: double-click → historia umów |
+| B4 | Brak drilldown z artykułu → historia wynajmów | DashboardView /articles | Trzeba kombinować z Analytics | WinForms: FormA.cs podgląd historii |
+| B5 | Brak sortowania po kolumnach w DashboardView | DashboardView (3 sekcje) | Klik w nagłówek nie sortuje | WinForms: DataGridView sortował |
+| B6 | `alert()` zamiast toastów — 25+ miejsc | 9 widoków (ContractForm 18×, ContractorForm 5×, Archive 5×, Admin 6×, inne) | Blokuje aplikację, legacy pattern | WinForms: MessageBox (web ≠ MessageBox) |
+| B7 | Brak toastu po zapisie umowy/kontrahenta/artykułu | ContractForm, ContractorForm, ArticleForm | User nie wie czy zapisano → duplikat | WinForms: "Zapisano" w status bar |
+| B8 | Brak filtra "Handlowiec" i "Miasto" w liście umów | DashboardView /contracts | Handlowiec nie widzi swoich umów | WinForms: filtry handlowca w toolbarze |
+
+##### 🟡 MEDIUM — Frustrujące, user radzi sobie obejściem (13 usterek)
+
+| # | Usterka | Widok |
+|---|---------|-------|
+| B9 | Brak drilldown z umowy → edycja kontrahenta | ContractFormView |
+| B10 | Brak drilldown z umowy → edycja maszyny (z pozycji) | ContractFormView (PositionGrid) |
+| B11 | Brak drilldown z umowy → faktura w Fakturownia | ContractFormView (panel FA) |
+| B12 | Brak drilldown z CommissionView → umowy handlowca | CommissionView |
+| B13 | Brak drilldown z drill-machine-rentals → konkretna umowa | AnalyticsView (drawer machine) |
+| B14 | Brak drilldown z top_contractors → kontrahent | AnalyticsView (drawer location) |
+| B15 | Brak breadcrumb w formularzach | ContractForm, ContractorForm, ArticleForm |
+| B16 | `goBack` hardcoded zamiast `router.back()` | ContractForm, ContractorForm, ArticleForm |
+| B17 | Brak filtra "Tylko z aktywną umową" w kontrahentach | DashboardView /contractors |
+| B18 | Brak filtra kategoria/marka/typ w artykułach | DashboardView /articles |
+| B19 | Brak kalendarza umów (spec 06 sekcja 3) | DashboardView /contracts |
+| B20 | Brak toolbar [?] — podgląd szczegółów bez edycji | DashboardView |
+| B21 | Brak context menu "Dodaj umowę" w kontrahentach | DashboardView /contractors |
+
+##### 🟢 LOW — Polish / nice-to-have (9 usterek)
+
+| # | Usterka | Widok |
+|---|---------|-------|
+| B22 | Brak hover indicatora na klikalnych wierszach | ArchiveView |
+| B23 | Brak undo dla destruktywnych akcji | DashboardView, ContractorForm |
+| B24 | Brak sticky header w tabelach | DashboardView, ArchiveView |
+| B25 | Brak filtra "Okres" w kontrahentach i artykułach | DashboardView |
+| B26 | Brak paginacji w drilldown drawers | AnalyticsView |
+| B27 | Brak "Eksportuj CSV/PDF" z list | DashboardView, AnalyticsView |
+| B28 | Brak tooltipów na ikonach w toolbarze | ContractFormView |
+| B29 | Brak drilldown z HomeView KPI → filtrowana lista | HomeView |
+| B30 | Brak drilldown z HomeView "Dostawy" → umowa | HomeView |
+
+---
+
+#### Mapa pożądanych interakcji (cross-view navigation)
+
+| Z widoku | Klik w | Powinno otworzyć | Priorytet |
+|----------|--------|------------------|-----------|
+| Dashboard /contracts | Nazwa kontrahenta | `/contractors/:id/edit` | HIGH |
+| Dashboard /contracts | Maszyna (nowa kolumna) | `/articles/:id/edit` lub drilldown | HIGH |
+| Dashboard /contracts | Nagłówek kolumny | Sort ASC/DESC | HIGH |
+| Dashboard /contracts | Filtr Handlowiec | Lista filtrowana po `salesperson_id` | HIGH |
+| Dashboard /contracts | Filtr Miasto | Lista filtrowana po `city` | HIGH |
+| Dashboard /contractors | Numer aktywnej umowy | `/contracts/:id/edit` | HIGH |
+| Dashboard /contractors | Right-click → "Dodaj umowę" | `/contracts/new?contractor_id=:id` | HIGH |
+| Dashboard /articles | Numer aktywnej umowy | `/contracts/:id/edit` | HIGH |
+| Dashboard /articles | "Historia wynajmów" | Drawer jak w Analytics | HIGH |
+| ContractForm | "✎ Edytuj" obok kontrahenta | `/contractors/:id/edit` (nowa karta) | MEDIUM |
+| ContractForm | Nazwa artykułu w pozycji | `/articles/:id/edit` (nowa karta) | MEDIUM |
+| ContractForm | Faktura w panelu FA | `window.open(invoice.url)` | MEDIUM |
+| Analytics /drill-machine | Wiersz rental (umowa) | `/contracts/:contract_id/edit` | MEDIUM |
+| Analytics /drill-location | Wiersz top_contractor | `/contractors/:id/edit` | MEDIUM |
+| Commission | Wiersz handlowca | `/dashboard/contracts?salesperson_id=:id` | MEDIUM |
+| HomeView | KPI card | `/worker` lub `/dashboard/contracts` z filtrem | MEDIUM |
+| HomeView | Dostawa (delivery-row) | `/contracts/:contract_id/edit` | MEDIUM |
+| Wszystkie formularze | Toolbar "←" | `router.back()` z fallbackiem | MEDIUM |
+| Wszystkie błędy | API error | Toast error (NIE `alert()`) | HIGH |
+| Wszystkie formularze | Po Zapisz | Toast success | HIGH |
+
+---
+
+#### Rekomendowana kolejność implementacji (5 faz)
+
+**Faza 1 — Toasty zamiast alert() + feedback po zapisie (B6, B7)** — quick win, 25+ miejsc
+- Komponent `Toast.vue` i `useToastStore` już istnieją (używane w 1 miejscu)
+- Czysta zamiana `alert(err)` → `toastStore.showToast(msg, 'error')`
+- Dodać toast success po zapisie we wszystkich formularzach
+- Est: 4-6h (S)
+
+**Faza 2 — Cross-view drilldown z list (B1, B3, B4)** — najczęstszy flow codzienny
+- DashboardView /contracts: nazwa kontrahenta → link, kolumna "Maszyny" → link
+- DashboardView /contractors: `active_contract_number` → link, context menu "Dodaj umowę"
+- DashboardView /articles: `active_contract_number` → link, akcja "Historia wynajmów"
+- Est: 6-8h (M)
+
+**Faza 3 — Sortowanie po kolumnach w DashboardView (B5)** — `useSort` już istnieje
+- Przenieść pattern z `ExplorerTab.vue` / `AnalyticsTable.vue`
+- 3 tabele: contracts, contractors, articles
+- Est: 3-4h (S)
+
+**Faza 4 — Filtry: Handlowiec + Miasto w liście umów (B8)** — wymaga backend
+- Dodać `salesperson_id` i `city` do `GET /contracts` query params (backend)
+- Dodać `<select>` i `<input>` w grid-header (frontend)
+- `settingsStore.salespeople` już załadowany
+- Est: 4-5h (S)
+
+**Faza 5 — goBack → router.back() + drilldown w Analytics/HomeView (B13-B16, B29-B30)** — polish
+- `goBack` używające `router.back()` z fallbackiem
+- Drilldown z drawer Analytics → konkretna umowa
+- KPI cards w HomeView klikalne
+- Est: 4-6h (S)
+
+**Łączna estymacja:** 21-29h (L) — 5 faz, każda niezależna (można robić sekwencyjnie)
+
+---
+
+#### Co działa dobrze (nie wymaga zmian)
+
+- ✅ HomeView — klik w umowę w panelach → edycja
+- ✅ WorkerView — klik w umowę/dostawy → edycja, filtry dni
+- ✅ AnalyticsView — drilldown machine/location, filtry (date, type, contractor, city)
+- ✅ ArchiveView — drilldown umów, filtry (search, typ, data, kategoria), paginacja
+- ✅ ExplorerTab — klik w wynik → edycja, search + sort
+- ✅ ContractFormView — picker kontrahenta/art/dostawcy, inline form, conflict modal
+- ✅ ContractorFormView — "+ Umowa" → auto-fill, GUS lookup
+- ✅ AppSidebar — active state per section
+- ✅ AppLayout — Ctrl+N = nowy, Esc = back
+
+---
+
+#### Edge cases do obsługi w implementacji
+
+- [ ] **Error state:** Tylko ArchiveView/AnalyticsView mają retry; reszta = `alert('Błąd')`
+- [ ] **Success feedback:** Tylko CommissionView (toast); reszta = brak
+- [ ] **Slow connection:** Brak timeout indicatora
+- [ ] **Long content:** DashboardView paginacja (50/strona, brak wyboru per-page)
+- [ ] **Soft delete vs hard delete:** Usunięcie kontrahenta z aktywnymi umowami — blokować LUB soft-delete
+
+---
+
+**Estymacja:** 21-29h (L) — 5 faz, każda niezależna
+
+---
+
+## 📋 Tabela TL;DR
+
+| ID | Tytuł | P | Est. | Status | Następny krok |
+|----|-------|---|------|--------|---------------|
+| RAO-P1-014 | Frontend — błędne obliczanie daty końcowej okresu umowy | P1 | XS | user-verified | → client-approved |
+| RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | P1 | XS | team-verified | → user-verified |
+| RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | P1 | S | team-verified | → user-verified |
+| RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | dev-verified | → team-verified |
+| RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | P1 | XS | team-verified | → user-verified |
+| RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | dev-verified | → user-verified |
+| RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
+| RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | dev-verified | → team-verified (wartość z rozliczenia, read-only w formularzu) |
+| RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
+| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | review | → Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
+| RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | dev-verified | → user-verified |
+| RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | dev-verified | → team-verified (unique=True w model + DB index uq_contracts_number) |
+| RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | done | → done (autoescape=True w reports/service.py:588) |
+| RAO-P0-032 | build_contract_data mutuje sesję — kopiuj description | P0 | XS | done | → done (lokalne kopie description w fees_data) |
+| RAO-P0-033 | recalculate_total — użyj algorytmu kaskadowego | P0 | S | dev-verified | → team-verified |
+| RAO-P0-034 | ContractUpdate schema z exclude_unset=True (lost data) | P0 | M | dev-verified | → team-verified |
+| RAO-P0-035 | N+1 queries — selectinload w list_contracts/positions/articles | P0 | M | dev-verified | → team-verified |
+| RAO-P0-036 | Stack trace disclosure → detail="Błąd" + logging | P0 | XS | dev-verified | → team-verified (global exception handler w main.py) |
+| RAO-P1-037 | delete_contract — guard na is_settled | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-038 | Brak indeksów DB (is_settled, created_at, salesperson_id, print_date, delivery_date) | P1 | S | dev-verified | → team-verified |
+| RAO-P1-039 | Walidacja date_from > date_to + ujemne kwoty w ContractCreate | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-040 | is_settled blokuje mutacje (update/delete positions) | P1 | S | dev-verified | → team-verified |
+| RAO-P1-041 | Hardcoded JWT fallback "change-me" — usuń + wymuś z env | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-042 | Frontend: logout czyści stores + redirect po login + baseURL z env | P1 | S | dev-verified | → team-verified |
+| RAO-P1-043 | Frontend: memory leaks — cleanup event listenerów i timerów | P1 | S | dev-verified | → team-verified |
+| RAO-P1-044 | Frontend: localStorage.getItem('token') → 'rao_token' | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-045 | _build_conditions_text — użyj format_position_conditions_cascading (dedup) | P1 | XS | dev-verified | → team-verified |
+| RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
+| RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | triaged | → in_progress |
+| RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | triaged | → in_progress |
+| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | triaged | → in_progress |
+| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | triaged | → in_progress |
+| RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | triaged | → in_progress |
+| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
+| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
+| RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | dev-verified | → team-verified (normalize w settings/service.py + ALTER TABLE polish_ci w main.py) |
+| RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | triaged | → in_progress |
+| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
+| RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | dev-verified | → team-verified (is_external nie blokuje + checkbox w details) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
+| RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | triaged | → in_progress (Faza 1: parser legacy + migracja + UI + template items) |
+| RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | in-progress (Faza 1 done — 6 bugów + indeksy + cleanup; Faza 2 todo — StatsView.vue) |
+| RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
+| RAO-P2-067 | Demo data refactor — migrate_all.py orchestrator + FA-pending contracts + delivery_address | P2 | M | done | 31 faktur FA (19 backfill + 12 FA-pending), delivery_address z miastami, hardcoded token usunięty |
+| RAO-P2-068 | Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta" | P2 | M | done | 5 cenników kaskadowych per maszyna, 6 presetów usług, 22 ServiceFeeTemplateItem, 6 rate types, pełna konfiguracja firmy |
+| RAO-P2-069 | Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście | P2 | M | done | Toggle Miasto/PNA w LocationsTab, 1 wiersz per miasto (Warszawa 3978 PNA → 1), drill-down /locations/city/{city} z pna_breakdown |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
+
+**Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
+
+### Pipeline weryfikacji (status flow)
+
+```
+triaged → in_progress → dev-verified → team-verified → user-verified → client-approved (done)
+           │              │               │               │               │
+           Devin koduje   Devin testuje   Software-house  Ty wzrokowo    Klient zatwierdza
+           zmianę         programatycz.   subagenty       w UI/PDF        → zadanie zamknięte
+                          (Playwright,    (QA, Security,
+                           PyMuPDF,       UX, PO, Tech
+                           pytest,        Lead review)
+                           vue-tsc)
+```
+
+---
+
+## 🔍 Pre-existing issues (znalezione przez security audit P1-015)
+
+### [RAO-SEC-001] IDOR — `/reports/contract/{id}` bez ownership check
+
+```yaml
+id: RAO-SEC-001
+priority: P1
+size: S
+status: done
+classification: security/idor
+roles: [backend-dev, security-auditor]
+source: security-audit
+source_date: 2026-06-29
+source_ref: "Security audit P1-015 — subagent security-auditor"
+specs_to_update:
+  - core/25_security.md
+migration_impact: no
+security_impact: yes
+done_date: 2026-07-01
+fix: "_check_contract_access() w reports/router.py — admin full access, non-admin tylko własny branch, fetch contract przed PDF gen (early 404/403)"
+verification:
+  - "py_compile reports/router.py: OK"
+  - "curl POST /reports/contract/999999 (admin): 404 (contract not found)"
+  - "smoke 01-login.spec.ts: 11/11 passed"
+```
+
+**Problem:** Endpoint `POST /reports/contract/{contract_id}` wymaga autentykacji (`get_current_user`), ale **nie sprawdza ownership/tenant** — każdy zalogowany użytkownik może wygenerować PDF (z telefonami klienta) dla cudzej umowy znając `contract_id`.
+
+**Atak:** Enumeracja `contract_id` → pozyskanie danych kontaktowych (telefony, adres dostawy) klientów innych handlowców.
+
+**Fix:** W `reports/router.py` (lub `service.py`) dodać weryfikację:
+```python
+if contract.created_by != current_user.id and current_user.role != "admin":
+    raise HTTPException(403)
+```
+
+**Pliki do zmiany:**
+- `backend/reports/router.py`
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S)
+
+---
+
+### [RAO-SEC-002] Jinja2 bez `autoescape=True` w reports/service.py
+
+```yaml
+id: RAO-SEC-002
+priority: P1
+size: S
+status: done
+classification: security/injection
+roles: [backend-dev, security-auditor]
+source: security-audit
+source_date: 2026-06-29
+source_ref: "Security audit P1-015 — subagent security-auditor"
+implementation_date: 2026-07-01
+note: "Już naprawione — autoescape=True w reports/service.py:588"
+specs_to_update:
+  - core/25_security.md
+migration_impact: no
+security_impact: yes
+```
+
+**Problem:** `Environment(loader=FileSystemLoader(template_dir))` w `backend/reports/service.py` utworzony **bez `autoescape=True`**. Użytkownik może wstrzyknąć HTML/JS w pola `notes`, `contractor_name`, `contact_person1` → trafia do PDF WeasyPrint (SSRF, data exfiltration).
+
+**Fix:** `Environment(loader=FileSystemLoader(template_dir), autoescape=True)` + przetestować wszystkie szablony PDF pod kątem niezamierzonego escapowania polskich znaków.
+
+**Pliki do zmiany:**
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S) — wymaga testów wszystkich szablonów PDF
+
+---
+
+## 🗂️ Materiały referencyjne
+
+**Sprint 2026-06-29 (nowe zgłoszenia):**
+- `spec/backlog/do_wciagniecia_do_backlogu.md` — 10 punktów od klienta (surowy markdown)
+- `Pasted image 20260629223748.png` (root repo) — P1-014: błędne obliczenie daty
+- `Pasted image 20260629223936.png` (root repo) — P1-016: protokół ZO bez adresu dostawy
+- `Pasted image 20260629224212.png` (root repo) — P1-019: umowa usługi U872/2026 z żółtym tłem
+- `Pasted image 20260629224534.png` (root repo) — P1-020: format rozliczenia kaskadowego
+- `Pasted image 20260629224602.png` (root repo) — P1-021: sekcja Warunki Finansowe z pustym Wartość
+- `Pasted image 20260629225003.png` (root repo) — P1-022: lista umów z niespójnym nazewnictwem
+- Raporty vision: `Pasted image 20260629*-vision-report.md` (root repo)
+
+**Stara aplikacja WinForms (referencja):**
+- `C:\projects\repos\AppRao\rao\FormW.cs` linia 690-750 — algorytm formatowania warunków kaskadowych
+
+**Aktualne szablony PDF:**
+- `backend/reports/templates/contract_u.html` — umowa usługi (typ U)
+- `backend/reports/templates/contract.html` — umowa najmu (typ S)
+- `backend/reports/templates/protocol_zo.html` — protokół zdawczo-odbiorczy
+- `backend/reports/templates/protocol_zo_u.html` — protokół wykonania usługi
+- `backend/reports/templates/protocol_zo_nodata*.html` — warianty bez danych
+
+---
+
+## 📋 Decyzje operatora (2026-06-30)
+
+### RAO-P1-021 — Pole „Wartość (zł)" → ekran rozliczenia
+**Decyzja:** Pole „Wartość" przechodzi do **ekranu rozliczenia** (nie formularz umowy). Tam wartość jest pobierana:
+- Z **Fakturowni** (kwota z faktury), LUB
+- Wprowadzona **ręcznie** na bazie pozycji umowy z uzupełnionymi kwotami
+
+**Implementacja:** Ekran rozliczenia pobiera pozycje umowy, pozwala uzupełnić kwoty (auto z Fakturowni lub ręcznie), sumuje → wartość umowy. Pole „Wartość" w formularzu umowy zostaje ukryte/puste (przedpłata dopisana z góry, wartość nieznana do rozliczenia).
+
+---
+
+### RAO-P2-028 — Statystyki miast via PNA (PILNE)
+**Decyzja:** Grupuj po **postal_code (PNA)** + miasto (precyzyjne).
+**Uwaga operatora:** Jedno miasto ma wiele PNA — trzeba ustalić **skąd uzupełnić PNA** dla miast.
+**Pilne** — wymaga analizy źródeł danych PNA (tabela postal_codes, integracja TERYT, GUS).
+
+---
+
+### RAO-P2-046 — IDOR / RBAC
+**Decyzja:** **Brak izolacji** na ten moment (single-tenant, wszyscy widzą wszystko).
+Wraz z rozwojem aplikacji będziemy zarządzać uprawnieniami do różnych zasobów.
+**Akcja:** Zostaw tylko SEC-001 (PDF ownership check). P2-046 odłożone.
+
+---
+
+### RAO-P2-057 — is_external (maszyna zewnętrzna)
+**Decyzja:** Maszyna external **nie blokuje** dodawania w wielu miejscach (nie wpływa na rentowność).
+- Ma być **możliwe do wyboru w detailsach maszyny** podczas dodawania
+- Sprawdzić **mechanizm blokowania maszyn** (czy external poprawnie nie blokuje)
+- Sprawdzić vs **wyliczanie dni umowy** czy maszyny będą poprawnie blokowane
+- **Blokada = pytanie z informacją** gdzie i dlaczego jest zablokowana maszyna, czy na pewno chcesz ją dodać/wypożyczyć
+- **Obgadać z teamem** (subagenty: backend-dev + qa-engineer + product-owner)
+
+---
+
+## 📋 Audyt wymagań klienta (2026-07-01) — Tech Lead
+
+### Wymagania klienta — status spełnienia
+
+| # | Wymaganie | Status | Uwagi |
+|---|-----------|--------|-------|
+| 1 | Statystyki wynajmu maszyny (po nr wewn.) w okresie — stopa zwrotu | **SPEŁNIONE z błędem** | `top-machines` + `explorer/machines/{id}` (utilization_pct). BŁĄD: rozjazd przychodu 41% między explorer a stats |
+| 2 | Ile maszyn jest teraz wynajętych | **SPEŁNIONE** | `currently-rented` + `fleet-summary` |
+| 3 | Dodanie numeru wewnętrznego do maszyny | **SPEŁNIONE funkcjonalnie, 0% danych** | `articles.internal_number` istnieje, ale 0/337 maszyn ma wypełnione (CSV nie istnieje, INSERT nie mapuje) |
+| 4 | Filtrowanie pozycji dodatkowych (transport, mycie) w okresach | **SPEŁNIONE** | `additional-fees` endpoint + UI |
+| 5 | Filtrowanie miejscowości i ilości wynajmów | **SPEŁNIONE** | `stats/locations` + `explorer/locations` (po PNA, z gmina/powiat/woj) |
+| 6 | Rezerwacja maszyny (blokada, info kiedy dostępny) | **SPEŁNIONE** | `articles/{id}/availability` + ArticlePicker z badge |
+
+### Odkryte problemy — do analizy i decyzji
+
+#### [RAO-P2-030] internal_number puste (0% maszyn) — BLOKER dla wymagan 1+3
+
+```yaml
+id: RAO-P2-030
+priority: P2
+size: M
+status: wont-fix
+classification: bugfix/migration-data
+roles: [db-architect, backend-dev]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt wymagań klienta — wymaganie 3 (numer wewnętrzny)"
+resolution: "2026-07-01 — brak źródła danych w starej bazie (0/351 archive_articles ma internal_number, registration_no też 0%). Wymaga ręcznego uzupełnienia przez użytkownika w UI. Oznaczone wont-fix dla automatycznej migracji."
+```
+
+**Problem:** `articles.internal_number` jest puste dla 0/337 maszyn (0%).
+- `migrate.py` INSERT articles z `artykul3` NIE mapuje `internal_number` (kolumna nie istnieje w `artykul3`)
+- `step8_csv_categories` wypełniał `internal_number` z CSV `Asortyment*.csv`, ale ten plik **nie istnieje** na dysku
+- Bez `internal_number` wymaganie 1 (statystyki po nr wewn.) i 3 (dodawanie nr wewn.) są bezużyteczne
+
+**Opcje naprawy:**
+1. Znaleźć źródło numerów wewnętrznych (inny CSV? ręczne dopisanie w UI?)
+2. Sprawdzić czy `nr_rejestracyjny` z `artykul3` może służyć jako numer wewnętrzny (ale też 0% wypełnione)
+3. Ręczne wypełnienie przez użytkownika w UI (formularz maszyny już ma pole)
+
+**Acceptance criteria:**
+- [ ] Źródło numerów wewnętrznych zidentyfikowane
+- [ ] `internal_number` wypełnione dla >80% maszyn
+- [ ] Statystyki po `internal_number` działają (test API)
+
+---
+
+#### [RAO-P2-031] Rozjazd przychodu 41% — explorer vs stats
+
+```yaml
+id: RAO-P2-031
+priority: P2
+size: S
+status: done
+classification: bugfix/backend-logic
+roles: [backend-dev, qa-engineer]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt — explorer/machines używa rate1×period_count zamiast kaskadowego"
+commit: P2-032 (scalone)
+specs_to_update:
+  - core/01_database.md
+  - core/04_business_logic.md
+
+**Problem:** `explorer/machines/{id}` liczy przychód jako `rate1 × period_count` (simple), a `stats/top-machines` używa kaskadowego `calculate_position_value`. **Rozjazd 41%** (3.17M vs 5.37M zł). Explorer zawyża przychody maszyn o ~41%.
+
+**Lokalizacja:** `backend/explorer/router.py:218` — subquery `rev_subq` używa `func.sum(rate1 * period_count)` zamiast wywołania `shared.revenue.compute_position_revenues`.
+
+**Naprawa:** Refactor `get_machine_details` aby używał `shared.revenue.compute_position_revenues` (jak `stats/top-machines`).
+
+**Acceptance criteria:**
+- [ ] `explorer/machines/{id}` używa `shared.revenue.compute_position_revenues`
+- [ ] Przychody spójne między explorer a stats (delta <1%)
+- [ ] Test unit: porównanie przychodu per pozycja
+
+---
+
+#### [RAO-P2-032] Przychód z `rozliczenie` (legacy) — rzeczywiste kwoty
+
+```yaml
+id: RAO-P2-032
+priority: P1
+size: L
+status: done
+classification: feature/revenue-source
+roles: [db-architect, backend-dev, frontend-dev, product-owner, tech-lead, security-auditor]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt — warunki rozliczenia są orientacyjne, nie wiemy co skasowano na fakturach"
+implementation_date: 2026-07-01
+specs_to_update:
+  - core/01_database.md
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+  - core/04_business_logic.md
+  - core/08_migration_plan.md
+
+**Problem:** Obecnie przychód liczony z `position_conditions.rate1 × period_count` (kaskadowe) — **orientacyjne stawki z umowy**, nie rzeczywiste kwoty zafakturowane. `contracts.total_value` jest NULL/0 dla 100% umów (martwe pole).
+
+**Odkrycie:** W dumpie starej bazy (`spec/backlog/archiwum/refinement/toolsmart_roa_*.sql`) jest tabela `rozliczenie` z **3836 wierszami** (~1951 sparsowanych, 792,384 zł) — **rzeczywiste rozliczenia per pozycja**:
+- `id, data, id_pozycji, wartosc`
+- 99.2% `id_pozycji` mapuje się na `contract_positions.id`
+- `wartosc` = rzeczywista kwota rozliczona (po fakcie)
+
+**Stara funkcja SQL (linia 11064-11070):** NIE używała `oplata1 × liczba_dni` (kaskadowe), ale **lookup** — wybierała jedną stawkę po `liczba_dni` (inny algorytm niż nasz `calculate_position_value`).
+
+**Koncepcja operatora — Data Cutoff + Dwa tryby:**
+1. **Dane historyczne (`is_legacy=1`, przed cutofficem):**
+   - Import `rozliczenie` → `contract_settlements` (cost_client=wartosc, source='legacy')
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty**
+   - Osobna sekcja UI: "Analiza danych historycznych" z label "rzeczywiste rozliczenia"
+2. **Nowe dane (`is_legacy=0`, po cutofficie):**
+   - Integracja Fakturownia (już istnieje! `init-from-fakturownia`)
+   - `contract.oid` + `article.fakturownia_product_id` → automatyczne mapowanie
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty zafakturowane**
+
+**Decyzje do podjęcia (wymaga operatora/klienta):**
+1. Czy importować `rozliczenie` (3836 wierszy) do `contract_settlements`?
+2. Kiedy następuje cutoff? (wszystkie 742 obecne umowy = legacy?)
+3. Czy zachować `position_conditions` (szacunek) jako fallback gdy brak rozliczenia?
+4. Czy UI ma mieć przełącznik "Dane historyczne / Dane bieżące"?
+
+**Acceptance criteria (po decyzji):**
+- [ ] Import `rozliczenie` do `contract_settlements` (deterministyczny, z dumpa SQL)
+- [ ] `shared/revenue.py` — źródło "actual" z `contract_settlements` (priorytet) + fallback "estimate" z `position_conditions`
+- [ ] UI toggle "Dane historyczne / Dane bieżące" w ReportsSection
+- [ ] Label "rzeczywiste rozliczenia" vs "orientacyjne stawki" w UI
+- [ ] Fix rozjada 41% (P2-031) jako część tego zadania
+
+**Pliki do zmiany:**
+- `backend/migrate.py` (nowy step: import `rozliczenie` z dumpa)
+- `backend/shared/revenue.py` (źródło "actual" z settlements)
+- `backend/stats/router.py` (filtr `is_legacy` + źródło przychodu)
+- `backend/explorer/router.py` (fix rozjada — użyj `shared.revenue`)
+- `frontend/src/components/reports/ReportsSection.vue` (toggle + label)
+
+**Dane:**
+- Dump SQL: `spec/backlog/archiwum/refinement/toolsmart_roa_1779053066.sql` (linie 4550-6524)
+- 3836 wierszy, 353 unikalnych pozycji, 792,384 zł, 99.2% mapuje się na contract_positions
+
+---
+
+#### [RAO-P2-033] `contracts.total_value` martwe pole (100% NULL)
+
+```yaml
+id: RAO-P2-033
+priority: P2
+size: XS
+status: done
+classification: cleanup/data
+roles: [db-architect]
+source: tech-lead-audit
+source_date: 2026-07-01
+implementation_date: 2026-07-01
+note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone z P1-021)"
+```
+
+**Problem:** `contracts.total_value` jest NULL/0 dla 100% umów (742/742). Pole nie jest używane w statystykach (przychód z `position_conditions`), tylko w PDF umowy jako snapshot.
+
+**Opcje:**
+1. Zostawić (pole w PDF, nie blokuje) — rekomendowane
+2. Usunąć kolumnę (destructive — wymaga zgody)
+3. Wypełnić z `SUM(position_conditions)` (ale to szacunek, nie rzeczywistość)
+
+**Rekomendacja:** Zostawić jak jest. Pole jest w PDF umowy jako "Wartość (zł)" — decyzja P1-021 przenosi to do ekranu rozliczenia.
+
+---
+
+## ✅ Wykonane prace (2026-07-01)
+
+### P2-028 — Statystyki miast via PNA (DONE, dev-verified)
+- **Commit:** `7bb2d1a` (backend+DB), `0ee1751` (frontend)
+- **Co zrobiono:**
+  - Pełny Spis PNA Poczty Polskiej (21,904 wpisów) w tabeli `postal_codes`
+  - `contracts.postal_code_id` (FK) + `is_legacy` + backfill
+  - `shared/locations.py` + `shared/revenue.py` (unifikacja stats+explorer)
+  - `GET /explorer/locations/{postal_code}` (drill-down po PNA)
+  - `PostalCodeLookupResponse` z gmina/powiat/wojewodztwo
+  - Frontend: auto-fill PNA + panel gmina/powiat/woj + ReportsSection :key fix
+  - Deduplikacja legacy numerów umów (S142/2026, 111)
+  - Fix `extract_address` (integrations/router.py) — używa PNA zamiast usuniętego `extract_city`
+- **Weryfikacja:** 221 pytest passed, vue-tsc exit 0, build OK, smoke e2e 11 passed
+
+### Lint fixes — ContractFormView.vue (2026-07-01)
+- **Co zrobiono:** Naprawiono 20 pre-existing TS lint errors (`ref([])` → typed refs)
+  - `contractorAddresses` → `ref<ContractorAddress[]>([])`
+  - `pickerList` → `ref<ContractorPick[]>([])`
+  - `settlements` → `ref<Settlement[]>([])`
+  - `editingFeeData` → `ref<Partial<FeeData>>({})`
+  - `selectedAddressId` → `ref<number | null>(null)`
+  - `editingFeeId` → `ref<number | null>(null)`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+
+### Auto-fill PNA flow (2026-07-01)
+- **Co zrobiono:** 3 ścieżki auto-fill PNA w ContractFormView.vue
+  1. `onDeliveryAddressInput` — po extract-address auto-trigger PNA lookup
+  2. `onAddressSelect` — wypełnia postal_code+city z adresu kontrahenta + auto PNA lookup
+  3. `onPostalCodeBlur` — refactor na reusable `lookupPna()`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+
+---
+
+### [RAO-P2-068] Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta"
+
+```yaml
+id: RAO-P2-068
+priority: P2
+size: M
+status: done
+classification: backend/data-seeding+config
+roles: [tech-lead, backend-dev, db-architect, product-owner]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/04_business_logic.md (cenniki kaskadowe + pełna konfiguracja firmy)
+  - core/07_integrations.md (demo setup — cenniki + presety + rate types)
+migration_impact: no (demo dane tylko)
+security_impact: no
+depends_on:
+  - RAO-P2-067 (Demo data refactor — migrate_all.py orchestrator)
+verification:
+  - "python seed_demo_data.py: PASS (idempotentny re-run)"
+  - "CENNIKI_KASKADOWE: 5 maszyn × 3 warunki kaskadowe (1-3 dni, 4-16 dni, powyżej 16 dni)"
+  - "ZESTAWY_USLUG: 6 presetów (najem, usługa z operatorem, kontrakt długoterminowy, weekend, kontrakt zagraniczny, operator premium)"
+  - "ServiceFeeTemplateItem: 22 relacji N:M preset → artykuł"
+  - "Rate types: 6 typów (dniowa, godzinowa, km, tygodniowa, miesięczna, jednorazowa)"
+  - "Firma: NIP=1234563218, bank_account=PL 12 1020..., header_text do PDF"
+```
+
+**Problem:**
+
+Po P2-067 demo data miało jeszcze braki:
+1. **Brak cenników kaskadowych** — każda pozycja umowy miała tylko 1 warunek (płaska stawka). W starej aplikacji WinForms warunki były kaskadowe (1-3 dni 540zł/doba, 4-16 dni 410zł/doba, powyżej 16 dni 350zł/doba). User musiał ręcznie wpisywać każdy warunek.
+2. **Brak pełnej konfiguracji firmy** — `company` table miała tylko `name="RAO — Wynajem Maszyn"` (z main.py). Brak NIP, adres, konto bankowe, header_text do PDF.
+3. **Tylko 3 presety usług** — brak scenariuszy weekend, kontrakt zagraniczny, operator premium.
+4. **ServiceFeeTemplateItem pusta** — relacja N:M preset → artykuł nie była wypełniana.
+5. **Tylko 3 rate types** — brak tygodniowa, miesięczna, jednorazowa.
+
+**Cel:** "Rozliczenie = cennik" — user klika maszynę i ma gotowy cennik kaskadowy, nie musi ciągle wpisywać tego samego. Wszystkie rzeczy konfigurowalne zeseedowane pod demo.
+
+---
+
+#### Scope implementacji
+
+**1. CENNIKI_KASKADOWE per maszyna (5 maszyn × 3 warunki):**
+
+| Maszyna | 1-3 dni | 4-16 dni | powyżej 16 dni |
+|---------|---------|----------|----------------|
+| Koparka JCB 8035 | 900 zł/doba | 750 zł/doba | 600 zł/doba |
+| Ładowarka Manuscop 6.36 | 720 zł/doba | 600 zł/doba | 480 zł/doba |
+| Podnośnik Haulotte HA16PX | 500 zł/doba | 420 zł/doba | 340 zł/doba |
+| Spychacz Wirtgen W100CFi | 1300 zł/doba | 1100 zł/doba | 900 zł/doba |
+| Zagęszczarka Ammann APF 15/50 | 180 zł/doba | 150 zł/doba | 120 zł/doba |
+
+**2. 6 presetów usług dodatkowych:**
+- Cennik usług — najem 2026 (S, default) — 6 szablonów
+- Cennik usług — usługa z operatorem 2026 (U, default) — 3 szablony
+- Kontrakt długoterminowy (rabat) (S) — 4 szablony
+- Weekend / krótkoterminowy (1-3 dni) (S) — 3 szablony
+- Kontrakt zagraniczny (export) (S) — 4 szablony
+- Usługa z operatorem — premium (U) — 4 szablony
+
+**3. ServiceFeeTemplateItem:** 22 relacji N:M preset → artykuł z domyślną ceną.
+
+**4. 6 rate types:** dniowa, godzinowa, km (istniejące) + tygodniowa, miesięczna, jednorazowa (nowe).
+
+**5. Pełna konfiguracja firmy:** NIP 1234563218, REGON, adres Warszawa, konto PKO BP, header_text do PDF, numbering_start=1, increment_step=50.
+
+**6. `_build_positions_and_fees`** używa cenników kaskadowych zamiast płaskiej stawki.
+
+---
+
+#### Weryfikacja (2026-07-04)
+
+- `python seed_demo_data.py`: PASS (idempotentny re-run, 0 nowych bo dane istnieją)
+- `python _verify_cennik.py`: CENNIKI_KASKADOWE=5, ZESTAWY_USLUG=6, RATE_TYPES=6, FIRMA_CONFIG OK
+- DB check: 8 presetów (2 stare default + 6 nowych), 22 ServiceFeeTemplateItem, 9 rate types (3 legacy + 6 nowych)
+- Firma: NIP=1234563218, bank_account=PL 12 1020..., header_text z pełnymi danymi
+
+---
+
+#### Pliki zmienione
+
+| Plik | Zmiana |
+|------|--------|
+| `backend/seed_demo_data.py` | +CENNIKI_KASKADOWE (5 maszyn × 3 warunki), +STAWKA_EFEKTYWNA, +FIRMA_CONFIG, +3 nowe presety, +ServiceFeeTemplateItem, +3 rate types, +seed_company(), _build_positions_and_fees używa cenników kaskadowych |
+
+---
+
+**Estymacja:** 4-5h (M) — cenniki kaskadowe (1.5h) + presety + ServiceFeeTemplateItem (1h) + rate types + firma (1h) + weryfikacja (0.5h)
+
+---
+
+### [RAO-P2-069] Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście
+
+```yaml
+id: RAO-P2-069
+priority: P2
+size: M
+status: done
+classification: cross-stack
+roles: [backend-dev, frontend-dev, product-owner]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/02_backend_api.md (endpoint /locations/city/{city} + group_by param)
+migration_impact: no
+security_impact: no
+depends_on:
+  - RAO-P2-028 (Agregacja PNA z LEFT JOIN do postal_codes)
+verification:
+  - "vue-tsc --noEmit: PASS"
+  - "npm run build: PASS (643ms)"
+  - "curl /explorer/locations?group_by=city: Warszawa → 1 wiersz (postal_code=null)"
+  - "curl /explorer/locations?group_by=pna: Warszawa 00-002 → 1 wiersz z PNA"
+  - "curl /explorer/locations/city/Warszawa: 200 OK z pna_breakdown + top_machines"
+  - "Playwright screenshot: toggle Miasto/PNA działa, kolumna PNA warunkowa"
+```
+
+**Problem:**
+
+W zakładce "Lokalizacje" w AnalyticsView każde miasto było rozbite na kody pocztowe — Warszawa (3978 PNA w słowniku) mogła mieć wiele wierszy zamiast jednego. User chciał: "ma być miasto do wielu kodów pocztowych" — jeden wiersz per miasto, z opcją rozbicia na PNA jeśli potrzeba.
+
+**Cel:** Toggle Miasto/PNA w UI. Domyślnie miasto (1 wiersz per miasto, sumuje wszystkie PNA). Drill-down po mieście pokazuje rozbicie na PNA.
+
+---
+
+#### Scope implementacji
+
+**Backend:**
+1. `shared/locations.py` — `aggregate_by_pna()` dostaje `group_by='city'|'pna'` (domyślnie 'city'):
+   - `city`: klucz = (city, gmina, powiat, wojewodztwo) — 1 wiersz per miasto, `postal_code=null`
+   - `pna`: klucz = (postal_code, city) — 1 wiersz per PNA (legacy)
+2. `explorer/router.py` — `GET /explorer/locations` dostaje `?group_by=city|pna` (domyślnie city)
+3. `explorer/router.py` — nowy `GET /explorer/locations/city/{city}` — drill-down po mieście:
+   - Sumuje wszystkie PNA w mieście (case-insensitive)
+   - Zwraca `pna_breakdown` (rozbicie na kody pocztowe)
+   - Top maszyny (10) + top kontrahenci (5) filtrowani po mieście
+   - `metrics.pna_count` — ile kodów PNA w mieście
+
+**Frontend:**
+1. `stores/analytics.ts` — `fetchLocationsRanking()` dostaje `groupBy` param; nowy `fetchCityDetails()`
+2. `LocationsTab.vue` — toggle "Miasto / PNA" w nagłówku sekcji ranking
+3. Kolumna PNA warunkowa (tylko w trybie PNA)
+4. `onRowClick` — w trybie city wywołuje `openDrillDown('location', 'city:'+city, city)`
+5. `AnalyticsView.vue` — drill-down po mieście pokazuje `pna_breakdown` sekcję + `pna_count` w metrics
+
+---
+
+#### Weryfikacja (2026-07-04)
+
+- `vue-tsc --noEmit`: PASS
+- `npm run build`: PASS (643ms)
+- `curl /explorer/locations?group_by=city`: Warszawa → 1 wiersz (postal_code=null, gmina=Warszawa, woj=mazowieckie)
+- `curl /explorer/locations?group_by=pna`: Warszawa 00-002 → 1 wiersz z PNA
+- `curl /explorer/locations/city/Warszawa`: 200 OK — city, gmina, powiat, wojewodztwo, metrics (pna_count=1), pna_breakdown, top_machines, top_contractors
+- Playwright: toggle Miasto/PNA działa, kolumna PNA pojawia się tylko w trybie PNA, drill-down po mieście otwiera drawer "📍 Kraków / Umowy w mieście (wszystkie PNA)"
+
+---
+
+#### Pliki zmienione
+
+| Plik | Zmiana |
+|------|--------|
+| `backend/shared/locations.py` | +`group_by` param (city/pna), klucz agregacji zależny od trybu |
+| `backend/explorer/router.py` | +`group_by` query param, +`/locations/city/{city}` endpoint, +import defaultdict |
+| `frontend/src/stores/analytics.ts` | +`groupBy` param w fetchLocationsRanking, +fetchCityDetails, +pna_breakdown w LocationDetailsResponse |
+| `frontend/src/components/analytics/tabs/LocationsTab.vue` | +toggle Miasto/PNA, kolumna PNA warunkowa, onRowClick per tryb |
+| `frontend/src/views/AnalyticsView.vue` | +sekcja pna_breakdown w drill-down, +metric pna_count |
+
+---
+
+**Estymacja:** 3-4h (M) — backend (1.5h) + frontend (1.5h) + weryfikacja (0.5h)
+
+---
+
+## 📋 Tabela TL;DR
+
+| ID | Tytuł | P | Est. | Status | Następny krok |
+|----|-------|---|------|--------|---------------|
+| RAO-P1-014 | Frontend — błędne obliczanie daty końcowej okresu umowy | P1 | XS | user-verified | → client-approved |
+| RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | P1 | XS | team-verified | → user-verified |
+| RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | P1 | S | team-verified | → user-verified |
+| RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | dev-verified | → team-verified |
+| RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | P1 | XS | team-verified | → user-verified |
+| RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | dev-verified | → user-verified |
+| RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
+| RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | dev-verified | → team-verified (wartość z rozliczenia, read-only w formularzu) |
+| RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
+| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | review | → Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
+| RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | dev-verified | → user-verified |
+| RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | dev-verified | → team-verified (unique=True w model + DB index uq_contracts_number) |
+| RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | done | → done (autoescape=True w reports/service.py:588) |
+| RAO-P0-032 | build_contract_data mutuje sesję — kopiuj description | P0 | XS | done | → done (lokalne kopie description w fees_data) |
+| RAO-P0-033 | recalculate_total — użyj algorytmu kaskadowego | P0 | S | dev-verified | → team-verified |
+| RAO-P0-034 | ContractUpdate schema z exclude_unset=True (lost data) | P0 | M | dev-verified | → team-verified |
+| RAO-P0-035 | N+1 queries — selectinload w list_contracts/positions/articles | P0 | M | dev-verified | → team-verified |
+| RAO-P0-036 | Stack trace disclosure → detail="Błąd" + logging | P0 | XS | dev-verified | → team-verified (global exception handler w main.py) |
+| RAO-P1-037 | delete_contract — guard na is_settled | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-038 | Brak indeksów DB (is_settled, created_at, salesperson_id, print_date, delivery_date) | P1 | S | dev-verified | → team-verified |
+| RAO-P1-039 | Walidacja date_from > date_to + ujemne kwoty w ContractCreate | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-040 | is_settled blokuje mutacje (update/delete positions) | P1 | S | dev-verified | → team-verified |
+| RAO-P1-041 | Hardcoded JWT fallback "change-me" — usuń + wymuś z env | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-042 | Frontend: logout czyści stores + redirect po login + baseURL z env | P1 | S | dev-verified | → team-verified |
+| RAO-P1-043 | Frontend: memory leaks — cleanup event listenerów i timerów | P1 | S | dev-verified | → team-verified |
+| RAO-P1-044 | Frontend: localStorage.getItem('token') → 'rao_token' | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-045 | _build_conditions_text — użyj format_position_conditions_cascading (dedup) | P1 | XS | dev-verified | → team-verified |
+| RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
+| RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | triaged | → in_progress |
+| RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | triaged | → in_progress |
+| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | triaged | → in_progress |
+| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | triaged | → in_progress |
+| RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | triaged | → in_progress |
+| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
+| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
+| RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | dev-verified | → team-verified (normalize w settings/service.py + ALTER TABLE polish_ci w main.py) |
+| RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | triaged | → in_progress |
+| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
+| RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | dev-verified | → team-verified (is_external nie blokuje + checkbox w details) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
+| RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | triaged | → in_progress (Faza 1: parser legacy + migracja + UI + template items) |
+| RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | in-progress (Faza 1 done — 6 bugów + indeksy + cleanup; Faza 2 todo — StatsView.vue) |
+| RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
+| RAO-P2-067 | Demo data refactor — migrate_all.py orchestrator + FA-pending contracts + delivery_address | P2 | M | done | 31 faktur FA (19 backfill + 12 FA-pending), delivery_address z miastami, hardcoded token usunięty |
+| RAO-P2-068 | Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta" | P2 | M | done | 5 cenników kaskadowych per maszyna, 6 presetów usług, 22 ServiceFeeTemplateItem, 6 rate types, pełna konfiguracja firmy |
+| RAO-P2-069 | Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście | P2 | M | done | Toggle Miasto/PNA w LocationsTab, 1 wiersz per miasto (Warszawa 3978 PNA → 1), drill-down /locations/city/{city} z pna_breakdown |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
+
+**Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
+
+### Pipeline weryfikacji (status flow)
+
+```
+triaged → in_progress → dev-verified → team-verified → user-verified → client-approved (done)
+           │              │               │               │               │
+           Devin koduje   Devin testuje   Software-house  Ty wzrokowo    Klient zatwierdza
+           zmianę         programatycz.   subagenty       w UI/PDF        → zadanie zamknięte
+                          (Playwright,    (QA, Security,
+                           PyMuPDF,       UX, PO, Tech
+                           pytest,        Lead review)
+                           vue-tsc)
+```
+
+---
+
+## 🔍 Pre-existing issues (znalezione przez security audit P1-015)
+
+### [RAO-SEC-001] IDOR — `/reports/contract/{id}` bez ownership check
+
+```yaml
+id: RAO-SEC-001
+priority: P1
+size: S
+status: done
+classification: security/idor
+roles: [backend-dev, security-auditor]
+source: security-audit
+source_date: 2026-06-29
+source_ref: "Security audit P1-015 — subagent security-auditor"
+specs_to_update:
+  - core/25_security.md
+migration_impact: no
+security_impact: yes
+done_date: 2026-07-01
+fix: "_check_contract_access() w reports/router.py — admin full access, non-admin tylko własny branch, fetch contract przed PDF gen (early 404/403)"
+verification:
+  - "py_compile reports/router.py: OK"
+  - "curl POST /reports/contract/999999 (admin): 404 (contract not found)"
+  - "smoke 01-login.spec.ts: 11/11 passed"
+```
+
+**Problem:** Endpoint `POST /reports/contract/{contract_id}` wymaga autentykacji (`get_current_user`), ale **nie sprawdza ownership/tenant** — każdy zalogowany użytkownik może wygenerować PDF (z telefonami klienta) dla cudzej umowy znając `contract_id`.
+
+**Atak:** Enumeracja `contract_id` → pozyskanie danych kontaktowych (telefony, adres dostawy) klientów innych handlowców.
+
+**Fix:** W `reports/router.py` (lub `service.py`) dodać weryfikację:
+```python
+if contract.created_by != current_user.id and current_user.role != "admin":
+    raise HTTPException(403)
+```
+
+**Pliki do zmiany:**
+- `backend/reports/router.py`
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S)
+
+---
+
+### [RAO-SEC-002] Jinja2 bez `autoescape=True` w reports/service.py
+
+```yaml
+id: RAO-SEC-002
+priority: P1
+size: S
+status: done
+classification: security/injection
+roles: [backend-dev, security-auditor]
+source: security-audit
+source_date: 2026-06-29
+source_ref: "Security audit P1-015 — subagent security-auditor"
+implementation_date: 2026-07-01
+note: "Już naprawione — autoescape=True w reports/service.py:588"
+specs_to_update:
+  - core/25_security.md
+migration_impact: no
+security_impact: yes
+```
+
+**Problem:** `Environment(loader=FileSystemLoader(template_dir))` w `backend/reports/service.py` utworzony **bez `autoescape=True`**. Użytkownik może wstrzyknąć HTML/JS w pola `notes`, `contractor_name`, `contact_person1` → trafia do PDF WeasyPrint (SSRF, data exfiltration).
+
+**Fix:** `Environment(loader=FileSystemLoader(template_dir), autoescape=True)` + przetestować wszystkie szablony PDF pod kątem niezamierzonego escapowania polskich znaków.
+
+**Pliki do zmiany:**
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S) — wymaga testów wszystkich szablonów PDF
+
+---
+
+## 🗂️ Materiały referencyjne
+
+**Sprint 2026-06-29 (nowe zgłoszenia):**
+- `spec/backlog/do_wciagniecia_do_backlogu.md` — 10 punktów od klienta (surowy markdown)
+- `Pasted image 20260629223748.png` (root repo) — P1-014: błędne obliczenie daty
+- `Pasted image 20260629223936.png` (root repo) — P1-016: protokół ZO bez adresu dostawy
+- `Pasted image 20260629224212.png` (root repo) — P1-019: umowa usługi U872/2026 z żółtym tłem
+- `Pasted image 20260629224534.png` (root repo) — P1-020: format rozliczenia kaskadowego
+- `Pasted image 20260629224602.png` (root repo) — P1-021: sekcja Warunki Finansowe z pustym Wartość
+- `Pasted image 20260629225003.png` (root repo) — P1-022: lista umów z niespójnym nazewnictwem
+- Raporty vision: `Pasted image 20260629*-vision-report.md` (root repo)
+
+**Stara aplikacja WinForms (referencja):**
+- `C:\projects\repos\AppRao\rao\FormW.cs` linia 690-750 — algorytm formatowania warunków kaskadowych
+
+**Aktualne szablony PDF:**
+- `backend/reports/templates/contract_u.html` — umowa usługi (typ U)
+- `backend/reports/templates/contract.html` — umowa najmu (typ S)
+- `backend/reports/templates/protocol_zo.html` — protokół zdawczo-odbiorczy
+- `backend/reports/templates/protocol_zo_u.html` — protokół wykonania usługi
+- `backend/reports/templates/protocol_zo_nodata*.html` — warianty bez danych
+
+---
+
+## 📋 Decyzje operatora (2026-06-30)
+
+### RAO-P1-021 — Pole „Wartość (zł)" → ekran rozliczenia
+**Decyzja:** Pole „Wartość" przechodzi do **ekranu rozliczenia** (nie formularz umowy). Tam wartość jest pobierana:
+- Z **Fakturowni** (kwota z faktury), LUB
+- Wprowadzona **ręcznie** na bazie pozycji umowy z uzupełnionymi kwotami
+
+**Implementacja:** Ekran rozliczenia pobiera pozycje umowy, pozwala uzupełnić kwoty (auto z Fakturowni lub ręcznie), sumuje → wartość umowy. Pole „Wartość" w formularzu umowy zostaje ukryte/puste (przedpłata dopisana z góry, wartość nieznana do rozliczenia).
+
+---
+
+### RAO-P2-028 — Statystyki miast via PNA (PILNE)
+**Decyzja:** Grupuj po **postal_code (PNA)** + miasto (precyzyjne).
+**Uwaga operatora:** Jedno miasto ma wiele PNA — trzeba ustalić **skąd uzupełnić PNA** dla miast.
+**Pilne** — wymaga analizy źródeł danych PNA (tabela postal_codes, integracja TERYT, GUS).
+
+---
+
+### RAO-P2-046 — IDOR / RBAC
+**Decyzja:** **Brak izolacji** na ten moment (single-tenant, wszyscy widzą wszystko).
+Wraz z rozwojem aplikacji będziemy zarządzać uprawnieniami do różnych zasobów.
+**Akcja:** Zostaw tylko SEC-001 (PDF ownership check). P2-046 odłożone.
+
+---
+
+### RAO-P2-057 — is_external (maszyna zewnętrzna)
+**Decyzja:** Maszyna external **nie blokuje** dodawania w wielu miejscach (nie wpływa na rentowność).
+- Ma być **możliwe do wyboru w detailsach maszyny** podczas dodawania
+- Sprawdzić **mechanizm blokowania maszyn** (czy external poprawnie nie blokuje)
+- Sprawdzić vs **wyliczanie dni umowy** czy maszyny będą poprawnie blokowane
+- **Blokada = pytanie z informacją** gdzie i dlaczego jest zablokowana maszyna, czy na pewno chcesz ją dodać/wypożyczyć
+- **Obgadać z teamem** (subagenty: backend-dev + qa-engineer + product-owner)
+
+---
+
+## 📋 Audyt wymagań klienta (2026-07-01) — Tech Lead
+
+### Wymagania klienta — status spełnienia
+
+| # | Wymaganie | Status | Uwagi |
+|---|-----------|--------|-------|
+| 1 | Statystyki wynajmu maszyny (po nr wewn.) w okresie — stopa zwrotu | **SPEŁNIONE z błędem** | `top-machines` + `explorer/machines/{id}` (utilization_pct). BŁĄD: rozjazd przychodu 41% między explorer a stats |
+| 2 | Ile maszyn jest teraz wynajętych | **SPEŁNIONE** | `currently-rented` + `fleet-summary` |
+| 3 | Dodanie numeru wewnętrznego do maszyny | **SPEŁNIONE funkcjonalnie, 0% danych** | `articles.internal_number` istnieje, ale 0/337 maszyn ma wypełnione (CSV nie istnieje, INSERT nie mapuje) |
+| 4 | Filtrowanie pozycji dodatkowych (transport, mycie) w okresach | **SPEŁNIONE** | `additional-fees` endpoint + UI |
+| 5 | Filtrowanie miejscowości i ilości wynajmów | **SPEŁNIONE** | `stats/locations` + `explorer/locations` (po PNA, z gmina/powiat/woj) |
+| 6 | Rezerwacja maszyny (blokada, info kiedy dostępny) | **SPEŁNIONE** | `articles/{id}/availability` + ArticlePicker z badge |
+
+### Odkryte problemy — do analizy i decyzji
+
+#### [RAO-P2-030] internal_number puste (0% maszyn) — BLOKER dla wymagan 1+3
+
+```yaml
+id: RAO-P2-030
+priority: P2
+size: M
+status: wont-fix
+classification: bugfix/migration-data
+roles: [db-architect, backend-dev]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt wymagań klienta — wymaganie 3 (numer wewnętrzny)"
+resolution: "2026-07-01 — brak źródła danych w starej bazie (0/351 archive_articles ma internal_number, registration_no też 0%). Wymaga ręcznego uzupełnienia przez użytkownika w UI. Oznaczone wont-fix dla automatycznej migracji."
+```
+
+**Problem:** `articles.internal_number` jest puste dla 0/337 maszyn (0%).
+- `migrate.py` INSERT articles z `artykul3` NIE mapuje `internal_number` (kolumna nie istnieje w `artykul3`)
+- `step8_csv_categories` wypełniał `internal_number` z CSV `Asortyment*.csv`, ale ten plik **nie istnieje** na dysku
+- Bez `internal_number` wymaganie 1 (statystyki po nr wewn.) i 3 (dodawanie nr wewn.) są bezużyteczne
+
+**Opcje naprawy:**
+1. Znaleźć źródło numerów wewnętrznych (inny CSV? ręczne dopisanie w UI?)
+2. Sprawdzić czy `nr_rejestracyjny` z `artykul3` może służyć jako numer wewnętrzny (ale też 0% wypełnione)
+3. Ręczne wypełnienie przez użytkownika w UI (formularz maszyny już ma pole)
+
+**Acceptance criteria:**
+- [ ] Źródło numerów wewnętrznych zidentyfikowane
+- [ ] `internal_number` wypełnione dla >80% maszyn
+- [ ] Statystyki po `internal_number` działają (test API)
+
+---
+
+#### [RAO-P2-031] Rozjazd przychodu 41% — explorer vs stats
+
+```yaml
+id: RAO-P2-031
+priority: P2
+size: S
+status: done
+classification: bugfix/backend-logic
+roles: [backend-dev, qa-engineer]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt — explorer/machines używa rate1×period_count zamiast kaskadowego"
+commit: P2-032 (scalone)
+specs_to_update:
+  - core/01_database.md
+  - core/04_business_logic.md
+
+**Problem:** `explorer/machines/{id}` liczy przychód jako `rate1 × period_count` (simple), a `stats/top-machines` używa kaskadowego `calculate_position_value`. **Rozjazd 41%** (3.17M vs 5.37M zł). Explorer zawyża przychody maszyn o ~41%.
+
+**Lokalizacja:** `backend/explorer/router.py:218` — subquery `rev_subq` używa `func.sum(rate1 * period_count)` zamiast wywołania `shared.revenue.compute_position_revenues`.
+
+**Naprawa:** Refactor `get_machine_details` aby używał `shared.revenue.compute_position_revenues` (jak `stats/top-machines`).
+
+**Acceptance criteria:**
+- [ ] `explorer/machines/{id}` używa `shared.revenue.compute_position_revenues`
+- [ ] Przychody spójne między explorer a stats (delta <1%)
+- [ ] Test unit: porównanie przychodu per pozycja
+
+---
+
+#### [RAO-P2-032] Przychód z `rozliczenie` (legacy) — rzeczywiste kwoty
+
+```yaml
+id: RAO-P2-032
+priority: P1
+size: L
+status: done
+classification: feature/revenue-source
+roles: [db-architect, backend-dev, frontend-dev, product-owner, tech-lead, security-auditor]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt — warunki rozliczenia są orientacyjne, nie wiemy co skasowano na fakturach"
+implementation_date: 2026-07-01
+specs_to_update:
+  - core/01_database.md
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+  - core/04_business_logic.md
+  - core/08_migration_plan.md
+
+**Problem:** Obecnie przychód liczony z `position_conditions.rate1 × period_count` (kaskadowe) — **orientacyjne stawki z umowy**, nie rzeczywiste kwoty zafakturowane. `contracts.total_value` jest NULL/0 dla 100% umów (martwe pole).
+
+**Odkrycie:** W dumpie starej bazy (`spec/backlog/archiwum/refinement/toolsmart_roa_*.sql`) jest tabela `rozliczenie` z **3836 wierszami** (~1951 sparsowanych, 792,384 zł) — **rzeczywiste rozliczenia per pozycja**:
+- `id, data, id_pozycji, wartosc`
+- 99.2% `id_pozycji` mapuje się na `contract_positions.id`
+- `wartosc` = rzeczywista kwota rozliczona (po fakcie)
+
+**Stara funkcja SQL (linia 11064-11070):** NIE używała `oplata1 × liczba_dni` (kaskadowe), ale **lookup** — wybierała jedną stawkę po `liczba_dni` (inny algorytm niż nasz `calculate_position_value`).
+
+**Koncepcja operatora — Data Cutoff + Dwa tryby:**
+1. **Dane historyczne (`is_legacy=1`, przed cutofficem):**
+   - Import `rozliczenie` → `contract_settlements` (cost_client=wartosc, source='legacy')
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty**
+   - Osobna sekcja UI: "Analiza danych historycznych" z label "rzeczywiste rozliczenia"
+2. **Nowe dane (`is_legacy=0`, po cutofficie):**
+   - Integracja Fakturownia (już istnieje! `init-from-fakturownia`)
+   - `contract.oid` + `article.fakturownia_product_id` → automatyczne mapowanie
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty zafakturowane**
+
+**Decyzje do podjęcia (wymaga operatora/klienta):**
+1. Czy importować `rozliczenie` (3836 wierszy) do `contract_settlements`?
+2. Kiedy następuje cutoff? (wszystkie 742 obecne umowy = legacy?)
+3. Czy zachować `position_conditions` (szacunek) jako fallback gdy brak rozliczenia?
+4. Czy UI ma mieć przełącznik "Dane historyczne / Dane bieżące"?
+
+**Acceptance criteria (po decyzji):**
+- [ ] Import `rozliczenie` do `contract_settlements` (deterministyczny, z dumpa SQL)
+- [ ] `shared/revenue.py` — źródło "actual" z `contract_settlements` (priorytet) + fallback "estimate" z `position_conditions`
+- [ ] UI toggle "Dane historyczne / Dane bieżące" w ReportsSection
+- [ ] Label "rzeczywiste rozliczenia" vs "orientacyjne stawki" w UI
+- [ ] Fix rozjada 41% (P2-031) jako część tego zadania
+
+**Pliki do zmiany:**
+- `backend/migrate.py` (nowy step: import `rozliczenie` z dumpa)
+- `backend/shared/revenue.py` (źródło "actual" z settlements)
+- `backend/stats/router.py` (filtr `is_legacy` + źródło przychodu)
+- `backend/explorer/router.py` (fix rozjada — użyj `shared.revenue`)
+- `frontend/src/components/reports/ReportsSection.vue` (toggle + label)
+
+**Dane:**
+- Dump SQL: `spec/backlog/archiwum/refinement/toolsmart_roa_1779053066.sql` (linie 4550-6524)
+- 3836 wierszy, 353 unikalnych pozycji, 792,384 zł, 99.2% mapuje się na contract_positions
+
+---
+
+#### [RAO-P2-033] `contracts.total_value` martwe pole (100% NULL)
+
+```yaml
+id: RAO-P2-033
+priority: P2
+size: XS
+status: done
+classification: cleanup/data
+roles: [db-architect]
+source: tech-lead-audit
+source_date: 2026-07-01
+implementation_date: 2026-07-01
+note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone z P1-021)"
+```
+
+**Problem:** `contracts.total_value` jest NULL/0 dla 100% umów (742/742). Pole nie jest używane w statystykach (przychód z `position_conditions`), tylko w PDF umowy jako snapshot.
+
+**Opcje:**
+1. Zostawić (pole w PDF, nie blokuje) — rekomendowane
+2. Usunąć kolumnę (destructive — wymaga zgody)
+3. Wypełnić z `SUM(position_conditions)` (ale to szacunek, nie rzeczywistość)
+
+**Rekomendacja:** Zostawić jak jest. Pole jest w PDF umowy jako "Wartość (zł)" — decyzja P1-021 przenosi to do ekranu rozliczenia.
+
+---
+
+## ✅ Wykonane prace (2026-07-01)
+
+### P2-028 — Statystyki miast via PNA (DONE, dev-verified)
+- **Commit:** `7bb2d1a` (backend+DB), `0ee1751` (frontend)
+- **Co zrobiono:**
+  - Pełny Spis PNA Poczty Polskiej (21,904 wpisów) w tabeli `postal_codes`
+  - `contracts.postal_code_id` (FK) + `is_legacy` + backfill
+  - `shared/locations.py` + `shared/revenue.py` (unifikacja stats+explorer)
+  - `GET /explorer/locations/{postal_code}` (drill-down po PNA)
+  - `PostalCodeLookupResponse` z gmina/powiat/wojewodztwo
+  - Frontend: auto-fill PNA + panel gmina/powiat/woj + ReportsSection :key fix
+  - Deduplikacja legacy numerów umów (S142/2026, 111)
+  - Fix `extract_address` (integrations/router.py) — używa PNA zamiast usuniętego `extract_city`
+- **Weryfikacja:** 221 pytest passed, vue-tsc exit 0, build OK, smoke e2e 11 passed
+
+### Lint fixes — ContractFormView.vue (2026-07-01)
+- **Co zrobiono:** Naprawiono 20 pre-existing TS lint errors (`ref([])` → typed refs)
+  - `contractorAddresses` → `ref<ContractorAddress[]>([])`
+  - `pickerList` → `ref<ContractorPick[]>([])`
+  - `settlements` → `ref<Settlement[]>([])`
+  - `editingFeeData` → `ref<Partial<FeeData>>({})`
+  - `selectedAddressId` → `ref<number | null>(null)`
+  - `editingFeeId` → `ref<number | null>(null)`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+
+### Auto-fill PNA flow (2026-07-01)
+- **Co zrobiono:** 3 ścieżki auto-fill PNA w ContractFormView.vue
+  1. `onDeliveryAddressInput` — po extract-address auto-trigger PNA lookup
+  2. `onAddressSelect` — wypełnia postal_code+city z adresu kontrahenta + auto PNA lookup
+  3. `onPostalCodeBlur` — refactor na reusable `lookupPna()`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+
+---
+
+### [RAO-P2-068] Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta"
+
+```yaml
+id: RAO-P2-068
+priority: P2
+size: M
+status: done
+classification: backend/data-seeding+config
+roles: [tech-lead, backend-dev, db-architect, product-owner]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/04_business_logic.md (cenniki kaskadowe + pełna konfiguracja firmy)
+  - core/07_integrations.md (demo setup — cenniki + presety + rate types)
+migration_impact: no (demo dane tylko)
+security_impact: no
+depends_on:
+  - RAO-P2-067 (Demo data refactor — migrate_all.py orchestrator)
+verification:
+  - "python seed_demo_data.py: PASS (idempotentny re-run)"
+  - "CENNIKI_KASKADOWE: 5 maszyn × 3 warunki kaskadowe (1-3 dni, 4-16 dni, powyżej 16 dni)"
+  - "ZESTAWY_USLUG: 6 presetów (najem, usługa z operatorem, kontrakt długoterminowy, weekend, kontrakt zagraniczny, operator premium)"
+  - "ServiceFeeTemplateItem: 22 relacji N:M preset → artykuł"
+  - "Rate types: 6 typów (dniowa, godzinowa, km, tygodniowa, miesięczna, jednorazowa)"
+  - "Firma: NIP=1234563218, bank_account=PL 12 1020..., header_text do PDF"
+```
+
+**Problem:**
+
+Po P2-067 demo data miało jeszcze braki:
+1. **Brak cenników kaskadowych** — każda pozycja umowy miała tylko 1 warunek (płaska stawka). W starej aplikacji WinForms warunki były kaskadowe (1-3 dni 540zł/doba, 4-16 dni 410zł/doba, powyżej 16 dni 350zł/doba). User musiał ręcznie wpisywać każdy warunek.
+2. **Brak pełnej konfiguracji firmy** — `company` table miała tylko `name="RAO — Wynajem Maszyn"` (z main.py). Brak NIP, adres, konto bankowe, header_text do PDF.
+3. **Tylko 3 presety usług** — brak scenariuszy weekend, kontrakt zagraniczny, operator premium.
+4. **ServiceFeeTemplateItem pusta** — relacja N:M preset → artykuł nie była wypełniana.
+5. **Tylko 3 rate types** — brak tygodniowa, miesięczna, jednorazowa.
+
+**Cel:** "Rozliczenie = cennik" — user klika maszynę i ma gotowy cennik kaskadowy, nie musi ciągle wpisywać tego samego. Wszystkie rzeczy konfigurowalne zeseedowane pod demo.
+
+---
+
+#### Scope implementacji
+
+**1. CENNIKI_KASKADOWE per maszyna (5 maszyn × 3 warunki):**
+
+| Maszyna | 1-3 dni | 4-16 dni | powyżej 16 dni |
+|---------|---------|----------|----------------|
+| Koparka JCB 8035 | 900 zł/doba | 750 zł/doba | 600 zł/doba |
+| Ładowarka Manuscop 6.36 | 720 zł/doba | 600 zł/doba | 480 zł/doba |
+| Podnośnik Haulotte HA16PX | 500 zł/doba | 420 zł/doba | 340 zł/doba |
+| Spychacz Wirtgen W100CFi | 1300 zł/doba | 1100 zł/doba | 900 zł/doba |
+| Zagęszczarka Ammann APF 15/50 | 180 zł/doba | 150 zł/doba | 120 zł/doba |
+
+**2. 6 presetów usług dodatkowych:**
+- Cennik usług — najem 2026 (S, default) — 6 szablonów
+- Cennik usług — usługa z operatorem 2026 (U, default) — 3 szablony
+- Kontrakt długoterminowy (rabat) (S) — 4 szablony
+- Weekend / krótkoterminowy (1-3 dni) (S) — 3 szablony
+- Kontrakt zagraniczny (export) (S) — 4 szablony
+- Usługa z operatorem — premium (U) — 4 szablony
+
+**3. ServiceFeeTemplateItem:** 22 relacji N:M preset → artykuł z domyślną ceną.
+
+**4. 6 rate types:** dniowa, godzinowa, km (istniejące) + tygodniowa, miesięczna, jednorazowa (nowe).
+
+**5. Pełna konfiguracja firmy:** NIP 1234563218, REGON, adres Warszawa, konto PKO BP, header_text do PDF, numbering_start=1, increment_step=50.
+
+**6. `_build_positions_and_fees`** używa cenników kaskadowych zamiast płaskiej stawki.
+
+---
+
+#### Weryfikacja (2026-07-04)
+
+- `python seed_demo_data.py`: PASS (idempotentny re-run, 0 nowych bo dane istnieją)
+- `python _verify_cennik.py`: CENNIKI_KASKADOWE=5, ZESTAWY_USLUG=6, RATE_TYPES=6, FIRMA_CONFIG OK
+- DB check: 8 presetów (2 stare default + 6 nowych), 22 ServiceFeeTemplateItem, 9 rate types (3 legacy + 6 nowych)
+- Firma: NIP=1234563218, bank_account=PL 12 1020..., header_text z pełnymi danymi
+
+---
+
+#### Pliki zmienione
+
+| Plik | Zmiana |
+|------|--------|
+| `backend/seed_demo_data.py` | +CENNIKI_KASKADOWE (5 maszyn × 3 warunki), +STAWKA_EFEKTYWNA, +FIRMA_CONFIG, +3 nowe presety, +ServiceFeeTemplateItem, +3 rate types, +seed_company(), _build_positions_and_fees używa cenników kaskadowych |
+
+---
+
+**Estymacja:** 4-5h (M) — cenniki kaskadowe (1.5h) + presety + ServiceFeeTemplateItem (1h) + rate types + firma (1h) + weryfikacja (0.5h)
+
+---
+
+## 📋 Tabela TL;DR
+
+| ID | Tytuł | P | Est. | Status | Następny krok |
+|----|-------|---|------|--------|---------------|
+| RAO-P1-014 | Frontend — błędne obliczanie daty końcowej okresu umowy | P1 | XS | user-verified | → client-approved |
+| RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | P1 | XS | team-verified | → user-verified |
+| RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | P1 | S | team-verified | → user-verified |
+| RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | dev-verified | → team-verified |
+| RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | P1 | XS | team-verified | → user-verified |
+| RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | dev-verified | → user-verified |
+| RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
+| RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | dev-verified | → team-verified (wartość z rozliczenia, read-only w formularzu) |
+| RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
+| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | review | → Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
+| RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | dev-verified | → user-verified |
+| RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | dev-verified | → team-verified (unique=True w model + DB index uq_contracts_number) |
+| RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | done | → done (autoescape=True w reports/service.py:588) |
+| RAO-P0-032 | build_contract_data mutuje sesję — kopiuj description | P0 | XS | done | → done (lokalne kopie description w fees_data) |
+| RAO-P0-033 | recalculate_total — użyj algorytmu kaskadowego | P0 | S | dev-verified | → team-verified |
+| RAO-P0-034 | ContractUpdate schema z exclude_unset=True (lost data) | P0 | M | dev-verified | → team-verified |
+| RAO-P0-035 | N+1 queries — selectinload w list_contracts/positions/articles | P0 | M | dev-verified | → team-verified |
+| RAO-P0-036 | Stack trace disclosure → detail="Błąd" + logging | P0 | XS | dev-verified | → team-verified (global exception handler w main.py) |
+| RAO-P1-037 | delete_contract — guard na is_settled | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-038 | Brak indeksów DB (is_settled, created_at, salesperson_id, print_date, delivery_date) | P1 | S | dev-verified | → team-verified |
+| RAO-P1-039 | Walidacja date_from > date_to + ujemne kwoty w ContractCreate | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-040 | is_settled blokuje mutacje (update/delete positions) | P1 | S | dev-verified | → team-verified |
+| RAO-P1-041 | Hardcoded JWT fallback "change-me" — usuń + wymuś z env | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-042 | Frontend: logout czyści stores + redirect po login + baseURL z env | P1 | S | dev-verified | → team-verified |
+| RAO-P1-043 | Frontend: memory leaks — cleanup event listenerów i timerów | P1 | S | dev-verified | → team-verified |
+| RAO-P1-044 | Frontend: localStorage.getItem('token') → 'rao_token' | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-045 | _build_conditions_text — użyj format_position_conditions_cascading (dedup) | P1 | XS | dev-verified | → team-verified |
+| RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
+| RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | triaged | → in_progress |
+| RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | triaged | → in_progress |
+| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | triaged | → in_progress |
+| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | triaged | → in_progress |
+| RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | triaged | → in_progress |
+| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
+| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
+| RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | dev-verified | → team-verified (normalize w settings/service.py + ALTER TABLE polish_ci w main.py) |
+| RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | triaged | → in_progress |
+| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
+| RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | dev-verified | → team-verified (is_external nie blokuje + checkbox w details) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
+| RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | triaged | → in_progress (Faza 1: parser legacy + migracja + UI + template items) |
+| RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | in-progress (Faza 1 done — 6 bugów + indeksy + cleanup; Faza 2 todo — StatsView.vue) |
+| RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
+| RAO-P2-067 | Demo data refactor — migrate_all.py orchestrator + FA-pending contracts + delivery_address | P2 | M | done | 31 faktur FA (19 backfill + 12 FA-pending), delivery_address z miastami, hardcoded token usunięty |
+| RAO-P2-068 | Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta" | P2 | M | done | 5 cenników kaskadowych per maszyna, 6 presetów usług, 22 ServiceFeeTemplateItem, 6 rate types, pełna konfiguracja firmy |
+| RAO-P2-069 | Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście | P2 | M | done | Toggle Miasto/PNA w LocationsTab, 1 wiersz per miasto (Warszawa 3978 PNA → 1), drill-down /locations/city/{city} z pna_breakdown |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
+
+**Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
+
+### Pipeline weryfikacji (status flow)
+
+```
+triaged → in_progress → dev-verified → team-verified → user-verified → client-approved (done)
+           │              │               │               │               │
+           Devin koduje   Devin testuje   Software-house  Ty wzrokowo    Klient zatwierdza
+           zmianę         programatycz.   subagenty       w UI/PDF        → zadanie zamknięte
+                          (Playwright,    (QA, Security,
+                           PyMuPDF,       UX, PO, Tech
+                           pytest,        Lead review)
+                           vue-tsc)
+```
+
+---
+
+## 🔍 Pre-existing issues (znalezione przez security audit P1-015)
+
+### [RAO-SEC-001] IDOR — `/reports/contract/{id}` bez ownership check
+
+```yaml
+id: RAO-SEC-001
+priority: P1
+size: S
+status: done
+classification: security/idor
+roles: [backend-dev, security-auditor]
+source: security-audit
+source_date: 2026-06-29
+source_ref: "Security audit P1-015 — subagent security-auditor"
+specs_to_update:
+  - core/25_security.md
+migration_impact: no
+security_impact: yes
+done_date: 2026-07-01
+fix: "_check_contract_access() w reports/router.py — admin full access, non-admin tylko własny branch, fetch contract przed PDF gen (early 404/403)"
+verification:
+  - "py_compile reports/router.py: OK"
+  - "curl POST /reports/contract/999999 (admin): 404 (contract not found)"
+  - "smoke 01-login.spec.ts: 11/11 passed"
+```
+
+**Problem:** Endpoint `POST /reports/contract/{contract_id}` wymaga autentykacji (`get_current_user`), ale **nie sprawdza ownership/tenant** — każdy zalogowany użytkownik może wygenerować PDF (z telefonami klienta) dla cudzej umowy znając `contract_id`.
+
+**Atak:** Enumeracja `contract_id` → pozyskanie danych kontaktowych (telefony, adres dostawy) klientów innych handlowców.
+
+**Fix:** W `reports/router.py` (lub `service.py`) dodać weryfikację:
+```python
+if contract.created_by != current_user.id and current_user.role != "admin":
+    raise HTTPException(403)
+```
+
+**Pliki do zmiany:**
+- `backend/reports/router.py`
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S)
+
+---
+
+### [RAO-SEC-002] Jinja2 bez `autoescape=True` w reports/service.py
+
+```yaml
+id: RAO-SEC-002
+priority: P1
+size: S
+status: done
+classification: security/injection
+roles: [backend-dev, security-auditor]
+source: security-audit
+source_date: 2026-06-29
+source_ref: "Security audit P1-015 — subagent security-auditor"
+implementation_date: 2026-07-01
+note: "Już naprawione — autoescape=True w reports/service.py:588"
+specs_to_update:
+  - core/25_security.md
+migration_impact: no
+security_impact: yes
+```
+
+**Problem:** `Environment(loader=FileSystemLoader(template_dir))` w `backend/reports/service.py` utworzony **bez `autoescape=True`**. Użytkownik może wstrzyknąć HTML/JS w pola `notes`, `contractor_name`, `contact_person1` → trafia do PDF WeasyPrint (SSRF, data exfiltration).
+
+**Fix:** `Environment(loader=FileSystemLoader(template_dir), autoescape=True)` + przetestować wszystkie szablony PDF pod kątem niezamierzonego escapowania polskich znaków.
+
+**Pliki do zmiany:**
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S) — wymaga testów wszystkich szablonów PDF
+
+---
+
+## 🗂️ Materiały referencyjne
+
+**Sprint 2026-06-29 (nowe zgłoszenia):**
+- `spec/backlog/do_wciagniecia_do_backlogu.md` — 10 punktów od klienta (surowy markdown)
+- `Pasted image 20260629223748.png` (root repo) — P1-014: błędne obliczenie daty
+- `Pasted image 20260629223936.png` (root repo) — P1-016: protokół ZO bez adresu dostawy
+- `Pasted image 20260629224212.png` (root repo) — P1-019: umowa usługi U872/2026 z żółtym tłem
+- `Pasted image 20260629224534.png` (root repo) — P1-020: format rozliczenia kaskadowego
+- `Pasted image 20260629224602.png` (root repo) — P1-021: sekcja Warunki Finansowe z pustym Wartość
+- `Pasted image 20260629225003.png` (root repo) — P1-022: lista umów z niespójnym nazewnictwem
+- Raporty vision: `Pasted image 20260629*-vision-report.md` (root repo)
+
+**Stara aplikacja WinForms (referencja):**
+- `C:\projects\repos\AppRao\rao\FormW.cs` linia 690-750 — algorytm formatowania warunków kaskadowych
+
+**Aktualne szablony PDF:**
+- `backend/reports/templates/contract_u.html` — umowa usługi (typ U)
+- `backend/reports/templates/contract.html` — umowa najmu (typ S)
+- `backend/reports/templates/protocol_zo.html` — protokół zdawczo-odbiorczy
+- `backend/reports/templates/protocol_zo_u.html` — protokół wykonania usługi
+- `backend/reports/templates/protocol_zo_nodata*.html` — warianty bez danych
+
+---
+
+## 📋 Decyzje operatora (2026-06-30)
+
+### RAO-P1-021 — Pole „Wartość (zł)" → ekran rozliczenia
+**Decyzja:** Pole „Wartość" przechodzi do **ekranu rozliczenia** (nie formularz umowy). Tam wartość jest pobierana:
+- Z **Fakturowni** (kwota z faktury), LUB
+- Wprowadzona **ręcznie** na bazie pozycji umowy z uzupełnionymi kwotami
+
+**Implementacja:** Ekran rozliczenia pobiera pozycje umowy, pozwala uzupełnić kwoty (auto z Fakturowni lub ręcznie), sumuje → wartość umowy. Pole „Wartość" w formularzu umowy zostaje ukryte/puste (przedpłata dopisana z góry, wartość nieznana do rozliczenia).
+
+---
+
+### RAO-P2-028 — Statystyki miast via PNA (PILNE)
+**Decyzja:** Grupuj po **postal_code (PNA)** + miasto (precyzyjne).
+**Uwaga operatora:** Jedno miasto ma wiele PNA — trzeba ustalić **skąd uzupełnić PNA** dla miast.
+**Pilne** — wymaga analizy źródeł danych PNA (tabela postal_codes, integracja TERYT, GUS).
+
+---
+
+### RAO-P2-046 — IDOR / RBAC
+**Decyzja:** **Brak izolacji** na ten moment (single-tenant, wszyscy widzą wszystko).
+Wraz z rozwojem aplikacji będziemy zarządzać uprawnieniami do różnych zasobów.
+**Akcja:** Zostaw tylko SEC-001 (PDF ownership check). P2-046 odłożone.
+
+---
+
+### RAO-P2-057 — is_external (maszyna zewnętrzna)
+**Decyzja:** Maszyna external **nie blokuje** dodawania w wielu miejscach (nie wpływa na rentowność).
+- Ma być **możliwe do wyboru w detailsach maszyny** podczas dodawania
+- Sprawdzić **mechanizm blokowania maszyn** (czy external poprawnie nie blokuje)
+- Sprawdzić vs **wyliczanie dni umowy** czy maszyny będą poprawnie blokowane
+- **Blokada = pytanie z informacją** gdzie i dlaczego jest zablokowana maszyna, czy na pewno chcesz ją dodać/wypożyczyć
+- **Obgadać z teamem** (subagenty: backend-dev + qa-engineer + product-owner)
+
+---
+
+## 📋 Audyt wymagań klienta (2026-07-01) — Tech Lead
+
+### Wymagania klienta — status spełnienia
+
+| # | Wymaganie | Status | Uwagi |
+|---|-----------|--------|-------|
+| 1 | Statystyki wynajmu maszyny (po nr wewn.) w okresie — stopa zwrotu | **SPEŁNIONE z błędem** | `top-machines` + `explorer/machines/{id}` (utilization_pct). BŁĄD: rozjazd przychodu 41% między explorer a stats |
+| 2 | Ile maszyn jest teraz wynajętych | **SPEŁNIONE** | `currently-rented` + `fleet-summary` |
+| 3 | Dodanie numeru wewnętrznego do maszyny | **SPEŁNIONE funkcjonalnie, 0% danych** | `articles.internal_number` istnieje, ale 0/337 maszyn ma wypełnione (CSV nie istnieje, INSERT nie mapuje) |
+| 4 | Filtrowanie pozycji dodatkowych (transport, mycie) w okresach | **SPEŁNIONE** | `additional-fees` endpoint + UI |
+| 5 | Filtrowanie miejscowości i ilości wynajmów | **SPEŁNIONE** | `stats/locations` + `explorer/locations` (po PNA, z gmina/powiat/woj) |
+| 6 | Rezerwacja maszyny (blokada, info kiedy dostępny) | **SPEŁNIONE** | `articles/{id}/availability` + ArticlePicker z badge |
+
+### Odkryte problemy — do analizy i decyzji
+
+#### [RAO-P2-030] internal_number puste (0% maszyn) — BLOKER dla wymagan 1+3
+
+```yaml
+id: RAO-P2-030
+priority: P2
+size: M
+status: wont-fix
+classification: bugfix/migration-data
+roles: [db-architect, backend-dev]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt wymagań klienta — wymaganie 3 (numer wewnętrzny)"
+resolution: "2026-07-01 — brak źródła danych w starej bazie (0/351 archive_articles ma internal_number, registration_no też 0%). Wymaga ręcznego uzupełnienia przez użytkownika w UI. Oznaczone wont-fix dla automatycznej migracji."
+```
+
+**Problem:** `articles.internal_number` jest puste dla 0/337 maszyn (0%).
+- `migrate.py` INSERT articles z `artykul3` NIE mapuje `internal_number` (kolumna nie istnieje w `artykul3`)
+- `step8_csv_categories` wypełniał `internal_number` z CSV `Asortyment*.csv`, ale ten plik **nie istnieje** na dysku
+- Bez `internal_number` wymaganie 1 (statystyki po nr wewn.) i 3 (dodawanie nr wewn.) są bezużyteczne
+
+**Opcje naprawy:**
+1. Znaleźć źródło numerów wewnętrznych (inny CSV? ręczne dopisanie w UI?)
+2. Sprawdzić czy `nr_rejestracyjny` z `artykul3` może służyć jako numer wewnętrzny (ale też 0% wypełnione)
+3. Ręczne wypełnienie przez użytkownika w UI (formularz maszyny już ma pole)
+
+**Acceptance criteria:**
+- [ ] Źródło numerów wewnętrznych zidentyfikowane
+- [ ] `internal_number` wypełnione dla >80% maszyn
+- [ ] Statystyki po `internal_number` działają (test API)
+
+---
+
+#### [RAO-P2-031] Rozjazd przychodu 41% — explorer vs stats
+
+```yaml
+id: RAO-P2-031
+priority: P2
+size: S
+status: done
+classification: bugfix/backend-logic
+roles: [backend-dev, qa-engineer]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt — explorer/machines używa rate1×period_count zamiast kaskadowego"
+commit: P2-032 (scalone)
+specs_to_update:
+  - core/01_database.md
+  - core/04_business_logic.md
+
+**Problem:** `explorer/machines/{id}` liczy przychód jako `rate1 × period_count` (simple), a `stats/top-machines` używa kaskadowego `calculate_position_value`. **Rozjazd 41%** (3.17M vs 5.37M zł). Explorer zawyża przychody maszyn o ~41%.
+
+**Lokalizacja:** `backend/explorer/router.py:218` — subquery `rev_subq` używa `func.sum(rate1 * period_count)` zamiast wywołania `shared.revenue.compute_position_revenues`.
+
+**Naprawa:** Refactor `get_machine_details` aby używał `shared.revenue.compute_position_revenues` (jak `stats/top-machines`).
+
+**Acceptance criteria:**
+- [ ] `explorer/machines/{id}` używa `shared.revenue.compute_position_revenues`
+- [ ] Przychody spójne między explorer a stats (delta <1%)
+- [ ] Test unit: porównanie przychodu per pozycja
+
+---
+
+#### [RAO-P2-032] Przychód z `rozliczenie` (legacy) — rzeczywiste kwoty
+
+```yaml
+id: RAO-P2-032
+priority: P1
+size: L
+status: done
+classification: feature/revenue-source
+roles: [db-architect, backend-dev, frontend-dev, product-owner, tech-lead, security-auditor]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt — warunki rozliczenia są orientacyjne, nie wiemy co skasowano na fakturach"
+implementation_date: 2026-07-01
+specs_to_update:
+  - core/01_database.md
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+  - core/04_business_logic.md
+  - core/08_migration_plan.md
+
+**Problem:** Obecnie przychód liczony z `position_conditions.rate1 × period_count` (kaskadowe) — **orientacyjne stawki z umowy**, nie rzeczywiste kwoty zafakturowane. `contracts.total_value` jest NULL/0 dla 100% umów (martwe pole).
+
+**Odkrycie:** W dumpie starej bazy (`spec/backlog/archiwum/refinement/toolsmart_roa_*.sql`) jest tabela `rozliczenie` z **3836 wierszami** (~1951 sparsowanych, 792,384 zł) — **rzeczywiste rozliczenia per pozycja**:
+- `id, data, id_pozycji, wartosc`
+- 99.2% `id_pozycji` mapuje się na `contract_positions.id`
+- `wartosc` = rzeczywista kwota rozliczona (po fakcie)
+
+**Stara funkcja SQL (linia 11064-11070):** NIE używała `oplata1 × liczba_dni` (kaskadowe), ale **lookup** — wybierała jedną stawkę po `liczba_dni` (inny algorytm niż nasz `calculate_position_value`).
+
+**Koncepcja operatora — Data Cutoff + Dwa tryby:**
+1. **Dane historyczne (`is_legacy=1`, przed cutofficem):**
+   - Import `rozliczenie` → `contract_settlements` (cost_client=wartosc, source='legacy')
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty**
+   - Osobna sekcja UI: "Analiza danych historycznych" z label "rzeczywiste rozliczenia"
+2. **Nowe dane (`is_legacy=0`, po cutofficie):**
+   - Integracja Fakturownia (już istnieje! `init-from-fakturownia`)
+   - `contract.oid` + `article.fakturownia_product_id` → automatyczne mapowanie
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty zafakturowane**
+
+**Decyzje do podjęcia (wymaga operatora/klienta):**
+1. Czy importować `rozliczenie` (3836 wierszy) do `contract_settlements`?
+2. Kiedy następuje cutoff? (wszystkie 742 obecne umowy = legacy?)
+3. Czy zachować `position_conditions` (szacunek) jako fallback gdy brak rozliczenia?
+4. Czy UI ma mieć przełącznik "Dane historyczne / Dane bieżące"?
+
+**Acceptance criteria (po decyzji):**
+- [ ] Import `rozliczenie` do `contract_settlements` (deterministyczny, z dumpa SQL)
+- [ ] `shared/revenue.py` — źródło "actual" z `contract_settlements` (priorytet) + fallback "estimate" z `position_conditions`
+- [ ] UI toggle "Dane historyczne / Dane bieżące" w ReportsSection
+- [ ] Label "rzeczywiste rozliczenia" vs "orientacyjne stawki" w UI
+- [ ] Fix rozjada 41% (P2-031) jako część tego zadania
+
+**Pliki do zmiany:**
+- `backend/migrate.py` (nowy step: import `rozliczenie` z dumpa)
+- `backend/shared/revenue.py` (źródło "actual" z settlements)
+- `backend/stats/router.py` (filtr `is_legacy` + źródło przychodu)
+- `backend/explorer/router.py` (fix rozjada — użyj `shared.revenue`)
+- `frontend/src/components/reports/ReportsSection.vue` (toggle + label)
+
+**Dane:**
+- Dump SQL: `spec/backlog/archiwum/refinement/toolsmart_roa_1779053066.sql` (linie 4550-6524)
+- 3836 wierszy, 353 unikalnych pozycji, 792,384 zł, 99.2% mapuje się na contract_positions
+
+---
+
+#### [RAO-P2-033] `contracts.total_value` martwe pole (100% NULL)
+
+```yaml
+id: RAO-P2-033
+priority: P2
+size: XS
+status: done
+classification: cleanup/data
+roles: [db-architect]
+source: tech-lead-audit
+source_date: 2026-07-01
+implementation_date: 2026-07-01
+note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone z P1-021)"
+```
+
+**Problem:** `contracts.total_value` jest NULL/0 dla 100% umów (742/742). Pole nie jest używane w statystykach (przychód z `position_conditions`), tylko w PDF umowy jako snapshot.
+
+**Opcje:**
+1. Zostawić (pole w PDF, nie blokuje) — rekomendowane
+2. Usunąć kolumnę (destructive — wymaga zgody)
+3. Wypełnić z `SUM(position_conditions)` (ale to szacunek, nie rzeczywistość)
+
+**Rekomendacja:** Zostawić jak jest. Pole jest w PDF umowy jako "Wartość (zł)" — decyzja P1-021 przenosi to do ekranu rozliczenia.
+
+---
+
+## ✅ Wykonane prace (2026-07-01)
+
+### P2-028 — Statystyki miast via PNA (DONE, dev-verified)
+- **Commit:** `7bb2d1a` (backend+DB), `0ee1751` (frontend)
+- **Co zrobiono:**
+  - Pełny Spis PNA Poczty Polskiej (21,904 wpisów) w tabeli `postal_codes`
+  - `contracts.postal_code_id` (FK) + `is_legacy` + backfill
+  - `shared/locations.py` + `shared/revenue.py` (unifikacja stats+explorer)
+  - `GET /explorer/locations/{postal_code}` (drill-down po PNA)
+  - `PostalCodeLookupResponse` z gmina/powiat/wojewodztwo
+  - Frontend: auto-fill PNA + panel gmina/powiat/woj + ReportsSection :key fix
+  - Deduplikacja legacy numerów umów (S142/2026, 111)
+  - Fix `extract_address` (integrations/router.py) — używa PNA zamiast usuniętego `extract_city`
+- **Weryfikacja:** 221 pytest passed, vue-tsc exit 0, build OK, smoke e2e 11 passed
+
+### Lint fixes — ContractFormView.vue (2026-07-01)
+- **Co zrobiono:** Naprawiono 20 pre-existing TS lint errors (`ref([])` → typed refs)
+  - `contractorAddresses` → `ref<ContractorAddress[]>([])`
+  - `pickerList` → `ref<ContractorPick[]>([])`
+  - `settlements` → `ref<Settlement[]>([])`
+  - `editingFeeData` → `ref<Partial<FeeData>>({})`
+  - `selectedAddressId` → `ref<number | null>(null)`
+  - `editingFeeId` → `ref<number | null>(null)`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+
+### Auto-fill PNA flow (2026-07-01)
+- **Co zrobiono:** 3 ścieżki auto-fill PNA w ContractFormView.vue
+  1. `onDeliveryAddressInput` — po extract-address auto-trigger PNA lookup
+  2. `onAddressSelect` — wypełnia postal_code+city z adresu kontrahenta + auto PNA lookup
+  3. `onPostalCodeBlur` — refactor na reusable `lookupPna()`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+
+---
+
+### [RAO-P2-068] Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta"
+
+```yaml
+id: RAO-P2-068
+priority: P2
+size: M
+status: done
+classification: backend/data-seeding+config
+roles: [tech-lead, backend-dev, db-architect, product-owner]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/04_business_logic.md (cenniki kaskadowe + pełna konfiguracja firmy)
+  - core/07_integrations.md (demo setup — cenniki + presety + rate types)
+migration_impact: no (demo dane tylko)
+security_impact: no
+depends_on:
+  - RAO-P2-067 (Demo data refactor — migrate_all.py orchestrator)
+verification:
+  - "python seed_demo_data.py: PASS (idempotentny re-run)"
+  - "CENNIKI_KASKADOWE: 5 maszyn × 3 warunki kaskadowe (1-3 dni, 4-16 dni, powyżej 16 dni)"
+  - "ZESTAWY_USLUG: 6 presetów (najem, usługa z operatorem, kontrakt długoterminowy, weekend, kontrakt zagraniczny, operator premium)"
+  - "ServiceFeeTemplateItem: 22 relacji N:M preset → artykuł"
+  - "Rate types: 6 typów (dniowa, godzinowa, km, tygodniowa, miesięczna, jednorazowa)"
+  - "Firma: NIP=1234563218, bank_account=PL 12 1020..., header_text do PDF"
+```
+
+**Problem:**
+
+Po P2-067 demo data miało jeszcze braki:
+1. **Brak cenników kaskadowych** — każda pozycja umowy miała tylko 1 warunek (płaska stawka). W starej aplikacji WinForms warunki były kaskadowe (1-3 dni 540zł/doba, 4-16 dni 410zł/doba, powyżej 16 dni 350zł/doba). User musiał ręcznie wpisywać każdy warunek.
+2. **Brak pełnej konfiguracji firmy** — `company` table miała tylko `name="RAO — Wynajem Maszyn"` (z main.py). Brak NIP, adres, konto bankowe, header_text do PDF.
+3. **Tylko 3 presety usług** — brak scenariuszy weekend, kontrakt zagraniczny, operator premium.
+4. **ServiceFeeTemplateItem pusta** — relacja N:M preset → artykuł nie była wypełniana.
+5. **Tylko 3 rate types** — brak tygodniowa, miesięczna, jednorazowa.
+
+**Cel:** "Rozliczenie = cennik" — user klika maszynę i ma gotowy cennik kaskadowy, nie musi ciągle wpisywać tego samego. Wszystkie rzeczy konfigurowalne zeseedowane pod demo.
+
+---
+
+#### Scope implementacji
+
+**1. CENNIKI_KASKADOWE per maszyna (5 maszyn × 3 warunki):**
+
+| Maszyna | 1-3 dni | 4-16 dni | powyżej 16 dni |
+|---------|---------|----------|----------------|
+| Koparka JCB 8035 | 900 zł/doba | 750 zł/doba | 600 zł/doba |
+| Ładowarka Manuscop 6.36 | 720 zł/doba | 600 zł/doba | 480 zł/doba |
+| Podnośnik Haulotte HA16PX | 500 zł/doba | 420 zł/doba | 340 zł/doba |
+| Spychacz Wirtgen W100CFi | 1300 zł/doba | 1100 zł/doba | 900 zł/doba |
+| Zagęszczarka Ammann APF 15/50 | 180 zł/doba | 150 zł/doba | 120 zł/doba |
+
+**2. 6 presetów usług dodatkowych:**
+- Cennik usług — najem 2026 (S, default) — 6 szablonów
+- Cennik usług — usługa z operatorem 2026 (U, default) — 3 szablony
+- Kontrakt długoterminowy (rabat) (S) — 4 szablony
+- Weekend / krótkoterminowy (1-3 dni) (S) — 3 szablony
+- Kontrakt zagraniczny (export) (S) — 4 szablony
+- Usługa z operatorem — premium (U) — 4 szablony
+
+**3. ServiceFeeTemplateItem:** 22 relacji N:M preset → artykuł z domyślną ceną.
+
+**4. 6 rate types:** dniowa, godzinowa, km (istniejące) + tygodniowa, miesięczna, jednorazowa (nowe).
+
+**5. Pełna konfiguracja firmy:** NIP 1234563218, REGON, adres Warszawa, konto PKO BP, header_text do PDF, numbering_start=1, increment_step=50.
+
+**6. `_build_positions_and_fees`** używa cenników kaskadowych zamiast płaskiej stawki.
+
+---
+
+#### Weryfikacja (2026-07-04)
+
+- `python seed_demo_data.py`: PASS (idempotentny re-run, 0 nowych bo dane istnieją)
+- `python _verify_cennik.py`: CENNIKI_KASKADOWE=5, ZESTAWY_USLUG=6, RATE_TYPES=6, FIRMA_CONFIG OK
+- DB check: 8 presetów (2 stare default + 6 nowych), 22 ServiceFeeTemplateItem, 9 rate types (3 legacy + 6 nowych)
+- Firma: NIP=1234563218, bank_account=PL 12 1020..., header_text z pełnymi danymi
+
+---
+
+#### Pliki zmienione
+
+| Plik | Zmiana |
+|------|--------|
+| `backend/seed_demo_data.py` | +CENNIKI_KASKADOWE (5 maszyn × 3 warunki), +STAWKA_EFEKTYWNA, +FIRMA_CONFIG, +3 nowe presety, +ServiceFeeTemplateItem, +3 rate types, +seed_company(), _build_positions_and_fees używa cenników kaskadowych |
+
+---
+
+**Estymacja:** 4-5h (M) — cenniki kaskadowe (1.5h) + presety + ServiceFeeTemplateItem (1h) + rate types + firma (1h) + weryfikacja (0.5h)
+
+---
+
+## 📋 Tabela TL;DR
+
+| ID | Tytuł | P | Est. | Status | Następny krok |
+|----|-------|---|------|--------|---------------|
+| RAO-P1-014 | Frontend — błędne obliczanie daty końcowej okresu umowy | P1 | XS | user-verified | → client-approved |
+| RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | P1 | XS | team-verified | → user-verified |
+| RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | P1 | S | team-verified | → user-verified |
+| RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | dev-verified | → team-verified |
+| RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | P1 | XS | team-verified | → user-verified |
+| RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | dev-verified | → user-verified |
+| RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
+| RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | dev-verified | → team-verified (wartość z rozliczenia, read-only w formularzu) |
+| RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
+| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | review | → Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
+| RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | dev-verified | → user-verified |
+| RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | dev-verified | → team-verified (unique=True w model + DB index uq_contracts_number) |
+| RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | done | → done (autoescape=True w reports/service.py:588) |
+| RAO-P0-032 | build_contract_data mutuje sesję — kopiuj description | P0 | XS | done | → done (lokalne kopie description w fees_data) |
+| RAO-P0-033 | recalculate_total — użyj algorytmu kaskadowego | P0 | S | dev-verified | → team-verified |
+| RAO-P0-034 | ContractUpdate schema z exclude_unset=True (lost data) | P0 | M | dev-verified | → team-verified |
+| RAO-P0-035 | N+1 queries — selectinload w list_contracts/positions/articles | P0 | M | dev-verified | → team-verified |
+| RAO-P0-036 | Stack trace disclosure → detail="Błąd" + logging | P0 | XS | dev-verified | → team-verified (global exception handler w main.py) |
+| RAO-P1-037 | delete_contract — guard na is_settled | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-038 | Brak indeksów DB (is_settled, created_at, salesperson_id, print_date, delivery_date) | P1 | S | dev-verified | → team-verified |
+| RAO-P1-039 | Walidacja date_from > date_to + ujemne kwoty w ContractCreate | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-040 | is_settled blokuje mutacje (update/delete positions) | P1 | S | dev-verified | → team-verified |
+| RAO-P1-041 | Hardcoded JWT fallback "change-me" — usuń + wymuś z env | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-042 | Frontend: logout czyści stores + redirect po login + baseURL z env | P1 | S | dev-verified | → team-verified |
+| RAO-P1-043 | Frontend: memory leaks — cleanup event listenerów i timerów | P1 | S | dev-verified | → team-verified |
+| RAO-P1-044 | Frontend: localStorage.getItem('token') → 'rao_token' | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-045 | _build_conditions_text — użyj format_position_conditions_cascading (dedup) | P1 | XS | dev-verified | → team-verified |
+| RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
+| RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | triaged | → in_progress |
+| RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | triaged | → in_progress |
+| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | triaged | → in_progress |
+| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | triaged | → in_progress |
+| RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | triaged | → in_progress |
+| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
+| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
+| RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | dev-verified | → team-verified (normalize w settings/service.py + ALTER TABLE polish_ci w main.py) |
+| RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | triaged | → in_progress |
+| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
+| RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | dev-verified | → team-verified (is_external nie blokuje + checkbox w details) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
+| RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | triaged | → in_progress (Faza 1: parser legacy + migracja + UI + template items) |
+| RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | in-progress (Faza 1 done — 6 bugów + indeksy + cleanup; Faza 2 todo — StatsView.vue) |
+| RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
+| RAO-P2-067 | Demo data refactor — migrate_all.py orchestrator + FA-pending contracts + delivery_address | P2 | M | done | 31 faktur FA (19 backfill + 12 FA-pending), delivery_address z miastami, hardcoded token usunięty |
+| RAO-P2-068 | Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta" | P2 | M | done | 5 cenników kaskadowych per maszyna, 6 presetów usług, 22 ServiceFeeTemplateItem, 6 rate types, pełna konfiguracja firmy |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
+
+**Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
+
+### Pipeline weryfikacji (status flow)
+
+```
+triaged → in_progress → dev-verified → team-verified → user-verified → client-approved (done)
+           │              │               │               │               │
+           Devin koduje   Devin testuje   Software-house  Ty wzrokowo    Klient zatwierdza
+           zmianę         programatycz.   subagenty       w UI/PDF        → zadanie zamknięte
+                          (Playwright,    (QA, Security,
+                           PyMuPDF,       UX, PO, Tech
+                           pytest,        Lead review)
+                           vue-tsc)
+```
+
+---
+
+## 🔍 Pre-existing issues (znalezione przez security audit P1-015)
+
+### [RAO-SEC-001] IDOR — `/reports/contract/{id}` bez ownership check
+
+```yaml
+id: RAO-SEC-001
+priority: P1
+size: S
+status: done
+classification: security/idor
+roles: [backend-dev, security-auditor]
+source: security-audit
+source_date: 2026-06-29
+source_ref: "Security audit P1-015 — subagent security-auditor"
+specs_to_update:
+  - core/25_security.md
+migration_impact: no
+security_impact: yes
+done_date: 2026-07-01
+fix: "_check_contract_access() w reports/router.py — admin full access, non-admin tylko własny branch, fetch contract przed PDF gen (early 404/403)"
+verification:
+  - "py_compile reports/router.py: OK"
+  - "curl POST /reports/contract/999999 (admin): 404 (contract not found)"
+  - "smoke 01-login.spec.ts: 11/11 passed"
+```
+
+**Problem:** Endpoint `POST /reports/contract/{contract_id}` wymaga autentykacji (`get_current_user`), ale **nie sprawdza ownership/tenant** — każdy zalogowany użytkownik może wygenerować PDF (z telefonami klienta) dla cudzej umowy znając `contract_id`.
+
+**Atak:** Enumeracja `contract_id` → pozyskanie danych kontaktowych (telefony, adres dostawy) klientów innych handlowców.
+
+**Fix:** W `reports/router.py` (lub `service.py`) dodać weryfikację:
+```python
+if contract.created_by != current_user.id and current_user.role != "admin":
+    raise HTTPException(403)
+```
+
+**Pliki do zmiany:**
+- `backend/reports/router.py`
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S)
+
+---
+
+### [RAO-SEC-002] Jinja2 bez `autoescape=True` w reports/service.py
+
+```yaml
+id: RAO-SEC-002
+priority: P1
+size: S
+status: done
+classification: security/injection
+roles: [backend-dev, security-auditor]
+source: security-audit
+source_date: 2026-06-29
+source_ref: "Security audit P1-015 — subagent security-auditor"
+implementation_date: 2026-07-01
+note: "Już naprawione — autoescape=True w reports/service.py:588"
+specs_to_update:
+  - core/25_security.md
+migration_impact: no
+security_impact: yes
+```
+
+**Problem:** `Environment(loader=FileSystemLoader(template_dir))` w `backend/reports/service.py` utworzony **bez `autoescape=True`**. Użytkownik może wstrzyknąć HTML/JS w pola `notes`, `contractor_name`, `contact_person1` → trafia do PDF WeasyPrint (SSRF, data exfiltration).
+
+**Fix:** `Environment(loader=FileSystemLoader(template_dir), autoescape=True)` + przetestować wszystkie szablony PDF pod kątem niezamierzonego escapowania polskich znaków.
+
+**Pliki do zmiany:**
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S) — wymaga testów wszystkich szablonów PDF
+
+---
+
+## 🗂️ Materiały referencyjne
+
+**Sprint 2026-06-29 (nowe zgłoszenia):**
+- `spec/backlog/do_wciagniecia_do_backlogu.md` — 10 punktów od klienta (surowy markdown)
+- `Pasted image 20260629223748.png` (root repo) — P1-014: błędne obliczenie daty
+- `Pasted image 20260629223936.png` (root repo) — P1-016: protokół ZO bez adresu dostawy
+- `Pasted image 20260629224212.png` (root repo) — P1-019: umowa usługi U872/2026 z żółtym tłem
+- `Pasted image 20260629224534.png` (root repo) — P1-020: format rozliczenia kaskadowego
+- `Pasted image 20260629224602.png` (root repo) — P1-021: sekcja Warunki Finansowe z pustym Wartość
+- `Pasted image 20260629225003.png` (root repo) — P1-022: lista umów z niespójnym nazewnictwem
+- Raporty vision: `Pasted image 20260629*-vision-report.md` (root repo)
+
+**Stara aplikacja WinForms (referencja):**
+- `C:\projects\repos\AppRao\rao\FormW.cs` linia 690-750 — algorytm formatowania warunków kaskadowych
+
+**Aktualne szablony PDF:**
+- `backend/reports/templates/contract_u.html` — umowa usługi (typ U)
+- `backend/reports/templates/contract.html` — umowa najmu (typ S)
+- `backend/reports/templates/protocol_zo.html` — protokół zdawczo-odbiorczy
+- `backend/reports/templates/protocol_zo_u.html` — protokół wykonania usługi
+- `backend/reports/templates/protocol_zo_nodata*.html` — warianty bez danych
+
+---
+
+## 📋 Decyzje operatora (2026-06-30)
+
+### RAO-P1-021 — Pole „Wartość (zł)" → ekran rozliczenia
+**Decyzja:** Pole „Wartość" przechodzi do **ekranu rozliczenia** (nie formularz umowy). Tam wartość jest pobierana:
+- Z **Fakturowni** (kwota z faktury), LUB
+- Wprowadzona **ręcznie** na bazie pozycji umowy z uzupełnionymi kwotami
+
+**Implementacja:** Ekran rozliczenia pobiera pozycje umowy, pozwala uzupełnić kwoty (auto z Fakturowni lub ręcznie), sumuje → wartość umowy. Pole „Wartość" w formularzu umowy zostaje ukryte/puste (przedpłata dopisana z góry, wartość nieznana do rozliczenia).
+
+---
+
+### RAO-P2-028 — Statystyki miast via PNA (PILNE)
+**Decyzja:** Grupuj po **postal_code (PNA)** + miasto (precyzyjne).
+**Uwaga operatora:** Jedno miasto ma wiele PNA — trzeba ustalić **skąd uzupełnić PNA** dla miast.
+**Pilne** — wymaga analizy źródeł danych PNA (tabela postal_codes, integracja TERYT, GUS).
+
+---
+
+### RAO-P2-046 — IDOR / RBAC
+**Decyzja:** **Brak izolacji** na ten moment (single-tenant, wszyscy widzą wszystko).
+Wraz z rozwojem aplikacji będziemy zarządzać uprawnieniami do różnych zasobów.
+**Akcja:** Zostaw tylko SEC-001 (PDF ownership check). P2-046 odłożone.
+
+---
+
+### RAO-P2-057 — is_external (maszyna zewnętrzna)
+**Decyzja:** Maszyna external **nie blokuje** dodawania w wielu miejscach (nie wpływa na rentowność).
+- Ma być **możliwe do wyboru w detailsach maszyny** podczas dodawania
+- Sprawdzić **mechanizm blokowania maszyn** (czy external poprawnie nie blokuje)
+- Sprawdzić vs **wyliczanie dni umowy** czy maszyny będą poprawnie blokowane
+- **Blokada = pytanie z informacją** gdzie i dlaczego jest zablokowana maszyna, czy na pewno chcesz ją dodać/wypożyczyć
+- **Obgadać z teamem** (subagenty: backend-dev + qa-engineer + product-owner)
+
+---
+
+## 📋 Audyt wymagań klienta (2026-07-01) — Tech Lead
+
+### Wymagania klienta — status spełnienia
+
+| # | Wymaganie | Status | Uwagi |
+|---|-----------|--------|-------|
+| 1 | Statystyki wynajmu maszyny (po nr wewn.) w okresie — stopa zwrotu | **SPEŁNIONE z błędem** | `top-machines` + `explorer/machines/{id}` (utilization_pct). BŁĄD: rozjazd przychodu 41% między explorer a stats |
+| 2 | Ile maszyn jest teraz wynajętych | **SPEŁNIONE** | `currently-rented` + `fleet-summary` |
+| 3 | Dodanie numeru wewnętrznego do maszyny | **SPEŁNIONE funkcjonalnie, 0% danych** | `articles.internal_number` istnieje, ale 0/337 maszyn ma wypełnione (CSV nie istnieje, INSERT nie mapuje) |
+| 4 | Filtrowanie pozycji dodatkowych (transport, mycie) w okresach | **SPEŁNIONE** | `additional-fees` endpoint + UI |
+| 5 | Filtrowanie miejscowości i ilości wynajmów | **SPEŁNIONE** | `stats/locations` + `explorer/locations` (po PNA, z gmina/powiat/woj) |
+| 6 | Rezerwacja maszyny (blokada, info kiedy dostępny) | **SPEŁNIONE** | `articles/{id}/availability` + ArticlePicker z badge |
+
+### Odkryte problemy — do analizy i decyzji
+
+#### [RAO-P2-030] internal_number puste (0% maszyn) — BLOKER dla wymagan 1+3
+
+```yaml
+id: RAO-P2-030
+priority: P2
+size: M
+status: wont-fix
+classification: bugfix/migration-data
+roles: [db-architect, backend-dev]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt wymagań klienta — wymaganie 3 (numer wewnętrzny)"
+resolution: "2026-07-01 — brak źródła danych w starej bazie (0/351 archive_articles ma internal_number, registration_no też 0%). Wymaga ręcznego uzupełnienia przez użytkownika w UI. Oznaczone wont-fix dla automatycznej migracji."
+```
+
+**Problem:** `articles.internal_number` jest puste dla 0/337 maszyn (0%).
+- `migrate.py` INSERT articles z `artykul3` NIE mapuje `internal_number` (kolumna nie istnieje w `artykul3`)
+- `step8_csv_categories` wypełniał `internal_number` z CSV `Asortyment*.csv`, ale ten plik **nie istnieje** na dysku
+- Bez `internal_number` wymaganie 1 (statystyki po nr wewn.) i 3 (dodawanie nr wewn.) są bezużyteczne
+
+**Opcje naprawy:**
+1. Znaleźć źródło numerów wewnętrznych (inny CSV? ręczne dopisanie w UI?)
+2. Sprawdzić czy `nr_rejestracyjny` z `artykul3` może służyć jako numer wewnętrzny (ale też 0% wypełnione)
+3. Ręczne wypełnienie przez użytkownika w UI (formularz maszyny już ma pole)
+
+**Acceptance criteria:**
+- [ ] Źródło numerów wewnętrznych zidentyfikowane
+- [ ] `internal_number` wypełnione dla >80% maszyn
+- [ ] Statystyki po `internal_number` działają (test API)
+
+---
+
+#### [RAO-P2-031] Rozjazd przychodu 41% — explorer vs stats
+
+```yaml
+id: RAO-P2-031
+priority: P2
+size: S
+status: done
+classification: bugfix/backend-logic
+roles: [backend-dev, qa-engineer]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt — explorer/machines używa rate1×period_count zamiast kaskadowego"
+commit: P2-032 (scalone)
+specs_to_update:
+  - core/01_database.md
+  - core/04_business_logic.md
+
+**Problem:** `explorer/machines/{id}` liczy przychód jako `rate1 × period_count` (simple), a `stats/top-machines` używa kaskadowego `calculate_position_value`. **Rozjazd 41%** (3.17M vs 5.37M zł). Explorer zawyża przychody maszyn o ~41%.
+
+**Lokalizacja:** `backend/explorer/router.py:218` — subquery `rev_subq` używa `func.sum(rate1 * period_count)` zamiast wywołania `shared.revenue.compute_position_revenues`.
+
+**Naprawa:** Refactor `get_machine_details` aby używał `shared.revenue.compute_position_revenues` (jak `stats/top-machines`).
+
+**Acceptance criteria:**
+- [ ] `explorer/machines/{id}` używa `shared.revenue.compute_position_revenues`
+- [ ] Przychody spójne między explorer a stats (delta <1%)
+- [ ] Test unit: porównanie przychodu per pozycja
+
+---
+
+#### [RAO-P2-032] Przychód z `rozliczenie` (legacy) — rzeczywiste kwoty
+
+```yaml
+id: RAO-P2-032
+priority: P1
+size: L
+status: done
+classification: feature/revenue-source
+roles: [db-architect, backend-dev, frontend-dev, product-owner, tech-lead, security-auditor]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt — warunki rozliczenia są orientacyjne, nie wiemy co skasowano na fakturach"
+implementation_date: 2026-07-01
+specs_to_update:
+  - core/01_database.md
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+  - core/04_business_logic.md
+  - core/08_migration_plan.md
+
+**Problem:** Obecnie przychód liczony z `position_conditions.rate1 × period_count` (kaskadowe) — **orientacyjne stawki z umowy**, nie rzeczywiste kwoty zafakturowane. `contracts.total_value` jest NULL/0 dla 100% umów (martwe pole).
+
+**Odkrycie:** W dumpie starej bazy (`spec/backlog/archiwum/refinement/toolsmart_roa_*.sql`) jest tabela `rozliczenie` z **3836 wierszami** (~1951 sparsowanych, 792,384 zł) — **rzeczywiste rozliczenia per pozycja**:
+- `id, data, id_pozycji, wartosc`
+- 99.2% `id_pozycji` mapuje się na `contract_positions.id`
+- `wartosc` = rzeczywista kwota rozliczona (po fakcie)
+
+**Stara funkcja SQL (linia 11064-11070):** NIE używała `oplata1 × liczba_dni` (kaskadowe), ale **lookup** — wybierała jedną stawkę po `liczba_dni` (inny algorytm niż nasz `calculate_position_value`).
+
+**Koncepcja operatora — Data Cutoff + Dwa tryby:**
+1. **Dane historyczne (`is_legacy=1`, przed cutofficem):**
+   - Import `rozliczenie` → `contract_settlements` (cost_client=wartosc, source='legacy')
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty**
+   - Osobna sekcja UI: "Analiza danych historycznych" z label "rzeczywiste rozliczenia"
+2. **Nowe dane (`is_legacy=0`, po cutofficie):**
+   - Integracja Fakturownia (już istnieje! `init-from-fakturownia`)
+   - `contract.oid` + `article.fakturownia_product_id` → automatyczne mapowanie
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty zafakturowane**
+
+**Decyzje do podjęcia (wymaga operatora/klienta):**
+1. Czy importować `rozliczenie` (3836 wierszy) do `contract_settlements`?
+2. Kiedy następuje cutoff? (wszystkie 742 obecne umowy = legacy?)
+3. Czy zachować `position_conditions` (szacunek) jako fallback gdy brak rozliczenia?
+4. Czy UI ma mieć przełącznik "Dane historyczne / Dane bieżące"?
+
+**Acceptance criteria (po decyzji):**
+- [ ] Import `rozliczenie` do `contract_settlements` (deterministyczny, z dumpa SQL)
+- [ ] `shared/revenue.py` — źródło "actual" z `contract_settlements` (priorytet) + fallback "estimate" z `position_conditions`
+- [ ] UI toggle "Dane historyczne / Dane bieżące" w ReportsSection
+- [ ] Label "rzeczywiste rozliczenia" vs "orientacyjne stawki" w UI
+- [ ] Fix rozjada 41% (P2-031) jako część tego zadania
+
+**Pliki do zmiany:**
+- `backend/migrate.py` (nowy step: import `rozliczenie` z dumpa)
+- `backend/shared/revenue.py` (źródło "actual" z settlements)
+- `backend/stats/router.py` (filtr `is_legacy` + źródło przychodu)
+- `backend/explorer/router.py` (fix rozjada — użyj `shared.revenue`)
+- `frontend/src/components/reports/ReportsSection.vue` (toggle + label)
+
+**Dane:**
+- Dump SQL: `spec/backlog/archiwum/refinement/toolsmart_roa_1779053066.sql` (linie 4550-6524)
+- 3836 wierszy, 353 unikalnych pozycji, 792,384 zł, 99.2% mapuje się na contract_positions
+
+---
+
+#### [RAO-P2-033] `contracts.total_value` martwe pole (100% NULL)
+
+```yaml
+id: RAO-P2-033
+priority: P2
+size: XS
+status: done
+classification: cleanup/data
+roles: [db-architect]
+source: tech-lead-audit
+source_date: 2026-07-01
+implementation_date: 2026-07-01
+note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone z P1-021)"
+```
+
+**Problem:** `contracts.total_value` jest NULL/0 dla 100% umów (742/742). Pole nie jest używane w statystykach (przychód z `position_conditions`), tylko w PDF umowy jako snapshot.
+
+**Opcje:**
+1. Zostawić (pole w PDF, nie blokuje) — rekomendowane
+2. Usunąć kolumnę (destructive — wymaga zgody)
+3. Wypełnić z `SUM(position_conditions)` (ale to szacunek, nie rzeczywistość)
+
+**Rekomendacja:** Zostawić jak jest. Pole jest w PDF umowy jako "Wartość (zł)" — decyzja P1-021 przenosi to do ekranu rozliczenia.
+
+---
+
+## ✅ Wykonane prace (2026-07-01)
+
+### P2-028 — Statystyki miast via PNA (DONE, dev-verified)
+- **Commit:** `7bb2d1a` (backend+DB), `0ee1751` (frontend)
+- **Co zrobiono:**
+  - Pełny Spis PNA Poczty Polskiej (21,904 wpisów) w tabeli `postal_codes`
+  - `contracts.postal_code_id` (FK) + `is_legacy` + backfill
+  - `shared/locations.py` + `shared/revenue.py` (unifikacja stats+explorer)
+  - `GET /explorer/locations/{postal_code}` (drill-down po PNA)
+  - `PostalCodeLookupResponse` z gmina/powiat/wojewodztwo
+  - Frontend: auto-fill PNA + panel gmina/powiat/woj + ReportsSection :key fix
+  - Deduplikacja legacy numerów umów (S142/2026, 111)
+  - Fix `extract_address` (integrations/router.py) — używa PNA zamiast usuniętego `extract_city`
+- **Weryfikacja:** 221 pytest passed, vue-tsc exit 0, build OK, smoke e2e 11 passed
+
+### Lint fixes — ContractFormView.vue (2026-07-01)
+- **Co zrobiono:** Naprawiono 20 pre-existing TS lint errors (`ref([])` → typed refs)
+  - `contractorAddresses` → `ref<ContractorAddress[]>([])`
+  - `pickerList` → `ref<ContractorPick[]>([])`
+  - `settlements` → `ref<Settlement[]>([])`
+  - `editingFeeData` → `ref<Partial<FeeData>>({})`
+  - `selectedAddressId` → `ref<number | null>(null)`
+  - `editingFeeId` → `ref<number | null>(null)`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+
+### Auto-fill PNA flow (2026-07-01)
+- **Co zrobiono:** 3 ścieżki auto-fill PNA w ContractFormView.vue
+  1. `onDeliveryAddressInput` — po extract-address auto-trigger PNA lookup
+  2. `onAddressSelect` — wypełnia postal_code+city z adresu kontrahenta + auto PNA lookup
+  3. `onPostalCodeBlur` — refactor na reusable `lookupPna()`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+
+---
+
+### [RAO-P2-068] Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta"
+
+```yaml
+id: RAO-P2-068
+priority: P2
+size: M
+status: done
+classification: backend/data-seeding+config
+roles: [tech-lead, backend-dev, db-architect, product-owner]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/04_business_logic.md (cenniki kaskadowe + pełna konfiguracja firmy)
+  - core/07_integrations.md (demo setup — cenniki + presety + rate types)
+migration_impact: no (demo dane tylko)
+security_impact: no
+depends_on:
+  - RAO-P2-067 (Demo data refactor — migrate_all.py orchestrator)
+verification:
+  - "python seed_demo_data.py: PASS (idempotentny re-run)"
+  - "CENNIKI_KASKADOWE: 5 maszyn × 3 warunki kaskadowe (1-3 dni, 4-16 dni, powyżej 16 dni)"
+  - "ZESTAWY_USLUG: 6 presetów (najem, usługa z operatorem, kontrakt długoterminowy, weekend, kontrakt zagraniczny, operator premium)"
+  - "ServiceFeeTemplateItem: 22 relacji N:M preset → artykuł"
+  - "Rate types: 6 typów (dniowa, godzinowa, km, tygodniowa, miesięczna, jednorazowa)"
+  - "Firma: NIP=1234563218, bank_account=PL 12 1020..., header_text do PDF"
+```
+
+**Problem:**
+
+Po P2-067 demo data miało jeszcze braki:
+1. **Brak cenników kaskadowych** — każda pozycja umowy miała tylko 1 warunek (płaska stawka). W starej aplikacji WinForms warunki były kaskadowe (1-3 dni 540zł/doba, 4-16 dni 410zł/doba, powyżej 16 dni 350zł/doba). User musiał ręcznie wpisywać każdy warunek.
+2. **Brak pełnej konfiguracji firmy** — `company` table miała tylko `name="RAO — Wynajem Maszyn"` (z main.py). Brak NIP, adres, konto bankowe, header_text do PDF.
+3. **Tylko 3 presety usług** — brak scenariuszy weekend, kontrakt zagraniczny, operator premium.
+4. **ServiceFeeTemplateItem pusta** — relacja N:M preset → artykuł nie była wypełniana.
+5. **Tylko 3 rate types** — brak tygodniowa, miesięczna, jednorazowa.
+
+**Cel:** "Rozliczenie = cennik" — user klika maszynę i ma gotowy cennik kaskadowy, nie musi ciągle wpisywać tego samego. Wszystkie rzeczy konfigurowalne zeseedowane pod demo.
+
+---
+
+#### Scope implementacji
+
+**1. CENNIKI_KASKADOWE per maszyna (5 maszyn × 3 warunki):**
+
+| Maszyna | 1-3 dni | 4-16 dni | powyżej 16 dni |
+|---------|---------|----------|----------------|
+| Koparka JCB 8035 | 900 zł/doba | 750 zł/doba | 600 zł/doba |
+| Ładowarka Manuscop 6.36 | 720 zł/doba | 600 zł/doba | 480 zł/doba |
+| Podnośnik Haulotte HA16PX | 500 zł/doba | 420 zł/doba | 340 zł/doba |
+| Spychacz Wirtgen W100CFi | 1300 zł/doba | 1100 zł/doba | 900 zł/doba |
+| Zagęszczarka Ammann APF 15/50 | 180 zł/doba | 150 zł/doba | 120 zł/doba |
+
+**2. 6 presetów usług dodatkowych:**
+- Cennik usług — najem 2026 (S, default) — 6 szablonów
+- Cennik usług — usługa z operatorem 2026 (U, default) — 3 szablony
+- Kontrakt długoterminowy (rabat) (S) — 4 szablony
+- Weekend / krótkoterminowy (1-3 dni) (S) — 3 szablony
+- Kontrakt zagraniczny (export) (S) — 4 szablony
+- Usługa z operatorem — premium (U) — 4 szablony
+
+**3. ServiceFeeTemplateItem:** 22 relacji N:M preset → artykuł z domyślną ceną.
+
+**4. 6 rate types:** dniowa, godzinowa, km (istniejące) + tygodniowa, miesięczna, jednorazowa (nowe).
+
+**5. Pełna konfiguracja firmy:** NIP 1234563218, REGON, adres Warszawa, konto PKO BP, header_text do PDF, numbering_start=1, increment_step=50.
+
+**6. `_build_positions_and_fees`** używa cenników kaskadowych zamiast płaskiej stawki.
+
+---
+
+#### Weryfikacja (2026-07-04)
+
+- `python seed_demo_data.py`: PASS (idempotentny re-run, 0 nowych bo dane istnieją)
+- `python _verify_cennik.py`: CENNIKI_KASKADOWE=5, ZESTAWY_USLUG=6, RATE_TYPES=6, FIRMA_CONFIG OK
+- DB check: 8 presetów (2 stare default + 6 nowych), 22 ServiceFeeTemplateItem, 9 rate types (3 legacy + 6 nowych)
+- Firma: NIP=1234563218, bank_account=PL 12 1020..., header_text z pełnymi danymi
+
+---
+
+#### Pliki zmienione
+
+| Plik | Zmiana |
+|------|--------|
+| `backend/seed_demo_data.py` | +CENNIKI_KASKADOWE (5 maszyn × 3 warunki), +STAWKA_EFEKTYWNA, +FIRMA_CONFIG, +3 nowe presety, +ServiceFeeTemplateItem, +3 rate types, +seed_company(), _build_positions_and_fees używa cenników kaskadowych |
+
+---
+
+**Estymacja:** 4-5h (M) — cenniki kaskadowe (1.5h) + presety + ServiceFeeTemplateItem (1h) + rate types + firma (1h) + weryfikacja (0.5h)
+
+---
+
+## 📋 Tabela TL;DR
+
+| ID | Tytuł | P | Est. | Status | Następny krok |
+|----|-------|---|------|--------|---------------|
+| RAO-P1-014 | Frontend — błędne obliczanie daty końcowej okresu umowy | P1 | XS | user-verified | → client-approved |
+| RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | P1 | XS | team-verified | → user-verified |
+| RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | P1 | S | team-verified | → user-verified |
+| RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | dev-verified | → team-verified |
+| RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | P1 | XS | team-verified | → user-verified |
+| RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | dev-verified | → user-verified |
+| RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
+| RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | dev-verified | → team-verified (wartość z rozliczenia, read-only w formularzu) |
+| RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
+| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | review | → Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
+| RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | dev-verified | → user-verified |
+| RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | dev-verified | → team-verified (unique=True w model + DB index uq_contracts_number) |
+| RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | done | → done (autoescape=True w reports/service.py:588) |
+| RAO-P0-032 | build_contract_data mutuje sesję — kopiuj description | P0 | XS | done | → done (lokalne kopie description w fees_data) |
+| RAO-P0-033 | recalculate_total — użyj algorytmu kaskadowego | P0 | S | dev-verified | → team-verified |
+| RAO-P0-034 | ContractUpdate schema z exclude_unset=True (lost data) | P0 | M | dev-verified | → team-verified |
+| RAO-P0-035 | N+1 queries — selectinload w list_contracts/positions/articles | P0 | M | dev-verified | → team-verified |
+| RAO-P0-036 | Stack trace disclosure → detail="Błąd" + logging | P0 | XS | dev-verified | → team-verified (global exception handler w main.py) |
+| RAO-P1-037 | delete_contract — guard na is_settled | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-038 | Brak indeksów DB (is_settled, created_at, salesperson_id, print_date, delivery_date) | P1 | S | dev-verified | → team-verified |
+| RAO-P1-039 | Walidacja date_from > date_to + ujemne kwoty w ContractCreate | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-040 | is_settled blokuje mutacje (update/delete positions) | P1 | S | dev-verified | → team-verified |
+| RAO-P1-041 | Hardcoded JWT fallback "change-me" — usuń + wymuś z env | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-042 | Frontend: logout czyści stores + redirect po login + baseURL z env | P1 | S | dev-verified | → team-verified |
+| RAO-P1-043 | Frontend: memory leaks — cleanup event listenerów i timerów | P1 | S | dev-verified | → team-verified |
+| RAO-P1-044 | Frontend: localStorage.getItem('token') → 'rao_token' | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-045 | _build_conditions_text — użyj format_position_conditions_cascading (dedup) | P1 | XS | dev-verified | → team-verified |
+| RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
+| RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | triaged | → in_progress |
+| RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | triaged | → in_progress |
+| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | triaged | → in_progress |
+| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | triaged | → in_progress |
+| RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | triaged | → in_progress |
+| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
+| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
+| RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | dev-verified | → team-verified (normalize w settings/service.py + ALTER TABLE polish_ci w main.py) |
+| RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | triaged | → in_progress |
+| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
+| RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | dev-verified | → team-verified (is_external nie blokuje + checkbox w details) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
+| RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | triaged | → in_progress (Faza 1: parser legacy + migracja + UI + template items) |
+| RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | in-progress (Faza 1 done — 6 bugów + indeksy + cleanup; Faza 2 todo — StatsView.vue) |
+| RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
+| RAO-P2-067 | Demo data refactor — migrate_all.py orchestrator + FA-pending contracts + delivery_address | P2 | M | done | 31 faktur FA (19 backfill + 12 FA-pending), delivery_address z miastami, hardcoded token usunięty |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
+
+**Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
+
+### Pipeline weryfikacji (status flow)
+
+```
+triaged → in_progress → dev-verified → team-verified → user-verified → client-approved (done)
+           │              │               │               │               │
+           Devin koduje   Devin testuje   Software-house  Ty wzrokowo    Klient zatwierdza
+           zmianę         programatycz.   subagenty       w UI/PDF        → zadanie zamknięte
+                          (Playwright,    (QA, Security,
+                           PyMuPDF,       UX, PO, Tech
+                           pytest,        Lead review)
+                           vue-tsc)
+```
+
+---
+
+## 🔍 Pre-existing issues (znalezione przez security audit P1-015)
+
+### [RAO-SEC-001] IDOR — `/reports/contract/{id}` bez ownership check
+
+```yaml
+id: RAO-SEC-001
+priority: P1
+size: S
+status: done
+classification: security/idor
+roles: [backend-dev, security-auditor]
+source: security-audit
+source_date: 2026-06-29
+source_ref: "Security audit P1-015 — subagent security-auditor"
+specs_to_update:
+  - core/25_security.md
+migration_impact: no
+security_impact: yes
+done_date: 2026-07-01
+fix: "_check_contract_access() w reports/router.py — admin full access, non-admin tylko własny branch, fetch contract przed PDF gen (early 404/403)"
+verification:
+  - "py_compile reports/router.py: OK"
+  - "curl POST /reports/contract/999999 (admin): 404 (contract not found)"
+  - "smoke 01-login.spec.ts: 11/11 passed"
+```
+
+**Problem:** Endpoint `POST /reports/contract/{contract_id}` wymaga autentykacji (`get_current_user`), ale **nie sprawdza ownership/tenant** — każdy zalogowany użytkownik może wygenerować PDF (z telefonami klienta) dla cudzej umowy znając `contract_id`.
+
+**Atak:** Enumeracja `contract_id` → pozyskanie danych kontaktowych (telefony, adres dostawy) klientów innych handlowców.
+
+**Fix:** W `reports/router.py` (lub `service.py`) dodać weryfikację:
+```python
+if contract.created_by != current_user.id and current_user.role != "admin":
+    raise HTTPException(403)
+```
+
+**Pliki do zmiany:**
+- `backend/reports/router.py`
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S)
+
+---
+
+### [RAO-SEC-002] Jinja2 bez `autoescape=True` w reports/service.py
+
+```yaml
+id: RAO-SEC-002
+priority: P1
+size: S
+status: done
+classification: security/injection
+roles: [backend-dev, security-auditor]
+source: security-audit
+source_date: 2026-06-29
+source_ref: "Security audit P1-015 — subagent security-auditor"
+implementation_date: 2026-07-01
+note: "Już naprawione — autoescape=True w reports/service.py:588"
+specs_to_update:
+  - core/25_security.md
+migration_impact: no
+security_impact: yes
+```
+
+**Problem:** `Environment(loader=FileSystemLoader(template_dir))` w `backend/reports/service.py` utworzony **bez `autoescape=True`**. Użytkownik może wstrzyknąć HTML/JS w pola `notes`, `contractor_name`, `contact_person1` → trafia do PDF WeasyPrint (SSRF, data exfiltration).
+
+**Fix:** `Environment(loader=FileSystemLoader(template_dir), autoescape=True)` + przetestować wszystkie szablony PDF pod kątem niezamierzonego escapowania polskich znaków.
+
+**Pliki do zmiany:**
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S) — wymaga testów wszystkich szablonów PDF
+
+---
+
+## 🗂️ Materiały referencyjne
+
+**Sprint 2026-06-29 (nowe zgłoszenia):**
+- `spec/backlog/do_wciagniecia_do_backlogu.md` — 10 punktów od klienta (surowy markdown)
+- `Pasted image 20260629223748.png` (root repo) — P1-014: błędne obliczenie daty
+- `Pasted image 20260629223936.png` (root repo) — P1-016: protokół ZO bez adresu dostawy
+- `Pasted image 20260629224212.png` (root repo) — P1-019: umowa usługi U872/2026 z żółtym tłem
+- `Pasted image 20260629224534.png` (root repo) — P1-020: format rozliczenia kaskadowego
+- `Pasted image 20260629224602.png` (root repo) — P1-021: sekcja Warunki Finansowe z pustym Wartość
+- `Pasted image 20260629225003.png` (root repo) — P1-022: lista umów z niespójnym nazewnictwem
+- Raporty vision: `Pasted image 20260629*-vision-report.md` (root repo)
+
+**Stara aplikacja WinForms (referencja):**
+- `C:\projects\repos\AppRao\rao\FormW.cs` linia 690-750 — algorytm formatowania warunków kaskadowych
+
+**Aktualne szablony PDF:**
+- `backend/reports/templates/contract_u.html` — umowa usługi (typ U)
+- `backend/reports/templates/contract.html` — umowa najmu (typ S)
+- `backend/reports/templates/protocol_zo.html` — protokół zdawczo-odbiorczy
+- `backend/reports/templates/protocol_zo_u.html` — protokół wykonania usługi
+- `backend/reports/templates/protocol_zo_nodata*.html` — warianty bez danych
+
+---
+
+## 📋 Decyzje operatora (2026-06-30)
+
+### RAO-P1-021 — Pole „Wartość (zł)" → ekran rozliczenia
+**Decyzja:** Pole „Wartość" przechodzi do **ekranu rozliczenia** (nie formularz umowy). Tam wartość jest pobierana:
+- Z **Fakturowni** (kwota z faktury), LUB
+- Wprowadzona **ręcznie** na bazie pozycji umowy z uzupełnionymi kwotami
+
+**Implementacja:** Ekran rozliczenia pobiera pozycje umowy, pozwala uzupełnić kwoty (auto z Fakturowni lub ręcznie), sumuje → wartość umowy. Pole „Wartość" w formularzu umowy zostaje ukryte/puste (przedpłata dopisana z góry, wartość nieznana do rozliczenia).
+
+---
+
+### RAO-P2-028 — Statystyki miast via PNA (PILNE)
+**Decyzja:** Grupuj po **postal_code (PNA)** + miasto (precyzyjne).
+**Uwaga operatora:** Jedno miasto ma wiele PNA — trzeba ustalić **skąd uzupełnić PNA** dla miast.
+**Pilne** — wymaga analizy źródeł danych PNA (tabela postal_codes, integracja TERYT, GUS).
+
+---
+
+### RAO-P2-046 — IDOR / RBAC
+**Decyzja:** **Brak izolacji** na ten moment (single-tenant, wszyscy widzą wszystko).
+Wraz z rozwojem aplikacji będziemy zarządzać uprawnieniami do różnych zasobów.
+**Akcja:** Zostaw tylko SEC-001 (PDF ownership check). P2-046 odłożone.
+
+---
+
+### RAO-P2-057 — is_external (maszyna zewnętrzna)
+**Decyzja:** Maszyna external **nie blokuje** dodawania w wielu miejscach (nie wpływa na rentowność).
+- Ma być **możliwe do wyboru w detailsach maszyny** podczas dodawania
+- Sprawdzić **mechanizm blokowania maszyn** (czy external poprawnie nie blokuje)
+- Sprawdzić vs **wyliczanie dni umowy** czy maszyny będą poprawnie blokowane
+- **Blokada = pytanie z informacją** gdzie i dlaczego jest zablokowana maszyna, czy na pewno chcesz ją dodać/wypożyczyć
+- **Obgadać z teamem** (subagenty: backend-dev + qa-engineer + product-owner)
+
+---
+
+## 📋 Audyt wymagań klienta (2026-07-01) — Tech Lead
+
+### Wymagania klienta — status spełnienia
+
+| # | Wymaganie | Status | Uwagi |
+|---|-----------|--------|-------|
+| 1 | Statystyki wynajmu maszyny (po nr wewn.) w okresie — stopa zwrotu | **SPEŁNIONE z błędem** | `top-machines` + `explorer/machines/{id}` (utilization_pct). BŁĄD: rozjazd przychodu 41% między explorer a stats |
+| 2 | Ile maszyn jest teraz wynajętych | **SPEŁNIONE** | `currently-rented` + `fleet-summary` |
+| 3 | Dodanie numeru wewnętrznego do maszyny | **SPEŁNIONE funkcjonalnie, 0% danych** | `articles.internal_number` istnieje, ale 0/337 maszyn ma wypełnione (CSV nie istnieje, INSERT nie mapuje) |
+| 4 | Filtrowanie pozycji dodatkowych (transport, mycie) w okresach | **SPEŁNIONE** | `additional-fees` endpoint + UI |
+| 5 | Filtrowanie miejscowości i ilości wynajmów | **SPEŁNIONE** | `stats/locations` + `explorer/locations` (po PNA, z gmina/powiat/woj) |
+| 6 | Rezerwacja maszyny (blokada, info kiedy dostępny) | **SPEŁNIONE** | `articles/{id}/availability` + ArticlePicker z badge |
+
+### Odkryte problemy — do analizy i decyzji
+
+#### [RAO-P2-030] internal_number puste (0% maszyn) — BLOKER dla wymagan 1+3
+
+```yaml
+id: RAO-P2-030
+priority: P2
+size: M
+status: wont-fix
+classification: bugfix/migration-data
+roles: [db-architect, backend-dev]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt wymagań klienta — wymaganie 3 (numer wewnętrzny)"
+resolution: "2026-07-01 — brak źródła danych w starej bazie (0/351 archive_articles ma internal_number, registration_no też 0%). Wymaga ręcznego uzupełnienia przez użytkownika w UI. Oznaczone wont-fix dla automatycznej migracji."
+```
+
+**Problem:** `articles.internal_number` jest puste dla 0/337 maszyn (0%).
+- `migrate.py` INSERT articles z `artykul3` NIE mapuje `internal_number` (kolumna nie istnieje w `artykul3`)
+- `step8_csv_categories` wypełniał `internal_number` z CSV `Asortyment*.csv`, ale ten plik **nie istnieje** na dysku
+- Bez `internal_number` wymaganie 1 (statystyki po nr wewn.) i 3 (dodawanie nr wewn.) są bezużyteczne
+
+**Opcje naprawy:**
+1. Znaleźć źródło numerów wewnętrznych (inny CSV? ręczne dopisanie w UI?)
+2. Sprawdzić czy `nr_rejestracyjny` z `artykul3` może służyć jako numer wewnętrzny (ale też 0% wypełnione)
+3. Ręczne wypełnienie przez użytkownika w UI (formularz maszyny już ma pole)
+
+**Acceptance criteria:**
+- [ ] Źródło numerów wewnętrznych zidentyfikowane
+- [ ] `internal_number` wypełnione dla >80% maszyn
+- [ ] Statystyki po `internal_number` działają (test API)
+
+---
+
+#### [RAO-P2-031] Rozjazd przychodu 41% — explorer vs stats
+
+```yaml
+id: RAO-P2-031
+priority: P2
+size: S
+status: done
+classification: bugfix/backend-logic
+roles: [backend-dev, qa-engineer]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt — explorer/machines używa rate1×period_count zamiast kaskadowego"
+commit: P2-032 (scalone)
+specs_to_update:
+  - core/01_database.md
+  - core/04_business_logic.md
+
+**Problem:** `explorer/machines/{id}` liczy przychód jako `rate1 × period_count` (simple), a `stats/top-machines` używa kaskadowego `calculate_position_value`. **Rozjazd 41%** (3.17M vs 5.37M zł). Explorer zawyża przychody maszyn o ~41%.
+
+**Lokalizacja:** `backend/explorer/router.py:218` — subquery `rev_subq` używa `func.sum(rate1 * period_count)` zamiast wywołania `shared.revenue.compute_position_revenues`.
+
+**Naprawa:** Refactor `get_machine_details` aby używał `shared.revenue.compute_position_revenues` (jak `stats/top-machines`).
+
+**Acceptance criteria:**
+- [ ] `explorer/machines/{id}` używa `shared.revenue.compute_position_revenues`
+- [ ] Przychody spójne między explorer a stats (delta <1%)
+- [ ] Test unit: porównanie przychodu per pozycja
+
+---
+
+#### [RAO-P2-032] Przychód z `rozliczenie` (legacy) — rzeczywiste kwoty
+
+```yaml
+id: RAO-P2-032
+priority: P1
+size: L
+status: done
+classification: feature/revenue-source
+roles: [db-architect, backend-dev, frontend-dev, product-owner, tech-lead, security-auditor]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt — warunki rozliczenia są orientacyjne, nie wiemy co skasowano na fakturach"
+implementation_date: 2026-07-01
+specs_to_update:
+  - core/01_database.md
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+  - core/04_business_logic.md
+  - core/08_migration_plan.md
+
+**Problem:** Obecnie przychód liczony z `position_conditions.rate1 × period_count` (kaskadowe) — **orientacyjne stawki z umowy**, nie rzeczywiste kwoty zafakturowane. `contracts.total_value` jest NULL/0 dla 100% umów (martwe pole).
+
+**Odkrycie:** W dumpie starej bazy (`spec/backlog/archiwum/refinement/toolsmart_roa_*.sql`) jest tabela `rozliczenie` z **3836 wierszami** (~1951 sparsowanych, 792,384 zł) — **rzeczywiste rozliczenia per pozycja**:
+- `id, data, id_pozycji, wartosc`
+- 99.2% `id_pozycji` mapuje się na `contract_positions.id`
+- `wartosc` = rzeczywista kwota rozliczona (po fakcie)
+
+**Stara funkcja SQL (linia 11064-11070):** NIE używała `oplata1 × liczba_dni` (kaskadowe), ale **lookup** — wybierała jedną stawkę po `liczba_dni` (inny algorytm niż nasz `calculate_position_value`).
+
+**Koncepcja operatora — Data Cutoff + Dwa tryby:**
+1. **Dane historyczne (`is_legacy=1`, przed cutofficem):**
+   - Import `rozliczenie` → `contract_settlements` (cost_client=wartosc, source='legacy')
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty**
+   - Osobna sekcja UI: "Analiza danych historycznych" z label "rzeczywiste rozliczenia"
+2. **Nowe dane (`is_legacy=0`, po cutofficie):**
+   - Integracja Fakturownia (już istnieje! `init-from-fakturownia`)
+   - `contract.oid` + `article.fakturownia_product_id` → automatyczne mapowanie
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty zafakturowane**
+
+**Decyzje do podjęcia (wymaga operatora/klienta):**
+1. Czy importować `rozliczenie` (3836 wierszy) do `contract_settlements`?
+2. Kiedy następuje cutoff? (wszystkie 742 obecne umowy = legacy?)
+3. Czy zachować `position_conditions` (szacunek) jako fallback gdy brak rozliczenia?
+4. Czy UI ma mieć przełącznik "Dane historyczne / Dane bieżące"?
+
+**Acceptance criteria (po decyzji):**
+- [ ] Import `rozliczenie` do `contract_settlements` (deterministyczny, z dumpa SQL)
+- [ ] `shared/revenue.py` — źródło "actual" z `contract_settlements` (priorytet) + fallback "estimate" z `position_conditions`
+- [ ] UI toggle "Dane historyczne / Dane bieżące" w ReportsSection
+- [ ] Label "rzeczywiste rozliczenia" vs "orientacyjne stawki" w UI
+- [ ] Fix rozjada 41% (P2-031) jako część tego zadania
+
+**Pliki do zmiany:**
+- `backend/migrate.py` (nowy step: import `rozliczenie` z dumpa)
+- `backend/shared/revenue.py` (źródło "actual" z settlements)
+- `backend/stats/router.py` (filtr `is_legacy` + źródło przychodu)
+- `backend/explorer/router.py` (fix rozjada — użyj `shared.revenue`)
+- `frontend/src/components/reports/ReportsSection.vue` (toggle + label)
+
+**Dane:**
+- Dump SQL: `spec/backlog/archiwum/refinement/toolsmart_roa_1779053066.sql` (linie 4550-6524)
+- 3836 wierszy, 353 unikalnych pozycji, 792,384 zł, 99.2% mapuje się na contract_positions
+
+---
+
+#### [RAO-P2-033] `contracts.total_value` martwe pole (100% NULL)
+
+```yaml
+id: RAO-P2-033
+priority: P2
+size: XS
+status: done
+classification: cleanup/data
+roles: [db-architect]
+source: tech-lead-audit
+source_date: 2026-07-01
+implementation_date: 2026-07-01
+note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone z P1-021)"
+```
+
+**Problem:** `contracts.total_value` jest NULL/0 dla 100% umów (742/742). Pole nie jest używane w statystykach (przychód z `position_conditions`), tylko w PDF umowy jako snapshot.
+
+**Opcje:**
+1. Zostawić (pole w PDF, nie blokuje) — rekomendowane
+2. Usunąć kolumnę (destructive — wymaga zgody)
+3. Wypełnić z `SUM(position_conditions)` (ale to szacunek, nie rzeczywistość)
+
+**Rekomendacja:** Zostawić jak jest. Pole jest w PDF umowy jako "Wartość (zł)" — decyzja P1-021 przenosi to do ekranu rozliczenia.
+
+---
+
+## ✅ Wykonane prace (2026-07-01)
+
+### P2-028 — Statystyki miast via PNA (DONE, dev-verified)
+- **Commit:** `7bb2d1a` (backend+DB), `0ee1751` (frontend)
+- **Co zrobiono:**
+  - Pełny Spis PNA Poczty Polskiej (21,904 wpisów) w tabeli `postal_codes`
+  - `contracts.postal_code_id` (FK) + `is_legacy` + backfill
+  - `shared/locations.py` + `shared/revenue.py` (unifikacja stats+explorer)
+  - `GET /explorer/locations/{postal_code}` (drill-down po PNA)
+  - `PostalCodeLookupResponse` z gmina/powiat/wojewodztwo
+  - Frontend: auto-fill PNA + panel gmina/powiat/woj + ReportsSection :key fix
+  - Deduplikacja legacy numerów umów (S142/2026, 111)
+  - Fix `extract_address` (integrations/router.py) — używa PNA zamiast usuniętego `extract_city`
+- **Weryfikacja:** 221 pytest passed, vue-tsc exit 0, build OK, smoke e2e 11 passed
+
+### Lint fixes — ContractFormView.vue (2026-07-01)
+- **Co zrobiono:** Naprawiono 20 pre-existing TS lint errors (`ref([])` → typed refs)
+  - `contractorAddresses` → `ref<ContractorAddress[]>([])`
+  - `pickerList` → `ref<ContractorPick[]>([])`
+  - `settlements` → `ref<Settlement[]>([])`
+  - `editingFeeData` → `ref<Partial<FeeData>>({})`
+  - `selectedAddressId` → `ref<number | null>(null)`
+  - `editingFeeId` → `ref<number | null>(null)`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+
+### Auto-fill PNA flow (2026-07-01)
+- **Co zrobiono:** 3 ścieżki auto-fill PNA w ContractFormView.vue
+  1. `onDeliveryAddressInput` — po extract-address auto-trigger PNA lookup
+  2. `onAddressSelect` — wypełnia postal_code+city z adresu kontrahenta + auto PNA lookup
+  3. `onPostalCodeBlur` — refactor na reusable `lookupPna()`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+
+---
+
+## 📋 Tabela TL;DR
+
+| ID | Tytuł | P | Est. | Status | Następny krok |
+|----|-------|---|------|--------|---------------|
+| RAO-P1-014 | Frontend — błędne obliczanie daty końcowej okresu umowy | P1 | XS | user-verified | → client-approved |
+| RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | P1 | XS | team-verified | → user-verified |
+| RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | P1 | S | team-verified | → user-verified |
+| RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | dev-verified | → team-verified |
+| RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | P1 | XS | team-verified | → user-verified |
+| RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | dev-verified | → user-verified |
+| RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
+| RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | dev-verified | → team-verified (wartość z rozliczenia, read-only w formularzu) |
+| RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
+| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | review | → Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
+| RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | dev-verified | → user-verified |
+| RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | dev-verified | → team-verified (unique=True w model + DB index uq_contracts_number) |
+| RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | done | → done (autoescape=True w reports/service.py:588) |
+| RAO-P0-032 | build_contract_data mutuje sesję — kopiuj description | P0 | XS | done | → done (lokalne kopie description w fees_data) |
+| RAO-P0-033 | recalculate_total — użyj algorytmu kaskadowego | P0 | S | dev-verified | → team-verified |
+| RAO-P0-034 | ContractUpdate schema z exclude_unset=True (lost data) | P0 | M | dev-verified | → team-verified |
+| RAO-P0-035 | N+1 queries — selectinload w list_contracts/positions/articles | P0 | M | dev-verified | → team-verified |
+| RAO-P0-036 | Stack trace disclosure → detail="Błąd" + logging | P0 | XS | dev-verified | → team-verified (global exception handler w main.py) |
+| RAO-P1-037 | delete_contract — guard na is_settled | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-038 | Brak indeksów DB (is_settled, created_at, salesperson_id, print_date, delivery_date) | P1 | S | dev-verified | → team-verified |
+| RAO-P1-039 | Walidacja date_from > date_to + ujemne kwoty w ContractCreate | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-040 | is_settled blokuje mutacje (update/delete positions) | P1 | S | dev-verified | → team-verified |
+| RAO-P1-041 | Hardcoded JWT fallback "change-me" — usuń + wymuś z env | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-042 | Frontend: logout czyści stores + redirect po login + baseURL z env | P1 | S | dev-verified | → team-verified |
+| RAO-P1-043 | Frontend: memory leaks — cleanup event listenerów i timerów | P1 | S | dev-verified | → team-verified |
+| RAO-P1-044 | Frontend: localStorage.getItem('token') → 'rao_token' | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-045 | _build_conditions_text — użyj format_position_conditions_cascading (dedup) | P1 | XS | dev-verified | → team-verified |
+| RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
+| RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | triaged | → in_progress |
+| RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | triaged | → in_progress |
+| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | triaged | → in_progress |
+| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | triaged | → in_progress |
+| RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | triaged | → in_progress |
+| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
+| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
+| RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | dev-verified | → team-verified (normalize w settings/service.py + ALTER TABLE polish_ci w main.py) |
+| RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | triaged | → in_progress |
+| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
+| RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | dev-verified | → team-verified (is_external nie blokuje + checkbox w details) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
+| RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | triaged | → in_progress (Faza 1: parser legacy + migracja + UI + template items) |
+| RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | in-progress (Faza 1 done — 6 bugów + indeksy + cleanup; Faza 2 todo — StatsView.vue) |
+| RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
+| RAO-P2-067 | Demo data refactor — migrate_all.py orchestrator + FA-pending contracts + delivery_address | P2 | M | done | 31 faktur FA (19 backfill + 12 FA-pending), delivery_address z miastami, hardcoded token usunięty |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
+
+**Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
+
+### Pipeline weryfikacji (status flow)
+
+```
+triaged → in_progress → dev-verified → team-verified → user-verified → client-approved (done)
+           │              │               │               │               │
+           Devin koduje   Devin testuje   Software-house  Ty wzrokowo    Klient zatwierdza
+           zmianę         programatycz.   subagenty       w UI/PDF        → zadanie zamknięte
+                          (Playwright,    (QA, Security,
+                           PyMuPDF,       UX, PO, Tech
+                           pytest,        Lead review)
+                           vue-tsc)
+```
+
+---
+
+## 🔍 Pre-existing issues (znalezione przez security audit P1-015)
+
+### [RAO-SEC-001] IDOR — `/reports/contract/{id}` bez ownership check
+
+```yaml
+id: RAO-SEC-001
+priority: P1
+size: S
+status: done
+classification: security/idor
+roles: [backend-dev, security-auditor]
+source: security-audit
+source_date: 2026-06-29
+source_ref: "Security audit P1-015 — subagent security-auditor"
+specs_to_update:
+  - core/25_security.md
+migration_impact: no
+security_impact: yes
+done_date: 2026-07-01
+fix: "_check_contract_access() w reports/router.py — admin full access, non-admin tylko własny branch, fetch contract przed PDF gen (early 404/403)"
+verification:
+  - "py_compile reports/router.py: OK"
+  - "curl POST /reports/contract/999999 (admin): 404 (contract not found)"
+  - "smoke 01-login.spec.ts: 11/11 passed"
+```
+
+**Problem:** Endpoint `POST /reports/contract/{contract_id}` wymaga autentykacji (`get_current_user`), ale **nie sprawdza ownership/tenant** — każdy zalogowany użytkownik może wygenerować PDF (z telefonami klienta) dla cudzej umowy znając `contract_id`.
+
+**Atak:** Enumeracja `contract_id` → pozyskanie danych kontaktowych (telefony, adres dostawy) klientów innych handlowców.
+
+**Fix:** W `reports/router.py` (lub `service.py`) dodać weryfikację:
+```python
+if contract.created_by != current_user.id and current_user.role != "admin":
+    raise HTTPException(403)
+```
+
+**Pliki do zmiany:**
+- `backend/reports/router.py`
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S)
+
+---
+
+### [RAO-SEC-002] Jinja2 bez `autoescape=True` w reports/service.py
+
+```yaml
+id: RAO-SEC-002
+priority: P1
+size: S
+status: done
+classification: security/injection
+roles: [backend-dev, security-auditor]
+source: security-audit
+source_date: 2026-06-29
+source_ref: "Security audit P1-015 — subagent security-auditor"
+implementation_date: 2026-07-01
+note: "Już naprawione — autoescape=True w reports/service.py:588"
+specs_to_update:
+  - core/25_security.md
+migration_impact: no
+security_impact: yes
+```
+
+**Problem:** `Environment(loader=FileSystemLoader(template_dir))` w `backend/reports/service.py` utworzony **bez `autoescape=True`**. Użytkownik może wstrzyknąć HTML/JS w pola `notes`, `contractor_name`, `contact_person1` → trafia do PDF WeasyPrint (SSRF, data exfiltration).
+
+**Fix:** `Environment(loader=FileSystemLoader(template_dir), autoescape=True)` + przetestować wszystkie szablony PDF pod kątem niezamierzonego escapowania polskich znaków.
+
+**Pliki do zmiany:**
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S) — wymaga testów wszystkich szablonów PDF
+
+---
+
+## 🗂️ Materiały referencyjne
+
+**Sprint 2026-06-29 (nowe zgłoszenia):**
+- `spec/backlog/do_wciagniecia_do_backlogu.md` — 10 punktów od klienta (surowy markdown)
+- `Pasted image 20260629223748.png` (root repo) — P1-014: błędne obliczenie daty
+- `Pasted image 20260629223936.png` (root repo) — P1-016: protokół ZO bez adresu dostawy
+- `Pasted image 20260629224212.png` (root repo) — P1-019: umowa usługi U872/2026 z żółtym tłem
+- `Pasted image 20260629224534.png` (root repo) — P1-020: format rozliczenia kaskadowego
+- `Pasted image 20260629224602.png` (root repo) — P1-021: sekcja Warunki Finansowe z pustym Wartość
+- `Pasted image 20260629225003.png` (root repo) — P1-022: lista umów z niespójnym nazewnictwem
+- Raporty vision: `Pasted image 20260629*-vision-report.md` (root repo)
+
+**Stara aplikacja WinForms (referencja):**
+- `C:\projects\repos\AppRao\rao\FormW.cs` linia 690-750 — algorytm formatowania warunków kaskadowych
+
+**Aktualne szablony PDF:**
+- `backend/reports/templates/contract_u.html` — umowa usługi (typ U)
+- `backend/reports/templates/contract.html` — umowa najmu (typ S)
+- `backend/reports/templates/protocol_zo.html` — protokół zdawczo-odbiorczy
+- `backend/reports/templates/protocol_zo_u.html` — protokół wykonania usługi
+- `backend/reports/templates/protocol_zo_nodata*.html` — warianty bez danych
+
+---
+
+## 📋 Decyzje operatora (2026-06-30)
+
+### RAO-P1-021 — Pole „Wartość (zł)" → ekran rozliczenia
+**Decyzja:** Pole „Wartość" przechodzi do **ekranu rozliczenia** (nie formularz umowy). Tam wartość jest pobierana:
+- Z **Fakturowni** (kwota z faktury), LUB
+- Wprowadzona **ręcznie** na bazie pozycji umowy z uzupełnionymi kwotami
+
+**Implementacja:** Ekran rozliczenia pobiera pozycje umowy, pozwala uzupełnić kwoty (auto z Fakturowni lub ręcznie), sumuje → wartość umowy. Pole „Wartość" w formularzu umowy zostaje ukryte/puste (przedpłata dopisana z góry, wartość nieznana do rozliczenia).
+
+---
+
+### RAO-P2-028 — Statystyki miast via PNA (PILNE)
+**Decyzja:** Grupuj po **postal_code (PNA)** + miasto (precyzyjne).
+**Uwaga operatora:** Jedno miasto ma wiele PNA — trzeba ustalić **skąd uzupełnić PNA** dla miast.
+**Pilne** — wymaga analizy źródeł danych PNA (tabela postal_codes, integracja TERYT, GUS).
+
+---
+
+### RAO-P2-046 — IDOR / RBAC
+**Decyzja:** **Brak izolacji** na ten moment (single-tenant, wszyscy widzą wszystko).
+Wraz z rozwojem aplikacji będziemy zarządzać uprawnieniami do różnych zasobów.
+**Akcja:** Zostaw tylko SEC-001 (PDF ownership check). P2-046 odłożone.
+
+---
+
+### RAO-P2-057 — is_external (maszyna zewnętrzna)
+**Decyzja:** Maszyna external **nie blokuje** dodawania w wielu miejscach (nie wpływa na rentowność).
+- Ma być **możliwe do wyboru w detailsach maszyny** podczas dodawania
+- Sprawdzić **mechanizm blokowania maszyn** (czy external poprawnie nie blokuje)
+- Sprawdzić vs **wyliczanie dni umowy** czy maszyny będą poprawnie blokowane
+- **Blokada = pytanie z informacją** gdzie i dlaczego jest zablokowana maszyna, czy na pewno chcesz ją dodać/wypożyczyć
+- **Obgadać z teamem** (subagenty: backend-dev + qa-engineer + product-owner)
+
+---
+
+## 📋 Audyt wymagań klienta (2026-07-01) — Tech Lead
+
+### Wymagania klienta — status spełnienia
+
+| # | Wymaganie | Status | Uwagi |
+|---|-----------|--------|-------|
+| 1 | Statystyki wynajmu maszyny (po nr wewn.) w okresie — stopa zwrotu | **SPEŁNIONE z błędem** | `top-machines` + `explorer/machines/{id}` (utilization_pct). BŁĄD: rozjazd przychodu 41% między explorer a stats |
+| 2 | Ile maszyn jest teraz wynajętych | **SPEŁNIONE** | `currently-rented` + `fleet-summary` |
+| 3 | Dodanie numeru wewnętrznego do maszyny | **SPEŁNIONE funkcjonalnie, 0% danych** | `articles.internal_number` istnieje, ale 0/337 maszyn ma wypełnione (CSV nie istnieje, INSERT nie mapuje) |
+| 4 | Filtrowanie pozycji dodatkowych (transport, mycie) w okresach | **SPEŁNIONE** | `additional-fees` endpoint + UI |
+| 5 | Filtrowanie miejscowości i ilości wynajmów | **SPEŁNIONE** | `stats/locations` + `explorer/locations` (po PNA, z gmina/powiat/woj) |
+| 6 | Rezerwacja maszyny (blokada, info kiedy dostępny) | **SPEŁNIONE** | `articles/{id}/availability` + ArticlePicker z badge |
+
+### Odkryte problemy — do analizy i decyzji
+
+#### [RAO-P2-030] internal_number puste (0% maszyn) — BLOKER dla wymagan 1+3
+
+```yaml
+id: RAO-P2-030
+priority: P2
+size: M
+status: wont-fix
+classification: bugfix/migration-data
+roles: [db-architect, backend-dev]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt wymagań klienta — wymaganie 3 (numer wewnętrzny)"
+resolution: "2026-07-01 — brak źródła danych w starej bazie (0/351 archive_articles ma internal_number, registration_no też 0%). Wymaga ręcznego uzupełnienia przez użytkownika w UI. Oznaczone wont-fix dla automatycznej migracji."
+```
+
+**Problem:** `articles.internal_number` jest puste dla 0/337 maszyn (0%).
+- `migrate.py` INSERT articles z `artykul3` NIE mapuje `internal_number` (kolumna nie istnieje w `artykul3`)
+- `step8_csv_categories` wypełniał `internal_number` z CSV `Asortyment*.csv`, ale ten plik **nie istnieje** na dysku
+- Bez `internal_number` wymaganie 1 (statystyki po nr wewn.) i 3 (dodawanie nr wewn.) są bezużyteczne
+
+**Opcje naprawy:**
+1. Znaleźć źródło numerów wewnętrznych (inny CSV? ręczne dopisanie w UI?)
+2. Sprawdzić czy `nr_rejestracyjny` z `artykul3` może służyć jako numer wewnętrzny (ale też 0% wypełnione)
+3. Ręczne wypełnienie przez użytkownika w UI (formularz maszyny już ma pole)
+
+**Acceptance criteria:**
+- [ ] Źródło numerów wewnętrznych zidentyfikowane
+- [ ] `internal_number` wypełnione dla >80% maszyn
+- [ ] Statystyki po `internal_number` działają (test API)
+
+---
+
+#### [RAO-P2-031] Rozjazd przychodu 41% — explorer vs stats
+
+```yaml
+id: RAO-P2-031
+priority: P2
+size: S
+status: done
+classification: bugfix/backend-logic
+roles: [backend-dev, qa-engineer]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt — explorer/machines używa rate1×period_count zamiast kaskadowego"
+commit: P2-032 (scalone)
+specs_to_update:
+  - core/01_database.md
+  - core/04_business_logic.md
+
+**Problem:** `explorer/machines/{id}` liczy przychód jako `rate1 × period_count` (simple), a `stats/top-machines` używa kaskadowego `calculate_position_value`. **Rozjazd 41%** (3.17M vs 5.37M zł). Explorer zawyża przychody maszyn o ~41%.
+
+**Lokalizacja:** `backend/explorer/router.py:218` — subquery `rev_subq` używa `func.sum(rate1 * period_count)` zamiast wywołania `shared.revenue.compute_position_revenues`.
+
+**Naprawa:** Refactor `get_machine_details` aby używał `shared.revenue.compute_position_revenues` (jak `stats/top-machines`).
+
+**Acceptance criteria:**
+- [ ] `explorer/machines/{id}` używa `shared.revenue.compute_position_revenues`
+- [ ] Przychody spójne między explorer a stats (delta <1%)
+- [ ] Test unit: porównanie przychodu per pozycja
+
+---
+
+#### [RAO-P2-032] Przychód z `rozliczenie` (legacy) — rzeczywiste kwoty
+
+```yaml
+id: RAO-P2-032
+priority: P1
+size: L
+status: done
+classification: feature/revenue-source
+roles: [db-architect, backend-dev, frontend-dev, product-owner, tech-lead, security-auditor]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt — warunki rozliczenia są orientacyjne, nie wiemy co skasowano na fakturach"
+implementation_date: 2026-07-01
+specs_to_update:
+  - core/01_database.md
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+  - core/04_business_logic.md
+  - core/08_migration_plan.md
+
+**Problem:** Obecnie przychód liczony z `position_conditions.rate1 × period_count` (kaskadowe) — **orientacyjne stawki z umowy**, nie rzeczywiste kwoty zafakturowane. `contracts.total_value` jest NULL/0 dla 100% umów (martwe pole).
+
+**Odkrycie:** W dumpie starej bazy (`spec/backlog/archiwum/refinement/toolsmart_roa_*.sql`) jest tabela `rozliczenie` z **3836 wierszami** (~1951 sparsowanych, 792,384 zł) — **rzeczywiste rozliczenia per pozycja**:
+- `id, data, id_pozycji, wartosc`
+- 99.2% `id_pozycji` mapuje się na `contract_positions.id`
+- `wartosc` = rzeczywista kwota rozliczona (po fakcie)
+
+**Stara funkcja SQL (linia 11064-11070):** NIE używała `oplata1 × liczba_dni` (kaskadowe), ale **lookup** — wybierała jedną stawkę po `liczba_dni` (inny algorytm niż nasz `calculate_position_value`).
+
+**Koncepcja operatora — Data Cutoff + Dwa tryby:**
+1. **Dane historyczne (`is_legacy=1`, przed cutofficem):**
+   - Import `rozliczenie` → `contract_settlements` (cost_client=wartosc, source='legacy')
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty**
+   - Osobna sekcja UI: "Analiza danych historycznych" z label "rzeczywiste rozliczenia"
+2. **Nowe dane (`is_legacy=0`, po cutofficie):**
+   - Integracja Fakturownia (już istnieje! `init-from-fakturownia`)
+   - `contract.oid` + `article.fakturownia_product_id` → automatyczne mapowanie
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty zafakturowane**
+
+**Decyzje do podjęcia (wymaga operatora/klienta):**
+1. Czy importować `rozliczenie` (3836 wierszy) do `contract_settlements`?
+2. Kiedy następuje cutoff? (wszystkie 742 obecne umowy = legacy?)
+3. Czy zachować `position_conditions` (szacunek) jako fallback gdy brak rozliczenia?
+4. Czy UI ma mieć przełącznik "Dane historyczne / Dane bieżące"?
+
+**Acceptance criteria (po decyzji):**
+- [ ] Import `rozliczenie` do `contract_settlements` (deterministyczny, z dumpa SQL)
+- [ ] `shared/revenue.py` — źródło "actual" z `contract_settlements` (priorytet) + fallback "estimate" z `position_conditions`
+- [ ] UI toggle "Dane historyczne / Dane bieżące" w ReportsSection
+- [ ] Label "rzeczywiste rozliczenia" vs "orientacyjne stawki" w UI
+- [ ] Fix rozjada 41% (P2-031) jako część tego zadania
+
+**Pliki do zmiany:**
+- `backend/migrate.py` (nowy step: import `rozliczenie` z dumpa)
+- `backend/shared/revenue.py` (źródło "actual" z settlements)
+- `backend/stats/router.py` (filtr `is_legacy` + źródło przychodu)
+- `backend/explorer/router.py` (fix rozjada — użyj `shared.revenue`)
+- `frontend/src/components/reports/ReportsSection.vue` (toggle + label)
+
+**Dane:**
+- Dump SQL: `spec/backlog/archiwum/refinement/toolsmart_roa_1779053066.sql` (linie 4550-6524)
+- 3836 wierszy, 353 unikalnych pozycji, 792,384 zł, 99.2% mapuje się na contract_positions
+
+---
+
+#### [RAO-P2-033] `contracts.total_value` martwe pole (100% NULL)
+
+```yaml
+id: RAO-P2-033
+priority: P2
+size: XS
+status: done
+classification: cleanup/data
+roles: [db-architect]
+source: tech-lead-audit
+source_date: 2026-07-01
+implementation_date: 2026-07-01
+note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone z P1-021)"
+```
+
+**Problem:** `contracts.total_value` jest NULL/0 dla 100% umów (742/742). Pole nie jest używane w statystykach (przychód z `position_conditions`), tylko w PDF umowy jako snapshot.
+
+**Opcje:**
+1. Zostawić (pole w PDF, nie blokuje) — rekomendowane
+2. Usunąć kolumnę (destructive — wymaga zgody)
+3. Wypełnić z `SUM(position_conditions)` (ale to szacunek, nie rzeczywistość)
+
+**Rekomendacja:** Zostawić jak jest. Pole jest w PDF umowy jako "Wartość (zł)" — decyzja P1-021 przenosi to do ekranu rozliczenia.
+
+---
+
+## ✅ Wykonane prace (2026-07-01)
+
+### P2-028 — Statystyki miast via PNA (DONE, dev-verified)
+- **Commit:** `7bb2d1a` (backend+DB), `0ee1751` (frontend)
+- **Co zrobiono:**
+  - Pełny Spis PNA Poczty Polskiej (21,904 wpisów) w tabeli `postal_codes`
+  - `contracts.postal_code_id` (FK) + `is_legacy` + backfill
+  - `shared/locations.py` + `shared/revenue.py` (unifikacja stats+explorer)
+  - `GET /explorer/locations/{postal_code}` (drill-down po PNA)
+  - `PostalCodeLookupResponse` z gmina/powiat/wojewodztwo
+  - Frontend: auto-fill PNA + panel gmina/powiat/woj + ReportsSection :key fix
+  - Deduplikacja legacy numerów umów (S142/2026, 111)
+  - Fix `extract_address` (integrations/router.py) — używa PNA zamiast usuniętego `extract_city`
+- **Weryfikacja:** 221 pytest passed, vue-tsc exit 0, build OK, smoke e2e 11 passed
+
+### Lint fixes — ContractFormView.vue (2026-07-01)
+- **Co zrobiono:** Naprawiono 20 pre-existing TS lint errors (`ref([])` → typed refs)
+  - `contractorAddresses` → `ref<ContractorAddress[]>([])`
+  - `pickerList` → `ref<ContractorPick[]>([])`
+  - `settlements` → `ref<Settlement[]>([])`
+  - `editingFeeData` → `ref<Partial<FeeData>>({})`
+  - `selectedAddressId` → `ref<number | null>(null)`
+  - `editingFeeId` → `ref<number | null>(null)`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+
+### Auto-fill PNA flow (2026-07-01)
+- **Co zrobiono:** 3 ścieżki auto-fill PNA w ContractFormView.vue
+  1. `onDeliveryAddressInput` — po extract-address auto-trigger PNA lookup
+  2. `onAddressSelect` — wypełnia postal_code+city z adresu kontrahenta + auto PNA lookup
+  3. `onPostalCodeBlur` — refactor na reusable `lookupPna()`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+
+---
+
+## 📋 Tabela TL;DR
+
+| ID | Tytuł | P | Est. | Status | Następny krok |
+|----|-------|---|------|--------|---------------|
+| RAO-P1-014 | Frontend — błędne obliczanie daty końcowej okresu umowy | P1 | XS | user-verified | → client-approved |
+| RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | P1 | XS | team-verified | → user-verified |
+| RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | P1 | S | team-verified | → user-verified |
+| RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | dev-verified | → team-verified |
+| RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | P1 | XS | team-verified | → user-verified |
+| RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | dev-verified | → user-verified |
+| RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
+| RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | dev-verified | → team-verified (wartość z rozliczenia, read-only w formularzu) |
+| RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
+| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | review | → Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
+| RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | dev-verified | → user-verified |
+| RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | dev-verified | → team-verified (unique=True w model + DB index uq_contracts_number) |
+| RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | done | → done (autoescape=True w reports/service.py:588) |
+| RAO-P0-032 | build_contract_data mutuje sesję — kopiuj description | P0 | XS | done | → done (lokalne kopie description w fees_data) |
+| RAO-P0-033 | recalculate_total — użyj algorytmu kaskadowego | P0 | S | dev-verified | → team-verified |
+| RAO-P0-034 | ContractUpdate schema z exclude_unset=True (lost data) | P0 | M | dev-verified | → team-verified |
+| RAO-P0-035 | N+1 queries — selectinload w list_contracts/positions/articles | P0 | M | dev-verified | → team-verified |
+| RAO-P0-036 | Stack trace disclosure → detail="Błąd" + logging | P0 | XS | dev-verified | → team-verified (global exception handler w main.py) |
+| RAO-P1-037 | delete_contract — guard na is_settled | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-038 | Brak indeksów DB (is_settled, created_at, salesperson_id, print_date, delivery_date) | P1 | S | dev-verified | → team-verified |
+| RAO-P1-039 | Walidacja date_from > date_to + ujemne kwoty w ContractCreate | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-040 | is_settled blokuje mutacje (update/delete positions) | P1 | S | dev-verified | → team-verified |
+| RAO-P1-041 | Hardcoded JWT fallback "change-me" — usuń + wymuś z env | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-042 | Frontend: logout czyści stores + redirect po login + baseURL z env | P1 | S | dev-verified | → team-verified |
+| RAO-P1-043 | Frontend: memory leaks — cleanup event listenerów i timerów | P1 | S | dev-verified | → team-verified |
+| RAO-P1-044 | Frontend: localStorage.getItem('token') → 'rao_token' | P1 | XS | dev-verified | → team-verified |
+| RAO-P1-045 | _build_conditions_text — użyj format_position_conditions_cascading (dedup) | P1 | XS | dev-verified | → team-verified |
+| RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
+| RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | triaged | → in_progress |
+| RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | triaged | → in_progress |
+| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | triaged | → in_progress |
+| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | triaged | → in_progress |
+| RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | triaged | → in_progress |
+| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
+| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
+| RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | dev-verified | → team-verified (normalize w settings/service.py + ALTER TABLE polish_ci w main.py) |
+| RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | triaged | → in_progress |
+| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
+| RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | dev-verified | → team-verified (is_external nie blokuje + checkbox w details) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
+| RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | triaged | → in_progress (Faza 1: parser legacy + migracja + UI + template items) |
+| RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | in-progress (Faza 1 done — 6 bugów + indeksy + cleanup; Faza 2 todo — StatsView.vue) |
+| RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
+
+**Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
+
+### Pipeline weryfikacji (status flow)
+
+```
+triaged → in_progress → dev-verified → team-verified → user-verified → client-approved (done)
+           │              │               │               │               │
+           Devin koduje   Devin testuje   Software-house  Ty wzrokowo    Klient zatwierdza
+           zmianę         programatycz.   subagenty       w UI/PDF        → zadanie zamknięte
+                          (Playwright,    (QA, Security,
+                           PyMuPDF,       UX, PO, Tech
+                           pytest,        Lead review)
+                           vue-tsc)
+```
+
+---
+
+## 🔍 Pre-existing issues (znalezione przez security audit P1-015)
+
+### [RAO-SEC-001] IDOR — `/reports/contract/{id}` bez ownership check
+
+```yaml
+id: RAO-SEC-001
+priority: P1
+size: S
+status: done
+classification: security/idor
+roles: [backend-dev, security-auditor]
+source: security-audit
+source_date: 2026-06-29
+source_ref: "Security audit P1-015 — subagent security-auditor"
+specs_to_update:
+  - core/25_security.md
+migration_impact: no
+security_impact: yes
+done_date: 2026-07-01
+fix: "_check_contract_access() w reports/router.py — admin full access, non-admin tylko własny branch, fetch contract przed PDF gen (early 404/403)"
+verification:
+  - "py_compile reports/router.py: OK"
+  - "curl POST /reports/contract/999999 (admin): 404 (contract not found)"
+  - "smoke 01-login.spec.ts: 11/11 passed"
+```
+
+**Problem:** Endpoint `POST /reports/contract/{contract_id}` wymaga autentykacji (`get_current_user`), ale **nie sprawdza ownership/tenant** — każdy zalogowany użytkownik może wygenerować PDF (z telefonami klienta) dla cudzej umowy znając `contract_id`.
+
+**Atak:** Enumeracja `contract_id` → pozyskanie danych kontaktowych (telefony, adres dostawy) klientów innych handlowców.
+
+**Fix:** W `reports/router.py` (lub `service.py`) dodać weryfikację:
+```python
+if contract.created_by != current_user.id and current_user.role != "admin":
+    raise HTTPException(403)
+```
+
+**Pliki do zmiany:**
+- `backend/reports/router.py`
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S)
+
+---
+
+### [RAO-SEC-002] Jinja2 bez `autoescape=True` w reports/service.py
+
+```yaml
+id: RAO-SEC-002
+priority: P1
+size: S
+status: done
+classification: security/injection
+roles: [backend-dev, security-auditor]
+source: security-audit
+source_date: 2026-06-29
+source_ref: "Security audit P1-015 — subagent security-auditor"
+implementation_date: 2026-07-01
+note: "Już naprawione — autoescape=True w reports/service.py:588"
+specs_to_update:
+  - core/25_security.md
+migration_impact: no
+security_impact: yes
+```
+
+**Problem:** `Environment(loader=FileSystemLoader(template_dir))` w `backend/reports/service.py` utworzony **bez `autoescape=True`**. Użytkownik może wstrzyknąć HTML/JS w pola `notes`, `contractor_name`, `contact_person1` → trafia do PDF WeasyPrint (SSRF, data exfiltration).
+
+**Fix:** `Environment(loader=FileSystemLoader(template_dir), autoescape=True)` + przetestować wszystkie szablony PDF pod kątem niezamierzonego escapowania polskich znaków.
+
+**Pliki do zmiany:**
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S) — wymaga testów wszystkich szablonów PDF
+
+---
+
+## 🗂️ Materiały referencyjne
+
+**Sprint 2026-06-29 (nowe zgłoszenia):**
+- `spec/backlog/do_wciagniecia_do_backlogu.md` — 10 punktów od klienta (surowy markdown)
+- `Pasted image 20260629223748.png` (root repo) — P1-014: błędne obliczenie daty
+- `Pasted image 20260629223936.png` (root repo) — P1-016: protokół ZO bez adresu dostawy
+- `Pasted image 20260629224212.png` (root repo) — P1-019: umowa usługi U872/2026 z żółtym tłem
+- `Pasted image 20260629224534.png` (root repo) — P1-020: format rozliczenia kaskadowego
+- `Pasted image 20260629224602.png` (root repo) — P1-021: sekcja Warunki Finansowe z pustym Wartość
+- `Pasted image 20260629225003.png` (root repo) — P1-022: lista umów z niespójnym nazewnictwem
+- Raporty vision: `Pasted image 20260629*-vision-report.md` (root repo)
+
+**Stara aplikacja WinForms (referencja):**
+- `C:\projects\repos\AppRao\rao\FormW.cs` linia 690-750 — algorytm formatowania warunków kaskadowych
+
+**Aktualne szablony PDF:**
+- `backend/reports/templates/contract_u.html` — umowa usługi (typ U)
+- `backend/reports/templates/contract.html` — umowa najmu (typ S)
+- `backend/reports/templates/protocol_zo.html` — protokół zdawczo-odbiorczy
+- `backend/reports/templates/protocol_zo_u.html` — protokół wykonania usługi
+- `backend/reports/templates/protocol_zo_nodata*.html` — warianty bez danych
+
+---
+
+## 📋 Decyzje operatora (2026-06-30)
+
+### RAO-P1-021 — Pole „Wartość (zł)" → ekran rozliczenia
+**Decyzja:** Pole „Wartość" przechodzi do **ekranu rozliczenia** (nie formularz umowy). Tam wartość jest pobierana:
+- Z **Fakturowni** (kwota z faktury), LUB
+- Wprowadzona **ręcznie** na bazie pozycji umowy z uzupełnionymi kwotami
+
+**Implementacja:** Ekran rozliczenia pobiera pozycje umowy, pozwala uzupełnić kwoty (auto z Fakturowni lub ręcznie), sumuje → wartość umowy. Pole „Wartość" w formularzu umowy zostaje ukryte/puste (przedpłata dopisana z góry, wartość nieznana do rozliczenia).
+
+---
+
+### RAO-P2-028 — Statystyki miast via PNA (PILNE)
+**Decyzja:** Grupuj po **postal_code (PNA)** + miasto (precyzyjne).
+**Uwaga operatora:** Jedno miasto ma wiele PNA — trzeba ustalić **skąd uzupełnić PNA** dla miast.
+**Pilne** — wymaga analizy źródeł danych PNA (tabela postal_codes, integracja TERYT, GUS).
+
+---
+
+### RAO-P2-046 — IDOR / RBAC
+**Decyzja:** **Brak izolacji** na ten moment (single-tenant, wszyscy widzą wszystko).
+Wraz z rozwojem aplikacji będziemy zarządzać uprawnieniami do różnych zasobów.
+**Akcja:** Zostaw tylko SEC-001 (PDF ownership check). P2-046 odłożone.
+
+---
+
+### RAO-P2-057 — is_external (maszyna zewnętrzna)
+**Decyzja:** Maszyna external **nie blokuje** dodawania w wielu miejscach (nie wpływa na rentowność).
+- Ma być **możliwe do wyboru w detailsach maszyny** podczas dodawania
+- Sprawdzić **mechanizm blokowania maszyn** (czy external poprawnie nie blokuje)
+- Sprawdzić vs **wyliczanie dni umowy** czy maszyny będą poprawnie blokowane
+- **Blokada = pytanie z informacją** gdzie i dlaczego jest zablokowana maszyna, czy na pewno chcesz ją dodać/wypożyczyć
+- **Obgadać z teamem** (subagenty: backend-dev + qa-engineer + product-owner)
+
+---
+
+## 📋 Audyt wymagań klienta (2026-07-01) — Tech Lead
+
+### Wymagania klienta — status spełnienia
+
+| # | Wymaganie | Status | Uwagi |
+|---|-----------|--------|-------|
+| 1 | Statystyki wynajmu maszyny (po nr wewn.) w okresie — stopa zwrotu | **SPEŁNIONE z błędem** | `top-machines` + `explorer/machines/{id}` (utilization_pct). BŁĄD: rozjazd przychodu 41% między explorer a stats |
+| 2 | Ile maszyn jest teraz wynajętych | **SPEŁNIONE** | `currently-rented` + `fleet-summary` |
+| 3 | Dodanie numeru wewnętrznego do maszyny | **SPEŁNIONE funkcjonalnie, 0% danych** | `articles.internal_number` istnieje, ale 0/337 maszyn ma wypełnione (CSV nie istnieje, INSERT nie mapuje) |
+| 4 | Filtrowanie pozycji dodatkowych (transport, mycie) w okresach | **SPEŁNIONE** | `additional-fees` endpoint + UI |
+| 5 | Filtrowanie miejscowości i ilości wynajmów | **SPEŁNIONE** | `stats/locations` + `explorer/locations` (po PNA, z gmina/powiat/woj) |
+| 6 | Rezerwacja maszyny (blokada, info kiedy dostępny) | **SPEŁNIONE** | `articles/{id}/availability` + ArticlePicker z badge |
+
+### Odkryte problemy — do analizy i decyzji
+
+#### [RAO-P2-030] internal_number puste (0% maszyn) — BLOKER dla wymagan 1+3
+
+```yaml
+id: RAO-P2-030
+priority: P2
+size: M
+status: wont-fix
+classification: bugfix/migration-data
+roles: [db-architect, backend-dev]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt wymagań klienta — wymaganie 3 (numer wewnętrzny)"
+resolution: "2026-07-01 — brak źródła danych w starej bazie (0/351 archive_articles ma internal_number, registration_no też 0%). Wymaga ręcznego uzupełnienia przez użytkownika w UI. Oznaczone wont-fix dla automatycznej migracji."
+```
+
+**Problem:** `articles.internal_number` jest puste dla 0/337 maszyn (0%).
+- `migrate.py` INSERT articles z `artykul3` NIE mapuje `internal_number` (kolumna nie istnieje w `artykul3`)
+- `step8_csv_categories` wypełniał `internal_number` z CSV `Asortyment*.csv`, ale ten plik **nie istnieje** na dysku
+- Bez `internal_number` wymaganie 1 (statystyki po nr wewn.) i 3 (dodawanie nr wewn.) są bezużyteczne
+
+**Opcje naprawy:**
+1. Znaleźć źródło numerów wewnętrznych (inny CSV? ręczne dopisanie w UI?)
+2. Sprawdzić czy `nr_rejestracyjny` z `artykul3` może służyć jako numer wewnętrzny (ale też 0% wypełnione)
+3. Ręczne wypełnienie przez użytkownika w UI (formularz maszyny już ma pole)
+
+**Acceptance criteria:**
+- [ ] Źródło numerów wewnętrznych zidentyfikowane
+- [ ] `internal_number` wypełnione dla >80% maszyn
+- [ ] Statystyki po `internal_number` działają (test API)
+
+---
+
+#### [RAO-P2-031] Rozjazd przychodu 41% — explorer vs stats
+
+```yaml
+id: RAO-P2-031
+priority: P2
+size: S
+status: done
+classification: bugfix/backend-logic
+roles: [backend-dev, qa-engineer]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt — explorer/machines używa rate1×period_count zamiast kaskadowego"
+commit: P2-032 (scalone)
+specs_to_update:
+  - core/01_database.md
+  - core/04_business_logic.md
+
+**Problem:** `explorer/machines/{id}` liczy przychód jako `rate1 × period_count` (simple), a `stats/top-machines` używa kaskadowego `calculate_position_value`. **Rozjazd 41%** (3.17M vs 5.37M zł). Explorer zawyża przychody maszyn o ~41%.
+
+**Lokalizacja:** `backend/explorer/router.py:218` — subquery `rev_subq` używa `func.sum(rate1 * period_count)` zamiast wywołania `shared.revenue.compute_position_revenues`.
+
+**Naprawa:** Refactor `get_machine_details` aby używał `shared.revenue.compute_position_revenues` (jak `stats/top-machines`).
+
+**Acceptance criteria:**
+- [ ] `explorer/machines/{id}` używa `shared.revenue.compute_position_revenues`
+- [ ] Przychody spójne między explorer a stats (delta <1%)
+- [ ] Test unit: porównanie przychodu per pozycja
+
+---
+
+#### [RAO-P2-032] Przychód z `rozliczenie` (legacy) — rzeczywiste kwoty
+
+```yaml
+id: RAO-P2-032
+priority: P1
+size: L
+status: done
+classification: feature/revenue-source
+roles: [db-architect, backend-dev, frontend-dev, product-owner, tech-lead, security-auditor]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt — warunki rozliczenia są orientacyjne, nie wiemy co skasowano na fakturach"
+implementation_date: 2026-07-01
+specs_to_update:
+  - core/01_database.md
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+  - core/04_business_logic.md
+  - core/08_migration_plan.md
+
+**Problem:** Obecnie przychód liczony z `position_conditions.rate1 × period_count` (kaskadowe) — **orientacyjne stawki z umowy**, nie rzeczywiste kwoty zafakturowane. `contracts.total_value` jest NULL/0 dla 100% umów (martwe pole).
+
+**Odkrycie:** W dumpie starej bazy (`spec/backlog/archiwum/refinement/toolsmart_roa_*.sql`) jest tabela `rozliczenie` z **3836 wierszami** (~1951 sparsowanych, 792,384 zł) — **rzeczywiste rozliczenia per pozycja**:
+- `id, data, id_pozycji, wartosc`
+- 99.2% `id_pozycji` mapuje się na `contract_positions.id`
+- `wartosc` = rzeczywista kwota rozliczona (po fakcie)
+
+**Stara funkcja SQL (linia 11064-11070):** NIE używała `oplata1 × liczba_dni` (kaskadowe), ale **lookup** — wybierała jedną stawkę po `liczba_dni` (inny algorytm niż nasz `calculate_position_value`).
+
+**Koncepcja operatora — Data Cutoff + Dwa tryby:**
+1. **Dane historyczne (`is_legacy=1`, przed cutofficem):**
+   - Import `rozliczenie` → `contract_settlements` (cost_client=wartosc, source='legacy')
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty**
+   - Osobna sekcja UI: "Analiza danych historycznych" z label "rzeczywiste rozliczenia"
+2. **Nowe dane (`is_legacy=0`, po cutofficie):**
+   - Integracja Fakturownia (już istnieje! `init-from-fakturownia`)
+   - `contract.oid` + `article.fakturownia_product_id` → automatyczne mapowanie
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty zafakturowane**
+
+**Decyzje do podjęcia (wymaga operatora/klienta):**
+1. Czy importować `rozliczenie` (3836 wierszy) do `contract_settlements`?
+2. Kiedy następuje cutoff? (wszystkie 742 obecne umowy = legacy?)
+3. Czy zachować `position_conditions` (szacunek) jako fallback gdy brak rozliczenia?
+4. Czy UI ma mieć przełącznik "Dane historyczne / Dane bieżące"?
+
+**Acceptance criteria (po decyzji):**
+- [ ] Import `rozliczenie` do `contract_settlements` (deterministyczny, z dumpa SQL)
+- [ ] `shared/revenue.py` — źródło "actual" z `contract_settlements` (priorytet) + fallback "estimate" z `position_conditions`
+- [ ] UI toggle "Dane historyczne / Dane bieżące" w ReportsSection
+- [ ] Label "rzeczywiste rozliczenia" vs "orientacyjne stawki" w UI
+- [ ] Fix rozjada 41% (P2-031) jako część tego zadania
+
+**Pliki do zmiany:**
+- `backend/migrate.py` (nowy step: import `rozliczenie` z dumpa)
+- `backend/shared/revenue.py` (źródło "actual" z settlements)
+- `backend/stats/router.py` (filtr `is_legacy` + źródło przychodu)
+- `backend/explorer/router.py` (fix rozjada — użyj `shared.revenue`)
+- `frontend/src/components/reports/ReportsSection.vue` (toggle + label)
+
+**Dane:**
+- Dump SQL: `spec/backlog/archiwum/refinement/toolsmart_roa_1779053066.sql` (linie 4550-6524)
+- 3836 wierszy, 353 unikalnych pozycji, 792,384 zł, 99.2% mapuje się na contract_positions
+
+---
+
+#### [RAO-P2-033] `contracts.total_value` martwe pole (100% NULL)
+
+```yaml
+id: RAO-P2-033
+priority: P2
+size: XS
+status: done
+classification: cleanup/data
+roles: [db-architect]
+source: tech-lead-audit
+source_date: 2026-07-01
+implementation_date: 2026-07-01
+note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone z P1-021)"
+```
+
+**Problem:** `contracts.total_value` jest NULL/0 dla 100% umów (742/742). Pole nie jest używane w statystykach (przychód z `position_conditions`), tylko w PDF umowy jako snapshot.
+
+**Opcje:**
+1. Zostawić (pole w PDF, nie blokuje) — rekomendowane
+2. Usunąć kolumnę (destructive — wymaga zgody)
+3. Wypełnić z `SUM(position_conditions)` (ale to szacunek, nie rzeczywistość)
+
+**Rekomendacja:** Zostawić jak jest. Pole jest w PDF umowy jako "Wartość (zł)" — decyzja P1-021 przenosi to do ekranu rozliczenia.
+
+---
+
+## ✅ Wykonane prace (2026-07-01)
+
+### P2-028 — Statystyki miast via PNA (DONE, dev-verified)
+- **Commit:** `7bb2d1a` (backend+DB), `0ee1751` (frontend)
+- **Co zrobiono:**
+  - Pełny Spis PNA Poczty Polskiej (21,904 wpisów) w tabeli `postal_codes`
+  - `contracts.postal_code_id` (FK) + `is_legacy` + backfill
+  - `shared/locations.py` + `shared/revenue.py` (unifikacja stats+explorer)
+  - `GET /explorer/locations/{postal_code}` (drill-down po PNA)
+  - `PostalCodeLookupResponse` z gmina/powiat/wojewodztwo
+  - Frontend: auto-fill PNA + panel gmina/powiat/woj + ReportsSection :key fix
+  - Deduplikacja legacy numerów umów (S142/2026, 111)
+  - Fix `extract_address` (integrations/router.py) — używa PNA zamiast usuniętego `extract_city`
+- **Weryfikacja:** 221 pytest passed, vue-tsc exit 0, build OK, smoke e2e 11 passed
+
+### Lint fixes — ContractFormView.vue (2026-07-01)
+- **Co zrobiono:** Naprawiono 20 pre-existing TS lint errors (`ref([])` → typed refs)
+  - `contractorAddresses` → `ref<ContractorAddress[]>([])`
+  - `pickerList` → `ref<ContractorPick[]>([])`
+  - `settlements` → `ref<Settlement[]>([])`
+  - `editingFeeData` → `ref<Partial<FeeData>>({})`
+  - `selectedAddressId` → `ref<number | null>(null)`
+  - `editingFeeId` → `ref<number | null>(null)`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+
+### Auto-fill PNA flow (2026-07-01)
+- **Co zrobiono:** 3 ścieżki auto-fill PNA w ContractFormView.vue
+  1. `onDeliveryAddressInput` — po extract-address auto-trigger PNA lookup
+  2. `onAddressSelect` — wypełnia postal_code+city z adresu kontrahenta + auto PNA lookup
+  3. `onPostalCodeBlur` — refactor na reusable `lookupPna()`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+- `backend/reports/service.py`
+
+**Estimate:** 1-2h (S) — wymaga testów wszystkich szablonów PDF
+
+---
+
+## 🗂️ Materiały referencyjne
+
+**Sprint 2026-06-29 (nowe zgłoszenia):**
+- `spec/backlog/do_wciagniecia_do_backlogu.md` — 10 punktów od klienta (surowy markdown)
+- `Pasted image 20260629223748.png` (root repo) — P1-014: błędne obliczenie daty
+- `Pasted image 20260629223936.png` (root repo) — P1-016: protokół ZO bez adresu dostawy
+- `Pasted image 20260629224212.png` (root repo) — P1-019: umowa usługi U872/2026 z żółtym tłem
+- `Pasted image 20260629224534.png` (root repo) — P1-020: format rozliczenia kaskadowego
+- `Pasted image 20260629224602.png` (root repo) — P1-021: sekcja Warunki Finansowe z pustym Wartość
+- `Pasted image 20260629225003.png` (root repo) — P1-022: lista umów z niespójnym nazewnictwem
+- Raporty vision: `Pasted image 20260629*-vision-report.md` (root repo)
+
+**Stara aplikacja WinForms (referencja):**
+- `C:\projects\repos\AppRao\rao\FormW.cs` linia 690-750 — algorytm formatowania warunków kaskadowych
+
+**Aktualne szablony PDF:**
+- `backend/reports/templates/contract_u.html` — umowa usługi (typ U)
+- `backend/reports/templates/contract.html` — umowa najmu (typ S)
+- `backend/reports/templates/protocol_zo.html` — protokół zdawczo-odbiorczy
+- `backend/reports/templates/protocol_zo_u.html` — protokół wykonania usługi
+- `backend/reports/templates/protocol_zo_nodata*.html` — warianty bez danych
+
+---
+
+## 📋 Decyzje operatora (2026-06-30)
+
+### RAO-P1-021 — Pole „Wartość (zł)" → ekran rozliczenia
+**Decyzja:** Pole „Wartość" przechodzi do **ekranu rozliczenia** (nie formularz umowy). Tam wartość jest pobierana:
+- Z **Fakturowni** (kwota z faktury), LUB
+- Wprowadzona **ręcznie** na bazie pozycji umowy z uzupełnionymi kwotami
+
+**Implementacja:** Ekran rozliczenia pobiera pozycje umowy, pozwala uzupełnić kwoty (auto z Fakturowni lub ręcznie), sumuje → wartość umowy. Pole „Wartość" w formularzu umowy zostaje ukryte/puste (przedpłata dopisana z góry, wartość nieznana do rozliczenia).
+
+---
+
+### RAO-P2-028 — Statystyki miast via PNA (PILNE)
+**Decyzja:** Grupuj po **postal_code (PNA)** + miasto (precyzyjne).
+**Uwaga operatora:** Jedno miasto ma wiele PNA — trzeba ustalić **skąd uzupełnić PNA** dla miast.
+**Pilne** — wymaga analizy źródeł danych PNA (tabela postal_codes, integracja TERYT, GUS).
+
+---
+
+### RAO-P2-046 — IDOR / RBAC
+**Decyzja:** **Brak izolacji** na ten moment (single-tenant, wszyscy widzą wszystko).
+Wraz z rozwojem aplikacji będziemy zarządzać uprawnieniami do różnych zasobów.
+**Akcja:** Zostaw tylko SEC-001 (PDF ownership check). P2-046 odłożone.
+
+---
+
+### RAO-P2-057 — is_external (maszyna zewnętrzna)
+**Decyzja:** Maszyna external **nie blokuje** dodawania w wielu miejscach (nie wpływa na rentowność).
+- Ma być **możliwe do wyboru w detailsach maszyny** podczas dodawania
+- Sprawdzić **mechanizm blokowania maszyn** (czy external poprawnie nie blokuje)
+- Sprawdzić vs **wyliczanie dni umowy** czy maszyny będą poprawnie blokowane
+- **Blokada = pytanie z informacją** gdzie i dlaczego jest zablokowana maszyna, czy na pewno chcesz ją dodać/wypożyczyć
+- **Obgadać z teamem** (subagenty: backend-dev + qa-engineer + product-owner)
+
+---
+
+## 📋 Audyt wymagań klienta (2026-07-01) — Tech Lead
+
+### Wymagania klienta — status spełnienia
+
+| # | Wymaganie | Status | Uwagi |
+|---|-----------|--------|-------|
+| 1 | Statystyki wynajmu maszyny (po nr wewn.) w okresie — stopa zwrotu | **SPEŁNIONE z błędem** | `top-machines` + `explorer/machines/{id}` (utilization_pct). BŁĄD: rozjazd przychodu 41% między explorer a stats |
+| 2 | Ile maszyn jest teraz wynajętych | **SPEŁNIONE** | `currently-rented` + `fleet-summary` |
+| 3 | Dodanie numeru wewnętrznego do maszyny | **SPEŁNIONE funkcjonalnie, 0% danych** | `articles.internal_number` istnieje, ale 0/337 maszyn ma wypełnione (CSV nie istnieje, INSERT nie mapuje) |
+| 4 | Filtrowanie pozycji dodatkowych (transport, mycie) w okresach | **SPEŁNIONE** | `additional-fees` endpoint + UI |
+| 5 | Filtrowanie miejscowości i ilości wynajmów | **SPEŁNIONE** | `stats/locations` + `explorer/locations` (po PNA, z gmina/powiat/woj) |
+| 6 | Rezerwacja maszyny (blokada, info kiedy dostępny) | **SPEŁNIONE** | `articles/{id}/availability` + ArticlePicker z badge |
+
+### Odkryte problemy — do analizy i decyzji
+
+#### [RAO-P2-030] internal_number puste (0% maszyn) — BLOKER dla wymagan 1+3
+
+```yaml
+id: RAO-P2-030
+priority: P2
+size: M
+status: wont-fix
+classification: bugfix/migration-data
+roles: [db-architect, backend-dev]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt wymagań klienta — wymaganie 3 (numer wewnętrzny)"
+resolution: "2026-07-01 — brak źródła danych w starej bazie (0/351 archive_articles ma internal_number, registration_no też 0%). Wymaga ręcznego uzupełnienia przez użytkownika w UI. Oznaczone wont-fix dla automatycznej migracji."
+```
+
+**Problem:** `articles.internal_number` jest puste dla 0/337 maszyn (0%).
+- `migrate.py` INSERT articles z `artykul3` NIE mapuje `internal_number` (kolumna nie istnieje w `artykul3`)
+- `step8_csv_categories` wypełniał `internal_number` z CSV `Asortyment*.csv`, ale ten plik **nie istnieje** na dysku
+- Bez `internal_number` wymaganie 1 (statystyki po nr wewn.) i 3 (dodawanie nr wewn.) są bezużyteczne
+
+**Opcje naprawy:**
+1. Znaleźć źródło numerów wewnętrznych (inny CSV? ręczne dopisanie w UI?)
+2. Sprawdzić czy `nr_rejestracyjny` z `artykul3` może służyć jako numer wewnętrzny (ale też 0% wypełnione)
+3. Ręczne wypełnienie przez użytkownika w UI (formularz maszyny już ma pole)
+
+**Acceptance criteria:**
+- [ ] Źródło numerów wewnętrznych zidentyfikowane
+- [ ] `internal_number` wypełnione dla >80% maszyn
+- [ ] Statystyki po `internal_number` działają (test API)
+
+---
+
+#### [RAO-P2-031] Rozjazd przychodu 41% — explorer vs stats
+
+```yaml
+id: RAO-P2-031
+priority: P2
+size: S
+status: done
+classification: bugfix/backend-logic
+roles: [backend-dev, qa-engineer]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt — explorer/machines używa rate1×period_count zamiast kaskadowego"
+commit: P2-032 (scalone)
+specs_to_update:
+  - core/01_database.md
+  - core/04_business_logic.md
+
+**Problem:** `explorer/machines/{id}` liczy przychód jako `rate1 × period_count` (simple), a `stats/top-machines` używa kaskadowego `calculate_position_value`. **Rozjazd 41%** (3.17M vs 5.37M zł). Explorer zawyża przychody maszyn o ~41%.
+
+**Lokalizacja:** `backend/explorer/router.py:218` — subquery `rev_subq` używa `func.sum(rate1 * period_count)` zamiast wywołania `shared.revenue.compute_position_revenues`.
+
+**Naprawa:** Refactor `get_machine_details` aby używał `shared.revenue.compute_position_revenues` (jak `stats/top-machines`).
+
+**Acceptance criteria:**
+- [ ] `explorer/machines/{id}` używa `shared.revenue.compute_position_revenues`
+- [ ] Przychody spójne między explorer a stats (delta <1%)
+- [ ] Test unit: porównanie przychodu per pozycja
+
+---
+
+#### [RAO-P2-032] Przychód z `rozliczenie` (legacy) — rzeczywiste kwoty
+
+```yaml
+id: RAO-P2-032
+priority: P1
+size: L
+status: done
+classification: feature/revenue-source
+roles: [db-architect, backend-dev, frontend-dev, product-owner, tech-lead, security-auditor]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt — warunki rozliczenia są orientacyjne, nie wiemy co skasowano na fakturach"
+implementation_date: 2026-07-01
+specs_to_update:
+  - core/01_database.md
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+  - core/04_business_logic.md
+  - core/08_migration_plan.md
+
+**Problem:** Obecnie przychód liczony z `position_conditions.rate1 × period_count` (kaskadowe) — **orientacyjne stawki z umowy**, nie rzeczywiste kwoty zafakturowane. `contracts.total_value` jest NULL/0 dla 100% umów (martwe pole).
+
+**Odkrycie:** W dumpie starej bazy (`spec/backlog/archiwum/refinement/toolsmart_roa_*.sql`) jest tabela `rozliczenie` z **3836 wierszami** (~1951 sparsowanych, 792,384 zł) — **rzeczywiste rozliczenia per pozycja**:
+- `id, data, id_pozycji, wartosc`
+- 99.2% `id_pozycji` mapuje się na `contract_positions.id`
+- `wartosc` = rzeczywista kwota rozliczona (po fakcie)
+
+**Stara funkcja SQL (linia 11064-11070):** NIE używała `oplata1 × liczba_dni` (kaskadowe), ale **lookup** — wybierała jedną stawkę po `liczba_dni` (inny algorytm niż nasz `calculate_position_value`).
+
+**Koncepcja operatora — Data Cutoff + Dwa tryby:**
+1. **Dane historyczne (`is_legacy=1`, przed cutofficem):**
+   - Import `rozliczenie` → `contract_settlements` (cost_client=wartosc, source='legacy')
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty**
+   - Osobna sekcja UI: "Analiza danych historycznych" z label "rzeczywiste rozliczenia"
+2. **Nowe dane (`is_legacy=0`, po cutofficie):**
+   - Integracja Fakturownia (już istnieje! `init-from-fakturownia`)
+   - `contract.oid` + `article.fakturownia_product_id` → automatyczne mapowanie
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty zafakturowane**
+
+**Decyzje do podjęcia (wymaga operatora/klienta):**
+1. Czy importować `rozliczenie` (3836 wierszy) do `contract_settlements`?
+2. Kiedy następuje cutoff? (wszystkie 742 obecne umowy = legacy?)
+3. Czy zachować `position_conditions` (szacunek) jako fallback gdy brak rozliczenia?
+4. Czy UI ma mieć przełącznik "Dane historyczne / Dane bieżące"?
+
+**Acceptance criteria (po decyzji):**
+- [ ] Import `rozliczenie` do `contract_settlements` (deterministyczny, z dumpa SQL)
+- [ ] `shared/revenue.py` — źródło "actual" z `contract_settlements` (priorytet) + fallback "estimate" z `position_conditions`
+- [ ] UI toggle "Dane historyczne / Dane bieżące" w ReportsSection
+- [ ] Label "rzeczywiste rozliczenia" vs "orientacyjne stawki" w UI
+- [ ] Fix rozjada 41% (P2-031) jako część tego zadania
+
+**Pliki do zmiany:**
+- `backend/migrate.py` (nowy step: import `rozliczenie` z dumpa)
+- `backend/shared/revenue.py` (źródło "actual" z settlements)
+- `backend/stats/router.py` (filtr `is_legacy` + źródło przychodu)
+- `backend/explorer/router.py` (fix rozjada — użyj `shared.revenue`)
+- `frontend/src/components/reports/ReportsSection.vue` (toggle + label)
+
+**Dane:**
+- Dump SQL: `spec/backlog/archiwum/refinement/toolsmart_roa_1779053066.sql` (linie 4550-6524)
+- 3836 wierszy, 353 unikalnych pozycji, 792,384 zł, 99.2% mapuje się na contract_positions
+
+---
+
+#### [RAO-P2-033] `contracts.total_value` martwe pole (100% NULL)
+
+```yaml
+id: RAO-P2-033
+priority: P2
+size: XS
+status: done
+classification: cleanup/data
+roles: [db-architect]
+source: tech-lead-audit
+source_date: 2026-07-01
+implementation_date: 2026-07-01
+note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone z P1-021)"
+```
+
+**Problem:** `contracts.total_value` jest NULL/0 dla 100% umów (742/742). Pole nie jest używane w statystykach (przychód z `position_conditions`), tylko w PDF umowy jako snapshot.
+
+**Opcje:**
+1. Zostawić (pole w PDF, nie blokuje) — rekomendowane
+2. Usunąć kolumnę (destructive — wymaga zgody)
+3. Wypełnić z `SUM(position_conditions)` (ale to szacunek, nie rzeczywistość)
+
+**Rekomendacja:** Zostawić jak jest. Pole jest w PDF umowy jako "Wartość (zł)" — decyzja P1-021 przenosi to do ekranu rozliczenia.
+
+---
+
+## ✅ Wykonane prace (2026-07-01)
+
+### P2-028 — Statystyki miast via PNA (DONE, dev-verified)
+- **Commit:** `7bb2d1a` (backend+DB), `0ee1751` (frontend)
+- **Co zrobiono:**
+  - Pełny Spis PNA Poczty Polskiej (21,904 wpisów) w tabeli `postal_codes`
+  - `contracts.postal_code_id` (FK) + `is_legacy` + backfill
+  - `shared/locations.py` + `shared/revenue.py` (unifikacja stats+explorer)
+  - `GET /explorer/locations/{postal_code}` (drill-down po PNA)
+  - `PostalCodeLookupResponse` z gmina/powiat/wojewodztwo
+  - Frontend: auto-fill PNA + panel gmina/powiat/woj + ReportsSection :key fix
+  - Deduplikacja legacy numerów umów (S142/2026, 111)
+  - Fix `extract_address` (integrations/router.py) — używa PNA zamiast usuniętego `extract_city`
+- **Weryfikacja:** 221 pytest passed, vue-tsc exit 0, build OK, smoke e2e 11 passed
+
+### Lint fixes — ContractFormView.vue (2026-07-01)
+- **Co zrobiono:** Naprawiono 20 pre-existing TS lint errors (`ref([])` → typed refs)
+  - `contractorAddresses` → `ref<ContractorAddress[]>([])`
+  - `pickerList` → `ref<ContractorPick[]>([])`
+  - `settlements` → `ref<Settlement[]>([])`
+  - `editingFeeData` → `ref<Partial<FeeData>>({})`
+  - `selectedAddressId` → `ref<number | null>(null)`
+  - `editingFeeId` → `ref<number | null>(null)`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+
+### Auto-fill PNA flow (2026-07-01)
+- **Co zrobiono:** 3 ścieżki auto-fill PNA w ContractFormView.vue
+  1. `onDeliveryAddressInput` — po extract-address auto-trigger PNA lookup
+  2. `onAddressSelect` — wypełnia postal_code+city z adresu kontrahenta + auto PNA lookup
+  3. `onPostalCodeBlur` — refactor na reusable `lookupPna()`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+---
+
+## 🗂️ Materiały referencyjne
+
+**Sprint 2026-06-29 (nowe zgłoszenia):**
+- `spec/backlog/do_wciagniecia_do_backlogu.md` — 10 punktów od klienta (surowy markdown)
+- `Pasted image 20260629223748.png` (root repo) — P1-014: błędne obliczenie daty
+- `Pasted image 20260629223936.png` (root repo) — P1-016: protokół ZO bez adresu dostawy
+- `Pasted image 20260629224212.png` (root repo) — P1-019: umowa usługi U872/2026 z żółtym tłem
+- `Pasted image 20260629224534.png` (root repo) — P1-020: format rozliczenia kaskadowego
+- `Pasted image 20260629224602.png` (root repo) — P1-021: sekcja Warunki Finansowe z pustym Wartość
+- `Pasted image 20260629225003.png` (root repo) — P1-022: lista umów z niespójnym nazewnictwem
+- Raporty vision: `Pasted image 20260629*-vision-report.md` (root repo)
+
+**Stara aplikacja WinForms (referencja):**
+- `C:\projects\repos\AppRao\rao\FormW.cs` linia 690-750 — algorytm formatowania warunków kaskadowych
+
+**Aktualne szablony PDF:**
+- `backend/reports/templates/contract_u.html` — umowa usługi (typ U)
+- `backend/reports/templates/contract.html` — umowa najmu (typ S)
+- `backend/reports/templates/protocol_zo.html` — protokół zdawczo-odbiorczy
+- `backend/reports/templates/protocol_zo_u.html` — protokół wykonania usługi
+- `backend/reports/templates/protocol_zo_nodata*.html` — warianty bez danych
+
+---
+
+## 📋 Decyzje operatora (2026-06-30)
+
+### RAO-P1-021 — Pole „Wartość (zł)" → ekran rozliczenia
+**Decyzja:** Pole „Wartość" przechodzi do **ekranu rozliczenia** (nie formularz umowy). Tam wartość jest pobierana:
+- Z **Fakturowni** (kwota z faktury), LUB
+- Wprowadzona **ręcznie** na bazie pozycji umowy z uzupełnionymi kwotami
+
+**Implementacja:** Ekran rozliczenia pobiera pozycje umowy, pozwala uzupełnić kwoty (auto z Fakturowni lub ręcznie), sumuje → wartość umowy. Pole „Wartość" w formularzu umowy zostaje ukryte/puste (przedpłata dopisana z góry, wartość nieznana do rozliczenia).
+
+---
+
+### RAO-P2-028 — Statystyki miast via PNA (PILNE)
+**Decyzja:** Grupuj po **postal_code (PNA)** + miasto (precyzyjne).
+**Uwaga operatora:** Jedno miasto ma wiele PNA — trzeba ustalić **skąd uzupełnić PNA** dla miast.
+**Pilne** — wymaga analizy źródeł danych PNA (tabela postal_codes, integracja TERYT, GUS).
+
+---
+
+### RAO-P2-046 — IDOR / RBAC
+**Decyzja:** **Brak izolacji** na ten moment (single-tenant, wszyscy widzą wszystko).
+Wraz z rozwojem aplikacji będziemy zarządzać uprawnieniami do różnych zasobów.
+**Akcja:** Zostaw tylko SEC-001 (PDF ownership check). P2-046 odłożone.
+
+---
+
+### RAO-P2-057 — is_external (maszyna zewnętrzna)
+**Decyzja:** Maszyna external **nie blokuje** dodawania w wielu miejscach (nie wpływa na rentowność).
+- Ma być **możliwe do wyboru w detailsach maszyny** podczas dodawania
+- Sprawdzić **mechanizm blokowania maszyn** (czy external poprawnie nie blokuje)
+- Sprawdzić vs **wyliczanie dni umowy** czy maszyny będą poprawnie blokowane
+- **Blokada = pytanie z informacją** gdzie i dlaczego jest zablokowana maszyna, czy na pewno chcesz ją dodać/wypożyczyć
+- **Obgadać z teamem** (subagenty: backend-dev + qa-engineer + product-owner)
+
+---
+
+## 📋 Audyt wymagań klienta (2026-07-01) — Tech Lead
+
+### Wymagania klienta — status spełnienia
+
+| # | Wymaganie | Status | Uwagi |
+|---|-----------|--------|-------|
+| 1 | Statystyki wynajmu maszyny (po nr wewn.) w okresie — stopa zwrotu | **SPEŁNIONE z błędem** | `top-machines` + `explorer/machines/{id}` (utilization_pct). BŁĄD: rozjazd przychodu 41% między explorer a stats |
+| 2 | Ile maszyn jest teraz wynajętych | **SPEŁNIONE** | `currently-rented` + `fleet-summary` |
+| 3 | Dodanie numeru wewnętrznego do maszyny | **SPEŁNIONE funkcjonalnie, 0% danych** | `articles.internal_number` istnieje, ale 0/337 maszyn ma wypełnione (CSV nie istnieje, INSERT nie mapuje) |
+| 4 | Filtrowanie pozycji dodatkowych (transport, mycie) w okresach | **SPEŁNIONE** | `additional-fees` endpoint + UI |
+| 5 | Filtrowanie miejscowości i ilości wynajmów | **SPEŁNIONE** | `stats/locations` + `explorer/locations` (po PNA, z gmina/powiat/woj) |
+| 6 | Rezerwacja maszyny (blokada, info kiedy dostępny) | **SPEŁNIONE** | `articles/{id}/availability` + ArticlePicker z badge |
+
+### Odkryte problemy — do analizy i decyzji
+
+#### [RAO-P2-030] internal_number puste (0% maszyn) — BLOKER dla wymagan 1+3
+
+```yaml
+id: RAO-P2-030
+priority: P2
+size: M
+status: wont-fix
+classification: bugfix/migration-data
+roles: [db-architect, backend-dev]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt wymagań klienta — wymaganie 3 (numer wewnętrzny)"
+resolution: "2026-07-01 — brak źródła danych w starej bazie (0/351 archive_articles ma internal_number, registration_no też 0%). Wymaga ręcznego uzupełnienia przez użytkownika w UI. Oznaczone wont-fix dla automatycznej migracji."
+```
+
+**Problem:** `articles.internal_number` jest puste dla 0/337 maszyn (0%).
+- `migrate.py` INSERT articles z `artykul3` NIE mapuje `internal_number` (kolumna nie istnieje w `artykul3`)
+- `step8_csv_categories` wypełniał `internal_number` z CSV `Asortyment*.csv`, ale ten plik **nie istnieje** na dysku
+- Bez `internal_number` wymaganie 1 (statystyki po nr wewn.) i 3 (dodawanie nr wewn.) są bezużyteczne
+
+**Opcje naprawy:**
+1. Znaleźć źródło numerów wewnętrznych (inny CSV? ręczne dopisanie w UI?)
+2. Sprawdzić czy `nr_rejestracyjny` z `artykul3` może służyć jako numer wewnętrzny (ale też 0% wypełnione)
+3. Ręczne wypełnienie przez użytkownika w UI (formularz maszyny już ma pole)
+
+**Acceptance criteria:**
+- [ ] Źródło numerów wewnętrznych zidentyfikowane
+- [ ] `internal_number` wypełnione dla >80% maszyn
+- [ ] Statystyki po `internal_number` działają (test API)
+
+---
+
+#### [RAO-P2-031] Rozjazd przychodu 41% — explorer vs stats
+
+```yaml
+id: RAO-P2-031
+priority: P2
+size: S
+status: done
+classification: bugfix/backend-logic
+roles: [backend-dev, qa-engineer]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt — explorer/machines używa rate1×period_count zamiast kaskadowego"
+commit: P2-032 (scalone)
+specs_to_update:
+  - core/01_database.md
+  - core/04_business_logic.md
+
+**Problem:** `explorer/machines/{id}` liczy przychód jako `rate1 × period_count` (simple), a `stats/top-machines` używa kaskadowego `calculate_position_value`. **Rozjazd 41%** (3.17M vs 5.37M zł). Explorer zawyża przychody maszyn o ~41%.
+
+**Lokalizacja:** `backend/explorer/router.py:218` — subquery `rev_subq` używa `func.sum(rate1 * period_count)` zamiast wywołania `shared.revenue.compute_position_revenues`.
+
+**Naprawa:** Refactor `get_machine_details` aby używał `shared.revenue.compute_position_revenues` (jak `stats/top-machines`).
+
+**Acceptance criteria:**
+- [ ] `explorer/machines/{id}` używa `shared.revenue.compute_position_revenues`
+- [ ] Przychody spójne między explorer a stats (delta <1%)
+- [ ] Test unit: porównanie przychodu per pozycja
+
+---
+
+#### [RAO-P2-032] Przychód z `rozliczenie` (legacy) — rzeczywiste kwoty
+
+```yaml
+id: RAO-P2-032
+priority: P1
+size: L
+status: done
+classification: feature/revenue-source
+roles: [db-architect, backend-dev, frontend-dev, product-owner, tech-lead, security-auditor]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt — warunki rozliczenia są orientacyjne, nie wiemy co skasowano na fakturach"
+implementation_date: 2026-07-01
+specs_to_update:
+  - core/01_database.md
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+  - core/04_business_logic.md
+  - core/08_migration_plan.md
+
+**Problem:** Obecnie przychód liczony z `position_conditions.rate1 × period_count` (kaskadowe) — **orientacyjne stawki z umowy**, nie rzeczywiste kwoty zafakturowane. `contracts.total_value` jest NULL/0 dla 100% umów (martwe pole).
+
+**Odkrycie:** W dumpie starej bazy (`spec/backlog/archiwum/refinement/toolsmart_roa_*.sql`) jest tabela `rozliczenie` z **3836 wierszami** (~1951 sparsowanych, 792,384 zł) — **rzeczywiste rozliczenia per pozycja**:
+- `id, data, id_pozycji, wartosc`
+- 99.2% `id_pozycji` mapuje się na `contract_positions.id`
+- `wartosc` = rzeczywista kwota rozliczona (po fakcie)
+
+**Stara funkcja SQL (linia 11064-11070):** NIE używała `oplata1 × liczba_dni` (kaskadowe), ale **lookup** — wybierała jedną stawkę po `liczba_dni` (inny algorytm niż nasz `calculate_position_value`).
+
+**Koncepcja operatora — Data Cutoff + Dwa tryby:**
+1. **Dane historyczne (`is_legacy=1`, przed cutofficem):**
+   - Import `rozliczenie` → `contract_settlements` (cost_client=wartosc, source='legacy')
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty**
+   - Osobna sekcja UI: "Analiza danych historycznych" z label "rzeczywiste rozliczenia"
+2. **Nowe dane (`is_legacy=0`, po cutofficie):**
+   - Integracja Fakturownia (już istnieje! `init-from-fakturownia`)
+   - `contract.oid` + `article.fakturownia_product_id` → automatyczne mapowanie
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty zafakturowane**
+
+**Decyzje do podjęcia (wymaga operatora/klienta):**
+1. Czy importować `rozliczenie` (3836 wierszy) do `contract_settlements`?
+2. Kiedy następuje cutoff? (wszystkie 742 obecne umowy = legacy?)
+3. Czy zachować `position_conditions` (szacunek) jako fallback gdy brak rozliczenia?
+4. Czy UI ma mieć przełącznik "Dane historyczne / Dane bieżące"?
+
+**Acceptance criteria (po decyzji):**
+- [ ] Import `rozliczenie` do `contract_settlements` (deterministyczny, z dumpa SQL)
+- [ ] `shared/revenue.py` — źródło "actual" z `contract_settlements` (priorytet) + fallback "estimate" z `position_conditions`
+- [ ] UI toggle "Dane historyczne / Dane bieżące" w ReportsSection
+- [ ] Label "rzeczywiste rozliczenia" vs "orientacyjne stawki" w UI
+- [ ] Fix rozjada 41% (P2-031) jako część tego zadania
+
+**Pliki do zmiany:**
+- `backend/migrate.py` (nowy step: import `rozliczenie` z dumpa)
+- `backend/shared/revenue.py` (źródło "actual" z settlements)
+- `backend/stats/router.py` (filtr `is_legacy` + źródło przychodu)
+- `backend/explorer/router.py` (fix rozjada — użyj `shared.revenue`)
+- `frontend/src/components/reports/ReportsSection.vue` (toggle + label)
+
+**Dane:**
+- Dump SQL: `spec/backlog/archiwum/refinement/toolsmart_roa_1779053066.sql` (linie 4550-6524)
+- 3836 wierszy, 353 unikalnych pozycji, 792,384 zł, 99.2% mapuje się na contract_positions
+
+---
+
+#### [RAO-P2-033] `contracts.total_value` martwe pole (100% NULL)
+
+```yaml
+id: RAO-P2-033
+priority: P2
+size: XS
+status: done
+classification: cleanup/data
+roles: [db-architect]
+source: tech-lead-audit
+source_date: 2026-07-01
+implementation_date: 2026-07-01
+note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone z P1-021)"
+```
+
+**Problem:** `contracts.total_value` jest NULL/0 dla 100% umów (742/742). Pole nie jest używane w statystykach (przychód z `position_conditions`), tylko w PDF umowy jako snapshot.
+
+**Opcje:**
+1. Zostawić (pole w PDF, nie blokuje) — rekomendowane
+2. Usunąć kolumnę (destructive — wymaga zgody)
+3. Wypełnić z `SUM(position_conditions)` (ale to szacunek, nie rzeczywistość)
+
+**Rekomendacja:** Zostawić jak jest. Pole jest w PDF umowy jako "Wartość (zł)" — decyzja P1-021 przenosi to do ekranu rozliczenia.
+
+---
+
+## ✅ Wykonane prace (2026-07-01)
+
+### P2-028 — Statystyki miast via PNA (DONE, dev-verified)
+- **Commit:** `7bb2d1a` (backend+DB), `0ee1751` (frontend)
+- **Co zrobiono:**
+  - Pełny Spis PNA Poczty Polskiej (21,904 wpisów) w tabeli `postal_codes`
+  - `contracts.postal_code_id` (FK) + `is_legacy` + backfill
+  - `shared/locations.py` + `shared/revenue.py` (unifikacja stats+explorer)
+  - `GET /explorer/locations/{postal_code}` (drill-down po PNA)
+  - `PostalCodeLookupResponse` z gmina/powiat/wojewodztwo
+  - Frontend: auto-fill PNA + panel gmina/powiat/woj + ReportsSection :key fix
+  - Deduplikacja legacy numerów umów (S142/2026, 111)
+  - Fix `extract_address` (integrations/router.py) — używa PNA zamiast usuniętego `extract_city`
+- **Weryfikacja:** 221 pytest passed, vue-tsc exit 0, build OK, smoke e2e 11 passed
+
+### Lint fixes — ContractFormView.vue (2026-07-01)
+- **Co zrobiono:** Naprawiono 20 pre-existing TS lint errors (`ref([])` → typed refs)
+  - `contractorAddresses` → `ref<ContractorAddress[]>([])`
+  - `pickerList` → `ref<ContractorPick[]>([])`
+  - `settlements` → `ref<Settlement[]>([])`
+  - `editingFeeData` → `ref<Partial<FeeData>>({})`
+  - `selectedAddressId` → `ref<number | null>(null)`
+  - `editingFeeId` → `ref<number | null>(null)`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+
+### Auto-fill PNA flow (2026-07-01)
+- **Co zrobiono:** 3 ścieżki auto-fill PNA w ContractFormView.vue
+  1. `onDeliveryAddressInput` — po extract-address auto-trigger PNA lookup
+  2. `onAddressSelect` — wypełnia postal_code+city z adresu kontrahenta + auto PNA lookup
+  3. `onPostalCodeBlur` — refactor na reusable `lookupPna()`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+## 🗂️ Materiały referencyjne
+
+**Sprint 2026-06-29 (nowe zgłoszenia):**
+- `spec/backlog/do_wciagniecia_do_backlogu.md` — 10 punktów od klienta (surowy markdown)
+- `Pasted image 20260629223748.png` (root repo) — P1-014: błędne obliczenie daty
+- `Pasted image 20260629223936.png` (root repo) — P1-016: protokół ZO bez adresu dostawy
+- `Pasted image 20260629224212.png` (root repo) — P1-019: umowa usługi U872/2026 z żółtym tłem
+- `Pasted image 20260629224534.png` (root repo) — P1-020: format rozliczenia kaskadowego
+- `Pasted image 20260629224602.png` (root repo) — P1-021: sekcja Warunki Finansowe z pustym Wartość
+- `Pasted image 20260629225003.png` (root repo) — P1-022: lista umów z niespójnym nazewnictwem
+- Raporty vision: `Pasted image 20260629*-vision-report.md` (root repo)
+
+**Stara aplikacja WinForms (referencja):**
+- `C:\projects\repos\AppRao\rao\FormW.cs` linia 690-750 — algorytm formatowania warunków kaskadowych
+
+**Aktualne szablony PDF:**
+- `backend/reports/templates/contract_u.html` — umowa usługi (typ U)
+- `backend/reports/templates/contract.html` — umowa najmu (typ S)
+- `backend/reports/templates/protocol_zo.html` — protokół zdawczo-odbiorczy
+- `backend/reports/templates/protocol_zo_u.html` — protokół wykonania usługi
+- `backend/reports/templates/protocol_zo_nodata*.html` — warianty bez danych
+
+---
+
+## 📋 Decyzje operatora (2026-06-30)
+
+### RAO-P1-021 — Pole „Wartość (zł)" → ekran rozliczenia
+**Decyzja:** Pole „Wartość" przechodzi do **ekranu rozliczenia** (nie formularz umowy). Tam wartość jest pobierana:
+- Z **Fakturowni** (kwota z faktury), LUB
+- Wprowadzona **ręcznie** na bazie pozycji umowy z uzupełnionymi kwotami
+
+**Implementacja:** Ekran rozliczenia pobiera pozycje umowy, pozwala uzupełnić kwoty (auto z Fakturowni lub ręcznie), sumuje → wartość umowy. Pole „Wartość" w formularzu umowy zostaje ukryte/puste (przedpłata dopisana z góry, wartość nieznana do rozliczenia).
+
+---
+
+### RAO-P2-028 — Statystyki miast via PNA (PILNE)
+**Decyzja:** Grupuj po **postal_code (PNA)** + miasto (precyzyjne).
+**Uwaga operatora:** Jedno miasto ma wiele PNA — trzeba ustalić **skąd uzupełnić PNA** dla miast.
+**Pilne** — wymaga analizy źródeł danych PNA (tabela postal_codes, integracja TERYT, GUS).
+
+---
+
+### RAO-P2-046 — IDOR / RBAC
+**Decyzja:** **Brak izolacji** na ten moment (single-tenant, wszyscy widzą wszystko).
+Wraz z rozwojem aplikacji będziemy zarządzać uprawnieniami do różnych zasobów.
+**Akcja:** Zostaw tylko SEC-001 (PDF ownership check). P2-046 odłożone.
+
+---
+
+### RAO-P2-057 — is_external (maszyna zewnętrzna)
+**Decyzja:** Maszyna external **nie blokuje** dodawania w wielu miejscach (nie wpływa na rentowność).
+- Ma być **możliwe do wyboru w detailsach maszyny** podczas dodawania
+- Sprawdzić **mechanizm blokowania maszyn** (czy external poprawnie nie blokuje)
+- Sprawdzić vs **wyliczanie dni umowy** czy maszyny będą poprawnie blokowane
+- **Blokada = pytanie z informacją** gdzie i dlaczego jest zablokowana maszyna, czy na pewno chcesz ją dodać/wypożyczyć
+- **Obgadać z teamem** (subagenty: backend-dev + qa-engineer + product-owner)
+
+---
+
+## 📋 Audyt wymagań klienta (2026-07-01) — Tech Lead
+
+### Wymagania klienta — status spełnienia
+
+| # | Wymaganie | Status | Uwagi |
+|---|-----------|--------|-------|
+| 1 | Statystyki wynajmu maszyny (po nr wewn.) w okresie — stopa zwrotu | **SPEŁNIONE z błędem** | `top-machines` + `explorer/machines/{id}` (utilization_pct). BŁĄD: rozjazd przychodu 41% między explorer a stats |
+| 2 | Ile maszyn jest teraz wynajętych | **SPEŁNIONE** | `currently-rented` + `fleet-summary` |
+| 3 | Dodanie numeru wewnętrznego do maszyny | **SPEŁNIONE funkcjonalnie, 0% danych** | `articles.internal_number` istnieje, ale 0/337 maszyn ma wypełnione (CSV nie istnieje, INSERT nie mapuje) |
+| 4 | Filtrowanie pozycji dodatkowych (transport, mycie) w okresach | **SPEŁNIONE** | `additional-fees` endpoint + UI |
+| 5 | Filtrowanie miejscowości i ilości wynajmów | **SPEŁNIONE** | `stats/locations` + `explorer/locations` (po PNA, z gmina/powiat/woj) |
+| 6 | Rezerwacja maszyny (blokada, info kiedy dostępny) | **SPEŁNIONE** | `articles/{id}/availability` + ArticlePicker z badge |
+
+### Odkryte problemy — do analizy i decyzji
+
+#### [RAO-P2-030] internal_number puste (0% maszyn) — BLOKER dla wymagan 1+3
+
+```yaml
+id: RAO-P2-030
+priority: P2
+size: M
+status: wont-fix
+classification: bugfix/migration-data
+roles: [db-architect, backend-dev]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt wymagań klienta — wymaganie 3 (numer wewnętrzny)"
+resolution: "2026-07-01 — brak źródła danych w starej bazie (0/351 archive_articles ma internal_number, registration_no też 0%). Wymaga ręcznego uzupełnienia przez użytkownika w UI. Oznaczone wont-fix dla automatycznej migracji."
+```
+
+**Problem:** `articles.internal_number` jest puste dla 0/337 maszyn (0%).
+- `migrate.py` INSERT articles z `artykul3` NIE mapuje `internal_number` (kolumna nie istnieje w `artykul3`)
+- `step8_csv_categories` wypełniał `internal_number` z CSV `Asortyment*.csv`, ale ten plik **nie istnieje** na dysku
+- Bez `internal_number` wymaganie 1 (statystyki po nr wewn.) i 3 (dodawanie nr wewn.) są bezużyteczne
+
+**Opcje naprawy:**
+1. Znaleźć źródło numerów wewnętrznych (inny CSV? ręczne dopisanie w UI?)
+2. Sprawdzić czy `nr_rejestracyjny` z `artykul3` może służyć jako numer wewnętrzny (ale też 0% wypełnione)
+3. Ręczne wypełnienie przez użytkownika w UI (formularz maszyny już ma pole)
+
+**Acceptance criteria:**
+- [ ] Źródło numerów wewnętrznych zidentyfikowane
+- [ ] `internal_number` wypełnione dla >80% maszyn
+- [ ] Statystyki po `internal_number` działają (test API)
+
+---
+
+#### [RAO-P2-031] Rozjazd przychodu 41% — explorer vs stats
+
+```yaml
+id: RAO-P2-031
+priority: P2
+size: S
+status: done
+classification: bugfix/backend-logic
+roles: [backend-dev, qa-engineer]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt — explorer/machines używa rate1×period_count zamiast kaskadowego"
+commit: P2-032 (scalone)
+specs_to_update:
+  - core/01_database.md
+  - core/04_business_logic.md
+
+**Problem:** `explorer/machines/{id}` liczy przychód jako `rate1 × period_count` (simple), a `stats/top-machines` używa kaskadowego `calculate_position_value`. **Rozjazd 41%** (3.17M vs 5.37M zł). Explorer zawyża przychody maszyn o ~41%.
+
+**Lokalizacja:** `backend/explorer/router.py:218` — subquery `rev_subq` używa `func.sum(rate1 * period_count)` zamiast wywołania `shared.revenue.compute_position_revenues`.
+
+**Naprawa:** Refactor `get_machine_details` aby używał `shared.revenue.compute_position_revenues` (jak `stats/top-machines`).
+
+**Acceptance criteria:**
+- [ ] `explorer/machines/{id}` używa `shared.revenue.compute_position_revenues`
+- [ ] Przychody spójne między explorer a stats (delta <1%)
+- [ ] Test unit: porównanie przychodu per pozycja
+
+---
+
+#### [RAO-P2-032] Przychód z `rozliczenie` (legacy) — rzeczywiste kwoty
+
+```yaml
+id: RAO-P2-032
+priority: P1
+size: L
+status: done
+classification: feature/revenue-source
+roles: [db-architect, backend-dev, frontend-dev, product-owner, tech-lead, security-auditor]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt — warunki rozliczenia są orientacyjne, nie wiemy co skasowano na fakturach"
+implementation_date: 2026-07-01
+specs_to_update:
+  - core/01_database.md
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+  - core/04_business_logic.md
+  - core/08_migration_plan.md
+
+**Problem:** Obecnie przychód liczony z `position_conditions.rate1 × period_count` (kaskadowe) — **orientacyjne stawki z umowy**, nie rzeczywiste kwoty zafakturowane. `contracts.total_value` jest NULL/0 dla 100% umów (martwe pole).
+
+**Odkrycie:** W dumpie starej bazy (`spec/backlog/archiwum/refinement/toolsmart_roa_*.sql`) jest tabela `rozliczenie` z **3836 wierszami** (~1951 sparsowanych, 792,384 zł) — **rzeczywiste rozliczenia per pozycja**:
+- `id, data, id_pozycji, wartosc`
+- 99.2% `id_pozycji` mapuje się na `contract_positions.id`
+- `wartosc` = rzeczywista kwota rozliczona (po fakcie)
+
+**Stara funkcja SQL (linia 11064-11070):** NIE używała `oplata1 × liczba_dni` (kaskadowe), ale **lookup** — wybierała jedną stawkę po `liczba_dni` (inny algorytm niż nasz `calculate_position_value`).
+
+**Koncepcja operatora — Data Cutoff + Dwa tryby:**
+1. **Dane historyczne (`is_legacy=1`, przed cutofficem):**
+   - Import `rozliczenie` → `contract_settlements` (cost_client=wartosc, source='legacy')
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty**
+   - Osobna sekcja UI: "Analiza danych historycznych" z label "rzeczywiste rozliczenia"
+2. **Nowe dane (`is_legacy=0`, po cutofficie):**
+   - Integracja Fakturownia (już istnieje! `init-from-fakturownia`)
+   - `contract.oid` + `article.fakturownia_product_id` → automatyczne mapowanie
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty zafakturowane**
+
+**Decyzje do podjęcia (wymaga operatora/klienta):**
+1. Czy importować `rozliczenie` (3836 wierszy) do `contract_settlements`?
+2. Kiedy następuje cutoff? (wszystkie 742 obecne umowy = legacy?)
+3. Czy zachować `position_conditions` (szacunek) jako fallback gdy brak rozliczenia?
+4. Czy UI ma mieć przełącznik "Dane historyczne / Dane bieżące"?
+
+**Acceptance criteria (po decyzji):**
+- [ ] Import `rozliczenie` do `contract_settlements` (deterministyczny, z dumpa SQL)
+- [ ] `shared/revenue.py` — źródło "actual" z `contract_settlements` (priorytet) + fallback "estimate" z `position_conditions`
+- [ ] UI toggle "Dane historyczne / Dane bieżące" w ReportsSection
+- [ ] Label "rzeczywiste rozliczenia" vs "orientacyjne stawki" w UI
+- [ ] Fix rozjada 41% (P2-031) jako część tego zadania
+
+**Pliki do zmiany:**
+- `backend/migrate.py` (nowy step: import `rozliczenie` z dumpa)
+- `backend/shared/revenue.py` (źródło "actual" z settlements)
+- `backend/stats/router.py` (filtr `is_legacy` + źródło przychodu)
+- `backend/explorer/router.py` (fix rozjada — użyj `shared.revenue`)
+- `frontend/src/components/reports/ReportsSection.vue` (toggle + label)
+
+**Dane:**
+- Dump SQL: `spec/backlog/archiwum/refinement/toolsmart_roa_1779053066.sql` (linie 4550-6524)
+- 3836 wierszy, 353 unikalnych pozycji, 792,384 zł, 99.2% mapuje się na contract_positions
+
+---
+
+#### [RAO-P2-033] `contracts.total_value` martwe pole (100% NULL)
+
+```yaml
+id: RAO-P2-033
+priority: P2
+size: XS
+status: done
+classification: cleanup/data
+roles: [db-architect]
+source: tech-lead-audit
+source_date: 2026-07-01
+implementation_date: 2026-07-01
+note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone z P1-021)"
+```
+
+**Problem:** `contracts.total_value` jest NULL/0 dla 100% umów (742/742). Pole nie jest używane w statystykach (przychód z `position_conditions`), tylko w PDF umowy jako snapshot.
+
+**Opcje:**
+1. Zostawić (pole w PDF, nie blokuje) — rekomendowane
+2. Usunąć kolumnę (destructive — wymaga zgody)
+3. Wypełnić z `SUM(position_conditions)` (ale to szacunek, nie rzeczywistość)
+
+**Rekomendacja:** Zostawić jak jest. Pole jest w PDF umowy jako "Wartość (zł)" — decyzja P1-021 przenosi to do ekranu rozliczenia.
+
+---
+
+## ✅ Wykonane prace (2026-07-01)
+
+### P2-028 — Statystyki miast via PNA (DONE, dev-verified)
+- **Commit:** `7bb2d1a` (backend+DB), `0ee1751` (frontend)
+- **Co zrobiono:**
+  - Pełny Spis PNA Poczty Polskiej (21,904 wpisów) w tabeli `postal_codes`
+  - `contracts.postal_code_id` (FK) + `is_legacy` + backfill
+  - `shared/locations.py` + `shared/revenue.py` (unifikacja stats+explorer)
+  - `GET /explorer/locations/{postal_code}` (drill-down po PNA)
+  - `PostalCodeLookupResponse` z gmina/powiat/wojewodztwo
+  - Frontend: auto-fill PNA + panel gmina/powiat/woj + ReportsSection :key fix
+  - Deduplikacja legacy numerów umów (S142/2026, 111)
+  - Fix `extract_address` (integrations/router.py) — używa PNA zamiast usuniętego `extract_city`
+- **Weryfikacja:** 221 pytest passed, vue-tsc exit 0, build OK, smoke e2e 11 passed
+
+### Lint fixes — ContractFormView.vue (2026-07-01)
+- **Co zrobiono:** Naprawiono 20 pre-existing TS lint errors (`ref([])` → typed refs)
+  - `contractorAddresses` → `ref<ContractorAddress[]>([])`
+  - `pickerList` → `ref<ContractorPick[]>([])`
+  - `settlements` → `ref<Settlement[]>([])`
+  - `editingFeeData` → `ref<Partial<FeeData>>({})`
+  - `selectedAddressId` → `ref<number | null>(null)`
+  - `editingFeeId` → `ref<number | null>(null)`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+
+### Auto-fill PNA flow (2026-07-01)
+- **Co zrobiono:** 3 ścieżki auto-fill PNA w ContractFormView.vue
+  1. `onDeliveryAddressInput` — po extract-address auto-trigger PNA lookup
+  2. `onAddressSelect` — wypełnia postal_code+city z adresu kontrahenta + auto PNA lookup
+  3. `onPostalCodeBlur` — refactor na reusable `lookupPna()`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+
+---
+
+### RAO-P2-046 — IDOR / RBAC
+**Decyzja:** **Brak izolacji** na ten moment (single-tenant, wszyscy widzą wszystko).
+Wraz z rozwojem aplikacji będziemy zarządzać uprawnieniami do różnych zasobów.
+**Akcja:** Zostaw tylko SEC-001 (PDF ownership check). P2-046 odłożone.
+
+---
+
+### RAO-P2-057 — is_external (maszyna zewnętrzna)
+**Decyzja:** Maszyna external **nie blokuje** dodawania w wielu miejscach (nie wpływa na rentowność).
+- Ma być **możliwe do wyboru w detailsach maszyny** podczas dodawania
+- Sprawdzić **mechanizm blokowania maszyn** (czy external poprawnie nie blokuje)
+- Sprawdzić vs **wyliczanie dni umowy** czy maszyny będą poprawnie blokowane
+- **Blokada = pytanie z informacją** gdzie i dlaczego jest zablokowana maszyna, czy na pewno chcesz ją dodać/wypożyczyć
+- **Obgadać z teamem** (subagenty: backend-dev + qa-engineer + product-owner)
+
+---
+
+## 📋 Audyt wymagań klienta (2026-07-01) — Tech Lead
+
+### Wymagania klienta — status spełnienia
+
+| # | Wymaganie | Status | Uwagi |
+|---|-----------|--------|-------|
+| 1 | Statystyki wynajmu maszyny (po nr wewn.) w okresie — stopa zwrotu | **SPEŁNIONE z błędem** | `top-machines` + `explorer/machines/{id}` (utilization_pct). BŁĄD: rozjazd przychodu 41% między explorer a stats |
+| 2 | Ile maszyn jest teraz wynajętych | **SPEŁNIONE** | `currently-rented` + `fleet-summary` |
+| 3 | Dodanie numeru wewnętrznego do maszyny | **SPEŁNIONE funkcjonalnie, 0% danych** | `articles.internal_number` istnieje, ale 0/337 maszyn ma wypełnione (CSV nie istnieje, INSERT nie mapuje) |
+| 4 | Filtrowanie pozycji dodatkowych (transport, mycie) w okresach | **SPEŁNIONE** | `additional-fees` endpoint + UI |
+| 5 | Filtrowanie miejscowości i ilości wynajmów | **SPEŁNIONE** | `stats/locations` + `explorer/locations` (po PNA, z gmina/powiat/woj) |
+| 6 | Rezerwacja maszyny (blokada, info kiedy dostępny) | **SPEŁNIONE** | `articles/{id}/availability` + ArticlePicker z badge |
+
+### Odkryte problemy — do analizy i decyzji
+
+#### [RAO-P2-030] internal_number puste (0% maszyn) — BLOKER dla wymagan 1+3
+
+```yaml
+id: RAO-P2-030
+priority: P2
+size: M
+status: wont-fix
+classification: bugfix/migration-data
+roles: [db-architect, backend-dev]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt wymagań klienta — wymaganie 3 (numer wewnętrzny)"
+resolution: "2026-07-01 — brak źródła danych w starej bazie (0/351 archive_articles ma internal_number, registration_no też 0%). Wymaga ręcznego uzupełnienia przez użytkownika w UI. Oznaczone wont-fix dla automatycznej migracji."
+```
+
+**Problem:** `articles.internal_number` jest puste dla 0/337 maszyn (0%).
+- `migrate.py` INSERT articles z `artykul3` NIE mapuje `internal_number` (kolumna nie istnieje w `artykul3`)
+- `step8_csv_categories` wypełniał `internal_number` z CSV `Asortyment*.csv`, ale ten plik **nie istnieje** na dysku
+- Bez `internal_number` wymaganie 1 (statystyki po nr wewn.) i 3 (dodawanie nr wewn.) są bezużyteczne
+
+**Opcje naprawy:**
+1. Znaleźć źródło numerów wewnętrznych (inny CSV? ręczne dopisanie w UI?)
+2. Sprawdzić czy `nr_rejestracyjny` z `artykul3` może służyć jako numer wewnętrzny (ale też 0% wypełnione)
+3. Ręczne wypełnienie przez użytkownika w UI (formularz maszyny już ma pole)
+
+**Acceptance criteria:**
+- [ ] Źródło numerów wewnętrznych zidentyfikowane
+- [ ] `internal_number` wypełnione dla >80% maszyn
+- [ ] Statystyki po `internal_number` działają (test API)
+
+---
+
+#### [RAO-P2-031] Rozjazd przychodu 41% — explorer vs stats
+
+```yaml
+id: RAO-P2-031
+priority: P2
+size: S
+status: done
+classification: bugfix/backend-logic
+roles: [backend-dev, qa-engineer]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt — explorer/machines używa rate1×period_count zamiast kaskadowego"
+commit: P2-032 (scalone)
+specs_to_update:
+  - core/01_database.md
+  - core/04_business_logic.md
+
+**Problem:** `explorer/machines/{id}` liczy przychód jako `rate1 × period_count` (simple), a `stats/top-machines` używa kaskadowego `calculate_position_value`. **Rozjazd 41%** (3.17M vs 5.37M zł). Explorer zawyża przychody maszyn o ~41%.
+
+**Lokalizacja:** `backend/explorer/router.py:218` — subquery `rev_subq` używa `func.sum(rate1 * period_count)` zamiast wywołania `shared.revenue.compute_position_revenues`.
+
+**Naprawa:** Refactor `get_machine_details` aby używał `shared.revenue.compute_position_revenues` (jak `stats/top-machines`).
+
+**Acceptance criteria:**
+- [ ] `explorer/machines/{id}` używa `shared.revenue.compute_position_revenues`
+- [ ] Przychody spójne między explorer a stats (delta <1%)
+- [ ] Test unit: porównanie przychodu per pozycja
+
+---
+
+#### [RAO-P2-032] Przychód z `rozliczenie` (legacy) — rzeczywiste kwoty
+
+```yaml
+id: RAO-P2-032
+priority: P1
+size: L
+status: done
+classification: feature/revenue-source
+roles: [db-architect, backend-dev, frontend-dev, product-owner, tech-lead, security-auditor]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt — warunki rozliczenia są orientacyjne, nie wiemy co skasowano na fakturach"
+implementation_date: 2026-07-01
+specs_to_update:
+  - core/01_database.md
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+  - core/04_business_logic.md
+  - core/08_migration_plan.md
+
+**Problem:** Obecnie przychód liczony z `position_conditions.rate1 × period_count` (kaskadowe) — **orientacyjne stawki z umowy**, nie rzeczywiste kwoty zafakturowane. `contracts.total_value` jest NULL/0 dla 100% umów (martwe pole).
+
+**Odkrycie:** W dumpie starej bazy (`spec/backlog/archiwum/refinement/toolsmart_roa_*.sql`) jest tabela `rozliczenie` z **3836 wierszami** (~1951 sparsowanych, 792,384 zł) — **rzeczywiste rozliczenia per pozycja**:
+- `id, data, id_pozycji, wartosc`
+- 99.2% `id_pozycji` mapuje się na `contract_positions.id`
+- `wartosc` = rzeczywista kwota rozliczona (po fakcie)
+
+**Stara funkcja SQL (linia 11064-11070):** NIE używała `oplata1 × liczba_dni` (kaskadowe), ale **lookup** — wybierała jedną stawkę po `liczba_dni` (inny algorytm niż nasz `calculate_position_value`).
+
+**Koncepcja operatora — Data Cutoff + Dwa tryby:**
+1. **Dane historyczne (`is_legacy=1`, przed cutofficem):**
+   - Import `rozliczenie` → `contract_settlements` (cost_client=wartosc, source='legacy')
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty**
+   - Osobna sekcja UI: "Analiza danych historycznych" z label "rzeczywiste rozliczenia"
+2. **Nowe dane (`is_legacy=0`, po cutofficie):**
+   - Integracja Fakturownia (już istnieje! `init-from-fakturownia`)
+   - `contract.oid` + `article.fakturownia_product_id` → automatyczne mapowanie
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty zafakturowane**
+
+**Decyzje do podjęcia (wymaga operatora/klienta):**
+1. Czy importować `rozliczenie` (3836 wierszy) do `contract_settlements`?
+2. Kiedy następuje cutoff? (wszystkie 742 obecne umowy = legacy?)
+3. Czy zachować `position_conditions` (szacunek) jako fallback gdy brak rozliczenia?
+4. Czy UI ma mieć przełącznik "Dane historyczne / Dane bieżące"?
+
+**Acceptance criteria (po decyzji):**
+- [ ] Import `rozliczenie` do `contract_settlements` (deterministyczny, z dumpa SQL)
+- [ ] `shared/revenue.py` — źródło "actual" z `contract_settlements` (priorytet) + fallback "estimate" z `position_conditions`
+- [ ] UI toggle "Dane historyczne / Dane bieżące" w ReportsSection
+- [ ] Label "rzeczywiste rozliczenia" vs "orientacyjne stawki" w UI
+- [ ] Fix rozjada 41% (P2-031) jako część tego zadania
+
+**Pliki do zmiany:**
+- `backend/migrate.py` (nowy step: import `rozliczenie` z dumpa)
+- `backend/shared/revenue.py` (źródło "actual" z settlements)
+- `backend/stats/router.py` (filtr `is_legacy` + źródło przychodu)
+- `backend/explorer/router.py` (fix rozjada — użyj `shared.revenue`)
+- `frontend/src/components/reports/ReportsSection.vue` (toggle + label)
+
+**Dane:**
+- Dump SQL: `spec/backlog/archiwum/refinement/toolsmart_roa_1779053066.sql` (linie 4550-6524)
+- 3836 wierszy, 353 unikalnych pozycji, 792,384 zł, 99.2% mapuje się na contract_positions
+
+---
+
+#### [RAO-P2-033] `contracts.total_value` martwe pole (100% NULL)
+
+```yaml
+id: RAO-P2-033
+priority: P2
+size: XS
+status: done
+classification: cleanup/data
+roles: [db-architect]
+source: tech-lead-audit
+source_date: 2026-07-01
+implementation_date: 2026-07-01
+note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone z P1-021)"
+```
+
+**Problem:** `contracts.total_value` jest NULL/0 dla 100% umów (742/742). Pole nie jest używane w statystykach (przychód z `position_conditions`), tylko w PDF umowy jako snapshot.
+
+**Opcje:**
+1. Zostawić (pole w PDF, nie blokuje) — rekomendowane
+2. Usunąć kolumnę (destructive — wymaga zgody)
+3. Wypełnić z `SUM(position_conditions)` (ale to szacunek, nie rzeczywistość)
+
+**Rekomendacja:** Zostawić jak jest. Pole jest w PDF umowy jako "Wartość (zł)" — decyzja P1-021 przenosi to do ekranu rozliczenia.
+
+---
+
+## ✅ Wykonane prace (2026-07-01)
+
+### P2-028 — Statystyki miast via PNA (DONE, dev-verified)
+- **Commit:** `7bb2d1a` (backend+DB), `0ee1751` (frontend)
+- **Co zrobiono:**
+  - Pełny Spis PNA Poczty Polskiej (21,904 wpisów) w tabeli `postal_codes`
+  - `contracts.postal_code_id` (FK) + `is_legacy` + backfill
+  - `shared/locations.py` + `shared/revenue.py` (unifikacja stats+explorer)
+  - `GET /explorer/locations/{postal_code}` (drill-down po PNA)
+  - `PostalCodeLookupResponse` z gmina/powiat/wojewodztwo
+  - Frontend: auto-fill PNA + panel gmina/powiat/woj + ReportsSection :key fix
+  - Deduplikacja legacy numerów umów (S142/2026, 111)
+  - Fix `extract_address` (integrations/router.py) — używa PNA zamiast usuniętego `extract_city`
+- **Weryfikacja:** 221 pytest passed, vue-tsc exit 0, build OK, smoke e2e 11 passed
+
+### Lint fixes — ContractFormView.vue (2026-07-01)
+- **Co zrobiono:** Naprawiono 20 pre-existing TS lint errors (`ref([])` → typed refs)
+  - `contractorAddresses` → `ref<ContractorAddress[]>([])`
+  - `pickerList` → `ref<ContractorPick[]>([])`
+  - `settlements` → `ref<Settlement[]>([])`
+  - `editingFeeData` → `ref<Partial<FeeData>>({})`
+  - `selectedAddressId` → `ref<number | null>(null)`
+  - `editingFeeId` → `ref<number | null>(null)`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+
+### Auto-fill PNA flow (2026-07-01)
+- **Co zrobiono:** 3 ścieżki auto-fill PNA w ContractFormView.vue
+  1. `onDeliveryAddressInput` — po extract-address auto-trigger PNA lookup
+  2. `onAddressSelect` — wypełnia postal_code+city z adresu kontrahenta + auto PNA lookup
+  3. `onPostalCodeBlur` — refactor na reusable `lookupPna()`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+1. Znaleźć źródło numerów wewnętrznych (inny CSV? ręczne dopisanie w UI?)
+2. Sprawdzić czy `nr_rejestracyjny` z `artykul3` może służyć jako numer wewnętrzny (ale też 0% wypełnione)
+3. Ręczne wypełnienie przez użytkownika w UI (formularz maszyny już ma pole)
+
+**Acceptance criteria:**
+- [ ] Źródło numerów wewnętrznych zidentyfikowane
+- [ ] `internal_number` wypełnione dla >80% maszyn
+- [ ] Statystyki po `internal_number` działają (test API)
+
+---
+
+#### [RAO-P2-031] Rozjazd przychodu 41% — explorer vs stats
+
+```yaml
+id: RAO-P2-031
+priority: P2
+size: S
+status: done
+classification: bugfix/backend-logic
+roles: [backend-dev, qa-engineer]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt — explorer/machines używa rate1×period_count zamiast kaskadowego"
+commit: P2-032 (scalone)
+specs_to_update:
+  - core/01_database.md
+  - core/04_business_logic.md
+
+**Problem:** `explorer/machines/{id}` liczy przychód jako `rate1 × period_count` (simple), a `stats/top-machines` używa kaskadowego `calculate_position_value`. **Rozjazd 41%** (3.17M vs 5.37M zł). Explorer zawyża przychody maszyn o ~41%.
+
+**Lokalizacja:** `backend/explorer/router.py:218` — subquery `rev_subq` używa `func.sum(rate1 * period_count)` zamiast wywołania `shared.revenue.compute_position_revenues`.
+
+**Naprawa:** Refactor `get_machine_details` aby używał `shared.revenue.compute_position_revenues` (jak `stats/top-machines`).
+
+**Acceptance criteria:**
+- [ ] `explorer/machines/{id}` używa `shared.revenue.compute_position_revenues`
+- [ ] Przychody spójne między explorer a stats (delta <1%)
+- [ ] Test unit: porównanie przychodu per pozycja
+
+---
+
+#### [RAO-P2-032] Przychód z `rozliczenie` (legacy) — rzeczywiste kwoty
+
+```yaml
+id: RAO-P2-032
+priority: P1
+size: L
+status: done
+classification: feature/revenue-source
+roles: [db-architect, backend-dev, frontend-dev, product-owner, tech-lead, security-auditor]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt — warunki rozliczenia są orientacyjne, nie wiemy co skasowano na fakturach"
+implementation_date: 2026-07-01
+specs_to_update:
+  - core/01_database.md
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+  - core/04_business_logic.md
+  - core/08_migration_plan.md
+
+**Problem:** Obecnie przychód liczony z `position_conditions.rate1 × period_count` (kaskadowe) — **orientacyjne stawki z umowy**, nie rzeczywiste kwoty zafakturowane. `contracts.total_value` jest NULL/0 dla 100% umów (martwe pole).
+
+**Odkrycie:** W dumpie starej bazy (`spec/backlog/archiwum/refinement/toolsmart_roa_*.sql`) jest tabela `rozliczenie` z **3836 wierszami** (~1951 sparsowanych, 792,384 zł) — **rzeczywiste rozliczenia per pozycja**:
+- `id, data, id_pozycji, wartosc`
+- 99.2% `id_pozycji` mapuje się na `contract_positions.id`
+- `wartosc` = rzeczywista kwota rozliczona (po fakcie)
+
+**Stara funkcja SQL (linia 11064-11070):** NIE używała `oplata1 × liczba_dni` (kaskadowe), ale **lookup** — wybierała jedną stawkę po `liczba_dni` (inny algorytm niż nasz `calculate_position_value`).
+
+**Koncepcja operatora — Data Cutoff + Dwa tryby:**
+1. **Dane historyczne (`is_legacy=1`, przed cutofficem):**
+   - Import `rozliczenie` → `contract_settlements` (cost_client=wartosc, source='legacy')
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty**
+   - Osobna sekcja UI: "Analiza danych historycznych" z label "rzeczywiste rozliczenia"
+2. **Nowe dane (`is_legacy=0`, po cutofficie):**
+   - Integracja Fakturownia (już istnieje! `init-from-fakturownia`)
+   - `contract.oid` + `article.fakturownia_product_id` → automatyczne mapowanie
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty zafakturowane**
+
+**Decyzje do podjęcia (wymaga operatora/klienta):**
+1. Czy importować `rozliczenie` (3836 wierszy) do `contract_settlements`?
+2. Kiedy następuje cutoff? (wszystkie 742 obecne umowy = legacy?)
+3. Czy zachować `position_conditions` (szacunek) jako fallback gdy brak rozliczenia?
+4. Czy UI ma mieć przełącznik "Dane historyczne / Dane bieżące"?
+
+**Acceptance criteria (po decyzji):**
+- [ ] Import `rozliczenie` do `contract_settlements` (deterministyczny, z dumpa SQL)
+- [ ] `shared/revenue.py` — źródło "actual" z `contract_settlements` (priorytet) + fallback "estimate" z `position_conditions`
+- [ ] UI toggle "Dane historyczne / Dane bieżące" w ReportsSection
+- [ ] Label "rzeczywiste rozliczenia" vs "orientacyjne stawki" w UI
+- [ ] Fix rozjada 41% (P2-031) jako część tego zadania
+
+**Pliki do zmiany:**
+- `backend/migrate.py` (nowy step: import `rozliczenie` z dumpa)
+- `backend/shared/revenue.py` (źródło "actual" z settlements)
+- `backend/stats/router.py` (filtr `is_legacy` + źródło przychodu)
+- `backend/explorer/router.py` (fix rozjada — użyj `shared.revenue`)
+- `frontend/src/components/reports/ReportsSection.vue` (toggle + label)
+
+**Dane:**
+- Dump SQL: `spec/backlog/archiwum/refinement/toolsmart_roa_1779053066.sql` (linie 4550-6524)
+- 3836 wierszy, 353 unikalnych pozycji, 792,384 zł, 99.2% mapuje się na contract_positions
+
+---
+
+#### [RAO-P2-033] `contracts.total_value` martwe pole (100% NULL)
+
+```yaml
+id: RAO-P2-033
+priority: P2
+size: XS
+status: done
+classification: cleanup/data
+roles: [db-architect]
+source: tech-lead-audit
+source_date: 2026-07-01
+implementation_date: 2026-07-01
+note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone z P1-021)"
+```
+
+**Problem:** `contracts.total_value` jest NULL/0 dla 100% umów (742/742). Pole nie jest używane w statystykach (przychód z `position_conditions`), tylko w PDF umowy jako snapshot.
+
+**Opcje:**
+1. Zostawić (pole w PDF, nie blokuje) — rekomendowane
+2. Usunąć kolumnę (destructive — wymaga zgody)
+3. Wypełnić z `SUM(position_conditions)` (ale to szacunek, nie rzeczywistość)
+
+**Rekomendacja:** Zostawić jak jest. Pole jest w PDF umowy jako "Wartość (zł)" — decyzja P1-021 przenosi to do ekranu rozliczenia.
+
+---
+
+## ✅ Wykonane prace (2026-07-01)
+
+### P2-028 — Statystyki miast via PNA (DONE, dev-verified)
+- **Commit:** `7bb2d1a` (backend+DB), `0ee1751` (frontend)
+- **Co zrobiono:**
+  - Pełny Spis PNA Poczty Polskiej (21,904 wpisów) w tabeli `postal_codes`
+  - `contracts.postal_code_id` (FK) + `is_legacy` + backfill
+  - `shared/locations.py` + `shared/revenue.py` (unifikacja stats+explorer)
+  - `GET /explorer/locations/{postal_code}` (drill-down po PNA)
+  - `PostalCodeLookupResponse` z gmina/powiat/wojewodztwo
+  - Frontend: auto-fill PNA + panel gmina/powiat/woj + ReportsSection :key fix
+  - Deduplikacja legacy numerów umów (S142/2026, 111)
+  - Fix `extract_address` (integrations/router.py) — używa PNA zamiast usuniętego `extract_city`
+- **Weryfikacja:** 221 pytest passed, vue-tsc exit 0, build OK, smoke e2e 11 passed
+
+### Lint fixes — ContractFormView.vue (2026-07-01)
+- **Co zrobiono:** Naprawiono 20 pre-existing TS lint errors (`ref([])` → typed refs)
+  - `contractorAddresses` → `ref<ContractorAddress[]>([])`
+  - `pickerList` → `ref<ContractorPick[]>([])`
+  - `settlements` → `ref<Settlement[]>([])`
+  - `editingFeeData` → `ref<Partial<FeeData>>({})`
+  - `selectedAddressId` → `ref<number | null>(null)`
+  - `editingFeeId` → `ref<number | null>(null)`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+
+### Auto-fill PNA flow (2026-07-01)
+- **Co zrobiono:** 3 ścieżki auto-fill PNA w ContractFormView.vue
+  1. `onDeliveryAddressInput` — po extract-address auto-trigger PNA lookup
+  2. `onAddressSelect` — wypełnia postal_code+city z adresu kontrahenta + auto PNA lookup
+  3. `onPostalCodeBlur` — refactor na reusable `lookupPna()`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+1. Znaleźć źródło numerów wewnętrznych (inny CSV? ręczne dopisanie w UI?)
+2. Sprawdzić czy `nr_rejestracyjny` z `artykul3` może służyć jako numer wewnętrzny (ale też 0% wypełnione)
+3. Ręczne wypełnienie przez użytkownika w UI (formularz maszyny już ma pole)
+
+**Acceptance criteria:**
+- [ ] Źródło numerów wewnętrznych zidentyfikowane
+- [ ] `internal_number` wypełnione dla >80% maszyn
+- [ ] Statystyki po `internal_number` działają (test API)
+
+---
+
+#### [RAO-P2-031] Rozjazd przychodu 41% — explorer vs stats
+
+```yaml
+id: RAO-P2-031
+priority: P2
+size: S
+status: done
+classification: bugfix/backend-logic
+roles: [backend-dev, qa-engineer]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt — explorer/machines używa rate1×period_count zamiast kaskadowego"
+commit: P2-032 (scalone)
+specs_to_update:
+  - core/01_database.md
+  - core/04_business_logic.md
+
+**Problem:** `explorer/machines/{id}` liczy przychód jako `rate1 × period_count` (simple), a `stats/top-machines` używa kaskadowego `calculate_position_value`. **Rozjazd 41%** (3.17M vs 5.37M zł). Explorer zawyża przychody maszyn o ~41%.
+
+**Lokalizacja:** `backend/explorer/router.py:218` — subquery `rev_subq` używa `func.sum(rate1 * period_count)` zamiast wywołania `shared.revenue.compute_position_revenues`.
+
+**Naprawa:** Refactor `get_machine_details` aby używał `shared.revenue.compute_position_revenues` (jak `stats/top-machines`).
+
+**Acceptance criteria:**
+- [ ] `explorer/machines/{id}` używa `shared.revenue.compute_position_revenues`
+- [ ] Przychody spójne między explorer a stats (delta <1%)
+- [ ] Test unit: porównanie przychodu per pozycja
+
+---
+
+#### [RAO-P2-032] Przychód z `rozliczenie` (legacy) — rzeczywiste kwoty
+
+```yaml
+id: RAO-P2-032
+priority: P1
+size: L
+status: done
+classification: feature/revenue-source
+roles: [db-architect, backend-dev, frontend-dev, product-owner, tech-lead, security-auditor]
+source: tech-lead-audit
+source_date: 2026-07-01
+source_ref: "Audyt — warunki rozliczenia są orientacyjne, nie wiemy co skasowano na fakturach"
+implementation_date: 2026-07-01
+specs_to_update:
+  - core/01_database.md
+  - core/02_backend_api.md
+  - core/03_frontend_screens.md
+  - core/04_business_logic.md
+  - core/08_migration_plan.md
+
+**Problem:** Obecnie przychód liczony z `position_conditions.rate1 × period_count` (kaskadowe) — **orientacyjne stawki z umowy**, nie rzeczywiste kwoty zafakturowane. `contracts.total_value` jest NULL/0 dla 100% umów (martwe pole).
+
+**Odkrycie:** W dumpie starej bazy (`spec/backlog/archiwum/refinement/toolsmart_roa_*.sql`) jest tabela `rozliczenie` z **3836 wierszami** (~1951 sparsowanych, 792,384 zł) — **rzeczywiste rozliczenia per pozycja**:
+- `id, data, id_pozycji, wartosc`
+- 99.2% `id_pozycji` mapuje się na `contract_positions.id`
+- `wartosc` = rzeczywista kwota rozliczona (po fakcie)
+
+**Stara funkcja SQL (linia 11064-11070):** NIE używała `oplata1 × liczba_dni` (kaskadowe), ale **lookup** — wybierała jedną stawkę po `liczba_dni` (inny algorytm niż nasz `calculate_position_value`).
+
+**Koncepcja operatora — Data Cutoff + Dwa tryby:**
+1. **Dane historyczne (`is_legacy=1`, przed cutofficem):**
+   - Import `rozliczenie` → `contract_settlements` (cost_client=wartosc, source='legacy')
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty**
+   - Osobna sekcja UI: "Analiza danych historycznych" z label "rzeczywiste rozliczenia"
+2. **Nowe dane (`is_legacy=0`, po cutofficie):**
+   - Integracja Fakturownia (już istnieje! `init-from-fakturownia`)
+   - `contract.oid` + `article.fakturownia_product_id` → automatyczne mapowanie
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty zafakturowane**
+
+**Decyzje do podjęcia (wymaga operatora/klienta):**
+1. Czy importować `rozliczenie` (3836 wierszy) do `contract_settlements`?
+2. Kiedy następuje cutoff? (wszystkie 742 obecne umowy = legacy?)
+3. Czy zachować `position_conditions` (szacunek) jako fallback gdy brak rozliczenia?
+4. Czy UI ma mieć przełącznik "Dane historyczne / Dane bieżące"?
+
+**Acceptance criteria (po decyzji):**
+- [ ] Import `rozliczenie` do `contract_settlements` (deterministyczny, z dumpa SQL)
+- [ ] `shared/revenue.py` — źródło "actual" z `contract_settlements` (priorytet) + fallback "estimate" z `position_conditions`
+- [ ] UI toggle "Dane historyczne / Dane bieżące" w ReportsSection
+- [ ] Label "rzeczywiste rozliczenia" vs "orientacyjne stawki" w UI
+- [ ] Fix rozjada 41% (P2-031) jako część tego zadania
+
+**Pliki do zmiany:**
+- `backend/migrate.py` (nowy step: import `rozliczenie` z dumpa)
+- `backend/shared/revenue.py` (źródło "actual" z settlements)
+- `backend/stats/router.py` (filtr `is_legacy` + źródło przychodu)
+- `backend/explorer/router.py` (fix rozjada — użyj `shared.revenue`)
+- `frontend/src/components/reports/ReportsSection.vue` (toggle + label)
+
+**Dane:**
+- Dump SQL: `spec/backlog/archiwum/refinement/toolsmart_roa_1779053066.sql` (linie 4550-6524)
+- 3836 wierszy, 353 unikalnych pozycji, 792,384 zł, 99.2% mapuje się na contract_positions
+
+---
+
+#### [RAO-P2-033] `contracts.total_value` martwe pole (100% NULL)
+
+```yaml
+id: RAO-P2-033
+priority: P2
+size: XS
+status: done
+classification: cleanup/data
+roles: [db-architect]
+source: tech-lead-audit
+source_date: 2026-07-01
+implementation_date: 2026-07-01
+note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone z P1-021)"
+```
+
+**Problem:** `contracts.total_value` jest NULL/0 dla 100% umów (742/742). Pole nie jest używane w statystykach (przychód z `position_conditions`), tylko w PDF umowy jako snapshot.
+
+**Opcje:**
+1. Zostawić (pole w PDF, nie blokuje) — rekomendowane
+2. Usunąć kolumnę (destructive — wymaga zgody)
+3. Wypełnić z `SUM(position_conditions)` (ale to szacunek, nie rzeczywistość)
+
+**Rekomendacja:** Zostawić jak jest. Pole jest w PDF umowy jako "Wartość (zł)" — decyzja P1-021 przenosi to do ekranu rozliczenia.
+
+---
+
+## ✅ Wykonane prace (2026-07-01)
+
+### P2-028 — Statystyki miast via PNA (DONE, dev-verified)
+- **Commit:** `7bb2d1a` (backend+DB), `0ee1751` (frontend)
+- **Co zrobiono:**
+  - Pełny Spis PNA Poczty Polskiej (21,904 wpisów) w tabeli `postal_codes`
+  - `contracts.postal_code_id` (FK) + `is_legacy` + backfill
+  - `shared/locations.py` + `shared/revenue.py` (unifikacja stats+explorer)
+  - `GET /explorer/locations/{postal_code}` (drill-down po PNA)
+  - `PostalCodeLookupResponse` z gmina/powiat/wojewodztwo
+  - Frontend: auto-fill PNA + panel gmina/powiat/woj + ReportsSection :key fix
+  - Deduplikacja legacy numerów umów (S142/2026, 111)
+  - Fix `extract_address` (integrations/router.py) — używa PNA zamiast usuniętego `extract_city`
+- **Weryfikacja:** 221 pytest passed, vue-tsc exit 0, build OK, smoke e2e 11 passed
+
+### Lint fixes — ContractFormView.vue (2026-07-01)
+- **Co zrobiono:** Naprawiono 20 pre-existing TS lint errors (`ref([])` → typed refs)
+  - `contractorAddresses` → `ref<ContractorAddress[]>([])`
+  - `pickerList` → `ref<ContractorPick[]>([])`
+  - `settlements` → `ref<Settlement[]>([])`
+  - `editingFeeData` → `ref<Partial<FeeData>>({})`
+  - `selectedAddressId` → `ref<number | null>(null)`
+  - `editingFeeId` → `ref<number | null>(null)`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+
+### Auto-fill PNA flow (2026-07-01)
+- **Co zrobiono:** 3 ścieżki auto-fill PNA w ContractFormView.vue
+  1. `onDeliveryAddressInput` — po extract-address auto-trigger PNA lookup
+  2. `onAddressSelect` — wypełnia postal_code+city z adresu kontrahenta + auto PNA lookup
+  3. `onPostalCodeBlur` — refactor na reusable `lookupPna()`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+  - core/08_migration_plan.md
+
+**Problem:** Obecnie przychód liczony z `position_conditions.rate1 × period_count` (kaskadowe) — **orientacyjne stawki z umowy**, nie rzeczywiste kwoty zafakturowane. `contracts.total_value` jest NULL/0 dla 100% umów (martwe pole).
+
+**Odkrycie:** W dumpie starej bazy (`spec/backlog/archiwum/refinement/toolsmart_roa_*.sql`) jest tabela `rozliczenie` z **3836 wierszami** (~1951 sparsowanych, 792,384 zł) — **rzeczywiste rozliczenia per pozycja**:
+- `id, data, id_pozycji, wartosc`
+- 99.2% `id_pozycji` mapuje się na `contract_positions.id`
+- `wartosc` = rzeczywista kwota rozliczona (po fakcie)
+
+**Stara funkcja SQL (linia 11064-11070):** NIE używała `oplata1 × liczba_dni` (kaskadowe), ale **lookup** — wybierała jedną stawkę po `liczba_dni` (inny algorytm niż nasz `calculate_position_value`).
+
+**Koncepcja operatora — Data Cutoff + Dwa tryby:**
+1. **Dane historyczne (`is_legacy=1`, przed cutofficem):**
+   - Import `rozliczenie` → `contract_settlements` (cost_client=wartosc, source='legacy')
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty**
+   - Osobna sekcja UI: "Analiza danych historycznych" z label "rzeczywiste rozliczenia"
+2. **Nowe dane (`is_legacy=0`, po cutofficie):**
+   - Integracja Fakturownia (już istnieje! `init-from-fakturownia`)
+   - `contract.oid` + `article.fakturownia_product_id` → automatyczne mapowanie
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty zafakturowane**
+
+**Decyzje do podjęcia (wymaga operatora/klienta):**
+1. Czy importować `rozliczenie` (3836 wierszy) do `contract_settlements`?
+2. Kiedy następuje cutoff? (wszystkie 742 obecne umowy = legacy?)
+3. Czy zachować `position_conditions` (szacunek) jako fallback gdy brak rozliczenia?
+4. Czy UI ma mieć przełącznik "Dane historyczne / Dane bieżące"?
+
+**Acceptance criteria (po decyzji):**
+- [ ] Import `rozliczenie` do `contract_settlements` (deterministyczny, z dumpa SQL)
+- [ ] `shared/revenue.py` — źródło "actual" z `contract_settlements` (priorytet) + fallback "estimate" z `position_conditions`
+- [ ] UI toggle "Dane historyczne / Dane bieżące" w ReportsSection
+- [ ] Label "rzeczywiste rozliczenia" vs "orientacyjne stawki" w UI
+- [ ] Fix rozjada 41% (P2-031) jako część tego zadania
+
+**Pliki do zmiany:**
+- `backend/migrate.py` (nowy step: import `rozliczenie` z dumpa)
+- `backend/shared/revenue.py` (źródło "actual" z settlements)
+- `backend/stats/router.py` (filtr `is_legacy` + źródło przychodu)
+- `backend/explorer/router.py` (fix rozjada — użyj `shared.revenue`)
+- `frontend/src/components/reports/ReportsSection.vue` (toggle + label)
+
+**Dane:**
+- Dump SQL: `spec/backlog/archiwum/refinement/toolsmart_roa_1779053066.sql` (linie 4550-6524)
+- 3836 wierszy, 353 unikalnych pozycji, 792,384 zł, 99.2% mapuje się na contract_positions
+
+---
+
+#### [RAO-P2-033] `contracts.total_value` martwe pole (100% NULL)
+
+```yaml
+id: RAO-P2-033
+priority: P2
+size: XS
+status: done
+classification: cleanup/data
+roles: [db-architect]
+source: tech-lead-audit
+source_date: 2026-07-01
+implementation_date: 2026-07-01
+note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone z P1-021)"
+```
+
+**Problem:** `contracts.total_value` jest NULL/0 dla 100% umów (742/742). Pole nie jest używane w statystykach (przychód z `position_conditions`), tylko w PDF umowy jako snapshot.
+
+**Opcje:**
+1. Zostawić (pole w PDF, nie blokuje) — rekomendowane
+2. Usunąć kolumnę (destructive — wymaga zgody)
+3. Wypełnić z `SUM(position_conditions)` (ale to szacunek, nie rzeczywistość)
+
+**Rekomendacja:** Zostawić jak jest. Pole jest w PDF umowy jako "Wartość (zł)" — decyzja P1-021 przenosi to do ekranu rozliczenia.
+
+---
+
+## ✅ Wykonane prace (2026-07-01)
+
+### P2-028 — Statystyki miast via PNA (DONE, dev-verified)
+- **Commit:** `7bb2d1a` (backend+DB), `0ee1751` (frontend)
+- **Co zrobiono:**
+  - Pełny Spis PNA Poczty Polskiej (21,904 wpisów) w tabeli `postal_codes`
+  - `contracts.postal_code_id` (FK) + `is_legacy` + backfill
+  - `shared/locations.py` + `shared/revenue.py` (unifikacja stats+explorer)
+  - `GET /explorer/locations/{postal_code}` (drill-down po PNA)
+  - `PostalCodeLookupResponse` z gmina/powiat/wojewodztwo
+  - Frontend: auto-fill PNA + panel gmina/powiat/woj + ReportsSection :key fix
+  - Deduplikacja legacy numerów umów (S142/2026, 111)
+  - Fix `extract_address` (integrations/router.py) — używa PNA zamiast usuniętego `extract_city`
+- **Weryfikacja:** 221 pytest passed, vue-tsc exit 0, build OK, smoke e2e 11 passed
+
+### Lint fixes — ContractFormView.vue (2026-07-01)
+- **Co zrobiono:** Naprawiono 20 pre-existing TS lint errors (`ref([])` → typed refs)
+  - `contractorAddresses` → `ref<ContractorAddress[]>([])`
+  - `pickerList` → `ref<ContractorPick[]>([])`
+  - `settlements` → `ref<Settlement[]>([])`
+  - `editingFeeData` → `ref<Partial<FeeData>>({})`
+  - `selectedAddressId` → `ref<number | null>(null)`
+  - `editingFeeId` → `ref<number | null>(null)`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+
+### Auto-fill PNA flow (2026-07-01)
+- **Co zrobiono:** 3 ścieżki auto-fill PNA w ContractFormView.vue
+  1. `onDeliveryAddressInput` — po extract-address auto-trigger PNA lookup
+  2. `onAddressSelect` — wypełnia postal_code+city z adresu kontrahenta + auto PNA lookup
+  3. `onPostalCodeBlur` — refactor na reusable `lookupPna()`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+**Stara funkcja SQL (linia 11064-11070):** NIE używała `oplata1 × liczba_dni` (kaskadowe), ale **lookup** — wybierała jedną stawkę po `liczba_dni` (inny algorytm niż nasz `calculate_position_value`).
+
+**Koncepcja operatora — Data Cutoff + Dwa tryby:**
+1. **Dane historyczne (`is_legacy=1`, przed cutofficem):**
+   - Import `rozliczenie` → `contract_settlements` (cost_client=wartosc, source='legacy')
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty**
+   - Osobna sekcja UI: "Analiza danych historycznych" z label "rzeczywiste rozliczenia"
+2. **Nowe dane (`is_legacy=0`, po cutofficie):**
+   - Integracja Fakturownia (już istnieje! `init-from-fakturownia`)
+   - `contract.oid` + `article.fakturownia_product_id` → automatyczne mapowanie
+   - Statystyki = SUM(settlements) — **rzeczywiste kwoty zafakturowane**
+
+**Decyzje do podjęcia (wymaga operatora/klienta):**
+1. Czy importować `rozliczenie` (3836 wierszy) do `contract_settlements`?
+2. Kiedy następuje cutoff? (wszystkie 742 obecne umowy = legacy?)
+3. Czy zachować `position_conditions` (szacunek) jako fallback gdy brak rozliczenia?
+4. Czy UI ma mieć przełącznik "Dane historyczne / Dane bieżące"?
+
+**Acceptance criteria (po decyzji):**
+- [ ] Import `rozliczenie` do `contract_settlements` (deterministyczny, z dumpa SQL)
+- [ ] `shared/revenue.py` — źródło "actual" z `contract_settlements` (priorytet) + fallback "estimate" z `position_conditions`
+- [ ] UI toggle "Dane historyczne / Dane bieżące" w ReportsSection
+- [ ] Label "rzeczywiste rozliczenia" vs "orientacyjne stawki" w UI
+- [ ] Fix rozjada 41% (P2-031) jako część tego zadania
+
+**Pliki do zmiany:**
+- `backend/migrate.py` (nowy step: import `rozliczenie` z dumpa)
+- `backend/shared/revenue.py` (źródło "actual" z settlements)
+- `backend/stats/router.py` (filtr `is_legacy` + źródło przychodu)
+- `backend/explorer/router.py` (fix rozjada — użyj `shared.revenue`)
+- `frontend/src/components/reports/ReportsSection.vue` (toggle + label)
+
+**Dane:**
+- Dump SQL: `spec/backlog/archiwum/refinement/toolsmart_roa_1779053066.sql` (linie 4550-6524)
+- 3836 wierszy, 353 unikalnych pozycji, 792,384 zł, 99.2% mapuje się na contract_positions
+
+---
+
+#### [RAO-P2-033] `contracts.total_value` martwe pole (100% NULL)
+
+```yaml
+id: RAO-P2-033
+priority: P2
+size: XS
+status: done
+classification: cleanup/data
+roles: [db-architect]
+source: tech-lead-audit
+source_date: 2026-07-01
+implementation_date: 2026-07-01
+note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone z P1-021)"
+```
+
+**Problem:** `contracts.total_value` jest NULL/0 dla 100% umów (742/742). Pole nie jest używane w statystykach (przychód z `position_conditions`), tylko w PDF umowy jako snapshot.
+
+**Opcje:**
+1. Zostawić (pole w PDF, nie blokuje) — rekomendowane
+2. Usunąć kolumnę (destructive — wymaga zgody)
+3. Wypełnić z `SUM(position_conditions)` (ale to szacunek, nie rzeczywistość)
+
+**Rekomendacja:** Zostawić jak jest. Pole jest w PDF umowy jako "Wartość (zł)" — decyzja P1-021 przenosi to do ekranu rozliczenia.
+
+---
+
+## ✅ Wykonane prace (2026-07-01)
+
+### P2-028 — Statystyki miast via PNA (DONE, dev-verified)
+- **Commit:** `7bb2d1a` (backend+DB), `0ee1751` (frontend)
+- **Co zrobiono:**
+  - Pełny Spis PNA Poczty Polskiej (21,904 wpisów) w tabeli `postal_codes`
+  - `contracts.postal_code_id` (FK) + `is_legacy` + backfill
+  - `shared/locations.py` + `shared/revenue.py` (unifikacja stats+explorer)
+  - `GET /explorer/locations/{postal_code}` (drill-down po PNA)
+  - `PostalCodeLookupResponse` z gmina/powiat/wojewodztwo
+  - Frontend: auto-fill PNA + panel gmina/powiat/woj + ReportsSection :key fix
+  - Deduplikacja legacy numerów umów (S142/2026, 111)
+  - Fix `extract_address` (integrations/router.py) — używa PNA zamiast usuniętego `extract_city`
+- **Weryfikacja:** 221 pytest passed, vue-tsc exit 0, build OK, smoke e2e 11 passed
+
+### Lint fixes — ContractFormView.vue (2026-07-01)
+- **Co zrobiono:** Naprawiono 20 pre-existing TS lint errors (`ref([])` → typed refs)
+  - `contractorAddresses` → `ref<ContractorAddress[]>([])`
+  - `pickerList` → `ref<ContractorPick[]>([])`
+  - `settlements` → `ref<Settlement[]>([])`
+  - `editingFeeData` → `ref<Partial<FeeData>>({})`
+  - `selectedAddressId` → `ref<number | null>(null)`
+  - `editingFeeId` → `ref<number | null>(null)`
+- **Weryfikacja:** vue-tsc exit 0, build OK
+
+### Auto-fill PNA flow (2026-07-01)
+- **Co zrobiono:** 3 ścieżki auto-fill PNA w ContractFormView.vue
+  1. `onDeliveryAddressInput` — po extract-address auto-trigger PNA lookup
+  2. `onAddressSelect` — wypełnia postal_code+city z adresu kontrahenta + auto PNA lookup
+  3. `onPostalCodeBlur` — refactor na reusable `lookupPna()`
 - **Weryfikacja:** vue-tsc exit 0, build OK
