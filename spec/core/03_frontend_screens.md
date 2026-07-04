@@ -518,6 +518,14 @@ const selectedAddress = ref(null)
 const isNew = computed(() => !route.params.id)
 ```
 
+- **RAO-P2-050 (2026-07-15):** Walidacja po stronie klienta — blokada submit + widoczne błędy per-pole
+  - `fieldErrors: Record<string, string>` ref + funkcja `validateForm()` wywoływana w `handleSave()`
+  - Reguły:
+    - **Pełna nazwa** — wymagana (`fieldErrors.name`)
+    - **NIP** — jeśli podany, musi mieć 10 cyfr + poprawna suma kontrolna (`isValidNIP`, algorytm wag `[6,5,7,2,3,4,5,6,7]`)
+  - Widoczność: czerwony border (`.form-control.error`) + komunikat `.field-error` pod polem
+  - Submit zablokowany gdy błędy walidacji
+
 ---
 
 ## Widok: `ContractFormView.vue`
@@ -1267,6 +1275,14 @@ async function handleFakturownia() {
   - Nazwy pól są mapowane na język polski (postal_code → Kod pocztowy, city → Miasto)
   - Funkcja `handleSave()` w `ContractFormView.vue` parsuje `e.response?.data?.detail`
 - Inline validation dla required fields (data od, kontrahent)
+- **RAO-P2-050 (2026-07-15):** Walidacja po stronie klienta — blokada submit + widoczne błędy per-pole
+  - `fieldErrors: Record<string, string>` ref + funkcja `validateForm()` wywoływana w `handleSave()`
+  - Reguły:
+    - **Kontrahent** — wymagany (`fieldErrors.contractor_id`)
+    - **Data od / Data do** — wymagane; `date_from` musi być ≤ `date_to` (`fieldErrors.date_to` = „Data do musi być późniejsza niż data od")
+    - **Przedpłata / Faktura** — liczby nieujemne (`fieldErrors.prepayment_amount` / `fieldErrors.invoice_amount`)
+  - Widoczność: czerwony border (`.form-control.error` → `--color-error` + `--color-error-bg`) + komunikat pod polem (`.field-error`)
+  - Submit zablokowany gdy `Object.keys(fieldErrors).length > 0`
 - **RAO-P2-005:** Inline dodawanie kontrahenta z formularza umowy
   - W pickerze kontrahentów przycisk "➕ Dodaj nowego kontrahenta" (prominent CTA)
   - Gdy wyszukiwanie nie zwraca wyników, wyświetlany jest komunikat "Brak wyników dla {search}"
@@ -1533,6 +1549,15 @@ Następca: patrz sekcja `AnalyticsView.vue` poniżej.
 **Route:** `/articles/new` | `/articles/:id/edit` | **requiresAuth:** tak
 
 **Opis:** Pełnoekranowy formularz tworzenia i edycji artykułu (maszyny/narzędzia/usługi).
+
+- **RAO-P2-050 (2026-07-15):** Walidacja po stronie klienta — blokada submit + widoczne błędy per-pole
+  - `fieldErrors: Record<string, string>` ref + funkcja `validateForm()` wywoływana w `handleSave()`
+  - Reguły:
+    - **Nazwa artykułu** — wymagana (`fieldErrors.name`)
+    - **Wartość odtworzeniowa** — jeśli podana, liczba nieujemna (`fieldErrors.replacement_value`)
+    - **Min. dni najmu** — jeśli podane, liczba ≥ 1 (`fieldErrors.rental_days`)
+  - Widoczność: czerwony border (`.form-control.error`) + komunikat `.field-error` pod polem
+  - Submit zablokowany gdy błędy walidacji
 
 **Pola formularza:**
 - `name` — Nazwa artykułu * (wymagana)
@@ -1856,6 +1881,39 @@ onUnmounted(() => {
 - Props: `tabs: AnalyticsTab[]` (`{ key, label, icon? }`), `active`. Emits: `@change(key)`.
 - Pills w flex row; aktywna = bg primary + color on-primary; nieaktywna hover = bg light.
 - data-testid: `analytics-tabs`, `tab-<key>`.
+
+## Komponent `components/StateMessage.vue` (RAO-P2-049, 2026-07-15)
+
+> Reużywalny komponent stanów loading / error / empty — spójne stany we wszystkich widokach listowych.
+> Zastępuje rozproszone inline `class="empty-state"` komunikaty. Style wyłącznie przez zmienne CSS z `style.css`.
+
+### Props
+| Prop | Typ | Domyślnie | Opis |
+|------|-----|-----------|------|
+| `type` | `'loading' \| 'error' \| 'empty'` | — (wymagany) | Rodzaj stanu |
+| `message` | `string` | auto (`Ładowanie...` / `Wystąpił błąd` / `Brak danych`) | Tekst komunikatu |
+| `actionLabel` | `string` | `''` | Etykieta przycisku akcji (np. `+ Nowa umowa`) |
+| `retryLabel` | `string` | `''` | Alias `actionLabel` (kompatybilność) |
+| `compact` | `boolean` | `false` | Tryb kompaktowy — mniejsze paddingi (np. wewnątrz `<td>` tabeli) |
+
+### Emits
+- `action` — klik przycisku. Dla `type='error'` przycisk domyślnie „Spróbuj ponownie" nawet bez `actionLabel`.
+
+### Renderowanie
+- `loading`: spinner (CSS animation, `--color-primary` border-top) + tekst.
+- `error`: ikona ⚠️ + tekst w `--color-error` + przycisk retry.
+- `empty`: ikona 📭 + tekst w `--color-text-muted` + opcjonalny przycisk CTA.
+- `role="status"`, `aria-live` = `assertive` dla error / `polite` dla loading/empty.
+- `prefers-reduced-motion`: wolniejsza animacja spinnera.
+
+### data-testid
+- `state-loading`, `state-error`, `state-empty`, `state-<type>-action`.
+
+### Integracja (RAO-P2-049)
+- `DashboardView.vue` — sekcje contracts / overdue / contractors / articles: loading + error (retry `loadData`) + empty (CTA dodawania).
+- `ArchiveView.vue` — zakładki contracts / articles / stats: loading + error (retry `applyContractFilters` / `applyArticleFilters` / `loadStats`) + empty.
+- `SettingsView.vue` — zakładka company: loading + error (retry `reloadAll`).
+- `components/analytics/tabs/PeriodRentalTab.vue` — loading + error (retry `loadAll`).
 
 ### Weryfikacja
 - `npx vue-tsc --noEmit` → PASS (exit 0)

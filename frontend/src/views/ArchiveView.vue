@@ -64,13 +64,13 @@
               </thead>
               <tbody>
                 <tr v-if="archiveStore.contractsLoading">
-                  <td colspan="8" class="empty-state">Ładowanie...</td>
+                  <td colspan="8"><StateMessage type="loading" compact message="Ladowanie umow archiwum..." /></td>
                 </tr>
                 <tr v-else-if="archiveStore.contractsError">
-                  <td colspan="8" class="empty-state error">Błąd: {{ archiveStore.contractsError }}</td>
+                  <td colspan="8"><StateMessage type="error" compact :message="archiveStore.contractsError" @action="applyContractFilters" /></td>
                 </tr>
                 <tr v-else-if="!archiveStore.contracts.length">
-                  <td colspan="8" class="empty-state">Brak umów archiwum</td>
+                  <td colspan="8"><StateMessage type="empty" compact message="Brak umow archiwum" /></td>
                 </tr>
                 <tr
                   v-for="c in archiveStore.contracts"
@@ -232,13 +232,13 @@
               </thead>
               <tbody>
                 <tr v-if="archiveStore.articlesLoading">
-                  <td colspan="5" class="empty-state">Ładowanie...</td>
+                  <td colspan="5"><StateMessage type="loading" compact message="Ladowanie maszyn archiwum..." /></td>
                 </tr>
                 <tr v-else-if="archiveStore.articlesError">
-                  <td colspan="5" class="empty-state error">Błąd: {{ archiveStore.articlesError }}</td>
+                  <td colspan="5"><StateMessage type="error" compact :message="archiveStore.articlesError" @action="applyArticleFilters" /></td>
                 </tr>
                 <tr v-else-if="!archiveStore.articles.length">
-                  <td colspan="5" class="empty-state">Brak maszyn archiwum</td>
+                  <td colspan="5"><StateMessage type="empty" compact message="Brak maszyn archiwum" /></td>
                 </tr>
                 <tr v-for="a in archiveStore.articles" :key="a.id">
                   <td>{{ a.internal_number || '—' }}</td>
@@ -292,8 +292,8 @@
           <button class="btn btn-primary btn-sm" @click="loadStats">Odśwież</button>
         </div>
 
-        <div v-if="archiveStore.statsLoading" class="empty-state">Ładowanie statystyk...</div>
-        <div v-else-if="archiveStore.statsError" class="empty-state error">Błąd: {{ archiveStore.statsError }}</div>
+        <StateMessage v-if="archiveStore.statsLoading" type="loading" message="Ladowanie statystyk archiwum..." />
+        <StateMessage v-else-if="archiveStore.statsError" type="error" :message="archiveStore.statsError" @action="loadStats" />
 
         <template v-else>
           <!-- Podsumowanie -->
@@ -632,6 +632,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useArchiveStore } from '@/stores/archive'
 import { useAuthStore } from '@/stores/auth'
+import StateMessage from '@/components/StateMessage.vue'
 import type {
   ArchiveCategoryPayload,
   ArchiveCategoryTreeNode,

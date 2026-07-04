@@ -20,7 +20,8 @@
 
             <div class="form-group">
               <label class="form-label">Pełna nazwa *</label>
-              <input v-model="form.name" type="text" class="form-control" placeholder="Nazwa firmy lub imię i nazwisko" required />
+              <input v-model="form.name" type="text" class="form-control" :class="{ error: fieldErrors.name }" placeholder="Nazwa firmy lub imię i nazwisko" required />
+              <span v-if="fieldErrors.name" class="field-error">{{ fieldErrors.name }}</span>
             </div>
             <div class="form-row-2">
               <div class="form-group">
@@ -33,7 +34,8 @@
                     {{ gusLoading ? '...' : 'GUS' }}
                   </button>
                 </label>
-                <input v-model="form.nip" type="text" class="form-control" placeholder="0000000000" maxlength="20" />
+                <input v-model="form.nip" type="text" class="form-control" :class="{ error: fieldErrors.nip }" placeholder="0000000000" maxlength="20" />
+                <span v-if="fieldErrors.nip" class="field-error">{{ fieldErrors.nip }}</span>
               </div>
             </div>
             <div class="form-row-2">
@@ -215,6 +217,8 @@ const loading = ref(false)
 const saving = ref(false)
 const gusLoading = ref(false)
 const errorMsg = ref('')
+// RAO-P2-050: walidacja per-pole (required name, NIP 10 cyfr)
+const fieldErrors = ref({})
 const contractor = ref(null)
 const selectedAddrId = ref(null)
 const showAddrModal = ref(false)
@@ -258,15 +262,29 @@ function isValidNIP(nip) {
   return checkDigit === parseInt(nip[9])
 }
 
+// RAO-P2-050: walidacja po stronie klienta — required name, NIP 10 cyfr + checksum
+function validateForm() {
+  fieldErrors.value = {}
+  const errors = {}
+  if (!form.value.name || !form.value.name.trim()) {
+    errors.name = 'Podaj pelna nazwe kontrahenta'
+  }
+  if (form.value.nip) {
+    if (!/^\d{10}$/.test(form.value.nip)) {
+      errors.nip = 'NIP musi miec 10 cyfr'
+    } else if (!isValidNIP(form.value.nip)) {
+      errors.nip = 'NIP nieprawidlowy (bledna suma kontrolna)'
+    }
+  }
+  fieldErrors.value = errors
+  return Object.keys(errors).length === 0
+}
+
 async function handleSave() {
+  // RAO-P2-050: blokuj submit gdy bledy walidacji
+  if (!validateForm()) return
   saving.value = true
   errorMsg.value = ''
-  // Validate NIP if provided
-  if (form.value.nip && !isValidNIP(form.value.nip)) {
-    errorMsg.value = 'NIP nieprawidłowy (błędna suma kontrolna)'
-    saving.value = false
-    return
-  }
   try {
     if (isEdit.value) {
       await store.update(Number(props.id), form.value)
@@ -369,6 +387,18 @@ function addContract() {
 </script>
 
 <style scoped>
+/* RAO-P2-050: widoczna walidacja per-pole (czerwony border + komunikat) */
+.field-error {
+  display: block;
+  color: var(--color-error);
+  font-size: 12px;
+  margin-top: 4px;
+  font-weight: 500;
+}
+.form-control.error {
+  border-color: var(--color-error);
+  background: var(--color-error-bg);
+}
 .address-item {
   padding: 10px 14px;
   border-bottom: 1px solid var(--color-border);

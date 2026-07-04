@@ -26,7 +26,8 @@
 
             <!-- Company tab -->
             <div v-if="activeTab === 'company'">
-              <div v-if="settingsStore.loading" class="empty-state">Ładowanie...</div>
+              <StateMessage v-if="settingsStore.loading" type="loading" message="Ladowanie danych firmy..." />
+              <StateMessage v-else-if="loadError" type="error" :message="loadError" @action="reloadAll" />
               <div v-else>
                 <div class="form-row-2">
                   <div class="form-group">
@@ -448,6 +449,7 @@ import { VueDraggable } from 'vue-draggable-plus'
 import { useSettingsStore } from '@/stores/settings'
 import { useArticleStore } from '@/stores/articles'
 import { useFakturowniaStore } from '@/stores/fakturownia'
+import StateMessage from '@/components/StateMessage.vue'
 import api from '@/composables/useApi'
 import { useTargetFolder } from '@/composables/useTargetFolder.js'
 
@@ -468,6 +470,8 @@ onUnmounted(() => {
 })
 
 const activeTab = ref('company')
+// RAO-P2-049: error state dla ladowania ustawien
+const loadError = ref<string>('')
 const tabs = [
   { id: 'company', label: 'Dane firmy' },
   { id: 'salespeople', label: 'Handlowcy' },
@@ -552,15 +556,25 @@ async function handleClearFolder() {
 }
 
 onMounted(async () => {
-  await Promise.all([settingsStore.fetchAll(), settingsStore.fetchCategoriesTree()])
-  const company = await settingsStore.fetchCompany()
-  if (company) Object.assign(companyForm.value, company)
-  await loadFeePresets()
-  // RAO-P1-011: Load articles for picker
-  await articleStore.fetchList({ is_service: true })
-  // RAO-P3-013: Load saved folder name
-  await loadFolderName()
+  await reloadAll()
 })
+
+// RAO-P2-049: reload z obsluga bledu (uzywane przez StateMessage retry)
+async function reloadAll(): Promise<void> {
+  loadError.value = ''
+  try {
+    await Promise.all([settingsStore.fetchAll(), settingsStore.fetchCategoriesTree()])
+    const company = await settingsStore.fetchCompany()
+    if (company) Object.assign(companyForm.value, company)
+    await loadFeePresets()
+    // RAO-P1-011: Load articles for picker
+    await articleStore.fetchList({ is_service: true })
+    // RAO-P3-013: Load saved folder name
+    await loadFolderName()
+  } catch (e: any) {
+    loadError.value = e?.response?.data?.detail || e?.message || 'Nie udalo sie pobrac ustawien'
+  }
+}
 
 async function loadFeePresets() {
   console.log('loadFeePresets: starting...');

@@ -50,12 +50,14 @@
               </thead>
               <tbody>
                 <tr v-if="contractStore.loading">
-                  <td colspan="10" class="empty-state">Ładowanie...</td>
+                  <td colspan="10"><StateMessage type="loading" compact message="Ladowanie umow..." /></td>
+                </tr>
+                <tr v-else-if="loadError">
+                  <td colspan="10"><StateMessage type="error" compact :message="loadError" @action="loadData" /></td>
                 </tr>
                 <tr v-else-if="!contractStore.list.length">
-                  <td colspan="10" class="empty-state">
-                    Brak umów —
-                    <button class="btn btn-primary btn-sm" style="margin-left:8px;" @click="router.push({ name: 'ContractNew' })">+ Nowa umowa</button>
+                  <td colspan="10">
+                    <StateMessage type="empty" compact message="Brak umow" action-label="+ Nowa umowa" @action="router.push({ name: 'ContractNew' })" />
                   </td>
                 </tr>
                 <tr
@@ -129,12 +131,13 @@
               </thead>
               <tbody>
                 <tr v-if="contractStore.overdueLoading">
-                  <td colspan="9" class="empty-state">Ładowanie...</td>
+                  <td colspan="9"><StateMessage type="loading" compact message="Ladowanie przeterminowanych umow..." /></td>
+                </tr>
+                <tr v-else-if="loadError">
+                  <td colspan="9"><StateMessage type="error" compact :message="loadError" @action="loadData" /></td>
                 </tr>
                 <tr v-else-if="!contractStore.overdueList.length">
-                  <td colspan="9" class="empty-state">
-                    Brak przeterminowanych umów
-                  </td>
+                  <td colspan="9"><StateMessage type="empty" compact message="Brak przeterminowanych umow" /></td>
                 </tr>
                 <tr
                   v-for="c in contractStore.overdueList"
@@ -186,12 +189,14 @@
               </thead>
               <tbody>
                 <tr v-if="contractorStore.loading">
-                  <td colspan="6" class="empty-state">Ładowanie...</td>
+                  <td colspan="6"><StateMessage type="loading" compact message="Ladowanie kontrahentow..." /></td>
+                </tr>
+                <tr v-else-if="loadError">
+                  <td colspan="6"><StateMessage type="error" compact :message="loadError" @action="loadData" /></td>
                 </tr>
                 <tr v-else-if="!contractorStore.list.length">
-                  <td colspan="6" class="empty-state">
-                    Brak kontrahentów —
-                    <button class="btn btn-primary btn-sm" style="margin-left:8px;" @click="router.push({ name: 'ContractorNew' })">+ Nowy kontrahent</button>
+                  <td colspan="6">
+                    <StateMessage type="empty" compact message="Brak kontrahentow" action-label="+ Nowy kontrahent" @action="router.push({ name: 'ContractorNew' })" />
                   </td>
                 </tr>
                 <tr
@@ -250,17 +255,22 @@
               </thead>
               <tbody>
                 <tr v-if="articleStore.loading">
-                  <td colspan="7" class="empty-state">Ładowanie...</td>
+                  <td colspan="7"><StateMessage type="loading" compact message="Ladowanie artykulow..." /></td>
+                </tr>
+                <tr v-else-if="loadError">
+                  <td colspan="7"><StateMessage type="error" compact :message="loadError" @action="loadData" /></td>
                 </tr>
                 <tr v-else-if="!articleStore.list.length">
-                  <td colspan="7" class="empty-state">
-                    <template v-if="archivalFilter === 'active'">
-                      Brak artykułów —
-                      <button class="btn btn-primary btn-sm" style="margin-left:8px;" @click="router.push({ name: 'ArticleNew' })">+ Nowy artykuł</button>
-                    </template>
-                    <template v-else>
-                      Brak artykułów archiwalnych
-                    </template>
+                  <td colspan="7">
+                    <StateMessage
+                      v-if="archivalFilter === 'active'"
+                      type="empty"
+                      compact
+                      message="Brak artykulow"
+                      action-label="+ Nowy artykul"
+                      @action="router.push({ name: 'ArticleNew' })"
+                    />
+                    <StateMessage v-else type="empty" compact message="Brak artykulow archiwalnych" />
                   </td>
                 </tr>
                 <tr
@@ -324,6 +334,7 @@ import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import AppToolbar from '@/components/layout/AppToolbar.vue'
 import ConfirmDialog from '@/components/shared/ConfirmDialog.vue'
+import StateMessage from '@/components/StateMessage.vue'
 import { useContractStore } from '@/stores/contracts'
 import { useContractorStore } from '@/stores/contractors'
 import { useArticleStore } from '@/stores/articles'
@@ -344,6 +355,8 @@ const selectedId = ref(null)
 const page = ref(1)
 const perPage = 50
 const showConfirm = ref(false)
+// RAO-P2-049: error state dla widokow listowych (retry przez loadData)
+const loadError = ref('')
 
 const ctxMenu = ref({ visible: false, x: 0, y: 0, contract: null })
 
@@ -393,23 +406,28 @@ const toolbarInfo = computed(() => {
 
 async function loadData() {
   selectedId.value = null
+  loadError.value = ''
   const params = { page: page.value, per_page: perPage }
   if (search.value) params.search = search.value
-  if (section.value === 'contracts') {
-    if (contractTypeFilter.value) params.contract_type = contractTypeFilter.value
-    if (settledFilter.value !== '') params.is_settled = settledFilter.value  // RAO-P2-022
-    if (dateFrom.value) params.date_from = dateFrom.value
-    if (dateTo.value) params.date_to = dateTo.value
-    await contractStore.fetchList(params)
-  } else if (section.value === 'overdue') {
-    await contractStore.fetchOverdueList(params)
-  } else if (section.value === 'contractors') {
-    await contractorStore.fetchList(params)
-  } else if (section.value === 'articles') {
-    if (archivalFilter.value === 'archival') {
-      params.archival_status = 'archival'
+  try {
+    if (section.value === 'contracts') {
+      if (contractTypeFilter.value) params.contract_type = contractTypeFilter.value
+      if (settledFilter.value !== '') params.is_settled = settledFilter.value  // RAO-P2-022
+      if (dateFrom.value) params.date_from = dateFrom.value
+      if (dateTo.value) params.date_to = dateTo.value
+      await contractStore.fetchList(params)
+    } else if (section.value === 'overdue') {
+      await contractStore.fetchOverdueList(params)
+    } else if (section.value === 'contractors') {
+      await contractorStore.fetchList(params)
+    } else if (section.value === 'articles') {
+      if (archivalFilter.value === 'archival') {
+        params.archival_status = 'archival'
+      }
+      await articleStore.fetchList(params)
     }
-    await articleStore.fetchList(params)
+  } catch (e) {
+    loadError.value = e?.response?.data?.detail || e?.message || 'Nie udalo sie pobrac danych'
   }
 }
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, onMounted, watch } from 'vue'
+import { computed, inject, onMounted, ref, watch } from 'vue'
 import {
   useAnalyticsStore,
   type AnalyticsFiltersPayload,
@@ -13,6 +13,7 @@ import AnalyticsTable, {
   type AnalyticsColumn,
   type AnalyticsRow,
 } from '@/components/analytics/AnalyticsTable.vue'
+import StateMessage from '@/components/StateMessage.vue'
 import { useSort } from '@/composables/useSort'
 
 interface Props {
@@ -179,8 +180,12 @@ function onLocationRowClick(row: AnalyticsRow): void {
 }
 
 // ── Fetch wszystkich 5 endpointów (parallel) ─────────────────────────────────
+// RAO-P2-049: error state z mozliwoscia retry
+const loadError = ref('')
+
 async function loadAll(): Promise<void> {
   store.loading = true
+  loadError.value = ''
   try {
     await Promise.all([
       store.fetchSummary(props.dateFrom, props.dateTo, props.filters.internalNumber),
@@ -189,6 +194,8 @@ async function loadAll(): Promise<void> {
       store.fetchLocations(props.dateFrom, props.dateTo, props.filters),
       store.fetchPositions('all', props.dateFrom, props.dateTo, props.filters),
     ])
+  } catch (e: any) {
+    loadError.value = e?.response?.data?.detail || e?.message || 'Nie udalo sie pobrac statystyk'
   } finally {
     store.loading = false
   }
@@ -203,9 +210,9 @@ watch(
 
 <template>
   <div class="period-rental-tab" data-testid="period-rental-tab">
-    <div v-if="store.loading && !store.summary" class="pr-loading">
-      Ładowanie statystyk…
-    </div>
+    <StateMessage v-if="store.loading && !store.summary" type="loading" message="Ladowanie statystyk..." />
+
+    <StateMessage v-else-if="loadError" type="error" :message="loadError" @action="loadAll" />
 
     <template v-else-if="store.summary">
       <!-- KPI -->

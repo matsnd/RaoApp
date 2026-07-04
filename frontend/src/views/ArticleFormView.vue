@@ -17,7 +17,8 @@
         <div class="form-row-2">
           <div class="form-group">
             <label class="form-label">Nazwa artykułu *</label>
-            <input v-model="form.name" type="text" class="form-control" placeholder="Np. Koparka gąsienicowa" required />
+            <input v-model="form.name" type="text" class="form-control" :class="{ error: fieldErrors.name }" placeholder="Np. Koparka gąsienicowa" required />
+            <span v-if="fieldErrors.name" class="field-error">{{ fieldErrors.name }}</span>
           </div>
           <div class="form-group">
             <label class="form-label">Typ artykułu</label>
@@ -60,7 +61,8 @@
           </div>
           <div class="form-group">
             <label class="form-label">Wartość odtworzeniowa (zł)</label>
-            <input v-model="form.replacement_value" type="number" step="0.01" class="form-control" />
+            <input v-model="form.replacement_value" type="number" step="0.01" class="form-control" :class="{ error: fieldErrors.replacement_value }" />
+            <span v-if="fieldErrors.replacement_value" class="field-error">{{ fieldErrors.replacement_value }}</span>
           </div>
         </div>
 
@@ -154,7 +156,8 @@
         <div class="form-row-2">
           <div class="form-group">
             <label class="form-label">Min. dni najmu</label>
-            <input v-model.number="form.rental_days" type="number" class="form-control" min="1" />
+            <input v-model.number="form.rental_days" type="number" class="form-control" :class="{ error: fieldErrors.rental_days }" min="1" />
+            <span v-if="fieldErrors.rental_days" class="field-error">{{ fieldErrors.rental_days }}</span>
           </div>
           <div class="form-group">
             <label class="form-label">Filia</label>
@@ -223,6 +226,8 @@ const isEdit = computed(() => !!props.id)
 const loading = ref(false)
 const saving = ref(false)
 const errorMsg = ref('')
+// RAO-P2-050: walidacja per-pole (required name, cena/wartosc >= 0)
+const fieldErrors = ref({})
 const ownerName = ref('')
 
 // RAO-P2-058: Fakturownia product mapping
@@ -336,7 +341,32 @@ onMounted(async () => {
 
 function goBack() { router.push('/dashboard/articles') }
 
+// RAO-P2-050: walidacja po stronie klienta — required name, wartosc odtworzeniowa >= 0
+function validateForm() {
+  fieldErrors.value = {}
+  const errors = {}
+  if (!form.value.name || !form.value.name.trim()) {
+    errors.name = 'Podaj nazwe artykulu'
+  }
+  if (form.value.replacement_value !== null && form.value.replacement_value !== '' && form.value.replacement_value !== undefined) {
+    const v = Number(form.value.replacement_value)
+    if (Number.isNaN(v) || v < 0) {
+      errors.replacement_value = 'Wartosc odtworzeniowa musi byc liczba nieujemna'
+    }
+  }
+  if (form.value.rental_days !== null && form.value.rental_days !== '' && form.value.rental_days !== undefined) {
+    const d = Number(form.value.rental_days)
+    if (Number.isNaN(d) || d < 1) {
+      errors.rental_days = 'Min. dni najmu musi byc liczba >= 1'
+    }
+  }
+  fieldErrors.value = errors
+  return Object.keys(errors).length === 0
+}
+
 async function handleSave() {
+  // RAO-P2-050: blokuj submit gdy bledy walidacji
+  if (!validateForm()) return
   if (!form.value.name) { errorMsg.value = 'Podaj nazwę artykułu'; return }
   saving.value = true
   errorMsg.value = ''
@@ -398,3 +428,18 @@ function clearOwner() {
   ownerName.value = ''
 }
 </script>
+
+<style scoped>
+/* RAO-P2-050: widoczna walidacja per-pole (czerwony border + komunikat) */
+.field-error {
+  display: block;
+  color: var(--color-error);
+  font-size: 12px;
+  margin-top: 4px;
+  font-weight: 500;
+}
+.form-control.error {
+  border-color: var(--color-error);
+  background: var(--color-error-bg);
+}
+</style>
