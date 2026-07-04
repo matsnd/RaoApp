@@ -2420,6 +2420,8 @@ depends_on:
 
 #### 🟡 P2 — funkcjonalność / UX
 
+4b. **🔴 REGRESJA: zgubiona zakładka "Lokalizacje" z Eksploratora (panele miast)** — zgłoszone przez usera 2026-07-04 ("kiedyś były panele miast"). Stary ReportsSection miał w Eksploratorze pełny panel miast: (a) wyszukiwarka miast z podpowiedziami, (b) ranking miast top 20 z kolumnami Miasto/PNA/**Gmina/Powiat**/wynajmy/przychód (klikalne), (c) drill-down miasta z metrykami (Umów/Klientów/Przychód/Średnio-umowę) + Top maszyny + Top kontrahenci w mieście. Backend PRZETRWAŁ merge (`/explorer/locations` ranking z rollup gmina/powiat/woj + `/explorer/locations/{postal_code}` szczegóły) — ale `analytics.ts` nie woła `/explorer/locations`, ExplorerTab nie ma zakładki Lokalizacje. Obecna tabela "Lokalizacje wynajmu" w PeriodRentalTab (z `/stats/locations`) to tylko namiastka (pokazuje "(brak PNA)"). FIX: dodać zakładkę/sekcję Lokalizacje w ExplorerTab — fetchLocationsRanking do store + ranking + wyszukiwarka + reuse istniejącego drill-down (~4h). PRIORYTET podniesiony do P1 (regresja feature parity zgłoszona przez usera).
+
 5. **Filtr KONTRAHENT (datalist value=id) przyjmuje dowolny tekst** — wpisanie "kop" zamiast ID cicho zawęża wszystkie taby do 0 wyników bez komunikatu (zweryfikowane na żywo: Explorer "koparka" → 0 wyników przy filtrze "kop", 6 wyników po wyczyszczeniu). FIX: walidacja/select zamiast wolnego tekstu + empty state z podpowiedzią "sprawdź aktywne filtry".
 6. **Brak sekcji Kategorii w PeriodRentalTab** — wymaganie klienta #5 ("top maszyny + kategorie"). Backend /stats/by-category + store byCategoryData gotowe, tylko UI brakuje (~2h).
 7. **Drill-down maszyny bez nr wewnętrznego w tytule** — machineDetails.machine.internal_number jest w responsie, nie renderowane (~15min).
