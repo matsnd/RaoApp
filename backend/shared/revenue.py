@@ -108,6 +108,7 @@ async def compute_position_revenues(
     category_main_filter: list[str] | None = None,
     category_sub1_filter: str | None = None,
     category_sub2_filter: str | None = None,
+    contract_ids: set[int] | None = None,
 ) -> list[dict]:
     """
     Fetch positions+conditions+settlements for contracts overlapping [df, dt],
@@ -124,6 +125,11 @@ async def compute_position_revenues(
         contract_date_from, clamped_days,
         revenue_actual, revenue_estimate_lookup, revenue_estimate_tiered,
         revenue, revenue_source
+
+    Args:
+        contract_ids: opcjonalny zbiór contract_id — gdy podany, pozycje są
+            filtrowane w SQL (WHERE contract_id IN ...) zamiast w Pythonie.
+            Używane przez /explorer/locations/city/{city} (RAO-P2-052).
     """
     stmt = (
         select(
@@ -147,6 +153,7 @@ async def compute_position_revenues(
             Article.category_sub2,          # p[17]
             Article.category_sub3,          # p[18]
             Contract.city,                  # p[19] — RAO: filtr city w stats
+            Contract.contract_type,         # p[20] — RAO-P2-056: grupowanie po S/U
         )
         .select_from(ContractPosition)
         .join(Contract, Contract.id == ContractPosition.contract_id)
@@ -164,6 +171,12 @@ async def compute_position_revenues(
         stmt = stmt.where(Article.category_sub1 == category_sub1_filter)
     if category_sub2_filter:
         stmt = stmt.where(Article.category_sub2 == category_sub2_filter)
+    # RAO-P2-052: filtr po konkretnych kontraktach (SQL WHERE IN) — używany
+    # przez /explorer/locations/city/{city} po wstępnym zmatchowaniu miasta w SQL.
+    if contract_ids is not None:
+        if not contract_ids:
+            return []  # pusty zbiór → brak wyników (uniknij nieprawidłowego `IN ()`)
+        stmt = stmt.where(ContractPosition.contract_id.in_(list(contract_ids)))
 
     pos_result = await db.execute(stmt)
     positions = pos_result.all()
@@ -275,5 +288,6 @@ async def compute_position_revenues(
             "category_sub2": p[17],
             "category_sub3": p[18],
             "city": p[19],                  # RAO: filtr city w stats
+            "contract_type": p[20] or "S",  # RAO-P2-056: "S" (najem) | "U" (usługa); fallback "S"
         })
     return results

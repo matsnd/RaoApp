@@ -1557,6 +1557,11 @@ Klik w wiersz miasta w trybie `group_by=city` wywołuje ten endpoint.
 Zwraca `pna_breakdown` — rozbicie miasta na kody pocztowe (top PNA per rentals_count).
 Top maszyny (10) i top kontrahenci (5) filtrowani po mieście (case-insensitive).
 
+**RAO-P2-052:** Filtrowanie po mieście wykonane w SQL (`LEFT JOIN postal_codes
++ WHERE LOWER(COALESCE(postal_codes.city, contracts.city)) = LOWER(:city)`),
+a nie w Pythonie. `compute_position_revenues` przyjmuje `contract_ids` (SQL
+`WHERE IN`) — pobiera pozycje tylko dla zmatchowanych kontraktów zamiast wszystkich.
+
 **Query:** `?date_from=&date_to=`
 
 **Response:** `{city, postal_code: null, gmina, powiat, wojewodztwo, metrics: {contracts_count, unique_contractors, total_revenue, avg_revenue_per_contract, pna_count}, pna_breakdown: [{postal_code, rentals_count, total_revenue}], top_machines: [...], top_contractors: [...], monthly_trend: []}`
