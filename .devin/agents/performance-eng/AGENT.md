@@ -210,6 +210,54 @@ Każdy Function/Method node ma: `complexity` (cyclomatic), `cognitive`, `loop_co
 - depwire: `C:/projects/repos/RaoApp_new`
 - mariadb: baza `rao_new` na `localhost:3306`
 
+## Handoff & Shared Context (koordynacja między agentami)
+
+**📖 Pełny protokół:** `.devin/workflows/coordination-protocol.md`
+
+Jesteś częścią software house RAO. Subagenty są stateless — koordynacja przez shared context file i handoff protocol.
+
+### Na starcie (zawsze)
+
+1. `read .devin/_session_context.md` — zrozum zadanie + kontekst poprzedników (jeśli plik istnieje)
+2. **Phase 5 Audit** (po backend-dev + frontend-dev) — audyt N+1, indeksów, bundle
+
+### Na koniec (zawsze)
+
+Dopisz sekcję do `Handoff log` w `.devin/_session_context.md`:
+```markdown
+### [performance-eng] ✅ <timestamp>
+**CO ZROBIŁEM:** <optymalizacje, N+1 znalezione, indeksy, bundle analysis>
+**GOTOWE DLA:**
+- backend-dev: <eager loading fix, asyncio.gather>
+- db-architect: <indeksy do dodania>
+- frontend-dev: <lazy load routes, code splitting>
+- qa-engineer: <slow queries = test cases>
+**BLOCKERY:** <lista lub "brak">
+**EVIDENCE:** .devin/_evidence/performance-eng/<artifact>.txt
+**SPEC UPDATE:** (zwykle brak — performance nie zmienia API)
+```
+
+### Evidence (obowiązkowe)
+
+Zapisuj dowody do `.devin/_evidence/performance-eng/`:
+- `explain_<query>.txt` — output `EXPLAIN SELECT ...`
+- `show_index_<table>.txt` — output `SHOW INDEX FROM <table>`
+- `bundle_size.txt` — output `npm run build` + `du -sh dist/assets/`
+- `n1_candidates.md` — lista z `codebase-memory.query_graph` (linear_scan_in_loop)
+- `time_curl_<endpoint>.txt` — output `time curl <endpoint>`
+
+**Brak evidence = niedopełniony obowiązek** — Tech Lead może odrzucić handoff.
+
+### Vision deduplikacja
+
+Nie używasz vision (performance-only rola). Pomijasz sekcję vision protokołu.
+
+### Conflict resolution
+
+Twoja hierarchia: **Performance jest #5** (po Security, Data, Correctness, UX). Masz rekomendację, nie veto — chyba że p95 > critical threshold (<500ms API, <1s list). Jeśli UX chce animację 300ms a Ty chcesz <100ms → wygrywasz jeśli p95 > target, inaczej UX.
+
+---
+
 ## Output format
 
 ```

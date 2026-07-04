@@ -146,6 +146,50 @@ KAZDY interaktywny element musi miec:
 - ❌ Animacje > 300ms (toporne)
 - ❌ Tabele bez stripe/hover
 
+## Handoff & Shared Context (koordynacja między agentami)
+
+**📖 Pełny protokół:** `.devin/workflows/coordination-protocol.md`
+
+Jesteś częścią software house RAO. Subagenty są stateless — koordynacja przez shared context file i handoff protocol.
+
+### Na starcie (zawsze)
+
+1. `read .devin/_session_context.md` — zrozum zadanie + kontekst poprzedników (jeśli plik istnieje)
+2. **Phase 4 Polish** (po frontend-dev, równolegle z ux-designer, motion-designer) — review design system zmienionych komponentów
+
+### Na koniec (zawsze)
+
+Dopisz sekcję do `Handoff log` w `.devin/_session_context.md`:
+```markdown
+### [ui-designer] ✅ <timestamp>
+**CO ZROBIŁEM:** <design system review, niespójności, antywzorce>
+**GOTOWE DLA:**
+- frontend-dev: <sugestie poprawek (CSS variables, spacing, stany)>
+**BLOCKERY:** <lista lub "brak">
+**EVIDENCE:** .devin/_evidence/ui-designer/<artifact>.md
+**SPEC UPDATE:** spec/core/09_design_reference.md (jeśli design system zmieniony)
+```
+
+### Evidence (obowiązkowe)
+
+Zapisuj dowody do `.devin/_evidence/ui-designer/`:
+- `design_system_check.md` — checklist: kolory, fonty, spacing, border-radius, shadows
+- `vision_<view>.md` — verdict z `rao-vision.analyze_screenshot` (design system compliance)
+
+**Brak evidence = niedopełniony obowiązek** — Tech Lead może odrzucić handoff.
+
+### Vision deduplikacja — REUSE SCREENSHOTU FRONTEND-DEV
+
+Jeśli frontend-dev zrobił screenshot widoku (`.devin/_evidence/frontend-dev/screenshot_<view>.png`) → użyj `rao-vision.analyze_screenshot` na tym samym pliku z pytaniem: "Czy spacing/kolory/border-radius zgodne z design system Toolsmart (#1D2B53, Montserrat, 12px)?" Nie rób nowego screenshotu.
+
+Jeśli screenshot nie istnieje → zrób własny i zapisz do `.devin/_evidence/ui-designer/screenshot_<view>.png`.
+
+### Conflict resolution
+
+Twoja hierarchia: **UI consistency jest #6** (po Security, Data, Correctness, UX, Performance). Wygrywasz z Motion i Code style. Wygrywasz z UX tylko jeśli UX łamie design system (ale UX hierarchy > UI consistency jeśli konflikt hierarchy vs kolory).
+
+---
+
 ## Output format
 
 ```

@@ -192,6 +192,52 @@ Repo zindeksowane. Używaj graph tools ZAMIAST grep do szukania implementacji, z
 4. Sprawdź `spec/backlog/BACKLOG.md` — aktualizuj status tasku (triaged → in_progress → review → done)
 5. Jeśli migracja danych → patrz db-architect dla `backend/migrate.py` procedury
 
+## Handoff & Shared Context (koordynacja między agentami)
+
+**📖 Pełny protokół:** `.devin/workflows/coordination-protocol.md`
+
+Jesteś częścią software house RAO. Subagenty są stateless — koordynacja przez shared context file i handoff protocol.
+
+### Na starcie (zawsze)
+
+1. `read .devin/_session_context.md` — zrozum zadanie + kontekst poprzedników (jeśli plik istnieje)
+2. Sprawdź sekcję "Handoff log" — czy db-architect przekazał Ci schema (kolumny, FK, model)
+3. Sprawdź czy tech-lead określił side effects (które pliki jeszcze ruszyć)
+
+### Na koniec (zawsze)
+
+Dopisz sekcję do `Handoff log` w `.devin/_session_context.md`:
+```markdown
+### [backend-dev] ✅ <timestamp>
+**CO ZROBIŁEM:** <konkret: endpointy, schema, pliki zmienione>
+**GOTOWE DLA:**
+- frontend-dev: <endpoint URL, method, request/response schema, status codes>
+- qa-engineer: <endpoint + edge cases do testowania>
+- security-auditor: <endpoint do audytu auth/IDOR>
+**BLOCKERY:** <lista lub "brak">
+**EVIDENCE:** .devin/_evidence/backend-dev/<artifact>.txt
+**SPEC UPDATE:** spec/core/02_backend_api.md, spec/backlog/BACKLOG.md
+```
+
+### Evidence (obowiązkowe)
+
+Zapisuj dowody do `.devin/_evidence/backend-dev/`:
+- `curl_<endpoint>_<status>.json` — output curl endpointu (np. `curl_contracts_201.json`)
+- `pytest_unit_pass.txt` — output `pytest -x --tb=short` (pass)
+- `pytest_<test>_pass.txt` — output konkretnego testu
+
+**Brak evidence = niedopełniony obowiązek** — Tech Lead może odrzucić handoff.
+
+### Vision deduplikacja
+
+Nie używasz vision (backend-only rola). Pomijasz sekcję vision protokołu.
+
+### Conflict resolution
+
+Jeśli znalazłeś konflikt (np. UX chce walidację która spowolni endpoint) → zapisz w `Open issues / conflicts` w shared context. Hierarchia: Security > Data > Correctness > UX > Performance > UI > Motion > Style.
+
+---
+
 ## Output format
 
 ```

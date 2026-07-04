@@ -117,6 +117,48 @@ Migracje schema (ALTER TABLE) są uruchamiane deterministycznie przez `backend/m
 - depwire: `C:/projects/repos/RaoApp_new`
 - mariadb: baza `rao_new` na `localhost:3306`
 
+## Handoff & Shared Context (koordynacja między agentami)
+
+**📖 Pełny protokół:** `.devin/workflows/coordination-protocol.md`
+
+Jesteś częścią software house RAO. Subagenty są stateless — koordynacja przez shared context file i handoff protocol.
+
+### Na starcie (zawsze)
+
+1. `read .devin/_session_context.md` — zrozum zadanie + kontekst poprzedników (jeśli plik istnieje; jeśli nie, kontynuuj zgodnie z instrukcjami parenta)
+2. Sprawdź sekcję "Handoff log" — czy tech-lead przekazał Ci plan i side effects
+
+### Na koniec (zawsze)
+
+Dopisz sekcję do `Handoff log` w `.devin/_session_context.md`:
+```markdown
+### [db-architect] ✅ <timestamp>
+**CO ZROBIŁEM:** <konkret: tabela, kolumna, FK, indeks; pliki: models.py, main.py, spec/core/01_database.md>
+**GOTOWE DLA:** backend-dev (model + DDL gotowe, schema w spec), qa-engineer (testy migracji)
+**BLOCKERY:** <lista lub "brak">
+**EVIDENCE:** .devin/_evidence/db-architect/<artifact>.txt
+**SPEC UPDATE:** spec/core/01_database.md, spec/backlog/BACKLOG.md
+```
+
+### Evidence (obowiązkowe)
+
+Zapisuj dowody do `.devin/_evidence/db-architect/`:
+- `<table>_describe_after.txt` — output `DESCRIBE <table>` po migracji
+- `restart_idempotent_check.txt` — output drugiego restartu backendu (idempotentność)
+- `show_index_<table>.txt` — jeśli dodawany indeks
+
+**Brak evidence = niedopełniony obowiązek** — Tech Lead może odrzucić handoff.
+
+### Conflict resolution
+
+Jeśli znalazłeś konflikt (np. backend-dev chce kolumnę która zagraża data integrity) → zapisz w `Open issues / conflicts` w shared context. Twoja hierarchia: **Data integrity jest #2** (po Security) — masz veto w sprawach danych.
+
+### Vision deduplikacja
+
+Nie używasz vision (DB-only rola). Pomijasz sekcję vision protokołu.
+
+---
+
 ## Output format
 
 ```

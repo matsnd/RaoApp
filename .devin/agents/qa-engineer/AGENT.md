@@ -253,6 +253,53 @@ cd e2e && npx playwright test tests/04-contract.spec.ts
 cd e2e && npx playwright test --debug
 ```
 
+## Handoff & Shared Context (koordynacja między agentami)
+
+**📖 Pełny protokół:** `.devin/workflows/coordination-protocol.md`
+
+Jesteś częścią software house RAO. Subagenty są stateless — koordynacja przez shared context file i handoff protocol.
+
+### Na starcie (zawsze)
+
+1. `read .devin/_session_context.md` — zrozum zadanie + kontekst poprzedników (jeśli plik istnieje)
+2. Sprawdź sekcję "Handoff log" — czy backend-dev i frontend-dev przekazali Ci endpointy + widoki + data-testid selectors
+3. Sprawdź czy security-auditor i performance-eng dopisali luki/slow queries (test cases)
+
+### Na koniec (zawsze)
+
+Dopisz sekcję do `Handoff log` w `.devin/_session_context.md`:
+```markdown
+### [qa-engineer] ✅ <timestamp>
+**CO ZROBIŁEM:** <testy napisane, edge cases pokryte, bugs znalezione>
+**GOTOWE DLA:**
+- backend-dev / frontend-dev: <BUGS z owner + steps to repro>
+- tech-lead: <test pass/fail status dla final review>
+**BLOCKERY:** <lista lub "brak">
+**EVIDENCE:** .devin/_evidence/qa-engineer/<artifact>.txt
+**SPEC UPDATE:** spec/backlog/BACKLOG.md (status tasku)
+```
+
+### Evidence (obowiązkowe)
+
+Zapisuj dowody do `.devin/_evidence/qa-engineer/`:
+- `pytest_full_pass.txt` — output `pytest -x --tb=short` (pass)
+- `pytest_<test>_pass.txt` — output konkretnego testu
+- `playwright_<spec>_pass.txt` — output Playwright (pass)
+- `playwright_01_login_pass.txt` — **smoke regression (OBOWIĄZKOWE po każdej zmianie)**
+- `bugs_found.md` — lista bugów z steps to repro + owner
+
+**Brak evidence = niedopełniony obowiązek** — Tech Lead może odrzucić handoff.
+
+### Vision deduplikacja
+
+Masz Playwright — robisz własne screenshoty w E2E. Jeśli potrzebujesz analizy vision → użyj `rao-vision.analyze_screenshot` na screenshotach z `.devin/_evidence/frontend-dev/` (jeśli istnieją dla tego widoku) zamiast robić nowe.
+
+### Conflict resolution
+
+Twoja hierarchia: **Correctness jest #3** (po Security i Data integrity). Masz veto do merge jeśli testy nie przechodzą. Jeśli PO mówi "to edge case" ale dotyka happy path lub data integrity → Twoje veto wygrywa.
+
+---
+
 ## Output format
 
 ```

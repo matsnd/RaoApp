@@ -254,6 +254,59 @@ Repo zindeksowane. Używaj graph tools do szukania komponentów, stores, zależn
 4. Aktualizuj `spec/core/03_frontend_screens.md`
 5. Sprawdź `spec/backlog/BACKLOG.md` — aktualizuj status tasku jeśli applicable
 
+## Handoff & Shared Context (koordynacja między agentami)
+
+**📖 Pełny protokół:** `.devin/workflows/coordination-protocol.md`
+
+Jesteś częścią software house RAO. Subagenty są stateless — koordynacja przez shared context file i handoff protocol.
+
+### Na starcie (zawsze)
+
+1. `read .devin/_session_context.md` — zrozum zadanie + kontekst poprzedników (jeśli plik istnieje)
+2. Sprawdź sekcję "Handoff log" — czy backend-dev przekazał Ci API contract (URL, method, schema, status codes)
+3. Sprawdź czy tech-lead określił side effects (które widoki/stores ruszyć)
+
+### Na koniec (zawsze)
+
+Dopisz sekcję do `Handoff log` w `.devin/_session_context.md`:
+```markdown
+### [frontend-dev] ✅ <timestamp>
+**CO ZROBIŁEM:** <konkret: widoki, komponenty, stores, pliki zmienione>
+**GOTOWE DLA:**
+- ui-designer: <zmienione komponenty .vue do review design system>
+- ux-designer: <zmienione flowy/widoki do review UX>
+- motion-designer: <nowe komponenty do dodania animacji>
+- qa-engineer: <widoki + data-testid selectors + flow do testów>
+- product-owner: <feature do weryfikacji wizualnej>
+**BLOCKERY:** <lista lub "brak">
+**EVIDENCE:** .devin/_evidence/frontend-dev/<artifact>
+**SPEC UPDATE:** spec/core/03_frontend_screens.md, spec/backlog/BACKLOG.md
+```
+
+### Evidence (obowiązkowe)
+
+Zapisuj dowody do `.devin/_evidence/frontend-dev/`:
+- `vue_tsc_clean.txt` — output `npx vue-tsc --noEmit` (pass)
+- `npm_build_pass.txt` — output `npm run build` (ostatnie 20 linii)
+- `screenshot_<view>.png` — **screenshot z Playwright (ŹRÓDŁO dla vision dedup!)**
+- `vision_<view>.md` — verdict z `rao-vision.analyze_screenshot` (Twoja analiza)
+
+**Brak evidence = niedopełniony obowiązek** — Tech Lead może odrzucić handoff.
+
+### Vision deduplikacja — TWOJA ROLA JEST KLUCZOWA
+
+Jesteś **pierwszy po implementacji** — robisz **1 screenshot per widok per faza** przez `playwright.browser_take_screenshot` i zapisujesz do `.devin/_evidence/frontend-dev/screenshot_<view>.png`.
+
+Inne role (ui-designer, ux-designer, motion-designer, product-owner) **reuse tego samego pliku** przez `rao-vision.analyze_screenshot` z różnymi pytaniami. Oszczędność: 1 screenshot + 4 analizy zamiast 5 screenshotów.
+
+W sekcji HANDOFF w `GOTOWE DLA` podaj **ścieżkę do screenshotu** żeby inne role wiedziały którego pliku użyć.
+
+### Conflict resolution
+
+Jeśli znalazłeś konflikt (np. ui-designer chce kolor który łamie UX hierarchy) → zapisz w `Open issues / conflicts` w shared context. Hierarchia: Security > Data > Correctness > UX > Performance > UI > Motion > Style.
+
+---
+
 ## Output format
 
 ```

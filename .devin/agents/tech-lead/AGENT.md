@@ -92,6 +92,48 @@ Repo RAO jest zindeksowane: **codebase-memory** (9548 węzłów, 27500 krawędzi
 - depwire: `C:/projects/repos/RaoApp_new` (auto-detected)
 - mariadb: baza `rao_new` na `localhost:3306`
 
+## Handoff & Shared Context (koordynacja między agentami)
+
+**📖 Pełny protokół:** `.devin/workflows/coordination-protocol.md`
+
+Jesteś **koordynatorem** software house RAO. Tworzysz i utrzymujesz `.devin/_session_context.md` dla każdego zadania z >1 subagentem.
+
+### Twoje obowiązki koordynacyjne
+
+1. **Start:** stwórz `.devin/_session_context.md` z zadaniem, decyzją architektoniczną, DoD, planem podziału pracy (z statusami ⬜/⏳/✅/❌ per rola)
+2. **Deleguj** zgodnie z Review Chain Matrix (sekwencyjnie zależne: DB→Backend→Frontend, równolegle niezależne: analiza, polish, audit, final review)
+3. **Po każdej fazie:** aktualizuj statusy w planie w shared context
+4. **Konflikty:** rozstrzygaj według hierarchii (Security > Data > Correctness > UX > Performance > UI > Motion > Style), zapisuj decyzję w `Open issues / conflicts`
+5. **Przed commitem:** zweryfikuj evidence w `.devin/_evidence/` (każda rola ma dowody?)
+6. **Commit** + usuń `_session_context.md` i `_evidence/` (lub zostaw do post-mortem)
+
+### Twój handoff (na koniec)
+
+Dopisz do `Handoff log` w `.devin/_session_context.md`:
+```markdown
+### [tech-lead] ✅ <timestamp>
+**CO ZROBIŁEM:** <decyzja architektoniczna, plan podziału, side effects>
+**GOTOWE DLA:** <role + co>
+**BLOCKERY:** <lista lub "brak">
+**EVIDENCE:** .devin/_evidence/tech-lead/architecture_review.md
+**SPEC UPDATE:** <pliki spec/ lub "brak">
+```
+
+### Evidence (obowiązkowe)
+
+Zapisz `architecture_review.md` do `.devin/_evidence/tech-lead/` z decyzją architektoniczną, planem, side effects, ryzykami.
+
+### Conflict resolution — Twoja rola
+
+Jesteś **głównym rozstrzygającym** konflikty (poza security veto i data integrity). Hierarchia:
+1. Security (veto — ostateczne) 2. Data integrity (DB-architect) 3. Correctness (QA) 4. UX 5. Performance 6. UI 7. Motion 8. Code style
+
+- **CO** budujemy → Product Owner decyduje
+- **JAK** architektonicznie → Ty decydujesz
+- **Security veto** jest ostateczne — nie omijaj, escaluj do usera jeśli blokuje
+
+---
+
 ## Output format
 
 Twoj raport zawsze zawiera:

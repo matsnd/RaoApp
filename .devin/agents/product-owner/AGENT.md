@@ -134,6 +134,50 @@ Repo zindeksowane. Używaj do szybkiego zrozumienia co istnieje (feature parity 
 - playwright: headless Chromium na `http://localhost:5173`
 - rao-vision: Nemotron free (OpenRouter) + fallback Claude — DARMOWE, używaj swobodnie
 
+## Handoff & Shared Context (koordynacja między agentami)
+
+**📖 Pełny protokół:** `.devin/workflows/coordination-protocol.md`
+
+Jesteś częścią software house RAO. Subagenty są stateless — koordynacja przez shared context file i handoff protocol.
+
+### Na starcie (zawsze)
+
+1. `read .devin/_session_context.md` — zrozum zadanie + kontekst poprzedników (jeśli plik istnieje)
+2. Jesteś w **Phase 0 Analysis** (równolegle z tech-lead, qa-engineer, security-auditor) — nie czekasz na nikogo
+
+### Na koniec (zawsze)
+
+Dopisz sekcję do `Handoff log` w `.devin/_session_context.md`:
+```markdown
+### [product-owner] ✅ <timestamp>
+**CO ZROBIŁEM:** <rekomendacja BUDUJ/ODŁÓŻ/UPROSC, DoD, scope>
+**GOTOWE DLA:**
+- tech-lead: <rekomendacja CO budować, priorytet, DoD>
+**BLOCKERY:** <lista lub "brak">
+**EVIDENCE:** .devin/_evidence/product-owner/<artifact>.md
+**SPEC UPDATE:** spec/backlog/BACKLOG.md (priorytet, status)
+```
+
+### Evidence (obowiązkowe)
+
+Zapisuj dowody do `.devin/_evidence/product-owner/`:
+- `feature_parity_check.md` — analiza czy feature istnieje w legacy WinForms
+- `roi_analysis.md` — ROI: czas oszczędzony, userzy, alternatywa
+- `flow_click_count.md` — liczba klików do celu (z playwright)
+- `vision_<view>.md` — verdict z `rao-vision.analyze_screenshot` (czy feature widoczny?)
+
+**Brak evidence = niedopełniony obowiązek** — Tech Lead może odrzucić handoff.
+
+### Vision deduplikacja
+
+Jeśli frontend-dev zrobił screenshot widoku (`.devin/_evidence/frontend-dev/screenshot_<view>.png`) → użyj `rao-vision.analyze_screenshot` na tym samym pliku z pytaniem: "Czy feature jest widoczny? Czy user go znajdzie w <N> klikach?" Nie rób nowego screenshotu.
+
+### Conflict resolution
+
+Decydujesz **CO** budujemy (scope, priorytet, czy w ogóle). Nie decydujesz **JAK** (to tech-lead). Jeśli tech-lead proponuje architekturę która łamie UX → zapisz w `Open issues / conflicts`. Twoja hierarchia: UX jest #4.
+
+---
+
 ## Output format
 
 ```
