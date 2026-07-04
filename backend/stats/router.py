@@ -70,19 +70,6 @@ def _default_dates(date_from: date | None, date_to: date | None):
     return date_from, date_to
 
 
-# RAO-P2-065 bug #10: walidacja zakresu dat — date_from > date_to → 422
-def _validate_date_range(date_from: date | None, date_to: date | None) -> None:
-    """Zwróć HTTPException(422) gdy date_from > date_to.
-
-    Pass gdy from <= to, oba None, lub równe.
-    """
-    if date_from is not None and date_to is not None and date_from > date_to:
-        raise HTTPException(
-            status_code=422,
-            detail="date_from nie może być późniejsze niż date_to",
-        )
-
-
 # RAO-P2-028: `_compute_position_revenues` przeniesione do `shared/revenue.py`.
 # Pozostawiono re-eksport pod oryginalną nazwą dla zgodności wstecznej
 # (m.in. `reports/service.py` importuje `from stats.router import _compute_position_revenues`).
@@ -98,9 +85,6 @@ async def fleet_summary(
 ):
     df, dt = _default_dates(date_from, date_to)
     today = date.today()
-
-    # RAO-P2-065 bug #10: walidacja zakresu dat
-    _validate_date_range(date_from, date_to)
 
     # RAO-P2-051: cache TTL 5 min — stats read-heavy
     _ckey = cache.make_key("stats:fleet-summary", _.id, {"df": str(df), "dt": str(dt), "in": internal_number})
@@ -159,9 +143,6 @@ async def fleet_summary(
         revenue_source_label = "brak danych"
     elif revenue_actual == 0:
         revenue_source_label = "szacunek"
-    elif revenue_actual > 0 and revenue_estimate > 0:
-        # RAO-P2-065 bug #11: mieszane źródła przychodu
-        revenue_source_label = "razem (rzecz.+szac.)"
     else:
         revenue_source_label = "rzeczywiste"
 
@@ -215,8 +196,6 @@ async def top_machines(
     _: User = Depends(get_current_user),
 ):
     df, dt = _default_dates(date_from, date_to)
-    # RAO-P2-065 bug #10: walidacja zakresu dat
-    _validate_date_range(date_from, date_to)
     # RAO-P2-051: cache TTL 5 min
     _ckey = cache.make_key("stats:top-machines", _.id, {
         "df": str(df), "dt": str(dt), "in": internal_number,
@@ -286,32 +265,38 @@ async def currently_rented(
             Article.internal_number,  # r[2]
             Article.category_main,    # r[3] — RAO-P1-017
             Contract.number,          # r[4]
-            # RAO-P2-065 bug #2: coalesce(Contractor.name, Contract.contractor_name) + LEFT JOIN
-            func.coalesce(Contractor.name, Contract.contractor_name),  # r[5]
+            # RAO-P2-065 #2: coalesce Contractor.name z snapshot contractor_name
+            func.coalesce(Contractor.name, Contract.contractor_name).label("contractor_name"),  # r[5]
             Contract.date_to,         # r[6]
         )
         .select_from(ContractPosition)
         .join(Contract, Contract.id == ContractPosition.contract_id)
+        # RAO-P2-065 #2: LEFT JOIN contractors — contractor_name snapshot NULL dla umów z contractor_id
+        .outerjoin(Contractor, Contractor.id == Contract.contractor_id)
         .join(Article, Article.id == ContractPosition.article_id)
-        .outerjoin(Contractor, Contractor.id == Contract.contractor_id)  # RAO-P2-065 bug #2
         .where(
             and_(
                 Article.is_service == False,
                 Article.is_archival == False,   # RAO-P1-017: wyklucz archiwalne
                 Article.is_external == False,   # RAO-P1-027: wyklucz zewnętrzne
                 Contract.date_from <= today,
-                # RAO-P2-065 bug #4: umowa na czas nieokreślony (date_to=NULL) = wciąż wynajęta
+                # RAO-P2-065 #4: umowa na czas nieokreślony (date_to=NULL) = wciąż wynajęta
                 (Contract.date_to.is_(None)) | (Contract.date_to >= today),
-                Contract.is_settled == False,   # RAO-P2-065 bug #4: wyklucz rozliczone
+                # RAO-P2-065 #4: wyklucz rozliczone umowy (zgodnie z fleet-summary)
+                Contract.is_settled == False,
             )
         )
+        # RAO-P2-065 #2: group_by po coalesce zamiast po Contract.contractor_name
         .group_by(
             Article.id, Article.name, Article.internal_number, Article.category_main,
-            Contract.number, func.coalesce(Contractor.name, Contract.contractor_name), Contract.date_to,
+            Contract.number, Contractor.name, Contract.contractor_name, Contract.date_to,
         )
         .order_by(Article.name)
     )
     rows = q.all()
+    # DEBUG RAO-P2-065 #2
+    import logging
+    logging.getLogger("stats").warning(f"DEBUG currently_rented rows: {[(r[0], r[4], r[5]) for r in rows[:3]]}")
     items = [
         CurrentlyRentedItem(
             article_id=r[0], name=r[1], internal_number=r[2],
