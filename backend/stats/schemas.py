@@ -194,6 +194,9 @@ class PositionStatsResponse(BaseModel):
     total_revenue: Decimal
     total_machines_revenue: Decimal   # podsumowanie per typ (zawsze, niezależnie od filtra)
     total_services_revenue: Decimal   # ↑ pozwala FE pokazać "Z czego usługi: X zł"
+    total_count: int = 0              # RAO-P2-053: łączna liczba pozycji (przed paginacją)
+    limit: int | None = None          # RAO-P2-053: zastosowany limit (None = brak paginacji)
+    offset: int = 0                   # RAO-P2-053: zastosowany offset
     items: list[PositionStatItem]
 
 
@@ -228,3 +231,24 @@ class CategoriesListNode(BaseModel):
 
 
 CategoriesListNode.model_rebuild()
+
+
+# ── RAO-P2-056: Statystyki po contract_type (S=najem, U=usługa) ────────────────
+
+class ContractTypeStatItem(BaseModel):
+    """Agregat statystyk dla jednego contract_type (S | U)."""
+    contract_type: str                # "S" (najem) | "U" (usługa)
+    contract_type_label: str          # "najem" | "usługa" (dla wyświetlania FE)
+    contracts_count: int              # unikalne umowy danego typu
+    positions_count: int              # łączna liczba pozycji
+    articles_count: int               # unikalne maszyny/artykuły
+    rented_days: int                  # suma dni wynajmu (maszyny; 0 dla usług)
+    revenue: Decimal                  # suma przychodu
+
+
+class ContractTypeStatsResponse(BaseModel):
+    """Odpowiedź endpointu GET /stats/by-contract-type — RAO-P2-056."""
+    date_from: date
+    date_to: date
+    total_revenue: Decimal
+    items: list[ContractTypeStatItem]

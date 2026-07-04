@@ -15,7 +15,7 @@ from articles.models import Article
 from contracts.models import Contract, ContractPosition, PositionCondition
 from contractors.models import Contractor
 from sqlalchemy import func as sqlfunc
-from stats.calc import calculate_position_value, aggregate_by_category, aggregate_by_period
+from stats.calc import calculate_position_value, aggregate_by_category, aggregate_by_period, aggregate_by_contract_type
 from shared.revenue import compute_position_revenues as _compute_position_revenues  # RAO-P2-028
 from shared.locations import aggregate_by_pna  # RAO-P2-028
 from stats.schemas import (
@@ -26,6 +26,7 @@ from stats.schemas import (
     CategoryStatItem, CategoryStatsResponse,
     PositionStatItem, PositionStatsResponse,
     ByPeriodItem, ByPeriodResponse, CategoriesListNode,
+    ContractTypeStatItem, ContractTypeStatsResponse,
 )
 
 router = APIRouter(prefix="/stats", tags=["stats"])
@@ -589,6 +590,13 @@ async def positions(
     date_to: date | None = Query(None),
     contractor_id: int | None = Query(None, description="Filtruj po kontrahencie"),
     city: str | None = Query(None, description="Filtruj po mieście umowy (case-insensitive)"),
+    limit: int | None = Query(
+        None,
+        ge=1,
+        le=200,
+        description="RAO-P2-053: paginacja — max 200 wierszy. Brak = bez limitu (backward compat).",
+    ),
+    offset: int = Query(0, ge=0, description="RAO-P2-053: offset paginacji (default 0)"),
     sort_by: str | None = Query(
         None,
         description=(
@@ -611,20 +619,31 @@ async def positions(
     - city → filtr po mieście umowy, case-insensitive (opcjonalny)
     - sort_by → pole sortowania z whitelist ALLOWED_SORT (nieznane = ignorowane)
     - sort_dir → asc|desc (default desc)
+    - limit/offset → paginacja (RAO-P2-053). Brak limitu = wszystkie wiersze (backward compat).
+    - RAO-P2-053: pojedyncze wywołanie _compute_position_revenues (wcześniej 2× —
+      raz z service_filter, raz bez dla total_*_revenue). Teraz jedno z service_filter=None,
+      filtrowanie typu robione in-memory, totale liczone z tego samego zbioru.
     - RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
     """
     df, dt = _default_dates(date_from, date_to)
 
-    # Mapowanie type → service_filter
-    service_filter = None
-    if position_type == "machines":
-        service_filter = False
-    elif position_type == "services":
-        service_filter = True
-
-    # Pobierz pozycje z odpowiednim filtrem
+    # RAO-P2-053: pojedyncze wywołanie z service_filter=None (pobiera wszystkie pozycje).
+    # Filtrowanie po type robione in-memory — totale liczone z tego samego zbioru.
     # RAO-P2-029: uwzględnia archiwalne maszyny (statystyki historyczne)
-    all_pos = await _compute_position_revenues(db, df, dt, service_filter=service_filter, exclude_archival=False)
+    # RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
+    all_pos = await _compute_position_revenues(db, df, dt, service_filter=None, exclude_archival=False)
+
+    # Totale per typ — z pełnego zbioru (zamiast drugiego wywołania _compute)
+    total_machines_rev = sum(p["revenue"] for p in all_pos if not p["is_service"])
+    total_services_rev = sum(p["revenue"] for p in all_pos if p["is_service"])
+
+    # Filtrowanie po type — in-memory (zamiast drugiego zapytania DB)
+    if position_type == "machines":
+        all_pos = [p for p in all_pos if not p["is_service"]]
+    elif position_type == "services":
+        all_pos = [p for p in all_pos if p["is_service"]]
+
+    # Filtry contractor_id / city / internal_number
     all_pos = _apply_position_filters(all_pos, contractor_id=contractor_id, city=city)
 
     # Agregacja per article
@@ -649,13 +668,6 @@ async def positions(
         agg[key]["rented_days"] += p["clamped_days"] if not p["is_service"] else 0
         agg[key]["contracts"].add(p["contract_id"])
         agg[key]["times_billed"] += 1
-
-    # Oblicz total_machines_revenue i total_services_revenue (zawsze, niezależnie od filtra)
-    # RAO-P2-029: uwzględnia archiwalne (spójne z głównym zapytaniem)
-    # RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
-    all_pos_unfiltered = await _compute_position_revenues(db, df, dt, service_filter=None, exclude_archival=False)
-    total_machines_rev = sum(p["revenue"] for p in all_pos_unfiltered if not p["is_service"])
-    total_services_rev = sum(p["revenue"] for p in all_pos_unfiltered if p["is_service"])
 
     # Build response items
     items = [
@@ -688,6 +700,13 @@ async def positions(
         items.sort(key=lambda x: x.revenue, reverse=True)
 
     total_revenue = sum(item.revenue for item in items)
+    total_count = len(items)
+
+    # RAO-P2-053: paginacja — stosuj tylko gdy limit podany (backward compat: brak limitu = wszystkie)
+    if limit is not None:
+        items = items[offset : offset + limit]
+    elif offset:
+        items = items[offset:]
 
     return PositionStatsResponse(
         date_from=df,
@@ -696,6 +715,64 @@ async def positions(
         total_revenue=total_revenue,
         total_machines_revenue=total_machines_rev,
         total_services_revenue=total_services_rev,
+        total_count=total_count,
+        limit=limit,
+        offset=offset,
+        items=items,
+    )
+
+
+# ---------------------------------------------------------------------------
+# RAO-P2-056: Statystyki po contract_type (S=najem, U=usługa)
+# ---------------------------------------------------------------------------
+
+@router.get("/by-contract-type", response_model=ContractTypeStatsResponse)
+async def by_contract_type(
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    contractor_id: int | None = Query(None, description="Filtruj po kontrahencie"),
+    city: str | None = Query(None, description="Filtruj po mieście umowy (case-insensitive)"),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """
+    Statystyki zagregowane po contract_type (S=najem, U=usługa) — RAO-P2-056.
+
+    Grupuje pozycje umów po typie umowy nadrzędnej (Contract.contract_type):
+      - "S" → umowa najmu (maszyny)
+      - "U" → umowa usługi
+
+    Zwraca per-typ: liczbę umów, pozycji, unikalnych artykułów, dni wynajmu, przychód.
+    Filtry contractor_id / city opcjonalne (analogicznie do /stats/positions).
+    Archiwalne maszyny uwzględnione (statystyki historyczne).
+    RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
+    """
+    df, dt = _default_dates(date_from, date_to)
+
+    all_pos = await _compute_position_revenues(db, df, dt, service_filter=None, exclude_archival=False)
+    all_pos = _apply_position_filters(all_pos, contractor_id=contractor_id, city=city)
+
+    # Agregacja per contract_type (logika w calc.py — testowalny pure function)
+    grouped = aggregate_by_contract_type(all_pos)
+
+    items = [
+        ContractTypeStatItem(
+            contract_type=g["contract_type"],
+            contract_type_label=g["contract_type_label"],
+            contracts_count=g["contracts_count"],
+            positions_count=g["positions_count"],
+            articles_count=g["articles_count"],
+            rented_days=g["rented_days"],
+            revenue=g["revenue"],
+        )
+        for g in grouped
+    ]
+    total_revenue = sum(item.revenue for item in items)
+
+    return ContractTypeStatsResponse(
+        date_from=df,
+        date_to=dt,
+        total_revenue=total_revenue,
         items=items,
     )
 

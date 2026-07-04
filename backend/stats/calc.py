@@ -239,6 +239,60 @@ def aggregate_by_period(
     )
 
 
+# ── RAO-P2-056: Agregacja po contract_type (S=najem, U=usługa) ───────────────
+
+_CONTRACT_TYPE_LABELS = {"S": "najem", "U": "usługa"}
+
+
+def aggregate_by_contract_type(positions: list[dict]) -> list[dict]:
+    """
+    Agreguje pozycje umów po contract_type umowy nadrzędnej (RAO-P2-056).
+
+    Args:
+        positions: lista dict-ów z compute_position_revenues
+                   (wymagane klucze: contract_id, article_id, revenue,
+                    clamped_days, is_service, contract_type)
+
+    Returns:
+        lista dict-ów posortowanych rosnąco po contract_type ("S" przed "U"):
+            contract_type, contract_type_label, contracts_count,
+            positions_count, articles_count, rented_days, revenue
+    """
+    agg: dict[str, dict] = defaultdict(lambda: {
+        "contracts": set(),
+        "positions": 0,
+        "articles": set(),
+        "rented_days": 0,
+        "revenue": Decimal("0"),
+    })
+
+    for p in positions:
+        ctype = p.get("contract_type") or "S"
+        agg[ctype]["contracts"].add(p.get("contract_id"))
+        agg[ctype]["positions"] += 1
+        agg[ctype]["articles"].add(p.get("article_id"))
+        # rented_days liczone tylko dla maszyn (usługi mają billing != DAILY)
+        if not p.get("is_service"):
+            agg[ctype]["rented_days"] += p.get("clamped_days", 0)
+        agg[ctype]["revenue"] += p.get("revenue", Decimal("0"))
+
+    return sorted(
+        [
+            {
+                "contract_type": ctype,
+                "contract_type_label": _CONTRACT_TYPE_LABELS.get(ctype, ctype),
+                "contracts_count": len(d["contracts"]),
+                "positions_count": d["positions"],
+                "articles_count": len(d["articles"]),
+                "rented_days": d["rented_days"],
+                "revenue": d["revenue"],
+            }
+            for ctype, d in agg.items()
+        ],
+        key=lambda x: x["contract_type"],
+    )
+
+
 # City extraction for location reports
 # Priority list of Polish cities (top 20 by population)
 KNOWN_CITIES = [
