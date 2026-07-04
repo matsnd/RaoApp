@@ -68,7 +68,12 @@ W jednym bloku tool calls:
 - Przeczytaj `spec/00_INDEX.md` zeby zobaczyc co jest udokumentowane
 - Przeczytaj plik spec relevantny do zadania (z `core/`, `process/`, lub `backlog/`)
 - Przeczytaj `spec/backlog/BACKLOG.md` zeby sprawdzic priorytety (P0/P1/P2)
-- `code_search` lub `grep` dla obszaru zmian
+- **MCP graph tools (ZAMIAST grep gdy szukasz zależności):**
+  - `codebase-memory.search_graph` — znajdź funkcje/klasy/routy w grafie (9548 węzłów, 27500 krawędzi)
+  - `depwire.get_architecture_summary` — overview: file count, hotspots, orphan files
+  - `depwire.impact_analysis` — blast radius zmiany na symbole (direct + transitive dependents)
+  - `mariadb.list_tables` / `mariadb.get_table_schema` — kontekst bazy `rao_new`
+- `grep` / `code_search` dla prostych wyszukiwań tekstowych (string literals, regex)
 - Sprawdz `git status`
 
 ### Krok 2 - Klasyfikacja i plan
@@ -86,10 +91,10 @@ Stworz `todo_list` z 3-8 krokami.
 ### Krok 3 - Faza analizy (subagenty rownolegle, background)
 
 Dla nietrywialnych zadan **odpal rownolegle subagenty analityczne** (background):
-- `product-owner` -> "Czy to rozwiazuje rzeczywisty problem? Jakie sa kryteria DoD?"
-- `tech-lead` -> "Jaka architektura? Czy nie duplikujemy logiki?"
-- `qa-engineer` -> "Jakie edge cases? Co moze sie zepsuc?"
-- `security-auditor` -> "Auth? Walidacja? IDOR?" (jesli endpoint dotyka danych)
+- `product-owner` -> "Czy to rozwiazuje rzeczywisty problem? Jakie sa kryteria DoD?" (MCP: `codebase-memory.search_graph` dla feature parity, `mariadb.execute_sql` dla skali danych)
+- `tech-lead` -> "Jaka architektura? Czy nie duplikujemy logiki?" (MCP: `depwire.get_architecture_summary`, `depwire.impact_analysis`, `codebase-memory.search_graph` z `semantic_query` dla duplikacji)
+- `qa-engineer` -> "Jakie edge cases? Co moze sie zepsuc?" (MCP: `depwire.impact_analysis` dla test gap analysis, `depwire.find_dead_code` dla untested code)
+- `security-auditor` -> "Auth? Walidacja? IDOR?" (jesli endpoint dotyka danych) (MCP: `codebase-memory.trace_path` dla auth flows, `depwire.security_scan`, `mariadb.execute_sql` dla DB permissions)
 
 **Lacz wyniki** w spojny plan implementacyjny.
 
@@ -139,11 +144,11 @@ Jesli ktorys subagent zwroci blad:
 ### Krok 6 - Final review (rownolegle background)
 
 Przed zamknieciem zadania:
-- `tech-lead` -> "Architektura spojna? Brak dlugu?"
-- `qa-engineer` -> "Wszystkie edge cases pokryte?"
-- `ux-designer` -> "Flow zrozumialy?"
-- `ui-designer` -> "Design system zachowany?"
-- `security-auditor` -> "Brak dziur?"
+- `tech-lead` -> "Architektura spojna? Brak dlugu?" (MCP: `depwire.get_health_score`, `depwire.simulate_change` dla weryfikacji refactoru, `codebase-memory.query_graph` dla complexity hotspots)
+- `qa-engineer` -> "Wszystkie edge cases pokryte?" (MCP: `depwire.verify_change` — safety report przed merge, `depwire.impact_analysis` dla test gap, `mariadb.execute_sql` dla weryfikacji danych)
+- `ux-designer` -> "Flow zrozumialy?" (MCP: `codebase-memory.query_graph` — mapa routów)
+- `ui-designer` -> "Design system zachowany?" (MCP: `codebase-memory.search_graph` — sprawdź CSS variables w komponentach)
+- `security-auditor` -> "Brak dziur?" (MCP: `depwire.security_scan`, `codebase-memory.trace_path` dla auth flows, `mariadb.execute_sql` dla DB permissions)
 
 ### Krok 7 - Vision Verification (tylko gdy potrzebne)
 

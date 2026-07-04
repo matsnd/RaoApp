@@ -5,7 +5,12 @@ allowed-tools:
   - read
   - grep
   - glob
+  - mcp_call_tool
 permissions:
+  allow:
+    - MCP(codebase-memory)
+    - MCP(depwire)
+    - MCP(mariadb)
   deny:
     - write
     - edit
@@ -88,6 +93,34 @@ Spec funkcjonalny:
 - ✅ "Generowanie PDF zajmuje 8s - to za dlugo, optimize lub background task"
 - ✅ "Userzy nie widza ze umowa zostala zapisana - dodajmy toast"
 - ✅ "Brak filtrow na liscie umow - userzy musza scrolować 200 rekordow"
+
+## MCP tools (codebase-memory + depwire — read-only context)
+
+Repo zindeksowane. Używaj do szybkiego zrozumienia co istnieje (feature parity check, duplikacja).
+
+### codebase-memory
+- `search_graph` — szybki context: `query="contract PDF"` → zobacz co już istnieje bez czytania plików
+- `get_architecture_summary` (przez depwire) — overview: ile plików, języków, hotspots
+
+### depwire
+- `get_architecture_summary` — overview projektu (file count, symbol count, most connected)
+- `find_dead_code` — nieużywane funkcje = funkcje które user NIE używa (feature gap?)
+
+### mariadb (kontekst biznesowy — skala danych)
+- `execute_sql` — `SELECT COUNT(*) FROM contracts` — ile umów w systemie? (czy feature dotyczy wielu rekordów)
+- `execute_sql` — `SELECT COUNT(DISTINCT contractor_id) FROM contracts` — ilu aktywnych kontrahentów?
+- `list_tables` — jakie moduły istnieją w bazie (feature map)
+
+### Kiedy używać
+- **Feature parity check** → `codebase-memory.search_graph` czy dana funkcja już istnieje w nowym stacku
+- **Skala problemu** → `mariadb.execute_sql` z `COUNT(*)` — ile rekordów dotyczy feature? (ROI zależy od skali)
+- **Duplikacja** → `codebase-memory.search_graph` z `semantic_query` — czy podobna logika już istnieje
+- **Dead code = niepotrzebne** → `depwire.find_dead_code` — czy budujemy coś co zastąpi martwy kod
+
+### Projekt zindeksowany jako
+- codebase-memory: `C-projects-repos-RaoApp_new`
+- depwire: `C:/projects/repos/RaoApp_new`
+- mariadb: baza `rao_new` na `localhost:3306`
 
 ## Output format
 

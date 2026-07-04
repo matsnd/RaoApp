@@ -9,6 +9,8 @@ allowed-tools:
 permissions:
   allow:
     - MCP(rao-vision)
+    - MCP(codebase-memory)
+    - MCP(depwire)
   deny:
     - write
     - edit
@@ -185,6 +187,29 @@ KAZDY interaktywny element musi miec:
 - Nie testujesz funkcjonalnosci (to QA)
 - Nie projektujesz flowu (to UX)
 - Nie animujesz (to Motion Designer)
+
+## MCP tools (codebase-memory + depwire — kontekst komponentów)
+
+Repo zindeksowane. Używaj graph tools do szukania komponentów i sprawdzania spojności design systemu w kodzie.
+
+### codebase-memory
+- `search_graph` — znajdź komponenty UI: `query="button primary"` lub `name_pattern=".*Card.*"`
+- `get_code_snippet` — czytaj kod komponentu po `qualified_name` (sprawdź czy używa CSS variables)
+- `query_graph` — Cypher: wszystkie komponenty `MATCH (c:Function) WHERE c.file CONTAINS 'components/' RETURN c.name, c.file`
+
+### depwire
+- `get_file_context` — pełny kontekst pliku `.vue`: symbole, importy, eksporty
+- `impact_analysis` — jeśli zmienisz shared komponent (np. DataGrid) → blast radius
+- `find_dead_code` — nieużywane komponenty (cleanup)
+
+### Kiedy używać
+- **Spojność design systemu** → `codebase-memory.search_graph` znajdź wszystkie komponenty i sprawdź czy używają CSS variables
+- **Przed zmianą shared komponentu** → `depwire.impact_analysis` → blast radius
+- **Dead components** → `depwire.find_dead_code` — komponenty których nikt nie używa
+
+### Projekt zindeksowany jako
+- codebase-memory: `C-projects-repos-RaoApp_new`
+- depwire: `C:/projects/repos/RaoApp_new`
 
 ## Vision Verification (kiedy używać rao-vision)
 

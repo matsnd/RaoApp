@@ -23,6 +23,15 @@ Funkcje: kontrahenci, artykuły (maszyny), umowy, pozycje, warunki rozliczeniowe
 | Frontend | Vue 3 + Vite + TypeScript + Pinia + Axios | `frontend/` | 5173 |
 | E2E | Playwright (Chromium) | `e2e/tests/` | – |
 | SMTP dev | Mailpit | system | 1025 / UI 8025 |
+| MCP: code analysis | codebase-memory (graf wiedzy: 9548 węzłów, 27500 krawędzi) | user config | – |
+| MCP: dependency analysis | depwire (315 plików, 14492 symboli, 11259 krawędzi) | user config | – |
+| MCP: database | mariadb (bezpośrednie zapytania do `rao_new`) | user config | – |
+| MCP: UI vision | rao-vision (Claude Vision API) | project config | – |
+| MCP: browser | playwright (headless) | project config | – |
+| MCP: GitHub | github (issues, PRs) | project.local config | – |
+| MCP: web search | brave-search | project.local config | – |
+| MCP: reasoning | sequential-thinking | project config | – |
+| MCP: persistence | memory (knowledge graph między sesjami) | project config | – |
 
 **Kluczowe ustawienia:**
 - FastAPI `root_path="/rao/api"` — wszystkie endpointy pod tym prefiksem (np. `http://localhost:8000/rao/api/health`)
@@ -314,7 +323,7 @@ Gdy zadanie wymaga pełnej autonomii z self-healingiem i pełną weryfikacją:
 2. Plan w todo (3-8 kroków, jeden in_progress na raz)
 3. Implementacja warstwowa (DB → backend → frontend → e2e → spec sync)
 4. **6-tier verification matrix:**
-   - Tier 1: static (`vue-tsc --noEmit` + `python -m compileall`)
+   - Tier 1: static (`vue-tsc --noEmit` + `python -m compileall` + MCP graph analysis: `depwire.get_health_score`, `codebase-memory.query_graph` dla complexity hotspots)
    - Tier 2: unit (`pytest -x --tb=short`)
    - Tier 3: smoke (curl `/health`, `/openapi.json`, `/auth/login`)
    - Tier 4: e2e (`npx playwright test`)

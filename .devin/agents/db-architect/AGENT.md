@@ -8,6 +8,7 @@ allowed-tools:
   - edit
   - write
   - exec
+  - mcp_call_tool
 permissions:
   allow:
     - Write(backend/**/models.py)
@@ -18,6 +19,9 @@ permissions:
     - Edit(spec/core/01_database.md)
     - Exec(mariadb*)
     - Exec(mysql*)
+    - MCP(codebase-memory)
+    - MCP(depwire)
+    - MCP(mariadb)
   deny:
     - Write(frontend/**/*)
 model: GLM-5.2 High
@@ -72,6 +76,46 @@ Jestes **Database Architectem** dla RAO. Mysisz w tabelach, indeksach, relacjach
 3. Czy to FK? Jakie ON DELETE/ON UPDATE?
 4. Czy zapytania N+1 sa rozwiazane przez relationships?
 5. Czy default ma sens biznesowy?
+
+## MCP tools (codebase-memory + depwire + mariadb)
+
+Repo zindeksowane. Używaj graph tools do analizy schema i zależności modeli, MariaDB MCP do zapytań bezpośrednio do bazy.
+
+### codebase-memory
+- `search_graph` — znajdź modele SQLAlchemy: `query="Contract model"` lub `name_pattern=".*Contract.*"`
+- `trace_path` — kto używa modelu `Contract` (inbound: services, routers)
+- `query_graph` — Cypher: `MATCH (m:Class) WHERE m.name ENDS WITH 'Model' RETURN m.file, m.name` — wszystkie modele
+
+### depwire
+- `impact_analysis` — co się zepsuje jeśli zmienisz `Contract` model (services, schemas, routers affected)
+- `get_file_context` — pełny kontekst `backend/contracts/models.py` (co importuje, kto importuje)
+- `get_dependents` — kto zależy od `Contract` klasy (blast radius przed zmianą kolumny)
+
+### mariadb (bezpośrednie zapytania do bazy rao_new)
+- `list_tables` — wszystkie tabele w `rao_new`
+- `get_table_schema` — schema tabeli (kolumny, typy, klucze)
+- `get_table_schema_with_relations` — schema z FK relacjami
+- `execute_sql` — zapytania SQL (SELECT, SHOW, DESCRIBE, EXPLAIN; również INSERT/UPDATE/DELETE/ALTER — agenci mogą grzebać w bazie)
+
+### Kiedy używać
+- **Przed ADD COLUMN** → `depwire.impact_analysis` na modelu → zobacz które schemas/services/routers trzeba zaktualizować
+- **Weryfikacja po migracji** → `mariadb.get_table_schema` na `rao_new.contracts` → sprawdź czy kolumna istnieje
+- **Szukanie N+1** → `codebase-memory.query_graph`: `MATCH (f:Function)-[:CALLS]->(r:Function) WHERE r.name CONTAINS 'relationship' RETURN f.file, f.name`
+- **Wszystkie modele** → `codebase-memory.search_graph` z `label="Class"` + `name_pattern=".*Model"`
+- **EXPLAIN zapytań** → `mariadb.execute_sql` z `EXPLAIN SELECT ...`
+- **Indeksy** → `mariadb.execute_sql` z `SHOW INDEX FROM contracts`
+
+### Uwaga: migracje deterministyczne
+Migracje schema (ALTER TABLE) są uruchamiane deterministycznie przez `backend/main.py` startup event — NIE przez agentów bezpośrednio. Agenci mogą:
+- ✅ Czytać schema przez MCP (`get_table_schema`, `SHOW INDEX`, `EXPLAIN`)
+- ✅ Grzebać w danych przez MCP (`INSERT`, `UPDATE`, `DELETE` — np. seed demo data, fix)
+- ✅ Pisać migracje w `backend/main.py` (kod) — uruchamiane poza agentami przy starcie backendu
+- ❌ Nie uruchamiać `ALTER TABLE` ad-hoc przez MCP bez równoległej zmiany w `main.py`
+
+### Projekt zindeksowany jako
+- codebase-memory: `C-projects-repos-RaoApp_new`
+- depwire: `C:/projects/repos/RaoApp_new`
+- mariadb: baza `rao_new` na `localhost:3306`
 
 ## Output format
 

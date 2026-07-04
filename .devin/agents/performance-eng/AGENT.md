@@ -6,12 +6,15 @@ allowed-tools:
   - grep
   - glob
   - exec
+  - mcp_call_tool
 permissions:
   allow:
     - Exec(curl*)
     - Exec(npm*)
     - Exec(npx*)
-    - Exec(mariadb*)
+    - MCP(codebase-memory)
+    - MCP(depwire)
+    - MCP(mariadb)
   deny:
     - write
     - edit
@@ -158,18 +161,54 @@ time curl http://localhost:8000/rao/api/contracts
 # Bundle size
 cd frontend && npm run build && du -sh dist/assets/
 
-# DB query EXPLAIN
-mariadb -urao_user -p rao_new -e "EXPLAIN SELECT * FROM contracts WHERE contractor_id = 1;"
+# DB query EXPLAIN — przez MariaDB MCP (execute_sql)
+# execute_sql: "EXPLAIN SELECT * FROM contracts WHERE contractor_id = 1;"
 
-# DB indexes
-mariadb -urao_user -p rao_new -e "SHOW INDEX FROM contracts;"
+# DB indexes — przez MariaDB MCP
+# execute_sql: "SHOW INDEX FROM contracts;"
 
-# Slow queries
-mariadb -uroot -p -e "SHOW VARIABLES LIKE 'slow_query%';"
+# Slow queries — przez MariaDB MCP
+# execute_sql: "SHOW VARIABLES LIKE 'slow_query%';"
 
 # npm bundle analyze
 cd frontend && npx vite-bundle-visualizer
 ```
+
+## MCP tools (codebase-memory + depwire)
+
+Repo zindeksowane. Graph tools mają **complexity metrics** wbudowane — kluczowe dla performance audit.
+
+### codebase-memory (complexity metrics wbudowane!)
+Każdy Function/Method node ma: `complexity` (cyclomatic), `cognitive`, `loop_count`, `loop_depth`, `transitive_loop_depth`, `linear_scan_in_loop`, `alloc_in_loop`, `recursion_in_loop`, `unguarded_recursion`, `param_count`, `max_access_depth`.
+
+- `query_graph` — **N+1 candidates**: `MATCH (f:Function) WHERE f.linear_scan_in_loop >= 1 RETURN f.qualified_name, f.linear_scan_in_loop ORDER BY f.linear_scan_in_loop DESC`
+- `query_graph` — **Hot paths**: `MATCH (f:Function) WHERE f.transitive_loop_depth >= 3 OR f.linear_scan_in_loop >= 1 RETURN f.qualified_name, f.transitive_loop_depth, f.linear_scan_in_loop ORDER BY f.transitive_loop_depth DESC`
+- `query_graph` — **Deep nesting**: `MATCH (f:Function) WHERE f.loop_depth >= 3 RETURN f.qualified_name, f.loop_depth`
+- `search_graph` — znajdź list endpoints: `query="list contracts"` + `label="Route"`
+
+### depwire
+- `get_health_score` — 0-100 score (coupling, cohesion, circular deps, god files)
+- `get_architecture_summary` — most connected files (potencjalne bottlenecks)
+- `impact_analysis` — jeśli zoptymalizujesz funkcję → czy nie zepsujesz callerów
+
+### mariadb (bezpośrednie zapytania do bazy rao_new — read-only dla performance)
+- `execute_sql` — `EXPLAIN SELECT * FROM contracts WHERE contractor_id = 1` → plan zapytania
+- `execute_sql` — `SHOW INDEX FROM contracts` → sprawdź indeksy
+- `execute_sql` — `SHOW VARIABLES LIKE 'slow_query%'` → slow query log config
+- `get_table_schema` — schema tabeli przed optymalizacją
+
+### Kiedy używać
+- **N+1 detection** → `codebase-memory.query_graph` z `linear_scan_in_loop` (znajduje hidden O(n²))
+- **EXPLAIN zapytań** → `mariadb.execute_sql` z `EXPLAIN SELECT ...` — zobacz plan wykonania
+- **Brakujące indeksy** → `mariadb.execute_sql` z `SHOW INDEX FROM <table>` + `EXPLAIN` na wolnych zapytaniach
+- **Hot path audit** → `codebase-memory.query_graph` z `transitive_loop_depth >= 3`
+- **God files** → `depwire.get_architecture_summary` → most connected files
+- **Circular deps** → `depwire.get_health_score` → per-dimension breakdown
+
+### Projekt zindeksowany jako
+- codebase-memory: `C-projects-repos-RaoApp_new`
+- depwire: `C:/projects/repos/RaoApp_new`
+- mariadb: baza `rao_new` na `localhost:3306`
 
 ## Output format
 

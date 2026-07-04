@@ -102,21 +102,21 @@ Konfiguracja serwerów MCP dla Devina, dopasowana do tego co Cascade ma w Windsu
 - Po zmianie konfiguracji **ZAWSZE** restart sesji terminala
 - Devin for Terminal scala obie konfiguracje automatycznie
 
-### Status serwerów (2026-05-17)
+### Status serwerów (2026-07-04)
 
-| Serwer | Status | Dlaczego |
-|--------|--------|----------|
-| `rao-vision` | ✅ DZIAŁA | Lokalny server, klucz w config.json |
-| `sequential-thinking` | ✅ DZIAŁA | Globalny npm package, pełna ścieżka |
-| `memory` | ❌ NIE DZIAŁA | Problem z npx przez MCP framework |
-| `github` | ❌ NIE DZIAŁA | Problem z npx przez MCP framework (mimo klucza) |
-| `brave-search` | ❌ NIE DZIAŁA | Problem z npx przez MCP framework (mimo klucza) |
-| `playwright` | ❌ NIE DZIAŁA | Problem z npx przez MCP framework |
+| Serwer | Status | Scope | Dlaczego |
+|--------|--------|-------|----------|
+| `rao-vision` | ✅ DZIAŁA | project | Lokalny server, klucz w config.json |
+| `sequential-thinking` | ✅ DZIAŁA | project | Globalny npm package, pełna ścieżka |
+| `memory` | ✅ DZIAŁA | project | Globalny npm package, pełna ścieżka |
+| `github` | ✅ DZIAŁA | project.local | Globalny npm package, klucz w config.local.json |
+| `brave-search` | ✅ DZIAŁA | project.local | Globalny npm package, klucz w config.local.json |
+| `playwright` | ✅ DZIAŁA | project | Globalny npm package, pełna ścieżka |
+| `codebase-memory` | ✅ DZIAŁA | user | `npx -y codebase-memory-mcp` — graf wiedzy kodu (9548 węzłów, 27500 krawędzi) |
+| `depwire` | ✅ DZIAŁA | user | `npx -y depwire-cli mcp` — analiza zależności cross-file (315 plików, 14492 symboli) |
+| `mariadb` | ✅ DZIAŁA | user | `mcp-server-mariadb` — bezpośrednie zapytania do bazy `rao_new` |
 
-**Diagnoza:** Serwery uruchamiane przez `npx` nie startują przez MCP framework, mimo że działają ręcznie. Może być problem z:
-- Przekazywaniem env variables przez MCP
-- Ścieżkami do npm/node w Windows MINGW64
-- Uprawnieniami do uruchamiania procesów
+**Wszystkie 9 serwerów działa.** Problem z npx został rozwiązany przez instalację globalną pakietów npm + pełne ścieżki w config.json.
 
 ### Rozwiązania problemu z npx
 
@@ -328,18 +328,136 @@ mcp_list_tools --server_name sequential-thinking
 
 ---
 
+## 7. `codebase-memory` (CUSTOM, kluczowy) — graf wiedzy kodu
+
+**Cel:** Semantyczna analiza kodu przez graf wiedzy. Zindeksowane: **9548 węzłów, 27500 krawędzi** (tryb `full` z semantic edges). Wszyscy agenci (poza motion-designer) mają dostęp.
+
+**Instalacja:**
+```bash
+npm install -g codebase-memory-mcp
+codebase-memory-mcp install  # auto-detekcja agentów (Claude-Code, Gemini-CLI, VS Code)
+```
+
+**Konfiguracja (user scope — `~/.config/devin/config.json`):**
+```json
+{
+  "mcpServers": {
+    "codebase-memory": {
+      "command": "npx",
+      "args": ["-y", "codebase-memory-mcp"]
+    }
+  }
+}
+```
+
+**Tools (kluczowe):**
+- `index_repository` — zindeksuj repo (mode: `full`/`moderate`/`fast`/`cross-repo-intelligence`)
+- `search_graph` — BM25 + semantic search po funkcjach/klasach/routach (ZAMIAST grep)
+- `query_graph` — zapytania Cypher: complexity hotspots, N+1 candidates, circular deps
+- `trace_path` — call chain (inbound/outbound/both), data_flow, cross_service
+- `get_code_snippet` — czytaj kod funkcji po `qualified_name`
+
+**Complexity metrics (wbudowane w każdy Function node):**
+- `complexity` (cyclomatic), `cognitive`, `loop_count`, `loop_depth`
+- `transitive_loop_depth` (worst-case nested-loop degree propagated along CALLS)
+- `linear_scan_in_loop` (hidden O(n²) that loop_depth misses)
+- `alloc_in_loop`, `recursion_in_loop`, `unguarded_recursion`
+
+**Projekt zindeksowany jako:** `C-projects-repos-RaoApp_new`
+
+**Reindeksacja (po dużych zmianach):**
+```python
+mcp_call_tool(
+    server_name="codebase-memory",
+    tool_name="index_repository",
+    arguments={"mode": "fast", "repo_path": "C:/projects/repos/RaoApp_new"}
+)
+```
+
+---
+
+## 8. `depwire` (CUSTOM, kluczowy) — analiza zależności cross-file
+
+**Cel:** Analiza zależności między plikami i symbolami. Zindeksowane: **315 plików, 14492 symboli, 11259 krawędzi**. Wszyscy agenci (poza motion-designer) mają dostęp.
+
+**Konfiguracja (user scope):**
+```json
+{
+  "mcpServers": {
+    "depwire": {
+      "command": "npx",
+      "args": ["-y", "depwire-cli", "mcp"]
+    }
+  }
+}
+```
+
+**Tools (kluczowe):**
+- `connect_repo` — połącz z repo (auto-detekcja z cwd)
+- `get_architecture_summary` — overview: file count, hotspots, orphan files, languages
+- `impact_analysis` — blast radius zmiany symbolu (direct + transitive dependents + affected files)
+- `simulate_change` — symuluj move/delete/rename/split/merge przed dotknięciem kodu
+- `verify_change` — safety report przed apply (broken imports, circular deps, health delta)
+- `get_health_score` — 0-100 score architektury (coupling, cohesion, circular deps, god files)
+- `get_file_context` — pełny kontekst pliku: symbole, importy, eksporty, kto importuje
+- `find_dead_code` — nieużywane symbole (high/medium/low confidence)
+- `security_scan` — skanuj pod kątem vulnerabilities z graph-aware severity
+
+**Projekt:** `C:/projects/repos/RaoApp_new` (auto-detected)
+
+---
+
+## 9. `mariadb` (CUSTOM, kluczowy) — bezpośrednie zapytania do bazy `rao_new`
+
+**Cel:** Bezpośrednie zapytania SQL do bazy RAO przez MCP. Agenci mogą czytać schema, EXPLAIN, dane — oraz grzebać w danych (INSERT/UPDATE/DELETE). **Migracje schema (ALTER TABLE) zostają deterministyczne w `backend/main.py`** — uruchamiane poza agentami przy starcie backendu.
+
+**Instalacja:**
+```bash
+pip install mcp-server-mariadb
+```
+
+**Konfiguracja (user scope — hasło w args, bezpieczne bo user scope nie commitowane):**
+```json
+{
+  "mcpServers": {
+    "mariadb": {
+      "command": "mcp-server-mariadb",
+      "args": ["--host", "localhost", "--port", "3306", "--user", "rao_user", "--password", "RaoPass2026!", "--database", "rao_new"]
+    }
+  }
+}
+```
+
+**Tools:**
+- `list_databases` — wszystkie bazy dostępne dla usera
+- `list_tables` — wszystkie tabele w `rao_new`
+- `get_table_schema` — schema tabeli (kolumny, typy, klucze)
+- `get_table_schema_with_relations` — schema z FK relacjami
+- `execute_sql` — zapytania SQL (SELECT, SHOW, DESCRIBE, EXPLAIN, INSERT, UPDATE, DELETE, ALTER)
+
+**Zasady użycia:**
+- ✅ **Czytać:** schema, EXPLAIN, SHOW INDEX, SELECT — każdy agent
+- ✅ **Grzebać w danych:** INSERT, UPDATE, DELETE — agenci z write permissions (db-architect, backend-dev, qa-engineer)
+- ⚠️ **ALTER TABLE:** tylko db-architect, i to z równoległą zmianą w `backend/main.py` (migracja deterministyczna)
+- ❌ **DROP TABLE/COLUMN:** bez wyraźnej zgody usera (bezpieczeństwo danych)
+
+---
+
 ## Priorytet dla RAO
 
 | Priorytet | MCP | Po co |
 |-----------|-----|-------|
 | 🔴 KRYTYCZNY | `rao-vision` | Devin "widzi" wynik swojej pracy → autonomiczne UI verification |
 | 🔴 KRYTYCZNY | `playwright` | E2E tests, navigation, manual UI testing |
-| 🟡 ZALECANE | `github` | PR/issue management automatycznie |
+| � KRYTYCZNY | `codebase-memory` | Graf wiedzy kodu — search, trace, complexity metrics (ZAMIAST grep) |
+| 🔴 KRYTYCZNY | `depwire` | Impact analysis, dead code, health score, security scan |
+| 🔴 KRYTYCZNY | `mariadb` | Bezpośrednie zapytania do bazy `rao_new` (schema, EXPLAIN, dane) |
+| �🟡 ZALECANE | `github` | PR/issue management automatycznie |
 | 🟢 OPCJONALNE | `brave-search` | Research |
 | 🟢 OPCJONALNE | `sequential-thinking` | Złożone planowanie |
 | 🟢 OPCJONALNE | `memory` | Wiedza między sesjami |
 
-**Minimalna konfiguracja:** `rao-vision` + `playwright` = pełna autonomia UI verification.
+**Minimalna konfiguracja:** `rao-vision` + `playwright` + `codebase-memory` + `depwire` + `mariadb` = pełna autonomia (UI verification + code analysis + DB access).
 
 ---
 
@@ -388,9 +506,9 @@ Devin powinien:
 - **Dokumentacja:** `.devin/MCP_CONFIG.md` (ten plik)
 - **Local vision server:** `mcp-vision/index.js` (wymaga `npm install`)
 
-### Aktualny status (2026-05-17)
-- ✅ **Działające:** `rao-vision`, `sequential-thinking`
-- ❌ **Niedziałające:** `memory`, `github`, `brave-search`, `playwright` (problem z npx)
+### Aktualny status (2026-07-04)
+- ✅ **Działające (9 serwerów):** `rao-vision`, `sequential-thinking`, `memory`, `github`, `brave-search`, `playwright`, `codebase-memory`, `depwire`, `mariadb`
+- ❌ **Niedziałające:** brak
 
 ### Typowe operacje
 ```bash

@@ -6,11 +6,15 @@ allowed-tools:
   - grep
   - glob
   - exec
+  - mcp_call_tool
 permissions:
   allow:
     - Exec(git status)
     - Exec(git diff*)
     - Exec(git log*)
+    - MCP(codebase-memory)
+    - MCP(depwire)
+    - MCP(mariadb)
   deny:
     - write
     - edit
@@ -51,6 +55,42 @@ Widzisz **calosc systemu**. Nie schodzisz do szczegolow implementacji - to jest 
 5. **Podzial pracy**
    - Co rownolegle (frontend + backend), co sekwencyjnie (DB -> backend -> frontend)
    - Co jest blokerem dla nastepnego kroku
+
+## MCP tools (codebase-memory + depwire)
+
+Repo RAO jest zindeksowane: **codebase-memory** (9548 węzłów, 27500 krawędzi) i **depwire** (315 plików, 14492 symboli). Używaj graph tools ZAMIAST grep gdy szukasz zależności, impactu, architektury.
+
+### codebase-memory (graf wiedzy kodu)
+- `search_graph` — BM25 + semantic search po funkcjach/klasach/routach. Zamiast `grep -r "ContractService"`.
+- `query_graph` — zapytania Cypher: hot-path complexity, circular deps, N+1 candidates. Np. `MATCH (f:Function) WHERE f.transitive_loop_depth >= 3 RETURN f.qualified_name`.
+- `trace_path` — śledzenie call chain (inbound/outbound/both), data_flow, cross_service. Np. kto wywołuje `get_current_user` i jak głęboko.
+- `get_code_snippet` — czytaj kod funkcji po `qualified_name` (po `search_graph`).
+
+### depwire (analiza zależności cross-file)
+- `get_architecture_summary` — overview: file count, hotspots, orphan files, languages.
+- `impact_analysis` — co się zepsuje jeśli zmienisz symbol (direct + transitive dependents + affected files). **Kluczowe przed refactorami.**
+- `simulate_change` — symuluj move/delete/rename/split/merge przed dotknięciem kodu. Zwraca health delta, broken imports.
+- `get_health_score` — 0-100 score architektury (coupling, cohesion, circular deps, god files).
+- `get_file_context` — pełny kontekst pliku: symbole, importy, eksporty, pliki które go importują.
+- `find_dead_code` — nieużywane symbole (cleanup opportunities).
+
+### mariadb (kontekst bazy — read-only dla architekta)
+- `list_tables` — wszystkie tabele w `rao_new` (overview schema)
+- `get_table_schema_with_relations` — schema z FK (mapa relacji)
+- `execute_sql` — `SELECT COUNT(*) FROM <table>` — skala danych (czy tabela rośnie)
+
+### Kiedy używać
+- **Przed podziałem pracy** → `depwire.get_architecture_summary` + `codebase-memory.search_graph` dla obszaru zmiany
+- **Side effects analysis** → `depwire.impact_analysis` na zmienianym symbolu (blast radius)
+- **Refactor decyzje** → `depwire.simulate_change` przed commitem, `codebase-memory.query_graph` dla complexity hotspots
+- **Duplikacja logiki** → `codebase-memory.search_graph` z `semantic_query` (znajdzie podobne funkcje nawet gdy nazwy różne)
+- **Dead code cleanup** → `depwire.find_dead_code`
+- **Schema overview** → `mariadb.list_tables` + `mariadb.get_table_schema_with_relations` — mapa relacji DB
+
+### Projekt zindeksowany jako
+- codebase-memory: `C-projects-repos-RaoApp_new`
+- depwire: `C:/projects/repos/RaoApp_new` (auto-detected)
+- mariadb: baza `rao_new` na `localhost:3306`
 
 ## Output format
 

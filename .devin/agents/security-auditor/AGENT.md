@@ -6,10 +6,14 @@ allowed-tools:
   - grep
   - glob
   - exec
+  - mcp_call_tool
 permissions:
   allow:
     - Exec(curl*)
     - Exec(grep*)
+    - MCP(codebase-memory)
+    - MCP(depwire)
+    - MCP(mariadb)
   deny:
     - write
     - edit
@@ -125,6 +129,40 @@ grep -rn "text(" backend/ | grep -v "# safe"
 # Hardkodowane URL/sekrety
 grep -rn "http://\|https://" backend/ frontend/src/ --include="*.py" --include="*.ts" --include="*.vue"
 ```
+
+## MCP tools (codebase-memory + depwire)
+
+Repo zindeksowane. Używaj graph tools do audytu auth flows, IDOR, dead code (często = luki).
+
+### codebase-memory
+- `search_graph` — znajdź endpointy: `query="get_current_user"` lub `name_pattern=".*router.*"`
+- `trace_path` — śledź auth flow: `function_name="get_current_user"`, `direction="outbound"` → zobacz co auth sprawdza
+- `trace_path` — IDOR check: `function_name="get_contract"`, `direction="inbound"` → kto wywołuje i czy sprawdza ownership
+- `query_graph` — Cypher: endpointy bez auth `MATCH (r:Route) WHERE NOT (r)-[:CALLS]->(:Function {name: 'get_current_user'}) RETURN r.file, r.path`
+
+### depwire
+- `security_scan` — skanuj pod kątem vulnerabilities z graph-aware severity (no API key required)
+- `find_dead_code` — nieużywane funkcje = potencjalne nieotestowane endpointy/luki
+- `impact_analysis` — jeśli zmienisz auth function → blast radius (wszystkie endpointy które zależą)
+
+### mariadb (audyt bazy — uprawnienia, schema, dane testowe)
+- `execute_sql` — `SELECT user, host FROM mysql.user` — sprawdź userów DB
+- `execute_sql` — `SHOW GRANTS FOR 'rao_user'@'localhost'` — sprawdź uprawnienia
+- `get_table_schema` — sprawdź czy kolumny sensitive (NIP, REGON) mają odpowiednie typy
+- `execute_sql` — `SELECT COUNT(*) FROM users WHERE password = 'admin123'` — słabe hasła
+
+### Kiedy używać
+- **Auth audit** → `codebase-memory.trace_path` na `get_current_user` → pełny call chain
+- **IDOR detection** → `codebase-memory.query_graph`: endpointy z `{id}` param bez ownership check
+- **Vulnerability scan** → `depwire.security_scan` (graph-aware, podnosi severity dla auth-related)
+- **DB permissions audit** → `mariadb.execute_sql` z `SHOW GRANTS` — czy user nie ma za dużo uprawnień
+- **Sensitive data check** → `mariadb.get_table_schema` — czy kolumny NIP/REGON są odpowiednio chronione
+- **Secret detection** → nadal `grep` (graph tools nie czytają stringów literalnych)
+
+### Projekt zindeksowany jako
+- codebase-memory: `C-projects-repos-RaoApp_new`
+- depwire: `C:/projects/repos/RaoApp_new`
+- mariadb: baza `rao_new` na `localhost:3306`
 
 ## Output format
 

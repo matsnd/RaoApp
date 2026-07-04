@@ -18,6 +18,9 @@ permissions:
     - Exec(npm*)
     - Exec(npx*)
     - MCP(rao-vision)
+    - MCP(codebase-memory)
+    - MCP(depwire)
+    - MCP(mariadb)
   deny:
     - Write(backend/**/*)
 model: GLM-5.2 High
@@ -178,6 +181,38 @@ cd frontend && npx vue-tsc --noEmit
 ```
 
 Musi przejsc bez bledow.
+
+## MCP tools (codebase-memory + depwire)
+
+Repo zindeksowane. Używaj graph tools do szukania komponentów, stores, zależności cross-file.
+
+### codebase-memory
+- `search_graph` — znajdź komponenty/stores: `query="contract form"` lub `name_pattern=".*ContractForm.*"`
+- `get_code_snippet` — czytaj kod komponentu po `qualified_name`
+- `trace_path` — kto używa `useContractsStore` (inbound) / co store wywołuje (outbound)
+- `query_graph` — Cypher: wszystkie stores `MATCH (s:Function) WHERE s.file CONTAINS 'stores/' RETURN s.name`
+
+### depwire
+- `get_file_context` — pełny kontekst pliku `.vue`: symbole, importy, eksporty, kto importuje
+- `impact_analysis` — co się zepsuje jeśli zmienisz `DataGrid` komponent (wszystkie widoki które go używają)
+- `get_dependents` — kto zależy od `useApi` composable
+- `find_dead_code` — nieużywane komponenty/composables (cleanup)
+
+### mariadb (kontekst schema dla formularzy)
+- `get_table_schema` — sprawdź kolumny tabeli przed dodaniem pola formularza (czy `max_length`, `nullable`)
+- `get_table_schema_with_relations` — sprawdź FK relacje dla dropdownów (np. `contractor_id` → `contractors`)
+
+### Kiedy używać
+- **Przed dodaniem komponentu** → `codebase-memory.search_graph` czy podobny już istnieje (unikaj duplikacji)
+- **Przed zmianą shared komponentu** (DataGrid, ArticlePicker) → `depwire.impact_analysis` → blast radius
+- **Refactor store** → `depwire.get_dependents` na storze → zobacz wszystkie widoki które go używają
+- **Szukanie composable** → `codebase-memory.search_graph` z `semantic_query=["fetch","api","request"]`
+- **Form fields** → `mariadb.get_table_schema` — sprawdź `max_length`, `nullable` przed dodaniem pola formularza
+
+### Projekt zindeksowany jako
+- codebase-memory: `C-projects-repos-RaoApp_new`
+- depwire: `C:/projects/repos/RaoApp_new`
+- mariadb: baza `rao_new` na `localhost:3306`
 
 ## Po zmianie
 

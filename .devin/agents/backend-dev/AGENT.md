@@ -8,6 +8,7 @@ allowed-tools:
   - edit
   - write
   - exec
+  - mcp_call_tool
 permissions:
   allow:
     - Write(backend/**/*.py)
@@ -18,6 +19,9 @@ permissions:
     - Exec(pytest*)
     - Exec(uvicorn*)
     - Exec(curl*)
+    - MCP(codebase-memory)
+    - MCP(depwire)
+    - MCP(mariadb)
   deny:
     - Write(frontend/**/*)
     - Write(backend/main.py)
@@ -144,6 +148,41 @@ async def test_create_article_unauth(client):
 - Mutacja request payload (uzyj `payload.model_dump()`)
 - N+1 - uzyj `selectinload`/`joinedload`
 - Hardkodowanie URL/portow - uzyj `config.py`
+
+## MCP tools (codebase-memory + depwire)
+
+Repo zindeksowane. Używaj graph tools ZAMIAST grep do szukania implementacji, zależności, impactu.
+
+### codebase-memory
+- `search_graph` — znajdź funkcje/endpointy: `query="create contract"` lub `name_pattern=".*create_contract.*"`
+- `get_code_snippet` — czytaj kod funkcji po `qualified_name` (najpierw `search_graph`)
+- `trace_path` — call chain: kto wywołuje `service.create_contract` (inbound) / co ona wywołuje (outbound)
+- `query_graph` — Cypher: N+1 candidates `MATCH (f:Function) WHERE f.linear_scan_in_loop >= 1 RETURN f.qualified_name`
+
+### depwire
+- `get_dependencies` — co importuje/wywołuje dany symbol (np. `ContractService`)
+- `get_dependents` — kto używa `ContractService` (blast radius przed zmianą)
+- `impact_analysis` — pełny impact zmiany symbolu (direct + transitive + affected files)
+- `get_file_context` — pełny kontekst pliku: symbole, importy, eksporty, kto importuje
+
+### mariadb (bezpośrednie zapytania do bazy rao_new)
+- `execute_sql` — testuj zapytania SQL, weryfikuj dane po operacjach, debuguj
+- `get_table_schema` — sprawdź schema przed dodaniem endpointu (czy kolumna istnieje)
+- `get_table_schema_with_relations` — sprawdź FK relacje przed JOIN
+- `list_tables` — overview wszystkich tabel
+
+### Kiedy używać
+- **Przed dodaniem endpointu** → `codebase-memory.search_graph` czy podobny już istnieje (unikaj duplikacji)
+- **Przed zmianą service** → `depwire.impact_analysis` na funkcji → zobacz które routery/tests zależą
+- **Debug N+1** → `codebase-memory.query_graph` z `linear_scan_in_loop` lub `transitive_loop_depth`
+- **Weryfikacja schema** → `mariadb.get_table_schema` — czy kolumna istnieje przed dodaniem endpointu
+- **Debug danych** → `mariadb.execute_sql` — sprawdź dane po operacji (czy rekord został utworzony poprawnie)
+- **Szukanie wzorców** → `codebase-memory.search_graph` z `semantic_query=["send","email","notify"]` znajdzie funkcje powiadomień nawet gdy nazywają się inaczej
+
+### Projekt zindeksowany jako
+- codebase-memory: `C-projects-repos-RaoApp_new`
+- depwire: `C:/projects/repos/RaoApp_new`
+- mariadb: baza `rao_new` na `localhost:3306`
 
 ## Po zmianie
 
