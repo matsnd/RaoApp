@@ -2880,6 +2880,175 @@ W zakładce "Lokalizacje" w AnalyticsView każde miasto było rozbite na kody po
 
 ---
 
+### [RAO-P2-070] Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation)
+
+```yaml
+id: RAO-P2-070
+priority: P2
+size: L
+status: triaged
+classification: frontend/ux
+roles: [ux-designer, frontend-dev, product-owner]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/03_frontend_screens.md (drilldowny cross-view)
+  - core/06_navigation_flow.md (cross-view navigation, goBack → router.back)
+  - core/18_ux_improvements.md (toast zamiast alert, feedback po zapisie)
+migration_impact: no
+security_impact: no
+depends_on: []
+blocks: []
+verification: []
+```
+
+**Problem:**
+
+Aplikacja ma solidne podstawy (drilldown w Analytics/Archive, skeleton loadery, empty states, active sidebar). Ale **codzienne flow usera** jest utrudnione — brakuje cross-view drilldownów (kontrahent↔umowa↔maszyna), sortowania po kolumnach w Dashboard, kluczowych filtrów (handlowiec, miasto), oraz `alert()` zamiast toastów w 25+ miejscach.
+
+**Cel:** Aplikacja w pełni interaktywna — user może "przeskakiwać" między encjami bez ręcznego szukania, każdy zapis/akcja ma feedback, każda lista ma filtry i sortowanie.
+
+---
+
+#### Audyt UX (2026-07-04) — 30 usterek w 3 priorytetach
+
+##### 🔴 HIGH — Blokuje codzienną pracę (8 usterek)
+
+| # | Usterka | Widok | User pain | Stara aplikacja |
+|---|---------|-------|-----------|-----------------|
+| B1 | Brak drilldown z listy umów → kontrahent | DashboardView /contracts | Ręczne szukanie kontrahenta w sidebar | WinForms: context menu / double-click |
+| B2 | Brak kolumny "Maszyny" w liście umów | DashboardView /contracts | Trzeba otwierać każdą umowę | WinForms: tooltip / dialog "?" |
+| B3 | Brak drilldown z kontrahenta → jego umowy | DashboardView /contractors | "Aktywna umowa" nie jest klikalna | WinForms: double-click → historia umów |
+| B4 | Brak drilldown z artykułu → historia wynajmów | DashboardView /articles | Trzeba kombinować z Analytics | WinForms: FormA.cs podgląd historii |
+| B5 | Brak sortowania po kolumnach w DashboardView | DashboardView (3 sekcje) | Klik w nagłówek nie sortuje | WinForms: DataGridView sortował |
+| B6 | `alert()` zamiast toastów — 25+ miejsc | 9 widoków (ContractForm 18×, ContractorForm 5×, Archive 5×, Admin 6×, inne) | Blokuje aplikację, legacy pattern | WinForms: MessageBox (web ≠ MessageBox) |
+| B7 | Brak toastu po zapisie umowy/kontrahenta/artykułu | ContractForm, ContractorForm, ArticleForm | User nie wie czy zapisano → duplikat | WinForms: "Zapisano" w status bar |
+| B8 | Brak filtra "Handlowiec" i "Miasto" w liście umów | DashboardView /contracts | Handlowiec nie widzi swoich umów | WinForms: filtry handlowca w toolbarze |
+
+##### 🟡 MEDIUM — Frustrujące, user radzi sobie obejściem (13 usterek)
+
+| # | Usterka | Widok |
+|---|---------|-------|
+| B9 | Brak drilldown z umowy → edycja kontrahenta | ContractFormView |
+| B10 | Brak drilldown z umowy → edycja maszyny (z pozycji) | ContractFormView (PositionGrid) |
+| B11 | Brak drilldown z umowy → faktura w Fakturownia | ContractFormView (panel FA) |
+| B12 | Brak drilldown z CommissionView → umowy handlowca | CommissionView |
+| B13 | Brak drilldown z drill-machine-rentals → konkretna umowa | AnalyticsView (drawer machine) |
+| B14 | Brak drilldown z top_contractors → kontrahent | AnalyticsView (drawer location) |
+| B15 | Brak breadcrumb w formularzach | ContractForm, ContractorForm, ArticleForm |
+| B16 | `goBack` hardcoded zamiast `router.back()` | ContractForm, ContractorForm, ArticleForm |
+| B17 | Brak filtra "Tylko z aktywną umową" w kontrahentach | DashboardView /contractors |
+| B18 | Brak filtra kategoria/marka/typ w artykułach | DashboardView /articles |
+| B19 | Brak kalendarza umów (spec 06 sekcja 3) | DashboardView /contracts |
+| B20 | Brak toolbar [?] — podgląd szczegółów bez edycji | DashboardView |
+| B21 | Brak context menu "Dodaj umowę" w kontrahentach | DashboardView /contractors |
+
+##### 🟢 LOW — Polish / nice-to-have (9 usterek)
+
+| # | Usterka | Widok |
+|---|---------|-------|
+| B22 | Brak hover indicatora na klikalnych wierszach | ArchiveView |
+| B23 | Brak undo dla destruktywnych akcji | DashboardView, ContractorForm |
+| B24 | Brak sticky header w tabelach | DashboardView, ArchiveView |
+| B25 | Brak filtra "Okres" w kontrahentach i artykułach | DashboardView |
+| B26 | Brak paginacji w drilldown drawers | AnalyticsView |
+| B27 | Brak "Eksportuj CSV/PDF" z list | DashboardView, AnalyticsView |
+| B28 | Brak tooltipów na ikonach w toolbarze | ContractFormView |
+| B29 | Brak drilldown z HomeView KPI → filtrowana lista | HomeView |
+| B30 | Brak drilldown z HomeView "Dostawy" → umowa | HomeView |
+
+---
+
+#### Mapa pożądanych interakcji (cross-view navigation)
+
+| Z widoku | Klik w | Powinno otworzyć | Priorytet |
+|----------|--------|------------------|-----------|
+| Dashboard /contracts | Nazwa kontrahenta | `/contractors/:id/edit` | HIGH |
+| Dashboard /contracts | Maszyna (nowa kolumna) | `/articles/:id/edit` lub drilldown | HIGH |
+| Dashboard /contracts | Nagłówek kolumny | Sort ASC/DESC | HIGH |
+| Dashboard /contracts | Filtr Handlowiec | Lista filtrowana po `salesperson_id` | HIGH |
+| Dashboard /contracts | Filtr Miasto | Lista filtrowana po `city` | HIGH |
+| Dashboard /contractors | Numer aktywnej umowy | `/contracts/:id/edit` | HIGH |
+| Dashboard /contractors | Right-click → "Dodaj umowę" | `/contracts/new?contractor_id=:id` | HIGH |
+| Dashboard /articles | Numer aktywnej umowy | `/contracts/:id/edit` | HIGH |
+| Dashboard /articles | "Historia wynajmów" | Drawer jak w Analytics | HIGH |
+| ContractForm | "✎ Edytuj" obok kontrahenta | `/contractors/:id/edit` (nowa karta) | MEDIUM |
+| ContractForm | Nazwa artykułu w pozycji | `/articles/:id/edit` (nowa karta) | MEDIUM |
+| ContractForm | Faktura w panelu FA | `window.open(invoice.url)` | MEDIUM |
+| Analytics /drill-machine | Wiersz rental (umowa) | `/contracts/:contract_id/edit` | MEDIUM |
+| Analytics /drill-location | Wiersz top_contractor | `/contractors/:id/edit` | MEDIUM |
+| Commission | Wiersz handlowca | `/dashboard/contracts?salesperson_id=:id` | MEDIUM |
+| HomeView | KPI card | `/worker` lub `/dashboard/contracts` z filtrem | MEDIUM |
+| HomeView | Dostawa (delivery-row) | `/contracts/:contract_id/edit` | MEDIUM |
+| Wszystkie formularze | Toolbar "←" | `router.back()` z fallbackiem | MEDIUM |
+| Wszystkie błędy | API error | Toast error (NIE `alert()`) | HIGH |
+| Wszystkie formularze | Po Zapisz | Toast success | HIGH |
+
+---
+
+#### Rekomendowana kolejność implementacji (5 faz)
+
+**Faza 1 — Toasty zamiast alert() + feedback po zapisie (B6, B7)** — quick win, 25+ miejsc
+- Komponent `Toast.vue` i `useToastStore` już istnieją (używane w 1 miejscu)
+- Czysta zamiana `alert(err)` → `toastStore.showToast(msg, 'error')`
+- Dodać toast success po zapisie we wszystkich formularzach
+- Est: 4-6h (S)
+
+**Faza 2 — Cross-view drilldown z list (B1, B3, B4)** — najczęstszy flow codzienny
+- DashboardView /contracts: nazwa kontrahenta → link, kolumna "Maszyny" → link
+- DashboardView /contractors: `active_contract_number` → link, context menu "Dodaj umowę"
+- DashboardView /articles: `active_contract_number` → link, akcja "Historia wynajmów"
+- Est: 6-8h (M)
+
+**Faza 3 — Sortowanie po kolumnach w DashboardView (B5)** — `useSort` już istnieje
+- Przenieść pattern z `ExplorerTab.vue` / `AnalyticsTable.vue`
+- 3 tabele: contracts, contractors, articles
+- Est: 3-4h (S)
+
+**Faza 4 — Filtry: Handlowiec + Miasto w liście umów (B8)** — wymaga backend
+- Dodać `salesperson_id` i `city` do `GET /contracts` query params (backend)
+- Dodać `<select>` i `<input>` w grid-header (frontend)
+- `settingsStore.salespeople` już załadowany
+- Est: 4-5h (S)
+
+**Faza 5 — goBack → router.back() + drilldown w Analytics/HomeView (B13-B16, B29-B30)** — polish
+- `goBack` używające `router.back()` z fallbackiem
+- Drilldown z drawer Analytics → konkretna umowa
+- KPI cards w HomeView klikalne
+- Est: 4-6h (S)
+
+**Łączna estymacja:** 21-29h (L) — 5 faz, każda niezależna (można robić sekwencyjnie)
+
+---
+
+#### Co działa dobrze (nie wymaga zmian)
+
+- ✅ HomeView — klik w umowę w panelach → edycja
+- ✅ WorkerView — klik w umowę/dostawy → edycja, filtry dni
+- ✅ AnalyticsView — drilldown machine/location, filtry (date, type, contractor, city)
+- ✅ ArchiveView — drilldown umów, filtry (search, typ, data, kategoria), paginacja
+- ✅ ExplorerTab — klik w wynik → edycja, search + sort
+- ✅ ContractFormView — picker kontrahenta/art/dostawcy, inline form, conflict modal
+- ✅ ContractorFormView — "+ Umowa" → auto-fill, GUS lookup
+- ✅ AppSidebar — active state per section
+- ✅ AppLayout — Ctrl+N = nowy, Esc = back
+
+---
+
+#### Edge cases do obsługi w implementacji
+
+- [ ] **Error state:** Tylko ArchiveView/AnalyticsView mają retry; reszta = `alert('Błąd')`
+- [ ] **Success feedback:** Tylko CommissionView (toast); reszta = brak
+- [ ] **Slow connection:** Brak timeout indicatora
+- [ ] **Long content:** DashboardView paginacja (50/strona, brak wyboru per-page)
+- [ ] **Soft delete vs hard delete:** Usunięcie kontrahenta z aktywnymi umowami — blokować LUB soft-delete
+
+---
+
+**Estymacja:** 21-29h (L) — 5 faz, każda niezależna
+
+---
+
 ## 📋 Tabela TL;DR
 
 | ID | Tytuł | P | Est. | Status | Następny krok |
@@ -2930,6 +3099,7 @@ W zakładce "Lokalizacje" w AnalyticsView każde miasto było rozbite na kody po
 | RAO-P2-067 | Demo data refactor — migrate_all.py orchestrator + FA-pending contracts + delivery_address | P2 | M | done | 31 faktur FA (19 backfill + 12 FA-pending), delivery_address z miastami, hardcoded token usunięty |
 | RAO-P2-068 | Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta" | P2 | M | done | 5 cenników kaskadowych per maszyna, 6 presetów usług, 22 ServiceFeeTemplateItem, 6 rate types, pełna konfiguracja firmy |
 | RAO-P2-069 | Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście | P2 | M | done | Toggle Miasto/PNA w LocationsTab, 1 wiersz per miasto (Warszawa 3978 PNA → 1), drill-down /locations/city/{city} z pna_breakdown |
+| RAO-P2-070 | Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation) | P2 | L | triaged | 30 usterek UX (8 HIGH, 13 MEDIUM, 9 LOW); 5 faz: toasty, cross-view drilldown, sort, filtry, goBack |
 | RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
 
 **Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
