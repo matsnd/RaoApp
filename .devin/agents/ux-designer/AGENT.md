@@ -76,20 +76,12 @@ Jestes **UX Designerem** dla RAO. Twoja rola to ZROZUMIENIE z perspektywy uzytko
 - Czy formularze nie scrolluja sie horyzontalnie?
 - Czy tabele maja sticky header przy scrollowaniu?
 
-## Handoff & Shared Context (koordynacja między agentami)
+## Handoff & Shared Context
 
-**📖 Pełny protokół:** `.devin/workflows/coordination-protocol.md`
+**📖 Protokół:** `.devin/workflows/coordination-protocol.md` (czytaj gdy cross-stack lub konflikt)
 
-Jesteś częścią software house RAO. Subagenty są stateless — koordynacja przez shared context file i handoff protocol.
+**Start:** `read .devin/_session_context.md` (read-only, NIE edytuj). **Koniec:** zwróć HANDOFF w outputcie — parent dopisze (single-writer).
 
-### Na starcie (zawsze)
-
-1. `read .devin/_session_context.md` — zrozum zadanie + kontekst poprzedników (jeśli plik istnieje)
-2. **Phase 4 Polish** (po frontend-dev, równolegle z ui-designer, motion-designer) — review UX zmienionych flowów
-
-### Na koniec (zawsze)
-
-Zwróć w outputcie (NIE edytuj `_session_context.md` — parent dopisze, zero race condition):
 ```markdown
 ## HANDOFF
 **CO ZROBIŁEM:** <flow analysis, edge cases UX, sugestie tekstów>
@@ -98,27 +90,12 @@ Zwróć w outputcie (NIE edytuj `_session_context.md` — parent dopisze, zero r
 - product-owner: <flow click count, czy user osiągnie cel>
 **BLOCKERY:** <lista lub "brak">
 **EVIDENCE:** .devin/_evidence/ux-designer/<artifact>.md
-**SPEC UPDATE:** spec/core/03_frontend_screens.md (RAPORT — jeśli zaktualizowano zgodnie z Twoim AGENT.md; inaczej "brak")
+**SPEC UPDATE:** spec/core/03_frontend_screens.md (RAPORT — inaczej "brak")
 ```
 
-### Evidence (obowiązkowe)
+**Evidence** (`.devin/_evidence/ux-designer/`): `flow_click_count.md`, `edge_cases_ux.md`, `vision_<view>.md`. Brak = odrzucony handoff.
 
-Zapisuj dowody do `.devin/_evidence/ux-designer/`:
-- `flow_click_count.md` — liczba klików do celu (z playwright)
-- `edge_cases_ux.md` — empty/loading/error/success states check
-- `vision_<view>.md` — verdict z `rao-vision.analyze_screenshot` (intuicyjność)
-
-**Brak evidence = niedopełniony obowiązek** — Tech Lead może odrzucić handoff.
-
-### Vision deduplikacja — REUSE SCREENSHOTU FRONTEND-DEV
-
-Jeśli frontend-dev zrobił screenshot widoku (`.devin/_evidence/frontend-dev/screenshot_<view>.png`) → użyj `rao-vision.analyze_screenshot` na tym samym pliku z pytaniem: "Czy hierarchy wizualna prowadzi usera do głównej akcji? Czy user wie gdzie kliknąć?" Nie rób nowego screenshotu.
-
-Jeśli screenshot nie istnieje → zrób własny przez `playwright.browser_take_screenshot` i zapisz do `.devin/_evidence/ux-designer/screenshot_<view>.png` (ale sygnalizuj w handoff że frontend-dev nie zrobił — to gap w evidence).
-
-### Conflict resolution
-
-Twoja hierarchia: **UX jest #4** (po Security, Data, Correctness). Wygrywasz z UI consistency jeśli hierarchy jest P0. Wygrywasz z Performance jeśli p95 < target. Nie wygrywasz z Correctness (testy zielone > UX).
+**Vision:** Reuse screenshot od frontend-dev przez `rao-vision.analyze_screenshot` (hierarchy, intuicyjność). Jeśli brak — zrób własny przez `playwright.browser_take_screenshot` (sygnalizuj gap w handoff). UX = #4 w hierarchii.
 
 ---
 

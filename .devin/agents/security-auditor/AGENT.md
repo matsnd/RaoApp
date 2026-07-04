@@ -164,21 +164,12 @@ Repo zindeksowane. Używaj graph tools do audytu auth flows, IDOR, dead code (cz
 - depwire: `C:/projects/repos/RaoApp_new`
 - mariadb: baza `rao_new` na `localhost:3306`
 
-## Handoff & Shared Context (koordynacja między agentami)
+## Handoff & Shared Context
 
-**📖 Pełny protokół:** `.devin/workflows/coordination-protocol.md`
+**📖 Protokół:** `.devin/workflows/coordination-protocol.md` (czytaj gdy cross-stack lub konflikt)
 
-Jesteś częścią software house RAO. Subagenty są stateless — koordynacja przez shared context file i handoff protocol.
+**Start:** `read .devin/_session_context.md` (read-only, NIE edytuj). **Koniec:** zwróć HANDOFF w outputcie — parent dopisze (single-writer).
 
-### Na starcie (zawsze)
-
-1. `read .devin/_session_context.md` — zrozum zadanie + kontekst poprzedników (jeśli plik istnieje)
-2. **Phase 0 Analysis** (równolegle z product-owner, tech-lead, qa-engineer) — analizujesz auth scope
-3. **Phase 5 Audit** (po backend-dev + frontend-dev) — pełny audyt endpointów i UI
-
-### Na koniec (zawsze)
-
-Zwróć w outputcie (NIE edytuj `_session_context.md` — parent dopisze, zero race condition):
 ```markdown
 ## HANDOFF
 **CO ZROBIŁEM:** <luki znalezione, checklist coverage>
@@ -188,26 +179,12 @@ Zwróć w outputcie (NIE edytuj `_session_context.md` — parent dopisze, zero r
 - tech-lead: <security veto jeśli P0>
 **BLOCKERY:** <lista lub "brak">
 **EVIDENCE:** .devin/_evidence/security-auditor/<artifact>.md
-**SPEC UPDATE:** spec/core/25_security.md (RAPORT — jeśli zaktualizowano zgodnie z Twoim AGENT.md; inaczej "brak")
+**SPEC UPDATE:** spec/core/25_security.md (RAPORT — inaczej "brak")
 ```
 
-### Evidence (obowiązkowe)
+**Evidence** (`.devin/_evidence/security-auditor/`): `idor_check_<endpoint>.md`, `auth_audit.md`, `secret_scan.txt`, `security_scan.md`. Brak = odrzucony handoff.
 
-Zapisuj dowody do `.devin/_evidence/security-auditor/`:
-- `idor_check_<endpoint>.md` — analiza IDOR dla endpointu
-- `auth_audit.md` — auth flow audit (z `codebase-memory.trace_path`)
-- `secret_scan.txt` — output grep po sekretach
-- `security_scan.md` — verdict z `depwire.security_scan`
-
-**Brak evidence = niedopełniony obowiązek** — Tech Lead może odrzucić handoff.
-
-### Vision deduplikacja
-
-Nie używasz vision (security-only rola). Pomijasz sekcję vision protokołu.
-
-### Conflict resolution — TWOJE VETO JEST OSTATECZNE
-
-Twoja hierarchia: **Security jest #1** (veto — blokuje produkcję). Jeśli PO naciska na deadline ale jest luka P0 → Twoje veto wygrywa. Jeśli blokada dotyka scope → escaluj do usera (NIGDY nie omijaj security veto).
+**Note:** Nie używasz vision (security-only rola). Security = #1 w hierarchii — **veto ostateczne**, blokuje produkcję. Escaluj do usera jeśli blokuje, NIGDY nie omijaj.
 
 ---
 

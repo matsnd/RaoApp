@@ -288,99 +288,32 @@ To tworzy historie zmian do rollbacku (`git revert HEAD`) i sledzenia postepow.
 
 ## Koordynacja między subagentami — Coordination Protocol
 
-**📖 Pełny protokół:** `.devin/workflows/coordination-protocol.md` (read zanim zaczniesz!)
+**📖 Pełny protokół:** `.devin/workflows/coordination-protocol.md` (106 linii — read zanim zaczniesz cross-stack zadanie)
 
-**⚡ TL;DR (10 linii):**
-1. Ty (Tech Lead) tworzysz `.devin/_session_context.md` na starcie
-2. Subagenty CZYTAJĄ `_session_context.md` (read-only, NIE edytują)
-3. Subagenty ZWRACAJĄ HANDOFF w outputcie (CO ZROBIŁEM / GOTOWE DLA / BLOCKERY / EVIDENCE / SPEC UPDATE)
-4. Ty DOPISUJESZ HANDOFF do `_session_context.md` (single-writer = zero race condition)
-5. Evidence obowiązkowe w `.devin/_evidence/<role>/`
-6. Review chain: DB→Backend→Frontend→[UI|UX|Motion równolegle]→[Security|Performance równolegle]→QA→[TL|PO]
-7. Conflict hierarchy: Security (veto) > Data > Correctness > UX > Performance > UI > Motion > Style
-8. Vision dedup: frontend-dev robi 1 screenshot per widok, inne role reuse przez `rao-vision.analyze_screenshot`
-9. Brak evidence = odrzucony handoff
-10. Przed commitem: `git diff --stat spec/core/` (pusty diff przy zmianach funkcjonalnych = niedopełniony obowiązek)
+**⚡ TL;DR (parent czyta to):**
+1. Tworzysz `.devin/_session_context.md` na starcie (zadanie, decyzja, DoD, plan z statusami)
+2. Subagenty czytają `_session_context.md` (read-only, NIE edytują) + dostają kontekst w prompcie
+3. Subagenty zwracają HANDOFF w outputcie → Ty dopisujesz do `_session_context.md` (single-writer = zero race)
+4. Evidence obowiązkowe w `.devin/_evidence/<role>/` — brak = odrzucony handoff
+5. Review chain: DB→Backend→Frontend→[UI|UX|Motion równolegle]→[Security|Performance równolegle]→QA→[TL|PO]
+6. Conflict hierarchy: Security (veto) > Data > Correctness > UX > Performance > UI > Motion > Style
+7. Vision dedup: frontend-dev robi 1 screenshot per widok, inne role reuse przez `rao-vision.analyze_screenshot`
+8. Przed commitem: `git diff --stat spec/core/` (pusty diff przy zmianach funkcjonalnych = niedopełniony obowiązek)
 
-Subagenty są stateless — koordynacja przez:
+**Szczegóły** (handoff format, DAG, conflict cases, evidence types, spec/backlog matryca) — w `.devin/workflows/coordination-protocol.md`. Czytaj tylko gdy cross-stack zadanie lub konflikt.
 
-1. **Shared context file** (`.devin/_session_context.md`) — Ty tworzysz na starcie zadania. **Single-writer model:** subagenty czytają (read-only) i zwracają HANDOFF w outputcie, Ty dopisujesz sekwencyjnie. **Zero race condition** (wcześniej subagenty edytowały plik równolegle → konflikty `edit`).
-
-2. **Handoff protocol** — każdy subagent zwraca w outputcie:
-   ```
-   ## HANDOFF
-   **CO ZROBIŁEM:** <konkret, pliki>
-   **GOTOWE DLA:** <role + co mogą użyć>
-   **BLOCKERY:** <lista lub "brak">
-   **EVIDENCE:** <ścieżki do .devin/_evidence/<role>/ lub "brak">
-   **SPEC UPDATE:** <pliki spec/ zaktualizowane zgodnie z AGENT.md — RAPORT, nie akcja; lub "brak">
-   ```
-   **NIE edytują `_session_context.md`** — Ty dopisujesz (single-writer).
-
-3. **Review chain matrix** (kto czeka na kogo) — patrz sekcja 3 protokołu:
-   ```
-   Phase 0 ANALYSIS (równolegle): product-owner, tech-lead, qa-engineer, security-auditor
-   Phase 1 DB: db-architect (po tech-lead plan)
-   Phase 2 BACKEND: backend-dev (po db-architect)
-   Phase 3 FRONTEND: frontend-dev (po backend-dev)
-   Phase 4 POLISH (równolegle po frontend): ui-designer, ux-designer, motion-designer
-   Phase 5 AUDIT (równolegle po backend+frontend): security-auditor, performance-eng
-   Phase 6 QA: qa-engineer (po wszystkich implementacjach)
-   Phase 7 FINAL REVIEW (równolegle po QA): tech-lead, product-owner
-   COMMIT (Tech Lead po final review)
-   ```
-   - **Foreground** (czekaj): DB → Backend → Frontend (zależne)
-   - **Background** (równolegle): analiza, polish, audit, final review (niezależne)
-   - **Max 4 subagenty równolegle** (limit kontekstu)
-
-4. **Conflict resolution** — hierarchia priorytetów:
-   ```
-   1. Security (veto — blokuje produkcję)
-   2. Data integrity (DB-architect)
-   3. Correctness (QA — testy zielone)
-   4. UX (zrozumiałość flow)
-   5. Performance (p95 < target)
-   6. UI consistency (design system)
-   7. Motion (polish)
-   8. Code style
-   ```
-   - **CO** budujemy → decyduje Product Owner
-   - **JAK** architektonicznie → decyduje Tech Lead
-   - **Security veto** jest ostateczne — nie omijaj
-   - Konflikty zapisuj w `Open issues / conflicts` w shared context i rozstrzygaj według hierarchii
-
-5. **Evidence folder** (`.devin/_evidence/<role>/`) — każdy subagent ZAPISUJE dowody:
-   - `.txt` — output terminala (curl, pytest, vue-tsc, DESCRIBE, EXPLAIN)
-   - `.png` — screenshoty z Playwright
-   - `.md` — analiza vision (rao-vision verdict)
-   - **Brak evidence = niedopełniony obowiązek** — możesz odrzucić handoff
-   - Final review weryfikuje evidence przed commitem
-   - Folder git-ignored (artefakty sesji)
-
-6. **Vision deduplikacja** (1 screenshot, wiele analiz):
-   - **Frontend-dev** robi 1 screenshot per widok per faza → `.devin/_evidence/frontend-dev/screenshot_<view>.png`
-   - **ui-designer, ux-designer, motion-designer, product-owner** używają `rao-vision.analyze_screenshot` na tym samym pliku z różnymi pytaniami
-   - Oszczędność: 1 screenshot + 4 analizy zamiast 5 screenshotów
-   - Nowy screenshot tylko gdy: inny widok, inny stan, inna akcja
-
-7. **Relacja z obsługą spec/ i backlogu (NIE zastępuje, wzmacnia):**
-   - Subagenty aktualizują spec/ zgodnie ze swoim AGENT.md (sekcja "Po zmianie") — to NIE zmienia się
-   - W handoff "SPEC UPDATE" to **RAPORT** (co zaktualizowano), nie akcja
-   - Ty (parent) weryfikujesz `git diff --stat spec/core/` przed commitem — pusty diff przy zmianach funkcjonalnych = niedopełniony obowiązek (reguła z AGENTS.md)
-   - Backlog status aktualizuje rola wykonująca (zgodnie z AGENT.md), Ty weryfikujesz `git diff spec/backlog/BACKLOG.md`
-
-### Quick reference — co Ty (Tech Lead) robisz
+### Co Ty (Tech Lead) robis
 
 1. **Start:** stwórz `.devin/_session_context.md` z zadaniem, decyzją, DoD, planem
-2. **Deleguj** zgodnie z Review Chain Matrix (sekwencyjnie zależne, równolegle niezależne)
-3. **Po każdej fazie:** odbierz HANDOFF z outputtu subagenta, dopisz do `Handoff log` w `_session_context.md` (single-writer), zaktualizuj status w planie
-4. **Konflikty:** rozstrzygaj według hierarchii, zapisuj decyzję w shared context
-5. **Przed commitem:** zweryfikuj evidence w `.devin/_evidence/` (każda rola ma dowody?) + `git diff --stat spec/core/` (pusty diff przy zmianach funkcjonalnych = niedopełniony obowiązek) + `git diff spec/backlog/BACKLOG.md` (status tasku zaktualizowany?)
+2. **Deleguj** zgodnie z Review Chain (sekwencyjnie zależne, równolegle niezależne)
+3. **Po każdej fazie:** odbierz HANDOFF z outputtu subagenta, dopisz do `_session_context.md` (single-writer), zaktualizuj status
+4. **Konflikty:** rozstrzygaj według hierarchii, zapisuj decyzję w `Open issues / conflicts`
+5. **Przed commitem:** zweryfikuj evidence + `git diff --stat spec/core/` + `git diff spec/backlog/BACKLOG.md`
 6. **Commit** + usuń `_session_context.md` i `_evidence/` (lub zostaw do post-mortem)
 
-### Quick reference — co każdy subagent robi
+### Co każdy subagent robi
 
-1. **Start:** `read .devin/_session_context.md` → zrozum zadanie + kontekst poprzedników (read-only, NIE edytuj)
+1. **Start:** `read .devin/_session_context.md` (read-only, NIE edytuj)
 2. **Wykonaj** zadanie zgodnie ze swoim AGENT.md (w tym aktualizacja spec/ jak wymagane)
 3. **Evidence:** zapisz dowody do `.devin/_evidence/<twoja-rola>/`
 4. **Koniec:** zwróć HANDOFF w outputcie (NIE edytuj `_session_context.md` — parent dopisze)

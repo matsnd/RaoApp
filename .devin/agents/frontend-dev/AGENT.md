@@ -254,24 +254,15 @@ Repo zindeksowane. Używaj graph tools do szukania komponentów, stores, zależn
 4. Aktualizuj `spec/core/03_frontend_screens.md`
 5. Sprawdź `spec/backlog/BACKLOG.md` — aktualizuj status tasku jeśli applicable
 
-## Handoff & Shared Context (koordynacja między agentami)
+## Handoff & Shared Context
 
-**📖 Pełny protokół:** `.devin/workflows/coordination-protocol.md`
+**📖 Protokół:** `.devin/workflows/coordination-protocol.md` (czytaj gdy cross-stack lub konflikt)
 
-Jesteś częścią software house RAO. Subagenty są stateless — koordynacja przez shared context file i handoff protocol.
+**Start:** `read .devin/_session_context.md` (read-only, NIE edytuj). **Koniec:** zwróć HANDOFF w outputcie — parent dopisze (single-writer).
 
-### Na starcie (zawsze)
-
-1. `read .devin/_session_context.md` — zrozum zadanie + kontekst poprzedników (jeśli plik istnieje)
-2. Sprawdź sekcję "Handoff log" — czy backend-dev przekazał Ci API contract (URL, method, schema, status codes)
-3. Sprawdź czy tech-lead określił side effects (które widoki/stores ruszyć)
-
-### Na koniec (zawsze)
-
-Zwróć w outputcie (NIE edytuj `_session_context.md` — parent dopisze, zero race condition):
 ```markdown
 ## HANDOFF
-**CO ZROBIŁEM:** <konkret: widoki, komponenty, stores, pliki zmienione>
+**CO ZROBIŁEM:** <widoki, komponenty, stores, pliki zmienione>
 **GOTOWE DLA:**
 - ui-designer: <zmienione komponenty .vue do review design system>
 - ux-designer: <zmienione flowy/widoki do review UX>
@@ -280,30 +271,12 @@ Zwróć w outputcie (NIE edytuj `_session_context.md` — parent dopisze, zero r
 - product-owner: <feature do weryfikacji wizualnej>
 **BLOCKERY:** <lista lub "brak">
 **EVIDENCE:** .devin/_evidence/frontend-dev/screenshot_<view>.png + <inne>
-**SPEC UPDATE:** spec/core/03_frontend_screens.md, spec/backlog/BACKLOG.md (RAPORT — już zaktualizowane zgodnie z Twoim AGENT.md)
+**SPEC UPDATE:** spec/core/03_frontend_screens.md, spec/backlog/BACKLOG.md (RAPORT)
 ```
 
-### Evidence (obowiązkowe)
+**Evidence** (`.devin/_evidence/frontend-dev/`): `vue_tsc_clean.txt`, `npm_build_pass.txt`, `screenshot_<view>.png`, `vision_<view>.md`. Brak = odrzucony handoff.
 
-Zapisuj dowody do `.devin/_evidence/frontend-dev/`:
-- `vue_tsc_clean.txt` — output `npx vue-tsc --noEmit` (pass)
-- `npm_build_pass.txt` — output `npm run build` (ostatnie 20 linii)
-- `screenshot_<view>.png` — **screenshot z Playwright (ŹRÓDŁO dla vision dedup!)**
-- `vision_<view>.md` — verdict z `rao-vision.analyze_screenshot` (Twoja analiza)
-
-**Brak evidence = niedopełniony obowiązek** — Tech Lead może odrzucić handoff.
-
-### Vision deduplikacja — TWOJA ROLA JEST KLUCZOWA
-
-Jesteś **pierwszy po implementacji** — robisz **1 screenshot per widok per faza** przez `playwright.browser_take_screenshot` i zapisujesz do `.devin/_evidence/frontend-dev/screenshot_<view>.png`.
-
-Inne role (ui-designer, ux-designer, motion-designer, product-owner) **reuse tego samego pliku** przez `rao-vision.analyze_screenshot` z różnymi pytaniami. Oszczędność: 1 screenshot + 4 analizy zamiast 5 screenshotów.
-
-W sekcji HANDOFF w `GOTOWE DLA` podaj **ścieżkę do screenshotu** żeby inne role wiedziały którego pliku użyć.
-
-### Conflict resolution
-
-Jeśli znalazłeś konflikt (np. ui-designer chce kolor który łamie UX hierarchy) → zapisz w `Open issues / conflicts` w shared context. Hierarchia: Security > Data > Correctness > UX > Performance > UI > Motion > Style.
+**Vision dedup (TWOJA ROLA = ŹRÓDŁO):** Robisz 1 screenshot per widok przez `playwright.browser_take_screenshot` → `.devin/_evidence/frontend-dev/screenshot_<view>.png`. Inne role (ui/ux/motion/po) reuse tego pliku przez `rao-vision.analyze_screenshot`. Podaj ścieżkę w `GOTOWE DLA`.
 
 ---
 

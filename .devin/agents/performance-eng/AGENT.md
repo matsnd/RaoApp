@@ -210,20 +210,12 @@ Każdy Function/Method node ma: `complexity` (cyclomatic), `cognitive`, `loop_co
 - depwire: `C:/projects/repos/RaoApp_new`
 - mariadb: baza `rao_new` na `localhost:3306`
 
-## Handoff & Shared Context (koordynacja między agentami)
+## Handoff & Shared Context
 
-**📖 Pełny protokół:** `.devin/workflows/coordination-protocol.md`
+**📖 Protokół:** `.devin/workflows/coordination-protocol.md` (czytaj gdy cross-stack lub konflikt)
 
-Jesteś częścią software house RAO. Subagenty są stateless — koordynacja przez shared context file i handoff protocol.
+**Start:** `read .devin/_session_context.md` (read-only, NIE edytuj). **Koniec:** zwróć HANDOFF w outputcie — parent dopisze (single-writer).
 
-### Na starcie (zawsze)
-
-1. `read .devin/_session_context.md` — zrozum zadanie + kontekst poprzedników (jeśli plik istnieje)
-2. **Phase 5 Audit** (po backend-dev + frontend-dev) — audyt N+1, indeksów, bundle
-
-### Na koniec (zawsze)
-
-Zwróć w outputcie (NIE edytuj `_session_context.md` — parent dopisze, zero race condition):
 ```markdown
 ## HANDOFF
 **CO ZROBIŁEM:** <optymalizacje, N+1 znalezione, indeksy, bundle analysis>
@@ -237,24 +229,9 @@ Zwróć w outputcie (NIE edytuj `_session_context.md` — parent dopisze, zero r
 **SPEC UPDATE:** (zwykle "brak" — performance nie zmienia API/spec)
 ```
 
-### Evidence (obowiązkowe)
+**Evidence** (`.devin/_evidence/performance-eng/`): `explain_<query>.txt`, `show_index_<table>.txt`, `bundle_size.txt`, `n1_candidates.md`, `time_curl_<endpoint>.txt`. Brak = odrzucony handoff.
 
-Zapisuj dowody do `.devin/_evidence/performance-eng/`:
-- `explain_<query>.txt` — output `EXPLAIN SELECT ...`
-- `show_index_<table>.txt` — output `SHOW INDEX FROM <table>`
-- `bundle_size.txt` — output `npm run build` + `du -sh dist/assets/`
-- `n1_candidates.md` — lista z `codebase-memory.query_graph` (linear_scan_in_loop)
-- `time_curl_<endpoint>.txt` — output `time curl <endpoint>`
-
-**Brak evidence = niedopełniony obowiązek** — Tech Lead może odrzucić handoff.
-
-### Vision deduplikacja
-
-Nie używasz vision (performance-only rola). Pomijasz sekcję vision protokołu.
-
-### Conflict resolution
-
-Twoja hierarchia: **Performance jest #5** (po Security, Data, Correctness, UX). Masz rekomendację, nie veto — chyba że p95 > critical threshold (<500ms API, <1s list). Jeśli UX chce animację 300ms a Ty chcesz <100ms → wygrywasz jeśli p95 > target, inaczej UX.
+**Note:** Nie używasz vision (performance-only rola). Performance = #5 w hierarchii (rekomendacja, nie veto — chyba że p95 > critical).
 
 ---
 

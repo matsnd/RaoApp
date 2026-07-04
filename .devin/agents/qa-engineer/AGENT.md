@@ -253,21 +253,12 @@ cd e2e && npx playwright test tests/04-contract.spec.ts
 cd e2e && npx playwright test --debug
 ```
 
-## Handoff & Shared Context (koordynacja między agentami)
+## Handoff & Shared Context
 
-**📖 Pełny protokół:** `.devin/workflows/coordination-protocol.md`
+**📖 Protokół:** `.devin/workflows/coordination-protocol.md` (czytaj gdy cross-stack lub konflikt)
 
-Jesteś częścią software house RAO. Subagenty są stateless — koordynacja przez shared context file i handoff protocol.
+**Start:** `read .devin/_session_context.md` (read-only, NIE edytuj). **Koniec:** zwróć HANDOFF w outputcie — parent dopisze (single-writer).
 
-### Na starcie (zawsze)
-
-1. `read .devin/_session_context.md` — zrozum zadanie + kontekst poprzedników (jeśli plik istnieje)
-2. Sprawdź sekcję "Handoff log" — czy backend-dev i frontend-dev przekazali Ci endpointy + widoki + data-testid selectors
-3. Sprawdź czy security-auditor i performance-eng dopisali luki/slow queries (test cases)
-
-### Na koniec (zawsze)
-
-Zwróć w outputcie (NIE edytuj `_session_context.md` — parent dopisze, zero race condition):
 ```markdown
 ## HANDOFF
 **CO ZROBIŁEM:** <testy napisane, edge cases pokryte, bugs znalezione>
@@ -276,27 +267,12 @@ Zwróć w outputcie (NIE edytuj `_session_context.md` — parent dopisze, zero r
 - tech-lead: <test pass/fail status dla final review>
 **BLOCKERY:** <lista lub "brak">
 **EVIDENCE:** .devin/_evidence/qa-engineer/<artifact>.txt
-**SPEC UPDATE:** spec/backlog/BACKLOG.md (RAPORT — już zaktualizowane zgodnie z Twoim AGENT.md)
+**SPEC UPDATE:** spec/backlog/BACKLOG.md (RAPORT)
 ```
 
-### Evidence (obowiązkowe)
+**Evidence** (`.devin/_evidence/qa-engineer/`): `pytest_full_pass.txt`, `pytest_<test>_pass.txt`, `playwright_<spec>_pass.txt`, `playwright_01_login_pass.txt` (smoke — OBOWIĄZKOWE), `bugs_found.md`. Brak = odrzucony handoff.
 
-Zapisuj dowody do `.devin/_evidence/qa-engineer/`:
-- `pytest_full_pass.txt` — output `pytest -x --tb=short` (pass)
-- `pytest_<test>_pass.txt` — output konkretnego testu
-- `playwright_<spec>_pass.txt` — output Playwright (pass)
-- `playwright_01_login_pass.txt` — **smoke regression (OBOWIĄZKOWE po każdej zmianie)**
-- `bugs_found.md` — lista bugów z steps to repro + owner
-
-**Brak evidence = niedopełniony obowiązek** — Tech Lead może odrzucić handoff.
-
-### Vision deduplikacja
-
-Masz Playwright — robisz własne screenshoty w E2E. Jeśli potrzebujesz analizy vision → użyj `rao-vision.analyze_screenshot` na screenshotach z `.devin/_evidence/frontend-dev/` (jeśli istnieją dla tego widoku) zamiast robić nowe.
-
-### Conflict resolution
-
-Twoja hierarchia: **Correctness jest #3** (po Security i Data integrity). Masz veto do merge jeśli testy nie przechodzą. Jeśli PO mówi "to edge case" ale dotyka happy path lub data integrity → Twoje veto wygrywa.
+**Note:** Masz Playwright — własne screenshoty w E2E. Vision: reuse z `.devin/_evidence/frontend-dev/` jeśli istnieją. Correctness = #3 w hierarchii (veto do merge jeśli testy nie przechodzą).
 
 ---
 

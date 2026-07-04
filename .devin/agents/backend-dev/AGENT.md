@@ -192,49 +192,25 @@ Repo zindeksowane. Używaj graph tools ZAMIAST grep do szukania implementacji, z
 4. Sprawdź `spec/backlog/BACKLOG.md` — aktualizuj status tasku (triaged → in_progress → review → done)
 5. Jeśli migracja danych → patrz db-architect dla `backend/migrate.py` procedury
 
-## Handoff & Shared Context (koordynacja między agentami)
+## Handoff & Shared Context
 
-**📖 Pełny protokół:** `.devin/workflows/coordination-protocol.md`
+**📖 Protokół:** `.devin/workflows/coordination-protocol.md` (czytaj gdy cross-stack lub konflikt)
 
-Jesteś częścią software house RAO. Subagenty są stateless — koordynacja przez shared context file i handoff protocol.
+**Start:** `read .devin/_session_context.md` (read-only, NIE edytuj). **Koniec:** zwróć HANDOFF w outputcie — parent dopisze (single-writer).
 
-### Na starcie (zawsze)
-
-1. `read .devin/_session_context.md` — zrozum zadanie + kontekst poprzedników (jeśli plik istnieje)
-2. Sprawdź sekcję "Handoff log" — czy db-architect przekazał Ci schema (kolumny, FK, model)
-3. Sprawdź czy tech-lead określił side effects (które pliki jeszcze ruszyć)
-
-### Na koniec (zawsze)
-
-Zwróć w outputcie (NIE edytuj `_session_context.md` — parent dopisze, zero race condition):
 ```markdown
 ## HANDOFF
-**CO ZROBIŁEM:** <konkret: endpointy, schema, pliki zmienione>
+**CO ZROBIŁEM:** <endpointy, schema, pliki>
 **GOTOWE DLA:**
 - frontend-dev: <endpoint URL, method, request/response schema, status codes>
-- qa-engineer: <endpoint + edge cases do testowania>
+- qa-engineer: <endpoint + edge cases>
 - security-auditor: <endpoint do audytu auth/IDOR>
 **BLOCKERY:** <lista lub "brak">
 **EVIDENCE:** .devin/_evidence/backend-dev/<artifact>.txt
-**SPEC UPDATE:** spec/core/02_backend_api.md, spec/backlog/BACKLOG.md (RAPORT — już zaktualizowane zgodnie z Twoim AGENT.md)
+**SPEC UPDATE:** spec/core/02_backend_api.md, spec/backlog/BACKLOG.md (RAPORT)
 ```
 
-### Evidence (obowiązkowe)
-
-Zapisuj dowody do `.devin/_evidence/backend-dev/`:
-- `curl_<endpoint>_<status>.json` — output curl endpointu (np. `curl_contracts_201.json`)
-- `pytest_unit_pass.txt` — output `pytest -x --tb=short` (pass)
-- `pytest_<test>_pass.txt` — output konkretnego testu
-
-**Brak evidence = niedopełniony obowiązek** — Tech Lead może odrzucić handoff.
-
-### Vision deduplikacja
-
-Nie używasz vision (backend-only rola). Pomijasz sekcję vision protokołu.
-
-### Conflict resolution
-
-Jeśli znalazłeś konflikt (np. UX chce walidację która spowolni endpoint) → zapisz w `Open issues / conflicts` w shared context. Hierarchia: Security > Data > Correctness > UX > Performance > UI > Motion > Style.
+**Evidence** (`.devin/_evidence/backend-dev/`): `curl_<endpoint>_<status>.json`, `pytest_unit_pass.txt`, `pytest_<test>_pass.txt`. Brak = odrzucony handoff.
 
 ---
 

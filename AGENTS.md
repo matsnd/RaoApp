@@ -249,14 +249,7 @@ Po zakończeniu zadania sprawdź `git diff --stat spec/core/` — pusty diff prz
 6. **Po każdej zmianie kodu → smoke `e2e/tests/01-login.spec.ts`** (najszybsza ochrona przed regresją)
 7. **Port zajęty?** Użyj kolejnego wolnego (8001, 5174). NIGDY `kill-port`/`pkill`/`taskkill` cudzych procesów. Po zmianie portu backendu zaktualizuj `VITE_API_URL` w `frontend/.env`.
 8. **Sekrety w `.env`**, nigdy w kodzie. `.env` jest w `.gitignore`. Szablon: `.env.example`.
-9. **Koordynacja między agentami** — gdy pracujesz w trybie software-house (skill `/software-house` lub wielorolowym), używaj **Coordination Protocol** z `.devin/workflows/coordination-protocol.md`:
-   - **Shared context file** (`.devin/_session_context.md`) — czytaj na starcie, dopisuj sekcję HANDOFF na koniec
-   - **Handoff protocol** — kończ sekcją: CO ZROBIŁEM / GOTOWE DLA / BLOCKERY / EVIDENCE / SPEC UPDATE
-   - **Review chain matrix** — kto czeka na kogo (DB→Backend→Frontend→[UI|UX|Motion równolegle]→[Security|Performance równolegle]→QA→[TechLead|PO])
-   - **Conflict resolution** — hierarchia: Security (veto) > Data integrity > Correctness > UX > Performance > UI > Motion > Code style
-   - **Evidence folder** (`.devin/_evidence/<role>/`) — zapisuj dowody (curl, pytest, screenshoty, vision verdicts). Brak evidence = odrzucony handoff
-   - **Vision deduplikacja** — frontend-dev robi 1 screenshot per widok, inne role reuse przez `rao-vision.analyze_screenshot`
-   - Patrz też sekcję "Handoff & Shared Context" w swoim `.devin/agents/<rola>/AGENT.md`
+9. **Koordynacja między agentami** — w trybie software-house (`/software-house`), używaj **Coordination Protocol** z `.devin/workflows/coordination-protocol.md` (shared context, handoff, review chain, conflict hierarchy, evidence). Patrz sekcję "Handoff & Shared Context" w swoim `.devin/agents/<rola>/AGENT.md`.
 
 ## Lokalne commity — śledzenie postępów
 
