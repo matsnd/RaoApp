@@ -20,11 +20,11 @@
       <div class="summary-cards">
         <div class="card">
           <div class="card-label">Łączny przychód</div>
-          <div class="card-value">{{ fmt(report.grand_total_revenue) }} zł</div>
+          <div class="card-value">{{ formatCurrency(report.grand_total_revenue) }}</div>
         </div>
         <div class="card">
           <div class="card-label">Łączna prowizja</div>
-          <div class="card-value highlight">{{ fmt(report.grand_total_commission) }} zł</div>
+          <div class="card-value highlight">{{ formatCurrency(report.grand_total_commission) }}</div>
         </div>
         <div class="card">
           <div class="card-label">Okres</div>
@@ -49,15 +49,15 @@
               <td>{{ item.salesperson_name }}</td>
               <td class="num">{{ item.contracts_count }}</td>
               <td class="num">{{ item.commission_rate ?? '—' }} %</td>
-              <td class="num">{{ fmt(item.total_revenue) }} zł</td>
-              <td class="num commission">{{ fmt(item.commission_amount) }} zł</td>
+              <td class="num">{{ formatCurrency(item.total_revenue) }}</td>
+              <td class="num commission">{{ formatCurrency(item.commission_amount) }}</td>
             </tr>
           </tbody>
           <tfoot>
             <tr class="total-row">
               <td colspan="3"><strong>RAZEM</strong></td>
-              <td class="num"><strong>{{ fmt(report.grand_total_revenue) }} zł</strong></td>
-              <td class="num commission"><strong>{{ fmt(report.grand_total_commission) }} zł</strong></td>
+              <td class="num"><strong>{{ formatCurrency(report.grand_total_revenue) }}</strong></td>
+              <td class="num commission"><strong>{{ formatCurrency(report.grand_total_commission) }}</strong></td>
             </tr>
           </tfoot>
         </table>
@@ -78,6 +78,7 @@ import api from '@/composables/useApi'
 import { useFileDownload } from '@/composables/useFileDownload'
 import { useToastStore } from '@/stores/toast'
 import { useTargetFolder } from '@/composables/useTargetFolder.js'
+import { formatCurrency } from '@/utils/format'
 
 const today = new Date()
 const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
@@ -113,13 +114,8 @@ async function printPage() {
       toastStore.showToast(`${filename} zapisany do folderu ${folderName}/Zestawienia`, 'success')
     }
   } catch {
-    alert('Błąd generowania PDF')
+    toastStore.error('Błąd generowania PDF')
   }
-}
-
-function fmt(val) {
-  const n = parseFloat(val) || 0
-  return n.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 async function load() {

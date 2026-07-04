@@ -1,11 +1,8 @@
 <template>
   <router-view />
-  <Toast v-if="toastStore.toast" :message="toastStore.toast.message" :type="toastStore.toast.type" :duration="toastStore.toast.duration" />
+  <AppToast />
 </template>
 
-<script setup>
-import { useToastStore } from '@/stores/toast'
-import Toast from '@/components/shared/Toast.vue'
-
-const toastStore = useToastStore()
+<script setup lang="ts">
+import AppToast from '@/components/AppToast.vue'
 </script>

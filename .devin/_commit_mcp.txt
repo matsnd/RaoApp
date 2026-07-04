@@ -1,0 +1,33 @@
+feat(agents): MCP integration — codebase-memory + depwire + mariadb w agentach
+
+Zainstalowane 3 nowe MCP serwery (user scope):
+- codebase-memory: graf wiedzy kodu (9548 wezlow, 27500 krawedzi, full mode)
+- depwire: analiza zaleznosci cross-file (315 plikow, 14492 symboli)
+- mariadb: bezposrednie zapytania do bazy rao_new (schema, EXPLAIN, dane)
+
+Update 10 agentow (poza motion-designer — czysto wizualny):
+- allowed-tools: +mcp_call_tool
+- permissions: +MCP(codebase-memory), +MCP(depwire), +MCP(mariadb)
+- sekcja "MCP tools" z opisem narzedzi i przykladami uzycia
+
+Update software-house/SKILL.md:
+- Krok 1 Pre-flight: graph tools ZAMIAST grep
+- Krok 3 analiza: MCP per rola agenta
+- Krok 6 final review: MCP weryfikacja (health score, verify_change, security scan)
+
+Update MCP_CONFIG.md:
+- status 9 serwerow (wszystkie dzialaja, poprawiono przestarzaly status)
+- sekcje codebase-memory, depwire, mariadb z instalacja i tools
+- priorytet: 5 krytycznych MCP
+
+Update AGENTS.md:
+- Stack tabela: 8 MCP serwerow
+- Tryb autonomiczny Tier 1: +MCP graph analysis
+
+Migracje DB zostaja deterministyczne w backend/main.py (poza agentami).
+Agenci moga grzebac w danych przez MariaDB MCP, ale ALTER TABLE
+tylko db-architect z rownolegla zmiana w main.py.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

@@ -32,8 +32,8 @@
                 <button class="btn-icon" @click="toggleActive(u)" :title="u.is_active ? 'Dezaktywuj' : 'Aktywuj'">
                   {{ u.is_active ? '⏸' : '▶' }}
                 </button>
-                <button class="btn-icon" @click="forcePasswordReset(u)" title="Wymuś zmianę hasła">🔑</button>
-                <button class="btn-icon" @click="editUser(u)" title="Edytuj">✎</button>
+                <button class="btn-icon" @click="forcePasswordReset(u)" aria-label="Wymuś zmianę hasła" title="Wymuś zmianę hasła">🔑</button>
+                <button class="btn-icon" @click="editUser(u)" aria-label="Edytuj" title="Edytuj">✎</button>
               </td>
             </tr>
           </tbody>
@@ -125,15 +125,17 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import api from '@/composables/useApi'
+import { useToastStore } from '@/stores/toast'
 
 const users = ref([])
 const loading = ref(false)
 const saving = ref(false)
 const showAddModal = ref(false)
 const showEditModal = ref(false)
+const toastStore = useToastStore()
 
 const addForm = ref({ login: '', password: '', first_name: '', last_name: '', email: '', role: 'user' })
 const editForm = ref({ id: null, login: '', first_name: '', last_name: '', email: '', role: 'user' })
@@ -151,15 +153,16 @@ async function fetchUsers() {
 onMounted(fetchUsers)
 
 async function createUser() {
-  if (!addForm.value.login || !addForm.value.password) { alert('Login i hasło są wymagane'); return }
+  if (!addForm.value.login || !addForm.value.password) { toastStore.warning('Login i hasło są wymagane'); return }
   saving.value = true
   try {
     await api.post('/admin/users', addForm.value)
     await fetchUsers()
     showAddModal.value = false
     addForm.value = { login: '', password: '', first_name: '', last_name: '', email: '', role: 'user' }
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd tworzenia użytkownika')
+    toastStore.success('Użytkownik utworzony')
+  } catch (e: any) {
+    toastStore.error(e?.response?.data?.detail || 'Błąd tworzenia użytkownika')
   } finally {
     saving.value = false
   }
@@ -181,8 +184,9 @@ async function updateUser() {
     })
     await fetchUsers()
     showEditModal.value = false
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd aktualizacji')
+    toastStore.success('Dane użytkownika zaktualizowane')
+  } catch (e: any) {
+    toastStore.error(e?.response?.data?.detail || 'Błąd aktualizacji')
   } finally {
     saving.value = false
   }
@@ -196,8 +200,8 @@ async function toggleActive(u) {
       await api.patch(`/admin/users/${u.id}/activate`)
     }
     await fetchUsers()
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd')
+  } catch (e: any) {
+    toastStore.error(e?.response?.data?.detail || 'Błąd')
   }
 }
 
@@ -205,9 +209,9 @@ async function forcePasswordReset(u) {
   if (!confirm(`Wymusić zmianę hasła dla ${u.login}?`)) return
   try {
     await api.post(`/admin/users/${u.id}/force-password-reset`)
-    alert('Wymuszono zmianę hasła')
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd')
+    toastStore.success('Wymuszono zmianę hasła')
+  } catch (e: any) {
+    toastStore.error(e?.response?.data?.detail || 'Błąd')
   }
 }
 </script>

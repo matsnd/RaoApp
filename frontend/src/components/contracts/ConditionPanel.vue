@@ -53,22 +53,22 @@
           @dblclick="editCondition(cond)"
         >
           <td>{{ cond.rate_type_name || '—' }}</td>
-          <td style="font-weight:600;">{{ cond.rate1 ? Number(cond.rate1).toFixed(2) + ' zł' : '—' }}</td>
-          <td>{{ cond.rate2 ? Number(cond.rate2).toFixed(2) + ' zł' : '—' }}</td>
+          <td style="font-weight:600;">{{ cond.rate1 ? formatCurrency(cond.rate1) : '—' }}</td>
+          <td>{{ cond.rate2 ? formatCurrency(cond.rate2) : '—' }}</td>
           <td>{{ cond.billing_label || '—' }}</td>
           <td>{{ cond.period_count || '—' }}</td>
           <td>{{ cond.minimum || '—' }}</td>
           <td style="font-size:11px;color:#718096;">{{ cond.description || '—' }}</td>
           <td>
-            <button class="btn-icon" title="Edytuj" @click.stop="editCondition(cond)">✎</button>
-            <button class="btn-icon" title="Usuń" @click.stop="removeCondition(cond)">✕</button>
+            <button class="btn-icon" aria-label="Edytuj" title="Edytuj" @click.stop="editCondition(cond)">✎</button>
+            <button class="btn-icon" aria-label="Usuń" title="Usuń" @click.stop="removeCondition(cond)">✕</button>
           </td>
         </tr>
       </tbody>
       <tfoot>
         <tr>
           <td colspan="8" style="font-weight:700;text-align:right;padding-top:8px;">
-            Wartość pozycji: {{ formatMoney(calculatedValue) }}
+            Wartość pozycji: {{ formatCurrency(calculatedValue) }}
           </td>
         </tr>
       </tfoot>
@@ -140,10 +140,12 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, watch, computed, nextTick } from 'vue'
 import { useContractStore } from '@/stores/contracts'
 import { useSettingsStore } from '@/stores/settings'
+import { useToastStore } from '@/stores/toast'
+import { formatCurrency } from '@/utils/format'
 
 const props = defineProps({
   contractId: { type: Number, required: true },
@@ -154,6 +156,7 @@ const emit = defineEmits(['value-changed'])
 
 const contractStore = useContractStore()
 const settingsStore = useSettingsStore()
+const toastStore = useToastStore()
 const rateTypes = computed(() => settingsStore.rateTypes || [])
 
 const conditions = ref([])
@@ -187,11 +190,11 @@ function buildAutoDescription() {
   if (rtName) parts.push(rtName)
   const r1 = condForm.value.rate1
   if (r1 || r1 === 0) {
-    const formatted = Number(r1).toFixed(2) + ' zł'
+    const formatted = formatCurrency(r1)
     parts.push(condForm.value.billing_label ? `${formatted}/${condForm.value.billing_label}` : formatted)
   }
   const r2 = condForm.value.rate2
-  if (r2 && Number(r2) > 0) parts.push(`+ ${Number(r2).toFixed(2)} zł`)
+  if (r2 && Number(r2) > 0) parts.push(`+ ${formatCurrency(r2)}`)
   if (condForm.value.period_count) {
     parts.push(`do ${condForm.value.period_count}${condForm.value.billing_label ? ' ' + condForm.value.billing_label : ''}`)
   }
@@ -233,7 +236,7 @@ function editCondition(cond) {
 
 async function saveCondition() {
   if (!condForm.value.rate1 && condForm.value.rate1 !== 0) {
-    alert('Podaj stawkę 1')
+    toastStore.warning('Podaj stawkę 1')
     return
   }
   savingCond.value = true
@@ -249,7 +252,8 @@ async function saveCondition() {
     await loadConditions()
     showCondModal.value = false
   } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd zapisu warunku')
+    const err = e as { response?: { data?: { detail?: string } } }
+    toastStore.error(err?.response?.data?.detail || 'Błąd zapisu warunku')
   } finally {
     savingCond.value = false
   }
@@ -260,14 +264,9 @@ async function removeCondition(cond) {
   try {
     await contractStore.deleteCondition(props.contractId, props.positionId, cond.id)
     await loadConditions()
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd')
+  } catch (e: any) {
+    toastStore.error(e?.response?.data?.detail || 'Błąd')
   }
-}
-
-function formatMoney(v) {
-  if (!v && v !== 0) return '0,00 zł'
-  return Number(v).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' zł'
 }
 
 

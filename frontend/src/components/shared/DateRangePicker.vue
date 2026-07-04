@@ -29,6 +29,7 @@ import { ref, watch, computed } from 'vue'
 // @ts-ignore — brak oficjalnych typów dla wszystkich propsów VueDatePicker
 import { VueDatePicker } from '@vuepic/vue-datepicker'
 import '@vuepic/vue-datepicker/dist/main.css'
+import { formatDate } from '@/utils/format'
 
 const props = defineProps<{
   dateFrom: string | null
@@ -64,19 +65,10 @@ watch(
   },
 )
 
-function formatDisplay(date: Date): string {
-  if (!date) return ''
-  return date.toLocaleDateString('pl-PL', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
-}
-
 function formatRange(dates: [Date | null, Date | null]): string {
   if (!dates || !dates[0] || !dates[1]) return ''
-  const from = formatDisplay(dates[0])
-  const to = formatDisplay(dates[1])
+  const from = formatDate(dates[0])
+  const to = formatDate(dates[1])
   return `${from} - ${to}`
 }
 

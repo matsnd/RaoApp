@@ -122,6 +122,18 @@ class AvailabilityConflict(BaseModel):
     contractor_name: str
 
 
+class AvailabilityReservationConflict(BaseModel):
+    """RAO-P2-066: konflikt z ręczną rezerwacją maszyny (article_reservations)."""
+    reservation_id: int
+    reserved_from: date
+    reserved_to: date
+    note: str | None = None
+    # Data, od której maszyna będzie dostępna (= reserved_to + 1 dzień)
+    available_from: date | None = None
+
+
 class AvailabilityResponse(BaseModel):
     is_available: bool
     conflicting_contracts: list[AvailabilityConflict]
+    # RAO-P2-066: konflikty z rezerwacjami (article_reservations)
+    conflicting_reservations: list[AvailabilityReservationConflict] = []

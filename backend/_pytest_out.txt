@@ -1,0 +1,326 @@
+============================= test session starts =============================
+collected 288 items
+
+tests\unit\test_archive.py ....F.................
+tests\unit\test_auth_ratelimit.py ........
+tests\unit\test_availability_reservations.py ......
+tests\unit\test_calc.py .................
+tests\unit\test_categories.py ..............FF...
+tests\unit\test_contracts.py ...........................
+tests\unit\test_explorer_archival_filter.py ............
+tests\unit\test_fakturownia_crypto.py ...............
+tests\unit\test_fakturownia_product_cache.py .......
+tests\unit\test_fakturownia_service.py ......
+tests\unit\test_fee_parser.py ..................
+tests\unit\test_fleet_external_filter.py .........
+tests\unit\test_format_conditions.py ....
+tests\unit\test_migrate_canonical.py .........................
+tests\unit\test_models_p3_005.py .................
+tests\unit\test_nip_validation.py .......
+tests\unit\test_p2_065_stats_fixes.py ...............
+tests\unit\test_reservations.py ....
+tests\unit\test_settings.py .........
+tests\unit\test_stats_categories.py ............
+tests\unit\test_stats_contract_type.py ..........
+tests\unit\test_stats_period.py ...................
+
+================================== FAILURES ===================================
+_____________ test_list_archive_contracts_returns_items_and_total _____________
+
+    @pytest.mark.asyncio
+    async def test_list_archive_contracts_returns_items_and_total():
+        contract = MagicMock()
+        contract.id = 1
+        contract.contractor_id = 10
+        contract.contractor_name = "Firma XYZ"
+        contract.number = "S001/2026"
+        contract.contract_type = "S"
+        contract.delivery_address = None
+        contract.postal_code = None
+        contract.city = None
+        contract.date_from = date(2026, 1, 1)
+        contract.date_to = date(2026, 1, 10)
+        contract.prepayment_amount = None
+        contract.invoice_amount = None
+        contract.notes = None
+        contract.email = None
+        contract.contact_person1 = None
+        contract.contact_phone1 = None
+        contract.phone = None
+        contract.is_settled = False
+        contract.settled_at = None
+        contract.position_count = 2
+        contract.created_at = datetime(2026, 1, 1)
+    
+        db = AsyncMock()
+        calls = []
+    
+        async def mock_execute(stmt):
+            calls.append(stmt)
+            result = MagicMock()
+            # Pierwsze wywolanie = count query, drugie = lista kontraktow
+            if len(calls) == 1:
+                result.scalar_one.return_value = 1
+            else:
+                scalars = MagicMock()
+                scalars.all.return_value = [contract]
+                result.scalars.return_value = scalars
+            return result
+    
+        db.execute = mock_execute
+    
+>       items, total = await service.list_archive_contracts(
+            db, search="Firma", contractor_id=10, contract_type="S",
+            date_from=date(2026, 1, 1), date_to=date(2026, 1, 31),
+            page=1, per_page=50,
+        )
+
+tests\unit\test_archive.py:95: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+archive\service.py:133: in list_archive_contracts
+    revenue_by_contract[p.contract_id] += _estimate_position_value(p)
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+pos = <MagicMock id='1960076085968'>
+
+    def _estimate_position_value(pos: ArchiveContractPosition) -> Decimal:
+        days = pos.rental_days or 0
+        qty = pos.quantity or 1
+>       if pos.unit_price is not None and pos.unit_price > 0:
+                                          ^^^^^^^^^^^^^^^^^^
+E       TypeError: '>' not supported between instances of 'MagicMock' and 'int'
+
+archive\service.py:365: TypeError
+_____________________ test_create_category_with_parent_id _____________________
+
+    @pytest.mark.asyncio
+    async def test_create_category_with_parent_id():
+        """POST z parent_id i level=sub1 Ś poprawne tworzenie podkategorii."""
+        svc = SettingsService()
+        data = CategoryCreate(name="Mini", parent_id=1, level="sub1")
+    
+        db = AsyncMock()
+        db.add = MagicMock()
+        db.commit = AsyncMock()
+        db.refresh = AsyncMock()
+    
+        with patch("settings.service.Category") as MockCategory:
+            instance = MagicMock()
+            instance.id = 5
+            instance.name = "Mini"
+            instance.parent_id = 1
+            instance.level = "sub1"
+            MockCategory.return_value = instance
+    
+>           result = await svc.create_category(db, data)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\unit\test_categories.py:151: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+settings\service.py:321: in create_category
+    select(Category).where(Category.parent_id == payload.get("parent_id"))
+    ^^^^^^^^^^^^^^^^
+C:\Users\mateu\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\sqlalchemy\sql\_selectable_constructors.py:538: in select
+    return Select(*entities)
+           ^^^^^^^^^^^^^^^^^
+C:\Users\mateu\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\sqlalchemy\sql\selectable.py:5404: in __init__
+    coercions.expect(
+C:\Users\mateu\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\sqlalchemy\sql\coercions.py:393: in expect
+    impl._raise_for_expected(original_element, argname)
+C:\Users\mateu\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\sqlalchemy\sql\coercions.py:1133: in _raise_for_expected
+    return super()._raise_for_expected(
+C:\Users\mateu\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\sqlalchemy\sql\coercions.py:696: in _raise_for_expected
+    super()._raise_for_expected(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <sqlalchemy.sql.coercions.ColumnsClauseImpl object at 0x000001C85BFDFC80>
+element = <MagicMock name='Category' id='1960102970768'>, argname = None
+resolved = None, advice = None, code = None, err = None, kw = {}
+got = "<MagicMock name='Category' id='1960102970768'>"
+msg = "Column expression, FROM clause, or other columns clause element expected, got <MagicMock name='Category' id='1960102970768'>."
+
+    def _raise_for_expected(
+        self,
+        element: Any,
+        argname: Optional[str] = None,
+        resolved: Optional[Any] = None,
+        *,
+        advice: Optional[str] = None,
+        code: Optional[str] = None,
+        err: Optional[Exception] = None,
+        **kw: Any,
+    ) -> NoReturn:
+        if resolved is not None and resolved is not element:
+            got = "%r object resolved from %r object" % (resolved, element)
+        else:
+            got = repr(element)
+    
+        if argname:
+            msg = "%s expected for argument %r; got %s." % (
+                self.name,
+                argname,
+                got,
+            )
+        else:
+            msg = "%s expected, got %s." % (self.name, got)
+    
+        if advice:
+            msg += " " + advice
+    
+>       raise exc.ArgumentError(msg, code=code) from err
+E       sqlalchemy.exc.ArgumentError: Column expression, FROM clause, or other columns clause element expected, got <MagicMock name='Category' id='1960102970768'>.
+
+C:\Users\mateu\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\sqlalchemy\sql\coercions.py:519: ArgumentError
+_____________________ test_create_category_main_no_parent _____________________
+
+    @pytest.mark.asyncio
+    async def test_create_category_main_no_parent():
+        """POST bez parent_id Ś tworzy kategorie glowna."""
+        svc = SettingsService()
+        data = CategoryCreate(name="Ladowarki")
+    
+        db = AsyncMock()
+        db.add = MagicMock()
+        db.commit = AsyncMock()
+        db.refresh = AsyncMock()
+    
+        with patch("settings.service.Category") as MockCategory:
+            instance = MagicMock()
+            instance.id = 10
+            instance.name = "Ladowarki"
+            instance.parent_id = None
+            instance.level = "main"
+            MockCategory.return_value = instance
+    
+>           result = await svc.create_category(db, data)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\unit\test_categories.py:179: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+settings\service.py:321: in create_category
+    select(Category).where(Category.parent_id == payload.get("parent_id"))
+    ^^^^^^^^^^^^^^^^
+C:\Users\mateu\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\sqlalchemy\sql\_selectable_constructors.py:538: in select
+    return Select(*entities)
+           ^^^^^^^^^^^^^^^^^
+C:\Users\mateu\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\sqlalchemy\sql\selectable.py:5404: in __init__
+    coercions.expect(
+C:\Users\mateu\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\sqlalchemy\sql\coercions.py:393: in expect
+    impl._raise_for_expected(original_element, argname)
+C:\Users\mateu\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\sqlalchemy\sql\coercions.py:1133: in _raise_for_expected
+    return super()._raise_for_expected(
+C:\Users\mateu\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\sqlalchemy\sql\coercions.py:696: in _raise_for_expected
+    super()._raise_for_expected(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <sqlalchemy.sql.coercions.ColumnsClauseImpl object at 0x000001C85BFDFC80>
+element = <MagicMock name='Category' id='1960102975808'>, argname = None
+resolved = None, advice = None, code = None, err = None, kw = {}
+got = "<MagicMock name='Category' id='1960102975808'>"
+msg = "Column expression, FROM clause, or other columns clause element expected, got <MagicMock name='Category' id='1960102975808'>."
+
+    def _raise_for_expected(
+        self,
+        element: Any,
+        argname: Optional[str] = None,
+        resolved: Optional[Any] = None,
+        *,
+        advice: Optional[str] = None,
+        code: Optional[str] = None,
+        err: Optional[Exception] = None,
+        **kw: Any,
+    ) -> NoReturn:
+        if resolved is not None and resolved is not element:
+            got = "%r object resolved from %r object" % (resolved, element)
+        else:
+            got = repr(element)
+    
+        if argname:
+            msg = "%s expected for argument %r; got %s." % (
+                self.name,
+                argname,
+                got,
+            )
+        else:
+            msg = "%s expected, got %s." % (self.name, got)
+    
+        if advice:
+            msg += " " + advice
+    
+>       raise exc.ArgumentError(msg, code=code) from err
+E       sqlalchemy.exc.ArgumentError: Column expression, FROM clause, or other columns clause element expected, got <MagicMock name='Category' id='1960102975808'>.
+
+C:\Users\mateu\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\sqlalchemy\sql\coercions.py:519: ArgumentError
+============================== warnings summary ===============================
+config.py:7
+  C:\projects\repos\RaoApp_new\backend\config.py:7: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class Settings(BaseSettings):
+
+archive\schemas.py:24
+  C:\projects\repos\RaoApp_new\backend\archive\schemas.py:24: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class ArchiveCategoryResponse(BaseModel):
+
+archive\schemas.py:36
+  C:\projects\repos\RaoApp_new\backend\archive\schemas.py:36: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class ArchiveCategoryTreeNode(BaseModel):
+
+archive\schemas.py:53
+  C:\projects\repos\RaoApp_new\backend\archive\schemas.py:53: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class ArchiveArticleResponse(BaseModel):
+
+archive\schemas.py:93
+  C:\projects\repos\RaoApp_new\backend\archive\schemas.py:93: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class ArchiveConditionResponse(BaseModel):
+
+archive\schemas.py:109
+  C:\projects\repos\RaoApp_new\backend\archive\schemas.py:109: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class ArchivePositionResponse(BaseModel):
+
+archive\schemas.py:132
+  C:\projects\repos\RaoApp_new\backend\archive\schemas.py:132: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class ArchiveServiceFeeResponse(BaseModel):
+
+archive\schemas.py:149
+  C:\projects\repos\RaoApp_new\backend\archive\schemas.py:149: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class ArchiveSettlementResponse(BaseModel):
+
+archive\schemas.py:168
+  C:\projects\repos\RaoApp_new\backend\archive\schemas.py:168: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class ArchiveContractListItem(BaseModel):
+
+archive\schemas.py:198
+  C:\projects\repos\RaoApp_new\backend\archive\schemas.py:198: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class ArchiveContractDetail(BaseModel):
+
+articles\schemas.py:13
+  C:\projects\repos\RaoApp_new\backend\articles\schemas.py:13: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class ArticleListItem(BaseModel):
+
+articles\schemas.py:45
+  C:\projects\repos\RaoApp_new\backend\articles\schemas.py:45: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class ArticleDetail(BaseModel):
+
+settings\schemas.py:6
+  C:\projects\repos\RaoApp_new\backend\settings\schemas.py:6: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class CompanyResponse(BaseModel):
+
+settings\schemas.py:57
+  C:\projects\repos\RaoApp_new\backend\settings\schemas.py:57: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class ServiceFeeTemplateResponse(BaseModel):
+
+settings\schemas.py:102
+  C:\projects\repos\RaoApp_new\backend\settings\schemas.py:102: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class FeePresetGroupResponse(BaseModel):
+
+settings\schemas.py:115
+  C:\projects\repos\RaoApp_new\backend\settings\schemas.py:115: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class SalespersonResponse(BaseModel):
+
+settings\schemas.py:132
+  C:\projects\repos\RaoApp_new\backend\settings\schemas.py:132: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class CategoryTreeNode(BaseModel):
+
+settings\schemas.py:155
+  C:\projects\repos\RaoApp_new\backend\settings\schemas.py:155: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class CategoryResponse(BaseModel):

@@ -15,6 +15,7 @@ import AnalyticsTable, {
 } from '@/components/analytics/AnalyticsTable.vue'
 import StateMessage from '@/components/StateMessage.vue'
 import { useSort } from '@/composables/useSort'
+import { formatCurrency } from '@/utils/format'
 
 interface Props {
   dateFrom: string
@@ -154,18 +155,6 @@ const kpiCards = computed<KpiCard[]>(() => {
     },
   ]
 })
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-function formatCurrency(v: string | number | null | undefined): string {
-  if (v === null || v === undefined || v === '') return '0 zł'
-  const n = typeof v === 'string' ? parseFloat(v) : v
-  if (Number.isNaN(n)) return '0 zł'
-  return n.toLocaleString('pl-PL', {
-    style: 'currency',
-    currency: 'PLN',
-    minimumFractionDigits: 2,
-  })
-}
 
 function onMachineRowClick(row: AnalyticsRow): void {
   const id = Number(row.article_id)

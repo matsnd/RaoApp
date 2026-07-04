@@ -73,10 +73,6 @@ def extract_city_from_nominatim(address: dict) -> str | None:
     )
 
 
-# Re-export with clearer name for external use
-extract_city = extract_city_from_nominatim
-
-
 class NominatimClient:
     async def reverse_geocode(self, lat: Decimal, lng: Decimal) -> dict:
         url = f"{settings.RAO_NOMINATIM_BASE_URL}/reverse"

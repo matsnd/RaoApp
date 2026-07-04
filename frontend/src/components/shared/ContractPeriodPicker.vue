@@ -29,6 +29,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { formatDate } from '@/utils/format'
 
 const props = defineProps<{
   dateFrom: string | null
@@ -91,19 +92,8 @@ const dateToComputed = computed<string | null>(() => {
   return toLocalISODate(toDate)
 })
 
-// Format dates for Polish display
-function formatDatePl(dateStr: string | null): string {
-  if (!dateStr) return ''
-  const date = new Date(dateStr + 'T00:00:00')
-  return date.toLocaleDateString('pl-PL', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
-}
-
-const dateFromPl = computed(() => formatDatePl(dateFromInternal.value))
-const dateToPl = computed(() => formatDatePl(dateToComputed.value))
+const dateFromPl = computed(() => formatDate(dateFromInternal.value))
+const dateToPl = computed(() => formatDate(dateToComputed.value))
 
 // Watch date_from changes and emit
 watch(dateFromInternal, (newVal) => {

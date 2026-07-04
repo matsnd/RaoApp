@@ -60,6 +60,8 @@
               <div style="display:flex;gap:8px;">
                 <input :value="contractorName" type="text" class="form-control" disabled placeholder="Wybierz kontrahenta..." style="flex:1;" :class="{ 'error': !form.contractor_id }" />
                 <button type="button" class="btn btn-secondary btn-sm" @click="showContractorPicker = true">Wybierz</button>
+                <!-- RAO-P2-070 Faza 2: link do edycji kontrahenta z pozycji umowy -->
+                <button v-if="form.contractor_id" type="button" class="btn btn-secondary btn-sm" title="Edytuj kontrahenta" @click="goToContractorEdit">✎ Edytuj</button>
               </div>
               <span v-if="!form.contractor_id" class="field-error">Wybierz kontrahenta</span>
             </div>
@@ -239,10 +241,10 @@
                 <td>{{ pos.billing_frequency || '—' }}</td>
                 <td><span class="badge badge-info">{{ pos.conditions_count || 0 }}</span></td>
                 <td>{{ pos.supplier_name || '—' }}</td>
-                <td>{{ pos.delivery_date ? new Date(pos.delivery_date).toLocaleDateString('pl-PL') : '—' }}</td>
+                <td>{{ formatDate(pos.delivery_date) }}</td>
                 <td>
-                  <button class="btn-icon" title="Edytuj" @click.stop="editPosition(pos)">✎</button>
-                  <button class="btn-icon" title="Usuń" @click.stop="deletePosition(pos)">✕</button>
+                  <button class="btn-icon" aria-label="Edytuj" title="Edytuj" @click.stop="editPosition(pos)">✎</button>
+                  <button class="btn-icon" aria-label="Usuń" title="Usuń" @click.stop="deletePosition(pos)">✕</button>
                 </td>
               </tr>
             </tbody>
@@ -297,21 +299,21 @@
                   <td><input v-model="editingFeeData.description" class="form-control form-control-xs" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" /></td>
                   <td style="text-align:center;"><input type="checkbox" v-model="editingFeeData.is_active" /></td>
                   <td>
-                    <button class="btn-icon" style="color:#22543D;" title="Zapisz (Enter)" @click="saveInlineFee">✓</button>
-                    <button class="btn-icon" title="Anuluj (Esc)" @click="cancelInlineFee">✕</button>
+                    <button class="btn-icon" style="color:#22543D;" aria-label="Zapisz (Enter)" title="Zapisz (Enter)" @click="saveInlineFee">✓</button>
+                    <button class="btn-icon" aria-label="Anuluj (Esc)" title="Anuluj (Esc)" @click="cancelInlineFee">✕</button>
                   </td>
                 </tr>
                 <!-- DISPLAY MODE -->
                 <tr v-else @click="startEditFee(fee)" style="cursor:pointer;" :class="{ 'row-inactive': !fee.is_active }">
                   <td>{{ fee.name }}</td>
-                  <td>{{ fee.amount_from ? Number(fee.amount_from).toFixed(2) + ' zł' : '—' }}</td>
-                  <td>{{ fee.amount_to ? Number(fee.amount_to).toFixed(2) + ' zł' : '—' }}</td>
+                  <td>{{ fee.amount_from ? formatCurrency(fee.amount_from) : '—' }}</td>
+                  <td>{{ fee.amount_to ? formatCurrency(fee.amount_to) : '—' }}</td>
                   <td>{{ fee.unit || '—' }}</td>
                   <td style="font-size:11px;">{{ formatDescription(fee.description, fee.amount_from, fee.amount_to) }}</td>
                   <td style="text-align:center;"><span :class="['badge', fee.is_active ? 'badge-success' : 'badge-muted']">{{ fee.is_active ? 'Tak' : 'Nie' }}</span></td>
                   <td>
-                    <button class="btn-icon" title="Edytuj" @click.stop="startEditFee(fee)">✎</button>
-                    <button class="btn-icon" title="Usuń" @click.stop="deleteServiceFee(fee)">✕</button>
+                    <button class="btn-icon" aria-label="Edytuj" title="Edytuj" @click.stop="startEditFee(fee)">✎</button>
+                    <button class="btn-icon" aria-label="Usuń" title="Usuń" @click.stop="deleteServiceFee(fee)">✕</button>
                   </td>
                 </tr>
               </template>
@@ -322,7 +324,7 @@
                   <div style="display:flex;gap:4px;margin-bottom:4px;align-items:center;">
                     <input :value="newFeeData.article_id ? selectedServiceArticleName : ''" type="text" class="form-control form-control-xs" disabled :placeholder="serviceArticles.length ? 'Wybierz z listy usług…' : 'Brak usług — wpisz ręcznie'" style="flex:1;" />
                     <button v-if="serviceArticles.length" type="button" class="btn btn-secondary btn-xs" @click="openServiceArticlePicker" title="Wybierz artykuł-usługę">⌕</button>
-                    <button v-if="newFeeData.article_id" type="button" class="btn-icon" title="Odłącz artykuł" @click="clearServiceArticle">✕</button>
+                    <button v-if="newFeeData.article_id" type="button" class="btn-icon" aria-label="Odłącz artykuł" title="Odłącz artykuł" @click="clearServiceArticle">✕</button>
                   </div>
                   <input v-model="newFeeData.name" class="form-control form-control-xs" placeholder="Nazwa usługi" ref="newFeeNameInput" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" />
                 </td>
@@ -332,8 +334,8 @@
                 <td><input v-model="newFeeData.description" class="form-control form-control-xs" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" /></td>
                 <td style="text-align:center;"><input type="checkbox" v-model="newFeeData.is_active" /></td>
                 <td>
-                  <button class="btn-icon" style="color:#22543D;" title="Dodaj (Enter)" @click="saveNewFeeRow">✓</button>
-                  <button class="btn-icon" title="Anuluj (Esc)" @click="cancelNewFeeRow">✕</button>
+                  <button class="btn-icon" style="color:#22543D;" aria-label="Dodaj (Enter)" title="Dodaj (Enter)" @click="saveNewFeeRow">✓</button>
+                  <button class="btn-icon" aria-label="Anuluj (Esc)" title="Anuluj (Esc)" @click="cancelNewFeeRow">✕</button>
                 </td>
               </tr>
             </tbody>
@@ -348,7 +350,7 @@
               <span style="font-size:11px;color:#718096;">Koszt klienta vs koszt firmy</span>
               <!-- RAO-P2-022: status badge -->
               <span v-if="form.is_settled" class="settled-badge-sm">
-                ✓ Rozliczona{{ form.settled_at ? ' · ' + new Date(form.settled_at).toLocaleDateString('pl-PL') : '' }}
+                ✓ Rozliczona{{ form.settled_at ? ' · ' + formatDate(form.settled_at) : '' }}
               </span>
             </div>
             <div style="display:flex;gap:8px;align-items:center;">
@@ -387,7 +389,7 @@
             <div v-else>
               <div v-for="inv in fakturowniaStore.invoices" :key="inv.invoice_number" style="margin-bottom:12px;background:white;padding:8px;border-radius:4px;border:1px solid #e2e8f0;">
                 <div style="font-weight:600;font-size:12px;color:#2d3748;margin-bottom:4px;">
-                  Faktura {{ inv.invoice_number }} — Netto: {{ inv.total_net.toFixed(2) }} zł
+                  Faktura {{ inv.invoice_number }} — Netto: {{ formatCurrency(inv.total_net) }}
                 </div>
                 <table style="width:100%;font-size:11px;border-collapse:collapse;">
                   <thead>
@@ -402,8 +404,8 @@
                     <tr v-for="line in inv.lines" :key="line.funkurownia_product_id" style="border-bottom:1px solid #edf2f7;">
                       <td style="padding:4px;">{{ line.funkurownia_product_name }}</td>
                       <td style="text-align:right;padding:4px;">{{ line.quantity }}</td>
-                      <td style="text-align:right;padding:4px;">{{ line.price_net.toFixed(2) }} zł</td>
-                      <td style="text-align:right;padding:4px;">{{ line.total_net.toFixed(2) }} zł</td>
+                      <td style="text-align:right;padding:4px;">{{ formatCurrency(line.price_net) }}</td>
+                      <td style="text-align:right;padding:4px;">{{ formatCurrency(line.total_net) }}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -481,7 +483,7 @@
                 </td>
                 <td>
                   <span :style="{ color: s.margin > 0 ? 'green' : s.margin < 0 ? 'red' : 'inherit', fontWeight: '600' }">
-                    {{ (s.margin !== null && !isNaN(s.margin)) ? Number(s.margin).toFixed(2) + ' zł' : '—' }}
+                    {{ (s.margin !== null && !isNaN(s.margin)) ? formatCurrency(s.margin) : '—' }}
                   </span>
                 </td>
                 <td>
@@ -637,7 +639,7 @@
         <div class="preset-picker-modal">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
             <div class="preset-picker-title">Wybierz zestaw usług dodatkowych</div>
-            <button class="btn-icon" style="font-size:18px;" @click="showPresetPicker = false">✕</button>
+            <button class="btn-icon" style="font-size:18px;" aria-label="Zamknij" title="Zamknij" @click="showPresetPicker = false">✕</button>
           </div>
           <div v-if="presetPickerLoading" style="text-align:center;padding:32px;color:#A0AEC0;">Ładowanie zestawów...</div>
           <div v-else-if="!presetPickerList.length" class="preset-picker-empty">
@@ -798,9 +800,13 @@
                     <span v-if="a._avail === true" class="badge badge-success">Wolny</span>
                     <span v-else-if="a._avail === false" class="badge badge-danger">Zajęty</span>
                     <span v-else class="badge badge-muted">—</span>
+                    <!-- RAO-P2-066: badge "Zarezerwowany do DD.MM" gdy maszyna ma aktywną rezerwację -->
+                    <span v-if="a._reservedTo" class="badge badge-warning" style="margin-left:4px;" title="Maszyna ma ręczną rezerwację w tym okresie">
+                      Zarezerwowany do {{ formatPickerDate(a._reservedTo) }}
+                    </span>
                   </td>
                   <td>
-                    <button class="btn-icon" title="Duplikuj artykuł" @click.stop="duplicateArticle(a)">⧉</button>
+                    <button class="btn-icon" aria-label="Duplikuj artykuł" title="Duplikuj artykuł" @click.stop="duplicateArticle(a)">⧉</button>
                   </td>
                 </tr>
               </tbody>
@@ -834,7 +840,7 @@
                 </tr>
                 <tr v-for="a in serviceArticlePickerList" :key="a.id" style="cursor:pointer;" @click="selectServiceArticle(a)">
                   <td>{{ a.name }}</td>
-                  <td>{{ a.replacement_value ? Number(a.replacement_value).toFixed(2) + ' zł' : '—' }}</td>
+                  <td>{{ a.replacement_value ? formatCurrency(a.replacement_value) : '—' }}</td>
                   <td><span class="badge badge-warning">Usługa</span></td>
                 </tr>
               </tbody>
@@ -847,20 +853,43 @@
       </div>
     </Transition>
 
-    <!-- Conflict modal — RAO-P1-023 -->
+    <!-- Conflict modal — RAO-P1-023 + RAO-P2-066 (rezerwacje) -->
     <Transition name="modal">
       <div v-if="showConflictModal" class="modal-overlay" @click.self="cancelConflictSelection">
-        <div class="modal-box" style="max-width:520px;">
+        <div class="modal-box" style="max-width:560px;">
           <div class="modal-title" style="color:var(--color-error);">⚠️ Maszyna zajęta</div>
           <p style="margin:12px 0 8px;">
-            <strong>{{ pendingArticle?.name }}</strong> jest przypisana do:
+            <strong>{{ pendingArticle?.name }}</strong> jest niedostępna w wybranym okresie:
           </p>
-          <ul style="margin:0 0 16px 0; padding-left:20px;">
-            <li v-for="c in conflictList" :key="c.contract_id" style="margin-bottom:4px;">
-              Umowa <strong>{{ c.contract_number }}</strong> — {{ c.contractor_name }}
-              <span v-if="c.date_from && c.date_to" style="color:var(--color-text-muted);"> ({{ formatPickerDate(c.date_from) }} – {{ formatPickerDate(c.date_to) }})</span>
-            </li>
-          </ul>
+
+          <!-- Konflikty z umowami -->
+          <div v-if="conflictList.length">
+            <div style="font-size:12px;color:var(--color-text-muted);margin-bottom:4px;font-weight:600;">Umowy najmu:</div>
+            <ul style="margin:0 0 12px 0; padding-left:20px;">
+              <li v-for="c in conflictList" :key="c.contract_id" style="margin-bottom:4px;">
+                Umowa <strong>{{ c.contract_number }}</strong> — {{ c.contractor_name }}
+                <span v-if="c.date_from && c.date_to" style="color:var(--color-text-muted);"> ({{ formatPickerDate(c.date_from) }} – {{ formatPickerDate(c.date_to) }})</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- RAO-P2-066: Konflikty z rezerwacjami (article_reservations) -->
+          <div v-if="reservationConflictList.length">
+            <div style="font-size:12px;color:var(--color-text-muted);margin-bottom:4px;font-weight:600;">Rezerwacje ręczne:</div>
+            <ul style="margin:0 0 12px 0; padding-left:20px;">
+              <li v-for="r in reservationConflictList" :key="r.reservation_id" style="margin-bottom:4px;">
+                Zarezerwowano <strong>{{ formatPickerDate(r.reserved_from) }} – {{ formatPickerDate(r.reserved_to) }}</strong>
+                <span v-if="r.note" style="color:var(--color-text-muted);"> ({{ r.note }})</span>
+                <span v-if="r.available_from" style="color:var(--color-success, #2f855a);"> — dostępna od {{ formatPickerDate(r.available_from) }}</span>
+              </li>
+            </ul>
+          </div>
+
+          <p v-if="reservationConflictList.length" style="margin:0 0 12px;font-size:12px;color:var(--color-warning, #d69e2e);background:#fffbeb;padding:8px;border-radius:6px;">
+            ⚠️ Rezerwacja to ręczne oznaczenie niedostępności maszyny (np. serwis, blokada klienta).
+            Dodanie jej do umowy mimo wszystko może spowodować konflikt operacyjny.
+          </p>
+
           <div class="modal-actions">
             <button class="btn btn-secondary btn-sm" @click="cancelConflictSelection">Anuluj</button>
             <button class="btn btn-primary btn-sm" @click="confirmConflictSelection">Mimo to dodaj</button>
@@ -1033,10 +1062,12 @@ import { useContractorStore } from '@/stores/contractors'
 import { useArticleStore } from '@/stores/articles'
 import { useSettingsStore } from '@/stores/settings'
 import { useFakturowniaStore } from '@/stores/fakturownia'
+import { useToastStore } from '@/stores/toast'
 import ConditionPanel from '@/components/contracts/ConditionPanel.vue'
 import ServiceHourGrid from '@/components/contracts/ServiceHourGrid.vue'
 import ContractPeriodPicker from '@/components/shared/ContractPeriodPicker.vue'
 import api from '@/composables/useApi'
+import { formatDate, formatCurrency } from '@/utils/format'
 
 const props = defineProps({ id: String })
 const router = useRouter()
@@ -1046,6 +1077,7 @@ const contractorStore = useContractorStore()
 const articleStore = useArticleStore()
 const settingsStore = useSettingsStore()
 const fakturowniaStore = useFakturowniaStore()
+const toastStore = useToastStore()
 
 const isEdit = computed(() => !!props.id)
 const loading = ref(false)
@@ -1074,7 +1106,7 @@ const settlementTotalValue = computed(() => {
 
 const settlementTotalFormatted = computed(() => {
   if (!settlements.value.length) return '— rozlicz umowę'
-  return settlementTotalValue.value.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' zł'
+  return formatCurrency(settlementTotalValue.value)
 })
 
 const remainingValue = computed(() => {
@@ -1083,7 +1115,7 @@ const remainingValue = computed(() => {
   const pre = Number(form.value.prepayment_amount) || 0
   const inv = Number(form.value.invoice_amount) || 0
   const remaining = total - pre - inv
-  return remaining.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' zł'
+  return formatCurrency(remaining)
 })
 
 const contractorName = ref('')
@@ -1250,7 +1282,8 @@ const selectedArticleName = ref('')
 const articleAvailability = ref(null)
 const showArticlePicker = ref(false)
 const articlePickerSearch = ref('')
-const articlePickerList = ref([])
+// any[]: artykuły z API + pola runtime (_avail, _reservedTo) — hydratowane w searchArticles
+const articlePickerList = ref<any[]>([])
 
 // RAO-P2-006: Category cascade computed properties for inline article form
 const catMainOptions = computed(() => settingsStore.categoriesTree)
@@ -1305,6 +1338,14 @@ interface ConflictingContract {
   date_from: string | null
   date_to: string | null
 }
+// RAO-P2-066: konflikt z rezerwacją (article_reservations)
+interface ConflictingReservation {
+  reservation_id: number
+  reserved_from: string
+  reserved_to: string
+  note: string | null
+  available_from: string | null
+}
 interface ArticlePickerItem {
   id: number
   name: string
@@ -1313,6 +1354,7 @@ interface ArticlePickerItem {
 }
 const showConflictModal = ref(false)
 const conflictList = ref<ConflictingContract[]>([])
+const reservationConflictList = ref<ConflictingReservation[]>([])
 const pendingArticle = ref<ArticlePickerItem | null>(null)
 
 const supplierName = ref('')
@@ -1435,12 +1477,12 @@ function formatDescription(description, amount_from, amount_to) {
   if (!description) {
     // If no description, format amounts directly
     if (amount_from !== null && amount_from !== undefined) {
-      const formattedFrom = Number(amount_from).toLocaleString('pl-PL', { minimumFractionDigits: 2 })
+      const formattedFrom = formatCurrency(amount_from)
       if (amount_to !== null && amount_to !== undefined) {
-        const formattedTo = Number(amount_to).toLocaleString('pl-PL', { minimumFractionDigits: 2 })
-        return `${formattedFrom} zł - ${formattedTo} zł`
+        const formattedTo = formatCurrency(amount_to)
+        return `${formattedFrom} - ${formattedTo}`
       }
-      return `${formattedFrom} zł`
+      return `${formattedFrom}`
     }
     return '—'
   }
@@ -1448,12 +1490,12 @@ function formatDescription(description, amount_from, amount_to) {
   // If description exists, replace $1/$2 placeholders with actual amounts
   let result = description
   if (amount_from !== null && amount_from !== undefined) {
-    const formattedFrom = Number(amount_from).toLocaleString('pl-PL', { minimumFractionDigits: 2 })
-    result = result.replace(/\$1/g, formattedFrom + ' zł')
+    const formattedFrom = formatCurrency(amount_from)
+    result = result.replace(/\$1/g, formattedFrom)
   }
   if (amount_to !== null && amount_to !== undefined) {
-    const formattedTo = Number(amount_to).toLocaleString('pl-PL', { minimumFractionDigits: 2 })
-    result = result.replace(/\$2/g, formattedTo + ' zł')
+    const formattedTo = formatCurrency(amount_to)
+    result = result.replace(/\$2/g, formattedTo)
   }
   return result
 }
@@ -1545,7 +1587,21 @@ async function onAddressSelect() {
   }
 }
 
-function goBack() { router.push('/dashboard/contracts') }
+function goBack() {
+  // RAO-P2-070 Faza 5: router.back() z fallbackiem do listy umów
+  if (window.history.length > 1) {
+    router.back()
+  } else {
+    router.push('/dashboard/contracts')
+  }
+}
+
+// RAO-P2-070 Faza 2: link do edycji kontrahenta z pozycji umowy
+function goToContractorEdit() {
+  if (form.value.contractor_id) {
+    router.push(`/contractors/${form.value.contractor_id}/edit`)
+  }
+}
 
 function buildPayload() {
   const v = { ...form.value }
@@ -1604,7 +1660,7 @@ async function recalcTotal() {
     await api.post(`/contracts/${props.id}/recalculate`)
     await contractStore.fetchOne(Number(props.id))
   } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd kalkulacji')
+    toastStore.error(e.response?.data?.detail || 'Błąd kalkulacji')
   }
 }
 
@@ -1615,12 +1671,12 @@ async function handleFakturownia() {
     await fakturowniaStore.fetchInvoicesByContractId(contractStore.current.id)
     if (fakturowniaStore.invoices.length > 0) {
       const total = fakturowniaStore.invoices.reduce((sum, inv) => sum + inv.total_net, 0)
-      alert(`Pobrano ${fakturowniaStore.invoices.length} faktur o łącznej kwocie ${total.toFixed(2)} zł`)
+      toastStore.success(`Pobrano ${fakturowniaStore.invoices.length} faktur o łącznej kwocie ${formatCurrency(total)}`)
     } else {
-      alert('Brak faktur dla tej umowy')
+      toastStore.info('Brak faktur dla tej umowy')
     }
   } catch (e: any) {
-    alert(e.response?.data?.detail || 'Błąd pobierania faktur z Fakturownia')
+    toastStore.error(e.response?.data?.detail || 'Błąd pobierania faktur z Fakturownia')
   }
 }
 
@@ -1629,7 +1685,7 @@ async function generateReport(type) {
   try {
     await contractStore.generateReport(Number(props.id), type)
   } catch (e) {
-    alert('Błąd generowania raportu')
+    toastStore.error('Błąd generowania raportu')
   }
 }
 
@@ -1645,7 +1701,7 @@ async function toggleSettled() {
     form.value.settled_at = data.settled_at
     await nextTick() // Force Vue re-render
   } catch (e) {
-    alert('Błąd zmiany statusu rozliczenia: ' + (e.response?.data?.detail || e.message))
+    toastStore.error('Błąd zmiany statusu rozliczenia: ' + (e.response?.data?.detail || e.message))
   } finally {
     settlingContract.value = false
   }
@@ -1685,8 +1741,8 @@ async function updateSettlement(settlement) {
     })
     // Re-fetch to get updated margin
     await fetchSettlements(Number(props.id))
-  } catch (e) {
-    alert('Błąd aktualizacji rozliczenia')
+  } catch (e: any) {
+    toastStore.error(e?.response?.data?.detail || 'Błąd aktualizacji rozliczenia')
     // Revert to original values
     await fetchSettlements(Number(props.id))
   }
@@ -1698,8 +1754,8 @@ async function initSettlements() {
   try {
     const { data } = await api.post(`/settlements/contract/${props.id}/init`)
     settlements.value = data
-  } catch (e) {
-    alert('Błąd inicjalizacji rozliczenia: ' + (e.response?.data?.detail || e.message))
+  } catch (e: any) {
+    toastStore.error('Błąd inicjalizacji rozliczenia: ' + (e?.response?.data?.detail || e.message))
   } finally {
     initializingSettlements.value = false
   }
@@ -1712,7 +1768,7 @@ async function initSettlementsFromFakturownia() {
     const { data } = await api.post(`/settlements/contract/${props.id}/init-from-fakturownia`)
     settlements.value = data
   } catch (e: any) {
-    alert('Błąd pobierania z Fakturownia: ' + (e.response?.data?.detail || e.message))
+    toastStore.error('Błąd pobierania z Fakturownia: ' + (e?.response?.data?.detail || e.message))
   } finally {
     initializingFromFakturownia.value = false
   }
@@ -1870,7 +1926,7 @@ function editPosition(pos) {
 }
 
 async function savePosition() {
-  if (!posForm.value.article_id) { alert('Wybierz artykuł'); return }
+  if (!posForm.value.article_id) { toastStore.warning('Wybierz artykuł'); return }
   savingPos.value = true
   try {
     const payload = { ...posForm.value }
@@ -1883,8 +1939,8 @@ async function savePosition() {
     await contractStore.fetchPositions(Number(props.id))
     showPosModal.value = false
     await recalcTotal()
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd zapisu pozycji')
+  } catch (e: any) {
+    toastStore.error(e?.response?.data?.detail || 'Błąd zapisu pozycji')
   } finally {
     savingPos.value = false
   }
@@ -1896,8 +1952,8 @@ async function deletePosition(pos) {
     await contractStore.deletePosition(Number(props.id), pos.id)
     if (selectedPosId.value === pos.id) selectedPosId.value = null
     await contractStore.fetchPositions(Number(props.id))
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd')
+  } catch (e: any) {
+    toastStore.error(e?.response?.data?.detail || 'Błąd')
   }
 }
 
@@ -1918,8 +1974,9 @@ async function searchArticles() {
   if (artTimer) clearTimeout(artTimer)
   artTimer = setTimeout(async () => {
     const { data } = await api.get('/articles', { params: { search: articlePickerSearch.value, per_page: 50, is_service: form.value.contract_type === 'U' ? true : false } })
-    articlePickerList.value = data.items.map(a => ({ ...a, _avail: null }))
-    // Check availability (parallel) — RAO-P1-023
+    // RAO-P2-066: _avail (Wolny/Zajęty) + _reservedTo (data końca najbliższej rezerwacji dla badge'a)
+    articlePickerList.value = data.items.map(a => ({ ...a, _avail: null, _reservedTo: null as string | null }))
+    // Check availability (parallel) — RAO-P1-023 + RAO-P2-066
     const excludeId = isEdit.value ? Number(props.id) : null
     await Promise.all(
       articlePickerList.value
@@ -1927,7 +1984,16 @@ async function searchArticles() {
         .map(async a => {
           if (form.value.date_from && form.value.date_to) {
             await articleStore.checkAvailability(a.id, form.value.date_from, form.value.date_to, excludeId)
-              .then(av => { a._avail = av.is_available })
+              .then(av => {
+                a._avail = av.is_available
+                // Najbliższa rezerwacja = min(reserved_to) z konfliktów (dla badge'a "Zarezerwowany do DD.MM")
+                const resList = av.conflicting_reservations ?? []
+                if (resList.length) {
+                  a._reservedTo = resList
+                    .map((r: ConflictingReservation) => r.reserved_to)
+                    .sort()[0]
+                }
+              })
               .catch(() => { a._avail = null })
           }
         })
@@ -1936,7 +2002,8 @@ async function searchArticles() {
 }
 
 async function selectArticle(a) {
-  // RAO-P1-023: check availability before closing picker
+  // RAO-P1-023 + RAO-P2-066: check availability before closing picker
+  // (uwzględnia zarówno konflikty umowa↔umowa, jak i rezerwacje article_reservations)
   if (form.value.date_from && form.value.date_to && !a.is_service) {
     try {
       const excludeId = isEdit.value ? Number(props.id) : null
@@ -1945,6 +2012,7 @@ async function selectArticle(a) {
         // Show conflict modal — keep picker open in background
         pendingArticle.value = a
         conflictList.value = av.conflicting_contracts ?? []
+        reservationConflictList.value = av.conflicting_reservations ?? []
         showConflictModal.value = true
         return
       }
@@ -1961,6 +2029,7 @@ function cancelConflictSelection() {
   showConflictModal.value = false
   pendingArticle.value = null
   conflictList.value = []
+  reservationConflictList.value = []
 }
 
 function confirmConflictSelection() {
@@ -1973,6 +2042,7 @@ function confirmConflictSelection() {
   }
   pendingArticle.value = null
   conflictList.value = []
+  reservationConflictList.value = []
 }
 
 async function duplicateArticle(a) {
@@ -1996,8 +2066,8 @@ async function duplicateArticle(a) {
     await contractStore.fetchPositions(Number(props.id))
     await recalcTotal()
     // Don't close picker, keep it open for more selections
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd dodawania pozycji')
+  } catch (e: any) {
+    toastStore.error(e?.response?.data?.detail || 'Błąd dodawania pozycji')
   }
 }
 
@@ -2051,8 +2121,8 @@ async function saveInlineFee() {
     await contractStore.fetchServiceFees(Number(props.id))
     editingFeeId.value = null
     editingFeeData.value = {}
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd zapisu')
+  } catch (e: any) {
+    toastStore.error(e?.response?.data?.detail || 'Błąd zapisu')
   }
 }
 
@@ -2077,8 +2147,8 @@ async function saveNewFeeRow() {
     await contractStore.fetchServiceFees(Number(props.id))
     showNewFeeRow.value = false
     newFeeData.value = { name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true, article_id: null, default_price: null }
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd dodawania')
+  } catch (e: any) {
+    toastStore.error(e?.response?.data?.detail || 'Błąd dodawania')
   }
 }
 
@@ -2087,8 +2157,8 @@ async function deleteServiceFee(fee) {
   try {
     await api.delete(`/contracts/${props.id}/service-fees/${fee.id}`)
     await contractStore.fetchServiceFees(Number(props.id))
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd')
+  } catch (e: any) {
+    toastStore.error(e?.response?.data?.detail || 'Błąd')
   }
 }
 
@@ -2097,8 +2167,8 @@ async function resetServiceFees() {
   try {
     await api.post(`/contracts/${props.id}/service-fees/reset`)
     await contractStore.fetchServiceFees(Number(props.id))
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd resetu')
+  } catch (e: any) {
+    toastStore.error(e?.response?.data?.detail || 'Błąd resetu')
   }
 }
 
@@ -2124,8 +2194,8 @@ async function applyPreset(preset) {
     await api.post(`/contracts/${props.id}/service-fees/apply-preset?preset_id=${preset.id}&replace=true`)
     await contractStore.fetchServiceFees(Number(props.id))
     showPresetPicker.value = false
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd aplikowania zestawu')
+  } catch (e: any) {
+    toastStore.error(e?.response?.data?.detail || 'Błąd aplikowania zestawu')
   }
 }
 

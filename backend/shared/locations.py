@@ -53,17 +53,18 @@ async def aggregate_by_pna(
     if not contract_ids:
         return []
 
-    # Pobierz contracts.city + postal_code + postal_code_id (FK)
+    # Pobierz contracts.city + postal_code + postal_code_id (FK) + delivery_address (fallback city)
     loc_q = await db.execute(
         select(
             Contract.id,
             Contract.city,
             Contract.postal_code,
             Contract.postal_code_id,
+            Contract.delivery_address,  # RAO-P2-065 #9: fallback city gdy contracts.city NULL
         ).where(Contract.id.in_(contract_ids))
     )
     contract_loc = {
-        r[0]: {"city": r[1], "pna": r[2], "pna_id": r[3]}
+        r[0]: {"city": r[1], "pna": r[2], "pna_id": r[3], "delivery_address": r[4]}
         for r in loc_q.all()
     }
 
@@ -117,6 +118,19 @@ async def aggregate_by_pna(
             continue
 
         city = (loc["city"] or "").strip()
+        # RAO-P2-065 #9: fallback — gdy contracts.city NULL, spróbuj wyciągnąć miasto z delivery_address
+        # (delivery_address często zawiera "ul. X, 00-001 Miasto" — bierzemy ostatni segment po przecinku)
+        if not city and loc.get("delivery_address"):
+            addr = loc["delivery_address"].strip()
+            # Heurystyka: ostatni segment po przecinku, obcięty o kod pocztowy (XX-XXX)
+            parts = [p.strip() for p in addr.split(",") if p.strip()]
+            if parts:
+                last = parts[-1]
+                # Usuń kod pocztowy z początku segmentu (np. "00-001 Warszawa" → "Warszawa")
+                import re
+                last = re.sub(r"^\d{2}-\d{3}\s+", "", last).strip()
+                if last and not last.isdigit():
+                    city = last
         pna_id = loc["pna_id"]
         pna_ref = pna_dict.get(pna_id) if pna_id else None
 

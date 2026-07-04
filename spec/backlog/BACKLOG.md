@@ -3232,6 +3232,121 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 
 ---
 
+### [RAO-P2-071] Audyt dead code — analiza nieużywanych symboli (depwire `find_dead_code`)
+
+```yaml
+id: RAO-P2-071
+priority: P2
+size: M
+status: triaged
+classification: tech-debt/cleanup
+roles: [tech-lead, backend-dev, frontend-dev, qa-engineer]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/02_backend_api.md (usunięte nieużywane endpointy/symbole)
+  - core/03_frontend_screens.md (usunięte nieużywane komponenty)
+migration_impact: no
+security_impact: no
+depends_on: []
+blocks: []
+verification: []
+```
+
+**Problem:**
+
+Po intensywnej rozbudowie (P0/P1/P2, migracje, refaktory stats/analytics/archive) w kodzie zbiera się **martwy kod** — funkcje, klasy, metody, komponenty i symbole zdefiniowane, ale nigdzie nie referowane. To:
+- Zwiększa powierzchnię utrzymania (czytanie, testowanie, dokumentowanie kodu, którego nikt nie używa)
+- Zaciemnia architekturę i psuje metryki `depwire.get_health_score` (orphan files, unused exports)
+- Może maskować bugi (zmiany w martwym kodzie nie mają pokrycia w testach/UX)
+- Utrudnia onboarding nowych agentów (czytają kod, który nic nie robi)
+
+**Cel:** Identyfikacja i bezpieczne usunięcie martwego kodu z potwierdzeniem braku referencji (cross-language: TS→Python REST, subprocess, dynamic imports).
+
+---
+
+#### Narzędzie: `depwire.find_dead_code`
+
+Depwire ma dedykowane narzędzie `find_dead_code` zwracające symbole nieużywane z podziałem na confidence:
+
+| Confidence | Definicja | Akcja |
+|------------|-----------|-------|
+| **high** | Symbol zdefiniowany, nigdzie nie referowany (0 dependents) | Bezpieczne usunięcie po weryfikacji |
+| **medium** | Referencje tylko w testach / komentarzach / stringach | Usunięcie + usunięcie martwych testów |
+| **low** | Referencje dynamiczne (getattr, eval, string-based dispatch) | Manualna weryfikacja przed usunięciem |
+
+**Uwaga:** Depwire uwzględnia krawędzie cross-language (TS fetch → Python route, subprocess). Mimo to należy sprawdzić:
+- Dynamiczne importy (`importlib`, `__import__`, Vue `defineAsyncComponent` z zmienną)
+- String-based dispatch (np. `getattr(obj, method_name)`, registry patterns)
+- Endpointy wywoływane tylko z E2E (Playwright) — te zachować jako public API
+- Funkcje używane tylko przez `migrate.py` (jednorazowy skrypt migracji danych)
+
+---
+
+#### Plan wykonania (4 fazy)
+
+**Faza 1 — Snapshot + triage (XS, 1-2h)**
+- `depwire.find_dead_code` z `confidence=high` → lista pewnych martwych symboli
+- `depwire.find_dead_code` z `confidence=medium` → lista wymagająca weryfikacji
+- `depwire.get_health_score` przed czyszczeniem (baseline metryk: orphan files, unused exports)
+- Zapis wyników do `spec/technical/dead_code_audit_2026-07-04.md` (tabela: symbol, plik, confidence, dependents, decyzja)
+- Est: 1-2h
+
+**Faza 2 — Weryfikacja referencji (S, 2-4h)**
+- Dla każdego kandydata `depwire.get_dependents` → potwierdzenie 0 referencji produkcyjnych
+- Sprawdzenie grep-em dynamicznych wzorców: `getattr`, `importlib`, `eval`, `__import__`, string-based dispatch
+- Sprawdzenie E2E testów (`e2e/tests/`) — czy endpoint nie jest testowany (testowany = zachować)
+- Sprawdzenie `backend/migrate.py` — funkcje pomocnicze migracji danych (zachować)
+- Klasyfikacja: `remove` / `keep-test-only` / `keep-migrate` / `keep-dynamic` / `keep-public-api`
+- Est: 2-4h
+
+**Faza 3 — Usunięcie + weryfikacja (M, 4-8h)**
+- Usunięcie symboli oznaczonych `remove` (batch po modułach: backend → frontend)
+- Po każdym module: `pytest -x --tb=short` + `vue-tsc --noEmit` + `npm run build`
+- Smoke: `e2e/tests/01-login.spec.ts` po każdej fazie
+- `depwire.get_health_score` po czyszczeniu → porównanie z baseline (oczekiwany wzrost score)
+- Est: 4-8h
+
+**Faza 4 — Raport + spec sync (XS, 1h)**
+- Aktualizacja `spec/technical/TECHNICAL_SOLUTIONS.md` (wzorzec: "dead code audit z depwire")
+- Update `spec/core/02_backend_api.md` i `spec/core/03_frontend_screens.md` jeśli usunięto publiczne endpointy/komponenty
+- Commit: `refactor(cleanup): RAO-P2-071 dead code audit — usunięto N symboli (depwire find_dead_code)`
+- Est: 1h
+
+---
+
+#### Acceptance criteria
+
+- [ ] `depwire.find_dead_code` uruchomione z `confidence=high` i `medium`
+- [ ] Tabela kandydatów zapisana w `spec/technical/dead_code_audit_2026-07-04.md`
+- [ ] Każdy kandydat ma decyzję (remove/keep-*) z uzasadnieniem
+- [ ] `depwire.get_health_score` przed i po — porównanie w raporcie
+- [ ] Usunięte symbole `high` confidence (0 referencji produkcyjnych)
+- [ ] `pytest -x` pass po usunięciach
+- [ ] `vue-tsc --noEmit` pass po usunięciach
+- [ ] `npm run build` pass po usunięciach
+- [ ] `e2e/tests/01-login.spec.ts` pass (smoke regression)
+- [ ] `git diff spec/core/` niepusty jeśli zmieniono publiczne API
+- [ ] Lokalny commit z opisem zmian
+
+---
+
+#### Ryzyka i mitigacje
+
+| Ryzyko | Mitigacja |
+|--------|-----------|
+| Usunięcie symbolu używanego dynamicznie (getattr, eval) | Faza 2: grep dynamicznych wzorców przed usunięciem |
+| Usunięcie endpointu testowanego tylko w E2E | Faza 2: sprawdzenie `e2e/tests/` przed usunięciem |
+| Usunięcie funkcji migracji danych (`migrate.py`) | Faza 2: whitelist `migrate.py` i skryptów jednorazowych |
+| False-positive depwire (limit analizy statycznej) | Faza 3: testy po każdym module, rollback przez `git revert` jeśli regresja |
+| Usunięcie "martwego" kodu, który jest hookiem dla przyszłego feature | Faza 2: konsultacja z PO/Tech Lead dla wątpliwych przypadków |
+
+---
+
+**Estymacja:** 1-2 dni (M) — 4 fazy, większość czasu to weryfikacja (Faza 2) i testowanie (Faza 3)
+
+---
+
 ## 📋 Tabela TL;DR
 
 | ID | Tytuł | P | Est. | Status | Następny krok |

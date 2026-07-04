@@ -163,13 +163,23 @@ class ArticleService:
     ):
         from contracts.models import Contract, ContractPosition
         from contractors.models import Contractor
-        from articles.schemas import AvailabilityConflict, AvailabilityResponse
+        from reservations.models import ArticleReservation
+        from articles.schemas import (
+            AvailabilityConflict,
+            AvailabilityResponse,
+            AvailabilityReservationConflict,
+        )
+        from datetime import timedelta
 
         # RAO-P2-057: maszyna zewnętrzna (is_external) nie blokuje — można wypożyczyć
         # w wielu umowach jednocześnie (nie wpływa na rentowność floty własnej)
         article = await db.get(Article, article_id)
         if article and article.is_external:
-            return AvailabilityResponse(is_available=True, conflicting_contracts=[])
+            return AvailabilityResponse(
+                is_available=True,
+                conflicting_contracts=[],
+                conflicting_reservations=[],
+            )
 
         stmt = (
             select(Contract.id, Contract.number, Contract.date_from, Contract.date_to, Contractor.name)
@@ -190,7 +200,36 @@ class ArticleService:
             )
             for r in rows
         ]
-        return AvailabilityResponse(is_available=len(conflicts) == 0, conflicting_contracts=conflicts)
+
+        # RAO-P2-066: konflikty z ręcznymi rezerwacjami (article_reservations)
+        # Zakładka czasowa pokrywa się gdy: reserved_from <= date_to AND reserved_to >= date_from
+        res_stmt = (
+            select(ArticleReservation)
+            .where(ArticleReservation.article_id == article_id)
+            .where(ArticleReservation.reserved_from <= date_to)
+            .where(ArticleReservation.reserved_to >= date_from)
+            .order_by(ArticleReservation.reserved_from)
+        )
+        res_result = await db.execute(res_stmt)
+        reservations = res_result.scalars().all()
+        res_conflicts = [
+            AvailabilityReservationConflict(
+                reservation_id=r.id,
+                reserved_from=r.reserved_from,
+                reserved_to=r.reserved_to,
+                note=r.note,
+                # Maszyna dostępna od dnia następnego po zakończeniu rezerwacji
+                available_from=r.reserved_to + timedelta(days=1),
+            )
+            for r in reservations
+        ]
+
+        is_available = len(conflicts) == 0 and len(res_conflicts) == 0
+        return AvailabilityResponse(
+            is_available=is_available,
+            conflicting_contracts=conflicts,
+            conflicting_reservations=res_conflicts,
+        )
 
 
 article_service = ArticleService()

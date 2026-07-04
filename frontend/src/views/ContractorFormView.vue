@@ -1,7 +1,7 @@
 <template>
   <div style="display:flex;flex-direction:column;height:100vh;overflow:hidden;">
     <div class="toolbar">
-      <button class="toolbar-btn" @click="goBack">←</button>
+      <button class="toolbar-btn" @click="goBack" title="Wstecz">← Wstecz</button>
       <span class="toolbar-info">{{ isEdit ? `Edycja kontrahenta: ${form.name}` : 'Nowy kontrahent' }}</span>
       <button v-if="isEdit" class="btn btn-secondary btn-sm" @click="addContract" title="Dodaj umowę dla tego kontrahenta">+ Umowa</button>
       <button class="btn btn-primary btn-sm" @click="handleSave" :disabled="saving">
@@ -203,14 +203,16 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useContractorStore } from '@/stores/contractors'
+import { useToastStore } from '@/stores/toast'
 
 const props = defineProps({ id: String })
 const router = useRouter()
 const store = useContractorStore()
+const toastStore = useToastStore()
 
 const isEdit = computed(() => !!props.id)
 const loading = ref(false)
@@ -247,7 +249,14 @@ onMounted(async () => {
   }
 })
 
-function goBack() { router.push('/dashboard/contractors') }
+function goBack() {
+  // RAO-P2-070 Faza 5: router.back() z fallbackiem do listy kontrahentów
+  if (window.history.length > 1) {
+    router.back()
+  } else {
+    router.push('/dashboard/contractors')
+  }
+}
 
 // NIP checksum validation (Polish NIP algorithm)
 function isValidNIP(nip) {
@@ -302,11 +311,11 @@ async function handleSave() {
 
 async function gusLookup() {
   if (!form.value.nip || form.value.nip.length !== 10) {
-    alert('Podaj 10-cyfrowy NIP')
+    toastStore.warning('Podaj 10-cyfrowy NIP')
     return
   }
   if (!isValidNIP(form.value.nip)) {
-    alert('NIP nieprawidłowy (błędna suma kontrolna)')
+    toastStore.warning('NIP nieprawidłowy (błędna suma kontrolna)')
     return
   }
   gusLoading.value = true
@@ -333,8 +342,8 @@ async function gusLookup() {
         contractor.value = await store.fetchOne(Number(props.id))
       } catch {}
     }
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd pobierania danych z GUS')
+  } catch (e: any) {
+    toastStore.error(e?.response?.data?.detail || 'Błąd pobierania danych z GUS')
   } finally {
     gusLoading.value = false
   }
@@ -363,8 +372,8 @@ async function saveAddress() {
     }
     contractor.value = await store.fetchOne(Number(props.id))
     showAddrModal.value = false
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd zapisu adresu')
+  } catch (e: any) {
+    toastStore.error(e?.response?.data?.detail || 'Błąd zapisu adresu')
   } finally {
     savingAddr.value = false
   }
@@ -376,8 +385,8 @@ async function deleteAddress() {
     await store.removeAddress(Number(props.id), editingAddr.value.id)
     contractor.value = await store.fetchOne(Number(props.id))
     showAddrModal.value = false
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd usuwania')
+  } catch (e: any) {
+    toastStore.error(e?.response?.data?.detail || 'Błąd usuwania')
   }
 }
 

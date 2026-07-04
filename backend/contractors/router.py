@@ -19,7 +19,7 @@ async def list_contractors(
     search: str | None = Query(None),
     supplier: bool | None = Query(None),
     page: int = Query(1, ge=1),
-    per_page: int = Query(50, ge=1, le=200),
+    per_page: int = Query(50, ge=1, le=500),  # RAO-P2-065 #3: podniesiono z 200 do 500 (AnalyticsView potrzebuje pełnej listy)
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):

@@ -1,0 +1,14 @@
+docs(backlog): RAO-P3-071 — audyt UX czytelności, spójności, przyjemności
+
+Audyt UX pod kątem czytelności, komfortu i przyjemności poruszania się:
+- 5 HIGH: font-size 11px × 56 miejsc, 3 formaty walut, 2 formaty dat, żargon bez tooltipów
+- 6 MEDIUM: CommissionView łamie design system, 2 konfliktujące systemy zmiennych CSS, toolbar ikony bez etykiet
+- 3 LOW: spacing niespójny, nazwy sekcji, archive tabs
+- a11y: brak aria-label, focus states, kontrast poniżej WCAG AA, brak focus trap w modalach
+- polish: brak view transitions, skeleton w 4 widokach, toast bez ikony, ConfirmDialog generyczny
+
+5 faz implementacji, łączna est. 4-5.5 dni (L). Task triaged, czeka na implementację.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

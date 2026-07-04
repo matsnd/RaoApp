@@ -115,8 +115,8 @@
                       <td><input v-model.number="editingSpData.commission_rate" type="number" min="0" max="100" step="0.5" class="form-control form-control-xs" @keydown.enter="saveEditSp" @keydown.esc="editingSpId = null" /></td>
                       <td><span :class="['badge', sp.is_active ? 'badge-success' : 'badge-muted']">{{ sp.is_active ? 'Tak' : 'Nie' }}</span></td>
                       <td>
-                        <button class="btn-icon" style="color:#22543D;" @click="saveEditSp" title="Zapisz">✓</button>
-                        <button class="btn-icon" @click="editingSpId = null" title="Anuluj">✕</button>
+                        <button class="btn-icon" style="color:#22543D;" @click="saveEditSp" aria-label="Zapisz" title="Zapisz">✓</button>
+                        <button class="btn-icon" @click="editingSpId = null" aria-label="Anuluj" title="Anuluj">✕</button>
                       </td>
                     </tr>
                     <tr v-else>
@@ -125,9 +125,9 @@
                       <td>{{ sp.commission_rate != null ? sp.commission_rate + ' %' : '—' }}</td>
                       <td><span :class="['badge', sp.is_active ? 'badge-success' : 'badge-muted']">{{ sp.is_active ? 'Tak' : 'Nie' }}</span></td>
                       <td>
-                        <button class="btn-icon" @click="startEditSp(sp)" title="Edytuj">✎</button>
-                        <button class="btn-icon" @click="toggleSp(sp.id)" title="Przełącz">⇄</button>
-                        <button class="btn-icon" @click="deleteSp(sp.id)" title="Usuń">✕</button>
+                        <button class="btn-icon" @click="startEditSp(sp)" aria-label="Edytuj" title="Edytuj">✎</button>
+                        <button class="btn-icon" @click="toggleSp(sp.id)" aria-label="Przełącz" title="Przełącz">⇄</button>
+                        <button class="btn-icon" @click="deleteSp(sp.id)" aria-label="Usuń" title="Usuń">✕</button>
                       </td>
                     </tr>
                   </template>
@@ -157,8 +157,8 @@
                       <td><input v-model="editingCatData.code" class="form-control form-control-xs" @keydown.enter="saveEditCat" @keydown.esc="editingCatId = null" /></td>
                       <td style="color:var(--color-text-secondary);font-size:11px;">{{ cat.level }}</td>
                       <td>
-                        <button class="btn-icon" style="color:#22543D;" @click="saveEditCat" title="Zapisz">✓</button>
-                        <button class="btn-icon" @click="editingCatId = null" title="Anuluj">✕</button>
+                        <button class="btn-icon" style="color:#22543D;" @click="saveEditCat" aria-label="Zapisz" title="Zapisz">✓</button>
+                        <button class="btn-icon" @click="editingCatId = null" aria-label="Anuluj" title="Anuluj">✕</button>
                       </td>
                     </tr>
                     <tr v-else>
@@ -170,8 +170,8 @@
                       <td>{{ cat.code || '—' }}</td>
                       <td style="color:var(--color-text-secondary);font-size:11px;">{{ cat.level }}</td>
                       <td>
-                        <button v-if="cat.level !== 'sub3'" class="btn-icon" @click="startAddSubcat(cat)" title="Dodaj podkategorię">+</button>
-                        <button class="btn-icon" @click="startEditCat(cat)" title="Edytuj">✎</button>
+                        <button v-if="cat.level !== 'sub3'" class="btn-icon" @click="startAddSubcat(cat)" aria-label="Dodaj podkategorię" title="Dodaj podkategorię">+</button>
+                        <button class="btn-icon" @click="startEditCat(cat)" aria-label="Edytuj" title="Edytuj">✎</button>
                         <button class="btn-icon" :disabled="cat.children && cat.children.length > 0" :title="cat.children && cat.children.length > 0 ? 'Ma podkategorie' : 'Usuń'" @click="deleteCat(cat.id)">✕</button>
                       </td>
                     </tr>
@@ -183,8 +183,8 @@
                       <td><input v-model="newSubcat.code" class="form-control form-control-xs" placeholder="Kod" @keydown.enter="saveSubcat" @keydown.esc="addingSubcatParentId = null" /></td>
                       <td style="color:var(--color-text-secondary);font-size:11px;">{{ cat.level === 'main' ? 'sub1' : cat.level === 'sub1' ? 'sub2' : 'sub3' }}</td>
                       <td>
-                        <button class="btn-icon" style="color:#22543D;" @click="saveSubcat" title="Zapisz">✓</button>
-                        <button class="btn-icon" @click="addingSubcatParentId = null" title="Anuluj">✕</button>
+                        <button class="btn-icon" style="color:#22543D;" @click="saveSubcat" aria-label="Zapisz" title="Zapisz">✓</button>
+                        <button class="btn-icon" @click="addingSubcatParentId = null" aria-label="Anuluj" title="Anuluj">✕</button>
                       </td>
                     </tr>
                   </template>
@@ -207,8 +207,8 @@
                       <td><input v-model="editingRtData.description" class="form-control form-control-xs" @keydown.enter="saveEditRt" @keydown.esc="editingRtId = null" /></td>
                       <td style="text-align:center;"><input type="checkbox" v-model="editingRtData.is_dependent" /></td>
                       <td>
-                        <button class="btn-icon" style="color:#22543D;" @click="saveEditRt" title="Zapisz">✓</button>
-                        <button class="btn-icon" @click="editingRtId = null" title="Anuluj">✕</button>
+                        <button class="btn-icon" style="color:#22543D;" @click="saveEditRt" aria-label="Zapisz" title="Zapisz">✓</button>
+                        <button class="btn-icon" @click="editingRtId = null" aria-label="Anuluj" title="Anuluj">✕</button>
                       </td>
                     </tr>
                     <tr v-else>
@@ -216,8 +216,8 @@
                       <td>{{ rt.description || '—' }}</td>
                       <td>{{ rt.is_dependent ? 'Tak' : 'Nie' }}</td>
                       <td>
-                        <button class="btn-icon" @click="startEditRt(rt)" title="Edytuj">✎</button>
-                        <button class="btn-icon" @click="deleteRt(rt.id)" title="Usuń">✕</button>
+                        <button class="btn-icon" @click="startEditRt(rt)" aria-label="Edytuj" title="Edytuj">✎</button>
+                        <button class="btn-icon" @click="deleteRt(rt.id)" aria-label="Usuń" title="Usuń">✕</button>
                       </td>
                     </tr>
                   </template>
@@ -259,10 +259,10 @@
                     <span style="font-size:11px;color:#718096;">({{ preset.templates.length }} pozycji)</span>
                   </div>
                   <div style="display:flex;gap:4px;">
-                    <button v-if="editingPresetId !== preset.id" class="btn-icon" title="Zmień nazwę" @click="startEditPreset(preset)">✎</button>
-                    <button v-else class="btn-icon" style="color:#22543D;" title="Zapisz" @click="savePresetName(preset)">✓</button>
-                    <button class="btn-icon" :class="{ active: expandedPresetId === preset.id }" title="Pokaż/ukryj pozycje" @click="toggleExpand(preset.id)">{{ expandedPresetId === preset.id ? '▲' : '▼' }}</button>
-                    <button class="btn-icon" title="Usuń zestaw" @click="deletePreset(preset.id)">✕</button>
+                    <button v-if="editingPresetId !== preset.id" class="btn-icon" aria-label="Zmień nazwę" title="Zmień nazwę" @click="startEditPreset(preset)">✎</button>
+                    <button v-else class="btn-icon" style="color:#22543D;" aria-label="Zapisz" title="Zapisz" @click="savePresetName(preset)">✓</button>
+                    <button class="btn-icon" :class="{ active: expandedPresetId === preset.id }" aria-label="Pokaż/ukryj pozycje" title="Pokaż/ukryj pozycje" @click="toggleExpand(preset.id)">{{ expandedPresetId === preset.id ? '▲' : '▼' }}</button>
+                    <button class="btn-icon" aria-label="Usuń zestaw" title="Usuń zestaw" @click="deletePreset(preset.id)">✕</button>
                   </div>
                 </div>
 
@@ -303,23 +303,23 @@
                           <td><input v-model="editingPresetItemData.description" class="form-control form-control-xs" @keydown.enter="savePresetItem(preset.id)" @keydown.esc="editingPresetItemId = null" /></td>
                           <td style="text-align:center;"><input type="checkbox" v-model="editingPresetItemData.is_active" /></td>
                           <td>
-                            <button class="btn-icon" style="color:#22543D;" title="Zapisz" @click="savePresetItem(preset.id)">✓</button>
-                            <button class="btn-icon" title="Anuluj" @click="editingPresetItemId = null">✕</button>
+                            <button class="btn-icon" style="color:#22543D;" aria-label="Zapisz" title="Zapisz" @click="savePresetItem(preset.id)">✓</button>
+                            <button class="btn-icon" aria-label="Anuluj" title="Anuluj" @click="editingPresetItemId = null">✕</button>
                           </td>
                         </template>
                         <template v-else>
                           <!-- Display mode -->
                           <td @click.stop title="Przeciągnij aby zmienić kolejność">⋮⋮</td>
                           <td @click="startEditPresetItem(tpl)" style="cursor:pointer;">{{ tpl.article_name || tpl.name }}</td>
-                          <td @click="startEditPresetItem(tpl)" style="cursor:pointer;">{{ tpl.default_price ? Number(tpl.default_price).toFixed(2) + ' zł' : '—' }}</td>
-                          <td @click="startEditPresetItem(tpl)" style="cursor:pointer;">{{ tpl.amount_from ? Number(tpl.amount_from).toFixed(2) + ' zł' : '—' }}</td>
-                          <td @click="startEditPresetItem(tpl)" style="cursor:pointer;">{{ tpl.amount_to ? Number(tpl.amount_to).toFixed(2) + ' zł' : '—' }}</td>
+                          <td @click="startEditPresetItem(tpl)" style="cursor:pointer;">{{ tpl.default_price ? formatCurrency(tpl.default_price) : '—' }}</td>
+                          <td @click="startEditPresetItem(tpl)" style="cursor:pointer;">{{ tpl.amount_from ? formatCurrency(tpl.amount_from) : '—' }}</td>
+                          <td @click="startEditPresetItem(tpl)" style="cursor:pointer;">{{ tpl.amount_to ? formatCurrency(tpl.amount_to) : '—' }}</td>
                           <td @click="startEditPresetItem(tpl)" style="cursor:pointer;">{{ tpl.unit || '—' }}</td>
                           <td @click="startEditPresetItem(tpl)" style="cursor:pointer; font-size:11px;">{{ tpl.description || '—' }}</td>
                           <td @click="startEditPresetItem(tpl)" style="cursor:pointer;"><span :class="['badge', tpl.is_active ? 'badge-success' : 'badge-muted']">{{ tpl.is_active ? 'Tak' : 'Nie' }}</span></td>
                           <td>
-                            <button class="btn-icon" title="Edytuj" @click.stop="startEditPresetItem(tpl)">✎</button>
-                            <button class="btn-icon" title="Usuń" @click.stop="deletePresetItem(preset.id, tpl.id)">✕</button>
+                            <button class="btn-icon" aria-label="Edytuj" title="Edytuj" @click.stop="startEditPresetItem(tpl)">✎</button>
+                            <button class="btn-icon" aria-label="Usuń" title="Usuń" @click.stop="deletePresetItem(preset.id, tpl.id)">✕</button>
                           </td>
                         </template>
                       </tr>
@@ -350,8 +350,8 @@
                         <td><input v-model="newPresetItem.description" class="form-control form-control-xs" @keydown.enter="saveNewPresetItem(preset)" @keydown.esc="addingToPresetId = null" /></td>
                         <td style="text-align:center;"><input type="checkbox" v-model="newPresetItem.is_active" /></td>
                         <td>
-                          <button class="btn-icon" style="color:#22543D;" title="Dodaj (Enter)" @click="saveNewPresetItem(preset)">✓</button>
-                          <button class="btn-icon" title="Anuluj" @click="addingToPresetId = null">✕</button>
+                          <button class="btn-icon" style="color:#22543D;" aria-label="Dodaj (Enter)" title="Dodaj (Enter)" @click="saveNewPresetItem(preset)">✓</button>
+                          <button class="btn-icon" aria-label="Anuluj" title="Anuluj" @click="addingToPresetId = null">✕</button>
                         </td>
                       </tr>
                     </tbody>
@@ -449,13 +449,16 @@ import { VueDraggable } from 'vue-draggable-plus'
 import { useSettingsStore } from '@/stores/settings'
 import { useArticleStore } from '@/stores/articles'
 import { useFakturowniaStore } from '@/stores/fakturownia'
+import { useToastStore } from '@/stores/toast'
 import StateMessage from '@/components/StateMessage.vue'
 import api from '@/composables/useApi'
 import { useTargetFolder } from '@/composables/useTargetFolder.js'
+import { formatCurrency } from '@/utils/format'
 
 const settingsStore = useSettingsStore()
 const articleStore = useArticleStore()
 const fakturowniaStore = useFakturowniaStore()
+const toastStore = useToastStore()
 
 // RAO-P1-043: zbieracz timery UI (feedback messages) — cleanup w onUnmounted
 const uiTimers: ReturnType<typeof setTimeout>[] = []
@@ -899,7 +902,7 @@ async function saveFakturowniaSettings() {
       delete payload.api_token
     }
     await fakturowniaStore.updateSettings(payload)
-    alert('Ustawienia Fakturownia zapisane')
+    toastStore.success('Ustawienia Fakturownia zapisane')
   } catch (e: any) {
     // Error already handled in store
   } finally {

@@ -189,8 +189,11 @@
 import { ref, computed, onMounted } from 'vue'
 import api from '@/composables/useApi'
 import { useContractStore } from '@/stores/contracts'
+import { formatDate } from '@/utils/format'
+import { useToastStore } from '@/stores/toast'
 
 const contractStore = useContractStore()
+const toastStore = useToastStore()
 
 const today = computed(() => {
   const d = new Date()
@@ -217,11 +220,6 @@ const tomorrowStr = new Date(Date.now() + 86400000).toISOString().slice(0, 10)
 
 function isToday(d) { return d && String(d).slice(0, 10) === todayStr }
 function isTomorrow(d) { return d && String(d).slice(0, 10) === tomorrowStr }
-
-function formatDate(d) {
-  if (!d) return '—'
-  return new Date(d).toLocaleDateString('pl-PL')
-}
 
 function urgencyClass(daysLeft) {
   if (daysLeft <= 2) return 'urgent'
@@ -293,7 +291,7 @@ async function printContract(id) {
   try {
     await contractStore.generateReport(id, 'contract')
   } catch {
-    alert('Błąd generowania raportu')
+    toastStore.error('Błąd generowania raportu')
   }
 }
 

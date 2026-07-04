@@ -11,6 +11,7 @@ import LiveFleetTab from '@/components/analytics/tabs/LiveFleetTab.vue'
 import PeriodRentalTab from '@/components/analytics/tabs/PeriodRentalTab.vue'
 import LocationsTab from '@/components/analytics/tabs/LocationsTab.vue'
 import ExplorerTab from '@/components/analytics/tabs/ExplorerTab.vue'
+import { formatCurrency, formatDate } from '@/utils/format'
 
 const store = useAnalyticsStore()
 const contractorsStore = useContractorStore()
@@ -95,22 +96,6 @@ function onDrawerClose(): void {
 const drawerOpen = computed(() => store.drillDown.open)
 const drawerTitle = computed(() => store.drillDown.title)
 const drawerSubtitle = computed(() => store.drillDown.subtitle)
-
-function formatCurrency(v: number | string | null | undefined): string {
-  if (v === null || v === undefined || v === '') return '0 zł'
-  const n = typeof v === 'string' ? parseFloat(v) : v
-  if (Number.isNaN(n)) return '0 zł'
-  return n.toLocaleString('pl-PL', {
-    style: 'currency',
-    currency: 'PLN',
-    minimumFractionDigits: 2,
-  })
-}
-
-function formatDate(d: string | null | undefined): string {
-  if (!d) return '—'
-  return new Date(d).toLocaleDateString('pl-PL')
-}
 
 // ── Watcher: zmiana filtrów → reload aktywnych danych (ale NIE live) ─────────
 watch(

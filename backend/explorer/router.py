@@ -57,6 +57,13 @@ async def explorer_search(
     Universal search across machines, services, contractors, and locations.
     Returns mixed results with type indicator.
     """
+    # RAO-P2-065 #10: walidacja date_from > date_to → 422
+    if date_from is not None and date_to is not None and date_from > date_to:
+        raise HTTPException(
+            status_code=422,
+            detail=f"date_from ({date_from}) nie może być późniejszy niż date_to ({date_to})",
+        )
+
     results = []
 
     # Subquery: revenue per position from position_conditions
@@ -83,6 +90,7 @@ async def explorer_search(
             Contract.number.label("contract_number"),
             Contract.date_from,
             Contract.date_to,
+            Contract.city,                                    # RAO-P2-065 #8: city z Contract.city (nie delivery_address)
             Contractor.name.label("contractor_name"),
             Contract.delivery_address,
             func.coalesce(revenue_subq.c.pos_revenue, 0).label("revenue"),
@@ -144,7 +152,7 @@ async def explorer_search(
             "contract_number": row.contract_number,
             "contractor_name": row.contractor_name,
             "date": row.date_from.isoformat() if row.date_from else None,
-            "city": row.delivery_address,
+            "city": row.city if hasattr(row, "city") and row.city else (row.delivery_address or None),  # RAO-P2-065 #8: city z Contract.city, fallback delivery_address
             "amount": float(row.revenue) if row.revenue else 0,
         })
     
@@ -170,7 +178,7 @@ async def explorer_search(
     
     return {
         "items": results,
-        "total": len(results),
+        "total": summary.total_count if summary else 0,  # RAO-P2-065 #8: total count z summary (nie len(results) — paginacja)
         "summary": {
             "count": summary.total_count if summary else 0,
             "revenue": float(summary.total_revenue) if summary and summary.total_revenue else 0,

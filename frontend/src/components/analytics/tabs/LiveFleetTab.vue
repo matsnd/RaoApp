@@ -7,6 +7,7 @@ import AnalyticsTable, {
   type AnalyticsRow,
 } from '@/components/analytics/AnalyticsTable.vue'
 import { useSort } from '@/composables/useSort'
+import { formatDate } from '@/utils/format'
 
 const store = useAnalyticsStore()
 
@@ -78,11 +79,6 @@ const kpiCards = computed<KpiCard[]>(() => {
 })
 
 const utilPct = computed(() => store.currentlyRented?.utilization_pct ?? 0)
-
-function formatDate(d: string): string {
-  if (!d) return '—'
-  return new Date(d).toLocaleDateString('pl-PL')
-}
 
 function onRowClick(row: AnalyticsRow): void {
   const articleId = Number(row.article_id)

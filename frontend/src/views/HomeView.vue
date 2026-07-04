@@ -150,7 +150,7 @@
                 <div class="exp-contractor">{{ c.contractor_name }}</div>
                 <div class="exp-meta">
                   <span v-if="c.delivery_address" class="exp-addr">📍 {{ c.delivery_address }}</span>
-                  <span class="exp-date">do {{ fmtDate(c.date_to) }}</span>
+                  <span class="exp-date">do {{ formatDate(c.date_to) }}</span>
                 </div>
                 <div class="exp-contact" v-if="c.contact_person1 || c.contact_phone1">
                   <span v-if="c.contact_person1">{{ c.contact_person1 }}</span>
@@ -198,7 +198,7 @@
                 <div class="exp-contractor">{{ c.contractor_name }}</div>
                 <div class="exp-meta">
                   <span v-if="c.delivery_address" class="exp-addr">📍 {{ c.delivery_address }}</span>
-                  <span class="exp-date">zakończono {{ fmtDate(c.date_to) }}</span>
+                  <span class="exp-date">zakończono {{ formatDate(c.date_to) }}</span>
                 </div>
                 <div class="exp-contact" v-if="c.contact_person1 || c.contact_phone1">
                   <span v-if="c.contact_person1">{{ c.contact_person1 }}</span>
@@ -326,6 +326,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import api from '@/composables/useApi'
+import { formatDate } from '@/utils/format'
 
 const loading = ref({ fleet: true, expiring: true, deliveries: true, unprinted: true, stale: true, overdue: true })
 const fleet = ref({ total_rented: 0, total_machines: 0, utilization_pct: 0, period_revenue: 0, contracts_in_period: 0 })
@@ -371,11 +372,6 @@ const todayDeliveriesCount = computed(() =>
 function isToday(d) {
   if (!d) return false
   return String(d).slice(0, 10) === todayStr
-}
-
-function fmtDate(d) {
-  if (!d) return '—'
-  return new Date(d).toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 function urgencyClass(days) {

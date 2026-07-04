@@ -7,6 +7,7 @@ import AnalyticsTable, {
   type AnalyticsRow,
 } from '@/components/analytics/AnalyticsTable.vue'
 import { useSort } from '@/composables/useSort'
+import { formatCurrency, formatDate } from '@/utils/format'
 
 interface Props {
   dateFrom: string
@@ -48,22 +49,6 @@ const rows = computed<AnalyticsRow[]>(() =>
 const sortedRowsView = computed(() => sortedRows(rows.value))
 
 const summary = computed(() => store.explorerSummary)
-
-function formatCurrency(v: number | string | null | undefined): string {
-  if (v === null || v === undefined || v === '') return '0 zł'
-  const n = typeof v === 'string' ? parseFloat(v) : v
-  if (Number.isNaN(n)) return '0 zł'
-  return n.toLocaleString('pl-PL', {
-    style: 'currency',
-    currency: 'PLN',
-    minimumFractionDigits: 2,
-  })
-}
-
-function formatDate(d: string): string {
-  if (!d) return '—'
-  return new Date(d).toLocaleDateString('pl-PL')
-}
 
 async function search(): Promise<void> {
   const q = query.value.trim()

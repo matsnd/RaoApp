@@ -31,19 +31,26 @@
             </select>
             <input v-model="dateFrom" type="date" class="form-control" style="width:140px;" placeholder="Data od" />
             <input v-model="dateTo" type="date" class="form-control" style="width:140px;" placeholder="Data do" />
+            <!-- RAO-P2-070 Faza 4: filtr Handlowiec -->
+            <select v-model="salespersonFilter" class="form-control" style="width:180px;">
+              <option value="">Wszyscy handlowcy</option>
+              <option v-for="sp in salespeopleList" :key="sp.id" :value="sp.name">{{ sp.name }}</option>
+            </select>
+            <!-- RAO-P2-070 Faza 4: filtr Miasto -->
+            <input v-model="cityFilter" type="text" class="form-control" style="width:160px;" placeholder="Miasto..." />
           </div>
           <div class="grid-scroll">
             <table class="data-grid">
               <thead>
                 <tr>
-                  <th>Numer</th>
-                  <th>Kontrahent</th>
+                  <th class="th-sortable" @click="toggleSort('number')">Numer <span class="sort-indicator">{{ sortIndicator('number') }}</span></th>
+                  <th class="th-sortable" @click="toggleSort('contractor_name')">Kontrahent <span class="sort-indicator">{{ sortIndicator('contractor_name') }}</span></th>
                   <th>Adres dostawy</th>
                   <th>Typ</th>
-                  <th>Data od</th>
-                  <th>Data do</th>
+                  <th class="th-sortable" @click="toggleSort('date_from')">Data od <span class="sort-indicator">{{ sortIndicator('date_from') }}</span></th>
+                  <th class="th-sortable" @click="toggleSort('date_to')">Data do <span class="sort-indicator">{{ sortIndicator('date_to') }}</span></th>
                   <!-- RAO-P1-021/P2-033: Wartość usunięte (martwe pole) -->
-                  <th>Handlowiec</th>
+                  <th class="th-sortable" @click="toggleSort('salesperson_name')">Handlowiec <span class="sort-indicator">{{ sortIndicator('salesperson_name') }}</span></th>
                   <th>Status</th>
                   <th>Wydruk</th>
                 </tr>
@@ -60,8 +67,11 @@
                     <StateMessage type="empty" compact message="Brak umow" action-label="+ Nowa umowa" @action="router.push({ name: 'ContractNew' })" />
                   </td>
                 </tr>
+                <tr v-else-if="!sortedFilteredContracts.length">
+                  <td colspan="10"><StateMessage type="empty" compact message="Brak umow spelniajacych filtry" /></td>
+                </tr>
                 <tr
-                  v-for="c in contractStore.list"
+                  v-for="c in sortedFilteredContracts"
                   :key="c.id"
                   :class="['contract-row', { selected: selectedId === c.id }, c.is_settled ? 'row-settled' : expiryClass(c)]"
                   @click="selectedId = c.id"
@@ -69,7 +79,10 @@
                   @contextmenu.prevent="openContextMenu($event, c)"
                 >
                   <td>{{ c.number }}</td>
-                  <td>{{ c.contractor_name }}</td>
+                  <td>
+                    <!-- RAO-P2-070 Faza 2: drilldown do edycji kontrahenta -->
+                    <a class="drilldown-link" :title="`Edytuj kontrahenta: ${c.contractor_name}`" @click.stop="goToContractor(c.contractor_id)">{{ c.contractor_name }}</a>
+                  </td>
                   <td style="max-width:180px;white-space:pre-wrap;font-size:11px;">{{ c.delivery_address || '—' }}</td>
                   <td><span :class="['badge', c.contract_type === 'S' ? 'badge-info' : 'badge-warning']">{{ c.type_label }}</span></td>
                   <td>{{ formatDate(c.date_from) }}</td>
@@ -97,7 +110,7 @@
             </table>
           </div>
           <div class="grid-footer">
-            <span>Łącznie: {{ contractStore.total }} umów</span>
+            <span>Łącznie: {{ contractStore.total }} umów{{ sortedFilteredContracts.length !== contractStore.list.length ? ' (' + sortedFilteredContracts.length + ' po filtrach)' : '' }}</span>
             <div class="pagination">
               <button class="page-btn" :disabled="page <= 1" @click="page--">‹</button>
               <span style="padding:0 8px;font-size:12px;">{{ page }} / {{ totalPages }}</span>
@@ -179,9 +192,9 @@
             <table class="data-grid">
               <thead>
                 <tr>
-                  <th>Nazwa</th>
-                  <th>NIP</th>
-                  <th>Miasto</th>
+                  <th class="th-sortable" @click="toggleSort('name')">Nazwa <span class="sort-indicator">{{ sortIndicator('name') }}</span></th>
+                  <th class="th-sortable" @click="toggleSort('nip')">NIP <span class="sort-indicator">{{ sortIndicator('nip') }}</span></th>
+                  <th class="th-sortable" @click="toggleSort('city')">Miasto <span class="sort-indicator">{{ sortIndicator('city') }}</span></th>
                   <th>Telefon</th>
                   <th>Email</th>
                   <th>Aktywna umowa</th>
@@ -200,7 +213,7 @@
                   </td>
                 </tr>
                 <tr
-                  v-for="c in contractorStore.list"
+                  v-for="c in sortedContractors"
                   :key="c.id"
                   :class="{ selected: selectedId === c.id }"
                   @click="selectedId = c.id"
@@ -211,7 +224,11 @@
                   <td>{{ c.city || '—' }}</td>
                   <td>{{ c.phone1 || '—' }}</td>
                   <td>{{ c.email || '—' }}</td>
-                  <td>{{ c.active_contract_number || '—' }}</td>
+                  <td>
+                    <!-- RAO-P2-070 Faza 2: drilldown do listy umow filtrowanej po numerze -->
+                    <a v-if="c.active_contract_number" class="drilldown-link" :title="`Pokaż umowę: ${c.active_contract_number}`" @click.stop="goToContractByNumber(c.active_contract_number)">{{ c.active_contract_number }}</a>
+                    <span v-else>—</span>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -244,11 +261,11 @@
             <table class="data-grid">
               <thead>
                 <tr>
-                  <th>Nazwa</th>
+                  <th class="th-sortable" @click="toggleSort('name')">Nazwa <span class="sort-indicator">{{ sortIndicator('name') }}</span></th>
                   <th>Typ</th>
-                  <th>Nr wew.</th>
-                  <th>Nr rej.</th>
-                  <th>Marka</th>
+                  <th class="th-sortable" @click="toggleSort('internal_number')">Nr wew. <span class="sort-indicator">{{ sortIndicator('internal_number') }}</span></th>
+                  <th class="th-sortable" @click="toggleSort('registration_no')">Nr rej. <span class="sort-indicator">{{ sortIndicator('registration_no') }}</span></th>
+                  <th class="th-sortable" @click="toggleSort('brand')">Marka <span class="sort-indicator">{{ sortIndicator('brand') }}</span></th>
                   <th>Kategoria</th>
                   <th>Aktywna umowa</th>
                 </tr>
@@ -274,13 +291,16 @@
                   </td>
                 </tr>
                 <tr
-                  v-for="a in articleStore.list"
+                  v-for="a in sortedArticles"
                   :key="a.id"
                   :class="['article-row', { selected: selectedId === a.id, 'row-archival': a.is_archival }]"
                   @click="selectedId = a.id"
                   @dblclick="editArticle(a.id)"
                 >
-                  <td>{{ a.name }}</td>
+                  <td>
+                    <!-- RAO-P2-070 Faza 2: drilldown do historii wynajmów w Analytics -->
+                    <a class="drilldown-link" :title="`Historia wynajmów: ${a.name}`" @click.stop="goToArticleAnalytics(a.id)">{{ a.name }}</a>
+                  </td>
                   <td><span :class="['badge', a.is_service ? 'badge-warning' : 'badge-info']">{{ a.is_service ? 'Usługa' : 'Sprzęt' }}</span></td>
                   <td>{{ a.internal_number || '—' }}</td>
                   <td>{{ a.registration_no || '—' }}</td>
@@ -329,21 +349,27 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import AppToolbar from '@/components/layout/AppToolbar.vue'
 import ConfirmDialog from '@/components/shared/ConfirmDialog.vue'
 import StateMessage from '@/components/StateMessage.vue'
 import { useContractStore } from '@/stores/contracts'
 import { useContractorStore } from '@/stores/contractors'
 import { useArticleStore } from '@/stores/articles'
+import { useSettingsStore } from '@/stores/settings'
+import { useToastStore } from '@/stores/toast'
+import { formatDate, formatCurrency } from '@/utils/format'
 const props = defineProps({ section: String })
 const router = useRouter()
+const route = useRoute()
 
 const contractStore = useContractStore()
 const contractorStore = useContractorStore()
 const articleStore = useArticleStore()
+const settingsStore = useSettingsStore()
+const toastStore = useToastStore()
 
 const search = ref('')
 const contractTypeFilter = ref('')
@@ -351,10 +377,18 @@ const settledFilter = ref('')   // RAO-P2-022: domyślnie wszystkie umowy (zmien
 const archivalFilter = ref('active')
 const dateFrom = ref('')
 const dateTo = ref('')
+// RAO-P2-070 Faza 4: filtry handlowiec + miasto (client-side na załadowanej stronie)
+const salespersonFilter = ref('')
+const cityFilter = ref('')
 const selectedId = ref(null)
 const page = ref(1)
 const perPage = 50
 const showConfirm = ref(false)
+// RAO-P2-070 Faza 3: sortowanie po kolumnach (client-side na załadowanej stronie)
+const sortKey = ref('date_from')   // domyślnie po dacie
+const sortDir = ref('desc')        // najnowsze pierwsze
+// RAO-P2-070 Faza 4: lista handlowców dla dropdownu
+const salespeopleList = computed(() => settingsStore.salespeople || [])
 // RAO-P2-049: error state dla widokow listowych (retry przez loadData)
 const loadError = ref('')
 
@@ -432,6 +466,14 @@ async function loadData() {
 }
 
 onMounted(() => {
+  // RAO-P2-070 Faza 4: załaduj handlowców dla dropdownu (tylko dla sekcji contracts)
+  if (section.value === 'contracts' && !settingsStore.salespeople.length) {
+    settingsStore.fetchSalespeople().catch(() => { /* toast błędu niepotrzebny — dropdown pozostanie pusty */ })
+  }
+  // RAO-P2-070 Faza 2: obsługa ?search= z drilldownu (kontrahent → aktywna umowa)
+  if (section.value === 'contracts' && route.query.search) {
+    search.value = String(route.query.search)
+  }
   loadData()
   document.addEventListener('click', closeCtxMenu)
   document.addEventListener('keydown', handleCtxKeydown)
@@ -483,6 +525,69 @@ function editContract(id) { router.push(`/contracts/${id}/edit`) }
 function editContractor(id) { router.push(`/contractors/${id}/edit`) }
 function editArticle(id) { router.push(`/articles/${id}/edit`) }
 
+// RAO-P2-070 Faza 2: drilldowny cross-view
+function goToContractor(contractorId) {
+  if (contractorId) router.push(`/contractors/${contractorId}/edit`)
+}
+// Kontrahent → aktywna umowa: backend zwraca tylko numer (nie id), więc filtrujemy listę umów po numerze
+function goToContractByNumber(contractNumber) {
+  if (!contractNumber) return
+  router.push({ path: '/dashboard/contracts', query: { search: contractNumber } })
+}
+// Artykuł → historia wynajmów w Analytics
+function goToArticleAnalytics(articleId) {
+  router.push({ path: '/analytics', query: { article: String(articleId) } })
+}
+
+// RAO-P2-070 Faza 3: sortowanie po kolumnach
+function toggleSort(key) {
+  if (sortKey.value === key) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortKey.value = key
+    sortDir.value = key === 'date_from' || key === 'date_to' ? 'desc' : 'asc'
+  }
+}
+function sortIndicator(key) {
+  if (sortKey.value !== key) return ''
+  return sortDir.value === 'asc' ? '▲' : '▼'
+}
+// Uniwersalny komparator — obsługuje string, number, date (ISO string)
+function compareValues(a, b) {
+  const av = a ?? ''
+  const bv = b ?? ''
+  // Daty (ISO string z '-' na początku)
+  if (typeof av === 'string' && typeof bv === 'string' && /^\d{4}-\d{2}-\d{2}/.test(av) && /^\d{4}-\d{2}-\d{2}/.test(bv)) {
+    return av < bv ? -1 : av > bv ? 1 : 0
+  }
+  // Liczby
+  if (typeof av === 'number' && typeof bv === 'number') return av - bv
+  // Stringi (case-insensitive)
+  const as = String(av).toLowerCase()
+  const bs = String(bv).toLowerCase()
+  return as < bs ? -1 : as > bs ? 1 : 0
+}
+function sortList(list) {
+  if (!sortKey.value) return list
+  const sorted = [...list].sort((a, b) => compareValues(a[sortKey.value], b[sortKey.value]))
+  return sortDir.value === 'desc' ? sorted.reverse() : sorted
+}
+
+// RAO-P2-070 Faza 3+4: posortowane + przefiltrowane listy (client-side na załadowanej stronie)
+const sortedFilteredContracts = computed(() => {
+  let list = contractStore.list
+  if (salespersonFilter.value) {
+    list = list.filter(c => c.salesperson_name === salespersonFilter.value)
+  }
+  if (cityFilter.value) {
+    const q = cityFilter.value.toLowerCase().trim()
+    if (q) list = list.filter(c => (c.city || '').toLowerCase().includes(q))
+  }
+  return sortList(list)
+})
+const sortedContractors = computed(() => sortList(contractorStore.list))
+const sortedArticles = computed(() => sortList(articleStore.list))
+
 async function confirmDelete() {
   showConfirm.value = false
   if (!selectedId.value) return
@@ -491,20 +596,11 @@ async function confirmDelete() {
     else if (section.value === 'contractors') await contractorStore.remove(selectedId.value)
     else if (section.value === 'articles') await articleStore.remove(selectedId.value)
     selectedId.value = null
+    toastStore.success('Element usunięty')
     await loadData()
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd usuwania')
+  } catch (e: any) {
+    toastStore.error(e?.response?.data?.detail || 'Błąd usuwania')
   }
-}
-
-function formatDate(d) {
-  if (!d) return '—'
-  return new Date(d).toLocaleDateString('pl-PL')
-}
-
-function formatMoney(v) {
-  if (!v && v !== 0) return '—'
-  return Number(v).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' zł'
 }
 
 function daysLeft(c) {
@@ -664,5 +760,35 @@ function daysOverdue(c) {
   background: #EDF2F7;
   color: #718096;
   cursor: default;
+}
+
+/* RAO-P2-070 Faza 3: sortowalne nagłówki kolumn */
+.th-sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: color var(--transition-fast, 120ms);
+}
+.th-sortable:hover {
+  color: var(--color-primary);
+}
+.sort-indicator {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 10px;
+  color: var(--color-primary);
+  min-width: 10px;
+}
+
+/* RAO-P2-070 Faza 2: linki drilldown cross-view */
+.drilldown-link {
+  color: var(--color-primary);
+  cursor: pointer;
+  text-decoration: none;
+  border-bottom: 1px dashed var(--color-primary);
+  transition: color var(--transition-fast, 120ms), border-color var(--transition-fast, 120ms);
+}
+.drilldown-link:hover {
+  color: var(--color-primary-light, #2A3F6F);
+  border-bottom-style: solid;
 }
 </style>

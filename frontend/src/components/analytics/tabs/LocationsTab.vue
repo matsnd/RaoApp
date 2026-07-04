@@ -7,6 +7,7 @@ import AnalyticsTable, {
   type AnalyticsRow,
 } from '@/components/analytics/AnalyticsTable.vue'
 import { useSort } from '@/composables/useSort'
+import { formatCurrency } from '@/utils/format'
 
 interface Props {
   dateFrom: string
@@ -169,18 +170,6 @@ function onRowClick(row: AnalyticsRow): void {
     if (!city) return
     openDrillDown('location', `city:${city}`, city)
   }
-}
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-function formatCurrency(v: string | number | null | undefined): string {
-  if (v === null || v === undefined || v === '') return '0 zł'
-  const n = typeof v === 'string' ? parseFloat(v) : v
-  if (Number.isNaN(n)) return '0 zł'
-  return n.toLocaleString('pl-PL', {
-    style: 'currency',
-    currency: 'PLN',
-    minimumFractionDigits: 2,
-  })
 }
 
 // ── Fetch ────────────────────────────────────────────────────────────────────
