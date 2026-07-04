@@ -3049,6 +3049,179 @@ Aplikacja ma solidne podstawy (drilldown w Analytics/Archive, skeleton loadery, 
 
 ---
 
+### [RAO-P3-071] Audyt UX — czytelność, spójność, przyjemność poruszania się
+
+```yaml
+id: RAO-P3-071
+priority: P3
+size: L
+status: triaged
+classification: frontend/ux
+roles: [ux-designer, ui-designer, frontend-dev]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/09_design_reference.md (jeden source of truth zmiennych CSS, font-size minima)
+  - core/03_frontend_screens.md (skeleton loaders, breadcrumb, page-title)
+  - core/18_ux_improvements.md (glossary skrótów, ConfirmDialog konkretne obiekty)
+migration_impact: no
+security_impact: no
+depends_on: []
+blocks: []
+verification: []
+```
+
+**Problem:**
+
+Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z semantycznym kolorem, mikro-animacje, sticky headers, keyboard shortcuts). Ale po 8h pracy operatora boli głowa od czytania — 56 miejsc z `font-size: 11px`, 3 różne formaty walut, 2 różne formaty dat, żargon bez tooltipów (PNA, ZO, FA), niespójny design system (CommissionView łamie wszystko), brak a11y (aria-label, focus states, kontrast poniżej WCAG AA).
+
+**Cel:** Aplikacja przyjemna w użyciu po 8h pracy — czytelna, spójna, dostępna, z mikro-polishem.
+
+---
+
+#### Audyt UX (2026-07-04) — czytelność, spójność, przyjemność
+
+##### Co działa dobrze (nie wymaga zmian)
+
+- ✅ Skeleton loaders (HomeView, WorkerView, AnalyticsTable, DrillDownDrawer)
+- ✅ Empty states z CTA (DashboardView, HomeView panele)
+- ✅ KPI cards z semantycznym kolorem (kpi-ok/warn/danger/info)
+- ✅ Live preview warunków kaskadowych (ConditionPanel)
+- ✅ Help section wbudowany ("📖 Jak wpisać warunki?")
+- ✅ Polskie formatowanie w AnalyticsView (Intl PLN, toLocaleDateString pl-PL)
+- ✅ Mikro-animacje (LoginView shake, nav-tile hover, KPI hover, btn:active scale)
+- ✅ Archive separator pomarańczowy + banner ostrzegawczy
+- ✅ Keyboard shortcuts (Ctrl+N, Escape, Enter/Esc inline edit)
+- ✅ Print CSS, sticky table headers, DrillDownDrawer z Teleport + Esc
+
+##### 🔴 HIGH — 5 usterek blokujących czytelność
+
+| # | Usterka | Widok | User pain |
+|---|---------|-------|-----------|
+| B1 | `font-size: 11px` × 56 miejsc — za mały do 8h pracy | DashboardView, HomeView, WorkerView, AdminView, SettingsView, ContractFormView | Ból głowy po 2h, starsi pracownicy nie przeczytają |
+| B2 | `font-size: 10px` (del-chip) i `9px` (sidebar-logo-sub) | WorkerView, AppSidebar | Kluczowa informacja (data dostawy) nieczytelna |
+| B3 | 3 różne formaty walut — `Intl PLN` vs `toFixed(2)+' zł'` vs `toLocaleString` | AnalyticsView ✅, ContractFormView ❌, ConditionPanel ❌, CommissionView ✅ | Pomyłki w odczycie przy porównywaniu z fakturą |
+| B4 | 2 różne formaty dat — "01.02.2026" vs "1.2.2026" | HomeView ✅ (leading zero), DashboardView/ContractFormView ❌ | Skanowanie tabeli przerywane — wygląda jak inna data |
+| B5 | Żargon bez tooltipów — PNA, ZO, FA, OID, S/U | ContractFormView, DashboardView, ArticleFormView, ArchiveView | Nowy user pyta kolegę "co to ZO?" — wstyd, strata czasu |
+
+##### 🟡 MEDIUM — 6 usterek spójności i komfortu
+
+| # | Usterka | Widok |
+|---|---------|-------|
+| B6 | Kolumna "Adres dostawy" 11px + max 180px + pre-wrap | DashboardView |
+| B7 | "X rekordów" zamiast "X umów" — żargon bazodanowy | DashboardView (4 sekcje) |
+| B8 | Toolbar ikony `− + ⎙ ? ∑ 💰` bez etykiet tekstowych | AppToolbar, ContractFormView |
+| B9 | Numbers nie wyrównane do prawej w tabelach | DashboardView, ArchiveView |
+| B10 | CommissionView całkowicie własny styl — hardcoded kolory, rem, 4-8px radius, `.data-table` zamiast `.data-grid` | CommissionView |
+| B11 | Dwa konfliktujące systemy zmiennych CSS — `style.css` vs `variables.css` (różne odcienie navy, różne font-size) | Global |
+
+##### 🟢 LOW — 3 usterek polish
+
+| # | Usterka |
+|---|---------|
+| B12 | Spacing niespójny między widokami (padding 12px/20px/24px/32px) |
+| B13 | "Pulpit" w sidebar vs "Pulpit operacyjny" w WorkerView — niespójna nazwa |
+| B14 | ArchiveView tab labels identyczne jak sekcje główne (ryzyko pomyłki) |
+
+##### Usterki spójności wizualnej (tabela)
+
+| Element | Gdzie spójne | Gdzie niespójne |
+|---------|-------------|-----------------|
+| Kolor primary | variables.css `#0F234E` | style.css `#1D2B53`, WorkerView hardcoded, CommissionView hardcoded |
+| Border-radius kart | 12px (layout.css) | WorkerView 10px, CommissionView 8px, HomeView nav-tile 6px |
+| Styl tabeli | `.data-grid` (navy header, zebra, hover) | CommissionView `.data-table` (jasny header, brak zebra) |
+| Styl przycisków | `.btn` (pill 24px) | CommissionView 5px, HomeView 12px, LoginView redefine |
+| Badge statusu | tables.css (success/warning/danger/info/muted) | DashboardView (badge-settled/overdue/active — nie zdefiniowane!) |
+| Karty KPI | HomeView własny, KpiRow.vue własny | Dwa różne komponenty KPI, różny styling |
+| Loading state | HomeView/WorkerView skeleton | DashboardView/AdminView/SettingsView/ArchiveView tekst "Ładowanie..." |
+| Ikony | Emoji (📊📦⏰🖨) | Unicode symbole (⌕ ⎙ ∑ −) — mix |
+| Toast kolory | hardcoded `#10b981/#ef4444` | Design system `--color-success/danger` (inne odcienie) |
+| Tło widoku | `#F8F9FA` (layout.css) | HomeView `#F4F6FB`, WorkerView `#F4F6FB`, CommissionView białe |
+
+##### Usterki dostępności (a11y)
+
+| Element | Stan | Priorytet |
+|---------|------|-----------|
+| aria-label na icon buttons | Brak (16 aria/role w całej apce) | HIGH |
+| Label ↔ input powiązanie (for/id) | Brak | HIGH |
+| Focus state na przyciskach | Tylko `.form-control:focus`, brak na `.btn`/`.btn-icon`/`.toolbar-btn` | HIGH |
+| Kontrast muted text `#718096` na białym | ~4.0:1 — poniżej WCAG AA 4.5:1, przy 11px = fail | HIGH |
+| role="alert" na błędach | Brak | MEDIUM |
+| aria-invalid na polach z błędem | Brak | MEDIUM |
+| Modal focus trap | Brak (Tab wychodzi z modala) | MEDIUM |
+| Modal aria-modal | Brak `role="dialog" aria-modal="true"` | MEDIUM |
+| Skip-to-content link | Brak | LOW |
+| Touch target size | `.page-btn` 28×28, `.days-filter` ~24×20 — poniżej 44×44 | LOW |
+
+##### Usterki przyjemności/polish
+
+| Element | Stan | Rekomendacja |
+|---------|------|--------------|
+| View transitions | Brak `<Transition>` na router-view | `<Transition name="fade" mode="out-in">` |
+| Loading w 4 widokach | Tekst "Ładowanie..." | Skeleton rows (`.skeleton` już w animations.css) |
+| Toast bez ikony | Tylko kolor + tekst | Ikona ✓/⚠️/ℹ — szybsze skanowanie |
+| Toast bez undo | Success = info only | Przycisk "Cofnij" dla destruktywnych (5s) |
+| KPI hover ale nie clickable | `:hover { box-shadow }` bez `@click` | Albo usuń hover, albo dodaj cursor:pointer + klik |
+| ConfirmDialog generyczny | "Czy na pewno chcesz usunąć ten element?" | "Usuniesz umowę XYZ. Tej akcji nie można cofnąć." |
+| Brak "recently viewed" | — | Lista "Ostatnio otwarte umowy" w HomeView |
+| Brak keyboard hint w UI | Ctrl+N, Esc działają ale user nie wie | Tooltip w sidebar lub help overlay |
+
+---
+
+#### Rekomendowana kolejność implementacji (5 faz)
+
+**Faza 1 — Font-size + kontrast (HIGH impact, LOW effort)** — 1 dzień
+- Zamień `font-size: 11px` → 13px (dane), 12px (metadane); `10px` → 12px; `9px` → 11px
+- Sciemnij `--color-text-muted` z `#718096` → `#5A6B7E` (WCAG AA 4.5:1)
+- Każdy operator poczuje natychmiast
+
+**Faza 2 — Unifikacja formatowania dat i walut (HIGH impact, LOW effort)** — 0.5 dnia
+- Stwórz `composables/useFormat.ts` z `formatDate()`, `formatCurrency()`, `formatNumber()`
+- Zastąp 5 różnych implementacji (AnalyticsView ✅ wzorzec, ContractFormView ❌, ConditionPanel ❌, CommissionView ✅, HomeView ✅)
+- Zawsze `pl-PL` + `PLN` + 2 cyfry + leading zero w datach
+
+**Faza 3 — a11y: aria-label + focus states (HIGH impact, MEDIUM effort)** — 1-2 dni
+- `aria-label` na wszystkich icon buttons (−, +, ⎙, ?, ∑, 💰, ←, ✎, ✕)
+- `:focus-visible { outline: 2px solid var(--color-primary) }` globalnie
+- `for`/`id` na label/input, `role="alert"` na błędach, `aria-invalid` na polach z błędem
+- `role="dialog" aria-modal="true"` na modalach
+
+**Faza 4 — Unifikacja design system (MEDIUM impact, MEDIUM effort)** — 1 dzień
+- CommissionView — usuń scoped CSS, użyj `.data-grid`, `.page-card`, `.btn`, `--color-*`
+- WorkerView — zamień hardcoded `#0F234E` na `var(--color-primary)`, `#F4F6FB` na `var(--color-bg-app)`
+- Jeden plik zmiennych — usuń definicje kolorów/typografii z `style.css`, zostaw `variables.css`
+- Dodaj `badge-settled/overdue/active` do tables.css (lub użyj istniejących)
+- Połącz KPI komponenty (HomeView + KpiRow.vue → jeden)
+
+**Faza 5 — Skeleton loaders + polish (MEDIUM impact, LOW effort)** — 0.5-1 dzień
+- DashboardView, AdminView, SettingsView, ArchiveView — skeleton rows zamiast "Ładowanie..."
+- Komponent `<TableSkeleton :rows="5" />`
+- View transitions (`<Transition name="fade" mode="out-in">`)
+- Toast z ikoną (✓/⚠️/ℹ)
+- ConfirmDialog z konkretnym obiektem ("Usuniesz umowę U/2024/123...")
+- Glossary skrótów (PNA, ZO, FA, OID, S/U) — tooltip lub legenda
+
+**Łączna estymacja:** 4-5.5 dni (L) — 5 faz, każda niezależna
+
+---
+
+#### Glossary skrótów (do implementacji w Faza 5)
+
+| Skrót | Pełna nazwa |
+|-------|-------------|
+| PNA | Kod pocztowy (PNA) |
+| ZO | Protokół zdania obiektu (ZO) |
+| FA | Faktura (FA) |
+| OID | Identyfikator w Fakturownia (OID) |
+| S | Umowa najmu (S) |
+| U | Umowa usługi (U) |
+
+---
+
+**Estymacja:** 4-5.5 dni (L) — 5 faz, każda niezależna
+
+---
+
 ## 📋 Tabela TL;DR
 
 | ID | Tytuł | P | Est. | Status | Następny krok |
@@ -3100,6 +3273,7 @@ Aplikacja ma solidne podstawy (drilldown w Analytics/Archive, skeleton loadery, 
 | RAO-P2-068 | Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta" | P2 | M | done | 5 cenników kaskadowych per maszyna, 6 presetów usług, 22 ServiceFeeTemplateItem, 6 rate types, pełna konfiguracja firmy |
 | RAO-P2-069 | Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście | P2 | M | done | Toggle Miasto/PNA w LocationsTab, 1 wiersz per miasto (Warszawa 3978 PNA → 1), drill-down /locations/city/{city} z pna_breakdown |
 | RAO-P2-070 | Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation) | P2 | L | triaged | 30 usterek UX (8 HIGH, 13 MEDIUM, 9 LOW); 5 faz: toasty, cross-view drilldown, sort, filtry, goBack |
+| RAO-P3-071 | Audyt UX — czytelność, spójność, przyjemność poruszania się | P3 | L | triaged | 14 usterek (5 HIGH, 6 MEDIUM, 3 LOW) + a11y + polish; 5 faz: font-size, formatowanie, a11y, design system, skeleton |
 | RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
 
 **Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
