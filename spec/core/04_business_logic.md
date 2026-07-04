@@ -1338,3 +1338,48 @@ mariadb-dump rao_new > backup_pre_wipe.sql
 sudo mariadb -e "DROP DATABASE rao_new; CREATE DATABASE rao_new CHARACTER SET utf8mb4 COLLATE utf8mb4_polish_ci;"
 # Re-run migrate.py (legacy migration od zera) lub migrate_all.py
 ```
+
+## Predefiniowane cenniki kaskadowe + pełna konfiguracja (RAO-P2-068)
+
+**Cel:** User klika maszynę i ma gotowy cennik kaskadowy (1-3 dni, 4-16 dni, powyżej 16 dni) — nie musi ręcznie wpisywać każdego warunku rozliczenia. Jak w starej aplikacji WinForms: "rozliczenie = cennik".
+
+**CENNIKI_KASKADOWE per maszyna** (w `seed_demo_data.py`):
+
+Każda maszyna ma 3 warunki kaskadowe:
+- Warunek 1: `rate1` = stawka krótkoterminowa, `period_count=3` (1-3 dni)
+- Warunek 2: `rate1` = stawka średnioterminowa, `period_count=16` (4-16 dni)
+- Warunek 3: `rate2` = stawka długoterminowa, `period_count=None` (powyżej 16 dni)
+
+| Maszyna | 1-3 dni | 4-16 dni | powyżej 16 dni |
+|---------|---------|----------|----------------|
+| Koparka JCB 8035 | 900 zł/doba | 750 zł/doba | 600 zł/doba |
+| Ładowarka Manuscop 6.36 | 720 zł/doba | 600 zł/doba | 480 zł/doba |
+| Podnośnik Haulotte HA16PX | 500 zł/doba | 420 zł/doba | 340 zł/doba |
+| Spychacz Wirtgen W100CFi | 1300 zł/doba | 1100 zł/doba | 900 zł/doba |
+| Zagęszczarka Ammann APF 15/50 | 180 zł/doba | 150 zł/doba | 120 zł/doba |
+
+**STAWKA_EFEKTYWNA** (do rozliczeń): stawka średnioterminowa (4-16 dni) — typowy wynajem.
+
+**Zestawy usług dodatkowych (6 presetów):**
+
+| Preset | Typ | Default | Szablonów | Scenariusz |
+|--------|-----|---------|-----------|------------|
+| Cennik usług — najem 2026 | S | ✓ | 6 | Standardowy najem (transport, czyszczenie, tankowanie, przestój, serwis) |
+| Cennik usług — usługa z operatorem 2026 | U | ✓ | 3 | Praca z operatorem (transport, operator, tankowanie) |
+| Kontrakt długoterminowy (rabat) | S | – | 4 | Umowy 30+ dni (obniżone stawki) |
+| Weekend / krótkoterminowy (1-3 dni) | S | – | 3 | Wynajem weekendowy (wyższy transport) |
+| Kontrakt zagraniczny (export) | S | – | 4 | Umowy zagraniczne (transport międzynarodowy) |
+| Usługa z operatorem — premium | U | – | 4 | Premium: operator + serwis 24/7 + paliwo w cenie |
+
+**ServiceFeeTemplateItem** (relacja N:M preset → artykuł): 22 relacji — frontend pokazuje konkretne artykuły w pickerze presetów.
+
+**Rate types (6 typów):**
+- Stawka dniowa, godzinowa, km (istniejące)
+- Stawka tygodniowa, miesięczna, jednorazowa (nowe — ułatwiają tworzenie umów)
+
+**Konfiguracja firmy** (pełne dane w `company` table):
+- NIP: 1234563218, REGON: 012345678
+- Adres: ul. Przykładowa 1, 00-001 Warszawa
+- Bank: PKO BP, konto: PL 12 1020 1026 0000 1234 5678 9012
+- header_text do PDF: pełne dane firmy (NIP, konto, adres)
+- numbering_start=1, increment_step=50

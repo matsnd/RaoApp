@@ -2706,6 +2706,97 @@ python migrate_all.py --steps recreate_db,import_dump,seed_demo_data,seed_fa_inv
 
 ---
 
+### [RAO-P2-068] Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta"
+
+```yaml
+id: RAO-P2-068
+priority: P2
+size: M
+status: done
+classification: backend/data-seeding+config
+roles: [tech-lead, backend-dev, db-architect, product-owner]
+source: operator-request
+source_date: 2026-07-04
+specs_to_update:
+  - core/04_business_logic.md (cenniki kaskadowe + pełna konfiguracja firmy)
+  - core/07_integrations.md (demo setup — cenniki + presety + rate types)
+migration_impact: no (demo dane tylko)
+security_impact: no
+depends_on:
+  - RAO-P2-067 (Demo data refactor — migrate_all.py orchestrator)
+verification:
+  - "python seed_demo_data.py: PASS (idempotentny re-run)"
+  - "CENNIKI_KASKADOWE: 5 maszyn × 3 warunki kaskadowe (1-3 dni, 4-16 dni, powyżej 16 dni)"
+  - "ZESTAWY_USLUG: 6 presetów (najem, usługa z operatorem, kontrakt długoterminowy, weekend, kontrakt zagraniczny, operator premium)"
+  - "ServiceFeeTemplateItem: 22 relacji N:M preset → artykuł"
+  - "Rate types: 6 typów (dniowa, godzinowa, km, tygodniowa, miesięczna, jednorazowa)"
+  - "Firma: NIP=1234563218, bank_account=PL 12 1020..., header_text do PDF"
+```
+
+**Problem:**
+
+Po P2-067 demo data miało jeszcze braki:
+1. **Brak cenników kaskadowych** — każda pozycja umowy miała tylko 1 warunek (płaska stawka). W starej aplikacji WinForms warunki były kaskadowe (1-3 dni 540zł/doba, 4-16 dni 410zł/doba, powyżej 16 dni 350zł/doba). User musiał ręcznie wpisywać każdy warunek.
+2. **Brak pełnej konfiguracji firmy** — `company` table miała tylko `name="RAO — Wynajem Maszyn"` (z main.py). Brak NIP, adres, konto bankowe, header_text do PDF.
+3. **Tylko 3 presety usług** — brak scenariuszy weekend, kontrakt zagraniczny, operator premium.
+4. **ServiceFeeTemplateItem pusta** — relacja N:M preset → artykuł nie była wypełniana.
+5. **Tylko 3 rate types** — brak tygodniowa, miesięczna, jednorazowa.
+
+**Cel:** "Rozliczenie = cennik" — user klika maszynę i ma gotowy cennik kaskadowy, nie musi ciągle wpisywać tego samego. Wszystkie rzeczy konfigurowalne zeseedowane pod demo.
+
+---
+
+#### Scope implementacji
+
+**1. CENNIKI_KASKADOWE per maszyna (5 maszyn × 3 warunki):**
+
+| Maszyna | 1-3 dni | 4-16 dni | powyżej 16 dni |
+|---------|---------|----------|----------------|
+| Koparka JCB 8035 | 900 zł/doba | 750 zł/doba | 600 zł/doba |
+| Ładowarka Manuscop 6.36 | 720 zł/doba | 600 zł/doba | 480 zł/doba |
+| Podnośnik Haulotte HA16PX | 500 zł/doba | 420 zł/doba | 340 zł/doba |
+| Spychacz Wirtgen W100CFi | 1300 zł/doba | 1100 zł/doba | 900 zł/doba |
+| Zagęszczarka Ammann APF 15/50 | 180 zł/doba | 150 zł/doba | 120 zł/doba |
+
+**2. 6 presetów usług dodatkowych:**
+- Cennik usług — najem 2026 (S, default) — 6 szablonów
+- Cennik usług — usługa z operatorem 2026 (U, default) — 3 szablony
+- Kontrakt długoterminowy (rabat) (S) — 4 szablony
+- Weekend / krótkoterminowy (1-3 dni) (S) — 3 szablony
+- Kontrakt zagraniczny (export) (S) — 4 szablony
+- Usługa z operatorem — premium (U) — 4 szablony
+
+**3. ServiceFeeTemplateItem:** 22 relacji N:M preset → artykuł z domyślną ceną.
+
+**4. 6 rate types:** dniowa, godzinowa, km (istniejące) + tygodniowa, miesięczna, jednorazowa (nowe).
+
+**5. Pełna konfiguracja firmy:** NIP 1234563218, REGON, adres Warszawa, konto PKO BP, header_text do PDF, numbering_start=1, increment_step=50.
+
+**6. `_build_positions_and_fees`** używa cenników kaskadowych zamiast płaskiej stawki.
+
+---
+
+#### Weryfikacja (2026-07-04)
+
+- `python seed_demo_data.py`: PASS (idempotentny re-run, 0 nowych bo dane istnieją)
+- `python _verify_cennik.py`: CENNIKI_KASKADOWE=5, ZESTAWY_USLUG=6, RATE_TYPES=6, FIRMA_CONFIG OK
+- DB check: 8 presetów (2 stare default + 6 nowych), 22 ServiceFeeTemplateItem, 9 rate types (3 legacy + 6 nowych)
+- Firma: NIP=1234563218, bank_account=PL 12 1020..., header_text z pełnymi danymi
+
+---
+
+#### Pliki zmienione
+
+| Plik | Zmiana |
+|------|--------|
+| `backend/seed_demo_data.py` | +CENNIKI_KASKADOWE (5 maszyn × 3 warunki), +STAWKA_EFEKTYWNA, +FIRMA_CONFIG, +3 nowe presety, +ServiceFeeTemplateItem, +3 rate types, +seed_company(), _build_positions_and_fees używa cenników kaskadowych |
+
+---
+
+**Estymacja:** 4-5h (M) — cenniki kaskadowe (1.5h) + presety + ServiceFeeTemplateItem (1h) + rate types + firma (1h) + weryfikacja (0.5h)
+
+---
+
 ## 📋 Tabela TL;DR
 
 | ID | Tytuł | P | Est. | Status | Następny krok |
@@ -2754,6 +2845,7 @@ python migrate_all.py --steps recreate_db,import_dump,seed_demo_data,seed_fa_inv
 | RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | in-progress (Faza 1 done — 6 bugów + indeksy + cleanup; Faza 2 todo — StatsView.vue) |
 | RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
 | RAO-P2-067 | Demo data refactor — migrate_all.py orchestrator + FA-pending contracts + delivery_address | P2 | M | done | 31 faktur FA (19 backfill + 12 FA-pending), delivery_address z miastami, hardcoded token usunięty |
+| RAO-P2-068 | Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta" | P2 | M | done | 5 cenników kaskadowych per maszyna, 6 presetów usług, 22 ServiceFeeTemplateItem, 6 rate types, pełna konfiguracja firmy |
 | RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
 
 **Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)

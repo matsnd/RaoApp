@@ -770,17 +770,21 @@ Przykład:
 - `frontend/src/views/SettingsView.vue` — sekcja Fakturownia
 - `frontend/src/views/ContractFormView.vue` — pole OID + guzik 💰
 
-### Demo setup (RAO-P2-061 + RAO-P2-067)
+### Demo setup (RAO-P2-061 + RAO-P2-067 + RAO-P2-068)
 
 Konto testowe `matsnd.fakturownia.pl` skonfigurowane jako demo produkcyjne:
 
-- **Dział firmy:** RAO Sp. z o.o. (NIP 1234563218, Warszawa)
+- **Dział firmy:** RAO Sp. z o.o. (NIP 1234563218, Warszawa) — pełna konfiguracja w `company` table (NIP, REGON, konto bankowe, header_text do PDF)
 - **11 produktów:** 5 maszyn + 6 usług (wszystkie GTU_12, PKWiU 77.32.19.0, 23% VAT)
 - **8 klientów demo:** Bud-Plus, Invest, Terra-Masz, Wod-Bud, Fundament, Trakcja, Eko-Bud, Miejskie (wszystkie `tax_no_kind: "other"` — omija walidację NIP)
 - **31 faktur:** 19 backfill (rozliczone umowy z `source=fakturownia`) + 12 FA-pending (czekają na "Pobierz z Fakturowni" w UI)
 - **OID = numer umowy** w `description` faktury (np. "S005/2026")
 - **Mapowanie:** `Article.fakturownia_product_id` ↔ FA product ID (w `seed_demo_data.py`)
 - **`delivery_address`:** wszystkie umowy demo mają realistyczne adresy (10 miast PL z PNA) → zakładka "Lokalizacje" w AnalyticsView pokazuje dane
+- **Cenniki kaskadowe per maszyna:** 5 maszyn × 3 warunki (1-3 dni, 4-16 dni, powyżej 16 dni) — jak w starej aplikacji WinForms. User klika maszynę i ma gotowy cennik.
+- **6 presetów usług dodatkowych:** najem (default S), usługa z operatorem (default U), kontrakt długoterminowy, weekend, kontrakt zagraniczny, operator premium
+- **ServiceFeeTemplateItem:** 22 relacji N:M preset → artykuł (frontend pokazuje konkretne artykuły w pickerze)
+- **6 rate types:** dniowa, godzinowa, km, tygodniowa, miesięczna, jednorazowa
 - **Skrypty:** `backend/seed_demo_data.py` (dane RAO) + `backend/seed_fa_invoices.py` (faktury FA, token z env) + `backend/migrate_all.py` (orchestrator)
 - **FA-pending flow:** 12 umów nierozliczonych z fakturą czekającą w FA → demo "Pobierz z Fakturowni" tworzy rozliczenie
 - **Security:** `FAKTUROWNIA_API_TOKEN` czytane z env (brak hardcoded w kodzie)

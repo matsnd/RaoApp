@@ -1,5 +1,5 @@
 """
-RAO-P2-061: Demo data seeding — kompletny skrypt seedujący dane demo.
+RAO-P2-061/068: Demo data seeding — kompletny skrypt seedujący dane demo.
 
 Idempotentny (re-run bezpieczny): sprawdza istnienie po nazwie/numerze przed INSERT.
 Deterministyczny: fixed dane, bez random.
@@ -10,9 +10,15 @@ Zasila:
 - Kontrahenci (8 firm demo)
 - Handlowcy (2)
 - Oddziały (1)
-- Rate types (3)
-- Umowy (24 szt, różne typy/okresy/stany)
-- Pozycje umów (z warunkami rozliczeniowymi)
+- Rate types (6 typów — dniowa, godzinowa, km, tygodniowa, miesięczna, jednorazowa)
+- Konfiguracja firmy (NIP, adres, konto bankowe, header_text do PDF)
+- Zestawy usług dodatkowych (6 presetów: najem, usługa z operatorem,
+  kontrakt długoterminowy, weekend, kontrakt zagraniczny, operator premium)
+  + ServiceFeeTemplateItem (relacja N:M preset → artykuł z domyślną ceną)
+- Umowy (56 szt: 24 historia 2025 + 24 bieżące 2026 + 8 FA-pending)
+  z predefiniowanymi cennikami kaskadowymi per maszyna (1-3 dni, 4-16 dni,
+  powyżej 16 dni) — jak w starej aplikacji WinForms
+- Pozycje umów (z warunkami rozliczeniowymi kaskadowymi)
 - Usługi dodatkowe (z article_id)
 - Rozliczenia (80% source=fakturownia, 20% source=manual/estimate)
 - Mapowanie Article.fakturownia_product_id ↔ produkty FA
@@ -203,9 +209,12 @@ ODDZIALY = [
 ]
 
 RATE_TYPES = [
-    {"name": "Stawka dniowa", "description": "Rozliczenie za dzień roboczy"},
+    {"name": "Stawka dniowa", "description": "Rozliczenie za dzień roboczy (doba)"},
     {"name": "Stawka godzinowa", "description": "Rozliczenie za godzinę pracy"},
-    {"name": "Stawka km", "description": "Rozliczenie za kilometr"},
+    {"name": "Stawka km", "description": "Rozliczenie za kilometr przebiegu"},
+    {"name": "Stawka tygodniowa", "description": "Rozliczenie za tydzień (7 dni) — dla umów średnioterminowych"},
+    {"name": "Stawka miesięczna", "description": "Rozliczenie za miesiąc (30 dni) — dla kontraktów długoterminowych"},
+    {"name": "Stawka jednorazowa", "description": "Płatność jednorazowa (transport, czyszczenie, serwis)"},
 ]
 
 # Cena wynajmu/doba per maszyna (do warunków rozliczeniowych)
@@ -215,6 +224,95 @@ CENY_WYNAJMU = {
     "Podnośnik koszowy Haulotte HA16PX": Decimal("450.00"),
     "Spychar Wirtgen W100CFi": Decimal("1200.00"),
     "Zagęszczarka Ammann APF 15/50": Decimal("150.00"),
+}
+
+# ── Cenniki kaskadowe per maszyna (RAO-P2-068) ────────────────────────────────
+# Predefiniowane warunki rozliczeń jak w starej aplikacji WinForms — user klika
+# maszynę i ma gotowy cennik kaskadowy (1-3 dni wyższa stawka, 4-16 dni niższa,
+# powyżej 16 dni najniższa). Nie musi ręcznie wpisywać każdego warunku.
+#
+# Format: 3 warunki kaskadowe per maszyna:
+#   Warunek 1: rate1 = stawka "krótkoterminowa", period_count = 3 (1-3 dni)
+#   Warunek 2: rate1 = stawka "średnioterminowa", period_count = 16 (4-16 dni)
+#   Warunek 3: rate2 = stawka "długoterminowa" (powyżej 16 dni, bez period_count)
+#
+# Stawki pochodzą z produkcyjnego cennika Toolsmart 2026 (realistyczne rynkowo).
+# Koparka/ładowarka/spychacz = maszyny premium (wyższe stawki).
+# Podnośnik = maszyna średnia. Zagęszczarka = maszyna budżetowa.
+
+CENNIKI_KASKADOWE = {
+    "Koparka gąsienicowa JCB 8035": {
+        # 1-3 dni: 900 zł/doba (krótkoterminowa premium)
+        # 4-16 dni: 750 zł/doba (średnioterminowa)
+        # powyżej 16 dni: 600 zł/doba (długoterminowa kontraktowa)
+        "warunki": [
+            {"rate1": Decimal("900.00"), "rate2": None, "period_count": 3,  "minimum": 1, "billing_label": "doba", "description": "1 - 3 dni - 900,00 / doba"},
+            {"rate1": Decimal("750.00"), "rate2": None, "period_count": 16, "minimum": 1, "billing_label": "doba", "description": "4 - 16 dni - 750,00 / doba"},
+            {"rate1": None, "rate2": Decimal("600.00"), "period_count": None, "minimum": 1, "billing_label": "doba", "description": "powyżej 16 dni - 600,00 / doba"},
+        ],
+    },
+    "Ładowarka teleskopowa Manuscop 6.36": {
+        # 1-3 dni: 720 zł/doba, 4-16 dni: 600 zł/doba, powyżej 16 dni: 480 zł/doba
+        "warunki": [
+            {"rate1": Decimal("720.00"), "rate2": None, "period_count": 3,  "minimum": 1, "billing_label": "doba", "description": "1 - 3 dni - 720,00 / doba"},
+            {"rate1": Decimal("600.00"), "rate2": None, "period_count": 16, "minimum": 1, "billing_label": "doba", "description": "4 - 16 dni - 600,00 / doba"},
+            {"rate1": None, "rate2": Decimal("480.00"), "period_count": None, "minimum": 1, "billing_label": "doba", "description": "powyżej 16 dni - 480,00 / doba"},
+        ],
+    },
+    "Podnośnik koszowy Haulotte HA16PX": {
+        # 1-3 dni: 500 zł/doba, 4-16 dni: 420 zł/doba, powyżej 16 dni: 340 zł/doba
+        "warunki": [
+            {"rate1": Decimal("500.00"), "rate2": None, "period_count": 3,  "minimum": 1, "billing_label": "doba", "description": "1 - 3 dni - 500,00 / doba"},
+            {"rate1": Decimal("420.00"), "rate2": None, "period_count": 16, "minimum": 1, "billing_label": "doba", "description": "4 - 16 dni - 420,00 / doba"},
+            {"rate1": None, "rate2": Decimal("340.00"), "period_count": None, "minimum": 1, "billing_label": "doba", "description": "powyżej 16 dni - 340,00 / doba"},
+        ],
+    },
+    "Spychar Wirtgen W100CFi": {
+        # 1-3 dni: 1300 zł/doba (premium frezowanie), 4-16 dni: 1100 zł/doba, powyżej 16 dni: 900 zł/doba
+        "warunki": [
+            {"rate1": Decimal("1300.00"), "rate2": None, "period_count": 3,  "minimum": 1, "billing_label": "doba", "description": "1 - 3 dni - 1300,00 / doba"},
+            {"rate1": Decimal("1100.00"), "rate2": None, "period_count": 16, "minimum": 1, "billing_label": "doba", "description": "4 - 16 dni - 1100,00 / doba"},
+            {"rate1": None, "rate2": Decimal("900.00"),  "period_count": None, "minimum": 1, "billing_label": "doba", "description": "powyżej 16 dni - 900,00 / doba"},
+        ],
+    },
+    "Zagęszczarka Ammann APF 15/50": {
+        # 1-3 dni: 180 zł/doba (budżetowa), 4-16 dni: 150 zł/doba, powyżej 16 dni: 120 zł/doba
+        "warunki": [
+            {"rate1": Decimal("180.00"), "rate2": None, "period_count": 3,  "minimum": 1, "billing_label": "doba", "description": "1 - 3 dni - 180,00 / doba"},
+            {"rate1": Decimal("150.00"), "rate2": None, "period_count": 16, "minimum": 1, "billing_label": "doba", "description": "4 - 16 dni - 150,00 / doba"},
+            {"rate1": None, "rate2": Decimal("120.00"), "period_count": None, "minimum": 1, "billing_label": "doba", "description": "powyżej 16 dni - 120,00 / doba"},
+        ],
+    },
+}
+
+# Stawka "skuteczna" per maszyna — używana do rozliczeń (średnia z cennika
+# kaskadowego dla typowego wynajmu 7-14 dni = stawka średnioterminowa).
+STAWKA_EFEKTYWNA = {
+    name: data["warunki"][1]["rate1"]  # stawka 4-16 dni (typowy wynajem)
+    for name, data in CENNIKI_KASKADOWE.items()
+}
+
+# ── Konfiguracja firmy (RAO-P2-068) ───────────────────────────────────────────
+# Pełne dane firmy jak gdyby klient sam ustawił w Ustawieniach — NIP, adres,
+# konto bankowe, header_text do PDF, numeracja umów. main.py tworzy tylko
+# pusty Company(id=1, name="RAO — Wynajem Maszyn") — seed wzbogaca o pełne dane.
+
+FIRMA_CONFIG = {
+    "name": "RAO Sp. z o.o.",
+    "name_short": "RAO",
+    "nip": "1234563218",
+    "regon": "012345678",
+    "postal_code": "00-001",
+    "city": "Warszawa",
+    "street": "ul. Przykładowa 1",
+    "header_text": "RAO Sp. z o.o.\nul. Przykładowa 1\n00-001 Warszawa\nNIP: 123-45-63-218\nKonto: PL 12 1020 1026 0000 1234 5678 9012",
+    "bank_name": "PKO BP",
+    "bank_account": "PL 12 1020 1026 0000 1234 5678 9012",
+    "numbering_start": 1,
+    "increment_step": Decimal("50.00"),
+    "report_folder": "C:\\RAO\\Raporty",
+    "protocol_folder": "C:\\RAO\\Protokoly",
+    "app_version": "2.0.0",
 }
 
 # ── Lokalizacje budów (RAO-P2-067) ────────────────────────────────────────────
@@ -357,24 +455,40 @@ async def seed_rate_types(db: AsyncSession):
 # ── Umowy demo ────────────────────────────────────────────────────────────────
 
 def _build_positions_and_fees(i, days, maszyny, uslugi, rt_dniowy):
-    """Wspólny generator pozycji + usług dodatkowych dla umowy o indeksie i."""
+    """Wspólny generator pozycji + usług dodatkowych dla umowy o indeksie i.
+
+    RAO-P2-068: Pozycje używają predefiniowanych cenników kaskadowych per
+    maszyna (1-3 dni, 4-16 dni, powyżej 16 dni) — jak w starej aplikacji.
+    User klika maszynę i ma gotowe warunki rozliczenia, nie musi wpisywać.
+    """
     positions = []
     num_positions = 1 if i % 3 != 0 else 2
     for j in range(num_positions):
         maszyna = maszyny[(i + j) % len(maszyny)]
-        cena = CENY_WYNAJMU[maszyna.name]
+        # Stawka "skuteczna" dla rozliczenia = stawka średnioterminowa (4-16 dni)
+        # z cennika kaskadowego. Jeśli maszyna nie ma cennika — fallback do CENY_WYNAJMU.
+        stawka_efektywna = STAWKA_EFEKTYWNA.get(maszyna.name, CENY_WYNAJMU.get(maszyna.name, Decimal("500.00")))
+        # Warunki kaskadowe z cennika (jeśli dostępne) — inaczej płaska stawka
+        cennik = CENNIKI_KASKADOWE.get(maszyna.name)
+        if cennik:
+            conditions = [
+                {**w, "rate_type_id": rt_dniowy.id if rt_dniowy else None}
+                for w in cennik["warunki"]
+            ]
+        else:
+            conditions = [
+                {"rate1": stawka_efektywna, "rate2": None, "period_count": days, "minimum": 1, "billing_label": "doba", "description": f"Wynajem {maszyna.name}", "rate_type_id": rt_dniowy.id if rt_dniowy else None},
+            ]
         positions.append({
             "article_id": maszyna.id,
             "article_name": maszyna.name,
             "rental_days": days,
             "quantity": 1,
-            "unit_price": cena,
+            "unit_price": stawka_efektywna,  # do rozliczenia (kalkulacja wartości)
             "rate_type_id": rt_dniowy.id if rt_dniowy else None,
             "billing_frequency": "dniowa",
             "billing_unit": "doba",
-            "conditions": [
-                {"rate1": cena, "rate2": None, "period_count": days, "minimum": 1, "billing_label": "doba", "description": f"Wynajem {maszyna.name}", "rate_type_id": rt_dniowy.id if rt_dniowy else None},
-            ],
+            "conditions": conditions,
         })
 
     fees = []
@@ -524,6 +638,41 @@ ZESTAWY_USLUG = [
             {"article": "Serwis maszyny", "name": "Przegląd okresowy w cenie", "amount_from": Decimal("0.00"), "amount_to": None, "unit": "wizyta", "description": "W ramach kontraktu długoterminowego", "default_price": Decimal("0.00")},
         ],
     },
+    {
+        "group_name": "Weekend / krótkoterminowy (1-3 dni)",
+        "contract_type": "S",
+        "is_default": False,
+        "description": "Zestaw dla wynajmu weekendowego — wyższe stawki transportu, brak rabatów",
+        "templates": [
+            {"article": "Transport maszyny", "name": "Transport ekspresowy", "amount_from": Decimal("650.00"), "amount_to": Decimal("650.00"), "unit": "dostawa", "description": "650.00 zł dostawa + 650.00 zł odbiór (weekend)", "default_price": Decimal("650.00")},
+            {"article": "Czyszczenie maszyny — drobne", "name": "Czyszczenie maszyny po wynajmie", "amount_from": Decimal("200.00"), "amount_to": Decimal("400.00"), "unit": "sztuka", "description": "200.00 zł - 400.00 zł", "default_price": Decimal("200.00")},
+            {"article": "Tankowanie paliwa", "name": "Usługa tankowania", "amount_from": Decimal("250.00"), "amount_to": None, "unit": "tankowanie", "description": "250.00 zł (plus koszt paliwa)", "default_price": Decimal("250.00")},
+        ],
+    },
+    {
+        "group_name": "Kontrakt zagraniczny (export)",
+        "contract_type": "S",
+        "is_default": False,
+        "description": "Zestaw dla umów zagranicznych — transport międzynarodowy, ubezpieczenie transportu",
+        "templates": [
+            {"article": "Transport maszyny", "name": "Transport międzynarodowy", "amount_from": Decimal("1500.00"), "amount_to": Decimal("3500.00"), "unit": "dostawa", "description": "1500.00 zł - 3500.00 zł (zależnie od kraju)", "default_price": Decimal("2000.00")},
+            {"article": "Czyszczenie maszyny — drobne", "name": "Czyszczenie maszyny po wynajmie", "amount_from": Decimal("200.00"), "amount_to": Decimal("500.00"), "unit": "sztuka", "description": "200.00 zł - 500.00 zł", "default_price": Decimal("300.00")},
+            {"article": "Tankowanie paliwa", "name": "Usługa tankowania", "amount_from": Decimal("300.00"), "amount_to": None, "unit": "tankowanie", "description": "300.00 zł (plus koszt paliwa)", "default_price": Decimal("300.00")},
+            {"article": "Serwis maszyny", "name": "Assistance zagraniczny", "amount_from": Decimal("500.00"), "amount_to": None, "unit": "wizyta", "description": "500.00 zł (plus transport międzynarodowy)", "default_price": Decimal("500.00")},
+        ],
+    },
+    {
+        "group_name": "Usługa z operatorem — premium",
+        "contract_type": "U",
+        "is_default": False,
+        "description": "Premium: doświadczony operator + serwis 24/7 + paliwo w cenie",
+        "templates": [
+            {"article": "Transport maszyny", "name": "Transport premium", "amount_from": Decimal("500.00"), "amount_to": None, "unit": "dostawa", "description": "500.00 zł (transport niskopodwoziowy)", "default_price": Decimal("500.00")},
+            {"article": None, "name": "Praca operatora (premium)", "amount_from": Decimal("450.00"), "amount_to": None, "unit": "dzień", "description": "450.00 zł/dzień — operator z uprawnieniami (minimum 8h)", "default_price": Decimal("450.00")},
+            {"article": "Tankowanie paliwa", "name": "Paliwo w cenie", "amount_from": Decimal("0.00"), "amount_to": None, "unit": "tankowanie", "description": "W ramach stawki premium", "default_price": Decimal("0.00")},
+            {"article": "Serwis maszyny", "name": "Serwis 24/7", "amount_from": Decimal("0.00"), "amount_to": None, "unit": "wizyta", "description": "Assistance 24/7 w ramach kontraktu premium", "default_price": Decimal("0.00")},
+        ],
+    },
 ]
 
 
@@ -533,11 +682,14 @@ async def seed_konfiguracja(db: AsyncSession, art_by_name):
     - Upsert grup presetów po nazwie (nie duplikuje istniejących default z main.py —
       przejmuje flagę is_default: stare defaulty tracą flagę na rzecz nowych).
     - Szablony idempotentne po (preset_id, name), z article_id + default_price.
+    - RAO-P2-068: wypełnia ServiceFeeTemplateItem (relacja N:M preset → artykuł
+      z domyślną ceną) — frontend pokazuje konkretne artykuły w pickerze presetów.
     """
-    from settings.models import FeePresetGroup, ServiceFeeTemplate
+    from settings.models import FeePresetGroup, ServiceFeeTemplate, ServiceFeeTemplateItem
 
     created_groups = 0
     created_templates = 0
+    created_items = 0
 
     for zestaw in ZESTAWY_USLUG:
         result = await db.execute(
@@ -577,27 +729,83 @@ async def seed_konfiguracja(db: AsyncSession, art_by_name):
                     ServiceFeeTemplate.name == tpl["name"],
                 )
             )
-            if existing_tpl.scalar_one_or_none():
-                continue
+            existing_obj = existing_tpl.scalar_one_or_none()
             article = art_by_name.get(tpl["article"]) if tpl["article"] else None
-            db.add(ServiceFeeTemplate(
-                company_id=1,
-                preset_id=group.id,
-                contract_type=zestaw["contract_type"],
-                sort_order=idx,
-                article_id=article.id if article else None,
-                default_price=tpl["default_price"],
-                name=tpl["name"],
-                amount_from=tpl["amount_from"],
-                amount_to=tpl["amount_to"],
-                unit=tpl["unit"],
-                description=tpl["description"],
-                is_active=True,
-            ))
-            created_templates += 1
+            if existing_obj:
+                # Enrich: uzupełnij article_id/default_price jeśli brak (stare rekordy)
+                if not existing_obj.article_id and article:
+                    existing_obj.article_id = article.id
+                if not existing_obj.default_price and tpl["default_price"]:
+                    existing_obj.default_price = tpl["default_price"]
+                tpl_obj = existing_obj
+            else:
+                tpl_obj = ServiceFeeTemplate(
+                    company_id=1,
+                    preset_id=group.id,
+                    contract_type=zestaw["contract_type"],
+                    sort_order=idx,
+                    article_id=article.id if article else None,
+                    default_price=tpl["default_price"],
+                    name=tpl["name"],
+                    amount_from=tpl["amount_from"],
+                    amount_to=tpl["amount_to"],
+                    unit=tpl["unit"],
+                    description=tpl["description"],
+                    is_active=True,
+                )
+                db.add(tpl_obj)
+                await db.flush()
+                created_templates += 1
+
+            # RAO-P2-068: ServiceFeeTemplateItem — relacja N:M preset → artykuł
+            # z domyślną ceną. Frontend pokazuje konkretne artykuły w pickerze.
+            if article:
+                existing_item = await db.execute(
+                    select(ServiceFeeTemplateItem).where(
+                        ServiceFeeTemplateItem.template_id == group.id,
+                        ServiceFeeTemplateItem.article_id == article.id,
+                    )
+                )
+                if not existing_item.scalar_one_or_none():
+                    db.add(ServiceFeeTemplateItem(
+                        template_id=group.id,
+                        article_id=article.id,
+                        default_price=tpl["default_price"],
+                        sort_order=idx,
+                    ))
+                    created_items += 1
 
     await db.commit()
-    print(f"  Zestawy usług: {created_groups} nowych grup, {created_templates} szablonów")
+    print(f"  Zestawy usług: {created_groups} nowych grup, {created_templates} szablonów, {created_items} item-relacji")
+
+
+async def seed_company(db: AsyncSession):
+    """RAO-P2-068: Pełna konfiguracja firmy — jak gdyby klient ustawił w Ustawieniach.
+
+    main.py tworzy tylko pusty Company(id=1, name="RAO — Wynajem Maszyn").
+    Seed wzbogaca o pełne dane: NIP, adres, konto bankowe, header_text do PDF,
+    numeracja umów. Idempotentny update-in-place.
+    """
+    from settings.models import Company
+
+    result = await db.execute(select(Company).where(Company.id == 1))
+    company = result.scalar_one_or_none()
+    if not company:
+        company = Company(id=1, name=FIRMA_CONFIG["name"])
+        db.add(company)
+        await db.flush()
+
+    # Update-in-place (idempotentny — nadpisuje puste pola)
+    updated = 0
+    for k, v in FIRMA_CONFIG.items():
+        current = getattr(company, k, None)
+        if current != v:
+            setattr(company, k, v)
+            updated += 1
+
+    await db.commit()
+    print(f"  Firma: {updated} pól zaktualizowanych (NIP={FIRMA_CONFIG['nip']}, konto={FIRMA_CONFIG['bank_account'][:12]}...)")
+    return company
 
 
 async def _resolve_postal_code_id(db: AsyncSession, postal_code: str) -> int | None:
@@ -764,32 +972,35 @@ async def seed_umowy(db: AsyncSession, contracts_data, art_by_name):
 
 async def main():
     print("=" * 60)
-    print("RAO-P2-061: Demo data seeding")
+    print("RAO-P2-061/068: Demo data seeding")
     print("=" * 60)
 
     async with AsyncSessionLocal() as db:
-        print("\n[1/8] Kategorie...")
+        print("\n[1/9] Kategorie...")
         await seed_kategorie(db)
 
-        print("\n[2/8] Artykuły (maszyny + usługi)...")
+        print("\n[2/9] Artykuły (maszyny + usługi)...")
         art_by_name = await seed_artykuly(db)
 
-        print("\n[3/8] Kontrahenci...")
+        print("\n[3/9] Kontrahenci...")
         con_by_name = await seed_kontrahenci(db)
 
-        print("\n[4/8] Handlowcy...")
+        print("\n[4/9] Handlowcy...")
         sp_by_name = await seed_handlowcy(db)
 
-        print("\n[5/8] Oddziały...")
+        print("\n[5/9] Oddziały...")
         br_by_name = await seed_oddzialy(db)
 
-        print("\n[6/8] Rate types...")
+        print("\n[6/9] Rate types (6 typów — jak w starej aplikacji)...")
         rt_by_name = await seed_rate_types(db)
 
-        print("\n[7/8] Konfiguracja zestawów usług (jak od klienta)...")
+        print("\n[7/9] Konfiguracja firmy (NIP, konto, header_text)...")
+        await seed_company(db)
+
+        print("\n[8/9] Konfiguracja zestawów usług (6 presetów + ServiceFeeTemplateItem)...")
         await seed_konfiguracja(db, art_by_name)
 
-        print("\n[8/8] Umowy + pozycje + warunki + usługi + rozliczenia...")
+        print("\n[9/9] Umowy + pozycje + warunki kaskadowe + usługi + rozliczenia...")
         contracts_data = generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_name)
         await seed_umowy(db, contracts_data, art_by_name)
 
