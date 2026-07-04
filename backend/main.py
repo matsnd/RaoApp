@@ -36,6 +36,10 @@ app = FastAPI(
     description="RAO - Wynajem maszyn budowlanych",
     version="1.0.0",
     root_path="/rao/api",
+    # RAO-P2-048: wyłącz publiczny Swagger/ReDoc poza dev mode (security hardening)
+    docs_url="/docs" if settings.environment == "development" else None,
+    redoc_url="/redoc" if settings.environment == "development" else None,
+    openapi_url="/openapi.json" if settings.environment == "development" else None,
 )
 
 

@@ -4,6 +4,24 @@
 > Każdy endpoint ma dokładną sygnaturę, request/response body, i algorytm.
 > Architektura: Vertical Slice — każda feature w osobnym folderze.
 
+## Konfiguracja aplikacji (RAO-P2-048)
+
+FastAPI app (`backend/main.py`) tworzone z warunkowymi URL-ami dokumentacji:
+
+```python
+app = FastAPI(
+    root_path="/rao/api",
+    docs_url="/docs" if settings.environment == "development" else None,
+    redoc_url="/redoc" if settings.environment == "development" else None,
+    openapi_url="/openapi.json" if settings.environment == "development" else None,
+)
+```
+
+- **development** (domyślnie, `RAO_ENV=development`): `/docs`, `/redoc`, `/openapi.json` dostępne.
+- **staging / production** (`RAO_ENV=production`): Swagger/ReDoc/OpenAPI wyłączone (security hardening — nie ujawniaj publicznie schematu API).
+- Źródło środowiska: `config.settings.environment` (pole `RAO_ENV`, normalizowane lowercase/strip).
+
+
 ## Struktura projektu
 
 ```
@@ -18,6 +36,7 @@ backend/
 │   ├── schemas.py                   # LoginRequest, TokenResponse, ResetRequest, ProfileUpdate
 │   ├── models.py                    # User SQLAlchemy model
 │   ├── dependencies.py              # get_current_user dependency
+│   ├── rate_limit.py                # RAO-P2-047: in-memory rate limiter (login/forgot-password)
 │   └── email_service.py             # SMTP email sending (reset password, notifications)
 ├── contractors/
 │   ├── __init__.py
@@ -107,6 +126,10 @@ class Settings(BaseSettings):
 
 ### `POST /auth/login`
 
+> **RAO-P2-047:** Endpoint objęty rate limitingiem — max 5 prób / 60s na IP.
+> Po przekroczeniu → `429 Too Many Requests` z headerem `Retry-After: <sekundy>`.
+> Limiter: `auth/rate_limit.py` (in-memory, per-IP, honoruje `X-Forwarded-For`).
+
 ```python
 # Request
 class LoginRequest(BaseModel):
@@ -182,6 +205,7 @@ class ChangePasswordRequest(BaseModel):
 ### `POST /auth/forgot-password`
 
 > **Nowy endpoint** — resetowanie hasła przez email.
+> **RAO-P2-047:** Objęty rate limitingiem — max 5 prób / 60s na IP → `429` + `Retry-After`.
 
 ```python
 class ForgotPasswordRequest(BaseModel):
@@ -1366,13 +1390,49 @@ Response: `list[CategoriesListNode]` — pełne drzewo kategorii:
 Zlicza tylko aktywne (nie-archiwalne) artykuły (`is_archival=false`) przypisane do danej kategorii.
 HTTP: 200 | 401
 
-### `GET /stats/positions` (RAO-P2-010, NOWY)
-Query: `?type=machines|services|all&date_from&date_to`
+### `GET /stats/positions` (RAO-P2-010, RAO-P2-053)
+Query: `?type=machines|services|all&date_from&date_to&contractor_id&city&limit&offset&sort_by&sort_dir`
+- `type` — filtr rodzaju pozycji (default `all`)
+- `limit` — paginacja, max 200 (RAO-P2-053). Brak = bez limitu (backward compat)
+- `offset` — paginacja, default 0 (RAO-P2-053)
+- `sort_by` — pole sortowania z whitelist: `article_name | internal_number | category_main | revenue | rented_days | contracts_count | times_settled`
+- `sort_dir` — `asc|desc` (default `desc`)
+
 Response: `PositionStatsResponse` with:
 - date_from, date_to, type (applied filter)
 - total_revenue, total_machines_revenue, total_services_revenue
+- total_count (łączna liczba pozycji przed paginacją — RAO-P2-053)
+- limit (zastosowany limit; `null` gdy bez paginacji — RAO-P2-053)
+- offset (zastosowany offset — RAO-P2-053)
 - items[]: list[PositionStatItem] (article_id, article_name, internal_number, is_service, category_main, revenue, rented_days, contracts_count, times_billed)
-HTTP: 200 | 401 | 422 (nieprawidłowy `type`)
+
+RAO-P2-053: pojedyncze wywołanie `compute_position_revenues` (wcześniej 2× — raz z service_filter, raz bez dla total_*_revenue). Filtrowanie typu robione in-memory, totale liczone z tego samego zbioru.
+
+HTTP: 200 | 401 | 422 (nieprawidłowy `type` lub `limit` > 200)
+
+---
+
+### `GET /stats/by-contract-type` (RAO-P2-056, NOWY)
+Query: `?date_from&date_to&contractor_id&city`
+
+Statystyki zagregowane po `contract_type` umowy nadrzędnej:
+- `"S"` → umowa najmu (maszyny)
+- `"U"` → umowa usługi
+
+Response: `ContractTypeStatsResponse` with:
+- date_from, date_to, total_revenue
+- items[]: list[ContractTypeStatItem]:
+  - contract_type: `"S" | "U"`
+  - contract_type_label: `"najem" | "usługa"`
+  - contracts_count: unikalne umowy danego typu
+  - positions_count: łączna liczba pozycji
+  - articles_count: unikalne maszyny/artykuły
+  - rented_days: suma dni wynajmu (maszyny; 0 dla usług)
+  - revenue: suma przychodu
+
+Filtry `contractor_id` / `city` opcjonalne (analogicznie do `/stats/positions`). Archiwalne maszyny uwzględnione (statystyki historyczne).
+
+HTTP: 200 | 401
 
 ### `GET /explorer/machines/{article_id}` (RAO-P2-009)
 Query: `?date_from&date_to`
