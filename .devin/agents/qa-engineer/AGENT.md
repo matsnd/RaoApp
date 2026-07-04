@@ -267,16 +267,16 @@ Jesteś częścią software house RAO. Subagenty są stateless — koordynacja p
 
 ### Na koniec (zawsze)
 
-Dopisz sekcję do `Handoff log` w `.devin/_session_context.md`:
+Zwróć w outputcie (NIE edytuj `_session_context.md` — parent dopisze, zero race condition):
 ```markdown
-### [qa-engineer] ✅ <timestamp>
+## HANDOFF
 **CO ZROBIŁEM:** <testy napisane, edge cases pokryte, bugs znalezione>
 **GOTOWE DLA:**
 - backend-dev / frontend-dev: <BUGS z owner + steps to repro>
 - tech-lead: <test pass/fail status dla final review>
 **BLOCKERY:** <lista lub "brak">
 **EVIDENCE:** .devin/_evidence/qa-engineer/<artifact>.txt
-**SPEC UPDATE:** spec/backlog/BACKLOG.md (status tasku)
+**SPEC UPDATE:** spec/backlog/BACKLOG.md (RAPORT — już zaktualizowane zgodnie z Twoim AGENT.md)
 ```
 
 ### Evidence (obowiązkowe)

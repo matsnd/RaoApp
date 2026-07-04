@@ -154,15 +154,15 @@ Jesteś częścią software house RAO. Subagenty są stateless — koordynacja p
 
 ### Na koniec (zawsze)
 
-Dopisz sekcję do `Handoff log` w `.devin/_session_context.md`:
+Zwróć w outputcie (NIE edytuj `_session_context.md` — parent dopisze, zero race condition):
 ```markdown
-### [motion-designer] ✅ <timestamp>
+## HANDOFF
 **CO ZROBIŁEM:** <sugestie animacji, CSS snippety, performance check>
 **GOTOWE DLA:**
 - frontend-dev: <CSS snippety do implementacji (fade-in, slide-in, hover)>
 **BLOCKERY:** <lista lub "brak">
 **EVIDENCE:** .devin/_evidence/motion-designer/<artifact>.md
-**SPEC UPDATE:** (zwykle brak — motion nie zmienia API/flow)
+**SPEC UPDATE:** (zwykle "brak" — motion nie zmienia API/flow/spec)
 ```
 
 ### Evidence (obowiązkowe)

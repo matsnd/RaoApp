@@ -102,16 +102,17 @@ Jesteś **koordynatorem** software house RAO. Tworzysz i utrzymujesz `.devin/_se
 
 1. **Start:** stwórz `.devin/_session_context.md` z zadaniem, decyzją architektoniczną, DoD, planem podziału pracy (z statusami ⬜/⏳/✅/❌ per rola)
 2. **Deleguj** zgodnie z Review Chain Matrix (sekwencyjnie zależne: DB→Backend→Frontend, równolegle niezależne: analiza, polish, audit, final review)
-3. **Po każdej fazie:** aktualizuj statusy w planie w shared context
-4. **Konflikty:** rozstrzygaj według hierarchii (Security > Data > Correctness > UX > Performance > UI > Motion > Style), zapisuj decyzję w `Open issues / conflicts`
-5. **Przed commitem:** zweryfikuj evidence w `.devin/_evidence/` (każda rola ma dowody?)
-6. **Commit** + usuń `_session_context.md` i `_evidence/` (lub zostaw do post-mortem)
+3. **Po każdej fazie:** odbierz HANDOFF z outputtu subagenta i dopisz do `Handoff log` w `_session_context.md` (TY jesteś single-writer — subagenty NIE edytują pliku, zero race condition)
+4. **Aktualizuj statusy** w planie po każdej fazie
+5. **Konflikty:** rozstrzygaj według hierarchii (Security > Data > Correctness > UX > Performance > UI > Motion > Style), zapisuj decyzję w `Open issues / conflicts`
+6. **Przed commitem:** zweryfikuj evidence w `.devin/_evidence/` (każda rola ma dowody?) + `git diff --stat spec/core/` (pusty diff przy zmianach funkcjonalnych = niedopełniony obowiązek)
+7. **Commit** + usuń `_session_context.md` i `_evidence/` (lub zostaw do post-mortem)
 
 ### Twój handoff (na koniec)
 
-Dopisz do `Handoff log` w `.devin/_session_context.md`:
+Zwróć w outputcie (parentem jesteś Ty, ale dla dokumentacji):
 ```markdown
-### [tech-lead] ✅ <timestamp>
+## HANDOFF
 **CO ZROBIŁEM:** <decyzja architektoniczna, plan podziału, side effects>
 **GOTOWE DLA:** <role + co>
 **BLOCKERY:** <lista lub "brak">

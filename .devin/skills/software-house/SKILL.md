@@ -290,19 +290,32 @@ To tworzy historie zmian do rollbacku (`git revert HEAD`) i sledzenia postepow.
 
 **📖 Pełny protokół:** `.devin/workflows/coordination-protocol.md` (read zanim zaczniesz!)
 
+**⚡ TL;DR (10 linii):**
+1. Ty (Tech Lead) tworzysz `.devin/_session_context.md` na starcie
+2. Subagenty CZYTAJĄ `_session_context.md` (read-only, NIE edytują)
+3. Subagenty ZWRACAJĄ HANDOFF w outputcie (CO ZROBIŁEM / GOTOWE DLA / BLOCKERY / EVIDENCE / SPEC UPDATE)
+4. Ty DOPISUJESZ HANDOFF do `_session_context.md` (single-writer = zero race condition)
+5. Evidence obowiązkowe w `.devin/_evidence/<role>/`
+6. Review chain: DB→Backend→Frontend→[UI|UX|Motion równolegle]→[Security|Performance równolegle]→QA→[TL|PO]
+7. Conflict hierarchy: Security (veto) > Data > Correctness > UX > Performance > UI > Motion > Style
+8. Vision dedup: frontend-dev robi 1 screenshot per widok, inne role reuse przez `rao-vision.analyze_screenshot`
+9. Brak evidence = odrzucony handoff
+10. Przed commitem: `git diff --stat spec/core/` (pusty diff przy zmianach funkcjonalnych = niedopełniony obowiązek)
+
 Subagenty są stateless — koordynacja przez:
 
-1. **Shared context file** (`.devin/_session_context.md`) — Ty (Tech Lead) tworzysz na starcie zadania. Każdy subagent czyta go jako pierwszy krok i dopisuje swoją sekcję HANDOFF po zakończeniu. Zawiera: zadanie, decyzję architektoniczną, DoD, plan podziału pracy z statusami, handoff log chronologiczny, open issues/conflicts, evidence index.
+1. **Shared context file** (`.devin/_session_context.md`) — Ty tworzysz na starcie zadania. **Single-writer model:** subagenty czytają (read-only) i zwracają HANDOFF w outputcie, Ty dopisujesz sekwencyjnie. **Zero race condition** (wcześniej subagenty edytowały plik równolegle → konflikty `edit`).
 
-2. **Handoff protocol** — każdy subagent kończy sekcją:
+2. **Handoff protocol** — każdy subagent zwraca w outputcie:
    ```
    ## HANDOFF
    **CO ZROBIŁEM:** <konkret, pliki>
    **GOTOWE DLA:** <role + co mogą użyć>
    **BLOCKERY:** <lista lub "brak">
    **EVIDENCE:** <ścieżki do .devin/_evidence/<role>/ lub "brak">
-   **SPEC UPDATE:** <pliki spec/ lub "brak">
+   **SPEC UPDATE:** <pliki spec/ zaktualizowane zgodnie z AGENT.md — RAPORT, nie akcja; lub "brak">
    ```
+   **NIE edytują `_session_context.md`** — Ty dopisujesz (single-writer).
 
 3. **Review chain matrix** (kto czeka na kogo) — patrz sekcja 3 protokołu:
    ```
@@ -350,21 +363,27 @@ Subagenty są stateless — koordynacja przez:
    - Oszczędność: 1 screenshot + 4 analizy zamiast 5 screenshotów
    - Nowy screenshot tylko gdy: inny widok, inny stan, inna akcja
 
+7. **Relacja z obsługą spec/ i backlogu (NIE zastępuje, wzmacnia):**
+   - Subagenty aktualizują spec/ zgodnie ze swoim AGENT.md (sekcja "Po zmianie") — to NIE zmienia się
+   - W handoff "SPEC UPDATE" to **RAPORT** (co zaktualizowano), nie akcja
+   - Ty (parent) weryfikujesz `git diff --stat spec/core/` przed commitem — pusty diff przy zmianach funkcjonalnych = niedopełniony obowiązek (reguła z AGENTS.md)
+   - Backlog status aktualizuje rola wykonująca (zgodnie z AGENT.md), Ty weryfikujesz `git diff spec/backlog/BACKLOG.md`
+
 ### Quick reference — co Ty (Tech Lead) robisz
 
 1. **Start:** stwórz `.devin/_session_context.md` z zadaniem, decyzją, DoD, planem
 2. **Deleguj** zgodnie z Review Chain Matrix (sekwencyjnie zależne, równolegle niezależne)
-3. **Po każdej fazie:** aktualizuj statusy w planie w shared context
+3. **Po każdej fazie:** odbierz HANDOFF z outputtu subagenta, dopisz do `Handoff log` w `_session_context.md` (single-writer), zaktualizuj status w planie
 4. **Konflikty:** rozstrzygaj według hierarchii, zapisuj decyzję w shared context
-5. **Przed commitem:** zweryfikuj evidence w `.devin/_evidence/` (każda rola ma dowody?)
+5. **Przed commitem:** zweryfikuj evidence w `.devin/_evidence/` (każda rola ma dowody?) + `git diff --stat spec/core/` (pusty diff przy zmianach funkcjonalnych = niedopełniony obowiązek) + `git diff spec/backlog/BACKLOG.md` (status tasku zaktualizowany?)
 6. **Commit** + usuń `_session_context.md` i `_evidence/` (lub zostaw do post-mortem)
 
 ### Quick reference — co każdy subagent robi
 
-1. **Start:** `read .devin/_session_context.md` → zrozum zadanie + kontekst poprzedników
-2. **Wykonaj** zadanie zgodnie ze swoim AGENT.md
+1. **Start:** `read .devin/_session_context.md` → zrozum zadanie + kontekst poprzedników (read-only, NIE edytuj)
+2. **Wykonaj** zadanie zgodnie ze swoim AGENT.md (w tym aktualizacja spec/ jak wymagane)
 3. **Evidence:** zapisz dowody do `.devin/_evidence/<twoja-rola>/`
-4. **Koniec:** `edit .devin/_session_context.md` — dopisz sekcję HANDOFF do "Handoff log"
+4. **Koniec:** zwróć HANDOFF w outputcie (NIE edytuj `_session_context.md` — parent dopisze)
 
 ---
 

@@ -89,16 +89,16 @@ Jesteś częścią software house RAO. Subagenty są stateless — koordynacja p
 
 ### Na koniec (zawsze)
 
-Dopisz sekcję do `Handoff log` w `.devin/_session_context.md`:
+Zwróć w outputcie (NIE edytuj `_session_context.md` — parent dopisze, zero race condition):
 ```markdown
-### [ux-designer] ✅ <timestamp>
+## HANDOFF
 **CO ZROBIŁEM:** <flow analysis, edge cases UX, sugestie tekstów>
 **GOTOWE DLA:**
 - frontend-dev: <sugestie do implementacji (teksty, flow, walidacja)>
 - product-owner: <flow click count, czy user osiągnie cel>
 **BLOCKERY:** <lista lub "brak">
 **EVIDENCE:** .devin/_evidence/ux-designer/<artifact>.md
-**SPEC UPDATE:** spec/core/03_frontend_screens.md (jeśli flow zmieniony)
+**SPEC UPDATE:** spec/core/03_frontend_screens.md (RAPORT — jeśli zaktualizowano zgodnie z Twoim AGENT.md; inaczej "brak")
 ```
 
 ### Evidence (obowiązkowe)

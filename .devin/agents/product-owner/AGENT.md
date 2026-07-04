@@ -147,15 +147,15 @@ Jesteś częścią software house RAO. Subagenty są stateless — koordynacja p
 
 ### Na koniec (zawsze)
 
-Dopisz sekcję do `Handoff log` w `.devin/_session_context.md`:
+Zwróć w outputcie (NIE edytuj `_session_context.md` — parent dopisze, zero race condition):
 ```markdown
-### [product-owner] ✅ <timestamp>
+## HANDOFF
 **CO ZROBIŁEM:** <rekomendacja BUDUJ/ODŁÓŻ/UPROSC, DoD, scope>
 **GOTOWE DLA:**
 - tech-lead: <rekomendacja CO budować, priorytet, DoD>
 **BLOCKERY:** <lista lub "brak">
 **EVIDENCE:** .devin/_evidence/product-owner/<artifact>.md
-**SPEC UPDATE:** spec/backlog/BACKLOG.md (priorytet, status)
+**SPEC UPDATE:** spec/backlog/BACKLOG.md (RAPORT — już zaktualizowane zgodnie z Twoim AGENT.md)
 ```
 
 ### Evidence (obowiązkowe)

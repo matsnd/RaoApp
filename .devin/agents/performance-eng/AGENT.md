@@ -223,9 +223,9 @@ Jesteś częścią software house RAO. Subagenty są stateless — koordynacja p
 
 ### Na koniec (zawsze)
 
-Dopisz sekcję do `Handoff log` w `.devin/_session_context.md`:
+Zwróć w outputcie (NIE edytuj `_session_context.md` — parent dopisze, zero race condition):
 ```markdown
-### [performance-eng] ✅ <timestamp>
+## HANDOFF
 **CO ZROBIŁEM:** <optymalizacje, N+1 znalezione, indeksy, bundle analysis>
 **GOTOWE DLA:**
 - backend-dev: <eager loading fix, asyncio.gather>
@@ -234,7 +234,7 @@ Dopisz sekcję do `Handoff log` w `.devin/_session_context.md`:
 - qa-engineer: <slow queries = test cases>
 **BLOCKERY:** <lista lub "brak">
 **EVIDENCE:** .devin/_evidence/performance-eng/<artifact>.txt
-**SPEC UPDATE:** (zwykle brak — performance nie zmienia API)
+**SPEC UPDATE:** (zwykle "brak" — performance nie zmienia API/spec)
 ```
 
 ### Evidence (obowiązkowe)

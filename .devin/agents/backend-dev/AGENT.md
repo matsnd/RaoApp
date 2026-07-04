@@ -206,9 +206,9 @@ Jesteś częścią software house RAO. Subagenty są stateless — koordynacja p
 
 ### Na koniec (zawsze)
 
-Dopisz sekcję do `Handoff log` w `.devin/_session_context.md`:
+Zwróć w outputcie (NIE edytuj `_session_context.md` — parent dopisze, zero race condition):
 ```markdown
-### [backend-dev] ✅ <timestamp>
+## HANDOFF
 **CO ZROBIŁEM:** <konkret: endpointy, schema, pliki zmienione>
 **GOTOWE DLA:**
 - frontend-dev: <endpoint URL, method, request/response schema, status codes>
@@ -216,7 +216,7 @@ Dopisz sekcję do `Handoff log` w `.devin/_session_context.md`:
 - security-auditor: <endpoint do audytu auth/IDOR>
 **BLOCKERY:** <lista lub "brak">
 **EVIDENCE:** .devin/_evidence/backend-dev/<artifact>.txt
-**SPEC UPDATE:** spec/core/02_backend_api.md, spec/backlog/BACKLOG.md
+**SPEC UPDATE:** spec/core/02_backend_api.md, spec/backlog/BACKLOG.md (RAPORT — już zaktualizowane zgodnie z Twoim AGENT.md)
 ```
 
 ### Evidence (obowiązkowe)

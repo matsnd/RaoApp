@@ -6,9 +6,21 @@ description: Protokół koordynacji 11 ról RAO — shared context, handoff, rev
 
 > **Single source of truth dla koordynacji między agentami.**
 > Linkowany z: `AGENTS.md` (root), `.devin/skills/software-house/SKILL.md`, każdego `.devin/agents/*/AGENT.md`.
->
-> **Cel:** Subagenty są stateless — ten protokół definiuje jak przekazują sobie kontekst,
-> kto na kogo czeka, jak rozstrzygać konflikty i gdzie persistować dowody.
+
+## ⚡ TL;DR (10 linii — czytaj to jeśli nic więcej)
+
+1. **Parent (Tech Lead)** tworzy `.devin/_session_context.md` na starcie zadania
+2. **Subagenty CZYTAJĄ** `_session_context.md` na starcie (read-only, NIE edytują)
+3. **Subagenty ZWRACAJĄ** HANDOFF w swoim outputcie (CO ZROBIŁEM / GOTOWE DLA / BLOCKERY / EVIDENCE / SPEC UPDATE)
+4. **Parent DOPISUJE** HANDOFF subagenta do `_session_context.md` (append-only, single writer = zero race condition)
+5. **Evidence obowiązkowe** — subagenty zapisują do `.devin/_evidence/<role>/`, parent weryfikuje przed commitem
+6. **Review chain:** DB→Backend→Frontend→[UI|UX|Motion równolegle]→[Security|Performance równolegle]→QA→[TL|PO]
+7. **Conflict hierarchy:** Security (veto) > Data > Correctness > UX > Performance > UI > Motion > Style
+8. **Vision dedup:** frontend-dev robi 1 screenshot per widok, inne role reuse przez `rao-vision.analyze_screenshot`
+9. **Brak evidence = odrzucony handoff**
+10. **Po commicie:** parent usuwa `_session_context.md` i `_evidence/` (lub zostawia do post-mortem)
+
+> Pełne szczegóły niżej. TL;DR wystarczy dla parenta; subagenty czytają swoją sekcję w AGENT.md.
 
 ---
 
@@ -20,8 +32,16 @@ description: Protokół koordynacji 11 ról RAO — shared context, handoff, rev
 .devin/_session_context.md
 ```
 
-Plik tworzony przez **parent agenta (Tech Leada)** na starcie zadania, aktualizowany po każdej fazie.
-Subagenty **obowiązkowo czytają** ten plik jako pierwszy krok — zanim zaczną pracę.
+Plik tworzony przez **parent agenta (Tech Leada)** na starcie zadania.
+**Tylko parent edytuje** — subagenty czytają (read-only) i zwracają HANDOFF w outputcie, parent dopisuje.
+
+### 1.2 Dlaczego single-writer (race condition fix)
+
+Subagenty w tle (Phase 4: ui-designer + ux-designer + motion-designer + product-owner) działają równolegle. Jeśli wszystkie edytują ten sam plik przez `edit` tool — `edit` wymaga unikalnego `old_string`, więc:
+- Jeden nadpisze drugiego, ALBO
+- `edit` się wywróci ("old_string not unique" / "not found")
+
+**Rozwiązanie:** subagenty NIE edytują pliku. Zwracają HANDOFF w outputcie → parent (single writer) dopisuje sekwencyjnie. **Zero race condition.**
 
 ### 1.2 Struktura
 
@@ -112,10 +132,30 @@ Każdy subagent kończy pracę sekcją w formacie:
 <ścieżki do .devin/_evidence/<role>/ lub "brak">
 
 **SPEC UPDATE:**
-<które pliki spec/ zostały zaktualizowane lub "brak">
+<które pliki spec/ zostały zaktualizowane — RAPORT, nie akcja. Subagent aktualizuje spec/ zgodnie ze swoim AGENT.md (sekcja "Po zmianie"), tu tylko potwierdza co zrobił. Parent weryfikuje `git diff --stat spec/core/`. Jeśli zmieniał funkcjonalność a tu "brak" = kłamstwo handoffu.>
 ```
 
-### 2.2 Handoff matrix — kto przekazuje komu
+### 2.2 Relacja z obsługą spec/ i backlogu (AGENTS.md)
+
+**Zasada:** protokół koordynacji NIE zastępuje obsługi spec/ z AGENTS.md — ją **wzmacnia**.
+
+| Co | Kto robi | Zgodnie z | Weryfikacja |
+|----|---------|-----------|-------------|
+| Aktualizacja `spec/core/01_database.md` | db-architect | AGENT.md db-architect "Po zakończeniu pracy ZAWSZE" | parent: `git diff spec/core/01_database.md` |
+| Aktualizacja `spec/core/02_backend_api.md` | backend-dev | AGENT.md backend-dev "Po zmianie pkt 3" | parent: `git diff spec/core/02_backend_api.md` |
+| Aktualizacja `spec/core/03_frontend_screens.md` | frontend-dev | AGENT.md frontend-dev "Po zmianie pkt 4" | parent: `git diff spec/core/03_frontend_screens.md` |
+| Aktualizacja `spec/backlog/BACKLOG.md` (status tasku) | rola wykonująca | AGENT.md każdej roli "aktualizuj status tasku" | parent: `git diff spec/backlog/BACKLOG.md` |
+| Aktualizacja `spec/core/09_design_reference.md` | ui-designer | AGENT.md ui-designer "Spec update" | parent: `git diff spec/core/09_design_reference.md` |
+| Aktualizacja `spec/core/25_security.md` | security-auditor | AGENT.md security-auditor (jeśli nowa luka/policy) | parent: `git diff spec/core/25_security.md` |
+
+**Handoff "SPEC UPDATE" to RAPORT** — subagent już zaktualizował spec/ (bo jego AGENT.md tego wymaga), w handoff tylko potwierdza co. Parent weryfikuje `git diff --stat spec/core/` przed commitem (reguła z AGENTS.md: "pusty diff przy zmianach funkcjonalnych = niedopełniony obowiązek").
+
+**Brak konfliktu z AGENTS.md** — protokół dodaje tylko:
+1. Raportowanie w handoff (co zaktualizowano)
+2. Weryfikację przez parenta przed commitem
+3. Evidence że spec został zaktualizowany (opcjonalnie: `git diff` zapisany do `.devin/_evidence/<role>/spec_diff.txt`)
+
+### 2.3 Handoff matrix — kto przekazuje komu
 
 | Od | Do | Co przekazuje |
 |----|-----|---------------|
@@ -420,7 +460,7 @@ mcp_call_tool(
 
 ### 7.2 Rozwiązanie
 
-Parent (Tech Lead) utrzymuje **jedno źródło prawdy** w sekcji "Plan podziału pracy" w `.devin/_session_context.md`. Każdy subagent po zakończeniu aktualizuje swój status przez `edit`.
+Parent (Tech Lead) utrzymuje **jedno źródło prawdy** w sekcji "Plan podziału pracy" w `.devin/_session_context.md`. Parent aktualizuje statusy po każdej fazie (single-writer, zero race).
 
 **Nie duplikuj todo_write w subagentach** — one i tak są stateless. Jeden shared plan w context file wystarczy.
 
@@ -430,22 +470,24 @@ Parent (Tech Lead) utrzymuje **jedno źródło prawdy** w sekcji "Plan podziału
 
 ### Na starcie (KAŻDY subagent):
 
-1. `read .devin/_session_context.md` — zrozum zadanie + kontekst poprzedników
-2. `read .devin/workflows/coordination-protocol.md` — jeśli nie znasz protokołu
-3. Wykonaj swoje zadanie (zgodnie ze swoim AGENT.md)
-4. Zapisz evidence do `.devin/_evidence/<twoja-rola>/`
-5. Na koniec: `edit .devin/_session_context.md` — dopisz sekcję HANDOFF do "Handoff log"
+1. `read .devin/_session_context.md` — zrozum zadanie + kontekst poprzedników (read-only, NIE edytuj)
+2. Wykonaj swoje zadanie (zgodnie ze swoim AGENT.md — w tym aktualizacja spec/ jak wymagane)
+3. Zapisz evidence do `.devin/_evidence/<twoja-rola>/`
+4. Zwróć HANDOFF w swoim outputcie (parent dopisze do context file)
 
-### Na koniec (KAŻDY subagent):
+### Na koniec (KAŻDY subagent) — zwróć w outputcie:
 
 ```markdown
-### [<twoja-rola>] ✅ <timestamp>
-**CO ZROBIŁEM:** <konkret>
-**GOTOWE DLA:** <role + co>
+## HANDOFF
+
+**CO ZROBIŁEM:** <konkret, pliki zmienione>
+**GOTOWE DLA:** <role + co mogą użyć>
 **BLOCKERY:** <lista lub "brak">
-**EVIDENCE:** <ścieżki lub "brak">
-**SPEC UPDATE:** <pliki spec/ lub "brak">
+**EVIDENCE:** <ścieżki do .devin/_evidence/<role>/ lub "brak">
+**SPEC UPDATE:** <pliki spec/ zaktualizowane zgodnie z AGENT.md — RAPORT, nie akcja; lub "brak" jeśli nie dotyczy>
 ```
+
+**NIE edytuj `_session_context.md`** — parent dopisze Twój HANDOFF (single-writer, zero race condition).
 
 ### Dla parenta (Tech Lead):
 
@@ -468,7 +510,9 @@ Parent (Tech Lead) utrzymuje **jedno źródło prawdy** w sekcji "Plan podziału
 - ❌ 5 screenshotów tego samego widoku zamiast 1 + 4 analizy
 - ❌ Subagent modyfikuje kod poza swoim scope (np. backend-dev edytuje frontend)
 - ❌ Parent pomija fazę QA żeby "oszczędzić czas"
-- ❌ Subagent nie aktualizuje spec/ po zmianie funkcjonalnej
+- ❌ Subagent kończy bez aktualizacji spec/ (zgodnie z AGENT.md swojej roli — każda rola ma "Po zmianie: update spec/core/...")
+- ❌ Subagent raportuje "SPEC UPDATE: brak" gdy faktycznie zmieniał funkcjonalność (kłamstwo handoffu)
+- ❌ Parent nie weryfikuje `git diff --stat spec/core/` przed commitem (pusty diff przy zmianach funkcjonalnych = niedopełniony obowiązek, reguła z AGENTS.md)
 
 ---
 

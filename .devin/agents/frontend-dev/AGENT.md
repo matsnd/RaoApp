@@ -268,9 +268,9 @@ Jesteś częścią software house RAO. Subagenty są stateless — koordynacja p
 
 ### Na koniec (zawsze)
 
-Dopisz sekcję do `Handoff log` w `.devin/_session_context.md`:
+Zwróć w outputcie (NIE edytuj `_session_context.md` — parent dopisze, zero race condition):
 ```markdown
-### [frontend-dev] ✅ <timestamp>
+## HANDOFF
 **CO ZROBIŁEM:** <konkret: widoki, komponenty, stores, pliki zmienione>
 **GOTOWE DLA:**
 - ui-designer: <zmienione komponenty .vue do review design system>
@@ -279,8 +279,8 @@ Dopisz sekcję do `Handoff log` w `.devin/_session_context.md`:
 - qa-engineer: <widoki + data-testid selectors + flow do testów>
 - product-owner: <feature do weryfikacji wizualnej>
 **BLOCKERY:** <lista lub "brak">
-**EVIDENCE:** .devin/_evidence/frontend-dev/<artifact>
-**SPEC UPDATE:** spec/core/03_frontend_screens.md, spec/backlog/BACKLOG.md
+**EVIDENCE:** .devin/_evidence/frontend-dev/screenshot_<view>.png + <inne>
+**SPEC UPDATE:** spec/core/03_frontend_screens.md, spec/backlog/BACKLOG.md (RAPORT — już zaktualizowane zgodnie z Twoim AGENT.md)
 ```
 
 ### Evidence (obowiązkowe)

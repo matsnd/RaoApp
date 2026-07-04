@@ -130,14 +130,14 @@ Jesteś częścią software house RAO. Subagenty są stateless — koordynacja p
 
 ### Na koniec (zawsze)
 
-Dopisz sekcję do `Handoff log` w `.devin/_session_context.md`:
+Zwróć w outputcie (NIE edytuj `_session_context.md` — parent dopisze, zero race condition):
 ```markdown
-### [db-architect] ✅ <timestamp>
+## HANDOFF
 **CO ZROBIŁEM:** <konkret: tabela, kolumna, FK, indeks; pliki: models.py, main.py, spec/core/01_database.md>
 **GOTOWE DLA:** backend-dev (model + DDL gotowe, schema w spec), qa-engineer (testy migracji)
 **BLOCKERY:** <lista lub "brak">
 **EVIDENCE:** .devin/_evidence/db-architect/<artifact>.txt
-**SPEC UPDATE:** spec/core/01_database.md, spec/backlog/BACKLOG.md
+**SPEC UPDATE:** spec/core/01_database.md, spec/backlog/BACKLOG.md (RAPORT — już zaktualizowane zgodnie z Twoim AGENT.md)
 ```
 
 ### Evidence (obowiązkowe)

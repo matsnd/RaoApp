@@ -159,15 +159,15 @@ Jesteś częścią software house RAO. Subagenty są stateless — koordynacja p
 
 ### Na koniec (zawsze)
 
-Dopisz sekcję do `Handoff log` w `.devin/_session_context.md`:
+Zwróć w outputcie (NIE edytuj `_session_context.md` — parent dopisze, zero race condition):
 ```markdown
-### [ui-designer] ✅ <timestamp>
+## HANDOFF
 **CO ZROBIŁEM:** <design system review, niespójności, antywzorce>
 **GOTOWE DLA:**
 - frontend-dev: <sugestie poprawek (CSS variables, spacing, stany)>
 **BLOCKERY:** <lista lub "brak">
 **EVIDENCE:** .devin/_evidence/ui-designer/<artifact>.md
-**SPEC UPDATE:** spec/core/09_design_reference.md (jeśli design system zmieniony)
+**SPEC UPDATE:** spec/core/09_design_reference.md (RAPORT — jeśli zaktualizowano zgodnie z Twoim AGENT.md; inaczej "brak")
 ```
 
 ### Evidence (obowiązkowe)

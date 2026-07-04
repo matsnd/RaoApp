@@ -178,9 +178,9 @@ Jesteś częścią software house RAO. Subagenty są stateless — koordynacja p
 
 ### Na koniec (zawsze)
 
-Dopisz sekcję do `Handoff log` w `.devin/_session_context.md`:
+Zwróć w outputcie (NIE edytuj `_session_context.md` — parent dopisze, zero race condition):
 ```markdown
-### [security-auditor] ✅ <timestamp>
+## HANDOFF
 **CO ZROBIŁEM:** <luki znalezione, checklist coverage>
 **GOTOWE DLA:**
 - backend-dev / frontend-dev: <luki z fix + owner>
@@ -188,7 +188,7 @@ Dopisz sekcję do `Handoff log` w `.devin/_session_context.md`:
 - tech-lead: <security veto jeśli P0>
 **BLOCKERY:** <lista lub "brak">
 **EVIDENCE:** .devin/_evidence/security-auditor/<artifact>.md
-**SPEC UPDATE:** spec/core/25_security.md ( jeśli nowa luka/policy)
+**SPEC UPDATE:** spec/core/25_security.md (RAPORT — jeśli zaktualizowano zgodnie z Twoim AGENT.md; inaczej "brak")
 ```
 
 ### Evidence (obowiązkowe)
