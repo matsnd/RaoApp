@@ -2443,6 +2443,45 @@ depends_on:
 
 ---
 
+### [RAO-P2-066] Rezerwacje maszyn — UI + integracja z availability (martwy moduł backend)
+
+```yaml
+id: RAO-P2-066
+priority: P1
+size: M
+status: triaged
+classification: cross-stack/feature
+roles: [tech-lead, backend-dev, frontend-dev, ux-designer, qa-engineer, product-owner]
+source: analiza wymagań klienta 2026-07-04 (wymaganie #6 NIESPEŁNIONE)
+source_date: 2026-07-04
+specs_to_update:
+  - core/02_backend_api.md (integracja reservations z availability)
+  - core/03_frontend_screens.md (UI rezerwacji)
+  - core/04_business_logic.md (semantyka blokady)
+migration_impact: no (tabela article_reservations istnieje — RAO-P1-015)
+security_impact: low (auth już na endpointach)
+depends_on:
+  - RAO-P1-015 (backend reservations CRUD — istnieje)
+  - RAO-P1-023 (availability check umowa-umowa — istnieje)
+```
+
+**Wymaganie klienta (oryginalne):** "Rezerwacja maszyny na podstawie numerów wewnętrznych — blokada i brak możliwości wynajmu oraz informacji, kiedy będzie dostępny."
+
+**Stan faktyczny (analiza 2026-07-04):**
+- Backend `reservations/` istnieje (RAO-P1-015): CRUD + check_conflict (409 przy nakładających się rezerwacjach)
+- **Frontend: 0 odwołań do /reservations** — moduł całkowicie martwy z perspektywy usera
+- **Rezerwacje NIE blokują wynajmu**: `articles/service.py:check_availability` (używane przez ArticlePicker w umowie) sprawdza TYLKO konflikty umowa↔umowa, ignoruje tabelę `article_reservations`
+- Częściowe pokrycie przez RAO-P1-023: ArticlePicker pokazuje "Wolny/Zajęty" + modal "Maszyna zajęta" z listą umów i datami (soft-block "Mimo to dodaj") — ale to konflikt z UMOWAMI, nie rezerwacjami
+
+**Scope:**
+1. **Backend:** `check_availability` uwzględnia `article_reservations` (reserved_from <= date_to AND reserved_to >= date_from) — konflikt rezerwacji w `conflicting_contracts` (lub osobne pole `conflicting_reservations` z datami "dostępny od")
+2. **Frontend — UI rezerwacji:** widok/modal zarządzania rezerwacjami maszyny (z ArticleFormView lub listy artykułów): lista aktywnych rezerwacji + dodaj (od–do, notatka) + usuń
+3. **Frontend — ArticlePicker:** badge "Zarezerwowany do DD.MM" + modal konfliktu pokazuje rezerwacje z datą dostępności
+4. **Decyzja PO:** hard-block czy soft-block ("Mimo to dodaj") dla rezerwacji — rekomendacja: soft-block jak przy umowach (spójność), ale z wyraźnym ostrzeżeniem
+5. QA: testy pytest (availability z rezerwacją) + e2e (dodanie rezerwacji → maszyna pokazuje "Zarezerwowany")
+
+---
+
 #### Wpływ na inne zadania
 
 | Zadanie | Wpływ | Korzyść |
