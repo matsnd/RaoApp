@@ -11,6 +11,7 @@ permissions:
     - MCP(rao-vision)
     - MCP(codebase-memory)
     - MCP(depwire)
+    - MCP(playwright)
   deny:
     - write
     - edit
@@ -132,14 +133,25 @@ Repo zindeksowane. Używaj graph tools do analizy flow użytkownika w kodzie.
 - `get_file_context` — pełny kontekst widoku `.vue`: co importuje, kto go używa
 - `impact_analysis` — jeśli zmienisz flow (np. dodasz step) → blast radius
 
+### playwright (weryfikacja flow w przeglądarce — headless)
+- `browser_navigate` — otwórz widok `http://localhost:5173/contracts`
+- `browser_snapshot` — accessibility snapshot (struktura strony — co user widzi, w jakiej kolejności)
+- `browser_click` — przejdź przez flow jako user (ile klików do celu? czy button jest reachable?)
+- `browser_evaluate` — sprawdź stan formularza, walidację, error messages
+
 ### Kiedy używać
 - **Flow analysis** → `codebase-memory.query_graph` — wszystkie routy → mapa nawigacji
 - **Przed zmianą flow** → `depwire.impact_analysis` na widoku → zobacz zależności
 - **Szukanie widoków** → `codebase-memory.search_graph` z `name_pattern=".*View.*"`
+- **Ocena flow jako user** → `playwright.browser_navigate` + `browser_click` — przejdź przez flow, policz klików, sprawdź czy button jest reachable
+- **Accessibility snapshot** → `playwright.browser_snapshot` — struktura DOM (czy hierarchy prowadzi usera, czy elementy są w logicznej kolejności)
+- **Ocena intuicyjności** → `rao-vision.screenshot_and_analyze` — czy layout jest intuicyjny? czy user wie gdzie kliknąć?
 
 ### Projekt zindeksowany jako
 - codebase-memory: `C-projects-repos-RaoApp_new`
 - depwire: `C:/projects/repos/RaoApp_new`
+- playwright: headless Chromium na `http://localhost:5173`
+- rao-vision: Claude Vision API (~$0.01-0.03 per screenshot)
 
 ## Vision Verification (kiedy używać rao-vision)
 
