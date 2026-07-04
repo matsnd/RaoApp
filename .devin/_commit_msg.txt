@@ -1,28 +1,13 @@
-feat(pdf): RAO-P2-064 — opcje wydruku hide_delivery_address + signatures_on_page1 + cleanup report_without_data
+docs(backlog): RAO-P2-065 — findings z full-team review statystyk
 
-3 checkboxy w formularzu umowy były zapisywane w DB ale NIE używane w szablonach PDF
-(silent feature gap — user klika, nic się nie dzieje, traci zaufanie).
-
-FIX (2 z 3 opcji):
-- hide_delivery_address=TRUE → label "Adres dostawy:" + puste pole do wpisu ręcznego
-  (zgodnie z UI "klient wpisze ręcznie"). Implementacja w contract.html + contract_u.html
-  z trim whitespace (fix side-effect bug H7).
-- signatures_on_page1=TRUE → sekcja SIGNATURES na str 1; OFF (default) = brak na str 1,
-  tylko na str 2 (OWN, zgodnie z legacy WinForms). Warunkowa {% if %} w obu szablonach.
-
-CLEANUP (1 z 3):
-- report_without_data — DEPRECATED (martwe pole). DB comment "PZ bez danych" = osobny
-  raport (Protokół ZO bez danych), osiągalny przez context menu (report_type=protocol_zo_nodata).
-  Checkbox USUNIĘTY z ContractFormView.vue. Pole zostaje w DB dla compat migracji.
-
-TESTS:
-- backend/tests/unit/test_pdf_options.py — 9 testów pytest (happy path + edge cases +
-  regresja bugów). Mock build_contract_data z spec=Contract. pdfplumber do ekstrakcji tekstu.
-- vue-tsc --noEmit: PASS
-- npm run build: PASS
-
-Spec sync: 03_frontend_screens.md (2 checkboxy zamiast 3), 04_business_logic.md (sekcja
-14b — semantyka flag), 07_integrations.md (sekcja PDF — opcje wydruku).
+Review zespołowy (PO + QA + UI designer + tech-lead vision review przez Playwright):
+- Separacja legacy/nowe: POTWIERDZONA na 3 warstwach (modele, dane, frontend)
+- 5/6 wymagań klienta spełnionych — brak ROI w AnalyticsView (endpoint istnieje,
+  nie podpięty do UI)
+- 4 bugi P1 (ROI, contractor_name=null, 422 per_page=500, currently-rented bez
+  is_settled), 9 P2 (UX/funkcjonalność), 6 P3 (design system, w tym literówka
+  --color-text-mutetd)
+- Oceny: PO 7/10, QA 7/10, UI 6.5/10
 
 Generated with [Devin](https://devin.ai)
 

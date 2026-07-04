@@ -2334,7 +2334,7 @@ archive_contract_settlements  ← legacy rozliczenia (source='legacy', cennik ×
 id: RAO-P2-064
 priority: P1
 size: M
-status: done (2026-07-01)
+status: in-progress
 classification: cross-stack/bugfix+feature
 roles: [tech-lead, backend-dev, frontend-dev, qa-engineer, product-owner]
 source: operator-request
@@ -2384,6 +2384,62 @@ Pola zapisywane w DB (contracts table, BOOLEAN NOT NULL DEFAULT FALSE) ale **ŻA
 - `ContractFormView.vue:191`: usuń checkbox report_without_data
 - `backend/tests/unit/test_pdf_options.py`: 12 testów pytest (happy path + edge cases + regresja)
 - Spec sync: 03_frontend_screens.md, 04_business_logic.md, 07_integrations.md
+
+---
+
+### [RAO-P2-065] Statystyki — poprawki po full-team review (ROI, kontrahent, kategorie, bugi UX/UI)
+
+```yaml
+id: RAO-P2-065
+priority: P1
+size: M
+status: triaged
+classification: cross-stack/bugfix+feature
+roles: [tech-lead, backend-dev, frontend-dev, ui-designer, qa-engineer, product-owner]
+source: full-team review 2026-07-04 (PO 7/10, QA 7/10, UI 6.5/10 + tech-lead vision review)
+source_date: 2026-07-04
+specs_to_update:
+  - core/09_design_reference.md (amber=legacy akcent, pill radius, zakaz emoji jako ikon)
+  - core/11_reports_stats.md (ROI w AnalyticsView)
+migration_impact: no
+security_impact: low
+depends_on:
+  - RAO-P2-063 (AnalyticsView — foundation)
+```
+
+**Źródło:** Pełny review statystyk (wygląd + funkcjonalność + wymagania klienta + separacja legacy/nowe) przez zespół: product-owner, qa-engineer, ui-designer + tech-lead (screenshoty Playwright na żywo).
+
+**Werdykt ogólny:** Separacja legacy/nowe POTWIERDZONA na 3 warstwach (modele — 0 importów archive_* w stats/; dane — rozłączne article_id; frontend — analytics.ts woła tylko /stats+/explorer, archive.ts tylko /archive). Gruba krecha wzorowa: osobne widoki, banner ⚠️, suffix [szac.], amber akcent. 5/6 wymagań klienta spełnionych.
+
+#### 🔴 P1 — bugi funkcjonalne
+
+1. **Brak ROI (stopy zwrotu) w AnalyticsView** — GŁÓWNE wymaganie klienta #1. Endpoint `/stats/machine-roi` istnieje ale NIE jest podpięty (analytics.ts nie ma fetchMachineRoi, żaden tab nie renderuje ROI). Paradoks: ROI jest tylko w Archiwum (szacunki), a nie tam gdzie realne kwoty. FIX: dodać metric ROI + replacement_value do DrillDownDrawer maszyny (~4h).
+2. **`contractor_name: null` w /stats/currently-rented** — tabela "Maszyny aktualnie wynajęte" i drill-down pokazują "—" zamiast kontrahenta. Root cause: router.py:241 bierze `Contract.contractor_name` (snapshot, NULL dla umów z contractor_id) zamiast JOIN z contractors. FIX: `func.coalesce(Contractor.name, Contract.contractor_name)` + LEFT JOIN (~1h).
+3. **422 na /contractors?per_page=500 → pusty dropdown kontrahentów w filtrach** — AnalyticsView.vue:130 woła per_page=500, backend ma le=200. Filtr KONTRAHENT nie ma żadnych opcji. FIX: per_page=200 lub podnieść limit backendu (~15min).
+4. **/stats/currently-rented bez `is_settled==False` i bez `date_to IS NULL`** — rozliczone umowy liczone jako wynajęte; umowy na czas nieokreślony pomijane. Niespójność z fleet-summary (ma oba warunki) → utylizacja % może się rozjechać. FIX: dodać warunki jak w fleet-summary:110 (~30min).
+
+#### 🟡 P2 — funkcjonalność / UX
+
+5. **Filtr KONTRAHENT (datalist value=id) przyjmuje dowolny tekst** — wpisanie "kop" zamiast ID cicho zawęża wszystkie taby do 0 wyników bez komunikatu (zweryfikowane na żywo: Explorer "koparka" → 0 wyników przy filtrze "kop", 6 wyników po wyczyszczeniu). FIX: walidacja/select zamiast wolnego tekstu + empty state z podpowiedzią "sprawdź aktywne filtry".
+6. **Brak sekcji Kategorii w PeriodRentalTab** — wymaganie klienta #5 ("top maszyny + kategorie"). Backend /stats/by-category + store byCategoryData gotowe, tylko UI brakuje (~2h).
+7. **Drill-down maszyny bez nr wewnętrznego w tytule** — machineDetails.machine.internal_number jest w responsie, nie renderowane (~15min).
+8. **/explorer/search `total` = len(strony)** zamiast total count (router.py:172) — paginacja zepsuta; pole `city` w response to delivery_address (mylące).
+9. **Lokalizacje: "(brak PNA)"** bez fallbacku do city — mało czytelne dla usera.
+10. **Brak walidacji date_from > date_to** — 200 z pustymi danymi zamiast 422; user widzi mylące "0 zł".
+11. **KPI "Przychód w okresie" sumuje rzeczywiste+szacunek w jednej liczbie** (19 250 = 9100+10 150) — breakdown jest pod spodem, ale główny KPI powinien być oznaczony "razem (rzecz.+szac.)".
+12. **~2s overhead na KAŻDYM request** (nawet /health bez auth) — middleware/startup do zdiagnozowania; psuje płynność przełączania filtrów.
+13. **Brak testów e2e dla AnalyticsView** — zero pokrycia regresyjnego nowego widoku.
+
+#### 🟢 P3 — wygląd / design system (UI review 6.5/10)
+
+14. **LITERÓWKA `--color-text-mutetd`** (ArchiveView.vue:1140) — zmienna nie istnieje, .est-value bez koloru muted. Production bug (~1min).
+15. **Duplikacja globalnych stylów drawer** — DrillDownDrawer.vue i ArchiveView.vue definiują te same klasy .drill-* w non-scoped style; ArchiveView powinien używać komponentu DrillDownDrawer.
+16. **Emoji jako ikony** (🚜📅🔍✅💰🏆📍📋⚠️) zamiast lucide-vue-next — niespójne z design system.
+17. **Dwa systemy tabel** (.data-grid vs .analytics-table — różne hover, max-width) i **dwa systemy tabów** (pill vs underline w Archive).
+18. **Brak :focus-visible** na wszystkich buttonach analytics (WCAG 2.1 AA).
+19. **H1 20px zamiast 24px**; sort-icon 10px off-scale; spacing 2px/20px off-grid.
+
+**Oceny zespołu:** PO 7/10 · QA 7/10 · UI 6.5/10. Główny brak: ROI (wymaganie #1 klienta) niedostępne w nowym widoku.
 
 ---
 
