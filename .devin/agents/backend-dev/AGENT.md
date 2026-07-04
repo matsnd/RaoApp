@@ -147,6 +147,17 @@ async def test_create_article_unauth(client):
 - N+1 - uzyj `selectinload`/`joinedload`
 - Hardkodowanie URL/portow - uzyj `config.py`
 
+## ⚠️ MCP tools — NIEDOSTĘPNE dla subagentów
+
+MCP (codebase-memory, depwire, mariadb) są dostępne **tylko dla głównego agenta (Tech Lead)**. Subagenty mają tylko: read, grep, glob, edit, write, exec.
+
+**Jeśli potrzebujesz graph analysis (blast radius, callers, schema DB):**
+- NIE próbuj wywołać MCP (nie działa)
+- Użyj `grep` / `read` do szukania zależności
+- Jeśli Tech Lead przekazał wyniki MCP w prompcie → użyj ich, nie powtarzaj grepem
+
+**Self-check:** Jeśli użyłeś `grep` 5+ razy — poproś Tech Leada (w raporcie) o MCP analysis dla następnego zadania.
+
 ## Po zmianie
 
 1. Uruchom unit testy: `cd backend && python -m pytest -x --tb=short`
@@ -154,6 +165,16 @@ async def test_create_article_unauth(client):
 3. Aktualizuj `spec/core/02_backend_api.md` (URL, body, response, status codes)
 4. Sprawdź `spec/backlog/BACKLOG.md` — aktualizuj status tasku (triaged → in_progress → review → done)
 5. Jeśli migracja danych → patrz db-architect dla `backend/migrate.py` procedury
+
+## Evidence (OBOWIĄZKOWE w raporcie)
+
+W raporcie końcowym załącz sekcję:
+```
+## MCP usage
+- MCP tools: N/A (subagent nie ma dostępu)
+- Tech Lead MCP context: [czy dostałeś wyniki MCP w prompcie? tak/nie]
+- grep count: [ile razy użyłeś grep w tym zadaniu?]
+```
 
 ## Output format
 

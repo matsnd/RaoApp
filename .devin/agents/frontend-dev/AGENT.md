@@ -183,52 +183,19 @@ cd frontend && npx vue-tsc --noEmit
 
 Musi przejsc bez bledow.
 
-## MCP tools (codebase-memory + depwire)
+## ⚠️ MCP tools — NIEDOSTĘPNE dla subagentów
 
-Repo zindeksowane. Używaj graph tools do szukania komponentów, stores, zależności cross-file.
+MCP (codebase-memory, depwire, mariadb, playwright, rao-vision) są dostępne **tylko dla głównego agenta (Tech Lead)**. Subagenty mają tylko: read, grep, glob, edit, write, exec.
 
-### codebase-memory
-- `search_graph` — znajdź komponenty/stores: `query="contract form"` lub `name_pattern=".*ContractForm.*"`
-- `get_code_snippet` — czytaj kod komponentu po `qualified_name`
-- `trace_path` — kto używa `useContractsStore` (inbound) / co store wywołuje (outbound)
-- `query_graph` — Cypher: wszystkie stores `MATCH (s:Function) WHERE s.file CONTAINS 'stores/' RETURN s.name`
+**Jeśli potrzebujesz:**
+- Graph analysis (blast radius, callers) → użyj `grep` / `read`
+- Schema DB → poproś Tech Leada w prompcie (on ma `mariadb.get_table_schema`)
+- Browser verification → `npm run build` + `vue-tsc` (programatyczna weryfikacja)
+- Vision verification → Tech Lead uruchomi `rao-vision` po Twoim raporcie
 
-### depwire
-- `get_file_context` — pełny kontekst pliku `.vue`: symbole, importy, eksporty, kto importuje
-- `impact_analysis` — co się zepsuje jeśli zmienisz `DataGrid` komponent (wszystkie widoki które go używają)
-- `get_dependents` — kto zależy od `useApi` composable
-- `find_dead_code` — nieużywane komponenty/composables (cleanup)
+**Jeśli Tech Lead przekazał wyniki MCP w prompcie** → użyj ich, nie powtarzaj grepem.
 
-### mariadb (kontekst schema dla formularzy)
-- `get_table_schema` — sprawdź kolumny tabeli przed dodaniem pola formularza (czy `max_length`, `nullable`)
-- `get_table_schema_with_relations` — sprawdź FK relacje dla dropdownów (np. `contractor_id` → `contractors`)
-
-### playwright (weryfikacja w przeglądarce — headless)
-- `browser_navigate` — otwórz widok `http://localhost:5173/contracts`
-- `browser_snapshot` — accessibility snapshot (struktura DOM bez screenshotu — szybkie, darmowe)
-- `browser_click` — kliknij element (test interakcji)
-- `browser_take_screenshot` — zrób screenshot (potem `rao-vision.analyze_screenshot` jeśli potrzebna analiza wizualna)
-- `browser_evaluate` — uruchom JS w stronie (sprawdź stan Pinia store, computed values)
-
-### Kiedy używać
-- **Przed dodaniem komponentu** → `codebase-memory.search_graph` czy podobny już istnieje (unikaj duplikacji)
-- **Przed zmianą shared komponentu** (DataGrid, ArticlePicker) → `depwire.impact_analysis` → blast radius
-- **Refactor store** → `depwire.get_dependents` na storze → zobacz wszystkie widoki które go używają
-- **Szukanie composable** → `codebase-memory.search_graph` z `semantic_query=["fetch","api","request"]`
-- **Form fields** → `mariadb.get_table_schema` — sprawdź `max_length`, `nullable` przed dodaniem pola formularza
-- **Weryfikacja po zmianie (poziom 2 — programatyczna w przeglądarce):**
-  - `playwright.browser_navigate` → `playwright.browser_snapshot` — sprawdź czy element istnieje w DOM (szybsze niż vision)
-  - `playwright.browser_click` — testuj interakcje (czy button działa, czy form submituje)
-  - `playwright.browser_evaluate` — sprawdź stan store/rekwizyty bez screenshotu
-- **Weryfikacja po zmianie (poziom 3 — vision, ZAWSZE):** automatycznie po każdej zmianie UI — darmowy Nemotron przez OpenRouter, fallback Claude
-  - `rao-vision.screenshot_and_analyze` — screenshot + analiza w jednym
-  - `rao-vision.analyze_screenshot` — analiza istniejącego pliku PNG (np. z playwright)
-
-### Projekt zindeksowany jako
-- codebase-memory: `C-projects-repos-RaoApp_new`
-- depwire: `C:/projects/repos/RaoApp_new`
-- mariadb: baza `rao_new` na `localhost:3306`
-- playwright: headless Chromium na `http://localhost:5173`
+**Self-check:** Jeśli użyłeś `grep` 5+ razy — poproś Tech Leada (w raporcie) o MCP analysis dla następnego zadania.
 
 ## Po zmianie
 

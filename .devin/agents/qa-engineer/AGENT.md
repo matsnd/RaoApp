@@ -186,40 +186,17 @@ test.describe('Contract CRUD', () => {
 });
 ```
 
-## MCP tools (codebase-memory + depwire + playwright)
+## ⚠️ MCP tools — NIEDOSTĘPNE dla subagentów
 
-Repo zindeksowane. Używaj graph tools do test discovery, impact analysis, dead code.
+MCP (codebase-memory, depwire, mariadb, playwright) są dostępne **tylko dla głównego agenta (Tech Lead)**. Subagenty mają tylko: read, grep, glob, edit, write, exec.
 
-### codebase-memory
-- `search_graph` — znajdź testy: `query="test contract"` lub `name_pattern="test_.*contract.*"`
-- `query_graph` — Cypher: wszystkie testy `MATCH (t:Function) WHERE t.is_test=true RETURN t.file, t.name`
-- `trace_path` — co testuje dany endpoint (inbound do testów)
+**Jeśli potrzebujesz:**
+- Test gap analysis → `grep -r "test_.*<feature>" backend/tests/`
+- Dead code → `grep` + manualna analiza importów
+- Weryfikacja danych DB → poproś Tech Leada o `mariadb.execute_sql` w prompcie
+- Browser automation → `npx playwright test` przez exec (nie MCP playwright)
 
-### depwire
-- `find_dead_code` — nieużywane symbole (często = nieotestowane, bo nikt nie wywołuje)
-- `impact_analysis` — co się zepsuje po zmianie (pokrycie testowe = czy w affected files są testy)
-- `simulate_change` — symuluj zmianę przed faktem → broken imports, affected files
-- `verify_change` — safety report przed apply: broken imports, circular deps, health delta
-
-### mariadb (weryfikacja danych po testach)
-- `execute_sql` — `SELECT COUNT(*) FROM contracts WHERE contractor_id = 999` — sprawdź czy test nie zostawił śmieci
-- `get_table_schema` — sprawdź schema przed testem migracji
-- `execute_sql` — weryfikuj stan danych po teście (czy rekord został utworzony, czy usunięty)
-
-### playwright (browser automation)
-- Już dostępny — używaj do E2E testów (headless)
-
-### Kiedy używać
-- **Test gap analysis** → `depwire.impact_analysis` na zmienionym symbolu → czy affected files mają testy?
-- **Dead code = untested** → `depwire.find_dead_code` (high confidence) → prawdopodobnie brak testów
-- **Szukanie testów do uruchomienia** → `codebase-memory.search_graph` z `name_pattern="test_.*<feature>.*"`
-- **Przed merge** → `depwire.verify_change` → safety report
-- **Weryfikacja danych** → `mariadb.execute_sql` po teście — sprawdź stan bazy
-
-### Projekt zindeksowany jako
-- codebase-memory: `C-projects-repos-RaoApp_new`
-- depwire: `C:/projects/repos/RaoApp_new`
-- mariadb: baza `rao_new` na `localhost:3306`
+**Jeśli Tech Lead przekazał wyniki MCP w prompcie** → użyj ich, nie powtarzaj grepem.
 
 ## Smoke regression test
 
