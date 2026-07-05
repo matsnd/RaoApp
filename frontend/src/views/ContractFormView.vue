@@ -239,7 +239,7 @@
                 <td>{{ pos.billing_frequency || '—' }}</td>
                 <td><span class="badge badge-info">{{ pos.conditions_count || 0 }}</span></td>
                 <td>{{ pos.supplier_name || '—' }}</td>
-                <td>{{ pos.delivery_date ? new Date(pos.delivery_date).toLocaleDateString('pl-PL') : '—' }}</td>
+                <td>{{ pos.delivery_date ? formatDate(pos.delivery_date) : '—' }}</td>
                 <td>
                   <button class="btn-icon" title="Edytuj" @click.stop="editPosition(pos)">✎</button>
                   <button class="btn-icon" title="Usuń" @click.stop="deletePosition(pos)">✕</button>
@@ -304,8 +304,8 @@
                 <!-- DISPLAY MODE -->
                 <tr v-else @click="startEditFee(fee)" style="cursor:pointer;" :class="{ 'row-inactive': !fee.is_active }">
                   <td>{{ fee.name }}</td>
-                  <td>{{ fee.amount_from ? Number(fee.amount_from).toFixed(2) + ' zł' : '—' }}</td>
-                  <td>{{ fee.amount_to ? Number(fee.amount_to).toFixed(2) + ' zł' : '—' }}</td>
+                  <td>{{ fee.amount_from ? formatCurrency(fee.amount_from) : '—' }}</td>
+                  <td>{{ fee.amount_to ? formatCurrency(fee.amount_to) : '—' }}</td>
                   <td>{{ fee.unit || '—' }}</td>
                   <td style="font-size:11px;">{{ formatDescription(fee.description, fee.amount_from, fee.amount_to) }}</td>
                   <td style="text-align:center;"><span :class="['badge', fee.is_active ? 'badge-success' : 'badge-muted']">{{ fee.is_active ? 'Tak' : 'Nie' }}</span></td>
@@ -346,7 +346,7 @@
               <span style="font-size:11px;color:#5A6B7E;">Koszt klienta vs koszt firmy</span>
               <!-- RAO-P2-022: status badge -->
               <span v-if="form.is_settled" class="settled-badge-sm">
-                ✓ Rozliczona{{ form.settled_at ? ' · ' + new Date(form.settled_at).toLocaleDateString('pl-PL') : '' }}
+                ✓ Rozliczona{{ form.settled_at ? ' · ' + formatDate(form.settled_at) : '' }}
               </span>
             </div>
             <div style="display:flex;gap:8px;align-items:center;">
@@ -385,7 +385,7 @@
             <div v-else>
               <div v-for="inv in fakturowniaStore.invoices" :key="inv.invoice_number" style="margin-bottom:12px;background:white;padding:8px;border-radius:4px;border:1px solid #e2e8f0;">
                 <div style="font-weight:600;font-size:12px;color:#2d3748;margin-bottom:4px;">
-                  Faktura {{ inv.invoice_number }} — Netto: {{ inv.total_net.toFixed(2) }} zł
+                  Faktura {{ inv.invoice_number }} — Netto: {{ formatCurrency(inv.total_net) }}
                 </div>
                 <table style="width:100%;font-size:11px;border-collapse:collapse;">
                   <thead>
@@ -400,8 +400,8 @@
                     <tr v-for="line in inv.lines" :key="line.funkurownia_product_id" style="border-bottom:1px solid #edf2f7;">
                       <td style="padding:4px;">{{ line.funkurownia_product_name }}</td>
                       <td style="text-align:right;padding:4px;">{{ line.quantity }}</td>
-                      <td style="text-align:right;padding:4px;">{{ line.price_net.toFixed(2) }} zł</td>
-                      <td style="text-align:right;padding:4px;">{{ line.total_net.toFixed(2) }} zł</td>
+                      <td style="text-align:right;padding:4px;">{{ formatCurrency(line.price_net) }}</td>
+                      <td style="text-align:right;padding:4px;">{{ formatCurrency(line.total_net) }}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -479,7 +479,7 @@
                 </td>
                 <td>
                   <span :style="{ color: s.margin > 0 ? 'green' : s.margin < 0 ? 'red' : 'inherit', fontWeight: '600' }">
-                    {{ (s.margin !== null && !isNaN(s.margin)) ? Number(s.margin).toFixed(2) + ' zł' : '—' }}
+                    {{ (s.margin !== null && !isNaN(s.margin)) ? formatCurrency(s.margin) : '—' }}
                   </span>
                 </td>
                 <td>
@@ -1012,6 +1012,7 @@ import { useArticleStore } from '@/stores/articles'
 import { useSettingsStore } from '@/stores/settings'
 import { useFakturowniaStore } from '@/stores/fakturownia'
 import { useToastStore } from '@/stores/toast'
+import { formatCurrency, formatDate } from '@/utils/format'
 import ConditionPanel from '@/components/contracts/ConditionPanel.vue'
 import ServiceHourGrid from '@/components/contracts/ServiceHourGrid.vue'
 import ContractPeriodPicker from '@/components/shared/ContractPeriodPicker.vue'
@@ -1568,7 +1569,7 @@ async function handleFakturownia() {
     await fakturowniaStore.fetchInvoicesByContractId(contractStore.current.id)
     if (fakturowniaStore.invoices.length > 0) {
       const total = fakturowniaStore.invoices.reduce((sum, inv) => sum + inv.total_net, 0)
-      toastStore.error(`Pobrano ${fakturowniaStore.invoices.length} faktur o łącznej kwocie ${total.toFixed(2)} zł`)
+      toastStore.success(`Pobrano ${fakturowniaStore.invoices.length} faktur o łącznej kwocie ${formatCurrency(total)}`)
     } else {
       toastStore.error('Brak faktur dla tej umowy')
     }
