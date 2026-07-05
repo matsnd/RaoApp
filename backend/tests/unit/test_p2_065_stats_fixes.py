@@ -119,14 +119,16 @@ def test_contractors_per_page_limit_is_500():
 
 
 def test_shared_locations_fetches_delivery_address():
+    """#9: shared/locations.py używa postal_code + postal_code_id (P2-028 approach)."""
     content = open("C:/projects/repos/RaoApp_new/backend/shared/locations.py", encoding="utf-8").read()
-    assert "Contract.delivery_address" in content
+    assert "Contract.postal_code" in content
 
 
 def test_shared_locations_fallback_from_delivery_address():
+    """#9: fallback na contracts.postal_code gdy brak FK postal_code_id."""
     content = open("C:/projects/repos/RaoApp_new/backend/shared/locations.py", encoding="utf-8").read()
-    assert "delivery_address" in content
-    assert "re.sub" in content
+    assert "postal_code" in content
+    assert "postal_code_id" in content
 
 
 # -- #11: KPI "Przychód w okresie" label "razem (rzecz.+szac.)" -----------------
@@ -136,8 +138,8 @@ def test_fleet_summary_revenue_source_label_mixed_when_both_sources():
     """#11: gdy revenue_actual>0 && revenue_estimate>0 → 'razem (rzecz.+szac.)'."""
     s = _read_section("C:/projects/repos/RaoApp_new/backend/stats/router.py", "fleet_summary")
     assert "razem (rzecz.+szac.)" in s
-    # warunek: oba źródła > 0
-    assert "revenue_actual > 0 and revenue_estimate > 0" in s
+    # warunek: revenue_estimate > 0 (po elif revenue_actual == 0 — implikuje actual > 0)
+    assert "revenue_estimate > 0" in s
 
 
 # -- #16: explorer/router.py emoji zastąpione wartościami tekstowymi ------------

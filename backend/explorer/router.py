@@ -135,15 +135,15 @@ async def explorer_search(
     result = await db.execute(query)
     rows = result.mappings().all()
     
-    # Format results with type indicator
+    # Format results with type indicator (RAO-P2-065 #16: text values, not emoji)
     for row in rows:
-        item_type = "🏗️"  # Machine default
+        item_type = "machine"  # Machine default
         if row.is_service:
-            item_type = "🛠️"  # Service
-        
+            item_type = "service"
+
         results.append({
             "type": item_type,
-            "type_label": "Maszyna" if item_type == "🏗️" else "Usługa",
+            "type_label": "Maszyna" if item_type == "machine" else "Usługa",
             "id": row.id,
             "article_id": row.article_id,
             "name": f"{row.article_name} ({row.internal_number})" if row.internal_number else row.article_name,
