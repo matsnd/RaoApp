@@ -378,7 +378,6 @@ SELECT id, contractor_id, branch_id, salesperson_id, number, oid, auto_number,
        hide_delivery_address, signatures_on_page1, working_days_per_week,
        position_count, is_settled, settled_at, created_at, updated_at
 FROM `contracts`
-
 """
 
 # archive_contract_positions: pozycje dla legacy umów
@@ -392,7 +391,7 @@ SELECT cp.id, cp.contract_id, cp.article_id, cp.rental_type, cp.description,
        cp.billing_frequency, cp.billing_unit, cp.supplier_id, cp.delivery_date,
        cp.article_name
 FROM `contract_positions` cp
-WHERE cp.contract_id IN (SELECT id FROM `contracts` )
+WHERE cp.contract_id IN (SELECT id FROM `contracts`)
 """
 
 # archive_position_conditions: warunki dla legacy pozycji
@@ -405,7 +404,7 @@ SELECT pc.id, pc.position_id, pc.rate_type_id, pc.description, pc.rate1, pc.rate
 FROM `position_conditions` pc
 WHERE pc.position_id IN (
   SELECT cp.id FROM `contract_positions` cp
-  WHERE cp.contract_id IN (SELECT id FROM `contracts` )
+  WHERE cp.contract_id IN (SELECT id FROM `contracts`)
 )
 """
 
@@ -447,24 +446,24 @@ ALL_INSERTS = [
 # Po pierwszym uruchomieniu nie ma już legacy wierszy -> DELETE = no-op (idempotentne).
 DEL_SETTLEMENTS = (
     "DELETE FROM `contract_settlements` "
-    "WHERE contract_id IN (SELECT id FROM `contracts` )"
+    "WHERE contract_id IN (SELECT id FROM `contracts`)"
 )
 DEL_SERVICE_FEES = (
     "DELETE FROM `contract_service_fees` "
-    "WHERE contract_id IN (SELECT id FROM `contracts` )"
+    "WHERE contract_id IN (SELECT id FROM `contracts`)"
 )
 DEL_CONDITIONS = (
     "DELETE FROM `position_conditions` "
     "WHERE position_id IN ("
     "  SELECT cp.id FROM `contract_positions` cp "
-    "  WHERE cp.contract_id IN (SELECT id FROM `contracts` )"
+    "  WHERE cp.contract_id IN (SELECT id FROM `contracts`)"
     ")"
 )
 DEL_POSITIONS = (
     "DELETE FROM `contract_positions` "
-    "WHERE contract_id IN (SELECT id FROM `contracts` )"
+    "WHERE contract_id IN (SELECT id FROM `contracts`)"
 )
-DEL_CONTRACTS = "DELETE FROM `contracts` "
+DEL_CONTRACTS = "DELETE FROM `contracts`"
 
 ALL_DELETES = [
     ("contract_settlements", DEL_SETTLEMENTS),
@@ -536,28 +535,27 @@ async def pre_check_counts(conn) -> dict:
     counts = {}
     queries = {
         "contracts_total": "SELECT COUNT(*) FROM `contracts`",
-        "contracts_total": "SELECT COUNT(*) FROM `contracts` ",
         "positions_legacy": (
             "SELECT COUNT(*) FROM `contract_positions` "
-            "WHERE contract_id IN (SELECT id FROM `contracts` )"
+            "WHERE contract_id IN (SELECT id FROM `contracts`)"
         ),
         "conditions_legacy": (
             "SELECT COUNT(*) FROM `position_conditions` "
             "WHERE position_id IN (SELECT cp.id FROM `contract_positions` cp "
-            "WHERE cp.contract_id IN (SELECT id FROM `contracts` ))"
+            "WHERE cp.contract_id IN (SELECT id FROM `contracts`))"
         ),
         "service_fees_legacy": (
             "SELECT COUNT(*) FROM `contract_service_fees` "
-            "WHERE contract_id IN (SELECT id FROM `contracts` )"
+            "WHERE contract_id IN (SELECT id FROM `contracts`)"
         ),
         "settlements_legacy": (
             "SELECT COUNT(*) FROM `contract_settlements` "
-            "WHERE contract_id IN (SELECT id FROM `contracts` )"
+            "WHERE contract_id IN (SELECT id FROM `contracts`)"
         ),
         "articles_legacy": (
             "SELECT COUNT(*) FROM `articles` a WHERE a.id IN ("
             "SELECT DISTINCT cp.article_id FROM `contract_positions` cp "
-            "WHERE cp.contract_id IN (SELECT id FROM `contracts` ))"
+            "WHERE cp.contract_id IN (SELECT id FROM `contracts`))"
         ),
         "categories_total": "SELECT COUNT(*) FROM `categories`",
         "orphan_positions": (
@@ -618,43 +616,42 @@ async def main() -> int:
     deleted = {}
     results = []
     try:
-        # Pre-check: zlicz legacy dane
-        log("--- PRE-CHECK: zliczanie legacy danych ---")
-        pre_counts = await pre_check_counts(conn)
-        for k, v in pre_counts.items():
-            log(f"  {k} = {v}")
-
-        if pre_counts["contracts_total"] == 0:
-            log("Brak umów w bazie — nic do zrobienia.")
-            log("Sprawdzam czy archive_* mają dane (re-run po sukcesie)...")
-            async with conn.cursor() as cur:
-                await cur.execute("SELECT COUNT(*) FROM `archive_contracts`")
-                ac = (await cur.fetchone())[0]
-            if ac > 0:
-                log(f"archive_contracts ma {ac} rekordów — migracja już wykonana. Weryfikuję...")
-                results = await verify(conn)
-                for label, val in results:
-                    log(f"  {label} = {val}")
-                await conn.commit()
-                return 0
-            else:
-                log("archive_contracts puste — brak danych do migracji. Kończę.")
-                await conn.commit()
-                return 0
-
-        # 2. CREATE TABLE IF NOT EXISTS archive_* (DDL)
+        # 1. CREATE TABLE IF NOT EXISTS archive_* (DDL) — PRZED pre-check
         log("--- KROK 1/3: CREATE TABLE IF NOT EXISTS archive_* ---")
         for name, ddl in ALL_DDL:
             async with conn.cursor() as cur:
                 await cur.execute(ddl)
             log(f"  CREATE TABLE IF NOT EXISTS {name}: OK")
 
-        # 3. INSERT IGNORE legacy -> archive_*
+        # Pre-check: zlicz legacy dane
+        log("--- PRE-CHECK: zliczanie legacy danych ---")
+        pre_counts = await pre_check_counts(conn)
+        for k, v in pre_counts.items():
+            log(f"  {k} = {v}")
+
+        # Skip jeśli archiwum już ma dane (re-run po sukcesie lub --demo)
+        async with conn.cursor() as cur:
+            await cur.execute("SELECT COUNT(*) FROM `archive_contracts`")
+            ac = (await cur.fetchone())[0]
+        if ac > 0:
+            log(f"archive_contracts ma {ac} rekordów — migracja już wykonana. Weryfikuję...")
+            results = await verify(conn)
+            for label, val in results:
+                log(f"  {label} = {val}")
+            await conn.commit()
+            return 0
+
+        if pre_counts["contracts_total"] == 0:
+            log("Brak umów w bazie i archiwum puste — brak danych do migracji. Kończę.")
+            await conn.commit()
+            return 0
+
+        # 2. INSERT IGNORE legacy -> archive_*
         log("--- KROK 2/3: INSERT IGNORE legacy -> archive_* ---")
         for name, sql in ALL_INSERTS:
             inserted[name] = await run_statement(conn, f"INSERT {name}", sql)
 
-        # 4. DELETE legacy z tabel oryginalnych (kolejność cascade-safe)
+        # 3. DELETE legacy z tabel oryginalnych (kolejność cascade-safe)
         log("--- KROK 3/3: DELETE legacy z tabel oryginalnych ---")
         for name, sql in ALL_DELETES:
             deleted[name] = await run_statement(conn, f"DELETE {name}", sql)
