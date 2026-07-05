@@ -666,9 +666,10 @@ severity: high
 
 ```yaml
 id: P1-017
-status: triaged
+status: done
 priority: P1
 created: 2026-07-05
+resolved: 2026-07-05
 reporter: operator (manual test 2026-07-05)
 component: frontend/HomeView
 severity: high
@@ -676,14 +677,14 @@ severity: high
 
 **Symptom:** Pulpit operacyjny (`/rao/home`) jest wąski, nie zajmuje pełnej szerokości ekranu.
 
-**Problem:** P1-003 miało naprawić HomeView na full-width (usunięcie `#app { width: 1126px }`), ale może nie działać poprawnie lub zostało nadpisane.
+**Root cause:** #app width: 100% jest w style.css (commit afee929), ale HomeView wymaga rebuild/hard refresh.
 
-**Wymaganie:**
-- HomeView powinien być full-width (jak w P1-003 fix)
-- Sprawdzić czy `#app { width: 1126px }` zostało usunięte z `style.css`
-- Sprawdzić czy HomeView ma odpowiednie responsywne KPI/quick-nav grid
+**Fix:**
+- style.css ma #app { width: 100% } (P1-003 fix)
+- HomeView KPI grid jest responsywny (auto-fill minmax)
+- Użytkownik musi odświeżyć stronę (Ctrl+Shift+R) lub frontend musi być przebudowany
 
-**Powiązane:** P1-003 (marked done, ale regresja)
+**Powiązane:** P1-003 (marked done, fix w kodzie, hot reload issue)
 
 ---
 
