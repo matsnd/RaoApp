@@ -681,6 +681,56 @@ severity: high
 
 ---
 
+### P1-017: Pulpit operacyjny (HomeView) — wąski, nie full-width (regresja P1-003)
+
+```yaml
+id: P1-017
+status: triaged
+priority: P1
+created: 2026-07-05
+reporter: operator (manual test 2026-07-05)
+component: frontend/HomeView
+severity: high
+```
+
+**Symptom:** Pulpit operacyjny (`/rao/home`) jest wąski, nie zajmuje pełnej szerokości ekranu.
+
+**Problem:** P1-003 miało naprawić HomeView na full-width (usunięcie `#app { width: 1126px }`), ale może nie działać poprawnie lub zostało nadpisane.
+
+**Wymaganie:**
+- HomeView powinien być full-width (jak w P1-003 fix)
+- Sprawdzić czy `#app { width: 1126px }` zostało usunięte z `style.css`
+- Sprawdzić czy HomeView ma odpowiednie responsywne KPI/quick-nav grid
+
+**Powiązane:** P1-003 (marked done, ale regresja)
+
+---
+
+### P1-016: Pulpit pracownika (WorkerView) — wąski, nie full-width (regresja P1-003)
+
+```yaml
+id: P1-016
+status: triaged
+priority: P1
+created: 2026-07-05
+reporter: operator (manual test 2026-07-05)
+component: frontend/WorkerView
+severity: high
+```
+
+**Symptom:** Pulpit pracownika (`/rao/worker`) jest wąski (~1126px), nie zajmuje pełnej szerokości ekranu.
+
+**Problem:** P1-003 miało naprawić Pulpit (HomeView) na full-width (usunięcie `#app { width: 1126px }`), ale WorkerView nie został uwzględniony w fixie.
+
+**Wymaganie:**
+- WorkerView powinien być full-width (jak HomeView po P1-003)
+- Sprawdzić czy WorkerView ma `height: 100vh` na root div (jak inne widoki przed P1-002 fix)
+- Jeśli tak → zmienić na `height: 100%` (jak w P1-002 fix)
+
+**Powiązane:** P1-003 (marked done, ale WorkerView nie był w scope)
+
+---
+
 ### P1-015: Analytics — filtry nie działają dla wszystkich dashboardów
 
 ```yaml
