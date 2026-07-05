@@ -60,6 +60,13 @@
 Wymaga comboboxa (input + autouzupełnianie). Naprawa w `AnalyticsFilters.vue`.
 **Impact:** Eksplorator i inne taby analytics — filtr kontrahenta nieużywalny przy dużej liczbie.
 
+### P0-005 — Wszystkie umowy prefiks `S` (niezależnie od typu)
+
+**Data:** 2026-07-05
+**Status:** triaged (zgłoszone przez operatora podczas manualnych testów e2e)
+**Decyzja:** Odłożone. Wymaga zmiany generatora numeru + możliwej migracji istniejących umów z `U` → `S`.
+**Impact:** Obecnie umowy usługowe mają prefiks `U` — niedopuszczalne, wszystkie mają być `S`.
+
 ---
 
 ## P0 — Production Blockers (wszystkie done/team-verified)

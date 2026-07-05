@@ -130,6 +130,36 @@ pole tekstowe z autouzupełnianiem, filtrujące listę w miarę wpisywania.
 
 ---
 
+### P0-005: Wszystkie umowy mają mieć prefiks `S` w numerze (niezależnie od typu)
+
+```yaml
+id: P0-005
+status: triaged
+priority: P0
+created: 2026-07-05
+reporter: operator (manual test 2026-07-05)
+component: backend/contracts (generowanie numeru umowy)
+severity: blocker
+```
+
+**Symptom:** Umowy mają różne prefiksy w zależności od typu (najem S, usługa U).
+W bazie widać numery: `S001/2026`, `U043/2026G`, `S047/2026` itd.
+
+**Wymaganie:** Wszystkie umowy mają się nazywać z prefiksem `S` —
+niezależnie czy to najem czy usługa. Prefiks `U` jest niedopuszczalny.
+
+**Podejrzany plik:** `backend/contracts/service.py` (logika generowania numeru
+umowy — prawdopodobnie switch/if na `contract_type` wybierający literę).
+
+**Fix (propozycja):**
+- Zmienić generator numeru umowy: zawsze `S` zamiast warunkowego `S`/`U`
+- Sprawdzić czy istniejące umowy z `U` wymagają renaminowania (migacja danych?)
+  — prawdopodobnie tak, zapytać operatora
+- Zaktualizować testy e2e/unit które zakładają prefiks `U`
+- Zaktualizować `spec/core/04_business_logic.md` (reguła numeracji umów)
+
+---
+
 ## 🔴 P1 — Must-Have
 *(brak)*
 
@@ -153,7 +183,7 @@ pole tekstowe z autouzupełnianiem, filtrujące listę w miarę wpisywania.
 
 ## 📊 Summary
 
-**Razem:** 4 zadania (P0: 4, done: 1)
+**Razem:** 5 zadań (P0: 5, done: 1)
 
 ### Pipeline weryfikacji (status flow)
 
