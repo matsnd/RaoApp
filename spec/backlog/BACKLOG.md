@@ -799,21 +799,13 @@ severity: high
 - Pole "Pozostało" powinno być obliczane: faktura - przedpłata (read-only)
 - Pole "Przedpłata" — zostawić bo jest na umowie (editable)
 
-**Wymagane zmiany (full-stack):**
-1. **DB schema:** usunąć kolumnę `wartosc_z_rozliczenia` z tabeli `contracts`
-2. **Backend models:** usunąć pole z `Contract` model w SQLAlchemy
-3. **Backend schemas:** usunąć pole z Pydantic schemas (Create/Update/Response)
-4. **Backend service/logic:** usunąć użycia pola w service functions
-5. **Frontend UI:** usunąć pole z ContractFormView (Warunki finansowe)
-6. **Frontend UI:** pole "Faktura" → read-only, suma faktur z Fakturownia
-7. **Frontend UI:** pole "Pozostało" → read-only, obliczane jako faktura - przedpłata
-8. **Frontend UI:** pole "Przedpłata" → zostawić (editable)
+**Wymagane zmiany (frontend-only):**
+1. **Frontend UI:** usunąć pole "Wartość z rozliczenia" z ContractFormView (linie 119-122)
+2. **Frontend UI:** pole "Faktura" → read-only, suma faktur z Fakturownia
+3. **Frontend UI:** pole "Pozostało" → read-only, obliczane jako faktura - przedpłata
+4. **Frontend UI:** pole "Przedpłata" → zostawić (editable)
 
-**Uwaga:** W sekcji "Rozliczenie umowy" jest modal "Faktury z Fakturownia (read-only)" — to zostaje bez zmian.
-
-**Migracja DB:** DROP COLUMN (po backupie) lub soft-delete (set NULL + deprecate w spec).
-
-**⚠️ WYMAGANA ZGODA UŻYTKOWNIKA:** DROP COLUMN na produkcyjnych danych wymaga backupu `mariadb-dump rao_new > backup_before_p1_010.sql` przed migracją.
+**DB change:** NIE wymagane — kolumna `wartosc_z_rozliczenia` nie istnieje w DB (verified via DESCRIBE contracts). Pole to computed property z settlements.
 
 ---
 

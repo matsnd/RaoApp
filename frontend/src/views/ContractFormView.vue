@@ -117,8 +117,8 @@
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label" title="Wartość z rozliczenia (suma kosztów klienta z zakładki Rozliczenie)">Wartość z rozliczenia (zł)</label>
-              <input :value="settlementTotalFormatted" type="text" class="form-control" disabled style="font-weight:700;" />
+              <label class="form-label">Faktura (zł)</label>
+              <input :value="fakturowniaTotalFormatted" type="text" class="form-control" disabled style="font-weight:700;" />
             </div>
             <div class="form-group">
               <label class="form-label">Pozostało (zł)</label>
@@ -1038,17 +1038,19 @@ const settlementTotalValue = computed(() => {
   return settlements.value.reduce((sum, s) => sum + (Number(s.cost_client) || 0), 0)
 })
 
-const settlementTotalFormatted = computed(() => {
-  if (!settlements.value.length) return '— rozlicz umowę'
-  return settlementTotalValue.value.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' zł'
+const fakturowniaTotalFormatted = computed(() => {
+  if (!fakturowniaStore.invoices.length) return '0.00 zł'
+  const total = fakturowniaStore.invoices.reduce((sum, inv) => sum + Number(inv.total_net || 0), 0)
+  return total.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' zł'
 })
 
 const remainingValue = computed(() => {
-  // RAO-P1-021/P2-033: użyj wartości z rozliczenia (total_value usunięte)
-  const total = settlements.value.length ? settlementTotalValue.value : 0
+  // RAO-P1-010: Faktura (Fakturownia) - Przedpłata
+  const total = fakturowniaStore.invoices.length
+    ? fakturowniaStore.invoices.reduce((sum, inv) => sum + Number(inv.total_net || 0), 0)
+    : 0
   const pre = Number(form.value.prepayment_amount) || 0
-  const inv = Number(form.value.invoice_amount) || 0
-  const remaining = total - pre - inv
+  const remaining = total - pre
   return remaining.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' zł'
 })
 
