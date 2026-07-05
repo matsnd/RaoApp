@@ -1,99 +1,42 @@
 # Vision Report
 
-**Plik:** C:\projects\repos\RaoApp\e2e\screenshots\ux-review\03-dashboard-empty.png
-**Model:** claude-opus-4-5
-**Data:** 2026-05-19T08:40:19.145Z
+**Plik:** c:/projects/repos/RaoApp_new/e2e/screenshots/ux-review/03-dashboard-empty.png
+**Model:** nvidia/nemotron-nano-12b-v2-vl:free (openrouter (free))
+**Data:** 2026-07-05T10:41:17.037Z
 
-# Analiza UX/UI Dashboardu RAO - Empty State
+**Analiza dashboardu systemu RAO (wynajem maszyn budowlanych)**
 
-## 📊 Ogólna ocena: **6.5/10**
+**Hierarchia:**
+- **OK:** Główne KPI (np. maszyna rzeczywiście w terenie 5/13, kłacze 62) są wyraźnie widoczne na szczycie dashboardu. Ikony i wartości liczbowe są w przeciętnej odległości od tytułów kart.
+- **Poprawa:** Tytuły sekcji (np. "Układnia" pod KForerowanie") miejscami są ukryte w podsekcjach. Wartości liczbowe pod zadaniami są mniejsze i słabiej wysunięte od opisów działań, co utrudnia szybką skanację.
 
----
+**KPI Cards:**
+- **OK:** Objętość 62 (niewykwykonane) i 2 (kłacze) są wyraźne dzięki kontrastowym kolorom. Ikony wizualnie oddzielają KPI.
+- **Błędy wizualne:** 
+  - Karta "Nieactualny wydruk" (0) ma ikonę zegara, ale podabolismy o nooitniodlonej lokalizacji są niejasne. "Wstrzymato OK" nie zawiera wyjaśnienia, co oznacza.
+  - Karta "Niejedwristczne masyny" używa ikonę 38% zamiast procenta, co może powodować nieporozumienie.
 
-## ✅ CO JEST OK
+**Spacing:**
+- **OK:** Odstępy między kartami (1px) są minimalne, ale zachowują czytelność.
+- **Poprawa:** 
+  - Między podania może być mniej białego miejsca, aby wzmocnić hierarchię. Na przykład między "PO wez Universitetvirk Tvoma 5/13 Pstouv" a "Kłacze 62" jest zbyt mało pustego miejsca, co prowadzi do przetłoczenia informacji.
+  - Wszystkie KPI są wyrównane do lewej, ale reszta dashboardu (np. sekcja Dostawy) stosuje różne ułożenia (wyrównanie do lewej/prawej), co pogarsza czytelność.
 
-### 1. **Hierarchia informacji**
-- Wyraźne powitanie "Dzień dobry!" z datą - dobry punkt startowy
-- Logiczny podział na sekcje: statystyki → alerty → szybkie akcje
-- Karty KPI na górze zgodne z priorytetami operacyjnymi
+**Kolory:**
+- **Błędy wizualne:**
+  - Karty tracly niekorelują z paletą designu RAO (kolor "primary" #1d2b53). Ekranowe przypomnie świetka ('2') są tylko potarte (zielony gradient + ikona boxa wejscia) i tworza konflikc subtelny 35% "liderostnej oddalenIA między elementami pracy a tym, co 62 innych).
+  - Tsvoupami:
+    - "1 Zd-rest考え" (ikona cyclocky) i "Uminan 5/13" nie są spójne stylowo: przycinki typ uznawanych za "wstrzymać" działaja w przekretytr karte, a mas=='C do THcontinentlla wyglada jak Fafran War.
+- **Wymaga poprawy:** Bergmanowska paleta nie przechodzi na karty. Ange Tekst WWW dla sometimes mogą być trudne do odczytania przy szarych tytł noznie.
 
-### 2. **Nawigacja**
-- Menu boczne czytelne, dobrze pogrupowane
-- Aktywna pozycja "Start" wyraźnie zaznaczona
-- Logiczna kolejność: Pulpit → Umowy → Kontrahenci → Artykuły
+**Czytelność:**
+- **Błąd:** Tekst "W az dáltos" w sekcji Dostawy w przekretytr (541kg), być potrakt dissent viewpoint eksplodycji,.option expert view zdefiniowanym stylom. Na skrócie wyniki nie mają porówZewniejszeczek ani wykresów.
+- **Czytelność Kart:** Podpowiedzi przy KPI są wid癣gowe, ale brak porówZewierter zwischen.
 
-### 3. **Call-to-Action**
-- Przyciski "+ Nowa umowa" i "+ Nowy kontrahent" dobrze widoczne
-- Umieszczone w prawym górnym rogu - zgodne z konwencjami
-- Link "Wszystkie umowy →" jako alternatywna ścieżka
+**Podsumowanie:**
+- **OK:** Hierarchia główna jest udostępniona, ikony są rozpoznawalne, KPI bark w przeciętnym stylu.
+- **Wymaga poprawy:** Daltonanz Kolorowe dotrzymanie design system (#1d2b53), odlegany tsvoupami, spójne wzory przy pracy z kartami, testy dostosowania dla dostępności.
+- **Błędy wizualne:** Przecięty gradient bez ogranicnych axemały, zbyt contraintes palety, contradictoria między sekcją Kończice a Dostawy.
 
-### 4. **Empty states - komunikaty**
-- Pozytywne komunikaty "Wszystko OK", "Brak pilnych" - dobre
-- Zielone checkmarki ✓ dają poczucie kontroli
-
----
-
-## ❌ PROBLEMY DO POPRAWY
-
-### 🔴 **KRYTYCZNE**
-
-#### 1. **Niespójność kolorystyczna**
-```
-Problem: Używane kolory wykraczają poza design system
-- Niebieski przycisk CTA ≠ #1D2B53 (wygląda na ~#3B5BDB)
-- Ikony w różnych kolorach (czerwony, żółty, fioletowy) bez systemu
-```
-**Rekomendacja:** Ustal paletę kolorów alertów i trzymaj się jej
-
-#### 2. **Sekcja "Kończące się umowy" - pusty stan**
-```
-Problem: 
-- Brak ikony ilustracyjnej
-- Sam tekst bez wizualnego wsparcia
-- Checkbox ✓ mylący - sugeruje wykonane zadanie, nie pusty stan
-```
-**Rekomendacja:** 
-```
-Dodaj ilustrację empty state + tekst zachęcający:
-"Brak umów kończących się w ciągu 14 dni
-Gdy pojawią się umowy do odnowienia, zobaczysz je tutaj."
-```
-
----
-
-### 🟡 **WAŻNE**
-
-#### 3. **Duplikacja informacji**
-| Górny pasek | Karty poniżej |
-|-------------|---------------|
-| NIEWYDRUKOWANE: 0 | NIEWYDRUKOWANE UMOWY |
-| NIEAKTUALNY WYDRUK: 0 | NIEAKTUALNY WYDRUK |
-
-**Problem:** Te same dane wyświetlane 2x - zbędna redundancja
-
-#### 4. **Brak kontekstu dla nowego użytkownika**
-```
-Gdy wszystko = 0, użytkownik nie wie:
-- Co tu powinno być?
-- Od czego zacząć?
-- Jak wygląda "pełny" dashboard?
-```
-**Rekomendacja:** Onboarding lub tutorial tooltip
-
-#### 5. **Ikony KPI - niespójny styl**
-- "Maszyny w terenie" → outline ikona
-- "Kończy się w 14 dni" → czerwone kółko z wykrzyknikiem
-- "Dostawy" → żółta paczka
-- Mieszanka stylów: outline + filled + kolorowe
-
----
-
-### 🟠 **DROBNE**
-
-#### 6. **Typografia**
-```css
-/* Problem: "0/0" ma inny weight niż pozostałe "0" */
-/* Niespójność w stylowaniu liczb */
-```
-
-#### 7. **
+**Propozycje Poprawy:**
+- Zmienić kolory kart na podstawie palety designu (np. wzór UNESCO z #7a9c3

@@ -309,7 +309,7 @@ async def currently_rented(
     rows = q.all()
     items = [
         CurrentlyRentedItem(
-            article_id=r[0], name=r[1], internal_number=r[2],
+            id=r[0], name=r[1], internal_number=r[2],
             category_main=r[3],                              # RAO-P1-017
             contract_number=r[4], contractor_name=r[5], return_date=r[6],
         )

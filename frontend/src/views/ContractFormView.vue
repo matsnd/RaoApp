@@ -1,14 +1,14 @@
 <template>
   <div style="display:flex;flex-direction:column;height:100vh;overflow:hidden;">
     <div class="toolbar">
-      <button class="toolbar-btn" @click="goBack" aria-label="Wstecz" title="Wstecz">←</button>
+      <button class="toolbar-btn" @click="goBack">←</button>
       <span class="toolbar-info">{{ isEdit ? (contractStore.current?.number ? `Umowa: ${contractStore.current.number}` : 'Ładowanie...') : 'Nowa umowa' }}</span>
       <!-- RAO-P2-022: badge rozliczona -->
       <span v-if="isEdit && form.is_settled" class="settled-badge">✓ Rozliczona</span>
-      <button v-if="isEdit" class="toolbar-btn" title="Drukuj PDF" aria-label="Drukuj umowę PDF" @click="generateReport('contract')">⎙</button>
-      <button v-if="isEdit" class="toolbar-btn" title="Protokół zdania obiektu (ZO)" aria-label="Generuj protokół zdawczo-odbiorczy" @click="generateReport('protocol_zo')">📄</button>
-      <button v-if="isEdit" class="toolbar-btn" title="Przelicz wartość" aria-label="Przelicz wartość umowy" @click="recalcTotal">∑</button>
-      <button v-if="isEdit" class="toolbar-btn" title="Pobierz koszty z Fakturownia" aria-label="Pobierz koszty z Fakturownia" @click="handleFakturownia">💰</button>
+      <button v-if="isEdit" class="toolbar-btn" title="Drukuj PDF" @click="generateReport('contract')">⎙</button>
+      <button v-if="isEdit" class="toolbar-btn" title="Protokół ZO" @click="generateReport('protocol_zo')">📄</button>
+      <button v-if="isEdit" class="toolbar-btn" title="Przelicz wartość" @click="recalcTotal">∑</button>
+      <button v-if="isEdit" class="toolbar-btn" title="Pobierz koszty z Fakturownia" @click="handleFakturownia">💰</button>
       <button class="btn btn-primary btn-sm" @click="handleSave" :disabled="saving">
         {{ saving ? '...' : 'Zapisz' }}
       </button>
@@ -20,22 +20,22 @@
         <!-- Section 1: Dane podstawowe -->
         <div class="page-card" style="margin-bottom:var(--spacing-md);">
           <h3 class="section-title">Dane podstawowe</h3>
-          <div v-if="errorMsg" class="error-message" role="alert">{{ errorMsg }}</div>
+          <div v-if="errorMsg" class="error-message">{{ errorMsg }}</div>
           <div class="form-row-4" style="align-items:start;">
             <div class="form-group">
-              <label class="form-label" for="contract-type">Typ umowy</label>
-              <select id="contract-type" v-model="form.contract_type" class="form-control" :disabled="isEdit">
+              <label class="form-label">Typ umowy</label>
+              <select v-model="form.contract_type" class="form-control" :disabled="isEdit">
                 <option value="S">Umowa najmu (S)</option>
                 <option value="U">Umowa usługi (U)</option>
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label" for="contract-number">Numer umowy</label>
-              <input id="contract-number" :value="contractStore.current?.number || '(auto)'" type="text" class="form-control" disabled />
+              <label class="form-label">Numer umowy</label>
+              <input :value="contractStore.current?.number || '(auto)'" type="text" class="form-control" disabled />
             </div>
             <div class="form-group">
-              <label class="form-label" for="contract-oid">OID Fakturownia (opcjonalny)<GlossaryTip term="OID" definition="Identyfikator w Fakturownia" description="Domyślnie = numer umowy. Używany do synchronizacji faktur z kontrahentem." placement="top" :size="12" /></label>
-              <input id="contract-oid" v-model="form.oid" type="text" class="form-control" placeholder="(auto = numer umowy)" pattern="[A-Za-z0-9\-/_]+" maxlength="40" />
+              <label class="form-label">OID Fakturownia (opcjonalny)</label>
+              <input v-model="form.oid" type="text" class="form-control" placeholder="(auto = numer umowy)" pattern="[A-Za-z0-9\-/_]+" maxlength="40" />
               <small style="color:var(--color-text-muted);">Puste = użyj numeru umowy. Tylko litery, cyfry, -, /, _.</small>
             </div>
             <div class="form-group">
@@ -46,7 +46,7 @@
                 @update:date-from="form.date_from = $event"
                 @update:date-to="form.date_to = $event"
               />
-              <span v-if="!form.date_from" class="field-error" role="alert">Podaj datę od</span>
+              <span v-if="!form.date_from" class="field-error">Podaj datę od</span>
             </div>
           </div>
         </div>
@@ -56,20 +56,20 @@
           <h3 class="section-title">Kontrahent i adres dostawy</h3>
           <div class="form-row-2" style="align-items:start;">
             <div class="form-group">
-              <label class="form-label" for="contract-contractor-display">Kontrahent *</label>
+              <label class="form-label">Kontrahent *</label>
               <div style="display:flex;gap:8px;">
-                <input id="contract-contractor-display" :value="contractorName" type="text" class="form-control" disabled placeholder="Wybierz kontrahenta..." style="flex:1;" :class="{ 'error': !form.contractor_id }" :aria-invalid="!form.contractor_id" aria-describedby="contract-contractor-error" />
+                <input :value="contractorName" type="text" class="form-control" disabled placeholder="Wybierz kontrahenta..." style="flex:1;" :class="{ 'error': !form.contractor_id }" />
                 <button type="button" class="btn btn-secondary btn-sm" @click="showContractorPicker = true">Wybierz</button>
               </div>
-              <span v-if="!form.contractor_id" class="field-error" id="contract-contractor-error" role="alert">Wybierz kontrahenta</span>
+              <span v-if="!form.contractor_id" class="field-error">Wybierz kontrahenta</span>
             </div>
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="contract-address-select">Adres dostawy</label>
+            <label class="form-label">Adres dostawy</label>
             <div class="address-layout">
               <div class="address-row">
-                <select v-if="contractorAddresses.length" id="contract-address-select" v-model="selectedAddressId" class="form-control address-select" @change="onAddressSelect">
+                <select v-if="contractorAddresses.length" v-model="selectedAddressId" class="form-control address-select" @change="onAddressSelect">
                   <option :value="null">— wpisz ręcznie —</option>
                   <option v-for="addr in contractorAddresses" :key="addr.id" :value="addr.id">
                     {{ addr.name || addr.city }} — {{ addr.street || '' }} {{ addr.postal_code || '' }}
@@ -77,13 +77,13 @@
                 </select>
               </div>
               <div class="address-row">
-                <input v-model="form.postal_code" @blur="onPostalCodeBlur" @input="onPostalInput" class="form-control postal-input" placeholder="00-000" maxlength="6" aria-label="Kod pocztowy dostawy" data-testid="contract-postal-code" />
-                <input v-model="form.city" @input="onCityInput" class="form-control city-input" placeholder="Miasto" aria-label="Miejscowość dostawy" :class="{ 'input-loading': pnaLoading }" data-testid="contract-city" />
+                <input v-model="form.postal_code" @blur="onPostalCodeBlur" @input="onPostalInput" class="form-control postal-input" placeholder="00-000" maxlength="6" data-testid="contract-postal-code" />
+                <input v-model="form.city" @input="onCityInput" class="form-control city-input" placeholder="Miasto" :class="{ 'input-loading': pnaLoading }" data-testid="contract-city" />
                 <div v-if="pnaLoading" class="pna-spinner" data-testid="pna-spinner"></div>
               </div>
-              <div v-if="pnaError" class="pna-error" role="alert" data-testid="pna-error">{{ pnaError }}</div>
+              <div v-if="pnaError" class="pna-error" data-testid="pna-error">{{ pnaError }}</div>
               <div v-if="pnaInfo.found" class="pna-info-panel" data-testid="pna-info-panel">
-                <span class="pna-info-title">Wypełnione z <abbr title="Kod pocztowy (PNA)">PNA</abbr> {{ form.postal_code }}</span>
+                <span class="pna-info-title">Wypełnione z PNA {{ form.postal_code }}</span>
                 <span class="pna-info-row">
                   <span class="pna-info-item"><span class="pna-info-label">Gmina:</span> {{ pnaInfo.gmina || '—' }}</span>
                   <span class="pna-info-sep">•</span>
@@ -93,7 +93,7 @@
                 </span>
               </div>
               <div class="address-row">
-                <textarea v-model="form.delivery_address" @input="onDeliveryAddressInput" class="form-control" rows="2" aria-label="Uwagi dojazdowe do adresu dostawy" placeholder="Uwagi dojazdowe (opcjonalnie) — auto-uzupełni miasto i kod pocztowy"></textarea>
+                <textarea v-model="form.delivery_address" @input="onDeliveryAddressInput" class="form-control" rows="2" placeholder="Uwagi dojazdowe (opcjonalnie) — auto-uzupełni miasto i kod pocztowy"></textarea>
               </div>
             </div>
           </div>
@@ -104,45 +104,45 @@
           <h3 class="section-title">Warunki finansowe</h3>
           <div class="form-row-4">
             <div class="form-group">
-              <label class="form-label" for="contract-salesperson">Handlowiec</label>
-              <select id="contract-salesperson" v-model="form.salesperson_id" class="form-control">
+              <label class="form-label">Handlowiec</label>
+              <select v-model="form.salesperson_id" class="form-control">
                 <option :value="null">— brak —</option>
                 <option v-for="sp in settingsStore.salespeople" :key="sp.id" :value="sp.id">{{ sp.name }}</option>
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label" for="contract-branch">Oddział</label>
-              <select id="contract-branch" v-model="form.branch_id" class="form-control">
+              <label class="form-label">Oddział</label>
+              <select v-model="form.branch_id" class="form-control">
                 <option :value="null">— brak —</option>
                 <option v-for="b in settingsStore.branches" :key="b.id" :value="b.id">{{ b.name }}</option>
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label" for="contract-settlement-total" title="Wartość z rozliczenia (suma kosztów klienta z zakładki Rozliczenie)">Wartość z rozliczenia (zł)</label>
-              <input id="contract-settlement-total" :value="settlementTotalFormatted" type="text" class="form-control" disabled style="font-weight:700;" />
+              <label class="form-label" title="Wartość z rozliczenia (suma kosztów klienta z zakładki Rozliczenie)">Wartość z rozliczenia (zł)</label>
+              <input :value="settlementTotalFormatted" type="text" class="form-control" disabled style="font-weight:700;" />
             </div>
             <div class="form-group">
-              <label class="form-label" for="contract-remaining">Pozostało (zł)</label>
-              <input id="contract-remaining" :value="remainingValue" type="text" class="form-control" disabled style="font-weight:700;color:var(--color-error);" />
+              <label class="form-label">Pozostało (zł)</label>
+              <input :value="remainingValue" type="text" class="form-control" disabled style="font-weight:700;color:var(--color-error);" />
             </div>
           </div>
 
           <div class="form-row-4">
             <div class="form-group">
-              <label class="form-label" for="contract-prepayment">Przedpłata (zł)</label>
-              <input id="contract-prepayment" v-model="form.prepayment_amount" type="number" step="0.01" class="form-control" />
+              <label class="form-label">Przedpłata (zł)</label>
+              <input v-model="form.prepayment_amount" type="number" step="0.01" class="form-control" />
             </div>
             <div class="form-group">
-              <label class="form-label" for="contract-prepayment-doc">Dok. przedpłaty</label>
-              <input id="contract-prepayment-doc" v-model="form.prepayment_document" type="text" class="form-control" />
+              <label class="form-label">Dok. przedpłaty</label>
+              <input v-model="form.prepayment_document" type="text" class="form-control" />
             </div>
             <div class="form-group">
-              <label class="form-label" for="contract-invoice">Faktura (zł)</label>
-              <input id="contract-invoice" v-model="form.invoice_amount" type="number" step="0.01" class="form-control" />
+              <label class="form-label">Faktura (zł)</label>
+              <input v-model="form.invoice_amount" type="number" step="0.01" class="form-control" />
             </div>
             <div class="form-group">
-              <label class="form-label" for="contract-invoice-doc">Dok. faktury</label>
-              <input id="contract-invoice-doc" v-model="form.invoice_document" type="text" class="form-control" />
+              <label class="form-label">Dok. faktury</label>
+              <input v-model="form.invoice_document" type="text" class="form-control" />
             </div>
           </div>
         </div>
@@ -152,18 +152,18 @@
           <h3 class="section-title">Kontakt i uwagi</h3>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label" for="contract-person1">Reprezentowany przez</label>
+              <label class="form-label">Reprezentowany przez</label>
               <div style="display:flex;gap:8px;">
-                <input id="contract-person1" v-model="form.contact_person1" type="text" class="form-control" placeholder="Imię i nazwisko" />
-                <input v-model="form.contact_phone1" type="text" class="form-control" aria-label="Telefon osoby reprezentującej" placeholder="Telefon" style="width:140px;" />
+                <input v-model="form.contact_person1" type="text" class="form-control" placeholder="Imię i nazwisko" />
+                <input v-model="form.contact_phone1" type="text" class="form-control" placeholder="Telefon" style="width:140px;" />
                 <label class="checkbox-group" style="white-space:nowrap;"><input type="checkbox" v-model="form.show_person1" /> Drukuj</label>
               </div>
             </div>
             <div class="form-group">
-              <label class="form-label" for="contract-person2">Osoba kontaktowa</label>
+              <label class="form-label">Osoba kontaktowa</label>
               <div style="display:flex;gap:8px;">
-                <input id="contract-person2" v-model="form.contact_person2" type="text" class="form-control" placeholder="Imię i nazwisko" />
-                <input v-model="form.contact_phone2" type="text" class="form-control" aria-label="Telefon osoby kontaktowej" placeholder="Telefon" style="width:140px;" />
+                <input v-model="form.contact_person2" type="text" class="form-control" placeholder="Imię i nazwisko" />
+                <input v-model="form.contact_phone2" type="text" class="form-control" placeholder="Telefon" style="width:140px;" />
                 <label class="checkbox-group" style="white-space:nowrap;"><input type="checkbox" v-model="form.show_person2" /> Drukuj</label>
               </div>
             </div>
@@ -171,19 +171,19 @@
 
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label" for="contract-email">E-mail</label>
-              <input id="contract-email" v-model="form.email" type="email" class="form-control" />
+              <label class="form-label">E-mail</label>
+              <input v-model="form.email" type="email" class="form-control" />
             </div>
             <div class="form-group">
-              <label class="form-label" for="contract-phone">Telefon</label>
-              <input id="contract-phone" v-model="form.phone" type="text" class="form-control" />
+              <label class="form-label">Telefon</label>
+              <input v-model="form.phone" type="text" class="form-control" />
             </div>
           </div>
 
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label" for="contract-notes">Uwagi</label>
-              <textarea id="contract-notes" v-model="form.notes" class="form-control" rows="2"></textarea>
+              <label class="form-label">Uwagi</label>
+              <textarea v-model="form.notes" class="form-control" rows="2"></textarea>
             </div>
             <div class="form-group">
               <label class="form-label">Opcje</label>
@@ -191,8 +191,8 @@
                 <label class="checkbox-group"><input type="checkbox" v-model="form.hide_delivery_address" /> Ukryj adres dostawy na umowie (klient wpisze ręcznie)</label>
                 <label class="checkbox-group"><input type="checkbox" v-model="form.signatures_on_page1" /> Podpisy wymagane na stronie 1</label>
                 <div style="display:flex;align-items:center;gap:6px;">
-                  <label for="contract-working-days" style="font-size:12px;">Dni rob./tydz.:</label>
-                  <input id="contract-working-days" v-model.number="form.working_days_per_week" type="number" min="1" max="7" class="form-control" style="width:60px;" />
+                  <span style="font-size:12px;">Dni rob./tydz.:</span>
+                  <input v-model.number="form.working_days_per_week" type="number" min="1" max="7" class="form-control" style="width:60px;" />
                 </div>
               </div>
             </div>
@@ -205,7 +205,7 @@
             <span class="section-title" style="margin:0;border:none;">Pozycje umowy</span>
             <button class="btn btn-primary btn-sm" style="margin-left:auto;" @click="addPosition">+ Dodaj pozycję</button>
           </div>
-          <table class="data-grid" aria-label="Pozycje umowy">
+          <table class="data-grid">
             <thead>
               <tr>
                 <th>#</th>
@@ -239,10 +239,10 @@
                 <td>{{ pos.billing_frequency || '—' }}</td>
                 <td><span class="badge badge-info">{{ pos.conditions_count || 0 }}</span></td>
                 <td>{{ pos.supplier_name || '—' }}</td>
-                <td>{{ pos.delivery_date ? formatDate(pos.delivery_date) : '—' }}</td>
+                <td>{{ pos.delivery_date ? new Date(pos.delivery_date).toLocaleDateString('pl-PL') : '—' }}</td>
                 <td>
-                  <button class="btn-icon" title="Edytuj" aria-label="Edytuj pozycję" @click.stop="editPosition(pos)">✎</button>
-                  <button class="btn-icon" title="Usuń" aria-label="Usuń pozycję" @click.stop="deletePosition(pos)">✕</button>
+                  <button class="btn-icon" title="Edytuj" @click.stop="editPosition(pos)">✎</button>
+                  <button class="btn-icon" title="Usuń" @click.stop="deletePosition(pos)">✕</button>
                 </td>
               </tr>
             </tbody>
@@ -266,7 +266,7 @@
         <div v-if="isEdit" class="page-card">
           <div style="display:flex;align-items:center;margin-bottom:8px;">
             <span class="section-title" style="margin:0;border:none;">Usługi dodatkowe</span>
-            <span style="font-size:11px;color:#5A6B7E;margin-left:12px;">Kliknij wiersz • Enter = zapisz • Esc = anuluj</span>
+            <span style="font-size:11px;color:#718096;margin-left:12px;">Kliknij wiersz • Enter = zapisz • Esc = anuluj</span>
             <button class="btn btn-secondary btn-sm" style="margin-left:auto;margin-right:6px;" @click="openPresetPicker" title="Wybierz zestaw usług">📋 Wybierz zestaw</button>
             <button class="btn btn-secondary btn-sm" style="margin-right:8px;" @click="resetServiceFees" title="Reset do domyślnego szablonu">↻ Reset</button>
             <button class="btn btn-primary btn-sm" @click="addFeeRow">+ Dodaj</button>
@@ -297,21 +297,21 @@
                   <td><input v-model="editingFeeData.description" class="form-control form-control-xs" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" /></td>
                   <td style="text-align:center;"><input type="checkbox" v-model="editingFeeData.is_active" /></td>
                   <td>
-                    <button class="btn-icon" style="color:#22543D;" title="Zapisz (Enter)" aria-label="Zapisz opłatę" @click="saveInlineFee">✓</button>
-                    <button class="btn-icon" title="Anuluj (Esc)" aria-label="Anuluj edycję opłaty" @click="cancelInlineFee">✕</button>
+                    <button class="btn-icon" style="color:#22543D;" title="Zapisz (Enter)" @click="saveInlineFee">✓</button>
+                    <button class="btn-icon" title="Anuluj (Esc)" @click="cancelInlineFee">✕</button>
                   </td>
                 </tr>
                 <!-- DISPLAY MODE -->
                 <tr v-else @click="startEditFee(fee)" style="cursor:pointer;" :class="{ 'row-inactive': !fee.is_active }">
                   <td>{{ fee.name }}</td>
-                  <td>{{ fee.amount_from ? formatCurrency(fee.amount_from) : '—' }}</td>
-                  <td>{{ fee.amount_to ? formatCurrency(fee.amount_to) : '—' }}</td>
+                  <td>{{ fee.amount_from ? Number(fee.amount_from).toFixed(2) + ' zł' : '—' }}</td>
+                  <td>{{ fee.amount_to ? Number(fee.amount_to).toFixed(2) + ' zł' : '—' }}</td>
                   <td>{{ fee.unit || '—' }}</td>
                   <td style="font-size:11px;">{{ formatDescription(fee.description, fee.amount_from, fee.amount_to) }}</td>
                   <td style="text-align:center;"><span :class="['badge', fee.is_active ? 'badge-success' : 'badge-muted']">{{ fee.is_active ? 'Tak' : 'Nie' }}</span></td>
                   <td>
-                    <button class="btn-icon" title="Edytuj" aria-label="Edytuj usługę dodatkową" @click.stop="startEditFee(fee)">✎</button>
-                    <button class="btn-icon" title="Usuń" aria-label="Usuń usługę dodatkową" @click.stop="deleteServiceFee(fee)">✕</button>
+                    <button class="btn-icon" title="Edytuj" @click.stop="startEditFee(fee)">✎</button>
+                    <button class="btn-icon" title="Usuń" @click.stop="deleteServiceFee(fee)">✕</button>
                   </td>
                 </tr>
               </template>
@@ -330,8 +330,8 @@
                 <td><input v-model="newFeeData.description" class="form-control form-control-xs" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" /></td>
                 <td style="text-align:center;"><input type="checkbox" v-model="newFeeData.is_active" /></td>
                 <td>
-                  <button class="btn-icon" style="color:#22543D;" title="Dodaj (Enter)" aria-label="Dodaj nową opłatę" @click="saveNewFeeRow">✓</button>
-                  <button class="btn-icon" title="Anuluj (Esc)" aria-label="Anuluj dodawanie opłaty" @click="cancelNewFeeRow">✕</button>
+                  <button class="btn-icon" style="color:#22543D;" title="Dodaj (Enter)" @click="saveNewFeeRow">✓</button>
+                  <button class="btn-icon" title="Anuluj (Esc)" @click="cancelNewFeeRow">✕</button>
                 </td>
               </tr>
             </tbody>
@@ -343,10 +343,10 @@
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
             <div style="display:flex;align-items:center;gap:10px;">
               <span class="section-title" style="margin:0;border:none;">Rozliczenie umowy</span>
-              <span style="font-size:11px;color:#5A6B7E;">Koszt klienta vs koszt firmy</span>
+              <span style="font-size:11px;color:#718096;">Koszt klienta vs koszt firmy</span>
               <!-- RAO-P2-022: status badge -->
               <span v-if="form.is_settled" class="settled-badge-sm">
-                ✓ Rozliczona{{ form.settled_at ? ' · ' + formatDate(form.settled_at) : '' }}
+                ✓ Rozliczona{{ form.settled_at ? ' · ' + new Date(form.settled_at).toLocaleDateString('pl-PL') : '' }}
               </span>
             </div>
             <div style="display:flex;gap:8px;align-items:center;">
@@ -376,21 +376,21 @@
               <span style="font-weight:600;font-size:13px;color:#2d3748;">Faktury z Fakturownia (read-only)</span>
               <button class="btn btn-xs btn-link" style="margin-left:auto;" @click="showFakturowniaPanel = false">Zamknij</button>
             </div>
-            <div v-if="fakturowniaStore.error" style="color:#e53e3e;font-size:12px;padding:8px;background:#fff5f5;border-radius:4px;" role="alert">
+            <div v-if="fakturowniaStore.error" style="color:#e53e3e;font-size:12px;padding:8px;background:#fff5f5;border-radius:4px;">
               {{ fakturowniaStore.error }}
             </div>
-            <div v-else-if="!fakturowniaStore.invoices.length" style="color:#5A6B7E;font-size:12px;padding:8px;">
+            <div v-else-if="!fakturowniaStore.invoices.length" style="color:#718096;font-size:12px;padding:8px;">
               Brak faktur dla tego kontrahenta (OID: {{ form.contractor_id }})
             </div>
             <div v-else>
               <div v-for="inv in fakturowniaStore.invoices" :key="inv.invoice_number" style="margin-bottom:12px;background:white;padding:8px;border-radius:4px;border:1px solid #e2e8f0;">
                 <div style="font-weight:600;font-size:12px;color:#2d3748;margin-bottom:4px;">
-                  Faktura {{ inv.invoice_number }} — Netto: {{ formatCurrency(inv.total_net) }}
+                  Faktura {{ inv.invoice_number }} — Netto: {{ inv.total_net.toFixed(2) }} zł
                 </div>
                 <table style="width:100%;font-size:11px;border-collapse:collapse;">
                   <thead>
                     <tr style="background:#f7fafc;">
-                      <th style="text-align:left;padding:4px;">Produkt <abbr title="Faktura (FA)">FA</abbr></th>
+                      <th style="text-align:left;padding:4px;">Produkt FA</th>
                       <th style="text-align:right;padding:4px;">Ilość</th>
                       <th style="text-align:right;padding:4px;">Cena netto</th>
                       <th style="text-align:right;padding:4px;">Suma netto</th>
@@ -400,8 +400,8 @@
                     <tr v-for="line in inv.lines" :key="line.funkurownia_product_id" style="border-bottom:1px solid #edf2f7;">
                       <td style="padding:4px;">{{ line.funkurownia_product_name }}</td>
                       <td style="text-align:right;padding:4px;">{{ line.quantity }}</td>
-                      <td style="text-align:right;padding:4px;">{{ formatCurrency(line.price_net) }}</td>
-                      <td style="text-align:right;padding:4px;">{{ formatCurrency(line.total_net) }}</td>
+                      <td style="text-align:right;padding:4px;">{{ line.price_net.toFixed(2) }} zł</td>
+                      <td style="text-align:right;padding:4px;">{{ line.total_net.toFixed(2) }} zł</td>
                     </tr>
                   </tbody>
                 </table>
@@ -479,7 +479,7 @@
                 </td>
                 <td>
                   <span :style="{ color: s.margin > 0 ? 'green' : s.margin < 0 ? 'red' : 'inherit', fontWeight: '600' }">
-                    {{ (s.margin !== null && !isNaN(s.margin)) ? formatCurrency(s.margin) : '—' }}
+                    {{ (s.margin !== null && !isNaN(s.margin)) ? Number(s.margin).toFixed(2) + ' zł' : '—' }}
                   </span>
                 </td>
                 <td>
@@ -502,11 +502,11 @@
     <!-- Contractor picker modal -->
     <Transition name="modal">
       <div v-if="showContractorPicker" class="modal-overlay" @click.self="showContractorPicker = false">
-        <div class="modal-box" style="min-width:600px;" role="dialog" aria-modal="true" aria-labelledby="contractor-picker-title">
-          <div class="modal-title" id="contractor-picker-title">Wybierz kontrahenta</div>
+        <div class="modal-box" style="min-width:600px;">
+          <div class="modal-title">Wybierz kontrahenta</div>
           <div class="search-input-wrap" style="margin-bottom:12px;">
-            <span class="search-icon" aria-hidden="true">⌕</span>
-            <input v-model="pickerSearch" type="text" class="form-control" aria-label="Szukaj kontrahenta" placeholder="Szukaj..." @input="searchContractors" />
+            <span class="search-icon">⌕</span>
+            <input v-model="pickerSearch" type="text" class="form-control" placeholder="Szukaj..." @input="searchContractors" />
           </div>
           <div style="max-height:320px;overflow:auto;">
             <div v-if="!pickerList.length && pickerSearch" class="empty-state" style="padding:32px;text-align:center;color:var(--color-text-muted);">
@@ -533,90 +533,90 @@
     <!-- Inline contractor form modal - RAO-P2-005 -->
     <Transition name="modal">
       <div v-if="showInlineContractorForm" class="modal-overlay" @click.self="showInlineContractorForm = false">
-        <div class="modal-box" style="min-width:700px;max-height:90vh;overflow-y:auto;" role="dialog" aria-modal="true" aria-labelledby="inline-contractor-title">
-          <div class="modal-title" id="inline-contractor-title">Nowy kontrahent</div>
-          <div v-if="inlineContractorError" style="color:var(--color-danger);font-size:13px;margin-bottom:12px;padding:8px;background:#FED7D7;border-radius:6px;" role="alert">
+        <div class="modal-box" style="min-width:700px;max-height:90vh;overflow-y:auto;">
+          <div class="modal-title">Nowy kontrahent</div>
+          <div v-if="inlineContractorError" style="color:var(--color-danger);font-size:13px;margin-bottom:12px;padding:8px;background:#FED7D7;border-radius:6px;">
             {{ inlineContractorError }}
           </div>
           <div class="form-group">
-            <label class="form-label" for="inline-contractor-name">Pełna nazwa *</label>
-            <input id="inline-contractor-name" v-model="inlineContractorForm.name" type="text" class="form-control" placeholder="Nazwa firmy lub imię i nazwisko" />
+            <label class="form-label">Pełna nazwa *</label>
+            <input v-model="inlineContractorForm.name" type="text" class="form-control" placeholder="Nazwa firmy lub imię i nazwisko" />
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label" for="inline-contractor-name-short">Nazwa skrócona</label>
-              <input id="inline-contractor-name-short" v-model="inlineContractorForm.name_short" type="text" class="form-control" />
+              <label class="form-label">Nazwa skrócona</label>
+              <input v-model="inlineContractorForm.name_short" type="text" class="form-control" />
             </div>
             <div class="form-group">
-              <label class="form-label" for="inline-contractor-nip">NIP</label>
-              <input id="inline-contractor-nip" v-model="inlineContractorForm.nip" type="text" class="form-control" placeholder="0000000000" maxlength="20" />
+              <label class="form-label">NIP</label>
+              <input v-model="inlineContractorForm.nip" type="text" class="form-control" placeholder="0000000000" maxlength="20" />
             </div>
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label" for="inline-contractor-regon">REGON</label>
-              <input id="inline-contractor-regon" v-model="inlineContractorForm.regon" type="text" class="form-control" />
+              <label class="form-label">REGON</label>
+              <input v-model="inlineContractorForm.regon" type="text" class="form-control" />
             </div>
             <div class="form-group">
-              <label class="form-label" for="inline-contractor-pesel">PESEL</label>
-              <input id="inline-contractor-pesel" v-model="inlineContractorForm.pesel" type="text" class="form-control" />
+              <label class="form-label">PESEL</label>
+              <input v-model="inlineContractorForm.pesel" type="text" class="form-control" />
             </div>
           </div>
           <div style="font-size:13px;font-weight:600;margin:16px 0 8px 0;">Adres główny</div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label" for="inline-contractor-postal">Kod pocztowy</label>
-              <input id="inline-contractor-postal" v-model="inlineContractorForm.postal_code" type="text" class="form-control" placeholder="00-000" />
+              <label class="form-label">Kod pocztowy</label>
+              <input v-model="inlineContractorForm.postal_code" type="text" class="form-control" placeholder="00-000" />
             </div>
             <div class="form-group">
-              <label class="form-label" for="inline-contractor-city">Miejscowość</label>
-              <input id="inline-contractor-city" v-model="inlineContractorForm.city" type="text" class="form-control" />
+              <label class="form-label">Miejscowość</label>
+              <input v-model="inlineContractorForm.city" type="text" class="form-control" />
             </div>
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label" for="inline-contractor-street">Ulica</label>
-              <input id="inline-contractor-street" v-model="inlineContractorForm.street" type="text" class="form-control" />
+              <label class="form-label">Ulica</label>
+              <input v-model="inlineContractorForm.street" type="text" class="form-control" />
             </div>
             <div class="form-group">
-              <label class="form-label" for="inline-contractor-unit">Nr lokalu</label>
-              <input id="inline-contractor-unit" v-model="inlineContractorForm.unit" type="text" class="form-control" />
+              <label class="form-label">Nr lokalu</label>
+              <input v-model="inlineContractorForm.unit" type="text" class="form-control" />
             </div>
           </div>
           <div style="font-size:13px;font-weight:600;margin:16px 0 8px 0;">Kontakt</div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label" for="inline-contractor-person1">Osoba kontaktowa 1</label>
-              <input id="inline-contractor-person1" v-model="inlineContractorForm.contact_person1" type="text" class="form-control" />
+              <label class="form-label">Osoba kontaktowa 1</label>
+              <input v-model="inlineContractorForm.contact_person1" type="text" class="form-control" />
             </div>
             <div class="form-group">
-              <label class="form-label" for="inline-contractor-phone1">Telefon 1</label>
-              <input id="inline-contractor-phone1" v-model="inlineContractorForm.phone1" type="text" class="form-control" />
-            </div>
-          </div>
-          <div class="form-row-2">
-            <div class="form-group">
-              <label class="form-label" for="inline-contractor-person2">Osoba kontaktowa 2</label>
-              <input id="inline-contractor-person2" v-model="inlineContractorForm.contact_person2" type="text" class="form-control" />
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="inline-contractor-phone2">Telefon 2</label>
-              <input id="inline-contractor-phone2" v-model="inlineContractorForm.phone2" type="text" class="form-control" />
+              <label class="form-label">Telefon 1</label>
+              <input v-model="inlineContractorForm.phone1" type="text" class="form-control" />
             </div>
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label" for="inline-contractor-email">Email</label>
-              <input id="inline-contractor-email" v-model="inlineContractorForm.email" type="email" class="form-control" />
+              <label class="form-label">Osoba kontaktowa 2</label>
+              <input v-model="inlineContractorForm.contact_person2" type="text" class="form-control" />
             </div>
             <div class="form-group">
-              <label class="form-label" for="inline-contractor-landline">Telefon stacjonarny</label>
-              <input id="inline-contractor-landline" v-model="inlineContractorForm.landline_phone" type="text" class="form-control" />
+              <label class="form-label">Telefon 2</label>
+              <input v-model="inlineContractorForm.phone2" type="text" class="form-control" />
+            </div>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Email</label>
+              <input v-model="inlineContractorForm.email" type="email" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Telefon stacjonarny</label>
+              <input v-model="inlineContractorForm.landline_phone" type="text" class="form-control" />
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label" for="inline-contractor-notes">Uwagi</label>
-            <textarea id="inline-contractor-notes" v-model="inlineContractorForm.notes" class="form-control" rows="2"></textarea>
+            <label class="form-label">Uwagi</label>
+            <textarea v-model="inlineContractorForm.notes" class="form-control" rows="2"></textarea>
           </div>
           <div class="modal-actions">
             <button class="btn btn-secondary btn-sm" @click="showInlineContractorForm = false">Anuluj</button>
@@ -632,10 +632,10 @@
     <!-- Preset picker modal -->
     <Transition name="modal">
       <div v-if="showPresetPicker" class="preset-picker-overlay" @click.self="showPresetPicker = false">
-        <div class="preset-picker-modal" role="dialog" aria-modal="true" aria-labelledby="preset-picker-title">
+        <div class="preset-picker-modal">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-            <div class="preset-picker-title" id="preset-picker-title">Wybierz zestaw usług dodatkowych</div>
-            <button class="btn-icon" style="font-size:18px;" aria-label="Zamknij wybór zestawu" title="Zamknij" @click="showPresetPicker = false">✕</button>
+            <div class="preset-picker-title">Wybierz zestaw usług dodatkowych</div>
+            <button class="btn-icon" style="font-size:18px;" @click="showPresetPicker = false">✕</button>
           </div>
           <div v-if="presetPickerLoading" style="text-align:center;padding:32px;color:#A0AEC0;">Ładowanie zestawów...</div>
           <div v-else-if="!presetPickerList.length" class="preset-picker-empty">
@@ -670,44 +670,44 @@
     <!-- Position form modal (EXTENDED with 6 missing fields) -->
     <Transition name="modal">
       <div v-if="showPosModal" class="modal-overlay" @click.self="showPosModal = false">
-        <div class="modal-box" style="min-width:640px;max-height:90vh;overflow-y:auto;" role="dialog" aria-modal="true" aria-labelledby="pos-modal-title">
-          <div class="modal-title" id="pos-modal-title">{{ editingPos ? 'Edycja pozycji' : 'Nowa pozycja' }}</div>
+        <div class="modal-box" style="min-width:640px;max-height:90vh;overflow-y:auto;">
+          <div class="modal-title">{{ editingPos ? 'Edycja pozycji' : 'Nowa pozycja' }}</div>
           <div class="form-group">
-            <label class="form-label" for="pos-article-display">Artykuł *</label>
+            <label class="form-label">Artykuł *</label>
             <div style="display:flex;gap:8px;">
-              <input id="pos-article-display" :value="selectedArticleName" type="text" class="form-control" disabled placeholder="Wybierz artykuł..." style="flex:1;" />
+              <input :value="selectedArticleName" type="text" class="form-control" disabled placeholder="Wybierz artykuł..." style="flex:1;" />
               <button type="button" class="btn btn-secondary btn-sm" @click="showArticlePicker = true">Wybierz</button>
             </div>
             <div v-if="articleAvailability !== null" style="margin-top:4px;">
-              <span :class="['badge', articleAvailability ? 'badge-success' : 'badge-danger']" role="status">
+              <span :class="['badge', articleAvailability ? 'badge-success' : 'badge-danger']">
                 {{ articleAvailability ? 'Dostępny' : 'Wynajęty w tym okresie!' }}
               </span>
             </div>
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label" for="pos-rental-type">Typ najmu</label>
-              <input id="pos-rental-type" v-model="posForm.rental_type" type="text" class="form-control" />
+              <label class="form-label">Typ najmu</label>
+              <input v-model="posForm.rental_type" type="text" class="form-control" />
             </div>
             <div class="form-group">
-              <label class="form-label" for="pos-rental-days">Dni najmu</label>
-              <input id="pos-rental-days" v-model.number="posForm.rental_days" type="number" class="form-control" />
-            </div>
-          </div>
-          <div class="form-row-2">
-            <div class="form-group">
-              <label class="form-label" for="pos-quantity">Ilość</label>
-              <input id="pos-quantity" v-model.number="posForm.quantity" type="number" class="form-control" min="1" />
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="pos-unit-price">Cena jednostkowa (zł)</label>
-              <input id="pos-unit-price" v-model="posForm.unit_price" type="number" step="0.01" class="form-control" />
+              <label class="form-label">Dni najmu</label>
+              <input v-model.number="posForm.rental_days" type="number" class="form-control" />
             </div>
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label" for="pos-costs">Koszty własne (zł)</label>
-              <input id="pos-costs" v-model="posForm.costs" type="number" step="0.01" class="form-control" placeholder="0.00" />
+              <label class="form-label">Ilość</label>
+              <input v-model.number="posForm.quantity" type="number" class="form-control" min="1" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Cena jednostkowa (zł)</label>
+              <input v-model="posForm.unit_price" type="number" step="0.01" class="form-control" />
+            </div>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Koszty własne (zł)</label>
+              <input v-model="posForm.costs" type="number" step="0.01" class="form-control" placeholder="0.00" />
             </div>
             <div class="form-group">
               <label class="form-label">&nbsp;</label>
@@ -715,8 +715,8 @@
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label" for="pos-billing-frequency">Rozliczanie</label>
-              <select id="pos-billing-frequency" v-model="posForm.billing_frequency" class="form-control">
+              <label class="form-label">Rozliczanie</label>
+              <select v-model="posForm.billing_frequency" class="form-control">
                 <option :value="null">— brak —</option>
                 <option value="dziennie">dziennie</option>
                 <option value="tygodniowo">tygodniowo</option>
@@ -727,8 +727,8 @@
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label" for="pos-billing-unit">Opłata za</label>
-              <select id="pos-billing-unit" v-model="posForm.billing_unit" class="form-control">
+              <label class="form-label">Opłata za</label>
+              <select v-model="posForm.billing_unit" class="form-control">
                 <option :value="null">— brak —</option>
                 <option value="doba">doba</option>
                 <option value="tydzień">tydzień</option>
@@ -740,28 +740,28 @@
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label" for="pos-rate-type">Typ stawki</label>
-              <select id="pos-rate-type" v-model="posForm.rate_type_id" class="form-control">
+              <label class="form-label">Typ stawki</label>
+              <select v-model="posForm.rate_type_id" class="form-control">
                 <option :value="null">— brak —</option>
                 <option v-for="rt in settingsStore.rateTypes" :key="rt.id" :value="rt.id">{{ rt.name }}</option>
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label" for="pos-delivery-date">Data dostawy</label>
-              <input id="pos-delivery-date" v-model="posForm.delivery_date" type="date" class="form-control" />
+              <label class="form-label">Data dostawy</label>
+              <input v-model="posForm.delivery_date" type="date" class="form-control" />
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label" for="pos-supplier-display">Dostawca</label>
+            <label class="form-label">Dostawca</label>
             <div style="display:flex;gap:8px;">
-              <input id="pos-supplier-display" :value="supplierName" type="text" class="form-control" disabled placeholder="Opcjonalnie wybierz dostawcę..." style="flex:1;" />
+              <input :value="supplierName" type="text" class="form-control" disabled placeholder="Opcjonalnie wybierz dostawcę..." style="flex:1;" />
               <button type="button" class="btn btn-secondary btn-sm" @click="openSupplierPicker">Wybierz</button>
-              <button v-if="posForm.supplier_id" type="button" class="btn btn-secondary btn-sm" @click="posForm.supplier_id = null; supplierName = ''" aria-label="Wyczyść dostawcę">✕</button>
+              <button v-if="posForm.supplier_id" type="button" class="btn btn-secondary btn-sm" @click="posForm.supplier_id = null; supplierName = ''">✕</button>
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label" for="pos-description">Opis</label>
-            <textarea id="pos-description" v-model="posForm.description" class="form-control" rows="2"></textarea>
+            <label class="form-label">Opis</label>
+            <textarea v-model="posForm.description" class="form-control" rows="2"></textarea>
           </div>
           <div class="modal-actions">
             <button class="btn btn-secondary btn-sm" @click="showPosModal = false">Anuluj</button>
@@ -774,11 +774,11 @@
     <!-- Article picker modal (with availability badge) -->
     <Transition name="modal">
       <div v-if="showArticlePicker" class="modal-overlay" @click.self="showArticlePicker = false">
-        <div class="modal-box" style="min-width:650px;" role="dialog" aria-modal="true" aria-labelledby="article-picker-title">
-          <div class="modal-title" id="article-picker-title">Wybierz artykuł</div>
+        <div class="modal-box" style="min-width:650px;">
+          <div class="modal-title">Wybierz artykuł</div>
           <div class="search-input-wrap" style="margin-bottom:12px;">
-            <span class="search-icon" aria-hidden="true">⌕</span>
-            <input v-model="articlePickerSearch" type="text" class="form-control" aria-label="Szukaj artykułu" placeholder="Szukaj..." @input="searchArticles" />
+            <span class="search-icon">⌕</span>
+            <input v-model="articlePickerSearch" type="text" class="form-control" placeholder="Szukaj..." @input="searchArticles" />
           </div>
           <div style="max-height:320px;overflow:auto;">
             <table class="data-grid">
@@ -798,7 +798,7 @@
                     <span v-else class="badge badge-muted">—</span>
                   </td>
                   <td>
-                    <button class="btn-icon" title="Duplikuj artykuł" aria-label="Duplikuj artykuł" @click.stop="duplicateArticle(a)">⧉</button>
+                    <button class="btn-icon" title="Duplikuj artykuł" @click.stop="duplicateArticle(a)">⧉</button>
                   </td>
                 </tr>
               </tbody>
@@ -817,8 +817,8 @@
     <!-- Conflict modal — RAO-P1-023 -->
     <Transition name="modal">
       <div v-if="showConflictModal" class="modal-overlay" @click.self="cancelConflictSelection">
-        <div class="modal-box" style="max-width:520px;" role="dialog" aria-modal="true" aria-labelledby="conflict-modal-title">
-          <div class="modal-title" id="conflict-modal-title" style="color:var(--color-error);">⚠️ Maszyna zajęta</div>
+        <div class="modal-box" style="max-width:520px;">
+          <div class="modal-title" style="color:var(--color-error);">⚠️ Maszyna zajęta</div>
           <p style="margin:12px 0 8px;">
             <strong>{{ pendingArticle?.name }}</strong> jest przypisana do:
           </p>
@@ -828,17 +828,6 @@
               <span v-if="c.date_from && c.date_to" style="color:var(--color-text-muted);"> ({{ formatPickerDate(c.date_from) }} – {{ formatPickerDate(c.date_to) }})</span>
             </li>
           </ul>
-          <!-- RAO-P2-066: konflikty z rezerwacjami (article_reservations) -->
-          <div v-if="reservationConflictList.length" style="margin:0 0 16px 0;">
-            <p style="margin:8px 0 4px;font-weight:600;color:var(--color-warning);">📅 Rezerwacje maszyny:</p>
-            <ul style="margin:0; padding-left:20px;">
-              <li v-for="r in reservationConflictList" :key="r.reservation_id" style="margin-bottom:4px;">
-                Rezerwacja <strong>{{ formatPickerDate(r.reserved_from) }} – {{ formatPickerDate(r.reserved_to) }}</strong>
-                <span v-if="r.note" style="color:var(--color-text-muted);"> ({{ r.note }})</span>
-                <span v-if="r.available_from" style="color:var(--color-success);"> — dostępna od {{ formatPickerDate(r.available_from) }}</span>
-              </li>
-            </ul>
-          </div>
           <div class="modal-actions">
             <button class="btn btn-secondary btn-sm" @click="cancelConflictSelection">Anuluj</button>
             <button class="btn btn-primary btn-sm" @click="confirmConflictSelection">Mimo to dodaj</button>
@@ -850,19 +839,19 @@
     <!-- Inline article form modal - RAO-P2-006 -->
     <Transition name="modal">
       <div v-if="showInlineArticleForm" class="modal-overlay" @click.self="showInlineArticleForm = false">
-        <div class="modal-box" style="min-width:700px;max-height:90vh;overflow-y:auto;" role="dialog" aria-modal="true" aria-labelledby="inline-article-title">
-          <div class="modal-title" id="inline-article-title">Nowy artykuł</div>
-          <div v-if="inlineArticleError" style="color:var(--color-danger);font-size:13px;margin-bottom:12px;padding:8px;background:#FED7D7;border-radius:6px;" role="alert">
+        <div class="modal-box" style="min-width:700px;max-height:90vh;overflow-y:auto;">
+          <div class="modal-title">Nowy artykuł</div>
+          <div v-if="inlineArticleError" style="color:var(--color-danger);font-size:13px;margin-bottom:12px;padding:8px;background:#FED7D7;border-radius:6px;">
             {{ inlineArticleError }}
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label" for="inline-article-name">Nazwa artykułu *</label>
-              <input id="inline-article-name" v-model="inlineArticleForm.name" type="text" class="form-control" placeholder="Np. Koparka gąsienicowa" />
+              <label class="form-label">Nazwa artykułu *</label>
+              <input v-model="inlineArticleForm.name" type="text" class="form-control" placeholder="Np. Koparka gąsienicowa" />
             </div>
             <div class="form-group">
-              <label class="form-label" for="inline-article-type">Typ artykułu</label>
-              <select id="inline-article-type" v-model="inlineArticleForm.article_type" class="form-control">
+              <label class="form-label">Typ artykułu</label>
+              <select v-model="inlineArticleForm.article_type" class="form-control">
                 <option value="">— brak —</option>
                 <option value="machine">Maszyna</option>
                 <option value="vehicle">Pojazd</option>
@@ -883,86 +872,86 @@
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label" for="inline-article-internal">Nr wewnętrzny</label>
-              <input id="inline-article-internal" v-model="inlineArticleForm.internal_number" type="text" class="form-control" />
+              <label class="form-label">Nr wewnętrzny</label>
+              <input v-model="inlineArticleForm.internal_number" type="text" class="form-control" />
             </div>
             <div class="form-group">
-              <label class="form-label" for="inline-article-reg">Nr rejestracyjny</label>
-              <input id="inline-article-reg" v-model="inlineArticleForm.registration_no" type="text" class="form-control" />
-            </div>
-          </div>
-          <div class="form-row-2">
-            <div class="form-group">
-              <label class="form-label" for="inline-article-serial">Nr seryjny</label>
-              <input id="inline-article-serial" v-model="inlineArticleForm.serial_no" type="text" class="form-control" />
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="inline-article-replacement">Wartość odtworzeniowa (zł)</label>
-              <input id="inline-article-replacement" v-model="inlineArticleForm.replacement_value" type="number" step="0.01" class="form-control" />
+              <label class="form-label">Nr rejestracyjny</label>
+              <input v-model="inlineArticleForm.registration_no" type="text" class="form-control" />
             </div>
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label" for="inline-article-brand">Marka</label>
-              <input id="inline-article-brand" v-model="inlineArticleForm.brand" type="text" class="form-control" />
+              <label class="form-label">Nr seryjny</label>
+              <input v-model="inlineArticleForm.serial_no" type="text" class="form-control" />
             </div>
             <div class="form-group">
-              <label class="form-label" for="inline-article-model">Model</label>
-              <input id="inline-article-model" v-model="inlineArticleForm.model" type="text" class="form-control" />
+              <label class="form-label">Wartość odtworzeniowa (zł)</label>
+              <input v-model="inlineArticleForm.replacement_value" type="number" step="0.01" class="form-control" />
+            </div>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Marka</label>
+              <input v-model="inlineArticleForm.brand" type="text" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Model</label>
+              <input v-model="inlineArticleForm.model" type="text" class="form-control" />
             </div>
           </div>
           <div style="font-size:13px;font-weight:600;margin:16px 0 8px 0;">Dane techniczne</div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label" for="inline-article-zasieg">Zasięg (m)</label>
-              <input id="inline-article-zasieg" v-model.number="inlineArticleForm.zasieg_m" type="number" class="form-control" min="0" step="0.1" placeholder="np. 21.5" />
+              <label class="form-label">Zasięg (m)</label>
+              <input v-model.number="inlineArticleForm.zasieg_m" type="number" class="form-control" min="0" step="0.1" placeholder="np. 21.5" />
             </div>
             <div class="form-group">
-              <label class="form-label" for="inline-article-udzwig">Udźwig (t)</label>
-              <input id="inline-article-udzwig" v-model.number="inlineArticleForm.udzwig_t" type="number" class="form-control" min="0" step="0.1" placeholder="np. 5.0" />
+              <label class="form-label">Udźwig (t)</label>
+              <input v-model.number="inlineArticleForm.udzwig_t" type="number" class="form-control" min="0" step="0.1" placeholder="np. 5.0" />
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label" for="inline-article-dodatki">Dodatkowe wyposażenie</label>
-            <textarea id="inline-article-dodatki" v-model="inlineArticleForm.dodatki" class="form-control" rows="3" placeholder="np. Kosz osobowy, wciągarka..."></textarea>
+            <label class="form-label">Dodatkowe wyposażenie</label>
+            <textarea v-model="inlineArticleForm.dodatki" class="form-control" rows="3" placeholder="np. Kosz osobowy, wciągarka..."></textarea>
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label" for="inline-article-cat-main">Kategoria</label>
+              <label class="form-label">Kategoria</label>
               <div style="display:flex;flex-direction:column;gap:4px;">
-                <select id="inline-article-cat-main" v-model="catSelectedMain" class="form-control" @change="catSelectedSub1 = null; catSelectedSub2 = null">
+                <select v-model="catSelectedMain" class="form-control" @change="catSelectedSub1 = null; catSelectedSub2 = null">
                   <option :value="null">— brak kategorii —</option>
                   <option v-for="c in catMainOptions" :key="c.id" :value="c.id">{{ c.name }}</option>
                 </select>
-                <select v-if="catSub1Options.length" v-model="catSelectedSub1" class="form-control" aria-label="Podkategoria poziom 1" @change="catSelectedSub2 = null">
+                <select v-if="catSub1Options.length" v-model="catSelectedSub1" class="form-control" @change="catSelectedSub2 = null">
                   <option :value="null">— (poziom główny) —</option>
                   <option v-for="c in catSub1Options" :key="c.id" :value="c.id">{{ c.name }}</option>
                 </select>
-                <select v-if="catSub2Options.length" v-model="catSelectedSub2" class="form-control" aria-label="Podkategoria poziom 2">
+                <select v-if="catSub2Options.length" v-model="catSelectedSub2" class="form-control">
                   <option :value="null">— (poziom podrzędny) —</option>
                   <option v-for="c in catSub2Options" :key="c.id" :value="c.id">{{ c.name }}</option>
                 </select>
               </div>
             </div>
             <div class="form-group">
-              <label class="form-label" for="inline-article-branch">Filia</label>
-              <select id="inline-article-branch" v-model="inlineArticleForm.branch_id" class="form-control">
+              <label class="form-label">Filia</label>
+              <select v-model="inlineArticleForm.branch_id" class="form-control">
                 <option :value="null">— główna —</option>
                 <option v-for="br in settingsStore.branches" :key="br.id" :value="br.id">{{ br.name }}</option>
               </select>
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label" for="inline-article-rental-days">Min. dni najmu</label>
-            <input id="inline-article-rental-days" v-model.number="inlineArticleForm.rental_days" type="number" class="form-control" min="1" />
+            <label class="form-label">Min. dni najmu</label>
+            <input v-model.number="inlineArticleForm.rental_days" type="number" class="form-control" min="1" />
           </div>
           <div class="form-group">
-            <label class="form-label" for="inline-article-description">Opis</label>
-            <textarea id="inline-article-description" v-model="inlineArticleForm.description" class="form-control" rows="3"></textarea>
+            <label class="form-label">Opis</label>
+            <textarea v-model="inlineArticleForm.description" class="form-control" rows="3"></textarea>
           </div>
           <div class="form-group">
-            <label class="form-label" for="inline-article-notes">Uwagi</label>
-            <textarea id="inline-article-notes" v-model="inlineArticleForm.notes" class="form-control" rows="2"></textarea>
+            <label class="form-label">Uwagi</label>
+            <textarea v-model="inlineArticleForm.notes" class="form-control" rows="2"></textarea>
           </div>
           <div class="modal-actions">
             <button class="btn btn-secondary btn-sm" @click="showInlineArticleForm = false">Anuluj</button>
@@ -977,11 +966,11 @@
     <!-- Supplier picker modal -->
     <Transition name="modal">
       <div v-if="showSupplierPicker" class="modal-overlay" @click.self="showSupplierPicker = false">
-        <div class="modal-box" style="min-width:600px;" role="dialog" aria-modal="true" aria-labelledby="supplier-picker-title">
-          <div class="modal-title" id="supplier-picker-title">Wybierz dostawcę</div>
+        <div class="modal-box" style="min-width:600px;">
+          <div class="modal-title">Wybierz dostawcę</div>
           <div class="search-input-wrap" style="margin-bottom:12px;">
-            <span class="search-icon" aria-hidden="true">⌕</span>
-            <input v-model="supplierSearch" type="text" class="form-control" aria-label="Szukaj dostawcy" placeholder="Szukaj dostawcy..." @input="searchSuppliers" />
+            <span class="search-icon">⌕</span>
+            <input v-model="supplierSearch" type="text" class="form-control" placeholder="Szukaj dostawcy..." @input="searchSuppliers" />
           </div>
           <div style="max-height:320px;overflow:auto;">
             <table class="data-grid">
@@ -1011,12 +1000,9 @@ import { useContractorStore } from '@/stores/contractors'
 import { useArticleStore } from '@/stores/articles'
 import { useSettingsStore } from '@/stores/settings'
 import { useFakturowniaStore } from '@/stores/fakturownia'
-import { useToastStore } from '@/stores/toast'
-import { formatCurrency, formatDate } from '@/utils/format'
 import ConditionPanel from '@/components/contracts/ConditionPanel.vue'
 import ServiceHourGrid from '@/components/contracts/ServiceHourGrid.vue'
 import ContractPeriodPicker from '@/components/shared/ContractPeriodPicker.vue'
-import GlossaryTip from '@/components/GlossaryTip.vue'
 import api from '@/composables/useApi'
 
 const props = defineProps({ id: String })
@@ -1027,7 +1013,6 @@ const contractorStore = useContractorStore()
 const articleStore = useArticleStore()
 const settingsStore = useSettingsStore()
 const fakturowniaStore = useFakturowniaStore()
-const toastStore = useToastStore()
 
 const isEdit = computed(() => !!props.id)
 const loading = ref(false)
@@ -1498,14 +1483,7 @@ async function onAddressSelect() {
   }
 }
 
-function goBack() {
-  // RAO-P2-070 Faza 5: router.back() z fallbackiem do listy umów
-  if (window.history.length > 1) {
-    router.back()
-  } else {
-    router.push('/dashboard/contracts')
-  }
-}
+function goBack() { router.push('/dashboard/contracts') }
 
 function buildPayload() {
   const v = { ...form.value }
@@ -1526,10 +1504,8 @@ async function handleSave() {
     const payload = buildPayload()
     if (isEdit.value) {
       await contractStore.update(Number(props.id), payload)
-      toastStore.success('Umowa zapisana')
     } else {
       const result = await contractStore.create(payload)
-      toastStore.success('Umowa utworzona')
       router.push(`/contracts/${result.id}/edit`)
     }
   } catch (e: any) {
@@ -1566,7 +1542,7 @@ async function recalcTotal() {
     await api.post(`/contracts/${props.id}/recalculate`)
     await contractStore.fetchOne(Number(props.id))
   } catch (e) {
-    toastStore.error(e.response?.data?.detail || 'Błąd kalkulacji')
+    alert(e.response?.data?.detail || 'Błąd kalkulacji')
   }
 }
 
@@ -1577,12 +1553,12 @@ async function handleFakturownia() {
     await fakturowniaStore.fetchInvoicesByContractId(contractStore.current.id)
     if (fakturowniaStore.invoices.length > 0) {
       const total = fakturowniaStore.invoices.reduce((sum, inv) => sum + inv.total_net, 0)
-      toastStore.success(`Pobrano ${fakturowniaStore.invoices.length} faktur o łącznej kwocie ${formatCurrency(total)}`)
+      alert(`Pobrano ${fakturowniaStore.invoices.length} faktur o łącznej kwocie ${total.toFixed(2)} zł`)
     } else {
-      toastStore.error('Brak faktur dla tej umowy')
+      alert('Brak faktur dla tej umowy')
     }
   } catch (e: any) {
-    toastStore.error(e.response?.data?.detail || 'Błąd pobierania faktur z Fakturownia')
+    alert(e.response?.data?.detail || 'Błąd pobierania faktur z Fakturownia')
   }
 }
 
@@ -1591,7 +1567,7 @@ async function generateReport(type) {
   try {
     await contractStore.generateReport(Number(props.id), type)
   } catch (e) {
-    toastStore.error('Błąd generowania raportu')
+    alert('Błąd generowania raportu')
   }
 }
 
@@ -1607,7 +1583,7 @@ async function toggleSettled() {
     form.value.settled_at = data.settled_at
     await nextTick() // Force Vue re-render
   } catch (e) {
-    toastStore.error('Błąd zmiany statusu rozliczenia: ' + (e.response?.data?.detail || e.message))
+    alert('Błąd zmiany statusu rozliczenia: ' + (e.response?.data?.detail || e.message))
   } finally {
     settlingContract.value = false
   }
@@ -1648,7 +1624,7 @@ async function updateSettlement(settlement) {
     // Re-fetch to get updated margin
     await fetchSettlements(Number(props.id))
   } catch (e) {
-    toastStore.error('Błąd aktualizacji rozliczenia')
+    alert('Błąd aktualizacji rozliczenia')
     // Revert to original values
     await fetchSettlements(Number(props.id))
   }
@@ -1661,7 +1637,7 @@ async function initSettlements() {
     const { data } = await api.post(`/settlements/contract/${props.id}/init`)
     settlements.value = data
   } catch (e) {
-    toastStore.error('Błąd inicjalizacji rozliczenia: ' + (e.response?.data?.detail || e.message))
+    alert('Błąd inicjalizacji rozliczenia: ' + (e.response?.data?.detail || e.message))
   } finally {
     initializingSettlements.value = false
   }
@@ -1674,7 +1650,7 @@ async function initSettlementsFromFakturownia() {
     const { data } = await api.post(`/settlements/contract/${props.id}/init-from-fakturownia`)
     settlements.value = data
   } catch (e: any) {
-    toastStore.error('Błąd pobierania z Fakturownia: ' + (e.response?.data?.detail || e.message))
+    alert('Błąd pobierania z Fakturownia: ' + (e.response?.data?.detail || e.message))
   } finally {
     initializingFromFakturownia.value = false
   }
@@ -1832,7 +1808,7 @@ function editPosition(pos) {
 }
 
 async function savePosition() {
-  if (!posForm.value.article_id) { toastStore.error('Wybierz artykuł'); return }
+  if (!posForm.value.article_id) { alert('Wybierz artykuł'); return }
   savingPos.value = true
   try {
     const payload = { ...posForm.value }
@@ -1846,7 +1822,7 @@ async function savePosition() {
     showPosModal.value = false
     await recalcTotal()
   } catch (e) {
-    toastStore.error(e.response?.data?.detail || 'Błąd zapisu pozycji')
+    alert(e.response?.data?.detail || 'Błąd zapisu pozycji')
   } finally {
     savingPos.value = false
   }
@@ -1859,7 +1835,7 @@ async function deletePosition(pos) {
     if (selectedPosId.value === pos.id) selectedPosId.value = null
     await contractStore.fetchPositions(Number(props.id))
   } catch (e) {
-    toastStore.error(e.response?.data?.detail || 'Błąd')
+    alert(e.response?.data?.detail || 'Błąd')
   }
 }
 
@@ -1880,8 +1856,8 @@ async function searchArticles() {
   if (artTimer) clearTimeout(artTimer)
   artTimer = setTimeout(async () => {
     const { data } = await api.get('/articles', { params: { search: articlePickerSearch.value, per_page: 50, is_service: form.value.contract_type === 'U' ? true : false } })
-    articlePickerList.value = data.items.map(a => ({ ...a, _avail: null }))
-    // Check availability (parallel) — RAO-P1-023
+    articlePickerList.value = data.items.map(a => ({ ...a, _avail: null as AvailabilityResponse | null }))
+    // Check availability (parallel) — RAO-P1-023 + RAO-P2-066 (z rezerwacjami)
     const excludeId = isEdit.value ? Number(props.id) : null
     await Promise.all(
       articlePickerList.value
@@ -1889,7 +1865,7 @@ async function searchArticles() {
         .map(async a => {
           if (form.value.date_from && form.value.date_to) {
             await articleStore.checkAvailability(a.id, form.value.date_from, form.value.date_to, excludeId)
-              .then(av => { a._avail = av.is_available })
+              .then(av => { a._avail = av as AvailabilityResponse })
               .catch(() => { a._avail = null })
           }
         })
@@ -1907,8 +1883,6 @@ async function selectArticle(a) {
         // Show conflict modal — keep picker open in background
         pendingArticle.value = a
         conflictList.value = av.conflicting_contracts ?? []
-        // RAO-P2-066: konflikty z rezerwacjami (article_reservations)
-        reservationConflictList.value = av.conflicting_reservations ?? []
         showConflictModal.value = true
         return
       }
@@ -1925,7 +1899,6 @@ function cancelConflictSelection() {
   showConflictModal.value = false
   pendingArticle.value = null
   conflictList.value = []
-  reservationConflictList.value = []
 }
 
 function confirmConflictSelection() {
@@ -1938,7 +1911,6 @@ function confirmConflictSelection() {
   }
   pendingArticle.value = null
   conflictList.value = []
-  reservationConflictList.value = []
 }
 
 async function duplicateArticle(a) {
@@ -1963,7 +1935,7 @@ async function duplicateArticle(a) {
     await recalcTotal()
     // Don't close picker, keep it open for more selections
   } catch (e) {
-    toastStore.error(e.response?.data?.detail || 'Błąd dodawania pozycji')
+    alert(e.response?.data?.detail || 'Błąd dodawania pozycji')
   }
 }
 
@@ -2018,7 +1990,7 @@ async function saveInlineFee() {
     editingFeeId.value = null
     editingFeeData.value = {}
   } catch (e) {
-    toastStore.error(e.response?.data?.detail || 'Błąd zapisu')
+    alert(e.response?.data?.detail || 'Błąd zapisu')
   }
 }
 
@@ -2044,7 +2016,7 @@ async function saveNewFeeRow() {
     showNewFeeRow.value = false
     newFeeData.value = { name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true, article_id: null, default_price: null }
   } catch (e) {
-    toastStore.error(e.response?.data?.detail || 'Błąd dodawania')
+    alert(e.response?.data?.detail || 'Błąd dodawania')
   }
 }
 
@@ -2054,7 +2026,7 @@ async function deleteServiceFee(fee) {
     await api.delete(`/contracts/${props.id}/service-fees/${fee.id}`)
     await contractStore.fetchServiceFees(Number(props.id))
   } catch (e) {
-    toastStore.error(e.response?.data?.detail || 'Błąd')
+    alert(e.response?.data?.detail || 'Błąd')
   }
 }
 
@@ -2064,7 +2036,7 @@ async function resetServiceFees() {
     await api.post(`/contracts/${props.id}/service-fees/reset`)
     await contractStore.fetchServiceFees(Number(props.id))
   } catch (e) {
-    toastStore.error(e.response?.data?.detail || 'Błąd resetu')
+    alert(e.response?.data?.detail || 'Błąd resetu')
   }
 }
 
@@ -2091,7 +2063,7 @@ async function applyPreset(preset) {
     await contractStore.fetchServiceFees(Number(props.id))
     showPresetPicker.value = false
   } catch (e) {
-    toastStore.error(e.response?.data?.detail || 'Błąd aplikowania zestawu')
+    alert(e.response?.data?.detail || 'Błąd aplikowania zestawu')
   }
 }
 
@@ -2121,7 +2093,7 @@ async function applyPreset(preset) {
   color: #065f46;
   border: 1px solid #6ee7b7;
   border-radius: 12px;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
 }
 .btn-success {
@@ -2324,8 +2296,8 @@ async function applyPreset(preset) {
   margin-bottom: 4px;
 }
 .preset-picker-card-items {
-  font-size: 13px;
-  color: #5A6B7E;
+  font-size: 11px;
+  color: #718096;
   line-height: 1.6;
 }
 .preset-picker-empty {

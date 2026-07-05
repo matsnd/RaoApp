@@ -1,98 +1,64 @@
 # Vision Report
 
-**Plik:** C:\projects\repos\RaoApp\e2e\screenshots\ux-review\08-contract-form-new-empty.png
-**Model:** claude-opus-4-5
-**Data:** 2026-05-19T08:40:43.389Z
+**Plik:** c:/projects/repos/RaoApp_new/e2e/screenshots/ux-review/08-contract-form-new-empty.png
+**Model:** claude-opus-4-5 (anthropic) [fallback z free model: empty/thin response]
+**Data:** 2026-07-05T10:46:00.723Z
 
-# Analiza UX/UI - Formularz Nowej Umowy (ToolSmart/RAO)
+# Analiza Screenshota - Błąd Kompilacji Vue
 
-## 📊 Ogólna ocena: 5.5/10
+## 🚨 To NIE jest screenshot formularza umowy!
 
----
-
-## ✅ Co jest OK
-
-### 1. **Podstawowa struktura**
-- Logiczny przepływ od góry: typ umowy → daty → kontrahent → szczegóły
-- Nawigacja boczna jest czytelna, aktywna sekcja wyróżniona
-- Przycisk "Zapisz" w prawym górnym rogu (standardowa lokalizacja)
-
-### 2. **Niektóre elementy formularza**
-- Pole "Kontrahent" ma gwiazdkę (*) oznaczającą wymagane pole
-- Przycisk "Wybierz" przy kontrahentcie - dobra praktyka dla lookup
-- Checkboxy "Drukuj" przy osobach kontaktowych - praktyczne
-
-### 3. **Kolorystyka podstawowa**
-- Navy sidebar zgodny z design systemem (#1D2B53)
-- "Pozostało (zł)" w kolorze czerwonym/pomarańczowym - sygnalizuje uwagę
+To jest **ekran błędu kompilacji Vite/Vue** - overlay deweloperski pokazujący error w kodzie.
 
 ---
 
-## ❌ Problemy UX/UI
+## Co widzę na screenshocie:
 
-### 🔴 **KRYTYCZNE**
-
-#### 1. **Brak wizualnego grupowania pól**
+### Błąd kompilacji:
 ```
-Problem: Wszystkie pola są "płaskie" - brak sekcji, kart, separatorów
-Skutek: Użytkownik nie wie, które pola są powiązane
-Rozwiązanie: Dodać karty/sekcje z nagłówkami:
-- "Dane podstawowe umowy"
-- "Kontrahent i adres dostawy"  
-- "Wartości i płatności"
-- "Osoby kontaktowe"
-- "Opcje dodatkowe"
+[plugin:vite:vue] Invalid end tag.
+ContractFormView.vue:2336:1
 ```
 
-#### 2. **Niespójne oznaczanie pól wymaganych**
-```
-Problem: Tylko "Kontrahent" ma gwiazdkę (*), a prawdopodobnie 
-         więcej pól jest wymaganych (Data od, Typ umowy?)
-Rozwiązanie: Konsekwentnie oznaczać WSZYSTKIE wymagane pola
-```
-
-#### 3. **Brak widocznej walidacji**
-```
-Problem: Nie widać żadnych komunikatów błędów, wskazówek
-- Co jeśli data jest błędna?
-- Jak wygląda błąd przy pustym polu wymaganym?
-Rozwiązanie: Dodać inline validation z komunikatami pod polami
+### Problem w kodzie:
+```css
+2335 |  }
+2336 |  </style>    ← Zamknięcie </style>
+2337 |    box-shadow: 0 2px 8px rgba(15,35,78,0.12);  ← KOD PO ZAMKNIĘCIU!
+2338 |  }
 ```
 
 ---
 
-### 🟠 **WAŻNE**
+## 🔧 Rozwiązanie problemu:
 
-#### 4. **Chaotyczny layout adresu dostawy**
-```
-Obecny stan:
-[00-000] [Miasto] [Uwagi dojazdowe (opcjonalnie)]
+### Błąd: CSS znajduje się **PO** tagu `</style>`
 
-Problem: 
-- Brak pola na ulicę/numer!
-- Kod pocztowy i miasto w jednej linii z uwagami
-- Placeholder "00-000" zamiast etykiety "Kod pocztowy"
+Musisz sprawdzić plik `ContractFormView.vue` około linii 2335-2338.
 
-Rozwiązanie:
-[Ulica i numer          ]
-[Kod pocztowy] [Miasto  ]
-[Uwagi dojazdowe        ]
-```
+Prawdopodobnie:
+1. **Przypadkowo zamknąłeś `</style>` za wcześnie**
+2. **Duplikat tagu `</style>`**
+3. **Brakujący nawias `}` gdzieś wcześniej** - co przesuwa strukturę
 
-#### 5. **Niespójne placeholdery vs etykiety**
-```
-Problemy:
-- "Wybierz kontrahenta..." - OK jako placeholder
-- "00-000" - to format, nie etykieta (brak label "Kod pocztowy")
-- "Miasto" - to label czy placeholder?
-- "(auto)" przy numerze umowy - niejasne
-- "dd.mm.yyyy" - format daty jako placeholder
+### Szybka naprawa:
 
-Rozwiązanie: Etykiety ZAWSZE nad polem, placeholdery jako przykłady
+```vue
+<!-- Znajdź i popraw strukturę: -->
+<style scoped>
+/* ... cały CSS ... */
+
+.twoja-klasa {
+  font-size: 13px;
+  box-shadow: 0 2px 8px rgba(15,35,78,0.12);  /* ← To musi być PRZED </style> */
+}
+</style>  <!-- ← Tylko jeden tag zamykający na końcu -->
 ```
 
-#### 6. **Spacing i alignment**
-```
-Problemy:
-- Nierówne odstępy między wierszami
-- Sekcja "Opcje" (checkboxy na dole) wygląda na "dorzuco
+---
+
+## 📋 Aby ocenić formularz umowy:
+
+Potrzebuję screenshota **działającej aplikacji** - czyli widoku formularza po naprawieniu tego błędu kompilacji.
+
+Czy chcesz, żebym pomógł zdebugować ten błąd w pliku Vue?

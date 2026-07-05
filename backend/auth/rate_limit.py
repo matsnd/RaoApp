@@ -55,7 +55,11 @@ async def enforce_auth_rate_limit(request: Request) -> None:
     """Zaleznosc FastAPI: rzuca 429 gdy IP przekroczylo limit w oknie.
 
     Uzywana jako Depends na endpointach /auth/login i /auth/forgot-password.
+    W environment=development rate limiting jest wylaczony (testy e2e, dev).
     """
+    from config import settings
+    if settings.environment == "development":
+        return
     ip = _client_ip(request)
     now = time.monotonic()
 
