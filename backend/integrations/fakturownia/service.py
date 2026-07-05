@@ -43,6 +43,35 @@ async def get_or_create_settings(db: AsyncSession) -> FakturowniaSettings:
         db.add(obj)
         await db.commit()
         await db.refresh(obj)
+
+    # RAO-P1-005: Bootstrap DB settings from env on first access.
+    # If DB row has no token but env is configured (RAO_FAKTUROWNIA_API_TOKEN +
+    # RAO_FAKTUROWNIA_DOMAIN_SUBDOMAIN), seed the DB row so integracja działa
+    # bez ręcznej konfiguracji w UI. Admin może później nadpisać token przez UI.
+    # DB pozostaje single source of truth — bootstrap jest idempotentny
+    # (uruchamia się tylko gdy api_token_ciphertext IS NULL).
+    env_token = settings.RAO_FAKTUROWNIA_API_TOKEN
+    env_domain = settings.RAO_FAKTUROWNIA_DOMAIN_SUBDOMAIN
+    if env_token and env_domain and not obj.api_token_ciphertext:
+        enc_key = settings.RAO_FAKTUROWNIA_ENC_KEY
+        if enc_key:
+            try:
+                obj.api_token_ciphertext = encrypt_token(env_token, enc_key)
+                obj.api_token_preview = mask_token(env_token)
+                obj.domain_subdomain = env_domain
+                obj.enabled = True
+                obj.api_token_updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                await db.commit()
+                await db.refresh(obj)
+                logger.info(
+                    "Fakturownia settings bootstrapped from env (domain=%s) — RAO-P1-005",
+                    env_domain,
+                )
+            except Exception as exc:
+                # Nie przerywaj requestu — admin może skonfigurować ręcznie.
+                logger.error(
+                    "Fakturownia env bootstrap failed: %s", type(exc).__name__
+                )
     return obj
 
 

@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     # Generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
     # Must be 32 URL-safe base64-encoded bytes (44 chars). Empty = encryption disabled.
     RAO_FAKTUROWNIA_ENC_KEY: str = ""
+    # RAO-P1-005: Bootstrap DB settings from env on first access (admin can override via UI).
+    # Empty = no bootstrap (admin must configure via /integrations/fakturownia/settings).
+    RAO_FAKTUROWNIA_API_TOKEN: str = ""
+    RAO_FAKTUROWNIA_DOMAIN_SUBDOMAIN: str = ""
     # RAO-P2-048: środowisko uruchomieniowe — "development" | "staging" | "production"
     # W dev mode zostaw /docs i /redoc; na prod/staging wyłączone (docs_url=None).
     RAO_ENV: str = "development"

@@ -158,6 +158,11 @@ async def aggregate_by_pna(
 
     items: list[LocationStatItem] = []
     for _key, d in agg.items():
+        # RAO-P1-009: W trybie 'city' (tabela główna) pomijaj bucket "(brak PNA)"
+        # — umowy bez miasta nie mają sensu w rankingu lokalizacji.
+        # Bucket pozostaje w trybie 'pna' (detail view), gdzie PNA ma znaczenie.
+        if group_by == "city" and d["city"] == NO_PNA_BUCKET:
+            continue
         items.append(
             LocationStatItem(
                 city=d["city"],

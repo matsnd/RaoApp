@@ -146,11 +146,11 @@
   <table class="uz">
     <tr>
       <td style="width:130px;">reprezentowany przez:</td>
-      <td class="fill">{{ contract.contact_person1 or '' }}</td>
+      <td class="fill">{% if contract.show_person1 %}{{ contract.contact_person1 or '' }}{% endif %}</td>
     </tr>
     <tr>
       <td>osoba kontaktowa:</td>
-      <td class="fill">{{ contract.contact_person2 or '' }}</td>
+      <td class="fill">{% if contract.show_person2 %}{{ contract.contact_person2 or '' }}{% endif %}</td>
     </tr>
     <tr>
       <td>na budowie:</td>
