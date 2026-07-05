@@ -42,7 +42,7 @@ severity: blocker
 - `buildAutoDescription`: obsługa warunku z samym `rate2` ("powyżej — 120,00/doba")
 - `formatCascadingPreview`: pokaż warunek z samym `rate2` w preview
 
-Commit: (po commit)
+Commit: 65c8186
 
 ### P0-011: ContractFormView — TypeError: inv.total_net.toFixed is not a function
 
