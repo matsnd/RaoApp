@@ -206,6 +206,7 @@ HANDLOWCY = [
 
 ODDZIALY = [
     {"name": "RAO Warszawa (HQ)", "city": "Warszawa", "street": "ul. Przykładowa 1", "postal_code": "00-001"},
+    {"name": "RAO Gdańsk", "city": "Gdańsk", "street": "ul. Portowa 5", "postal_code": "80-001"},
 ]
 
 RATE_TYPES = [
@@ -540,14 +541,14 @@ def generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_n
     contracts = []
     today = date.today()
 
-    def _add(number, i, date_from, days, contract_type, is_settled, fa_pending=False):
+    def _add(number, i, date_from, days, contract_type, is_settled, fa_pending=False, branch_id=None):
         date_to = date_from + timedelta(days=days)
         is_active = date_to >= today
         positions, fees = _build_positions_and_fees(i, days, maszyny, uslugi, rt_dniowy)
         contracts.append({
             "number": number,
             "contractor_id": contractors[i % len(contractors)].id,
-            "branch_id": branches[0].id,
+            "branch_id": branch_id if branch_id is not None else branches[0].id,
             "salesperson_id": salespeople[i % len(salespeople)].id,
             "contract_type": contract_type,
             "date_from": date_from,
@@ -591,6 +592,31 @@ def generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_n
         days = 7 + (k % 3) * 7
         number = f"{contract_type}{k + 25:03d}/2026"  # S025..S032/2026 — kontynuacja numeracji
         _add(number, i, date_from, days, contract_type, is_settled=False, fa_pending=True)
+
+    # ── Pula D: umowy gdańskie (branch_id ≠ 1, suffix "G" w numerze) ──────────
+    # RAO-P1-055: demo /stats/by-branch — umowy z oddziału Gdańsk.
+    # Format numeru: S{NNN}/{ROK}G (G na końcu, zgodnie ze starą aplikacją WinForms).
+    # 6 umów: 3 historia 2025 (rozliczone) + 3 bieżące 2026 (mix stanów).
+    gdansk_branch = branches[1].id if len(branches) > 1 else branches[0].id
+    for k in range(6):
+        if k < 3:
+            # Historia 2025 — rozliczone
+            contract_type = "S" if k % 2 == 0 else "U"
+            months_back = 14 + k * 3
+            date_from = today - timedelta(days=months_back * 30)
+            days = 10 + k * 5
+            number = f"{contract_type}{k + 40:03d}/2025G"
+            _add(number, k + 5, date_from, days, contract_type, is_settled=True, branch_id=gdansk_branch)
+        else:
+            # Bieżące 2026 — mix stanów
+            contract_type = "S" if k % 2 == 0 else "U"
+            months_back = (k - 3) * 4
+            date_from = today - timedelta(days=months_back * 30 + 10)
+            days = 14 + k * 3
+            date_to = date_from + timedelta(days=days)
+            is_active = date_to >= today
+            number = f"{contract_type}{k + 40:03d}/2026G"
+            _add(number, k + 5, date_from, days, contract_type, is_settled=(not is_active), branch_id=gdansk_branch)
 
     return contracts
 
