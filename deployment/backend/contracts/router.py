@@ -1,19 +1,18 @@
-from datetime import date
-from fastapi import APIRouter, Depends, Query
+from datetime import date, datetime
+from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth.dependencies import get_current_user
 from auth.models import User
 from contracts.schemas import (
-    ConditionCreate, ConditionResponse, ContractCreate, ContractDetail,
+    ConditionCreate, ConditionResponse, ConditionUpdate, ContractCreate, ContractDetail,
     ContractListItem, ContractServiceFeeCreate, ContractServiceFeeReorder,
-    ContractServiceFeeResponse, PositionCreate, PositionResponse,
-    ServiceHourCreate, ServiceHourResponse, ServiceHourUpdate,
+    ContractServiceFeeResponse, ContractUpdate, PositionCreate, PositionResponse,
+    PositionUpdate,
     SettleContractRequest,
 )
 from contracts.service import contract_service
-from contracts.service_hours_service import service_hour_service
 from database import get_db
 from shared.pagination import PaginatedResponse
 
@@ -88,7 +87,7 @@ async def create_contract(
 @router.put("/{contract_id}", response_model=ContractDetail)
 async def update_contract(
     contract_id: int,
-    data: ContractCreate,
+    data: ContractUpdate,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
@@ -151,7 +150,7 @@ async def create_position(
 async def update_position(
     contract_id: int,
     pos_id: int,
-    data: PositionCreate,
+    data: PositionUpdate,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
@@ -214,8 +213,18 @@ async def create_condition(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    cond = await contract_service.create_condition(db, pos_id, data)
-    return await _cond_response(db, cond)
+    try:
+        cond = await contract_service.create_condition(db, pos_id, data)
+        return await _cond_response(db, cond)
+    except Exception as e:
+        # IntegrityError (FK constraint) — nie crashuj serwera, zwróć 422
+        if 'IntegrityError' in type(e).__name__ or 'foreign key' in str(e).lower():
+            await db.rollback()
+            raise HTTPException(
+                status_code=422,
+                detail=f"Nieprawidłowe rate_type_id lub inny błąd FK: {e.orig if hasattr(e, 'orig') else e}",
+            )
+        raise
 
 
 @router.put("/{contract_id}/positions/{pos_id}/conditions/{cond_id}", response_model=ConditionResponse)
@@ -223,7 +232,7 @@ async def update_condition(
     contract_id: int,
     pos_id: int,
     cond_id: int,
-    data: ConditionCreate,
+    data: ConditionUpdate,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
@@ -329,45 +338,35 @@ async def recalculate_contract(
     return {"total_value": total}
 
 
-# Service Hours endpoints
-@router.get("/positions/{position_id}/service-hours", response_model=list[ServiceHourResponse])
-async def list_service_hours(
-    position_id: int,
+# ----------------------------------------------------------------------
+# RAO-P1-001: Apply predefiniowany cennik do pozycji umowy (snapshot)
+# ----------------------------------------------------------------------
+
+class ApplyRatePresetRequest(BaseModel):
+    preset_id: int
+    replace: bool = True
+
+
+class ApplyRatePresetResponse(BaseModel):
+    applied_count: int
+    conditions: list[ConditionResponse]
+
+
+@router.post(
+    "/{contract_id}/positions/{pos_id}/conditions/apply-preset",
+    response_model=ApplyRatePresetResponse,
+    status_code=200,
+)
+async def apply_rate_preset_to_position(
+    contract_id: int,
+    pos_id: int,
+    data: ApplyRatePresetRequest,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    hours = await service_hour_service.list_service_hours(db, position_id)
-    return [ServiceHourResponse.model_validate(h) for h in hours]
-
-
-@router.post("/positions/{position_id}/service-hours", response_model=ServiceHourResponse, status_code=201)
-async def create_service_hour(
-    position_id: int,
-    data: ServiceHourCreate,
-    db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
-):
-    hour = await service_hour_service.create_service_hour(db, position_id, data)
-    return ServiceHourResponse.model_validate(hour)
-
-
-@router.put("/positions/{position_id}/service-hours/{hour_id}", response_model=ServiceHourResponse)
-async def update_service_hour(
-    position_id: int,
-    hour_id: int,
-    data: ServiceHourUpdate,
-    db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
-):
-    hour = await service_hour_service.update_service_hour(db, hour_id, data)
-    return ServiceHourResponse.model_validate(hour)
-
-
-@router.delete("/positions/{position_id}/service-hours/{hour_id}", status_code=204)
-async def delete_service_hour(
-    position_id: int,
-    hour_id: int,
-    db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
-):
-    await service_hour_service.delete_service_hour(db, hour_id)
+    """Kopiuje warunki z cennika (ArticleRatePreset) do PositionCondition jako snapshot."""
+    conds = await contract_service.apply_rate_preset_to_position(
+        db, pos_id, data.preset_id, data.replace
+    )
+    resp_conds = [await _cond_response(db, c) for c in conds]
+    return ApplyRatePresetResponse(applied_count=len(resp_conds), conditions=resp_conds)

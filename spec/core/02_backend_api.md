@@ -932,44 +932,9 @@ async def recalculate_contract_value(db: AsyncSession, contract_id: int):
 **Response:** `{ "message": "Zestaw zastosowany" }`
 **HTTP:** 200 | 401 | 404 (umowa lub szablon nie istnieje)
 
-### `GET /contracts/positions/{position_id}/service-hours` (RAO-P1-014)
+### `DELETE /contracts/positions/{position_id}/service-hours/{hour_id}` (RAO-P1-014) — USUNIĘTE (Faza 1b)
 
-**Response:**
-```python
-class ServiceHourResponse(BaseModel):
-    id: int
-    position_id: int
-    service_date: date
-    time_from: time | None
-    time_to: time | None
-    notes: str | None
-    created_at: datetime
-    updated_at: datetime | None
-```
-
-### `POST /contracts/positions/{position_id}/service-hours` (RAO-P1-014)
-
-**Request:**
-```python
-class ServiceHourCreate(BaseModel):
-    service_date: date
-    time_from: time | None = None
-    time_to: time | None = None
-    notes: str | None = Field(None, max_length=500)
-```
-
-### `PUT /contracts/positions/{position_id}/service-hours/{hour_id}` (RAO-P1-014)
-
-**Request:**
-```python
-class ServiceHourUpdate(BaseModel):
-    service_date: date | None = None
-    time_from: time | None = None
-    time_to: time | None = None
-    notes: str | None = Field(None, max_length=500)
-```
-
-### `DELETE /contracts/positions/{position_id}/service-hours/{hour_id}` (RAO-P1-014)
+> **Faza 1b (RAO-P1-014):** Endpointy ewidencji godzin operatora (`GET/POST/PUT/DELETE /contracts/positions/{position_id}/service-hours[/{hour_id}]`) oraz schema `ServiceHourResponse/Create/Update` zostały usunięte z backendu. Klient wybrał formularz papierowy — tabela DB `service_hours` została DROPnięta (db-architect), a model/service/router/schemas usunięte w tej fazie. PDF protokołu usługi renderuje 5 pustych wierszy do ręcznego wypełnienia (fallback w `protocol_zo_u.html`).
 
 ```python
 class ContractServiceFeeResponse(BaseModel):

@@ -685,37 +685,9 @@ Layout (modal wbudowany w ContractFormView.vue):
 
 ---
 
-## Komponent: `ServiceHourGrid.vue` (RAO-P1-014)
+## Komponent: `ServiceHourGrid.vue` (RAO-P1-014) — USUNIĘTE (Faza 1b)
 
-**Cel:** Ewidencja godzin pracy operatora dla umów typu "U" (usługa).
-
-**Widoczność:** Tylko gdy `contract_type === 'U'` i pozycja jest wybrana.
-
-**Layout:**
-```
-┌──────────────────────────────────────────────────────┐
-│ Ewidencja godzin operatora        [+ Dodaj wpis]    │
-├──────────────────────────────────────────────────────┤
-│ Data        │ od   │ do   │ Uwagi           │      │
-│ [2026-03-15]│[08:00]│[16:00]│[Operator: Jan] │ [✕] │
-│ [2026-03-16]│[08:00]│[16:00]│[Operator: Jan] │ [✕] │
-└──────────────────────────────────────────────────────┘
-```
-
-**Funkcje:**
-- Inline edit (data/time/notes)
-- Auto-save na zmianę (change event)
-- Delete button z potwierdzeniem
-- Pusty state gdy brak wpisów
-
-**Props:**
-```typescript
-interface Props {
-  positionId: number
-}
-```
-
-**Store:** `useServiceHourStore` (`frontend/src/stores/serviceHours.js`)
+> **Faza 1b (RAO-P1-014):** Komponent `ServiceHourGrid.vue` oraz store `useServiceHourStore` (`frontend/src/stores/serviceHours.js`) zostały usunięte z backendu API (model/service/router/schemas). Klient wybrał formularz papierowy — ewidencja godzin operatora prowadzona ręcznie na wydruku PDF protokołu usługi (5 pustych wierszy fallback w `protocol_zo_u.html`). Frontend cleanup komponentu `ServiceHourGrid.vue` zaplanowany w fazie 1c (frontend-dev).
 
 ---
 

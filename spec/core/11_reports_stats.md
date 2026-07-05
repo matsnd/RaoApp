@@ -118,37 +118,25 @@ Do obu wariantów umowy dodana została sekcja `Uwagi` umieszczona **przed podpi
 
 ### 1.6 Font dokumentów — Montserrat (RAO-P1-015 scope-cut)
 
-### 1.7 Sekcja "Ewidencja godzin operatora" w protokole usługi (RAO-P1-014)
+### 1.7 Sekcja "Ewidencja godzin operatora" w protokole usługi (RAO-P1-014 — Faza 1b)
 
 **Lokalizacja:**
 - `backend/reports/templates/protocol_zo_u.html` — Protokół Usług z cenami
 
 **Zawartość:**
-- Tabela z kolumnami: Data, od (godzina), do (godzina), uwagi
-- Dane z bazy `service_hours` (jeśli istnieją) lub 12 pustych wierszy do ręcznego wypełnienia
+- Tabela z kolumnami: Data wykonania usługi, od (godzina), do (godzina), podpis osoby upoważnionej
+- **Faza 1b:** Tabela DB `service_hours` została DROPnięta (klient wybrał formularz papierowy). PDF renderuje wyłącznie 5 pustych wierszy do ręcznego wypełnienia (fallback w szablonie Jinja).
 - Sekcja widoczna dla każdej pozycji umowy
-- Automatyczne ładowanie przez `build_contract_data()` w `reports/service.py`
+- `build_contract_data()` w `reports/service.py` przekazuje `service_hours: []` (pusta lista) — szablon wchodzi w gałąź `{% else %}` z 5 pustymi wierszami
 
-**Logika:**
-```python
-# W reports/service.py, build_contract_data():
-hours_result = await db.execute(
-    select(ServiceHour).where(ServiceHour.position_id == pos.id).order_by(ServiceHour.service_date)
-)
-service_hours = hours_result.scalars().all()
-
-# W template:
+**Logika w template (`protocol_zo_u.html`):**
+```jinja
 {% if p.service_hours and p.service_hours|length > 0 %}
   {% for hour in p.service_hours %}
-  <tr>
-    <td>{{ hour.service_date|datepl }}</td>
-    <td>{{ hour.time_from.strftime('%H:%M') }}</td>
-    <td>{{ hour.time_to.strftime('%H:%M') }}</td>
-    <td>{{ hour.notes }}</td>
-  </tr>
+  <tr> ... </tr>
   {% endfor %}
 {% else %}
-  <!-- 12 pustych wierszy -->
+  <!-- 5 pustych wierszy do wypełnienia ręcznego (formularz papierowy) -->
 {% endif %}
 ```
 

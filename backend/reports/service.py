@@ -5,7 +5,6 @@ from decimal import Decimal
 from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from contracts.models import Contract, ContractPosition, PositionCondition, ContractServiceFee
-from contracts.service_hours import ServiceHour
 from contractors.models import Contractor
 from settings.models import Company, Salesperson, RateType
 from articles.models import Article as ArticleModel
@@ -98,11 +97,11 @@ async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
         # Use new cascading formatter for conditions
         conditions_text = format_position_conditions_cascading(conditions)
 
-        # Fetch service hours for this position
-        hours_result = await db.execute(
-            select(ServiceHour).where(ServiceHour.position_id == pos.id).order_by(ServiceHour.service_date)
-        )
-        service_hours = hours_result.scalars().all()
+        # RAO-P1-014 (Faza 1b): service_hours DB table removed — klient wybrał
+        # formularz papierowy. PDF pozycji usługi renderuje 5 pustych wierszy
+        # (fallback w protocol_zo_u.html). Klucz zostaje pustą listą, żeby
+        # szablon Jinja wszedł w gałąź {% else %}.
+        service_hours: list = []
 
         positions_data.append({
             "pos": pos,
@@ -335,7 +334,7 @@ def _fmt_money_plain(v) -> str:
 
 
 async def generate_commissions_pdf(db: AsyncSession, date_from: date, date_to: date) -> bytes:
-    from stats.router import _compute_position_revenues
+    from stats.router import _compute_position_revenues, _contract_date_filter
     from markupsafe import escape as _esc
     import asyncio
 
@@ -351,7 +350,7 @@ async def generate_commissions_pdf(db: AsyncSession, date_from: date, date_to: d
 
     contract_sp_q = await db.execute(
         select(Contract.id, Contract.salesperson_id)
-        .where(and_(Contract.date_from <= dt, Contract.date_to >= df))
+        .where(and_(*_contract_date_filter(df, dt)))
         .where(Contract.salesperson_id.isnot(None))
     )
     contract_sp_map = {r[0]: r[1] for r in contract_sp_q.all()}
@@ -418,7 +417,7 @@ td.commission{{color:#27ae60;font-weight:600;}}
 
 
 async def generate_stats_pdf(db: AsyncSession, date_from: date, date_to: date) -> bytes:
-    from stats.router import _compute_position_revenues
+    from stats.router import _compute_position_revenues, _contract_date_filter
     from articles.models import Article
     from markupsafe import escape as _esc
     import asyncio
@@ -444,7 +443,7 @@ async def generate_stats_pdf(db: AsyncSession, date_from: date, date_to: date) -
 
     cnt_q = await db.execute(
         select(func.count()).select_from(Contract)
-        .where(and_(Contract.date_from <= dt, Contract.date_to >= df))
+        .where(and_(*_contract_date_filter(df, dt)))
     )
     contracts_in_period = cnt_q.scalar() or 0
 

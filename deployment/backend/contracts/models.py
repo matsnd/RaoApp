@@ -1,7 +1,6 @@
 from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, Enum
 from sqlalchemy.orm import relationship
 from database import Base
-from .service_hours import ServiceHour
 from decimal import Decimal
 from articles.models import Article
 
@@ -13,18 +12,19 @@ class Contract(Base):
     contractor_id = Column(Integer, ForeignKey("contractors.id"), nullable=False)
     branch_id = Column(Integer, ForeignKey("branches.id", ondelete="SET NULL"), nullable=True)
     salesperson_id = Column(Integer, ForeignKey("salespeople.id", ondelete="SET NULL"), nullable=True)
-    number = Column(String(40), nullable=False)
+    number = Column(String(40), nullable=False, unique=True)  # RAO-P0-030: UNIQUE constraint (DB index uq_contracts_number już istnieje w main.py)
     oid = Column(String(40), nullable=True, comment="Numer zamówienia w Fakturownia (dla integracji RAO-P2-012)")
     auto_number = Column(Integer, nullable=True)
     contract_type = Column(String(1), nullable=False, default="S")
     delivery_address = Column(Text, nullable=True)
     postal_code = Column(String(20), nullable=True)
     city = Column(String(100), nullable=True)
+    postal_code_id = Column(Integer, ForeignKey("postal_codes.id", ondelete="SET NULL"), nullable=True, index=True, comment="RAO-P2-028: FK do postal_codes (deterministyczna lokalizacja)")
     latitude = Column(Numeric(10, 8), nullable=True)
     longitude = Column(Numeric(11, 8), nullable=True)
     date_from = Column(Date, nullable=True)
     date_to = Column(Date, nullable=True)
-    total_value = Column(Numeric(18, 2), nullable=True, default=0)
+    # RAO-P1-021/P2-033: total_value usunięte (martwe pole, 100% NULL)
     prepayment_amount = Column(Numeric(18, 2), nullable=True, default=0)
     prepayment_document = Column(String(200), nullable=True)
     invoice_amount = Column(Numeric(18, 2), nullable=True, default=0)
@@ -53,6 +53,7 @@ class Contract(Base):
 
     positions = relationship("ContractPosition", back_populates="contract", cascade="all, delete-orphan")
     service_fees = relationship("ContractServiceFee", back_populates="contract", cascade="all, delete-orphan")
+    postal_code_ref = relationship("PostalCode", lazy="selectin")  # RAO-P2-028: JOIN do słownika PNA
 
 
 class ContractPosition(Base):
@@ -76,7 +77,6 @@ class ContractPosition(Base):
 
     contract = relationship("Contract", back_populates="positions")
     conditions = relationship("PositionCondition", back_populates="position", cascade="all, delete-orphan")
-    service_hours = relationship("ServiceHour", back_populates="position", cascade="all, delete-orphan")
     article = relationship("Article", lazy="selectin")
 
 

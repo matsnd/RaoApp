@@ -5,15 +5,27 @@ from decimal import Decimal
 from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from contracts.models import Contract, ContractPosition, PositionCondition, ContractServiceFee
-from contracts.service_hours import ServiceHour
 from contractors.models import Contractor
 from settings.models import Company, Salesperson, RateType
 from articles.models import Article as ArticleModel
 
 
 def generate_fees_text(fees: list) -> str:
+    """Build human-readable fees text.
+
+    RAO-P0-032: Accepts either raw ContractServiceFee objects (legacy) or
+    dicts with {"fee": ContractServiceFee, "description": str} (new format
+    that avoids mutating attached session objects).
+    """
     lines = []
-    for f in sorted(fees, key=lambda x: x.sort_order):
+    # Normalize: extract (fee, description) pairs
+    normalized = []
+    for item in fees:
+        if isinstance(item, dict) and "fee" in item:
+            normalized.append((item["fee"], item.get("description") or item["fee"].description))
+        else:
+            normalized.append((item, item.description))
+    for f, desc in sorted(normalized, key=lambda x: x[0].sort_order):
         if not f.is_active:
             continue
         if f.amount_from and f.amount_to:
@@ -23,31 +35,13 @@ def generate_fees_text(fees: list) -> str:
         else:
             kwota = ""
         unit = f" / {f.unit}" if f.unit else ""
-        desc = f" ({f.description})" if f.description else ""
-        lines.append(f"- {f.name}: {kwota}{unit}{desc}".strip())
+        desc_txt = f" ({desc})" if desc else ""
+        lines.append(f"- {f.name}: {kwota}{unit}{desc_txt}".strip())
     return "\n".join(lines)
 
 
-def _build_conditions_text(conditions, default_unit: str = "doba") -> str:
-    if not conditions:
-        return ""
-    sorted_conds = sorted(conditions, key=lambda c: (c.period_count or 0))
-    lines = []
-    prev_count = 0
-    for i, c in enumerate(sorted_conds):
-        unit = c.billing_label or default_unit
-        rate = f"{float(c.rate1):.2f}" if c.rate1 else "0.00"
-        rate2_str = f" - {float(c.rate2):.2f}" if c.rate2 else ""
-        count = c.period_count or 0
-        if i == 0:
-            if count:
-                lines.append(f"1 - {count} {unit} - {rate}{rate2_str} / {unit}")
-            else:
-                lines.append(c.description or f"{rate} / {unit}")
-        else:
-            lines.append(f"powyżej {prev_count} {unit} - {rate}{rate2_str} / {unit}")
-        prev_count = count
-    return "\n".join(lines)
+# RAO-P1-045: _build_conditions_text removed — dead code.
+# build_contract_data already uses format_position_conditions_cascading (dedup + cascading).
 
 
 async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
@@ -72,15 +66,21 @@ async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
     positions = contract.positions
     fees = contract.service_fees
 
-    # Dynamiczne formatowanie placeholderów $1 i $2 w locie przed renderowaniem PDF
+    # RAO-P0-032: Nie mutuj obiektów sesji — buduj lokalne kopie description
+    # (wcześniej f.description = ... modyfikowało attached obiekt → trwała zmiana w DB)
+    fees_data = []
     for f in fees:
-        if f.description:
-            if f.amount_from is not None:
-                val_from = f"{f.amount_from:.2f} zł"
-                f.description = f.description.replace("$1 zł", val_from).replace("$1", val_from)
-            if f.amount_to is not None:
-                val_to = f"{f.amount_to:.2f} zł"
-                f.description = f.description.replace("$2 zł", val_to).replace("$2", val_to)
+        desc = f.description or ""
+        if f.amount_from is not None:
+            val_from = f"{f.amount_from:.2f} zł"
+            desc = desc.replace("$1 zł", val_from).replace("$1", val_from)
+        if f.amount_to is not None:
+            val_to = f"{f.amount_to:.2f} zł"
+            desc = desc.replace("$2 zł", val_to).replace("$2", val_to)
+        fees_data.append({
+            "fee": f,
+            "description": desc,
+        })
 
     positions_data = []
     for pos in positions:
@@ -97,11 +97,11 @@ async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
         # Use new cascading formatter for conditions
         conditions_text = format_position_conditions_cascading(conditions)
 
-        # Fetch service hours for this position
-        hours_result = await db.execute(
-            select(ServiceHour).where(ServiceHour.position_id == pos.id).order_by(ServiceHour.service_date)
-        )
-        service_hours = hours_result.scalars().all()
+        # RAO-P1-014 (Faza 1b): service_hours DB table removed — klient wybrał
+        # formularz papierowy. PDF pozycji usługi renderuje 5 pustych wierszy
+        # (fallback w protocol_zo_u.html). Klucz zostaje pustą listą, żeby
+        # szablon Jinja wszedł w gałąź {% else %}.
+        service_hours: list = []
 
         positions_data.append({
             "pos": pos,
@@ -120,8 +120,8 @@ async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
         "company": company,
         "salesperson": salesperson,
         "positions": positions_data,
-        "fees": fees,
-        "fees_text": generate_fees_text(fees),
+        "fees": fees_data,
+        "fees_text": generate_fees_text(fees_data),
     }
 
 
@@ -130,6 +130,7 @@ async def generate_summary_pdf(db: AsyncSession, summary_type: str) -> bytes:
     from sqlalchemy import select
     from contractors.models import Contractor
     from articles.models import Article
+    from markupsafe import escape as _esc
 
     if summary_type == "contractors":
         result = await db.execute(select(Contractor).order_by(Contractor.name))
@@ -144,7 +145,7 @@ async def generate_summary_pdf(db: AsyncSession, summary_type: str) -> bytes:
         <h1>Zestawienie Kontrahentów</h1>
         <table><thead><tr><th>#</th><th>Nazwa</th><th>NIP</th><th>Miasto</th><th>Telefon</th><th>Email</th></tr></thead><tbody>"""
         for i, c in enumerate(items, 1):
-            html += f"<tr><td>{i}</td><td>{c.name or ''}</td><td>{c.nip or '—'}</td><td>{c.city or '—'}</td><td>{c.phone1 or '—'}</td><td>{c.email or '—'}</td></tr>"
+            html += f"<tr><td>{i}</td><td>{_esc(c.name or '')}</td><td>{_esc(c.nip or '—')}</td><td>{_esc(c.city or '—')}</td><td>{_esc(c.phone1 or '—')}</td><td>{_esc(c.email or '—')}</td></tr>"
         html += "</tbody></table></body></html>"
     else:
         result = await db.execute(select(Article).order_by(Article.name))
@@ -161,7 +162,7 @@ async def generate_summary_pdf(db: AsyncSession, summary_type: str) -> bytes:
         for i, a in enumerate(items, 1):
             typ = "Usługa" if a.is_service else "Sprzęt"
             marka = f"{a.brand or ''} {a.model or ''}".strip() or "—"
-            html += f"<tr><td>{i}</td><td>{a.name}</td><td>{typ}</td><td>{a.internal_number or '—'}</td><td>{a.registration_no or '—'}</td><td>{marka}</td></tr>"
+            html += f"<tr><td>{i}</td><td>{_esc(a.name)}</td><td>{typ}</td><td>{_esc(a.internal_number or '—')}</td><td>{_esc(a.registration_no or '—')}</td><td>{_esc(marka)}</td></tr>"
         html += "</tbody></table></body></html>"
 
     return await asyncio.get_event_loop().run_in_executor(None, _html_to_pdf_sync, html)
@@ -333,7 +334,8 @@ def _fmt_money_plain(v) -> str:
 
 
 async def generate_commissions_pdf(db: AsyncSession, date_from: date, date_to: date) -> bytes:
-    from stats.router import _compute_position_revenues
+    from stats.router import _compute_position_revenues, _contract_date_filter
+    from markupsafe import escape as _esc
     import asyncio
 
     df, dt = date_from, date_to
@@ -348,7 +350,7 @@ async def generate_commissions_pdf(db: AsyncSession, date_from: date, date_to: d
 
     contract_sp_q = await db.execute(
         select(Contract.id, Contract.salesperson_id)
-        .where(and_(Contract.date_from <= dt, Contract.date_to >= df))
+        .where(and_(*_contract_date_filter(df, dt)))
         .where(Contract.salesperson_id.isnot(None))
     )
     contract_sp_map = {r[0]: r[1] for r in contract_sp_q.all()}
@@ -374,7 +376,7 @@ async def generate_commissions_pdf(db: AsyncSession, date_from: date, date_to: d
     grand_commission = sum(i["commission"] for i in items)
 
     rows_html = "".join(
-        f"<tr><td>{i}</td><td>{it['name']}</td><td class='num'>{it['contracts_count']}</td>"
+        f"<tr><td>{i}</td><td>{_esc(it['name'])}</td><td class='num'>{it['contracts_count']}</td>"
         f"<td class='num'>{it['rate'] if it['rate'] else '—'} %</td>"
         f"<td class='num'>{_fmt_money(it['revenue'])}</td>"
         f"<td class='num commission'>{_fmt_money(it['commission'])}</td></tr>"
@@ -415,8 +417,9 @@ td.commission{{color:#27ae60;font-weight:600;}}
 
 
 async def generate_stats_pdf(db: AsyncSession, date_from: date, date_to: date) -> bytes:
-    from stats.router import _compute_position_revenues
+    from stats.router import _compute_position_revenues, _contract_date_filter
     from articles.models import Article
+    from markupsafe import escape as _esc
     import asyncio
 
     df, dt = date_from, date_to
@@ -440,7 +443,7 @@ async def generate_stats_pdf(db: AsyncSession, date_from: date, date_to: date) -
 
     cnt_q = await db.execute(
         select(func.count()).select_from(Contract)
-        .where(and_(Contract.date_from <= dt, Contract.date_to >= df))
+        .where(and_(*_contract_date_filter(df, dt)))
     )
     contracts_in_period = cnt_q.scalar() or 0
 
@@ -487,18 +490,18 @@ async def generate_stats_pdf(db: AsyncSession, date_from: date, date_to: date) -
 
     # Build HTML sections
     top10_rows = "".join(
-        f"<tr><td>{i}</td><td>{d['name']}</td><td class='num'>{d['internal_number'] or '—'}</td>"
+        f"<tr><td>{i}</td><td>{_esc(d['name'])}</td><td class='num'>{_esc(d['internal_number'] or '—')}</td>"
         f"<td class='num'>{d['days']}</td><td class='num'>{len(d['contracts'])}</td>"
         f"<td class='num'><strong>{_fmt_money(d['revenue'])}</strong></td></tr>"
         for i, (_, d) in enumerate(top10, 1)
     )
     svc_rows = "".join(
-        f"<tr><td>{i}</td><td>{d['name']}</td><td class='num'>{len(d['contracts'])}</td>"
+        f"<tr><td>{i}</td><td>{_esc(d['name'])}</td><td class='num'>{len(d['contracts'])}</td>"
         f"<td class='num'><strong>{_fmt_money(d['revenue'])}</strong></td></tr>"
         for i, (_, d) in enumerate(svc_sorted, 1)
     ) or "<tr><td colspan='4' class='empty'>Brak danych</td></tr>"
     loc_rows = "".join(
-        f"<tr><td>{i}</td><td>{city}</td><td class='num'>{d['cnt']}</td>"
+        f"<tr><td>{i}</td><td>{_esc(city)}</td><td class='num'>{d['cnt']}</td>"
         f"<td class='num'>{_fmt_money(d['rev'])}</td></tr>"
         for i, (city, d) in enumerate(top_locations, 1)
     ) or "<tr><td colspan='4' class='empty'>Brak danych</td></tr>"
@@ -578,7 +581,11 @@ async def generate_pdf(db: AsyncSession, contract_id: int, report_type: str = "c
     template_name = template_map.get(report_type, "contract.html")
 
     template_dir = os.path.join(os.path.dirname(__file__), "templates")
-    env = Environment(loader=FileSystemLoader(template_dir))
+    # RAO-P0-031: autoescape=True chroni przed XSS/HTML injection z danych DB
+    env = Environment(
+        loader=FileSystemLoader(template_dir),
+        autoescape=True,
+    )
     env.filters['datepl'] = _fmt_date_pl
     env.filters['money'] = _fmt_money
     env.filters['money_plain'] = _fmt_money_plain
