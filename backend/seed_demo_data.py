@@ -526,7 +526,7 @@ def generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_n
              → bogate statystyki roczne, wykresy by-period, lokalizacje.
     Pula B — bieżące 2026 (24 umowy, 0-12 mies. wstecz, mix stanów)
              → aktywne wynajmy, flota teraz, KPI.
-    Pula C — FA-pending (8 umów, zakończone NIEROZLICZONE, bez settlements w RAO)
+    Pula C — FA-pending (16 umów, zakończone NIEROZLICZONE, bez settlements w RAO)
              → faktury czekają w Fakturowni (seed_fa_invoices) — demo integracji:
                user klika "Pobierz z Fakturowni" → rozliczenia się tworzą na żywo.
     """
@@ -584,12 +584,12 @@ def generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_n
 
     # ── Pula C: FA-pending — zakończone, NIEROZLICZONE, faktura czeka w FA ──
     # (demo integracji: "Pobierz z Fakturowni" tworzy rozliczenia na żywo)
-    for k in range(8):
+    for k in range(16):
         i = k + 3  # offset — inne kombinacje maszyn/kontrahentów niż pula B
         contract_type = "S" if k % 4 != 3 else "U"
         date_from = today - timedelta(days=20 + k * 9)  # zakończone niedawno
         days = 7 + (k % 3) * 7
-        number = f"{contract_type}{k + 25:03d}/2026"  # S025..S032/2026 — kontynuacja numeracji
+        number = f"{contract_type}{k + 25:03d}/2026"  # S025..S040/2026 — kontynuacja numeracji
         _add(number, i, date_from, days, contract_type, is_settled=False, fa_pending=True)
 
     return contracts
