@@ -45,6 +45,7 @@ from decimal import Decimal, InvalidOperation
 
 import bcrypt
 import aiomysql
+import pymysql  # RAO-P2-062: IntegrityError catch dla orphaned OPLATY
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from database import Base
@@ -274,7 +275,7 @@ async def step4_migrate_data():
         #   pokaz_osobe1, pokaz_osobe2, telefon, typ, ilepoz, pz_bez,
         #   autonumer, id_handlowca
         ("contracts", """
-            INSERT INTO contracts
+            INSERT IGNORE INTO contracts
                 (id, contractor_id, salesperson_id,
                  number, auto_number, contract_type,
                  delivery_address, date_from, date_to,
@@ -286,7 +287,6 @@ async def step4_migrate_data():
                  print_path, print_date, report_without_data,
                  hide_delivery_address, signatures_on_page1,
                  working_days_per_week, position_count, is_settled, settled_at,
-                 is_legacy,
                  created_at, updated_at)
             SELECT
                 id, id_kontrahenta, NULLIF(id_handlowca, 0),
@@ -300,7 +300,6 @@ async def step4_migrate_data():
                 sciezka_wydruku, data_wydruku, COALESCE(pz_bez, 0),
                 0, 0,
                 COALESCE(liczba_dni, 6), ilepoz, 1, data_do,
-                1,
                 COALESCE(data_wprowadzenia, NOW()),
                 COALESCE(data_modyfikacji, NOW())
             FROM umowa2
@@ -730,26 +729,31 @@ async def step5b_contract_service_fees():
 
     inserted = 0
     skipped  = 0
+    orphaned = 0
     for contract_id, oplaty in rows:
         fees = _parse_text_to_fees(oplaty)
         for fee in fees:
-            await cur.execute(
-                """INSERT INTO contract_service_fees
-                   (contract_id, sort_order, name,
-                    amount_from, amount_to, unit, description, is_active)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
-                (contract_id, fee['sort_order'], fee['name'],
-                 fee['amount_from'], fee['amount_to'],
-                 fee['unit'], fee['description'], fee['is_active'])
-            )
-            inserted += 1
+            try:
+                await cur.execute(
+                    """INSERT INTO contract_service_fees
+                       (contract_id, sort_order, name,
+                        amount_from, amount_to, unit, description, is_active)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                    (contract_id, fee['sort_order'], fee['name'],
+                     fee['amount_from'], fee['amount_to'],
+                     fee['unit'], fee['description'], fee['is_active'])
+                )
+                inserted += 1
+            except pymysql.err.IntegrityError:
+                # RAO-P2-062: contract_id nie istnieje (INSERT IGNORE w contracts pominął duplikaty)
+                orphaned += 1
         if not fees:
             skipped += 1
 
     await conn.commit()
     await cur.close()
     conn.close()
-    print(f"   {inserted} service fee rows from {len(rows)} contracts ({skipped} unparseable skipped)")
+    print(f"   {inserted} service fee rows from {len(rows)} contracts ({skipped} unparseable, {orphaned} orphaned skipped)")
 
 
 async def step5e_fix_placeholders():
@@ -1535,7 +1539,8 @@ async def step9_postal_codes_migration():
     with_code = (await cur.fetchone())[0]
     await cur.execute("SELECT COUNT(*) FROM contracts WHERE delivery_address IS NOT NULL")
     with_address = (await cur.fetchone())[0]
-    await cur.execute("SELECT COUNT(*) FROM contracts WHERE is_legacy = 1")
+    # RAO-P2-062: is_legacy column removed — all migrated contracts are legacy by definition
+    legacy_ct = await cur.execute("SELECT COUNT(*) FROM contracts")
     legacy_ct = (await cur.fetchone())[0]
     await cur.execute("SELECT COUNT(*) FROM postal_codes")
     pna_total = (await cur.fetchone())[0]
@@ -1543,7 +1548,7 @@ async def step9_postal_codes_migration():
     print(f"   Updated {updated}/{len(rows)} contracts with postal_code")
     print(f"   Coverage: {with_code}/{with_address} ({with_code*100//with_address if with_address else 0}%)")
     print(f"   postal_code_id FK: {with_fk} contracts")
-    print(f"   is_legacy=1: {legacy_ct} contracts (data cut-off)")
+    print(f"   total contracts: {legacy_ct} (all legacy — migrated from dump)")
     print(f"   postal_codes dict: {pna_total} entries (full Spis PNA Poczty Polskiej)")
     print("   OK")
 
@@ -1614,6 +1619,17 @@ async def step10_import_rozliczenie() -> None:
     conn = await aiomysql.connect(host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASS,
                                    db=DB_NAME, autocommit=False)
     cur = await conn.cursor()
+
+    # RAO-P2-062: tabela na logowanie orphaned rows (brakowała — CREATE IF NOT EXISTS)
+    await cur.execute("""
+        CREATE TABLE IF NOT EXISTS _import_errors (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            source VARCHAR(50) NOT NULL,
+            raw_data TEXT,
+            error_message VARCHAR(500),
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    """)
 
     # Pobierz mapowanie: contract_positions.id → contract_id
     await cur.execute("SELECT id, contract_id FROM contract_positions")
