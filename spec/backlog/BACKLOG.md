@@ -223,15 +223,34 @@ To jest odtworzenie + ulepszenie tej funkcji.
 - `GET /articles/{article_id}/last-conditions` — auto-prefill z ostatniej umowy
 - `POST /contracts/{id}/positions/{pos_id}/conditions/apply-preset` — zastosuj cennik
 
-**Frontend (UX Designer):**
-- `SettingsView.vue` → nowa zakładka "Cenniki rozliczeń" (obok "Zestawy usług dodatkowych")
-- `ConditionPanel.vue`:
+**Frontend (UX Designer — lokalizacja cenników):**
+- **PRIMARY (CRUD):** `ArticleFormView.vue` → nowa sekcja "Cenniki rozliczenia"
+  obok istniejącej "Rezerwacje maszyny" (tryb edit, v-if isEdit)
+  - Pattern preset-card z expand/collapse (spójny z fee-presets w SettingsView)
+  - Jeden cennik rozwinięty na raz (expandedPresetId)
+  - `[Domyślny]` badge widoczny bez expand
+  - `[+ Nowy cennik]` inline form (nazwa + checkbox "Ustaw jako domyślny"), NIE modal
+  - Edycja progów inline w tabeli (✎ → inputy → Enter/Esc), NIE modal
+  - Sortowanie progów: przyciski ↑↓ (prostsze niż drag, działa na mobile)
+  - Empty state: "Ta maszyna nie ma jeszcze cenników. Utwórz pierwszy,
+    aby móc szybko stosować warunki w umowach."
+  - Podpowiedź pod sekcją: "Edycja cennika nie zmienia warunków w istniejących
+    umowach — one mają własną kopię (snapshot)."
+- **SECONDARY (audit overview):** `SettingsView.vue` → nowa zakładka
+  "Cenniki rozliczeń maszyn" — READ-ONLY z redirect do karty maszyny
+  - Tabela: Maszyna | Cenników | Domyślny | Akcja [Otwórz →] / [Utwórz →]
+  - Filtr: Wszystkie / Z cennikiem domyślnym / Bez cennika domyślnego / Bez cenników
+  - Search po nazwie maszyny (operator myśli maszynami, nie cennikami)
+  - Deep link `#cenniki` — po kliknięciu karta maszyny scrolluje się do sekcji
+  - NIE tworzymy tu cenników — tylko mapa nawigacyjna (audit use case)
+- `ConditionPanel.vue` (w ContractFormView):
   - Banner auto-prefill (gdy warunki puste + maszyna ma historię/cennik)
   - Przycisk "Zastosuj cennik" (modal z listą + podgląd + confirm)
   - Przycisk "Zapisz jako cennik" (modal z nazwą + "Ustaw jako domyślny")
   - Toast "Cofnij" po zastosowaniu (5s window)
+  - Toast po "Zapisz jako cennik" z linkiem "Zobacz w karcie maszyny →"
 - Nowy store `ratePresets.ts` (Pinia)
-- Nowy komponent `RatePresetEditor.vue` (CRUD cenników w ustawieniach)
+- Walidacja: unikalność (article_id, name), rate1 > 0, rate2 ≤ rate1, periods ≥ 1
 
 **Priorytet źródeł auto-prefill (operator):**
 1. Ostatnia umowa z tą maszyną (główne źródło, feature parity)
