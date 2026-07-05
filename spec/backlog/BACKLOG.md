@@ -160,6 +160,60 @@ umowy — prawdopodobnie switch/if na `contract_type` wybierający literę).
 
 ---
 
+### P0-006: ContractFormView — checkboxy niepowiązane z dokumentami PDF
+
+```yaml
+id: P0-006
+status: triaged
+priority: P0
+created: 2026-07-05
+reporter: operator (manual test 2026-07-05)
+component: frontend/ContractFormView + backend/reports/templates
+severity: blocker
+```
+
+**Symptom:** W formularzu nowej umowy (`/rao/contracts/new`) są checkboxy/pola
+które NIE wpływają na generowane dokumenty PDF. Użytkownik zaznacza opcję,
+ale PDF ignoruje ją — błędne oczekiwanie, że dokument będzie inny.
+
+**Audyt checkboxów/pól w ContractFormView.vue:**
+
+| Linia | Pole | W PDF? | Status |
+|-------|------|--------|--------|
+| 159 | `show_person1` (Drukuj osobę 1) | ❌ NIE | **BROKEN** — checkbox w UI, ale szablon PDF zawsze drukuje `contact_person1` bez warunku `{% if contract.show_person1 %}` |
+| 167 | `show_person2` (Drukuj osobę 2) | ❌ NIE | **BROKEN** — j.w. dla `contact_person2` |
+| 191 | `hide_delivery_address` | ✅ TAK | OK — `contract.html:152`, `contract_u.html:138` |
+| 192 | `signatures_on_page1` | ✅ TAK | OK — `contract.html:253`, `contract_u.html:225` |
+| 137 | `prepayment_document` (pole tekstowe) | ❌ NIE | **BROKEN** — pole w UI, ale PDF używa tylko `prepayment_amount` (liczba), nie `prepayment_document` (opis) |
+| 145 | `invoice_document` (pole tekstowe) | ❌ NIE | **BROKEN** — pole w UI, brak w PDF |
+| 298 | `editingFeeData.is_active` | ✅ TAK | OK — `contract.html:217` filtruje `fees if fd.fee.is_active` |
+| 331 | `newFeeData.is_active` | ✅ TAK | OK — j.w. |
+| 864 | `inlineArticleForm.is_service` | ✅ TAK | OK — wpływa na typ artykułu |
+| 869 | `inlineArticleForm.is_external` | ✅ TAK | OK — wpływa na statystyki floty |
+
+**Root cause:**
+1. `show_person1`/`show_person2` — pola istnieją w DB (`contracts/models.py:36`),
+   w schema, w service — ale szablon PDF `contract.html:163` i `contract_u.html:149`
+   robią `{{ contract.contact_person1 or '' }}` bez sprawdzania `show_person1`.
+   Checkbox "Drukuj" jest martwy — nic nie kontroluje.
+2. `prepayment_document` / `invoice_document` — pola tekstowe w UI (opis dokumentu
+   przedpłaty/faktury), ale PDF pokazuje tylko kwotę (`prepayment_amount`).
+   Opis dokumentu nigdy nie trafia do PDF.
+
+**Pliki do naprawy:**
+- `backend/reports/templates/contract.html:163,167` — dodać `{% if contract.show_person1 %}...{% endif %}`
+- `backend/reports/templates/contract_u.html:149,153` — j.w.
+- `backend/reports/templates/protocol_zo*.html` — sprawdzić czy też drukują osoby bez warunku
+- `backend/reports/templates/contract.html` + `contract_u.html` — dodać `prepayment_document` i `invoice_document` jeśli mają sens biznesowy
+- Lub usunąć martwe checkboxy z UI jeśli nie ma potrzeby drukowania
+
+**Decyzja biznesowa wymagana:**
+- Czy "Drukuj" dla osób kontaktowych ma ukrywać osobę w PDF? (prawdopodobnie tak)
+- Czy `prepayment_document` / `invoice_document` mają trafiać do PDF? (opis nr dokumentu)
+- Czy checkboxy mają być domyślnie zaznaczone (jak w DB `default=True`)?
+
+---
+
 ## 🔴 P1 — Must-Have
 *(brak)*
 
@@ -183,7 +237,7 @@ umowy — prawdopodobnie switch/if na `contract_type` wybierający literę).
 
 ## 📊 Summary
 
-**Razem:** 5 zadań (P0: 5, done: 1)
+**Razem:** 6 zadań (P0: 6, done: 1)
 
 ### Pipeline weryfikacji (status flow)
 

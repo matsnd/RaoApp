@@ -67,6 +67,14 @@ Wymaga comboboxa (input + autouzupełnianie). Naprawa w `AnalyticsFilters.vue`.
 **Decyzja:** Odłożone. Wymaga zmiany generatora numeru + możliwej migracji istniejących umów z `U` → `S`.
 **Impact:** Obecnie umowy usługowe mają prefiks `U` — niedopuszczalne, wszystkie mają być `S`.
 
+### P0-006 — ContractFormView checkboxy niepowiązane z PDF
+
+**Data:** 2026-07-05
+**Status:** triaged (audyt wykonany przez Devina na żądanie operatora)
+**Decyzja:** Odłożone. Wymaga decyzji biznesowej: czy "Drukuj" ukrywa osobę w PDF, czy `prepayment_document`/`invoice_document` mają trafiać do PDF.
+**Audyt:** 4 pola broken (`show_person1`, `show_person2`, `prepayment_document`, `invoice_document`), 6 bindowanych poprawnie (`hide_delivery_address`, `signatures_on_page1`, `is_active`×2, `is_service`, `is_external`).
+**Impact:** Użytkownik zaznacza "Drukuj" lub wpisuje nr dokumentu, ale PDF ignoruje te dane — błędne oczekiwanie.
+
 ---
 
 ## P0 — Production Blockers (wszystkie done/team-verified)
