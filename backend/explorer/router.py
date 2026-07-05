@@ -48,7 +48,6 @@ async def explorer_search(
     category: Optional[str] = Query(None),
     city: Optional[str] = Query(None),
     contractor_id: Optional[int] = Query(None),
-    article_type: str = Query("all", pattern="^(all|machine|service)$", description="Filtr rodzaju pozycji (RAO-P0-001/BUG-4)"),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -58,6 +57,12 @@ async def explorer_search(
     Universal search across machines, services, contractors, and locations.
     Returns mixed results with type indicator.
     """
+    # RAO-P2-065 #10: walidacja — date_from > date_to zwraca 422
+    if date_from and date_to and date_from > date_to:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Data początkowa ({date_from}) nie może być późniejsza niż końcowa ({date_to}).",
+        )
     results = []
 
     # Subquery: revenue per position from position_conditions
@@ -85,7 +90,8 @@ async def explorer_search(
             Contract.date_from,
             Contract.date_to,
             Contractor.name.label("contractor_name"),
-            Contract.delivery_address,
+            Contract.city,                            # RAO-P2-065 #8: city osobno
+            Contract.delivery_address,                # RAO-P2-065 #8: delivery_address osobno
             func.coalesce(revenue_subq.c.pos_revenue, 0).label("revenue"),
         )
         .join(Contract, ContractPosition.contract_id == Contract.id)
@@ -95,10 +101,10 @@ async def explorer_search(
         .outerjoin(revenue_subq, revenue_subq.c.position_id == ContractPosition.id)
         .where(Article.is_archival == False)  # RAO-P1-028: tylko niearchiwalne
     )
-
+    
     # Apply filters
     conditions = []
-
+    
     if date_from:
         conditions.append(Contract.date_from >= date_from)
     if date_to:
@@ -109,10 +115,6 @@ async def explorer_search(
         conditions.append(or_(Contract.city.like(f"%{city}%"), Contract.delivery_address.like(f"%{city}%")))  # RAO-P1-028
     if category:
         conditions.append(Category.name == category)
-    # RAO-P0-001/BUG-4: article_type → is_service filter
-    _service_filter = {"machine": False, "service": True}.get(article_type)
-    if _service_filter is not None:
-        conditions.append(Article.is_service == _service_filter)
     
     if q:
         # MySQL uses case-insensitive collation by default, so LIKE is case-insensitive
@@ -133,15 +135,15 @@ async def explorer_search(
     result = await db.execute(query)
     rows = result.mappings().all()
     
-    # Format results with type indicator
+    # Format results with type indicator (RAO-P2-065 #16: text values, not emoji)
     for row in rows:
-        item_type = "🏗️"  # Machine default
+        item_type = "machine"  # Machine default
         if row.is_service:
-            item_type = "🛠️"  # Service
-        
+            item_type = "service"
+
         results.append({
             "type": item_type,
-            "type_label": "Maszyna" if item_type == "🏗️" else "Usługa",
+            "type_label": "Maszyna" if item_type == "machine" else "Usługa",
             "id": row.id,
             "article_id": row.article_id,
             "name": f"{row.article_name} ({row.internal_number})" if row.internal_number else row.article_name,
@@ -149,7 +151,9 @@ async def explorer_search(
             "contract_number": row.contract_number,
             "contractor_name": row.contractor_name,
             "date": row.date_from.isoformat() if row.date_from else None,
-            "city": row.delivery_address,
+            # RAO-P2-065 #8: city = Contract.city (nie delivery_address)
+            "city": row.city,
+            "delivery_address": row.delivery_address,
             "amount": float(row.revenue) if row.revenue else 0,
         })
     
@@ -175,7 +179,8 @@ async def explorer_search(
     
     return {
         "items": results,
-        "total": len(results),
+        # RAO-P2-065 #8: total = total_count z summary (nie len(results) które = page size)
+        "total": summary.total_count if summary else 0,
         "summary": {
             "count": summary.total_count if summary else 0,
             "revenue": float(summary.total_revenue) if summary and summary.total_revenue else 0,
@@ -366,9 +371,6 @@ async def get_locations_summary(
     limit: int = Query(50, ge=1, le=100),
     group_by: str = Query("city", pattern="^(city|pna)$",
                           description="Grupowanie: 'city' (1 wiersz per miasto, domyślnie) lub 'pna' (1 wiersz per PNA)"),
-    contractor_id: Optional[int] = Query(None, description="Filtruj po kontrahencie (RAO-P0-001/BUG-4)"),
-    city: Optional[str] = Query(None, description="Filtruj po mieście umowy, case-insensitive (RAO-P0-001/BUG-4)"),
-    article_type: str = Query("all", pattern="^(all|machine|service)$", description="Filtr rodzaju pozycji (RAO-P0-001/BUG-4)"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
@@ -379,23 +381,17 @@ async def get_locations_summary(
       wszystkie PNA w tym mieście. Warszawa (3978 PNA) → 1 wiersz.
     - group_by='pna' (legacy RAO-P2-028): 1 wiersz per PNA — rozbicie miasta
       na kody pocztowe.
-    - contractor_id/city/article_type → RAO-P0-001/BUG-4: filtry na pozycjach
 
     Rollup po gmina/powiat/wojewodztwo z LEFT JOIN do postal_codes.
     Przychód liczony spójnym algorytmem kaskadowym (`shared.revenue`).
     """
     # RAO-P2-028: domyślne daty jak w stats/router.py (None → początek miesiąca / dziś)
-    from stats.router import _default_dates, _apply_position_filters
+    from stats.router import _default_dates
     df, dt = _default_dates(date_from, date_to)
-    # RAO-P0-001/BUG-4: article_type → service_filter
-    service_filter = {"machine": False, "service": True}.get(article_type)
     # Spójny przychód ze shared.revenue (kaskadowy algorytm jak w stats)
     all_pos = await compute_position_revenues(
-        db, df, dt, exclude_archival=False,  # uwzględnia archiwalne (statystyki historyczne)
-        service_filter=service_filter,
+        db, df, dt, exclude_archival=False  # uwzględnia archiwalne (statystyki historyczne)
     )
-    # RAO-P0-001/BUG-4: filtruj pozycje po contractor_id/city
-    all_pos = _apply_position_filters(all_pos, contractor_id=contractor_id, city=city)
     items = await aggregate_by_pna(all_pos, db, limit=limit, group_by=group_by)
 
     locations = []
