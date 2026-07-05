@@ -244,6 +244,12 @@ async def init_contract_settlements_from_fakturownia(
             if article and article.fakturownia_product_id:
                 pid_to_service_fees.setdefault(article.fakturownia_product_id, []).append(fee.id)
     
+    # RAO Faza 2a (opcja E): zbiór wszystkich zmapowanych product_id (positions + service_fees).
+    # Blok unmapped w obu pętlach sprawdza pid not in mapped_pids — chroni przed
+    # double-counting (pozycja FA zmapowana jako service_fee nie dostaje unmapped w pętli 1,
+    # pozycja FA zmapowana jako position nie dostaje unmapped w pętli 2).
+    mapped_pids = set(pid_to_positions.keys()) | set(pid_to_service_fees.keys())
+    
     # Przetwórz faktury i utwórz/aktualizuj settlements dla pozycji
     for invoice in invoices:
         for line in invoice.lines:
@@ -255,7 +261,9 @@ async def init_contract_settlements_from_fakturownia(
                 # bez position_id (snapshot nazwy w article_name_snapshot).
                 # NIE tworzymy artykułu on-the-fly — tylko snapshot nazwy.
                 # Idempotentność: UNIQUE(unmapped_key) chroni przed duplikatem.
-                if pid is not None and pid != 0:
+                # Guard: pid not in mapped_pids — nie twórz unmapped jeśli pozycja FA
+                # jest zmapowana jako service_fee (pętla 2 utworzy mapped settlement).
+                if pid is not None and pid != 0 and pid not in mapped_pids:
                     existing = await db.execute(
                         select(ContractSettlement).where(
                             ContractSettlement.contract_id == contract_id,
@@ -330,7 +338,9 @@ async def init_contract_settlements_from_fakturownia(
                 # pozycji powyżej — UNIQUE(unmapped_key) chroni przed duplikatem
                 # (klucz = unmapped:pid:invoice_number, identyczny niezależnie od
                 # tego, w której pętli próbujemy dodać).
-                if pid is not None and pid != 0:
+                # Guard: pid not in mapped_pids — nie twórz unmapped jeśli pozycja FA
+                # jest zmapowana jako position (pętla 1 utworzyła mapped settlement).
+                if pid is not None and pid != 0 and pid not in mapped_pids:
                     existing = await db.execute(
                         select(ContractSettlement).where(
                             ContractSettlement.contract_id == contract_id,

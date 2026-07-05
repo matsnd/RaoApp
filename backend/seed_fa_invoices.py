@@ -312,7 +312,6 @@ async def ensure_unmapped_fa_product(client, db) -> int:
             "name": FA_UNMAPPED_PRODUCT_NAME,
             "price_net": FA_UNMAPPED_PRODUCT_PRICE_NET,
             "tax": 23,
-            "unit": "szt",
         },
     }
     resp = await client.post(f"{FA_BASE}/products.json", json=body, timeout=20.0)

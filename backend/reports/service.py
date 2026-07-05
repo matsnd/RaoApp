@@ -97,11 +97,10 @@ async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
         # Use new cascading formatter for conditions
         conditions_text = format_position_conditions_cascading(conditions)
 
-        # RAO-P1-014 (Faza 1b): service_hours DB table removed — klient wybrał
-        # formularz papierowy. PDF pozycji usługi renderuje 5 pustych wierszy
-        # (fallback w protocol_zo_u.html). Klucz zostaje pustą listą, żeby
-        # szablon Jinja wszedł w gałąź {% else %}.
-        service_hours: list = []
+        # Fetch service hours for this position
+        # RAO-P1-014 (usunięte): service_hours table dropped — PDF fallback to empty list.
+        # Formularz papierowy wypełniany ręcznie (5 pustych wierszy w template).
+        service_hours = []
 
         positions_data.append({
             "pos": pos,
@@ -614,4 +613,7 @@ async def generate_pdf(db: AsyncSession, contract_id: int, report_type: str = "c
     pdf_bytes = await loop.run_in_executor(
         None, _html_to_pdf_sync, html, not is_protocol
     )
+    return pdf_bytes
+    return pdf_bytes
+    return pdf_bytes
     return pdf_bytes

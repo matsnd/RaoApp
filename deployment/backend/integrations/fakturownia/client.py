@@ -53,6 +53,9 @@ class FakturowniaClient:
         """Fetch invoices from Fakturownia by Order ID (OID = contract number in RAO).
 
         Fakturownia endpoint: GET /invoices.json?api_token=...&oid=...
+        NOTE: /invoices.json (lista) NIE zwraca pozycji (positions=None).
+        Dla każdej faktury z listy pobieramy pełne dane po ID (GET /invoices/{id}.json)
+        żeby dostać positions. To N+1 ale FA API nie ma lepszego sposobu.
         """
         raw = await self._get(
             "/invoices.json",
@@ -63,7 +66,29 @@ class FakturowniaClient:
                 "Fakturownia /invoices.json returned non-list type: %s", type(raw).__name__
             )
             return []
-        return self._parse_invoices(raw)
+        # Pobierz pełne dane każdej faktury (z pozycjami) po ID
+        full_invoices: list = []
+        for inv in raw:
+            inv_id = inv.get("id")
+            if inv_id is None:
+                continue
+            try:
+                full = await self._get(
+                    f"/invoices/{inv_id}.json",
+                    params={"api_token": self._api_token},
+                )
+                if isinstance(full, dict):
+                    full_invoices.append(full)
+                else:
+                    # fallback: użyj danych z listy (bez pozycji)
+                    full_invoices.append(inv)
+            except Exception as exc:
+                logger.warning(
+                    "Fakturownia /invoices/%s.json fetch failed: %s — fallback to list data",
+                    inv_id, exc,
+                )
+                full_invoices.append(inv)
+        return self._parse_invoices(full_invoices)
 
     async def get_products(self) -> List[FakturowniaProductOut]:
         """Fetch product catalogue from Fakturownia.

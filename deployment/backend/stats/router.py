@@ -211,9 +211,7 @@ async def fleet_summary(
     # Top machine by revenue (machines only, not services)
     machine_rev = defaultdict(lambda: {"name": "", "rev": Decimal(0)})
     for p in all_pos:
-        # RAO Faza 2a (opcja E): pomiń unmapped (is_service=None) w top_machine
-        # (fleet_summary top_machine to konkretna maszyna, unmapped nie ma maszyny)
-        if p["is_service"] is False:
+        if not p["is_service"]:
             key = p["article_id"]
             machine_rev[key]["name"] = p["article_name"]
             machine_rev[key]["rev"] += p["revenue"]
@@ -272,15 +270,14 @@ async def top_machines(
         "name": "", "internal_number": None,
         "revenue": Decimal(0), "days": 0, "contracts": set(),
     })
-    # RAO Faza 2a (opcja E): bucket dla unmapped settlements (article_id=None)
+    # RAO Faza 2a (opcja E): bucket dla unmapped (article_id=None) — marker __unmapped__
     unmapped_bucket = {
         "name": "Inne (niezmapowane z FA)", "internal_number": None,
         "revenue": Decimal(0), "days": 0, "contracts": set(),
     }
-    _UNMAPPED_KEY = "__unmapped__"
     for p in all_pos:
-        # RAO Faza 2a (opcja E): unmapped (article_id=None) → osobny bucket
         if p["article_id"] is None:
+            # unmapped settlement → bucket "Inne (niezmapowane z FA)"
             unmapped_bucket["revenue"] += p["revenue"]
             unmapped_bucket["contracts"].add(p["contract_id"])
             continue
@@ -291,15 +288,14 @@ async def top_machines(
         agg[key]["days"] += p["clamped_days"]
         agg[key]["contracts"].add(p["contract_id"])
 
-    # Dołącz bucket unmapped jeśli ma jakikolwiek przychód
+    sorted_items = sorted(agg.items(), key=lambda x: x[1]["revenue"], reverse=True)
+    # Dodaj bucket unmapped na końcu jeśli ma revenue > 0
     if unmapped_bucket["revenue"] > 0:
-        agg[_UNMAPPED_KEY] = unmapped_bucket
-
-    sorted_items = sorted(agg.items(), key=lambda x: x[1]["revenue"], reverse=True)[:limit]
+        sorted_items.append((None, unmapped_bucket))
+    sorted_items = sorted_items[:limit]
     result = [
         TopMachineItem(
-            article_id=(aid if aid != _UNMAPPED_KEY else None), name=d["name"],
-            internal_number=d["internal_number"],
+            article_id=aid, name=d["name"], internal_number=d["internal_number"],
             revenue=d["revenue"], rented_days=d["days"],
             contracts_count=len(d["contracts"]),
         )
@@ -413,10 +409,9 @@ async def machine_roi(
         raise HTTPException(404, "Artykuł jest archiwalny (użyj include_archival=true)")
 
     # Dla zapytania o konkretną maszynę: bez filtra archiwum (artykuł już sprawdzony powyżej)
+    # RAO Faza 2a (opcja E): pomiń unmapped (article_id=None) — ROI per maszyna, unmapped nie ma maszyny
     all_pos = await _compute_position_revenues(db, df, dt, exclude_archival=False)
-    # RAO Faza 2a (opcja E): pomiń unmapped (article_id=None) — ROI per maszyna,
-    # unmapped nie ma maszyny. Straynie wpłynęłyby na sumę revenue/days dla article_id.
-    filtered = [p for p in all_pos if p["article_id"] == article_id]
+    filtered = [p for p in all_pos if p["article_id"] == article_id]  # skip unmapped (None != article_id)
 
     revenue = sum(p["revenue"] for p in filtered)
     days = sum(p["clamped_days"] for p in filtered)
@@ -454,17 +449,16 @@ async def additional_fees(
         return _cached
     # RAO-P2-029: uwzględnia archiwalne usługi (statystyki historyczne)
     # RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
+    # RAO Faza 2a (opcja E): pomiń unmapped (is_service is None) — unmapped nie wiemy czy to usługa
     all_pos = await _compute_position_revenues(db, df, dt, service_filter=True, exclude_archival=False)
+    # skip unmapped: p["is_service"] is None (unmapped nie ma Article → is_service=None)
+    all_pos = [p for p in all_pos if p["is_service"] is not None]
     # RAO-P0-001/BUG-5: filtruj po contractor_id/city
     all_pos = _apply_position_filters(all_pos, contractor_id=contractor_id, city=city)
 
     # Aggregate by service article
     agg = defaultdict(lambda: {"name": "", "revenue": Decimal(0), "contracts": set()})
     for p in all_pos:
-        # RAO Faza 2a (opcja E): pomiń unmapped (is_service=None) — nie wiemy
-        # czy to usługa, więc nie trafia do additional_fees.
-        if p["is_service"] is None:
-            continue
         key = p["article_id"]
         agg[key]["name"] = p["article_name"]
         agg[key]["revenue"] += p["revenue"]
@@ -814,13 +808,12 @@ async def positions(
     # Filtrowanie po type robione in-memory — totale liczone z tego samego zbioru.
     # RAO-P2-029: uwzględnia archiwalne maszyny (statystyki historyczne)
     # RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
-    # RAO Faza 2a (opcja E): wynik zawiera też unmapped wiersze (article_id=None,
-    # is_service=None) — pomiń je w /stats/positions (to lista pozycji umowy).
+    # RAO Faza 2a (opcja E): pomiń unmapped (article_id is not None) — to lista pozycji umowy,
+    # unmapped nie ma pozycji. Totale per typ też skip unmapped.
     all_pos = await _compute_position_revenues(db, df, dt, service_filter=None, exclude_archival=False)
+    all_pos = [p for p in all_pos if p["article_id"] is not None]
 
     # Totale per typ — z pełnego zbioru (zamiast drugiego wywołania _compute)
-    # RAO Faza 2a (opcja E): unmapped (is_service=None) nie liczy się do żadnego
-    # z totali (ani machines, ani services) — to osobna kategoria.
     total_machines_rev = sum(p["revenue"] for p in all_pos if p["is_service"] is False)
     total_services_rev = sum(p["revenue"] for p in all_pos if p["is_service"] is True)
 
@@ -829,10 +822,6 @@ async def positions(
         all_pos = [p for p in all_pos if p["is_service"] is False]
     elif position_type == "services":
         all_pos = [p for p in all_pos if p["is_service"] is True]
-
-    # RAO Faza 2a (opcja E): pomiń unmapped (article_id=None) — /stats/positions
-    # to lista pozycji umowy, unmapped nie ma pozycji.
-    all_pos = [p for p in all_pos if p["article_id"] is not None]
 
     # Filtry contractor_id / city / internal_number
     all_pos = _apply_position_filters(all_pos, contractor_id=contractor_id, city=city)

@@ -190,13 +190,13 @@ async def compute_position_revenues(
     pos_result = await db.execute(stmt)
     positions = pos_result.all()
 
-    # RAO Faza 2a (opcja E): NIE early-return przy braku mapped positions —
-    # umowa może mieć tylko unmapped settlements (pozycje FA nieobecne w umowie).
-    # Poniższe zapytania o warunki/settlements są guardowane `if pos_ids:`.
+    # RAO Faza 2a (opcja E): NIE early-return gdy brak positions — umowa może mieć
+    # tylko unmapped settlements (position_id=NULL). Unmapped block na końcu funkcji
+    # doda syntetyczne wiersze. Early-return skipowałby je.
     pos_ids = [p[0] for p in positions]
 
-    # 1. Pobierz warunki rozliczenia (position_conditions)
-    conds_by_pos: dict = defaultdict(list)
+    # 1. Pobierz warunki rozliczenia (position_conditions) — skip gdy brak positions
+    conds_by_pos = defaultdict(list)
     if pos_ids:
         cond_result = await db.execute(
             select(
@@ -217,8 +217,8 @@ async def compute_position_revenues(
                 "minimum": c[4], "rate_type_id": c[5],
             })
 
-    # 2. Pobierz settlements (rzeczywiste rozliczenia) — RAO-P2-032
-    sett_by_pos: dict = {}
+    # 2. Pobierz settlements (rzeczywiste rozliczenia) — skip gdy brak positions
+    sett_by_pos = {}
     if pos_ids:
         sett_result = await db.execute(
             select(
@@ -311,35 +311,27 @@ async def compute_position_revenues(
             "branch_id": p[21],             # RAO-P1-055: FK do branches (może być NULL dla starych umów)
         })
 
-    # ── RAO Faza 2a (opcja E): unmapped settlements — syntetyczne wiersze ──
-    # Pozycje faktury FA nieobecne w umowie (position_id=NULL, service_fee_id=NULL,
-    # source='fa_unmapped'). Tworzone w settlements/router.py init-from-fakturownia.
-    # Tu dołączamy je do results jako osobne wiersze z article_id=None, category_*=None,
-    # is_service=None — agregacje w stats/router.py muszą to obsłużyć (guard
-    # `if p["article_id"] is None` w machine_roi/positions; bucket "(niezmapowane z FA)"
-    # w top_machines; skip w additional_fees).
-    #
-    # Filtry service_filter / exclude_archival / category_* NIE dotyczą unmapped
-    # (nie mają Article) — nie aplikujemy ich w SQL.
-    if contract_ids is not None and not contract_ids:
-        return results  # pusty zbiór kontraktów → nie ma sensu szukać unmapped
-
+    # RAO Faza 2a (opcja E): unmapped settlements — syntetyczne wiersze dla analytics.
+    # Pozycje FA nieobecne w umowie (position_id=NULL, service_fee_id=NULL, source='fa_unmapped')
+    # dostają syntetyczny wiersz z article_id=None, is_service=None, category_*=None.
+    # revenue = cost_client (actual), clamped_days=0 (nie zaburza utilization).
+    # Filtry service_filter/exclude_archival/category_* NIE aplikowane (unmapped nie ma Article).
     unmapped_stmt = (
         select(
-            ContractSettlement.id,                          # u[0]
-            ContractSettlement.contract_id,                 # u[1]
-            ContractSettlement.article_name_snapshot,       # u[2]
-            ContractSettlement.fakturownia_product_id,      # u[3]
-            ContractSettlement.cost_client,                 # u[4]
-            ContractSettlement.settled_at,                  # u[5]
-            Contract.number.label("contract_number"),       # u[6]
-            Contract.contractor_name,                       # u[7]
-            Contract.contractor_id,                         # u[8]
-            Contract.date_from,                             # u[9]
-            Contract.date_to,                               # u[10]
-            Contract.city,                                  # u[11]
-            Contract.contract_type,                         # u[12]
-            Contract.branch_id,                             # u[13]
+            ContractSettlement.id,                       # u[0]
+            ContractSettlement.contract_id,              # u[1]
+            ContractSettlement.article_name_snapshot,    # u[2]
+            ContractSettlement.fakturownia_product_id,   # u[3]
+            ContractSettlement.cost_client,              # u[4]
+            ContractSettlement.settled_at,               # u[5]
+            Contract.number.label("contract_number"),    # u[6]
+            Contract.contractor_name,                    # u[7]
+            Contract.contractor_id,                      # u[8]
+            Contract.date_from,                          # u[9]
+            Contract.date_to,                            # u[10]
+            Contract.city,                               # u[11]
+            Contract.contract_type,                      # u[12]
+            Contract.branch_id,                          # u[13]
         )
         .select_from(ContractSettlement)
         .join(Contract, Contract.id == ContractSettlement.contract_id)
@@ -351,15 +343,14 @@ async def compute_position_revenues(
     if _date_conds:
         unmapped_stmt = unmapped_stmt.where(and_(*_date_conds))
     if contract_ids is not None:
-        unmapped_stmt = unmapped_stmt.where(
-            ContractSettlement.contract_id.in_(list(contract_ids))
-        )
+        if not contract_ids:
+            return results  # pusty zbiór
+        unmapped_stmt = unmapped_stmt.where(ContractSettlement.contract_id.in_(list(contract_ids)))
 
     unmapped_result = await db.execute(unmapped_stmt)
     unmapped_rows = unmapped_result.all()
 
     for u in unmapped_rows:
-        # RAO Faza 2a (opcja E): clamped_days=0 dla unmapped (nie zaburza utilization)
         cost_client = Decimal(str(u[4])) if u[4] is not None else Decimal("0")
         results.append({
             "position_id": None,
@@ -375,10 +366,7 @@ async def compute_position_revenues(
             "date_from": u[9],
             "date_to": u[10],
             "contract_date_from": u[9],
-            # RAO Faza 2a (opcja E): clamped_days=0 dla unmapped — nie zaburza
-            # utilization (by_period) ani rented_days (by_category/by_branch).
-            # unmapped nie ma pozycji umowy z okresem wynajmu.
-            "clamped_days": 0,
+            "clamped_days": 0,  # unmapped nie zaburza utilization
             "revenue_actual": cost_client,
             "revenue_estimate_lookup": Decimal("0"),
             "revenue_estimate_tiered": Decimal("0"),

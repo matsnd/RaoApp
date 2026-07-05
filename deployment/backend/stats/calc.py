@@ -159,12 +159,10 @@ def aggregate_by_category(
         cat_name = p.get(field) or _FALLBACK_CATEGORY
         agg[cat_name]["revenue"] += p.get("revenue", Decimal("0"))
         # RAO-P1-BUG-7: rented_days liczone tylko dla maszyn (usługi mają billing != DAILY)
-        # RAO Faza 2a (opcja E): unmapped ma clamped_days=0 (ustawione w revenue.py),
-        # więc nie zaburza rented_days nawet gdy tu wejdzie — bez dodatkowego guardu.
         if not p.get("is_service"):
             agg[cat_name]["days"] += p.get("clamped_days", 0)
         agg[cat_name]["contracts"].add(p.get("contract_id"))
-        # RAO Faza 2a (opcja E): nie licz None (unmapped) jako artykuł
+        # RAO Faza 2a (opcja E): unmapped (article_id=None) nie liczy się jako artykuł
         art_id = p.get("article_id")
         if art_id is not None:
             agg[cat_name]["articles"].add(art_id)
@@ -230,7 +228,6 @@ def aggregate_by_period(
         key = (period, cat)
         agg[key]["revenue"] += p.get("revenue", Decimal("0"))
         # RAO-P1-BUG-7: rented_days liczone tylko dla maszyn (usługi mają billing != DAILY)
-        # RAO Faza 2a (opcja E): unmapped ma clamped_days=0 — nie zaburza rented_days.
         if not p.get("is_service"):
             agg[key]["days"] += p.get("clamped_days", 0)
         agg[key]["contracts"].add(p.get("contract_id"))
@@ -281,12 +278,11 @@ def aggregate_by_contract_type(positions: list[dict]) -> list[dict]:
         ctype = p.get("contract_type") or "S"
         agg[ctype]["contracts"].add(p.get("contract_id"))
         agg[ctype]["positions"] += 1
-        # RAO Faza 2a (opcja E): nie licz None (unmapped) jako artykuł
+        # RAO Faza 2a (opcja E): unmapped (article_id=None) nie liczy się jako artykuł
         art_id = p.get("article_id")
         if art_id is not None:
             agg[ctype]["articles"].add(art_id)
         # rented_days liczone tylko dla maszyn (usługi mają billing != DAILY)
-        # RAO Faza 2a (opcja E): unmapped ma clamped_days=0 — nie zaburza rented_days.
         if not p.get("is_service"):
             agg[ctype]["rented_days"] += p.get("clamped_days", 0)
         agg[ctype]["revenue"] += p.get("revenue", Decimal("0"))
@@ -355,11 +351,10 @@ def aggregate_by_branch(
         key = bid if bid is not None else _UNASSIGNED_BRANCH_KEY
         agg[key]["contracts"].add(p.get("contract_id"))
         agg[key]["positions"] += 1
-        # RAO Faza 2a (opcja E): nie licz None (unmapped) jako artykuł
+        # RAO Faza 2a (opcja E): unmapped (article_id=None) nie liczy się jako artykuł
         art_id = p.get("article_id")
         if art_id is not None:
             agg[key]["articles"].add(art_id)
-        # RAO Faza 2a (opcja E): unmapped ma clamped_days=0 — nie zaburza rented_days.
         if not p.get("is_service"):
             agg[key]["rented_days"] += p.get("clamped_days", 0)
         agg[key]["revenue"] += p.get("revenue", Decimal("0"))
