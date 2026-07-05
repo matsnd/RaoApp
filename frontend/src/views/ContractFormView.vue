@@ -1011,6 +1011,7 @@ import { useContractorStore } from '@/stores/contractors'
 import { useArticleStore } from '@/stores/articles'
 import { useSettingsStore } from '@/stores/settings'
 import { useFakturowniaStore } from '@/stores/fakturownia'
+import { useToastStore } from '@/stores/toast'
 import ConditionPanel from '@/components/contracts/ConditionPanel.vue'
 import ServiceHourGrid from '@/components/contracts/ServiceHourGrid.vue'
 import ContractPeriodPicker from '@/components/shared/ContractPeriodPicker.vue'
@@ -1024,6 +1025,7 @@ const contractorStore = useContractorStore()
 const articleStore = useArticleStore()
 const settingsStore = useSettingsStore()
 const fakturowniaStore = useFakturowniaStore()
+const toastStore = useToastStore()
 
 const isEdit = computed(() => !!props.id)
 const loading = ref(false)
@@ -1515,8 +1517,10 @@ async function handleSave() {
     const payload = buildPayload()
     if (isEdit.value) {
       await contractStore.update(Number(props.id), payload)
+      toastStore.success('Umowa zapisana')
     } else {
       const result = await contractStore.create(payload)
+      toastStore.success('Umowa utworzona')
       router.push(`/contracts/${result.id}/edit`)
     }
   } catch (e: any) {
@@ -1553,7 +1557,7 @@ async function recalcTotal() {
     await api.post(`/contracts/${props.id}/recalculate`)
     await contractStore.fetchOne(Number(props.id))
   } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd kalkulacji')
+    toastStore.error(e.response?.data?.detail || 'Błąd kalkulacji')
   }
 }
 
@@ -1564,12 +1568,12 @@ async function handleFakturownia() {
     await fakturowniaStore.fetchInvoicesByContractId(contractStore.current.id)
     if (fakturowniaStore.invoices.length > 0) {
       const total = fakturowniaStore.invoices.reduce((sum, inv) => sum + inv.total_net, 0)
-      alert(`Pobrano ${fakturowniaStore.invoices.length} faktur o łącznej kwocie ${total.toFixed(2)} zł`)
+      toastStore.error(`Pobrano ${fakturowniaStore.invoices.length} faktur o łącznej kwocie ${total.toFixed(2)} zł`)
     } else {
-      alert('Brak faktur dla tej umowy')
+      toastStore.error('Brak faktur dla tej umowy')
     }
   } catch (e: any) {
-    alert(e.response?.data?.detail || 'Błąd pobierania faktur z Fakturownia')
+    toastStore.error(e.response?.data?.detail || 'Błąd pobierania faktur z Fakturownia')
   }
 }
 
@@ -1578,7 +1582,7 @@ async function generateReport(type) {
   try {
     await contractStore.generateReport(Number(props.id), type)
   } catch (e) {
-    alert('Błąd generowania raportu')
+    toastStore.error('Błąd generowania raportu')
   }
 }
 
@@ -1594,7 +1598,7 @@ async function toggleSettled() {
     form.value.settled_at = data.settled_at
     await nextTick() // Force Vue re-render
   } catch (e) {
-    alert('Błąd zmiany statusu rozliczenia: ' + (e.response?.data?.detail || e.message))
+    toastStore.error('Błąd zmiany statusu rozliczenia: ' + (e.response?.data?.detail || e.message))
   } finally {
     settlingContract.value = false
   }
@@ -1635,7 +1639,7 @@ async function updateSettlement(settlement) {
     // Re-fetch to get updated margin
     await fetchSettlements(Number(props.id))
   } catch (e) {
-    alert('Błąd aktualizacji rozliczenia')
+    toastStore.error('Błąd aktualizacji rozliczenia')
     // Revert to original values
     await fetchSettlements(Number(props.id))
   }
@@ -1648,7 +1652,7 @@ async function initSettlements() {
     const { data } = await api.post(`/settlements/contract/${props.id}/init`)
     settlements.value = data
   } catch (e) {
-    alert('Błąd inicjalizacji rozliczenia: ' + (e.response?.data?.detail || e.message))
+    toastStore.error('Błąd inicjalizacji rozliczenia: ' + (e.response?.data?.detail || e.message))
   } finally {
     initializingSettlements.value = false
   }
@@ -1661,7 +1665,7 @@ async function initSettlementsFromFakturownia() {
     const { data } = await api.post(`/settlements/contract/${props.id}/init-from-fakturownia`)
     settlements.value = data
   } catch (e: any) {
-    alert('Błąd pobierania z Fakturownia: ' + (e.response?.data?.detail || e.message))
+    toastStore.error('Błąd pobierania z Fakturownia: ' + (e.response?.data?.detail || e.message))
   } finally {
     initializingFromFakturownia.value = false
   }
@@ -1819,7 +1823,7 @@ function editPosition(pos) {
 }
 
 async function savePosition() {
-  if (!posForm.value.article_id) { alert('Wybierz artykuł'); return }
+  if (!posForm.value.article_id) { toastStore.error('Wybierz artykuł'); return }
   savingPos.value = true
   try {
     const payload = { ...posForm.value }
@@ -1833,7 +1837,7 @@ async function savePosition() {
     showPosModal.value = false
     await recalcTotal()
   } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd zapisu pozycji')
+    toastStore.error(e.response?.data?.detail || 'Błąd zapisu pozycji')
   } finally {
     savingPos.value = false
   }
@@ -1846,7 +1850,7 @@ async function deletePosition(pos) {
     if (selectedPosId.value === pos.id) selectedPosId.value = null
     await contractStore.fetchPositions(Number(props.id))
   } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd')
+    toastStore.error(e.response?.data?.detail || 'Błąd')
   }
 }
 
@@ -1950,7 +1954,7 @@ async function duplicateArticle(a) {
     await recalcTotal()
     // Don't close picker, keep it open for more selections
   } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd dodawania pozycji')
+    toastStore.error(e.response?.data?.detail || 'Błąd dodawania pozycji')
   }
 }
 
@@ -2005,7 +2009,7 @@ async function saveInlineFee() {
     editingFeeId.value = null
     editingFeeData.value = {}
   } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd zapisu')
+    toastStore.error(e.response?.data?.detail || 'Błąd zapisu')
   }
 }
 
@@ -2031,7 +2035,7 @@ async function saveNewFeeRow() {
     showNewFeeRow.value = false
     newFeeData.value = { name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true, article_id: null, default_price: null }
   } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd dodawania')
+    toastStore.error(e.response?.data?.detail || 'Błąd dodawania')
   }
 }
 
@@ -2041,7 +2045,7 @@ async function deleteServiceFee(fee) {
     await api.delete(`/contracts/${props.id}/service-fees/${fee.id}`)
     await contractStore.fetchServiceFees(Number(props.id))
   } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd')
+    toastStore.error(e.response?.data?.detail || 'Błąd')
   }
 }
 
@@ -2051,7 +2055,7 @@ async function resetServiceFees() {
     await api.post(`/contracts/${props.id}/service-fees/reset`)
     await contractStore.fetchServiceFees(Number(props.id))
   } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd resetu')
+    toastStore.error(e.response?.data?.detail || 'Błąd resetu')
   }
 }
 
@@ -2078,7 +2082,7 @@ async function applyPreset(preset) {
     await contractStore.fetchServiceFees(Number(props.id))
     showPresetPicker.value = false
   } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd aplikowania zestawu')
+    toastStore.error(e.response?.data?.detail || 'Błąd aplikowania zestawu')
   }
 }
 

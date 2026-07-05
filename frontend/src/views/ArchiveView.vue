@@ -632,6 +632,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useArchiveStore } from '@/stores/archive'
 import { useAuthStore } from '@/stores/auth'
+import { useToastStore } from '@/stores/toast'
 import type {
   ArchiveCategoryPayload,
   ArchiveCategoryTreeNode,
@@ -639,6 +640,7 @@ import type {
 
 const archiveStore = useArchiveStore()
 const authStore = useAuthStore()
+const toastStore = useToastStore()
 
 // ── Zakładki ─────────────────────────────────────────────────────────────────
 type TabId = 'contracts' | 'articles' | 'stats' | 'categories'
@@ -772,7 +774,7 @@ async function onArticleCategoryChange(articleId: number, event: Event) {
     await archiveStore.updateArticleCategory(articleId, categoryId)
   } catch (e: unknown) {
     const err = e as { response?: { data?: { detail?: string } } }
-    alert(err?.response?.data?.detail ?? 'Błąd zmiany kategorii')
+    toastStore.error(err?.response?.data?.detail ?? 'Błąd zmiany kategorii')
     // Odśwież listę aby przywrócić poprawny stan
     void applyArticleFilters()
   }
@@ -803,7 +805,7 @@ async function loadRoi() {
     await archiveStore.fetchMachineRoi(roiArticleId.value, statsDateFrom.value, statsDateTo.value)
   } catch (e: unknown) {
     const err = e as { response?: { data?: { detail?: string } } }
-    alert(err?.response?.data?.detail ?? 'Błąd pobierania ROI')
+    toastStore.error(err?.response?.data?.detail ?? 'Błąd pobierania ROI')
   }
 }
 
@@ -973,7 +975,7 @@ async function addCategory() {
     newCat.value = { name: '', code: '', parent_id: null }
   } catch (e: unknown) {
     const err = e as { response?: { data?: { detail?: string } } }
-    alert(err?.response?.data?.detail ?? 'Błąd dodawania kategorii')
+    toastStore.error(err?.response?.data?.detail ?? 'Błąd dodawania kategorii')
   }
 }
 
@@ -997,7 +999,7 @@ async function saveEditCat() {
     editingCatId.value = null
   } catch (e: unknown) {
     const err = e as { response?: { data?: { detail?: string } } }
-    alert(err?.response?.data?.detail ?? 'Błąd zapisu kategorii')
+    toastStore.error(err?.response?.data?.detail ?? 'Błąd zapisu kategorii')
   }
 }
 
@@ -1007,7 +1009,7 @@ async function deleteCat(id: number) {
     await archiveStore.deleteCategory(id)
   } catch (e: unknown) {
     const err = e as { response?: { data?: { detail?: string } } }
-    alert(err?.response?.data?.detail ?? 'Błąd usuwania kategorii')
+    toastStore.error(err?.response?.data?.detail ?? 'Błąd usuwania kategorii')
   }
 }
 
