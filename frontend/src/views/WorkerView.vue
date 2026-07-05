@@ -312,7 +312,7 @@ onMounted(() => {
   height: 100%;
   overflow-y: auto;
   box-sizing: border-box;
-  background: #F4F6FB;
+  background: var(--color-bg-light);
 }
 
 .worker-header {
@@ -324,7 +324,7 @@ onMounted(() => {
 .worker-header h1 {
   font-size: 20px;
   font-weight: 700;
-  color: #0F234E;
+  color: var(--color-primary);
   margin: 0;
 }
 .worker-date {
@@ -346,7 +346,7 @@ onMounted(() => {
 /* ── CARD ── */
 .worker-card {
   background: #fff;
-  border-radius: 10px;
+  border-radius: var(--border-radius);
   box-shadow: 0 1px 4px rgba(0,0,0,.07);
   overflow: hidden;
 }
@@ -364,7 +364,7 @@ onMounted(() => {
   font-weight: 700;
   margin: 0;
   flex: 1;
-  color: #0F234E;
+  color: var(--color-primary);
   text-transform: uppercase;
   letter-spacing: .04em;
 }
@@ -398,7 +398,7 @@ onMounted(() => {
   transition: all 120ms;
 }
 .days-filter button:hover { background: #EDF2F7; }
-.days-filter button.active { background: #0F234E; color: #fff; border-color: #0F234E; }
+.days-filter button.active { background: var(--color-primary); color: var(--color-text-on-primary); border-color: var(--color-primary); }
 
 .card-body { padding: 12px 16px; }
 .card-body.no-pad { padding: 0; }
@@ -458,7 +458,7 @@ onMounted(() => {
   font-size: 13px;
   font-weight: 800;
   padding: 2px 8px;
-  border-radius: 10px;
+  border-radius: var(--border-radius);
   white-space: nowrap;
 }
 .exp-days-badge.urgent  { background: #FEE2E2; color: #991B1B; }
@@ -512,7 +512,7 @@ onMounted(() => {
 .del-number {
   font-size: 12px;
   font-weight: 700;
-  color: #0F234E;
+  color: var(--color-primary);
   text-decoration: none;
 }
 .del-number:hover { text-decoration: underline; }
@@ -544,7 +544,7 @@ onMounted(() => {
 .unp-number {
   font-size: 12px;
   font-weight: 700;
-  color: #0F234E;
+  color: var(--color-primary);
   display: block;
   margin-bottom: 2px;
 }
@@ -571,7 +571,7 @@ onMounted(() => {
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
-  color: #0F234E;
+  color: var(--color-primary);
   font-family: inherit;
   white-space: nowrap;
   transition: background 120ms;

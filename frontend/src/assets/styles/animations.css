@@ -26,3 +26,46 @@
   border-radius: var(--border-radius-sm);
   animation: pulse 1.5s ease-in-out infinite;
 }
+
+/* ── RAO-P3-071 Faza 5: Skeleton loaders (shimmer) ───────────────────────── */
+/* Animowane placeholdery dla tabel ładowanych asynchronicznie.
+   Używane w: DashboardView, AnalyticsView (SkeletonRow.vue). */
+@keyframes rao-skeleton-shimmer {
+  0%   { background-position: -468px 0; }
+  100% { background-position: 468px 0; }
+}
+
+.skeleton-row {
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-bottom: 1px solid var(--color-border);
+  gap: var(--spacing-md);
+}
+
+.skeleton-cell {
+  height: 14px;
+  border-radius: var(--border-radius-sm, 6px);
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-light) 25%,
+    #eef1f5 50%,
+    var(--color-bg-light) 75%
+  );
+  background-size: 936px 100%;
+  animation: rao-skeleton-shimmer 1.4s infinite linear;
+  flex: 1;
+  min-width: 60px;
+}
+
+.skeleton-cell.short { flex: 0 0 80px; }
+.skeleton-cell.medium { flex: 0 0 140px; }
+.skeleton-cell.long { flex: 0 0 200px; }
+
+/* Respektuj prefers-reduced-motion — wyłącz animację dla użytkowników z preferencją */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-cell {
+    animation: none;
+    background: var(--color-bg-light);
+  }
+}

@@ -1,40 +1,40 @@
 <template>
-  <div class="commission-view">
+  <div class="commission-view page-container">
     <div class="page-header">
-      <h1>Prowizje handlowców</h1>
+      <h1 class="page-title">Prowizje handlowców</h1>
       <div class="header-filters">
-        <label>Od:
-          <input type="date" v-model="dateFrom" @change="load" />
+        <label for="commission-date-from">Od:
+          <input id="commission-date-from" type="date" v-model="dateFrom" @change="load" />
         </label>
-        <label>Do:
-          <input type="date" v-model="dateTo" @change="load" />
+        <label for="commission-date-to">Do:
+          <input id="commission-date-to" type="date" v-model="dateTo" @change="load" />
         </label>
-        <button class="btn-primary" @click="load">Odśwież</button>
-        <button class="btn-print print-hide" @click="printPage">🖨 Drukuj</button>
+        <button class="btn btn-primary" @click="load">Odśwież</button>
+        <button class="btn btn-print print-hide" @click="printPage" aria-label="Drukuj zestawienie prowizji">🖨 Drukuj</button>
       </div>
     </div>
 
-    <div v-if="loading" class="loading-msg">Ładowanie…</div>
-    <div v-else-if="error" class="error-msg">{{ error }}</div>
+    <div v-if="loading" class="state-loading" role="status" aria-live="polite">Ładowanie…</div>
+    <div v-else-if="error" class="state-error" role="alert">{{ error }}</div>
     <template v-else>
       <div class="summary-cards">
-        <div class="card">
+        <div class="page-card kpi-card">
           <div class="card-label">Łączny przychód</div>
           <div class="card-value">{{ formatCurrency(report.grand_total_revenue) }}</div>
         </div>
-        <div class="card">
+        <div class="page-card kpi-card">
           <div class="card-label">Łączna prowizja</div>
           <div class="card-value highlight">{{ formatCurrency(report.grand_total_commission) }}</div>
         </div>
-        <div class="card">
+        <div class="page-card kpi-card">
           <div class="card-label">Okres</div>
           <div class="card-value small">{{ report.date_from }} — {{ report.date_to }}</div>
         </div>
       </div>
 
-      <div class="section-block">
+      <div class="page-card section-block">
         <h2>Zestawienie per handlowiec</h2>
-        <table class="data-table" v-if="report.items.length">
+        <table class="data-grid" v-if="report.items.length">
           <thead>
             <tr>
               <th>Handlowiec</th>
@@ -137,37 +137,33 @@ onMounted(load)
 </script>
 
 <style scoped>
-.commission-view { padding: 1.5rem; max-width: 960px; }
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: .75rem; }
-.page-header h1 { font-size: 1.4rem; font-weight: 700; color: #1D2B53; margin: 0; }
-.header-filters { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
-.header-filters label { display: flex; align-items: center; gap: .4rem; font-size: .85rem; color: #444; }
-.header-filters input { padding: .3rem .5rem; border: 1px solid #ccc; border-radius: 4px; font-size: .85rem; }
-.btn-primary { padding: .4rem .9rem; background: #1D2B53; color: #fff; border: none; border-radius: 5px; cursor: pointer; font-size: .85rem; }
-.btn-primary:hover { background: #2a3f7e; }
-.btn-print { padding: .35rem .85rem; background: #f0f4ff; color: #1D2B53; border: 1px solid #c0cce8; border-radius: 5px; cursor: pointer; font-size: .82rem; font-weight: 600; }
-.btn-print:hover { background: #dde6ff; }
+/* RAO-P3-071 Faza 4: unifikacja design system — używa zmiennych CSS + klas globalnych */
+.commission-view { padding: var(--spacing-xl); max-width: 960px; }
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-xl); flex-wrap: wrap; gap: var(--spacing-md); }
+.page-title { font-size: var(--font-size-2xl); font-weight: 700; color: var(--color-text-heading); margin: 0; }
+.header-filters { display: flex; gap: var(--spacing-md); align-items: center; flex-wrap: wrap; }
+.header-filters label { display: flex; align-items: center; gap: var(--spacing-xs); font-size: var(--font-size-sm); color: var(--color-text-body); }
+.header-filters input { padding: var(--spacing-xs) var(--spacing-sm); border: 1px solid var(--color-border); border-radius: var(--border-radius-sm); font-size: var(--font-size-sm); }
+.btn-print { background: var(--color-bg-light); color: var(--color-primary); border: 1px solid var(--color-border); }
 
-.loading-msg, .error-msg, .empty-msg { color: #888; font-style: italic; margin: 1rem 0; }
-.error-msg { color: #c00; }
+.state-loading, .empty-msg { color: var(--color-text-muted); font-style: italic; margin: var(--spacing-lg) 0; }
+.state-error { color: var(--color-danger); font-style: italic; margin: var(--spacing-lg) 0; }
 
-.summary-cards { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
-.card { background: #fff; border: 1px solid #e0e4ef; border-radius: 8px; padding: 1rem 1.5rem; min-width: 160px; }
-.card-label { font-size: .75rem; color: #888; text-transform: uppercase; letter-spacing: .04em; margin-bottom: .3rem; }
-.card-value { font-size: 1.4rem; font-weight: 700; color: #1D2B53; }
-.card-value.highlight { color: #27ae60; }
-.card-value.small { font-size: 1rem; font-weight: 500; }
+.summary-cards { display: flex; gap: var(--spacing-lg); margin-bottom: var(--spacing-xl); flex-wrap: wrap; }
+.kpi-card { padding: var(--spacing-lg) var(--spacing-xl); min-width: 160px; }
+.card-label { font-size: var(--font-size-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: var(--spacing-xs); }
+.card-value { font-size: var(--font-size-2xl); font-weight: 700; color: var(--color-text-heading); }
+.card-value.highlight { color: var(--color-success); }
+.card-value.small { font-size: var(--font-size-lg); font-weight: 500; }
 
-.section-block { background: #fff; border: 1px solid #e0e4ef; border-radius: 8px; padding: 1rem 1.5rem; margin-bottom: 1.5rem; }
-.section-block h2 { font-size: 1rem; font-weight: 600; color: #1D2B53; margin: 0 0 .75rem; }
+.section-block { padding: var(--spacing-lg) var(--spacing-xl); margin-bottom: var(--spacing-xl); }
+.section-block h2 { font-size: var(--font-size-lg); font-weight: 600; color: var(--color-text-heading); margin: 0 0 var(--spacing-md); }
 
-.data-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
-.data-table th, .data-table td { padding: .55rem .75rem; border-bottom: 1px solid #f0f0f0; text-align: left; }
-.data-table th { background: #f7f8fc; font-weight: 600; color: #555; font-size: .8rem; text-transform: uppercase; }
-.data-table tbody tr:hover { background: #f9faff; }
-.data-table td.num, .data-table th.num { text-align: right; }
-.data-table td.commission { color: #27ae60; font-weight: 600; }
-.total-row td { background: #f0f4f8; border-top: 2px solid #d0d8e8; }
+/* Nadpisanie .data-grid dla CommissionView (read-only, bez cursor:pointer) */
+.data-grid tbody tr { cursor: default; }
+.data-grid td.num, .data-grid th.num { text-align: right; }
+.data-grid td.commission { color: var(--color-success); font-weight: 600; }
+.total-row td { background: var(--color-bg-light); border-top: 2px solid var(--color-border); font-weight: 700; }
 
-.note { background: #f0f4ff; border-left: 3px solid #1D2B53; padding: .75rem 1rem; font-size: .85rem; border-radius: 4px; color: #444; }
+.note { background: var(--color-bg-light); border-left: 3px solid var(--color-primary); padding: var(--spacing-md) var(--spacing-lg); font-size: var(--font-size-sm); border-radius: var(--border-radius-sm); color: var(--color-text-body); }
 </style>
