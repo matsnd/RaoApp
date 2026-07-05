@@ -1428,6 +1428,13 @@ async function handleFakturownia() {
 2. **Maszyny** (`activeTab='articles'`) — `GET /archive/articles` (paginacja 50, filtry: search, category_id)
    - Grid: Nazwa, Nr wewn., Kategoria (dropdown — `PATCH /archive/articles/{id}/category`, admin), Kontraktów count, Wartość wymiany
    - Zmiana kategorii przez `<select>` → `PATCH /archive/articles/{id}/category` z `category_id`
+   - **Filtr kategorii — kaskada (RAO-P1-002):** 3-poziomowy select (główna → sub1 → sub2)
+     z danymi z `archiveStore.categoriesTree` (`GET /archive/categories/tree`). Wybrana kategoria
+     = najbardziej specyficzny poziom (sub2 ?? sub1 ?? main) → `articleFilters.category_id`.
+     Breadcrumb (`.cat-breadcrumb`) pokazuje wybraną ścieżkę "Główna › Sub1 › Sub2".
+     Zmiana poziomu głównego resetuje sub1/sub2; zmiana sub1 resetuje sub2. Auto-apply filtru
+     po zmianie kaskady. Backend filtruje dokładnym matchem category_id.
+     data-testid: `archive-cat-cascade`, `archive-cat-main`, `archive-cat-sub1`, `archive-cat-sub2`, `archive-cat-breadcrumb`.
 
 3. **Statystyki** (`activeTab='stats'`) — `GET /archive/stats/summary` + `/top-machines` + `/by-category` + `/by-city`
    - Filtry dat: date_from, date_to + przycisk "Odśwież"
@@ -1906,8 +1913,18 @@ onUnmounted(() => {
 - Emits: `@update:modelValue`.
 - Presets: Dziś / Tydzień / Miesiąc / Kwartał / Rok / Wszystko / Własny (pills).
 - Custom range (2x input date) tylko gdy `preset='custom'`.
-- Typ (select), Kontrahent (input+datalist), Miasto (text), przycisk "Wyczyść".
+- Typ (select), Kontrahent (**combobox** — `ContractorCombobox.vue`, RAO-P0-004), Miasto (text), przycisk "Wyczyść".
 - data-testid: `analytics-filters`, `preset-<key>`, `preset-custom`, `custom-range`, `filter-date-from`, `filter-date-to`, `filter-article-type`, `filter-contractor`, `filter-city`, `filter-clear`.
+
+### `components/analytics/ContractorCombobox.vue` (RAO-P0-004)
+- Wpisyalny combobox (input + dropdown z filtrowaniem) zamiast zwykłego `<select>` —
+  przy 698 kontrahentach zwykły select jest nieużywalny.
+- v-model: `modelValue: number | null` (contractor_id). Props: `contractors: {id,name}[]`, `placeholder`, `dataTestId`.
+- Filtrowanie: case-insensitive substring match po nazwie; limit 100 wyników w dropdownie.
+- Klawiatura: ArrowDown/Up nawigacja, Enter wybiera, Escape zamyka. Click-outside zamyka.
+- Przycisk ✕ czyści wybór (emit `null`); ▼ toggla dropdown.
+- `AnalyticsView` ładuje WSZYSTKICH kontrahentów (paginacja po 500 — backend cap) do comboboxa.
+- data-testid: `filter-contractor`, `filter-contractor-input`, `filter-contractor-toggle`, `filter-contractor-clear`, `filter-contractor-dropdown`.
 
 ### `components/analytics/DrillDownDrawer.vue`
 - Props: `open`, `title`, `subtitle?`, `loading?`, `error?`. Emits: `@close`.

@@ -486,3 +486,16 @@ h3 { font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); }
 | Pill CTA button (navy) | Wszystkie główne przyciski |
 | Font Montserrat bold | Nagłówki i etykiety |
 | Light gray alternating bg | Naprzemienne tło sekcji |
+
+## Ikony SVG (RAO-P0-003/P1-006)
+
+`components/shared/AppIcon.vue` — lekki zestaw ikon SVG (bez zależności zewnętrznych),
+stroke=currentColor, 24×24 viewBox, stroke-width 2 (styl lucide).
+
+**Zestaw:** tractor, map-pin, mail, trophy, building, **banknote**, file, chart,
+calendar, search, wrench, package, layers, check-circle.
+
+**RAO-P0-003/P1-006:** Ikona `dollar` (pionowa kreska + krzywa S — kojarzyła się z USD)
+została zastąpiona neutralną ikoną `banknote` (banknot z okiem — bez symbolu waluty).
+W polskiej aplikacji wynajmu maszyn symbol `$` jest niedopuszczalny; waluta zawsze
+formatowana jako "zł" (`utils/format.ts → formatCurrency`).

@@ -154,7 +154,7 @@ const kpiCards = computed<KpiCard[]>(() => {
       // RAO-P2-065 #11: backend zwraca "razem (rzecz.+szac.)" gdy oba źródła > 0.
       sub: s.revenue_source_label ?? '',
       variant: 'accent',
-      icon: 'dollar' as AppIconName,
+      icon: 'banknote' as AppIconName,
       testId: 'kpi-period-revenue',
     },
     {
@@ -309,7 +309,7 @@ watch(
       <!-- Dodatkowe opłaty -->
       <div class="pr-section">
         <div class="pr-section-title">
-          <AppIcon name="dollar" :size="16" class="pr-section-icon" />
+          <AppIcon name="banknote" :size="16" class="pr-section-icon" />
           Pozycje dodatkowe (usługi)
         </div>
         <AnalyticsTable

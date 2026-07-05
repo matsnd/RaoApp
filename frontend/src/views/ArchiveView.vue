@@ -209,12 +209,43 @@
                 @keydown.enter="applyArticleFilters"
               />
             </div>
-            <select v-model="articleFilters.category_id" class="form-control" style="width:200px;" @change="applyArticleFilters">
-              <option :value="null">Wszystkie kategorie</option>
-              <option v-for="cat in archiveStore.categories" :key="cat.id" :value="cat.id">
-                {{ cat.name }}
-              </option>
-            </select>
+            <!-- RAO-P1-002: Kaskada kategorii (główna → sub1 → sub2) z breadcrumbem -->
+            <div class="cat-cascade" data-testid="archive-cat-cascade">
+              <select
+                v-model="catSelectedMain"
+                class="form-control"
+                data-testid="archive-cat-main"
+                aria-label="Kategoria główna"
+                @change="onCatMainChange"
+              >
+                <option :value="null">Wszystkie kategorie</option>
+                <option v-for="cat in catMainOptions" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+              </select>
+              <select
+                v-if="catSub1Options.length"
+                v-model="catSelectedSub1"
+                class="form-control"
+                data-testid="archive-cat-sub1"
+                aria-label="Podkategoria poziom 1"
+                @change="onCatSub1Change"
+              >
+                <option :value="null">— (poziom główny) —</option>
+                <option v-for="cat in catSub1Options" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+              </select>
+              <select
+                v-if="catSub2Options.length"
+                v-model="catSelectedSub2"
+                class="form-control"
+                data-testid="archive-cat-sub2"
+                aria-label="Podkategoria poziom 2"
+              >
+                <option :value="null">— (poziom podrzędny) —</option>
+                <option v-for="cat in catSub2Options" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+              </select>
+              <span v-if="catBreadcrumb" class="cat-breadcrumb" data-testid="archive-cat-breadcrumb">
+                {{ catBreadcrumb }}
+              </span>
+            </div>
             <button class="btn btn-primary btn-sm" @click="applyArticleFilters">Filtruj</button>
             <button class="btn-icon" title="Wyczyść filtry" aria-label="Wyczyść filtry maszyn" @click="clearArticleFilters">↺</button>
           </div>
@@ -736,6 +767,51 @@ const articleFilters = ref<{ search: string; category_id: number | null }>({
   category_id: null,
 })
 
+// RAO-P1-002: Kaskada kategorii (główna → sub1 → sub2) dla filtra maszyn.
+// Wybrana kategoria = najbardziej specyficzny poziom (sub2 ?? sub1 ?? main).
+// Backend filtruje dokładnym matchem category_id, więc wysyłamy liść kaskady.
+const catSelectedMain = ref<number | null>(null)
+const catSelectedSub1 = ref<number | null>(null)
+const catSelectedSub2 = ref<number | null>(null)
+
+const catMainOptions = computed<ArchiveCategoryTreeNode[]>(() => archiveStore.categoriesTree)
+const catSub1Options = computed<ArchiveCategoryTreeNode[]>(() => {
+  if (!catSelectedMain.value) return []
+  return catMainOptions.value.find((c) => c.id === catSelectedMain.value)?.children ?? []
+})
+const catSub2Options = computed<ArchiveCategoryTreeNode[]>(() => {
+  if (!catSelectedSub1.value) return []
+  return catSub1Options.value.find((c) => c.id === catSelectedSub1.value)?.children ?? []
+})
+
+// Breadcrumb pokazujący wybraną ścieżkę kategorii.
+const catBreadcrumb = computed<string>(() => {
+  const parts: string[] = []
+  const main = catMainOptions.value.find((c) => c.id === catSelectedMain.value)
+  if (main) parts.push(main.name)
+  const sub1 = catSub1Options.value.find((c) => c.id === catSelectedSub1.value)
+  if (sub1) parts.push(sub1.name)
+  const sub2 = catSub2Options.value.find((c) => c.id === catSelectedSub2.value)
+  if (sub2) parts.push(sub2.name)
+  return parts.join(' › ')
+})
+
+// Aktualizuj articleFilters.category_id przy zmianie kaskady.
+watch([catSelectedMain, catSelectedSub1, catSelectedSub2], () => {
+  const leaf = catSelectedSub2.value ?? catSelectedSub1.value ?? catSelectedMain.value
+  articleFilters.value.category_id = leaf
+  // Automatycznie zastosuj filtr po zmianie kategorii w kaskadzie.
+  void applyArticleFilters()
+})
+
+function onCatMainChange() {
+  catSelectedSub1.value = null
+  catSelectedSub2.value = null
+}
+function onCatSub1Change() {
+  catSelectedSub2.value = null
+}
+
 const articlesTotalPages = computed(() =>
   Math.max(1, Math.ceil(archiveStore.articlesTotal / archiveStore.articlesPerPage)),
 )
@@ -751,6 +827,9 @@ async function applyArticleFilters() {
 
 function clearArticleFilters() {
   articleFilters.value = { search: '', category_id: null }
+  catSelectedMain.value = null
+  catSelectedSub1.value = null
+  catSelectedSub2.value = null
   void applyArticleFilters()
 }
 
@@ -1045,6 +1124,10 @@ async function loadTabData(tab: TabId) {
       if (!archiveStore.categories.length) {
         await archiveStore.fetchCategories()
       }
+      // RAO-P1-002: kaskada kategorii (główna → sub1 → sub2) wymaga drzewa.
+      if (!archiveStore.categoriesTree.length) {
+        await archiveStore.fetchCategoriesTree()
+      }
     } else if (tab === 'stats') {
       if (!archiveStore.statsSummary) {
         await loadStats()
@@ -1076,6 +1159,30 @@ onMounted(() => {
   overflow: hidden;
   background: var(--color-bg-light);
   font-family: var(--font-family);
+}
+
+/* RAO-P1-002: Kaskada kategorii (główna → sub1 → sub2) z breadcrumbem */
+.cat-cascade {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+.cat-cascade .form-control {
+  width: 200px;
+}
+.cat-breadcrumb {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary);
+  background: var(--color-bg-light);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  padding: 2px var(--spacing-2);
+  max-width: 360px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ── Banner ─────────────────────────────────────────────────────────────────── */

@@ -75,9 +75,10 @@ lub brak `overflow-y: auto` na kontenerze, ew. `height: 100vh` bez scrolla).
 
 ```yaml
 id: P0-003
-status: triaged
+status: done
 priority: P0
 created: 2026-07-05
+resolved: 2026-07-05
 reporter: operator (manual test 2026-07-05)
 component: frontend (globalne)
 severity: blocker
@@ -102,9 +103,10 @@ raporty, formularze, tabele). Wymaga audytu globalnego.
 
 ```yaml
 id: P0-004
-status: triaged
+status: done
 priority: P0
 created: 2026-07-05
+resolved: 2026-07-05
 reporter: operator (manual test 2026-07-05)
 component: frontend/components/analytics/ExplorerTab + AnalyticsFilters
 severity: blocker
@@ -354,9 +356,10 @@ ale PDF ignoruje ją — błędne oczekiwanie, że dokument będzie inny.
 
 ```yaml
 id: P1-002
-status: triaged
+status: done
 priority: P1
 created: 2026-07-05
+resolved: 2026-07-05
 reporter: operator (manual test 2026-07-05)
 component: frontend/views/ArchiveView (maszyny)
 severity: high
@@ -462,9 +465,10 @@ błąd pobierania produktów z Fakturownia.
 
 ```yaml
 id: P1-006
-status: triaged
+status: done
 priority: P1
 created: 2026-07-05
+resolved: 2026-07-05
 reporter: operator (manual test 2026-07-05)
 component: frontend (globalne — SVG icon)
 severity: high

@@ -82,14 +82,8 @@ function onTabChange(key: string): void {
 }
 
 // ── Drill-down (udostępniony tabom przez provide) ────────────────────────────
-// RAO-P2-065 #7: internalNumber opcjonalny — dodawany do subtitle drawera
-function openDrillDown(
-  kind: DrillDownKind,
-  id: number | string,
-  name: string,
-  internalNumber?: string | null,
-): void {
-  store.openDrillDown(kind, id, name, filters.value.dateFrom, filters.value.dateTo, internalNumber)
+function openDrillDown(kind: DrillDownKind, id: number | string, name: string): void {
+  store.openDrillDown(kind, id, name, filters.value.dateFrom, filters.value.dateTo)
 }
 provide('analytics:openDrillDown', openDrillDown)
 
@@ -118,14 +112,6 @@ function formatDate(d: string | null | undefined): string {
   return new Date(d).toLocaleDateString('pl-PL')
 }
 
-// RAO-P2-065 #1: klasa koloru ROI (zielony ≥100%, amber ≥50%, czerwony <50%, brak → muted)
-function roiClass(pct: number | null): string {
-  if (pct === null) return 'roi-na'
-  if (pct >= 100) return 'roi-high'
-  if (pct >= 50) return 'roi-mid'
-  return 'roi-low'
-}
-
 // ── Watcher: zmiana filtrów → reload aktywnych danych (ale NIE live) ─────────
 watch(
   () => ({ ...filters.value }),
@@ -140,15 +126,36 @@ watch(
 )
 
 onMounted(async () => {
-  // Załaduj kontrahentów do filtra (datalist)
+  // RAO-P0-004: Załaduj WSZYSTKICH kontrahentów do comboboxa w filtre.
+  // Backend cap per_page=500, a w DB jest 698 kontrahentów — stronicujemy
+  // aż pobierzemy pełną listę, inaczej combobox nie pokaże ~200 ostatnich.
   if (!contractorsStore.list?.length) {
     try {
-      await contractorsStore.fetchList({ per_page: 500 })
+      await loadAllContractors()
     } catch {
       // ignore — filtr opcjonalny
     }
   }
 })
+
+// Pobiera wszystkich kontrahentów (paginacja po 500 — backend max per_page).
+async function loadAllContractors(): Promise<void> {
+  const perPage = 500
+  let page = 1
+  // Pierwsza strona — ustala total.
+  await contractorsStore.fetchList({ per_page: perPage, page })
+  const total = contractorsStore.total ?? contractorsStore.list?.length ?? 0
+  const pages = Math.ceil(total / perPage)
+  // fetchList nadpisuje list.value pojedynczą stroną, więc zbieramy strony
+  // i scalamy po pobraniu wszystkich.
+  const collected = [...(contractorsStore.list ?? [])]
+  for (page = 2; page <= pages; page++) {
+    await contractorsStore.fetchList({ per_page: perPage, page })
+    collected.push(...(contractorsStore.list ?? []))
+  }
+  // Ustaw scaloną listę z powrotem do store (fetchList zostawił ostatnią stronę).
+  contractorsStore.list = collected
+}
 </script>
 
 <template>
@@ -226,35 +233,6 @@ onMounted(async () => {
             <span class="dm-label">Średnio/dzień</span>
           </div>
         </div>
-
-        <!-- RAO-P2-065 #1: sekcja ROI — główne wymaganie klienta -->
-        <div v-if="store.machineRoi" class="drill-roi" data-testid="drill-machine-roi">
-          <h4 class="drill-roi-title">ROI — stopa zwrotu</h4>
-          <div class="drill-metrics drill-roi-metrics">
-            <div class="drill-metric drill-metric-roi">
-              <span class="dm-value" :class="roiClass(store.machineRoi.roi_pct)">
-                {{ store.machineRoi.roi_pct !== null ? `${store.machineRoi.roi_pct}%` : '—' }}
-              </span>
-              <span class="dm-label">ROI</span>
-            </div>
-            <div class="drill-metric">
-              <span class="dm-value">{{ formatCurrency(store.machineRoi.replacement_value) }}</span>
-              <span class="dm-label">Wartość zastępcza</span>
-            </div>
-            <div class="drill-metric">
-              <span class="dm-value">{{ formatCurrency(store.machineRoi.estimated_revenue) }}</span>
-              <span class="dm-label">Przychód (szac.)</span>
-            </div>
-            <div class="drill-metric">
-              <span class="dm-value">{{ store.machineRoi.total_rented_days }} dni</span>
-              <span class="dm-label">Dni wynajmu</span>
-            </div>
-          </div>
-          <p v-if="store.machineRoi.roi_pct === null" class="drill-roi-hint">
-            ROI wymaga wartości zastępczej maszyny (ustaw w karcie artykułu).
-          </p>
-        </div>
-
         <table class="drill-table" data-testid="drill-machine-rentals">
           <thead>
             <tr>
@@ -306,10 +284,10 @@ onMounted(async () => {
 
         <!-- PNA breakdown (tylko dla drill po mieście — RAO-P2-069) -->
         <div v-if="store.locationDetails.pna_breakdown?.length" class="drill-subsection">
-          <div class="drill-subtitle">📮 Rozbicie na kody <abbr title="Kod pocztowy (PNA)">PNA</abbr></div>
+          <div class="drill-subtitle">📮 Rozbicie na kody PNA</div>
           <table class="drill-table">
             <thead>
-              <tr><th><abbr title="Kod pocztowy (PNA)">PNA</abbr></th><th>Wynajmów</th><th>Przychód</th></tr>
+              <tr><th>PNA</th><th>Wynajmów</th><th>Przychód</th></tr>
             </thead>
             <tbody>
               <tr v-for="p in store.locationDetails.pna_breakdown" :key="p.postal_code">
@@ -424,36 +402,6 @@ onMounted(async () => {
   color: var(--color-primary);
 }
 .dm-label {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-}
-
-/* RAO-P2-065 #1: sekcja ROI */
-.drill-roi {
-  margin-top: var(--spacing-lg);
-  padding: var(--spacing-md);
-  background: var(--color-bg-light);
-  border-radius: var(--border-radius-sm);
-  border-left: 3px solid var(--color-primary);
-}
-.drill-roi-title {
-  margin: 0 0 var(--spacing-sm) 0;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-primary);
-}
-.drill-roi-metrics {
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-}
-.drill-metric-roi .dm-value {
-  font-size: var(--font-size-lg);
-}
-.roi-high { color: var(--color-success); }
-.roi-mid { color: var(--color-warning); }
-.roi-low { color: var(--color-danger); }
-.roi-na { color: var(--color-text-muted); }
-.drill-roi-hint {
-  margin: var(--spacing-sm) 0 0 0;
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }

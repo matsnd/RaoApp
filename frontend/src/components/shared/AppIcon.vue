@@ -1,9 +1,11 @@
 <script setup lang="ts">
 // RAO-P2-065 #16: lekki komponent ikon SVG (zamiast emoji).
 // Bez zaleznosci zewnetrznych (lucide-vue-next niedostepny offline).
-// Zestaw: tractor, map-pin, mail, trophy, building, dollar, file, chart,
+// Zestaw: tractor, map-pin, mail, trophy, building, banknote, file, chart,
 //         calendar, search, wrench, package, layers.
 // Kazda ikona: stroke=currentColor, 24x24 viewBox, stroke-width 2 (lucide-style).
+// RAO-P0-003/P1-006: ikona 'banknote' zastapila 'dollar' (SVG z jedną kreską
+//   pionową kojarzył się z USD — niedopuszczalne w polskiej aplikacji).
 
 export type AppIconName =
   | 'tractor'
@@ -11,7 +13,7 @@ export type AppIconName =
   | 'mail'
   | 'trophy'
   | 'building'
-  | 'dollar'
+  | 'banknote'
   | 'file'
   | 'chart'
   | 'calendar'
@@ -82,9 +84,11 @@ withDefaults(defineProps<Props>(), {
       <path d="M10 21v-3h4v3" />
     </template>
 
-    <template v-else-if="name === 'dollar'">
-      <line x1="12" y1="2" x2="12" y2="22" />
-      <path d="M17 6.5C17 5 15 4 12 4S7 5 7 7s2 3 5 3 5 1 5 3-2 3-5 3-5-1-5-2.5" />
+    <template v-else-if="name === 'banknote'">
+      <!-- RAO-P0-003/P1-006: neutralny banknot (bez symbolu waluty USD). -->
+      <rect x="2" y="6" width="20" height="12" rx="2" />
+      <circle cx="12" cy="12" r="2.5" />
+      <path d="M6 12h.01M18 12h.01" />
     </template>
 
     <template v-else-if="name === 'file'">
