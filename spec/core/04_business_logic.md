@@ -965,6 +965,23 @@ onMounted(async () => {
 })
 ```
 
+### Faza 2d — demo scenariusz unmapped (opcja E)
+
+**Wymaganie biznesowe:** Jeśli w danej umowie są zmapowane na artykuły inne usługi/artykuły niż były w umowie domyślnie (warunki rozliczenia, usługi dodatkowe), to weź je pod uwagę do analytics. Przykładowo: umowa ma usługę 1 i 2, a z Fakturowni wraca usługa 2 + artykuł 4 (niezmapowany) → oba mają się pojawić w rozliczeniach i być brane do statystyk przychodów i wartości.
+
+**Demo (umowa `S099/2026`):**
+- Umowa typu `U` (usługowa), zakończona, NIEROZLICZONA (`fa_pending=True`).
+- 2 usługi dodatkowe ZMAPOWANE w RAO: Transport (`fakturownia_product_id=8845156432587`) + Tankowanie (`fakturownia_product_id=8845156432620`).
+- Faktura FA (seed_fa_invoices.py) wystawia 3 pozycje:
+  1. Transport (mapped) — 350 zł brutto → mapped settlement
+  2. Tankowanie (mapped) — 200 zł brutto → mapped settlement
+  3. Praca operatora (UNMAPPED — product_id w FA nie zmapowany w RAO) — 800 zł brutto → unmapped settlement (`source='fa_unmapped'`)
+- Po "Pobierz z FA": 3 settlements (2 mapped + 1 unmapped), analytics = **1350 zł** (350+200+800).
+
+**Klucz techniczny:** Pozycja 3 MUSI mieć `product_id` w FA (inaczej `line.fakturownia_product_id` = None → guard `pid is not None and pid != 0` odrzuca unmapped settlement). Product_id nie może być w `articles.fakturownia_product_id` w RAO — wtedy `init-from-fakturownia` tworzy unmapped settlement.
+
+**Procedura seeda:** zobacz `spec/technical/scripts/seed_unmapped_demo.md`.
+
 ## 15. Kopiowanie szablonów usług dodatkowych do umowy
 
 ```python
