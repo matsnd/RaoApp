@@ -864,67 +864,69 @@ wygenerowane **na podstawie realnych danych starej aplikacji WinForms**,
 a nie wymyślone na potrzeby demo.
 
 **Zakres:**
-1. **Archiwizacja obecnej bazy demo** — zrzuć aktualny stan `rao_new` do
-   `spec/archive/migration_snapshot_20260705/` (SQL dump + JSON eksport kluczowych
-   tabel: contracts, contract_positions, position_conditions, contract_service_fees,
-   articles, article_rate_presets, fee_preset_groups, service_fee_templates).
+1. **Czyszczenie bazy** — DROP + CREATE `rao_new` (migracja od zera, bez archiwizacji).
 2. **Pełna migracja od nowa** — uruchom `backend/migrate.py` (step1-step5b) na
    czystej bazie `rao_new`. Weryfikacja: row count per tabela vs stare DB.
-3. **Demo seed na bazie migracji** — `seed_demo_data.py` + `seed_fa_invoices.py`
-   uruchomione po migracji (NIE zamiast migracji). Demo = migracja + uzupełnienia
+3. **Demo seed UZUPEŁNIA migrację** — `seed_demo_data.py` + `seed_fa_invoices.py`
+   uruchomione po migracji (NIE nadpisują). Demo = migracja + uzupełnienia
    (aktywne umowy pula D, faktury FA-pending).
 4. **Analiza wpisów rozliczenia starej aplikacji** — przeanalizuj
    `umowa_pozycja2_warunek` (warunki kaskadowe) ze starej bazy:
    - Jakie typowe progi kaskadowe (period_count, rate1, rate2, billing_label)?
-   - Jakie maszyny mają spójne cenniki (powtarzające się wzorce)?
-   - Outliery (literówki, anomalie) → do odrzucenia
+   - Top-3 najczęstsze wzorce per maszyna (automat, bez ręcznej weryfikacji)
+   - Outliery (literówki, anomalie) → odrzucone (poza top-3)
 5. **Analiza usług dodatkowych starej aplikacji** — przeanalizuj
    `umowa2.OPLATY` (free-text parsowane w `migrate.py:step5b`):
-   - Jakie najczęstsze nazwy usług (Tankowanie, Czyszczenie, Transport, Serwis, Przestój)?
-   - Jakie typowe kwoty per usługa?
-   - Jakie kombinacje usług per umowa?
+   - Top-N najczęstszych nazw usług (Tankowanie, Czyszczenie, Transport, Serwis, Przestój)
+   - Typowe kwoty per usługa (default_amount — stała, nie zakres)
+   - Top-N kombinacji usług per umowa (→ fee_preset_groups)
 6. **Generowanie cenników (article_rate_presets)** — na podstawie analizy z pkt 4
-   utwórz `article_rate_presets` + `article_rate_preset_items`:
-   - Per maszyna (article_id): cennik "Standard" (najczęstsze progi z historii)
-   - Opcjonalnie "Promo" / "Długoterminowy" jeśli warianty istnieją
-   - `is_default=true` dla cennika "Standard"
+   utwórz `article_rate_presets` + `article_rate_preset_items` PER MASZYNA:
+   - Cennik "Standard" (top-1 wzorzec z historii) + is_default=true
+   - Opcjonalnie "Wariant 2", "Wariant 3" (top-2, top-3) jeśli wyraźnie różne
+   - Max 3 cenniki per maszyna
    - Snapshot principle zachowane (warunki na pozycjach = kopia, nie referencja)
 7. **Generowanie zestawów usług (fee_preset_groups / service_fee_templates)** —
    na podstawie analizy z pkt 5:
-   - `service_fee_templates`: typowe usługi z typowymi kwotami (Tankowanie 250,
-     Czyszczenie-trudne 200, Czyszczenie-drobne 80, Transport, Serwis, Przestój)
-   - `fee_preset_groups`: zestawy nazwane (np. "Standardowe", "Pełne pakiet",
-     "Tylko tankowanie") — jeśli takie wzorce występują w historii
+   - `service_fee_templates`: typowe usługi z `default_amount` (stała kwota)
+     (Tankowanie, Czyszczenie-trudne, Czyszczenie-drobne, Transport, Serwis, Przestój)
+   - `fee_preset_groups`: nazwane zestawy z top-N kombinacji (np. "Standardowe",
+     "Pełne pakiet", "Tylko tankowanie") — jeśli takie wzorce występują w historii
 8. **Weryfikacja** — po migracji + seed:
    - `GET /settings/articles/{id}/rate-presets` zwraca cenniki per maszyna
    - `GET /settings/fee-presets` zwraca zestawy usług
    - `GET /analytics` pokazuje realne dane z migracji (nie wymyślone)
    - Demo flow: umowa → "Zastosuj cennik" → realne warunki z historii maszyny
 
-**Decyzje do podjęcia (operator):**
-- **Archiwizacja:** czy zrzucać pełny SQL dump, czy tylko JSON eksport?
-  (SQL dump = pełny rollback; JSON = czytelny diff)
-- **Czyszczenie outliery:** czy ręczna weryfikacja cenników przed importem,
-  czy automat (top-N najczęstszych wzorców)?
-- **Cenniki per maszyna vs per kategoria:** czy cennik "Standard" per maszyna
-  (article_id), czy per kategoria (category_main)? Per maszyna = bardziej
-  precyzyjne, per kategoria = mniej rekordów.
-- **Usługi — kwoty stałe czy zakresy:** czy `service_fee_templates` ma
-  `default_amount` (stała) czy `min_amount` + `max_amount` (zakres)?
-- **Demo seed — czy nadpisać migrację, czy uzupełnić:** czy `seed_demo_data.py`
-  ma działać na czystej bazie (po migracji) czy na istniejącej (z migracją)?
+**Decyzje operatora (2026-07-05):**
+- **Archiwizacja:** NIE — całość pójdzie od nowa ze starej bazy. Nie archiwizujemy
+  obecnego stanu demo (jest "zmyślone", nie ma wartości).
+- **Outliery:** AUTOMAT — top-N najczęstszych wzorców per maszyna (bez ręcznej
+  weryfikacji). N=3 (max 3 cenniki per maszyna: Standard + 2 warianty).
+- **Cenniki:** PER MASZYNA (article_id), NIE per kategoria. Cennik "Standard"
+  per maszyna + is_default=true. Jeśli maszyna ma >1 wyraźny wzorzec → dodatkowe
+  cenniki "Wariant 2", "Wariant 3" (max 3 łącznie).
+- **Usługi — kwoty:** `default_amount` (stała kwota) — domyślnie, bo tak jest w
+  istniejącym schema `service_fee_templates`. Jeśli operator zechce zakres
+  (min/max) → zmiana schema w przyszłości (P3).
+- **Demo seed:** OD ZERA na czystą bazę. Pełna odtworzenie: `migrate.py` (step1-5b)
+  na czystej `rao_new` → potem `seed_demo_data.py` + `seed_fa_invoices.py`
+  UZUPEŁNIAją (pula D aktywnych umów + faktury FA-pending). NIE nadpisują
+  zmigrowanych danych — tylko dodają brakujące elementy demo.
 
 **Kryteria akceptacji (DoD):**
-- [ ] Archiwum obecnego stanu w `spec/archive/migration_snapshot_20260705/`
+- [ ] `rao_new` wyczyszczone (DROP + CREATE) — migracja od zera
 - [ ] `migrate.py` uruchomione na czystej bazie — row count per tabela
       spójny ze źródłem (raport diff)
-- [ ] Analiza `umowa_pozycja2_warunek` — raport z typowymi progami kaskadowymi
-      per maszyna/kategoria (zapisany w `spec/archive/migration_analysis/`)
-- [ ] Analiza `umowa2.OPLATY` — raport z typowymi usługami i kwotami
-- [ ] `article_rate_presets` wypełnione per maszyna (cennik "Standard" + is_default)
-- [ ] `service_fee_templates` wypełnione typowymi usługami z historii
-- [ ] `fee_preset_groups` wypełnione nazwanymi zestawami (jeśli wzorce istnieją)
-- [ ] `seed_demo_data.py` + `seed_fa_invoices.py` uruchomione po migracji
+- [ ] Analiza `umowa_pozycja2_warunek` — raport z top-3 najczęstszymi progami
+      kaskadowymi per maszyna (zapisany w `spec/archive/migration_analysis/`)
+- [ ] Analiza `umowa2.OPLATY` — raport z top-N najczęstszymi usługami i kwotami
+- [ ] `article_rate_presets` wypełnione per maszyna (top-3 wzorców z historii:
+      "Standard" + max 2 warianty, is_default=true dla "Standard")
+- [ ] `service_fee_templates` wypełnione typowymi usługami z `default_amount`
+- [ ] `fee_preset_groups` wypełnione nazwanymi zestawami (top-N wzorców kombinacji)
+- [ ] `seed_demo_data.py` + `seed_fa_invoices.py` UZUPEŁNIAJĄ migrację
+      (pula D aktywnych umów + faktury FA-pending, bez nadpisywania)
 - [ ] Demo: 10+ aktywnych umów (pula D) z fakturami FA-pending
 - [ ] `/analytics` pokazuje realne dane z migracji (cross-check z raportem)
 - [ ] `GET /settings/articles/{id}/rate-presets` zwraca cenniki dla każdej maszyny
@@ -937,13 +939,15 @@ a nie wymyślone na potrzeby demo.
 
 **Ryzyka:**
 - Stara baza może mieć brudne dane (literówki w OPLATY, anomalne ceny) →
-  wymaga czyszczenia przed generowaniem cenników
+  automat top-3 odrzuca outliery, ale może pominąć rzadkie ale ważne wzorce
 - Migracja na czystej bazie może ujawnić bugi w `migrate.py` (deterministic
   INSERT...SELECT) — trzeba być gotowym na fix
 - Cenniki per maszyna = dużo rekordów (np. 100 maszyn × 1-3 cenniki = 100-300
   rekordów) — akceptowalne, ale wymaga UI do zarządzania (P1-001 już ma)
-- `seed_demo_data.py` może konfliktować z migracją (duplikaty) — trzeba
-  zdecydować: demo nadpisuje migrację czy uzupełnia
+- `seed_demo_data.py` może konfliktować z migracją (duplikaty) — seed ma
+  działać UZUPEŁNIAJĄCO (INSERT IF NOT EXISTS), nie nadpisywać
+- DROP + CREATE `rao_new` = destruktywna operacja — wymaga potwierdzenia
+  operatora przed wykonaniem (zgodnie z AGENTS.md: bez wyraźnej zgody)
 
 **Powiązane taski:**
 - P1-001 (cenniki warunków rozliczenia) — infrastruktura już gotowa
