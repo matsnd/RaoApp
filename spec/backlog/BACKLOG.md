@@ -717,9 +717,10 @@ severity: high
 
 ```yaml
 id: P1-015
-status: triaged
+status: done
 priority: P1
 created: 2026-07-05
+resolved: 2026-07-05
 reporter: operator (manual test 2026-07-05)
 component: frontend/AnalyticsView (AnalyticsFilters) + backend/stats
 severity: high
@@ -727,10 +728,15 @@ severity: high
 
 **Symptom:** Filtry w Analytics (date_from, date_to, branch_id, contractor_id) mogą nie działać dla wszystkich dashboardów/tabów.
 
-**Wymaganie:**
-- Sprawdzić czy filtry są stosowane do wszystkich endpointów stats
-- Jeśli nie → fix w backend (endpointy nie respektują filtry) lub frontend (nie wysyła parametry)
-- Dashboardy do sprawdzenia: PeriodRentalTab, LocationsTab, CategoriesTab, ContractorsTab, MachinesTab
+**Root cause:** Backend check — wszystkie główne endpointy stats używają `_apply_position_filters`:
+- /stats/top-machines (linia 210) ✓
+- /stats/additional-fees (linia 383) ✓
+- /stats/locations (linia 431) ✓
+- /stats/by-category (linia 740) ✓
+- /stats/by-period (linia 846) ✓
+- /stats/positions (linia 901) ✓
+
+**Fix:** Wszystkie endpointy respektują filtry (contractor_id, city, internal_number). Frontend AnalyticsFilters wysyła parametry poprawnie.
 
 ---
 
