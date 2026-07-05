@@ -1,0 +1,5106 @@
+[
+  {
+    "scenario": "A-baseline",
+    "description": "preset=month, type=all, contractor=null, city=\"\"",
+    "filters": {
+      "preset": "month",
+      "articleType": "all",
+      "contractorId": "",
+      "contractorName": "",
+      "city": "",
+      "dateFrom": "",
+      "dateTo": ""
+    },
+    "apiCalls": [
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/fleet-summary",
+        "params": {},
+        "ts": "2026-07-05T18:48:57.040Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/top-machines",
+        "params": {
+          "limit": "10"
+        },
+        "ts": "2026-07-05T18:48:57.040Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/additional-fees",
+        "params": {},
+        "ts": "2026-07-05T18:48:57.040Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/locations",
+        "params": {},
+        "ts": "2026-07-05T18:48:57.040Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/positions",
+        "params": {
+          "type": "all"
+        },
+        "ts": "2026-07-05T18:48:57.040Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/by-category",
+        "params": {
+          "level": "main"
+        },
+        "ts": "2026-07-05T18:48:57.040Z"
+      }
+    ],
+    "tabs": [
+      {
+        "tab": "live",
+        "kpi": [
+          {
+            "testId": "kpi-live-available",
+            "value": "-13",
+            "label": "Dostępne maszyny",
+            "sub": "z 5 łącznie"
+          },
+          {
+            "testId": "kpi-live-rented",
+            "value": "18",
+            "label": "Wynajęte teraz",
+            "sub": "maszyn u klientów"
+          },
+          {
+            "testId": "kpi-live-util",
+            "value": "360%",
+            "label": "Wykorzystanie floty",
+            "sub": "% maszyn u klientów teraz"
+          }
+        ],
+        "tables": [
+          {
+            "section": "Maszyny aktualnie wynajęte",
+            "columns": [
+              "Maszyna",
+              "Nr wewnętrzny",
+              "Kategoria",
+              "Umowa",
+              "Kontrahent",
+              "Planowany zwrot"
+            ],
+            "rows": [
+              [
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "Koparki",
+                "S049/2026",
+                "",
+                "17.07.2026"
+              ],
+              [
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "Koparki",
+                "S044/2026G",
+                "",
+                "12.07.2026"
+              ],
+              [
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "Koparki",
+                "S001/2026",
+                "",
+                "12.07.2026"
+              ],
+              [
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "Koparki",
+                "S043/2026",
+                "",
+                "12.07.2026"
+              ],
+              [
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "Ładowarki Teleskopowe",
+                "S049/2026",
+                "",
+                "17.07.2026"
+              ],
+              [
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "Ładowarki Teleskopowe",
+                "S045/2026",
+                "",
+                "12.07.2026"
+              ],
+              [
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "Ładowarki Teleskopowe",
+                "S001/2026",
+                "",
+                "12.07.2026"
+              ],
+              [
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "Ładowarki Teleskopowe",
+                "S050/2026G",
+                "",
+                "17.07.2026"
+              ],
+              [
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "Podnośniki",
+                "S051/2026",
+                "",
+                "22.07.2026"
+              ],
+              [
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "Podnośniki",
+                "S046/2026G",
+                "",
+                "17.07.2026"
+              ],
+              [
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "Podnośniki",
+                "S041/2026",
+                "",
+                "12.07.2026"
+              ],
+              [
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "Spychacze",
+                "S046/2026G",
+                "",
+                "17.07.2026"
+              ],
+              [
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "Spychacze",
+                "S042/2026G",
+                "",
+                "12.07.2026"
+              ],
+              [
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "Spychacze",
+                "S052/2026G",
+                "",
+                "22.07.2026"
+              ],
+              [
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "Spychacze",
+                "S047/2026",
+                "",
+                "17.07.2026"
+              ],
+              [
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "Zagęszczarki",
+                "S043/2026",
+                "",
+                "12.07.2026"
+              ],
+              [
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "Zagęszczarki",
+                "S052/2026G",
+                "",
+                "22.07.2026"
+              ],
+              [
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "Zagęszczarki",
+                "S048/2026G",
+                "",
+                "17.07.2026"
+              ]
+            ],
+            "rowCount": 18
+          }
+        ],
+        "extraText": {
+          "util-bar": "Wykorzystanie: 360%"
+        },
+        "visible": false
+      },
+      {
+        "tab": "period",
+        "kpi": [
+          {
+            "testId": "kpi-period-revenue",
+            "value": "196 400,00 zł",
+            "label": "Przychód w okresie",
+            "sub": "rzeczywiste"
+          },
+          {
+            "testId": "kpi-period-contracts",
+            "value": "14",
+            "label": "Umów w okresie",
+            "sub": "aktywnych umów"
+          },
+          {
+            "testId": "kpi-period-rented",
+            "value": "5",
+            "label": "Wynajętych teraz",
+            "sub": "z 5 maszyn"
+          },
+          {
+            "testId": "kpi-period-util",
+            "value": "100%",
+            "label": "Wykorzystanie",
+            "sub": "floty teraz"
+          }
+        ],
+        "tables": [
+          {
+            "section": "Top maszyny po przychodzie (5)",
+            "columns": [
+              "#",
+              "Maszyna",
+              "Nr wewnętrzny",
+              "Przychód",
+              "Dni",
+              "Umów"
+            ],
+            "rows": [
+              [
+                "1",
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "74 500,00 zł",
+                "19",
+                "4"
+              ],
+              [
+                "2",
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "45 720,00 zł",
+                "20",
+                "5"
+              ],
+              [
+                "3",
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "42 300,00 zł",
+                "16",
+                "4"
+              ],
+              [
+                "4",
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "20 900,00 zł",
+                "12",
+                "3"
+              ],
+              [
+                "5",
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "7 860,00 zł",
+                "15",
+                "3"
+              ]
+            ],
+            "rowCount": 5
+          },
+          {
+            "section": "Pozycje dodatkowe (usługi)",
+            "columns": [
+              "Usługa",
+              "Przychód",
+              "Razy"
+            ],
+            "rows": [
+              [
+                "Transport maszyny",
+                "1 400,00 zł",
+                "4"
+              ],
+              [
+                "Serwis maszyny",
+                "1 200,00 zł",
+                "4"
+              ],
+              [
+                "Tankowanie paliwa",
+                "1 000,00 zł",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — trudne zabrudzenia",
+                "800,00 zł",
+                "4"
+              ],
+              [
+                "Przestój maszyny",
+                "400,00 zł",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — drobne",
+                "320,00 zł",
+                "4"
+              ]
+            ],
+            "rowCount": 6
+          },
+          {
+            "section": "Lokalizacje wynajmu",
+            "columns": [
+              "Miasto",
+              "Wynajmów",
+              "Przychód"
+            ],
+            "rows": [
+              [
+                "Kraków",
+                "2",
+                "26 280,00 zł"
+              ],
+              [
+                "Warszawa",
+                "2",
+                "38 690,00 zł"
+              ],
+              [
+                "Katowice",
+                "1",
+                "5 280,00 zł"
+              ],
+              [
+                "Bydgoszcz",
+                "1",
+                "14 850,00 zł"
+              ],
+              [
+                "Lublin",
+                "1",
+                "13 210,00 zł"
+              ],
+              [
+                "Szczecin",
+                "1",
+                "12 100,00 zł"
+              ],
+              [
+                "Radom",
+                "1",
+                "10 810,00 zł"
+              ],
+              [
+                "Poznań",
+                "1",
+                "3 100,00 zł"
+              ],
+              [
+                "Wrocław",
+                "1",
+                "24 550,00 zł"
+              ],
+              [
+                "Łódź",
+                "1",
+                "11 800,00 zł"
+              ],
+              [
+                "Gdynia",
+                "1",
+                "9 130,00 zł"
+              ],
+              [
+                "Gdańsk",
+                "1",
+                "26 600,00 zł"
+              ]
+            ],
+            "rowCount": 12
+          },
+          {
+            "section": "Pozycje umów",
+            "columns": [
+              "Nazwa",
+              "Nr wewnętrzny",
+              "Kategoria",
+              "Przychód",
+              "Dni",
+              "Umów",
+              "Razy"
+            ],
+            "rows": [
+              [
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "Spychacze",
+                "74 500,00 zł",
+                "19",
+                "4",
+                "4"
+              ],
+              [
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "Ładowarki Teleskopowe",
+                "45 720,00 zł",
+                "20",
+                "5",
+                "5"
+              ],
+              [
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "Koparki",
+                "42 300,00 zł",
+                "16",
+                "4",
+                "4"
+              ],
+              [
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "Podnośniki",
+                "20 900,00 zł",
+                "12",
+                "3",
+                "3"
+              ],
+              [
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "Zagęszczarki",
+                "7 860,00 zł",
+                "15",
+                "3",
+                "3"
+              ],
+              [
+                "Transport maszyny",
+                "USL-001",
+                "Usługi dodatkowe",
+                "1 400,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Serwis maszyny",
+                "USL-006",
+                "Usługi dodatkowe",
+                "1 200,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Tankowanie paliwa",
+                "USL-004",
+                "Usługi dodatkowe",
+                "1 000,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — trudne zabrudzenia",
+                "USL-003",
+                "Usługi dodatkowe",
+                "800,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Przestój maszyny",
+                "USL-005",
+                "Usługi dodatkowe",
+                "400,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — drobne",
+                "USL-002",
+                "Usługi dodatkowe",
+                "320,00 zł",
+                "0",
+                "4",
+                "4"
+              ]
+            ],
+            "rowCount": 11
+          }
+        ],
+        "extraText": {
+          "revenue-breakdown": "Rzeczywiste (z rozliczeń):8 400,00 złSzacunek (cennik):188 000,00 zł"
+        },
+        "visible": true
+      },
+      {
+        "tab": "locations",
+        "kpi": [
+          {
+            "testId": "kpi-loc-count",
+            "value": "12",
+            "label": "Lokalizacji",
+            "sub": "z wynajmami w okresie"
+          },
+          {
+            "testId": "kpi-loc-rentals",
+            "value": "14",
+            "label": "Wynajmów",
+            "sub": "we wszystkich miastach"
+          },
+          {
+            "testId": "kpi-loc-revenue",
+            "value": "196 400,00 zł",
+            "label": "Przychód",
+            "sub": "łącznie w okresie"
+          },
+          {
+            "testId": "kpi-loc-top",
+            "value": "Kraków",
+            "label": "Top miasto",
+            "sub": "26 280,00 zł"
+          }
+        ],
+        "tables": [],
+        "extraText": {
+          "chart-bars": "Warszawa 38 690,00 zł | Gdańsk 26 600,00 zł | Kraków 26 280,00 zł | Wrocław 24 550,00 zł | Bydgoszcz 14 850,00 zł | Lublin 13 210,00 zł | Szczecin 12 100,00 zł | Łódź 11 800,00 zł | Radom 10 810,00 zł | Gdynia 9130,00 zł"
+        },
+        "visible": true
+      },
+      {
+        "tab": "explorer",
+        "kpi": [],
+        "tables": [
+          {
+            "section": "Wyniki wyszukiwania",
+            "columns": [],
+            "rows": [],
+            "rowCount": 0,
+            "empty": "Wpisz frazę i kliknij „Szukaj\""
+          }
+        ],
+        "extraText": {},
+        "visible": true
+      }
+    ],
+    "filtersPanelVisible": true,
+    "notes": [
+      "Baseline — domyślny stan po wejściu na /analytics"
+    ]
+  },
+  {
+    "scenario": "B-preset-today",
+    "description": "preset=today, type=all, contractor=null, city=\"\"",
+    "filters": {
+      "preset": "today",
+      "articleType": "all",
+      "contractorId": "",
+      "contractorName": "",
+      "city": "",
+      "dateFrom": "",
+      "dateTo": ""
+    },
+    "apiCalls": [],
+    "tabs": [
+      {
+        "tab": "period",
+        "kpi": [
+          {
+            "testId": "kpi-period-revenue",
+            "value": "188 000,00 zł",
+            "label": "Przychód w okresie",
+            "sub": "szacunek"
+          },
+          {
+            "testId": "kpi-period-contracts",
+            "value": "13",
+            "label": "Umów w okresie",
+            "sub": "aktywnych umów"
+          },
+          {
+            "testId": "kpi-period-rented",
+            "value": "5",
+            "label": "Wynajętych teraz",
+            "sub": "z 5 maszyn"
+          },
+          {
+            "testId": "kpi-period-util",
+            "value": "100%",
+            "label": "Wykorzystanie",
+            "sub": "floty teraz"
+          }
+        ],
+        "tables": [
+          {
+            "section": "Top maszyny po przychodzie (5)",
+            "columns": [
+              "#",
+              "Maszyna",
+              "Nr wewnętrzny",
+              "Przychód",
+              "Dni",
+              "Umów"
+            ],
+            "rows": [
+              [
+                "1",
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "74 500,00 zł",
+                "4",
+                "4"
+              ],
+              [
+                "2",
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "42 300,00 zł",
+                "4",
+                "4"
+              ],
+              [
+                "3",
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "37 320,00 zł",
+                "4",
+                "4"
+              ],
+              [
+                "4",
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "20 900,00 zł",
+                "3",
+                "3"
+              ],
+              [
+                "5",
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "7 860,00 zł",
+                "3",
+                "3"
+              ]
+            ],
+            "rowCount": 5
+          },
+          {
+            "section": "Pozycje dodatkowe (usługi)",
+            "columns": [
+              "Usługa",
+              "Przychód",
+              "Razy"
+            ],
+            "rows": [
+              [
+                "Transport maszyny",
+                "1 400,00 zł",
+                "4"
+              ],
+              [
+                "Serwis maszyny",
+                "1 200,00 zł",
+                "4"
+              ],
+              [
+                "Tankowanie paliwa",
+                "1 000,00 zł",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — trudne zabrudzenia",
+                "800,00 zł",
+                "4"
+              ],
+              [
+                "Przestój maszyny",
+                "400,00 zł",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — drobne",
+                "320,00 zł",
+                "4"
+              ]
+            ],
+            "rowCount": 6
+          },
+          {
+            "section": "Lokalizacje wynajmu",
+            "columns": [
+              "Miasto",
+              "Wynajmów",
+              "Przychód"
+            ],
+            "rows": [
+              [
+                "Warszawa",
+                "2",
+                "38 690,00 zł"
+              ],
+              [
+                "Katowice",
+                "1",
+                "5 280,00 zł"
+              ],
+              [
+                "Bydgoszcz",
+                "1",
+                "14 850,00 zł"
+              ],
+              [
+                "Lublin",
+                "1",
+                "13 210,00 zł"
+              ],
+              [
+                "Szczecin",
+                "1",
+                "12 100,00 zł"
+              ],
+              [
+                "Radom",
+                "1",
+                "10 810,00 zł"
+              ],
+              [
+                "Kraków",
+                "1",
+                "17 880,00 zł"
+              ],
+              [
+                "Poznań",
+                "1",
+                "3 100,00 zł"
+              ],
+              [
+                "Wrocław",
+                "1",
+                "24 550,00 zł"
+              ],
+              [
+                "Łódź",
+                "1",
+                "11 800,00 zł"
+              ],
+              [
+                "Gdynia",
+                "1",
+                "9 130,00 zł"
+              ],
+              [
+                "Gdańsk",
+                "1",
+                "26 600,00 zł"
+              ]
+            ],
+            "rowCount": 12
+          },
+          {
+            "section": "Pozycje umów",
+            "columns": [
+              "Nazwa",
+              "Nr wewnętrzny",
+              "Kategoria",
+              "Przychód",
+              "Dni",
+              "Umów",
+              "Razy"
+            ],
+            "rows": [
+              [
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "Spychacze",
+                "74 500,00 zł",
+                "4",
+                "4",
+                "4"
+              ],
+              [
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "Koparki",
+                "42 300,00 zł",
+                "4",
+                "4",
+                "4"
+              ],
+              [
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "Ładowarki Teleskopowe",
+                "37 320,00 zł",
+                "4",
+                "4",
+                "4"
+              ],
+              [
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "Podnośniki",
+                "20 900,00 zł",
+                "3",
+                "3",
+                "3"
+              ],
+              [
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "Zagęszczarki",
+                "7 860,00 zł",
+                "3",
+                "3",
+                "3"
+              ],
+              [
+                "Transport maszyny",
+                "USL-001",
+                "Usługi dodatkowe",
+                "1 400,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Serwis maszyny",
+                "USL-006",
+                "Usługi dodatkowe",
+                "1 200,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Tankowanie paliwa",
+                "USL-004",
+                "Usługi dodatkowe",
+                "1 000,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — trudne zabrudzenia",
+                "USL-003",
+                "Usługi dodatkowe",
+                "800,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Przestój maszyny",
+                "USL-005",
+                "Usługi dodatkowe",
+                "400,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — drobne",
+                "USL-002",
+                "Usługi dodatkowe",
+                "320,00 zł",
+                "0",
+                "4",
+                "4"
+              ]
+            ],
+            "rowCount": 11
+          }
+        ],
+        "extraText": {
+          "revenue-breakdown": "Rzeczywiste (z rozliczeń):0,00 złSzacunek (cennik):188 000,00 zł"
+        },
+        "visible": true
+      }
+    ],
+    "filtersPanelVisible": true,
+    "notes": [
+      "Zmiana tylko preseta — sprawdzamy czy KPI/Top maszyny reagują"
+    ]
+  },
+  {
+    "scenario": "B-preset-week",
+    "description": "preset=week, type=all, contractor=null, city=\"\"",
+    "filters": {
+      "preset": "week",
+      "articleType": "all",
+      "contractorId": "",
+      "contractorName": "",
+      "city": "",
+      "dateFrom": "",
+      "dateTo": ""
+    },
+    "apiCalls": [
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/fleet-summary",
+        "params": {
+          "date_from": "2026-06-28",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:49:20.720Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/top-machines",
+        "params": {
+          "limit": "10",
+          "date_from": "2026-06-28",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:49:20.721Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/additional-fees",
+        "params": {
+          "date_from": "2026-06-28",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:49:20.721Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/locations",
+        "params": {
+          "date_from": "2026-06-28",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:49:20.721Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/positions",
+        "params": {
+          "type": "all",
+          "date_from": "2026-06-28",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:49:20.721Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/by-category",
+        "params": {
+          "level": "main",
+          "date_from": "2026-06-28",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:49:20.721Z"
+      }
+    ],
+    "tabs": [
+      {
+        "tab": "period",
+        "kpi": [
+          {
+            "testId": "kpi-period-revenue",
+            "value": "196 400,00 zł",
+            "label": "Przychód w okresie",
+            "sub": "rzeczywiste"
+          },
+          {
+            "testId": "kpi-period-contracts",
+            "value": "14",
+            "label": "Umów w okresie",
+            "sub": "aktywnych umów"
+          },
+          {
+            "testId": "kpi-period-rented",
+            "value": "5",
+            "label": "Wynajętych teraz",
+            "sub": "z 5 maszyn"
+          },
+          {
+            "testId": "kpi-period-util",
+            "value": "100%",
+            "label": "Wykorzystanie",
+            "sub": "floty teraz"
+          }
+        ],
+        "tables": [
+          {
+            "section": "Top maszyny po przychodzie (5)",
+            "columns": [
+              "#",
+              "Maszyna",
+              "Nr wewnętrzny",
+              "Przychód",
+              "Dni",
+              "Umów"
+            ],
+            "rows": [
+              [
+                "1",
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "74 500,00 zł",
+                "19",
+                "4"
+              ],
+              [
+                "2",
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "45 720,00 zł",
+                "31",
+                "5"
+              ],
+              [
+                "3",
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "42 300,00 zł",
+                "21",
+                "4"
+              ],
+              [
+                "4",
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "20 900,00 zł",
+                "12",
+                "3"
+              ],
+              [
+                "5",
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "7 860,00 zł",
+                "17",
+                "3"
+              ]
+            ],
+            "rowCount": 5
+          },
+          {
+            "section": "Pozycje dodatkowe (usługi)",
+            "columns": [
+              "Usługa",
+              "Przychód",
+              "Razy"
+            ],
+            "rows": [
+              [
+                "Transport maszyny",
+                "1 400,00 zł",
+                "4"
+              ],
+              [
+                "Serwis maszyny",
+                "1 200,00 zł",
+                "4"
+              ],
+              [
+                "Tankowanie paliwa",
+                "1 000,00 zł",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — trudne zabrudzenia",
+                "800,00 zł",
+                "4"
+              ],
+              [
+                "Przestój maszyny",
+                "400,00 zł",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — drobne",
+                "320,00 zł",
+                "4"
+              ]
+            ],
+            "rowCount": 6
+          },
+          {
+            "section": "Lokalizacje wynajmu",
+            "columns": [
+              "Miasto",
+              "Wynajmów",
+              "Przychód"
+            ],
+            "rows": [
+              [
+                "Kraków",
+                "2",
+                "26 280,00 zł"
+              ],
+              [
+                "Warszawa",
+                "2",
+                "38 690,00 zł"
+              ],
+              [
+                "Katowice",
+                "1",
+                "5 280,00 zł"
+              ],
+              [
+                "Bydgoszcz",
+                "1",
+                "14 850,00 zł"
+              ],
+              [
+                "Lublin",
+                "1",
+                "13 210,00 zł"
+              ],
+              [
+                "Szczecin",
+                "1",
+                "12 100,00 zł"
+              ],
+              [
+                "Radom",
+                "1",
+                "10 810,00 zł"
+              ],
+              [
+                "Poznań",
+                "1",
+                "3 100,00 zł"
+              ],
+              [
+                "Wrocław",
+                "1",
+                "24 550,00 zł"
+              ],
+              [
+                "Łódź",
+                "1",
+                "11 800,00 zł"
+              ],
+              [
+                "Gdynia",
+                "1",
+                "9 130,00 zł"
+              ],
+              [
+                "Gdańsk",
+                "1",
+                "26 600,00 zł"
+              ]
+            ],
+            "rowCount": 12
+          },
+          {
+            "section": "Pozycje umów",
+            "columns": [
+              "Nazwa",
+              "Nr wewnętrzny",
+              "Kategoria",
+              "Przychód",
+              "Dni",
+              "Umów",
+              "Razy"
+            ],
+            "rows": [
+              [
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "Spychacze",
+                "74 500,00 zł",
+                "19",
+                "4",
+                "4"
+              ],
+              [
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "Ładowarki Teleskopowe",
+                "45 720,00 zł",
+                "31",
+                "5",
+                "5"
+              ],
+              [
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "Koparki",
+                "42 300,00 zł",
+                "21",
+                "4",
+                "4"
+              ],
+              [
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "Podnośniki",
+                "20 900,00 zł",
+                "12",
+                "3",
+                "3"
+              ],
+              [
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "Zagęszczarki",
+                "7 860,00 zł",
+                "17",
+                "3",
+                "3"
+              ],
+              [
+                "Transport maszyny",
+                "USL-001",
+                "Usługi dodatkowe",
+                "1 400,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Serwis maszyny",
+                "USL-006",
+                "Usługi dodatkowe",
+                "1 200,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Tankowanie paliwa",
+                "USL-004",
+                "Usługi dodatkowe",
+                "1 000,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — trudne zabrudzenia",
+                "USL-003",
+                "Usługi dodatkowe",
+                "800,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Przestój maszyny",
+                "USL-005",
+                "Usługi dodatkowe",
+                "400,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — drobne",
+                "USL-002",
+                "Usługi dodatkowe",
+                "320,00 zł",
+                "0",
+                "4",
+                "4"
+              ]
+            ],
+            "rowCount": 11
+          }
+        ],
+        "extraText": {
+          "revenue-breakdown": "Rzeczywiste (z rozliczeń):8 400,00 złSzacunek (cennik):188 000,00 zł"
+        },
+        "visible": true
+      }
+    ],
+    "filtersPanelVisible": true,
+    "notes": [
+      "Zmiana tylko preseta — sprawdzamy czy KPI/Top maszyny reagują"
+    ]
+  },
+  {
+    "scenario": "B-preset-quarter",
+    "description": "preset=quarter, type=all, contractor=null, city=\"\"",
+    "filters": {
+      "preset": "quarter",
+      "articleType": "all",
+      "contractorId": "",
+      "contractorName": "",
+      "city": "",
+      "dateFrom": "",
+      "dateTo": ""
+    },
+    "apiCalls": [
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/fleet-summary",
+        "params": {
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:49:29.306Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/top-machines",
+        "params": {
+          "limit": "10",
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:49:29.306Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/additional-fees",
+        "params": {
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:49:29.306Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/locations",
+        "params": {
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:49:29.306Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/positions",
+        "params": {
+          "type": "all",
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:49:29.306Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/by-category",
+        "params": {
+          "level": "main",
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:49:29.306Z"
+      }
+    ],
+    "tabs": [
+      {
+        "tab": "period",
+        "kpi": [
+          {
+            "testId": "kpi-period-revenue",
+            "value": "196 400,00 zł",
+            "label": "Przychód w okresie",
+            "sub": "rzeczywiste"
+          },
+          {
+            "testId": "kpi-period-contracts",
+            "value": "14",
+            "label": "Umów w okresie",
+            "sub": "aktywnych umów"
+          },
+          {
+            "testId": "kpi-period-rented",
+            "value": "5",
+            "label": "Wynajętych teraz",
+            "sub": "z 5 maszyn"
+          },
+          {
+            "testId": "kpi-period-util",
+            "value": "100%",
+            "label": "Wykorzystanie",
+            "sub": "floty teraz"
+          }
+        ],
+        "tables": [
+          {
+            "section": "Top maszyny po przychodzie (5)",
+            "columns": [
+              "#",
+              "Maszyna",
+              "Nr wewnętrzny",
+              "Przychód",
+              "Dni",
+              "Umów"
+            ],
+            "rows": [
+              [
+                "1",
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "74 500,00 zł",
+                "19",
+                "4"
+              ],
+              [
+                "2",
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "45 720,00 zł",
+                "24",
+                "5"
+              ],
+              [
+                "3",
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "42 300,00 zł",
+                "19",
+                "4"
+              ],
+              [
+                "4",
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "20 900,00 zł",
+                "12",
+                "3"
+              ],
+              [
+                "5",
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "7 860,00 zł",
+                "17",
+                "3"
+              ]
+            ],
+            "rowCount": 5
+          },
+          {
+            "section": "Pozycje dodatkowe (usługi)",
+            "columns": [
+              "Usługa",
+              "Przychód",
+              "Razy"
+            ],
+            "rows": [
+              [
+                "Transport maszyny",
+                "1 400,00 zł",
+                "4"
+              ],
+              [
+                "Serwis maszyny",
+                "1 200,00 zł",
+                "4"
+              ],
+              [
+                "Tankowanie paliwa",
+                "1 000,00 zł",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — trudne zabrudzenia",
+                "800,00 zł",
+                "4"
+              ],
+              [
+                "Przestój maszyny",
+                "400,00 zł",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — drobne",
+                "320,00 zł",
+                "4"
+              ]
+            ],
+            "rowCount": 6
+          },
+          {
+            "section": "Lokalizacje wynajmu",
+            "columns": [
+              "Miasto",
+              "Wynajmów",
+              "Przychód"
+            ],
+            "rows": [
+              [
+                "Kraków",
+                "2",
+                "26 280,00 zł"
+              ],
+              [
+                "Warszawa",
+                "2",
+                "38 690,00 zł"
+              ],
+              [
+                "Katowice",
+                "1",
+                "5 280,00 zł"
+              ],
+              [
+                "Bydgoszcz",
+                "1",
+                "14 850,00 zł"
+              ],
+              [
+                "Lublin",
+                "1",
+                "13 210,00 zł"
+              ],
+              [
+                "Szczecin",
+                "1",
+                "12 100,00 zł"
+              ],
+              [
+                "Radom",
+                "1",
+                "10 810,00 zł"
+              ],
+              [
+                "Poznań",
+                "1",
+                "3 100,00 zł"
+              ],
+              [
+                "Wrocław",
+                "1",
+                "24 550,00 zł"
+              ],
+              [
+                "Łódź",
+                "1",
+                "11 800,00 zł"
+              ],
+              [
+                "Gdynia",
+                "1",
+                "9 130,00 zł"
+              ],
+              [
+                "Gdańsk",
+                "1",
+                "26 600,00 zł"
+              ]
+            ],
+            "rowCount": 12
+          },
+          {
+            "section": "Pozycje umów",
+            "columns": [
+              "Nazwa",
+              "Nr wewnętrzny",
+              "Kategoria",
+              "Przychód",
+              "Dni",
+              "Umów",
+              "Razy"
+            ],
+            "rows": [
+              [
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "Spychacze",
+                "74 500,00 zł",
+                "19",
+                "4",
+                "4"
+              ],
+              [
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "Ładowarki Teleskopowe",
+                "45 720,00 zł",
+                "24",
+                "5",
+                "5"
+              ],
+              [
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "Koparki",
+                "42 300,00 zł",
+                "19",
+                "4",
+                "4"
+              ],
+              [
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "Podnośniki",
+                "20 900,00 zł",
+                "12",
+                "3",
+                "3"
+              ],
+              [
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "Zagęszczarki",
+                "7 860,00 zł",
+                "17",
+                "3",
+                "3"
+              ],
+              [
+                "Transport maszyny",
+                "USL-001",
+                "Usługi dodatkowe",
+                "1 400,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Serwis maszyny",
+                "USL-006",
+                "Usługi dodatkowe",
+                "1 200,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Tankowanie paliwa",
+                "USL-004",
+                "Usługi dodatkowe",
+                "1 000,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — trudne zabrudzenia",
+                "USL-003",
+                "Usługi dodatkowe",
+                "800,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Przestój maszyny",
+                "USL-005",
+                "Usługi dodatkowe",
+                "400,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — drobne",
+                "USL-002",
+                "Usługi dodatkowe",
+                "320,00 zł",
+                "0",
+                "4",
+                "4"
+              ]
+            ],
+            "rowCount": 11
+          }
+        ],
+        "extraText": {
+          "revenue-breakdown": "Rzeczywiste (z rozliczeń):8 400,00 złSzacunek (cennik):188 000,00 zł"
+        },
+        "visible": true
+      }
+    ],
+    "filtersPanelVisible": true,
+    "notes": [
+      "Zmiana tylko preseta — sprawdzamy czy KPI/Top maszyny reagują"
+    ]
+  },
+  {
+    "scenario": "B-preset-year",
+    "description": "preset=year, type=all, contractor=null, city=\"\"",
+    "filters": {
+      "preset": "year",
+      "articleType": "all",
+      "contractorId": "",
+      "contractorName": "",
+      "city": "",
+      "dateFrom": "",
+      "dateTo": ""
+    },
+    "apiCalls": [
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/fleet-summary",
+        "params": {
+          "date_from": "2025-12-31",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:49:37.969Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/top-machines",
+        "params": {
+          "limit": "10",
+          "date_from": "2025-12-31",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:49:37.969Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/additional-fees",
+        "params": {
+          "date_from": "2025-12-31",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:49:37.969Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/locations",
+        "params": {
+          "date_from": "2025-12-31",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:49:37.969Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/positions",
+        "params": {
+          "type": "all",
+          "date_from": "2025-12-31",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:49:37.969Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/by-category",
+        "params": {
+          "level": "main",
+          "date_from": "2025-12-31",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:49:37.969Z"
+      }
+    ],
+    "tabs": [
+      {
+        "tab": "period",
+        "kpi": [
+          {
+            "testId": "kpi-period-revenue",
+            "value": "539 890,00 zł",
+            "label": "Przychód w okresie",
+            "sub": "rzeczywiste"
+          },
+          {
+            "testId": "kpi-period-contracts",
+            "value": "42",
+            "label": "Umów w okresie",
+            "sub": "aktywnych umów"
+          },
+          {
+            "testId": "kpi-period-rented",
+            "value": "5",
+            "label": "Wynajętych teraz",
+            "sub": "z 5 maszyn"
+          },
+          {
+            "testId": "kpi-period-util",
+            "value": "100%",
+            "label": "Wykorzystanie",
+            "sub": "floty teraz"
+          }
+        ],
+        "tables": [
+          {
+            "section": "Top maszyny po przychodzie (5)",
+            "columns": [
+              "#",
+              "Maszyna",
+              "Nr wewnętrzny",
+              "Przychód",
+              "Dni",
+              "Umów"
+            ],
+            "rows": [
+              [
+                "1",
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "203 300,00 zł",
+                "131",
+                "13"
+              ],
+              [
+                "2",
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "122 100,00 zł",
+                "126",
+                "11"
+              ],
+              [
+                "3",
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "107 880,00 zł",
+                "143",
+                "11"
+              ],
+              [
+                "4",
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "76 060,00 zł",
+                "146",
+                "11"
+              ],
+              [
+                "5",
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "25 080,00 zł",
+                "130",
+                "11"
+              ]
+            ],
+            "rowCount": 5
+          },
+          {
+            "section": "Pozycje dodatkowe (usługi)",
+            "columns": [
+              "Usługa",
+              "Przychód",
+              "Razy"
+            ],
+            "rows": [
+              [
+                "Transport maszyny",
+                "1 750,00 zł",
+                "5"
+              ],
+              [
+                "Serwis maszyny",
+                "1 200,00 zł",
+                "4"
+              ],
+              [
+                "Tankowanie paliwa",
+                "1 000,00 zł",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — trudne zabrudzenia",
+                "800,00 zł",
+                "4"
+              ],
+              [
+                "Przestój maszyny",
+                "400,00 zł",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — drobne",
+                "320,00 zł",
+                "4"
+              ]
+            ],
+            "rowCount": 6
+          },
+          {
+            "section": "Lokalizacje wynajmu",
+            "columns": [
+              "Miasto",
+              "Wynajmów",
+              "Przychód"
+            ],
+            "rows": [
+              [
+                "Warszawa",
+                "4",
+                "61 930,00 zł"
+              ],
+              [
+                "Kraków",
+                "4",
+                "59 880,00 zł"
+              ],
+              [
+                "Wrocław",
+                "4",
+                "79 640,00 zł"
+              ],
+              [
+                "Łódź",
+                "4",
+                "25 660,00 zł"
+              ],
+              [
+                "Gdynia",
+                "4",
+                "44 200,00 zł"
+              ],
+              [
+                "Gdańsk",
+                "4",
+                "67 270,00 zł"
+              ],
+              [
+                "Poznań",
+                "3",
+                "15 070,00 zł"
+              ],
+              [
+                "Katowice",
+                "3",
+                "24 040,00 zł"
+              ],
+              [
+                "Bydgoszcz",
+                "3",
+                "45 650,00 zł"
+              ],
+              [
+                "Lublin",
+                "3",
+                "35 890,00 zł"
+              ],
+              [
+                "Szczecin",
+                "3",
+                "40 450,00 zł"
+              ],
+              [
+                "Radom",
+                "3",
+                "40 210,00 zł"
+              ]
+            ],
+            "rowCount": 12
+          },
+          {
+            "section": "Pozycje umów",
+            "columns": [
+              "Nazwa",
+              "Nr wewnętrzny",
+              "Kategoria",
+              "Przychód",
+              "Dni",
+              "Umów",
+              "Razy"
+            ],
+            "rows": [
+              [
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "Spychacze",
+                "203 300,00 zł",
+                "131",
+                "13",
+                "13"
+              ],
+              [
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "Koparki",
+                "122 100,00 zł",
+                "126",
+                "11",
+                "11"
+              ],
+              [
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "Ładowarki Teleskopowe",
+                "107 880,00 zł",
+                "143",
+                "11",
+                "11"
+              ],
+              [
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "Podnośniki",
+                "76 060,00 zł",
+                "146",
+                "11",
+                "11"
+              ],
+              [
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "Zagęszczarki",
+                "25 080,00 zł",
+                "130",
+                "11",
+                "11"
+              ],
+              [
+                "Transport maszyny",
+                "USL-001",
+                "Usługi dodatkowe",
+                "1 750,00 zł",
+                "0",
+                "5",
+                "5"
+              ],
+              [
+                "Serwis maszyny",
+                "USL-006",
+                "Usługi dodatkowe",
+                "1 200,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Tankowanie paliwa",
+                "USL-004",
+                "Usługi dodatkowe",
+                "1 000,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — trudne zabrudzenia",
+                "USL-003",
+                "Usługi dodatkowe",
+                "800,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Przestój maszyny",
+                "USL-005",
+                "Usługi dodatkowe",
+                "400,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — drobne",
+                "USL-002",
+                "Usługi dodatkowe",
+                "320,00 zł",
+                "0",
+                "4",
+                "4"
+              ]
+            ],
+            "rowCount": 11
+          }
+        ],
+        "extraText": {
+          "revenue-breakdown": "Rzeczywiste (z rozliczeń):170 940,00 złSzacunek (cennik):368 950,00 zł"
+        },
+        "visible": true
+      }
+    ],
+    "filtersPanelVisible": true,
+    "notes": [
+      "Zmiana tylko preseta — sprawdzamy czy KPI/Top maszyny reagują"
+    ]
+  },
+  {
+    "scenario": "B-preset-all",
+    "description": "preset=all, type=all, contractor=null, city=\"\"",
+    "filters": {
+      "preset": "all",
+      "articleType": "all",
+      "contractorId": "",
+      "contractorName": "",
+      "city": "",
+      "dateFrom": "",
+      "dateTo": ""
+    },
+    "apiCalls": [
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/fleet-summary",
+        "params": {
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:49:46.484Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/top-machines",
+        "params": {
+          "limit": "10",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:49:46.484Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/additional-fees",
+        "params": {
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:49:46.484Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/locations",
+        "params": {
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:49:46.484Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/positions",
+        "params": {
+          "type": "all",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:49:46.484Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/by-category",
+        "params": {
+          "level": "main",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:49:46.484Z"
+      }
+    ],
+    "tabs": [
+      {
+        "tab": "period",
+        "kpi": [
+          {
+            "testId": "kpi-period-revenue",
+            "value": "196 400,00 zł",
+            "label": "Przychód w okresie",
+            "sub": "rzeczywiste"
+          },
+          {
+            "testId": "kpi-period-contracts",
+            "value": "14",
+            "label": "Umów w okresie",
+            "sub": "aktywnych umów"
+          },
+          {
+            "testId": "kpi-period-rented",
+            "value": "5",
+            "label": "Wynajętych teraz",
+            "sub": "z 5 maszyn"
+          },
+          {
+            "testId": "kpi-period-util",
+            "value": "100%",
+            "label": "Wykorzystanie",
+            "sub": "floty teraz"
+          }
+        ],
+        "tables": [
+          {
+            "section": "Top maszyny po przychodzie (5)",
+            "columns": [
+              "#",
+              "Maszyna",
+              "Nr wewnętrzny",
+              "Przychód",
+              "Dni",
+              "Umów"
+            ],
+            "rows": [
+              [
+                "1",
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "74 500,00 zł",
+                "19",
+                "4"
+              ],
+              [
+                "2",
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "45 720,00 zł",
+                "20",
+                "5"
+              ],
+              [
+                "3",
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "42 300,00 zł",
+                "16",
+                "4"
+              ],
+              [
+                "4",
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "20 900,00 zł",
+                "12",
+                "3"
+              ],
+              [
+                "5",
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "7 860,00 zł",
+                "15",
+                "3"
+              ]
+            ],
+            "rowCount": 5
+          },
+          {
+            "section": "Pozycje dodatkowe (usługi)",
+            "columns": [
+              "Usługa",
+              "Przychód",
+              "Razy"
+            ],
+            "rows": [
+              [
+                "Transport maszyny",
+                "1 400,00 zł",
+                "4"
+              ],
+              [
+                "Serwis maszyny",
+                "1 200,00 zł",
+                "4"
+              ],
+              [
+                "Tankowanie paliwa",
+                "1 000,00 zł",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — trudne zabrudzenia",
+                "800,00 zł",
+                "4"
+              ],
+              [
+                "Przestój maszyny",
+                "400,00 zł",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — drobne",
+                "320,00 zł",
+                "4"
+              ]
+            ],
+            "rowCount": 6
+          },
+          {
+            "section": "Lokalizacje wynajmu",
+            "columns": [
+              "Miasto",
+              "Wynajmów",
+              "Przychód"
+            ],
+            "rows": [
+              [
+                "Kraków",
+                "2",
+                "26 280,00 zł"
+              ],
+              [
+                "Warszawa",
+                "2",
+                "38 690,00 zł"
+              ],
+              [
+                "Katowice",
+                "1",
+                "5 280,00 zł"
+              ],
+              [
+                "Bydgoszcz",
+                "1",
+                "14 850,00 zł"
+              ],
+              [
+                "Lublin",
+                "1",
+                "13 210,00 zł"
+              ],
+              [
+                "Szczecin",
+                "1",
+                "12 100,00 zł"
+              ],
+              [
+                "Radom",
+                "1",
+                "10 810,00 zł"
+              ],
+              [
+                "Poznań",
+                "1",
+                "3 100,00 zł"
+              ],
+              [
+                "Wrocław",
+                "1",
+                "24 550,00 zł"
+              ],
+              [
+                "Łódź",
+                "1",
+                "11 800,00 zł"
+              ],
+              [
+                "Gdynia",
+                "1",
+                "9 130,00 zł"
+              ],
+              [
+                "Gdańsk",
+                "1",
+                "26 600,00 zł"
+              ]
+            ],
+            "rowCount": 12
+          },
+          {
+            "section": "Pozycje umów",
+            "columns": [
+              "Nazwa",
+              "Nr wewnętrzny",
+              "Kategoria",
+              "Przychód",
+              "Dni",
+              "Umów",
+              "Razy"
+            ],
+            "rows": [
+              [
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "Spychacze",
+                "74 500,00 zł",
+                "19",
+                "4",
+                "4"
+              ],
+              [
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "Ładowarki Teleskopowe",
+                "45 720,00 zł",
+                "20",
+                "5",
+                "5"
+              ],
+              [
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "Koparki",
+                "42 300,00 zł",
+                "16",
+                "4",
+                "4"
+              ],
+              [
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "Podnośniki",
+                "20 900,00 zł",
+                "12",
+                "3",
+                "3"
+              ],
+              [
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "Zagęszczarki",
+                "7 860,00 zł",
+                "15",
+                "3",
+                "3"
+              ],
+              [
+                "Transport maszyny",
+                "USL-001",
+                "Usługi dodatkowe",
+                "1 400,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Serwis maszyny",
+                "USL-006",
+                "Usługi dodatkowe",
+                "1 200,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Tankowanie paliwa",
+                "USL-004",
+                "Usługi dodatkowe",
+                "1 000,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — trudne zabrudzenia",
+                "USL-003",
+                "Usługi dodatkowe",
+                "800,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Przestój maszyny",
+                "USL-005",
+                "Usługi dodatkowe",
+                "400,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — drobne",
+                "USL-002",
+                "Usługi dodatkowe",
+                "320,00 zł",
+                "0",
+                "4",
+                "4"
+              ]
+            ],
+            "rowCount": 11
+          }
+        ],
+        "extraText": {
+          "revenue-breakdown": "Rzeczywiste (z rozliczeń):8 400,00 złSzacunek (cennik):188 000,00 zł"
+        },
+        "visible": true
+      }
+    ],
+    "filtersPanelVisible": true,
+    "notes": [
+      "Zmiana tylko preseta — sprawdzamy czy KPI/Top maszyny reagują"
+    ]
+  },
+  {
+    "scenario": "C-type-machine",
+    "description": "preset=month, type=machine, contractor=null, city=\"\"",
+    "filters": {
+      "preset": "month",
+      "articleType": "machine",
+      "contractorId": "",
+      "contractorName": "",
+      "city": "",
+      "dateFrom": "",
+      "dateTo": ""
+    },
+    "apiCalls": [
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/fleet-summary",
+        "params": {
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:49:56.850Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/top-machines",
+        "params": {
+          "limit": "10",
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:49:56.850Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/additional-fees",
+        "params": {
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:49:56.851Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/locations",
+        "params": {
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:49:56.851Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/positions",
+        "params": {
+          "type": "all",
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:49:56.851Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/by-category",
+        "params": {
+          "level": "main",
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:49:56.851Z"
+      }
+    ],
+    "tabs": [
+      {
+        "tab": "period",
+        "kpi": [
+          {
+            "testId": "kpi-period-revenue",
+            "value": "196 400,00 zł",
+            "label": "Przychód w okresie",
+            "sub": "rzeczywiste"
+          },
+          {
+            "testId": "kpi-period-contracts",
+            "value": "14",
+            "label": "Umów w okresie",
+            "sub": "aktywnych umów"
+          },
+          {
+            "testId": "kpi-period-rented",
+            "value": "5",
+            "label": "Wynajętych teraz",
+            "sub": "z 5 maszyn"
+          },
+          {
+            "testId": "kpi-period-util",
+            "value": "100%",
+            "label": "Wykorzystanie",
+            "sub": "floty teraz"
+          }
+        ],
+        "tables": [
+          {
+            "section": "Top maszyny po przychodzie (5)",
+            "columns": [
+              "#",
+              "Maszyna",
+              "Nr wewnętrzny",
+              "Przychód",
+              "Dni",
+              "Umów"
+            ],
+            "rows": [
+              [
+                "1",
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "74 500,00 zł",
+                "19",
+                "4"
+              ],
+              [
+                "2",
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "45 720,00 zł",
+                "24",
+                "5"
+              ],
+              [
+                "3",
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "42 300,00 zł",
+                "19",
+                "4"
+              ],
+              [
+                "4",
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "20 900,00 zł",
+                "12",
+                "3"
+              ],
+              [
+                "5",
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "7 860,00 zł",
+                "17",
+                "3"
+              ]
+            ],
+            "rowCount": 5
+          },
+          {
+            "section": "Pozycje dodatkowe (usługi)",
+            "columns": [
+              "Usługa",
+              "Przychód",
+              "Razy"
+            ],
+            "rows": [
+              [
+                "Transport maszyny",
+                "1 400,00 zł",
+                "4"
+              ],
+              [
+                "Serwis maszyny",
+                "1 200,00 zł",
+                "4"
+              ],
+              [
+                "Tankowanie paliwa",
+                "1 000,00 zł",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — trudne zabrudzenia",
+                "800,00 zł",
+                "4"
+              ],
+              [
+                "Przestój maszyny",
+                "400,00 zł",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — drobne",
+                "320,00 zł",
+                "4"
+              ]
+            ],
+            "rowCount": 6
+          },
+          {
+            "section": "Lokalizacje wynajmu",
+            "columns": [
+              "Miasto",
+              "Wynajmów",
+              "Przychód"
+            ],
+            "rows": [
+              [
+                "Kraków",
+                "2",
+                "26 280,00 zł"
+              ],
+              [
+                "Warszawa",
+                "2",
+                "38 690,00 zł"
+              ],
+              [
+                "Katowice",
+                "1",
+                "5 280,00 zł"
+              ],
+              [
+                "Bydgoszcz",
+                "1",
+                "14 850,00 zł"
+              ],
+              [
+                "Lublin",
+                "1",
+                "13 210,00 zł"
+              ],
+              [
+                "Szczecin",
+                "1",
+                "12 100,00 zł"
+              ],
+              [
+                "Radom",
+                "1",
+                "10 810,00 zł"
+              ],
+              [
+                "Poznań",
+                "1",
+                "3 100,00 zł"
+              ],
+              [
+                "Wrocław",
+                "1",
+                "24 550,00 zł"
+              ],
+              [
+                "Łódź",
+                "1",
+                "11 800,00 zł"
+              ],
+              [
+                "Gdynia",
+                "1",
+                "9 130,00 zł"
+              ],
+              [
+                "Gdańsk",
+                "1",
+                "26 600,00 zł"
+              ]
+            ],
+            "rowCount": 12
+          },
+          {
+            "section": "Pozycje umów",
+            "columns": [
+              "Nazwa",
+              "Nr wewnętrzny",
+              "Kategoria",
+              "Przychód",
+              "Dni",
+              "Umów",
+              "Razy"
+            ],
+            "rows": [
+              [
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "Spychacze",
+                "74 500,00 zł",
+                "19",
+                "4",
+                "4"
+              ],
+              [
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "Ładowarki Teleskopowe",
+                "45 720,00 zł",
+                "24",
+                "5",
+                "5"
+              ],
+              [
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "Koparki",
+                "42 300,00 zł",
+                "19",
+                "4",
+                "4"
+              ],
+              [
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "Podnośniki",
+                "20 900,00 zł",
+                "12",
+                "3",
+                "3"
+              ],
+              [
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "Zagęszczarki",
+                "7 860,00 zł",
+                "17",
+                "3",
+                "3"
+              ],
+              [
+                "Transport maszyny",
+                "USL-001",
+                "Usługi dodatkowe",
+                "1 400,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Serwis maszyny",
+                "USL-006",
+                "Usługi dodatkowe",
+                "1 200,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Tankowanie paliwa",
+                "USL-004",
+                "Usługi dodatkowe",
+                "1 000,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — trudne zabrudzenia",
+                "USL-003",
+                "Usługi dodatkowe",
+                "800,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Przestój maszyny",
+                "USL-005",
+                "Usługi dodatkowe",
+                "400,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — drobne",
+                "USL-002",
+                "Usługi dodatkowe",
+                "320,00 zł",
+                "0",
+                "4",
+                "4"
+              ]
+            ],
+            "rowCount": 11
+          }
+        ],
+        "extraText": {
+          "revenue-breakdown": "Rzeczywiste (z rozliczeń):8 400,00 złSzacunek (cennik):188 000,00 zł"
+        },
+        "visible": true
+      }
+    ],
+    "filtersPanelVisible": true,
+    "notes": [
+      "PODEJRZANY BUG: fetchSummary ignoruje articleType — KPI powinno być takie same dla machine vs service",
+      "PODEJRZANY BUG: fetchPositions dostaje hardcoded type='all' (nie z filtra) — tabela Pozycje powinna być identyczna",
+      "PODEJRZANY BUG: fetchByCategory — czy articleType trafia do API? (store wysyła)"
+    ]
+  },
+  {
+    "scenario": "C-type-service",
+    "description": "preset=month, type=service, contractor=null, city=\"\"",
+    "filters": {
+      "preset": "month",
+      "articleType": "service",
+      "contractorId": "",
+      "contractorName": "",
+      "city": "",
+      "dateFrom": "",
+      "dateTo": ""
+    },
+    "apiCalls": [
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/fleet-summary",
+        "params": {
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:07.317Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/top-machines",
+        "params": {
+          "limit": "10",
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:07.317Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/additional-fees",
+        "params": {
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:07.317Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/locations",
+        "params": {
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:07.318Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/positions",
+        "params": {
+          "type": "all",
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:07.318Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/by-category",
+        "params": {
+          "level": "main",
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:07.318Z"
+      }
+    ],
+    "tabs": [
+      {
+        "tab": "period",
+        "kpi": [
+          {
+            "testId": "kpi-period-revenue",
+            "value": "196 400,00 zł",
+            "label": "Przychód w okresie",
+            "sub": "rzeczywiste"
+          },
+          {
+            "testId": "kpi-period-contracts",
+            "value": "14",
+            "label": "Umów w okresie",
+            "sub": "aktywnych umów"
+          },
+          {
+            "testId": "kpi-period-rented",
+            "value": "5",
+            "label": "Wynajętych teraz",
+            "sub": "z 5 maszyn"
+          },
+          {
+            "testId": "kpi-period-util",
+            "value": "100%",
+            "label": "Wykorzystanie",
+            "sub": "floty teraz"
+          }
+        ],
+        "tables": [
+          {
+            "section": "Top maszyny po przychodzie (5)",
+            "columns": [
+              "#",
+              "Maszyna",
+              "Nr wewnętrzny",
+              "Przychód",
+              "Dni",
+              "Umów"
+            ],
+            "rows": [
+              [
+                "1",
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "74 500,00 zł",
+                "19",
+                "4"
+              ],
+              [
+                "2",
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "45 720,00 zł",
+                "24",
+                "5"
+              ],
+              [
+                "3",
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "42 300,00 zł",
+                "19",
+                "4"
+              ],
+              [
+                "4",
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "20 900,00 zł",
+                "12",
+                "3"
+              ],
+              [
+                "5",
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "7 860,00 zł",
+                "17",
+                "3"
+              ]
+            ],
+            "rowCount": 5
+          },
+          {
+            "section": "Pozycje dodatkowe (usługi)",
+            "columns": [
+              "Usługa",
+              "Przychód",
+              "Razy"
+            ],
+            "rows": [
+              [
+                "Transport maszyny",
+                "1 400,00 zł",
+                "4"
+              ],
+              [
+                "Serwis maszyny",
+                "1 200,00 zł",
+                "4"
+              ],
+              [
+                "Tankowanie paliwa",
+                "1 000,00 zł",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — trudne zabrudzenia",
+                "800,00 zł",
+                "4"
+              ],
+              [
+                "Przestój maszyny",
+                "400,00 zł",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — drobne",
+                "320,00 zł",
+                "4"
+              ]
+            ],
+            "rowCount": 6
+          },
+          {
+            "section": "Lokalizacje wynajmu",
+            "columns": [
+              "Miasto",
+              "Wynajmów",
+              "Przychód"
+            ],
+            "rows": [
+              [
+                "Kraków",
+                "2",
+                "26 280,00 zł"
+              ],
+              [
+                "Warszawa",
+                "2",
+                "38 690,00 zł"
+              ],
+              [
+                "Katowice",
+                "1",
+                "5 280,00 zł"
+              ],
+              [
+                "Bydgoszcz",
+                "1",
+                "14 850,00 zł"
+              ],
+              [
+                "Lublin",
+                "1",
+                "13 210,00 zł"
+              ],
+              [
+                "Szczecin",
+                "1",
+                "12 100,00 zł"
+              ],
+              [
+                "Radom",
+                "1",
+                "10 810,00 zł"
+              ],
+              [
+                "Poznań",
+                "1",
+                "3 100,00 zł"
+              ],
+              [
+                "Wrocław",
+                "1",
+                "24 550,00 zł"
+              ],
+              [
+                "Łódź",
+                "1",
+                "11 800,00 zł"
+              ],
+              [
+                "Gdynia",
+                "1",
+                "9 130,00 zł"
+              ],
+              [
+                "Gdańsk",
+                "1",
+                "26 600,00 zł"
+              ]
+            ],
+            "rowCount": 12
+          },
+          {
+            "section": "Pozycje umów",
+            "columns": [
+              "Nazwa",
+              "Nr wewnętrzny",
+              "Kategoria",
+              "Przychód",
+              "Dni",
+              "Umów",
+              "Razy"
+            ],
+            "rows": [
+              [
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "Spychacze",
+                "74 500,00 zł",
+                "19",
+                "4",
+                "4"
+              ],
+              [
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "Ładowarki Teleskopowe",
+                "45 720,00 zł",
+                "24",
+                "5",
+                "5"
+              ],
+              [
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "Koparki",
+                "42 300,00 zł",
+                "19",
+                "4",
+                "4"
+              ],
+              [
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "Podnośniki",
+                "20 900,00 zł",
+                "12",
+                "3",
+                "3"
+              ],
+              [
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "Zagęszczarki",
+                "7 860,00 zł",
+                "17",
+                "3",
+                "3"
+              ],
+              [
+                "Transport maszyny",
+                "USL-001",
+                "Usługi dodatkowe",
+                "1 400,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Serwis maszyny",
+                "USL-006",
+                "Usługi dodatkowe",
+                "1 200,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Tankowanie paliwa",
+                "USL-004",
+                "Usługi dodatkowe",
+                "1 000,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — trudne zabrudzenia",
+                "USL-003",
+                "Usługi dodatkowe",
+                "800,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Przestój maszyny",
+                "USL-005",
+                "Usługi dodatkowe",
+                "400,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — drobne",
+                "USL-002",
+                "Usługi dodatkowe",
+                "320,00 zł",
+                "0",
+                "4",
+                "4"
+              ]
+            ],
+            "rowCount": 11
+          }
+        ],
+        "extraText": {
+          "revenue-breakdown": "Rzeczywiste (z rozliczeń):8 400,00 złSzacunek (cennik):188 000,00 zł"
+        },
+        "visible": true
+      }
+    ],
+    "filtersPanelVisible": true,
+    "notes": [
+      "PODEJRZANY BUG: fetchSummary ignoruje articleType — KPI powinno być takie same dla machine vs service",
+      "PODEJRZANY BUG: fetchPositions dostaje hardcoded type='all' (nie z filtra) — tabela Pozycje powinna być identyczna",
+      "PODEJRZANY BUG: fetchByCategory — czy articleType trafia do API? (store wysyła)"
+    ]
+  },
+  {
+    "scenario": "D-contractor",
+    "description": "preset=month, type=all, contractor=\".\", city=\"\"",
+    "filters": {
+      "preset": "month",
+      "articleType": "all",
+      "contractorId": "(name=.)",
+      "contractorName": ".",
+      "city": "",
+      "dateFrom": "",
+      "dateTo": ""
+    },
+    "apiCalls": [
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/fleet-summary",
+        "params": {
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:20.185Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/top-machines",
+        "params": {
+          "limit": "10",
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05",
+          "contractor_id": "14403"
+        },
+        "ts": "2026-07-05T18:50:20.185Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/additional-fees",
+        "params": {
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05",
+          "contractor_id": "14403"
+        },
+        "ts": "2026-07-05T18:50:20.185Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/locations",
+        "params": {
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05",
+          "contractor_id": "14403"
+        },
+        "ts": "2026-07-05T18:50:20.185Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/positions",
+        "params": {
+          "type": "all",
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05",
+          "contractor_id": "14403"
+        },
+        "ts": "2026-07-05T18:50:20.185Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/by-category",
+        "params": {
+          "level": "main",
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:20.185Z"
+      }
+    ],
+    "tabs": [
+      {
+        "tab": "period",
+        "kpi": [
+          {
+            "testId": "kpi-period-revenue",
+            "value": "196 400,00 zł",
+            "label": "Przychód w okresie",
+            "sub": "rzeczywiste"
+          },
+          {
+            "testId": "kpi-period-contracts",
+            "value": "14",
+            "label": "Umów w okresie",
+            "sub": "aktywnych umów"
+          },
+          {
+            "testId": "kpi-period-rented",
+            "value": "5",
+            "label": "Wynajętych teraz",
+            "sub": "z 5 maszyn"
+          },
+          {
+            "testId": "kpi-period-util",
+            "value": "100%",
+            "label": "Wykorzystanie",
+            "sub": "floty teraz"
+          }
+        ],
+        "tables": [
+          {
+            "section": "Top maszyny po przychodzie (0)",
+            "columns": [],
+            "rows": [],
+            "rowCount": 0,
+            "empty": "Brak danych o top maszynach w wybranym okresie"
+          },
+          {
+            "section": "Pozycje dodatkowe (usługi)",
+            "columns": [],
+            "rows": [],
+            "rowCount": 0,
+            "empty": "Brak dodatkowych opłat w wybranym okresie"
+          },
+          {
+            "section": "Lokalizacje wynajmu",
+            "columns": [],
+            "rows": [],
+            "rowCount": 0,
+            "empty": "Brak lokalizacji w wybranym okresie"
+          },
+          {
+            "section": "Pozycje umów",
+            "columns": [],
+            "rows": [],
+            "rowCount": 0,
+            "empty": "Brak pozycji w wybranym okresie"
+          }
+        ],
+        "extraText": {
+          "revenue-breakdown": "Rzeczywiste (z rozliczeń):8 400,00 złSzacunek (cennik):188 000,00 zł"
+        },
+        "visible": true
+      }
+    ],
+    "filtersPanelVisible": true,
+    "notes": [
+      "PODEJRZANY BUG: fetchSummary ignoruje contractorId — KPI powinno być takie same jak baseline",
+      "PODEJRZANY BUG: fetchByCategory ignoruje contractorId — tabela Kategorie powinna być identyczna",
+      "fetchTopMachines / fetchAdditionalFees / fetchLocations / fetchPositions — czy wysyłają contractor_id?"
+    ]
+  },
+  {
+    "scenario": "E-city-warszawa",
+    "description": "preset=month, type=all, contractor=null, city=\"Warszawa\"",
+    "filters": {
+      "preset": "month",
+      "articleType": "all",
+      "contractorId": "",
+      "contractorName": "",
+      "city": "Warszawa",
+      "dateFrom": "",
+      "dateTo": ""
+    },
+    "apiCalls": [
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/fleet-summary",
+        "params": {
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:31.706Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/top-machines",
+        "params": {
+          "limit": "10",
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05",
+          "city": "Warszawa"
+        },
+        "ts": "2026-07-05T18:50:31.706Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/additional-fees",
+        "params": {
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:31.706Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/locations",
+        "params": {
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:31.707Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/positions",
+        "params": {
+          "type": "all",
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05",
+          "city": "Warszawa"
+        },
+        "ts": "2026-07-05T18:50:31.707Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/by-category",
+        "params": {
+          "level": "main",
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:31.707Z"
+      }
+    ],
+    "tabs": [
+      {
+        "tab": "period",
+        "kpi": [
+          {
+            "testId": "kpi-period-revenue",
+            "value": "196 400,00 zł",
+            "label": "Przychód w okresie",
+            "sub": "rzeczywiste"
+          },
+          {
+            "testId": "kpi-period-contracts",
+            "value": "14",
+            "label": "Umów w okresie",
+            "sub": "aktywnych umów"
+          },
+          {
+            "testId": "kpi-period-rented",
+            "value": "5",
+            "label": "Wynajętych teraz",
+            "sub": "z 5 maszyn"
+          },
+          {
+            "testId": "kpi-period-util",
+            "value": "100%",
+            "label": "Wykorzystanie",
+            "sub": "floty teraz"
+          }
+        ],
+        "tables": [
+          {
+            "section": "Top maszyny po przychodzie (4)",
+            "columns": [
+              "#",
+              "Maszyna",
+              "Nr wewnętrzny",
+              "Przychód",
+              "Dni",
+              "Umów"
+            ],
+            "rows": [
+              [
+                "1",
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "19 500,00 zł",
+                "4",
+                "1"
+              ],
+              [
+                "2",
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "7 500,00 zł",
+                "4",
+                "1"
+              ],
+              [
+                "3",
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "6 300,00 zł",
+                "1",
+                "1"
+              ],
+              [
+                "4",
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "5 040,00 zł",
+                "1",
+                "1"
+              ]
+            ],
+            "rowCount": 4
+          },
+          {
+            "section": "Pozycje dodatkowe (usługi)",
+            "columns": [
+              "Usługa",
+              "Przychód",
+              "Razy"
+            ],
+            "rows": [
+              [
+                "Transport maszyny",
+                "1 400,00 zł",
+                "4"
+              ],
+              [
+                "Serwis maszyny",
+                "1 200,00 zł",
+                "4"
+              ],
+              [
+                "Tankowanie paliwa",
+                "1 000,00 zł",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — trudne zabrudzenia",
+                "800,00 zł",
+                "4"
+              ],
+              [
+                "Przestój maszyny",
+                "400,00 zł",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — drobne",
+                "320,00 zł",
+                "4"
+              ]
+            ],
+            "rowCount": 6
+          },
+          {
+            "section": "Lokalizacje wynajmu",
+            "columns": [
+              "Miasto",
+              "Wynajmów",
+              "Przychód"
+            ],
+            "rows": [
+              [
+                "Kraków",
+                "2",
+                "26 280,00 zł"
+              ],
+              [
+                "Warszawa",
+                "2",
+                "38 690,00 zł"
+              ],
+              [
+                "Katowice",
+                "1",
+                "5 280,00 zł"
+              ],
+              [
+                "Bydgoszcz",
+                "1",
+                "14 850,00 zł"
+              ],
+              [
+                "Lublin",
+                "1",
+                "13 210,00 zł"
+              ],
+              [
+                "Szczecin",
+                "1",
+                "12 100,00 zł"
+              ],
+              [
+                "Radom",
+                "1",
+                "10 810,00 zł"
+              ],
+              [
+                "Poznań",
+                "1",
+                "3 100,00 zł"
+              ],
+              [
+                "Wrocław",
+                "1",
+                "24 550,00 zł"
+              ],
+              [
+                "Łódź",
+                "1",
+                "11 800,00 zł"
+              ],
+              [
+                "Gdynia",
+                "1",
+                "9 130,00 zł"
+              ],
+              [
+                "Gdańsk",
+                "1",
+                "26 600,00 zł"
+              ]
+            ],
+            "rowCount": 12
+          },
+          {
+            "section": "Pozycje umów",
+            "columns": [
+              "Nazwa",
+              "Nr wewnętrzny",
+              "Kategoria",
+              "Przychód",
+              "Dni",
+              "Umów",
+              "Razy"
+            ],
+            "rows": [
+              [
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "Spychacze",
+                "19 500,00 zł",
+                "4",
+                "1",
+                "1"
+              ],
+              [
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "Podnośniki",
+                "7 500,00 zł",
+                "4",
+                "1",
+                "1"
+              ],
+              [
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "Koparki",
+                "6 300,00 zł",
+                "1",
+                "1",
+                "1"
+              ],
+              [
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "Ładowarki Teleskopowe",
+                "5 040,00 zł",
+                "1",
+                "1",
+                "1"
+              ],
+              [
+                "Transport maszyny",
+                "USL-001",
+                "Usługi dodatkowe",
+                "350,00 zł",
+                "0",
+                "1",
+                "1"
+              ]
+            ],
+            "rowCount": 5
+          }
+        ],
+        "extraText": {
+          "revenue-breakdown": "Rzeczywiste (z rozliczeń):8 400,00 złSzacunek (cennik):188 000,00 zł"
+        },
+        "visible": true
+      }
+    ],
+    "filtersPanelVisible": true,
+    "notes": [
+      "PODEJRZANY BUG: fetchSummary ignoruje city — KPI powinno być identyczne jak baseline",
+      "PODEJRZANY BUG: fetchByCategory ignoruje city — Kategorie identyczne",
+      "PODEJRZANY BUG: fetchLocations ignoruje city (store nie wysyła city do /stats/locations)",
+      "fetchTopMachines / fetchPositions — wysyłają city"
+    ]
+  },
+  {
+    "scenario": "F-combo-year-machine-contractor",
+    "description": "preset=year, type=machine, contractor=\".\", city=\"\"",
+    "filters": {
+      "preset": "year",
+      "articleType": "machine",
+      "contractorId": "(name=.)",
+      "contractorName": ".",
+      "city": "",
+      "dateFrom": "",
+      "dateTo": ""
+    },
+    "apiCalls": [
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/fleet-summary",
+        "params": {
+          "date_from": "2025-12-31",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:41.834Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/top-machines",
+        "params": {
+          "limit": "10",
+          "date_from": "2025-12-31",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:41.834Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/additional-fees",
+        "params": {
+          "date_from": "2025-12-31",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:41.834Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/locations",
+        "params": {
+          "date_from": "2025-12-31",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:41.834Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/positions",
+        "params": {
+          "type": "all",
+          "date_from": "2025-12-31",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:41.834Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/by-category",
+        "params": {
+          "level": "main",
+          "date_from": "2025-12-31",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:41.834Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/fleet-summary",
+        "params": {
+          "date_from": "2025-12-31",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:43.677Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/top-machines",
+        "params": {
+          "limit": "10",
+          "date_from": "2025-12-31",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:43.677Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/additional-fees",
+        "params": {
+          "date_from": "2025-12-31",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:43.677Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/locations",
+        "params": {
+          "date_from": "2025-12-31",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:43.677Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/positions",
+        "params": {
+          "type": "all",
+          "date_from": "2025-12-31",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:43.677Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/by-category",
+        "params": {
+          "level": "main",
+          "date_from": "2025-12-31",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:43.677Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/fleet-summary",
+        "params": {
+          "date_from": "2025-12-31",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:46.085Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/top-machines",
+        "params": {
+          "limit": "10",
+          "date_from": "2025-12-31",
+          "date_to": "2026-07-05",
+          "contractor_id": "14403"
+        },
+        "ts": "2026-07-05T18:50:46.085Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/additional-fees",
+        "params": {
+          "date_from": "2025-12-31",
+          "date_to": "2026-07-05",
+          "contractor_id": "14403"
+        },
+        "ts": "2026-07-05T18:50:46.085Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/locations",
+        "params": {
+          "date_from": "2025-12-31",
+          "date_to": "2026-07-05",
+          "contractor_id": "14403"
+        },
+        "ts": "2026-07-05T18:50:46.085Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/positions",
+        "params": {
+          "type": "all",
+          "date_from": "2025-12-31",
+          "date_to": "2026-07-05",
+          "contractor_id": "14403"
+        },
+        "ts": "2026-07-05T18:50:46.085Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/by-category",
+        "params": {
+          "level": "main",
+          "date_from": "2025-12-31",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:46.085Z"
+      }
+    ],
+    "tabs": [
+      {
+        "tab": "period",
+        "kpi": [
+          {
+            "testId": "kpi-period-revenue",
+            "value": "539 890,00 zł",
+            "label": "Przychód w okresie",
+            "sub": "rzeczywiste"
+          },
+          {
+            "testId": "kpi-period-contracts",
+            "value": "42",
+            "label": "Umów w okresie",
+            "sub": "aktywnych umów"
+          },
+          {
+            "testId": "kpi-period-rented",
+            "value": "5",
+            "label": "Wynajętych teraz",
+            "sub": "z 5 maszyn"
+          },
+          {
+            "testId": "kpi-period-util",
+            "value": "100%",
+            "label": "Wykorzystanie",
+            "sub": "floty teraz"
+          }
+        ],
+        "tables": [
+          {
+            "section": "Top maszyny po przychodzie (0)",
+            "columns": [],
+            "rows": [],
+            "rowCount": 0,
+            "empty": "Brak danych o top maszynach w wybranym okresie"
+          },
+          {
+            "section": "Pozycje dodatkowe (usługi)",
+            "columns": [],
+            "rows": [],
+            "rowCount": 0,
+            "empty": "Brak dodatkowych opłat w wybranym okresie"
+          },
+          {
+            "section": "Lokalizacje wynajmu",
+            "columns": [],
+            "rows": [],
+            "rowCount": 0,
+            "empty": "Brak lokalizacji w wybranym okresie"
+          },
+          {
+            "section": "Pozycje umów",
+            "columns": [],
+            "rows": [],
+            "rowCount": 0,
+            "empty": "Brak pozycji w wybranym okresie"
+          }
+        ],
+        "extraText": {
+          "revenue-breakdown": "Rzeczywiste (z rozliczeń):170 940,00 złSzacunek (cennik):368 950,00 zł"
+        },
+        "visible": true
+      }
+    ],
+    "filtersPanelVisible": true,
+    "notes": [
+      "Kombinacja 3 filtrów — cross-check czy wszystkie parametry trafiają do API"
+    ]
+  },
+  {
+    "scenario": "G-custom-range",
+    "description": "preset=custom, dateFrom=2025-01-01, dateTo=2025-12-31, type=all",
+    "filters": {
+      "preset": "custom",
+      "articleType": "all",
+      "contractorId": "",
+      "contractorName": "",
+      "city": "",
+      "dateFrom": "2025-01-01",
+      "dateTo": "2025-12-31"
+    },
+    "apiCalls": [
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/fleet-summary",
+        "params": {
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:54.440Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/top-machines",
+        "params": {
+          "limit": "10",
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:54.440Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/additional-fees",
+        "params": {
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:54.440Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/locations",
+        "params": {
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:54.441Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/positions",
+        "params": {
+          "type": "all",
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:54.441Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/by-category",
+        "params": {
+          "level": "main",
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:54.441Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/fleet-summary",
+        "params": {
+          "date_from": "2025-01-01",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:54.987Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/top-machines",
+        "params": {
+          "limit": "10",
+          "date_from": "2025-01-01",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:54.988Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/additional-fees",
+        "params": {
+          "date_from": "2025-01-01",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:54.988Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/locations",
+        "params": {
+          "date_from": "2025-01-01",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:54.988Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/positions",
+        "params": {
+          "type": "all",
+          "date_from": "2025-01-01",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:54.988Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/by-category",
+        "params": {
+          "level": "main",
+          "date_from": "2025-01-01",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:50:54.988Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/fleet-summary",
+        "params": {
+          "date_from": "2025-01-01",
+          "date_to": "2025-12-31"
+        },
+        "ts": "2026-07-05T18:50:55.008Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/top-machines",
+        "params": {
+          "limit": "10",
+          "date_from": "2025-01-01",
+          "date_to": "2025-12-31"
+        },
+        "ts": "2026-07-05T18:50:55.008Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/additional-fees",
+        "params": {
+          "date_from": "2025-01-01",
+          "date_to": "2025-12-31"
+        },
+        "ts": "2026-07-05T18:50:55.008Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/locations",
+        "params": {
+          "date_from": "2025-01-01",
+          "date_to": "2025-12-31"
+        },
+        "ts": "2026-07-05T18:50:55.008Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/positions",
+        "params": {
+          "type": "all",
+          "date_from": "2025-01-01",
+          "date_to": "2025-12-31"
+        },
+        "ts": "2026-07-05T18:50:55.008Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/by-category",
+        "params": {
+          "level": "main",
+          "date_from": "2025-01-01",
+          "date_to": "2025-12-31"
+        },
+        "ts": "2026-07-05T18:50:55.008Z"
+      }
+    ],
+    "tabs": [
+      {
+        "tab": "period",
+        "kpi": [
+          {
+            "testId": "kpi-period-revenue",
+            "value": "344 470,00 zł",
+            "label": "Przychód w okresie",
+            "sub": "rzeczywiste"
+          },
+          {
+            "testId": "kpi-period-contracts",
+            "value": "26",
+            "label": "Umów w okresie",
+            "sub": "aktywnych umów"
+          },
+          {
+            "testId": "kpi-period-rented",
+            "value": "5",
+            "label": "Wynajętych teraz",
+            "sub": "z 5 maszyn"
+          },
+          {
+            "testId": "kpi-period-util",
+            "value": "100%",
+            "label": "Wykorzystanie",
+            "sub": "floty teraz"
+          }
+        ],
+        "tables": [
+          {
+            "section": "Top maszyny po przychodzie (5)",
+            "columns": [
+              "#",
+              "Maszyna",
+              "Nr wewnętrzny",
+              "Przychód",
+              "Dni",
+              "Umów"
+            ],
+            "rows": [
+              [
+                "1",
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "130 900,00 zł",
+                "116",
+                "7"
+              ],
+              [
+                "2",
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "71 400,00 zł",
+                "126",
+                "7"
+              ],
+              [
+                "3",
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "68 250,00 zł",
+                "97",
+                "6"
+              ],
+              [
+                "4",
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "52 920,00 zł",
+                "133",
+                "7"
+              ],
+              [
+                "5",
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "21 000,00 zł",
+                "127",
+                "7"
+              ]
+            ],
+            "rowCount": 5
+          },
+          {
+            "section": "Pozycje dodatkowe (usługi)",
+            "columns": [],
+            "rows": [],
+            "rowCount": 0,
+            "empty": "Brak dodatkowych opłat w wybranym okresie"
+          },
+          {
+            "section": "Lokalizacje wynajmu",
+            "columns": [
+              "Miasto",
+              "Wynajmów",
+              "Przychód"
+            ],
+            "rows": [
+              [
+                "Kraków",
+                "3",
+                "39 200,00 zł"
+              ],
+              [
+                "Poznań",
+                "3",
+                "15 120,00 zł"
+              ],
+              [
+                "Warszawa",
+                "2",
+                "20 090,00 zł"
+              ],
+              [
+                "Wrocław",
+                "2",
+                "72 800,00 zł"
+              ],
+              [
+                "Łódź",
+                "2",
+                "5 250,00 zł"
+              ],
+              [
+                "Gdynia",
+                "2",
+                "16 380,00 zł"
+              ],
+              [
+                "Gdańsk",
+                "2",
+                "47 670,00 zł"
+              ],
+              [
+                "Katowice",
+                "2",
+                "15 960,00 zł"
+              ],
+              [
+                "Bydgoszcz",
+                "2",
+                "12 950,00 zł"
+              ],
+              [
+                "Lublin",
+                "2",
+                "26 880,00 zł"
+              ],
+              [
+                "Szczecin",
+                "2",
+                "24 570,00 zł"
+              ],
+              [
+                "Radom",
+                "2",
+                "47 600,00 zł"
+              ]
+            ],
+            "rowCount": 12
+          },
+          {
+            "section": "Pozycje umów",
+            "columns": [
+              "Nazwa",
+              "Nr wewnętrzny",
+              "Kategoria",
+              "Przychód",
+              "Dni",
+              "Umów",
+              "Razy"
+            ],
+            "rows": [
+              [
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "Spychacze",
+                "130 900,00 zł",
+                "116",
+                "7",
+                "7"
+              ],
+              [
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "Ładowarki Teleskopowe",
+                "71 400,00 zł",
+                "126",
+                "7",
+                "7"
+              ],
+              [
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "Koparki",
+                "68 250,00 zł",
+                "97",
+                "6",
+                "6"
+              ],
+              [
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "Podnośniki",
+                "52 920,00 zł",
+                "133",
+                "7",
+                "7"
+              ],
+              [
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "Zagęszczarki",
+                "21 000,00 zł",
+                "127",
+                "7",
+                "7"
+              ]
+            ],
+            "rowCount": 5
+          }
+        ],
+        "extraText": {
+          "revenue-breakdown": "Rzeczywiste (z rozliczeń):337 120,00 złSzacunek (cennik):7 350,00 zł"
+        },
+        "visible": true
+      }
+    ],
+    "filtersPanelVisible": true,
+    "notes": [
+      "Custom range — czy date_from/date_to trafiają do WSZYSTKICH endpointów?"
+    ]
+  },
+  {
+    "scenario": "H-clear",
+    "description": "Po kliknięciu \"Wyczyść\" — powinno wrócić do month/all/null/''",
+    "filters": {
+      "preset": "month",
+      "articleType": "all",
+      "contractorId": "",
+      "contractorName": "",
+      "city": "",
+      "dateFrom": "",
+      "dateTo": ""
+    },
+    "apiCalls": [
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/fleet-summary",
+        "params": {
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:51:06.765Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/top-machines",
+        "params": {
+          "limit": "10",
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:51:06.765Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/additional-fees",
+        "params": {
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:51:06.765Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/locations",
+        "params": {
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:51:06.766Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/positions",
+        "params": {
+          "type": "all",
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:51:06.766Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/by-category",
+        "params": {
+          "level": "main",
+          "date_from": "2026-06-30",
+          "date_to": "2026-07-05"
+        },
+        "ts": "2026-07-05T18:51:06.766Z"
+      }
+    ],
+    "tabs": [
+      {
+        "tab": "period",
+        "kpi": [
+          {
+            "testId": "kpi-period-revenue",
+            "value": "196 400,00 zł",
+            "label": "Przychód w okresie",
+            "sub": "rzeczywiste"
+          },
+          {
+            "testId": "kpi-period-contracts",
+            "value": "14",
+            "label": "Umów w okresie",
+            "sub": "aktywnych umów"
+          },
+          {
+            "testId": "kpi-period-rented",
+            "value": "5",
+            "label": "Wynajętych teraz",
+            "sub": "z 5 maszyn"
+          },
+          {
+            "testId": "kpi-period-util",
+            "value": "100%",
+            "label": "Wykorzystanie",
+            "sub": "floty teraz"
+          }
+        ],
+        "tables": [
+          {
+            "section": "Top maszyny po przychodzie (5)",
+            "columns": [
+              "#",
+              "Maszyna",
+              "Nr wewnętrzny",
+              "Przychód",
+              "Dni",
+              "Umów"
+            ],
+            "rows": [
+              [
+                "1",
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "74 500,00 zł",
+                "19",
+                "4"
+              ],
+              [
+                "2",
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "45 720,00 zł",
+                "24",
+                "5"
+              ],
+              [
+                "3",
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "42 300,00 zł",
+                "19",
+                "4"
+              ],
+              [
+                "4",
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "20 900,00 zł",
+                "12",
+                "3"
+              ],
+              [
+                "5",
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "7 860,00 zł",
+                "17",
+                "3"
+              ]
+            ],
+            "rowCount": 5
+          },
+          {
+            "section": "Pozycje dodatkowe (usługi)",
+            "columns": [
+              "Usługa",
+              "Przychód",
+              "Razy"
+            ],
+            "rows": [
+              [
+                "Transport maszyny",
+                "1 400,00 zł",
+                "4"
+              ],
+              [
+                "Serwis maszyny",
+                "1 200,00 zł",
+                "4"
+              ],
+              [
+                "Tankowanie paliwa",
+                "1 000,00 zł",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — trudne zabrudzenia",
+                "800,00 zł",
+                "4"
+              ],
+              [
+                "Przestój maszyny",
+                "400,00 zł",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — drobne",
+                "320,00 zł",
+                "4"
+              ]
+            ],
+            "rowCount": 6
+          },
+          {
+            "section": "Lokalizacje wynajmu",
+            "columns": [
+              "Miasto",
+              "Wynajmów",
+              "Przychód"
+            ],
+            "rows": [
+              [
+                "Kraków",
+                "2",
+                "26 280,00 zł"
+              ],
+              [
+                "Warszawa",
+                "2",
+                "38 690,00 zł"
+              ],
+              [
+                "Katowice",
+                "1",
+                "5 280,00 zł"
+              ],
+              [
+                "Bydgoszcz",
+                "1",
+                "14 850,00 zł"
+              ],
+              [
+                "Lublin",
+                "1",
+                "13 210,00 zł"
+              ],
+              [
+                "Szczecin",
+                "1",
+                "12 100,00 zł"
+              ],
+              [
+                "Radom",
+                "1",
+                "10 810,00 zł"
+              ],
+              [
+                "Poznań",
+                "1",
+                "3 100,00 zł"
+              ],
+              [
+                "Wrocław",
+                "1",
+                "24 550,00 zł"
+              ],
+              [
+                "Łódź",
+                "1",
+                "11 800,00 zł"
+              ],
+              [
+                "Gdynia",
+                "1",
+                "9 130,00 zł"
+              ],
+              [
+                "Gdańsk",
+                "1",
+                "26 600,00 zł"
+              ]
+            ],
+            "rowCount": 12
+          },
+          {
+            "section": "Pozycje umów",
+            "columns": [
+              "Nazwa",
+              "Nr wewnętrzny",
+              "Kategoria",
+              "Przychód",
+              "Dni",
+              "Umów",
+              "Razy"
+            ],
+            "rows": [
+              [
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "Spychacze",
+                "74 500,00 zł",
+                "19",
+                "4",
+                "4"
+              ],
+              [
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "Ładowarki Teleskopowe",
+                "45 720,00 zł",
+                "24",
+                "5",
+                "5"
+              ],
+              [
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "Koparki",
+                "42 300,00 zł",
+                "19",
+                "4",
+                "4"
+              ],
+              [
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "Podnośniki",
+                "20 900,00 zł",
+                "12",
+                "3",
+                "3"
+              ],
+              [
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "Zagęszczarki",
+                "7 860,00 zł",
+                "17",
+                "3",
+                "3"
+              ],
+              [
+                "Transport maszyny",
+                "USL-001",
+                "Usługi dodatkowe",
+                "1 400,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Serwis maszyny",
+                "USL-006",
+                "Usługi dodatkowe",
+                "1 200,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Tankowanie paliwa",
+                "USL-004",
+                "Usługi dodatkowe",
+                "1 000,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — trudne zabrudzenia",
+                "USL-003",
+                "Usługi dodatkowe",
+                "800,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Przestój maszyny",
+                "USL-005",
+                "Usługi dodatkowe",
+                "400,00 zł",
+                "0",
+                "4",
+                "4"
+              ],
+              [
+                "Czyszczenie maszyny — drobne",
+                "USL-002",
+                "Usługi dodatkowe",
+                "320,00 zł",
+                "0",
+                "4",
+                "4"
+              ]
+            ],
+            "rowCount": 11
+          }
+        ],
+        "extraText": {
+          "revenue-breakdown": "Rzeczywiste (z rozliczeń):8 400,00 złSzacunek (cennik):188 000,00 zł"
+        },
+        "visible": true
+      }
+    ],
+    "filtersPanelVisible": true,
+    "notes": [
+      "Weryfikacja: preset=month, articleType=all, contractor=null, city=''",
+      "Czy clearFilters() emituje poprawny stan? czy watcher w PeriodRentalTab reaguje?"
+    ]
+  },
+  {
+    "scenario": "I-cross-tab-filters-ignored",
+    "description": "Filtry ustawione (machine/Warszawa/.) — sprawdzamy locations + explorer",
+    "filters": {
+      "preset": "month",
+      "articleType": "machine",
+      "contractorId": "(name=.)",
+      "contractorName": ".",
+      "city": "Warszawa",
+      "dateFrom": "",
+      "dateTo": ""
+    },
+    "apiCalls": [
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/fleet-summary",
+        "params": {},
+        "ts": "2026-07-05T18:54:52.707Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/top-machines",
+        "params": {
+          "limit": "10",
+          "contractor_id": "14403",
+          "city": "Warszawa"
+        },
+        "ts": "2026-07-05T18:54:52.707Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/additional-fees",
+        "params": {
+          "contractor_id": "14403"
+        },
+        "ts": "2026-07-05T18:54:52.707Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/locations",
+        "params": {
+          "contractor_id": "14403"
+        },
+        "ts": "2026-07-05T18:54:52.707Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/positions",
+        "params": {
+          "type": "all",
+          "contractor_id": "14403",
+          "city": "Warszawa"
+        },
+        "ts": "2026-07-05T18:54:52.707Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/stats/by-category",
+        "params": {
+          "level": "main"
+        },
+        "ts": "2026-07-05T18:54:52.707Z"
+      },
+      {
+        "method": "GET",
+        "url": "/rao/api/explorer/locations",
+        "params": {
+          "limit": "100",
+          "group_by": "city"
+        },
+        "ts": "2026-07-05T18:54:54.555Z"
+      }
+    ],
+    "tabs": [
+      {
+        "tab": "locations",
+        "kpi": [
+          {
+            "testId": "kpi-loc-count",
+            "value": "12",
+            "label": "Lokalizacji",
+            "sub": "z wynajmami w okresie"
+          },
+          {
+            "testId": "kpi-loc-rentals",
+            "value": "14",
+            "label": "Wynajmów",
+            "sub": "we wszystkich miastach"
+          },
+          {
+            "testId": "kpi-loc-revenue",
+            "value": "196 400,00 zł",
+            "label": "Przychód",
+            "sub": "łącznie w okresie"
+          },
+          {
+            "testId": "kpi-loc-top",
+            "value": "Kraków",
+            "label": "Top miasto",
+            "sub": "26 280,00 zł"
+          }
+        ],
+        "tables": [],
+        "extraText": {
+          "chart-bars": "Warszawa 38 690,00 zł | Gdańsk 26 600,00 zł | Kraków 26 280,00 zł | Wrocław 24 550,00 zł | Bydgoszcz 14 850,00 zł | Lublin 13 210,00 zł | Szczecin 12 100,00 zł | Łódź 11 800,00 zł | Radom 10 810,00 zł | Gdynia 9130,00 zł"
+        },
+        "visible": true
+      },
+      {
+        "tab": "explorer",
+        "kpi": [],
+        "tables": [
+          {
+            "section": "Wyniki wyszukiwania",
+            "columns": [
+              "Typ",
+              "Nazwa",
+              "Nr wewn.",
+              "Kontrahent",
+              "Data",
+              "Kwota"
+            ],
+            "rows": [
+              [
+                "Maszyna",
+                "Spychar Wirtgen W100CFi (SPY-004)",
+                "SPY-004",
+                "Fundament Sp. z o.o.",
+                "02.07.2026",
+                "21 500,00 zł"
+              ],
+              [
+                "Maszyna",
+                "Spychar Wirtgen W100CFi (SPY-004)",
+                "SPY-004",
+                "Fundament Sp. z o.o.",
+                "26.03.2026",
+                "21 500,00 zł"
+              ],
+              [
+                "Maszyna",
+                "Spychar Wirtgen W100CFi (SPY-004)",
+                "SPY-004",
+                "Fundament Sp. z o.o.",
+                "06.01.2026",
+                "21 500,00 zł"
+              ],
+              [
+                "Maszyna",
+                "Spychar Wirtgen W100CFi (SPY-004)",
+                "SPY-004",
+                "Fundament Sp. z o.o.",
+                "11.01.2025",
+                "21 500,00 zł"
+              ],
+              [
+                "Maszyna",
+                "Koparka gąsienicowa JCB 8035 (KOP-001)",
+                "KOP-001",
+                "Bud-Plus Sp. z o.o.",
+                "05.07.2026",
+                "14 700,00 zł"
+              ],
+              [
+                "Maszyna",
+                "Koparka gąsienicowa JCB 8035 (KOP-001)",
+                "KOP-001",
+                "Bud-Plus Sp. z o.o.",
+                "10.07.2025",
+                "14 700,00 zł"
+              ],
+              [
+                "Maszyna",
+                "Ładowarka teleskopowa Manuscop 6.36 (LAD-002)",
+                "LAD-002",
+                "Bud-Plus Sp. z o.o.",
+                "05.07.2026",
+                "11 760,00 zł"
+              ],
+              [
+                "Maszyna",
+                "Ładowarka teleskopowa Manuscop 6.36 (LAD-002)",
+                "LAD-002",
+                "Bud-Plus Sp. z o.o.",
+                "10.07.2025",
+                "11 760,00 zł"
+              ],
+              [
+                "Maszyna",
+                "Podnośnik koszowy Haulotte HA16PX (POD-003)",
+                "POD-003",
+                "Fundament Sp. z o.o.",
+                "02.07.2026",
+                "8 220,00 zł"
+              ],
+              [
+                "Maszyna",
+                "Podnośnik koszowy Haulotte HA16PX (POD-003)",
+                "POD-003",
+                "Fundament Sp. z o.o.",
+                "26.03.2026",
+                "8 220,00 zł"
+              ],
+              [
+                "Maszyna",
+                "Podnośnik koszowy Haulotte HA16PX (POD-003)",
+                "POD-003",
+                "Fundament Sp. z o.o.",
+                "06.01.2026",
+                "8 220,00 zł"
+              ],
+              [
+                "Maszyna",
+                "Podnośnik koszowy Haulotte HA16PX (POD-003)",
+                "POD-003",
+                "Fundament Sp. z o.o.",
+                "11.01.2025",
+                "8 220,00 zł"
+              ],
+              [
+                "Usługa",
+                "Transport maszyny (USL-001)",
+                "USL-001",
+                "Fundament Sp. z o.o.",
+                "02.07.2026",
+                "350,00 zł"
+              ]
+            ],
+            "rowCount": 13
+          }
+        ],
+        "extraText": {
+          "summary": "Liczba wyników: 13Łączny przychód: 172 150,00 zł"
+        },
+        "visible": true
+      }
+    ],
+    "filtersPanelVisible": true,
+    "notes": [
+      "PODEJRZANY BUG (potwierdzony w kodzie): LocationsTab i ExplorerTab dostają TYLKO dateFrom/dateTo — ignorują contractorId/city/articleType",
+      "Sprawdzić w apiCalls: czy /explorer/locations lub /explorer/search dostały contractor_id/city/article_type? (NIE powinny — bo store ich nie wysyła)",
+      "To oznacza że użytkownik ustawi filtr kontrahenta, przełączy na \"Lokalizacje\" i zobaczy dane dla WSZYSTKICH kontrahentów — mylące UX"
+    ]
+  }
+]
