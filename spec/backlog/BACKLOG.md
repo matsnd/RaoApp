@@ -4095,7 +4095,7 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | done | single compute + limit/offset/total_count |
 | RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | team-verified | normalize w settings/service.py + ALTER TABLE polish_ci w main.py, 19 testów PASS |
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | done | migracja + indeks + /stats/by-branch endpoint + 12 unit tests (test_stats_branch.py) |
-| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
+| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | done | endpoint /stats/by-contract-type + aggregate_by_contract_type w calc.py |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | team-verified | is_external nie blokuje + checkbox w details |
 | RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | done | OID hybrydowe (contract.oid ?? contract.number) + product cache (sync_products/search_products) + 7 unit tests |
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | team-verified | 88 art is_service=1, 34 SFT (32 z article_id), 22 SFTI (N:M), 185 CSF nowe + 3396 archive, 8 preset groups, apply_preset kopiuje article_id+default_price, UI SettingsView + ContractFormView ArticlePicker, 5 testów PASS |
@@ -4919,11 +4919,11 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | done | StateMessage + TableSkeleton + SkeletonRow w 13 widokach (Dashboard, Home, Analytics 4 tabs, Archive, Settings, Admin, Commission, Worker, ContractForm, ArticleForm, ContractorForm, Login, ChangePassword, ResetPassword) |
 | RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | done | validateForm() w ChangePassword/ResetPassword/ArticleForm/ContractorForm + required/aria-invalid/pattern/min/max/step w ContractForm/ArticleForm/ContractorForm/Settings + NIP checksum validation |
 | RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | done | shared/cache.py TTLCache (thread-safe, lazy eviction) + 11 endpointów stats/* z cache + /cache/clear + /cache/stats + 22 unit tests |
-| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
-| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
+| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | done | SQL filter w explorer/router.py /locations/city/{city} |
+| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | done | single compute + limit/offset/total_count (backward compat) |
 | RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | team-verified | normalize w settings/service.py + ALTER TABLE polish_ci w main.py, 19 testów PASS |
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | done | migracja + indeks + /stats/by-branch endpoint + 12 unit tests (test_stats_branch.py) |
-| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
+| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | done | endpoint /stats/by-contract-type + aggregate_by_contract_type w calc.py |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | team-verified | is_external nie blokuje + checkbox w details |
 | RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | done | OID hybrydowe (contract.oid ?? contract.number) + product cache (sync_products/search_products) + 7 unit tests |
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | team-verified | 88 art is_service=1, 34 SFT (32 z article_id), 22 SFTI (N:M), 185 CSF nowe + 3396 archive, 8 preset groups, apply_preset kopiuje article_id+default_price, UI SettingsView + ContractFormView ArticlePicker, 5 testów PASS |
@@ -5747,11 +5747,11 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | done | StateMessage + TableSkeleton + SkeletonRow w 13 widokach (Dashboard, Home, Analytics 4 tabs, Archive, Settings, Admin, Commission, Worker, ContractForm, ArticleForm, ContractorForm, Login, ChangePassword, ResetPassword) |
 | RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | done | validateForm() w ChangePassword/ResetPassword/ArticleForm/ContractorForm + required/aria-invalid/pattern/min/max/step w ContractForm/ArticleForm/ContractorForm/Settings + NIP checksum validation |
 | RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | done | shared/cache.py TTLCache (thread-safe, lazy eviction) + 11 endpointów stats/* z cache + /cache/clear + /cache/stats + 22 unit tests |
-| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
-| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
+| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | done | SQL filter w explorer/router.py /locations/city/{city} |
+| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | done | single compute + limit/offset/total_count (backward compat) |
 | RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | team-verified | normalize w settings/service.py + ALTER TABLE polish_ci w main.py, 19 testów PASS |
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | done | migracja + indeks + /stats/by-branch endpoint + 12 unit tests (test_stats_branch.py) |
-| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
+| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | done | endpoint /stats/by-contract-type + aggregate_by_contract_type w calc.py |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | team-verified | is_external nie blokuje + checkbox w details |
 | RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | done | OID hybrydowe (contract.oid ?? contract.number) + product cache (sync_products/search_products) + 7 unit tests |
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | team-verified | 88 art is_service=1, 34 SFT (32 z article_id), 22 SFTI (N:M), 185 CSF nowe + 3396 archive, 8 preset groups, apply_preset kopiuje article_id+default_price, UI SettingsView + ContractFormView ArticlePicker, 5 testów PASS |
@@ -7403,11 +7403,11 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | done | StateMessage + TableSkeleton + SkeletonRow w 13 widokach (Dashboard, Home, Analytics 4 tabs, Archive, Settings, Admin, Commission, Worker, ContractForm, ArticleForm, ContractorForm, Login, ChangePassword, ResetPassword) |
 | RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | done | validateForm() w ChangePassword/ResetPassword/ArticleForm/ContractorForm + required/aria-invalid/pattern/min/max/step w ContractForm/ArticleForm/ContractorForm/Settings + NIP checksum validation |
 | RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | done | shared/cache.py TTLCache (thread-safe, lazy eviction) + 11 endpointów stats/* z cache + /cache/clear + /cache/stats + 22 unit tests |
-| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
-| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
+| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | done | SQL filter w explorer/router.py /locations/city/{city} |
+| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | done | single compute + limit/offset/total_count (backward compat) |
 | RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | team-verified | normalize w settings/service.py + ALTER TABLE polish_ci w main.py, 19 testów PASS |
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | done | migracja + indeks + /stats/by-branch endpoint + 12 unit tests (test_stats_branch.py) |
-| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
+| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | done | endpoint /stats/by-contract-type + aggregate_by_contract_type w calc.py |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | team-verified | is_external nie blokuje + checkbox w details |
 | RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | done | OID hybrydowe (contract.oid ?? contract.number) + product cache (sync_products/search_products) + 7 unit tests |
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | team-verified | 88 art is_service=1, 34 SFT (32 z article_id), 22 SFTI (N:M), 185 CSF nowe + 3396 archive, 8 preset groups, apply_preset kopiuje article_id+default_price, UI SettingsView + ContractFormView ArticlePicker, 5 testów PASS |
@@ -8326,11 +8326,11 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | done | StateMessage + TableSkeleton + SkeletonRow w 13 widokach (Dashboard, Home, Analytics 4 tabs, Archive, Settings, Admin, Commission, Worker, ContractForm, ArticleForm, ContractorForm, Login, ChangePassword, ResetPassword) |
 | RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | done | validateForm() w ChangePassword/ResetPassword/ArticleForm/ContractorForm + required/aria-invalid/pattern/min/max/step w ContractForm/ArticleForm/ContractorForm/Settings + NIP checksum validation |
 | RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | done | shared/cache.py TTLCache (thread-safe, lazy eviction) + 11 endpointów stats/* z cache + /cache/clear + /cache/stats + 22 unit tests |
-| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
-| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
+| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | done | SQL filter w explorer/router.py /locations/city/{city} |
+| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | done | single compute + limit/offset/total_count (backward compat) |
 | RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | team-verified | normalize w settings/service.py + ALTER TABLE polish_ci w main.py, 19 testów PASS |
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | done | migracja + indeks + /stats/by-branch endpoint + 12 unit tests (test_stats_branch.py) |
-| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
+| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | done | endpoint /stats/by-contract-type + aggregate_by_contract_type w calc.py |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | team-verified | is_external nie blokuje + checkbox w details |
 | RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | done | OID hybrydowe (contract.oid ?? contract.number) + product cache (sync_products/search_products) + 7 unit tests |
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | team-verified | 88 art is_service=1, 34 SFT (32 z article_id), 22 SFTI (N:M), 185 CSF nowe + 3396 archive, 8 preset groups, apply_preset kopiuje article_id+default_price, UI SettingsView + ContractFormView ArticlePicker, 5 testów PASS |
@@ -9075,11 +9075,11 @@ Aplikacja ma solidne podstawy (drilldown w Analytics/Archive, skeleton loadery, 
 | RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | done | StateMessage + TableSkeleton + SkeletonRow w 13 widokach (Dashboard, Home, Analytics 4 tabs, Archive, Settings, Admin, Commission, Worker, ContractForm, ArticleForm, ContractorForm, Login, ChangePassword, ResetPassword) |
 | RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | done | validateForm() w ChangePassword/ResetPassword/ArticleForm/ContractorForm + required/aria-invalid/pattern/min/max/step w ContractForm/ArticleForm/ContractorForm/Settings + NIP checksum validation |
 | RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | done | shared/cache.py TTLCache (thread-safe, lazy eviction) + 11 endpointów stats/* z cache + /cache/clear + /cache/stats + 22 unit tests |
-| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
-| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
+| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | done | SQL filter w explorer/router.py /locations/city/{city} |
+| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | done | single compute + limit/offset/total_count (backward compat) |
 | RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | team-verified | normalize w settings/service.py + ALTER TABLE polish_ci w main.py, 19 testów PASS |
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | done | migracja + indeks + /stats/by-branch endpoint + 12 unit tests (test_stats_branch.py) |
-| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
+| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | done | endpoint /stats/by-contract-type + aggregate_by_contract_type w calc.py |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | team-verified | is_external nie blokuje + checkbox w details |
 | RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | done | OID hybrydowe (contract.oid ?? contract.number) + product cache (sync_products/search_products) + 7 unit tests |
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | team-verified | 88 art is_service=1, 34 SFT (32 z article_id), 22 SFTI (N:M), 185 CSF nowe + 3396 archive, 8 preset groups, apply_preset kopiuje article_id+default_price, UI SettingsView + ContractFormView ArticlePicker, 5 testów PASS |
@@ -9824,11 +9824,11 @@ Aplikacja ma solidne podstawy (drilldown w Analytics/Archive, skeleton loadery, 
 | RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | done | StateMessage + TableSkeleton + SkeletonRow w 13 widokach (Dashboard, Home, Analytics 4 tabs, Archive, Settings, Admin, Commission, Worker, ContractForm, ArticleForm, ContractorForm, Login, ChangePassword, ResetPassword) |
 | RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | done | validateForm() w ChangePassword/ResetPassword/ArticleForm/ContractorForm + required/aria-invalid/pattern/min/max/step w ContractForm/ArticleForm/ContractorForm/Settings + NIP checksum validation |
 | RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | done | shared/cache.py TTLCache (thread-safe, lazy eviction) + 11 endpointów stats/* z cache + /cache/clear + /cache/stats + 22 unit tests |
-| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
-| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
+| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | done | SQL filter w explorer/router.py /locations/city/{city} |
+| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | done | single compute + limit/offset/total_count (backward compat) |
 | RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | team-verified | normalize w settings/service.py + ALTER TABLE polish_ci w main.py, 19 testów PASS |
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | done | migracja + indeks + /stats/by-branch endpoint + 12 unit tests (test_stats_branch.py) |
-| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
+| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | done | endpoint /stats/by-contract-type + aggregate_by_contract_type w calc.py |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | team-verified | is_external nie blokuje + checkbox w details |
 | RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | done | OID hybrydowe (contract.oid ?? contract.number) + product cache (sync_products/search_products) + 7 unit tests |
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | team-verified | 88 art is_service=1, 34 SFT (32 z article_id), 22 SFTI (N:M), 185 CSF nowe + 3396 archive, 8 preset groups, apply_preset kopiuje article_id+default_price, UI SettingsView + ContractFormView ArticlePicker, 5 testów PASS |
@@ -10403,11 +10403,11 @@ W zakładce "Lokalizacje" w AnalyticsView każde miasto było rozbite na kody po
 | RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | done | StateMessage + TableSkeleton + SkeletonRow w 13 widokach (Dashboard, Home, Analytics 4 tabs, Archive, Settings, Admin, Commission, Worker, ContractForm, ArticleForm, ContractorForm, Login, ChangePassword, ResetPassword) |
 | RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | done | validateForm() w ChangePassword/ResetPassword/ArticleForm/ContractorForm + required/aria-invalid/pattern/min/max/step w ContractForm/ArticleForm/ContractorForm/Settings + NIP checksum validation |
 | RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | done | shared/cache.py TTLCache (thread-safe, lazy eviction) + 11 endpointów stats/* z cache + /cache/clear + /cache/stats + 22 unit tests |
-| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
-| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
+| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | done | SQL filter w explorer/router.py /locations/city/{city} |
+| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | done | single compute + limit/offset/total_count (backward compat) |
 | RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | team-verified | normalize w settings/service.py + ALTER TABLE polish_ci w main.py, 19 testów PASS |
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | done | migracja + indeks + /stats/by-branch endpoint + 12 unit tests (test_stats_branch.py) |
-| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
+| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | done | endpoint /stats/by-contract-type + aggregate_by_contract_type w calc.py |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | team-verified | is_external nie blokuje + checkbox w details |
 | RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | done | OID hybrydowe (contract.oid ?? contract.number) + product cache (sync_products/search_products) + 7 unit tests |
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | team-verified | 88 art is_service=1, 34 SFT (32 z article_id), 22 SFTI (N:M), 185 CSF nowe + 3396 archive, 8 preset groups, apply_preset kopiuje article_id+default_price, UI SettingsView + ContractFormView ArticlePicker, 5 testów PASS |
@@ -10899,11 +10899,11 @@ Po P2-067 demo data miało jeszcze braki:
 | RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | done | StateMessage + TableSkeleton + SkeletonRow w 13 widokach (Dashboard, Home, Analytics 4 tabs, Archive, Settings, Admin, Commission, Worker, ContractForm, ArticleForm, ContractorForm, Login, ChangePassword, ResetPassword) |
 | RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | done | validateForm() w ChangePassword/ResetPassword/ArticleForm/ContractorForm + required/aria-invalid/pattern/min/max/step w ContractForm/ArticleForm/ContractorForm/Settings + NIP checksum validation |
 | RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | done | shared/cache.py TTLCache (thread-safe, lazy eviction) + 11 endpointów stats/* z cache + /cache/clear + /cache/stats + 22 unit tests |
-| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
-| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
+| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | done | SQL filter w explorer/router.py /locations/city/{city} |
+| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | done | single compute + limit/offset/total_count (backward compat) |
 | RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | team-verified | normalize w settings/service.py + ALTER TABLE polish_ci w main.py, 19 testów PASS |
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | done | migracja + indeks + /stats/by-branch endpoint + 12 unit tests (test_stats_branch.py) |
-| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
+| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | done | endpoint /stats/by-contract-type + aggregate_by_contract_type w calc.py |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | team-verified | is_external nie blokuje + checkbox w details |
 | RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | done | OID hybrydowe (contract.oid ?? contract.number) + product cache (sync_products/search_products) + 7 unit tests |
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | team-verified | 88 art is_service=1, 34 SFT (32 z article_id), 22 SFTI (N:M), 185 CSF nowe + 3396 archive, 8 preset groups, apply_preset kopiuje article_id+default_price, UI SettingsView + ContractFormView ArticlePicker, 5 testów PASS |
@@ -11395,11 +11395,11 @@ Po P2-067 demo data miało jeszcze braki:
 | RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | done | StateMessage + TableSkeleton + SkeletonRow w 13 widokach (Dashboard, Home, Analytics 4 tabs, Archive, Settings, Admin, Commission, Worker, ContractForm, ArticleForm, ContractorForm, Login, ChangePassword, ResetPassword) |
 | RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | done | validateForm() w ChangePassword/ResetPassword/ArticleForm/ContractorForm + required/aria-invalid/pattern/min/max/step w ContractForm/ArticleForm/ContractorForm/Settings + NIP checksum validation |
 | RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | done | shared/cache.py TTLCache (thread-safe, lazy eviction) + 11 endpointów stats/* z cache + /cache/clear + /cache/stats + 22 unit tests |
-| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
-| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
+| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | done | SQL filter w explorer/router.py /locations/city/{city} |
+| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | done | single compute + limit/offset/total_count (backward compat) |
 | RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | team-verified | normalize w settings/service.py + ALTER TABLE polish_ci w main.py, 19 testów PASS |
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | done | migracja + indeks + /stats/by-branch endpoint + 12 unit tests (test_stats_branch.py) |
-| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
+| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | done | endpoint /stats/by-contract-type + aggregate_by_contract_type w calc.py |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | team-verified | is_external nie blokuje + checkbox w details |
 | RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | done | OID hybrydowe (contract.oid ?? contract.number) + product cache (sync_products/search_products) + 7 unit tests |
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | team-verified | 88 art is_service=1, 34 SFT (32 z article_id), 22 SFTI (N:M), 185 CSF nowe + 3396 archive, 8 preset groups, apply_preset kopiuje article_id+default_price, UI SettingsView + ContractFormView ArticlePicker, 5 testów PASS |
@@ -11890,11 +11890,11 @@ Po P2-067 demo data miało jeszcze braki:
 | RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | done | StateMessage + TableSkeleton + SkeletonRow w 13 widokach (Dashboard, Home, Analytics 4 tabs, Archive, Settings, Admin, Commission, Worker, ContractForm, ArticleForm, ContractorForm, Login, ChangePassword, ResetPassword) |
 | RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | done | validateForm() w ChangePassword/ResetPassword/ArticleForm/ContractorForm + required/aria-invalid/pattern/min/max/step w ContractForm/ArticleForm/ContractorForm/Settings + NIP checksum validation |
 | RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | done | shared/cache.py TTLCache (thread-safe, lazy eviction) + 11 endpointów stats/* z cache + /cache/clear + /cache/stats + 22 unit tests |
-| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
-| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
+| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | done | SQL filter w explorer/router.py /locations/city/{city} |
+| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | done | single compute + limit/offset/total_count (backward compat) |
 | RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | team-verified | normalize w settings/service.py + ALTER TABLE polish_ci w main.py, 19 testów PASS |
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | done | migracja + indeks + /stats/by-branch endpoint + 12 unit tests (test_stats_branch.py) |
-| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
+| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | done | endpoint /stats/by-contract-type + aggregate_by_contract_type w calc.py |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | team-verified | is_external nie blokuje + checkbox w details |
 | RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | done | OID hybrydowe (contract.oid ?? contract.number) + product cache (sync_products/search_products) + 7 unit tests |
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | team-verified | 88 art is_service=1, 34 SFT (32 z article_id), 22 SFTI (N:M), 185 CSF nowe + 3396 archive, 8 preset groups, apply_preset kopiuje article_id+default_price, UI SettingsView + ContractFormView ArticlePicker, 5 testów PASS |
@@ -12293,11 +12293,11 @@ note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone
 | RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | done | StateMessage + TableSkeleton + SkeletonRow w 13 widokach (Dashboard, Home, Analytics 4 tabs, Archive, Settings, Admin, Commission, Worker, ContractForm, ArticleForm, ContractorForm, Login, ChangePassword, ResetPassword) |
 | RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | done | validateForm() w ChangePassword/ResetPassword/ArticleForm/ContractorForm + required/aria-invalid/pattern/min/max/step w ContractForm/ArticleForm/ContractorForm/Settings + NIP checksum validation |
 | RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | done | shared/cache.py TTLCache (thread-safe, lazy eviction) + 11 endpointów stats/* z cache + /cache/clear + /cache/stats + 22 unit tests |
-| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
-| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
+| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | done | SQL filter w explorer/router.py /locations/city/{city} |
+| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | done | single compute + limit/offset/total_count (backward compat) |
 | RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | team-verified | normalize w settings/service.py + ALTER TABLE polish_ci w main.py, 19 testów PASS |
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | done | migracja + indeks + /stats/by-branch endpoint + 12 unit tests (test_stats_branch.py) |
-| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
+| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | done | endpoint /stats/by-contract-type + aggregate_by_contract_type w calc.py |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | team-verified | is_external nie blokuje + checkbox w details |
 | RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | done | OID hybrydowe (contract.oid ?? contract.number) + product cache (sync_products/search_products) + 7 unit tests |
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | team-verified | 88 art is_service=1, 34 SFT (32 z article_id), 22 SFTI (N:M), 185 CSF nowe + 3396 archive, 8 preset groups, apply_preset kopiuje article_id+default_price, UI SettingsView + ContractFormView ArticlePicker, 5 testów PASS |
@@ -12696,11 +12696,11 @@ note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone
 | RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | done | StateMessage + TableSkeleton + SkeletonRow w 13 widokach (Dashboard, Home, Analytics 4 tabs, Archive, Settings, Admin, Commission, Worker, ContractForm, ArticleForm, ContractorForm, Login, ChangePassword, ResetPassword) |
 | RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | done | validateForm() w ChangePassword/ResetPassword/ArticleForm/ContractorForm + required/aria-invalid/pattern/min/max/step w ContractForm/ArticleForm/ContractorForm/Settings + NIP checksum validation |
 | RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | done | shared/cache.py TTLCache (thread-safe, lazy eviction) + 11 endpointów stats/* z cache + /cache/clear + /cache/stats + 22 unit tests |
-| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
-| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
+| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | done | SQL filter w explorer/router.py /locations/city/{city} |
+| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | done | single compute + limit/offset/total_count (backward compat) |
 | RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | team-verified | normalize w settings/service.py + ALTER TABLE polish_ci w main.py, 19 testów PASS |
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | done | migracja + indeks + /stats/by-branch endpoint + 12 unit tests (test_stats_branch.py) |
-| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
+| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | done | endpoint /stats/by-contract-type + aggregate_by_contract_type w calc.py |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | team-verified | is_external nie blokuje + checkbox w details |
 | RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | done | OID hybrydowe (contract.oid ?? contract.number) + product cache (sync_products/search_products) + 7 unit tests |
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | team-verified | 88 art is_service=1, 34 SFT (32 z article_id), 22 SFTI (N:M), 185 CSF nowe + 3396 archive, 8 preset groups, apply_preset kopiuje article_id+default_price, UI SettingsView + ContractFormView ArticlePicker, 5 testów PASS |
