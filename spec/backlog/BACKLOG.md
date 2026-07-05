@@ -941,11 +941,12 @@ W Polsce istnieje wiele miejscowości o tej samej nazwie. Aktualnie `/stats/loca
 id: RAO-P2-058
 priority: P2
 size: L
-status: dev-verified
+status: team-verified
 classification: cross-stack/integration
 roles: [tech-lead, backend-dev, frontend-dev, db-architect, security-auditor, qa-engineer]
 source: operator-request
 source_date: 2026-07-01
+team_verified_date: 2026-07-05
 specs_to_update:
   - core/02_backend_api.md
   - core/03_frontend_screens.md
@@ -3268,7 +3269,7 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | done | migracja + indeks + /stats/by-branch endpoint |
 | RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | done | /stats/by-contract-type endpoint + aggregate_by_contract_type |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | dev-verified | → team-verified (is_external nie blokuje + checkbox w details) |
-| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | team-verified | OID hybrydowe + product cache (11 produktów) + UI picker + sync-products + search endpoint + 28 testów PASS |
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | triaged | → in_progress (Faza 1: parser legacy + migracja + UI + template items) |
 | RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | in-progress (Faza 1 done — 6 bugów + indeksy + cleanup; Faza 2 todo — StatsView.vue) |
 | RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
