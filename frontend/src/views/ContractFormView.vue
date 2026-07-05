@@ -828,6 +828,17 @@
               <span v-if="c.date_from && c.date_to" style="color:var(--color-text-muted);"> ({{ formatPickerDate(c.date_from) }} – {{ formatPickerDate(c.date_to) }})</span>
             </li>
           </ul>
+          <!-- RAO-P2-066: konflikty z rezerwacjami (article_reservations) -->
+          <div v-if="reservationConflictList.length" style="margin:0 0 16px 0;">
+            <p style="margin:8px 0 4px;font-weight:600;color:var(--color-warning);">📅 Rezerwacje maszyny:</p>
+            <ul style="margin:0; padding-left:20px;">
+              <li v-for="r in reservationConflictList" :key="r.reservation_id" style="margin-bottom:4px;">
+                Rezerwacja <strong>{{ formatPickerDate(r.reserved_from) }} – {{ formatPickerDate(r.reserved_to) }}</strong>
+                <span v-if="r.note" style="color:var(--color-text-muted);"> ({{ r.note }})</span>
+                <span v-if="r.available_from" style="color:var(--color-success);"> — dostępna od {{ formatPickerDate(r.available_from) }}</span>
+              </li>
+            </ul>
+          </div>
           <div class="modal-actions">
             <button class="btn btn-secondary btn-sm" @click="cancelConflictSelection">Anuluj</button>
             <button class="btn btn-primary btn-sm" @click="confirmConflictSelection">Mimo to dodaj</button>
@@ -1272,6 +1283,19 @@ interface ConflictingContract {
   date_from: string | null
   date_to: string | null
 }
+// RAO-P2-066: konflikt z rezerwacją maszyny (article_reservations)
+interface ConflictingReservation {
+  reservation_id: number
+  reserved_from: string
+  reserved_to: string
+  note: string | null
+  available_from: string | null
+}
+interface AvailabilityResponse {
+  is_available: boolean
+  conflicting_contracts: ConflictingContract[]
+  conflicting_reservations: ConflictingReservation[]
+}
 interface ArticlePickerItem {
   id: number
   name: string
@@ -1280,6 +1304,8 @@ interface ArticlePickerItem {
 }
 const showConflictModal = ref(false)
 const conflictList = ref<ConflictingContract[]>([])
+// RAO-P2-066: konflikty z rezerwacjami (osobna lista, renderowana w modalu)
+const reservationConflictList = ref<ConflictingReservation[]>([])
 const pendingArticle = ref<ArticlePickerItem | null>(null)
 
 const supplierName = ref('')
@@ -1868,6 +1894,8 @@ async function selectArticle(a) {
         // Show conflict modal — keep picker open in background
         pendingArticle.value = a
         conflictList.value = av.conflicting_contracts ?? []
+        // RAO-P2-066: konflikty z rezerwacjami (article_reservations)
+        reservationConflictList.value = av.conflicting_reservations ?? []
         showConflictModal.value = true
         return
       }
@@ -1884,6 +1912,7 @@ function cancelConflictSelection() {
   showConflictModal.value = false
   pendingArticle.value = null
   conflictList.value = []
+  reservationConflictList.value = []
 }
 
 function confirmConflictSelection() {
@@ -1896,6 +1925,7 @@ function confirmConflictSelection() {
   }
   pendingArticle.value = null
   conflictList.value = []
+  reservationConflictList.value = []
 }
 
 async function duplicateArticle(a) {

@@ -2334,11 +2334,12 @@ archive_contract_settlements  ← legacy rozliczenia (source='legacy', cennik ×
 id: RAO-P2-064
 priority: P1
 size: M
-status: in-progress
+status: done
 classification: cross-stack/bugfix+feature
 roles: [tech-lead, backend-dev, frontend-dev, qa-engineer, product-owner]
 source: operator-request
 source_date: 2026-07-01
+done_date: 2026-07-05
 specs_to_update:
   - core/03_frontend_screens.md (usunięcie checkboxa report_without_data)
   - core/04_business_logic.md (semantyka 2 flag wydruku)
@@ -2393,11 +2394,12 @@ Pola zapisywane w DB (contracts table, BOOLEAN NOT NULL DEFAULT FALSE) ale **ŻA
 id: RAO-P2-065
 priority: P1
 size: M
-status: in-progress
+status: done
 classification: cross-stack/bugfix+feature
 roles: [tech-lead, backend-dev, frontend-dev, ui-designer, qa-engineer, product-owner]
 source: full-team review 2026-07-04 (PO 7/10, QA 7/10, UI 6.5/10 + tech-lead vision review)
 source_date: 2026-07-04
+done_date: 2026-07-05
 specs_to_update:
   - core/09_design_reference.md (amber=legacy akcent, pill radius, zakaz emoji jako ikon)
   - core/11_reports_stats.md (ROI w AnalyticsView)
@@ -2455,11 +2457,12 @@ depends_on:
 id: RAO-P2-066
 priority: P1
 size: M
-status: triaged
+status: done
 classification: cross-stack/feature
 roles: [tech-lead, backend-dev, frontend-dev, ux-designer, qa-engineer, product-owner]
 source: analiza wymagań klienta 2026-07-04 (wymaganie #6 NIESPEŁNIONE)
 source_date: 2026-07-04
+done_date: 2026-07-05
 specs_to_update:
   - core/02_backend_api.md (integracja reservations z availability)
   - core/03_frontend_screens.md (UI rezerwacji)
