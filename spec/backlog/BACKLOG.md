@@ -6551,7 +6551,7 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
 | RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | dev-verified | → team-verified (wartość z rozliczenia, read-only w formularzu) |
 | RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
-| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | review | → Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
+| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | done | Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
 | RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | dev-verified | → user-verified |
 | RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | dev-verified | → team-verified (unique=True w model + DB index uq_contracts_number) |
 | RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | done | → done (autoescape=True w reports/service.py:588) |
@@ -6575,11 +6575,11 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | dev-verified | → team-verified (komponent StateMessage.vue + integracja w DashboardView/ArchiveView/SettingsView/PeriodRentalTab; vue-tsc + build PASS) |
 | RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | dev-verified | → team-verified (validateForm w ContractFormView/ContractorFormView/ArticleFormView; fieldErrors + czerwony border + blokada submit; vue-tsc + build PASS) |
 | RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | done | shared/cache.py TTLCache (thread-safe, lazy eviction) + 11 endpointów stats/* z cache + /cache/clear + /cache/stats + 22 unit tests |
-| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → done |
-| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → done (single compute + limit/offset/total_count, backward compat) |
+| RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | done | SQL filter w explorer/router.py /locations/city/{city} |
+| RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | done | single compute + limit/offset/total_count (backward compat) |
 | RAO-P0-054 | Kategorie — normalizacja nazw (diakrytyki + spacje) + collation polish_ci | P0 | S | team-verified | normalize w settings/service.py + ALTER TABLE polish_ci w main.py, 19 testów PASS |
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | done | migracja + indeks + /stats/by-branch endpoint + 12 unit tests (test_stats_branch.py) |
-| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → done (endpoint /stats/by-contract-type + aggregate_by_contract_type w calc.py) |
+| RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | done | endpoint /stats/by-contract-type + aggregate_by_contract_type w calc.py |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | team-verified | is_external nie blokuje + checkbox w details |
 | RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | done | OID hybrydowe (contract.oid ?? contract.number) + product cache (sync_products/search_products) + 7 unit tests |
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | done | ContractServiceFee model + CRUD endpoints (list/create/update/delete/reorder/reset) + migrate_service_fees.py (legacy plain-text → structured) + ServiceFeeTemplate + 9 unit tests |
@@ -7379,7 +7379,7 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
 | RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | dev-verified | → team-verified (wartość z rozliczenia, read-only w formularzu) |
 | RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
-| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | review | → Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
+| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | done | Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
 | RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | dev-verified | → user-verified |
 | RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | dev-verified | → team-verified (unique=True w model + DB index uq_contracts_number) |
 | RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | done | → done (autoescape=True w reports/service.py:588) |
@@ -8302,7 +8302,7 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
 | RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | dev-verified | → team-verified (wartość z rozliczenia, read-only w formularzu) |
 | RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
-| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | review | → Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
+| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | done | Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
 | RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | dev-verified | → user-verified |
 | RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | dev-verified | → team-verified (unique=True w model + DB index uq_contracts_number) |
 | RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | done | → done (autoescape=True w reports/service.py:588) |
@@ -8339,7 +8339,7 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P2-067 | Demo data refactor — migrate_all.py orchestrator + FA-pending contracts + delivery_address | P2 | M | done | 31 faktur FA (19 backfill + 12 FA-pending), delivery_address z miastami, hardcoded token usunięty |
 | RAO-P2-068 | Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta" | P2 | M | done | 5 cenników kaskadowych per maszyna, 6 presetów usług, 22 ServiceFeeTemplateItem, 6 rate types, pełna konfiguracja firmy |
 | RAO-P2-069 | Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście | P2 | M | done | Toggle Miasto/PNA w LocationsTab, 1 wiersz per miasto (Warszawa 3978 PNA → 1), drill-down /locations/city/{city} z pna_breakdown |
-| RAO-P2-070 | Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation) | P2 | L | triaged | 30 usterek UX (8 HIGH, 13 MEDIUM, 9 LOW); 5 faz: toasty, cross-view drilldown, sort, filtry, goBack |
+| RAO-P2-070 | Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation) | P2 | L | team-verified | Faza 1 (23 alert→toast + success po zapisie) + Faza 2 (drilldown /contracts→kontrahent 50 linków, /articles→analytics 11 linków, /contractors→umowa) + Faza 3 (sort 5/9 kolumn) + Faza 5 (goBack router.back) |
 | RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | team-verified (Faza 0+1+2+3 done — 742 umów w archive_*, 62 nowe, brak is_legacy, 15 endpointów /archive/*, ArchiveView 4 zakładki z bannerem, 22 testy PASS) |
 
 **Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
@@ -9051,7 +9051,7 @@ Aplikacja ma solidne podstawy (drilldown w Analytics/Archive, skeleton loadery, 
 | RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
 | RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | dev-verified | → team-verified (wartość z rozliczenia, read-only w formularzu) |
 | RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
-| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | review | → Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
+| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | done | Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
 | RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | dev-verified | → user-verified |
 | RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | dev-verified | → team-verified (unique=True w model + DB index uq_contracts_number) |
 | RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | done | → done (autoescape=True w reports/service.py:588) |
@@ -9088,7 +9088,7 @@ Aplikacja ma solidne podstawy (drilldown w Analytics/Archive, skeleton loadery, 
 | RAO-P2-067 | Demo data refactor — migrate_all.py orchestrator + FA-pending contracts + delivery_address | P2 | M | done | 31 faktur FA (19 backfill + 12 FA-pending), delivery_address z miastami, hardcoded token usunięty |
 | RAO-P2-068 | Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta" | P2 | M | done | 5 cenników kaskadowych per maszyna, 6 presetów usług, 22 ServiceFeeTemplateItem, 6 rate types, pełna konfiguracja firmy |
 | RAO-P2-069 | Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście | P2 | M | done | Toggle Miasto/PNA w LocationsTab, 1 wiersz per miasto (Warszawa 3978 PNA → 1), drill-down /locations/city/{city} z pna_breakdown |
-| RAO-P2-070 | Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation) | P2 | L | triaged | 30 usterek UX (8 HIGH, 13 MEDIUM, 9 LOW); 5 faz: toasty, cross-view drilldown, sort, filtry, goBack |
+| RAO-P2-070 | Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation) | P2 | L | team-verified | Faza 1 (23 alert→toast + success po zapisie) + Faza 2 (drilldown /contracts→kontrahent 50 linków, /articles→analytics 11 linków, /contractors→umowa) + Faza 3 (sort 5/9 kolumn) + Faza 5 (goBack router.back) |
 | RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | team-verified (Faza 0+1+2+3 done — 742 umów w archive_*, 62 nowe, brak is_legacy, 15 endpointów /archive/*, ArchiveView 4 zakładki z bannerem, 22 testy PASS) |
 
 **Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
@@ -9800,7 +9800,7 @@ Aplikacja ma solidne podstawy (drilldown w Analytics/Archive, skeleton loadery, 
 | RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
 | RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | dev-verified | → team-verified (wartość z rozliczenia, read-only w formularzu) |
 | RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
-| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | review | → Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
+| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | done | Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
 | RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | dev-verified | → user-verified |
 | RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | dev-verified | → team-verified (unique=True w model + DB index uq_contracts_number) |
 | RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | done | → done (autoescape=True w reports/service.py:588) |
@@ -10379,7 +10379,7 @@ W zakładce "Lokalizacje" w AnalyticsView każde miasto było rozbite na kody po
 | RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
 | RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | dev-verified | → team-verified (wartość z rozliczenia, read-only w formularzu) |
 | RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
-| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | review | → Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
+| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | done | Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
 | RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | dev-verified | → user-verified |
 | RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | dev-verified | → team-verified (unique=True w model + DB index uq_contracts_number) |
 | RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | done | → done (autoescape=True w reports/service.py:588) |
@@ -10875,7 +10875,7 @@ Po P2-067 demo data miało jeszcze braki:
 | RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
 | RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | dev-verified | → team-verified (wartość z rozliczenia, read-only w formularzu) |
 | RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
-| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | review | → Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
+| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | done | Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
 | RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | dev-verified | → user-verified |
 | RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | dev-verified | → team-verified (unique=True w model + DB index uq_contracts_number) |
 | RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | done | → done (autoescape=True w reports/service.py:588) |
@@ -11371,7 +11371,7 @@ Po P2-067 demo data miało jeszcze braki:
 | RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
 | RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | dev-verified | → team-verified (wartość z rozliczenia, read-only w formularzu) |
 | RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
-| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | review | → Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
+| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | done | Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
 | RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | dev-verified | → user-verified |
 | RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | dev-verified | → team-verified (unique=True w model + DB index uq_contracts_number) |
 | RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | done | → done (autoescape=True w reports/service.py:588) |
@@ -11866,7 +11866,7 @@ Po P2-067 demo data miało jeszcze braki:
 | RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
 | RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | dev-verified | → team-verified (wartość z rozliczenia, read-only w formularzu) |
 | RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
-| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | review | → Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
+| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | done | Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
 | RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | dev-verified | → user-verified |
 | RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | dev-verified | → team-verified (unique=True w model + DB index uq_contracts_number) |
 | RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | done | → done (autoescape=True w reports/service.py:588) |
@@ -12269,7 +12269,7 @@ note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone
 | RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
 | RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | dev-verified | → team-verified (wartość z rozliczenia, read-only w formularzu) |
 | RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
-| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | review | → Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
+| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | done | Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
 | RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | dev-verified | → user-verified |
 | RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | dev-verified | → team-verified (unique=True w model + DB index uq_contracts_number) |
 | RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | done | → done (autoescape=True w reports/service.py:588) |
@@ -12672,7 +12672,7 @@ note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone
 | RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
 | RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | dev-verified | → team-verified (wartość z rozliczenia, read-only w formularzu) |
 | RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
-| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | review | → Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
+| RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | done | Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
 | RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | dev-verified | → user-verified |
 | RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | dev-verified | → team-verified (unique=True w model + DB index uq_contracts_number) |
 | RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | done | → done (autoescape=True w reports/service.py:588) |
