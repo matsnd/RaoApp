@@ -23,7 +23,7 @@
 
 ```yaml
 id: P0-001
-status: triaged
+status: done
 priority: P0
 created: 2026-07-05
 reporter: Devin (session 2026-07-05)

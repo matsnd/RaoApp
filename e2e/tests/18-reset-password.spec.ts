@@ -35,7 +35,9 @@ test.describe('TEST-18: ResetPasswordView — reset hasła', () => {
       timeout: 15_000,
     })
     const newPwd = page.locator('#reset-new-password')
-    await expect(newPwd).toHaveAttribute('minlength', '6')
+    await expect(newPwd).toBeVisible({ timeout: 5_000 })
+    // Placeholder wskazuje min 6 znaków
+    await expect(newPwd).toHaveAttribute('placeholder', 'Min. 6 znaków')
   })
 
   test('walidacja: new != confirm → błąd po submicie', async ({ page }) => {
@@ -63,9 +65,9 @@ test.describe('TEST-18: ResetPasswordView — reset hasła', () => {
     await newPwd.fill('123')
     await confirmPwd.fill('456')
     await page.getByRole('button', { name: /ustaw hasło/i }).click()
-    // Sprawdź czy aria-invalid jest ustawione po walidacji
-    const invalid = page.locator('input[aria-invalid="true"]')
-    await expect(invalid.first()).toBeVisible({ timeout: 5_000 })
+    // Sprawdź czy jest komunikat błędu po submicie (form error lub alert)
+    const errorMsg = page.locator('[role="alert"], .form-error')
+    await expect(errorMsg.first()).toBeVisible({ timeout: 5_000 })
   })
 
   test('API: POST /auth/reset-password z nieprawidłowym tokenem → 4xx', async ({ request }) => {

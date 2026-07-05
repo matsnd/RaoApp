@@ -54,7 +54,7 @@ test.describe('TEST-04: Umowy', () => {
 
   test('otwiera formularz nowej umowy', async ({ page }) => {
     await navigateTo(page, 'contracts')
-    await page.getByRole('button', { name: '+', exact: true }).click()
+    await page.getByRole('button', { name: 'Dodaj nową pozycję' }).click()
 
     await expect(page).toHaveURL(/\/rao\/contracts\/new/, { timeout: 8_000 })
     await expect(page.getByRole('combobox').first()).toBeVisible({ timeout: 5_000 })

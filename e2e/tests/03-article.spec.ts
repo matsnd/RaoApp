@@ -18,7 +18,7 @@ test.describe('TEST-03: Artykuły', () => {
 
   test('otwiera formularz nowego artykułu', async ({ page }) => {
     await navigateTo(page, 'articles')
-    await page.getByRole('button', { name: '+', exact: true }).click()
+    await page.getByRole('button', { name: 'Dodaj nową pozycję' }).click()
 
     await expect(page).toHaveURL(/\/rao\/articles\/new/, { timeout: 8_000 })
     await expect(page.getByPlaceholder('Np. Koparka gąsienicowa')).toBeVisible({ timeout: 5_000 })

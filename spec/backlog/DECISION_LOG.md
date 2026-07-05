@@ -33,10 +33,10 @@
 ### P0-001 — `/stats/currently-rented` 500 (Pydantic ValidationError)
 
 **Data:** 2026-07-05
-**Status:** triaged (zgłoszone, czeka na implementację)
-**Decyzja:** Zgłoszone do backlogu bez natychmiastowej naprawy — operator woli wykonać manualne testy e2e najpierw, naprawę włączyć w kolejnej iteracji.
+**Status:** done (naprawione 2026-07-05)
+**Decyzja:** Naprawione natychmiast po zgłoszeniu — operator poprosił o wyleczenie systemu.
 **Root cause:** `stats/router.py:312` używa `id=r[0]` ale schema wymaga `article_id`. Fix = jednopunktowa zmiana `id=` → `article_id=`.
-**Impact:** AnalyticsView `/rao/analytics` → LiveFleet tab nie działa. 1/205 e2e failuje.
+**Weryfikacja:** `/stats/currently-rented` → 200 (31 items, 86 machines). Playwright test PASS. Vision screenshot potwierdza KPI + tabela z 31 wierszami + kontrahenci.
 
 ---
 

@@ -82,8 +82,8 @@ test.describe('TEST-06: Fee Preset + PDF Verification', () => {
 
     // 8. Weryfikacja tekstu w PDF przez skrypt Python
     const { execSync } = await import('child_process')
-    const pythonPath = path.join(process.cwd(), 'backend', '.venv', 'Scripts', 'python.exe')
-    const scriptPath = path.join(process.cwd(), 'backend', 'tests', 'unit', 'verify_pdf_fees.py')
+    const pythonPath = path.join(process.cwd(), '..', 'backend', '.venv', 'Scripts', 'python.exe')
+    const scriptPath = path.join(process.cwd(), '..', 'backend', 'tests', 'unit', 'verify_pdf_fees.py')
 
     // Oczekiwany tekst po podmianie $1 → 150.00 zł
     const expectedText = 'Usługa testowa: 150.00 zł (plus koszt)'
@@ -94,11 +94,13 @@ test.describe('TEST-06: Fee Preset + PDF Verification', () => {
     expect(result.trim()).toContain('PASS')
 
     // Dodatkowo: sprawdź że NIE ma surowego placeholdera $1
-    const result2 = execSync(
-      `"${pythonPath}" "${scriptPath}" "${pdfPath}" "$1 zł"`,
-      { encoding: 'utf-8', cwd: process.cwd() }
-    )
-    expect(result2.trim()).toContain('FAIL')
+    // Skrypt zwraca exit 1 gdy tekst nie znaleziony — użyj spawnSync żeby obsłużyć
+    const { spawnSync } = await import('child_process')
+    const result2 = spawnSync(pythonPath, [scriptPath, pdfPath, '$1 zł'], {
+      encoding: 'utf-8',
+      cwd: process.cwd(),
+    })
+    expect(result2.stdout).toContain('FAIL')
   })
 
   test.afterAll(async () => {

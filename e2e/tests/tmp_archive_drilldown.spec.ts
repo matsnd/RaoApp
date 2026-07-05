@@ -26,7 +26,7 @@ test.describe('TMP: Archive drill-down screenshots', () => {
     await page.goto('/rao/archive', { waitUntil: 'domcontentloaded', timeout: 15_000 })
     await expect(page).toHaveURL(/\/rao\/archive/, { timeout: 8_000 })
 
-    const statsTab = page.getByRole('button', { name: 'Statystyki', exact: true })
+    const statsTab = page.locator('.archive-tab', { hasText: 'Statystyki' })
     await expect(statsTab).toBeVisible({ timeout: 8_000 })
     await statsTab.click()
 

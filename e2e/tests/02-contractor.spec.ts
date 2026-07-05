@@ -21,7 +21,7 @@ test.describe('TEST-02: Kontrahenci', () => {
 
   test('otwiera formularz nowego kontrahenta', async ({ page }) => {
     await navigateTo(page, 'contractors')
-    await page.getByRole('button', { name: '+' }).click()
+    await page.getByRole('button', { name: 'Dodaj nową pozycję' }).click()
 
     await expect(page).toHaveURL(/\/contractors\/new/, { timeout: 8_000 })
     await expect(page.getByPlaceholder('Nazwa firmy lub imię i nazwisko')).toBeVisible({ timeout: 5_000 })

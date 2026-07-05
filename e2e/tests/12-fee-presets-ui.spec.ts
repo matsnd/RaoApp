@@ -22,7 +22,7 @@ test.describe('TEST-12: Fee Presets UI E2E', () => {
     // KROK 1: Dodanie nowego zestawu w konfiguracji (Ustawienia)
     // ----------------------------------------------------
     await page.goto('/rao/settings', { waitUntil: 'domcontentloaded', timeout: 15_000 })
-    await expect(page.getByRole('button', { name: 'Dane firmy' })).toBeVisible({ timeout: 8_000 })
+    await expect(page.getByRole('button', { name: 'Dane firmy' }).first()).toBeVisible({ timeout: 8_000 })
 
     // Kliknij zakładkę "Zestawy usług" / "Zestawy usług dodatkowych"
     const feePresetsTab = page.getByRole('button', { name: 'Zestawy usług' })
@@ -169,8 +169,8 @@ test.describe('TEST-12: Fee Presets UI E2E', () => {
     // Zweryfikuj, czy usługa pojawiła się na liście usług dodatkowych umowy
     const feeRowInContract = page.locator('.data-grid tbody tr', { hasText: itemName })
     await expect(feeRowInContract).toBeVisible({ timeout: 5_000 })
-    await expect(feeRowInContract).toContainText('200.00 zł')
-    await expect(feeRowInContract).toContainText('300.00 zł')
+    await expect(feeRowInContract).toContainText(/200[.,]00\s*zł/)
+    await expect(feeRowInContract).toContainText(/300[.,]00\s*zł/)
     await expect(feeRowInContract).toContainText('h')
 
     // ----------------------------------------------------

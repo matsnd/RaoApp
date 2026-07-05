@@ -174,14 +174,20 @@ export async function createContractWithCascadingConditions(
   conditions: Array<{ period_count?: number; rate1?: number; rate2?: number; billing_label: string }>
 ): Promise<number> {
   const token = await apiLogin(req)
-  
+
+  // 0. Pobierz pierwszy dostępny rate_type_id (ID=1 nie istnieje w środowisku testowym)
+  const rtRes = await req.get(`${API}/settings/rate-types`, { headers: authHeaders(token) })
+  const rtData = await rtRes.json()
+  const rateTypeId = (Array.isArray(rtData) ? rtData[0] : rtData.items?.[0])?.id
+  if (!rateTypeId) throw new Error('Brak rate_types w środowisku testowym')
+
   // 1. Utwórz umowę
   const ctr = await req.post(`${API}/contracts`, {
     headers: authHeaders(token),
     data: { contractor_id: contractorId, contract_type: 'S', date_from: new Date().toISOString().slice(0, 10) },
   })
   const contract = await ctr.json()
-  
+
   // 2. Utwórz artykuł
   const ts = Date.now()
   const ar = await req.post(`${API}/articles`, {
@@ -189,21 +195,21 @@ export async function createContractWithCascadingConditions(
     data: { name: `TestArt ${ts}`, is_service: false },
   })
   const article = await ar.json()
-  
+
   // 3. Utwórz pozycję
   const pos = await req.post(`${API}/contracts/${contract.id}/positions`, {
     headers: authHeaders(token),
     data: { article_id: article.id, quantity: 1 },
   })
   const position = await pos.json()
-  
+
   // 4. Dodaj warunki kaskadowe
   for (const cond of conditions) {
     await req.post(`${API}/contracts/${contract.id}/positions/${position.id}/conditions`, {
       headers: authHeaders(token),
-      data: { ...cond, rate_type_id: 1 }, // Zakładamy rate_type_id=1 dla "dobowa"
+      data: { ...cond, rate_type_id: rateTypeId },
     })
   }
-  
+
   return contract.id
 }
