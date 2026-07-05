@@ -52,9 +52,10 @@ Pydantic v2 rzuca `ValidationError: article_id Field required`.
 
 ```yaml
 id: P0-002
-status: triaged
+status: done
 priority: P0
 created: 2026-07-05
+resolved: 2026-07-05
 reporter: operator (manual test 2026-07-05)
 component: frontend/views/AnalyticsView
 severity: blocker
@@ -136,9 +137,10 @@ pole tekstowe z autouzupełnianiem, filtrujące listę w miarę wpisywania.
 
 ```yaml
 id: P0-005
-status: triaged
+status: done
 priority: P0
 created: 2026-07-05
+resolved: 2026-07-05
 reporter: operator (manual test 2026-07-05)
 component: backend/contracts (generowanie numeru umowy)
 severity: blocker
@@ -288,9 +290,10 @@ To jest odtworzenie + ulepszenie tej funkcji.
 
 ```yaml
 id: P0-006
-status: triaged
+status: done
 priority: P0
 created: 2026-07-05
+resolved: 2026-07-05
 reporter: operator (manual test 2026-07-05)
 component: frontend/ContractFormView + backend/reports/templates
 severity: blocker
@@ -383,9 +386,10 @@ przy wyborze i filtrowaniu w Archiwum. Obecnie jest płaski select.
 
 ```yaml
 id: P1-003
-status: triaged
+status: done
 priority: P1
 created: 2026-07-05
+resolved: 2026-07-05
 reporter: operator (manual test 2026-07-05)
 component: frontend/views/DashboardView
 severity: high
@@ -436,9 +440,10 @@ pobrania danych z FA (demo integracji).
 
 ```yaml
 id: P1-005
-status: triaged
+status: done
 priority: P1
 created: 2026-07-05
+resolved: 2026-07-05
 reporter: operator (manual test 2026-07-05)
 component: backend/integrations/fakturownia + frontend/ArticleFormView
 severity: high
@@ -558,9 +563,10 @@ i nie ma żadnego dostępnego scrolla. Problem globalny (nie tylko AnalyticsView
 
 ```yaml
 id: P1-009
-status: triaged
+status: done
 priority: P1
 created: 2026-07-05
+resolved: 2026-07-05
 reporter: operator (manual test 2026-07-05)
 component: frontend/AnalyticsView (Locations tab) + backend/stats
 severity: high
