@@ -1620,6 +1620,38 @@ Puste tabele (brak rekordów) wyświetlają przycisk akcji:
 
 ---
 
+## RAO-P3-071 Faza 5 — Skeleton loaders + polish (2026-07-05)
+
+### `components/TableSkeleton.vue` (nowy)
+- Props: `rows` (default 5), `cols` (default 4), `label` (a11y), `layout` ('block' | 'inline', default 'block').
+- Renderuje siatkę `rows` × `cols` animowanych placeholderów (animacja `pulse` z `assets/styles/animations.css`, kolory ze zmiennych CSS `--color-bg-light` / `--border-radius-sm`).
+- `layout='block'` — standalone blok (zastępuje `<div class="empty-state">Ładowanie...</div>`).
+- `layout='inline'` — do wstawienia w `<td colspan="N">` wewnątrz tabeli (bez paddingu).
+- A11y: `role="status"` + `aria-live="polite"` + `aria-label` + `sr-only` tekst; respektuje `prefers-reduced-motion`.
+
+### Wymiana "Ładowanie..." na `<TableSkeleton>`
+- **SettingsView** — drzewo kategorii (`activeTab='categories'`): `<TableSkeleton :rows="5" :cols="4" />` zamiast tekstu. (Fakturownia tab — form, pozostawiono tekst.)
+- **ArchiveView** — 3 tabele: Umowy (`:cols="8"`), Maszyny (`:cols="5"`), Kategorie (`:cols="4"`) — `<TableSkeleton ... layout="inline" />` w `<td colspan>`.
+- **AdminView** — restructured: tabela zawsze widoczna (header + `<TableSkeleton :rows="5" :cols="7" layout="inline" />` w `<td colspan="7">` podczas ładowania, wiersze użytkowników po załadowaniu, empty state gdy brak).
+- **DashboardView / HomeView / WorkerView** — NIE ruszane (już używają `SkeletonRow`).
+
+### View transitions (`App.vue`)
+- `<router-view>` opakowany w `<Transition name="fade" mode="out-in">` (przez `v-slot="{ Component }"` + `<component :is>`).
+- CSS `.fade-enter-active / .fade-leave-active / .fade-enter-from / .fade-leave-to` już zdefiniowane w `assets/styles/animations.css` (opacity 0.2s ease).
+
+### Toast z ikoną (`components/AppToast.vue`)
+- Ikony przed tekstem: ✓ success, ✕ error, ℹ info, ⚠ warning (Unicode, koło z kolorem typu). Już zaimplementowane — potwierdzone.
+
+### Glossary skrótów (tooltips)
+- `components/GlossaryTip.vue` — istniejący komponent (ikona `?` + tooltip, focus/hover/keyboard).
+- **ContractFormView**: `OID Fakturownia` → `<GlossaryTip term="OID" ...>`; `PNA` w panelu info → `<abbr title="Kod pocztowy (PNA)">`; `Produkt FA` → `<abbr title="Faktura (FA)">`; przycisk ZO → `title="Protokół zdania obiektu (ZO)"`.
+- **AnalyticsView**: nagłówek "Rozbicie na kody PNA" + `<th>PNA</th>` → `<abbr title="Kod pocztowy (PNA)">`.
+- **DashboardView**: `S/U` → `<GlossaryTip>` (już istniało).
+- **ArticleFormView**: `VAT/GTU/PKWiU (z FA)` → `<GlossaryTip term="FA" ...>` (już istniało).
+
+---
+
+
 ## ConditionPanel — Auto-opis warunku (P3-006)
 
 W modalu dodawania warunku:

@@ -6,8 +6,7 @@
       <button class="btn btn-primary btn-sm" @click="showAddModal = true">+ Nowy użytkownik</button>
     </div>
     <div class="content-area" style="padding:var(--spacing-md);">
-      <div v-if="loading" class="empty-state">Ładowanie...</div>
-      <div v-else class="page-card">
+      <div class="page-card">
         <table class="data-grid">
           <thead>
             <tr>
@@ -21,6 +20,12 @@
             </tr>
           </thead>
           <tbody>
+            <tr v-if="loading">
+              <td colspan="7"><TableSkeleton :rows="5" :cols="7" layout="inline" label="Ladowanie uzytkownikow" /></td>
+            </tr>
+            <tr v-else-if="!users.length">
+              <td colspan="7" class="empty-state">Brak użytkowników</td>
+            </tr>
             <tr v-for="u in users" :key="u.id">
               <td style="font-weight:600;">{{ u.login }}</td>
               <td>{{ u.first_name || '—' }}</td>
@@ -129,6 +134,7 @@
 import { ref, onMounted } from 'vue'
 import api from '@/composables/useApi'
 import { useToastStore } from '@/stores/toast'
+import TableSkeleton from '@/components/TableSkeleton.vue'
 
 const users = ref([])
 const loading = ref(false)

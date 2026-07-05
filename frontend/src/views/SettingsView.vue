@@ -144,7 +144,7 @@
                 <button class="btn btn-primary btn-sm" @click="addCategory">+ Dodaj główną</button>
               </div>
               <!-- Drzewo kategorii -->
-              <div v-if="settingsStore.loading" class="empty-state">Ładowanie...</div>
+              <TableSkeleton v-if="settingsStore.loading" :rows="5" :cols="4" label="Ladowanie kategorii" />
               <div v-else-if="settingsStore.categoriesTree.length === 0" class="empty-state">Brak kategorii</div>
               <table v-else class="data-grid">
                 <thead><tr><th>Nazwa</th><th>Kod</th><th>Poziom</th><th style="width:120px;"></th></tr></thead>
@@ -451,6 +451,7 @@ import { useArticleStore } from '@/stores/articles'
 import { useFakturowniaStore } from '@/stores/fakturownia'
 import { useToastStore } from '@/stores/toast'
 import StateMessage from '@/components/StateMessage.vue'
+import TableSkeleton from '@/components/TableSkeleton.vue'
 import api from '@/composables/useApi'
 import { useTargetFolder } from '@/composables/useTargetFolder.js'
 import { formatCurrency } from '@/utils/format'

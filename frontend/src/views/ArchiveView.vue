@@ -45,7 +45,7 @@
             <input v-model="contractFilters.date_from" type="date" class="form-control" style="width:140px;" placeholder="Data od" @change="applyContractFilters" />
             <input v-model="contractFilters.date_to" type="date" class="form-control" style="width:140px;" placeholder="Data do" @change="applyContractFilters" />
             <button class="btn btn-primary btn-sm" @click="applyContractFilters">Filtruj</button>
-            <button class="btn-icon" title="Wyczyść filtry" @click="clearContractFilters">↺</button>
+            <button class="btn-icon" title="Wyczyść filtry" aria-label="Wyczyść filtry umów" @click="clearContractFilters">↺</button>
           </div>
 
           <div class="grid-scroll">
@@ -67,7 +67,7 @@
                   <td colspan="8" class="empty-state">Ładowanie...</td>
                 </tr>
                 <tr v-else-if="archiveStore.contractsError">
-                  <td colspan="8" class="empty-state error">Błąd: {{ archiveStore.contractsError }}</td>
+                  <td colspan="8" class="empty-state error" role="alert">Błąd: {{ archiveStore.contractsError }}</td>
                 </tr>
                 <tr v-else-if="!archiveStore.contracts.length">
                   <td colspan="8" class="empty-state">Brak umów archiwum</td>
@@ -106,7 +106,7 @@
               <div v-else-if="archiveStore.currentContract" class="details-body">
                 <div class="details-header">
                   <h3>Szczegóły umowy {{ archiveStore.currentContract.number }}</h3>
-                  <button class="btn-icon" title="Zamknij" @click="selectedContractId = null">✕</button>
+                  <button class="btn-icon" title="Zamknij" aria-label="Zamknij szczegóły umowy" @click="selectedContractId = null">✕</button>
                 </div>
 
                 <div class="details-grid">
@@ -187,9 +187,9 @@
                 <option :value="20">20</option>
                 <option :value="50">50</option>
               </select>
-              <button class="page-btn" :disabled="archiveStore.contractsPage <= 1" @click="prevContractsPage">‹</button>
-              <span style="padding:0 8px;font-size:12px;">{{ archiveStore.contractsPage }} / {{ contractsTotalPages }}</span>
-              <button class="page-btn" :disabled="archiveStore.contractsPage >= contractsTotalPages" @click="nextContractsPage">›</button>
+              <button class="page-btn" :disabled="archiveStore.contractsPage <= 1" aria-label="Poprzednia strona umów" @click="prevContractsPage">‹</button>
+              <span style="padding:0 8px;font-size:12px;" aria-current="page">{{ archiveStore.contractsPage }} / {{ contractsTotalPages }}</span>
+              <button class="page-btn" :disabled="archiveStore.contractsPage >= contractsTotalPages" aria-label="Następna strona umów" @click="nextContractsPage">›</button>
             </div>
           </div>
         </div>
@@ -216,7 +216,7 @@
               </option>
             </select>
             <button class="btn btn-primary btn-sm" @click="applyArticleFilters">Filtruj</button>
-            <button class="btn-icon" title="Wyczyść filtry" @click="clearArticleFilters">↺</button>
+            <button class="btn-icon" title="Wyczyść filtry" aria-label="Wyczyść filtry maszyn" @click="clearArticleFilters">↺</button>
           </div>
 
           <div class="grid-scroll">
@@ -232,10 +232,10 @@
               </thead>
               <tbody>
                 <tr v-if="archiveStore.articlesLoading">
-                  <td colspan="5" class="empty-state">Ładowanie...</td>
+                  <td colspan="5"><TableSkeleton :rows="5" :cols="5" layout="inline" label="Ladowanie maszyn archiwum" /></td>
                 </tr>
                 <tr v-else-if="archiveStore.articlesError">
-                  <td colspan="5" class="empty-state error">Błąd: {{ archiveStore.articlesError }}</td>
+                  <td colspan="5" class="empty-state error" role="alert">Błąd: {{ archiveStore.articlesError }}</td>
                 </tr>
                 <tr v-else-if="!archiveStore.articles.length">
                   <td colspan="5" class="empty-state">Brak maszyn archiwum</td>
@@ -270,9 +270,9 @@
           <div class="grid-footer">
             <span>Łącznie: {{ archiveStore.articlesTotal }} maszyn</span>
             <div class="pagination">
-              <button class="page-btn" :disabled="archiveStore.articlesPage <= 1" @click="prevArticlesPage">‹</button>
-              <span style="padding:0 8px;font-size:12px;">{{ archiveStore.articlesPage }} / {{ articlesTotalPages }}</span>
-              <button class="page-btn" :disabled="archiveStore.articlesPage >= articlesTotalPages" @click="nextArticlesPage">›</button>
+              <button class="page-btn" :disabled="archiveStore.articlesPage <= 1" aria-label="Poprzednia strona maszyn" @click="prevArticlesPage">‹</button>
+              <span style="padding:0 8px;font-size:12px;" aria-current="page">{{ archiveStore.articlesPage }} / {{ articlesTotalPages }}</span>
+              <button class="page-btn" :disabled="archiveStore.articlesPage >= articlesTotalPages" aria-label="Następna strona maszyn" @click="nextArticlesPage">›</button>
             </div>
           </div>
         </div>
@@ -293,7 +293,7 @@
         </div>
 
         <div v-if="archiveStore.statsLoading" class="empty-state">Ładowanie statystyk...</div>
-        <div v-else-if="archiveStore.statsError" class="empty-state error">Błąd: {{ archiveStore.statsError }}</div>
+        <div v-else-if="archiveStore.statsError" class="empty-state error" role="alert">Błąd: {{ archiveStore.statsError }}</div>
 
         <template v-else>
           <!-- Podsumowanie -->
@@ -488,7 +488,7 @@
               </thead>
               <tbody>
                 <tr v-if="archiveStore.categoriesLoading">
-                  <td :colspan="authStore.isAdmin ? 4 : 3" class="empty-state">Ładowanie...</td>
+                  <td :colspan="authStore.isAdmin ? 4 : 3"><TableSkeleton :rows="5" :cols="4" layout="inline" label="Ladowanie kategorii archiwum" /></td>
                 </tr>
                 <tr v-else-if="!flatCategoryTree.length">
                   <td :colspan="authStore.isAdmin ? 4 : 3" class="empty-state">Brak kategorii archiwum</td>
@@ -501,8 +501,8 @@
                     <td><input v-model="editingCatData.code" class="form-control form-control-xs" @keydown.enter="saveEditCat" @keydown.esc="editingCatId = null" /></td>
                     <td style="color:var(--color-text-muted);font-size:11px;">{{ cat.level }}</td>
                     <td>
-                      <button class="btn-icon" style="color:var(--color-success);" @click="saveEditCat" title="Zapisz">✓</button>
-                      <button class="btn-icon" @click="editingCatId = null" title="Anuluj">✕</button>
+                      <button class="btn-icon" style="color:var(--color-success);" @click="saveEditCat" title="Zapisz" aria-label="Zapisz kategorię">✓</button>
+                      <button class="btn-icon" @click="editingCatId = null" title="Anuluj" aria-label="Anuluj edycję kategorii">✕</button>
                     </td>
                   </tr>
                   <tr v-else>
@@ -514,11 +514,12 @@
                     <td>{{ cat.code || '—' }}</td>
                     <td style="color:var(--color-text-muted);font-size:11px;">{{ cat.level }}</td>
                     <td v-if="authStore.isAdmin">
-                      <button class="btn-icon" @click="startEditCat(cat)" title="Edytuj">✎</button>
+                      <button class="btn-icon" @click="startEditCat(cat)" title="Edytuj" aria-label="Edytuj kategorię">✎</button>
                       <button
                         class="btn-icon"
                         :disabled="cat.children && cat.children.length > 0"
                         :title="cat.children && cat.children.length > 0 ? 'Ma podkategorie' : 'Usuń'"
+                        :aria-label="cat.children && cat.children.length > 0 ? 'Nie można usunąć — ma podkategorie' : 'Usuń kategorię'"
                         @click="deleteCat(cat.id)"
                       >✕</button>
                     </td>
@@ -534,14 +535,14 @@
     <!-- DRILL-DOWN DRAWER (z prawej, 60% szerokości) -->
     <Teleport to="body">
       <div v-if="drillDown.open" class="drill-overlay" @click="closeDrillDown">
-        <div class="drill-drawer" @click.stop>
+        <div class="drill-drawer" role="dialog" aria-modal="true" aria-labelledby="drill-title" @click.stop>
           <!-- Header -->
           <div class="drill-header">
             <div class="drill-title-block">
-              <h3 class="drill-title">{{ drillDown.title }}</h3>
+              <h3 class="drill-title" id="drill-title">{{ drillDown.title }}</h3>
               <p class="drill-subtitle">{{ drillDown.subtitle }}</p>
             </div>
-            <button class="drill-close" @click="closeDrillDown" title="Zamknij (Esc)">✕</button>
+            <button class="drill-close" @click="closeDrillDown" title="Zamknij (Esc)" aria-label="Zamknij panel drill-down">✕</button>
           </div>
 
           <!-- Search -->
@@ -561,6 +562,7 @@
               v-if="drillDown.search"
               class="btn-icon"
               title="Wyczyść"
+              aria-label="Wyczyść wyszukiwanie drill-down"
               @click="drillDown.search = ''; reloadDrillDown()"
             >↺</button>
           </div>
@@ -571,7 +573,7 @@
               <div class="skel-row" v-for="i in 5" :key="i"></div>
             </div>
 
-            <div v-else-if="archiveStore.drillDownError" class="drill-error">
+            <div v-else-if="archiveStore.drillDownError" class="drill-error" role="alert">
               <p>Nie udało się pobrać danych. Spróbuj ponownie.</p>
               <button class="btn btn-primary btn-sm" @click="reloadDrillDown">Spróbuj ponownie</button>
             </div>
@@ -617,9 +619,9 @@
           <div v-if="!archiveStore.drillDownLoading && archiveStore.drillDownContracts.length" class="drill-footer">
             <span>Łącznie: {{ archiveStore.drillDownTotal }} umów</span>
             <div class="pagination">
-              <button class="page-btn" :disabled="drillDown.page <= 1" @click="drillDown.page--; reloadDrillDown()">‹</button>
-              <span style="padding:0 8px;font-size:12px;">{{ drillDown.page }} / {{ Math.ceil(archiveStore.drillDownTotal / 50) || 1 }}</span>
-              <button class="page-btn" :disabled="drillDown.page >= Math.ceil(archiveStore.drillDownTotal / 50)" @click="drillDown.page++; reloadDrillDown()">›</button>
+              <button class="page-btn" :disabled="drillDown.page <= 1" aria-label="Poprzednia strona drill-down" @click="drillDown.page--; reloadDrillDown()">‹</button>
+              <span style="padding:0 8px;font-size:12px;" aria-current="page">{{ drillDown.page }} / {{ Math.ceil(archiveStore.drillDownTotal / 50) || 1 }}</span>
+              <button class="page-btn" :disabled="drillDown.page >= Math.ceil(archiveStore.drillDownTotal / 50)" aria-label="Następna strona drill-down" @click="drillDown.page++; reloadDrillDown()">›</button>
             </div>
           </div>
         </div>
@@ -633,6 +635,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useArchiveStore } from '@/stores/archive'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
+import TableSkeleton from '@/components/TableSkeleton.vue'
 import type {
   ArchiveCategoryPayload,
   ArchiveCategoryTreeNode,

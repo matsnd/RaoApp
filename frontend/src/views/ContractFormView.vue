@@ -6,7 +6,7 @@
       <!-- RAO-P2-022: badge rozliczona -->
       <span v-if="isEdit && form.is_settled" class="settled-badge">✓ Rozliczona</span>
       <button v-if="isEdit" class="toolbar-btn" title="Drukuj PDF" @click="generateReport('contract')">⎙</button>
-      <button v-if="isEdit" class="toolbar-btn" title="Protokół ZO" @click="generateReport('protocol_zo')">📄</button>
+      <button v-if="isEdit" class="toolbar-btn" title="Protokół zdania obiektu (ZO)" @click="generateReport('protocol_zo')">📄</button>
       <button v-if="isEdit" class="toolbar-btn" title="Przelicz wartość" @click="recalcTotal">∑</button>
       <button v-if="isEdit" class="toolbar-btn" title="Pobierz koszty z Fakturownia" @click="handleFakturownia">💰</button>
       <button class="btn btn-primary btn-sm" @click="handleSave" :disabled="saving">
@@ -34,7 +34,7 @@
               <input :value="contractStore.current?.number || '(auto)'" type="text" class="form-control" disabled />
             </div>
             <div class="form-group">
-              <label class="form-label">OID Fakturownia (opcjonalny)</label>
+              <label class="form-label">OID Fakturownia (opcjonalny)<GlossaryTip term="OID" definition="Identyfikator w Fakturownia" description="Domyślnie = numer umowy. Używany do synchronizacji faktur z kontrahentem." placement="top" :size="12" /></label>
               <input v-model="form.oid" type="text" class="form-control" placeholder="(auto = numer umowy)" pattern="[A-Za-z0-9\-/_]+" maxlength="40" />
               <small style="color:var(--color-text-muted);">Puste = użyj numeru umowy. Tylko litery, cyfry, -, /, _.</small>
             </div>
@@ -83,7 +83,7 @@
               </div>
               <div v-if="pnaError" class="pna-error" data-testid="pna-error">{{ pnaError }}</div>
               <div v-if="pnaInfo.found" class="pna-info-panel" data-testid="pna-info-panel">
-                <span class="pna-info-title">Wypełnione z PNA {{ form.postal_code }}</span>
+                <span class="pna-info-title">Wypełnione z <abbr title="Kod pocztowy (PNA)">PNA</abbr> {{ form.postal_code }}</span>
                 <span class="pna-info-row">
                   <span class="pna-info-item"><span class="pna-info-label">Gmina:</span> {{ pnaInfo.gmina || '—' }}</span>
                   <span class="pna-info-sep">•</span>
@@ -390,7 +390,7 @@
                 <table style="width:100%;font-size:11px;border-collapse:collapse;">
                   <thead>
                     <tr style="background:#f7fafc;">
-                      <th style="text-align:left;padding:4px;">Produkt FA</th>
+                      <th style="text-align:left;padding:4px;">Produkt <abbr title="Faktura (FA)">FA</abbr></th>
                       <th style="text-align:right;padding:4px;">Ilość</th>
                       <th style="text-align:right;padding:4px;">Cena netto</th>
                       <th style="text-align:right;padding:4px;">Suma netto</th>
@@ -1016,6 +1016,7 @@ import { formatCurrency, formatDate } from '@/utils/format'
 import ConditionPanel from '@/components/contracts/ConditionPanel.vue'
 import ServiceHourGrid from '@/components/contracts/ServiceHourGrid.vue'
 import ContractPeriodPicker from '@/components/shared/ContractPeriodPicker.vue'
+import GlossaryTip from '@/components/GlossaryTip.vue'
 import api from '@/composables/useApi'
 
 const props = defineProps({ id: String })

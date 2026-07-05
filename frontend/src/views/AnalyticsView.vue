@@ -306,10 +306,10 @@ onMounted(async () => {
 
         <!-- PNA breakdown (tylko dla drill po mieście — RAO-P2-069) -->
         <div v-if="store.locationDetails.pna_breakdown?.length" class="drill-subsection">
-          <div class="drill-subtitle">📮 Rozbicie na kody PNA</div>
+          <div class="drill-subtitle">📮 Rozbicie na kody <abbr title="Kod pocztowy (PNA)">PNA</abbr></div>
           <table class="drill-table">
             <thead>
-              <tr><th>PNA</th><th>Wynajmów</th><th>Przychód</th></tr>
+              <tr><th><abbr title="Kod pocztowy (PNA)">PNA</abbr></th><th>Wynajmów</th><th>Przychód</th></tr>
             </thead>
             <tbody>
               <tr v-for="p in store.locationDetails.pna_breakdown" :key="p.postal_code">
