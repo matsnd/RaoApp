@@ -54,7 +54,6 @@ const feesColumns: AnalyticsColumn[] = [
 
 const locationsColumns: AnalyticsColumn[] = [
   { key: 'city', label: 'Miasto' },
-  { key: 'postal_code', label: 'Kod PNA' },
   { key: 'rentals_count', label: 'Wynajmów', align: 'right' },
   { key: 'total_revenue', label: 'Przychód', align: 'right' },
 ]
@@ -104,8 +103,6 @@ const feesRows = computed<AnalyticsRow[]>(() =>
 const locationsRows = computed<AnalyticsRow[]>(() =>
   store.locations.map((l: LocationStatItem) => ({
     city: l.city,
-    // RAO-P2-065 #9: fallback do city gdy postal_code=null (nie pusty string)
-    postal_code: l.postal_code ?? `(brak PNA — ${l.city})`,
     rentals_count: l.rentals_count,
     total_revenue: Number(l.total_revenue),
   })),
@@ -191,26 +188,25 @@ function onMachineRowClick(row: AnalyticsRow): void {
 }
 
 function onLocationRowClick(row: AnalyticsRow): void {
-  const pna = String(row.postal_code ?? '')
-  // RAO-P2-065 #9: gdy brak PNA (fallback do city), drill-down po mieście
-  if (!pna || pna.startsWith('(brak PNA')) {
-    const city = String(row.city ?? '')
-    if (city) openDrillDown('location', `city:${city}`, city)
-    return
-  }
-  openDrillDown('location', pna, `${row.city} ${pna}`.trim())
+  // RAO-P1-013: drill-down po mieście (PNA usunięte z tabeli głównej)
+  const city = String(row.city ?? '')
+  if (city) openDrillDown('location', `city:${city}`, city)
 }
 
 function onServiceClick(row: AnalyticsRow) {
   // RAO-P1-014: drilldown do szczegółów usługi (które umowy, kiedy, kwota)
-  // TODO: Implement drilldown modal lub nawigacja do szczegółów usługi
-  console.log('Service click:', row)
+  // Używamy alert jako tymczasowe rozwiązanie (TODO: drilldown modal)
+  const serviceName = row.service_name as string
+  const revenue = row.total_revenue as number
+  alert(`Szczegóły usługi: ${serviceName}\nPrzychód: ${revenue.toLocaleString('pl-PL')} zł\n\nTODO: Implement drilldown modal z listą umów`)
 }
 
 function onCategoryClick(row: AnalyticsRow) {
   // RAO-P1-014: drilldown do szczegółów kategorii (jakie maszyny, umowy, przychód)
-  // TODO: Implement drilldown modal lub nawigacja do szczegółów kategorii
-  console.log('Category click:', row)
+  // Używamy alert jako tymczasowe rozwiązanie (TODO: drilldown modal)
+  const categoryName = row.category_name as string
+  const revenue = row.revenue as number
+  alert(`Szczegóły kategorii: ${categoryName}\nPrzychód: ${revenue.toLocaleString('pl-PL')} zł\n\nTODO: Implement drilldown modal z listą maszyn/umów`)
 }
 
 // ── Fetch wszystkich 5 endpointów (parallel) ─────────────────────────────────
@@ -351,7 +347,7 @@ watch(
           :rows="locationsRows"
           sort-key="total_revenue"
           sort-dir="desc"
-          row-key="postal_code"
+          row-key="city"
           :clickable="true"
           :loading="store.loading"
           @row-click="onLocationRowClick"

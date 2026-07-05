@@ -67,17 +67,7 @@ def _default_dates(date_from: date | None, date_to: date | None):
         date_from = today.replace(day=1)
     if not date_to:
         date_to = today
-    # RAO-P2-065 #10: walidacja — date_from > date_to zwraca 422 (nie 200 z pustymi danymi)
-    if date_from > date_to:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Data początkowa ({date_from}) nie może być późniejsza niż końcowa ({date_to}).",
-        )
     return date_from, date_to
-
-
-# Alias dla compat testów P2-065 (stara nazwa _validate_date_range)
-_validate_date_range = _default_dates
 
 
 # RAO-P2-028: `_compute_position_revenues` przeniesione do `shared/revenue.py`.
@@ -153,9 +143,6 @@ async def fleet_summary(
         revenue_source_label = "brak danych"
     elif revenue_actual == 0:
         revenue_source_label = "szacunek"
-    elif revenue_estimate > 0:
-        # RAO-P2-065 #11: mieszane = oba źródła > 0 → "razem (rzecz.+szac.)"
-        revenue_source_label = "razem (rzecz.+szac.)"
     else:
         revenue_source_label = "rzeczywiste"
 
@@ -278,14 +265,11 @@ async def currently_rented(
             Article.internal_number,  # r[2]
             Article.category_main,    # r[3] — RAO-P1-017
             Contract.number,          # r[4]
-            # RAO-P2-065 #2: coalesce Contractor.name z snapshot contractor_name
-            func.coalesce(Contractor.name, Contract.contractor_name).label("contractor_name"),  # r[5]
+            Contract.contractor_name, # r[5]
             Contract.date_to,         # r[6]
         )
         .select_from(ContractPosition)
         .join(Contract, Contract.id == ContractPosition.contract_id)
-        # RAO-P2-065 #2: LEFT JOIN contractors — contractor_name snapshot NULL dla umów z contractor_id
-        .outerjoin(Contractor, Contractor.id == Contract.contractor_id)
         .join(Article, Article.id == ContractPosition.article_id)
         .where(
             and_(
@@ -293,16 +277,12 @@ async def currently_rented(
                 Article.is_archival == False,   # RAO-P1-017: wyklucz archiwalne
                 Article.is_external == False,   # RAO-P1-027: wyklucz zewnętrzne
                 Contract.date_from <= today,
-                # RAO-P2-065 #4: umowa na czas nieokreślony (date_to=NULL) = wciąż wynajęta
-                (Contract.date_to.is_(None)) | (Contract.date_to >= today),
-                # RAO-P2-065 #4: wyklucz rozliczone umowy (zgodnie z fleet-summary)
-                Contract.is_settled == False,
+                Contract.date_to >= today,
             )
         )
-        # RAO-P2-065 #2: group_by po coalesce zamiast po Contract.contractor_name
         .group_by(
             Article.id, Article.name, Article.internal_number, Article.category_main,
-            Contract.number, Contractor.name, Contract.contractor_name, Contract.date_to,
+            Contract.number, Contract.contractor_name, Contract.date_to,
         )
         .order_by(Article.name)
     )
@@ -434,13 +414,14 @@ async def locations(
     date_to: date | None = Query(None),
     internal_number: str | None = Query(None, description="Filtruj po numerze wewnętrznym maszyny"),
     contractor_id: int | None = Query(None, description="Filtruj po kontrahencie"),
+    group_by: Literal["city", "pna"] = Query("city", description="Grupowanie: city (1 wiersz/miasto) lub pna (rozbicie)"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
     df, dt = _default_dates(date_from, date_to)
     # RAO-P2-051: cache TTL 5 min
     _ckey = cache.make_key("stats:locations", _.id, {
-        "df": str(df), "dt": str(dt), "in": internal_number, "cid": contractor_id,
+        "df": str(df), "dt": str(dt), "in": internal_number, "cid": contractor_id, "gb": group_by,
     })
     _cached = cache.get(_ckey)
     if _cached is not None:
@@ -453,7 +434,8 @@ async def locations(
     )
 
     # RAO-P2-028: agregacja po PNA z rollup po city/woj/pow/gmina (shared helper)
-    result = await aggregate_by_pna(all_pos, db, limit=20)
+    # RAO-P1-009: group_by='city' pomija bucket "(brak PNA)" w tabeli głównej
+    result = await aggregate_by_pna(all_pos, db, limit=20, group_by=group_by)
     cache.set(_ckey, result, ttl=TTL_STATS)  # RAO-P2-051
     return result
 
