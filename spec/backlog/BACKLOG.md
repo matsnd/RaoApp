@@ -19,6 +19,31 @@
 
 ## 🚨 P0 — Production Blockers
 
+### P0-012: ConditionPanel — Stawka 1 wymagana blokuje warunek "powyżej X dni"
+
+```yaml
+id: P0-012
+status: done
+priority: P0
+created: 2026-07-05
+resolved: 2026-07-05
+reporter: operator (manual test 2026-07-05)
+component: frontend/ConditionPanel (warunki rozliczenia)
+severity: blocker
+```
+
+**Symptom:** Warunek "powyżej 16 dni - 120,00 / doba" (tylko Stawka 2, bez Stawki 1) nie zapisuje się — toast "Podaj stawkę 1".
+
+**Root cause:** `ConditionPanel.vue:296` — walidacja wymagała `rate1` zawsze. Backend (`schemas.py:43`) pozwalał na `rate1=None`.
+
+**Fix:**
+- Walidacja: wymagaj `rate1` LUB `rate2` (nie tylko `rate1`)
+- Label "Stawka 1 (zł) *": gwiazdka warunkowa (tylko gdy brak `rate2`)
+- `buildAutoDescription`: obsługa warunku z samym `rate2` ("powyżej — 120,00/doba")
+- `formatCascadingPreview`: pokaż warunek z samym `rate2` w preview
+
+Commit: (po commit)
+
 ### P0-011: ContractFormView — TypeError: inv.total_net.toFixed is not a function
 
 ```yaml

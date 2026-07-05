@@ -111,7 +111,7 @@
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">Stawka 1 (zł) *</label>
+              <label class="form-label">Stawka 1 (zł) <span v-if="!condForm.rate2" title="Wymagane gdy nie podano Stawki 2">*</span></label>
               <input v-model="condForm.rate1" type="number" step="0.01" class="form-control" placeholder="0.00" />
             </div>
             <div class="form-group">
@@ -247,14 +247,22 @@ function buildAutoDescription() {
   const rtName = rateTypes.value.find(rt => rt.id === condForm.value.rate_type_id)?.name
   if (rtName) parts.push(rtName)
   const r1 = condForm.value.rate1
-  if (r1 || r1 === 0) {
-    const formatted = formatCurrency(r1)
-    parts.push(condForm.value.billing_label ? `${formatted}/${condForm.value.billing_label}` : formatted)
-  }
   const r2 = condForm.value.rate2
-  if (r2 && Number(r2) > 0) parts.push(`+ ${formatCurrency(r2)}`)
-  if (condForm.value.period_count) {
-    parts.push(`do ${condForm.value.period_count}${condForm.value.billing_label ? ' ' + condForm.value.billing_label : ''}`)
+  const hasR1 = r1 !== null && r1 !== '' && r1 !== undefined
+  const hasR2 = r2 !== null && r2 !== '' && r2 !== undefined && Number(r2) > 0
+  // RAO-P0-012: warunek "powyżej X dni" — tylko rate2, opis "powyżej N dni - 120,00 / doba"
+  if (!hasR1 && hasR2 && !condForm.value.period_count) {
+    const formatted = formatCurrency(r2)
+    parts.push(condForm.value.billing_label ? `powyżej — ${formatted}/${condForm.value.billing_label}` : `powyżej — ${formatted}`)
+  } else {
+    if (hasR1 || r1 === 0) {
+      const formatted = formatCurrency(r1)
+      parts.push(condForm.value.billing_label ? `${formatted}/${condForm.value.billing_label}` : formatted)
+    }
+    if (hasR2) parts.push(`+ ${formatCurrency(r2)}`)
+    if (condForm.value.period_count) {
+      parts.push(`do ${condForm.value.period_count}${condForm.value.billing_label ? ' ' + condForm.value.billing_label : ''}`)
+    }
   }
   if (condForm.value.minimum) parts.push(`min. ${condForm.value.minimum}`)
   return parts.join(', ')
@@ -293,14 +301,19 @@ function editCondition(cond) {
 }
 
 async function saveCondition() {
-  if (!condForm.value.rate1 && condForm.value.rate1 !== 0) {
-    toastStore.warning('Podaj stawkę 1')
+  // RAO-P0-012: Stawka 1 wymagana TYLKO gdy nie podano Stawki 2.
+  // Warunek "powyżej X dni" ma tylko rate2 (bez rate1) — nie blokować zapisu.
+  const hasRate1 = condForm.value.rate1 !== null && condForm.value.rate1 !== '' && condForm.value.rate1 !== undefined
+  const hasRate2 = condForm.value.rate2 !== null && condForm.value.rate2 !== '' && condForm.value.rate2 !== undefined
+  if (!hasRate1 && !hasRate2) {
+    toastStore.warning('Podaj stawkę 1 lub stawkę 2')
     return
   }
   savingCond.value = true
   try {
     const payload = { ...condForm.value }
     if (!payload.billing_label) payload.billing_label = null
+    if (!payload.rate1) payload.rate1 = null
     if (!payload.rate2) payload.rate2 = null
     if (editingCond.value) {
       await contractStore.updateCondition(props.contractId, props.positionId, editingCond.value.id, payload)
@@ -332,10 +345,13 @@ async function removeCondition(cond) {
 function formatCascadingPreview() {
   // Frontend version of format_position_conditions_cascading from backend
   const tempConds = []
-  if (condForm.value.rate1 !== null && condForm.value.rate1 !== undefined && condForm.value.rate1 !== '') {
+  // RAO-P0-012: warunek "powyżej X dni" ma tylko rate2 (bez rate1) — też pokaż w preview
+  const hasRate1 = condForm.value.rate1 !== null && condForm.value.rate1 !== undefined && condForm.value.rate1 !== ''
+  const hasRate2 = condForm.value.rate2 !== null && condForm.value.rate2 !== undefined && condForm.value.rate2 !== ''
+  if (hasRate1 || hasRate2) {
     tempConds.push({
-      rate1: Number(condForm.value.rate1),
-      rate2: condForm.value.rate2 ? Number(condForm.value.rate2) : null,
+      rate1: hasRate1 ? Number(condForm.value.rate1) : null,
+      rate2: hasRate2 ? Number(condForm.value.rate2) : null,
       billing_label: condForm.value.billing_label || 'doba',
       period_count: condForm.value.period_count
     })
