@@ -137,7 +137,7 @@ def step5_verify(args) -> int:
 STEPS = [
     ("1", "legacy", "Migracja legacy dump → rao_new (DROP bazy! wymaga --confirm-drop)", step1_legacy),
     ("2", "archive", "Archive split: legacy → archive_* (gruba krecha)", step2_archive),
-    ("3", "demo", "Seed danych demo (umowy+lokalizacje+zestawy usług+FA-pending)", step3_demo),
+    ("3", "demo", "Seed danych demo (umowy+lokalizacje+zestawy usług+cenniki kaskadowe+FA-pending)", step3_demo),
     ("4", "fa", "Faktury w Fakturowni (backfill + FA-pending)", step4_fa),
     ("5", "verify", "Weryfikacja środowiska demo", step5_verify),
 ]
@@ -161,6 +161,7 @@ def main() -> int:
     ap.add_argument("--steps", default="3-5", help="Kroki do wykonania, np. '3-5', '1,4' (domyślnie 3-5)")
     ap.add_argument("--list", action="store_true", help="Pokaż listę kroków i wyjdź")
     ap.add_argument("--confirm-drop", action="store_true", help="Potwierdź DROP bazy dla kroku 1")
+    ap.add_argument("--demo", action="store_true", help="Flaga demo: pomija step 1 (legacy dump), tylko step 2-5 (dla szybkiego refresha demo)")
     args = ap.parse_args()
 
     if args.list:
@@ -174,6 +175,14 @@ def main() -> int:
     if not plan:
         print(f"Brak pasujących kroków dla --steps={args.steps!r}. Użyj --list.")
         return 2
+
+    # --demo: pomiń step 1 (legacy dump) jeśli user używa --demo
+    if args.demo and "1" in wanted:
+        print("⚠️ --demo: pomijam krok 1 (legacy dump) — baza musi już mieć dane z dumpa")
+        plan = [s for s in plan if s[0] != "1"]
+        if not plan:
+            print("Brak pozostałych kroków do wykonania po pominięciu kroku 1.")
+            return 0
 
     print("=" * 60)
     print("RAO migrate_all — plan: " + ", ".join(f"{s[0]}:{s[1]}" for s in plan))

@@ -47,7 +47,7 @@ from database import engine, AsyncSessionLocal
 from categories.models import Category
 from articles.models import Article
 from contractors.models import Contractor, ContractorAddress
-from settings.models import Salesperson, Branch, RateType
+from settings.models import Salesperson, Branch, RateType, ArticleRatePreset, ArticleRatePresetItem
 from contracts.models import Contract, ContractPosition, PositionCondition, ContractServiceFee
 from settlements.models import ContractSettlement
 
@@ -206,7 +206,6 @@ HANDLOWCY = [
 
 ODDZIALY = [
     {"name": "RAO Warszawa (HQ)", "city": "Warszawa", "street": "ul. Przykładowa 1", "postal_code": "00-001"},
-    {"name": "RAO Gdańsk", "city": "Gdańsk", "street": "ul. Portowa 5", "postal_code": "80-001"},
 ]
 
 RATE_TYPES = [
@@ -541,14 +540,14 @@ def generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_n
     contracts = []
     today = date.today()
 
-    def _add(number, i, date_from, days, contract_type, is_settled, fa_pending=False, branch_id=None):
+    def _add(number, i, date_from, days, contract_type, is_settled, fa_pending=False):
         date_to = date_from + timedelta(days=days)
         is_active = date_to >= today
         positions, fees = _build_positions_and_fees(i, days, maszyny, uslugi, rt_dniowy)
         contracts.append({
             "number": number,
             "contractor_id": contractors[i % len(contractors)].id,
-            "branch_id": branch_id if branch_id is not None else branches[0].id,
+            "branch_id": branches[0].id,
             "salesperson_id": salespeople[i % len(salespeople)].id,
             "contract_type": contract_type,
             "date_from": date_from,
@@ -592,31 +591,6 @@ def generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_n
         days = 7 + (k % 3) * 7
         number = f"{contract_type}{k + 25:03d}/2026"  # S025..S032/2026 — kontynuacja numeracji
         _add(number, i, date_from, days, contract_type, is_settled=False, fa_pending=True)
-
-    # ── Pula D: umowy gdańskie (branch_id ≠ 1, suffix "G" w numerze) ──────────
-    # RAO-P1-055: demo /stats/by-branch — umowy z oddziału Gdańsk.
-    # Format numeru: S{NNN}/{ROK}G (G na końcu, zgodnie ze starą aplikacją WinForms).
-    # 6 umów: 3 historia 2025 (rozliczone) + 3 bieżące 2026 (mix stanów).
-    gdansk_branch = branches[1].id if len(branches) > 1 else branches[0].id
-    for k in range(6):
-        if k < 3:
-            # Historia 2025 — rozliczone
-            contract_type = "S" if k % 2 == 0 else "U"
-            months_back = 14 + k * 3
-            date_from = today - timedelta(days=months_back * 30)
-            days = 10 + k * 5
-            number = f"{contract_type}{k + 40:03d}/2025G"
-            _add(number, k + 5, date_from, days, contract_type, is_settled=True, branch_id=gdansk_branch)
-        else:
-            # Bieżące 2026 — mix stanów
-            contract_type = "S" if k % 2 == 0 else "U"
-            months_back = (k - 3) * 4
-            date_from = today - timedelta(days=months_back * 30 + 10)
-            days = 14 + k * 3
-            date_to = date_from + timedelta(days=days)
-            is_active = date_to >= today
-            number = f"{contract_type}{k + 40:03d}/2026G"
-            _add(number, k + 5, date_from, days, contract_type, is_settled=(not is_active), branch_id=gdansk_branch)
 
     return contracts
 
@@ -834,6 +808,65 @@ async def seed_company(db: AsyncSession):
     return company
 
 
+async def seed_article_rate_presets(db: AsyncSession, art_by_name: dict):
+    """RAO-P1-001: Predefiniowane cenniki kaskadowe per maszyna z CENNIKI_KASKADOWE."""
+    from settings.models import ArticleRatePreset, ArticleRatePresetItem
+    from sqlalchemy import select
+
+    created_presets = 0
+    created_items = 0
+
+    for machine_name, cennik in CENNIKI_KASKADOWE.items():
+        article = art_by_name.get(machine_name)
+        if not article:
+            print(f"  [SKIP] {machine_name} — brak w art_by_name (demo maszyna nie istnieje)")
+            continue
+
+        # Sprawdź czy preset już istnieje (idempotentny)
+        existing = await db.execute(
+            select(ArticleRatePreset).where(
+                ArticleRatePreset.article_id == article.id,
+                ArticleRatePreset.name == "Standard"
+            )
+        )
+        if existing.scalar_one_or_none():
+            print(f"  [SKIP] {machine_name} — preset 'Standard' już istnieje")
+            continue
+
+        # Utwórz preset
+        preset = ArticleRatePreset(
+            company_id=1,
+            article_id=article.id,
+            name="Standard",
+            description="Cennik kaskadowy standardowy (1-3 dni, 4-16 dni, powyżej 16 dni)",
+            is_default=True,
+            sort_order=0,
+        )
+        db.add(preset)
+        await db.flush()
+        created_presets += 1
+
+        # Dodaj warunki (items)
+        for idx, warunek in enumerate(cennik["warunki"], start=1):
+            item = ArticleRatePresetItem(
+                preset_id=preset.id,
+                rate_type_id=5,  # "Stawka dniowa" — seed_rate_types tworzy id=5
+                description=warunek["description"],
+                rate1=warunek["rate1"],
+                rate2=warunek["rate2"],
+                billing_label=warunek["billing_label"],
+                period_count=warunek["period_count"],
+                minimum=warunek["minimum"],
+                sort_order=idx,
+            )
+            db.add(item)
+            created_items += 1
+
+    await db.commit()
+    print(f"  Cenniki kaskadowe: {created_presets} presetów, {created_items} warunków")
+    return created_presets
+
+
 async def _resolve_postal_code_id(db: AsyncSession, postal_code: str) -> int | None:
     """Znajdź FK do postal_codes po PNA (deterministyczna lokalizacja — RAO-P2-028)."""
     from integrations.models import PostalCode
@@ -1022,6 +1055,9 @@ async def main():
 
         print("\n[7/9] Konfiguracja firmy (NIP, konto, header_text)...")
         await seed_company(db)
+
+        print("\n[7.5/9] Cenniki kaskadowe per maszyna (RAO-P1-001)...")
+        await seed_article_rate_presets(db, art_by_name)
 
         print("\n[8/9] Konfiguracja zestawów usług (6 presetów + ServiceFeeTemplateItem)...")
         await seed_konfiguracja(db, art_by_name)

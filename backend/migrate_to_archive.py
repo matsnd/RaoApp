@@ -354,7 +354,7 @@ FROM `articles` a
 WHERE a.id IN (
   SELECT DISTINCT cp.article_id
   FROM `contract_positions` cp
-  WHERE cp.contract_id IN (SELECT id FROM `contracts` WHERE is_legacy = 1)
+  WHERE cp.contract_id IN (SELECT id FROM `contracts` )
 )
 """
 
@@ -378,7 +378,7 @@ SELECT id, contractor_id, branch_id, salesperson_id, number, oid, auto_number,
        hide_delivery_address, signatures_on_page1, working_days_per_week,
        position_count, is_settled, settled_at, created_at, updated_at
 FROM `contracts`
-WHERE is_legacy = 1
+
 """
 
 # archive_contract_positions: pozycje dla legacy umów
@@ -392,7 +392,7 @@ SELECT cp.id, cp.contract_id, cp.article_id, cp.rental_type, cp.description,
        cp.billing_frequency, cp.billing_unit, cp.supplier_id, cp.delivery_date,
        cp.article_name
 FROM `contract_positions` cp
-WHERE cp.contract_id IN (SELECT id FROM `contracts` WHERE is_legacy = 1)
+WHERE cp.contract_id IN (SELECT id FROM `contracts` )
 """
 
 # archive_position_conditions: warunki dla legacy pozycji
@@ -405,7 +405,7 @@ SELECT pc.id, pc.position_id, pc.rate_type_id, pc.description, pc.rate1, pc.rate
 FROM `position_conditions` pc
 WHERE pc.position_id IN (
   SELECT cp.id FROM `contract_positions` cp
-  WHERE cp.contract_id IN (SELECT id FROM `contracts` WHERE is_legacy = 1)
+  WHERE cp.contract_id IN (SELECT id FROM `contracts` )
 )
 """
 
@@ -417,7 +417,7 @@ INSERT IGNORE INTO `archive_contract_service_fees`
 SELECT id, contract_id, sort_order, name, amount_from, amount_to, unit, description,
        is_active, article_id, default_price
 FROM `contract_service_fees`
-WHERE contract_id IN (SELECT id FROM `contracts` WHERE is_legacy = 1)
+WHERE contract_id IN (SELECT id FROM `contracts` )
 """
 
 # archive_contract_settlements: rozliczenia dla legacy umów
@@ -428,7 +428,7 @@ INSERT IGNORE INTO `archive_contract_settlements`
 SELECT id, contract_id, position_id, service_fee_id, cost_client, cost_company, notes,
        created_at, updated_at, settled_at, source
 FROM `contract_settlements`
-WHERE contract_id IN (SELECT id FROM `contracts` WHERE is_legacy = 1)
+WHERE contract_id IN (SELECT id FROM `contracts` )
 """
 
 ALL_INSERTS = [
@@ -443,28 +443,28 @@ ALL_INSERTS = [
 
 
 # --- DELETE legacy z tabel oryginalnych (kolejność cascade-safe) -----------
-# Dzieci przed rodzicami. Używamy subquery z contracts WHERE is_legacy=1.
+# Dzieci przed rodzicami. Używamy subquery z contracts .
 # Po pierwszym uruchomieniu nie ma już legacy wierszy -> DELETE = no-op (idempotentne).
 DEL_SETTLEMENTS = (
     "DELETE FROM `contract_settlements` "
-    "WHERE contract_id IN (SELECT id FROM `contracts` WHERE is_legacy = 1)"
+    "WHERE contract_id IN (SELECT id FROM `contracts` )"
 )
 DEL_SERVICE_FEES = (
     "DELETE FROM `contract_service_fees` "
-    "WHERE contract_id IN (SELECT id FROM `contracts` WHERE is_legacy = 1)"
+    "WHERE contract_id IN (SELECT id FROM `contracts` )"
 )
 DEL_CONDITIONS = (
     "DELETE FROM `position_conditions` "
     "WHERE position_id IN ("
     "  SELECT cp.id FROM `contract_positions` cp "
-    "  WHERE cp.contract_id IN (SELECT id FROM `contracts` WHERE is_legacy = 1)"
+    "  WHERE cp.contract_id IN (SELECT id FROM `contracts` )"
     ")"
 )
 DEL_POSITIONS = (
     "DELETE FROM `contract_positions` "
-    "WHERE contract_id IN (SELECT id FROM `contracts` WHERE is_legacy = 1)"
+    "WHERE contract_id IN (SELECT id FROM `contracts` )"
 )
-DEL_CONTRACTS = "DELETE FROM `contracts` WHERE is_legacy = 1"
+DEL_CONTRACTS = "DELETE FROM `contracts` "
 
 ALL_DELETES = [
     ("contract_settlements", DEL_SETTLEMENTS),
@@ -536,28 +536,28 @@ async def pre_check_counts(conn) -> dict:
     counts = {}
     queries = {
         "contracts_total": "SELECT COUNT(*) FROM `contracts`",
-        "contracts_legacy": "SELECT COUNT(*) FROM `contracts` WHERE is_legacy=1",
+        "contracts_total": "SELECT COUNT(*) FROM `contracts` ",
         "positions_legacy": (
             "SELECT COUNT(*) FROM `contract_positions` "
-            "WHERE contract_id IN (SELECT id FROM `contracts` WHERE is_legacy=1)"
+            "WHERE contract_id IN (SELECT id FROM `contracts` )"
         ),
         "conditions_legacy": (
             "SELECT COUNT(*) FROM `position_conditions` "
             "WHERE position_id IN (SELECT cp.id FROM `contract_positions` cp "
-            "WHERE cp.contract_id IN (SELECT id FROM `contracts` WHERE is_legacy=1))"
+            "WHERE cp.contract_id IN (SELECT id FROM `contracts` ))"
         ),
         "service_fees_legacy": (
             "SELECT COUNT(*) FROM `contract_service_fees` "
-            "WHERE contract_id IN (SELECT id FROM `contracts` WHERE is_legacy=1)"
+            "WHERE contract_id IN (SELECT id FROM `contracts` )"
         ),
         "settlements_legacy": (
             "SELECT COUNT(*) FROM `contract_settlements` "
-            "WHERE contract_id IN (SELECT id FROM `contracts` WHERE is_legacy=1)"
+            "WHERE contract_id IN (SELECT id FROM `contracts` )"
         ),
         "articles_legacy": (
             "SELECT COUNT(*) FROM `articles` a WHERE a.id IN ("
             "SELECT DISTINCT cp.article_id FROM `contract_positions` cp "
-            "WHERE cp.contract_id IN (SELECT id FROM `contracts` WHERE is_legacy=1))"
+            "WHERE cp.contract_id IN (SELECT id FROM `contracts` ))"
         ),
         "categories_total": "SELECT COUNT(*) FROM `categories`",
         "orphan_positions": (
@@ -624,8 +624,8 @@ async def main() -> int:
         for k, v in pre_counts.items():
             log(f"  {k} = {v}")
 
-        if pre_counts["contracts_legacy"] == 0:
-            log("Brak legacy umów (is_legacy=1) — nic do zrobienia.")
+        if pre_counts["contracts_total"] == 0:
+            log("Brak umów w bazie — nic do zrobienia.")
             log("Sprawdzam czy archive_* mają dane (re-run po sukcesie)...")
             async with conn.cursor() as cur:
                 await cur.execute("SELECT COUNT(*) FROM `archive_contracts`")
