@@ -300,23 +300,6 @@ async def startup_migrations():
             "ALTER TABLE company ADD COLUMN IF NOT EXISTS logo_path VARCHAR(500) NULL"
         ))
         # service_fee_template_items utworzone przez Base.metadata.create_all (nowa tabela)
-        # RAO-P1-014: tabela service_hours dla ewidencji godzin operatora
-        await conn.execute(sa.text("""
-            CREATE TABLE IF NOT EXISTS service_hours (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                position_id INT NOT NULL COMMENT 'Pozycja umowy (dla umów typu U)',
-                service_date DATE NOT NULL COMMENT 'Data wykonania usługi',
-                time_from TIME NULL COMMENT 'Godzina rozpoczęcia',
-                time_to TIME NULL COMMENT 'Godzina zakończenia',
-                notes VARCHAR(500) NULL COMMENT 'Uwagi',
-                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                CONSTRAINT fk_service_hours_position FOREIGN KEY (position_id)
-                    REFERENCES contract_positions(id) ON DELETE CASCADE,
-                INDEX idx_service_hours_position (position_id),
-                INDEX idx_service_hours_date (service_date)
-            ) ENGINE=InnoDB COMMENT='Godziny pracy operatora dla umów usługowych'
-        """))
         # RAO-P1-012: contract_settlements - rozliczenia umów (koszty klient vs firma)
         await conn.execute(sa.text("""
             CREATE TABLE IF NOT EXISTS contract_settlements (

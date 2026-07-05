@@ -79,7 +79,7 @@ Plik jest kopią `Asortyment - Produkty - Maszyny - Toolsmart.xlsx` (oryginał k
 | 9 | `09_Szablony_oplat` | `service_fee_templates` | 10 | Wzorce opłat serwisowych |
 | 10 | `10_Firma` | `company` | 1 | Nagłówek dokumentów |
 
-**Pominięte (dane transakcyjne / wrażliwe):** `contracts`, `contract_positions`, `position_conditions`, `contract_service_fees`, `service_hours`, `users`.
+**Pominięte (dane transakcyjne / wrażliwe):** `contracts`, `contract_positions`, `position_conditions`, `contract_service_fees`, `users`.
 
 ---
 
