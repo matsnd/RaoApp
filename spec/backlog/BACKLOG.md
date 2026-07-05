@@ -4916,8 +4916,8 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
 | RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | done | in-memory limiter (5/60s/IP) + 429 + Retry-After header + 8 unit tests |
 | RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | done | docs_url/redoc_url/openapi_url conditional on settings.environment (RAO_ENV) |
-| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | triaged | → in_progress |
-| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | triaged | → in_progress |
+| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | done | StateMessage + TableSkeleton + SkeletonRow w 13 widokach (Dashboard, Home, Analytics 4 tabs, Archive, Settings, Admin, Commission, Worker, ContractForm, ArticleForm, ContractorForm, Login, ChangePassword, ResetPassword) |
+| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | done | validateForm() w ChangePassword/ResetPassword/ArticleForm/ContractorForm + required/aria-invalid/pattern/min/max/step w ContractForm/ArticleForm/ContractorForm/Settings + NIP checksum validation |
 | RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | done | shared/cache.py TTLCache (thread-safe, lazy eviction) + 11 endpointów stats/* z cache + /cache/clear + /cache/stats + 22 unit tests |
 | RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
 | RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
@@ -5744,8 +5744,8 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
 | RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | done | in-memory limiter (5/60s/IP) + 429 + Retry-After header + 8 unit tests |
 | RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | done | docs_url/redoc_url/openapi_url conditional on settings.environment (RAO_ENV) |
-| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | triaged | → in_progress |
-| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | triaged | → in_progress |
+| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | done | StateMessage + TableSkeleton + SkeletonRow w 13 widokach (Dashboard, Home, Analytics 4 tabs, Archive, Settings, Admin, Commission, Worker, ContractForm, ArticleForm, ContractorForm, Login, ChangePassword, ResetPassword) |
+| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | done | validateForm() w ChangePassword/ResetPassword/ArticleForm/ContractorForm + required/aria-invalid/pattern/min/max/step w ContractForm/ArticleForm/ContractorForm/Settings + NIP checksum validation |
 | RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | done | shared/cache.py TTLCache (thread-safe, lazy eviction) + 11 endpointów stats/* z cache + /cache/clear + /cache/stats + 22 unit tests |
 | RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
 | RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
@@ -7400,8 +7400,8 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
 | RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | done | in-memory limiter (5/60s/IP) + 429 + Retry-After header + 8 unit tests |
 | RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | done | docs_url/redoc_url/openapi_url conditional on settings.environment (RAO_ENV) |
-| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | triaged | → in_progress |
-| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | triaged | → in_progress |
+| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | done | StateMessage + TableSkeleton + SkeletonRow w 13 widokach (Dashboard, Home, Analytics 4 tabs, Archive, Settings, Admin, Commission, Worker, ContractForm, ArticleForm, ContractorForm, Login, ChangePassword, ResetPassword) |
+| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | done | validateForm() w ChangePassword/ResetPassword/ArticleForm/ContractorForm + required/aria-invalid/pattern/min/max/step w ContractForm/ArticleForm/ContractorForm/Settings + NIP checksum validation |
 | RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | done | shared/cache.py TTLCache (thread-safe, lazy eviction) + 11 endpointów stats/* z cache + /cache/clear + /cache/stats + 22 unit tests |
 | RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
 | RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
@@ -8323,8 +8323,8 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
 | RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | done | in-memory limiter (5/60s/IP) + 429 + Retry-After header + 8 unit tests |
 | RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | done | docs_url/redoc_url/openapi_url conditional on settings.environment (RAO_ENV) |
-| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | triaged | → in_progress |
-| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | triaged | → in_progress |
+| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | done | StateMessage + TableSkeleton + SkeletonRow w 13 widokach (Dashboard, Home, Analytics 4 tabs, Archive, Settings, Admin, Commission, Worker, ContractForm, ArticleForm, ContractorForm, Login, ChangePassword, ResetPassword) |
+| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | done | validateForm() w ChangePassword/ResetPassword/ArticleForm/ContractorForm + required/aria-invalid/pattern/min/max/step w ContractForm/ArticleForm/ContractorForm/Settings + NIP checksum validation |
 | RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | done | shared/cache.py TTLCache (thread-safe, lazy eviction) + 11 endpointów stats/* z cache + /cache/clear + /cache/stats + 22 unit tests |
 | RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
 | RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
@@ -9072,8 +9072,8 @@ Aplikacja ma solidne podstawy (drilldown w Analytics/Archive, skeleton loadery, 
 | RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
 | RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | done | in-memory limiter (5/60s/IP) + 429 + Retry-After header + 8 unit tests |
 | RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | done | docs_url/redoc_url/openapi_url conditional on settings.environment (RAO_ENV) |
-| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | triaged | → in_progress |
-| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | triaged | → in_progress |
+| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | done | StateMessage + TableSkeleton + SkeletonRow w 13 widokach (Dashboard, Home, Analytics 4 tabs, Archive, Settings, Admin, Commission, Worker, ContractForm, ArticleForm, ContractorForm, Login, ChangePassword, ResetPassword) |
+| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | done | validateForm() w ChangePassword/ResetPassword/ArticleForm/ContractorForm + required/aria-invalid/pattern/min/max/step w ContractForm/ArticleForm/ContractorForm/Settings + NIP checksum validation |
 | RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | done | shared/cache.py TTLCache (thread-safe, lazy eviction) + 11 endpointów stats/* z cache + /cache/clear + /cache/stats + 22 unit tests |
 | RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
 | RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
@@ -9821,8 +9821,8 @@ Aplikacja ma solidne podstawy (drilldown w Analytics/Archive, skeleton loadery, 
 | RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
 | RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | done | in-memory limiter (5/60s/IP) + 429 + Retry-After header + 8 unit tests |
 | RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | done | docs_url/redoc_url/openapi_url conditional on settings.environment (RAO_ENV) |
-| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | triaged | → in_progress |
-| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | triaged | → in_progress |
+| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | done | StateMessage + TableSkeleton + SkeletonRow w 13 widokach (Dashboard, Home, Analytics 4 tabs, Archive, Settings, Admin, Commission, Worker, ContractForm, ArticleForm, ContractorForm, Login, ChangePassword, ResetPassword) |
+| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | done | validateForm() w ChangePassword/ResetPassword/ArticleForm/ContractorForm + required/aria-invalid/pattern/min/max/step w ContractForm/ArticleForm/ContractorForm/Settings + NIP checksum validation |
 | RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | done | shared/cache.py TTLCache (thread-safe, lazy eviction) + 11 endpointów stats/* z cache + /cache/clear + /cache/stats + 22 unit tests |
 | RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
 | RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
@@ -10400,8 +10400,8 @@ W zakładce "Lokalizacje" w AnalyticsView każde miasto było rozbite na kody po
 | RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
 | RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | done | in-memory limiter (5/60s/IP) + 429 + Retry-After header + 8 unit tests |
 | RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | done | docs_url/redoc_url/openapi_url conditional on settings.environment (RAO_ENV) |
-| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | triaged | → in_progress |
-| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | triaged | → in_progress |
+| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | done | StateMessage + TableSkeleton + SkeletonRow w 13 widokach (Dashboard, Home, Analytics 4 tabs, Archive, Settings, Admin, Commission, Worker, ContractForm, ArticleForm, ContractorForm, Login, ChangePassword, ResetPassword) |
+| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | done | validateForm() w ChangePassword/ResetPassword/ArticleForm/ContractorForm + required/aria-invalid/pattern/min/max/step w ContractForm/ArticleForm/ContractorForm/Settings + NIP checksum validation |
 | RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | done | shared/cache.py TTLCache (thread-safe, lazy eviction) + 11 endpointów stats/* z cache + /cache/clear + /cache/stats + 22 unit tests |
 | RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
 | RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
@@ -10896,8 +10896,8 @@ Po P2-067 demo data miało jeszcze braki:
 | RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
 | RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | done | in-memory limiter (5/60s/IP) + 429 + Retry-After header + 8 unit tests |
 | RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | done | docs_url/redoc_url/openapi_url conditional on settings.environment (RAO_ENV) |
-| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | triaged | → in_progress |
-| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | triaged | → in_progress |
+| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | done | StateMessage + TableSkeleton + SkeletonRow w 13 widokach (Dashboard, Home, Analytics 4 tabs, Archive, Settings, Admin, Commission, Worker, ContractForm, ArticleForm, ContractorForm, Login, ChangePassword, ResetPassword) |
+| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | done | validateForm() w ChangePassword/ResetPassword/ArticleForm/ContractorForm + required/aria-invalid/pattern/min/max/step w ContractForm/ArticleForm/ContractorForm/Settings + NIP checksum validation |
 | RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | done | shared/cache.py TTLCache (thread-safe, lazy eviction) + 11 endpointów stats/* z cache + /cache/clear + /cache/stats + 22 unit tests |
 | RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
 | RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
@@ -11392,8 +11392,8 @@ Po P2-067 demo data miało jeszcze braki:
 | RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
 | RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | done | in-memory limiter (5/60s/IP) + 429 + Retry-After header + 8 unit tests |
 | RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | done | docs_url/redoc_url/openapi_url conditional on settings.environment (RAO_ENV) |
-| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | triaged | → in_progress |
-| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | triaged | → in_progress |
+| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | done | StateMessage + TableSkeleton + SkeletonRow w 13 widokach (Dashboard, Home, Analytics 4 tabs, Archive, Settings, Admin, Commission, Worker, ContractForm, ArticleForm, ContractorForm, Login, ChangePassword, ResetPassword) |
+| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | done | validateForm() w ChangePassword/ResetPassword/ArticleForm/ContractorForm + required/aria-invalid/pattern/min/max/step w ContractForm/ArticleForm/ContractorForm/Settings + NIP checksum validation |
 | RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | done | shared/cache.py TTLCache (thread-safe, lazy eviction) + 11 endpointów stats/* z cache + /cache/clear + /cache/stats + 22 unit tests |
 | RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
 | RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
@@ -11887,8 +11887,8 @@ Po P2-067 demo data miało jeszcze braki:
 | RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
 | RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | done | in-memory limiter (5/60s/IP) + 429 + Retry-After header + 8 unit tests |
 | RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | done | docs_url/redoc_url/openapi_url conditional on settings.environment (RAO_ENV) |
-| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | triaged | → in_progress |
-| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | triaged | → in_progress |
+| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | done | StateMessage + TableSkeleton + SkeletonRow w 13 widokach (Dashboard, Home, Analytics 4 tabs, Archive, Settings, Admin, Commission, Worker, ContractForm, ArticleForm, ContractorForm, Login, ChangePassword, ResetPassword) |
+| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | done | validateForm() w ChangePassword/ResetPassword/ArticleForm/ContractorForm + required/aria-invalid/pattern/min/max/step w ContractForm/ArticleForm/ContractorForm/Settings + NIP checksum validation |
 | RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | done | shared/cache.py TTLCache (thread-safe, lazy eviction) + 11 endpointów stats/* z cache + /cache/clear + /cache/stats + 22 unit tests |
 | RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
 | RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
@@ -12290,8 +12290,8 @@ note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone
 | RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
 | RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | done | in-memory limiter (5/60s/IP) + 429 + Retry-After header + 8 unit tests |
 | RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | done | docs_url/redoc_url/openapi_url conditional on settings.environment (RAO_ENV) |
-| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | triaged | → in_progress |
-| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | triaged | → in_progress |
+| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | done | StateMessage + TableSkeleton + SkeletonRow w 13 widokach (Dashboard, Home, Analytics 4 tabs, Archive, Settings, Admin, Commission, Worker, ContractForm, ArticleForm, ContractorForm, Login, ChangePassword, ResetPassword) |
+| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | done | validateForm() w ChangePassword/ResetPassword/ArticleForm/ContractorForm + required/aria-invalid/pattern/min/max/step w ContractForm/ArticleForm/ContractorForm/Settings + NIP checksum validation |
 | RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | done | shared/cache.py TTLCache (thread-safe, lazy eviction) + 11 endpointów stats/* z cache + /cache/clear + /cache/stats + 22 unit tests |
 | RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
 | RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
@@ -12693,8 +12693,8 @@ note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone
 | RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
 | RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | done | in-memory limiter (5/60s/IP) + 429 + Retry-After header + 8 unit tests |
 | RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | done | docs_url/redoc_url/openapi_url conditional on settings.environment (RAO_ENV) |
-| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | triaged | → in_progress |
-| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | triaged | → in_progress |
+| RAO-P2-049 | Frontend: error/loading/empty states we wszystkich widokach | P2 | M | done | StateMessage + TableSkeleton + SkeletonRow w 13 widokach (Dashboard, Home, Analytics 4 tabs, Archive, Settings, Admin, Commission, Worker, ContractForm, ArticleForm, ContractorForm, Login, ChangePassword, ResetPassword) |
+| RAO-P2-050 | Frontend: form validation (required fields, date ranges, numeric) | P2 | S | done | validateForm() w ChangePassword/ResetPassword/ArticleForm/ContractorForm + required/aria-invalid/pattern/min/max/step w ContractForm/ArticleForm/ContractorForm/Settings + NIP checksum validation |
 | RAO-P2-051 | Cache dla statystyk (TTL 5 min) + RateType/Category (TTL 1h) | P2 | M | done | shared/cache.py TTLCache (thread-safe, lazy eviction) + 11 endpointów stats/* z cache + /cache/clear + /cache/stats + 22 unit tests |
 | RAO-P2-052 | /explorer/locations/{city} — filtruj w SQL nie w Pythonie | P2 | S | triaged | → in_progress |
 | RAO-P2-053 | /stats/positions — usuń double _compute + dodaj paginację | P2 | S | triaged | → in_progress |
