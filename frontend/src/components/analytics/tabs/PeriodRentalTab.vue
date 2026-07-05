@@ -47,7 +47,7 @@ const topMachinesColumns: AnalyticsColumn[] = [
 ]
 
 const feesColumns: AnalyticsColumn[] = [
-  { key: 'service_name', label: 'Usługa' },
+  { key: 'service_name', label: 'Usługa', clickable: true },
   { key: 'total_revenue', label: 'Przychód', align: 'right' },
   { key: 'times_billed', label: 'Razy', align: 'right' },
 ]
@@ -71,7 +71,7 @@ const positionsColumns: AnalyticsColumn[] = [
 
 // RAO-P2-065 #6: kolumny dla sekcji "Kategorie" (agregat przychodu per kategoria).
 const categoriesColumns: AnalyticsColumn[] = [
-  { key: 'category_name', label: 'Kategoria', sortable: true },
+  { key: 'category_name', label: 'Kategoria', sortable: true, clickable: true },
   { key: 'articles_count', label: 'Maszyn', align: 'right', sortable: true },
   { key: 'rented_days', label: 'Dni', align: 'right', sortable: true },
   { key: 'contracts_count', label: 'Umów', align: 'right', sortable: true },
@@ -95,7 +95,6 @@ const sortedTopMachinesRows = computed(() => topMachinesSort.sortedRows(topMachi
 
 const feesRows = computed<AnalyticsRow[]>(() =>
   (store.additionalFees?.breakdown ?? []).map((f: ServiceFeeItem) => ({
-    article_id: f.article_id,
     service_name: f.service_name,
     total_revenue: Number(f.total_revenue),
     times_billed: f.times_billed,
@@ -202,6 +201,18 @@ function onLocationRowClick(row: AnalyticsRow): void {
   openDrillDown('location', pna, `${row.city} ${pna}`.trim())
 }
 
+function onServiceClick(row: AnalyticsRow) {
+  // RAO-P1-014: drilldown do szczegółów usługi (które umowy, kiedy, kwota)
+  // TODO: Implement drilldown modal lub nawigacja do szczegółów usługi
+  console.log('Service click:', row)
+}
+
+function onCategoryClick(row: AnalyticsRow) {
+  // RAO-P1-014: drilldown do szczegółów kategorii (jakie maszyny, umowy, przychód)
+  // TODO: Implement drilldown modal lub nawigacja do szczegółów kategorii
+  console.log('Category click:', row)
+}
+
 // ── Fetch wszystkich 5 endpointów (parallel) ─────────────────────────────────
 // RAO-P2-049: error state z mozliwoscia retry
 const loadError = ref('')
@@ -297,9 +308,11 @@ watch(
           :sort-key="String(categoriesSort.sortKey.value)"
           :sort-dir="categoriesSort.sortDir.value"
           row-key="category_name"
+          :clickable="true"
           :loading="store.loading"
           data-testid="categories-table"
           @sort="categoriesSort.toggleSort"
+          @row-click="onCategoryClick"
         >
           <template #cell-revenue="{ value }">{{ formatCurrency(value as number) }}</template>
           <template #empty>Brak kategorii w wybranym okresie</template>
@@ -315,10 +328,12 @@ watch(
         <AnalyticsTable
           :columns="feesColumns"
           :rows="feesRows"
+          :clickable="true"
           sort-key="total_revenue"
           sort-dir="desc"
-          row-key="article_id"
+          row-key="service_name"
           :loading="store.loading"
+          @row-click="onServiceClick"
         >
           <template #cell-total_revenue="{ value }">{{ formatCurrency(value as number) }}</template>
           <template #empty>Brak dodatkowych opłat w wybranym okresie</template>

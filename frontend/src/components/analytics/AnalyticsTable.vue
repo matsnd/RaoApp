@@ -7,6 +7,7 @@ export interface AnalyticsColumn {
   sortable?: boolean
   align?: 'left' | 'right' | 'center'
   width?: string
+  clickable?: boolean
 }
 
 // Wiersze są generyczne — komponent tylko renderuje wartości po kluczu kolumny.
@@ -106,12 +107,12 @@ function sortIcon(col: AnalyticsColumn): string {
             :key="String(row[rowKey])"
             :class="{ 'row-clickable': clickable }"
             :data-testid="`row-${String(row[rowKey])}`"
-            @click="onRowClick(row)"
+            @click="clickable && onRowClick(row)"
           >
             <td
               v-for="col in columns"
               :key="col.key"
-              :class="alignClass(col)"
+              :class="[alignClass(col), { 'cell-clickable': col.clickable }]"
             >
               <slot
                 :name="`cell-${col.key}`"
