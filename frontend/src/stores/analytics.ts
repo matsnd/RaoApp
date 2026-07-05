@@ -19,7 +19,9 @@ export interface FleetSummary {
 }
 
 export interface TopMachineItem {
-  article_id: number
+  // RAO Faza 2a (opcja E): backend zwraca bucket "Inne (niezmapowane z FA)"
+  // z article_id=null dla settlementów FA bez zmapowanej pozycji umowy.
+  article_id: number | null
   name: string
   internal_number: string | null
   revenue: string | number

@@ -442,7 +442,14 @@
                 </td>
               </tr>
               <tr v-for="s in settlements" :key="s.id">
-                <td>{{ getSettlementLabel(s) }}</td>
+                <td>
+                  <span :title="settlementTooltip(s)">{{ getSettlementLabel(s) }}</span>
+                  <span
+                    v-if="s.source === 'fa_unmapped'"
+                    class="badge-unmapped"
+                    title="Pozycja z Fakturownia nie została zmapowana na pozycję umowy. Przypisz artykuł w ustawieniach FA, aby rozliczać automatycznie."
+                  >⚠ Niezmapowane</span>
+                </td>
                 <td>
                   <input 
                     v-model.number="s.cost_client" 
@@ -1326,6 +1333,7 @@ function onServiceArticleSelect(event: Event) {
 }
 
 // RAO-P1-012: Settlements
+// RAO Faza 2a (opcja E): pola unmapped settlements z Fakturownia
 interface Settlement {
   id: number
   cost_client: number | null
@@ -1334,6 +1342,13 @@ interface Settlement {
   notes: string | null
   service_fee_id?: number | null
   service_fee_name?: string | null
+  position_id?: number | null
+  // RAO Faza 2a (opcja E): unmapped settlements z Fakturownia
+  article_name_snapshot?: string | null
+  fakturownia_product_id?: number | null
+  fakturownia_invoice_number?: string | null
+  source?: string | null  // 'legacy' | 'fakturownia' | 'fa_unmapped' | 'manual'
+  settled_at?: string | null  // ISO date
 }
 const settlements = ref<Settlement[]>([])
 const initializingSettlements = ref(false)
@@ -1588,7 +1603,39 @@ async function fetchSettlements(contractId) {
   }
 }
 
-function getSettlementLabel(s: any) {
+// RAO Faza 2a (opcja E): tooltip z metadanymi źródła dla unmapped settlements.
+// Pokazuje numer faktury FA i datę rozliczenia, gdy dostępne.
+function settlementTooltip(s: Settlement): string {
+  const parts: string[] = []
+  if (s.source) {
+    const labels: Record<string, string> = {
+      legacy: 'Źródło: legacy',
+      fakturownia: 'Źródło: Fakturownia',
+      fa_unmapped: 'Źródło: Fakturownia (niezmapowane)',
+      manual: 'Źródło: ręczne',
+    }
+    parts.push(labels[s.source] || `Źródło: ${s.source}`)
+  }
+  if (s.fakturownia_invoice_number) {
+    parts.push(`Faktura FA: ${s.fakturownia_invoice_number}`)
+  }
+  if (s.fakturownia_product_id) {
+    parts.push(`Produkt FA #${s.fakturownia_product_id}`)
+  }
+  if (s.settled_at) {
+    parts.push(`Rozliczono: ${s.settled_at}`)
+  }
+  return parts.join(' · ')
+}
+
+function getSettlementLabel(s: Settlement) {
+  // RAO Faza 2a (opcja E): unmapped settlement z Fakturownia — brak position_id
+  // i service_fee_id. Etykieta = snapshot nazwy pozycji z FA lub fallback na
+  // identyfikator produktu FA.
+  if (!s.position_id && !s.service_fee_id) {
+    return s.article_name_snapshot
+      || `Niezmapowane (FA product #${s.fakturownia_product_id ?? '?'})`
+  }
   // RAO-P2-012: Usługi dodatkowe mają service_fee_id + service_fee_name z backend
   if (s.service_fee_id) {
     return s.service_fee_name || `Usługa dodatkowa #${s.service_fee_id}`
@@ -2059,6 +2106,25 @@ async function applyPreset(preset) {
 </script>
 
 <style scoped>
+/* RAO Faza 2a (opcja E): badge dla niezmapowanych settlementów z Fakturownia.
+   Używa --color-warning (zmienna design systemu Toolsmart), bez hardkodowanych
+   kolorów. Mały, obok etykiety pozycji w tabeli rozliczeń. */
+.badge-unmapped {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 2px 8px;
+  background: var(--color-warning);
+  color: var(--color-bg-white);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--border-radius-pill, 12px);
+  font-family: var(--font-family);
+  font-size: var(--font-size-xs, 11px);
+  font-weight: var(--font-weight-semibold, 600);
+  white-space: nowrap;
+  vertical-align: middle;
+}
 /* RAO-P2-022: badge rozliczona */
 .settled-badge {
   display: inline-flex;

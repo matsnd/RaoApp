@@ -626,11 +626,32 @@ Row 2.5 (rozliczenie umowy - RAO-P1-012):
 │ │                                                                                 │ │
 │ │ Guzik "Pobierz z Fakturownia" jest nieaktywny jeśli Fakturownia nie jest skonfigurowana │ │
 │ │ (brak enabled, domain_subdomain lub api_token_preview w ustawieniach)        │ │
+│ │                                                                                 │ │
+│ │ RAO Faza 2a (opcja E) — Unmapped settlements:                                   │ │
+│ │   Pozycje faktury FA bez zmapowanego artykułu RAO (brak wpisu w                │ │
+│ │   fakturownia_product_mapping) trafiają do settlements z:                      │ │
+│ │     - position_id = null, service_fee_id = null                                 │ │
+│ │     - source = 'fa_unmapped'                                                    │ │
+│ │     - article_name_snapshot = nazwa pozycji z FA (snapshot na moment importu)  │ │
+│ │     - fakturownia_product_id, fakturownia_invoice_number (metadata)            │ │
+│ │     - settled_at = data rozliczenia z FA                                        │ │
+│ │   W tabeli rozliczeń etykieta = article_name_snapshot (fallback:               │ │
+│ │   "Niezmapowane (FA product #ID)"). Obok etykiety renderowany jest badge       │ │
+│ │   "⚠ Niezmapowane" (kolor --color-warning, pill, font-size-xs) sygnalizujący  │ │
+│ │   pozycję wymagającą ręcznego mapowania w ustawieniach FA. Tooltip na etykiecie│ │
+│ │   pokazuje: źródło, numer faktury FA, ID produktu FA, datę rozliczenia.        │ │
 │ └───────────────────────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 └──────────────────────────────────────────────────────────────────────────────────┘
 ```
+
+**RAO Faza 2a (opcja E) — typy TS:**
+- `Settlement` (ContractFormView.vue) rozszerzony o pola: `article_name_snapshot`,
+  `fakturownia_product_id`, `fakturownia_invoice_number`, `source`, `settled_at`.
+- `TopMachineItem` (stores/analytics.ts): `article_id: number | null` — backend
+  zwraca bucket "Inne (niezmapowane z FA)" z `article_id=null`. Klik wiersza z
+  `article_id=null` nie otwiera drill-down (guard w `onMachineRowClick`).
 
 **Pozycje [+] otwiera `ArticlePicker.vue` (replika FormAwybor).**
 **Warunki [+] otwiera `ConditionFormView.vue` (replika FormW).**
