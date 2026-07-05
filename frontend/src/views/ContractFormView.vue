@@ -113,7 +113,6 @@
             <div class="form-group">
               <label class="form-label">Oddział</label>
               <select v-model="form.branch_id" class="form-control">
-                <option :value="null">— brak —</option>
                 <option v-for="b in settingsStore.branches" :key="b.id" :value="b.id">{{ b.name }}</option>
               </select>
             </div>
@@ -1397,6 +1396,12 @@ onMounted(async () => {
     fakturowniaStore.fetchSettings(),
     fetchServiceArticles(), // RAO-P2-059: Load service articles for fee picker
   ])
+
+  // RAO-P1-022: Domyślny oddział = Warszawa (id=1) dla nowej umowy
+  if (!isEdit.value && !form.value.branch_id && settingsStore.branches.length) {
+    const warsaw = settingsStore.branches.find(b => b.id === 1) || settingsStore.branches[0]
+    form.value.branch_id = warsaw.id
+  }
 
   const [ctRes, artRes] = await Promise.allSettled([
     api.get('/contractors', { params: { per_page: 30 } }),
