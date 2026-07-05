@@ -1497,7 +1497,14 @@ async function onAddressSelect() {
   }
 }
 
-function goBack() { router.push('/dashboard/contracts') }
+function goBack() {
+  // RAO-P2-070 Faza 5: router.back() z fallbackiem do listy umów
+  if (window.history.length > 1) {
+    router.back()
+  } else {
+    router.push('/dashboard/contracts')
+  }
+}
 
 function buildPayload() {
   const v = { ...form.value }
