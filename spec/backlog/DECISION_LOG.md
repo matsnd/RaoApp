@@ -38,6 +38,20 @@
 **Root cause:** `stats/router.py:312` używa `id=r[0]` ale schema wymaga `article_id`. Fix = jednopunktowa zmiana `id=` → `article_id=`.
 **Weryfikacja:** `/stats/currently-rented` → 200 (31 items, 86 machines). Playwright test PASS. Vision screenshot potwierdza KPI + tabela z 31 wierszami + kontrahenci.
 
+### P0-002 — AnalyticsView brak scrolla w dół
+
+**Data:** 2026-07-05
+**Status:** triaged (zgłoszone przez operatora podczas manualnych testów e2e)
+**Decyzja:** Odłożone — operator woli najpierw zebrać wszystkie bugi, potem naprawiać.
+**Impact:** `/rao/analytics` — treść pod foldem niedostępna, nie da się przewijać.
+
+### P0-003 — Znak `$` kojarzy się z USD
+
+**Data:** 2026-07-05
+**Status:** triaged (zgłoszone przez operatora podczas manualnych testów e2e)
+**Decyzja:** Odłożone — wymaga audytu globalnego (frontend + PDF + opisy opłat).
+**Impact:** W polskiej aplikacji `$` jest niedopuszczalny — należy używać `zł` / `PLN`.
+
 ---
 
 ## P0 — Production Blockers (wszystkie done/team-verified)

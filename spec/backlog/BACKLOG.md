@@ -48,6 +48,56 @@ Pydantic v2 rzuca `ValidationError: article_id Field required`.
 
 ---
 
+### P0-002: AnalyticsView — brak scrolla w dół (treść ucięta)
+
+```yaml
+id: P0-002
+status: triaged
+priority: P0
+created: 2026-07-05
+reporter: operator (manual test 2026-07-05)
+component: frontend/views/AnalyticsView
+severity: blocker
+```
+
+**Symptom:** `http://localhost:5173/rao/analytics` — nie da się przewijać w dół.
+Treść pod tabelą / sekcjami jest niedostępna (ucięta).
+
+**Podejrzany plik:** `frontend/src/views/AnalyticsView.vue` (style: `overflow: hidden`
+lub brak `overflow-y: auto` na kontenerze, ew. `height: 100vh` bez scrolla).
+
+**Fix (propozycja):** sprawdzić `.analytics-view` i parent layout — usunąć
+`overflow: hidden`, dodać `overflow-y: auto` na scrollowalnym kontenerze.
+
+---
+
+### P0-003: Znak `$` (jedna kreska) kojarzy się z USD — niedopuszczalne
+
+```yaml
+id: P0-003
+status: triaged
+priority: P0
+created: 2026-07-05
+reporter: operator (manual test 2026-07-05)
+component: frontend (globalne)
+severity: blocker
+```
+
+**Symptom:** W UI używany jest znak `$` z jedną kreską pionową, który silnie
+kojarzy się z dolarem amerykańskim (USD). W polskiej aplikacji wynajmu maszyn
+jest to niedopuszczalne — należy używać `zł` lub `PLN`.
+
+**Zakres:** wszystkie miejsca w UI gdzie pojawia się `$` (placeholder, PDF,
+raporty, formularze, tabele). Wymaga audytu globalnego.
+
+**Fix (propozycja):**
+- Zamienić wszystkie `$` na `zł` w frontend (formatowanie waluty)
+- Sprawdzić `frontend/src/utils/format.ts` lub podobne (formatter waluty)
+- Sprawdzić szablony PDF (`backend/reports/templates/*.html`)
+- Sprawdzić czy `$` nie jest używane jako symbol zmiennej w treściach (np. `$1`, `$2` w opisach opłat — tam zamienić na `{{ }}` lub `zł`)
+
+---
+
 ## 🔴 P1 — Must-Have
 *(brak)*
 
@@ -71,7 +121,7 @@ Pydantic v2 rzuca `ValidationError: article_id Field required`.
 
 ## 📊 Summary
 
-**Razem:** 1 zadanie (P0: 1)
+**Razem:** 3 zadania (P0: 3, done: 1)
 
 ### Pipeline weryfikacji (status flow)
 
