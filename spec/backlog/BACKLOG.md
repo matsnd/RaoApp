@@ -4097,7 +4097,7 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | done | migracja + indeks + /stats/by-branch endpoint + 12 unit tests (test_stats_branch.py) |
 | RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | team-verified | is_external nie blokuje + checkbox w details |
-| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | done | OID hybrydowe (contract.oid ?? contract.number) + product cache (sync_products/search_products) + 7 unit tests |
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | team-verified | 88 art is_service=1, 34 SFT (32 z article_id), 22 SFTI (N:M), 185 CSF nowe + 3396 archive, 8 preset groups, apply_preset kopiuje article_id+default_price, UI SettingsView + ContractFormView ArticlePicker, 5 testów PASS |
 | RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | team-verified | 9 bugów PASS, 3 indeksy, merge do AnalyticsView via P2-063, ArchiveView osobny via P2-062, 70 testów PASS |
 | RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
@@ -4925,7 +4925,7 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | done | migracja + indeks + /stats/by-branch endpoint + 12 unit tests (test_stats_branch.py) |
 | RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | team-verified | is_external nie blokuje + checkbox w details |
-| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | done | OID hybrydowe (contract.oid ?? contract.number) + product cache (sync_products/search_products) + 7 unit tests |
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | team-verified | 88 art is_service=1, 34 SFT (32 z article_id), 22 SFTI (N:M), 185 CSF nowe + 3396 archive, 8 preset groups, apply_preset kopiuje article_id+default_price, UI SettingsView + ContractFormView ArticlePicker, 5 testów PASS |
 | RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | team-verified | 9 bugów PASS, 3 indeksy, merge do AnalyticsView via P2-063, ArchiveView osobny via P2-062, 70 testów PASS |
 | RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
@@ -5753,7 +5753,7 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | done | migracja + indeks + /stats/by-branch endpoint + 12 unit tests (test_stats_branch.py) |
 | RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | team-verified | is_external nie blokuje + checkbox w details |
-| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | done | OID hybrydowe (contract.oid ?? contract.number) + product cache (sync_products/search_products) + 7 unit tests |
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | team-verified | 88 art is_service=1, 34 SFT (32 z article_id), 22 SFTI (N:M), 185 CSF nowe + 3396 archive, 8 preset groups, apply_preset kopiuje article_id+default_price, UI SettingsView + ContractFormView ArticlePicker, 5 testów PASS |
 | RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | team-verified | 9 bugów PASS, 3 indeksy, merge do AnalyticsView via P2-063, ArchiveView osobny via P2-062, 70 testów PASS |
 | RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
@@ -6581,8 +6581,8 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | done | migracja + indeks + /stats/by-branch endpoint + 12 unit tests (test_stats_branch.py) |
 | RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → done (endpoint /stats/by-contract-type + aggregate_by_contract_type w calc.py) |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | team-verified | is_external nie blokuje + checkbox w details |
-| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
-| RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | triaged | → in_progress (Faza 1: parser legacy + migracja + UI + template items) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | done | OID hybrydowe (contract.oid ?? contract.number) + product cache (sync_products/search_products) + 7 unit tests |
+| RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | done | ContractServiceFee model + CRUD endpoints (list/create/update/delete/reorder/reset) + migrate_service_fees.py (legacy plain-text → structured) + ServiceFeeTemplate + 9 unit tests |
 | RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | done | Faza 1+2 done (6 bugów + indeksy + StatsView), merge do AnalyticsView via P2-063 |
 | RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
 | RAO-P2-067 | Demo data refactor — migrate_all.py orchestrator + FA-pending contracts + delivery_address | P2 | M | done | 31 faktur FA (19 backfill + 12 FA-pending), delivery_address z miastami, hardcoded token usunięty |
@@ -7409,7 +7409,7 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | done | migracja + indeks + /stats/by-branch endpoint + 12 unit tests (test_stats_branch.py) |
 | RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | team-verified | is_external nie blokuje + checkbox w details |
-| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | done | OID hybrydowe (contract.oid ?? contract.number) + product cache (sync_products/search_products) + 7 unit tests |
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | team-verified | 88 art is_service=1, 34 SFT (32 z article_id), 22 SFTI (N:M), 185 CSF nowe + 3396 archive, 8 preset groups, apply_preset kopiuje article_id+default_price, UI SettingsView + ContractFormView ArticlePicker, 5 testów PASS |
 | RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | team-verified | 9 bugów PASS, 3 indeksy, merge do AnalyticsView via P2-063, ArchiveView osobny via P2-062, 70 testów PASS |
 | RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
@@ -8332,7 +8332,7 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | done | migracja + indeks + /stats/by-branch endpoint + 12 unit tests (test_stats_branch.py) |
 | RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | team-verified | is_external nie blokuje + checkbox w details |
-| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | done | OID hybrydowe (contract.oid ?? contract.number) + product cache (sync_products/search_products) + 7 unit tests |
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | team-verified | 88 art is_service=1, 34 SFT (32 z article_id), 22 SFTI (N:M), 185 CSF nowe + 3396 archive, 8 preset groups, apply_preset kopiuje article_id+default_price, UI SettingsView + ContractFormView ArticlePicker, 5 testów PASS |
 | RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | team-verified | 9 bugów PASS, 3 indeksy, merge do AnalyticsView via P2-063, ArchiveView osobny via P2-062, 70 testów PASS |
 | RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
@@ -9081,7 +9081,7 @@ Aplikacja ma solidne podstawy (drilldown w Analytics/Archive, skeleton loadery, 
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | done | migracja + indeks + /stats/by-branch endpoint + 12 unit tests (test_stats_branch.py) |
 | RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | team-verified | is_external nie blokuje + checkbox w details |
-| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | done | OID hybrydowe (contract.oid ?? contract.number) + product cache (sync_products/search_products) + 7 unit tests |
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | team-verified | 88 art is_service=1, 34 SFT (32 z article_id), 22 SFTI (N:M), 185 CSF nowe + 3396 archive, 8 preset groups, apply_preset kopiuje article_id+default_price, UI SettingsView + ContractFormView ArticlePicker, 5 testów PASS |
 | RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | team-verified | 9 bugów PASS, 3 indeksy, merge do AnalyticsView via P2-063, ArchiveView osobny via P2-062, 70 testów PASS |
 | RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
@@ -9830,7 +9830,7 @@ Aplikacja ma solidne podstawy (drilldown w Analytics/Archive, skeleton loadery, 
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | done | migracja + indeks + /stats/by-branch endpoint + 12 unit tests (test_stats_branch.py) |
 | RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | team-verified | is_external nie blokuje + checkbox w details |
-| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | done | OID hybrydowe (contract.oid ?? contract.number) + product cache (sync_products/search_products) + 7 unit tests |
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | team-verified | 88 art is_service=1, 34 SFT (32 z article_id), 22 SFTI (N:M), 185 CSF nowe + 3396 archive, 8 preset groups, apply_preset kopiuje article_id+default_price, UI SettingsView + ContractFormView ArticlePicker, 5 testów PASS |
 | RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | team-verified | 9 bugów PASS, 3 indeksy, merge do AnalyticsView via P2-063, ArchiveView osobny via P2-062, 70 testów PASS |
 | RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
@@ -10409,7 +10409,7 @@ W zakładce "Lokalizacje" w AnalyticsView każde miasto było rozbite na kody po
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | done | migracja + indeks + /stats/by-branch endpoint + 12 unit tests (test_stats_branch.py) |
 | RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | team-verified | is_external nie blokuje + checkbox w details |
-| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | done | OID hybrydowe (contract.oid ?? contract.number) + product cache (sync_products/search_products) + 7 unit tests |
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | team-verified | 88 art is_service=1, 34 SFT (32 z article_id), 22 SFTI (N:M), 185 CSF nowe + 3396 archive, 8 preset groups, apply_preset kopiuje article_id+default_price, UI SettingsView + ContractFormView ArticlePicker, 5 testów PASS |
 | RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | team-verified | 9 bugów PASS, 3 indeksy, merge do AnalyticsView via P2-063, ArchiveView osobny via P2-062, 70 testów PASS |
 | RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
@@ -10905,7 +10905,7 @@ Po P2-067 demo data miało jeszcze braki:
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | done | migracja + indeks + /stats/by-branch endpoint + 12 unit tests (test_stats_branch.py) |
 | RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | team-verified | is_external nie blokuje + checkbox w details |
-| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | done | OID hybrydowe (contract.oid ?? contract.number) + product cache (sync_products/search_products) + 7 unit tests |
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | team-verified | 88 art is_service=1, 34 SFT (32 z article_id), 22 SFTI (N:M), 185 CSF nowe + 3396 archive, 8 preset groups, apply_preset kopiuje article_id+default_price, UI SettingsView + ContractFormView ArticlePicker, 5 testów PASS |
 | RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | team-verified | 9 bugów PASS, 3 indeksy, merge do AnalyticsView via P2-063, ArchiveView osobny via P2-062, 70 testów PASS |
 | RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
@@ -11401,7 +11401,7 @@ Po P2-067 demo data miało jeszcze braki:
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | done | migracja + indeks + /stats/by-branch endpoint + 12 unit tests (test_stats_branch.py) |
 | RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | team-verified | is_external nie blokuje + checkbox w details |
-| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | done | OID hybrydowe (contract.oid ?? contract.number) + product cache (sync_products/search_products) + 7 unit tests |
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | team-verified | 88 art is_service=1, 34 SFT (32 z article_id), 22 SFTI (N:M), 185 CSF nowe + 3396 archive, 8 preset groups, apply_preset kopiuje article_id+default_price, UI SettingsView + ContractFormView ArticlePicker, 5 testów PASS |
 | RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | team-verified | 9 bugów PASS, 3 indeksy, merge do AnalyticsView via P2-063, ArchiveView osobny via P2-062, 70 testów PASS |
 | RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
@@ -11896,7 +11896,7 @@ Po P2-067 demo data miało jeszcze braki:
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | done | migracja + indeks + /stats/by-branch endpoint + 12 unit tests (test_stats_branch.py) |
 | RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | team-verified | is_external nie blokuje + checkbox w details |
-| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | done | OID hybrydowe (contract.oid ?? contract.number) + product cache (sync_products/search_products) + 7 unit tests |
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | team-verified | 88 art is_service=1, 34 SFT (32 z article_id), 22 SFTI (N:M), 185 CSF nowe + 3396 archive, 8 preset groups, apply_preset kopiuje article_id+default_price, UI SettingsView + ContractFormView ArticlePicker, 5 testów PASS |
 | RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | team-verified | 9 bugów PASS, 3 indeksy, merge do AnalyticsView via P2-063, ArchiveView osobny via P2-062, 70 testów PASS |
 | RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
@@ -12299,7 +12299,7 @@ note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | done | migracja + indeks + /stats/by-branch endpoint + 12 unit tests (test_stats_branch.py) |
 | RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | team-verified | is_external nie blokuje + checkbox w details |
-| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | done | OID hybrydowe (contract.oid ?? contract.number) + product cache (sync_products/search_products) + 7 unit tests |
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | team-verified | 88 art is_service=1, 34 SFT (32 z article_id), 22 SFTI (N:M), 185 CSF nowe + 3396 archive, 8 preset groups, apply_preset kopiuje article_id+default_price, UI SettingsView + ContractFormView ArticlePicker, 5 testów PASS |
 | RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | team-verified | 9 bugów PASS, 3 indeksy, merge do AnalyticsView via P2-063, ArchiveView osobny via P2-062, 70 testów PASS |
 | RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
@@ -12702,7 +12702,7 @@ note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone
 | RAO-P1-055 | Branch — migracja branch_id z G suffix + endpoint /stats/by-branch | P1 | M | done | migracja + indeks + /stats/by-branch endpoint + 12 unit tests (test_stats_branch.py) |
 | RAO-P2-056 | contract_type (S/U) — dodaj grupowanie w statystykach | P2 | S | triaged | → in_progress |
 | RAO-P2-057 | is_external — decyzja: wdrożyć filtrowanie czy usunąć flagę | P2 | XS | team-verified | is_external nie blokuje + checkbox w details |
-| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | triaged | → in_progress (Faza 1: OID hybrydowe + product cache + UI picker) |
+| RAO-P2-058 | Fakturownia — OID = numer umowy + mapowanie artykułów z metadanymi | P2 | L | done | OID hybrydowe (contract.oid ?? contract.number) + product cache (sync_products/search_products) + 7 unit tests |
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | team-verified | 88 art is_service=1, 34 SFT (32 z article_id), 22 SFTI (N:M), 185 CSF nowe + 3396 archive, 8 preset groups, apply_preset kopiuje article_id+default_price, UI SettingsView + ContractFormView ArticlePicker, 5 testów PASS |
 | RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | team-verified | 9 bugów PASS, 3 indeksy, merge do AnalyticsView via P2-063, ArchiveView osobny via P2-062, 70 testów PASS |
 | RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
