@@ -377,7 +377,7 @@
             <div v-else>
               <div v-for="inv in fakturowniaStore.invoices" :key="inv.invoice_number" style="margin-bottom:12px;background:white;padding:8px;border-radius:4px;border:1px solid #e2e8f0;">
                 <div style="font-weight:600;font-size:12px;color:#2d3748;margin-bottom:4px;">
-                  Faktura {{ inv.invoice_number }} — Netto: {{ inv.total_net.toFixed(2) }} zł
+                  Faktura {{ inv.invoice_number }} — Netto: {{ Number(inv.total_net || 0).toFixed(2) }} zł
                 </div>
                 <table style="width:100%;font-size:11px;border-collapse:collapse;">
                   <thead>
@@ -392,8 +392,8 @@
                     <tr v-for="line in inv.lines" :key="line.funkurownia_product_id" style="border-bottom:1px solid #edf2f7;">
                       <td style="padding:4px;">{{ line.funkurownia_product_name }}</td>
                       <td style="text-align:right;padding:4px;">{{ line.quantity }}</td>
-                      <td style="text-align:right;padding:4px;">{{ line.price_net.toFixed(2) }} zł</td>
-                      <td style="text-align:right;padding:4px;">{{ line.total_net.toFixed(2) }} zł</td>
+                      <td style="text-align:right;padding:4px;">{{ Number(line.price_net || 0).toFixed(2) }} zł</td>
+                      <td style="text-align:right;padding:4px;">{{ Number(line.total_net || 0).toFixed(2) }} zł</td>
                     </tr>
                   </tbody>
                 </table>
