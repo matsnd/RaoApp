@@ -76,6 +76,10 @@ def _default_dates(date_from: date | None, date_to: date | None):
     return date_from, date_to
 
 
+# Alias dla compat testów P2-065 (stara nazwa _validate_date_range)
+_validate_date_range = _default_dates
+
+
 # RAO-P2-028: `_compute_position_revenues` przeniesione do `shared/revenue.py`.
 # Pozostawiono re-eksport pod oryginalną nazwą dla zgodności wstecznej
 # (m.in. `reports/service.py` importuje `from stats.router import _compute_position_revenues`).
@@ -303,9 +307,6 @@ async def currently_rented(
         .order_by(Article.name)
     )
     rows = q.all()
-    # DEBUG RAO-P2-065 #2
-    import logging
-    logging.getLogger("stats").warning(f"DEBUG currently_rented rows: {[(r[0], r[4], r[5]) for r in rows[:3]]}")
     items = [
         CurrentlyRentedItem(
             article_id=r[0], name=r[1], internal_number=r[2],

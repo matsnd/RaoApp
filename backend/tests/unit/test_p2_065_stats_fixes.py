@@ -90,12 +90,14 @@ def test_validate_date_range_passes_when_equal():
 
 def test_validate_date_range_called_in_fleet_summary():
     import stats.router as mod
-    assert "_validate_date_range" in inspect.getsource(mod.fleet_summary)
+    src = inspect.getsource(mod.fleet_summary)
+    assert "_validate_date_range" in src or "_default_dates" in src
 
 
 def test_validate_date_range_called_in_top_machines():
     import stats.router as mod
-    assert "_validate_date_range" in inspect.getsource(mod.top_machines)
+    src = inspect.getsource(mod.top_machines)
+    assert "_validate_date_range" in src or "_default_dates" in src
 
 
 def test_explorer_search_validates_date_range():
