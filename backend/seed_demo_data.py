@@ -15,10 +15,12 @@ Zasila:
 - Zestawy usług dodatkowych (6 presetów: najem, usługa z operatorem,
   kontrakt długoterminowy, weekend, kontrakt zagraniczny, operator premium)
   + ServiceFeeTemplateItem (relacja N:M preset → artykuł z domyślną ceną)
-- Umowy (56 szt: 24 historia 2025 + 24 bieżące 2026 + 8 FA-pending)
+- Umowy (68 szt: 24 historia 2025 + 24 bieżące 2026 + 16 FA-pending zakończone
+  + 12 FA-pending aktywne P1-004)
   z predefiniowanymi cennikami kaskadowymi per maszyna (1-3 dni, 4-16 dni,
   powyżej 16 dni) — jak w starej aplikacji WinForms
-- Pozycje umów (z warunkami rozliczeniowymi kaskadowymi)
+- Pozycje umów (maszyny + usługi jako standardowe pozycje — P1-007: usługi
+  widoczne w /analytics; plus usługi dodatkowe jako ContractServiceFee)
 - Usługi dodatkowe (z article_id)
 - Rozliczenia (80% source=fakturownia, 20% source=manual/estimate)
 - Mapowanie Article.fakturownia_product_id ↔ produkty FA
@@ -492,6 +494,32 @@ def _build_positions_and_fees(i, days, maszyny, uslugi, rt_dniowy):
             "conditions": conditions,
         })
 
+    # P1-007: usługi jako STANDARDOWE pozycje umowy (nie tylko service_fees) —
+    # dzięki temu są widoczne w /stats/positions?type=services, /stats/additional-fees
+    # i /stats/by-category (compute_position_revenues zlicza tylko contract_positions).
+    # Pozycje usług: jednorazowe (rental_days=1, billing_frequency=jednorazowo),
+    # stawka = replacement_value usługi.
+    num_service_positions = 1 + (i % 3)  # 1, 2, 3 usługi jako pozycje
+    for j in range(num_service_positions):
+        usluga = uslugi[(i + j) % len(uslugi)]
+        cena_usl = usluga.replacement_value or Decimal("100")
+        positions.append({
+            "article_id": usluga.id,
+            "article_name": usluga.name,
+            "rental_days": 1,
+            "quantity": 1,
+            "unit_price": cena_usl,
+            "rate_type_id": rt_dniowy.id if rt_dniowy else None,
+            "billing_frequency": "jednorazowo",
+            "billing_unit": "szt",
+            "conditions": [
+                {"rate1": cena_usl, "rate2": None, "period_count": 1, "minimum": 1,
+                 "billing_label": "jednorazowo",
+                 "description": f"{usluga.name} — jednorazowo",
+                 "rate_type_id": rt_dniowy.id if rt_dniowy else None},
+            ],
+        })
+
     fees = []
     num_fees = 2 + (i % 3)  # 2, 3, 4
     for j in range(num_fees):
@@ -521,7 +549,7 @@ def _lokalizacja(i):
 
 
 def generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_name):
-    """Generuje umowy demo (RAO-P2-067): 3 pule.
+    """Generuje umowy demo (RAO-P2-067): 4 pule.
 
     Pula A — historia 2025 (24 umowy, 12-24 mies. wstecz, wszystkie rozliczone)
              → bogate statystyki roczne, wykresy by-period, lokalizacje.
@@ -530,6 +558,10 @@ def generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_n
     Pula C — FA-pending (16 umów, zakończone NIEROZLICZONE, bez settlements w RAO)
              → faktury czekają w Fakturowni (seed_fa_invoices) — demo integracji:
                user klika "Pobierz z Fakturowni" → rozliczenia się tworzą na żywo.
+    Pula D — aktywne FA-pending (12 umów, date_to w przyszłości, bez settlements)
+             → P1-004: aktywne umowy w trakcie wynajmu z fakturami w FA gotowymi
+               do pobrania. Demo: user widzi aktywną umowę → "Pobierz z FA" →
+               rozliczenia tworzą się na żywo (10+ aktywnych gotowych do pobrania).
     """
     contractors = list(con_by_name.values())
     salespeople = list(sp_by_name.values())
@@ -603,6 +635,19 @@ def generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_n
         date_from = today - timedelta(days=20 + k * 9)  # zakończone niedawno
         days = 7 + (k % 3) * 7
         number = f"{contract_type}{k + 25:03d}/2026"  # S025..S040/2026 — kontynuacja numeracji
+        _add(number, i, date_from, days, contract_type, is_settled=False, fa_pending=True, branch_idx=k % 4)
+
+    # ── Pula D (P1-004): aktywne umowy z fakturami w FA gotowymi do pobrania ──
+    # 12 aktywnych umów (date_to w przyszłości +7..+30 dni), NIEROZLICZONE,
+    # bez settlements w RAO — faktura czeka w FA. Demo: user widzi aktywną umowę
+    # w trakcie wynajmu → "Pobierz z Fakturowni" → rozliczenia tworzą się na żywo.
+    # Rozpoczęte niedawno (0-7 dni temu), wynajem 10-30 dni → date_to w przyszłości.
+    for k in range(12):
+        i = k + 7  # offset — inne kombinacje maszyn/kontrahentów niż pula B/C
+        contract_type = "S" if k % 4 != 3 else "U"
+        date_from = today - timedelta(days=3 + (k % 5))   # 3-7 dni temu (rozpoczęte niedawno)
+        days = 10 + (k % 21)  # 10-30 dni wynajmu → date_to w przyszłości
+        number = f"{contract_type}{k + 41:03d}/2026"  # S041..S052/2026 — kontynuacja numeracji
         _add(number, i, date_from, days, contract_type, is_settled=False, fa_pending=True, branch_idx=k % 4)
 
     return contracts

@@ -406,9 +406,10 @@ jest wąski na ekranie (nie wykorzystuje pełnej szerokości).
 
 ```yaml
 id: P1-004
-status: triaged
+status: done
 priority: P1
 created: 2026-07-05
+resolved: 2026-07-05
 reporter: operator (manual test 2026-07-05)
 component: backend/seed_demo_data.py + backend/seed_fa_invoices.py
 severity: high
@@ -501,9 +502,10 @@ Opcje: ikona umowy/dokumentu, ikona maszyny, ikona wynajmu, lub po prostu `zł`.
 
 ```yaml
 id: P1-007
-status: triaged
+status: done
 priority: P1
 created: 2026-07-05
+resolved: 2026-07-05
 reporter: operator (manual test 2026-07-05)
 component: backend/seed_demo_data.py + frontend/AnalyticsView
 severity: high

@@ -140,7 +140,12 @@ async def get_contracts_with_fa_settlements(db):
 
 
 async def get_fa_pending_contracts(db):
-    """RAO-P2-067: umowy zakończone NIEROZLICZONE bez żadnych settlements w RAO.
+    """RAO-P2-067 + P1-004: umowy NIEROZLICZONE bez żadnych settlements w RAO.
+
+    Obejmuje BOTH:
+    - umowy zakończone (date_to < CURDATE()) — oryginalna Pula C
+    - umowy aktywne (date_to >= CURDATE() lub NULL) — Pula D (P1-004):
+      aktywne umowy w trakcie wynajmu z fakturami w FA gotowymi do pobrania.
 
     Dla nich wystawiamy fakturę w FA (OID = numer umowy), ale NIE tworzymy
     rozliczeń w RAO — to zrobi user na demo klikając "Pobierz z Fakturowni"
@@ -150,6 +155,9 @@ async def get_fa_pending_contracts(db):
     - pozycje maszyn: unit_price × rental_days
     - usługi dodatkowe: amount_from
     """
+    # P1-004: usunięto filtr date_to < CURDATE() — teraz obejmuje też aktywne
+    # umowy (date_to >= CURDATE() lub NULL = umowa na czas nieokreślony).
+    # Warunek: is_settled=0 AND brak settlements — to definiuje "FA-pending".
     query = text("""
         SELECT c.id, c.number, c.date_from, c.date_to,
                ct.id as contractor_id, ct.nip, ct.name as contractor_name,
@@ -160,7 +168,6 @@ async def get_fa_pending_contracts(db):
         JOIN contractors ct ON c.contractor_id = ct.id
         JOIN contract_positions cp ON cp.contract_id = c.id
         WHERE c.is_settled = 0
-          AND c.date_to < CURDATE()
           AND NOT EXISTS (SELECT 1 FROM contract_settlements cs WHERE cs.contract_id = c.id)
         UNION ALL
         SELECT c.id, c.number, c.date_from, c.date_to,
@@ -171,7 +178,6 @@ async def get_fa_pending_contracts(db):
         JOIN contractors ct ON c.contractor_id = ct.id
         JOIN contract_service_fees csf ON csf.contract_id = c.id
         WHERE c.is_settled = 0
-          AND c.date_to < CURDATE()
           AND NOT EXISTS (SELECT 1 FROM contract_settlements cs WHERE cs.contract_id = c.id)
         ORDER BY 1
     """)
