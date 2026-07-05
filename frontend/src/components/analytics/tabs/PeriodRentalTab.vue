@@ -29,7 +29,7 @@ const props = defineProps<Props>()
 const store = useAnalyticsStore()
 
 const openDrillDown = inject<
-  (kind: 'machine' | 'location', id: number | string, name: string) => void
+  (kind: 'machine' | 'location', id: number | string, name: string, internalNumber?: string | null) => void
 >('analytics:openDrillDown', () => {})
 
 // ── Sortowanie per tabela ────────────────────────────────────────────────────
@@ -105,7 +105,8 @@ const feesRows = computed<AnalyticsRow[]>(() =>
 const locationsRows = computed<AnalyticsRow[]>(() =>
   store.locations.map((l: LocationStatItem) => ({
     city: l.city,
-    postal_code: l.postal_code ?? '',
+    // RAO-P2-065 #9: fallback do city gdy postal_code=null (nie pusty string)
+    postal_code: l.postal_code ?? `(brak PNA — ${l.city})`,
     rentals_count: l.rentals_count,
     total_revenue: Number(l.total_revenue),
   })),
@@ -192,7 +193,12 @@ function onMachineRowClick(row: AnalyticsRow): void {
 
 function onLocationRowClick(row: AnalyticsRow): void {
   const pna = String(row.postal_code ?? '')
-  if (!pna) return
+  // RAO-P2-065 #9: gdy brak PNA (fallback do city), drill-down po mieście
+  if (!pna || pna.startsWith('(brak PNA')) {
+    const city = String(row.city ?? '')
+    if (city) openDrillDown('location', `city:${city}`, city)
+    return
+  }
   openDrillDown('location', pna, `${row.city} ${pna}`.trim())
 }
 

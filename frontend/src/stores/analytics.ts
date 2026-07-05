@@ -551,18 +551,24 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     name: string,
     dateFrom: string,
     dateTo: string,
+    internalNumber?: string | null,
   ): Promise<void> {
     // RAO-P2-069: 'location' z id numerycznym/city → miasto; PNA string → PNA
     // Konwencja: jeśli id zaczyna się od "city:" → drill po mieście
     const isCityDrill = typeof id === 'string' && id.startsWith('city:')
     const drillKind: DrillDownKind = isCityDrill ? 'location' : kind
 
+    // RAO-P2-065 #7: dodaj nr wewnętrzny do tytułu/subtitle maszyny
+    const machineTitle = internalNumber
+      ? `🏗️ ${name} (${internalNumber})`
+      : `🏗️ ${name}`
+
     drillDown.value = {
       open: true,
       kind: drillKind,
       id,
       name,
-      title: kind === 'machine' ? `🏗️ ${name}` : `📍 ${name}`,
+      title: kind === 'machine' ? machineTitle : `📍 ${name}`,
       subtitle:
         kind === 'machine'
           ? 'Historia wynajmów maszyny'

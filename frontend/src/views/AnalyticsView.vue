@@ -82,8 +82,14 @@ function onTabChange(key: string): void {
 }
 
 // ── Drill-down (udostępniony tabom przez provide) ────────────────────────────
-function openDrillDown(kind: DrillDownKind, id: number | string, name: string): void {
-  store.openDrillDown(kind, id, name, filters.value.dateFrom, filters.value.dateTo)
+// RAO-P2-065 #7: internalNumber opcjonalny — dodawany do subtitle drawera
+function openDrillDown(
+  kind: DrillDownKind,
+  id: number | string,
+  name: string,
+  internalNumber?: string | null,
+): void {
+  store.openDrillDown(kind, id, name, filters.value.dateFrom, filters.value.dateTo, internalNumber)
 }
 provide('analytics:openDrillDown', openDrillDown)
 

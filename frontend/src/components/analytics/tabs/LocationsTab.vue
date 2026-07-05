@@ -146,7 +146,8 @@ const rankingRows = computed<AnalyticsRow[]>(() =>
   filteredLocations.value.map((l) => ({
     rank: l.rank,
     city: l.city,
-    postal_code: l.postal_code ?? '',
+    // RAO-P2-065 #9: fallback do city gdy postal_code=null
+    postal_code: l.postal_code ?? `(brak PNA — ${l.city})`,
     gmina: l.gmina ?? '',
     powiat: l.powiat ?? '',
     wojewodztwo: l.wojewodztwo ?? '',
@@ -161,7 +162,12 @@ function onRowClick(row: AnalyticsRow): void {
   if (groupBy.value === 'pna') {
     // Drill-down po PNA
     const pna = String(row.postal_code ?? '')
-    if (!pna) return
+    // RAO-P2-065 #9: gdy brak PNA (fallback), drill-down po mieście
+    if (!pna || pna.startsWith('(brak PNA')) {
+      const city = String(row.city ?? '')
+      if (city) openDrillDown('location', `city:${city}`, city)
+      return
+    }
     openDrillDown('location', pna, `${row.city} ${pna}`.trim())
   } else {
     // Drill-down po mieście (sumuje wszystkie PNA w mieście)
@@ -435,20 +441,6 @@ watch(groupBy, load)
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   opacity: 0.8;
-}
-@media (max-width: 900px) {
-  .loc-bar-row {
-    grid-template-columns: 140px 1fr 110px;
-  }
-}
-</style>
-}
-@media (max-width: 900px) {
-  .loc-bar-row {
-    grid-template-columns: 140px 1fr 110px;
-  }
-}
-</style>
 }
 @media (max-width: 900px) {
   .loc-bar-row {

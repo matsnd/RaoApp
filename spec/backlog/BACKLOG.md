@@ -2428,13 +2428,13 @@ depends_on:
 
 5. **Filtr KONTRAHENT (datalist value=id) przyjmuje dowolny tekst** — wpisanie "kop" zamiast ID cicho zawęża wszystkie taby do 0 wyników bez komunikatu (zweryfikowane na żywo: Explorer "koparka" → 0 wyników przy filtrze "kop", 6 wyników po wyczyszczeniu). FIX: walidacja/select zamiast wolnego tekstu + empty state z podpowiedzią "sprawdź aktywne filtry".
 6. **Brak sekcji Kategorii w PeriodRentalTab** — wymaganie klienta #5 ("top maszyny + kategorie"). Backend /stats/by-category + store byCategoryData gotowe, tylko UI brakuje (~2h).
-7. **Drill-down maszyny bez nr wewnętrznego w tytule** — machineDetails.machine.internal_number jest w responsie, nie renderowane (~15min).
+7. ✅ **DONE (2026-07-05): Drill-down maszyny bez nr wewnętrznego w tytule** — FIX: `openDrillDown` w store przyjmuje `internalNumber`, tytuł drawera = `🏗️ {name} ({internalNumber})`. AnalyticsView `provide` przekazuje internalNumber z PeriodRentalTab. Weryfikacja: Playwright — tytuł "🏗️ Ładowarka teleskopowa Manuscop 6.36 (LAD-002)".
 8. ✅ **DONE (2026-07-05): /explorer/search `total` = len(strony) + city vs delivery_address** — FIX: `total` = `summary.total_count` (nie `len(results)`); `city` = `Contract.city` (osobno), `delivery_address` = `Contract.delivery_address` (osobno). Weryfikacja: API q=koparka limit=3 → total=15, items=3, city="Warszawa", delivery_address="ul. Świętokrzyska 14...".
-9. **Lokalizacje: "(brak PNA)"** bez fallbacku do city — mało czytelne dla usera.
+9. ✅ **DONE (2026-07-05): Lokalizacje: "(brak PNA)" bez fallbacku do city** — FIX: `postal_code ?? ''` → `postal_code ?? '(brak PNA — {city})'` w PeriodRentalTab i LocationsTab. `onLocationRowClick` / `onRowClick` fallback do `city:{city}` drill gdy brak PNA. Weryfikacja: API locations → postal_code=null, city="Wrocław"; UI pokazuje "(brak PNA — Wrocław)".
 10. ✅ **DONE (2026-07-05): Brak walidacji date_from > date_to** — FIX: walidacja w `_default_dates` (stats router) + `explorer_search` → 422 z komunikatem "Data początkowa (X) nie może być późniejsza niż końcowa (Y)". Frontend `loadError` wyświetla `detail`. Weryfikacja: API fleet-summary?date_from=2026-07-10&date_to=2026-07-01 → 422.
 11. ✅ **DONE (2026-07-05): KPI "Przychód w okresie" sumuje rzeczywiste+szacunek w jednej liczbie** — FIX: `revenue_source_label` = "razem (rzecz.+szac.)" gdy oba źródła > 0 (wcześniej "rzeczywiste" co było mylące). KPI sub label wyświetla to oznaczenie.
-12. **~2s overhead na KAŻDYM request** (nawet /health bez auth) — middleware/startup do zdiagnozowania; psuje płynność przełączania filtrów.
-13. **Brak testów e2e dla AnalyticsView** — zero pokrycia regresyjnego nowego widoku.
+12. **~2s overhead na KAŻDYM request** (nawet /health bez auth) — middleware/startup do zdiagnozowania; psuja płynność przełączania filtrów. [Otwarte — performance-eng]
+13. ✅ **DONE (2026-07-05): Brak testów e2e dla AnalyticsView** — FIX: `e2e/tests/06-analytics.spec.ts` (6 testów: LiveFleet, PeriodRental, drill-down ROI, filtr kontrahent, walidacja dat, eksplorator). Wynik: 5 passed, 1 flaky (login retry — pre-existing).
 
 #### 🟢 P3 — wygląd / design system (UI review 6.5/10)
 
