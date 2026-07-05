@@ -67,6 +67,19 @@ Wymaga comboboxa (input + autouzupełnianie). Naprawa w `AnalyticsFilters.vue`.
 **Decyzja:** Odłożone. Wymaga zmiany generatora numeru + możliwej migracji istniejących umów z `U` → `S`.
 **Impact:** Obecnie umowy usługowe mają prefiks `U` — niedopuszczalne, wszystkie mają być `S`.
 
+### P1-001 — Predefiniowane cenniki warunków rozliczenia maszyn + auto-prefill z historii
+
+**Data:** 2026-07-05
+**Status:** triaged (pełna analiza zespołu: PO + Tech Lead + UX Designer)
+**Decyzja operatora:** hybryda (a)+(c) z odwróconym priorytetem:
+- Auto-prefill = ostatnia umowa tej maszyny (feature parity ze starej aplikacji)
+- Predefiniowane cenniki nazwane per maszyna (opcja przez "Zastosuj cennik")
+- Wiele cenników per maszyna, "Zapisz jako cennik" z poziomu umowy w v1
+- Snapshot (kopia, nie referencja) — integralność historyczna umowy
+**Kluczowe odkrycie:** stara aplikacja WinForms (FormW.cs) MIAŁA kopiowanie z historii
+(btnprev/btnnext, "Skopiuj", "X historycznych rozliczeń") — to feature parity, nie nowość.
+**Impact:** ~30h/tydzień oszczędności zespołu, eliminacja literówek w cenie, feature parity.
+
 ### P0-006 — ContractFormView checkboxy niepowiązane z PDF
 
 **Data:** 2026-07-05

@@ -160,6 +160,100 @@ umowy — prawdopodobnie switch/if na `contract_type` wybierający literę).
 
 ---
 
+### P1-001: Predefiniowane cenniki warunków rozliczenia maszyn + auto-prefill z historii
+
+```yaml
+id: P1-001
+status: triaged
+priority: P1
+created: 2026-07-05
+reporter: operator (manual test 2026-07-05)
+component: backend/settings + backend/contracts + frontend/ConditionPanel + frontend/SettingsView
+severity: high
+size: M (cross-stack)
+```
+
+**Symptom:** Warunki rozliczenia maszyn (PositionCondition) trzeba wpisywać ręcznie
+dla każdej pozycji umowy. Ta sama maszyna w kolejnej umowie wymaga ponownego wpisywania
+3 progów kaskadowych (~18 pól). Frustracja + ryzyko literówki w cenie → błędna faktura.
+
+**Feature parity:** Stara aplikacja WinForms (FormW.cs) MIAŁA kopiowanie z historii
+umów tej samej maszyny (btnprev/btnnext, "Skopiuj", "X historycznych rozliczeń").
+To jest odtworzenie + ulepszenie tej funkcji.
+
+**Decyzja operatora (2026-07-05):**
+- **Model:** hybryda (a)+(c) z odwróconym priorytetem
+  - Auto-prefill = warunki z **ostatniej umowy** tej maszyny (NIE domyślny cennik)
+  - Predefiniowane cenniki nazwane per maszyna (dostępne przez "Zastosuj cennik")
+  - Wiele cenników per maszyna (np. "Standard", "Promo", "Długoterminowy")
+- **Auto-prefill:** banner "Zastosuj/Pomiń/Zmień" — NIE auto-apply (unika zaskoczenia)
+- **Snapshot:** warunki zapisane jako kopia na pozycji (NIE referencja do cennika)
+- **"Zapisz jako cennik":** TAK w v1, z poziomu umowy (po edycji warunków)
+- **Edycja w locie:** po zastosowaniu można edytować (snapshot, zmiana tylko na tej pozycji)
+
+**Flow użytkownika:**
+1. Dodajesz maszynę do umowy → auto-prefill z ostatniej umowy (banner)
+2. Banner: "Ostatnie warunki: umowa S047/2026 z 2026-06-15 — [Zastosuj] [Pomiń] [Zmień ▾]"
+3. "Zastosuj" → warunki skopiowane jako snapshot (nowe PositionCondition)
+4. "Zmień ▾" → dropdown z predefiniowanymi cennikami tej maszyny
+5. Edycja w locie → zmiana tylko na tej pozycji
+6. "Zapisz jako cennik" → modal: nazwa + "Ustaw jako domyślny dla tej maszyny"
+7. "Zastosuj cennik" (przycisk w header) → modal z listą cenników + podgląd + confirm
+
+**Model danych (Tech Lead):**
+- `article_rate_presets` (nazwane cenniki per maszyna)
+  - id, company_id, article_id (FK articles, CASCADE), name, description,
+    is_default, sort_order, created_at, updated_at
+- `article_rate_preset_items` (progi cennika — 1:1 z PositionCondition)
+  - id, preset_id (FK article_rate_presets, CASCADE), sort_order,
+    rate_type_id, description, rate1, rate2, billing_label, period_count, minimum
+- Brak FK z PositionCondition do cennika (snapshot, nie referencja)
+- Brak ALTER na istniejących tabelach (tylko nowe przez create_all)
+
+**Endpointy (Tech Lead):**
+- `GET /settings/articles/{article_id}/rate-presets` — lista cenników maszyny
+- `POST /settings/articles/{article_id}/rate-presets` — utwórz cennik
+- `GET /settings/rate-presets/{preset_id}` — cennik z items
+- `PUT /settings/rate-presets/{preset_id}` — edytuj cennik
+- `DELETE /settings/rate-presets/{preset_id}` — usuń cennik
+- `POST /settings/rate-presets/{preset_id}/items` — dodaj warunek do cennika
+- `PUT /settings/rate-presets/items/{item_id}` — edytuj warunek
+- `DELETE /settings/rate-presets/items/{item_id}` — usuń warunek
+- `PATCH /settings/rate-presets/{preset_id}/set-default` — ustaw domyślny
+- `GET /articles/{article_id}/last-conditions` — auto-prefill z ostatniej umowy
+- `POST /contracts/{id}/positions/{pos_id}/conditions/apply-preset` — zastosuj cennik
+
+**Frontend (UX Designer):**
+- `SettingsView.vue` → nowa zakładka "Cenniki rozliczeń" (obok "Zestawy usług dodatkowych")
+- `ConditionPanel.vue`:
+  - Banner auto-prefill (gdy warunki puste + maszyna ma historię/cennik)
+  - Przycisk "Zastosuj cennik" (modal z listą + podgląd + confirm)
+  - Przycisk "Zapisz jako cennik" (modal z nazwą + "Ustaw jako domyślny")
+  - Toast "Cofnij" po zastosowaniu (5s window)
+- Nowy store `ratePresets.ts` (Pinia)
+- Nowy komponent `RatePresetEditor.vue` (CRUD cenników w ustawieniach)
+
+**Priorytet źródeł auto-prefill (operator):**
+1. Ostatnia umowa z tą maszyną (główne źródło, feature parity)
+2. Predefiniowany cennik domyślny (opcja przez "Zmień ▾")
+3. Brak danych → pusta tabela (ręczne wpisywanie)
+
+**Edge cases:**
+- Maszyna wynajmowana pierwszy raz → brak auto-prefill, empty state z CTA
+- Maszyna z cennikiem "Standard" ale klient ma inną cenę → "Pomiń" lub edytuj po zastosowaniu
+- Operator chce jednorazową cenę → "Pomiń" + ręczne + NIE zapisuj jako cennik
+- Cennik domyślny zmieniony w ustawieniach → istniejące umowy NIE dotknięte (snapshot)
+- Dwie pozycje z tą samą maszyną w jednej umowie → każda ma własny banner/warunki
+
+**DoD:**
+- [ ] Backend: 11 endpointów + 2 modele + schemas + service
+- [ ] Frontend: zakładka w ustawieniach + banner + 2 modale + store
+- [ ] E2E: dodaj maszynę z historią → banner → Zastosuj → warunki skopiowane → edytuj → zapisz jako cennik
+- [ ] Test: zmiana ceny w starej umowie NIE zmienia skopiowanych warunków (snapshot)
+- [ ] Spec sync: 01_database.md, 02_backend_api.md, 03_frontend_screens.md, 04_business_logic.md
+
+---
+
 ### P0-006: ContractFormView — checkboxy niepowiązane z dokumentami PDF
 
 ```yaml
@@ -249,7 +343,7 @@ ale PDF ignoruje ją — błędne oczekiwanie, że dokument będzie inny.
 
 ## 📊 Summary
 
-**Razem:** 6 zadań (P0: 6, done: 1)
+**Razem:** 7 zadań (P0: 6, P1: 1, done: 1)
 
 ### Pipeline weryfikacji (status flow)
 
