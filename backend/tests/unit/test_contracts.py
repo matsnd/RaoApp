@@ -5,6 +5,10 @@ from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 from pydantic import ValidationError
 
+# Rejestracja wszystkich modeli ORM (PostalCode itp.) — wymagane przez selectinload
+# w testach service, które triggerują pełną konfigurację mapperów SQLAlchemy.
+import integrations.models  # noqa: F401
+
 from contracts.schemas import (
     ContractCreate,
     ContractUpdate,
@@ -239,3 +243,59 @@ def test_config_accepts_real_secret_key():
     from config import Settings
     s = Settings(RAO_SECRET_KEY="a-valid-secret-key-with-sufficient-length-32chars")
     assert s.RAO_SECRET_KEY == "a-valid-secret-key-with-sufficient-length-32chars"
+
+
+# ── RAO-P1-001: apply_rate_preset_to_position + last-conditions ──────────────
+
+@pytest.mark.asyncio
+async def test_apply_rate_preset_position_not_found_raises_404():
+    """apply_rate_preset_to_position zwraca 404 gdy pozycja nie istnieje."""
+    from fastapi import HTTPException
+    from contracts.service import contract_service
+    db = AsyncMock()
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = None  # brak pozycji
+    db.execute = AsyncMock(return_value=result)
+
+    with pytest.raises(HTTPException) as exc:
+        await contract_service.apply_rate_preset_to_position(db, 999, 1, replace=True)
+    assert exc.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_apply_rate_preset_settled_contract_raises_409():
+    """apply_rate_preset_to_position zwraca 409 gdy umowa rozliczona."""
+    from fastapi import HTTPException
+    from contracts.service import contract_service
+    from contracts.models import ContractPosition, Contract
+
+    db = AsyncMock()
+    pos = MagicMock(spec=ContractPosition)
+    pos.contract_id = 5
+    pos_result = MagicMock()
+    pos_result.scalar_one_or_none.return_value = pos
+    contract = MagicMock(spec=Contract)
+    contract.is_settled = True
+    contract_result = MagicMock()
+    contract_result.scalar_one_or_none.return_value = contract
+
+    # First execute → position, second → contract (via get_contract)
+    db.execute = AsyncMock(side_effect=[pos_result, contract_result])
+    db.get = AsyncMock(return_value=contract)
+
+    with pytest.raises(HTTPException) as exc:
+        await contract_service.apply_rate_preset_to_position(db, 1, 1, replace=True)
+    assert exc.value.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_get_last_conditions_for_article_no_history_returns_none():
+    """get_last_conditions_for_article zwraca None gdy brak historii umów."""
+    from contracts.service import contract_service
+    db = AsyncMock()
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = None  # brak pozycji
+    db.execute = AsyncMock(return_value=result)
+
+    out = await contract_service.get_last_conditions_for_article(db, 999)
+    assert out is None

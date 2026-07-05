@@ -1255,6 +1255,114 @@ class RateTypeResponse(BaseModel):
 
 ---
 
+## RAO-P1-001 — Predefiniowane cenniki warunków rozliczenia maszyn
+
+> Modele DB: `article_rate_presets` + `article_rate_preset_items` (per-maszyna,
+> 1:N z items, snapshot copy do `position_conditions` przy apply).
+> Mutacje wymagają `require_admin` (DELETE/PATCH set-default) lub `get_current_user` (GET).
+> Apply-preset + last-conditions są w contracts/articles routerach.
+
+### Schemas (Pydantic v2)
+
+```python
+class ArticleRatePresetItemCreate(BaseModel):
+    rate_type_id: int | None = None
+    description: str | None = Field(None, max_length=400)
+    rate1: Decimal | None = None
+    rate2: Decimal | None = None
+    billing_label: str | None = Field(None, max_length=20)
+    period_count: int | None = None
+    minimum: int | None = None
+
+class ArticleRatePresetItemUpdate(BaseModel):  # partial (exclude_unset)
+    # te same pola, wszystkie opcjonalne
+
+class ArticleRatePresetItemResponse(ArticleRatePresetItemCreate):
+    id: int
+    preset_id: int
+    sort_order: int
+    class Config: from_attributes = True
+
+class ArticleRatePresetCreate(BaseModel):
+    name: str = Field(..., max_length=200)
+    description: str | None = Field(None, max_length=400)
+    is_default: bool = False
+    items: list[ArticleRatePresetItemCreate] = []
+
+class ArticleRatePresetUpdate(BaseModel):  # partial (exclude_unset)
+    name: str | None = Field(None, max_length=200)
+    description: str | None = Field(None, max_length=400)
+    is_default: bool | None = None
+
+class ArticleRatePresetResponse(BaseModel):
+    id: int
+    article_id: int
+    name: str
+    description: str | None
+    is_default: bool
+    sort_order: int
+    items: list[ArticleRatePresetItemResponse] = []
+    class Config: from_attributes = True
+```
+
+### Endpointy — SETTINGS (prefix `/settings`)
+
+| Method | Path | Auth | Status | Opis |
+|--------|------|------|--------|------|
+| GET    | `/settings/articles/{article_id}/rate-presets` | user | 200 | Lista cenników maszyny (z items, order by sort_order) |
+| GET    | `/settings/articles/{article_id}/rate-presets/default` | user | 200 | Domyślny cennik maszyny (body=null jeśli brak) |
+| POST   | `/settings/articles/{article_id}/rate-presets` | admin | 201 | Utwórz cennik (z items, set_default jeśli is_default) |
+| GET    | `/settings/rate-presets/{preset_id}` | user | 200 \| 404 | Cennik z items |
+| PUT    | `/settings/rate-presets/{preset_id}` | admin | 200 \| 404 | Edytuj cennik (partial update) |
+| DELETE | `/settings/rate-presets/{preset_id}` | admin | 204 \| 404 | Usuń cennik (cascade items) |
+| PATCH  | `/settings/rate-presets/{preset_id}/set-default` | admin | 200 \| 404 | Ustaw jako domyślny (atomowo unset innych) |
+| POST   | `/settings/rate-presets/{preset_id}/items` | admin | 201 \| 404 | Dodaj warunek do cennika |
+| PUT    | `/settings/rate-presets/items/{item_id}` | admin | 200 \| 404 | Edytuj warunek (partial) |
+| DELETE | `/settings/rate-presets/items/{item_id}` | admin | 204 \| 404 | Usuń warunek |
+
+**`set_default_preset` logika (atomowa transakcja):**
+1. `UPDATE article_rate_presets SET is_default=0 WHERE article_id=:aid AND id<>:pid`
+2. `UPDATE article_rate_presets SET is_default=1 WHERE id=:pid`
+
+### Endpoint — CONTRACTS: apply preset do pozycji (snapshot)
+
+```
+POST /contracts/{contract_id}/positions/{pos_id}/conditions/apply-preset
+Auth: user
+Body: { preset_id: int, replace: bool = true }
+Response 200: { applied_count: int, conditions: [ConditionResponse] }
+  404: pozycja lub cennik nie istnieje
+  409: umowa rozliczona (is_settled=true)
+```
+
+Logika `ContractService.apply_rate_preset_to_position`:
+1. Guard: `contract.is_settled` → 409
+2. If `replace`: `DELETE FROM position_conditions WHERE position_id=:pos_id`
+3. Bulk copy: dla każdego `ArticleRatePresetItem` → `PositionCondition(position_id, **pola)`
+4. `commit` + `refresh` + bump `contract.updated_at`
+5. Brak FK z `PositionCondition` do cennika (snapshot — edycja cennika nie wpływa na umowy)
+
+### Endpoint — ARTICLES: auto-prefill z ostatniej umowy
+
+```
+GET /articles/{article_id}/last-conditions
+Auth: user
+Response 200: {
+  source_contract_number: str,
+  source_contract_date: datetime | None,
+  source_position_id: int,
+  conditions: [ConditionResponse]
+}
+  404: brak historii umów dla tej maszyny
+```
+
+Logika `ContractService.get_last_conditions_for_article`:
+- `SELECT ContractPosition JOIN Contract WHERE article_id=:aid ORDER BY Contract.created_at DESC LIMIT 1`
+- Zwraca warunki (`PositionCondition`) z tej pozycji + metadane umowy (number, created_at).
+- Batch-fetch `RateType.name` (eliminacja N+1).
+
+---
+
 ## REPORTS — Endpointy
 
 > **RAO-P2-018 (backend done):** Ujednolicono nazwy plików PDF + RFC 5987 `Content-Disposition`.

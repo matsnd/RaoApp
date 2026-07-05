@@ -164,7 +164,7 @@ umowy — prawdopodobnie switch/if na `contract_type` wybierający literę).
 
 ```yaml
 id: P1-001
-status: triaged
+status: review
 priority: P1
 created: 2026-07-05
 reporter: operator (manual test 2026-07-05)

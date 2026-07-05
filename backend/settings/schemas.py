@@ -208,3 +208,62 @@ class ReorderItem(BaseModel):
 
 class ReorderRequest(BaseModel):
     order: list[ReorderItem]
+
+
+# RAO-P1-001: Predefiniowane cenniki warunków rozliczenia maszyn
+
+class ArticleRatePresetItemCreate(BaseModel):
+    rate_type_id: int | None = None
+    description: str | None = Field(None, max_length=400)
+    rate1: Decimal | None = None
+    rate2: Decimal | None = None
+    billing_label: str | None = Field(None, max_length=20)
+    period_count: int | None = None
+    minimum: int | None = None
+
+
+class ArticleRatePresetItemUpdate(BaseModel):
+    """RAO-P0-034: Partial update — only fields explicitly sent are applied."""
+    rate_type_id: int | None = None
+    description: str | None = Field(None, max_length=400)
+    rate1: Decimal | None = None
+    rate2: Decimal | None = None
+    billing_label: str | None = Field(None, max_length=20)
+    period_count: int | None = None
+    minimum: int | None = None
+
+
+class ArticleRatePresetItemResponse(ArticleRatePresetItemCreate):
+    id: int
+    preset_id: int
+    sort_order: int
+
+    class Config:
+        from_attributes = True
+
+
+class ArticleRatePresetCreate(BaseModel):
+    name: str = Field(..., max_length=200)
+    description: str | None = Field(None, max_length=400)
+    is_default: bool = False
+    items: list[ArticleRatePresetItemCreate] = []
+
+
+class ArticleRatePresetUpdate(BaseModel):
+    """RAO-P0-034: Partial update — only fields explicitly sent are applied."""
+    name: str | None = Field(None, max_length=200)
+    description: str | None = Field(None, max_length=400)
+    is_default: bool | None = None
+
+
+class ArticleRatePresetResponse(BaseModel):
+    id: int
+    article_id: int
+    name: str
+    description: str | None
+    is_default: bool
+    sort_order: int
+    items: list[ArticleRatePresetItemResponse] = []
+
+    class Config:
+        from_attributes = True

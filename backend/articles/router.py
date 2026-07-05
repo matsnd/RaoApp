@@ -1,5 +1,5 @@
 from datetime import date
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -123,3 +123,31 @@ async def check_availability(
     return await article_service.check_availability(
         db, article_id, date_from, date_to, exclude_contract_id=exclude_contract_id
     )
+
+
+# ----------------------------------------------------------------------
+# RAO-P1-001: Auto-prefill — warunki z ostatniej umowy tej maszyny
+# ----------------------------------------------------------------------
+
+@router.get(
+    "/{article_id}/last-conditions",
+    response_model=dict,
+    responses={404: {"description": "Brak historii umów dla tej maszyny"}},
+)
+async def get_last_conditions_for_article(
+    article_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Auto-prefill — warunki z najnowszej umowy zawierającej pozycję z tym article_id.
+
+    Response: {
+      source_contract_number, source_contract_date, source_position_id, conditions[]
+    }
+    404 jeśli brak historii.
+    """
+    from contracts.service import contract_service
+    data = await contract_service.get_last_conditions_for_article(db, article_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Brak historii umów dla tej maszyny")
+    return data
