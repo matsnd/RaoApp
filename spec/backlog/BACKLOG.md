@@ -23,9 +23,10 @@
 
 ```yaml
 id: P0-011
-status: triaged
+status: done
 priority: P0
 created: 2026-07-05
+resolved: 2026-07-05
 reporter: operator (manual test 2026-07-05)
 component: frontend/ContractFormView (Fakturownia invoices modal)
 severity: blocker
@@ -645,9 +646,10 @@ severity: high
 
 ```yaml
 id: P1-014
-status: triaged
+status: done
 priority: P1
 created: 2026-07-05
+resolved: 2026-07-05
 reporter: operator (manual test 2026-07-05)
 component: frontend/AnalyticsView (PeriodRentalTab, CategoriesTab) + backend/stats
 severity: high
@@ -694,9 +696,10 @@ severity: high
 
 ```yaml
 id: P1-016
-status: triaged
+status: done
 priority: P1
 created: 2026-07-05
+resolved: 2026-07-05
 reporter: operator (manual test 2026-07-05)
 component: frontend/WorkerView
 severity: high
@@ -783,9 +786,10 @@ Warszawa  (brak PNA — Warszawa)  1    11 340,00 zł
 
 ```yaml
 id: P1-010
-status: triaged
+status: done
 priority: P1
 created: 2026-07-05
+resolved: 2026-07-05
 reporter: operator (manual test 2026-07-05)
 component: backend/contracts (DB schema, models, schemas) + frontend/ContractFormView
 severity: high
