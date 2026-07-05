@@ -207,10 +207,14 @@ ale PDF ignoruje ją — błędne oczekiwanie, że dokument będzie inny.
 - `backend/reports/templates/contract.html` + `contract_u.html` — dodać `prepayment_document` i `invoice_document` jeśli mają sens biznesowy
 - Lub usunąć martwe checkboxy z UI jeśli nie ma potrzeby drukowania
 
-**Decyzja biznesowa wymagana:**
-- Czy "Drukuj" dla osób kontaktowych ma ukrywać osobę w PDF? (prawdopodobnie tak)
-- Czy `prepayment_document` / `invoice_document` mają trafiać do PDF? (opis nr dokumentu)
-- Czy checkboxy mają być domyślnie zaznaczone (jak w DB `default=True`)?
+**Decyzja biznesowa (odpowiedzi operatora 2026-07-05):**
+- ✅ "Drukuj" dla osób kontaktowych → TAK, ma ukrywać osobę w PDF gdy odznaczone
+- ❓ `prepayment_document` / `invoice_document` → numer dokumentu przedpłaty/faktury
+  (np. `PRZ-001/2026`). Pytanie: czy ma być widoczny na PDF umowy?
+  Obecnie PDF pokazuje tylko kwotę (`Przedpłata: 500,00 zł`), bez numeru dokumentu.
+  **Odpowiedź operatora:** wymaga wyjaśnienia (zapytano 2026-07-05)
+- ✅ Checkboxy domyślnie zaznaczone → TAK dla "Drukuj" (show_person1/2)
+  (zgodne z DB `default=True`)
 
 ---
 
