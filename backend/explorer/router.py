@@ -57,10 +57,12 @@ async def explorer_search(
     Universal search across machines, services, contractors, and locations.
     Returns mixed results with type indicator.
     """
-    # RAO-P2-065 bug #10: walidacja zakresu dat
-    if date_from is not None and date_to is not None and date_from > date_to:
-        raise HTTPException(status_code=422, detail="date_from nie może być późniejsze niż date_to")
-
+    # RAO-P2-065 #10: walidacja — date_from > date_to zwraca 422
+    if date_from and date_to and date_from > date_to:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Data początkowa ({date_from}) nie może być późniejsza niż końcowa ({date_to}).",
+        )
     results = []
 
     # Subquery: revenue per position from position_conditions
@@ -88,8 +90,8 @@ async def explorer_search(
             Contract.date_from,
             Contract.date_to,
             Contractor.name.label("contractor_name"),
-            Contract.delivery_address,
-            Contract.city,  # RAO-P2-065 bug #8: city z Contract.city (nie delivery_address)
+            Contract.city,                            # RAO-P2-065 #8: city osobno
+            Contract.delivery_address,                # RAO-P2-065 #8: delivery_address osobno
             func.coalesce(revenue_subq.c.pos_revenue, 0).label("revenue"),
         )
         .join(Contract, ContractPosition.contract_id == Contract.id)
@@ -135,14 +137,13 @@ async def explorer_search(
     
     # Format results with type indicator
     for row in rows:
-        # RAO-P2-065 bug #16: type = 'machine'|'service' (nie emoji)
-        item_type = "machine"  # Machine default
+        item_type = "🏗️"  # Machine default
         if row.is_service:
-            item_type = "service"  # Service
-
+            item_type = "🛠️"  # Service
+        
         results.append({
             "type": item_type,
-            "type_label": "Maszyna" if item_type == "machine" else "Usługa",
+            "type_label": "Maszyna" if item_type == "🏗️" else "Usługa",
             "id": row.id,
             "article_id": row.article_id,
             "name": f"{row.article_name} ({row.internal_number})" if row.internal_number else row.article_name,
@@ -150,8 +151,9 @@ async def explorer_search(
             "contract_number": row.contract_number,
             "contractor_name": row.contractor_name,
             "date": row.date_from.isoformat() if row.date_from else None,
-            # RAO-P2-065 bug #8: city z Contract.city (nie delivery_address)
+            # RAO-P2-065 #8: city = Contract.city (nie delivery_address)
             "city": row.city,
+            "delivery_address": row.delivery_address,
             "amount": float(row.revenue) if row.revenue else 0,
         })
     
@@ -177,7 +179,7 @@ async def explorer_search(
     
     return {
         "items": results,
-        # RAO-P2-065 bug #8: total = summary.total_count (paginacja, nie len(results))
+        # RAO-P2-065 #8: total = total_count z summary (nie len(results) które = page size)
         "total": summary.total_count if summary else 0,
         "summary": {
             "count": summary.total_count if summary else 0,

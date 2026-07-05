@@ -2429,10 +2429,10 @@ depends_on:
 5. **Filtr KONTRAHENT (datalist value=id) przyjmuje dowolny tekst** — wpisanie "kop" zamiast ID cicho zawęża wszystkie taby do 0 wyników bez komunikatu (zweryfikowane na żywo: Explorer "koparka" → 0 wyników przy filtrze "kop", 6 wyników po wyczyszczeniu). FIX: walidacja/select zamiast wolnego tekstu + empty state z podpowiedzią "sprawdź aktywne filtry".
 6. **Brak sekcji Kategorii w PeriodRentalTab** — wymaganie klienta #5 ("top maszyny + kategorie"). Backend /stats/by-category + store byCategoryData gotowe, tylko UI brakuje (~2h).
 7. **Drill-down maszyny bez nr wewnętrznego w tytule** — machineDetails.machine.internal_number jest w responsie, nie renderowane (~15min).
-8. **/explorer/search `total` = len(strony)** zamiast total count (router.py:172) — paginacja zepsuta; pole `city` w response to delivery_address (mylące).
+8. ✅ **DONE (2026-07-05): /explorer/search `total` = len(strony) + city vs delivery_address** — FIX: `total` = `summary.total_count` (nie `len(results)`); `city` = `Contract.city` (osobno), `delivery_address` = `Contract.delivery_address` (osobno). Weryfikacja: API q=koparka limit=3 → total=15, items=3, city="Warszawa", delivery_address="ul. Świętokrzyska 14...".
 9. **Lokalizacje: "(brak PNA)"** bez fallbacku do city — mało czytelne dla usera.
-10. **Brak walidacji date_from > date_to** — 200 z pustymi danymi zamiast 422; user widzi mylące "0 zł".
-11. **KPI "Przychód w okresie" sumuje rzeczywiste+szacunek w jednej liczbie** (19 250 = 9100+10 150) — breakdown jest pod spodem, ale główny KPI powinien być oznaczony "razem (rzecz.+szac.)".
+10. ✅ **DONE (2026-07-05): Brak walidacji date_from > date_to** — FIX: walidacja w `_default_dates` (stats router) + `explorer_search` → 422 z komunikatem "Data początkowa (X) nie może być późniejsza niż końcowa (Y)". Frontend `loadError` wyświetla `detail`. Weryfikacja: API fleet-summary?date_from=2026-07-10&date_to=2026-07-01 → 422.
+11. ✅ **DONE (2026-07-05): KPI "Przychód w okresie" sumuje rzeczywiste+szacunek w jednej liczbie** — FIX: `revenue_source_label` = "razem (rzecz.+szac.)" gdy oba źródła > 0 (wcześniej "rzeczywiste" co było mylące). KPI sub label wyświetla to oznaczenie.
 12. **~2s overhead na KAŻDYM request** (nawet /health bez auth) — middleware/startup do zdiagnozowania; psuje płynność przełączania filtrów.
 13. **Brak testów e2e dla AnalyticsView** — zero pokrycia regresyjnego nowego widoku.
 

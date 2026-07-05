@@ -67,6 +67,12 @@ def _default_dates(date_from: date | None, date_to: date | None):
         date_from = today.replace(day=1)
     if not date_to:
         date_to = today
+    # RAO-P2-065 #10: walidacja — date_from > date_to zwraca 422 (nie 200 z pustymi danymi)
+    if date_from > date_to:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Data początkowa ({date_from}) nie może być późniejsza niż końcowa ({date_to}).",
+        )
     return date_from, date_to
 
 
@@ -143,6 +149,9 @@ async def fleet_summary(
         revenue_source_label = "brak danych"
     elif revenue_actual == 0:
         revenue_source_label = "szacunek"
+    elif revenue_estimate > 0:
+        # RAO-P2-065 #11: mieszane = oba źródła > 0 → "razem (rzecz.+szac.)"
+        revenue_source_label = "razem (rzecz.+szac.)"
     else:
         revenue_source_label = "rzeczywiste"
 
