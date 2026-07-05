@@ -562,6 +562,13 @@ def calculate_remaining(
 > Migracja legacy `umowa2.oplaty → contract_service_fees` wykonana historycznie (migrate.py step5b,
 > 3396 wierszy → archive_contract_service_fees przez P2-062). Artykuły usług id 14137-14141
 > (Tankowanie, Transport, Przestój, Czyszczenie 1, Czyszczenie 2).
+>
+> **P1-007 fix (2026-07-05):** Demo seed (`seed_demo_data.py`) zapisuje usługi również jako
+> `ContractPosition` (is_service=1, article_id → artykuł usługowy), nie tylko jako
+> `ContractServiceFee`. Powód: `compute_position_revenues()` w `shared/revenue.py` zapytania
+> tylko `contract_positions` JOIN `articles` — usługi zapisane wyłącznie w
+> `contract_service_fees` były niewidoczne dla wszystkich endpointów statystyk
+> (`/stats/positions?type=services`, `/stats/additional-fees`, `/stats/by-category`).
 
 ```python
 async def resolve_article_name_for_template(

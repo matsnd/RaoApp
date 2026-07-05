@@ -725,7 +725,9 @@ Response:
 
 **Backend:**
 - `FAKTUROWNIA_ENC_KEY` w `.env` (Fernet key dla encryption tokenów)
+- `RAO_FAKTUROWNIA_API_TOKEN` + `RAO_FAKTUROWNIA_DOMAIN_SUBDOMAIN` w `.env` (bootstrap do DB)
 - `backend/integrations/fakturownia/` — moduł integracji
+- **Bootstrap z env (P1-005 fix):** `get_or_create_settings()` seeduje DB z env gdy `api_token_ciphertext IS NULL`. Idempotentne — admin może nadpisać token przez UI, DB pozostaje single source of truth.
 
 **Frontend:**
 - SettingsView → tab Fakturownia → subdomena + token
