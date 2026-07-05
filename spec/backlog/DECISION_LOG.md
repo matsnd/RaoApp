@@ -52,6 +52,14 @@
 **Decyzja:** Odłożone — wymaga audytu globalnego (frontend + PDF + opisy opłat).
 **Impact:** W polskiej aplikacji `$` jest niedopuszczalny — należy używać `zł` / `PLN`.
 
+### P0-004 — Eksplorator: kontrahent jako dropdown zamiast wyszukiwarki
+
+**Data:** 2026-07-05
+**Status:** triaged (zgłoszone przez operatora podczas manualnych testów e2e)
+**Decyzja:** Odłożone — zwykły `<select>` przy 698 kontrahentach jest nieużywalny.
+Wymaga comboboxa (input + autouzupełnianie). Naprawa w `AnalyticsFilters.vue`.
+**Impact:** Eksplorator i inne taby analytics — filtr kontrahenta nieużywalny przy dużej liczbie.
+
 ---
 
 ## P0 — Production Blockers (wszystkie done/team-verified)

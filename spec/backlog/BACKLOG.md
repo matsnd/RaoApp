@@ -98,6 +98,38 @@ raporty, formularze, tabele). Wymaga audytu globalnego.
 
 ---
 
+### P0-004: Eksplorator — kontrahent jako dropdown (select) zamiast wyszukiwarki
+
+```yaml
+id: P0-004
+status: triaged
+priority: P0
+created: 2026-07-05
+reporter: operator (manual test 2026-07-05)
+component: frontend/components/analytics/ExplorerTab + AnalyticsFilters
+severity: blocker
+```
+
+**Symptom:** W Eksploratorze (`/rao/analytics` → tab Eksplorator) kontrahent
+jest zwykłym dropdownem (`<select>`). Przy dużej liczbie kontrahentów (698 w DB)
+zwykły select jest nieużywalny — nie da się wyszukać po nazwie.
+
+**Wymaganie:** Kontrahent musi być comboboxem (dropdown wpisywalny) —
+pole tekstowe z autouzupełnianiem, filtrujące listę w miarę wpisywania.
+
+**Podejrzany plik:** `frontend/src/components/analytics/AnalyticsFilters.vue`
+(`data-testid="filter-contractor"` — obecnie `<select>`).
+
+**Fix (propozycja):**
+- Zamienić `<select>` na combobox (input + dropdown z filtrowaniem)
+- Lub użyć istniejący komponent `ContractorPicker` jeśli istnieje
+- Filtr po nazwie (case-insensitive, substring match)
+- Backend już wspiera `?contractor_id=` — frontend musi wysłać ID wybranego
+- Sprawdzić czy ten sam filtr jest używany w innych tabach (PeriodRental, Locations) —
+  jeśli tak, naprawa w jednym miejscu (`AnalyticsFilters.vue`) pokryje wszystkie
+
+---
+
 ## 🔴 P1 — Must-Have
 *(brak)*
 
@@ -121,7 +153,7 @@ raporty, formularze, tabele). Wymaga audytu globalnego.
 
 ## 📊 Summary
 
-**Razem:** 3 zadania (P0: 3, done: 1)
+**Razem:** 4 zadania (P0: 4, done: 1)
 
 ### Pipeline weryfikacji (status flow)
 
