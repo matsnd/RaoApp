@@ -77,7 +77,9 @@ Wymaga comboboxa (input + autouzupełnianie). Naprawa w `AnalyticsFilters.vue`.
 **Decyzje operatora (2026-07-05):**
 - "Drukuj" osoby kontaktowe → TAK, ukrywać w PDF gdy odznaczone
 - Domyślnie zaznaczone → TAK dla "Drukuj" (show_person1/2)
-- `prepayment_document`/`invoice_document` (nr dokumentu) → czeka na odpowiedź operatora czy ma być na PDF
+- `prepayment_document`/`invoice_document` → NIE na PDF (potwierdzone audytem starej
+  aplikacji: pola w DB + DataGridView, ale NIE w raportach Crystal Reports —
+  sprawdzone binarnie w Umowa.rpt/Umowa2.rpt/UmowaU.rpt: NOT FOUND). Usunąć z UI.
 
 ---
 

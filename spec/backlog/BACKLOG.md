@@ -209,12 +209,20 @@ ale PDF ignoruje ją — błędne oczekiwanie, że dokument będzie inny.
 
 **Decyzja biznesowa (odpowiedzi operatora 2026-07-05):**
 - ✅ "Drukuj" dla osób kontaktowych → TAK, ma ukrywać osobę w PDF gdy odznaczone
-- ❓ `prepayment_document` / `invoice_document` → numer dokumentu przedpłaty/faktury
-  (np. `PRZ-001/2026`). Pytanie: czy ma być widoczny na PDF umowy?
-  Obecnie PDF pokazuje tylko kwotę (`Przedpłata: 500,00 zł`), bez numeru dokumentu.
-  **Odpowiedź operatora:** wymaga wyjaśnienia (zapytano 2026-07-05)
+- ❌ `prepayment_document` / `invoice_document` → NIE ma być na PDF umowy
+  (potwierdzone audytem starej aplikacji WinForms: pola zapisywane do DB,
+  wyświetlane w DataGridView, ale **NIE używane w raportach Crystal Reports** —
+  sprawdzone binarnie w `Umowa.rpt`, `Umowa2.rpt`, `UmowaU.rpt`: NOT FOUND)
 - ✅ Checkboxy domyślnie zaznaczone → TAK dla "Drukuj" (show_person1/2)
   (zgodne z DB `default=True`)
+
+**Zakres naprawy:**
+1. `show_person1`/`show_person2` — dodać warunek `{% if contract.show_person1 %}`
+   w `contract.html:163`, `contract_u.html:149` (i analogicznie dla osoby 2)
+2. `prepayment_document` / `invoice_document` — **usunąć z UI** (pola "Dok. przedpłaty"
+   i "Dok. faktury" w `ContractFormView.vue:137,145`) lub zostawić jako info wewnętrzne
+   (nie na PDF). Decyzja: usunąć z UI, bo w starej aplikacji też nie trafiały do PDF.
+   Pola w DB/schema zostawić (migracja danych z starej bazy je zachowuje).
 
 ---
 
