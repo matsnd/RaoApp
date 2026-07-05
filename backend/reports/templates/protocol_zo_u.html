@@ -159,8 +159,11 @@
     </tbody>
   </table>
 
-  <!-- SERVICE HOURS SECTION — dane z bazy lub puste wiersze -->
-  {% for p in positions %}
+  <!-- SERVICE HOURS SECTION — jedna tabela o długości równej sumie wierszy
+       ze wszystkich pozycji (5 pustych wierszy × liczba pozycji).
+       service_hours DB table usunięta (RAO-P1-014, formularz papierowy). -->
+  {% set total_rows = (positions|length) * 5 if positions else 5 %}
+  {% if total_rows > 0 %}
   <div style="margin: 16px 0 10px; page-break-inside: avoid;">
     <table class="pwo" style="margin-bottom: 10px;">
       <thead>
@@ -172,27 +175,13 @@
         </tr>
       </thead>
       <tbody>
-        {% if p.service_hours and p.service_hours|length > 0 %}
-          {% for hour in p.service_hours %}
-          <tr style="height: 28px;">
-            <td>{{ hour.service_date|datepl if hour.service_date else '' }}</td>
-            <td>{{ hour.time_from.strftime('%H:%M') if hour.time_from else '' }}</td>
-            <td>{{ hour.time_to.strftime('%H:%M') if hour.time_to else '' }}</td>
-            <td>{{ hour.notes or '' }}</td>
-          </tr>
-          {% endfor %}
-        {% else %}
-          <!-- 5 pustych wierszy do wypełnienia ręcznego -->
-          <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
-          <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
-          <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
-          <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
-          <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
-        {% endif %}
+        {% for _ in range(total_rows) %}
+        <tr style="height: 28px;"><td></td><td></td><td></td><td></td></tr>
+        {% endfor %}
       </tbody>
     </table>
   </div>
-  {% endfor %}
+  {% endif %}
 
   <!-- PUSH TO BOTTOM -->
   <div class="bottom-section">
