@@ -384,6 +384,46 @@ ale PDF ignoruje ją — błędne oczekiwanie, że dokument będzie inny.
 
 ## 🔴 P1 — Must-Have
 
+### P1-012: Archiwum maszyn — kaskada kategorii NIE działa (regresja P1-002)
+
+```yaml
+id: P1-012
+status: triaged
+priority: P1
+created: 2026-07-05
+reporter: operator (manual test 2026-07-05)
+component: frontend/ArchiveView (zakładka Maszyny)
+severity: high
+```
+
+**Symptom:** W Archiwum → zakładka "Maszyny" filtr kategorii jest nadal płaskim `<select>` z 67 opcjami (ogólna, Podesty ruchome, Podesty nozycowe, Wózki widłowe, itd.). Kaskada 3-poziomowa (główna → sub1 → sub2) nie działa.
+
+**Oczekiwane:** P1-002 miało zaimplementować kaskadę kategorii z breadcrumbem, ale w UI nadal jest płaski select.
+
+**HTML aktualny:**
+```html
+<select class="form-control form-control-xs" style="width: 200px;">
+  <option>— brak kategorii —</option>
+  <option value="24">Akcesoria</option>
+  <option value="37">Hak obrotowy</option>
+  <option value="25">HDS</option>
+  <option value="2">ogólna</option>
+  <option value="3">Podesty ruchome</option>
+  <option value="4">Podesty nozycowe</option>
+  <option value="20">Wózki widlowe</option>
+  <!-- ... 67 opcji total ... -->
+</select>
+```
+
+**Wymagane:**
+- Sprawdzić czy commit P1-002 (`72ac1c2`) został wdrożony do frontendu
+- Jeśli tak → fix kaskady (prawdopodobnie nie podpięto do articleFilters.category_id)
+- Jeśli nie → wdrożyć zmiany z P1-002 (ArchiveView.vue cascade + categoriesTree)
+
+**Powiązane:** P1-002 (marked done, ale nie działa w UI — regresja)
+
+---
+
 ### P1-002: Archiwum maszyn — drilldown kategorii przy wyborze i filtrowaniu
 
 ```yaml
