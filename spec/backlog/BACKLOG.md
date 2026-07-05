@@ -628,6 +628,80 @@ i nie ma żadnego dostępnego scrolla. Problem globalny (nie tylko AnalyticsView
 
 ---
 
+### P1-013: Lokalizacje wynajmu — "(brak PNA — Miasto)" nadal w tabeli (regresja P1-009)
+
+```yaml
+id: P1-013
+status: triaged
+priority: P1
+created: 2026-07-05
+reporter: operator (manual test 2026-07-05)
+component: frontend/AnalyticsView (Locations tab) + backend/stats
+severity: high
+```
+
+**Symptom:** W tabeli Lokalizacje wynajmu nadal widać "(brak PNA — Miasto)":
+```
+Kraków    (brak PNA — Kraków)    2    26 280,00 zł
+Warszawa  (brak PNA — Warszawa)  2    38 690,00 zł
+Katowice  (brak PNA — Katowice)  1    5 280,00 zł
+Bydgoszcz (brak PNA — Bydgoszcz) 1    14 850,00 zł
+// ... 12 miast total
+```
+
+**Problem:** P1-009 miało usunąć bucket "(brak PNA)" z tabeli głównej (skip w `group_by='city'`), ale nadal jest wyświetlany.
+
+**Wymaganie:**
+- Kolumna PNA NIE ma być używana do agregacji w tabeli głównej
+- Tylko miasto + liczba umów + wartość
+- PNA może być w detail view (po kliknięciu)
+
+**Powiązane:** P1-009 (marked done, ale regresja)
+
+---
+
+### P1-014: Analytics — Pozycje dodatkowe (usługi) i kategorie nie są klikalne
+
+```yaml
+id: P1-014
+status: triaged
+priority: P1
+created: 2026-07-05
+reporter: operator (manual test 2026-07-05)
+component: frontend/AnalyticsView (PeriodRentalTab, CategoriesTab)
+severity: high
+```
+
+**Symptom:** W Analytics tabach "Pozycje dodatkowe" (usługi) i "Kategorie" nie są klikalne. Brak drilldown do szczegółów (jak w "Top maszyny po przychodzie").
+
+**Wymaganie:**
+- Pozycje dodatkowe (usługi) — klikalne → drilldown do szczegółów (które umowy, kiedy, kwota)
+- Kategorie — klikalne → drilldown do szczegółów (jakie maszyny, umowy, przychód)
+- UI podobne do "Top maszyny po przychodzie" (klik wiersz → szczegóły)
+
+---
+
+### P1-015: Analytics — filtry nie działają dla wszystkich dashboardów
+
+```yaml
+id: P1-015
+status: triaged
+priority: P1
+created: 2026-07-05
+reporter: operator (manual test 2026-07-05)
+component: frontend/AnalyticsView (AnalyticsFilters) + backend/stats
+severity: high
+```
+
+**Symptom:** Filtry w Analytics (date_from, date_to, branch_id, contractor_id) mogą nie działać dla wszystkich dashboardów/tabów.
+
+**Wymaganie:**
+- Sprawdzić czy filtry są stosowane do wszystkich endpointów stats
+- Jeśli nie → fix w backend (endpointy nie respektują filtry) lub frontend (nie wysyła parametry)
+- Dashboardy do sprawdzenia: PeriodRentalTab, LocationsTab, CategoriesTab, ContractorsTab, MachinesTab
+
+---
+
 ### P1-009: Lokalizacje wynajmu — "brak PNA" w tabeli głównej bez sensu
 
 ```yaml
