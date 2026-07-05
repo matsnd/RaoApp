@@ -205,7 +205,8 @@ HANDLOWCY = [
 ]
 
 ODDZIALY = [
-    {"name": "RAO Warszawa (HQ)", "city": "Warszawa", "street": "ul. Przykładowa 1", "postal_code": "00-001"},
+    {"name": "WARSZAWA", "city": "Warszawa", "street": "ul. Przykładowa 1", "postal_code": "00-001"},
+    {"name": "GDAŃSK", "city": "Gdańsk", "street": "ul. Portowa 5", "postal_code": "80-001"},
 ]
 
 RATE_TYPES = [
@@ -540,14 +541,25 @@ def generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_n
     contracts = []
     today = date.today()
 
-    def _add(number, i, date_from, days, contract_type, is_settled, fa_pending=False):
+    def _add(number, i, date_from, days, contract_type, is_settled, fa_pending=False, branch_idx=0):
         date_to = date_from + timedelta(days=days)
         is_active = date_to >= today
         positions, fees = _build_positions_and_fees(i, days, maszyny, uslugi, rt_dniowy)
+        # RAO-P1-022: numer zawsze zaczyna się na S, G na końcu jeśli Gdańsk (branch_id != 1)
+        branch = branches[branch_idx % len(branches)]
+        suffix = "G" if branch.id != 1 else ""
+        # Wymuś prefiks S (nawet dla umów typu U) — zgodne z generate_contract_number
+        if number[0] != "S":
+            number = "S" + number[1:]
+        if suffix and not number.endswith(suffix):
+            # Wstaw G przed rok (np. S001/2026 → S001/2026G)
+            parts = number.split("/")
+            if len(parts) == 2:
+                number = f"{parts[0]}/{parts[1]}{suffix}"
         contracts.append({
             "number": number,
             "contractor_id": contractors[i % len(contractors)].id,
-            "branch_id": branches[0].id,
+            "branch_id": branch.id,
             "salesperson_id": salespeople[i % len(salespeople)].id,
             "contract_type": contract_type,
             "date_from": date_from,
@@ -562,13 +574,14 @@ def generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_n
         })
 
     # ── Pula A: historia 2025 (12-24 miesiące wstecz, wszystkie rozliczone) ──
+    # Co 4 umowa z Gdańska (branch_idx=1 → suffix G w numerze)
     for i in range(24):
         contract_type = "S" if i % 3 != 2 else "U"
         months_back = 12 + i // 2  # 12,12,13,13,...,23,23
         date_from = today - timedelta(days=months_back * 30 + (i % 2) * 15)
         days = 7 + (i % 4) * 7
         number = f"{contract_type}{i + 1:03d}/2025"
-        _add(number, i, date_from, days, contract_type, is_settled=True)
+        _add(number, i, date_from, days, contract_type, is_settled=True, branch_idx=i % 4)
 
     # ── Pula B: bieżące 2026 (0-12 miesięcy wstecz, mix stanów) ──────────────
     for i in range(24):
@@ -580,7 +593,7 @@ def generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_n
         is_active = date_to >= today
         is_settled = (not is_active) and (i % 5 != 4)  # 80% zakończonych rozliczone
         number = f"{contract_type}{i + 1:03d}/2026"
-        _add(number, i, date_from, days, contract_type, is_settled=is_settled)
+        _add(number, i, date_from, days, contract_type, is_settled=is_settled, branch_idx=i % 4)
 
     # ── Pula C: FA-pending — zakończone, NIEROZLICZONE, faktura czeka w FA ──
     # (demo integracji: "Pobierz z Fakturowni" tworzy rozliczenia na żywo)
@@ -590,7 +603,7 @@ def generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_n
         date_from = today - timedelta(days=20 + k * 9)  # zakończone niedawno
         days = 7 + (k % 3) * 7
         number = f"{contract_type}{k + 25:03d}/2026"  # S025..S040/2026 — kontynuacja numeracji
-        _add(number, i, date_from, days, contract_type, is_settled=False, fa_pending=True)
+        _add(number, i, date_from, days, contract_type, is_settled=False, fa_pending=True, branch_idx=k % 4)
 
     return contracts
 
