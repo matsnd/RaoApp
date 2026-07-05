@@ -520,6 +520,11 @@ class ContractService:
         return out
 
     async def create_position(self, db: AsyncSession, contract_id: int, data: PositionCreate) -> ContractPosition:
+        # RAO-P1-040: is_settled blokuje mutacje — guard na create_position
+        contract = await self.get_contract(db, contract_id)
+        if contract.is_settled:
+            from shared.exceptions import conflict
+            raise conflict("Umowa jest rozliczona — dodawanie pozycji zablokowane.")
         from articles.models import Article
         article = await db.get(Article, data.article_id)
         pos = ContractPosition(

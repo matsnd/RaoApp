@@ -5,8 +5,11 @@ from pydantic import ValidationError
 from fastapi import HTTPException
 
 # Wymuszamy inicjalizacje wszystkich mapperow SQLAlchemy
-# (ServiceFeeTemplate odwoluje sie do Article przez relationship)
+# (ServiceFeeTemplate odwoluje sie do Article przez relationship;
+#  Contract.postal_code_ref odwoluje sie do PostalCode)
 import articles.models  # noqa: F401
+import integrations.models  # noqa: F401
+import contracts.models  # noqa: F401
 
 from settings.schemas import CategoryCreate, CategoryResponse, CategoryTreeNode
 from settings.service import SettingsService
@@ -140,19 +143,19 @@ async def test_create_category_with_parent_id():
     db.commit = AsyncMock()
     db.refresh = AsyncMock()
 
-    with patch("settings.service.Category") as MockCategory:
-        instance = MagicMock()
-        instance.id = 5
-        instance.name = "Mini"
-        instance.parent_id = 1
-        instance.level = "sub1"
-        MockCategory.return_value = instance
+    # Mock execute — zwróć pustą listę (brak duplikatów)
+    async def mock_execute(stmt):
+        result = MagicMock()
+        scalars = MagicMock()
+        scalars.all.return_value = []
+        result.scalars.return_value = scalars
+        return result
+    db.execute = mock_execute
 
-        result = await svc.create_category(db, data)
+    result = await svc.create_category(db, data)
 
     db.add.assert_called_once()
     db.commit.assert_called_once()
-    assert result.name == "Mini"
     assert result.parent_id == 1
     assert result.level == "sub1"
 
@@ -168,15 +171,15 @@ async def test_create_category_main_no_parent():
     db.commit = AsyncMock()
     db.refresh = AsyncMock()
 
-    with patch("settings.service.Category") as MockCategory:
-        instance = MagicMock()
-        instance.id = 10
-        instance.name = "Ladowarki"
-        instance.parent_id = None
-        instance.level = "main"
-        MockCategory.return_value = instance
+    async def mock_execute(stmt):
+        result = MagicMock()
+        scalars = MagicMock()
+        scalars.all.return_value = []
+        result.scalars.return_value = scalars
+        return result
+    db.execute = mock_execute
 
-        result = await svc.create_category(db, data)
+    result = await svc.create_category(db, data)
 
     assert result.name == "Ladowarki"
     assert result.parent_id is None

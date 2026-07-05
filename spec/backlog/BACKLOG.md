@@ -3233,30 +3233,30 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P1-014 | Frontend — błędne obliczanie daty końcowej okresu umowy | P1 | XS | user-verified | → client-approved |
 | RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | P1 | XS | team-verified | → user-verified |
 | RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | P1 | S | team-verified | → user-verified |
-| RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | dev-verified | → team-verified |
+| RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | team-verified | Nominatim hybryda offline+online, debounce 800ms, AbortController |
 | RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | P1 | XS | team-verified | → user-verified |
-| RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | dev-verified | → user-verified |
-| RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
-| RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | dev-verified | → team-verified (wartość z rozliczenia, read-only w formularzu) |
-| RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
+| RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | dev-verified | → user-verified (PDF generuje, redesign do wizualnej weryfikacji usera) |
+| RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified (algorytm kaskadowy działa, do wizualnej weryfikacji usera) |
+| RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | team-verified | total_value usunięte (martwe pole), settlementTotalValue computed read-only |
+| RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified (format S{NNN}/{ROK}G działa, do weryfikacji usera) |
 | RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | done | Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
 | RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | done | dev-verified → user-verified |
-| RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | dev-verified | → team-verified (unique=True w model + DB index uq_contracts_number) |
+| RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | team-verified | unique=True w model + DB index uq_contracts_number + FOR UPDATE + retry×3, 4 testy PASS |
 | RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | done | → done (autoescape=True w reports/service.py:588) |
 | RAO-P0-032 | build_contract_data mutuje sesję — kopiuj description | P0 | XS | done | → done (lokalne kopie description w fees_data) |
-| RAO-P0-033 | recalculate_total — użyj algorytmu kaskadowego | P0 | S | dev-verified | → team-verified |
-| RAO-P0-034 | ContractUpdate schema z exclude_unset=True (lost data) | P0 | M | dev-verified | → team-verified |
-| RAO-P0-035 | N+1 queries — selectinload w list_contracts/positions/articles | P0 | M | dev-verified | → team-verified |
-| RAO-P0-036 | Stack trace disclosure → detail="Błąd" + logging | P0 | XS | dev-verified | → team-verified (global exception handler w main.py) |
-| RAO-P1-037 | delete_contract — guard na is_settled | P1 | XS | dev-verified | → team-verified |
-| RAO-P1-038 | Brak indeksów DB (is_settled, created_at, salesperson_id, print_date, delivery_date) | P1 | S | dev-verified | → team-verified |
-| RAO-P1-039 | Walidacja date_from > date_to + ujemne kwoty w ContractCreate | P1 | XS | dev-verified | → team-verified |
-| RAO-P1-040 | is_settled blokuje mutacje (update/delete positions) | P1 | S | dev-verified | → team-verified |
-| RAO-P1-041 | Hardcoded JWT fallback "change-me" — usuń + wymuś z env | P1 | XS | dev-verified | → team-verified |
-| RAO-P1-042 | Frontend: logout czyści stores + redirect po login + baseURL z env | P1 | S | dev-verified | → team-verified |
-| RAO-P1-043 | Frontend: memory leaks — cleanup event listenerów i timerów | P1 | S | dev-verified | → team-verified |
-| RAO-P1-044 | Frontend: localStorage.getItem('token') → 'rao_token' | P1 | XS | dev-verified | → team-verified |
-| RAO-P1-045 | _build_conditions_text — użyj format_position_conditions_cascading (dedup) | P1 | XS | dev-verified | → team-verified |
+| RAO-P0-033 | recalculate_total — użyj algorytmu kaskadowego | P0 | S | team-verified | calculate_position_value tiered (rate1/period_count/minimum), 18 testów PASS |
+| RAO-P0-034 | ContractUpdate schema z exclude_unset=True (lost data) | P0 | M | team-verified | exclude_unset=True w update_contract, 3 testy PASS |
+| RAO-P0-035 | N+1 queries — selectinload w list_contracts/positions/articles | P0 | M | team-verified | batch-fetch w list_contracts/articles, selectinload(conditions) w list_positions |
+| RAO-P0-036 | Stack trace disclosure → detail="Błąd" + logging | P0 | XS | team-verified | global exception handler w main.py, JSONResponse 500 "Błąd serwera" + logger.exception |
+| RAO-P1-037 | delete_contract — guard na is_settled | P1 | XS | team-verified | guard is_settled → 409 w delete_contract |
+| RAO-P1-038 | Brak indeksów DB (is_settled, created_at, salesperson_id, print_date, delivery_date) | P1 | S | team-verified | 5 indeksów w DB (main.py CREATE INDEX IF NOT EXISTS) |
+| RAO-P1-039 | Walidacja date_from > date_to + ujemne kwoty w ContractCreate | P1 | XS | team-verified | model_validator odrzuca date_from>date_to + kwoty<0, testy PASS |
+| RAO-P1-040 | is_settled blokuje mutacje (update/delete positions) | P1 | S | team-verified | guard is_settled na wszystkich mutatorach (fix create_position dodany) |
+| RAO-P1-041 | Hardcoded JWT fallback "change-me" — usuń + wymuś z env | P1 | XS | team-verified | JWT z env, validator odrzuca "" i "change-me", config.py.bak usunięty |
+| RAO-P1-042 | Frontend: logout czyści stores + redirect po login + baseURL z env | P1 | S | team-verified | logout hard redirect, baseURL z VITE_API_URL, redirect po 401 |
+| RAO-P1-043 | Frontend: memory leaks — cleanup event listenerów i timerów | P1 | S | team-verified | onUnmounted cleanup wszędzie (ArchiveView, DashboardView, ContractFormView) |
+| RAO-P1-044 | Frontend: localStorage.getItem('token') → 'rao_token' | P1 | XS | team-verified | 11/11 rao_token, 0 trafień bez prefiksu |
+| RAO-P1-045 | _build_conditions_text — użyj format_position_conditions_cascading (dedup) | P1 | XS | team-verified | format_position_conditions_cascading z dedup, 4 testy PASS |
 | RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
 | RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | done | in-memory limiter 5/60s/IP, 429+Retry-After |
 | RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | done | warunkowe docs_url/redoc_url z RAO_ENV |
@@ -4061,30 +4061,30 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P1-014 | Frontend — błędne obliczanie daty końcowej okresu umowy | P1 | XS | user-verified | → client-approved |
 | RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | P1 | XS | team-verified | → user-verified |
 | RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | P1 | S | team-verified | → user-verified |
-| RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | dev-verified | → team-verified |
+| RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | team-verified | Nominatim hybryda offline+online, debounce 800ms, AbortController |
 | RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | P1 | XS | team-verified | → user-verified |
-| RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | dev-verified | → user-verified |
-| RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
-| RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | dev-verified | → team-verified (wartość z rozliczenia, read-only w formularzu) |
-| RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
+| RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | dev-verified | → user-verified (PDF generuje, redesign do wizualnej weryfikacji usera) |
+| RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified (algorytm kaskadowy działa, do wizualnej weryfikacji usera) |
+| RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | team-verified | total_value usunięte (martwe pole), settlementTotalValue computed read-only |
+| RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified (format S{NNN}/{ROK}G działa, do weryfikacji usera) |
 | RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | done | Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
 | RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | done | dev-verified → user-verified |
-| RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | dev-verified | → team-verified (unique=True w model + DB index uq_contracts_number) |
+| RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | team-verified | unique=True w model + DB index uq_contracts_number + FOR UPDATE + retry×3, 4 testy PASS |
 | RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | done | → done (autoescape=True w reports/service.py:588) |
 | RAO-P0-032 | build_contract_data mutuje sesję — kopiuj description | P0 | XS | done | → done (lokalne kopie description w fees_data) |
-| RAO-P0-033 | recalculate_total — użyj algorytmu kaskadowego | P0 | S | dev-verified | → team-verified |
-| RAO-P0-034 | ContractUpdate schema z exclude_unset=True (lost data) | P0 | M | dev-verified | → team-verified |
-| RAO-P0-035 | N+1 queries — selectinload w list_contracts/positions/articles | P0 | M | dev-verified | → team-verified |
-| RAO-P0-036 | Stack trace disclosure → detail="Błąd" + logging | P0 | XS | dev-verified | → team-verified (global exception handler w main.py) |
-| RAO-P1-037 | delete_contract — guard na is_settled | P1 | XS | dev-verified | → team-verified |
-| RAO-P1-038 | Brak indeksów DB (is_settled, created_at, salesperson_id, print_date, delivery_date) | P1 | S | dev-verified | → team-verified |
-| RAO-P1-039 | Walidacja date_from > date_to + ujemne kwoty w ContractCreate | P1 | XS | dev-verified | → team-verified |
-| RAO-P1-040 | is_settled blokuje mutacje (update/delete positions) | P1 | S | dev-verified | → team-verified |
-| RAO-P1-041 | Hardcoded JWT fallback "change-me" — usuń + wymuś z env | P1 | XS | dev-verified | → team-verified |
-| RAO-P1-042 | Frontend: logout czyści stores + redirect po login + baseURL z env | P1 | S | dev-verified | → team-verified |
-| RAO-P1-043 | Frontend: memory leaks — cleanup event listenerów i timerów | P1 | S | dev-verified | → team-verified |
-| RAO-P1-044 | Frontend: localStorage.getItem('token') → 'rao_token' | P1 | XS | dev-verified | → team-verified |
-| RAO-P1-045 | _build_conditions_text — użyj format_position_conditions_cascading (dedup) | P1 | XS | dev-verified | → team-verified |
+| RAO-P0-033 | recalculate_total — użyj algorytmu kaskadowego | P0 | S | team-verified | calculate_position_value tiered (rate1/period_count/minimum), 18 testów PASS |
+| RAO-P0-034 | ContractUpdate schema z exclude_unset=True (lost data) | P0 | M | team-verified | exclude_unset=True w update_contract, 3 testy PASS |
+| RAO-P0-035 | N+1 queries — selectinload w list_contracts/positions/articles | P0 | M | team-verified | batch-fetch w list_contracts/articles, selectinload(conditions) w list_positions |
+| RAO-P0-036 | Stack trace disclosure → detail="Błąd" + logging | P0 | XS | team-verified | global exception handler w main.py, JSONResponse 500 "Błąd serwera" + logger.exception |
+| RAO-P1-037 | delete_contract — guard na is_settled | P1 | XS | team-verified | guard is_settled → 409 w delete_contract |
+| RAO-P1-038 | Brak indeksów DB (is_settled, created_at, salesperson_id, print_date, delivery_date) | P1 | S | team-verified | 5 indeksów w DB (main.py CREATE INDEX IF NOT EXISTS) |
+| RAO-P1-039 | Walidacja date_from > date_to + ujemne kwoty w ContractCreate | P1 | XS | team-verified | model_validator odrzuca date_from>date_to + kwoty<0, testy PASS |
+| RAO-P1-040 | is_settled blokuje mutacje (update/delete positions) | P1 | S | team-verified | guard is_settled na wszystkich mutatorach (fix create_position dodany) |
+| RAO-P1-041 | Hardcoded JWT fallback "change-me" — usuń + wymuś z env | P1 | XS | team-verified | JWT z env, validator odrzuca "" i "change-me", config.py.bak usunięty |
+| RAO-P1-042 | Frontend: logout czyści stores + redirect po login + baseURL z env | P1 | S | team-verified | logout hard redirect, baseURL z VITE_API_URL, redirect po 401 |
+| RAO-P1-043 | Frontend: memory leaks — cleanup event listenerów i timerów | P1 | S | team-verified | onUnmounted cleanup wszędzie (ArchiveView, DashboardView, ContractFormView) |
+| RAO-P1-044 | Frontend: localStorage.getItem('token') → 'rao_token' | P1 | XS | team-verified | 11/11 rao_token, 0 trafień bez prefiksu |
+| RAO-P1-045 | _build_conditions_text — użyj format_position_conditions_cascading (dedup) | P1 | XS | team-verified | format_position_conditions_cascading z dedup, 4 testy PASS |
 | RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
 | RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | done | in-memory limiter 5/60s/IP, 429+Retry-After |
 | RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | done | warunkowe docs_url/redoc_url z RAO_ENV |
@@ -4889,30 +4889,30 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P1-014 | Frontend — błędne obliczanie daty końcowej okresu umowy | P1 | XS | user-verified | → client-approved |
 | RAO-P1-015 | PDF Umowa — ukryć numery telefonów na wydruku | P1 | XS | team-verified | → user-verified |
 | RAO-P1-016 | PDF Protokół ZO — brak adresu dostawy | P1 | S | team-verified | → user-verified |
-| RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | dev-verified | → team-verified |
+| RAO-P1-017 | Naprawa Nominatim — auto-fill adresu z uwag dojazdowych | P1 | M | team-verified | Nominatim hybryda offline+online, debounce 800ms, AbortController |
 | RAO-P1-018 | PDF Umowa — usunąć pieczątkę z pierwszej strony (S i U) | P1 | XS | team-verified | → user-verified |
-| RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | dev-verified | → user-verified |
-| RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified |
-| RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | dev-verified | → team-verified (wartość z rozliczenia, read-only w formularzu) |
-| RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified |
+| RAO-P1-019 | PDF Umowa usługi (U) — redesign jak umowa najmu (S) | P1 | M | dev-verified | → user-verified (PDF generuje, redesign do wizualnej weryfikacji usera) |
+| RAO-P1-020 | PDF — rozliczenie kaskadowe jak w starej aplikacji | P1 | M | dev-verified | → user-verified (algorytm kaskadowy działa, do wizualnej weryfikacji usera) |
+| RAO-P1-021 | Pole „Wartość (zł)" — decyzja biznesowa + auto-z rozliczenia | P1 | M | team-verified | total_value usunięte (martwe pole), settlementTotalValue computed read-only |
+| RAO-P1-022 | Korekta nazewnictwa umów — S i G na końcu dla Gdańska | P1 | S | dev-verified | → user-verified (format S{NNN}/{ROK}G działa, do weryfikacji usera) |
 | RAO-P2-028 | Statystyki — disambiguation miasta via postal_code (PNA/TERYT) | P2 | L | done | Faza 1+2+3 DONE: shared/locations + shared/revenue, extract_city usunięte, drill-down po PNA |
 | RAO-P2-029 | Statystyki — audyt determinizmu + naprawa archiwalnych | P2 | M | done | dev-verified → user-verified |
-| RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | dev-verified | → team-verified (unique=True w model + DB index uq_contracts_number) |
+| RAO-P0-030 | UNIQUE na contract.number + FOR UPDATE w generate_contract_number | P0 | S | team-verified | unique=True w model + DB index uq_contracts_number + FOR UPDATE + retry×3, 4 testy PASS |
 | RAO-P0-031 | XSS w PDF — Jinja2 autoescape + markupsafe.escape() | P0 | S | done | → done (autoescape=True w reports/service.py:588) |
 | RAO-P0-032 | build_contract_data mutuje sesję — kopiuj description | P0 | XS | done | → done (lokalne kopie description w fees_data) |
-| RAO-P0-033 | recalculate_total — użyj algorytmu kaskadowego | P0 | S | dev-verified | → team-verified |
-| RAO-P0-034 | ContractUpdate schema z exclude_unset=True (lost data) | P0 | M | dev-verified | → team-verified |
-| RAO-P0-035 | N+1 queries — selectinload w list_contracts/positions/articles | P0 | M | dev-verified | → team-verified |
-| RAO-P0-036 | Stack trace disclosure → detail="Błąd" + logging | P0 | XS | dev-verified | → team-verified (global exception handler w main.py) |
-| RAO-P1-037 | delete_contract — guard na is_settled | P1 | XS | dev-verified | → team-verified |
-| RAO-P1-038 | Brak indeksów DB (is_settled, created_at, salesperson_id, print_date, delivery_date) | P1 | S | dev-verified | → team-verified |
-| RAO-P1-039 | Walidacja date_from > date_to + ujemne kwoty w ContractCreate | P1 | XS | dev-verified | → team-verified |
-| RAO-P1-040 | is_settled blokuje mutacje (update/delete positions) | P1 | S | dev-verified | → team-verified |
-| RAO-P1-041 | Hardcoded JWT fallback "change-me" — usuń + wymuś z env | P1 | XS | dev-verified | → team-verified |
-| RAO-P1-042 | Frontend: logout czyści stores + redirect po login + baseURL z env | P1 | S | dev-verified | → team-verified |
-| RAO-P1-043 | Frontend: memory leaks — cleanup event listenerów i timerów | P1 | S | dev-verified | → team-verified |
-| RAO-P1-044 | Frontend: localStorage.getItem('token') → 'rao_token' | P1 | XS | dev-verified | → team-verified |
-| RAO-P1-045 | _build_conditions_text — użyj format_position_conditions_cascading (dedup) | P1 | XS | dev-verified | → team-verified |
+| RAO-P0-033 | recalculate_total — użyj algorytmu kaskadowego | P0 | S | team-verified | calculate_position_value tiered (rate1/period_count/minimum), 18 testów PASS |
+| RAO-P0-034 | ContractUpdate schema z exclude_unset=True (lost data) | P0 | M | team-verified | exclude_unset=True w update_contract, 3 testy PASS |
+| RAO-P0-035 | N+1 queries — selectinload w list_contracts/positions/articles | P0 | M | team-verified | batch-fetch w list_contracts/articles, selectinload(conditions) w list_positions |
+| RAO-P0-036 | Stack trace disclosure → detail="Błąd" + logging | P0 | XS | team-verified | global exception handler w main.py, JSONResponse 500 "Błąd serwera" + logger.exception |
+| RAO-P1-037 | delete_contract — guard na is_settled | P1 | XS | team-verified | guard is_settled → 409 w delete_contract |
+| RAO-P1-038 | Brak indeksów DB (is_settled, created_at, salesperson_id, print_date, delivery_date) | P1 | S | team-verified | 5 indeksów w DB (main.py CREATE INDEX IF NOT EXISTS) |
+| RAO-P1-039 | Walidacja date_from > date_to + ujemne kwoty w ContractCreate | P1 | XS | team-verified | model_validator odrzuca date_from>date_to + kwoty<0, testy PASS |
+| RAO-P1-040 | is_settled blokuje mutacje (update/delete positions) | P1 | S | team-verified | guard is_settled na wszystkich mutatorach (fix create_position dodany) |
+| RAO-P1-041 | Hardcoded JWT fallback "change-me" — usuń + wymuś z env | P1 | XS | team-verified | JWT z env, validator odrzuca "" i "change-me", config.py.bak usunięty |
+| RAO-P1-042 | Frontend: logout czyści stores + redirect po login + baseURL z env | P1 | S | team-verified | logout hard redirect, baseURL z VITE_API_URL, redirect po 401 |
+| RAO-P1-043 | Frontend: memory leaks — cleanup event listenerów i timerów | P1 | S | team-verified | onUnmounted cleanup wszędzie (ArchiveView, DashboardView, ContractFormView) |
+| RAO-P1-044 | Frontend: localStorage.getItem('token') → 'rao_token' | P1 | XS | team-verified | 11/11 rao_token, 0 trafień bez prefiksu |
+| RAO-P1-045 | _build_conditions_text — użyj format_position_conditions_cascading (dedup) | P1 | XS | team-verified | format_position_conditions_cascading z dedup, 4 testy PASS |
 | RAO-P2-046 | IDOR — ownership/tenant check na wszystkich zasobach | P2 | L | triaged | → DECYZJA: brak izolacji teraz, odłożone |
 | RAO-P2-047 | Rate limiting na /auth/login + /auth/forgot-password | P2 | S | triaged | → in_progress |
 | RAO-P2-048 | Publiczny Swagger — docs_url=None na produkcji | P2 | XS | triaged | → in_progress |
