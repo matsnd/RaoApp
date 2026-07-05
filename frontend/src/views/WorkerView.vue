@@ -307,7 +307,7 @@ onMounted(() => {
 <style scoped>
 .worker-view {
   padding: 20px 24px;
-  max-width: 1600px;
+  width: 100%;
   margin: 0 auto;
   height: 100%;
   overflow-y: auto;
