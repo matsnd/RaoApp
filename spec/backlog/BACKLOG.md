@@ -596,7 +596,7 @@ Warszawa  (brak PNA — Warszawa)  1    11 340,00 zł
 
 ---
 
-### P1-010: Warunki finansowe — "Wartość z rozliczenia" bez sensu, refactor UI
+### P1-010: Warunki finansowe — "Wartość z rozliczenia" bez sensu, usunąć z DB i UI
 
 ```yaml
 id: P1-010
@@ -604,28 +604,33 @@ status: triaged
 priority: P1
 created: 2026-07-05
 reporter: operator (manual test 2026-07-05)
-component: frontend/ContractFormView (Warunki finansowe)
+component: backend/contracts (DB schema, models, schemas) + frontend/ContractFormView
 severity: high
 ```
 
-**Symptom:** W sekcji "Warunki finansowe" w formularzu umowy są 3 pola które nie mają sensu:
-- "Wartość z rozliczenia (zł)" — redundantne, faktura jest źródłem prawdy
-- "Faktura (zł)" — powinna pokazywać sumę faktur z Fakturownia
-- "Pozostało (zł)" — powinno być suma faktury - przedpłata
+**Symptom:** W sekcji "Warunki finansowe" w formularzu umowy jest pole "Wartość z rozliczenia (zł)" które jest redundantne. Faktura jest źródłem prawdy.
 
 **Problem:**
-- "Wartość z rozliczenia" to de facto suma faktur, ale jest duplikatem
-- "Faktura" powinna być read-only z sumą faktur z Fakturownia
-- "Pozostało" powinno być obliczane: faktura - przedpłata
-- "Przedpłata" — zostawić bo jest na umowie (pola formularza)
+- "Wartość z rozliczenia" to de facto suma faktur, ale jest duplikatem w DB i UI
+- Pole "Faktura" powinna pokazywać sumę faktur z Fakturownia (read-only)
+- Pole "Pozostało" powinno być obliczane: faktura - przedpłata (read-only)
+- Pole "Przedpłata" — zostawić bo jest na umowie (editable)
 
-**Oczekiwane zachowanie:**
-- Usunąć pole "Wartość z rozliczenia"
-- Pole "Faktura" — read-only, pokazuje sumę faktur z Fakturownia (lub 0 jeśli brak)
-- Pole "Pozostało" — read-only, obliczane jako faktura - przedpłata
-- Pole "Przedpłata" — zostawić (editable, z formularza)
+**Wymagane zmiany (full-stack):**
+1. **DB schema:** usunąć kolumnę `wartosc_z_rozliczenia` z tabeli `contracts`
+2. **Backend models:** usunąć pole z `Contract` model w SQLAlchemy
+3. **Backend schemas:** usunąć pole z Pydantic schemas (Create/Update/Response)
+4. **Backend service/logic:** usunąć użycia pola w service functions
+5. **Frontend UI:** usunąć pole z ContractFormView (Warunki finansowe)
+6. **Frontend UI:** pole "Faktura" → read-only, suma faktur z Fakturownia
+7. **Frontend UI:** pole "Pozostało" → read-only, obliczane jako faktura - przedpłata
+8. **Frontend UI:** pole "Przedpłata" → zostawić (editable)
 
 **Uwaga:** W sekcji "Rozliczenie umowy" jest modal "Faktury z Fakturownia (read-only)" — to zostaje bez zmian.
+
+**Migracja DB:** DROP COLUMN (po backupie) lub soft-delete (set NULL + deprecate w spec).
+
+**⚠️ WYMAGANA ZGODA UŻYTKOWNIKA:** DROP COLUMN na produkcyjnych danych wymaga backupu `mariadb-dump rao_new > backup_before_p1_010.sql` przed migracją.
 
 ---
 
