@@ -383,7 +383,7 @@ class SettingsService:
             raise conflict("Kategoria jest używana przez artykuły i nie może zostać usunięta")
 
     async def list_branches(self, db: AsyncSession):
-        result = await db.execute(select(Branch).order_by(Branch.name))
+        result = await db.execute(select(Branch).order_by(Branch.id))
         return result.scalars().all()
 
     async def create_branch(self, db: AsyncSession, data: BranchCreate) -> Branch:
