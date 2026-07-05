@@ -1,5 +1,5 @@
 <template>
-  <div style="display:flex;flex-direction:column;height:100vh;overflow:hidden;">
+  <div style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
     <div class="toolbar">
       <button class="toolbar-btn" @click="$router.push('/dashboard/contracts')">←</button>
       <span class="toolbar-info">Panel administracyjny — Użytkownicy</span>

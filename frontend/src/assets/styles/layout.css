@@ -65,7 +65,12 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  /* RAO P0-002/P1-008: overflow-y:auto — scrollowalny kontener treści.
+     Widoki z własnym scrollowaniem (height:100% + .content-area overflow:auto)
+     nie wywołają scrolla tutaj (mieścimy się w 100%).
+     Widoki bez wewn. scrolla (AnalyticsView) — scrolluje .main-area. */
+  overflow-y: auto;
+  overflow-x: hidden;
   background: var(--color-bg-light);
 }
 

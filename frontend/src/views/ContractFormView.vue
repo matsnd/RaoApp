@@ -1,5 +1,5 @@
 <template>
-  <div style="display:flex;flex-direction:column;height:100vh;overflow:hidden;">
+  <div style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
     <div class="toolbar">
       <button class="toolbar-btn" @click="goBack">←</button>
       <span class="toolbar-info">{{ isEdit ? (contractStore.current?.number ? `Umowa: ${contractStore.current.number}` : 'Ładowanie...') : 'Nowa umowa' }}</span>
@@ -126,22 +126,14 @@
             </div>
           </div>
 
-          <div class="form-row-4">
+          <div class="form-row-2">
             <div class="form-group">
               <label class="form-label">Przedpłata (zł)</label>
               <input v-model="form.prepayment_amount" type="number" step="0.01" class="form-control" />
             </div>
             <div class="form-group">
-              <label class="form-label">Dok. przedpłaty</label>
-              <input v-model="form.prepayment_document" type="text" class="form-control" />
-            </div>
-            <div class="form-group">
               <label class="form-label">Faktura (zł)</label>
               <input v-model="form.invoice_amount" type="number" step="0.01" class="form-control" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Dok. faktury</label>
-              <input v-model="form.invoice_document" type="text" class="form-control" />
             </div>
           </div>
         </div>
@@ -1030,8 +1022,9 @@ const form = ref({
   contractor_id: null, branch_id: null, salesperson_id: null,
   contract_type: 'S', oid: null, delivery_address: '', postal_code: '', city: '', latitude: null, longitude: null, date_from: '', date_to: '',
   // RAO-P1-021/P2-033: total_value usunięte (martwe pole)
-  prepayment_amount: 0, prepayment_document: '',
-  invoice_amount: 0, invoice_document: '', notes: '',
+  // RAO-P0-006: prepayment_document/invoice_document usunięte z UI (nie trafiają do PDF)
+  prepayment_amount: 0,
+  invoice_amount: 0, notes: '',
   contact_person1: '', contact_phone1: '', show_person1: true,
   contact_person2: '', contact_phone2: '', show_person2: true,
   email: '', phone: '', contractor_name: '', working_days_per_week: 6, report_without_data: false, hide_delivery_address: false, signatures_on_page1: false,
@@ -1374,16 +1367,19 @@ function formatDescription(description, amount_from, amount_to) {
     return '—'
   }
 
-  // If description exists, replace $1/$2 placeholders with actual amounts
+  // RAO-P0-003: If description exists, replace $1/$2 placeholders with actual
+  // amounts (w formacie "zł"). Placeholdery $1/$2 nigdy nie mogą trafić do UI
+  // jako literal "$" — kojarzy się z USD. Gdy kwota brak, zastąp neutralnym "—".
   let result = description
-  if (amount_from !== null && amount_from !== undefined) {
-    const formattedFrom = Number(amount_from).toLocaleString('pl-PL', { minimumFractionDigits: 2 })
-    result = result.replace(/\$1/g, formattedFrom + ' zł')
-  }
-  if (amount_to !== null && amount_to !== undefined) {
-    const formattedTo = Number(amount_to).toLocaleString('pl-PL', { minimumFractionDigits: 2 })
-    result = result.replace(/\$2/g, formattedTo + ' zł')
-  }
+  const formattedFrom =
+    amount_from !== null && amount_from !== undefined
+      ? Number(amount_from).toLocaleString('pl-PL', { minimumFractionDigits: 2 }) + ' zł'
+      : '—'
+  const formattedTo =
+    amount_to !== null && amount_to !== undefined
+      ? Number(amount_to).toLocaleString('pl-PL', { minimumFractionDigits: 2 }) + ' zł'
+      : '—'
+  result = result.replace(/\$1/g, formattedFrom).replace(/\$2/g, formattedTo)
   return result
 }
 
@@ -1485,7 +1481,7 @@ function goBack() { router.push('/dashboard/contracts') }
 function buildPayload() {
   const v = { ...form.value }
   const dateFields = ['date_from', 'date_to']
-  const nullableStr = ['delivery_address', 'prepayment_document', 'invoice_document',
+  const nullableStr = ['delivery_address',
     'notes', 'contact_person1', 'contact_phone1', 'contact_person2', 'contact_phone2',
     'email', 'phone', 'contractor_name']
   dateFields.forEach(f => { if (!v[f]) v[f] = null })

@@ -428,9 +428,10 @@ onMounted(loadAll)
 <style scoped>
 .home-view {
   padding: 24px 28px;
-  height: 100%;
+  min-height: 100%;
   overflow-y: auto;
-  background: #F4F6FB;
+  /* RAO P1-003: hardcoded #F4F6FB → zmienna CSS */
+  background: var(--color-bg-light);
   box-sizing: border-box;
 }
 
@@ -480,9 +481,11 @@ onMounted(loadAll)
 .qa-icon { font-weight: 800; font-size: 15px; line-height: 1; }
 
 /* ── KPI STRIP ── */
+/* RAO P1-003: responsywny grid — auto-fill minmax zamiast stałych 5 kolumn.
+   Na szerokich ekranach 5 kart, na wąskich zawijają automatycznie. */
 .kpi-strip {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 14px;
   margin-bottom: 20px;
 }
@@ -531,7 +534,8 @@ onMounted(loadAll)
 }
 .nav-grid-full {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  /* RAO P1-003: auto-fill minmax zamiast stałych 6 kolumn */
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 12px;
 }
 
@@ -735,15 +739,12 @@ onMounted(loadAll)
 .nav-tile-icon { font-size: 20px; }
 
 /* ── RESPONSIVE ── */
-@media (max-width: 1400px) {
-  .kpi-strip { grid-template-columns: repeat(3, 1fr); }
-}
+/* RAO P1-003: kpi-strip używa auto-fill minmax — nie potrzebuje media query override.
+   Zachowano tylko home-grid i home-header breakpoints. */
 @media (max-width: 1100px) {
-  .kpi-strip { grid-template-columns: repeat(2, 1fr); }
   .home-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 700px) {
-  .kpi-strip { grid-template-columns: 1fr 1fr; }
   .home-header { flex-direction: column; align-items: flex-start; }
 }
 </style>

@@ -1579,6 +1579,13 @@ Następca: patrz sekcja `AnalyticsView.vue` poniżej.
 
 **Opis:** Główny ekran po zalogowaniu. Pokazuje kluczowe KPI i quick actions.
 
+**Layout (RAO P1-003 fix):**
+- Pełna szerokość kontenera (usunięto Vite template `#app { width: 1126px }`)
+- KPI strip: `grid-template-columns: repeat(auto-fill, minmax(220px, 1fr))` — responsywny
+- Quick nav strip: `repeat(auto-fill, minmax(140px, 1fr))` — responsywny
+- Tło: `var(--color-bg-light)` (zmienna CSS, nie hardcoded)
+- `min-height: 100%; overflow-y: auto` — scrollowalny
+
 **KPI panele:**
 - Maszyny w terenie (liczba aktywnych wynajmów)
 - Kończące się umowy (w ciągu 7 dni)
@@ -1598,6 +1605,13 @@ Następca: patrz sekcja `AnalyticsView.vue` poniżej.
 ---
 
 ## Globalne funkcjonalności (AppLayout.vue)
+
+### Layout / scroll (RAO P0-002/P1-008 fix)
+- `#app` (style.css): `width: 100%; min-height: 100vh` — pełna szerokość (usunięto Vite leftover `width: 1126px; text-align: center; border-inline`)
+- `.app-shell` (layout.css): `height: 100vh; overflow: hidden` — sidebar + main area, bez scrolla na poziomie shell
+- `.main-area` (layout.css): `overflow-y: auto; overflow-x: hidden` — **scrollowalny kontener treści** dla widoków bez wewn. scrolla (AnalyticsView)
+- Widoki z toolbar + content-area: root `height: 100%` (nie `100vh`) + `.content-area { overflow: auto }` — toolbar sticky, treść scrolluje wewnętrznie
+- Dotyczy: DashboardView, ContractFormView, SettingsView, ArticleFormView, AdminView, ContractorFormView
 
 ### Pasek postępu NProgress (P3-010)
 - Biblioteka: `nprogress` (niebieska belka `--color-accent-blue`, bez spinnera)

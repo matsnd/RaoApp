@@ -1,5 +1,5 @@
 <template>
-  <div style="display:flex;flex-direction:column;height:100vh;overflow:hidden;">
+  <div style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
     <div class="toolbar">
       <span class="toolbar-info">Ustawienia</span>
     </div>

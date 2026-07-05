@@ -525,9 +525,10 @@ pozycji dodatkowych (usług). Usługi nie działają i nie ma ich w demo.
 
 ```yaml
 id: P1-008
-status: triaged
+status: done
 priority: P1
 created: 2026-07-05
+resolved: 2026-07-05
 reporter: operator (manual test 2026-07-05)
 component: frontend (globalne — layout)
 severity: high

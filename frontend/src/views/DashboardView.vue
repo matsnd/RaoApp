@@ -1,5 +1,5 @@
 <template>
-  <div style="display:flex;flex-direction:column;height:100vh;overflow:hidden;">
+  <div style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
     <AppToolbar
       :info-text="toolbarInfo"
       :show-view-button="section === 'contracts'"
