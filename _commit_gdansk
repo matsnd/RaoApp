@@ -1,0 +1,17 @@
+feat(demo): RAO-P1-055 — dodaj umowy gdańskie (suffix G) do demo data
+
+Dodano oddział RAO Gdańsk do ODDZIALY + pulę D (6 umów gdańskich):
+- 3 historia 2025 (rozliczone): S040/2025G, U041/2025G, S042/2025G
+- 3 bieżące 2026 (mix stanów): S044/2026G, U043/2026G, U045/2026G
+
+Format numeru: S{NNN}/{ROK}G (G na końcu, zgodne ze starą aplikacją WinForms).
+_add() przyjmuje opcjonalny branch_id (domyślnie branches[0] = Warszawa).
+
+Weryfikacja:
+- DB: 6 umów z branch_id=4 (RAO Gdańsk), number LIKE '%G'
+- /stats/by-branch: 2 oddziały (Warszawa 56 umów/786k, Gdańsk 6 umów/101k)
+- Idempotentne: get_or_create + check po number
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

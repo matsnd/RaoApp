@@ -1,0 +1,24 @@
+fix(stats): RAO-P2-065 #8+#10+#11 — explorer total, walidacja dat, KPI label
+
+Bug #8: /explorer/search total = len(results) (page size) zamiast total count.
+Pole city = delivery_address (mylące). FIX: total = summary.total_count;
+city = Contract.city (osobno), delivery_address = Contract.delivery_address.
+
+Bug #10: Brak walidacji date_from > date_to w stats/explorer → 200 z pustymi
+danymi zamiast 422. FIX: walidacja w _default_dates (stats) + explorer_search
+→ 422 z komunikatem. Frontend loadError wyświetla detail.
+
+Bug #11: KPI "Przychód w okresie" sumuje rzecz.+szac. ale label = "rzeczywiste"
+(mylące). FIX: revenue_source_label = "razem (rzecz.+szac.)" gdy oba > 0.
+
+Weryfikacja:
+- /explorer/search?q=koparka&limit=3: total=15, items=3, city="Warszawa",
+  delivery_address="ul. Świętokrzyska 14, 00-002 Warszawa"
+- /stats/fleet-summary?date_from=2026-07-10&date_to=2026-07-01: 422
+  "Data początkowa (2026-07-10) nie może być późniejsza niż końcowa (2026-07-01)."
+- revenue_source_label: "razem (rzecz.+szac.)" gdy revenue_actual>0 i
+  revenue_estimate>0
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

@@ -1,0 +1,21 @@
+fix(analytics): RAO-P2-065 #7+#9 — internal_number w tytule drill-down + fallback city
+
+Bug #7: Drill-down maszyny bez nr wewnętrznego w tytule. FIX:
+- openDrillDown w store przyjmuje internalNumber (6. arg)
+- tytuł drawera = "🏗️ {name} ({internalNumber})" gdy internalNumber obecne
+- AnalyticsView provide przekazuje internalNumber z PeriodRentalTab
+- inject signature zaktualizowane
+
+Bug #9: Lokalizacje "(brak PNA)" bez fallbacku do city. FIX:
+- postal_code ?? '' → postal_code ?? '(brak PNA — {city})' w PeriodRentalTab
+  i LocationsTab
+- onLocationRowClick / onRowClick fallback do city:{city} drill gdy brak PNA
+
+Weryfikacja:
+- Playwright: tytuł drawera "🏗️ Ładowarka teleskopowa Manuscop 6.36 (LAD-002)"
+- API locations: postal_code=null, city="Wrocław" → UI "(brak PNA — Wrocław)"
+- vue-tsc PASS, build PASS
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

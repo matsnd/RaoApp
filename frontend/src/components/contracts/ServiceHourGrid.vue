@@ -145,7 +145,7 @@ defineExpose({
   border: none;
   cursor: pointer;
   font-size: 16px;
-  color: #718096;
+  color: #5A6B7E;
   padding: 4px;
 }
 
@@ -159,7 +159,7 @@ defineExpose({
 }
 
 .empty-state {
-  color: #718096;
+  color: #5A6B7E;
   font-style: italic;
   font-size: 13px;
 }

@@ -329,7 +329,7 @@ onMounted(() => {
 }
 .worker-date {
   font-size: 13px;
-  color: #718096;
+  color: #5A6B7E;
   text-transform: capitalize;
 }
 
@@ -371,7 +371,7 @@ onMounted(() => {
 .badge-count {
   background: #F59E0B;
   color: #fff;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   padding: 2px 8px;
   border-radius: 20px;
@@ -388,7 +388,7 @@ onMounted(() => {
 }
 .days-filter button {
   padding: 3px 9px;
-  font-size: 11px;
+  font-size: 13px;
   border: 1px solid #CBD5E0;
   border-radius: 4px;
   background: #fff;
@@ -455,7 +455,7 @@ onMounted(() => {
 }
 .exp-number { font-size: 13px; font-weight: 700; color: #0F234E; }
 .exp-days-badge {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
   padding: 2px 8px;
   border-radius: 10px;
@@ -470,12 +470,12 @@ onMounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  font-size: 11px;
-  color: #718096;
+  font-size: 13px;
+  color: #5A6B7E;
   margin-bottom: 4px;
 }
 .exp-addr { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
-.exp-contact { display: flex; flex-wrap: wrap; gap: 10px; font-size: 11px; }
+.exp-contact { display: flex; flex-wrap: wrap; gap: 10px; font-size: 13px; }
 .contact-name { color: #4A5568; }
 .contact-phone {
   color: #3B82F6;
@@ -495,7 +495,7 @@ onMounted(() => {
 }
 .delivery-row:last-child { border-bottom: none; }
 .del-chip {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   padding: 3px 8px;
   border-radius: 4px;
@@ -521,10 +521,10 @@ onMounted(() => {
   font-weight: 600;
   color: #2D3748;
 }
-.del-contractor { font-size: 11px; color: #718096; margin-bottom: 2px; }
-.del-details { font-size: 11px; color: #718096; margin-bottom: 2px; }
+.del-contractor { font-size: 13px; color: #5A6B7E; margin-bottom: 2px; }
+.del-details { font-size: 13px; color: #5A6B7E; margin-bottom: 2px; }
 .del-addr { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.del-contact { font-size: 11px; display: flex; gap: 10px; }
+.del-contact { font-size: 13px; display: flex; gap: 10px; }
 
 /* ── UNPRINTED ── */
 .unprinted-list { }
@@ -558,7 +558,7 @@ onMounted(() => {
   margin-bottom: 2px;
 }
 .unp-dates {
-  font-size: 11px;
+  font-size: 13px;
   color: #A0AEC0;
   display: block;
 }
@@ -569,7 +569,7 @@ onMounted(() => {
   border-radius: 5px;
   padding: 5px 10px;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   color: #0F234E;
   font-family: inherit;

@@ -1,0 +1,11 @@
+$root = "c:/projects/repos/RaoApp_new/frontend/src"
+$files = Get-ChildItem -Path $root -Recurse -Include *.vue,*.css
+foreach ($f in $files) {
+    $content = Get-Content $f.FullName -Raw
+    if ($content -match '#718096') {
+        $new = $content -replace '#718096', '#5A6B7E'
+        $new = $new -replace 'rgba\(113,128,150', 'rgba(90,107,126'
+        Set-Content $f.FullName -Value $new -NoNewline
+        Write-Output $f.Name
+    }
+}

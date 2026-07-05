@@ -9,7 +9,7 @@
   --color-bg-card-hover: #FCFCFE;
   --color-text-heading: #1D2B53;
   --color-text-body: #4A5568;
-  --color-text-muted: #718096;
+  --color-text-muted: #5A6B7E;
   --color-text-on-primary: #FFFFFF;
   --color-accent-blue: #3B82F6;
   --color-border: #E2E8F0;
@@ -538,7 +538,7 @@ a[aria-label]:focus-visible {
 /* RAO-P3-071 kontynuacja: druga linia tooltipa — krótki opis (description) */
 .glossary-tip .glossary-tip-desc {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   opacity: 0.85;
   margin-top: 4px;
   line-height: var(--line-height-normal);

@@ -518,7 +518,7 @@ onMounted(loadAll)
   animation: pulse 1.4s ease-in-out infinite;
 }
 .kpi-denom { font-size: 16px; font-weight: 500; color: var(--color-text-muted); }
-.kpi-label { font-size: 11px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 2px; }
+.kpi-label { font-size: 13px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 2px; }
 .kpi-sub { font-size: 12px; color: var(--color-text-body); margin-top: 3px; }
 
 /* ── QUICK NAV STRIP ── */
@@ -582,7 +582,7 @@ onMounted(loadAll)
 .panel-badge {
   background: var(--color-warning);
   color: var(--color-text-on-primary);
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   border-radius: 20px;
   padding: 2px 8px;
@@ -645,9 +645,9 @@ onMounted(loadAll)
 .exp-days.urgent-high { background: #FEF3C7; color: #92400E; }
 .exp-days.urgent-medium { background: #FFF8DC; color: #78350F; }
 .exp-contractor { font-size: 13px; color: var(--color-text-body); margin-bottom: 3px; }
-.exp-meta { display: flex; gap: 10px; font-size: 11px; color: var(--color-text-muted); margin-bottom: 2px; flex-wrap: wrap; }
+.exp-meta { display: flex; gap: 10px; font-size: 13px; color: var(--color-text-muted); margin-bottom: 2px; flex-wrap: wrap; }
 .exp-addr { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 280px; }
-.exp-contact { display: flex; gap: 12px; font-size: 11px; color: var(--color-text-body); }
+.exp-contact { display: flex; gap: 12px; font-size: 13px; color: var(--color-text-body); }
 .phone-link { color: var(--color-info); text-decoration: none; }
 .phone-link:hover { text-decoration: underline; }
 
@@ -669,7 +669,7 @@ onMounted(loadAll)
   border-bottom: 1px solid var(--color-border);
 }
 .del-date-chip {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   padding: 3px 8px;
   border-radius: var(--border-radius-sm);
@@ -682,8 +682,8 @@ onMounted(loadAll)
 .chip-tomorrow { background: #E0E7FF; color: #3730A3; }
 .del-body { flex: 1; min-width: 0; }
 .del-article { font-size: 13px; font-weight: 600; color: var(--color-text-heading); }
-.del-meta { font-size: 11px; color: var(--color-text-muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.del-contact { font-size: 11px; margin-top: 2px; }
+.del-meta { font-size: 13px; color: var(--color-text-muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.del-contact { font-size: 13px; margin-top: 2px; }
 
 /* ── UNPRINTED ── */
 .unprinted-list { padding: 4px 0; }
@@ -699,7 +699,7 @@ onMounted(loadAll)
 .unprinted-row:hover { background: #FFF9F0; }
 .unp-number { font-size: 12px; font-weight: 700; color: var(--color-text-heading); min-width: 80px; }
 .unp-contractor { font-size: 12px; color: var(--color-text-body); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.unp-date { font-size: 11px; color: var(--color-text-muted); flex-shrink: 0; }
+.unp-date { font-size: 13px; color: var(--color-text-muted); flex-shrink: 0; }
 .unp-more {
   padding: 8px 16px;
   font-size: 12px;

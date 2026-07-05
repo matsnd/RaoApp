@@ -266,7 +266,7 @@
         <div v-if="isEdit" class="page-card">
           <div style="display:flex;align-items:center;margin-bottom:8px;">
             <span class="section-title" style="margin:0;border:none;">Usługi dodatkowe</span>
-            <span style="font-size:11px;color:#718096;margin-left:12px;">Kliknij wiersz • Enter = zapisz • Esc = anuluj</span>
+            <span style="font-size:11px;color:#5A6B7E;margin-left:12px;">Kliknij wiersz • Enter = zapisz • Esc = anuluj</span>
             <button class="btn btn-secondary btn-sm" style="margin-left:auto;margin-right:6px;" @click="openPresetPicker" title="Wybierz zestaw usług">📋 Wybierz zestaw</button>
             <button class="btn btn-secondary btn-sm" style="margin-right:8px;" @click="resetServiceFees" title="Reset do domyślnego szablonu">↻ Reset</button>
             <button class="btn btn-primary btn-sm" @click="addFeeRow">+ Dodaj</button>
@@ -343,7 +343,7 @@
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
             <div style="display:flex;align-items:center;gap:10px;">
               <span class="section-title" style="margin:0;border:none;">Rozliczenie umowy</span>
-              <span style="font-size:11px;color:#718096;">Koszt klienta vs koszt firmy</span>
+              <span style="font-size:11px;color:#5A6B7E;">Koszt klienta vs koszt firmy</span>
               <!-- RAO-P2-022: status badge -->
               <span v-if="form.is_settled" class="settled-badge-sm">
                 ✓ Rozliczona{{ form.settled_at ? ' · ' + new Date(form.settled_at).toLocaleDateString('pl-PL') : '' }}
@@ -379,7 +379,7 @@
             <div v-if="fakturowniaStore.error" style="color:#e53e3e;font-size:12px;padding:8px;background:#fff5f5;border-radius:4px;">
               {{ fakturowniaStore.error }}
             </div>
-            <div v-else-if="!fakturowniaStore.invoices.length" style="color:#718096;font-size:12px;padding:8px;">
+            <div v-else-if="!fakturowniaStore.invoices.length" style="color:#5A6B7E;font-size:12px;padding:8px;">
               Brak faktur dla tego kontrahenta (OID: {{ form.contractor_id }})
             </div>
             <div v-else>
@@ -2108,7 +2108,7 @@ async function applyPreset(preset) {
   color: #065f46;
   border: 1px solid #6ee7b7;
   border-radius: 12px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
 }
 .btn-success {
@@ -2311,8 +2311,8 @@ async function applyPreset(preset) {
   margin-bottom: 4px;
 }
 .preset-picker-card-items {
-  font-size: 11px;
-  color: #718096;
+  font-size: 13px;
+  color: #5A6B7E;
   line-height: 1.6;
 }
 .preset-picker-empty {

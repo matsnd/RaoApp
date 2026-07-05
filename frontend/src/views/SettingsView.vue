@@ -256,7 +256,7 @@
                     <span v-if="editingPresetId !== preset.id" style="font-weight:600;font-size:14px;">{{ preset.name }}</span>
                     <input v-else v-model="editingPresetName" class="form-control form-control-xs" style="width:260px;" @keydown.enter="savePresetName(preset)" @keydown.esc="editingPresetId = null" />
                     <span v-if="preset.is_default" class="badge badge-muted" style="font-size:10px;">Domyślny</span>
-                    <span style="font-size:11px;color:#718096;">({{ preset.templates.length }} pozycji)</span>
+                    <span style="font-size:11px;color:#5A6B7E;">({{ preset.templates.length }} pozycji)</span>
                   </div>
                   <div style="display:flex;gap:4px;">
                     <button v-if="editingPresetId !== preset.id" class="btn-icon" aria-label="Zmień nazwę" title="Zmień nazwę" @click="startEditPreset(preset)">✎</button>
@@ -326,7 +326,7 @@
                     </tbody>
                     <tbody v-else>
                       <tr>
-                        <td colspan="9" style="text-align:center; padding: 20px; color: #718096;">
+                        <td colspan="9" style="text-align:center; padding: 20px; color: #5A6B7E;">
                           Brak szablonów w tym zestawie
                         </td>
                       </tr>
@@ -1002,7 +1002,7 @@ watch(activeTab, async (newTab) => {
   align-items: center;
   justify-content: center;
   color: var(--color-text-muted, #A0AEC0);
-  font-size: 11px;
+  font-size: 13px;
 }
 .logo-upload-btn {
   cursor: pointer;

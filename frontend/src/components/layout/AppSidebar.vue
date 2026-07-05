@@ -115,7 +115,7 @@ onMounted(async () => {
   padding: 4px 0;
 }
 .sidebar-archive-label {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
   color: rgba(245, 158, 11, 0.85);

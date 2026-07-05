@@ -14,7 +14,7 @@
 
   --color-text-heading: #1D2B53;
   --color-text-body: #4A5568;
-  --color-text-muted: #718096;
+  --color-text-muted: #5A6B7E;
   --color-text-on-primary: #FFFFFF;
 
   --color-border: #E2E8F0;
@@ -30,7 +30,7 @@
 
   /* === Typografia === */
   --font-family: 'Montserrat', 'Inter', sans-serif;
-  --font-size-xs: 11px;
+  --font-size-xs: 12px;
   --font-size-sm: 13px;
   --font-size-base: 14px;
   --font-size-md: 15px;

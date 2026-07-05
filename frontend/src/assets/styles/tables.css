@@ -129,6 +129,6 @@
 .badge-muted   { background: var(--color-bg-light); color: var(--color-text-muted); }
 .badge-archival { background: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db; }
 
-.data-grid tbody tr.row-archival { background: #f8fafb; color: #718096; }
-.data-grid tbody tr.row-archival:hover { background: rgba(113,128,150,0.08); }
-.data-grid tbody tr.row-archival.selected { background: rgba(113,128,150,0.15) !important; }
+.data-grid tbody tr.row-archival { background: #f8fafb; color: #5A6B7E; }
+.data-grid tbody tr.row-archival:hover { background: rgba(90,107,126,0.08); }
+.data-grid tbody tr.row-archival.selected { background: rgba(90,107,126,0.15) !important; }

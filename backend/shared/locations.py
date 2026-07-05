@@ -16,7 +16,6 @@ Public API:
 """
 from collections import defaultdict
 from decimal import Decimal
-import re
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -55,18 +54,16 @@ async def aggregate_by_pna(
         return []
 
     # Pobierz contracts.city + postal_code + postal_code_id (FK)
-    # RAO-P2-065 bug #9: pobierz też delivery_address jako fallback city
     loc_q = await db.execute(
         select(
             Contract.id,
             Contract.city,
             Contract.postal_code,
             Contract.postal_code_id,
-            Contract.delivery_address,
         ).where(Contract.id.in_(contract_ids))
     )
     contract_loc = {
-        r[0]: {"city": r[1], "pna": r[2], "pna_id": r[3], "delivery_address": r[4]}
+        r[0]: {"city": r[1], "pna": r[2], "pna_id": r[3]}
         for r in loc_q.all()
     }
 
@@ -135,18 +132,7 @@ async def aggregate_by_pna(
             # Brak FK — fallback na contracts.postal_code (legacy) lub bucket NO_PNA
             postal_code = (loc["pna"] or "").strip() or None
             if not city:
-                # RAO-P2-065 bug #9: fallback city z delivery_address (regex)
-                # ekstrahuj miasto: obetnij kod pocztowy (XX-XXX) i resztę adresu
-                da = loc.get("delivery_address") or ""
-                if da:
-                    # usuń kod pocztowy i wszystko po przecinku/ulica
-                    extracted = re.sub(r"\b\d{2}-\d{3}\b", "", da)
-                    # weź pierwszą część przed przecinkiem (często "Miasto, ulica...")
-                    extracted = extracted.split(",")[0].strip()
-                    if extracted:
-                        city = extracted
-                if not city:
-                    city = NO_PNA_BUCKET
+                city = NO_PNA_BUCKET
             gmina = None
             powiat = None
             wojewodztwo = None

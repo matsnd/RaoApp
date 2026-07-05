@@ -663,7 +663,7 @@ function daysOverdue(c) {
 }
 .ctx-menu-header {
   padding: 6px 14px 5px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   color: #0F234E;
   letter-spacing: 0.5px;
@@ -701,7 +701,7 @@ function daysOverdue(c) {
 .contract-row.row-expiring td { background: #fffcf0; }
 .contract-row.row-expiring:hover td { background: #fff7d6; }
 /* RAO-P2-022: rozliczone — wyciszone szare tło */
-.contract-row.row-settled td { background: #f8fafb; color: #718096; }
+.contract-row.row-settled td { background: #f8fafb; color: #5A6B7E; }
 .contract-row.row-settled:hover td { background: #f0f4f8; }
 .badge-settled { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
 .badge-active  { background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; }
@@ -712,7 +712,7 @@ function daysOverdue(c) {
   margin-left: 5px;
   padding: 1px 5px;
   border-radius: 10px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   vertical-align: middle;
 }
@@ -735,7 +735,7 @@ function daysOverdue(c) {
   min-width: 0;
 }
 .print-alert-title {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   color: #4A5568;
   margin-bottom: 6px;
@@ -751,7 +751,7 @@ function daysOverdue(c) {
   display: inline-block;
   padding: 2px 8px;
   border-radius: 12px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   user-select: none;
@@ -771,7 +771,7 @@ function daysOverdue(c) {
 .print-alert-chip.stale:hover { background: #FED7D7; }
 .print-alert-chip.more {
   background: #EDF2F7;
-  color: #718096;
+  color: #5A6B7E;
   cursor: default;
 }
 
@@ -787,7 +787,7 @@ function daysOverdue(c) {
 .sort-indicator {
   display: inline-block;
   margin-left: 4px;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--color-primary);
   min-width: 10px;
 }

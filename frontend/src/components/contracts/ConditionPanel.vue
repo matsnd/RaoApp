@@ -58,7 +58,7 @@
           <td>{{ cond.billing_label || '—' }}</td>
           <td>{{ cond.period_count || '—' }}</td>
           <td>{{ cond.minimum || '—' }}</td>
-          <td style="font-size:11px;color:#718096;">{{ cond.description || '—' }}</td>
+          <td style="font-size:11px;color:#5A6B7E;">{{ cond.description || '—' }}</td>
           <td>
             <button class="btn-icon" aria-label="Edytuj" title="Edytuj" @click.stop="editCondition(cond)">✎</button>
             <button class="btn-icon" aria-label="Usuń" title="Usuń" @click.stop="removeCondition(cond)">✕</button>
@@ -350,10 +350,10 @@ defineExpose({ loadConditions, calculatedValue })
   border: 1px solid #CBD5E0;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 10px;
+  font-size: 12px;
   padding: 1px 5px;
   margin-left: 6px;
-  color: #718096;
+  color: #5A6B7E;
   vertical-align: middle;
   transition: background 150ms;
 }
@@ -382,7 +382,7 @@ defineExpose({ loadConditions, calculatedValue })
 }
 .help-toggle-icon {
   float: right;
-  font-size: 10px;
+  font-size: 12px;
 }
 .help-content {
   background: var(--color-bg-light);
@@ -405,12 +405,12 @@ defineExpose({ loadConditions, calculatedValue })
   background: #EDF2F7;
   padding: 2px 4px;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 13px;
 }
 .help-preview {
   margin-top: 4px;
   color: var(--color-text-body);
-  font-size: 11px;
+  font-size: 13px;
 }
 .help-slide-enter-active,
 .help-slide-leave-active {
@@ -432,7 +432,7 @@ defineExpose({ loadConditions, calculatedValue })
 .field-tooltip {
   display: inline-block;
   margin-left: 6px;
-  color: #718096;
+  color: #5A6B7E;
   font-size: 12px;
   cursor: help;
 }

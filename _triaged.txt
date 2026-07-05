@@ -1,0 +1,18 @@
+line 2396: ### [RAO-P2-065] Statystyki — poprawki po full-team review (ROI, kontrahent, kategorie, bugi UX/UI)
+line 2458: ### [RAO-P2-066] Rezerwacje maszyn — UI + integracja z availability (martwy moduł backend)
+line 2889: ### [RAO-P2-070] Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation)
+line 3058: ### [RAO-P3-071] Audyt UX — czytelność, spójność, przyjemność poruszania się
+line 3717: ### [RAO-P2-070] Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation)
+line 3886: ### [RAO-P3-071] Audyt UX — czytelność, spójność, przyjemność poruszania się
+line 4545: ### [RAO-P2-070] Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation)
+line 4714: ### [RAO-P3-071] Audyt UX — czytelność, spójność, przyjemność poruszania się
+line 5373: ### [RAO-P2-070] Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation)
+line 5542: ### [RAO-P3-071] Audyt UX — czytelność, spójność, przyjemność poruszania się
+line 6201: ### [RAO-P2-070] Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation)
+line 6370: ### [RAO-P3-071] Audyt UX — czytelność, spójność, przyjemność poruszania się
+line 7029: ### [RAO-P2-070] Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation)
+line 7198: ### [RAO-P3-071] Audyt UX — czytelność, spójność, przyjemność poruszania się
+line 7952: ### [RAO-P2-070] Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation)
+line 8121: ### [RAO-P3-071] Audyt UX — czytelność, spójność, przyjemność poruszania się
+line 8874: ### [RAO-P2-070] Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation)
+line 9623: ### [RAO-P2-070] Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation)

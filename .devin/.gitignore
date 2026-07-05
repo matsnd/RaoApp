@@ -1,0 +1,4 @@
+config.local.json
+*.log
+_evidence/
+plans/

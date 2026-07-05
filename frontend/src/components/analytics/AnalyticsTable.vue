@@ -172,7 +172,7 @@ function sortIcon(col: AnalyticsColumn): string {
 }
 .analytics-table thead th .sort-icon {
   margin-left: var(--spacing-xs);
-  font-size: 10px;
+  font-size: 12px;
   opacity: 0.6;
 }
 .analytics-table thead th.sorted .sort-icon {

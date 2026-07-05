@@ -1,0 +1,28 @@
+fix(agents): naprawa nazw narzedzi mariadb + banner runtime w 10 AGENT.md
+
+Kontynuacja commita fec45cd (weryfikacja runtime MCP). Naprawiono:
+
+1. Nazwy narzedzi mariadb w 7 AGENT.md (backend-dev, frontend-dev, tech-lead,
+   qa-engineer, performance-eng, security-auditor, product-owner):
+   - execute_sql/list_tables/get_table_schema/get_table_schema_with_relations
+     -> query_database (read-only: SELECT/SHOW/DESCRIBE/EXPLAIN)
+   - 45 blednych odniesien zamienionych na mapowania
+   "stara_nazwa -> query_database({query: ...})"
+   - dodana notka ze write (INSERT/UPDATE/DELETE/ALTER) jest NIEDOSTEPNE
+     przez MCP (read-only) -> uzyc exec z mariadb CLI
+
+2. Banner runtime "RUNTIME 2026-07-05 (CLI 2026.8.18)" dodany w 3 AGENT.md
+   bez sekcji MCP tools: motion-designer, ui-designer, ux-designer.
+   Teraz wszystkie 11 AGENT.md ma banner informujacy o bugu CLI
+   (custom subagenty nie dostaja MCP w runtime) + workaround
+   (subagent_general z rola w prompcie).
+
+Weryfikacja: grep "RUNTIME 2026-07-05" -> 11 plikow.
+grep "execute_sql |" (bledne wywolania) -> 0 trafien.
+
+Pozostalo: zgloszenie buga do Cognition (custom AGENT.md subagenty
+nie dostaja MCP mimo poprawnych mcp__serwer__* w allowed-tools).
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

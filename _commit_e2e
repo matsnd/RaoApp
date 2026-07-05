@@ -1,0 +1,16 @@
+test(e2e): RAO-P2-065 #13 — testy e2e dla AnalyticsView (6 testów)
+
+Pokrycie regresyjne:
+- TEST-01: LiveFleet tab — maszyny z kontrahentem (coalesce fix #2)
+- TEST-02: PeriodRental tab — KPI + sekcja kategorii (#6)
+- TEST-03: Drill-down maszyny — sekcja ROI (#1)
+- TEST-04: Filtr kontrahenta — SELECT nie wolny tekst (#5)
+- TEST-05: Walidacja date_from > date_to → 422 (#10)
+- TEST-06: Eksplorator tab
+
+Wynik: 5 passed, 1 flaky (login retry — pre-existing)
+TEST-05 przechodzi izolowanie (-g TEST-05: ok 1)
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
