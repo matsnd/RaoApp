@@ -19,6 +19,35 @@
 
 ## 🚨 P0 — Production Blockers
 
+### P0-011: ContractFormView — TypeError: inv.total_net.toFixed is not a function
+
+```yaml
+id: P0-011
+status: triaged
+priority: P0
+created: 2026-07-05
+reporter: operator (manual test 2026-07-05)
+component: frontend/ContractFormView (Fakturownia invoices modal)
+severity: blocker
+```
+
+**Symptom:** W ContractFormView przy wyświetlaniu faktur z Fakturownia:
+```
+Uncaught (in promise) TypeError: inv.total_net.toFixed is not a function
+    at ContractFormView.vue:380:78
+```
+
+**Root cause:** `inv.total_net` nie jest number (prawdopodobnie string z API lub null/undefined). Kod próbuje wywołać `.toFixed(2)` na wartości która nie jest number.
+
+**Fix:**
+- Dodaj typecasting: `Number(inv.total_net).toFixed(2)` lub fallback `inv.total_net?.toFixed(2) ?? '0.00'`
+- Sprawdzić backend schema dla Fakturownia invoice response — czy `total_net` jest number czy string
+- Jeśli backend zwraca string → fix w backend (zwracaj number), jeśli number → fix w frontend (safe casting)
+
+**Lokalizacja:** `frontend/src/views/ContractFormView.vue:380`
+
+---
+
 ### P0-001: `/stats/currently-rented` zwraca 500 — Pydantic ValidationError
 
 ```yaml
