@@ -158,7 +158,9 @@ def aggregate_by_category(
     for p in positions:
         cat_name = p.get(field) or _FALLBACK_CATEGORY
         agg[cat_name]["revenue"] += p.get("revenue", Decimal("0"))
-        agg[cat_name]["days"] += p.get("clamped_days", 0)
+        # RAO-P1-BUG-7: rented_days liczone tylko dla maszyn (usługi mają billing != DAILY)
+        if not p.get("is_service"):
+            agg[cat_name]["days"] += p.get("clamped_days", 0)
         agg[cat_name]["contracts"].add(p.get("contract_id"))
         agg[cat_name]["articles"].add(p.get("article_id"))
 
@@ -222,7 +224,9 @@ def aggregate_by_period(
 
         key = (period, cat)
         agg[key]["revenue"] += p.get("revenue", Decimal("0"))
-        agg[key]["days"] += p.get("clamped_days", 0)
+        # RAO-P1-BUG-7: rented_days liczone tylko dla maszyn (usługi mają billing != DAILY)
+        if not p.get("is_service"):
+            agg[key]["days"] += p.get("clamped_days", 0)
         agg[key]["contracts"].add(p.get("contract_id"))
 
     return sorted(

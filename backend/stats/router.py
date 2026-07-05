@@ -50,24 +50,53 @@ def _apply_position_filters(
     city: str | None = None,
     internal_number: str | None = None,
 ) -> list[dict]:
-    """Filtruj listę pozycji z compute_position_revenues po contractor_id / city / internal_number."""
+    """Filtruj listę pozycji z compute_position_revenues po contractor_id / city / internal_number.
+
+    RAO-P0-001/BUG-1: city jest accent-insensitive (Gdansk == Gdańsk) via NFD normalization.
+    """
     if contractor_id is not None:
         all_pos = [p for p in all_pos if p.get("contractor_id") == contractor_id]
     if city:
-        city_lc = city.lower()
-        all_pos = [p for p in all_pos if p.get("city") and p["city"].lower() == city_lc]
+        city_norm = _normalize_ascii(city)
+        all_pos = [p for p in all_pos if p.get("city") and _normalize_ascii(p["city"]) == city_norm]
     if internal_number:
         all_pos = [p for p in all_pos if p["internal_number"] == internal_number]
     return all_pos
 
 
+def _normalize_ascii(s: str) -> str:
+    """Znormalizuj string do ASCII (usuń akcenty/diakrytyki) + lowercase — RAO-P0-001/BUG-1."""
+    import unicodedata
+    nfd = unicodedata.normalize("NFD", s)
+    return "".join(c for c in nfd if unicodedata.category(c) != "Mn").lower()
+
+
 def _default_dates(date_from: date | None, date_to: date | None):
+    """Defaultuj date_to=dziś gdy brak, ale NIE defaultuj date_from (RAO-P0-006/BUG-6).
+
+    Gdy date_from=None → zostaw None (brak dolnego filtra = "od zawsze").
+    Gdy date_to=None → defaultuj do dziś.
+    Frontend preset='all' wysyła tylko date_to (bez date_from) → backend ma
+    szanować to i NIE defaultować date_from do początku miesiąca.
+    """
     today = date.today()
-    if not date_from:
-        date_from = today.replace(day=1)
     if not date_to:
         date_to = today
     return date_from, date_to
+
+
+def _contract_date_filter(df: date | None, dt: date | None):
+    """Zbuduj warunki nakładania się umowy z okresem [df, dt] (RAO-P0-006/BUG-6).
+
+    Obsługuje None (preset='all'): gdy df=None → brak dolnego filtra,
+    gdy dt=None → brak górnego filtra. Zwraca listę warunków SQLAlchemy.
+    """
+    _conds = []
+    if dt is not None:
+        _conds.append(Contract.date_from <= dt)
+    if df is not None:
+        _conds.append(Contract.date_to >= df)
+    return _conds
 
 
 # RAO-P2-028: `_compute_position_revenues` przeniesione do `shared/revenue.py`.
@@ -80,6 +109,9 @@ async def fleet_summary(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     internal_number: str | None = Query(None, description="Filtruj po numerze wewnętrznym maszyny"),
+    contractor_id: int | None = Query(None, description="Filtruj po kontrahencie (RAO-P0-001/BUG-1)"),
+    city: str | None = Query(None, description="Filtruj po mieście umowy, case-insensitive (RAO-P0-001/BUG-1)"),
+    article_type: str | None = Query(None, pattern="^(all|machine|service)$", description="Filtruj po typie pozycji (RAO-P0-001/BUG-1)"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
@@ -87,10 +119,16 @@ async def fleet_summary(
     today = date.today()
 
     # RAO-P2-051: cache TTL 5 min — stats read-heavy
-    _ckey = cache.make_key("stats:fleet-summary", _.id, {"df": str(df), "dt": str(dt), "in": internal_number})
+    _ckey = cache.make_key("stats:fleet-summary", _.id, {
+        "df": str(df), "dt": str(dt), "in": internal_number,
+        "cid": contractor_id, "city": city, "at": article_type,
+    })
     _cached = cache.get(_ckey)
     if _cached is not None:
         return _cached
+
+    # RAO-P0-001/BUG-1: article_type → service_filter dla compute_position_revenues
+    service_filter = {"machine": False, "service": True}.get(article_type)  # None dla "all"/None
 
     # Build base query for machines
     machines_query = select(func.count(Article.id)).where(
@@ -122,6 +160,12 @@ async def fleet_summary(
     )
     if internal_number:
         rented_query = rented_query.where(Article.internal_number == internal_number)
+    # RAO-P0-001/BUG-1: filtruj rented po contractor_id/city (accent-insensitive)
+    if contractor_id is not None:
+        rented_query = rented_query.where(Contract.contractor_id == contractor_id)
+    if city:
+        # accent-insensitive: COLLATE utf8mb4_polish_ci traktuje ń=n
+        rented_query = rented_query.where(Contract.city.collate("utf8mb4_polish_ci") == city)
 
     rented_q = await db.execute(rented_query)
     total_rented = rented_q.scalar() or 0
@@ -131,9 +175,11 @@ async def fleet_summary(
     # RAO-P2-029: period_revenue uwzględnia archiwalne maszyny (statystyki historyczne)
     # total_machines/total_rented pozostają bez archiwalnych (stan floty teraz)
     # RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
-    all_pos = await _compute_position_revenues(db, df, dt, exclude_archival=False)
-    if internal_number:
-        all_pos = [p for p in all_pos if p["internal_number"] == internal_number]
+    all_pos = await _compute_position_revenues(db, df, dt, exclude_archival=False, service_filter=service_filter)
+    # RAO-P0-001/BUG-1: filtruj pozycje po contractor_id/city/internal_number
+    all_pos = _apply_position_filters(
+        all_pos, contractor_id=contractor_id, city=city, internal_number=internal_number
+    )
     period_revenue = sum(p["revenue"] for p in all_pos)
     # RAO-P2-032: breakdown po źródłach (actual vs estimate)
     revenue_actual = sum(p["revenue"] for p in all_pos if p.get("revenue_source") == "actual")
@@ -146,12 +192,20 @@ async def fleet_summary(
     else:
         revenue_source_label = "rzeczywiste"
 
-    # Contracts in period
-    cnt_q = await db.execute(
-        select(func.count())
-        .select_from(Contract)
-        .where(and_(Contract.date_from <= dt, Contract.date_to >= df))
-    )
+    # Contracts in period (RAO-P0-001/BUG-1: filtruj po contractor_id/city, accent-insensitive)
+    _cnt_conds = _contract_date_filter(df, dt)
+    if contractor_id is not None:
+        _cnt_conds.append(Contract.contractor_id == contractor_id)
+    if city:
+        _cnt_conds.append(Contract.city.collate("utf8mb4_polish_ci") == city)
+    if _cnt_conds:
+        cnt_q = await db.execute(
+            select(func.count())
+            .select_from(Contract)
+            .where(and_(*_cnt_conds))
+        )
+    else:
+        cnt_q = await db.execute(select(func.count()).select_from(Contract))
     contracts_in_period = cnt_q.scalar() or 0
 
     # Top machine by revenue (machines only, not services)
@@ -368,19 +422,21 @@ async def additional_fees(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     contractor_id: int | None = Query(None, description="Filtruj po kontrahencie"),
+    city: str | None = Query(None, description="Filtruj po mieście umowy, case-insensitive (RAO-P0-001/BUG-5)"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
     df, dt = _default_dates(date_from, date_to)
     # RAO-P2-051: cache TTL 5 min
-    _ckey = cache.make_key("stats:additional-fees", _.id, {"df": str(df), "dt": str(dt), "cid": contractor_id})
+    _ckey = cache.make_key("stats:additional-fees", _.id, {"df": str(df), "dt": str(dt), "cid": contractor_id, "city": city})
     _cached = cache.get(_ckey)
     if _cached is not None:
         return _cached
     # RAO-P2-029: uwzględnia archiwalne usługi (statystyki historyczne)
     # RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
     all_pos = await _compute_position_revenues(db, df, dt, service_filter=True, exclude_archival=False)
-    all_pos = _apply_position_filters(all_pos, contractor_id=contractor_id)
+    # RAO-P0-001/BUG-5: filtruj po contractor_id/city
+    all_pos = _apply_position_filters(all_pos, contractor_id=contractor_id, city=city)
 
     # Aggregate by service article
     agg = defaultdict(lambda: {"name": "", "revenue": Decimal(0), "contracts": set()})
@@ -414,6 +470,7 @@ async def locations(
     date_to: date | None = Query(None),
     internal_number: str | None = Query(None, description="Filtruj po numerze wewnętrznym maszyny"),
     contractor_id: int | None = Query(None, description="Filtruj po kontrahencie"),
+    city: str | None = Query(None, description="Filtruj po mieście umowy, case-insensitive (RAO-P0-001/BUG-5)"),
     group_by: Literal["city", "pna"] = Query("city", description="Grupowanie: city (1 wiersz/miasto) lub pna (rozbicie)"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
@@ -421,7 +478,7 @@ async def locations(
     df, dt = _default_dates(date_from, date_to)
     # RAO-P2-051: cache TTL 5 min
     _ckey = cache.make_key("stats:locations", _.id, {
-        "df": str(df), "dt": str(dt), "in": internal_number, "cid": contractor_id, "gb": group_by,
+        "df": str(df), "dt": str(dt), "in": internal_number, "cid": contractor_id, "city": city, "gb": group_by,
     })
     _cached = cache.get(_ckey)
     if _cached is not None:
@@ -429,8 +486,9 @@ async def locations(
     # RAO-P2-029: uwzględnia archiwalne maszyny (statystyki historyczne)
     # RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
     all_pos = await _compute_position_revenues(db, df, dt, exclude_archival=False)
+    # RAO-P0-001/BUG-5: filtruj po contractor_id/city/internal_number
     all_pos = _apply_position_filters(
-        all_pos, contractor_id=contractor_id, internal_number=internal_number
+        all_pos, contractor_id=contractor_id, city=city, internal_number=internal_number
     )
 
     # RAO-P2-028: agregacja po PNA z rollup po city/woj/pow/gmina (shared helper)
@@ -470,6 +528,8 @@ async def by_category(
         pattern="^(all|machine|service)$",
         description="Filtr rodzaju: all|machine|service — RAO-P1-026",
     ),
+    contractor_id: int | None = Query(None, description="Filtruj po kontrahencie (RAO-P0-001/BUG-3)"),
+    city: str | None = Query(None, description="Filtruj po mieście umowy, case-insensitive (RAO-P0-001/BUG-3)"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
@@ -482,6 +542,7 @@ async def by_category(
     - category_main=[...] → opcjonalny filtr kategorii głównych (multi-value)
     - category_sub1/sub2 → opcjonalne filtry sub-kategorii
     - article_type=all|machine|service → filtr rodzaju pozycji
+    - contractor_id/city → RAO-P0-001/BUG-3: filtr po kontrahencie/mieście
     - Maszyny bez kategorii trafiają do grupy "(bez kategorii)"
     - RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
     """
@@ -492,6 +553,7 @@ async def by_category(
     _ckey = cache.make_key("stats:by-category", _.id, {
         "lvl": level, "df": str(df), "dt": str(dt),
         "cm": sorted(category_main), "cs1": category_sub1, "cs2": category_sub2, "at": article_type,
+        "cid": contractor_id, "city": city,
     })
     _cached = cache.get(_ckey)
     if _cached is not None:
@@ -505,6 +567,8 @@ async def by_category(
         category_sub1_filter=category_sub1,
         category_sub2_filter=category_sub2,
     )
+    # RAO-P0-001/BUG-3: filtruj pozycje po contractor_id/city
+    all_pos = _apply_position_filters(all_pos, contractor_id=contractor_id, city=city)
 
     # Czysta agregacja po kategorii (logika w calc.py — testowalny pure function)
     grouped = aggregate_by_category(all_pos, level=level)
@@ -1166,7 +1230,7 @@ async def commissions(
             func.sum(ContractSettlement.cost_client - ContractSettlement.cost_company).label("total_margin")
         )
         .join(ContractSettlement, Contract.id == ContractSettlement.contract_id)
-        .where(and_(Contract.date_from <= dt, Contract.date_to >= df))
+        .where(and_(*_contract_date_filter(df, dt)))
         .where(Contract.salesperson_id.isnot(None))
         .where(ContractSettlement.cost_client.isnot(None))
         .where(ContractSettlement.cost_company.isnot(None))
@@ -1186,7 +1250,7 @@ async def commissions(
     all_pos = await _compute_position_revenues(db, df, dt, exclude_archival=False)
     contract_sp_q = await db.execute(
         select(Contract.id, Contract.salesperson_id)
-        .where(and_(Contract.date_from <= dt, Contract.date_to >= df))
+        .where(and_(*_contract_date_filter(df, dt)))
         .where(Contract.salesperson_id.isnot(None))
     )
     contract_sp_map = {r[0]: r[1] for r in contract_sp_q.all()}

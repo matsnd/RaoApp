@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAnalyticsStore, type ExplorerResultItem } from '@/stores/analytics'
+import { useAnalyticsStore, type ExplorerResultItem, type AnalyticsFiltersPayload } from '@/stores/analytics'
 import AnalyticsTable, {
   type AnalyticsColumn,
   type AnalyticsRow,
@@ -13,6 +13,7 @@ import { formatCurrency, formatDate } from '@/utils/format'
 interface Props {
   dateFrom: string
   dateTo: string
+  filters?: AnalyticsFiltersPayload
 }
 const props = defineProps<Props>()
 
@@ -58,7 +59,7 @@ async function search(): Promise<void> {
     return
   }
   hasSearched.value = true
-  await store.searchExplorer(q, props.dateFrom, props.dateTo)
+  await store.searchExplorer(q, props.dateFrom, props.dateTo, 50, props.filters)
 }
 
 async function onSearchInput(): Promise<void> {

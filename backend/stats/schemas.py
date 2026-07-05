@@ -63,7 +63,7 @@ class ServiceFeeItem(BaseModel):
 
 
 class AdditionalFeesResponse(BaseModel):
-    date_from: date
+    date_from: date | None  # RAO-P0-006/BUG-6: None gdy preset='all'
     date_to: date
     total_services_revenue: Decimal
     breakdown: list[ServiceFeeItem]
@@ -144,7 +144,7 @@ class SalespersonCommissionItem(BaseModel):
 
 
 class CommissionReportResponse(BaseModel):
-    date_from: date
+    date_from: date | None  # RAO-P0-006/BUG-6: None gdy preset='all'
     date_to: date
     items: list[SalespersonCommissionItem]
     grand_total_revenue: Decimal
@@ -164,7 +164,7 @@ class CategoryStatItem(BaseModel):
 
 class CategoryStatsResponse(BaseModel):
     """Odpowiedź endpointu GET /stats/by-category."""
-    date_from: date
+    date_from: date | None  # RAO-P0-006/BUG-6: None gdy preset='all'
     date_to: date
     level: str              # "main" | "sub1"
     total_revenue: Decimal
@@ -188,7 +188,7 @@ class PositionStatItem(BaseModel):
 
 class PositionStatsResponse(BaseModel):
     """Odpowiedź endpointu GET /stats/positions."""
-    date_from: date
+    date_from: date | None  # RAO-P0-006/BUG-6: None gdy preset='all'
     date_to: date
     type: str                         # "machines" | "services" | "all"
     total_revenue: Decimal
@@ -213,7 +213,7 @@ class ByPeriodItem(BaseModel):
 
 class ByPeriodResponse(BaseModel):
     """Odpowiedź endpointu GET /stats/by-period — RAO-P1-026."""
-    date_from: date
+    date_from: date | None  # RAO-P0-006/BUG-6: None gdy preset='all'
     date_to: date
     granularity: str        # "month" | "year"
     items: list[ByPeriodItem]
@@ -248,7 +248,7 @@ class ContractTypeStatItem(BaseModel):
 
 class ContractTypeStatsResponse(BaseModel):
     """Odpowiedź endpointu GET /stats/by-contract-type — RAO-P2-056."""
-    date_from: date
+    date_from: date | None  # RAO-P0-006/BUG-6: None gdy preset='all'
     date_to: date
     total_revenue: Decimal
     items: list[ContractTypeStatItem]
@@ -269,7 +269,7 @@ class BranchStatItem(BaseModel):
 
 class ByBranchStatsResponse(BaseModel):
     """Odpowiedź endpointu GET /stats/by-branch — RAO-P1-055."""
-    date_from: date
+    date_from: date | None  # RAO-P0-006/BUG-6: None gdy preset='all'
     date_to: date
     total_revenue: Decimal
     items: list[BranchStatItem]

@@ -175,19 +175,6 @@ export interface MachineDetailsResponse {
   rentals: MachineRentalRow[]
 }
 
-// RAO-P2-065 #1: ROI maszyny — mirror backend MachineRoiResponse
-export interface MachineRoi {
-  article_id: number
-  name: string
-  internal_number: string | null
-  category_main: string | null
-  replacement_value: number | null
-  total_rented_days: number
-  estimated_revenue: number
-  contracts_count: number
-  roi_pct: number | null
-}
-
 export interface LocationRankingItem {
   rank: number
   city: string
@@ -281,7 +268,6 @@ export const useAnalyticsStore = defineStore('analytics', () => {
   const loadingLocations = ref(false)
 
   const machineDetails = ref<MachineDetailsResponse | null>(null)
-  const machineRoi = ref<MachineRoi | null>(null)
   const locationDetails = ref<LocationDetailsResponse | null>(null)
 
   const drillDown = ref<DrillDownState>({ ...emptyDrillDown })
@@ -309,15 +295,19 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     }
   }
 
+  // RAO-P0-001/BUG-1: fetchSummary przyjmuje pełne filtry (contractorId/city/articleType)
   async function fetchSummary(
     dateFrom: string,
     dateTo: string,
-    internalNumber?: string,
+    filters?: AnalyticsFiltersPayload,
   ): Promise<FleetSummary> {
     const params: Record<string, string> = {}
     if (dateFrom) params.date_from = dateFrom
     if (dateTo) params.date_to = dateTo
-    if (internalNumber) params.internal_number = internalNumber
+    if (filters?.internalNumber) params.internal_number = filters.internalNumber
+    if (filters?.contractorId) params.contractor_id = String(filters.contractorId)
+    if (filters?.city) params.city = filters.city
+    if (filters?.articleType && filters.articleType !== 'all') params.article_type = filters.articleType
     const { data } = await api.get<FleetSummary>('/stats/fleet-summary', { params })
     summary.value = data
     return data
@@ -340,20 +330,23 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     return data
   }
 
+  // RAO-P1-BUG-5: fetchAdditionalFees przyjmuje pełne filtry (city dodane)
   async function fetchAdditionalFees(
     dateFrom: string,
     dateTo: string,
-    contractorId?: number | null,
+    filters?: AnalyticsFiltersPayload,
   ): Promise<AdditionalFeesResponse> {
     const params: Record<string, string> = {}
     if (dateFrom) params.date_from = dateFrom
     if (dateTo) params.date_to = dateTo
-    if (contractorId) params.contractor_id = String(contractorId)
+    if (filters?.contractorId) params.contractor_id = String(filters.contractorId)
+    if (filters?.city) params.city = filters.city
     const { data } = await api.get<AdditionalFeesResponse>('/stats/additional-fees', { params })
     additionalFees.value = data
     return data
   }
 
+  // RAO-P1-BUG-5: fetchLocations wysyła city (nie tylko contractorId/internalNumber)
   async function fetchLocations(
     dateFrom: string,
     dateTo: string,
@@ -363,6 +356,7 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     if (dateFrom) params.date_from = dateFrom
     if (dateTo) params.date_to = dateTo
     if (filters?.contractorId) params.contractor_id = String(filters.contractorId)
+    if (filters?.city) params.city = filters.city
     if (filters?.internalNumber) params.internal_number = filters.internalNumber
     const { data } = await api.get<LocationStatItem[]>('/stats/locations', { params })
     locations.value = data
@@ -391,18 +385,22 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     return data
   }
 
+  // RAO-P1-BUG-3: fetchByCategory przyjmuje contractorId/city (nie tylko articleType)
   async function fetchByCategory(
     level: string,
     dateFrom: string,
     dateTo: string,
     categoryMain: string[] = [],
     articleType: 'all' | 'machine' | 'service' = 'all',
+    filters?: AnalyticsFiltersPayload,
   ): Promise<CategoryStatsResponse> {
     const sp = new URLSearchParams()
     sp.set('level', level)
     if (dateFrom) sp.set('date_from', dateFrom)
     if (dateTo) sp.set('date_to', dateTo)
     if (articleType !== 'all') sp.set('article_type', articleType)
+    if (filters?.contractorId) sp.set('contractor_id', String(filters.contractorId))
+    if (filters?.city) sp.set('city', filters.city)
     categoryMain.forEach((m) => sp.append('category_main', m))
     const { data } = await api.get<CategoryStatsResponse>('/stats/by-category?' + sp.toString())
     byCategoryData.value = data
@@ -433,17 +431,22 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     return data
   }
 
+  // RAO-P0-001/BUG-4: searchExplorer przyjmuje filtry contractorId/city/articleType
   async function searchExplorer(
     q: string,
     dateFrom: string,
     dateTo: string,
     limit = 50,
+    filters?: AnalyticsFiltersPayload,
   ): Promise<ExplorerSearchResponse> {
     loadingExplorer.value = true
     try {
       const params: Record<string, string | number> = { q, limit }
       if (dateFrom) params.date_from = dateFrom
       if (dateTo) params.date_to = dateTo
+      if (filters?.contractorId) params.contractor_id = String(filters.contractorId)
+      if (filters?.city) params.city = filters.city
+      if (filters?.articleType && filters.articleType !== 'all') params.article_type = filters.articleType
       const { data } = await api.get<ExplorerSearchResponse>('/explorer/search', { params })
       explorerResults.value = data.items || []
       explorerSummary.value = data.summary || { count: 0, revenue: 0 }
@@ -454,17 +457,22 @@ export const useAnalyticsStore = defineStore('analytics', () => {
   }
 
   // RAO-P2-065 4b / RAO-P2-069: ranking miast (toggle miasto/PNA)
+  // RAO-P0-001/BUG-4: fetchLocationsRanking przyjmuje pełne filtry
   async function fetchLocationsRanking(
     dateFrom: string,
     dateTo: string,
     limit = 50,
     groupBy: 'city' | 'pna' = 'city',
+    filters?: AnalyticsFiltersPayload,
   ): Promise<LocationRankingItem[]> {
     loadingLocations.value = true
     try {
       const params: Record<string, string | number> = { limit, group_by: groupBy }
       if (dateFrom) params.date_from = dateFrom
       if (dateTo) params.date_to = dateTo
+      if (filters?.contractorId) params.contractor_id = String(filters.contractorId)
+      if (filters?.city) params.city = filters.city
+      if (filters?.articleType && filters.articleType !== 'all') params.article_type = filters.articleType
       const { data } = await api.get<LocationsRankingResponse>('/explorer/locations', { params })
       locationsRanking.value = data.locations || []
       return locationsRanking.value
@@ -486,20 +494,6 @@ export const useAnalyticsStore = defineStore('analytics', () => {
       { params },
     )
     machineDetails.value = data
-    return data
-  }
-
-  // RAO-P2-065 #1: ROI maszyny — główne wymaganie klienta, podpięte do drill-down
-  async function fetchMachineRoi(
-    articleId: number,
-    dateFrom: string,
-    dateTo: string,
-  ): Promise<MachineRoi> {
-    const params: Record<string, string> = { article_id: String(articleId) }
-    if (dateFrom) params.date_from = dateFrom
-    if (dateTo) params.date_to = dateTo
-    const { data } = await api.get<MachineRoi>('/stats/machine-roi', { params })
-    machineRoi.value = data
     return data
   }
 
@@ -551,24 +545,18 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     name: string,
     dateFrom: string,
     dateTo: string,
-    internalNumber?: string | null,
   ): Promise<void> {
     // RAO-P2-069: 'location' z id numerycznym/city → miasto; PNA string → PNA
     // Konwencja: jeśli id zaczyna się od "city:" → drill po mieście
     const isCityDrill = typeof id === 'string' && id.startsWith('city:')
     const drillKind: DrillDownKind = isCityDrill ? 'location' : kind
 
-    // RAO-P2-065 #7: dodaj nr wewnętrzny do tytułu/subtitle maszyny
-    const machineTitle = internalNumber
-      ? `🏗️ ${name} (${internalNumber})`
-      : `🏗️ ${name}`
-
     drillDown.value = {
       open: true,
       kind: drillKind,
       id,
       name,
-      title: kind === 'machine' ? machineTitle : `📍 ${name}`,
+      title: kind === 'machine' ? `🏗️ ${name}` : `📍 ${name}`,
       subtitle:
         kind === 'machine'
           ? 'Historia wynajmów maszyny'
@@ -579,20 +567,10 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     drillLoading.value = true
     drillError.value = null
     machineDetails.value = null
-    machineRoi.value = null
     locationDetails.value = null
     try {
       if (kind === 'machine') {
-        // RAO-P2-065 #1: równolegle details + ROI (niezależne endpointy)
-        await Promise.all([
-          fetchMachineDetails(Number(id), dateFrom, dateTo),
-          fetchMachineRoi(Number(id), dateFrom, dateTo).catch((e: unknown) => {
-            // ROI best-effort: 404 dla archiwalnych bez include_archival — nie blokuj details
-            const err = e as { response?: { status?: number } }
-            if (err?.response?.status !== 404) throw e
-            return null
-          }),
-        ])
+        await fetchMachineDetails(Number(id), dateFrom, dateTo)
       } else if (isCityDrill) {
         await fetchCityDetails(String(id).slice(5), dateFrom, dateTo)
       } else {
@@ -610,7 +588,6 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     drillDown.value = { ...emptyDrillDown }
     drillError.value = null
     machineDetails.value = null
-    machineRoi.value = null
     locationDetails.value = null
   }
 
@@ -635,7 +612,6 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     locationsRanking,
     loadingLocations,
     machineDetails,
-    machineRoi,
     locationDetails,
     drillDown,
     // getters
@@ -654,7 +630,6 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     searchExplorer,
     fetchLocationsRanking,
     fetchMachineDetails,
-    fetchMachineRoi,
     fetchLocationDetails,
     fetchCityDetails,
     openDrillDown,

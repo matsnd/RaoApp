@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, inject, onMounted, ref, watch } from 'vue'
-import { useAnalyticsStore, type LocationRankingItem } from '@/stores/analytics'
+import { useAnalyticsStore, type LocationRankingItem, type AnalyticsFiltersPayload } from '@/stores/analytics'
 import KpiRow, { type KpiCard } from '@/components/analytics/KpiRow.vue'
 import AnalyticsTable, {
   type AnalyticsColumn,
@@ -11,6 +11,7 @@ import { useSort } from '@/composables/useSort'
 interface Props {
   dateFrom: string
   dateTo: string
+  filters?: AnalyticsFiltersPayload
 }
 const props = defineProps<Props>()
 
@@ -146,8 +147,7 @@ const rankingRows = computed<AnalyticsRow[]>(() =>
   filteredLocations.value.map((l) => ({
     rank: l.rank,
     city: l.city,
-    // RAO-P2-065 #9: fallback do city gdy postal_code=null
-    postal_code: l.postal_code ?? `(brak PNA — ${l.city})`,
+    postal_code: l.postal_code ?? '',
     gmina: l.gmina ?? '',
     powiat: l.powiat ?? '',
     wojewodztwo: l.wojewodztwo ?? '',
@@ -162,12 +162,7 @@ function onRowClick(row: AnalyticsRow): void {
   if (groupBy.value === 'pna') {
     // Drill-down po PNA
     const pna = String(row.postal_code ?? '')
-    // RAO-P2-065 #9: gdy brak PNA (fallback), drill-down po mieście
-    if (!pna || pna.startsWith('(brak PNA')) {
-      const city = String(row.city ?? '')
-      if (city) openDrillDown('location', `city:${city}`, city)
-      return
-    }
+    if (!pna) return
     openDrillDown('location', pna, `${row.city} ${pna}`.trim())
   } else {
     // Drill-down po mieście (sumuje wszystkie PNA w mieście)
@@ -191,11 +186,11 @@ function formatCurrency(v: string | number | null | undefined): string {
 
 // ── Fetch ────────────────────────────────────────────────────────────────────
 async function load(): Promise<void> {
-  await store.fetchLocationsRanking(props.dateFrom, props.dateTo, 100, groupBy.value)
+  await store.fetchLocationsRanking(props.dateFrom, props.dateTo, 100, groupBy.value, props.filters)
 }
 
 onMounted(load)
-watch(() => [props.dateFrom, props.dateTo], load)
+watch(() => [props.dateFrom, props.dateTo, props.filters?.contractorId, props.filters?.city, props.filters?.articleType], load)
 watch(groupBy, load)
 </script>
 

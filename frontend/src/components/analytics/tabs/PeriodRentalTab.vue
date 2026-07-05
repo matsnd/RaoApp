@@ -217,14 +217,17 @@ async function loadAll(): Promise<void> {
   store.loading = true
   loadError.value = ''
   try {
+    // RAO-P0-001/BUG-1: fetchSummary z pełnymi filtrami (contractorId/city/articleType)
+    // RAO-P1-BUG-2: fetchPositions z articleType z filtra (nie hardcoded 'all')
+    // RAO-P1-BUG-3: fetchByCategory z articleType + contractorId + city
+    // RAO-P1-BUG-5: fetchAdditionalFees/fetchLocations z city
     await Promise.all([
-      store.fetchSummary(props.dateFrom, props.dateTo, props.filters.internalNumber),
+      store.fetchSummary(props.dateFrom, props.dateTo, props.filters),
       store.fetchTopMachines(props.dateFrom, props.dateTo, props.filters, 10),
-      store.fetchAdditionalFees(props.dateFrom, props.dateTo, props.filters.contractorId),
+      store.fetchAdditionalFees(props.dateFrom, props.dateTo, props.filters),
       store.fetchLocations(props.dateFrom, props.dateTo, props.filters),
-      store.fetchPositions('all', props.dateFrom, props.dateTo, props.filters),
-      // RAO-P2-065 #6: agregat przychodu per kategoria (level=main).
-      store.fetchByCategory('main', props.dateFrom, props.dateTo, [], 'all'),
+      store.fetchPositions(props.filters.articleType || 'all', props.dateFrom, props.dateTo, props.filters),
+      store.fetchByCategory('main', props.dateFrom, props.dateTo, [], props.filters.articleType || 'all', props.filters),
     ])
   } catch (e: any) {
     loadError.value = e?.response?.data?.detail || e?.message || 'Nie udalo sie pobrac statystyk'
@@ -235,7 +238,7 @@ async function loadAll(): Promise<void> {
 
 onMounted(loadAll)
 watch(
-  () => [props.dateFrom, props.dateTo, props.filters.contractorId, props.filters.city, props.filters.internalNumber],
+  () => [props.dateFrom, props.dateTo, props.filters.contractorId, props.filters.city, props.filters.internalNumber, props.filters.articleType],
   loadAll,
 )
 </script>

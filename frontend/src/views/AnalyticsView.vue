@@ -196,11 +196,25 @@ async function loadAllContractors(): Promise<void> {
         v-else-if="activeTab === 'locations'"
         :date-from="filters.dateFrom"
         :date-to="filters.dateTo"
+        :filters="{
+          dateFrom: filters.dateFrom,
+          dateTo: filters.dateTo,
+          contractorId: filters.contractorId,
+          city: filters.city,
+          articleType: filters.articleType,
+        }"
       />
       <ExplorerTab
         v-else-if="activeTab === 'explorer'"
         :date-from="filters.dateFrom"
         :date-to="filters.dateTo"
+        :filters="{
+          dateFrom: filters.dateFrom,
+          dateTo: filters.dateTo,
+          contractorId: filters.contractorId,
+          city: filters.city,
+          articleType: filters.articleType,
+        }"
       />
     </div>
 
