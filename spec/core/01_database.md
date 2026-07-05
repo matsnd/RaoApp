@@ -532,11 +532,23 @@ CREATE TABLE contract_costs (
 CREATE TABLE contract_settlements (
     id              INT AUTO_INCREMENT PRIMARY KEY,
     contract_id     INT          NOT NULL COMMENT 'ID umowy',
-    position_id     INT          NULL COMMENT 'ID pozycji umowy (maszyna/usługa)',
-    service_fee_id  INT          NULL COMMENT 'RAO-P2-012: ID usługi dodatkowej (contract_service_fees)',
+    position_id     INT          NULL COMMENT 'ID pozycji umowy (maszyna/usługa); NULL = unmapped settlement (opcja E)',
+    service_fee_id  INT          NULL COMMENT 'RAO-P2-012: ID usługi dodatkowej (contract_service_fees); NULL = unmapped',
     cost_client     DECIMAL(18,2) NULL COMMENT 'Koszt dla klienta (na fakturze)',
     cost_company    DECIMAL(18,2) NULL COMMENT 'Koszt dla firmy (narzut/marża)',
     notes           TEXT         NULL COMMENT 'Uwagi do rozliczenia',
+    settled_at      DATE         NULL COMMENT 'RAO-P2-032: Data rozliczenia (legacy rozliczenie.data lub import Fakturownia)',
+    source          VARCHAR(20)  NULL DEFAULT 'manual' COMMENT 'RAO-P2-032: legacy/fakturownia/manual/fa_unmapped',
+    -- RAO Faza 2a (opcja E): unmapped settlements z Fakturownia — pozycje FA nieobecne w umowie
+    article_name_snapshot     VARCHAR(255) NULL COMMENT 'Snapshot nazwy pozycji z FA (gdy position_id=NULL)',
+    fakturownia_product_id    BIGINT       NULL COMMENT 'ID produktu FA (grupowanie w analytics, identyfikacja duplikatów)',
+    fakturownia_invoice_number VARCHAR(50) NULL COMMENT 'Numer faktury FA (wydzielony z notes dla query)',
+    -- Generated column: idempotentność importu unmapped (NULL dla mapped → nie blokuje UNIQUE)
+    unmapped_key    VARCHAR(100) GENERATED ALWAYS AS (
+        CASE WHEN position_id IS NULL AND service_fee_id IS NULL
+             THEN CONCAT('unmapped:', IFNULL(fakturownia_product_id,0), ':', IFNULL(fakturownia_invoice_number,''))
+             ELSE NULL END
+    ) STORED COMMENT 'Klucz deduplikacji unmapped settlements (NULL dla mapped)',
     created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_settlement_contract FOREIGN KEY (contract_id)
@@ -547,8 +559,14 @@ CREATE TABLE contract_settlements (
         REFERENCES contract_service_fees(id) ON DELETE CASCADE,
     INDEX idx_settlement_contract (contract_id),
     INDEX idx_settlement_position (position_id),
-    INDEX idx_settlement_service_fee (service_fee_id)
-) ENGINE=InnoDB COMMENT='Rozliczenia umów - koszty klient vs firma (RAO-P1-012, RAO-P2-012)';
+    INDEX idx_settlement_service_fee (service_fee_id),
+    INDEX idx_settlements_source (source),
+    INDEX idx_settlements_settled_at (settled_at),
+    -- RAO-P2-032: idempotentny import rozliczenie — UNIQUE zapobiega duplikatom mapped settlements
+    UNIQUE INDEX uq_settlements_contract_pos_fee_date (contract_id, position_id, service_fee_id, settled_at),
+    -- RAO Faza 2a: idempotentność unmapped — NULL w UNIQUE dozwolony wielokrotnie (mapped nie koliduje)
+    UNIQUE INDEX uq_settlements_unmapped_key (unmapped_key)
+) ENGINE=InnoDB COMMENT='Rozliczenia umów - koszty klient vs firma (RAO-P1-012, RAO-P2-012, RAO-P2-032, Faza 2a opcja E)';
 
 -- ============================================================
 -- 8. USŁUGI DODATKOWE UMOWY (Contract Service Fees)

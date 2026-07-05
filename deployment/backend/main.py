@@ -328,6 +328,57 @@ async def startup_migrations():
             "ALTER TABLE contract_settlements ADD COLUMN IF NOT EXISTS "
             "service_fee_id INT NULL"
         ))
+        # RAO-P2-032: settled_at + source + UNIQUE dla idempotentnego importu
+        await conn.execute(sa.text(
+            "ALTER TABLE contract_settlements ADD COLUMN IF NOT EXISTS "
+            "settled_at DATE NULL COMMENT 'RAO-P2-032: Data rozliczenia'"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE contract_settlements ADD COLUMN IF NOT EXISTS "
+            "source VARCHAR(20) NULL DEFAULT 'manual' "
+            "COMMENT 'RAO-P2-032: legacy/fakturownia/manual/fa_unmapped'"
+        ))
+        try:
+            await conn.execute(sa.text(
+                "ALTER TABLE contract_settlements ADD UNIQUE INDEX IF NOT EXISTS "
+                "uq_settlements_contract_pos_fee_date "
+                "(contract_id, position_id, service_fee_id, settled_at)"
+            ))
+        except Exception:
+            pass
+        # RAO Faza 2a (opcja E): unmapped settlements z Fakturownia
+        await conn.execute(sa.text(
+            "ALTER TABLE contract_settlements ADD COLUMN IF NOT EXISTS "
+            "article_name_snapshot VARCHAR(255) NULL "
+            "COMMENT 'Snapshot nazwy pozycji z FA (gdy position_id=NULL)'"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE contract_settlements ADD COLUMN IF NOT EXISTS "
+            "fakturownia_product_id BIGINT NULL "
+            "COMMENT 'ID produktu FA (grupowanie w analytics, identyfikacja duplikatów)'"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE contract_settlements ADD COLUMN IF NOT EXISTS "
+            "fakturownia_invoice_number VARCHAR(50) NULL "
+            "COMMENT 'Numer faktury FA (wydzielony z notes dla query)'"
+        ))
+        try:
+            await conn.execute(sa.text(
+                "ALTER TABLE contract_settlements ADD COLUMN IF NOT EXISTS "
+                "unmapped_key VARCHAR(100) GENERATED ALWAYS AS ("
+                "CASE WHEN position_id IS NULL AND service_fee_id IS NULL "
+                "THEN CONCAT('unmapped:', IFNULL(fakturownia_product_id,0), ':', IFNULL(fakturownia_invoice_number,'')) "
+                "ELSE NULL END) STORED COMMENT 'Klucz deduplikacji unmapped (NULL dla mapped)'"
+            ))
+        except Exception:
+            pass
+        try:
+            await conn.execute(sa.text(
+                "ALTER TABLE contract_settlements ADD UNIQUE INDEX IF NOT EXISTS "
+                "uq_settlements_unmapped_key (unmapped_key)"
+            ))
+        except Exception:
+            pass
         # RAO-P1-011: article_id i default_price w contract_service_fees (kopia z szablonu)
         await conn.execute(sa.text(
             "ALTER TABLE contract_service_fees ADD COLUMN IF NOT EXISTS "

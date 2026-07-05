@@ -452,6 +452,44 @@ async def startup_migrations():
             ))
         except Exception:
             pass  # MariaDB <10.6 nie wspiera IF NOT EXISTS na UNIQUE INDEX
+        # RAO Faza 2a (opcja E): unmapped settlements z Fakturownia — pozycje FA nieobecne w umowie
+        # position_id=NULL + service_fee_id=NULL + snapshot nazwy (NIE tworzymy artykułu on-the-fly)
+        await conn.execute(sa.text(
+            "ALTER TABLE contract_settlements ADD COLUMN IF NOT EXISTS "
+            "article_name_snapshot VARCHAR(255) NULL "
+            "COMMENT 'Snapshot nazwy pozycji z FA (gdy position_id=NULL)'"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE contract_settlements ADD COLUMN IF NOT EXISTS "
+            "fakturownia_product_id BIGINT NULL "
+            "COMMENT 'ID produktu FA (grupowanie w analytics, identyfikacja duplikatów)'"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE contract_settlements ADD COLUMN IF NOT EXISTS "
+            "fakturownia_invoice_number VARCHAR(50) NULL "
+            "COMMENT 'Numer faktury FA (wydzielony z notes dla query)'"
+        ))
+        # Generated column (STORED) — idempotentność unmapped importu.
+        # MariaDB 10.2+ wspiera GENERATED ALWAYS AS ... STORED; IF NOT EXISTS od 10.6.
+        # try/except — fallback gdy kolumna już istnieje (MariaDB <10.6 bez IF NOT EXISTS).
+        try:
+            await conn.execute(sa.text(
+                "ALTER TABLE contract_settlements ADD COLUMN IF NOT EXISTS "
+                "unmapped_key VARCHAR(100) GENERATED ALWAYS AS ("
+                "CASE WHEN position_id IS NULL AND service_fee_id IS NULL "
+                "THEN CONCAT('unmapped:', IFNULL(fakturownia_product_id,0), ':', IFNULL(fakturownia_invoice_number,'')) "
+                "ELSE NULL END) STORED COMMENT 'Klucz deduplikacji unmapped (NULL dla mapped)'"
+            ))
+        except Exception:
+            pass  # kolumna już istnieje (MariaDB <10.6 bez IF NOT EXISTS dla generated)
+        # UNIQUE index na unmapped_key — NULL w UNIQUE dozwolony wielokrotnie (mapped nie koliduje)
+        try:
+            await conn.execute(sa.text(
+                "ALTER TABLE contract_settlements ADD UNIQUE INDEX IF NOT EXISTS "
+                "uq_settlements_unmapped_key (unmapped_key)"
+            ))
+        except Exception:
+            pass  # MariaDB <10.6 nie wspiera IF NOT EXISTS na UNIQUE INDEX
         # RAO-P2-032: tabela _import_errors — logowanie orphaned settlements (QA edge #1)
         await conn.execute(sa.text(
             "CREATE TABLE IF NOT EXISTS _import_errors ("
