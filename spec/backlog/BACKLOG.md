@@ -596,6 +596,39 @@ Warszawa  (brak PNA — Warszawa)  1    11 340,00 zł
 
 ---
 
+### P1-010: Warunki finansowe — "Wartość z rozliczenia" bez sensu, refactor UI
+
+```yaml
+id: P1-010
+status: triaged
+priority: P1
+created: 2026-07-05
+reporter: operator (manual test 2026-07-05)
+component: frontend/ContractFormView (Warunki finansowe)
+severity: high
+```
+
+**Symptom:** W sekcji "Warunki finansowe" w formularzu umowy są 3 pola które nie mają sensu:
+- "Wartość z rozliczenia (zł)" — redundantne, faktura jest źródłem prawdy
+- "Faktura (zł)" — powinna pokazywać sumę faktur z Fakturownia
+- "Pozostało (zł)" — powinno być suma faktury - przedpłata
+
+**Problem:**
+- "Wartość z rozliczenia" to de facto suma faktur, ale jest duplikatem
+- "Faktura" powinna być read-only z sumą faktur z Fakturownia
+- "Pozostało" powinno być obliczane: faktura - przedpłata
+- "Przedpłata" — zostawić bo jest na umowie (pola formularza)
+
+**Oczekiwane zachowanie:**
+- Usunąć pole "Wartość z rozliczenia"
+- Pole "Faktura" — read-only, pokazuje sumę faktur z Fakturownia (lub 0 jeśli brak)
+- Pole "Pozostało" — read-only, obliczane jako faktura - przedpłata
+- Pole "Przedpłata" — zostawić (editable, z formularza)
+
+**Uwaga:** W sekcji "Rozliczenie umowy" jest modal "Faktury z Fakturownia (read-only)" — to zostaje bez zmian.
+
+---
+
 ## 🟡 P2 — Should-Have
 *(brak)*
 
