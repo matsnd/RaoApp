@@ -839,7 +839,117 @@ severity: high
 ---
 
 ## 🟡 P2 — Should-Have
-*(brak)*
+
+### P2-001: Pełna migracja od nowa (do archiwum) + demo seed + cenniki z danych starej aplikacji
+
+```yaml
+id: P2-001
+status: triaged
+priority: P2
+created: 2026-07-05
+reporter: operator (2026-07-05)
+component: backend/migrate.py + backend/seed_demo_data.py + backend/seed_fa_invoices.py + backend/settings (rate presets, fee presets)
+severity: medium
+size: L (cross-stack + data analysis)
+depends_on:
+  - P1-001 (cenniki warunków rozliczenia — article_rate_presets)
+  - P1-004 (demo seed — pula D aktywnych umów)
+  - P1-007 (usługi w demo)
+```
+
+**Cel:** Przebudowa migracji i demo seed od nowa. Aktualne demo ma "zmyślone"
+cenniki i usługi. Operator chce, żeby cenniki warunków rozliczenia (article_rate_presets)
+i zestawy usług dodatkowych (fee_preset_groups / service_fee_templates) były
+wygenerowane **na podstawie realnych danych starej aplikacji WinForms**,
+a nie wymyślone na potrzeby demo.
+
+**Zakres:**
+1. **Archiwizacja obecnej bazy demo** — zrzuć aktualny stan `rao_new` do
+   `spec/archive/migration_snapshot_20260705/` (SQL dump + JSON eksport kluczowych
+   tabel: contracts, contract_positions, position_conditions, contract_service_fees,
+   articles, article_rate_presets, fee_preset_groups, service_fee_templates).
+2. **Pełna migracja od nowa** — uruchom `backend/migrate.py` (step1-step5b) na
+   czystej bazie `rao_new`. Weryfikacja: row count per tabela vs stare DB.
+3. **Demo seed na bazie migracji** — `seed_demo_data.py` + `seed_fa_invoices.py`
+   uruchomione po migracji (NIE zamiast migracji). Demo = migracja + uzupełnienia
+   (aktywne umowy pula D, faktury FA-pending).
+4. **Analiza wpisów rozliczenia starej aplikacji** — przeanalizuj
+   `umowa_pozycja2_warunek` (warunki kaskadowe) ze starej bazy:
+   - Jakie typowe progi kaskadowe (period_count, rate1, rate2, billing_label)?
+   - Jakie maszyny mają spójne cenniki (powtarzające się wzorce)?
+   - Outliery (literówki, anomalie) → do odrzucenia
+5. **Analiza usług dodatkowych starej aplikacji** — przeanalizuj
+   `umowa2.OPLATY` (free-text parsowane w `migrate.py:step5b`):
+   - Jakie najczęstsze nazwy usług (Tankowanie, Czyszczenie, Transport, Serwis, Przestój)?
+   - Jakie typowe kwoty per usługa?
+   - Jakie kombinacje usług per umowa?
+6. **Generowanie cenników (article_rate_presets)** — na podstawie analizy z pkt 4
+   utwórz `article_rate_presets` + `article_rate_preset_items`:
+   - Per maszyna (article_id): cennik "Standard" (najczęstsze progi z historii)
+   - Opcjonalnie "Promo" / "Długoterminowy" jeśli warianty istnieją
+   - `is_default=true` dla cennika "Standard"
+   - Snapshot principle zachowane (warunki na pozycjach = kopia, nie referencja)
+7. **Generowanie zestawów usług (fee_preset_groups / service_fee_templates)** —
+   na podstawie analizy z pkt 5:
+   - `service_fee_templates`: typowe usługi z typowymi kwotami (Tankowanie 250,
+     Czyszczenie-trudne 200, Czyszczenie-drobne 80, Transport, Serwis, Przestój)
+   - `fee_preset_groups`: zestawy nazwane (np. "Standardowe", "Pełne pakiet",
+     "Tylko tankowanie") — jeśli takie wzorce występują w historii
+8. **Weryfikacja** — po migracji + seed:
+   - `GET /settings/articles/{id}/rate-presets` zwraca cenniki per maszyna
+   - `GET /settings/fee-presets` zwraca zestawy usług
+   - `GET /analytics` pokazuje realne dane z migracji (nie wymyślone)
+   - Demo flow: umowa → "Zastosuj cennik" → realne warunki z historii maszyny
+
+**Decyzje do podjęcia (operator):**
+- **Archiwizacja:** czy zrzucać pełny SQL dump, czy tylko JSON eksport?
+  (SQL dump = pełny rollback; JSON = czytelny diff)
+- **Czyszczenie outliery:** czy ręczna weryfikacja cenników przed importem,
+  czy automat (top-N najczęstszych wzorców)?
+- **Cenniki per maszyna vs per kategoria:** czy cennik "Standard" per maszyna
+  (article_id), czy per kategoria (category_main)? Per maszyna = bardziej
+  precyzyjne, per kategoria = mniej rekordów.
+- **Usługi — kwoty stałe czy zakresy:** czy `service_fee_templates` ma
+  `default_amount` (stała) czy `min_amount` + `max_amount` (zakres)?
+- **Demo seed — czy nadpisać migrację, czy uzupełnić:** czy `seed_demo_data.py`
+  ma działać na czystej bazie (po migracji) czy na istniejącej (z migracją)?
+
+**Kryteria akceptacji (DoD):**
+- [ ] Archiwum obecnego stanu w `spec/archive/migration_snapshot_20260705/`
+- [ ] `migrate.py` uruchomione na czystej bazie — row count per tabela
+      spójny ze źródłem (raport diff)
+- [ ] Analiza `umowa_pozycja2_warunek` — raport z typowymi progami kaskadowymi
+      per maszyna/kategoria (zapisany w `spec/archive/migration_analysis/`)
+- [ ] Analiza `umowa2.OPLATY` — raport z typowymi usługami i kwotami
+- [ ] `article_rate_presets` wypełnione per maszyna (cennik "Standard" + is_default)
+- [ ] `service_fee_templates` wypełnione typowymi usługami z historii
+- [ ] `fee_preset_groups` wypełnione nazwanymi zestawami (jeśli wzorce istnieją)
+- [ ] `seed_demo_data.py` + `seed_fa_invoices.py` uruchomione po migracji
+- [ ] Demo: 10+ aktywnych umów (pula D) z fakturami FA-pending
+- [ ] `/analytics` pokazuje realne dane z migracji (cross-check z raportem)
+- [ ] `GET /settings/articles/{id}/rate-presets` zwraca cenniki dla każdej maszyny
+- [ ] `GET /settings/fee-presets` zwraca zestawy usług
+- [ ] Smoke test: `e2e/tests/01-login.spec.ts` PASS
+- [ ] Spec sync: `spec/core/01_database.md`, `spec/core/04_business_logic.md`,
+      `spec/core/08_migration_plan.md` (jeśli istnieje)
+- [ ] Post-task cleanup: skrypty analizy do `spec/technical/scripts/`,
+      wzorce do `spec/technical/patterns/`
+
+**Ryzyka:**
+- Stara baza może mieć brudne dane (literówki w OPLATY, anomalne ceny) →
+  wymaga czyszczenia przed generowaniem cenników
+- Migracja na czystej bazie może ujawnić bugi w `migrate.py` (deterministic
+  INSERT...SELECT) — trzeba być gotowym na fix
+- Cenniki per maszyna = dużo rekordów (np. 100 maszyn × 1-3 cenniki = 100-300
+  rekordów) — akceptowalne, ale wymaga UI do zarządzania (P1-001 już ma)
+- `seed_demo_data.py` może konfliktować z migracją (duplikaty) — trzeba
+  zdecydować: demo nadpisuje migrację czy uzupełnia
+
+**Powiązane taski:**
+- P1-001 (cenniki warunków rozliczenia) — infrastruktura już gotowa
+- P1-004 (demo seed pula D) — pula D ma być zachowana
+- P1-007 (usługi w demo) — usługi mają być realne z migracji, nie wymyślone
+- P0-012 (warunek "powyżej X dni") — cenniki mogą zawierać warunki z samym rate2
 
 ---
 
