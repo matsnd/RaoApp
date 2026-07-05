@@ -15,12 +15,20 @@ from integrations.fakturownia.schemas import InvoiceLine, InvoiceOut
 from integrations.fakturownia.service import _resolve_invoice
 
 
-def _make_db(article_rows):
-    """Build a mock AsyncSession whose execute() returns rows iterable via .all()."""
+def _make_db(article_rows, cache_rows=None):
+    """Build a mock AsyncSession whose execute() returns rows iterable via .all().
+
+    P0-014: _resolve_invoice now makes 2 DB calls when product_ids exist:
+    1st → article rows (id, name, fakturownia_product_id)
+    2nd → cache rows (product_id, name) from fakturownia_products_cache
+    Uses side_effect to return them in order.
+    """
     db = MagicMock()
-    rows_result = MagicMock()
-    rows_result.all.return_value = article_rows
-    db.execute = AsyncMock(return_value=rows_result)
+    art_result = MagicMock()
+    art_result.all.return_value = article_rows
+    cache_result = MagicMock()
+    cache_result.all.return_value = cache_rows or []
+    db.execute = AsyncMock(side_effect=[art_result, cache_result])
     return db
 
 
@@ -31,6 +39,11 @@ def _row(article_id: int, name: str, fakturownia_product_id: int):
         name=name,
         fakturownia_product_id=fakturownia_product_id,
     )
+
+
+def _cache_row(product_id: int, name: str):
+    """Mimic a SQLAlchemy Row from fakturownia_products_cache (product_id, name)."""
+    return SimpleNamespace(product_id=product_id, name=name)
 
 
 def _line(pid: int, name: str = "Mlotowiertarka", total_net: str = "1000.00"):
@@ -188,3 +201,51 @@ async def test_resolve_invoice_decimal_precision():
     out = await _resolve_invoice(db, invoice)
     # 0.10 × 2 = 0.20 exact (not 0.2000000001)
     assert out.mapped_total_net == Decimal("0.20")
+
+
+# ── P0-014: empty product name fallback ──────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_resolve_invoice_empty_name_fallback_to_cache():
+    """P0-014: FA position with empty name → fallback to fakturownia_products_cache."""
+    db = _make_db(
+        article_rows=[_row(42, "Koparka RAO", 100)],
+        cache_rows=[_cache_row(100, "Koparka JCB 8035 (z cache)")],
+    )
+    line = InvoiceLine(
+        fakturownia_product_id=100,
+        fakturownia_product_name="",  # puste name z FA API
+        quantity=Decimal("1"),
+        price_net=Decimal("800.00"),
+        total_net=Decimal("800.00"),
+        invoice_number="FV/5/2026",
+    )
+    invoice = InvoiceOut(
+        invoice_number="FV/5/2026",
+        lines=[line],
+        total_net=Decimal("800.00"),
+    )
+    out = await _resolve_invoice(db, invoice)
+    assert out.lines[0].fakturownia_product_name == "Koparka JCB 8035 (z cache)"
+
+
+@pytest.mark.asyncio
+async def test_resolve_invoice_empty_name_no_cache_placeholder():
+    """P0-014: empty name + no cache → placeholder 'Produkt FA #{pid}'."""
+    db = _make_db(article_rows=[], cache_rows=[])
+    line = InvoiceLine(
+        fakturownia_product_id=999,
+        fakturownia_product_name="",
+        quantity=Decimal("1"),
+        price_net=Decimal("150.00"),
+        total_net=Decimal("150.00"),
+        invoice_number="FV/6/2026",
+    )
+    invoice = InvoiceOut(
+        invoice_number="FV/6/2026",
+        lines=[line],
+        total_net=Decimal("150.00"),
+    )
+    out = await _resolve_invoice(db, invoice)
+    assert out.lines[0].fakturownia_product_name == "Produkt FA #999"
+    assert out.unmapped_count == 1
