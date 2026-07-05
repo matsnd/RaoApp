@@ -1,5 +1,46 @@
 # CHANGES — audyt i naprawa .devin (2026-07-05)
 
+## RAO-P2-065 + P2-064 + P2-066 — zakończone (2026-07-05)
+
+### RAO-P2-065: Statystyki — poprawki po full-team review (DONE)
+
+Wszystkie 13 bugów naprawione:
+
+| # | Bug | Fix |
+|---|-----|-----|
+| 1 | ROI maszyny niedostępne w AnalyticsView | `fetchMachineRoi` + sekcja ROI w drill-down |
+| 2 | `contractor_name` null w LiveFleet | LEFT JOIN Contractor + `coalesce(name, contractor_name)` |
+| 3 | `per_page=500` nie działał | backend fix (poprzednia tura) |
+| 4 | `is_settled`/`date_to` brak warunków | dodane do `currently_rented` query |
+| 5 | Filtr kontrahenta wolny tekst | `<select>` z walidacją (już naprawione) |
+| 6 | Brak sekcji kategorii | `fetchByCategory` w PeriodRentalTab (już naprawione) |
+| 7 | Drill-down bez nr wewnętrznego | `openDrillDown` przyjmuje internalNumber, tytuł `🏗️ {name} ({internalNumber})` |
+| 8 | `/explorer/search` total = len(strony) | `total = summary.total_count`; `city`/`delivery_address` osobno |
+| 9 | Lokalizacje "(brak PNA)" bez fallback | `postal_code ?? '(brak PNA — {city})'`; drill-down po city |
+| 10 | Brak walidacji date_from > date_to | `_default_dates` + `explorer_search` → 422 |
+| 11 | KPI "Przychód" mylący label | `revenue_source_label = "razem (rzecz.+szac.)"` gdy oba > 0 |
+| 12 | ~2s overhead na request | [odroczone — performance-eng] |
+| 13 | Brak testów e2e AnalyticsView | `e2e/tests/06-analytics.spec.ts` (6 testów) |
+
+**Weryfikacja:** vue-tsc PASS, build PASS, 10 API endpoints 200 OK, 422 walidacja OK, Playwright 5/6 passed (1 flaky login).
+
+### RAO-P2-064: Opcje wydruku PDF (DONE)
+
+- `hide_delivery_address` + `signatures_on_page1` działają w szablonach PDF
+- `report_without_data` usunięty z UI (pole w DB zostaje)
+- 9 testów pytest PASS
+
+### RAO-P2-066: Rezerwacje maszyn (DONE)
+
+- Backend reservations CRUD + `check_availability` uwzględnia `article_reservations` (już istniało)
+- Frontend store `reservations.ts` (już istniał)
+- ArticleFormView: sekcja rezerwacji (lista + dodaj + usuń + modal) (już istniało)
+- **FIX w tej turze:** ContractFormView modal "Maszyna zajęta" teraz pokazuje rezerwacje (sekcja "📅 Rezerwacje maszyny" z datami, notatką, "dostępna od")
+
+### RAO-P2-070 + P3-071: Audyty UX (odroczone)
+
+P2-070 (30 usterek interaktywności, 21-29h) i P3-071 (14 usterek UX, P3) — duże audyty, odroczone do osobnej sesji. 23 `alert()` do zamiany na toasty, brak error states w większości widoków.
+
 ## Weryfikacja runtime MCP w subagentach (2026-07-05, CLI 2026.8.18)
 
 Test empiryczny (3 profile, foreground, to samo zadanie):
