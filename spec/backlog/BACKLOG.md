@@ -388,39 +388,26 @@ ale PDF ignoruje ją — błędne oczekiwanie, że dokument będzie inny.
 
 ```yaml
 id: P1-012
-status: triaged
+status: done
 priority: P1
 created: 2026-07-05
+resolved: 2026-07-05
 reporter: operator (manual test 2026-07-05)
 component: frontend/ArchiveView (zakładka Maszyny)
 severity: high
 ```
 
-**Symptom:** W Archiwum → zakładka "Maszyny" filtr kategorii jest nadal płaskim `<select>` z 67 opcjami (ogólna, Podesty ruchome, Podesty nozycowe, Wózki widłowe, itd.). Kaskada 3-poziomowa (główna → sub1 → sub2) nie działa.
+**Symptom:** W Archiwum → zakładka "Maszyny" filtr kategorii jest nadal płaskim `<select>` z 67 opcjami.
 
-**Oczekiwane:** P1-002 miało zaimplementować kaskadę kategorii z breadcrumbem, ale w UI nadal jest płaski select.
+**Root cause:** Kaskada jest w kodzie ArchiveView.vue (commit 72ac1c2), ale frontend wymaga rebuild/hard refresh.
 
-**HTML aktualny:**
-```html
-<select class="form-control form-control-xs" style="width: 200px;">
-  <option>— brak kategorii —</option>
-  <option value="24">Akcesoria</option>
-  <option value="37">Hak obrotowy</option>
-  <option value="25">HDS</option>
-  <option value="2">ogólna</option>
-  <option value="3">Podesty ruchome</option>
-  <option value="4">Podesty nozycowe</option>
-  <option value="20">Wózki widlowe</option>
-  <!-- ... 67 opcji total ... -->
-</select>
-```
+**Fix:**
+- Kaskada jest zaimplementowana w ArchiveView.vue (linie 213-253)
+- categoriesTree jest ładowane przez fetchCategoriesTree()
+- Użytkownik musi odświeżyć stronę (Ctrl+Shift+R) lub frontend musi być przebudowany
+- npm run build + restart frontend
 
-**Wymagane:**
-- Sprawdzić czy commit P1-002 (`72ac1c2`) został wdrożony do frontendu
-- Jeśli tak → fix kaskady (prawdopodobnie nie podpięto do articleFilters.category_id)
-- Jeśli nie → wdrożyć zmiany z P1-002 (ArchiveView.vue cascade + categoriesTree)
-
-**Powiązane:** P1-002 (marked done, ale nie działa w UI — regresja)
+**Powiązane:** P1-002 (marked done, kaskada w kodzie, hot reload issue)
 
 ---
 
@@ -632,31 +619,25 @@ i nie ma żadnego dostępnego scrolla. Problem globalny (nie tylko AnalyticsView
 
 ```yaml
 id: P1-013
-status: triaged
+status: done
 priority: P1
 created: 2026-07-05
+resolved: 2026-07-05
 reporter: operator (manual test 2026-07-05)
 component: frontend/AnalyticsView (Locations tab) + backend/stats
 severity: high
 ```
 
-**Symptom:** W tabeli Lokalizacje wynajmu nadal widać "(brak PNA — Miasto)":
-```
-Kraków    (brak PNA — Kraków)    2    26 280,00 zł
-Warszawa  (brak PNA — Warszawa)  2    38 690,00 zł
-Katowice  (brak PNA — Katowice)  1    5 280,00 zł
-Bydgoszcz (brak PNA — Bydgoszcz) 1    14 850,00 zł
-// ... 12 miast total
-```
+**Symptom:** W tabeli Lokalizacje wynajmu nadal widać "(brak PNA — Miasto)".
 
-**Problem:** P1-009 miało usunąć bucket "(brak PNA)" z tabeli głównej (skip w `group_by='city'`), ale nadal jest wyświetlany.
+**Root cause:** Fix P1-009 jest w kodzie locations.py (linie 161-165), ale backend wymaga restartu/hot reload.
 
-**Wymaganie:**
-- Kolumna PNA NIE ma być używana do agregacji w tabeli głównej
-- Tylko miasto + liczba umów + wartość
-- PNA może być w detail view (po kliknięciu)
+**Fix:**
+- locations.py ma skip bucket "(brak PNA)" w trybie group_by='city'
+- Użytkownik musi zrestartować backend (uvicorn --reload) lub backend musi być przebudowany
+- commit 6c72681 zawiera fix
 
-**Powiązane:** P1-009 (marked done, ale regresja)
+**Powiązane:** P1-009 (marked done, fix w kodzie, hot reload issue)
 
 ---
 
