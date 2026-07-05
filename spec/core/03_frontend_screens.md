@@ -685,9 +685,11 @@ Layout (modal wbudowany w ContractFormView.vue):
 
 ---
 
-## Komponent: `ServiceHourGrid.vue` (RAO-P1-014) — USUNIĘTE (Faza 1b)
+## Komponent: `ServiceHourGrid.vue` (RAO-P1-014) — USUNIĘTE (Faza 1b + 1c)
 
-> **Faza 1b (RAO-P1-014):** Komponent `ServiceHourGrid.vue` oraz store `useServiceHourStore` (`frontend/src/stores/serviceHours.js`) zostały usunięte z backendu API (model/service/router/schemas). Klient wybrał formularz papierowy — ewidencja godzin operatora prowadzona ręcznie na wydruku PDF protokołu usługi (5 pustych wierszy fallback w `protocol_zo_u.html`). Frontend cleanup komponentu `ServiceHourGrid.vue` zaplanowany w fazie 1c (frontend-dev).
+> **Faza 1b (RAO-P1-014, backend):** Usunięto model/service/router/schemas `service_hours` z API. Klient wybrał formularz papierowy — ewidencja godzin operatora prowadzona ręcznie na wydruku PDF protokołu usługi (5 pustych wierszy fallback w `protocol_zo_u.html`).
+>
+> **Faza 1c (frontend cleanup):** Usunięto plik `frontend/src/components/contracts/ServiceHourGrid.vue` oraz store `frontend/src/stores/serviceHours.js`. W `ContractFormView.vue` usunięto import komponentu oraz blok `<ServiceHourGrid />` w sekcji pozycji umów typu `U`. Endpointy `/contracts/positions/{id}/service-hours` nie istnieją — sekcja ewidencji godzin nie jest już renderowana w UI.
 
 ---
 
