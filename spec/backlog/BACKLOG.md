@@ -649,7 +649,7 @@ status: triaged
 priority: P1
 created: 2026-07-05
 reporter: operator (manual test 2026-07-05)
-component: frontend/AnalyticsView (PeriodRentalTab, CategoriesTab)
+component: frontend/AnalyticsView (PeriodRentalTab, CategoriesTab) + backend/stats
 severity: high
 ```
 
@@ -659,6 +659,8 @@ severity: high
 - Pozycje dodatkowe (usługi) — klikalne → drilldown do szczegółów (które umowy, kiedy, kwota)
 - Kategorie — klikalne → drilldown do szczegółów (jakie maszyny, umowy, przychód)
 - UI podobne do "Top maszyny po przychodzie" (klik wiersz → szczegóły)
+
+**Scope:** Feature requiring new backend endpoints + frontend drilldown UI.
 
 ---
 
