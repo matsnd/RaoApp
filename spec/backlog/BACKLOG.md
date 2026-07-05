@@ -3278,7 +3278,7 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P2-069 | Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście | P2 | M | done | Toggle Miasto/PNA w LocationsTab, 1 wiersz per miasto (Warszawa 3978 PNA → 1), drill-down /locations/city/{city} z pna_breakdown |
 | RAO-P2-070 | Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation) | P2 | L | team-verified | Faza 1 (23 alert→toast + success po zapisie) + Faza 2 (drilldown /contracts→kontrahent 50 linków, /articles→analytics 11 linków, /contractors→umowa) + Faza 3 (sort 5/9 kolumn) + Faza 5 (goBack router.back) |
 | RAO-P3-071 | Audyt UX — czytelność, spójność, przyjemność poruszania się | P3 | L | team-verified | Faza 1 (font-size 11px→13px, 10px→12px, 9px→11px, --font-size-xs 11→12; kontrast #718096→#5A6B7E WCAG AA; smallCount 171→0) + Faza 2 (7× toFixed→formatCurrency, 2× toLocaleDateString→formatDate w ContractFormView) |
-| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | team-verified (Faza 0+1+2+3 done — 742 umów w archive_*, 62 nowe, brak is_legacy, 15 endpointów /archive/*, ArchiveView 4 zakładki z bannerem, 22 testy PASS) |
 
 **Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
 
@@ -4106,7 +4106,7 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P2-069 | Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście | P2 | M | done | Toggle Miasto/PNA w LocationsTab, 1 wiersz per miasto (Warszawa 3978 PNA → 1), drill-down /locations/city/{city} z pna_breakdown |
 | RAO-P2-070 | Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation) | P2 | L | team-verified | Faza 1 (23 alert→toast + success po zapisie) + Faza 2 (drilldown /contracts→kontrahent 50 linków, /articles→analytics 11 linków, /contractors→umowa) + Faza 3 (sort 5/9 kolumn) + Faza 5 (goBack router.back) |
 | RAO-P3-071 | Audyt UX — czytelność, spójność, przyjemność poruszania się | P3 | L | team-verified | Faza 1 (font-size 11px→13px, 10px→12px, 9px→11px, --font-size-xs 11→12; kontrast #718096→#5A6B7E WCAG AA; smallCount 171→0) + Faza 2 (7× toFixed→formatCurrency, 2× toLocaleDateString→formatDate w ContractFormView) |
-| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | team-verified (Faza 0+1+2+3 done — 742 umów w archive_*, 62 nowe, brak is_legacy, 15 endpointów /archive/*, ArchiveView 4 zakładki z bannerem, 22 testy PASS) |
 
 **Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
 
@@ -4934,7 +4934,7 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P2-069 | Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście | P2 | M | done | Toggle Miasto/PNA w LocationsTab, 1 wiersz per miasto (Warszawa 3978 PNA → 1), drill-down /locations/city/{city} z pna_breakdown |
 | RAO-P2-070 | Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation) | P2 | L | team-verified | Faza 1 (23 alert→toast + success po zapisie) + Faza 2 (drilldown /contracts→kontrahent 50 linków, /articles→analytics 11 linków, /contractors→umowa) + Faza 3 (sort 5/9 kolumn) + Faza 5 (goBack router.back) |
 | RAO-P3-071 | Audyt UX — czytelność, spójność, przyjemność poruszania się | P3 | L | team-verified | Faza 1 (font-size 11px→13px, 10px→12px, 9px→11px, --font-size-xs 11→12; kontrast #718096→#5A6B7E WCAG AA; smallCount 171→0) + Faza 2 (7× toFixed→formatCurrency, 2× toLocaleDateString→formatDate w ContractFormView) |
-| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | team-verified (Faza 0+1+2+3 done — 742 umów w archive_*, 62 nowe, brak is_legacy, 15 endpointów /archive/*, ArchiveView 4 zakładki z bannerem, 22 testy PASS) |
 
 **Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
 
@@ -5762,7 +5762,7 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P2-069 | Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście | P2 | M | done | Toggle Miasto/PNA w LocationsTab, 1 wiersz per miasto (Warszawa 3978 PNA → 1), drill-down /locations/city/{city} z pna_breakdown |
 | RAO-P2-070 | Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation) | P2 | L | team-verified | Faza 1 (23 alert→toast + success po zapisie) + Faza 2 (drilldown /contracts→kontrahent 50 linków, /articles→analytics 11 linków, /contractors→umowa) + Faza 3 (sort 5/9 kolumn) + Faza 5 (goBack router.back) |
 | RAO-P3-071 | Audyt UX — czytelność, spójność, przyjemność poruszania się | P3 | L | team-verified | Faza 1 (font-size 11px→13px, 10px→12px, 9px→11px, --font-size-xs 11→12; kontrast #718096→#5A6B7E WCAG AA; smallCount 171→0) + Faza 2 (7× toFixed→formatCurrency, 2× toLocaleDateString→formatDate w ContractFormView) |
-| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | team-verified (Faza 0+1+2+3 done — 742 umów w archive_*, 62 nowe, brak is_legacy, 15 endpointów /archive/*, ArchiveView 4 zakładki z bannerem, 22 testy PASS) |
 
 **Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
 
@@ -6590,7 +6590,7 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P2-069 | Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście | P2 | M | done | Toggle Miasto/PNA w LocationsTab, 1 wiersz per miasto (Warszawa 3978 PNA → 1), drill-down /locations/city/{city} z pna_breakdown |
 | RAO-P2-070 | Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation) | P2 | L | team-verified | Faza 1 (23 alert→toast + success po zapisie) + Faza 2 (drilldown /contracts→kontrahent 50 linków, /articles→analytics 11 linków, /contractors→umowa) + Faza 3 (sort 5/9 kolumn) + Faza 5 (goBack router.back) |
 | RAO-P3-071 | Audyt UX — czytelność, spójność, przyjemność poruszania się | P3 | L | team-verified | Faza 1 (font-size 11px→13px, 10px→12px, 9px→11px, --font-size-xs 11→12; kontrast #718096→#5A6B7E WCAG AA; smallCount 171→0) + Faza 2 (7× toFixed→formatCurrency, 2× toLocaleDateString→formatDate w ContractFormView) |
-| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | team-verified (Faza 0+1+2+3 done — 742 umów w archive_*, 62 nowe, brak is_legacy, 15 endpointów /archive/*, ArchiveView 4 zakładki z bannerem, 22 testy PASS) |
 
 **Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
 
@@ -7418,7 +7418,7 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P2-069 | Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście | P2 | M | done | Toggle Miasto/PNA w LocationsTab, 1 wiersz per miasto (Warszawa 3978 PNA → 1), drill-down /locations/city/{city} z pna_breakdown |
 | RAO-P2-070 | Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation) | P2 | L | team-verified | Faza 1 (23 alert→toast + success po zapisie) + Faza 2 (drilldown /contracts→kontrahent 50 linków, /articles→analytics 11 linków, /contractors→umowa) + Faza 3 (sort 5/9 kolumn) + Faza 5 (goBack router.back) |
 | RAO-P3-071 | Audyt UX — czytelność, spójność, przyjemność poruszania się | P3 | L | team-verified | Faza 1 (font-size 11px→13px, 10px→12px, 9px→11px, --font-size-xs 11→12; kontrast #718096→#5A6B7E WCAG AA; smallCount 171→0) + Faza 2 (7× toFixed→formatCurrency, 2× toLocaleDateString→formatDate w ContractFormView) |
-| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | team-verified (Faza 0+1+2+3 done — 742 umów w archive_*, 62 nowe, brak is_legacy, 15 endpointów /archive/*, ArchiveView 4 zakładki z bannerem, 22 testy PASS) |
 
 **Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
 
@@ -8340,7 +8340,7 @@ Aplikacja ma solidne podstawy (skeleton loadery, empty states z CTA, KPI z seman
 | RAO-P2-068 | Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta" | P2 | M | done | 5 cenników kaskadowych per maszyna, 6 presetów usług, 22 ServiceFeeTemplateItem, 6 rate types, pełna konfiguracja firmy |
 | RAO-P2-069 | Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście | P2 | M | done | Toggle Miasto/PNA w LocationsTab, 1 wiersz per miasto (Warszawa 3978 PNA → 1), drill-down /locations/city/{city} z pna_breakdown |
 | RAO-P2-070 | Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation) | P2 | L | triaged | 30 usterek UX (8 HIGH, 13 MEDIUM, 9 LOW); 5 faz: toasty, cross-view drilldown, sort, filtry, goBack |
-| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | team-verified (Faza 0+1+2+3 done — 742 umów w archive_*, 62 nowe, brak is_legacy, 15 endpointów /archive/*, ArchiveView 4 zakładki z bannerem, 22 testy PASS) |
 
 **Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
 
@@ -9089,7 +9089,7 @@ Aplikacja ma solidne podstawy (drilldown w Analytics/Archive, skeleton loadery, 
 | RAO-P2-068 | Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta" | P2 | M | done | 5 cenników kaskadowych per maszyna, 6 presetów usług, 22 ServiceFeeTemplateItem, 6 rate types, pełna konfiguracja firmy |
 | RAO-P2-069 | Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście | P2 | M | done | Toggle Miasto/PNA w LocationsTab, 1 wiersz per miasto (Warszawa 3978 PNA → 1), drill-down /locations/city/{city} z pna_breakdown |
 | RAO-P2-070 | Audyt interaktywności — drilldowny, filtry, przekliki (cross-view navigation) | P2 | L | triaged | 30 usterek UX (8 HIGH, 13 MEDIUM, 9 LOW); 5 faz: toasty, cross-view drilldown, sort, filtry, goBack |
-| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | team-verified (Faza 0+1+2+3 done — 742 umów w archive_*, 62 nowe, brak is_legacy, 15 endpointów /archive/*, ArchiveView 4 zakładki z bannerem, 22 testy PASS) |
 
 **Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
 
@@ -9837,7 +9837,7 @@ Aplikacja ma solidne podstawy (drilldown w Analytics/Archive, skeleton loadery, 
 | RAO-P2-067 | Demo data refactor — migrate_all.py orchestrator + FA-pending contracts + delivery_address | P2 | M | done | 31 faktur FA (19 backfill + 12 FA-pending), delivery_address z miastami, hardcoded token usunięty |
 | RAO-P2-068 | Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta" | P2 | M | done | 5 cenników kaskadowych per maszyna, 6 presetów usług, 22 ServiceFeeTemplateItem, 6 rate types, pełna konfiguracja firmy |
 | RAO-P2-069 | Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście | P2 | M | done | Toggle Miasto/PNA w LocationsTab, 1 wiersz per miasto (Warszawa 3978 PNA → 1), drill-down /locations/city/{city} z pna_breakdown |
-| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | team-verified (Faza 0+1+2+3 done — 742 umów w archive_*, 62 nowe, brak is_legacy, 15 endpointów /archive/*, ArchiveView 4 zakładki z bannerem, 22 testy PASS) |
 
 **Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
 
@@ -10416,7 +10416,7 @@ W zakładce "Lokalizacje" w AnalyticsView każde miasto było rozbite na kody po
 | RAO-P2-067 | Demo data refactor — migrate_all.py orchestrator + FA-pending contracts + delivery_address | P2 | M | done | 31 faktur FA (19 backfill + 12 FA-pending), delivery_address z miastami, hardcoded token usunięty |
 | RAO-P2-068 | Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta" | P2 | M | done | 5 cenników kaskadowych per maszyna, 6 presetów usług, 22 ServiceFeeTemplateItem, 6 rate types, pełna konfiguracja firmy |
 | RAO-P2-069 | Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście | P2 | M | done | Toggle Miasto/PNA w LocationsTab, 1 wiersz per miasto (Warszawa 3978 PNA → 1), drill-down /locations/city/{city} z pna_breakdown |
-| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | team-verified (Faza 0+1+2+3 done — 742 umów w archive_*, 62 nowe, brak is_legacy, 15 endpointów /archive/*, ArchiveView 4 zakładki z bannerem, 22 testy PASS) |
 
 **Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
 
@@ -10912,7 +10912,7 @@ Po P2-067 demo data miało jeszcze braki:
 | RAO-P2-067 | Demo data refactor — migrate_all.py orchestrator + FA-pending contracts + delivery_address | P2 | M | done | 31 faktur FA (19 backfill + 12 FA-pending), delivery_address z miastami, hardcoded token usunięty |
 | RAO-P2-068 | Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta" | P2 | M | done | 5 cenników kaskadowych per maszyna, 6 presetów usług, 22 ServiceFeeTemplateItem, 6 rate types, pełna konfiguracja firmy |
 | RAO-P2-069 | Analytics — agregacja lokalizacji po mieście (toggle Miasto/PNA) + drill-down po mieście | P2 | M | done | Toggle Miasto/PNA w LocationsTab, 1 wiersz per miasto (Warszawa 3978 PNA → 1), drill-down /locations/city/{city} z pna_breakdown |
-| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | team-verified (Faza 0+1+2+3 done — 742 umów w archive_*, 62 nowe, brak is_legacy, 15 endpointów /archive/*, ArchiveView 4 zakładki z bannerem, 22 testy PASS) |
 
 **Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
 
@@ -11407,7 +11407,7 @@ Po P2-067 demo data miało jeszcze braki:
 | RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
 | RAO-P2-067 | Demo data refactor — migrate_all.py orchestrator + FA-pending contracts + delivery_address | P2 | M | done | 31 faktur FA (19 backfill + 12 FA-pending), delivery_address z miastami, hardcoded token usunięty |
 | RAO-P2-068 | Demo data — predefiniowane cenniki kaskadowe + pełna konfiguracja "jak od klienta" | P2 | M | done | 5 cenników kaskadowych per maszyna, 6 presetów usług, 22 ServiceFeeTemplateItem, 6 rate types, pełna konfiguracja firmy |
-| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | team-verified (Faza 0+1+2+3 done — 742 umów w archive_*, 62 nowe, brak is_legacy, 15 endpointów /archive/*, ArchiveView 4 zakładki z bannerem, 22 testy PASS) |
 
 **Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
 
@@ -11901,7 +11901,7 @@ Po P2-067 demo data miało jeszcze braki:
 | RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | in-progress (Faza 1 done — 6 bugów + indeksy + cleanup; Faza 2 todo — StatsView.vue) |
 | RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
 | RAO-P2-067 | Demo data refactor — migrate_all.py orchestrator + FA-pending contracts + delivery_address | P2 | M | done | 31 faktur FA (19 backfill + 12 FA-pending), delivery_address z miastami, hardcoded token usunięty |
-| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | team-verified (Faza 0+1+2+3 done — 742 umów w archive_*, 62 nowe, brak is_legacy, 15 endpointów /archive/*, ArchiveView 4 zakładki z bannerem, 22 testy PASS) |
 
 **Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
 
@@ -12304,7 +12304,7 @@ note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone
 | RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | in-progress (Faza 1 done — 6 bugów + indeksy + cleanup; Faza 2 todo — StatsView.vue) |
 | RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
 | RAO-P2-067 | Demo data refactor — migrate_all.py orchestrator + FA-pending contracts + delivery_address | P2 | M | done | 31 faktur FA (19 backfill + 12 FA-pending), delivery_address z miastami, hardcoded token usunięty |
-| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | team-verified (Faza 0+1+2+3 done — 742 umów w archive_*, 62 nowe, brak is_legacy, 15 endpointów /archive/*, ArchiveView 4 zakładki z bannerem, 22 testy PASS) |
 
 **Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
 
@@ -12706,7 +12706,7 @@ note: "DROP COLUMN contracts.total_value + usuń z schemas/PDF/frontend (scalone
 | RAO-P2-059 | Usługi dodatkowe — migracja z plain-text na per-artikel + UI ArticlePicker | P2 | L | team-verified | 88 art is_service=1, 34 SFT (32 z article_id), 22 SFTI (N:M), 185 CSF nowe + 3396 archive, 8 preset groups, apply_preset kopiuje article_id+default_price, UI SettingsView + ContractFormView ArticlePicker, 5 testów PASS |
 | RAO-P2-060 | Statystyki — gruba krecha legacy vs nowe + StatsView + bugfix QA | P1 | L | in-progress (Faza 1 done — 6 bugów + indeksy + cleanup; Faza 2 todo — StatsView.vue) |
 | RAO-P2-061 | Demo data seeding — Fakturownia testowa + pełne rozliczenia dla showcase statystyk | P2 | M | done | demo data seeded: 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA |
-| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | dev-verified (Faza 0+1+2 done — migracja + backend + frontend; czeka na team-verified) |
+| RAO-P2-062 | Archiwum — migracja legacy do tabel `archive_*` (gruba krecha na poziomie tabel) | P1 | L | team-verified (Faza 0+1+2+3 done — 742 umów w archive_*, 62 nowe, brak is_legacy, 15 endpointów /archive/*, ArchiveView 4 zakładki z bannerem, 22 testy PASS) |
 
 **Razem:** 38 zadań · ~158-208h pracy (P0: 25-35h, P1: 58-75h, P2: 75-98h)
 

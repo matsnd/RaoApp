@@ -81,12 +81,16 @@ async def test_list_archive_contracts_returns_items_and_total():
     async def mock_execute(stmt):
         calls.append(stmt)
         result = MagicMock()
-        # Pierwsze wywolanie = count query, drugie = lista kontraktow
+        # 1 = count, 2 = lista kontraktow, 3 = pozycje (puste — brak revenue_estimate)
         if len(calls) == 1:
             result.scalar_one.return_value = 1
-        else:
+        elif len(calls) == 2:
             scalars = MagicMock()
             scalars.all.return_value = [contract]
+            result.scalars.return_value = scalars
+        else:
+            scalars = MagicMock()
+            scalars.all.return_value = []  # brak pozycji
             result.scalars.return_value = scalars
         return result
 
