@@ -297,4 +297,7 @@ async def _resolve_invoice(db: AsyncSession, invoice: InvoiceOut) -> ResolvedInv
         total_net=invoice.total_net,
         mapped_total_net=mapped_total,
         unmapped_count=unmapped_count,
+        # RAO Faza 2a (opcja E): propaguj issue_date do ResolvedInvoiceOut
+        # (używane w settlements/router.py do settlement.settled_at)
+        issue_date=invoice.issue_date,
     )

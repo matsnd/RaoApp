@@ -1095,6 +1095,12 @@ class ContractSettlementResponse(BaseModel):
     cost_company: Decimal | None = None
     margin: Decimal | None = None  # auto-calculated: cost_client - cost_company
     notes: str | None = None
+    # RAO Faza 2a (opcja E): pola unmapped settlements z Fakturownia
+    article_name_snapshot: str | None = None       # snapshot nazwy pozycji FA (gdy position_id=NULL)
+    fakturownia_product_id: int | None = None       # ID produktu FA (grupowanie w analytics)
+    fakturownia_invoice_number: str | None = None   # numer faktury FA (dla query)
+    source: str | None = None                        # 'legacy' / 'fakturownia' / 'manual' / 'fa_unmapped'
+    settled_at: date | None = None                   # data rozliczenia (z FA issue_date)
     created_at: datetime
     updated_at: datetime
 
@@ -1113,11 +1119,13 @@ class ContractSettlementUpdate(BaseModel):
 ```
 
 **Logika:**
-- GET /contract/{contract_id}: Zwraca wszystkie rozliczenia dla umowy (pozycje + usługi dodatkowe)
+- GET /contract/{contract_id}: Zwraca wszystkie rozliczenia dla umowy (pozycje + usługi dodatkowe + unmapped)
 - POST /contract/{contract_id}/init: Inicjalizuje rozliczenia z umowy - oblicza cost_client z pozycji umowy (unit_price * rental_days * quantity)
 - POST /contract/{contract_id}/init-from-fakturownia: Inicjalizuje rozliczenia z Fakturownia - pobiera faktury z Fakturownia i mapuje:
-  - Pozycje umowy przez fakturownia_product_id (1:N mapping)
+  - Pozycje umowy przez fakturownia_product_id (1:N mapping) → settlement z `source='fakturownia'`, `settled_at=invoice.issue_date`
   - Usługi dodatkowe przez service_fee_templates.article_id → articles.fakturownia_product_id (1:N mapping)
+  - **RAO Faza 2a (opcja E):** Pozycje FA nieobecne w umowie (brak mapowania) → settlement z `position_id=NULL`, `service_fee_id=NULL`, `source='fa_unmapped'`, `article_name_snapshot=<nazwa z FA>`, `fakturownia_product_id`, `fakturownia_invoice_number`, `settled_at=invoice.issue_date`. NIE tworzy artykułu on-the-fly — tylko snapshot nazwy. Idempotentność: UNIQUE(`unmapped_key`) chroni przed duplikatem (klucz = `unmapped:<pid>:<invoice_number>`).
+  - Bug fix bonus (QA 1.7): mapped settlements dostają `source='fakturownia'` (nie domyślne `'manual'`) i `settled_at=invoice.issue_date`
 - Auto-creowanie: Po utworzeniu umowy, automatycznie tworzy rekordy settlement dla wszystkich pozycji (cost_client/cost_company = NULL)
 - Margin: Automatycznie obliczane jako cost_client - cost_company
 - RAO-P2-012: service_fee_id pozwala na rozliczanie usług dodatkowych (contract_service_fees)

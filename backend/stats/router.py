@@ -211,7 +211,9 @@ async def fleet_summary(
     # Top machine by revenue (machines only, not services)
     machine_rev = defaultdict(lambda: {"name": "", "rev": Decimal(0)})
     for p in all_pos:
-        if not p["is_service"]:
+        # RAO Faza 2a (opcja E): pomiń unmapped (is_service=None) w top_machine
+        # (fleet_summary top_machine to konkretna maszyna, unmapped nie ma maszyny)
+        if p["is_service"] is False:
             key = p["article_id"]
             machine_rev[key]["name"] = p["article_name"]
             machine_rev[key]["rev"] += p["revenue"]
@@ -270,7 +272,18 @@ async def top_machines(
         "name": "", "internal_number": None,
         "revenue": Decimal(0), "days": 0, "contracts": set(),
     })
+    # RAO Faza 2a (opcja E): bucket dla unmapped settlements (article_id=None)
+    unmapped_bucket = {
+        "name": "Inne (niezmapowane z FA)", "internal_number": None,
+        "revenue": Decimal(0), "days": 0, "contracts": set(),
+    }
+    _UNMAPPED_KEY = "__unmapped__"
     for p in all_pos:
+        # RAO Faza 2a (opcja E): unmapped (article_id=None) → osobny bucket
+        if p["article_id"] is None:
+            unmapped_bucket["revenue"] += p["revenue"]
+            unmapped_bucket["contracts"].add(p["contract_id"])
+            continue
         key = p["article_id"]
         agg[key]["name"] = p["article_name"]
         agg[key]["internal_number"] = p["internal_number"]
@@ -278,10 +291,15 @@ async def top_machines(
         agg[key]["days"] += p["clamped_days"]
         agg[key]["contracts"].add(p["contract_id"])
 
+    # Dołącz bucket unmapped jeśli ma jakikolwiek przychód
+    if unmapped_bucket["revenue"] > 0:
+        agg[_UNMAPPED_KEY] = unmapped_bucket
+
     sorted_items = sorted(agg.items(), key=lambda x: x[1]["revenue"], reverse=True)[:limit]
     result = [
         TopMachineItem(
-            article_id=aid, name=d["name"], internal_number=d["internal_number"],
+            article_id=(aid if aid != _UNMAPPED_KEY else None), name=d["name"],
+            internal_number=d["internal_number"],
             revenue=d["revenue"], rented_days=d["days"],
             contracts_count=len(d["contracts"]),
         )
@@ -396,6 +414,8 @@ async def machine_roi(
 
     # Dla zapytania o konkretną maszynę: bez filtra archiwum (artykuł już sprawdzony powyżej)
     all_pos = await _compute_position_revenues(db, df, dt, exclude_archival=False)
+    # RAO Faza 2a (opcja E): pomiń unmapped (article_id=None) — ROI per maszyna,
+    # unmapped nie ma maszyny. Straynie wpłynęłyby na sumę revenue/days dla article_id.
     filtered = [p for p in all_pos if p["article_id"] == article_id]
 
     revenue = sum(p["revenue"] for p in filtered)
@@ -441,6 +461,10 @@ async def additional_fees(
     # Aggregate by service article
     agg = defaultdict(lambda: {"name": "", "revenue": Decimal(0), "contracts": set()})
     for p in all_pos:
+        # RAO Faza 2a (opcja E): pomiń unmapped (is_service=None) — nie wiemy
+        # czy to usługa, więc nie trafia do additional_fees.
+        if p["is_service"] is None:
+            continue
         key = p["article_id"]
         agg[key]["name"] = p["article_name"]
         agg[key]["revenue"] += p["revenue"]
@@ -790,17 +814,25 @@ async def positions(
     # Filtrowanie po type robione in-memory — totale liczone z tego samego zbioru.
     # RAO-P2-029: uwzględnia archiwalne maszyny (statystyki historyczne)
     # RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
+    # RAO Faza 2a (opcja E): wynik zawiera też unmapped wiersze (article_id=None,
+    # is_service=None) — pomiń je w /stats/positions (to lista pozycji umowy).
     all_pos = await _compute_position_revenues(db, df, dt, service_filter=None, exclude_archival=False)
 
     # Totale per typ — z pełnego zbioru (zamiast drugiego wywołania _compute)
-    total_machines_rev = sum(p["revenue"] for p in all_pos if not p["is_service"])
-    total_services_rev = sum(p["revenue"] for p in all_pos if p["is_service"])
+    # RAO Faza 2a (opcja E): unmapped (is_service=None) nie liczy się do żadnego
+    # z totali (ani machines, ani services) — to osobna kategoria.
+    total_machines_rev = sum(p["revenue"] for p in all_pos if p["is_service"] is False)
+    total_services_rev = sum(p["revenue"] for p in all_pos if p["is_service"] is True)
 
     # Filtrowanie po type — in-memory (zamiast drugiego zapytania DB)
     if position_type == "machines":
-        all_pos = [p for p in all_pos if not p["is_service"]]
+        all_pos = [p for p in all_pos if p["is_service"] is False]
     elif position_type == "services":
-        all_pos = [p for p in all_pos if p["is_service"]]
+        all_pos = [p for p in all_pos if p["is_service"] is True]
+
+    # RAO Faza 2a (opcja E): pomiń unmapped (article_id=None) — /stats/positions
+    # to lista pozycji umowy, unmapped nie ma pozycji.
+    all_pos = [p for p in all_pos if p["article_id"] is not None]
 
     # Filtry contractor_id / city / internal_number
     all_pos = _apply_position_filters(all_pos, contractor_id=contractor_id, city=city)

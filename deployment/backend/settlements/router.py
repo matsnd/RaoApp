@@ -162,12 +162,14 @@ async def init_contract_settlements_from_fakturownia(
     current_user: User = Depends(get_current_user),
 ):
     """RAO-P2-012: Inicjuj rozliczenia dla umowy z Fakturownia.
-    
+
     Pobiera faktury z Fakturownia dla umowy (przez OID) i mapuje pozycje faktury
     na pozycje umowy przez fakturownia_product_id (1:N mapping).
-    
+
     RAO-P2-012: Również pobiera usługi dodatkowe (contract_service_fees) z Fakturownia.
-    
+
+    RAO-P2-032 security: Rate limit 30/min/user (spójne z /integrations/fakturownia/invoices).
+
     Logika mapowania:
     - Pobiera faktury z Fakturownia przez integrations/fakturownia/service
     - Dla pozycji umowy: sprawdza czy są artykuły RAO ze zmapowanym fakturownia_product_id
@@ -177,18 +179,27 @@ async def init_contract_settlements_from_fakturownia(
     - Semantyka 1:N: jeśli produkt FA jest przypisany do wielu artykułów RAO,
       każdy artykuł na umowie dostaje pełną wartość z faktury (multiplikacja OK)
     """
+    # RAO-P2-032 security: rate limit (zapobiega DDoS Fakturownia API)
+    from integrations.fakturownia.router import _invoices_limiter
+    rl_key = f"invoices:user:{current_user.id}"
+    if not _invoices_limiter.is_allowed(rl_key):
+        raise HTTPException(
+            status_code=429,
+            detail="Zbyt wiele zapytan o faktury — odczekaj chwile (limit: 30/min)",
+        )
+
     from integrations.fakturownia.service import fetch_invoices_for_contract
     from articles.models import Article
     from contracts.models import ContractServiceFee
     from settings.models import ServiceFeeTemplate
-    
+
     # Pobierz faktury z Fakturownia
     try:
         invoices = await fetch_invoices_for_contract(db, contract_id, current_user)
     except HTTPException as e:
         if e.status_code == 422:
             raise HTTPException(
-                status_code=422, 
+                status_code=422,
                 detail="Umowa nie posiada numeru OID (zamówienie Fakturownia). Wpisz OID w polu 'OID (zamówienie Fakturownia)' przed pobraniem."
             )
         raise
@@ -238,13 +249,41 @@ async def init_contract_settlements_from_fakturownia(
         for line in invoice.lines:
             pid = line.fakturownia_product_id
             position_ids = pid_to_positions.get(pid, [])
-            
+
             if not position_ids:
+                # RAO Faza 2a (opcja E): unmapped pozycje FA — tworzenie settlement
+                # bez position_id (snapshot nazwy w article_name_snapshot).
+                # NIE tworzymy artykułu on-the-fly — tylko snapshot nazwy.
+                # Idempotentność: UNIQUE(unmapped_key) chroni przed duplikatem.
+                if pid is not None and pid != 0:
+                    existing = await db.execute(
+                        select(ContractSettlement).where(
+                            ContractSettlement.contract_id == contract_id,
+                            ContractSettlement.position_id.is_(None),
+                            ContractSettlement.service_fee_id.is_(None),
+                            ContractSettlement.fakturownia_product_id == pid,
+                            ContractSettlement.fakturownia_invoice_number == line.invoice_number,
+                        )
+                    )
+                    if not existing.scalar_one_or_none():
+                        db.add(ContractSettlement(
+                            contract_id=contract_id,
+                            position_id=None,
+                            service_fee_id=None,
+                            cost_client=float(line.total_net),
+                            cost_company=None,
+                            source="fa_unmapped",
+                            article_name_snapshot=line.fakturownia_product_name,
+                            fakturownia_product_id=pid,
+                            fakturownia_invoice_number=line.invoice_number,
+                            settled_at=invoice.issue_date,
+                            notes=f"Pobrano z faktury {line.invoice_number} (pozycja niezmapowana)",
+                        ))
                 continue  # Brak pozycji umowy z tym produktem FA
-            
+
             # Semantyka 1:N: każda pozycja umowy dostaje pełną wartość z faktury
             cost_client = float(line.total_net)
-            
+
             for position_id in position_ids:
                 existing = await db.execute(
                     select(ContractSettlement).where(
@@ -253,10 +292,15 @@ async def init_contract_settlements_from_fakturownia(
                     )
                 )
                 existing_settlement = existing.scalar_one_or_none()
-                
+
                 if existing_settlement:
                     # Zaktualizuj istniejące
+                    # RAO Faza 2a (opcja E) bug fix bonus (QA bug 1.7):
+                    # source='fakturownia' (nie domyślne 'manual') + settled_at z invoice
                     existing_settlement.cost_client = cost_client
+                    existing_settlement.source = "fakturownia"
+                    existing_settlement.settled_at = invoice.issue_date
+                    existing_settlement.fakturownia_invoice_number = line.invoice_number
                     existing_settlement.updated_at = datetime.utcnow()
                 else:
                     # Utwórz nowe
@@ -266,22 +310,55 @@ async def init_contract_settlements_from_fakturownia(
                         service_fee_id=None,
                         cost_client=cost_client,
                         cost_company=None,
+                        source="fakturownia",
+                        settled_at=invoice.issue_date,
+                        fakturownia_invoice_number=line.invoice_number,
                         notes=f"Pobrano z faktury {line.invoice_number}"
                     )
                     db.add(settlement)
-    
+
     # Przetwórz faktury i utwórz/aktualizuj settlements dla usług dodatkowych
     for invoice in invoices:
         for line in invoice.lines:
             pid = line.fakturownia_product_id
             service_fee_ids = pid_to_service_fees.get(pid, [])
-            
+
             if not service_fee_ids:
+                # RAO Faza 2a (opcja E): unmapped — analogiczny blok co dla pozycji.
+                # Nie rozróżniamy maszyna/usługa dla unmapped (nie mamy is_service).
+                # UWAGA: ten sam produkt FA mógł być już dodany jako unmapped w pętli
+                # pozycji powyżej — UNIQUE(unmapped_key) chroni przed duplikatem
+                # (klucz = unmapped:pid:invoice_number, identyczny niezależnie od
+                # tego, w której pętli próbujemy dodać).
+                if pid is not None and pid != 0:
+                    existing = await db.execute(
+                        select(ContractSettlement).where(
+                            ContractSettlement.contract_id == contract_id,
+                            ContractSettlement.position_id.is_(None),
+                            ContractSettlement.service_fee_id.is_(None),
+                            ContractSettlement.fakturownia_product_id == pid,
+                            ContractSettlement.fakturownia_invoice_number == line.invoice_number,
+                        )
+                    )
+                    if not existing.scalar_one_or_none():
+                        db.add(ContractSettlement(
+                            contract_id=contract_id,
+                            position_id=None,
+                            service_fee_id=None,
+                            cost_client=float(line.total_net),
+                            cost_company=None,
+                            source="fa_unmapped",
+                            article_name_snapshot=line.fakturownia_product_name,
+                            fakturownia_product_id=pid,
+                            fakturownia_invoice_number=line.invoice_number,
+                            settled_at=invoice.issue_date,
+                            notes=f"Pobrano z faktury {line.invoice_number} (pozycja niezmapowana)",
+                        ))
                 continue  # Brak usług dodatkowych z tym produktem FA
-            
+
             # Semantyka 1:N: każda usługa dodatkowa dostaje pełną wartość z faktury
             cost_client = float(line.total_net)
-            
+
             for service_fee_id in service_fee_ids:
                 existing = await db.execute(
                     select(ContractSettlement).where(
@@ -290,10 +367,15 @@ async def init_contract_settlements_from_fakturownia(
                     )
                 )
                 existing_settlement = existing.scalar_one_or_none()
-                
+
                 if existing_settlement:
                     # Zaktualizuj istniejące
+                    # RAO Faza 2a (opcja E) bug fix bonus (QA bug 1.7):
+                    # source='fakturownia' (nie domyślne 'manual') + settled_at z invoice
                     existing_settlement.cost_client = cost_client
+                    existing_settlement.source = "fakturownia"
+                    existing_settlement.settled_at = invoice.issue_date
+                    existing_settlement.fakturownia_invoice_number = line.invoice_number
                     existing_settlement.updated_at = datetime.utcnow()
                 else:
                     # Utwórz nowe
@@ -303,6 +385,9 @@ async def init_contract_settlements_from_fakturownia(
                         service_fee_id=service_fee_id,
                         cost_client=cost_client,
                         cost_company=None,
+                        source="fakturownia",
+                        settled_at=invoice.issue_date,
+                        fakturownia_invoice_number=line.invoice_number,
                         notes=f"Pobrano z faktury {line.invoice_number}"
                     )
                     db.add(settlement)

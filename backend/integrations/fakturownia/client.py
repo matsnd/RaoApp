@@ -10,8 +10,9 @@ Security:
 """
 import logging
 import re
+from datetime import date
 from decimal import Decimal, InvalidOperation
-from typing import List
+from typing import List, Optional
 
 import httpx
 from fastapi import HTTPException
@@ -207,11 +208,21 @@ class FakturowniaClient:
                 total_net = Decimal(str(inv.get("price_net") or 0))
             except (TypeError, ValueError, InvalidOperation):
                 total_net = Decimal("0")
+            # RAO Faza 2a (opcja E): data wystawienia faktury (FA field "issue_date")
+            # Format ISO "YYYY-MM-DD"; fallback None gdy brak/niepoprawny
+            issue_date: Optional[date] = None
+            issue_raw = inv.get("issue_date")
+            if issue_raw:
+                try:
+                    issue_date = date.fromisoformat(str(issue_raw)[:10])
+                except (TypeError, ValueError):
+                    issue_date = None
             result.append(
                 InvoiceOut(
                     invoice_number=inv_number,
                     lines=lines,
                     total_net=total_net,
+                    issue_date=issue_date,
                 )
             )
         return result

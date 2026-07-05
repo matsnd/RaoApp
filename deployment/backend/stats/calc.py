@@ -11,8 +11,9 @@ Old WinForms: FormU4.cs spaghetti → rozliczenie table (1 row/day)
 
 RAO-P1-017: dodano aggregate_by_category() dla statystyk po kategoriach
 RAO-P1-026: dodano aggregate_by_period() + rozszerzono poziomy sub2/sub3
+RAO-P2-071: usunięto legacy extract_city() + KNOWN_CITIES + IGNORE_PATTERNS (zastąpione
+            deterministycznym PNA dictionary w shared/locations.py — RAO-P2-028).
 """
-import re
 import math
 from collections import defaultdict
 from decimal import Decimal
@@ -107,7 +108,8 @@ def calculate_position_value(
                 total_value += rate * remaining
                 break
 
-    return total_value
+    # RAO-P0-033: multiply by quantity consistently (matches no-conditions branch)
+    return total_value * int(quantity or 1)
 
 
 # ── RAO-P1-017: Agregacja po kategoriach ─────────────────────────────────────
@@ -156,9 +158,16 @@ def aggregate_by_category(
     for p in positions:
         cat_name = p.get(field) or _FALLBACK_CATEGORY
         agg[cat_name]["revenue"] += p.get("revenue", Decimal("0"))
-        agg[cat_name]["days"] += p.get("clamped_days", 0)
+        # RAO-P1-BUG-7: rented_days liczone tylko dla maszyn (usługi mają billing != DAILY)
+        # RAO Faza 2a (opcja E): unmapped ma clamped_days=0 (ustawione w revenue.py),
+        # więc nie zaburza rented_days nawet gdy tu wejdzie — bez dodatkowego guardu.
+        if not p.get("is_service"):
+            agg[cat_name]["days"] += p.get("clamped_days", 0)
         agg[cat_name]["contracts"].add(p.get("contract_id"))
-        agg[cat_name]["articles"].add(p.get("article_id"))
+        # RAO Faza 2a (opcja E): nie licz None (unmapped) jako artykuł
+        art_id = p.get("article_id")
+        if art_id is not None:
+            agg[cat_name]["articles"].add(art_id)
 
     return sorted(
         [
@@ -220,7 +229,10 @@ def aggregate_by_period(
 
         key = (period, cat)
         agg[key]["revenue"] += p.get("revenue", Decimal("0"))
-        agg[key]["days"] += p.get("clamped_days", 0)
+        # RAO-P1-BUG-7: rented_days liczone tylko dla maszyn (usługi mają billing != DAILY)
+        # RAO Faza 2a (opcja E): unmapped ma clamped_days=0 — nie zaburza rented_days.
+        if not p.get("is_service"):
+            agg[key]["days"] += p.get("clamped_days", 0)
         agg[key]["contracts"].add(p.get("contract_id"))
 
     return sorted(
@@ -238,82 +250,138 @@ def aggregate_by_period(
     )
 
 
-# City extraction for location reports
-# Priority list of Polish cities (top 20 by population)
-KNOWN_CITIES = [
-    "Warszawa", "Kraków", "Łódź", "Wrocław", "Poznań", "Gdańsk", "Szczecin", "Bydgoszcz",
-    "Lublin", "Białystok", "Katowice", "Gdynia", "Częstochowa", "Radom", "Sosnowiec",
-    "Toruń", "Kielce", "Gliwice", "Zabrze", "Olsztyn", "Bielsko-Biała", "Bytom",
-    "Zgierz", "Rzeszów", "Ruda Śląska", "Rybnik", "Tychy", "Dąbrowa Górnicza",
-    "Opole", "Elbląg", "Płock", "Wałbrzych", "Włocławek", "Gorzów Wielkopolski",
-    "Tarnów", "Chorzów", "Kalisz", "Koszalin", "Jelenia Góra", "Lublin", "Sopot",
-    "Jastrzębie-Zdrój", "Nowy Sącz", "Jaworzno", "Jastrzębie Zdrój", "Piła", "Siedlce"
-]
+# ── RAO-P2-056: Agregacja po contract_type (S=najem, U=usługa) ───────────────
 
-# Patterns to ignore (delivery instructions)
-IGNORE_PATTERNS = [
-    r'dojezd[^\w]*', r'instrukcja[^\w]*', r'zobacz[^\w]*', r'prosz[^\w]*',
-    r'proszę', r'bardzo', r'dziękuję', r'pozdrawiam', r'z poważaniem',
-    r'z góry', r'z dołu', r'z lewej', r'z prawej', r'na rogu',
-    r'przy budowie', r'na budowie', r'obok', r'naprzeciwko', r'w pobliżu'
-]
+_CONTRACT_TYPE_LABELS = {"S": "najem", "U": "usługa"}
 
 
-def extract_city(address: str | None) -> str:
+def aggregate_by_contract_type(positions: list[dict]) -> list[dict]:
     """
-    Extract city name from delivery address with priority for known cities.
-    
-    Strategy:
-    1. Check for known cities first (priority)
-    2. Extract using patterns (postal code + city, city after comma)
-    3. Ignore delivery instructions
-    4. Return empty string if no city found
-    
+    Agreguje pozycje umów po contract_type umowy nadrzędnej (RAO-P2-056).
+
     Args:
-        address: Delivery address string (multiline or single line)
-    
+        positions: lista dict-ów z compute_position_revenues
+                   (wymagane klucze: contract_id, article_id, revenue,
+                    clamped_days, is_service, contract_type)
+
     Returns:
-        Extracted city name or empty string
+        lista dict-ów posortowanych rosnąco po contract_type ("S" przed "U"):
+            contract_type, contract_type_label, contracts_count,
+            positions_count, articles_count, rented_days, revenue
     """
-    if not address:
-        return ""
-    
-    # Normalize address: remove extra whitespace, convert to single line
-    normalized = ' '.join(address.split()).strip()
-    
-    # Step 1: Check for known cities (priority)
-    for city in KNOWN_CITIES:
-        if city.lower() in normalized.lower():
-            return city
-    
-    # Step 2: Extract postal code + city pattern (XX-XXX City)
-    postal_pattern = r'(\d{2}-\d{3})\s*([A-ZŚĆŹŁ][a-ząćęłńóśźż]+)'
-    match = re.search(postal_pattern, normalized)
-    if match:
-        return match.group(2)
-    
-    # Step 3: Extract city after comma (typical Polish address format)
-    # Pattern: "ul. Street 1, 00-001 City, Country" or "Street 1, City"
-    comma_pattern = r',\s*([A-ZŚĆŹŁ][a-ząćęłńóśźż]+(?:\s+[A-ZŚĆŹŁ][a-ząćęłńóśźż]+)*)'
-    matches = re.findall(comma_pattern, normalized)
-    if matches:
-        # Return the last match (usually city before country)
-        city_candidate = matches[-1].strip()
-        # Filter out common non-city words
-        non_city_words = ['ulica', 'ul.', 'osiedle', 'os.', 'budowa', 'budynek', 'pokój', 'p.', 'mieszkanie', 'm.']
-        for word in non_city_words:
-            if city_candidate.lower().startswith(word.lower()):
-                continue
-        return city_candidate
-    
-    # Step 4: Extract from end of address (last word before instructions)
-    words = normalized.split()
-    for i, word in enumerate(reversed(words)):
-        # Check if word looks like a city (starts with capital letter)
-        if re.match(r'^[A-ZŚĆŹŁ][a-ząćęłńóśźż]+$', word):
-            # Check if it's not an instruction
-            is_instruction = any(re.search(pattern, word.lower()) for pattern in IGNORE_PATTERNS)
-            if not is_instruction:
-                return word
-    
-    return ""
+    agg: dict[str, dict] = defaultdict(lambda: {
+        "contracts": set(),
+        "positions": 0,
+        "articles": set(),
+        "rented_days": 0,
+        "revenue": Decimal("0"),
+    })
+
+    for p in positions:
+        ctype = p.get("contract_type") or "S"
+        agg[ctype]["contracts"].add(p.get("contract_id"))
+        agg[ctype]["positions"] += 1
+        # RAO Faza 2a (opcja E): nie licz None (unmapped) jako artykuł
+        art_id = p.get("article_id")
+        if art_id is not None:
+            agg[ctype]["articles"].add(art_id)
+        # rented_days liczone tylko dla maszyn (usługi mają billing != DAILY)
+        # RAO Faza 2a (opcja E): unmapped ma clamped_days=0 — nie zaburza rented_days.
+        if not p.get("is_service"):
+            agg[ctype]["rented_days"] += p.get("clamped_days", 0)
+        agg[ctype]["revenue"] += p.get("revenue", Decimal("0"))
+
+    return sorted(
+        [
+            {
+                "contract_type": ctype,
+                "contract_type_label": _CONTRACT_TYPE_LABELS.get(ctype, ctype),
+                "contracts_count": len(d["contracts"]),
+                "positions_count": d["positions"],
+                "articles_count": len(d["articles"]),
+                "rented_days": d["rented_days"],
+                "revenue": d["revenue"],
+            }
+            for ctype, d in agg.items()
+        ],
+        key=lambda x: x["contract_type"],
+    )
+
+
+# ── RAO-P1-055: Agregacja po oddziale (branch) ────────────────────────────────
+
+_UNASSIGNED_BRANCH_KEY = "__none__"
+_UNASSIGNED_BRANCH_LABEL = "(bez oddziału)"
+
+
+def aggregate_by_branch(
+    positions: list[dict],
+    branches: list[dict] | None = None,
+) -> list[dict]:
+    """
+    Agreguje pozycje umów po oddziale (branch_id) umowy nadrzędnej (RAO-P1-055).
+
+    Args:
+        positions: lista dict-ów z compute_position_revenues
+                   (wymagane klucze: contract_id, article_id, revenue,
+                    clamped_days, is_service, branch_id)
+        branches: opcjonalna lista dict-ów {id, name} z tabeli branches
+                  (do mapowania branch_id → branch_name). Gdy None lub
+                  brak mapowania → etykieta "(bez oddziału)".
+
+    Returns:
+        lista dict-ów posortowana malejąco po revenue:
+            branch_id, branch_name, contracts_count, positions_count,
+            articles_count, rented_days, revenue
+        Wiersz "bez oddziału" (branch_id=None) zawsze na końcu.
+    """
+    branch_name_map: dict[int, str] = {}
+    if branches:
+        for b in branches:
+            bid = b.get("id")
+            if bid is not None:
+                branch_name_map[int(bid)] = b.get("name") or f"Oddział #{bid}"
+
+    agg: dict[object, dict] = defaultdict(lambda: {
+        "contracts": set(),
+        "positions": 0,
+        "articles": set(),
+        "rented_days": 0,
+        "revenue": Decimal("0"),
+    })
+
+    for p in positions:
+        bid = p.get("branch_id")
+        key = bid if bid is not None else _UNASSIGNED_BRANCH_KEY
+        agg[key]["contracts"].add(p.get("contract_id"))
+        agg[key]["positions"] += 1
+        # RAO Faza 2a (opcja E): nie licz None (unmapped) jako artykuł
+        art_id = p.get("article_id")
+        if art_id is not None:
+            agg[key]["articles"].add(art_id)
+        # RAO Faza 2a (opcja E): unmapped ma clamped_days=0 — nie zaburza rented_days.
+        if not p.get("is_service"):
+            agg[key]["rented_days"] += p.get("clamped_days", 0)
+        agg[key]["revenue"] += p.get("revenue", Decimal("0"))
+
+    items = []
+    for key, d in agg.items():
+        if key == _UNASSIGNED_BRANCH_KEY:
+            branch_id = None
+            branch_name = _UNASSIGNED_BRANCH_LABEL
+        else:
+            branch_id = int(key)
+            branch_name = branch_name_map.get(branch_id, f"Oddział #{branch_id}")
+        items.append({
+            "branch_id": branch_id,
+            "branch_name": branch_name,
+            "contracts_count": len(d["contracts"]),
+            "positions_count": d["positions"],
+            "articles_count": len(d["articles"]),
+            "rented_days": d["rented_days"],
+            "revenue": d["revenue"],
+        })
+
+    # Sortuj malejąco po revenue; wiersz "bez oddziału" zawsze na końcu
+    items.sort(key=lambda x: (x["branch_id"] is None, -x["revenue"]))
+    return items

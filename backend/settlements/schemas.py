@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from decimal import Decimal
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
 
@@ -14,6 +14,12 @@ class ContractSettlementResponse(BaseModel):
     cost_company: Optional[Decimal] = None
     margin: Optional[Decimal] = None
     notes: Optional[str] = None
+    # RAO Faza 2a (opcja E): pola unmapped settlements z Fakturownia
+    article_name_snapshot: Optional[str] = None
+    fakturownia_product_id: Optional[int] = None
+    fakturownia_invoice_number: Optional[str] = None
+    source: Optional[str] = None
+    settled_at: Optional[date] = None
     created_at: datetime
     updated_at: datetime
 

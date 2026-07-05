@@ -16,12 +16,14 @@ from .client import FakturowniaClient
 from .crypto import decrypt_token, encrypt_token, mask_token
 from .models import FakturowniaSettings
 from .schemas import (
+    FakturowniaProductCacheOut,
     FakturowniaProductOut,
     FakturowniaSettingsIn,
     InvoiceOut,
     RaoArticleRef,
     ResolvedInvoiceLine,
     ResolvedInvoiceOut,
+    SyncProductsResultOut,
 )
 
 logger = logging.getLogger(__name__)
@@ -41,6 +43,35 @@ async def get_or_create_settings(db: AsyncSession) -> FakturowniaSettings:
         db.add(obj)
         await db.commit()
         await db.refresh(obj)
+
+    # RAO-P1-005: Bootstrap DB settings from env on first access.
+    # If DB row has no token but env is configured (RAO_FAKTUROWNIA_API_TOKEN +
+    # RAO_FAKTUROWNIA_DOMAIN_SUBDOMAIN), seed the DB row so integracja działa
+    # bez ręcznej konfiguracji w UI. Admin może później nadpisać token przez UI.
+    # DB pozostaje single source of truth — bootstrap jest idempotentny
+    # (uruchamia się tylko gdy api_token_ciphertext IS NULL).
+    env_token = settings.RAO_FAKTUROWNIA_API_TOKEN
+    env_domain = settings.RAO_FAKTUROWNIA_DOMAIN_SUBDOMAIN
+    if env_token and env_domain and not obj.api_token_ciphertext:
+        enc_key = settings.RAO_FAKTUROWNIA_ENC_KEY
+        if enc_key:
+            try:
+                obj.api_token_ciphertext = encrypt_token(env_token, enc_key)
+                obj.api_token_preview = mask_token(env_token)
+                obj.domain_subdomain = env_domain
+                obj.enabled = True
+                obj.api_token_updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                await db.commit()
+                await db.refresh(obj)
+                logger.info(
+                    "Fakturownia settings bootstrapped from env (domain=%s) — RAO-P1-005",
+                    env_domain,
+                )
+            except Exception as exc:
+                # Nie przerywaj requestu — admin może skonfigurować ręcznie.
+                logger.error(
+                    "Fakturownia env bootstrap failed: %s", type(exc).__name__
+                )
     return obj
 
 
@@ -105,6 +136,88 @@ async def fetch_products(db: AsyncSession) -> List[FakturowniaProductOut]:
     return await client.get_products()
 
 
+# ── RAO-P2-058: Product cache (sync + search) ────────────────────────────────
+
+async def sync_products(db: AsyncSession) -> SyncProductsResultOut:
+    """Pobierz wszystkie produkty z FA (paginated) i upsert do lokalnego cache.
+
+    Returns: SyncProductsResultOut (fetched, upserted, pages, synced_at).
+    """
+    from sqlalchemy.dialects.mysql import insert as mysql_insert
+    from .models import FakturowniaProductCache
+
+    obj = await get_or_create_settings(db)
+    client = _build_client(obj)
+
+    products, pages = await client.get_all_products(per_page=100)
+    if not products:
+        return SyncProductsResultOut(
+            fetched=0, upserted=0, pages=0, synced_at=datetime.now(timezone.utc).replace(tzinfo=None),
+        )
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    rows = []
+    for p in products:
+        rows.append({
+            "product_id": p.id,
+            "code": p.code,
+            "name": p.name,
+            "price_net": p.price_net,
+            "currency": p.currency or "PLN",
+            "tax_rate": p.tax,
+            "gtu_code": p.gtu_code,
+            "pkwiu": p.pkwiu,
+            "synced_at": now,
+        })
+
+    # Atomic upsert (MariaDB INSERT ... ON DUPLICATE KEY UPDATE)
+    stmt = mysql_insert(FakturowniaProductCache).values(rows)
+    stmt = stmt.on_duplicate_key_update(
+        code=stmt.inserted.code,
+        name=stmt.inserted.name,
+        price_net=stmt.inserted.price_net,
+        currency=stmt.inserted.currency,
+        tax_rate=stmt.inserted.tax_rate,
+        gtu_code=stmt.inserted.gtu_code,
+        pkwiu=stmt.inserted.pkwiu,
+        synced_at=stmt.inserted.synced_at,
+    )
+    await db.execute(stmt)
+    await db.commit()
+
+    return SyncProductsResultOut(
+        fetched=len(products),
+        upserted=len(rows),
+        pages=pages,
+        synced_at=now,
+    )
+
+
+async def search_products(db: AsyncSession, query: str, limit: int = 50) -> List[FakturowniaProductCacheOut]:
+    """Przeszukaj lokalny cache produktów FA (LIKE %q% na name/code).
+
+    Empty/whitespace query → returns [] without DB call.
+    """
+    from .models import FakturowniaProductCache
+
+    q = (query or "").strip()
+    if not q:
+        return []
+
+    pattern = f"%{q}%"
+    result = await db.execute(
+        select(FakturowniaProductCache)
+        .where(
+            (FakturowniaProductCache.name.ilike(pattern))
+            | (FakturowniaProductCache.code.ilike(pattern))
+        )
+        .order_by(FakturowniaProductCache.name.asc())
+        .limit(limit)
+    )
+    rows = result.scalars().all()
+    return [FakturowniaProductCacheOut.model_validate(r) for r in rows]
+
+
 async def fetch_invoices_for_contract(
     db: AsyncSession,
     contract_id: int,
@@ -119,8 +232,8 @@ async def fetch_invoices_for_contract(
         if user.branch_id is None or contract.branch_id != user.branch_id:
             raise HTTPException(status_code=403, detail="Brak dostepu do tej umowy")
 
-    # OID = numer umowy (contract.number) - tak będzie dodane w Fakturownia
-    oid = contract.number
+    # RAO-P2-058: OID hybrydowe — użyj contract.oid jeśli ustawiony, w przeciwnym razie contract.number
+    oid = contract.oid if contract.oid else contract.number
     if not oid:
         raise HTTPException(status_code=422, detail="Umowa nie posiada numeru")
 
@@ -184,4 +297,7 @@ async def _resolve_invoice(db: AsyncSession, invoice: InvoiceOut) -> ResolvedInv
         total_net=invoice.total_net,
         mapped_total_net=mapped_total,
         unmapped_count=unmapped_count,
+        # RAO Faza 2a (opcja E): propaguj issue_date do ResolvedInvoiceOut
+        # (używane w settlements/router.py do settlement.settled_at)
+        issue_date=invoice.issue_date,
     )

@@ -3,7 +3,7 @@ RAO-P2-012: Pydantic v2 schemas for Fakturownia integration.
 
 Security: extra='forbid' on all input schemas to reject unexpected fields.
 """
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import List, Optional
 
@@ -65,6 +65,10 @@ class FakturowniaProductOut(BaseModel):
     code: Optional[str] = None
     price_net: Optional[Decimal] = None
     currency: Optional[str] = None
+    # RAO-P2-058: dodatkowe metadane dla snapshot na artykule
+    tax: Optional[str] = None
+    gtu_code: Optional[str] = None
+    pkwiu: Optional[str] = None
 
 
 # ── Invoices (raw from Fakturownia API) ───────────────────────────────────────
@@ -88,6 +92,8 @@ class InvoiceOut(BaseModel):
     invoice_number: str
     lines: List[InvoiceLine]
     total_net: Decimal
+    # RAO Faza 2a (opcja E): data wystawienia faktury — propagowana do settlement.settled_at
+    issue_date: Optional[date] = None
 
 
 # ── Resolved invoices (1:N article mapping) ────────────────────────────────────
@@ -136,3 +142,33 @@ class ResolvedInvoiceOut(BaseModel):
     total_net: Decimal
     mapped_total_net: Decimal
     unmapped_count: int
+    # RAO Faza 2a (opcja E): data wystawienia faktury — propagowana do settlement.settled_at
+    issue_date: Optional[date] = None
+
+
+# ── RAO-P2-058: Product cache (sync + search) ─────────────────────────────────
+
+class SyncProductsResultOut(BaseModel):
+    """Wynik synchronizacji katalogu produktów FA → lokalny cache."""
+    model_config = {"extra": "forbid"}
+
+    fetched: int
+    upserted: int
+    pages: int
+    synced_at: datetime
+
+
+class FakturowniaProductCacheOut(BaseModel):
+    """Pojedynczy produkt z lokalnego cache (zapisany po sync-products)."""
+    model_config = {"from_attributes": True, "extra": "forbid"}
+
+    id: int
+    product_id: int
+    code: Optional[str] = None
+    name: str
+    price_net: Optional[Decimal] = None
+    currency: Optional[str] = None
+    tax_rate: Optional[str] = None
+    gtu_code: Optional[str] = None
+    pkwiu: Optional[str] = None
+    synced_at: datetime

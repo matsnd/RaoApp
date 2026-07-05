@@ -3,7 +3,7 @@ RAO-P2-012: Pydantic v2 schemas for Fakturownia integration.
 
 Security: extra='forbid' on all input schemas to reject unexpected fields.
 """
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import List, Optional
 
@@ -92,6 +92,8 @@ class InvoiceOut(BaseModel):
     invoice_number: str
     lines: List[InvoiceLine]
     total_net: Decimal
+    # RAO Faza 2a (opcja E): data wystawienia faktury — propagowana do settlement.settled_at
+    issue_date: Optional[date] = None
 
 
 # ── Resolved invoices (1:N article mapping) ────────────────────────────────────
@@ -140,6 +142,8 @@ class ResolvedInvoiceOut(BaseModel):
     total_net: Decimal
     mapped_total_net: Decimal
     unmapped_count: int
+    # RAO Faza 2a (opcja E): data wystawienia faktury — propagowana do settlement.settled_at
+    issue_date: Optional[date] = None
 
 
 # ── RAO-P2-058: Product cache (sync + search) ─────────────────────────────────
