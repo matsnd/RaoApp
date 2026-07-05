@@ -18,7 +18,33 @@
 ---
 
 ## 🚨 P0 — Production Blockers
-*(brak)*
+
+### P0-001: `/stats/currently-rented` zwraca 500 — Pydantic ValidationError
+
+```yaml
+id: P0-001
+status: triaged
+priority: P0
+created: 2026-07-05
+reporter: Devin (session 2026-07-05)
+component: backend/stats
+severity: blocker
+```
+
+**Symptom:** `GET /rao/api/stats/currently-rented` → 500 Internal Server Error.
+Blokada: AnalyticsView → LiveFleet tab (`/rao/analytics`) nie renderuje tabeli.
+E2E test `06-analytics.spec.ts:26` (TEST-01: LiveFleet) failuje (1/205 e2e).
+
+**Root cause:** `stats/router.py:311-315` tworzy `CurrentlyRentedItem(id=r[0], ...)`,
+ale schema `stats/schemas.py:30` wymaga pola `article_id: int` (brak aliasu `id`).
+Pydantic v2 rzuca `ValidationError: article_id Field required`.
+
+**Fix:** zmienić `id=r[0]` → `article_id=r[0]` w `stats/router.py:312`.
+
+**Weryfikacja:**
+- `curl /rao/api/stats/currently-rented` → 200 + JSON z `items[]`
+- E2E `06-analytics.spec.ts:26` → PASS
+- AnalyticsView `/rao/analytics` → LiveFleet tab pokazuje tabelę maszyn
 
 ---
 
@@ -45,7 +71,7 @@
 
 ## 📊 Summary
 
-**Razem:** 0 zadań
+**Razem:** 1 zadanie (P0: 1)
 
 ### Pipeline weryfikacji (status flow)
 

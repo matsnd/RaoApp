@@ -28,6 +28,18 @@
 
 ---
 
+## Sprint 2026-07-05 → (bieżący)
+
+### P0-001 — `/stats/currently-rented` 500 (Pydantic ValidationError)
+
+**Data:** 2026-07-05
+**Status:** triaged (zgłoszone, czeka na implementację)
+**Decyzja:** Zgłoszone do backlogu bez natychmiastowej naprawy — operator woli wykonać manualne testy e2e najpierw, naprawę włączyć w kolejnej iteracji.
+**Root cause:** `stats/router.py:312` używa `id=r[0]` ale schema wymaga `article_id`. Fix = jednopunktowa zmiana `id=` → `article_id=`.
+**Impact:** AnalyticsView `/rao/analytics` → LiveFleet tab nie działa. 1/205 e2e failuje.
+
+---
+
 ## P0 — Production Blockers (wszystkie done/team-verified)
 
 | ID | Tytuł | Decyzja / Dlaczego | Status | Implementacja |
