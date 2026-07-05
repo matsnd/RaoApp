@@ -74,3 +74,5 @@ backup_*.sql
 
 .devin/_session_context.md
 .devin/_evidence/
+_commit*
+_fix_*
