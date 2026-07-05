@@ -349,7 +349,237 @@ ale PDF ignoruje ją — błędne oczekiwanie, że dokument będzie inny.
 ---
 
 ## 🔴 P1 — Must-Have
-*(brak)*
+
+### P1-002: Archiwum maszyn — drilldown kategorii przy wyborze i filtrowaniu
+
+```yaml
+id: P1-002
+status: triaged
+priority: P1
+created: 2026-07-05
+reporter: operator (manual test 2026-07-05)
+component: frontend/views/ArchiveView (maszyny)
+severity: high
+```
+
+**Symptom:** W Archiwum maszyn zmiana kategorii jest słabo widoczna.
+Brak drilldownu do przechodzenia od kategorii głównej → podkategorii
+gdy użytkownik wybiera i filtruje.
+
+**Wymaganie:** Fajniejszy drilldown kategorii (kaskada: główna → sub1 → sub2)
+przy wyborze i filtrowaniu w Archiwum. Obecnie jest płaski select.
+
+**Fix (propozycja):**
+- Użyć istniejącego komponentu kaskady kategorii (jak w ArticleFormView)
+- Filtrowanie z breadcrumbem pokazującym wybraną ścieżkę
+- Klik w kategorię główną → rozwija podkategorie inline
+
+---
+
+### P1-003: Pulpit (Dashboard) — zły wygląd, złe formatowanie, wąski na ekranie
+
+```yaml
+id: P1-003
+status: triaged
+priority: P1
+created: 2026-07-05
+reporter: operator (manual test 2026-07-05)
+component: frontend/views/DashboardView
+severity: high
+```
+
+**Symptom:** Pulpit (`/rao/home`) ma zły wygląd — złe formatowanie,
+jest wąski na ekranie (nie wykorzystuje pełnej szerokości).
+
+**Fix (propozycja):**
+- Audyt layoutu DashboardView — usunąć niepotrzebne `max-width` ograniczenia
+- Karty KPI w gridzie responsywnym (auto-fill, minmax)
+- Wykresy pełnej szerokości kontenera
+- Sprawdzić czy parent layout nie narzuca wąskiego kontenera
+
+---
+
+### P1-004: Demo seed — tylko 1 aktywna umowa, potrzeba 10+ aktywnych gotowych do pobrania z FA
+
+```yaml
+id: P1-004
+status: triaged
+priority: P1
+created: 2026-07-05
+reporter: operator (manual test 2026-07-05)
+component: backend/seed_demo_data.py + backend/seed_fa_invoices.py
+severity: high
+```
+
+**Symptom:** Po seedzie demo tylko 1 aktywna umowa jest gotowa do pobrania
+z Fakturowni. Operator chce conajmniej 10 aktywnych umów gotowych do
+pobrania danych z FA (demo integracji).
+
+**Wymaganie:**
+- 10+ aktywnych umów (date_to >= today) z fakturami czekającymi w FA
+- Każda z nich po kliknięciu "Pobierz z Fakturowni" → rozliczenia tworzą się na żywo
+- Obecnie Pula C (FA-pending) ma 16 umów ale wszystkie są NIEROZLICZONE/zakończone
+- Potrzeba: aktywnych umów (w trakcie wynajmu) z fakturami w FA gotowymi do pobrania
+
+**Fix (propozycja):**
+- Dodać pulę D: 10+ aktywnych umów (date_to w przyszłości) z fakturami w FA
+- seed_fa_invoices.py: wystawić faktury dla aktywnych umów (bez settlements)
+- Demo flow: user widzi aktywną umowę → "Pobierz z FA" → rozliczenia na żywo
+
+---
+
+### P1-005: Błąd pobierania produktów z Fakturownia w /articles/14145/edit
+
+```yaml
+id: P1-005
+status: triaged
+priority: P1
+created: 2026-07-05
+reporter: operator (manual test 2026-07-05)
+component: backend/integrations/fakturownia + frontend/ArticleFormView
+severity: high
+```
+
+**Symptom:** `http://localhost:5173/rao/articles/14145/edit` —
+błąd pobierania produktów z Fakturownia.
+
+**Do zdiagnozowania:**
+- Sprawdzić console network tab — jaki endpoint i jaki błąd (500/401/422?)
+- Sprawdzić `GET /integrations/fakturownia/products` — czy działa
+- Sprawdzić czy article 14145 ma `fakturownia_product_id` ustawione
+- Sprawdzić czy FA_TOKEN jest skonfigurowany w ustawieniach (nie w env)
+- Może integracja FA jest WYŁĄCZONA w ustawieniach (verify step 5 fail)
+
+**Fix (propozycja):**
+- Odtworzyć błąd (curl + frontend)
+- Sprawdzić `integrations/fakturownia/service.py:fetch_products`
+- Sprawdzić czy `FakturowniaSettings` w DB ma token (nie tylko env)
+- Naprawić + test e2e
+
+---
+
+### P1-006: Ikona `$` (SVG z jedną kreską) kojarzy się z USD — zmienić ikonkę
+
+```yaml
+id: P1-006
+status: triaged
+priority: P1
+created: 2026-07-05
+reporter: operator (manual test 2026-07-05)
+component: frontend (globalne — SVG icon)
+severity: high
+related: P0-003
+```
+
+**Symptom:** SVG ikona z jedną kreską pionową (przypomina `$` ale z jedną kreską)
+silnie kojarzy się z USD. W polskiej aplikacji wynajmu maszyn jest to mylące.
+
+**SVG (z DOM):**
+```html
+<svg class="app-icon" width="22" height="22" viewBox="0 0 24 24">
+  <line x1="12" y1="2" x2="12" y2="22"></line>
+  <path d="M17 6.5C17 5 15 4 12 4S7 5 7 7s2 3 5 3 5 1 5 3-2 3-5 3-5-1-5-2.5"></path>
+</svg>
+```
+
+**Wymaganie:** Zaproponować inną ikonkę (nie przypominającą waluty USD).
+Opcje: ikona umowy/dokumentu, ikona maszyny, ikona wynajmu, lub po prostu `zł`.
+
+**Fix (propozycja):**
+- Znaleźć gdzie ten SVG jest używany (grep `app-icon` + ten path)
+- Zamienić na ikonę neutralną (np. dokument, klucz, maszyna)
+- Lub użyć tekstowego `zł` zamiast SVG
+- Powiązane z P0-003 (globalne usuwanie `$` z UI)
+
+---
+
+### P1-007: /analytics — po seedzie brak pozycji dodatkowych (usług) w demo
+
+```yaml
+id: P1-007
+status: triaged
+priority: P1
+created: 2026-07-05
+reporter: operator (manual test 2026-07-05)
+component: backend/seed_demo_data.py + frontend/AnalyticsView
+severity: high
+```
+
+**Symptom:** `http://localhost:5173/rao/analytics` po seedzie nie pokazuje
+pozycji dodatkowych (usług). Usługi nie działają i nie ma ich w demo.
+
+**Wymaganie:**
+- Seed powinien pokazywać wszystkie usługi w /analytics
+- NIE musi być jako "Pozycje dodatkowe" — może być jako standardowe pozycje
+- Usługi (article_type='usługa') mają być widoczne w statystykach/analityce
+
+**Fix (propozycja):**
+- Sprawdzić czy seed_demo_data.py tworzy usługi jako pozycje umów
+- Sprawdzić czy AnalyticsView filtruje po article_type (może ukrywa usługi)
+- Sprawdzić czy stats endpointy agregują usługi czy tylko maszyny
+- Może trzeba dodać usługi do puli demo jako osobne pozycje w umowach
+
+---
+
+### P1-008: Brak scrolla — ucięty dół ekranu, niedostępny scrollbar
+
+```yaml
+id: P1-008
+status: triaged
+priority: P1
+created: 2026-07-05
+reporter: operator (manual test 2026-07-05)
+component: frontend (globalne — layout)
+severity: high
+related: P0-002
+```
+
+**Symptom:** Nadal nie można przewijać — dół ekranu jest ucięty
+i nie ma żadnego dostępnego scrolla. Problem globalny (nie tylko AnalyticsView).
+
+**Wymaganie:** Wszystkie widoki muszą mieć działający scroll pionowy.
+
+**Fix (propozycja):**
+- Audyt globalnego layoutu (App.vue, router-view, parent kontenery)
+- Sprawdzić `height: 100vh` + `overflow: hidden` na parentach
+- Dodać `overflow-y: auto` na scrollowalnym kontenerze treści
+- Test na wszystkich widokach: Dashboard, Contracts, Analytics, Archive, Settings
+
+---
+
+### P1-009: Lokalizacje wynajmu — "brak PNA" w tabeli głównej bez sensu
+
+```yaml
+id: P1-009
+status: triaged
+priority: P1
+created: 2026-07-05
+reporter: operator (manual test 2026-07-05)
+component: frontend/AnalyticsView (Locations tab) + backend/stats
+severity: high
+```
+
+**Symptom:** W tabeli Lokalizacje wynajmu pojawia się "brak PNA — Kraków"
+i "brak PNA — Warszawa". Miasto ma wiele kodów PNA — pokazanie "brak PNA"
+jest bez sensu w tabeli głównej.
+
+**Przykład:**
+```
+Kraków    (brak PNA — Kraków)    1    8 400,00 zł
+Warszawa  (brak PNA — Warszawa)  1    11 340,00 zł
+```
+
+**Wymaganie:**
+- W tabeli głównej Lokalizacje: NIE pokazywać kodu PNA (miasto ma wiele)
+- "brak PNA" ma być do wywalenia z tabeli głównej
+- Może być po wklikaniu (detail view) — tam PNA ma sens
+- W tabeli głównej: tylko miasto + liczba umów + wartość
+
+**Fix (propozycja):**
+- Sprawdzić `stats/router.py` endpoint lokalizacji — czy zwraca postal_code
+- Sprawdzić `AnalyticsView.vue` Locations tab — usunąć kolumnę PNA z tabeli
+- Lub zmienić format: z "Kraków (brak PNA — Kraków)" → po prostu "Kraków"
+- Detail view (po kliknięciu) może pokazywać PNA per umowa
 
 ---
 
@@ -371,7 +601,7 @@ ale PDF ignoruje ją — błędne oczekiwanie, że dokument będzie inny.
 
 ## 📊 Summary
 
-**Razem:** 7 zadań (P0: 6, P1: 1, done: 1)
+**Razem:** 15 zadań (P0: 6, P1: 8, done: 1)
 
 ### Pipeline weryfikacji (status flow)
 
