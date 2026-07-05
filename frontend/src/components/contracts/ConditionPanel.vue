@@ -78,8 +78,8 @@
     <!-- Condition form modal -->
     <Transition name="modal">
       <div v-if="showCondModal" class="modal-overlay" @click.self="showCondModal = false">
-        <div class="modal-box" style="min-width:520px;">
-          <div class="modal-title">{{ editingCond ? 'Edycja warunku' : 'Nowy warunek' }}</div>
+        <div class="modal-box" style="min-width:520px;" role="dialog" aria-modal="true" aria-labelledby="cond-modal-title">
+          <div class="modal-title" id="cond-modal-title">{{ editingCond ? 'Edycja warunku' : 'Nowy warunek' }}</div>
           <div class="form-row-2">
             <div class="form-group">
               <label class="form-label">Typ stawki</label>

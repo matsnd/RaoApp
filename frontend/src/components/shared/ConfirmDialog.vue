@@ -1,8 +1,8 @@
 <template>
   <Transition name="modal">
     <div v-if="visible" class="modal-overlay" @click.self="$emit('cancel')">
-      <div class="modal-box" style="min-width:320px;max-width:440px;">
-        <div class="modal-title">{{ title }}</div>
+      <div class="modal-box" style="min-width:320px;max-width:440px;" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title">
+        <div class="modal-title" id="confirm-dialog-title">{{ title }}</div>
         <p style="color:var(--color-text-body);font-size:14px;line-height:1.6;">{{ message }}</p>
         <div class="modal-actions">
           <button class="btn btn-secondary btn-sm" @click="$emit('cancel')">{{ cancelLabel }}</button>

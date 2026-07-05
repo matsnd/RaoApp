@@ -6,18 +6,18 @@
 
       <form @submit.prevent="handleLogin">
         <div class="form-group">
-          <label class="form-label">Login</label>
+          <label class="form-label" for="login-input">Login</label>
           <div class="input-with-icon">
-            <span class="input-icon">👤</span>
-            <input v-model="form.login" type="text" class="form-control" :class="{ error: !!authStore.error }" placeholder="Podaj login" required autofocus />
+            <span class="input-icon" aria-hidden="true">👤</span>
+            <input id="login-input" v-model="form.login" type="text" class="form-control" :class="{ error: !!authStore.error }" :aria-invalid="!!authStore.error" placeholder="Podaj login" required autofocus />
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label">Hasło</label>
+          <label class="form-label" for="password-input">Hasło</label>
           <div class="input-with-icon">
-            <span class="input-icon">🔒</span>
-            <input v-model="form.password" :type="showPassword ? 'text' : 'password'" class="form-control" :class="{ error: !!authStore.error }" placeholder="Podaj hasło" required />
-            <button type="button" class="password-toggle" @click="showPassword = !showPassword">
+            <span class="input-icon" aria-hidden="true">🔒</span>
+            <input id="password-input" v-model="form.password" :type="showPassword ? 'text' : 'password'" class="form-control" :class="{ error: !!authStore.error }" :aria-invalid="!!authStore.error" placeholder="Podaj hasło" required />
+            <button type="button" class="password-toggle" @click="showPassword = !showPassword" :aria-label="showPassword ? 'Ukryj hasło' : 'Pokaż hasło'" :aria-pressed="showPassword">
               {{ showPassword ? '🙈' : '👁️' }}
             </button>
           </div>
@@ -30,8 +30,8 @@
           </label>
         </div>
 
-        <div v-if="authStore.error" class="form-error">
-          <span class="error-icon">⚠️</span>
+        <div v-if="authStore.error" class="form-error" role="alert">
+          <span class="error-icon" aria-hidden="true">⚠️</span>
           <span>{{ authStore.error }}</span>
         </div>
 
@@ -49,13 +49,13 @@
     <!-- Forgot password modal -->
     <Transition name="modal">
       <div v-if="showForgot" class="modal-overlay" @click.self="showForgot = false">
-        <div class="modal-box">
-          <div class="modal-title">Reset hasła</div>
+        <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="forgot-title">
+          <div class="modal-title" id="forgot-title">Reset hasła</div>
           <div class="form-group">
-            <label class="form-label">Adres email</label>
-            <input v-model="forgotEmail" type="email" class="form-control" placeholder="email@firma.pl" />
+            <label class="form-label" for="forgot-email-input">Adres email</label>
+            <input id="forgot-email-input" v-model="forgotEmail" type="email" class="form-control" placeholder="email@firma.pl" />
           </div>
-          <div v-if="forgotMsg" class="success-message">{{ forgotMsg }}</div>
+          <div v-if="forgotMsg" class="success-message" role="status">{{ forgotMsg }}</div>
           <div class="modal-actions">
             <button class="btn btn-secondary btn-sm" @click="showForgot = false">Anuluj</button>
             <button class="btn btn-primary btn-sm" @click="handleForgot" :disabled="forgotLoading">

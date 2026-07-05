@@ -424,6 +424,15 @@ a[aria-label]:focus-visible {
   box-shadow: 0 0 0 4px rgba(29, 43, 83, 0.12);
 }
 
+/* RAO-P3-071 Faza 3: jawne :focus-visible dla .btn i .page-btn
+   (dziedziczą z globalnego :focus-visible, ale jawnie dla czytelności
+   i spójności z design systemem — outline 2px primary). */
+.btn:focus-visible,
+.page-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 /* Klikalne wiersze tabel (tabindex="0") — outline wewnątrz wiersza */
 [role="row"]:focus-visible,
 [tabindex="0"]:focus-visible {

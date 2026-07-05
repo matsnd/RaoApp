@@ -1,7 +1,7 @@
 <template>
   <div style="display:flex;flex-direction:column;height:100vh;overflow:hidden;">
     <div class="toolbar">
-      <button class="toolbar-btn" @click="goBack" title="Wstecz">← Wstecz</button>
+      <button class="toolbar-btn" @click="goBack" title="Wstecz" aria-label="Wstecz">← Wstecz</button>
       <span class="toolbar-info">{{ isEdit ? `Edycja kontrahenta: ${form.name}` : 'Nowy kontrahent' }}</span>
       <button v-if="isEdit" class="btn btn-secondary btn-sm" @click="addContract" title="Dodaj umowę dla tego kontrahenta">+ Umowa</button>
       <button class="btn btn-primary btn-sm" @click="handleSave" :disabled="saving">
@@ -16,99 +16,99 @@
         <div class="panel">
           <div class="panel-header">Dane kontrahenta</div>
           <div class="panel-body">
-            <div v-if="errorMsg" style="color:var(--color-danger);font-size:13px;margin-bottom:12px;padding:8px;background:#FED7D7;border-radius:6px;">{{ errorMsg }}</div>
+            <div v-if="errorMsg" style="color:var(--color-danger);font-size:13px;margin-bottom:12px;padding:8px;background:#FED7D7;border-radius:6px;" role="alert">{{ errorMsg }}</div>
 
             <div class="form-group">
-              <label class="form-label">Pełna nazwa *</label>
-              <input v-model="form.name" type="text" class="form-control" :class="{ error: fieldErrors.name }" placeholder="Nazwa firmy lub imię i nazwisko" required />
-              <span v-if="fieldErrors.name" class="field-error">{{ fieldErrors.name }}</span>
+              <label class="form-label" for="contractor-name">Pełna nazwa *</label>
+              <input id="contractor-name" v-model="form.name" type="text" class="form-control" :class="{ error: fieldErrors.name }" :aria-invalid="!!fieldErrors.name" aria-describedby="contractor-name-error" placeholder="Nazwa firmy lub imię i nazwisko" required />
+              <span v-if="fieldErrors.name" class="field-error" id="contractor-name-error" role="alert">{{ fieldErrors.name }}</span>
             </div>
             <div class="form-row-2">
               <div class="form-group">
-                <label class="form-label">Nazwa skrócona</label>
-                <input v-model="form.name_short" type="text" class="form-control" />
+                <label class="form-label" for="contractor-name-short">Nazwa skrócona</label>
+                <input id="contractor-name-short" v-model="form.name_short" type="text" class="form-control" />
               </div>
               <div class="form-group">
-                <label class="form-label">NIP
-                  <button type="button" class="btn btn-sm" style="margin-left:8px;padding:2px 10px;font-size:11px;background:var(--color-primary);color:#fff;border-radius:12px;" @click="gusLookup" :disabled="gusLoading">
+                <label class="form-label" for="contractor-nip">NIP
+                  <button type="button" class="btn btn-sm" style="margin-left:8px;padding:2px 10px;font-size:11px;background:var(--color-primary);color:#fff;border-radius:12px;" @click="gusLookup" :disabled="gusLoading" aria-label="Pobierz dane z GUS po NIP">
                     {{ gusLoading ? '...' : 'GUS' }}
                   </button>
                 </label>
-                <input v-model="form.nip" type="text" class="form-control" :class="{ error: fieldErrors.nip }" placeholder="0000000000" maxlength="20" />
-                <span v-if="fieldErrors.nip" class="field-error">{{ fieldErrors.nip }}</span>
+                <input id="contractor-nip" v-model="form.nip" type="text" class="form-control" :class="{ error: fieldErrors.nip }" :aria-invalid="!!fieldErrors.nip" aria-describedby="contractor-nip-error" placeholder="0000000000" maxlength="20" />
+                <span v-if="fieldErrors.nip" class="field-error" id="contractor-nip-error" role="alert">{{ fieldErrors.nip }}</span>
               </div>
             </div>
             <div class="form-row-2">
               <div class="form-group">
-                <label class="form-label">REGON</label>
-                <input v-model="form.regon" type="text" class="form-control" />
+                <label class="form-label" for="contractor-regon">REGON</label>
+                <input id="contractor-regon" v-model="form.regon" type="text" class="form-control" />
               </div>
               <div class="form-group">
-                <label class="form-label">PESEL</label>
-                <input v-model="form.pesel" type="text" class="form-control" />
+                <label class="form-label" for="contractor-pesel">PESEL</label>
+                <input id="contractor-pesel" v-model="form.pesel" type="text" class="form-control" />
               </div>
             </div>
 
             <div class="section-title" style="font-size:13px;margin-top:16px;">Adres główny</div>
             <div class="form-row-2">
               <div class="form-group">
-                <label class="form-label">Kod pocztowy</label>
-                <input v-model="form.postal_code" type="text" class="form-control" placeholder="00-000" />
+                <label class="form-label" for="contractor-postal">Kod pocztowy</label>
+                <input id="contractor-postal" v-model="form.postal_code" type="text" class="form-control" placeholder="00-000" />
               </div>
               <div class="form-group">
-                <label class="form-label">Miejscowość</label>
-                <input v-model="form.city" type="text" class="form-control" />
+                <label class="form-label" for="contractor-city">Miejscowość</label>
+                <input id="contractor-city" v-model="form.city" type="text" class="form-control" />
               </div>
             </div>
             <div class="form-row-2">
               <div class="form-group">
-                <label class="form-label">Ulica</label>
-                <input v-model="form.street" type="text" class="form-control" />
+                <label class="form-label" for="contractor-street">Ulica</label>
+                <input id="contractor-street" v-model="form.street" type="text" class="form-control" />
               </div>
               <div class="form-group">
-                <label class="form-label">Nr lokalu</label>
-                <input v-model="form.unit" type="text" class="form-control" />
+                <label class="form-label" for="contractor-unit">Nr lokalu</label>
+                <input id="contractor-unit" v-model="form.unit" type="text" class="form-control" />
               </div>
             </div>
 
             <div class="section-title" style="font-size:13px;margin-top:16px;">Kontakt</div>
             <div class="form-row-2">
               <div class="form-group">
-                <label class="form-label">Osoba kontaktowa 1</label>
-                <input v-model="form.contact_person1" type="text" class="form-control" />
+                <label class="form-label" for="contractor-person1">Osoba kontaktowa 1</label>
+                <input id="contractor-person1" v-model="form.contact_person1" type="text" class="form-control" />
               </div>
               <div class="form-group">
-                <label class="form-label">Telefon 1</label>
-                <input v-model="form.phone1" type="text" class="form-control" />
+                <label class="form-label" for="contractor-phone1">Telefon 1</label>
+                <input id="contractor-phone1" v-model="form.phone1" type="text" class="form-control" />
               </div>
             </div>
             <div class="form-row-2">
               <div class="form-group">
-                <label class="form-label">Osoba kontaktowa 2</label>
-                <input v-model="form.contact_person2" type="text" class="form-control" />
+                <label class="form-label" for="contractor-person2">Osoba kontaktowa 2</label>
+                <input id="contractor-person2" v-model="form.contact_person2" type="text" class="form-control" />
               </div>
               <div class="form-group">
-                <label class="form-label">Telefon 2</label>
-                <input v-model="form.phone2" type="text" class="form-control" />
+                <label class="form-label" for="contractor-phone2">Telefon 2</label>
+                <input id="contractor-phone2" v-model="form.phone2" type="text" class="form-control" />
               </div>
             </div>
             <div class="form-row-2">
               <div class="form-group">
-                <label class="form-label">Telefon stacjonarny</label>
-                <input v-model="form.landline_phone" type="text" class="form-control" />
+                <label class="form-label" for="contractor-landline">Telefon stacjonarny</label>
+                <input id="contractor-landline" v-model="form.landline_phone" type="text" class="form-control" />
               </div>
               <div class="form-group">
-                <label class="form-label">Email</label>
-                <input v-model="form.email" type="email" class="form-control" />
+                <label class="form-label" for="contractor-email">Email</label>
+                <input id="contractor-email" v-model="form.email" type="email" class="form-control" />
               </div>
             </div>
             <div class="form-group">
-              <label class="form-label">Strona WWW</label>
-              <input v-model="form.website" type="text" class="form-control" />
+              <label class="form-label" for="contractor-website">Strona WWW</label>
+              <input id="contractor-website" v-model="form.website" type="text" class="form-control" />
             </div>
             <div class="form-group">
-              <label class="form-label">Uwagi</label>
-              <textarea v-model="form.notes" class="form-control" rows="3"></textarea>
+              <label class="form-label" for="contractor-notes">Uwagi</label>
+              <textarea id="contractor-notes" v-model="form.notes" class="form-control" rows="3"></textarea>
             </div>
             <div class="form-group">
               <label class="checkbox-group">
@@ -123,7 +123,7 @@
         <div v-if="isEdit" class="panel">
           <div class="panel-header">
             Adresy dostawy
-            <button class="toolbar-btn" style="margin-left:auto;width:24px;height:24px;" @click="addAddress">+</button>
+            <button class="toolbar-btn" style="margin-left:auto;width:24px;height:24px;" @click="addAddress" aria-label="Dodaj adres dostawy" title="Dodaj adres dostawy">+</button>
           </div>
           <div class="panel-body" style="padding:0;">
             <div v-if="!contractor?.addresses?.length" class="empty-state">Brak adresów</div>
@@ -152,36 +152,36 @@
     <!-- Address form modal -->
     <Transition name="modal">
       <div v-if="showAddrModal" class="modal-overlay" @click.self="showAddrModal = false">
-        <div class="modal-box" style="min-width:500px;">
-          <div class="modal-title">{{ editingAddr ? 'Edytuj adres' : 'Nowy adres dostawy' }}</div>
+        <div class="modal-box" style="min-width:500px;" role="dialog" aria-modal="true" aria-labelledby="addr-modal-title">
+          <div class="modal-title" id="addr-modal-title">{{ editingAddr ? 'Edytuj adres' : 'Nowy adres dostawy' }}</div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">Nazwa adresu</label>
-              <input v-model="addrForm.name" type="text" class="form-control" placeholder="np. Budowa Warszawa" />
+              <label class="form-label" for="addr-name">Nazwa adresu</label>
+              <input id="addr-name" v-model="addrForm.name" type="text" class="form-control" placeholder="np. Budowa Warszawa" />
             </div>
             <div class="form-group">
-              <label class="form-label">Kod pocztowy</label>
-              <input v-model="addrForm.postal_code" type="text" class="form-control" />
+              <label class="form-label" for="addr-postal">Kod pocztowy</label>
+              <input id="addr-postal" v-model="addrForm.postal_code" type="text" class="form-control" />
             </div>
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">Miejscowość</label>
-              <input v-model="addrForm.city" type="text" class="form-control" />
+              <label class="form-label" for="addr-city">Miejscowość</label>
+              <input id="addr-city" v-model="addrForm.city" type="text" class="form-control" />
             </div>
             <div class="form-group">
-              <label class="form-label">Ulica</label>
-              <input v-model="addrForm.street" type="text" class="form-control" />
+              <label class="form-label" for="addr-street">Ulica</label>
+              <input id="addr-street" v-model="addrForm.street" type="text" class="form-control" />
             </div>
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">Kontakt</label>
-              <input v-model="addrForm.contact_person" type="text" class="form-control" />
+              <label class="form-label" for="addr-contact">Kontakt</label>
+              <input id="addr-contact" v-model="addrForm.contact_person" type="text" class="form-control" />
             </div>
             <div class="form-group">
-              <label class="form-label">Telefon</label>
-              <input v-model="addrForm.phone" type="text" class="form-control" />
+              <label class="form-label" for="addr-phone">Telefon</label>
+              <input id="addr-phone" v-model="addrForm.phone" type="text" class="form-control" />
             </div>
           </div>
           <div class="form-group">

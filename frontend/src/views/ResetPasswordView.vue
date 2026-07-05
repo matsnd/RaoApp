@@ -5,15 +5,15 @@
       <h2 class="login-title">Ustaw nowe hasło</h2>
       <form @submit.prevent="handleReset">
         <div class="form-group">
-          <label class="form-label">Nowe hasło</label>
-          <input v-model="form.new_password" type="password" class="form-control" placeholder="Min. 6 znaków" required />
+          <label class="form-label" for="reset-new-password">Nowe hasło</label>
+          <input id="reset-new-password" v-model="form.new_password" type="password" class="form-control" placeholder="Min. 6 znaków" required />
         </div>
         <div class="form-group">
-          <label class="form-label">Powtórz hasło</label>
-          <input v-model="form.confirm_password" type="password" class="form-control" required />
+          <label class="form-label" for="reset-confirm-password">Powtórz hasło</label>
+          <input id="reset-confirm-password" v-model="form.confirm_password" type="password" class="form-control" required />
         </div>
-        <div v-if="error" class="form-error" style="margin-bottom:12px;">{{ error }}</div>
-        <div v-if="success" style="color:var(--color-success);font-size:13px;margin-bottom:12px;">{{ success }}</div>
+        <div v-if="error" class="form-error" style="margin-bottom:12px;" role="alert">{{ error }}</div>
+        <div v-if="success" style="color:var(--color-success);font-size:13px;margin-bottom:12px;" role="status">{{ success }}</div>
         <button type="submit" class="btn btn-primary" style="width:100%;" :disabled="loading">
           {{ loading ? '...' : 'Ustaw hasło' }}
         </button>

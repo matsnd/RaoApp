@@ -117,9 +117,9 @@
           <div class="grid-footer">
             <span>Łącznie: {{ contractStore.total }} umów{{ sortedFilteredContracts.length !== contractStore.list.length ? ' (' + sortedFilteredContracts.length + ' po filtrach)' : '' }}</span>
             <div class="pagination">
-              <button class="page-btn" :disabled="page <= 1" @click="page--">‹</button>
-              <span style="padding:0 8px;font-size:12px;">{{ page }} / {{ totalPages }}</span>
-              <button class="page-btn" :disabled="page >= totalPages" @click="page++">›</button>
+              <button class="page-btn" :disabled="page <= 1" aria-label="Poprzednia strona umów" @click="page--">‹</button>
+              <span style="padding:0 8px;font-size:12px;" aria-current="page">{{ page }} / {{ totalPages }}</span>
+              <button class="page-btn" :disabled="page >= totalPages" aria-label="Następna strona umów" @click="page++">›</button>
             </div>
           </div>
         </div>
@@ -246,9 +246,9 @@
           <div class="grid-footer">
             <span>Łącznie: {{ contractorStore.total }} kontrahentów</span>
             <div class="pagination">
-              <button class="page-btn" :disabled="page <= 1" @click="page--">‹</button>
-              <span style="padding:0 8px;font-size:12px;">{{ page }} / {{ totalPages }}</span>
-              <button class="page-btn" :disabled="page >= totalPages" @click="page++">›</button>
+              <button class="page-btn" :disabled="page <= 1" aria-label="Poprzednia strona kontrahentów" @click="page--">‹</button>
+              <span style="padding:0 8px;font-size:12px;" aria-current="page">{{ page }} / {{ totalPages }}</span>
+              <button class="page-btn" :disabled="page >= totalPages" aria-label="Następna strona kontrahentów" @click="page++">›</button>
             </div>
           </div>
         </div>
@@ -325,9 +325,9 @@
           <div class="grid-footer">
             <span>Łącznie: {{ articleStore.total }} artykułów</span>
             <div class="pagination">
-              <button class="page-btn" :disabled="page <= 1" @click="page--">‹</button>
-              <span style="padding:0 8px;font-size:12px;">{{ page }} / {{ totalPages }}</span>
-              <button class="page-btn" :disabled="page >= totalPages" @click="page++">›</button>
+              <button class="page-btn" :disabled="page <= 1" aria-label="Poprzednia strona artykułów" @click="page--">‹</button>
+              <span style="padding:0 8px;font-size:12px;" aria-current="page">{{ page }} / {{ totalPages }}</span>
+              <button class="page-btn" :disabled="page >= totalPages" aria-label="Następna strona artykułów" @click="page++">›</button>
             </div>
           </div>
         </div>
@@ -347,15 +347,17 @@
     <div
       v-if="ctxMenu.visible"
       class="ctx-menu"
+      role="menu"
+      aria-label="Menu akcji umowy"
       :style="{ top: ctxMenu.y + 'px', left: ctxMenu.x + 'px' }"
       @mouseleave="ctxMenu.visible = false"
     >
       <div class="ctx-menu-header">{{ ctxMenu.contract?.number }}</div>
-      <button class="ctx-menu-item" @click="ctxPrint('contract')">📄 Umowa</button>
-      <button class="ctx-menu-item" @click="ctxPrint('protocol_zo')">📋 Protokół ZO</button>
-      <button class="ctx-menu-item" @click="ctxPrint('protocol_zo_nodata')">📋 Protokół ZO (bez danych)</button>
+      <button class="ctx-menu-item" role="menuitem" @click="ctxPrint('contract')">📄 Umowa</button>
+      <button class="ctx-menu-item" role="menuitem" @click="ctxPrint('protocol_zo')">📋 Protokół ZO</button>
+      <button class="ctx-menu-item" role="menuitem" @click="ctxPrint('protocol_zo_nodata')">📋 Protokół ZO (bez danych)</button>
       <div class="ctx-menu-sep"></div>
-      <button class="ctx-menu-item" @click="editContract(ctxMenu.contract?.id); ctxMenu.visible=false">✏️ Edytuj umowę</button>
+      <button class="ctx-menu-item" role="menuitem" @click="editContract(ctxMenu.contract?.id); ctxMenu.visible=false">✏️ Edytuj umowę</button>
     </div>
   </div>
 </template>

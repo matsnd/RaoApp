@@ -49,8 +49,8 @@
     <!-- Add user modal -->
     <Transition name="modal">
       <div v-if="showAddModal" class="modal-overlay" @click.self="showAddModal = false">
-        <div class="modal-box" style="min-width:480px;">
-          <div class="modal-title">Nowy użytkownik</div>
+        <div class="modal-box" style="min-width:480px;" role="dialog" aria-modal="true" aria-labelledby="add-user-title">
+          <div class="modal-title" id="add-user-title">Nowy użytkownik</div>
           <div class="form-row-2">
             <div class="form-group">
               <label class="form-label">Login *</label>
@@ -95,8 +95,8 @@
     <!-- Edit user modal -->
     <Transition name="modal">
       <div v-if="showEditModal" class="modal-overlay" @click.self="showEditModal = false">
-        <div class="modal-box" style="min-width:480px;">
-          <div class="modal-title">Edycja użytkownika: {{ editForm.login }}</div>
+        <div class="modal-box" style="min-width:480px;" role="dialog" aria-modal="true" aria-labelledby="edit-user-title">
+          <div class="modal-title" id="edit-user-title">Edycja użytkownika: {{ editForm.login }}</div>
           <div class="form-row-2">
             <div class="form-group">
               <label class="form-label">Imię</label>

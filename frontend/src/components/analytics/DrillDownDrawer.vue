@@ -64,12 +64,15 @@ function close(): void {
         <div
           class="drill-drawer"
           data-testid="drill-drawer"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="drill-drawer-title"
           @click="onDrawerClick"
         >
           <!-- Header -->
           <div class="drill-header">
             <div class="drill-title-block">
-              <h3 class="drill-title">{{ title }}</h3>
+              <h3 class="drill-title" id="drill-drawer-title">{{ title }}</h3>
               <p v-if="subtitle" class="drill-subtitle">{{ subtitle }}</p>
             </div>
             <button
@@ -77,6 +80,7 @@ function close(): void {
               class="drill-close"
               data-testid="drill-close"
               title="Zamknij (Esc)"
+              aria-label="Zamknij panel drill-down"
               @click="close"
             >✕</button>
           </div>

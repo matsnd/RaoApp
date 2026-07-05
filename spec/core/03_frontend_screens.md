@@ -1620,6 +1620,69 @@ Puste tabele (brak rekordów) wyświetlają przycisk akcji:
 
 ---
 
+## RAO-P3-071 Faza 3 — Accessibility (a11y) (2026-07-05)
+
+### Global focus-visible (`style.css`)
+- `:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }` — globalny outline dla wszystkich interaktywnych elementów (widoczny tylko dla klawiatury, nie dla myszy).
+- `:focus:not(:focus-visible) { outline: none; }` — usuwa outline dla kliknięć myszą.
+- `.btn-icon:focus-visible, button[aria-label]:focus-visible, a[aria-label]:focus-visible` — mocniejszy outline + box-shadow 4px rgba(29,43,83,0.12) dla ikon-buttonów.
+- `.btn:focus-visible, .page-btn:focus-visible` — jawne reguły (dziedziczą z globalnego, ale dodane dla czytelności design systemu).
+- `.toolbar-btn:focus-visible` — wzmocniony outline + box-shadow.
+- `[role="row"]:focus-visible, [tabindex="0"]:focus-visible` — outline wewnątrz wiersza (offset -2px).
+
+### aria-label na icon buttons
+- **AppToolbar.vue** — `⎙` (Podgląd i drukuj umowę), `?` (Pokaż szczegóły umowy), `−` (Usuń wybraną pozycję), `+` (Dodaj nową pozycję) — już istniały.
+- **ContractFormView.vue** — toolbar: `←` (Wstecz), `⎙` (Drukuj umowę PDF), `📄` (Generuj protokół zdawczo-odbiorczy), `∑` (Przelicz wartość umowy), `💰` (Pobierz koszty z Fakturownia); btn-icon: `✎` (Edytuj pozycję/usługę), `✕` (Usuń pozycję/usługę/anuluj), `✓` (Zapisz opłatę/dodaj), `⧉` (Duplikuj artykuł), `✕` (Wyczyść dostawcę).
+- **ArticleFormView.vue** — `← Wstecz` (aria-label Wstecz), `⎘` (Duplikuj artykuł — już istniało), `✕` (Wyczyść właściciela / Usuń rezerwację — już istniało).
+- **ContractorFormView.vue** — `← Wstecz` (aria-label Wstecz), `+` (Dodaj adres dostawy), `GUS` (Pobierz dane z GUS po NIP).
+- **AppSidebar.vue** — `📊 Statystyki`, `📦 Archiwum` — aria-label czytelny dla screen readerów (ignoruje emoji).
+- **ArchiveView.vue** — `↺` (Wyczyść filtry umów/maszyn/wyszukiwanie drill-down), `✕` (Zamknij szczegóły/Anuluj edycję kategorii/Zamknij panel drill-down), `✎` (Edytuj kategorię), `✓` (Zapisz kategorię), `‹`/`›` (page-btn: Poprzednia/Następna strona umów/maszyn/drill-down).
+- **DashboardView.vue** — `‹`/`›` (page-btn: Poprzednia/Następna strona umów/kontrahentów/artykułów); context menu: `role="menu"` + `role="menuitem"` na akcjach.
+
+### Label ↔ input powiązanie (for/id)
+- **LoginView.vue** — `login-input`, `password-input`, `forgot-email-input`.
+- **ContractFormView.vue** — wszystkie pola sekcji 1-4 (contract-type, contract-number, contract-oid, contract-contractor-display, contract-address-select, contract-salesperson, contract-branch, contract-settlement-total, contract-remaining, contract-prepayment, contract-prepayment-doc, contract-invoice, contract-invoice-doc, contract-person1, contract-person2, contract-email, contract-phone, contract-notes, contract-working-days) + wszystkie pola w 8 modalach (contractor picker, inline contractor form, preset picker, pos modal, article picker, conflict, inline article form, supplier picker).
+- **ArticleFormView.vue** — wszystkie pola formularza (article-name, article-type, article-internal, article-reg, article-serial, article-replacement, article-brand, article-model, article-zasieg, article-udzwig, article-fa-product, article-dodatki, article-cat-main, article-owner-display, article-rental-days, article-branch, article-description, article-notes) + modal rezerwacji (reservation-from, reservation-to, reservation-note) + modal owner picker.
+- **ContractorFormView.vue** — wszystkie pola (contractor-name, contractor-name-short, contractor-nip, contractor-regon, contractor-pesel, contractor-postal, contractor-city, contractor-street, contractor-unit, contractor-person1/2, contractor-phone1/2, contractor-landline, contractor-email, contractor-website, contractor-notes) + modal adresu (addr-name, addr-postal, addr-city, addr-street, addr-contact, addr-phone).
+- **ChangePasswordView.vue** — current-password, new-password, confirm-password.
+- **ResetPasswordView.vue** — reset-new-password, reset-confirm-password.
+- Pola bez `for` (grupy checkboxów z `<label class="checkbox-group"><input>` — label wrapuje input, nie wymaga `for`).
+
+### role="alert" na błędach
+- **ContractFormView.vue** — `error-message` (errorMsg), `field-error` (Podaj datę od / Wybierz kontrahenta), `inlineContractorError`, `inlineArticleError`, `fakturowniaStore.error`.
+- **ContractorFormView.vue** — `errorMsg` (inline div), `field-error` (name, nip).
+- **ArticleFormView.vue** — `errorMsg` (inline div), `field-error` (name, replacement_value, rental_days), `faError` (small).
+- **LoginView.vue** — `form-error` (authStore.error).
+- **ChangePasswordView.vue** — `form-error` (error), `role="status"` na success.
+- **ResetPasswordView.vue** — `form-error` (error), `role="status"` na success.
+- **ArchiveView.vue** — `empty-state error` (contractsError, articlesError, statsError), `drill-error` (drillDownError).
+
+### aria-invalid na polach z błędem walidacji
+- **ContractFormView.vue** — `:aria-invalid="!form.contractor_id"` na input kontrahenta (+ `aria-describedby="contract-contractor-error"`).
+- **ContractorFormView.vue** — `:aria-invalid="!!fieldErrors.name"` / `:aria-invalid="!!fieldErrors.nip"` (+ `aria-describedby`).
+- **ArticleFormView.vue** — `:aria-invalid="!!fieldErrors.name"` / `replacement_value` / `rental_days` (+ `aria-describedby`).
+- **LoginView.vue** — `:aria-invalid="!!authStore.error"` na login + hasło.
+
+### role="dialog" aria-modal="true" na modalach (13 modali)
+- **ConfirmDialog.vue** (shared) — `aria-labelledby="confirm-dialog-title"`.
+- **ContractFormView.vue** — 8 modali: contractor picker, inline contractor form, preset picker, pos modal, article picker, conflict, inline article form, supplier picker — wszystkie z `aria-labelledby`.
+- **ContractorFormView.vue** — modal adresu (`aria-labelledby="addr-modal-title"`).
+- **ArticleFormView.vue** — modal rezerwacji + modal owner picker.
+- **LoginView.vue** — modal reset hasła (`aria-labelledby="forgot-title"`).
+- **AdminView.vue** — modal add user + modal edit user.
+- **ConditionPanel.vue** — modal warunku (`aria-labelledby="cond-modal-title"`).
+- **DrillDownDrawer.vue** (analytics) — drawer z `aria-labelledby="drill-drawer-title"`.
+- **ArchiveView.vue** — drill-drawer (`aria-labelledby="drill-title"`).
+
+### Inne a11y
+- `aria-hidden="true"` na ikonach dekoracyjnych (👤, 🔒, ⌕ w search-input-wrap).
+- `aria-current="page"` na span paginacji (aktualna strona).
+- `aria-pressed` na toggle hasła w LoginView.
+- `aria-label` na inputach bez widocznego labela (kod pocztowy/miasto dostawy, textarea uwagi dojazdowe, podkategorie select).
+- `role="status"` na badge dostępności artykułu w pos modal.
+
+---
+
 ## RAO-P3-071 Faza 5 — Skeleton loaders + polish (2026-07-05)
 
 ### `components/TableSkeleton.vue` (nowy)

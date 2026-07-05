@@ -3,19 +3,19 @@
     <h2 class="section-title" style="margin-bottom:24px;">Zmiana hasła</h2>
     <form @submit.prevent="handleChange">
       <div class="form-group">
-        <label class="form-label">Aktualne hasło</label>
-        <input v-model="form.current_password" type="password" class="form-control" required />
+        <label class="form-label" for="current-password">Aktualne hasło</label>
+        <input id="current-password" v-model="form.current_password" type="password" class="form-control" required />
       </div>
       <div class="form-group">
-        <label class="form-label">Nowe hasło (min. 6 znaków)</label>
-        <input v-model="form.new_password" type="password" class="form-control" required minlength="6" />
+        <label class="form-label" for="new-password">Nowe hasło (min. 6 znaków)</label>
+        <input id="new-password" v-model="form.new_password" type="password" class="form-control" required minlength="6" />
       </div>
       <div class="form-group">
-        <label class="form-label">Powtórz nowe hasło</label>
-        <input v-model="form.confirm_password" type="password" class="form-control" required />
+        <label class="form-label" for="confirm-password">Powtórz nowe hasło</label>
+        <input id="confirm-password" v-model="form.confirm_password" type="password" class="form-control" required />
       </div>
-      <div v-if="error" class="form-error" style="margin-bottom:12px;">{{ error }}</div>
-      <div v-if="success" style="color:var(--color-success);font-size:13px;margin-bottom:12px;">{{ success }}</div>
+      <div v-if="error" class="form-error" style="margin-bottom:12px;" role="alert">{{ error }}</div>
+      <div v-if="success" style="color:var(--color-success);font-size:13px;margin-bottom:12px;" role="status">{{ success }}</div>
       <div style="display:flex;gap:12px;">
         <button type="submit" class="btn btn-primary" :disabled="loading">
           {{ loading ? 'Zapisywanie...' : 'Zmień hasło' }}

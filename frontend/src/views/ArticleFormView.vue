@@ -1,7 +1,7 @@
 <template>
   <div style="display:flex;flex-direction:column;height:100vh;overflow:hidden;">
     <div class="toolbar">
-      <button class="toolbar-btn" @click="goBack" title="Wstecz">← Wstecz</button>
+      <button class="toolbar-btn" @click="goBack" title="Wstecz" aria-label="Wstecz">← Wstecz</button>
       <span class="toolbar-info">{{ isEdit ? `Edycja artykułu: ${form.name}` : 'Nowy artykuł' }}</span>
       <button v-if="isEdit" class="toolbar-btn" title="Duplikuj" aria-label="Duplikuj artykuł" @click="handleDuplicate">⎘</button>
       <button class="btn btn-primary btn-sm" @click="handleSave" :disabled="saving">
@@ -12,17 +12,17 @@
     <div class="content-area">
       <div v-if="loading" class="empty-state">Ładowanie...</div>
       <div v-else class="page-card" style="max-width:800px;">
-        <div v-if="errorMsg" style="color:var(--color-danger);padding:8px;background:#FED7D7;border-radius:6px;margin-bottom:12px;font-size:13px;">{{ errorMsg }}</div>
+        <div v-if="errorMsg" style="color:var(--color-danger);padding:8px;background:#FED7D7;border-radius:6px;margin-bottom:12px;font-size:13px;" role="alert">{{ errorMsg }}</div>
 
         <div class="form-row-2">
           <div class="form-group">
-            <label class="form-label">Nazwa artykułu *</label>
-            <input v-model="form.name" type="text" class="form-control" :class="{ error: fieldErrors.name }" placeholder="Np. Koparka gąsienicowa" required />
-            <span v-if="fieldErrors.name" class="field-error">{{ fieldErrors.name }}</span>
+            <label class="form-label" for="article-name">Nazwa artykułu *</label>
+            <input id="article-name" v-model="form.name" type="text" class="form-control" :class="{ error: fieldErrors.name }" :aria-invalid="!!fieldErrors.name" aria-describedby="article-name-error" placeholder="Np. Koparka gąsienicowa" required />
+            <span v-if="fieldErrors.name" class="field-error" id="article-name-error" role="alert">{{ fieldErrors.name }}</span>
           </div>
           <div class="form-group">
-            <label class="form-label">Typ artykułu</label>
-            <select v-model="form.article_type" class="form-control">
+            <label class="form-label" for="article-type">Typ artykułu</label>
+            <select id="article-type" v-model="form.article_type" class="form-control">
               <option value="">— brak —</option>
               <option value="machine">Maszyna</option>
               <option value="vehicle">Pojazd</option>
@@ -45,35 +45,35 @@
 
         <div class="form-row-2">
           <div class="form-group">
-            <label class="form-label">Nr wewnętrzny</label>
-            <input v-model="form.internal_number" type="text" class="form-control" />
+            <label class="form-label" for="article-internal">Nr wewnętrzny</label>
+            <input id="article-internal" v-model="form.internal_number" type="text" class="form-control" />
           </div>
           <div class="form-group">
-            <label class="form-label">Nr rejestracyjny</label>
-            <input v-model="form.registration_no" type="text" class="form-control" />
-          </div>
-        </div>
-
-        <div class="form-row-2">
-          <div class="form-group">
-            <label class="form-label">Nr seryjny</label>
-            <input v-model="form.serial_no" type="text" class="form-control" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Wartość odtworzeniowa (zł)</label>
-            <input v-model="form.replacement_value" type="number" step="0.01" class="form-control" :class="{ error: fieldErrors.replacement_value }" />
-            <span v-if="fieldErrors.replacement_value" class="field-error">{{ fieldErrors.replacement_value }}</span>
+            <label class="form-label" for="article-reg">Nr rejestracyjny</label>
+            <input id="article-reg" v-model="form.registration_no" type="text" class="form-control" />
           </div>
         </div>
 
         <div class="form-row-2">
           <div class="form-group">
-            <label class="form-label">Marka</label>
-            <input v-model="form.brand" type="text" class="form-control" />
+            <label class="form-label" for="article-serial">Nr seryjny</label>
+            <input id="article-serial" v-model="form.serial_no" type="text" class="form-control" />
           </div>
           <div class="form-group">
-            <label class="form-label">Model</label>
-            <input v-model="form.model" type="text" class="form-control" />
+            <label class="form-label" for="article-replacement">Wartość odtworzeniowa (zł)</label>
+            <input id="article-replacement" v-model="form.replacement_value" type="number" step="0.01" class="form-control" :class="{ error: fieldErrors.replacement_value }" :aria-invalid="!!fieldErrors.replacement_value" aria-describedby="article-replacement-error" />
+            <span v-if="fieldErrors.replacement_value" class="field-error" id="article-replacement-error" role="alert">{{ fieldErrors.replacement_value }}</span>
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label class="form-label" for="article-brand">Marka</label>
+            <input id="article-brand" v-model="form.brand" type="text" class="form-control" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="article-model">Model</label>
+            <input id="article-model" v-model="form.model" type="text" class="form-control" />
           </div>
         </div>
 
@@ -81,26 +81,26 @@
 
         <div class="form-row-2">
           <div class="form-group">
-            <label class="form-label">Zasięg (m)</label>
-            <input v-model.number="form.zasieg_m" type="number" class="form-control" min="0" step="0.1" placeholder="np. 21.5" />
+            <label class="form-label" for="article-zasieg">Zasięg (m)</label>
+            <input id="article-zasieg" v-model.number="form.zasieg_m" type="number" class="form-control" min="0" step="0.1" placeholder="np. 21.5" />
           </div>
           <div class="form-group">
-            <label class="form-label">Udźwig (t)</label>
-            <input v-model.number="form.udzwig_t" type="number" class="form-control" min="0" step="0.1" placeholder="np. 5.0" />
+            <label class="form-label" for="article-udzwig">Udźwig (t)</label>
+            <input id="article-udzwig" v-model.number="form.udzwig_t" type="number" class="form-control" min="0" step="0.1" placeholder="np. 5.0" />
           </div>
         </div>
 
         <!-- RAO-P2-058: Mapowanie artykułu z produktem Fakturownia -->
         <div class="section-title" style="font-size:var(--font-size-sm);margin-top:var(--spacing-4);margin-bottom:var(--spacing-3);padding-bottom:var(--spacing-2);">Integracja Fakturownia</div>
         <div class="form-group">
-          <label class="form-label">Produkt Fakturownia</label>
-          <select v-model="form.fakturownia_product_id" class="form-control" :disabled="faLoading">
+          <label class="form-label" for="article-fa-product">Produkt Fakturownia</label>
+          <select id="article-fa-product" v-model="form.fakturownia_product_id" class="form-control" :disabled="faLoading">
             <option :value="null">— brak mapowania —</option>
             <option v-for="p in faProducts" :key="p.id" :value="p.id">
               {{ p.name }}{{ p.code ? ` (${p.code})` : '' }}{{ p.price_net ? ` — ${p.price_net} zł` : '' }}
             </option>
           </select>
-          <small v-if="faError" style="color:var(--color-error);">{{ faError }}</small>
+          <small v-if="faError" style="color:var(--color-error);" role="alert">{{ faError }}</small>
           <small v-else-if="!faProducts.length && !faLoading" style="color:var(--color-text-muted);">
             Brak produktów w Fakturownia — dodaj produkty na matsnd.fakturownia.pl
           </small>
@@ -121,47 +121,47 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">Dodatkowe wyposażenie</label>
-          <textarea v-model="form.dodatki" class="form-control" rows="3" placeholder="np. Kosz osobowy, wciągarka..."></textarea>
+          <label class="form-label" for="article-dodatki">Dodatkowe wyposażenie</label>
+          <textarea id="article-dodatki" v-model="form.dodatki" class="form-control" rows="3" placeholder="np. Kosz osobowy, wciągarka..."></textarea>
         </div>
 
         <div class="form-row-2">
           <div class="form-group">
-            <label class="form-label">Kategoria</label>
+            <label class="form-label" for="article-cat-main">Kategoria</label>
             <div style="display:flex;flex-direction:column;gap:4px;">
-              <select v-model="catSelectedMain" class="form-control" @change="catSelectedSub1 = null; catSelectedSub2 = null">
+              <select id="article-cat-main" v-model="catSelectedMain" class="form-control" @change="catSelectedSub1 = null; catSelectedSub2 = null">
                 <option :value="null">— brak kategorii —</option>
                 <option v-for="c in catMainOptions" :key="c.id" :value="c.id">{{ c.name }}</option>
               </select>
-              <select v-if="catSub1Options.length" v-model="catSelectedSub1" class="form-control" @change="catSelectedSub2 = null">
+              <select v-if="catSub1Options.length" v-model="catSelectedSub1" class="form-control" aria-label="Podkategoria poziom 1" @change="catSelectedSub2 = null">
                 <option :value="null">— (poziom główny) —</option>
                 <option v-for="c in catSub1Options" :key="c.id" :value="c.id">{{ c.name }}</option>
               </select>
-              <select v-if="catSub2Options.length" v-model="catSelectedSub2" class="form-control">
+              <select v-if="catSub2Options.length" v-model="catSelectedSub2" class="form-control" aria-label="Podkategoria poziom 2">
                 <option :value="null">— (poziom podrzędny) —</option>
                 <option v-for="c in catSub2Options" :key="c.id" :value="c.id">{{ c.name }}</option>
               </select>
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label">Właściciel (dostawca)</label>
+            <label class="form-label" for="article-owner-display">Właściciel (dostawca)</label>
             <div style="display:flex;gap:8px;">
-              <input :value="ownerName" type="text" class="form-control" disabled placeholder="— własny —" style="flex:1;" />
+              <input id="article-owner-display" :value="ownerName" type="text" class="form-control" disabled placeholder="— własny —" style="flex:1;" />
               <button type="button" class="btn btn-secondary btn-sm" @click="showOwnerPicker = true">Wybierz</button>
-              <button v-if="form.owner_id" type="button" class="btn btn-secondary btn-sm" @click="clearOwner">✕</button>
+              <button v-if="form.owner_id" type="button" class="btn btn-secondary btn-sm" @click="clearOwner" aria-label="Wyczyść właściciela">✕</button>
             </div>
           </div>
         </div>
 
         <div class="form-row-2">
           <div class="form-group">
-            <label class="form-label">Min. dni najmu</label>
-            <input v-model.number="form.rental_days" type="number" class="form-control" :class="{ error: fieldErrors.rental_days }" min="1" />
-            <span v-if="fieldErrors.rental_days" class="field-error">{{ fieldErrors.rental_days }}</span>
+            <label class="form-label" for="article-rental-days">Min. dni najmu</label>
+            <input id="article-rental-days" v-model.number="form.rental_days" type="number" class="form-control" :class="{ error: fieldErrors.rental_days }" :aria-invalid="!!fieldErrors.rental_days" aria-describedby="article-rental-days-error" min="1" />
+            <span v-if="fieldErrors.rental_days" class="field-error" id="article-rental-days-error" role="alert">{{ fieldErrors.rental_days }}</span>
           </div>
           <div class="form-group">
-            <label class="form-label">Filia</label>
-            <select v-model="form.branch_id" class="form-control">
+            <label class="form-label" for="article-branch">Filia</label>
+            <select id="article-branch" v-model="form.branch_id" class="form-control">
               <option :value="null">— główna —</option>
               <option v-for="br in settingsStore.branches" :key="br.id" :value="br.id">{{ br.name }}</option>
             </select>
@@ -169,13 +169,13 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">Opis</label>
-          <textarea v-model="form.description" class="form-control" rows="3"></textarea>
+          <label class="form-label" for="article-description">Opis</label>
+          <textarea id="article-description" v-model="form.description" class="form-control" rows="3"></textarea>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Uwagi</label>
-          <textarea v-model="form.notes" class="form-control" rows="2"></textarea>
+          <label class="form-label" for="article-notes">Uwagi</label>
+          <textarea id="article-notes" v-model="form.notes" class="form-control" rows="2"></textarea>
         </div>
 
         <!-- RAO-P2-066: Rezerwacje maszyny — lista + dodaj + usuń -->
@@ -217,28 +217,28 @@
     <!-- RAO-P2-066: Modal dodawania rezerwacji -->
     <Transition name="modal">
       <div v-if="showReservationModal" class="modal-overlay" @click.self="closeReservationForm">
-        <div class="modal-box" style="max-width:480px;">
-          <div class="modal-title">Nowa rezerwacja maszyny</div>
+        <div class="modal-box" style="max-width:480px;" role="dialog" aria-modal="true" aria-labelledby="reservation-modal-title">
+          <div class="modal-title" id="reservation-modal-title">Nowa rezerwacja maszyny</div>
           <p style="font-size:13px;color:var(--color-text-muted);margin:4px 0 12px;">
             <strong>{{ form.name }}</strong> — rezerwacja blokuje wynajem w wybranym okresie
             (z ostrzeżeniem w wyborze maszyny w umowie).
           </p>
-          <div v-if="reservationError" style="color:var(--color-danger);padding:8px;background:#FED7D7;border-radius:6px;margin-bottom:12px;font-size:13px;">
+          <div v-if="reservationError" style="color:var(--color-danger);padding:8px;background:#FED7D7;border-radius:6px;margin-bottom:12px;font-size:13px;" role="alert">
             {{ reservationError }}
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">Data od *</label>
-              <input v-model="reservationForm.reserved_from" type="date" class="form-control" />
+              <label class="form-label" for="reservation-from">Data od *</label>
+              <input id="reservation-from" v-model="reservationForm.reserved_from" type="date" class="form-control" />
             </div>
             <div class="form-group">
-              <label class="form-label">Data do *</label>
-              <input v-model="reservationForm.reserved_to" type="date" class="form-control" />
+              <label class="form-label" for="reservation-to">Data do *</label>
+              <input id="reservation-to" v-model="reservationForm.reserved_to" type="date" class="form-control" />
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label">Notatka</label>
-            <input v-model="reservationForm.note" type="text" class="form-control" maxlength="300" placeholder="np. Serwis, klient rezerwuje…" />
+            <label class="form-label" for="reservation-note">Notatka</label>
+            <input id="reservation-note" v-model="reservationForm.note" type="text" class="form-control" maxlength="300" placeholder="np. Serwis, klient rezerwuje…" />
           </div>
           <div class="modal-actions">
             <button class="btn btn-secondary btn-sm" @click="closeReservationForm">Anuluj</button>
@@ -253,11 +253,11 @@
     <!-- Owner picker modal -->
     <Transition name="modal">
       <div v-if="showOwnerPicker" class="modal-overlay" @click.self="showOwnerPicker = false">
-        <div class="modal-box" style="min-width:580px;">
-          <div class="modal-title">Wybierz właściciela (dostawcę)</div>
+        <div class="modal-box" style="min-width:580px;" role="dialog" aria-modal="true" aria-labelledby="owner-picker-title">
+          <div class="modal-title" id="owner-picker-title">Wybierz właściciela (dostawcę)</div>
           <div class="search-input-wrap" style="margin-bottom:12px;">
-            <span class="search-icon">⌕</span>
-            <input v-model="pickerSearch" type="text" class="form-control" placeholder="Szukaj..." @input="searchOwners" />
+            <span class="search-icon" aria-hidden="true">⌕</span>
+            <input v-model="pickerSearch" type="text" class="form-control" aria-label="Szukaj właściciela" placeholder="Szukaj..." @input="searchOwners" />
           </div>
           <div style="max-height:320px;overflow:auto;">
             <table class="data-grid">

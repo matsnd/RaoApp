@@ -1,14 +1,14 @@
 <template>
   <div style="display:flex;flex-direction:column;height:100vh;overflow:hidden;">
     <div class="toolbar">
-      <button class="toolbar-btn" @click="goBack">←</button>
+      <button class="toolbar-btn" @click="goBack" aria-label="Wstecz" title="Wstecz">←</button>
       <span class="toolbar-info">{{ isEdit ? (contractStore.current?.number ? `Umowa: ${contractStore.current.number}` : 'Ładowanie...') : 'Nowa umowa' }}</span>
       <!-- RAO-P2-022: badge rozliczona -->
       <span v-if="isEdit && form.is_settled" class="settled-badge">✓ Rozliczona</span>
-      <button v-if="isEdit" class="toolbar-btn" title="Drukuj PDF" @click="generateReport('contract')">⎙</button>
-      <button v-if="isEdit" class="toolbar-btn" title="Protokół zdania obiektu (ZO)" @click="generateReport('protocol_zo')">📄</button>
-      <button v-if="isEdit" class="toolbar-btn" title="Przelicz wartość" @click="recalcTotal">∑</button>
-      <button v-if="isEdit" class="toolbar-btn" title="Pobierz koszty z Fakturownia" @click="handleFakturownia">💰</button>
+      <button v-if="isEdit" class="toolbar-btn" title="Drukuj PDF" aria-label="Drukuj umowę PDF" @click="generateReport('contract')">⎙</button>
+      <button v-if="isEdit" class="toolbar-btn" title="Protokół zdania obiektu (ZO)" aria-label="Generuj protokół zdawczo-odbiorczy" @click="generateReport('protocol_zo')">📄</button>
+      <button v-if="isEdit" class="toolbar-btn" title="Przelicz wartość" aria-label="Przelicz wartość umowy" @click="recalcTotal">∑</button>
+      <button v-if="isEdit" class="toolbar-btn" title="Pobierz koszty z Fakturownia" aria-label="Pobierz koszty z Fakturownia" @click="handleFakturownia">💰</button>
       <button class="btn btn-primary btn-sm" @click="handleSave" :disabled="saving">
         {{ saving ? '...' : 'Zapisz' }}
       </button>
@@ -20,22 +20,22 @@
         <!-- Section 1: Dane podstawowe -->
         <div class="page-card" style="margin-bottom:var(--spacing-md);">
           <h3 class="section-title">Dane podstawowe</h3>
-          <div v-if="errorMsg" class="error-message">{{ errorMsg }}</div>
+          <div v-if="errorMsg" class="error-message" role="alert">{{ errorMsg }}</div>
           <div class="form-row-4" style="align-items:start;">
             <div class="form-group">
-              <label class="form-label">Typ umowy</label>
-              <select v-model="form.contract_type" class="form-control" :disabled="isEdit">
+              <label class="form-label" for="contract-type">Typ umowy</label>
+              <select id="contract-type" v-model="form.contract_type" class="form-control" :disabled="isEdit">
                 <option value="S">Umowa najmu (S)</option>
                 <option value="U">Umowa usługi (U)</option>
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label">Numer umowy</label>
-              <input :value="contractStore.current?.number || '(auto)'" type="text" class="form-control" disabled />
+              <label class="form-label" for="contract-number">Numer umowy</label>
+              <input id="contract-number" :value="contractStore.current?.number || '(auto)'" type="text" class="form-control" disabled />
             </div>
             <div class="form-group">
-              <label class="form-label">OID Fakturownia (opcjonalny)<GlossaryTip term="OID" definition="Identyfikator w Fakturownia" description="Domyślnie = numer umowy. Używany do synchronizacji faktur z kontrahentem." placement="top" :size="12" /></label>
-              <input v-model="form.oid" type="text" class="form-control" placeholder="(auto = numer umowy)" pattern="[A-Za-z0-9\-/_]+" maxlength="40" />
+              <label class="form-label" for="contract-oid">OID Fakturownia (opcjonalny)<GlossaryTip term="OID" definition="Identyfikator w Fakturownia" description="Domyślnie = numer umowy. Używany do synchronizacji faktur z kontrahentem." placement="top" :size="12" /></label>
+              <input id="contract-oid" v-model="form.oid" type="text" class="form-control" placeholder="(auto = numer umowy)" pattern="[A-Za-z0-9\-/_]+" maxlength="40" />
               <small style="color:var(--color-text-muted);">Puste = użyj numeru umowy. Tylko litery, cyfry, -, /, _.</small>
             </div>
             <div class="form-group">
@@ -46,7 +46,7 @@
                 @update:date-from="form.date_from = $event"
                 @update:date-to="form.date_to = $event"
               />
-              <span v-if="!form.date_from" class="field-error">Podaj datę od</span>
+              <span v-if="!form.date_from" class="field-error" role="alert">Podaj datę od</span>
             </div>
           </div>
         </div>
@@ -56,20 +56,20 @@
           <h3 class="section-title">Kontrahent i adres dostawy</h3>
           <div class="form-row-2" style="align-items:start;">
             <div class="form-group">
-              <label class="form-label">Kontrahent *</label>
+              <label class="form-label" for="contract-contractor-display">Kontrahent *</label>
               <div style="display:flex;gap:8px;">
-                <input :value="contractorName" type="text" class="form-control" disabled placeholder="Wybierz kontrahenta..." style="flex:1;" :class="{ 'error': !form.contractor_id }" />
+                <input id="contract-contractor-display" :value="contractorName" type="text" class="form-control" disabled placeholder="Wybierz kontrahenta..." style="flex:1;" :class="{ 'error': !form.contractor_id }" :aria-invalid="!form.contractor_id" aria-describedby="contract-contractor-error" />
                 <button type="button" class="btn btn-secondary btn-sm" @click="showContractorPicker = true">Wybierz</button>
               </div>
-              <span v-if="!form.contractor_id" class="field-error">Wybierz kontrahenta</span>
+              <span v-if="!form.contractor_id" class="field-error" id="contract-contractor-error" role="alert">Wybierz kontrahenta</span>
             </div>
           </div>
 
           <div class="form-group">
-            <label class="form-label">Adres dostawy</label>
+            <label class="form-label" for="contract-address-select">Adres dostawy</label>
             <div class="address-layout">
               <div class="address-row">
-                <select v-if="contractorAddresses.length" v-model="selectedAddressId" class="form-control address-select" @change="onAddressSelect">
+                <select v-if="contractorAddresses.length" id="contract-address-select" v-model="selectedAddressId" class="form-control address-select" @change="onAddressSelect">
                   <option :value="null">— wpisz ręcznie —</option>
                   <option v-for="addr in contractorAddresses" :key="addr.id" :value="addr.id">
                     {{ addr.name || addr.city }} — {{ addr.street || '' }} {{ addr.postal_code || '' }}
@@ -77,11 +77,11 @@
                 </select>
               </div>
               <div class="address-row">
-                <input v-model="form.postal_code" @blur="onPostalCodeBlur" @input="onPostalInput" class="form-control postal-input" placeholder="00-000" maxlength="6" data-testid="contract-postal-code" />
-                <input v-model="form.city" @input="onCityInput" class="form-control city-input" placeholder="Miasto" :class="{ 'input-loading': pnaLoading }" data-testid="contract-city" />
+                <input v-model="form.postal_code" @blur="onPostalCodeBlur" @input="onPostalInput" class="form-control postal-input" placeholder="00-000" maxlength="6" aria-label="Kod pocztowy dostawy" data-testid="contract-postal-code" />
+                <input v-model="form.city" @input="onCityInput" class="form-control city-input" placeholder="Miasto" aria-label="Miejscowość dostawy" :class="{ 'input-loading': pnaLoading }" data-testid="contract-city" />
                 <div v-if="pnaLoading" class="pna-spinner" data-testid="pna-spinner"></div>
               </div>
-              <div v-if="pnaError" class="pna-error" data-testid="pna-error">{{ pnaError }}</div>
+              <div v-if="pnaError" class="pna-error" role="alert" data-testid="pna-error">{{ pnaError }}</div>
               <div v-if="pnaInfo.found" class="pna-info-panel" data-testid="pna-info-panel">
                 <span class="pna-info-title">Wypełnione z <abbr title="Kod pocztowy (PNA)">PNA</abbr> {{ form.postal_code }}</span>
                 <span class="pna-info-row">
@@ -93,7 +93,7 @@
                 </span>
               </div>
               <div class="address-row">
-                <textarea v-model="form.delivery_address" @input="onDeliveryAddressInput" class="form-control" rows="2" placeholder="Uwagi dojazdowe (opcjonalnie) — auto-uzupełni miasto i kod pocztowy"></textarea>
+                <textarea v-model="form.delivery_address" @input="onDeliveryAddressInput" class="form-control" rows="2" aria-label="Uwagi dojazdowe do adresu dostawy" placeholder="Uwagi dojazdowe (opcjonalnie) — auto-uzupełni miasto i kod pocztowy"></textarea>
               </div>
             </div>
           </div>
@@ -104,45 +104,45 @@
           <h3 class="section-title">Warunki finansowe</h3>
           <div class="form-row-4">
             <div class="form-group">
-              <label class="form-label">Handlowiec</label>
-              <select v-model="form.salesperson_id" class="form-control">
+              <label class="form-label" for="contract-salesperson">Handlowiec</label>
+              <select id="contract-salesperson" v-model="form.salesperson_id" class="form-control">
                 <option :value="null">— brak —</option>
                 <option v-for="sp in settingsStore.salespeople" :key="sp.id" :value="sp.id">{{ sp.name }}</option>
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label">Oddział</label>
-              <select v-model="form.branch_id" class="form-control">
+              <label class="form-label" for="contract-branch">Oddział</label>
+              <select id="contract-branch" v-model="form.branch_id" class="form-control">
                 <option :value="null">— brak —</option>
                 <option v-for="b in settingsStore.branches" :key="b.id" :value="b.id">{{ b.name }}</option>
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label" title="Wartość z rozliczenia (suma kosztów klienta z zakładki Rozliczenie)">Wartość z rozliczenia (zł)</label>
-              <input :value="settlementTotalFormatted" type="text" class="form-control" disabled style="font-weight:700;" />
+              <label class="form-label" for="contract-settlement-total" title="Wartość z rozliczenia (suma kosztów klienta z zakładki Rozliczenie)">Wartość z rozliczenia (zł)</label>
+              <input id="contract-settlement-total" :value="settlementTotalFormatted" type="text" class="form-control" disabled style="font-weight:700;" />
             </div>
             <div class="form-group">
-              <label class="form-label">Pozostało (zł)</label>
-              <input :value="remainingValue" type="text" class="form-control" disabled style="font-weight:700;color:var(--color-error);" />
+              <label class="form-label" for="contract-remaining">Pozostało (zł)</label>
+              <input id="contract-remaining" :value="remainingValue" type="text" class="form-control" disabled style="font-weight:700;color:var(--color-error);" />
             </div>
           </div>
 
           <div class="form-row-4">
             <div class="form-group">
-              <label class="form-label">Przedpłata (zł)</label>
-              <input v-model="form.prepayment_amount" type="number" step="0.01" class="form-control" />
+              <label class="form-label" for="contract-prepayment">Przedpłata (zł)</label>
+              <input id="contract-prepayment" v-model="form.prepayment_amount" type="number" step="0.01" class="form-control" />
             </div>
             <div class="form-group">
-              <label class="form-label">Dok. przedpłaty</label>
-              <input v-model="form.prepayment_document" type="text" class="form-control" />
+              <label class="form-label" for="contract-prepayment-doc">Dok. przedpłaty</label>
+              <input id="contract-prepayment-doc" v-model="form.prepayment_document" type="text" class="form-control" />
             </div>
             <div class="form-group">
-              <label class="form-label">Faktura (zł)</label>
-              <input v-model="form.invoice_amount" type="number" step="0.01" class="form-control" />
+              <label class="form-label" for="contract-invoice">Faktura (zł)</label>
+              <input id="contract-invoice" v-model="form.invoice_amount" type="number" step="0.01" class="form-control" />
             </div>
             <div class="form-group">
-              <label class="form-label">Dok. faktury</label>
-              <input v-model="form.invoice_document" type="text" class="form-control" />
+              <label class="form-label" for="contract-invoice-doc">Dok. faktury</label>
+              <input id="contract-invoice-doc" v-model="form.invoice_document" type="text" class="form-control" />
             </div>
           </div>
         </div>
@@ -152,18 +152,18 @@
           <h3 class="section-title">Kontakt i uwagi</h3>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">Reprezentowany przez</label>
+              <label class="form-label" for="contract-person1">Reprezentowany przez</label>
               <div style="display:flex;gap:8px;">
-                <input v-model="form.contact_person1" type="text" class="form-control" placeholder="Imię i nazwisko" />
-                <input v-model="form.contact_phone1" type="text" class="form-control" placeholder="Telefon" style="width:140px;" />
+                <input id="contract-person1" v-model="form.contact_person1" type="text" class="form-control" placeholder="Imię i nazwisko" />
+                <input v-model="form.contact_phone1" type="text" class="form-control" aria-label="Telefon osoby reprezentującej" placeholder="Telefon" style="width:140px;" />
                 <label class="checkbox-group" style="white-space:nowrap;"><input type="checkbox" v-model="form.show_person1" /> Drukuj</label>
               </div>
             </div>
             <div class="form-group">
-              <label class="form-label">Osoba kontaktowa</label>
+              <label class="form-label" for="contract-person2">Osoba kontaktowa</label>
               <div style="display:flex;gap:8px;">
-                <input v-model="form.contact_person2" type="text" class="form-control" placeholder="Imię i nazwisko" />
-                <input v-model="form.contact_phone2" type="text" class="form-control" placeholder="Telefon" style="width:140px;" />
+                <input id="contract-person2" v-model="form.contact_person2" type="text" class="form-control" placeholder="Imię i nazwisko" />
+                <input v-model="form.contact_phone2" type="text" class="form-control" aria-label="Telefon osoby kontaktowej" placeholder="Telefon" style="width:140px;" />
                 <label class="checkbox-group" style="white-space:nowrap;"><input type="checkbox" v-model="form.show_person2" /> Drukuj</label>
               </div>
             </div>
@@ -171,19 +171,19 @@
 
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">E-mail</label>
-              <input v-model="form.email" type="email" class="form-control" />
+              <label class="form-label" for="contract-email">E-mail</label>
+              <input id="contract-email" v-model="form.email" type="email" class="form-control" />
             </div>
             <div class="form-group">
-              <label class="form-label">Telefon</label>
-              <input v-model="form.phone" type="text" class="form-control" />
+              <label class="form-label" for="contract-phone">Telefon</label>
+              <input id="contract-phone" v-model="form.phone" type="text" class="form-control" />
             </div>
           </div>
 
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">Uwagi</label>
-              <textarea v-model="form.notes" class="form-control" rows="2"></textarea>
+              <label class="form-label" for="contract-notes">Uwagi</label>
+              <textarea id="contract-notes" v-model="form.notes" class="form-control" rows="2"></textarea>
             </div>
             <div class="form-group">
               <label class="form-label">Opcje</label>
@@ -191,8 +191,8 @@
                 <label class="checkbox-group"><input type="checkbox" v-model="form.hide_delivery_address" /> Ukryj adres dostawy na umowie (klient wpisze ręcznie)</label>
                 <label class="checkbox-group"><input type="checkbox" v-model="form.signatures_on_page1" /> Podpisy wymagane na stronie 1</label>
                 <div style="display:flex;align-items:center;gap:6px;">
-                  <span style="font-size:12px;">Dni rob./tydz.:</span>
-                  <input v-model.number="form.working_days_per_week" type="number" min="1" max="7" class="form-control" style="width:60px;" />
+                  <label for="contract-working-days" style="font-size:12px;">Dni rob./tydz.:</label>
+                  <input id="contract-working-days" v-model.number="form.working_days_per_week" type="number" min="1" max="7" class="form-control" style="width:60px;" />
                 </div>
               </div>
             </div>
@@ -205,7 +205,7 @@
             <span class="section-title" style="margin:0;border:none;">Pozycje umowy</span>
             <button class="btn btn-primary btn-sm" style="margin-left:auto;" @click="addPosition">+ Dodaj pozycję</button>
           </div>
-          <table class="data-grid">
+          <table class="data-grid" aria-label="Pozycje umowy">
             <thead>
               <tr>
                 <th>#</th>
@@ -241,8 +241,8 @@
                 <td>{{ pos.supplier_name || '—' }}</td>
                 <td>{{ pos.delivery_date ? formatDate(pos.delivery_date) : '—' }}</td>
                 <td>
-                  <button class="btn-icon" title="Edytuj" @click.stop="editPosition(pos)">✎</button>
-                  <button class="btn-icon" title="Usuń" @click.stop="deletePosition(pos)">✕</button>
+                  <button class="btn-icon" title="Edytuj" aria-label="Edytuj pozycję" @click.stop="editPosition(pos)">✎</button>
+                  <button class="btn-icon" title="Usuń" aria-label="Usuń pozycję" @click.stop="deletePosition(pos)">✕</button>
                 </td>
               </tr>
             </tbody>
@@ -297,8 +297,8 @@
                   <td><input v-model="editingFeeData.description" class="form-control form-control-xs" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" /></td>
                   <td style="text-align:center;"><input type="checkbox" v-model="editingFeeData.is_active" /></td>
                   <td>
-                    <button class="btn-icon" style="color:#22543D;" title="Zapisz (Enter)" @click="saveInlineFee">✓</button>
-                    <button class="btn-icon" title="Anuluj (Esc)" @click="cancelInlineFee">✕</button>
+                    <button class="btn-icon" style="color:#22543D;" title="Zapisz (Enter)" aria-label="Zapisz opłatę" @click="saveInlineFee">✓</button>
+                    <button class="btn-icon" title="Anuluj (Esc)" aria-label="Anuluj edycję opłaty" @click="cancelInlineFee">✕</button>
                   </td>
                 </tr>
                 <!-- DISPLAY MODE -->
@@ -310,8 +310,8 @@
                   <td style="font-size:11px;">{{ formatDescription(fee.description, fee.amount_from, fee.amount_to) }}</td>
                   <td style="text-align:center;"><span :class="['badge', fee.is_active ? 'badge-success' : 'badge-muted']">{{ fee.is_active ? 'Tak' : 'Nie' }}</span></td>
                   <td>
-                    <button class="btn-icon" title="Edytuj" @click.stop="startEditFee(fee)">✎</button>
-                    <button class="btn-icon" title="Usuń" @click.stop="deleteServiceFee(fee)">✕</button>
+                    <button class="btn-icon" title="Edytuj" aria-label="Edytuj usługę dodatkową" @click.stop="startEditFee(fee)">✎</button>
+                    <button class="btn-icon" title="Usuń" aria-label="Usuń usługę dodatkową" @click.stop="deleteServiceFee(fee)">✕</button>
                   </td>
                 </tr>
               </template>
@@ -330,8 +330,8 @@
                 <td><input v-model="newFeeData.description" class="form-control form-control-xs" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" /></td>
                 <td style="text-align:center;"><input type="checkbox" v-model="newFeeData.is_active" /></td>
                 <td>
-                  <button class="btn-icon" style="color:#22543D;" title="Dodaj (Enter)" @click="saveNewFeeRow">✓</button>
-                  <button class="btn-icon" title="Anuluj (Esc)" @click="cancelNewFeeRow">✕</button>
+                  <button class="btn-icon" style="color:#22543D;" title="Dodaj (Enter)" aria-label="Dodaj nową opłatę" @click="saveNewFeeRow">✓</button>
+                  <button class="btn-icon" title="Anuluj (Esc)" aria-label="Anuluj dodawanie opłaty" @click="cancelNewFeeRow">✕</button>
                 </td>
               </tr>
             </tbody>
@@ -376,7 +376,7 @@
               <span style="font-weight:600;font-size:13px;color:#2d3748;">Faktury z Fakturownia (read-only)</span>
               <button class="btn btn-xs btn-link" style="margin-left:auto;" @click="showFakturowniaPanel = false">Zamknij</button>
             </div>
-            <div v-if="fakturowniaStore.error" style="color:#e53e3e;font-size:12px;padding:8px;background:#fff5f5;border-radius:4px;">
+            <div v-if="fakturowniaStore.error" style="color:#e53e3e;font-size:12px;padding:8px;background:#fff5f5;border-radius:4px;" role="alert">
               {{ fakturowniaStore.error }}
             </div>
             <div v-else-if="!fakturowniaStore.invoices.length" style="color:#5A6B7E;font-size:12px;padding:8px;">
@@ -502,11 +502,11 @@
     <!-- Contractor picker modal -->
     <Transition name="modal">
       <div v-if="showContractorPicker" class="modal-overlay" @click.self="showContractorPicker = false">
-        <div class="modal-box" style="min-width:600px;">
-          <div class="modal-title">Wybierz kontrahenta</div>
+        <div class="modal-box" style="min-width:600px;" role="dialog" aria-modal="true" aria-labelledby="contractor-picker-title">
+          <div class="modal-title" id="contractor-picker-title">Wybierz kontrahenta</div>
           <div class="search-input-wrap" style="margin-bottom:12px;">
-            <span class="search-icon">⌕</span>
-            <input v-model="pickerSearch" type="text" class="form-control" placeholder="Szukaj..." @input="searchContractors" />
+            <span class="search-icon" aria-hidden="true">⌕</span>
+            <input v-model="pickerSearch" type="text" class="form-control" aria-label="Szukaj kontrahenta" placeholder="Szukaj..." @input="searchContractors" />
           </div>
           <div style="max-height:320px;overflow:auto;">
             <div v-if="!pickerList.length && pickerSearch" class="empty-state" style="padding:32px;text-align:center;color:var(--color-text-muted);">
@@ -533,90 +533,90 @@
     <!-- Inline contractor form modal - RAO-P2-005 -->
     <Transition name="modal">
       <div v-if="showInlineContractorForm" class="modal-overlay" @click.self="showInlineContractorForm = false">
-        <div class="modal-box" style="min-width:700px;max-height:90vh;overflow-y:auto;">
-          <div class="modal-title">Nowy kontrahent</div>
-          <div v-if="inlineContractorError" style="color:var(--color-danger);font-size:13px;margin-bottom:12px;padding:8px;background:#FED7D7;border-radius:6px;">
+        <div class="modal-box" style="min-width:700px;max-height:90vh;overflow-y:auto;" role="dialog" aria-modal="true" aria-labelledby="inline-contractor-title">
+          <div class="modal-title" id="inline-contractor-title">Nowy kontrahent</div>
+          <div v-if="inlineContractorError" style="color:var(--color-danger);font-size:13px;margin-bottom:12px;padding:8px;background:#FED7D7;border-radius:6px;" role="alert">
             {{ inlineContractorError }}
           </div>
           <div class="form-group">
-            <label class="form-label">Pełna nazwa *</label>
-            <input v-model="inlineContractorForm.name" type="text" class="form-control" placeholder="Nazwa firmy lub imię i nazwisko" />
+            <label class="form-label" for="inline-contractor-name">Pełna nazwa *</label>
+            <input id="inline-contractor-name" v-model="inlineContractorForm.name" type="text" class="form-control" placeholder="Nazwa firmy lub imię i nazwisko" />
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">Nazwa skrócona</label>
-              <input v-model="inlineContractorForm.name_short" type="text" class="form-control" />
+              <label class="form-label" for="inline-contractor-name-short">Nazwa skrócona</label>
+              <input id="inline-contractor-name-short" v-model="inlineContractorForm.name_short" type="text" class="form-control" />
             </div>
             <div class="form-group">
-              <label class="form-label">NIP</label>
-              <input v-model="inlineContractorForm.nip" type="text" class="form-control" placeholder="0000000000" maxlength="20" />
+              <label class="form-label" for="inline-contractor-nip">NIP</label>
+              <input id="inline-contractor-nip" v-model="inlineContractorForm.nip" type="text" class="form-control" placeholder="0000000000" maxlength="20" />
             </div>
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">REGON</label>
-              <input v-model="inlineContractorForm.regon" type="text" class="form-control" />
+              <label class="form-label" for="inline-contractor-regon">REGON</label>
+              <input id="inline-contractor-regon" v-model="inlineContractorForm.regon" type="text" class="form-control" />
             </div>
             <div class="form-group">
-              <label class="form-label">PESEL</label>
-              <input v-model="inlineContractorForm.pesel" type="text" class="form-control" />
+              <label class="form-label" for="inline-contractor-pesel">PESEL</label>
+              <input id="inline-contractor-pesel" v-model="inlineContractorForm.pesel" type="text" class="form-control" />
             </div>
           </div>
           <div style="font-size:13px;font-weight:600;margin:16px 0 8px 0;">Adres główny</div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">Kod pocztowy</label>
-              <input v-model="inlineContractorForm.postal_code" type="text" class="form-control" placeholder="00-000" />
+              <label class="form-label" for="inline-contractor-postal">Kod pocztowy</label>
+              <input id="inline-contractor-postal" v-model="inlineContractorForm.postal_code" type="text" class="form-control" placeholder="00-000" />
             </div>
             <div class="form-group">
-              <label class="form-label">Miejscowość</label>
-              <input v-model="inlineContractorForm.city" type="text" class="form-control" />
+              <label class="form-label" for="inline-contractor-city">Miejscowość</label>
+              <input id="inline-contractor-city" v-model="inlineContractorForm.city" type="text" class="form-control" />
             </div>
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">Ulica</label>
-              <input v-model="inlineContractorForm.street" type="text" class="form-control" />
+              <label class="form-label" for="inline-contractor-street">Ulica</label>
+              <input id="inline-contractor-street" v-model="inlineContractorForm.street" type="text" class="form-control" />
             </div>
             <div class="form-group">
-              <label class="form-label">Nr lokalu</label>
-              <input v-model="inlineContractorForm.unit" type="text" class="form-control" />
+              <label class="form-label" for="inline-contractor-unit">Nr lokalu</label>
+              <input id="inline-contractor-unit" v-model="inlineContractorForm.unit" type="text" class="form-control" />
             </div>
           </div>
           <div style="font-size:13px;font-weight:600;margin:16px 0 8px 0;">Kontakt</div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">Osoba kontaktowa 1</label>
-              <input v-model="inlineContractorForm.contact_person1" type="text" class="form-control" />
+              <label class="form-label" for="inline-contractor-person1">Osoba kontaktowa 1</label>
+              <input id="inline-contractor-person1" v-model="inlineContractorForm.contact_person1" type="text" class="form-control" />
             </div>
             <div class="form-group">
-              <label class="form-label">Telefon 1</label>
-              <input v-model="inlineContractorForm.phone1" type="text" class="form-control" />
-            </div>
-          </div>
-          <div class="form-row-2">
-            <div class="form-group">
-              <label class="form-label">Osoba kontaktowa 2</label>
-              <input v-model="inlineContractorForm.contact_person2" type="text" class="form-control" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Telefon 2</label>
-              <input v-model="inlineContractorForm.phone2" type="text" class="form-control" />
+              <label class="form-label" for="inline-contractor-phone1">Telefon 1</label>
+              <input id="inline-contractor-phone1" v-model="inlineContractorForm.phone1" type="text" class="form-control" />
             </div>
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">Email</label>
-              <input v-model="inlineContractorForm.email" type="email" class="form-control" />
+              <label class="form-label" for="inline-contractor-person2">Osoba kontaktowa 2</label>
+              <input id="inline-contractor-person2" v-model="inlineContractorForm.contact_person2" type="text" class="form-control" />
             </div>
             <div class="form-group">
-              <label class="form-label">Telefon stacjonarny</label>
-              <input v-model="inlineContractorForm.landline_phone" type="text" class="form-control" />
+              <label class="form-label" for="inline-contractor-phone2">Telefon 2</label>
+              <input id="inline-contractor-phone2" v-model="inlineContractorForm.phone2" type="text" class="form-control" />
+            </div>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label" for="inline-contractor-email">Email</label>
+              <input id="inline-contractor-email" v-model="inlineContractorForm.email" type="email" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="inline-contractor-landline">Telefon stacjonarny</label>
+              <input id="inline-contractor-landline" v-model="inlineContractorForm.landline_phone" type="text" class="form-control" />
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label">Uwagi</label>
-            <textarea v-model="inlineContractorForm.notes" class="form-control" rows="2"></textarea>
+            <label class="form-label" for="inline-contractor-notes">Uwagi</label>
+            <textarea id="inline-contractor-notes" v-model="inlineContractorForm.notes" class="form-control" rows="2"></textarea>
           </div>
           <div class="modal-actions">
             <button class="btn btn-secondary btn-sm" @click="showInlineContractorForm = false">Anuluj</button>
@@ -632,10 +632,10 @@
     <!-- Preset picker modal -->
     <Transition name="modal">
       <div v-if="showPresetPicker" class="preset-picker-overlay" @click.self="showPresetPicker = false">
-        <div class="preset-picker-modal">
+        <div class="preset-picker-modal" role="dialog" aria-modal="true" aria-labelledby="preset-picker-title">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-            <div class="preset-picker-title">Wybierz zestaw usług dodatkowych</div>
-            <button class="btn-icon" style="font-size:18px;" @click="showPresetPicker = false">✕</button>
+            <div class="preset-picker-title" id="preset-picker-title">Wybierz zestaw usług dodatkowych</div>
+            <button class="btn-icon" style="font-size:18px;" aria-label="Zamknij wybór zestawu" title="Zamknij" @click="showPresetPicker = false">✕</button>
           </div>
           <div v-if="presetPickerLoading" style="text-align:center;padding:32px;color:#A0AEC0;">Ładowanie zestawów...</div>
           <div v-else-if="!presetPickerList.length" class="preset-picker-empty">
@@ -670,44 +670,44 @@
     <!-- Position form modal (EXTENDED with 6 missing fields) -->
     <Transition name="modal">
       <div v-if="showPosModal" class="modal-overlay" @click.self="showPosModal = false">
-        <div class="modal-box" style="min-width:640px;max-height:90vh;overflow-y:auto;">
-          <div class="modal-title">{{ editingPos ? 'Edycja pozycji' : 'Nowa pozycja' }}</div>
+        <div class="modal-box" style="min-width:640px;max-height:90vh;overflow-y:auto;" role="dialog" aria-modal="true" aria-labelledby="pos-modal-title">
+          <div class="modal-title" id="pos-modal-title">{{ editingPos ? 'Edycja pozycji' : 'Nowa pozycja' }}</div>
           <div class="form-group">
-            <label class="form-label">Artykuł *</label>
+            <label class="form-label" for="pos-article-display">Artykuł *</label>
             <div style="display:flex;gap:8px;">
-              <input :value="selectedArticleName" type="text" class="form-control" disabled placeholder="Wybierz artykuł..." style="flex:1;" />
+              <input id="pos-article-display" :value="selectedArticleName" type="text" class="form-control" disabled placeholder="Wybierz artykuł..." style="flex:1;" />
               <button type="button" class="btn btn-secondary btn-sm" @click="showArticlePicker = true">Wybierz</button>
             </div>
             <div v-if="articleAvailability !== null" style="margin-top:4px;">
-              <span :class="['badge', articleAvailability ? 'badge-success' : 'badge-danger']">
+              <span :class="['badge', articleAvailability ? 'badge-success' : 'badge-danger']" role="status">
                 {{ articleAvailability ? 'Dostępny' : 'Wynajęty w tym okresie!' }}
               </span>
             </div>
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">Typ najmu</label>
-              <input v-model="posForm.rental_type" type="text" class="form-control" />
+              <label class="form-label" for="pos-rental-type">Typ najmu</label>
+              <input id="pos-rental-type" v-model="posForm.rental_type" type="text" class="form-control" />
             </div>
             <div class="form-group">
-              <label class="form-label">Dni najmu</label>
-              <input v-model.number="posForm.rental_days" type="number" class="form-control" />
-            </div>
-          </div>
-          <div class="form-row-2">
-            <div class="form-group">
-              <label class="form-label">Ilość</label>
-              <input v-model.number="posForm.quantity" type="number" class="form-control" min="1" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Cena jednostkowa (zł)</label>
-              <input v-model="posForm.unit_price" type="number" step="0.01" class="form-control" />
+              <label class="form-label" for="pos-rental-days">Dni najmu</label>
+              <input id="pos-rental-days" v-model.number="posForm.rental_days" type="number" class="form-control" />
             </div>
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">Koszty własne (zł)</label>
-              <input v-model="posForm.costs" type="number" step="0.01" class="form-control" placeholder="0.00" />
+              <label class="form-label" for="pos-quantity">Ilość</label>
+              <input id="pos-quantity" v-model.number="posForm.quantity" type="number" class="form-control" min="1" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="pos-unit-price">Cena jednostkowa (zł)</label>
+              <input id="pos-unit-price" v-model="posForm.unit_price" type="number" step="0.01" class="form-control" />
+            </div>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label" for="pos-costs">Koszty własne (zł)</label>
+              <input id="pos-costs" v-model="posForm.costs" type="number" step="0.01" class="form-control" placeholder="0.00" />
             </div>
             <div class="form-group">
               <label class="form-label">&nbsp;</label>
@@ -715,8 +715,8 @@
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">Rozliczanie</label>
-              <select v-model="posForm.billing_frequency" class="form-control">
+              <label class="form-label" for="pos-billing-frequency">Rozliczanie</label>
+              <select id="pos-billing-frequency" v-model="posForm.billing_frequency" class="form-control">
                 <option :value="null">— brak —</option>
                 <option value="dziennie">dziennie</option>
                 <option value="tygodniowo">tygodniowo</option>
@@ -727,8 +727,8 @@
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label">Opłata za</label>
-              <select v-model="posForm.billing_unit" class="form-control">
+              <label class="form-label" for="pos-billing-unit">Opłata za</label>
+              <select id="pos-billing-unit" v-model="posForm.billing_unit" class="form-control">
                 <option :value="null">— brak —</option>
                 <option value="doba">doba</option>
                 <option value="tydzień">tydzień</option>
@@ -740,28 +740,28 @@
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">Typ stawki</label>
-              <select v-model="posForm.rate_type_id" class="form-control">
+              <label class="form-label" for="pos-rate-type">Typ stawki</label>
+              <select id="pos-rate-type" v-model="posForm.rate_type_id" class="form-control">
                 <option :value="null">— brak —</option>
                 <option v-for="rt in settingsStore.rateTypes" :key="rt.id" :value="rt.id">{{ rt.name }}</option>
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label">Data dostawy</label>
-              <input v-model="posForm.delivery_date" type="date" class="form-control" />
+              <label class="form-label" for="pos-delivery-date">Data dostawy</label>
+              <input id="pos-delivery-date" v-model="posForm.delivery_date" type="date" class="form-control" />
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label">Dostawca</label>
+            <label class="form-label" for="pos-supplier-display">Dostawca</label>
             <div style="display:flex;gap:8px;">
-              <input :value="supplierName" type="text" class="form-control" disabled placeholder="Opcjonalnie wybierz dostawcę..." style="flex:1;" />
+              <input id="pos-supplier-display" :value="supplierName" type="text" class="form-control" disabled placeholder="Opcjonalnie wybierz dostawcę..." style="flex:1;" />
               <button type="button" class="btn btn-secondary btn-sm" @click="openSupplierPicker">Wybierz</button>
-              <button v-if="posForm.supplier_id" type="button" class="btn btn-secondary btn-sm" @click="posForm.supplier_id = null; supplierName = ''">✕</button>
+              <button v-if="posForm.supplier_id" type="button" class="btn btn-secondary btn-sm" @click="posForm.supplier_id = null; supplierName = ''" aria-label="Wyczyść dostawcę">✕</button>
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label">Opis</label>
-            <textarea v-model="posForm.description" class="form-control" rows="2"></textarea>
+            <label class="form-label" for="pos-description">Opis</label>
+            <textarea id="pos-description" v-model="posForm.description" class="form-control" rows="2"></textarea>
           </div>
           <div class="modal-actions">
             <button class="btn btn-secondary btn-sm" @click="showPosModal = false">Anuluj</button>
@@ -774,11 +774,11 @@
     <!-- Article picker modal (with availability badge) -->
     <Transition name="modal">
       <div v-if="showArticlePicker" class="modal-overlay" @click.self="showArticlePicker = false">
-        <div class="modal-box" style="min-width:650px;">
-          <div class="modal-title">Wybierz artykuł</div>
+        <div class="modal-box" style="min-width:650px;" role="dialog" aria-modal="true" aria-labelledby="article-picker-title">
+          <div class="modal-title" id="article-picker-title">Wybierz artykuł</div>
           <div class="search-input-wrap" style="margin-bottom:12px;">
-            <span class="search-icon">⌕</span>
-            <input v-model="articlePickerSearch" type="text" class="form-control" placeholder="Szukaj..." @input="searchArticles" />
+            <span class="search-icon" aria-hidden="true">⌕</span>
+            <input v-model="articlePickerSearch" type="text" class="form-control" aria-label="Szukaj artykułu" placeholder="Szukaj..." @input="searchArticles" />
           </div>
           <div style="max-height:320px;overflow:auto;">
             <table class="data-grid">
@@ -798,7 +798,7 @@
                     <span v-else class="badge badge-muted">—</span>
                   </td>
                   <td>
-                    <button class="btn-icon" title="Duplikuj artykuł" @click.stop="duplicateArticle(a)">⧉</button>
+                    <button class="btn-icon" title="Duplikuj artykuł" aria-label="Duplikuj artykuł" @click.stop="duplicateArticle(a)">⧉</button>
                   </td>
                 </tr>
               </tbody>
@@ -817,8 +817,8 @@
     <!-- Conflict modal — RAO-P1-023 -->
     <Transition name="modal">
       <div v-if="showConflictModal" class="modal-overlay" @click.self="cancelConflictSelection">
-        <div class="modal-box" style="max-width:520px;">
-          <div class="modal-title" style="color:var(--color-error);">⚠️ Maszyna zajęta</div>
+        <div class="modal-box" style="max-width:520px;" role="dialog" aria-modal="true" aria-labelledby="conflict-modal-title">
+          <div class="modal-title" id="conflict-modal-title" style="color:var(--color-error);">⚠️ Maszyna zajęta</div>
           <p style="margin:12px 0 8px;">
             <strong>{{ pendingArticle?.name }}</strong> jest przypisana do:
           </p>
@@ -850,19 +850,19 @@
     <!-- Inline article form modal - RAO-P2-006 -->
     <Transition name="modal">
       <div v-if="showInlineArticleForm" class="modal-overlay" @click.self="showInlineArticleForm = false">
-        <div class="modal-box" style="min-width:700px;max-height:90vh;overflow-y:auto;">
-          <div class="modal-title">Nowy artykuł</div>
-          <div v-if="inlineArticleError" style="color:var(--color-danger);font-size:13px;margin-bottom:12px;padding:8px;background:#FED7D7;border-radius:6px;">
+        <div class="modal-box" style="min-width:700px;max-height:90vh;overflow-y:auto;" role="dialog" aria-modal="true" aria-labelledby="inline-article-title">
+          <div class="modal-title" id="inline-article-title">Nowy artykuł</div>
+          <div v-if="inlineArticleError" style="color:var(--color-danger);font-size:13px;margin-bottom:12px;padding:8px;background:#FED7D7;border-radius:6px;" role="alert">
             {{ inlineArticleError }}
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">Nazwa artykułu *</label>
-              <input v-model="inlineArticleForm.name" type="text" class="form-control" placeholder="Np. Koparka gąsienicowa" />
+              <label class="form-label" for="inline-article-name">Nazwa artykułu *</label>
+              <input id="inline-article-name" v-model="inlineArticleForm.name" type="text" class="form-control" placeholder="Np. Koparka gąsienicowa" />
             </div>
             <div class="form-group">
-              <label class="form-label">Typ artykułu</label>
-              <select v-model="inlineArticleForm.article_type" class="form-control">
+              <label class="form-label" for="inline-article-type">Typ artykułu</label>
+              <select id="inline-article-type" v-model="inlineArticleForm.article_type" class="form-control">
                 <option value="">— brak —</option>
                 <option value="machine">Maszyna</option>
                 <option value="vehicle">Pojazd</option>
@@ -883,86 +883,86 @@
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">Nr wewnętrzny</label>
-              <input v-model="inlineArticleForm.internal_number" type="text" class="form-control" />
+              <label class="form-label" for="inline-article-internal">Nr wewnętrzny</label>
+              <input id="inline-article-internal" v-model="inlineArticleForm.internal_number" type="text" class="form-control" />
             </div>
             <div class="form-group">
-              <label class="form-label">Nr rejestracyjny</label>
-              <input v-model="inlineArticleForm.registration_no" type="text" class="form-control" />
-            </div>
-          </div>
-          <div class="form-row-2">
-            <div class="form-group">
-              <label class="form-label">Nr seryjny</label>
-              <input v-model="inlineArticleForm.serial_no" type="text" class="form-control" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Wartość odtworzeniowa (zł)</label>
-              <input v-model="inlineArticleForm.replacement_value" type="number" step="0.01" class="form-control" />
+              <label class="form-label" for="inline-article-reg">Nr rejestracyjny</label>
+              <input id="inline-article-reg" v-model="inlineArticleForm.registration_no" type="text" class="form-control" />
             </div>
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">Marka</label>
-              <input v-model="inlineArticleForm.brand" type="text" class="form-control" />
+              <label class="form-label" for="inline-article-serial">Nr seryjny</label>
+              <input id="inline-article-serial" v-model="inlineArticleForm.serial_no" type="text" class="form-control" />
             </div>
             <div class="form-group">
-              <label class="form-label">Model</label>
-              <input v-model="inlineArticleForm.model" type="text" class="form-control" />
+              <label class="form-label" for="inline-article-replacement">Wartość odtworzeniowa (zł)</label>
+              <input id="inline-article-replacement" v-model="inlineArticleForm.replacement_value" type="number" step="0.01" class="form-control" />
+            </div>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label" for="inline-article-brand">Marka</label>
+              <input id="inline-article-brand" v-model="inlineArticleForm.brand" type="text" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="inline-article-model">Model</label>
+              <input id="inline-article-model" v-model="inlineArticleForm.model" type="text" class="form-control" />
             </div>
           </div>
           <div style="font-size:13px;font-weight:600;margin:16px 0 8px 0;">Dane techniczne</div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">Zasięg (m)</label>
-              <input v-model.number="inlineArticleForm.zasieg_m" type="number" class="form-control" min="0" step="0.1" placeholder="np. 21.5" />
+              <label class="form-label" for="inline-article-zasieg">Zasięg (m)</label>
+              <input id="inline-article-zasieg" v-model.number="inlineArticleForm.zasieg_m" type="number" class="form-control" min="0" step="0.1" placeholder="np. 21.5" />
             </div>
             <div class="form-group">
-              <label class="form-label">Udźwig (t)</label>
-              <input v-model.number="inlineArticleForm.udzwig_t" type="number" class="form-control" min="0" step="0.1" placeholder="np. 5.0" />
+              <label class="form-label" for="inline-article-udzwig">Udźwig (t)</label>
+              <input id="inline-article-udzwig" v-model.number="inlineArticleForm.udzwig_t" type="number" class="form-control" min="0" step="0.1" placeholder="np. 5.0" />
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label">Dodatkowe wyposażenie</label>
-            <textarea v-model="inlineArticleForm.dodatki" class="form-control" rows="3" placeholder="np. Kosz osobowy, wciągarka..."></textarea>
+            <label class="form-label" for="inline-article-dodatki">Dodatkowe wyposażenie</label>
+            <textarea id="inline-article-dodatki" v-model="inlineArticleForm.dodatki" class="form-control" rows="3" placeholder="np. Kosz osobowy, wciągarka..."></textarea>
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">Kategoria</label>
+              <label class="form-label" for="inline-article-cat-main">Kategoria</label>
               <div style="display:flex;flex-direction:column;gap:4px;">
-                <select v-model="catSelectedMain" class="form-control" @change="catSelectedSub1 = null; catSelectedSub2 = null">
+                <select id="inline-article-cat-main" v-model="catSelectedMain" class="form-control" @change="catSelectedSub1 = null; catSelectedSub2 = null">
                   <option :value="null">— brak kategorii —</option>
                   <option v-for="c in catMainOptions" :key="c.id" :value="c.id">{{ c.name }}</option>
                 </select>
-                <select v-if="catSub1Options.length" v-model="catSelectedSub1" class="form-control" @change="catSelectedSub2 = null">
+                <select v-if="catSub1Options.length" v-model="catSelectedSub1" class="form-control" aria-label="Podkategoria poziom 1" @change="catSelectedSub2 = null">
                   <option :value="null">— (poziom główny) —</option>
                   <option v-for="c in catSub1Options" :key="c.id" :value="c.id">{{ c.name }}</option>
                 </select>
-                <select v-if="catSub2Options.length" v-model="catSelectedSub2" class="form-control">
+                <select v-if="catSub2Options.length" v-model="catSelectedSub2" class="form-control" aria-label="Podkategoria poziom 2">
                   <option :value="null">— (poziom podrzędny) —</option>
                   <option v-for="c in catSub2Options" :key="c.id" :value="c.id">{{ c.name }}</option>
                 </select>
               </div>
             </div>
             <div class="form-group">
-              <label class="form-label">Filia</label>
-              <select v-model="inlineArticleForm.branch_id" class="form-control">
+              <label class="form-label" for="inline-article-branch">Filia</label>
+              <select id="inline-article-branch" v-model="inlineArticleForm.branch_id" class="form-control">
                 <option :value="null">— główna —</option>
                 <option v-for="br in settingsStore.branches" :key="br.id" :value="br.id">{{ br.name }}</option>
               </select>
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label">Min. dni najmu</label>
-            <input v-model.number="inlineArticleForm.rental_days" type="number" class="form-control" min="1" />
+            <label class="form-label" for="inline-article-rental-days">Min. dni najmu</label>
+            <input id="inline-article-rental-days" v-model.number="inlineArticleForm.rental_days" type="number" class="form-control" min="1" />
           </div>
           <div class="form-group">
-            <label class="form-label">Opis</label>
-            <textarea v-model="inlineArticleForm.description" class="form-control" rows="3"></textarea>
+            <label class="form-label" for="inline-article-description">Opis</label>
+            <textarea id="inline-article-description" v-model="inlineArticleForm.description" class="form-control" rows="3"></textarea>
           </div>
           <div class="form-group">
-            <label class="form-label">Uwagi</label>
-            <textarea v-model="inlineArticleForm.notes" class="form-control" rows="2"></textarea>
+            <label class="form-label" for="inline-article-notes">Uwagi</label>
+            <textarea id="inline-article-notes" v-model="inlineArticleForm.notes" class="form-control" rows="2"></textarea>
           </div>
           <div class="modal-actions">
             <button class="btn btn-secondary btn-sm" @click="showInlineArticleForm = false">Anuluj</button>
@@ -977,11 +977,11 @@
     <!-- Supplier picker modal -->
     <Transition name="modal">
       <div v-if="showSupplierPicker" class="modal-overlay" @click.self="showSupplierPicker = false">
-        <div class="modal-box" style="min-width:600px;">
-          <div class="modal-title">Wybierz dostawcę</div>
+        <div class="modal-box" style="min-width:600px;" role="dialog" aria-modal="true" aria-labelledby="supplier-picker-title">
+          <div class="modal-title" id="supplier-picker-title">Wybierz dostawcę</div>
           <div class="search-input-wrap" style="margin-bottom:12px;">
-            <span class="search-icon">⌕</span>
-            <input v-model="supplierSearch" type="text" class="form-control" placeholder="Szukaj dostawcy..." @input="searchSuppliers" />
+            <span class="search-icon" aria-hidden="true">⌕</span>
+            <input v-model="supplierSearch" type="text" class="form-control" aria-label="Szukaj dostawcy" placeholder="Szukaj dostawcy..." @input="searchSuppliers" />
           </div>
           <div style="max-height:320px;overflow:auto;">
             <table class="data-grid">
