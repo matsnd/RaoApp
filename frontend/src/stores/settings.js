@@ -106,6 +106,74 @@ export const useSettingsStore = defineStore('settings', () => {
     return data
   }
 
+  // --- RAO-P1-001: Cenniki warunków rozliczenia maszyn (ArticleRatePreset) ---
+  const ratePresets = ref([])        // lista presetów dla aktualnie edytowanej maszyny
+  const ratePresetsLoading = ref(false)
+
+  async function fetchRatePresets(articleId) {
+    ratePresetsLoading.value = true
+    try {
+      const { data } = await api.get(`/settings/articles/${articleId}/rate-presets`)
+      ratePresets.value = data
+      return data
+    } finally {
+      ratePresetsLoading.value = false
+    }
+  }
+
+  async function fetchDefaultRatePreset(articleId) {
+    // 200 z body=null gdy brak domyślnego
+    const { data } = await api.get(`/settings/articles/${articleId}/rate-presets/default`)
+    return data
+  }
+
+  async function createRatePreset(articleId, payload) {
+    const { data } = await api.post(`/settings/articles/${articleId}/rate-presets`, payload)
+    await fetchRatePresets(articleId)
+    return data
+  }
+
+  async function updateRatePreset(presetId, payload) {
+    const { data } = await api.put(`/settings/rate-presets/${presetId}`, payload)
+    // Odśwież listę jeśli article_id znany (z payload lub z aktualnej listy)
+    const artId = data.article_id ?? ratePresets.value[0]?.article_id
+    if (artId) await fetchRatePresets(artId)
+    return data
+  }
+
+  async function deleteRatePreset(presetId) {
+    await api.delete(`/settings/rate-presets/${presetId}`)
+    const artId = ratePresets.value[0]?.article_id
+    if (artId) await fetchRatePresets(artId)
+  }
+
+  async function setDefaultRatePreset(presetId) {
+    const { data } = await api.patch(`/settings/rate-presets/${presetId}/set-default`)
+    const artId = data.article_id ?? ratePresets.value[0]?.article_id
+    if (artId) await fetchRatePresets(artId)
+    return data
+  }
+
+  async function addRatePresetItem(presetId, payload) {
+    const { data } = await api.post(`/settings/rate-presets/${presetId}/items`, payload)
+    const artId = ratePresets.value[0]?.article_id
+    if (artId) await fetchRatePresets(artId)
+    return data
+  }
+
+  async function updateRatePresetItem(itemId, payload) {
+    const { data } = await api.put(`/settings/rate-presets/items/${itemId}`, payload)
+    const artId = ratePresets.value[0]?.article_id
+    if (artId) await fetchRatePresets(artId)
+    return data
+  }
+
+  async function deleteRatePresetItem(itemId) {
+    await api.delete(`/settings/rate-presets/items/${itemId}`)
+    const artId = ratePresets.value[0]?.article_id
+    if (artId) await fetchRatePresets(artId)
+  }
+
   async function fetchAll() {
     loading.value = true
     try {
@@ -122,11 +190,18 @@ export const useSettingsStore = defineStore('settings', () => {
 
   return {
     company, salespeople, categories, categoriesTree, branches, rateTypes, feeTemplates, loading,
+    // RAO-P1-001: cenniki rozliczenia maszyn
+    ratePresets, ratePresetsLoading,
     fetchCompany, updateCompany, uploadLogo,
     fetchSalespeople, updateSalesperson,
     fetchCategories, fetchCategoriesTree, updateCategory, deleteCategory,
     fetchBranches,
     fetchRateTypes, updateRateType, deleteRateType,
     fetchFeeTemplates, seedFeeTemplates, fetchAll,
+    // RAO-P1-001: cenniki rozliczenia maszyn
+    fetchRatePresets, fetchDefaultRatePreset,
+    createRatePreset, updateRatePreset, deleteRatePreset,
+    setDefaultRatePreset,
+    addRatePresetItem, updateRatePresetItem, deleteRatePresetItem,
   }
 })

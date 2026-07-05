@@ -211,6 +211,14 @@
             </tbody>
           </table>
         </div>
+
+        <!-- RAO-P1-001: Cenniki rozliczenia maszyny -->
+        <RatePresetSection
+          v-if="isEdit && !form.is_service"
+          :article-id="Number(props.id)"
+          :article-name="form.name"
+          @presets-changed="onPresetsChanged"
+        />
       </div>
     </div>
 
@@ -287,6 +295,7 @@ import { useFakturowniaStore } from '@/stores/fakturownia'
 import { useToastStore } from '@/stores/toast'
 import { useReservationsStore } from '@/stores/reservations'
 import GlossaryTip from '@/components/GlossaryTip.vue'
+import RatePresetSection from '@/components/articles/RatePresetSection.vue'
 import api from '@/composables/useApi'
 
 const props = defineProps({ id: String })
@@ -393,7 +402,7 @@ function setCategoryFromId(categoryId) {
 }
 
 onMounted(async () => {
-  await Promise.all([settingsStore.fetchCategoriesTree(), settingsStore.fetchBranches()])
+  await Promise.all([settingsStore.fetchCategoriesTree(), settingsStore.fetchBranches(), settingsStore.fetchRateTypes()])
 
   const { data } = await api.get('/contractors', { params: { supplier: true, per_page: 50 } })
   pickerList.value = data.items
@@ -414,6 +423,14 @@ onMounted(async () => {
       } catch (e) {
         // Brak rezerwacji nie powinien blokować edycji artykułu
         console.warn('Nie udało się pobrać rezerwacji:', e)
+      }
+      // RAO-P1-001: załaduj cenniki rozliczenia (tylko dla maszyn, nie usług)
+      if (!data.is_service) {
+        try {
+          await settingsStore.fetchRatePresets(Number(props.id))
+        } catch (e) {
+          console.warn('Nie udało się pobrać cenników rozliczenia:', e)
+        }
       }
     } finally {
       loading.value = false
@@ -597,6 +614,18 @@ async function deleteReservation(r: { id: number; reserved_from: string; reserve
   } catch (e) {
     const err = e as { response?: { data?: { detail?: string } } }
     toastStore.error(err.response?.data?.detail || 'Błąd usuwania rezerwacji')
+  }
+}
+
+// --- RAO-P1-001: Cenniki rozliczenia maszyny ---
+async function onPresetsChanged() {
+  // Odśwież listę cenników po zmianach w RatePresetSection
+  if (props.id && !form.value.is_service) {
+    try {
+      await settingsStore.fetchRatePresets(Number(props.id))
+    } catch (e) {
+      console.warn('Nie udało się odświeżyć cenników:', e)
+    }
   }
 }
 </script>

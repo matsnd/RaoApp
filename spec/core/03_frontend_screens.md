@@ -1620,107 +1620,64 @@ Puste tabele (brak rekordów) wyświetlają przycisk akcji:
 
 ---
 
-## RAO-P3-071 Faza 3 — Accessibility (a11y) (2026-07-05)
-
-### Global focus-visible (`style.css`)
-- `:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }` — globalny outline dla wszystkich interaktywnych elementów (widoczny tylko dla klawiatury, nie dla myszy).
-- `:focus:not(:focus-visible) { outline: none; }` — usuwa outline dla kliknięć myszą.
-- `.btn-icon:focus-visible, button[aria-label]:focus-visible, a[aria-label]:focus-visible` — mocniejszy outline + box-shadow 4px rgba(29,43,83,0.12) dla ikon-buttonów.
-- `.btn:focus-visible, .page-btn:focus-visible` — jawne reguły (dziedziczą z globalnego, ale dodane dla czytelności design systemu).
-- `.toolbar-btn:focus-visible` — wzmocniony outline + box-shadow.
-- `[role="row"]:focus-visible, [tabindex="0"]:focus-visible` — outline wewnątrz wiersza (offset -2px).
-
-### aria-label na icon buttons
-- **AppToolbar.vue** — `⎙` (Podgląd i drukuj umowę), `?` (Pokaż szczegóły umowy), `−` (Usuń wybraną pozycję), `+` (Dodaj nową pozycję) — już istniały.
-- **ContractFormView.vue** — toolbar: `←` (Wstecz), `⎙` (Drukuj umowę PDF), `📄` (Generuj protokół zdawczo-odbiorczy), `∑` (Przelicz wartość umowy), `💰` (Pobierz koszty z Fakturownia); btn-icon: `✎` (Edytuj pozycję/usługę), `✕` (Usuń pozycję/usługę/anuluj), `✓` (Zapisz opłatę/dodaj), `⧉` (Duplikuj artykuł), `✕` (Wyczyść dostawcę).
-- **ArticleFormView.vue** — `← Wstecz` (aria-label Wstecz), `⎘` (Duplikuj artykuł — już istniało), `✕` (Wyczyść właściciela / Usuń rezerwację — już istniało).
-- **ContractorFormView.vue** — `← Wstecz` (aria-label Wstecz), `+` (Dodaj adres dostawy), `GUS` (Pobierz dane z GUS po NIP).
-- **AppSidebar.vue** — `📊 Statystyki`, `📦 Archiwum` — aria-label czytelny dla screen readerów (ignoruje emoji).
-- **ArchiveView.vue** — `↺` (Wyczyść filtry umów/maszyn/wyszukiwanie drill-down), `✕` (Zamknij szczegóły/Anuluj edycję kategorii/Zamknij panel drill-down), `✎` (Edytuj kategorię), `✓` (Zapisz kategorię), `‹`/`›` (page-btn: Poprzednia/Następna strona umów/maszyn/drill-down).
-- **DashboardView.vue** — `‹`/`›` (page-btn: Poprzednia/Następna strona umów/kontrahentów/artykułów); context menu: `role="menu"` + `role="menuitem"` na akcjach.
-
-### Label ↔ input powiązanie (for/id)
-- **LoginView.vue** — `login-input`, `password-input`, `forgot-email-input`.
-- **ContractFormView.vue** — wszystkie pola sekcji 1-4 (contract-type, contract-number, contract-oid, contract-contractor-display, contract-address-select, contract-salesperson, contract-branch, contract-settlement-total, contract-remaining, contract-prepayment, contract-prepayment-doc, contract-invoice, contract-invoice-doc, contract-person1, contract-person2, contract-email, contract-phone, contract-notes, contract-working-days) + wszystkie pola w 8 modalach (contractor picker, inline contractor form, preset picker, pos modal, article picker, conflict, inline article form, supplier picker).
-- **ArticleFormView.vue** — wszystkie pola formularza (article-name, article-type, article-internal, article-reg, article-serial, article-replacement, article-brand, article-model, article-zasieg, article-udzwig, article-fa-product, article-dodatki, article-cat-main, article-owner-display, article-rental-days, article-branch, article-description, article-notes) + modal rezerwacji (reservation-from, reservation-to, reservation-note) + modal owner picker.
-- **ContractorFormView.vue** — wszystkie pola (contractor-name, contractor-name-short, contractor-nip, contractor-regon, contractor-pesel, contractor-postal, contractor-city, contractor-street, contractor-unit, contractor-person1/2, contractor-phone1/2, contractor-landline, contractor-email, contractor-website, contractor-notes) + modal adresu (addr-name, addr-postal, addr-city, addr-street, addr-contact, addr-phone).
-- **ChangePasswordView.vue** — current-password, new-password, confirm-password.
-- **ResetPasswordView.vue** — reset-new-password, reset-confirm-password.
-- Pola bez `for` (grupy checkboxów z `<label class="checkbox-group"><input>` — label wrapuje input, nie wymaga `for`).
-
-### role="alert" na błędach
-- **ContractFormView.vue** — `error-message` (errorMsg), `field-error` (Podaj datę od / Wybierz kontrahenta), `inlineContractorError`, `inlineArticleError`, `fakturowniaStore.error`.
-- **ContractorFormView.vue** — `errorMsg` (inline div), `field-error` (name, nip).
-- **ArticleFormView.vue** — `errorMsg` (inline div), `field-error` (name, replacement_value, rental_days), `faError` (small).
-- **LoginView.vue** — `form-error` (authStore.error).
-- **ChangePasswordView.vue** — `form-error` (error), `role="status"` na success.
-- **ResetPasswordView.vue** — `form-error` (error), `role="status"` na success.
-- **ArchiveView.vue** — `empty-state error` (contractsError, articlesError, statsError), `drill-error` (drillDownError).
-
-### aria-invalid na polach z błędem walidacji
-- **ContractFormView.vue** — `:aria-invalid="!form.contractor_id"` na input kontrahenta (+ `aria-describedby="contract-contractor-error"`).
-- **ContractorFormView.vue** — `:aria-invalid="!!fieldErrors.name"` / `:aria-invalid="!!fieldErrors.nip"` (+ `aria-describedby`).
-- **ArticleFormView.vue** — `:aria-invalid="!!fieldErrors.name"` / `replacement_value` / `rental_days` (+ `aria-describedby`).
-- **LoginView.vue** — `:aria-invalid="!!authStore.error"` na login + hasło.
-
-### role="dialog" aria-modal="true" na modalach (13 modali)
-- **ConfirmDialog.vue** (shared) — `aria-labelledby="confirm-dialog-title"`.
-- **ContractFormView.vue** — 8 modali: contractor picker, inline contractor form, preset picker, pos modal, article picker, conflict, inline article form, supplier picker — wszystkie z `aria-labelledby`.
-- **ContractorFormView.vue** — modal adresu (`aria-labelledby="addr-modal-title"`).
-- **ArticleFormView.vue** — modal rezerwacji + modal owner picker.
-- **LoginView.vue** — modal reset hasła (`aria-labelledby="forgot-title"`).
-- **AdminView.vue** — modal add user + modal edit user.
-- **ConditionPanel.vue** — modal warunku (`aria-labelledby="cond-modal-title"`).
-- **DrillDownDrawer.vue** (analytics) — drawer z `aria-labelledby="drill-drawer-title"`.
-- **ArchiveView.vue** — drill-drawer (`aria-labelledby="drill-title"`).
-
-### Inne a11y
-- `aria-hidden="true"` na ikonach dekoracyjnych (👤, 🔒, ⌕ w search-input-wrap).
-- `aria-current="page"` na span paginacji (aktualna strona).
-- `aria-pressed` na toggle hasła w LoginView.
-- `aria-label` na inputach bez widocznego labela (kod pocztowy/miasto dostawy, textarea uwagi dojazdowe, podkategorie select).
-- `role="status"` na badge dostępności artykułu w pos modal.
-
----
-
-## RAO-P3-071 Faza 5 — Skeleton loaders + polish (2026-07-05)
-
-### `components/TableSkeleton.vue` (nowy)
-- Props: `rows` (default 5), `cols` (default 4), `label` (a11y), `layout` ('block' | 'inline', default 'block').
-- Renderuje siatkę `rows` × `cols` animowanych placeholderów (animacja `pulse` z `assets/styles/animations.css`, kolory ze zmiennych CSS `--color-bg-light` / `--border-radius-sm`).
-- `layout='block'` — standalone blok (zastępuje `<div class="empty-state">Ładowanie...</div>`).
-- `layout='inline'` — do wstawienia w `<td colspan="N">` wewnątrz tabeli (bez paddingu).
-- A11y: `role="status"` + `aria-live="polite"` + `aria-label` + `sr-only` tekst; respektuje `prefers-reduced-motion`.
-
-### Wymiana "Ładowanie..." na `<TableSkeleton>`
-- **SettingsView** — drzewo kategorii (`activeTab='categories'`): `<TableSkeleton :rows="5" :cols="4" />` zamiast tekstu. (Fakturownia tab — form, pozostawiono tekst.)
-- **ArchiveView** — 3 tabele: Umowy (`:cols="8"`), Maszyny (`:cols="5"`), Kategorie (`:cols="4"`) — `<TableSkeleton ... layout="inline" />` w `<td colspan>`.
-- **AdminView** — restructured: tabela zawsze widoczna (header + `<TableSkeleton :rows="5" :cols="7" layout="inline" />` w `<td colspan="7">` podczas ładowania, wiersze użytkowników po załadowaniu, empty state gdy brak).
-- **DashboardView / HomeView / WorkerView** — NIE ruszane (już używają `SkeletonRow`).
-
-### View transitions (`App.vue`)
-- `<router-view>` opakowany w `<Transition name="fade" mode="out-in">` (przez `v-slot="{ Component }"` + `<component :is>`).
-- CSS `.fade-enter-active / .fade-leave-active / .fade-enter-from / .fade-leave-to` już zdefiniowane w `assets/styles/animations.css` (opacity 0.2s ease).
-
-### Toast z ikoną (`components/AppToast.vue`)
-- Ikony przed tekstem: ✓ success, ✕ error, ℹ info, ⚠ warning (Unicode, koło z kolorem typu). Już zaimplementowane — potwierdzone.
-
-### Glossary skrótów (tooltips)
-- `components/GlossaryTip.vue` — istniejący komponent (ikona `?` + tooltip, focus/hover/keyboard).
-- **ContractFormView**: `OID Fakturownia` → `<GlossaryTip term="OID" ...>`; `PNA` w panelu info → `<abbr title="Kod pocztowy (PNA)">`; `Produkt FA` → `<abbr title="Faktura (FA)">`; przycisk ZO → `title="Protokół zdania obiektu (ZO)"`.
-- **AnalyticsView**: nagłówek "Rozbicie na kody PNA" + `<th>PNA</th>` → `<abbr title="Kod pocztowy (PNA)">`.
-- **DashboardView**: `S/U` → `<GlossaryTip>` (już istniało).
-- **ArticleFormView**: `VAT/GTU/PKWiU (z FA)` → `<GlossaryTip term="FA" ...>` (już istniało).
-
----
-
-
 ## ConditionPanel — Auto-opis warunku (P3-006)
 
 W modalu dodawania warunku:
 - Przycisk `↻ auto` przy polu Opis generuje opis na podstawie: nazwa typu stawki, stawka 1 + jednostka, stawka 2, liczba okresów, minimum
 - Format: `"Typ stawki, 500.00 zł/doba, do 5 dób, min. 1"`
 - Watcher auto-wypełnia opis przy zmianach pól (tylko dla nowych warunków, nie dla edycji)
+
+---
+
+## RAO-P1-001 — Predefiniowane cenniki warunków rozliczenia maszyn (frontend)
+
+### 1. ArticleFormView — sekcja "Cenniki rozliczenia" (CRUD)
+
+**Lokalizacja:** `frontend/src/views/ArticleFormView.vue` + `frontend/src/components/articles/RatePresetSection.vue`
+
+**Widoczność:** Tylko w trybie edycji (`isEdit`) i gdy artykuł NIE jest usługą (`!form.is_service`). Sekcja pojawia się po sekcji "Rezerwacje maszyny".
+
+**Funkcjonalność:**
+- Lista cenników (presetów) dla tej maszyny z expand/collapse (wzorzec mirror z `fee-presets` w SettingsView)
+- Każdy cennik: nazwa, badge "Domyślny", liczba warunków, przyciski: ✎ edytuj nazwę, ★ ustaw jako domyślny, ▲▼ expand, ✕ usuń
+- Expand: tabela warunków (rate_type, rate1, rate2, billing_label, period_count, minimum, description) z inline edit + dodawanie wierszy
+- Modal "Nowy cennik": nazwa, opis, checkbox "domyślny", tabela warunków do jednorazowego dodania (multi-row)
+
+**Store:** `useSettingsStore` (`stores/settings.js`) — `fetchRatePresets`, `createRatePreset`, `updateRatePreset`, `deleteRatePreset`, `setDefaultRatePreset`, `addRatePresetItem`, `updateRatePresetItem`, `deleteRatePresetItem`
+
+**API:** `GET/POST /settings/articles/{article_id}/rate-presets`, `GET/PUT/DELETE/PATCH /settings/rate-presets/{preset_id}...` (patrz `02_backend_api.md`)
+
+**Snapshot principle:** Po zastosowaniu w umowie warunki są kopiowane (snapshot) — edycja cenniku NIE wpływa na istniejące umowy.
+
+### 2. ConditionPanel — "Zastosuj cennik" + "Z ostatniej umowy" (apply-preset + auto-prefill)
+
+**Lokalizacja:** `frontend/src/components/contracts/ConditionPanel.vue`
+
+**Nowe przyciski w nagłówku panelu warunków:**
+- **📋 Zastosuj cennik** — otwiera modal picker z listą cenników maszyny (z `articleId` prop). Pre-wybiera domyślny. Checkbox "Zastąp istniejące warunki" (default true). Apply = `POST /contracts/{cid}/positions/{pid}/conditions/apply-preset` (snapshot copy, guard 409 gdy umowa rozliczona)
+- **↻ Z ostatniej umowy** — auto-prefill z najnowszej umowy tej maszyny. `GET /articles/{article_id}/last-conditions` (404 gdy brak historii → toast info). Warunki są dopisywane (nie zastępują).
+
+**Nowy prop:** `articleId` (Number, opcjonalny) — przekazywany z `ContractFormView` przez computed `selectedPositionArticleId` (znajduje pozycję w `contractStore.positions` po `selectedPosId`).
+
+**Store:** `useContractStore` (`stores/contracts.js`) — `applyRatePreset(contractId, posId, presetId, replace)`, `fetchLastConditionsForArticle(articleId)`
+
+### 3. SettingsView — tab "Cenniki rozliczeń maszyn" (read-only overview)
+
+**Lokalizacja:** `frontend/src/views/SettingsView.vue`
+
+**Tab:** `machine-rate-presets` — label "Cenniki rozliczeń maszyn"
+
+**Funkcjonalność (read-only):**
+- Filtr tekstowy po nazwie maszyny
+- Lazy-load przy aktywacji taba (watch `activeTab`)
+- Pobiera wszystkie nie-usługi z `GET /articles?is_service=false&per_page=500`, następnie dla każdej `GET /settings/articles/{id}/rate-presets` (równolegle `Promise.all`)
+- Pokazuje tylko maszyny, które mają ≥1 cennik
+- Każda maszyna: card z nazwą, liczbą cenników, przycisk "Edytuj →" (deep-link do `/articles/{id}/edit`)
+- Cenniki wyświetlone z warunkami w tabeli (rate_type, rate1, rate2, billing_label, period_count, minimum)
+
+**Brak mutacji:** Tab jest read-only — edycja cenników odbywa się w `ArticleFormView`.
+
+---
 
 
 ## ConditionPanel — UX Pomoc dla warunków rozliczenia (RAO-P2-007)

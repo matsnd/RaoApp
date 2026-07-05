@@ -164,13 +164,22 @@ umowy — prawdopodobnie switch/if na `contract_type` wybierający literę).
 
 ```yaml
 id: P1-001
-status: review
+status: dev-verified
 priority: P1
 created: 2026-07-05
 reporter: operator (manual test 2026-07-05)
 component: backend/settings + backend/contracts + frontend/ConditionPanel + frontend/SettingsView
 severity: high
 size: M (cross-stack)
+done_date: 2026-07-05
+verification:
+  dev:
+    - "Backend: 12 endpointów (10 settings + apply-preset + last-conditions), 53 testy pass, commit 7909e0e"
+    - "Frontend: RatePresetSection.vue (CRUD w ArticleFormView), ConditionPanel apply-preset + auto-prefill, SettingsView overview tab"
+    - "vue-tsc --noEmit: PASS, npm run build: PASS (ArchiveView.vue pre-existing issue excluded)"
+    - "Snapshot principle: apply-preset kopiuje warunki (brak FK), edycja cenniku nie wpływa na istniejące umowy"
+    - "Guard 409: apply-preset na rozliczonej umowie (is_settled=true) → HTTPException 409"
+    - "Auto-prefill: GET /articles/{id}/last-conditions (404 gdy brak historii → toast info)"
 ```
 
 **Symptom:** Warunki rozliczenia maszyn (PositionCondition) trzeba wpisywać ręcznie

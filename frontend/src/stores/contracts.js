@@ -107,6 +107,23 @@ export const useContractStore = defineStore('contracts', () => {
     await api.delete(`/contracts/${contractId}/positions/${posId}/conditions/${condId}`)
   }
 
+  // RAO-P1-001: Apply predefiniowany cennik do pozycji (snapshot)
+  async function applyRatePreset(contractId, posId, presetId, replace = true) {
+    const { data } = await api.post(
+      `/contracts/${contractId}/positions/${posId}/conditions/apply-preset`,
+      { preset_id: presetId, replace }
+    )
+    return data
+  }
+
+  // RAO-P1-001: Auto-prefill — warunki z ostatniej umowy tej maszyny
+  // Zwraca { source_contract_number, source_contract_date, source_position_id, conditions[] }
+  // Rzuca błąd 404 gdy brak historii (axios throw)
+  async function fetchLastConditionsForArticle(articleId) {
+    const { data } = await api.get(`/articles/${articleId}/last-conditions`)
+    return data
+  }
+
   async function fetchServiceFees(contractId) {
     const { data } = await api.get(`/contracts/${contractId}/service-fees`)
     serviceFees.value = data
@@ -144,6 +161,7 @@ export const useContractStore = defineStore('contracts', () => {
     fetchList, fetchOne, create, update, remove,
     fetchPositions, createPosition, updatePosition, deletePosition,
     fetchConditions, createCondition, updateCondition, deleteCondition,
+    applyRatePreset, fetchLastConditionsForArticle,
     fetchServiceFees, generateReport,
   }
 })

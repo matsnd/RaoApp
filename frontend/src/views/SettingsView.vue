@@ -361,6 +361,73 @@
               </div>
             </div>
 
+            <!-- RAO-P1-001: Machine rate presets overview tab (read-only) -->
+            <div v-if="activeTab === 'machine-rate-presets'">
+              <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap;">
+                <div class="form-group" style="margin:0;flex:1;min-width:240px;">
+                  <label class="form-label">Filtruj po maszynie</label>
+                  <input v-model="machinePresetFilter" type="text" class="form-control" placeholder="Szukaj maszyny po nazwie…" />
+                </div>
+                <button class="btn btn-secondary btn-sm" @click="loadMachineRatePresets" :disabled="machinePresetsLoading">
+                  {{ machinePresetsLoading ? '...' : '↻ Odśwież' }}
+                </button>
+              </div>
+
+              <div v-if="machinePresetsLoading" class="empty-state">Ładowanie…</div>
+              <div v-else-if="!filteredMachinePresets.length" class="empty-state">
+                Brak cenników rozliczeń maszyn. Utwórz cennik w szczegółach maszyny.
+              </div>
+              <div v-else>
+                <div v-for="mp in filteredMachinePresets" :key="mp.article_id" class="preset-card">
+                  <div class="preset-header">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                      <span style="font-weight:600;font-size:14px;">{{ mp.article_name }}</span>
+                      <span style="font-size:11px;color:#5A6B7E;">({{ mp.presets.length }} cennik{{ mp.presets.length === 1 ? '' : 'ów' }})</span>
+                    </div>
+                    <button
+                      class="btn btn-secondary btn-sm"
+                      @click="goToArticle(mp.article_id)"
+                      title="Otwórz szczegóły maszyny"
+                    >Edytuj →</button>
+                  </div>
+                  <div class="preset-items">
+                    <div v-for="preset in mp.presets" :key="preset.id" style="margin-bottom:10px;">
+                      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                        <span style="font-weight:600;font-size:13px;">{{ preset.name }}</span>
+                        <span v-if="preset.is_default" class="badge badge-muted" style="font-size:10px;">Domyślny</span>
+                        <span style="font-size:11px;color:#5A6B7E;">({{ preset.items.length }} warunków)</span>
+                      </div>
+                      <table class="data-grid" style="font-size:12px;">
+                        <thead>
+                          <tr>
+                            <th>Typ stawki</th>
+                            <th>Stawka 1</th>
+                            <th>Stawka 2</th>
+                            <th>Jednostka</th>
+                            <th>Okresy</th>
+                            <th>Min.</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr v-for="item in preset.items" :key="item.id">
+                            <td>{{ rateTypeName(item.rate_type_id) }}</td>
+                            <td style="font-weight:600;">{{ item.rate1 ? formatCurrency(item.rate1) : '—' }}</td>
+                            <td>{{ item.rate2 ? formatCurrency(item.rate2) : '—' }}</td>
+                            <td>{{ item.billing_label || '—' }}</td>
+                            <td>{{ item.period_count || '—' }}</td>
+                            <td>{{ item.minimum || '—' }}</td>
+                          </tr>
+                          <tr v-if="!preset.items.length">
+                            <td colspan="6" style="text-align:center;color:#5A6B7E;padding:8px;">Brak warunków</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- Fakturownia tab -->
             <div v-if="activeTab === 'fakturownia'">
               <div v-if="fakturowniaStore.loading" class="empty-state">Ładowanie...</div>
@@ -482,6 +549,7 @@ const tabs = [
   { id: 'categories', label: 'Kategorie' },
   { id: 'rate-types', label: 'Typy stawek' },
   { id: 'fee-presets', label: 'Zestawy usług dodatkowych' },
+  { id: 'machine-rate-presets', label: 'Cenniki rozliczeń maszyn' },
   { id: 'fakturownia', label: 'Fakturownia' },
   { id: 'folder', label: 'Folder RAO' },
 ]
@@ -916,7 +984,63 @@ watch(activeTab, async (newTab) => {
   if (newTab === 'fakturownia') {
     await fetchFakturowniaSettings()
   }
+  // RAO-P1-001: lazy-load machine rate presets overview
+  if (newTab === 'machine-rate-presets' && !machinePresetsLoaded.value) {
+    await loadMachineRatePresets()
+  }
 })
+
+// --- RAO-P1-001: Machine rate presets overview (read-only) ---
+import { useRouter } from 'vue-router'
+const router = useRouter()
+const machinePresets = ref([])  // [{ article_id, article_name, presets: [...] }]
+const machinePresetsLoading = ref(false)
+const machinePresetsLoaded = ref(false)
+const machinePresetFilter = ref('')
+
+const filteredMachinePresets = computed(() => {
+  if (!machinePresetFilter.value) return machinePresets.value
+  const q = machinePresetFilter.value.toLowerCase()
+  return machinePresets.value.filter(mp => mp.article_name?.toLowerCase().includes(q))
+})
+
+function rateTypeName(id) {
+  if (!id) return '—'
+  return settingsStore.rateTypes.find(rt => rt.id === id)?.name || '—'
+}
+
+async function loadMachineRatePresets() {
+  machinePresetsLoading.value = true
+  try {
+    // Pobierz wszystkie maszyny (nie-usługi), następnie dla każdej pobierz cenniki.
+    // Optymalizacja: równoległe zapytania (limit ~20 jednoczesnych).
+    const { data: articles } = await api.get('/articles', { params: { is_service: false, per_page: 500 } })
+    const items = articles.items || []
+    const results = await Promise.all(
+      items
+        .filter(a => !a.is_service)
+        .map(async (a) => {
+          try {
+            const { data: presets } = await api.get(`/settings/articles/${a.id}/rate-presets`)
+            return { article_id: a.id, article_name: a.name, presets }
+          } catch {
+            return { article_id: a.id, article_name: a.name, presets: [] }
+          }
+        })
+    )
+    // Pokaż tylko maszyny, które mają co najmniej jeden cennik
+    machinePresets.value = results.filter(r => r.presets.length > 0)
+    machinePresetsLoaded.value = true
+  } catch (e) {
+    console.error('Błąd ładowania cenników maszyn:', e)
+  } finally {
+    machinePresetsLoading.value = false
+  }
+}
+
+function goToArticle(articleId) {
+  router.push(`/articles/${articleId}/edit`)
+}
 </script>
 
 <style scoped>

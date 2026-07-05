@@ -29,7 +29,15 @@
 
     <div class="cond-header">
       <span class="cond-title">Warunki rozliczenia</span>
-      <button class="btn btn-primary btn-sm" @click="addCondition">+ Dodaj warunek</button>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-secondary btn-sm" @click="openPresetPicker" :disabled="!articleId" title="Zastosuj predefiniowany cennik">
+          📋 Zastosuj cennik
+        </button>
+        <button class="btn btn-secondary btn-sm" @click="autoPrefillFromLast" :disabled="!articleId || autoPrefillLoading" title="Wypełnij z ostatniej umowy tej maszyny">
+          {{ autoPrefillLoading ? '...' : '↻ Z ostatniej umowy' }}
+        </button>
+        <button class="btn btn-primary btn-sm" @click="addCondition">+ Dodaj warunek</button>
+      </div>
     </div>
     <table class="data-grid" v-if="conditions.length">
       <thead>
@@ -137,6 +145,54 @@
         </div>
       </div>
     </Transition>
+
+    <!-- RAO-P1-001: Apply preset picker -->
+    <Transition name="modal">
+      <div v-if="showPresetPicker" class="modal-overlay" @click.self="showPresetPicker = false">
+        <div class="modal-box" style="min-width:560px;" role="dialog" aria-modal="true" aria-labelledby="preset-picker-title">
+          <div class="modal-title" id="preset-picker-title">Zastosuj cennik rozliczenia</div>
+          <p style="font-size:13px;color:var(--color-text-muted);margin:4px 0 12px;">
+            Warunki zostaną skopiowane (snapshot) do tej pozycji.
+            <label class="checkbox-group" style="display:flex;align-items:center;gap:6px;margin-top:8px;">
+              <input type="checkbox" v-model="applyReplace" />
+              <span>Zastąp istniejące warunki (odznacz = dopisz do istniejących)</span>
+            </label>
+          </p>
+          <div v-if="presetPickerLoading" class="empty-state">Ładowanie cenników…</div>
+          <div v-else-if="!availablePresets.length" class="empty-state">
+            Brak predefiniowanych cenników dla tej maszyny.
+            Utwórz cennik w szczegółach maszyny (zakładka „Cenniki rozliczenia”).
+          </div>
+          <div v-else style="max-height:360px;overflow:auto;">
+            <div
+              v-for="preset in availablePresets"
+              :key="preset.id"
+              class="preset-pick-row"
+              :class="{ selected: selectedPresetId === preset.id }"
+              @click="selectedPresetId = preset.id"
+              @dblclick="applySelectedPreset()"
+            >
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-weight:600;">{{ preset.name }}</span>
+                <span v-if="preset.is_default" class="badge badge-muted" style="font-size:10px;">Domyślny</span>
+                <span style="font-size:11px;color:#5A6B7E;">({{ preset.items.length }} warunków)</span>
+              </div>
+              <div v-if="preset.description" style="font-size:11px;color:#5A6B7E;margin-top:2px;">{{ preset.description }}</div>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-secondary btn-sm" @click="showPresetPicker = false">Anuluj</button>
+            <button
+              class="btn btn-primary btn-sm"
+              @click="applySelectedPreset"
+              :disabled="!selectedPresetId || applyingPreset"
+            >
+              {{ applyingPreset ? '...' : 'Zastosuj' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -146,10 +202,12 @@ import { useContractStore } from '@/stores/contracts'
 import { useSettingsStore } from '@/stores/settings'
 import { useToastStore } from '@/stores/toast'
 import { formatCurrency } from '@/utils/format'
+import api from '@/composables/useApi'
 
 const props = defineProps({
   contractId: { type: Number, required: true },
   positionId: { type: Number, required: true },
+  articleId: { type: Number, default: null },  // RAO-P1-001: do apply-preset + auto-prefill
 })
 
 const emit = defineEmits(['value-changed'])
@@ -319,6 +377,96 @@ function formatCascadingPreview() {
 
 watch(() => props.positionId, loadConditions, { immediate: true })
 
+// --- RAO-P1-001: Apply preset + auto-prefill ---
+const showPresetPicker = ref(false)
+const presetPickerLoading = ref(false)
+const availablePresets = ref([])
+const selectedPresetId = ref(null)
+const applyReplace = ref(true)
+const applyingPreset = ref(false)
+const autoPrefillLoading = ref(false)
+
+async function openPresetPicker() {
+  if (!props.articleId) {
+    toastStore.warning('Pozycja nie ma przypisanej maszyny')
+    return
+  }
+  showPresetPicker.value = true
+  selectedPresetId.value = null
+  presetPickerLoading.value = true
+  try {
+    const { data } = await api.get(`/settings/articles/${props.articleId}/rate-presets`)
+    availablePresets.value = data
+    // Pre-wybierz domyślny
+    const def = data.find(p => p.is_default)
+    if (def) selectedPresetId.value = def.id
+  } catch (e) {
+    const err = e as { response?: { data?: { detail?: string } } }
+    toastStore.error(err?.response?.data?.detail || 'Błąd pobierania cenników')
+  } finally {
+    presetPickerLoading.value = false
+  }
+}
+
+async function applySelectedPreset() {
+  if (!selectedPresetId.value) return
+  applyingPreset.value = true
+  try {
+    const result = await contractStore.applyRatePreset(
+      props.contractId,
+      props.positionId,
+      selectedPresetId.value,
+      applyReplace.value
+    )
+    toastStore.success(`Zastosowano cennik (${result.applied_count} warunków)`)
+    showPresetPicker.value = false
+    await loadConditions()
+  } catch (e) {
+    const err = e as { response?: { data?: { detail?: string } } }
+    toastStore.error(err?.response?.data?.detail || 'Błąd zastosowania cennika')
+  } finally {
+    applyingPreset.value = false
+  }
+}
+
+async function autoPrefillFromLast() {
+  if (!props.articleId) {
+    toastStore.warning('Pozycja nie ma przypisanej maszyny')
+    return
+  }
+  autoPrefillLoading.value = true
+  try {
+    const data = await contractStore.fetchLastConditionsForArticle(props.articleId)
+    if (!data?.conditions?.length) {
+      toastStore.info('Brak warunków w ostatniej umowie tej maszyny')
+      return
+    }
+    // Skopiuj warunki jako nowe PositionCondition (dopisz, nie zastępuj)
+    for (const cond of data.conditions) {
+      await contractStore.createCondition(props.contractId, props.positionId, {
+        rate_type_id: cond.rate_type_id,
+        description: cond.description || null,
+        rate1: cond.rate1,
+        rate2: cond.rate2,
+        billing_label: cond.billing_label || null,
+        period_count: cond.period_count,
+        minimum: cond.minimum,
+      })
+    }
+    toastStore.success(`Wypełniono z umowy ${data.source_contract_number} (${data.conditions.length} warunków)`)
+    await loadConditions()
+  } catch (e) {
+    const err = e as { response?: { data?: { detail?: string } } }
+    if (err?.response?.status === 404) {
+      toastStore.info('Brak historii umów dla tej maszyny')
+    } else {
+      toastStore.error(err?.response?.data?.detail || 'Błąd pobierania ostatnich warunków')
+    }
+  } finally {
+    autoPrefillLoading.value = false
+  }
+}
+
 defineExpose({ loadConditions, calculatedValue })
 </script>
 
@@ -448,5 +596,29 @@ defineExpose({ loadConditions, calculatedValue })
   white-space: pre-wrap;
   color: #2D3748;
   min-height: 40px;
+}
+
+/* RAO-P1-001: preset picker rows */
+.preset-pick-row {
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: all 150ms;
+}
+.preset-pick-row:hover {
+  background: #F7FAFC;
+  border-color: var(--color-primary);
+}
+.preset-pick-row.selected {
+  background: #EBF4FF;
+  border-color: var(--color-primary);
+}
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
 }
 </style>

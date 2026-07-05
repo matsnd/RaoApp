@@ -253,6 +253,7 @@
             v-if="selectedPosId && isEdit"
             :contract-id="Number(props.id)"
             :position-id="selectedPosId"
+            :article-id="selectedPositionArticleId"
             @value-changed="onConditionValueChanged"
           />
 
@@ -1019,6 +1020,12 @@ const loading = ref(false)
 const saving = ref(false)
 const errorMsg = ref('')
 const selectedPosId = ref(null)
+// RAO-P1-001: article_id wybranej pozycji — przekazywane do ConditionPanel (apply-preset + auto-prefill)
+const selectedPositionArticleId = computed(() => {
+  if (!selectedPosId.value) return null
+  const pos = contractStore.positions.find(p => p.id === selectedPosId.value)
+  return pos?.article_id ?? null
+})
 
 const form = ref({
   contractor_id: null, branch_id: null, salesperson_id: null,
@@ -1272,19 +1279,6 @@ interface ConflictingContract {
   date_from: string | null
   date_to: string | null
 }
-// RAO-P2-066: konflikt z rezerwacją maszyny (article_reservations)
-interface ConflictingReservation {
-  reservation_id: number
-  reserved_from: string
-  reserved_to: string
-  note: string | null
-  available_from: string | null
-}
-interface AvailabilityResponse {
-  is_available: boolean
-  conflicting_contracts: ConflictingContract[]
-  conflicting_reservations: ConflictingReservation[]
-}
 interface ArticlePickerItem {
   id: number
   name: string
@@ -1293,8 +1287,6 @@ interface ArticlePickerItem {
 }
 const showConflictModal = ref(false)
 const conflictList = ref<ConflictingContract[]>([])
-// RAO-P2-066: konflikty z rezerwacjami (osobna lista, renderowana w modalu)
-const reservationConflictList = ref<ConflictingReservation[]>([])
 const pendingArticle = ref<ArticlePickerItem | null>(null)
 
 const supplierName = ref('')
@@ -1856,8 +1848,8 @@ async function searchArticles() {
   if (artTimer) clearTimeout(artTimer)
   artTimer = setTimeout(async () => {
     const { data } = await api.get('/articles', { params: { search: articlePickerSearch.value, per_page: 50, is_service: form.value.contract_type === 'U' ? true : false } })
-    articlePickerList.value = data.items.map(a => ({ ...a, _avail: null as AvailabilityResponse | null }))
-    // Check availability (parallel) — RAO-P1-023 + RAO-P2-066 (z rezerwacjami)
+    articlePickerList.value = data.items.map(a => ({ ...a, _avail: null }))
+    // Check availability (parallel) — RAO-P1-023
     const excludeId = isEdit.value ? Number(props.id) : null
     await Promise.all(
       articlePickerList.value
@@ -1865,7 +1857,7 @@ async function searchArticles() {
         .map(async a => {
           if (form.value.date_from && form.value.date_to) {
             await articleStore.checkAvailability(a.id, form.value.date_from, form.value.date_to, excludeId)
-              .then(av => { a._avail = av as AvailabilityResponse })
+              .then(av => { a._avail = av.is_available })
               .catch(() => { a._avail = null })
           }
         })
