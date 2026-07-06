@@ -181,3 +181,8 @@ _fix_*
 
 # Probe scripts
 /_probe.sh
+
+# MCP test files (zawieraly hardcoded API keys — NIGDY nie commitowac)
+/mcp-vision/_test*.cjs
+/mcp-vision/_test*.js
+/mcp-vision/_test*.mjs
