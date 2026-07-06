@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import ContractorCombobox from './ContractorCombobox.vue'
 
 export type ArticleTypeFilter = 'all' | 'machine' | 'service'
 
@@ -153,18 +154,15 @@ function clearFilters(): void {
       </select>
     </div>
 
-    <!-- RAO-P2-065 #5: Kontrahent — <select> (nazwa, nie ID) + walidacja + empty state -->
+    <!-- RAO-P0-004: Kontrahent — combobox (input + dropdown z filtrowaniem) -->
     <div class="af-group">
       <span class="af-label">Kontrahent:</span>
-      <select
-        class="af-input af-select"
-        :value="selectedContractorId"
+      <ContractorCombobox
+        :model-value="modelValue.contractorId"
+        :contractors="contractors"
         data-testid="filter-contractor"
-        @change="selectedContractorId = ($event.target as HTMLSelectElement).value"
-      >
-        <option value="">Wszyscy</option>
-        <option v-for="c in contractors" :key="c.id" :value="c.id">{{ c.name }}</option>
-      </select>
+        @update:model-value="patch({ contractorId: $event })"
+      />
       <span
         v-if="contractorNotFound"
         class="af-contractor-warn"
@@ -303,6 +301,9 @@ function clearFilters(): void {
   transition: background var(--transition-fast);
 }
 .af-clear:hover {
+  background: var(--color-bg-light);
+}
+</style>
   background: var(--color-bg-light);
 }
 </style>

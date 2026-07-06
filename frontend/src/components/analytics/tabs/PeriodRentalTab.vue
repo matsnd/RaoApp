@@ -180,11 +180,8 @@ const kpiCards = computed<KpiCard[]>(() => {
 })
 
 function onMachineRowClick(row: AnalyticsRow): void {
-  // RAO Faza 2a (opcja E): bucket "Inne (niezmapowane z FA)" ma article_id=null
-  // — nie otwieraj drill-down dla syntetycznego wiersza.
-  if (row.article_id === null || row.article_id === undefined) return
   const id = Number(row.article_id)
-  if (!Number.isFinite(id) || id <= 0) return
+  if (!Number.isFinite(id)) return
   // RAO-P2-065 #7: przekaż internal_number, by tytuł drawera zawierał nr wewnętrzny.
   const internalNumber = row.internal_number ? String(row.internal_number) : null
   openDrillDown('machine', id, String(row.name), internalNumber)

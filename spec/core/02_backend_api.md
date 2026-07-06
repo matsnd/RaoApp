@@ -1081,6 +1081,11 @@ class ServiceFeeTemplateReorder(BaseModel):
 ### `POST /settlements`
 ### `PUT /settlements/{settlement_id}`
 ### `DELETE /settlements/{settlement_id}`
+### `DELETE /settlements/contract/{contract_id}/all` - P0-013
+- Auth: Bearer JWT (operator)
+- Bulk DELETE wszystkich wpisów `contract_settlements` dla `contract_id`
+- Response 200: `{"message": "Usunięto N rozliczeń", "deleted_count": N}`
+- Idempotentny: brak wpisów → `deleted_count: 0`, status 200
 ### `POST /settlements/contract/{contract_id}/init` - RAO-P1-012
 ### `POST /settlements/contract/{contract_id}/init-from-fakturownia` - RAO-P2-012
 

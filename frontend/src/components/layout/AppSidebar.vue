@@ -28,12 +28,10 @@
       <button
         :class="['sidebar-btn', { active: activeSection === 'analytics' }]"
         @click="$emit('navigate', 'analytics')"
-        aria-label="Statystyki"
       >📊 Statystyki</button>
       <button
         :class="['sidebar-btn', { active: activeSection === 'commissions' }]"
         @click="$emit('navigate', 'commissions')"
-        aria-label="Prowizje"
       >Prowizje</button>
     </div>
     <!-- Wyraźny separator — Archiwum jako osobny dział (szacunkowe) -->
@@ -43,7 +41,6 @@
       <button
         :class="['sidebar-btn', 'sidebar-btn-archive', { active: activeSection === 'archive' }]"
         @click="$emit('navigate', 'archive')"
-        aria-label="Archiwum"
       >📦 Archiwum</button>
     </div>
     <!-- Ustawienia / Admin / Konto -->
@@ -118,7 +115,7 @@ onMounted(async () => {
   padding: 4px 0;
 }
 .sidebar-archive-label {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.08em;
   color: rgba(245, 158, 11, 0.85);

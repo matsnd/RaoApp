@@ -237,3 +237,4 @@ function sortIcon(col: AnalyticsColumn): string {
   50% { opacity: 0.5; }
 }
 </style>
+</style>

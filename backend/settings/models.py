@@ -118,3 +118,54 @@ class Branch(Base):
     city = Column(String(100), nullable=True)
     street = Column(String(100), nullable=True)
     created_at = Column(DateTime, nullable=True, server_default=func.current_timestamp())
+
+
+class ArticleRatePreset(Base):
+    """RAO-P1-001: Predefiniowany cennik rozliczenia dla konkretnej maszyny.
+
+    Scope: per-article (article_id NOT NULL). Jedna maszyna może mieć wiele
+    presetów (np. "Standard", "Promo Q1", "Długoterminowy"), z czego jeden
+    is_default. Po zastosowaniu w umowie warunki są kopiowane (snapshot) do
+    position_conditions — edycja cennika NIE wpływa na istniejące umowy.
+    """
+    __tablename__ = "article_rate_presets"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    company_id = Column(Integer, ForeignKey("company.id"), nullable=False, default=1)
+    article_id = Column(Integer, ForeignKey("articles.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = Column(String(200), nullable=False)
+    description = Column(String(400), nullable=True)
+    is_default = Column(Boolean, nullable=False, default=False)
+    sort_order = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, nullable=False, server_default=func.current_timestamp())
+    updated_at = Column(DateTime, nullable=True)
+
+    items = relationship(
+        "ArticleRatePresetItem",
+        back_populates="preset",
+        cascade="all, delete-orphan",
+        order_by="ArticleRatePresetItem.sort_order",
+    )
+    article = relationship("Article", lazy="selectin")
+
+
+class ArticleRatePresetItem(Base):
+    """RAO-P1-001: Pojedynczy warunek (prog) w presercie — 1:1 z PositionCondition.
+
+    Identyczne pola jak PositionCondition (rate_type_id, rate1, rate2,
+    billing_label, period_count, minimum) — apply = bulk copy do position_conditions.
+    """
+    __tablename__ = "article_rate_preset_items"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    preset_id = Column(Integer, ForeignKey("article_rate_presets.id", ondelete="CASCADE"), nullable=False, index=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    rate_type_id = Column(Integer, ForeignKey("rate_types.id", ondelete="SET NULL"), nullable=True)
+    description = Column(String(400), nullable=True)
+    rate1 = Column(Numeric(18, 2), nullable=True)
+    rate2 = Column(Numeric(18, 2), nullable=True)
+    billing_label = Column(String(20), nullable=True)
+    period_count = Column(Integer, nullable=True)
+    minimum = Column(Integer, nullable=True)
+
+    preset = relationship("ArticleRatePreset", back_populates="items")

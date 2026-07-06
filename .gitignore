@@ -76,3 +76,108 @@ backup_*.sql
 .devin/_evidence/
 _commit*
 _fix_*
+
+# --- RAO repo cleanup (2026-07-06) ---
+# Accidental top-level files (draft commit messages, smoke scripts, scratch)
+/.dev
+/_
+# Truncated-filename duplicates from PowerShell tab-completion (bez rozszerzenia)
+.devin/agents/exec
+.devin/agents/exec-m
+.devin/agents/m
+.devin/agents/mcp
+.devin/agents/minimal
+.devin/agents/minimal-m
+.devin/agents/minimal-mcp
+.devin/agents/*/AGENT.md.bak
+.devin/agents/*-test/
+.devin/audit
+.devin/audit_filters
+.devin/audit_filters_final
+.devin/audit_filters_final_report
+.devin/support
+.devin/support_ticket
+.devin/support_ticket_m
+.devin/support_ticket_mcp
+.devin/support_ticket_mcp_sub
+.devin/support_ticket_mcp_subagents/
+.devin/workflows/so.md
+.devin/_
+
+# Temp / debug / scratch files (underscore prefix) — root
+/_*
+# Temp / debug / scratch files — backend
+/backend/_*
+# Temp pytest output
+/backend/pytest_out.txt
+/backend/_pytest_*.txt
+/backend/tests/unit/test
+
+# Truncated-filename duplicates (no extension) — e2e/tests
+/e2e/tests/06
+/e2e/tests/06-analytics
+/e2e/tests/06-analytics.spec
+/e2e/tests/13
+/e2e/tests/13-archive
+/e2e/tests/13-archive.spec
+/e2e/tests/14
+/e2e/tests/14-worker
+/e2e/tests/14-worker.spec
+/e2e/tests/15
+/e2e/tests/15-com
+/e2e/tests/15-commission
+/e2e/tests/15-commission.spec
+/e2e/tests/16
+/e2e/tests/16-admin
+/e2e/tests/16-admin.spec
+/e2e/tests/17
+/e2e/tests/17-home
+/e2e/tests/17-home.spec
+/e2e/tests/18
+/e2e/tests/18-reset
+/e2e/tests/18-reset-password
+/e2e/tests/18-reset-password.spec
+/e2e/tests/19
+/e2e/tests/19-stats
+/e2e/tests/19-stats-api
+/e2e/tests/19-stats-api.spec
+/e2e/tests/20
+/e2e/tests/20-res
+/e2e/tests/20-reservations
+/e2e/tests/20-reservations.spec
+# Temp playwright specs
+/e2e/tests/tmp_*.spec.ts
+
+# Truncated-filename duplicates — frontend
+/frontend/src/components/an
+/frontend/src/components/analytics/Contract
+/frontend/src/components/analytics/Contractor
+/frontend/src/components/analytics/ContractorComb
+/frontend/src/components/analytics/ContractorCombobox
+/frontend/src/views/Commission
+/frontend/src/views/CommissionView
+
+# Truncated-filename duplicates — spec
+/spec/back
+/spec/backlog/BACK
+/spec/backlog/BACKLOG
+/spec/backlog/DEC
+/spec/backlog/DECISION
+/spec/backlog/DECISION_LOG
+/spec/process/TEST
+/spec/process/TEST_MATRIX
+/spec/process/TEST_PLAN
+
+# E2E artifacts — regenerowane przez Playwright, nie w repo
+/e2e/e2e/artifacts/
+/e2e/e2e/screenshots/
+/e2e/screenshots/
+/e2e/playwright-report/
+/e2e/test-results/
+
+# FA / invoice scratch exports
+/_fa_*
+/backend/_fa_*
+
+# Probe scripts
+/_probe.sh

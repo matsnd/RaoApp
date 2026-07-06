@@ -158,14 +158,18 @@
 <div class="uz-wrap">
   <div class="uz-label">uzupełnij</div>
   <table class="uz">
+    {% if contract.show_person1 %}
     <tr>
       <td style="width:130px;">reprezentowany przez:</td>
-      <td><div class="fill">{% if contract.show_person1 %}{{ contract.contact_person1 or '' }}{% endif %}</div></td>
+      <td><div class="fill">{{ contract.contact_person1 or '' }}</div></td>
     </tr>
+    {% endif %}
+    {% if contract.show_person2 %}
     <tr>
       <td>osoba kontaktowa:</td>
-      <td><div class="fill">{% if contract.show_person2 %}{{ contract.contact_person2 or '' }}{% endif %}</div></td>
+      <td><div class="fill">{{ contract.contact_person2 or '' }}</div></td>
     </tr>
+    {% endif %}
     <tr>
       <td>na budowie:</td>
       <td><div class="fill-wide"></div></td>

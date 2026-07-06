@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from .models import ContractSettlement
 from .schemas import ContractSettlementCreate, ContractSettlementUpdate, ContractSettlementResponse
 
@@ -69,6 +69,19 @@ class SettlementService:
         await db.delete(settlement)
         await db.commit()
         return True
+
+    async def clear_settlements_by_contract(self, db: AsyncSession, contract_id: int) -> int:
+        """P0-013: Usuń wszystkie rozliczenia dla umowy.
+
+        Bulk DELETE (bez SELECT + pętli) — zwraca liczbę usuniętych rekordów.
+        """
+        result = await db.execute(
+            delete(ContractSettlement).where(
+                ContractSettlement.contract_id == contract_id
+            )
+        )
+        await db.commit()
+        return result.rowcount or 0
 
     async def auto_create_settlements_for_contract(
         self, db: AsyncSession, contract_id: int, position_ids: list[int]

@@ -1,11 +1,3 @@
-> ## ⚠️ AKTUALIZACJA 2026-07 — nowy podział konfiguracji
->
-> 1. **`config.json`** — commitowalny, BEZ sekretów: `sequential-thinking`, `memory`, `playwright` + `permissions.allow` z matcherami `mcp__serwer__*`.
-> 2. **`config.local.json`** (gitignored) — WSZYSTKIE serwery z kluczami: `rao-vision`, `brave-search`, `github`.
-> 3. Serwery `codebase-memory`, `depwire`, `mariadb` NIE są zdefiniowane w tym katalogu — jeśli działają, są w konfiguracji user-level (`%APPDATA%\devin\config.json`). Jeśli mają być per-projekt, dopisz je do `config.json`.
-> 4. Składnia uprawnień MCP: `mcp__serwer__narzędzie`, `mcp__serwer__*`, `mcp__*` — NIE `MCP(nazwa)`, NIE `mcp_call_tool`.
-> 5. Przykłady poniżej mogą pokazywać STARY układ (sekrety w config.json) — traktuj je jako historyczne.
-
 # Devin MCP Configuration — RAO
 
 Konfiguracja serwerów MCP dla Devina, dopasowana do tego co Cascade ma w Windsurf, plus custom `rao-vision` dla analizy screenshotów przez Claude Vision API.
@@ -375,7 +367,11 @@ codebase-memory-mcp install  # auto-detekcja agentów (Claude-Code, Gemini-CLI, 
 
 **Reindeksacja (po dużych zmianach):**
 ```python
-mcp__codebase-memory__index_repository({"mode": "fast", "repo_path": "C:/projects/repos/RaoApp_new"})
+mcp_call_tool(
+    server_name="codebase-memory",
+    tool_name="index_repository",
+    arguments={"mode": "fast", "repo_path": "C:/projects/repos/RaoApp_new"}
+)
 ```
 
 ---

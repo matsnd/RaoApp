@@ -1,5 +1,5 @@
 <template>
-  <div style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
+  <div style="display:flex;flex-direction:column;height:100vh;overflow:hidden;">
     <div class="toolbar">
       <button class="toolbar-btn" @click="goBack">←</button>
       <span class="toolbar-info">{{ isEdit ? (contractStore.current?.number ? `Umowa: ${contractStore.current.number}` : 'Ładowanie...') : 'Nowa umowa' }}</span>
@@ -113,12 +113,13 @@
             <div class="form-group">
               <label class="form-label">Oddział</label>
               <select v-model="form.branch_id" class="form-control">
+                <option :value="null">— brak —</option>
                 <option v-for="b in settingsStore.branches" :key="b.id" :value="b.id">{{ b.name }}</option>
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label">Faktura (zł)</label>
-              <input :value="fakturowniaTotalFormatted" type="text" class="form-control" disabled style="font-weight:700;" />
+              <label class="form-label" title="Wartość z rozliczenia (suma kosztów klienta z zakładki Rozliczenie)">Wartość z rozliczenia (zł)</label>
+              <input :value="settlementTotalFormatted" type="text" class="form-control" disabled style="font-weight:700;" />
             </div>
             <div class="form-group">
               <label class="form-label">Pozostało (zł)</label>
@@ -126,14 +127,22 @@
             </div>
           </div>
 
-          <div class="form-row-2">
+          <div class="form-row-4">
             <div class="form-group">
               <label class="form-label">Przedpłata (zł)</label>
               <input v-model="form.prepayment_amount" type="number" step="0.01" class="form-control" />
             </div>
             <div class="form-group">
+              <label class="form-label">Dok. przedpłaty</label>
+              <input v-model="form.prepayment_document" type="text" class="form-control" />
+            </div>
+            <div class="form-group">
               <label class="form-label">Faktura (zł)</label>
               <input v-model="form.invoice_amount" type="number" step="0.01" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Dok. faktury</label>
+              <input v-model="form.invoice_document" type="text" class="form-control" />
             </div>
           </div>
         </div>
@@ -244,8 +253,13 @@
             v-if="selectedPosId && isEdit"
             :contract-id="Number(props.id)"
             :position-id="selectedPosId"
-            :article-id="selectedPositionArticleId"
             @value-changed="onConditionValueChanged"
+          />
+
+          <!-- Service hours for service contracts (type U) -->
+          <ServiceHourGrid
+            v-if="selectedPosId && isEdit && form.contract_type === 'U'"
+            :position-id="selectedPosId"
           />
 
           <!-- Service fees section -->
@@ -371,7 +385,7 @@
             <div v-else>
               <div v-for="inv in fakturowniaStore.invoices" :key="inv.invoice_number" style="margin-bottom:12px;background:white;padding:8px;border-radius:4px;border:1px solid #e2e8f0;">
                 <div style="font-weight:600;font-size:12px;color:#2d3748;margin-bottom:4px;">
-                  Faktura {{ inv.invoice_number }} — Netto: {{ Number(inv.total_net || 0).toFixed(2) }} zł
+                  Faktura {{ inv.invoice_number }} — Netto: {{ Number(inv.total_net).toFixed(2) }} zł
                 </div>
                 <table style="width:100%;font-size:11px;border-collapse:collapse;">
                   <thead>
@@ -383,11 +397,11 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="line in inv.lines" :key="line.funkurownia_product_id" style="border-bottom:1px solid #edf2f7;">
-                      <td style="padding:4px;">{{ line.funkurownia_product_name }}</td>
+                    <tr v-for="line in inv.lines" :key="line.fakturownia_product_id" style="border-bottom:1px solid #edf2f7;">
+                      <td style="padding:4px;">{{ line.fakturownia_product_name }}</td>
                       <td style="text-align:right;padding:4px;">{{ line.quantity }}</td>
-                      <td style="text-align:right;padding:4px;">{{ Number(line.price_net || 0).toFixed(2) }} zł</td>
-                      <td style="text-align:right;padding:4px;">{{ Number(line.total_net || 0).toFixed(2) }} zł</td>
+                      <td style="text-align:right;padding:4px;">{{ Number(line.price_net).toFixed(2) }} zł</td>
+                      <td style="text-align:right;padding:4px;">{{ Number(line.total_net).toFixed(2) }} zł</td>
                     </tr>
                   </tbody>
                 </table>
@@ -403,11 +417,12 @@
                 <th style="width:15%;">Koszt firmy (zł)</th>
                 <th style="width:12%;">Marża (zł)</th>
                 <th>Uwagi</th>
+                <th style="width:8%;">Akcja</th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="!settlements.length">
-                <td colspan="5" class="empty-state">
+                <td colspan="6" class="empty-state">
                   <div style="padding: 20px; text-align: center;">
                     <div style="margin-bottom: 12px;">Brak danych rozliczenia — wybierz źródło:</div>
                     <div style="display:flex;gap:10px;justify-content:center;">
@@ -431,7 +446,7 @@
                 </td>
               </tr>
               <tr v-if="settlements.length">
-                <td colspan="5" style="padding: 8px; text-align: center;">
+                <td colspan="6" style="padding: 8px; text-align: center;">
                   <button
                     class="btn btn-xs btn-secondary"
                     @click="initSettlements"
@@ -439,33 +454,34 @@
                   >
                     {{ initializingSettlements ? '...' : '🔄 Odśwież z umowy' }}
                   </button>
+                  <button
+                    class="btn btn-xs btn-danger"
+                    @click="clearAllSettlements"
+                    :disabled="clearingSettlements"
+                    style="margin-left: 8px;"
+                  >
+                    {{ clearingSettlements ? '...' : '🗑 Wyczyść wszystkie' }}
+                  </button>
                 </td>
               </tr>
               <tr v-for="s in settlements" :key="s.id">
+                <td>{{ getSettlementLabel(s) }}</td>
                 <td>
-                  <span :title="settlementTooltip(s)">{{ getSettlementLabel(s) }}</span>
-                  <span
-                    v-if="s.source === 'fa_unmapped'"
-                    class="badge-unmapped"
-                    title="Pozycja z Fakturownia nie została zmapowana na pozycję umowy. Przypisz artykuł w ustawieniach FA, aby rozliczać automatycznie."
-                  >⚠ Niezmapowane</span>
-                </td>
-                <td>
-                  <input 
-                    v-model.number="s.cost_client" 
-                    type="number" 
-                    step="0.01" 
-                    class="form-control form-control-xs" 
+                  <input
+                    v-model.number="s.cost_client"
+                    type="number"
+                    step="0.01"
+                    class="form-control form-control-xs"
                     @change="updateSettlement(s)"
                     placeholder="0.00"
                   />
                 </td>
                 <td>
-                  <input 
-                    v-model.number="s.cost_company" 
-                    type="number" 
-                    step="0.01" 
-                    class="form-control form-control-xs" 
+                  <input
+                    v-model.number="s.cost_company"
+                    type="number"
+                    step="0.01"
+                    class="form-control form-control-xs"
                     @change="updateSettlement(s)"
                     placeholder="0.00"
                   />
@@ -476,13 +492,22 @@
                   </span>
                 </td>
                 <td>
-                  <input 
-                    v-model="s.notes" 
-                    type="text" 
-                    class="form-control form-control-xs" 
+                  <input
+                    v-model="s.notes"
+                    type="text"
+                    class="form-control form-control-xs"
                     @change="updateSettlement(s)"
                     placeholder="Uwagi..."
                   />
+                </td>
+                <td style="text-align:center;">
+                  <button
+                    class="btn btn-xs btn-danger"
+                    @click="deleteSettlement(s)"
+                    title="Usuń pozycję rozliczenia"
+                  >
+                    🗑
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -994,6 +1019,7 @@ import { useArticleStore } from '@/stores/articles'
 import { useSettingsStore } from '@/stores/settings'
 import { useFakturowniaStore } from '@/stores/fakturownia'
 import ConditionPanel from '@/components/contracts/ConditionPanel.vue'
+import ServiceHourGrid from '@/components/contracts/ServiceHourGrid.vue'
 import ContractPeriodPicker from '@/components/shared/ContractPeriodPicker.vue'
 import api from '@/composables/useApi'
 
@@ -1011,20 +1037,13 @@ const loading = ref(false)
 const saving = ref(false)
 const errorMsg = ref('')
 const selectedPosId = ref(null)
-// RAO-P1-001: article_id wybranej pozycji — przekazywane do ConditionPanel (apply-preset + auto-prefill)
-const selectedPositionArticleId = computed(() => {
-  if (!selectedPosId.value) return null
-  const pos = contractStore.positions.find(p => p.id === selectedPosId.value)
-  return pos?.article_id ?? null
-})
 
 const form = ref({
   contractor_id: null, branch_id: null, salesperson_id: null,
   contract_type: 'S', oid: null, delivery_address: '', postal_code: '', city: '', latitude: null, longitude: null, date_from: '', date_to: '',
   // RAO-P1-021/P2-033: total_value usunięte (martwe pole)
-  // RAO-P0-006: prepayment_document/invoice_document usunięte z UI (nie trafiają do PDF)
-  prepayment_amount: 0,
-  invoice_amount: 0, notes: '',
+  prepayment_amount: 0, prepayment_document: '',
+  invoice_amount: 0, invoice_document: '', notes: '',
   contact_person1: '', contact_phone1: '', show_person1: true,
   contact_person2: '', contact_phone2: '', show_person2: true,
   email: '', phone: '', contractor_name: '', working_days_per_week: 6, report_without_data: false, hide_delivery_address: false, signatures_on_page1: false,
@@ -1038,19 +1057,17 @@ const settlementTotalValue = computed(() => {
   return settlements.value.reduce((sum, s) => sum + (Number(s.cost_client) || 0), 0)
 })
 
-const fakturowniaTotalFormatted = computed(() => {
-  if (!fakturowniaStore.invoices.length) return '0.00 zł'
-  const total = fakturowniaStore.invoices.reduce((sum, inv) => sum + Number(inv.total_net || 0), 0)
-  return total.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' zł'
+const settlementTotalFormatted = computed(() => {
+  if (!settlements.value.length) return '— rozlicz umowę'
+  return settlementTotalValue.value.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' zł'
 })
 
 const remainingValue = computed(() => {
-  // RAO-P1-010: Faktura (Fakturownia) - Przedpłata
-  const total = fakturowniaStore.invoices.length
-    ? fakturowniaStore.invoices.reduce((sum, inv) => sum + Number(inv.total_net || 0), 0)
-    : 0
+  // RAO-P1-021/P2-033: użyj wartości z rozliczenia (total_value usunięte)
+  const total = settlements.value.length ? settlementTotalValue.value : 0
   const pre = Number(form.value.prepayment_amount) || 0
-  const remaining = total - pre
+  const inv = Number(form.value.invoice_amount) || 0
+  const remaining = total - pre - inv
   return remaining.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' zł'
 })
 
@@ -1273,6 +1290,19 @@ interface ConflictingContract {
   date_from: string | null
   date_to: string | null
 }
+// RAO-P2-066: konflikt z rezerwacją maszyny (article_reservations)
+interface ConflictingReservation {
+  reservation_id: number
+  reserved_from: string
+  reserved_to: string
+  note: string | null
+  available_from: string | null
+}
+interface AvailabilityResponse {
+  is_available: boolean
+  conflicting_contracts: ConflictingContract[]
+  conflicting_reservations: ConflictingReservation[]
+}
 interface ArticlePickerItem {
   id: number
   name: string
@@ -1281,6 +1311,8 @@ interface ArticlePickerItem {
 }
 const showConflictModal = ref(false)
 const conflictList = ref<ConflictingContract[]>([])
+// RAO-P2-066: konflikty z rezerwacjami (osobna lista, renderowana w modalu)
+const reservationConflictList = ref<ConflictingReservation[]>([])
 const pendingArticle = ref<ArticlePickerItem | null>(null)
 
 const supplierName = ref('')
@@ -1333,7 +1365,6 @@ function onServiceArticleSelect(event: Event) {
 }
 
 // RAO-P1-012: Settlements
-// RAO Faza 2a (opcja E): pola unmapped settlements z Fakturownia
 interface Settlement {
   id: number
   cost_client: number | null
@@ -1342,13 +1373,6 @@ interface Settlement {
   notes: string | null
   service_fee_id?: number | null
   service_fee_name?: string | null
-  position_id?: number | null
-  // RAO Faza 2a (opcja E): unmapped settlements z Fakturownia
-  article_name_snapshot?: string | null
-  fakturownia_product_id?: number | null
-  fakturownia_invoice_number?: string | null
-  source?: string | null  // 'legacy' | 'fakturownia' | 'fa_unmapped' | 'manual'
-  settled_at?: string | null  // ISO date
 }
 const settlements = ref<Settlement[]>([])
 const initializingSettlements = ref(false)
@@ -1377,19 +1401,16 @@ function formatDescription(description, amount_from, amount_to) {
     return '—'
   }
 
-  // RAO-P0-003: If description exists, replace $1/$2 placeholders with actual
-  // amounts (w formacie "zł"). Placeholdery $1/$2 nigdy nie mogą trafić do UI
-  // jako literal "$" — kojarzy się z USD. Gdy kwota brak, zastąp neutralnym "—".
+  // If description exists, replace $1/$2 placeholders with actual amounts
   let result = description
-  const formattedFrom =
-    amount_from !== null && amount_from !== undefined
-      ? Number(amount_from).toLocaleString('pl-PL', { minimumFractionDigits: 2 }) + ' zł'
-      : '—'
-  const formattedTo =
-    amount_to !== null && amount_to !== undefined
-      ? Number(amount_to).toLocaleString('pl-PL', { minimumFractionDigits: 2 }) + ' zł'
-      : '—'
-  result = result.replace(/\$1/g, formattedFrom).replace(/\$2/g, formattedTo)
+  if (amount_from !== null && amount_from !== undefined) {
+    const formattedFrom = Number(amount_from).toLocaleString('pl-PL', { minimumFractionDigits: 2 })
+    result = result.replace(/\$1/g, formattedFrom + ' zł')
+  }
+  if (amount_to !== null && amount_to !== undefined) {
+    const formattedTo = Number(amount_to).toLocaleString('pl-PL', { minimumFractionDigits: 2 })
+    result = result.replace(/\$2/g, formattedTo + ' zł')
+  }
   return result
 }
 
@@ -1402,12 +1423,6 @@ onMounted(async () => {
     fakturowniaStore.fetchSettings(),
     fetchServiceArticles(), // RAO-P2-059: Load service articles for fee picker
   ])
-
-  // RAO-P1-022: Domyślny oddział = Warszawa (id=1) dla nowej umowy
-  if (!isEdit.value && !form.value.branch_id && settingsStore.branches.length) {
-    const warsaw = settingsStore.branches.find(b => b.id === 1) || settingsStore.branches[0]
-    form.value.branch_id = warsaw.id
-  }
 
   const [ctRes, artRes] = await Promise.allSettled([
     api.get('/contractors', { params: { per_page: 30 } }),
@@ -1491,7 +1506,7 @@ function goBack() { router.push('/dashboard/contracts') }
 function buildPayload() {
   const v = { ...form.value }
   const dateFields = ['date_from', 'date_to']
-  const nullableStr = ['delivery_address',
+  const nullableStr = ['delivery_address', 'prepayment_document', 'invoice_document',
     'notes', 'contact_person1', 'contact_phone1', 'contact_person2', 'contact_phone2',
     'email', 'phone', 'contractor_name']
   dateFields.forEach(f => { if (!v[f]) v[f] = null })
@@ -1603,39 +1618,7 @@ async function fetchSettlements(contractId) {
   }
 }
 
-// RAO Faza 2a (opcja E): tooltip z metadanymi źródła dla unmapped settlements.
-// Pokazuje numer faktury FA i datę rozliczenia, gdy dostępne.
-function settlementTooltip(s: Settlement): string {
-  const parts: string[] = []
-  if (s.source) {
-    const labels: Record<string, string> = {
-      legacy: 'Źródło: legacy',
-      fakturownia: 'Źródło: Fakturownia',
-      fa_unmapped: 'Źródło: Fakturownia (niezmapowane)',
-      manual: 'Źródło: ręczne',
-    }
-    parts.push(labels[s.source] || `Źródło: ${s.source}`)
-  }
-  if (s.fakturownia_invoice_number) {
-    parts.push(`Faktura FA: ${s.fakturownia_invoice_number}`)
-  }
-  if (s.fakturownia_product_id) {
-    parts.push(`Produkt FA #${s.fakturownia_product_id}`)
-  }
-  if (s.settled_at) {
-    parts.push(`Rozliczono: ${s.settled_at}`)
-  }
-  return parts.join(' · ')
-}
-
-function getSettlementLabel(s: Settlement) {
-  // RAO Faza 2a (opcja E): unmapped settlement z Fakturownia — brak position_id
-  // i service_fee_id. Etykieta = snapshot nazwy pozycji z FA lub fallback na
-  // identyfikator produktu FA.
-  if (!s.position_id && !s.service_fee_id) {
-    return s.article_name_snapshot
-      || `Niezmapowane (FA product #${s.fakturownia_product_id ?? '?'})`
-  }
+function getSettlementLabel(s: any) {
   // RAO-P2-012: Usługi dodatkowe mają service_fee_id + service_fee_name z backend
   if (s.service_fee_id) {
     return s.service_fee_name || `Usługa dodatkowa #${s.service_fee_id}`
@@ -1645,6 +1628,10 @@ function getSettlementLabel(s: Settlement) {
     const pos = contractStore.positions.find(p => p.id === s.position_id)
     if (pos) return pos.article_name || `Pozycja #${s.position_id}`
     return `Pozycja #${s.position_id}`
+  }
+  // RAO-P0-013: Unmapped FA settlements — użyj article_name_snapshot z faktury
+  if (s.article_name_snapshot) {
+    return s.article_name_snapshot
   }
   return '—'
 }
@@ -1662,6 +1649,33 @@ async function updateSettlement(settlement) {
     alert('Błąd aktualizacji rozliczenia')
     // Revert to original values
     await fetchSettlements(Number(props.id))
+  }
+}
+
+// RAO-P0-013: Delete single settlement + clear all
+const clearingSettlements = ref(false)
+
+async function deleteSettlement(settlement) {
+  if (!confirm(`Usunąć pozycję rozliczenia "${getSettlementLabel(settlement)}"?`)) return
+  try {
+    await api.delete(`/settlements/${settlement.id}`)
+    await fetchSettlements(Number(props.id))
+  } catch (e) {
+    alert('Błąd usuwania rozliczenia: ' + (e.response?.data?.detail || e.message))
+  }
+}
+
+async function clearAllSettlements() {
+  if (!settlements.value.length) return
+  if (!confirm(`Usunąć WSZYSTKIE pozycje rozliczenia (${settlements.value.length})? Tej operacji nie można cofnąć.`)) return
+  clearingSettlements.value = true
+  try {
+    await api.delete(`/settlements/contract/${props.id}/all`)
+    await fetchSettlements(Number(props.id))
+  } catch (e) {
+    alert('Błąd czyszczenia rozliczeń: ' + (e.response?.data?.detail || e.message))
+  } finally {
+    clearingSettlements.value = false
   }
 }
 
@@ -1891,8 +1905,8 @@ async function searchArticles() {
   if (artTimer) clearTimeout(artTimer)
   artTimer = setTimeout(async () => {
     const { data } = await api.get('/articles', { params: { search: articlePickerSearch.value, per_page: 50, is_service: form.value.contract_type === 'U' ? true : false } })
-    articlePickerList.value = data.items.map(a => ({ ...a, _avail: null }))
-    // Check availability (parallel) — RAO-P1-023
+    articlePickerList.value = data.items.map(a => ({ ...a, _avail: null as AvailabilityResponse | null }))
+    // Check availability (parallel) — RAO-P1-023 + RAO-P2-066 (z rezerwacjami)
     const excludeId = isEdit.value ? Number(props.id) : null
     await Promise.all(
       articlePickerList.value
@@ -1900,7 +1914,7 @@ async function searchArticles() {
         .map(async a => {
           if (form.value.date_from && form.value.date_to) {
             await articleStore.checkAvailability(a.id, form.value.date_from, form.value.date_to, excludeId)
-              .then(av => { a._avail = av.is_available })
+              .then(av => { a._avail = av as AvailabilityResponse })
               .catch(() => { a._avail = null })
           }
         })
@@ -2106,25 +2120,6 @@ async function applyPreset(preset) {
 </script>
 
 <style scoped>
-/* RAO Faza 2a (opcja E): badge dla niezmapowanych settlementów z Fakturownia.
-   Używa --color-warning (zmienna design systemu Toolsmart), bez hardkodowanych
-   kolorów. Mały, obok etykiety pozycji w tabeli rozliczeń. */
-.badge-unmapped {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: 8px;
-  padding: 2px 8px;
-  background: var(--color-warning);
-  color: var(--color-bg-white);
-  border: 1px solid var(--color-warning);
-  border-radius: var(--border-radius-pill, 12px);
-  font-family: var(--font-family);
-  font-size: var(--font-size-xs, 11px);
-  font-weight: var(--font-weight-semibold, 600);
-  white-space: nowrap;
-  vertical-align: middle;
-}
 /* RAO-P2-022: badge rozliczona */
 .settled-badge {
   display: inline-flex;

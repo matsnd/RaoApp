@@ -626,32 +626,11 @@ Row 2.5 (rozliczenie umowy - RAO-P1-012):
 │ │                                                                                 │ │
 │ │ Guzik "Pobierz z Fakturownia" jest nieaktywny jeśli Fakturownia nie jest skonfigurowana │ │
 │ │ (brak enabled, domain_subdomain lub api_token_preview w ustawieniach)        │ │
-│ │                                                                                 │ │
-│ │ RAO Faza 2a (opcja E) — Unmapped settlements:                                   │ │
-│ │   Pozycje faktury FA bez zmapowanego artykułu RAO (brak wpisu w                │ │
-│ │   fakturownia_product_mapping) trafiają do settlements z:                      │ │
-│ │     - position_id = null, service_fee_id = null                                 │ │
-│ │     - source = 'fa_unmapped'                                                    │ │
-│ │     - article_name_snapshot = nazwa pozycji z FA (snapshot na moment importu)  │ │
-│ │     - fakturownia_product_id, fakturownia_invoice_number (metadata)            │ │
-│ │     - settled_at = data rozliczenia z FA                                        │ │
-│ │   W tabeli rozliczeń etykieta = article_name_snapshot (fallback:               │ │
-│ │   "Niezmapowane (FA product #ID)"). Obok etykiety renderowany jest badge       │ │
-│ │   "⚠ Niezmapowane" (kolor --color-warning, pill, font-size-xs) sygnalizujący  │ │
-│ │   pozycję wymagającą ręcznego mapowania w ustawieniach FA. Tooltip na etykiecie│ │
-│ │   pokazuje: źródło, numer faktury FA, ID produktu FA, datę rozliczenia.        │ │
 │ └───────────────────────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 └──────────────────────────────────────────────────────────────────────────────────┘
 ```
-
-**RAO Faza 2a (opcja E) — typy TS:**
-- `Settlement` (ContractFormView.vue) rozszerzony o pola: `article_name_snapshot`,
-  `fakturownia_product_id`, `fakturownia_invoice_number`, `source`, `settled_at`.
-- `TopMachineItem` (stores/analytics.ts): `article_id: number | null` — backend
-  zwraca bucket "Inne (niezmapowane z FA)" z `article_id=null`. Klik wiersza z
-  `article_id=null` nie otwiera drill-down (guard w `onMachineRowClick`).
 
 **Pozycje [+] otwiera `ArticlePicker.vue` (replika FormAwybor).**
 **Warunki [+] otwiera `ConditionFormView.vue` (replika FormW).**
@@ -706,11 +685,37 @@ Layout (modal wbudowany w ContractFormView.vue):
 
 ---
 
-## Komponent: `ServiceHourGrid.vue` (RAO-P1-014) — USUNIĘTE (Faza 1b + 1c)
+## Komponent: `ServiceHourGrid.vue` (RAO-P1-014)
 
-> **Faza 1b (RAO-P1-014, backend):** Usunięto model/service/router/schemas `service_hours` z API. Klient wybrał formularz papierowy — ewidencja godzin operatora prowadzona ręcznie na wydruku PDF protokołu usługi (5 pustych wierszy fallback w `protocol_zo_u.html`).
->
-> **Faza 1c (frontend cleanup):** Usunięto plik `frontend/src/components/contracts/ServiceHourGrid.vue` oraz store `frontend/src/stores/serviceHours.js`. W `ContractFormView.vue` usunięto import komponentu oraz blok `<ServiceHourGrid />` w sekcji pozycji umów typu `U`. Endpointy `/contracts/positions/{id}/service-hours` nie istnieją — sekcja ewidencji godzin nie jest już renderowana w UI.
+**Cel:** Ewidencja godzin pracy operatora dla umów typu "U" (usługa).
+
+**Widoczność:** Tylko gdy `contract_type === 'U'` i pozycja jest wybrana.
+
+**Layout:**
+```
+┌──────────────────────────────────────────────────────┐
+│ Ewidencja godzin operatora        [+ Dodaj wpis]    │
+├──────────────────────────────────────────────────────┤
+│ Data        │ od   │ do   │ Uwagi           │      │
+│ [2026-03-15]│[08:00]│[16:00]│[Operator: Jan] │ [✕] │
+│ [2026-03-16]│[08:00]│[16:00]│[Operator: Jan] │ [✕] │
+└──────────────────────────────────────────────────────┘
+```
+
+**Funkcje:**
+- Inline edit (data/time/notes)
+- Auto-save na zmianę (change event)
+- Delete button z potwierdzeniem
+- Pusty state gdy brak wpisów
+
+**Props:**
+```typescript
+interface Props {
+  positionId: number
+}
+```
+
+**Store:** `useServiceHourStore` (`frontend/src/stores/serviceHours.js`)
 
 ---
 
@@ -1423,13 +1428,6 @@ async function handleFakturownia() {
 2. **Maszyny** (`activeTab='articles'`) — `GET /archive/articles` (paginacja 50, filtry: search, category_id)
    - Grid: Nazwa, Nr wewn., Kategoria (dropdown — `PATCH /archive/articles/{id}/category`, admin), Kontraktów count, Wartość wymiany
    - Zmiana kategorii przez `<select>` → `PATCH /archive/articles/{id}/category` z `category_id`
-   - **Filtr kategorii — kaskada (RAO-P1-002):** 3-poziomowy select (główna → sub1 → sub2)
-     z danymi z `archiveStore.categoriesTree` (`GET /archive/categories/tree`). Wybrana kategoria
-     = najbardziej specyficzny poziom (sub2 ?? sub1 ?? main) → `articleFilters.category_id`.
-     Breadcrumb (`.cat-breadcrumb`) pokazuje wybraną ścieżkę "Główna › Sub1 › Sub2".
-     Zmiana poziomu głównego resetuje sub1/sub2; zmiana sub1 resetuje sub2. Auto-apply filtru
-     po zmianie kaskady. Backend filtruje dokładnym matchem category_id.
-     data-testid: `archive-cat-cascade`, `archive-cat-main`, `archive-cat-sub1`, `archive-cat-sub2`, `archive-cat-breadcrumb`.
 
 3. **Statystyki** (`activeTab='stats'`) — `GET /archive/stats/summary` + `/top-machines` + `/by-category` + `/by-city`
    - Filtry dat: date_from, date_to + przycisk "Odśwież"
@@ -1581,13 +1579,6 @@ Następca: patrz sekcja `AnalyticsView.vue` poniżej.
 
 **Opis:** Główny ekran po zalogowaniu. Pokazuje kluczowe KPI i quick actions.
 
-**Layout (RAO P1-003 fix):**
-- Pełna szerokość kontenera (usunięto Vite template `#app { width: 1126px }`)
-- KPI strip: `grid-template-columns: repeat(auto-fill, minmax(220px, 1fr))` — responsywny
-- Quick nav strip: `repeat(auto-fill, minmax(140px, 1fr))` — responsywny
-- Tło: `var(--color-bg-light)` (zmienna CSS, nie hardcoded)
-- `min-height: 100%; overflow-y: auto` — scrollowalny
-
 **KPI panele:**
 - Maszyny w terenie (liczba aktywnych wynajmów)
 - Kończące się umowy (w ciągu 7 dni)
@@ -1607,13 +1598,6 @@ Następca: patrz sekcja `AnalyticsView.vue` poniżej.
 ---
 
 ## Globalne funkcjonalności (AppLayout.vue)
-
-### Layout / scroll (RAO P0-002/P1-008 fix)
-- `#app` (style.css): `width: 100%; min-height: 100vh` — pełna szerokość (usunięto Vite leftover `width: 1126px; text-align: center; border-inline`)
-- `.app-shell` (layout.css): `height: 100vh; overflow: hidden` — sidebar + main area, bez scrolla na poziomie shell
-- `.main-area` (layout.css): `overflow-y: auto; overflow-x: hidden` — **scrollowalny kontener treści** dla widoków bez wewn. scrolla (AnalyticsView)
-- Widoki z toolbar + content-area: root `height: 100%` (nie `100vh`) + `.content-area { overflow: auto }` — toolbar sticky, treść scrolluje wewnętrznie
-- Dotyczy: DashboardView, ContractFormView, SettingsView, ArticleFormView, AdminView, ContractorFormView
 
 ### Pasek postępu NProgress (P3-010)
 - Biblioteka: `nprogress` (niebieska belka `--color-accent-blue`, bez spinnera)
@@ -1908,18 +1892,8 @@ onUnmounted(() => {
 - Emits: `@update:modelValue`.
 - Presets: Dziś / Tydzień / Miesiąc / Kwartał / Rok / Wszystko / Własny (pills).
 - Custom range (2x input date) tylko gdy `preset='custom'`.
-- Typ (select), Kontrahent (**combobox** — `ContractorCombobox.vue`, RAO-P0-004), Miasto (text), przycisk "Wyczyść".
+- Typ (select), Kontrahent (input+datalist), Miasto (text), przycisk "Wyczyść".
 - data-testid: `analytics-filters`, `preset-<key>`, `preset-custom`, `custom-range`, `filter-date-from`, `filter-date-to`, `filter-article-type`, `filter-contractor`, `filter-city`, `filter-clear`.
-
-### `components/analytics/ContractorCombobox.vue` (RAO-P0-004)
-- Wpisyalny combobox (input + dropdown z filtrowaniem) zamiast zwykłego `<select>` —
-  przy 698 kontrahentach zwykły select jest nieużywalny.
-- v-model: `modelValue: number | null` (contractor_id). Props: `contractors: {id,name}[]`, `placeholder`, `dataTestId`.
-- Filtrowanie: case-insensitive substring match po nazwie; limit 100 wyników w dropdownie.
-- Klawiatura: ArrowDown/Up nawigacja, Enter wybiera, Escape zamyka. Click-outside zamyka.
-- Przycisk ✕ czyści wybór (emit `null`); ▼ toggla dropdown.
-- `AnalyticsView` ładuje WSZYSTKICH kontrahentów (paginacja po 500 — backend cap) do comboboxa.
-- data-testid: `filter-contractor`, `filter-contractor-input`, `filter-contractor-toggle`, `filter-contractor-clear`, `filter-contractor-dropdown`.
 
 ### `components/analytics/DrillDownDrawer.vue`
 - Props: `open`, `title`, `subtitle?`, `loading?`, `error?`. Emits: `@close`.

@@ -112,6 +112,7 @@ class ContractorService:
     async def delete_contractor(self, db: AsyncSession, contractor_id: int):
         from contracts.models import Contract
         from datetime import date
+        # Sprawdź aktywne umowy (date_to >= today)
         active = await db.execute(
             select(func.count()).select_from(Contract)
             .where(Contract.contractor_id == contractor_id)
@@ -119,6 +120,13 @@ class ContractorService:
         )
         if active.scalar_one() > 0:
             raise conflict("Nie można usunąć — kontrahent ma aktywne umowy")
+        # Sprawdź WSZYSTKIE umowy (FK constraint blokuje nawet archiwalne)
+        any_contract = await db.execute(
+            select(func.count()).select_from(Contract)
+            .where(Contract.contractor_id == contractor_id)
+        )
+        if any_contract.scalar_one() > 0:
+            raise conflict("Nie można usunąć — kontrahent ma powiązane umowy (archiwalne)")
         contractor = await self.get_contractor(db, contractor_id)
         await db.delete(contractor)
         await db.commit()

@@ -1,6 +1,7 @@
 """
 Migration: old dump (toolsmart_roa) -> rao_new
 Step 5b added: migrate umowa2.OPLATY -> contract_service_fees (free-text parsing).
+Step 18 added: service_hours table (new functionality - empty on migration).
 
 Verified source tables from dump:
   firma(41)  kategoria(4)  oddzial(7)  handlowiec(4)  stawka(4)
@@ -16,6 +17,9 @@ Strategy:
   5. Build service_fee_templates from firma.oplata_* columns
   6. DROP old tables + views
   7. Rehash plaintext passwords with bcrypt
+
+Note: service_hours table is NEW (no old data) - will be empty after migration.
+      Users will add data through the UI for service contracts.
 
 Usage: python migrate.py
 """
@@ -1333,7 +1337,8 @@ async def verify():
     for tbl in ["company","categories","branches","salespeople","rate_types",
                 "contractors","contractor_addresses","articles","users",
                 "contracts","contract_positions","position_conditions",
-                "fee_preset_groups","service_fee_templates","contract_service_fees"]:
+                "fee_preset_groups","service_fee_templates","contract_service_fees",
+                "service_hours"]:
         await cur.execute(f"SELECT COUNT(*) FROM `{tbl}`")
         cnt = (await cur.fetchone())[0]
         print(f"   {tbl}: {cnt}")

@@ -201,12 +201,10 @@
         <div class="bottom-box-label">uwagi</div>
         {% if contract.notes %}
         {{ contract.notes }}
-        {% else %}
-        <p style="margin:0 0 4px 0;"><strong>Doba wynajmu:</strong> obejmuje 1 dzień kalendarzowy (do 8 godz. pracy jednego dnia).</p>
-        <p style="margin:0 0 4px 0;"><strong>Zgłoszenie zwrotu urządzenia:</strong> pisemne, min. z jednodniowym wyprzedzeniem.</p>
-        <p style="margin:0 0 4px 0;"><strong>Ilość dni pracy w tygodniu:</strong> {% if contract.working_days_per_week %}{{ contract.working_days_per_week }}{% else %}6{% endif %}.</p>
-        <p style="margin:0;"><strong>Dokumentacja zdjęciowa:</strong> wykonano.</p>
         {% endif %}
+        {# RAO: Umowa usługi nie ma bloku "Doba wynajmu" — to warunki wynajmu maszyny,
+           nie usługi. W legacy WinForms ten blok NIE występował na umowie usługi.
+           Puste notes = pusty blok uwag. #}
       </div>
     </td>
     <td class="bottom-right">

@@ -711,3 +711,35 @@ async def main() -> int:
 if __name__ == "__main__":
     rc = asyncio.run(main())
     sys.exit(rc)
+    sys.exit(rc)
+if __name__ == "__main__":
+    rc = asyncio.run(main())
+    sys.exit(rc)
+if __name__ == "__main__":
+    rc = asyncio.run(main())
+    sys.exit(rc)
+if __name__ == "__main__":
+    rc = asyncio.run(main())
+    sys.exit(rc)
+if __name__ == "__main__":
+    rc = asyncio.run(main())
+    sys.exit(rc)
+
+if __name__ == "__main__":
+    rc = asyncio.run(main())
+    sys.exit(rc)
+if __name__ == "__main__":
+    rc = asyncio.run(main())
+    sys.exit(rc)
+if __name__ == "__main__":
+    rc = asyncio.run(main())
+    sys.exit(rc)
+if __name__ == "__main__":
+    rc = asyncio.run(main())
+    sys.exit(rc)
+if __name__ == "__main__":
+    rc = asyncio.run(main())
+    sys.exit(rc)
+if __name__ == "__main__":
+    rc = asyncio.run(main())
+    sys.exit(rc)

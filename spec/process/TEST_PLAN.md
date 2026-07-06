@@ -24,7 +24,7 @@
 ### mariadb (dane demo)
 - **32 tabele** w schema `rao_new`
 - **Kluczowe dane**: 742 archive_contracts, 62 contracts, 419 articles, 662 contractors, 4 users, 21865 postal_codes, 11 fakturownia_products_cache, 8 fee_preset_groups, 34 service_fee_templates
-- **Puste tabele**: article_reservations (0), audit_log (0), company (0), contract_costs (0), deliveries (0), fakturownia_settings (0)
+- **Puste tabele**: article_reservations (0), audit_log (0), company (0), contract_costs (0), deliveries (0), fakturownia_settings (0), service_hours (0)
 
 ---
 
@@ -180,6 +180,7 @@ cd frontend && npm run build
 4. **contract_costs** (0 rows) — brak kosztów
 5. **deliveries** (0 rows) — brak dostaw
 6. **fakturownia_settings** (0 rows) — brak konfiguracji FA
+7. **service_hours** (0 rows) — brak godzin usług
 
 ---
 

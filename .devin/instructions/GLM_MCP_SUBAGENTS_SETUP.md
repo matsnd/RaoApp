@@ -1,81 +1,245 @@
-# Instrukcja: MCP w subagentach RAO — zweryfikowana konfiguracja (v2)
+# Instrukcja konfiguracji MCP dla subagentów - GLM-5.2 High
 
-## Kontekst — dlaczego wcześniej nie działało
+## Cel
+Skonfigurować custom subagenty RAO (backend-dev, db-architect, frontend-dev, itd.) aby miały dostęp do MCP narzędzi (codebase-memory, depwire, mariadb, rao-vision).
 
-Poprzednia konfiguracja miała cztery błędy, które łącznie dawały objaw "subagenty nie widzą MCP":
+## Wymagania wstępne
+- Devin CLI z ostatnich tygodni (sprawdź czy funkcja "subagents can now call MCP tools directly" istnieje)
+- Dostęp do plików konfiguracyjnych subagentów w `.devin/agents/` lub `.agents/`
+- Dostęp do `.env` z credentials
 
-1. **`config.json` był niepoprawnym JSON-em** (nadmiarowe `}` na końcu) — parser mógł pomijać `mcpServers`/`permissions`.
-2. **`allowed-tools` zawierało `mcp_call_tool`** — takie narzędzie nie istnieje. Narzędzia MCP są eksponowane jako `mcp__<serwer>__<narzędzie>`. Whitelist bez tych nazw = zero MCP w runtime subagenta.
-3. **`permissions.allow` używało `MCP(nazwa)`** — wymyślona składnia. Poprawne matchery: `mcp__serwer__narzędzie`, `mcp__serwer__*`, `mcp__*`.
-4. **AGENTS.md i README deklarowały "MCP NIEDOSTĘPNE"** — subagenty cytowały tę tezę zamiast testować runtime (samospełniająca się przepowiednia).
-
-Wszystkie cztery są naprawione w tej paczce `.devin/`. Ta instrukcja służy już tylko do WERYFIKACJI i diagnostyki.
-
-## Poprawny wzorzec frontmatteru (referencja)
-
-```yaml
 ---
-name: db-architect
-description: ...
-allowed-tools:          # co subagent WIDZI (ekspozycja)
-  - read
-  - grep
-  - glob
-  - edit
-  - write
-  - exec
-  - mcp__codebase-memory__*
-  - mcp__depwire__*
-  - mcp__mariadb__*
-permissions:
-  allow:                # co przechodzi BEZ pytania (konieczne dla background)
-    - Exec(mariadb*)
-    - mcp__codebase-memory__*
-    - mcp__depwire__*
-    - mcp__mariadb__*
-  deny:
-    - Write(frontend/**/*)
-model: GLM-5.2 High
+
+## Krok 0: Uzupełnij tabelę parametrów PRZED rozpoczęciem
+
+| Parametr | Wartość do uzupełnienia |
+|----------|------------------------|
+| Ścieżka do AGENTS.md | `c:/projects/repos/RaoApp_new/AGENTS.md` |
+| Ścieżka do profili subagentów | `c:/projects/repos/RaoApp_new/.devin/agents/` LUB `c:/projects/repos/RaoApp_new/.agents/` |
+| Nazwa testowanego subagenta | `db-architect` (najprostszy test: mariadb) |
+| MCP serwer do testu | `mariadb` |
+| MCP narzędzie do testu | `query_database` |
+| Pełna nazwa narzędzia | `mcp__mariadb__query_database` |
+| Testowe zapytanie SQL | `SELECT 1` |
+
 ---
-```
 
-Zasada: matcher MCP musi być w OBU miejscach — `allowed-tools` (żeby narzędzie istniało w runtime) i `permissions.allow` (żeby background nie dostał auto-deny).
+## Krok 1: Sprawdź wersję CLI
 
-## Procedura weryfikacji (wykonaj kroki w kolejności)
-
-### Krok 1 — wersja CLI
+**Komenda:**
 ```bash
 devin --version
 ```
-Funkcja "subagents can call MCP tools directly" jest świeża. Jeśli CLI starszy niż z ostatnich tygodni: `devin update`, potem kontynuuj.
 
-### Krok 2 — świeża sesja + status serwerów
-Uruchom NOWĄ sesję `devin` w root repo (konfiguracja ładuje się przy starcie). Wpisz `/mcp`.
-Kryterium: serwery `rao-vision`, `mariadb`, `codebase-memory`, `depwire`, `playwright` mają status connected. Jeśli któregoś nie ma na liście — nie jest zdefiniowany w żadnym configu (sprawdź też user-level `%APPDATA%\devin\config.json`); dopisz go zanim przejdziesz dalej.
+**Kryterium sukcesu:**
+- Jeśli CLI jest starszy niż 2-3 tygodnie → zaktualizuj przed kontynuacją
+- Jeśli changelog zawiera "subagents can now call MCP tools directly" → kontynuuj
 
-### Krok 3 — test runtime na subagencie
-Prompt do głównego agenta:
-```
-Uruchom subagenta db-architect w foreground z zadaniem:
-"Wywołaj narzędzie mcp__mariadb__query_database z zapytaniem SELECT 1.
-Nie oceniaj z góry, czy narzędzie istnieje — wykonaj wywołanie
-i wklej DOSŁOWNY surowy wynik lub pełny komunikat błędu.
-Dodatkowo wypisz pełną listę narzędzi, które masz w runtime."
+**Jeśli wersja jest stara:**
+```bash
+devin update
 ```
 
-### Krok 4 — interpretacja wyniku
-| Wynik | Diagnoza | Akcja |
-|---|---|---|
-| `SELECT 1` zwraca wynik | MCP działa | koniec, zaktualizuj status w README |
-| "unknown tool" / brak na liście | ekspozycja ucięta mimo poprawnego `allowed-tools` | to jest bug CLI — zgłoś do Cognition z wersją CLI i frontmatterem |
-| "permission denied" / prompt o zgodę | warstwa approvals | sprawdź, czy matcher jest w `permissions.allow` frontmatteru ORAZ czy `config.json` parsuje się (`python -m json.tool .devin/config.json`) |
-| subagent odmawia "bo instrukcja mówi że nie ma MCP" | gdzieś został stary tekst | `grep -rn "NIEDOST" AGENTS.md .devin/` i usuń |
+---
 
-### Krok 5 — test background
-Powtórz Krok 3 z jawnym uruchomieniem w tle. Auto-deny w tle = brakujący wpis w `permissions.allow`.
+## Krok 2: Usuń dezinformację z AGENTS.md
 
-## Reguły stałe
+**Problem:** W AGENTS.md znajduje się sekcja "⚠️ MCP tools — NIEDOSTĘPNE dla custom subagentów", która powoduje że subagenty zgadzają się z instrukcją zamiast testować runtime.
 
-- Sekrety TYLKO w `.devin/config.local.json` (gitignored). Nigdy w `config.json`, nigdy w raportach subagentów (nazwy zmiennych zamiast wartości).
-- Po każdej zmianie configu / frontmatteru: nowa sesja.
-- Raport z każdego testu MCP musi zawierać surowy komunikat runtime, nie parafrazę.
+**Akcja:**
+1. Otwórz `AGENTS.md`
+2. Znajdź sekcję zaczynającą się od `⚠️ MCP tools`
+3. Usuń lub zakomentuj całą sekcję
+4. Zapisz plik
+
+**Czego NIE robić:**
+- Nie usuwaj innych sekcji AGENTS.md
+- Nie zmieniaj innych instrukcji
+
+---
+
+## Krok 3: Zaktualizuj frontmatter testowanego subagenta
+
+**Lokalizacja pliku:** Użyj ścieżki z tabeli parametrów (Krok 0)
+
+**Obecny frontmatter (przykładowy):**
+```yaml
+---
+name: db-architect
+description: Database Architect dla RAO...
+allowed-tools:
+  - read
+  - edit
+  - exec
+  - grep
+  - find_file_by_name
+permissions:
+  allow:
+    - exec
+  deny:
+    - mcp__*
+---
+```
+
+**Nowy frontmatter (z MCP):**
+```yaml
+---
+name: db-architect
+description: Database Architect dla RAO...
+allowed-tools:
+  - read
+  - edit
+  - exec
+  - grep
+  - find_file_by_name
+  - mcp__mariadb__query_database
+permissions:
+  allow:
+    - exec
+    - mcp__mariadb__query_database
+  deny:
+    - mcp__*  # Opcjonalne: blokuj inne MCP narzędzia
+---
+```
+
+**Zasady:**
+- Dodaj konkretne narzędzie do `allowed-tools` (nie `mcp__*`)
+- Dodaj to samo narzędzie do `permissions.allow`
+- Format: `mcp__serwer__narzędzie` (dokładnie tak, jak w dokumentacji)
+- Nie używaj wildcardów `mcp__*` w `allowed-tools` (bezpieczeństwo)
+
+---
+
+## Krok 4: Uruchom test w foreground (NIE background)
+
+**Dlaczego foreground:** Background auto-deny może zablokować MCP nawet przy poprawnej konfiguracji. Foreground pokaże czy narzędzie istnieje w runtime.
+
+**Komenda:**
+```bash
+devin --agent db-architect
+```
+
+**Prompt do subagenta (wklej dosłownie):**
+```
+Wywołaj narzędzie mcp__mariadb__query_database z argumentem query="SELECT 1".
+
+WYMAGANIA:
+1. Nie oceniaj z góry, czy narzędzie istnieje
+2. Wykonaj wywołanie
+3. Wklej dosłowny, surowy wynik LUB komunikat błędu
+4. Nie interpretuj błędu - tylko wklej go
+
+Jeśli narzędzie nie jest dostępne, wklej dokładny komunikat błędu z runtime'u.
+```
+
+---
+
+## Krok 5: Interpretuj wynik
+
+### Wynik A: Sukces
+```
+Result: {"result": "1"}
+```
+**Diagnoza:** MCP działa poprawnie
+**Akcja:** Powtórz Krok 3 dla wszystkich subagentów z ich MCP narzędziami
+
+### Wynik B: "unknown tool" / "tool not found"
+```
+Error: Unknown tool: mcp__mariadb__query_database
+```
+**Diagnoza:** Ekspozycja ucięta przez restrict - allowed-tools nie wystawia MCP
+**Akcja:** Sprawdź czy narzędzie jest dokładnie w allowed-tools (literówki?) oraz czy CLI jest aktualny
+
+### Wynik C: "permission denied"
+```
+Error: Permission denied: mcp__mariadb__query_database
+```
+**Diagnoza:** Narzędzie jest widoczne, ale permissions.allow blokuje
+**Akcja:** Dodaj do permissions.allow w frontmatterze
+
+### Wynik D: Auto-deny (background)
+```
+Error: Tool call auto-denied
+```
+**Diagnoza:** Background mode bez pre-approval
+**Akcja:** Testuj w foreground, dodaj do permissions.allow dla background
+
+---
+
+## Krok 6: Jeśli sukces - zaktualizuj wszystkie subagenty
+
+**Mapa MCP narzędzi dla ról RAO:**
+
+| Rola | MCP narzędzia do dodania |
+|------|--------------------------|
+| `backend-dev` | `mcp__codebase-memory__search_graph`, `mcp__codebase-memory__trace_path` |
+| `db-architect` | `mcp__mariadb__query_database` |
+| `frontend-dev` | `mcp__rao-vision__screenshot_and_analyze` (opcjonalnie) |
+| `qa-engineer` | `mcp__depwire__get_architecture_summary`, `mcp__depwire__impact_analysis` |
+| `security-auditor` | `mcp__codebase-memory__trace_path`, `mcp__depwire__security_scan` |
+| `performance-eng` | `mcp__depwire__find_dead_code`, `mcp__codebase-memory__query_graph` |
+
+**Dla każdego subagenta:**
+1. Otwórz plik profilu
+2. Dodaj odpowiednie MCP narzędzia do `allowed-tools`
+3. Dodaj te same narzędzia do `permissions.allow`
+4. Zapisz plik
+
+---
+
+## Krok 7: Przywróć AGENTS.md (opcjonalnie)
+
+**Jeśli test się powiódł:**
+- Przywróć sekcję "⚠️ MCP tools" w AGENTS.md
+- Zmień treść na: "MCP narzędzia są dostępne dla subagentów po skonfigurowaniu w frontmatterze"
+
+**Jeśli test się nie powiódł:**
+- Przywróć sekcję "⚠️ MCP tools" w AGENTS.md
+- Zostaw informację o niedostępności
+- Używaj workflow "Tech Lead jako MCP proxy"
+
+---
+
+## Tabela obsługi błędów
+
+| Błąd | Przyczyna | Rozwiązanie |
+|------|-----------|-------------|
+| `unknown tool` | Literówka w nazwie narzędzia | Sprawdź format: `mcp__serwer__narzędzie` |
+| `unknown tool` | CLI stary, brak funkcji MCP | `devin update` |
+| `permission denied` | Brak w `permissions.allow` | Dodaj do permissions.allow |
+| `permission denied` | Background auto-deny | Testuj w foreground |
+| `mcp__* blocked` | Wildcard w `deny` | Usuń `deny: mcp__*` lub dodaj wyjątki |
+| Subagent cytuje instrukcję | Priming z AGENTS.md | Usuń sekcję o niedostępności MCP |
+| Narzędzie nie pojawia się | Zła ścieżka profilu | Sprawdź czy edytujesz właściwy plik |
+
+---
+
+## Kryteria sukcesu end-to-end
+
+1. ✅ CLI jest aktualny
+2. ✅ AGENTS.md nie zawiera dezinformacji o MCP
+3. ✅ Testowany subagent ma MCP w allowed-tools
+4. ✅ Testowany subagent ma MCP w permissions.allow
+5. ✅ Foreground test zwraca sukces LUB jasny komunikat błędu
+6. ✅ Wszystkie subagenty mają swoje MCP narzędzia skonfigurowane
+7. ✅ Smoke test: subagent wykonuje rzeczywiste MCP wywołanie
+
+---
+
+## Zasady dla GLM-5.2 High
+
+1. **Nie improwizuj** - postępuj dokładnie według kroków
+2. **Nie pomijaj kroków** - nawet jeśli wydaje się że są zbędne
+3. **Uzupełnij tabelę parametrów** przed rozpoczęciem
+4. **Wklejaj dosłowne błędy** - nie interpretuj ich
+5. **Jeśli coś nie działa** - sprawdź tabelę obsługi błędów
+6. **Sekrety tylko do .env** - nie wklejaj haseł w raportach
+7. **Scalaj zamiast nadpisywać** - dodawaj MCP do istniejących list, nie wymieniaj całych frontmatterów
+
+---
+
+## Notatki dla implementacji
+
+- Krok 5 (izolacja MCP tylko dla jednego subagenta) jest opcjonalny - GLM może go pominąć
+- Jeśli test się nie powiedzie, workflow "Tech Lead jako MCP proxy" jest bezpiecznym fallback
+- Zgłoś do Cognition jeśli CLI aktualny, a MCP nadal nie działa (rozbieżność z changelogiem)

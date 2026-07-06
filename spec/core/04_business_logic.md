@@ -816,34 +816,6 @@ async def init_contract_settlements_from_fakturownia(
             position_ids = pid_to_positions.get(pid, [])
             
             if not position_ids:
-                # RAO Faza 2a (opcja E): unmapped pozycje FA — tworzenie settlement
-                # bez position_id (snapshot nazwy w article_name_snapshot).
-                # NIE tworzymy artykułu on-the-fly — tylko snapshot nazwy.
-                # Idempotentność: UNIQUE(unmapped_key) chroni przed duplikatem.
-                if pid is not None and pid != 0:
-                    existing = await db.execute(
-                        select(ContractSettlement).where(
-                            ContractSettlement.contract_id == contract_id,
-                            ContractSettlement.position_id.is_(None),
-                            ContractSettlement.service_fee_id.is_(None),
-                            ContractSettlement.fakturownia_product_id == pid,
-                            ContractSettlement.fakturownia_invoice_number == line.invoice_number,
-                        )
-                    )
-                    if not existing.scalar_one_or_none():
-                        db.add(ContractSettlement(
-                            contract_id=contract_id,
-                            position_id=None,
-                            service_fee_id=None,
-                            cost_client=float(line.total_net),
-                            cost_company=None,
-                            source="fa_unmapped",
-                            article_name_snapshot=line.fakturownia_product_name,
-                            fakturownia_product_id=pid,
-                            fakturownia_invoice_number=line.invoice_number,
-                            settled_at=invoice.issue_date,
-                            notes=f"Pobrano z faktury {line.invoice_number} (pozycja niezmapowana)",
-                        ))
                 continue  # Brak pozycji umowy z tym produktem FA
             
             # Semantyka 1:N: każda pozycja umowy dostaje pełną wartość z faktury
@@ -859,12 +831,7 @@ async def init_contract_settlements_from_fakturownia(
                 existing_settlement = existing.scalar_one_or_none()
                 
                 if existing_settlement:
-                    # RAO Faza 2a (opcja E) bug fix bonus (QA bug 1.7):
-                    # source='fakturownia' (nie domyślne 'manual') + settled_at z invoice
                     existing_settlement.cost_client = cost_client
-                    existing_settlement.source = "fakturownia"
-                    existing_settlement.settled_at = invoice.issue_date
-                    existing_settlement.fakturownia_invoice_number = line.invoice_number
                     existing_settlement.updated_at = datetime.utcnow()
                 else:
                     settlement = ContractSettlement(
@@ -873,9 +840,6 @@ async def init_contract_settlements_from_fakturownia(
                         service_fee_id=None,
                         cost_client=cost_client,
                         cost_company=None,
-                        source="fakturownia",
-                        settled_at=invoice.issue_date,
-                        fakturownia_invoice_number=line.invoice_number,
                         notes=f"Pobrano z faktury {line.invoice_number}"
                     )
                     db.add(settlement)
@@ -918,26 +882,6 @@ async def init_contract_settlements_from_fakturownia(
     await db.commit()
 ```
 
-#### RAO Faza 2a (opcja E) — unmapped settlements w analytics
-
-**`compute_position_revenues()` w `shared/revenue.py`** dołącza drugi SELECT dla unmapped
-settlements (`source='fa_unmapped'`, `position_id=NULL`, `service_fee_id=NULL`) i tworzy
-syntetyczne wiersze w results z:
-- `position_id=None`, `article_id=None`, `is_service=None`
-- `category_main=None` (→ trafia do bucket "(bez kategorii)" w agregacjach)
-- `clamped_days=0` (nie zaburza utilization / rented_days)
-- `revenue=cost_client`, `revenue_source='actual'`
-- `contract_type`, `branch_id`, `city` dziedziczone po Contract
-
-Filtry `service_filter` / `exclude_archival` / `category_*` NIE dotyczą unmapped (nie mają Article).
-
-**Agregacje w `stats/router.py`:**
-- `top_machines`: unmapped → bucket "Inne (niezmapowane z FA)" (article_id=None)
-- `fleet_summary` / `by_period` / `locations` / `by_contract_type` / `by_branch`: unmapped
-  doda się do sumy revenue (clamped_days=0 nie zaburza utilization/rented_days)
-- `by_category`: unmapped → bucket "(bez kategorii)" (category_main=None)
-- `machine_roi` / `positions` / `additional_fees`: SKIP unmapped (article_id=None / is_service=None)
-
 ### Frontend - logika dezaktywacji guzika Fakturownia
 
 **Computed property w ContractFormView.vue:**
@@ -964,23 +908,6 @@ onMounted(async () => {
   // ...
 })
 ```
-
-### Faza 2d — demo scenariusz unmapped (opcja E)
-
-**Wymaganie biznesowe:** Jeśli w danej umowie są zmapowane na artykuły inne usługi/artykuły niż były w umowie domyślnie (warunki rozliczenia, usługi dodatkowe), to weź je pod uwagę do analytics. Przykładowo: umowa ma usługę 1 i 2, a z Fakturowni wraca usługa 2 + artykuł 4 (niezmapowany) → oba mają się pojawić w rozliczeniach i być brane do statystyk przychodów i wartości.
-
-**Demo (umowa `S099/2026`):**
-- Umowa typu `U` (usługowa), zakończona, NIEROZLICZONA (`fa_pending=True`).
-- 2 usługi dodatkowe ZMAPOWANE w RAO: Transport (`fakturownia_product_id=8845156432587`) + Tankowanie (`fakturownia_product_id=8845156432620`).
-- Faktura FA (seed_fa_invoices.py) wystawia 3 pozycje:
-  1. Transport (mapped) — 350 zł brutto → mapped settlement
-  2. Tankowanie (mapped) — 200 zł brutto → mapped settlement
-  3. Praca operatora (UNMAPPED — product_id w FA nie zmapowany w RAO) — 800 zł brutto → unmapped settlement (`source='fa_unmapped'`)
-- Po "Pobierz z FA": 3 settlements (2 mapped + 1 unmapped), analytics = **1350 zł** (350+200+800).
-
-**Klucz techniczny:** Pozycja 3 MUSI mieć `product_id` w FA (inaczej `line.fakturownia_product_id` = None → guard `pid is not None and pid != 0` odrzuca unmapped settlement). Product_id nie może być w `articles.fakturownia_product_id` w RAO — wtedy `init-from-fakturownia` tworzy unmapped settlement.
-
-**Procedura seeda:** zobacz `spec/technical/scripts/seed_unmapped_demo.md`.
 
 ## 15. Kopiowanie szablonów usług dodatkowych do umowy
 

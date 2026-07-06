@@ -1,5 +1,5 @@
 <template>
-  <div style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
+  <div style="display:flex;flex-direction:column;height:100vh;overflow:hidden;">
     <div class="toolbar">
       <button class="toolbar-btn" @click="goBack" title="Wstecz" aria-label="Wstecz">← Wstecz</button>
       <span class="toolbar-info">{{ isEdit ? `Edycja artykułu: ${form.name}` : 'Nowy artykuł' }}</span>

@@ -45,7 +45,7 @@
             <input v-model="contractFilters.date_from" type="date" class="form-control" style="width:140px;" placeholder="Data od" @change="applyContractFilters" />
             <input v-model="contractFilters.date_to" type="date" class="form-control" style="width:140px;" placeholder="Data do" @change="applyContractFilters" />
             <button class="btn btn-primary btn-sm" @click="applyContractFilters">Filtruj</button>
-            <button class="btn-icon" title="Wyczyść filtry" aria-label="Wyczyść filtry umów" @click="clearContractFilters">↺</button>
+            <button class="btn-icon" title="Wyczyść filtry" @click="clearContractFilters">↺</button>
           </div>
 
           <div class="grid-scroll">
@@ -67,7 +67,7 @@
                   <td colspan="8" class="empty-state">Ładowanie...</td>
                 </tr>
                 <tr v-else-if="archiveStore.contractsError">
-                  <td colspan="8" class="empty-state error" role="alert">Błąd: {{ archiveStore.contractsError }}</td>
+                  <td colspan="8" class="empty-state error">Błąd: {{ archiveStore.contractsError }}</td>
                 </tr>
                 <tr v-else-if="!archiveStore.contracts.length">
                   <td colspan="8" class="empty-state">Brak umów archiwum</td>
@@ -106,7 +106,7 @@
               <div v-else-if="archiveStore.currentContract" class="details-body">
                 <div class="details-header">
                   <h3>Szczegóły umowy {{ archiveStore.currentContract.number }}</h3>
-                  <button class="btn-icon" title="Zamknij" aria-label="Zamknij szczegóły umowy" @click="selectedContractId = null">✕</button>
+                  <button class="btn-icon" title="Zamknij" @click="selectedContractId = null">✕</button>
                 </div>
 
                 <div class="details-grid">
@@ -187,9 +187,9 @@
                 <option :value="20">20</option>
                 <option :value="50">50</option>
               </select>
-              <button class="page-btn" :disabled="archiveStore.contractsPage <= 1" aria-label="Poprzednia strona umów" @click="prevContractsPage">‹</button>
-              <span style="padding:0 8px;font-size:12px;" aria-current="page">{{ archiveStore.contractsPage }} / {{ contractsTotalPages }}</span>
-              <button class="page-btn" :disabled="archiveStore.contractsPage >= contractsTotalPages" aria-label="Następna strona umów" @click="nextContractsPage">›</button>
+              <button class="page-btn" :disabled="archiveStore.contractsPage <= 1" @click="prevContractsPage">‹</button>
+              <span style="padding:0 8px;font-size:12px;">{{ archiveStore.contractsPage }} / {{ contractsTotalPages }}</span>
+              <button class="page-btn" :disabled="archiveStore.contractsPage >= contractsTotalPages" @click="nextContractsPage">›</button>
             </div>
           </div>
         </div>
@@ -209,45 +209,14 @@
                 @keydown.enter="applyArticleFilters"
               />
             </div>
-            <!-- RAO-P1-002: Kaskada kategorii (główna → sub1 → sub2) z breadcrumbem -->
-            <div class="cat-cascade" data-testid="archive-cat-cascade">
-              <select
-                v-model="catSelectedMain"
-                class="form-control"
-                data-testid="archive-cat-main"
-                aria-label="Kategoria główna"
-                @change="onCatMainChange"
-              >
-                <option :value="null">Wszystkie kategorie</option>
-                <option v-for="cat in catMainOptions" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
-              </select>
-              <select
-                v-if="catSub1Options.length"
-                v-model="catSelectedSub1"
-                class="form-control"
-                data-testid="archive-cat-sub1"
-                aria-label="Podkategoria poziom 1"
-                @change="onCatSub1Change"
-              >
-                <option :value="null">— (poziom główny) —</option>
-                <option v-for="cat in catSub1Options" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
-              </select>
-              <select
-                v-if="catSub2Options.length"
-                v-model="catSelectedSub2"
-                class="form-control"
-                data-testid="archive-cat-sub2"
-                aria-label="Podkategoria poziom 2"
-              >
-                <option :value="null">— (poziom podrzędny) —</option>
-                <option v-for="cat in catSub2Options" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
-              </select>
-              <span v-if="catBreadcrumb" class="cat-breadcrumb" data-testid="archive-cat-breadcrumb">
-                {{ catBreadcrumb }}
-              </span>
-            </div>
+            <select v-model="articleFilters.category_id" class="form-control" style="width:200px;" @change="applyArticleFilters">
+              <option :value="null">Wszystkie kategorie</option>
+              <option v-for="cat in archiveStore.categories" :key="cat.id" :value="cat.id">
+                {{ cat.name }}
+              </option>
+            </select>
             <button class="btn btn-primary btn-sm" @click="applyArticleFilters">Filtruj</button>
-            <button class="btn-icon" title="Wyczyść filtry" aria-label="Wyczyść filtry maszyn" @click="clearArticleFilters">↺</button>
+            <button class="btn-icon" title="Wyczyść filtry" @click="clearArticleFilters">↺</button>
           </div>
 
           <div class="grid-scroll">
@@ -263,10 +232,10 @@
               </thead>
               <tbody>
                 <tr v-if="archiveStore.articlesLoading">
-                  <td colspan="5"><TableSkeleton :rows="5" :cols="5" layout="inline" label="Ladowanie maszyn archiwum" /></td>
+                  <td colspan="5" class="empty-state">Ładowanie...</td>
                 </tr>
                 <tr v-else-if="archiveStore.articlesError">
-                  <td colspan="5" class="empty-state error" role="alert">Błąd: {{ archiveStore.articlesError }}</td>
+                  <td colspan="5" class="empty-state error">Błąd: {{ archiveStore.articlesError }}</td>
                 </tr>
                 <tr v-else-if="!archiveStore.articles.length">
                   <td colspan="5" class="empty-state">Brak maszyn archiwum</td>
@@ -301,9 +270,9 @@
           <div class="grid-footer">
             <span>Łącznie: {{ archiveStore.articlesTotal }} maszyn</span>
             <div class="pagination">
-              <button class="page-btn" :disabled="archiveStore.articlesPage <= 1" aria-label="Poprzednia strona maszyn" @click="prevArticlesPage">‹</button>
-              <span style="padding:0 8px;font-size:12px;" aria-current="page">{{ archiveStore.articlesPage }} / {{ articlesTotalPages }}</span>
-              <button class="page-btn" :disabled="archiveStore.articlesPage >= articlesTotalPages" aria-label="Następna strona maszyn" @click="nextArticlesPage">›</button>
+              <button class="page-btn" :disabled="archiveStore.articlesPage <= 1" @click="prevArticlesPage">‹</button>
+              <span style="padding:0 8px;font-size:12px;">{{ archiveStore.articlesPage }} / {{ articlesTotalPages }}</span>
+              <button class="page-btn" :disabled="archiveStore.articlesPage >= articlesTotalPages" @click="nextArticlesPage">›</button>
             </div>
           </div>
         </div>
@@ -324,7 +293,7 @@
         </div>
 
         <div v-if="archiveStore.statsLoading" class="empty-state">Ładowanie statystyk...</div>
-        <div v-else-if="archiveStore.statsError" class="empty-state error" role="alert">Błąd: {{ archiveStore.statsError }}</div>
+        <div v-else-if="archiveStore.statsError" class="empty-state error">Błąd: {{ archiveStore.statsError }}</div>
 
         <template v-else>
           <!-- Podsumowanie -->
@@ -519,7 +488,7 @@
               </thead>
               <tbody>
                 <tr v-if="archiveStore.categoriesLoading">
-                  <td :colspan="authStore.isAdmin ? 4 : 3"><TableSkeleton :rows="5" :cols="4" layout="inline" label="Ladowanie kategorii archiwum" /></td>
+                  <td :colspan="authStore.isAdmin ? 4 : 3" class="empty-state">Ładowanie...</td>
                 </tr>
                 <tr v-else-if="!flatCategoryTree.length">
                   <td :colspan="authStore.isAdmin ? 4 : 3" class="empty-state">Brak kategorii archiwum</td>
@@ -532,8 +501,8 @@
                     <td><input v-model="editingCatData.code" class="form-control form-control-xs" @keydown.enter="saveEditCat" @keydown.esc="editingCatId = null" /></td>
                     <td style="color:var(--color-text-muted);font-size:11px;">{{ cat.level }}</td>
                     <td>
-                      <button class="btn-icon" style="color:var(--color-success);" @click="saveEditCat" title="Zapisz" aria-label="Zapisz kategorię">✓</button>
-                      <button class="btn-icon" @click="editingCatId = null" title="Anuluj" aria-label="Anuluj edycję kategorii">✕</button>
+                      <button class="btn-icon" style="color:var(--color-success);" @click="saveEditCat" title="Zapisz">✓</button>
+                      <button class="btn-icon" @click="editingCatId = null" title="Anuluj">✕</button>
                     </td>
                   </tr>
                   <tr v-else>
@@ -545,12 +514,11 @@
                     <td>{{ cat.code || '—' }}</td>
                     <td style="color:var(--color-text-muted);font-size:11px;">{{ cat.level }}</td>
                     <td v-if="authStore.isAdmin">
-                      <button class="btn-icon" @click="startEditCat(cat)" title="Edytuj" aria-label="Edytuj kategorię">✎</button>
+                      <button class="btn-icon" @click="startEditCat(cat)" title="Edytuj">✎</button>
                       <button
                         class="btn-icon"
                         :disabled="cat.children && cat.children.length > 0"
                         :title="cat.children && cat.children.length > 0 ? 'Ma podkategorie' : 'Usuń'"
-                        :aria-label="cat.children && cat.children.length > 0 ? 'Nie można usunąć — ma podkategorie' : 'Usuń kategorię'"
                         @click="deleteCat(cat.id)"
                       >✕</button>
                     </td>
@@ -566,14 +534,14 @@
     <!-- DRILL-DOWN DRAWER (z prawej, 60% szerokości) -->
     <Teleport to="body">
       <div v-if="drillDown.open" class="drill-overlay" @click="closeDrillDown">
-        <div class="drill-drawer" role="dialog" aria-modal="true" aria-labelledby="drill-title" @click.stop>
+        <div class="drill-drawer" @click.stop>
           <!-- Header -->
           <div class="drill-header">
             <div class="drill-title-block">
-              <h3 class="drill-title" id="drill-title">{{ drillDown.title }}</h3>
+              <h3 class="drill-title">{{ drillDown.title }}</h3>
               <p class="drill-subtitle">{{ drillDown.subtitle }}</p>
             </div>
-            <button class="drill-close" @click="closeDrillDown" title="Zamknij (Esc)" aria-label="Zamknij panel drill-down">✕</button>
+            <button class="drill-close" @click="closeDrillDown" title="Zamknij (Esc)">✕</button>
           </div>
 
           <!-- Search -->
@@ -593,7 +561,6 @@
               v-if="drillDown.search"
               class="btn-icon"
               title="Wyczyść"
-              aria-label="Wyczyść wyszukiwanie drill-down"
               @click="drillDown.search = ''; reloadDrillDown()"
             >↺</button>
           </div>
@@ -604,7 +571,7 @@
               <div class="skel-row" v-for="i in 5" :key="i"></div>
             </div>
 
-            <div v-else-if="archiveStore.drillDownError" class="drill-error" role="alert">
+            <div v-else-if="archiveStore.drillDownError" class="drill-error">
               <p>Nie udało się pobrać danych. Spróbuj ponownie.</p>
               <button class="btn btn-primary btn-sm" @click="reloadDrillDown">Spróbuj ponownie</button>
             </div>
@@ -650,9 +617,9 @@
           <div v-if="!archiveStore.drillDownLoading && archiveStore.drillDownContracts.length" class="drill-footer">
             <span>Łącznie: {{ archiveStore.drillDownTotal }} umów</span>
             <div class="pagination">
-              <button class="page-btn" :disabled="drillDown.page <= 1" aria-label="Poprzednia strona drill-down" @click="drillDown.page--; reloadDrillDown()">‹</button>
-              <span style="padding:0 8px;font-size:12px;" aria-current="page">{{ drillDown.page }} / {{ Math.ceil(archiveStore.drillDownTotal / 50) || 1 }}</span>
-              <button class="page-btn" :disabled="drillDown.page >= Math.ceil(archiveStore.drillDownTotal / 50)" aria-label="Następna strona drill-down" @click="drillDown.page++; reloadDrillDown()">›</button>
+              <button class="page-btn" :disabled="drillDown.page <= 1" @click="drillDown.page--; reloadDrillDown()">‹</button>
+              <span style="padding:0 8px;font-size:12px;">{{ drillDown.page }} / {{ Math.ceil(archiveStore.drillDownTotal / 50) || 1 }}</span>
+              <button class="page-btn" :disabled="drillDown.page >= Math.ceil(archiveStore.drillDownTotal / 50)" @click="drillDown.page++; reloadDrillDown()">›</button>
             </div>
           </div>
         </div>
@@ -666,7 +633,6 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useArchiveStore } from '@/stores/archive'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
-import TableSkeleton from '@/components/TableSkeleton.vue'
 import type {
   ArchiveCategoryPayload,
   ArchiveCategoryTreeNode,
@@ -767,51 +733,6 @@ const articleFilters = ref<{ search: string; category_id: number | null }>({
   category_id: null,
 })
 
-// RAO-P1-002: Kaskada kategorii (główna → sub1 → sub2) dla filtra maszyn.
-// Wybrana kategoria = najbardziej specyficzny poziom (sub2 ?? sub1 ?? main).
-// Backend filtruje dokładnym matchem category_id, więc wysyłamy liść kaskady.
-const catSelectedMain = ref<number | null>(null)
-const catSelectedSub1 = ref<number | null>(null)
-const catSelectedSub2 = ref<number | null>(null)
-
-const catMainOptions = computed<ArchiveCategoryTreeNode[]>(() => archiveStore.categoriesTree)
-const catSub1Options = computed<ArchiveCategoryTreeNode[]>(() => {
-  if (!catSelectedMain.value) return []
-  return catMainOptions.value.find((c) => c.id === catSelectedMain.value)?.children ?? []
-})
-const catSub2Options = computed<ArchiveCategoryTreeNode[]>(() => {
-  if (!catSelectedSub1.value) return []
-  return catSub1Options.value.find((c) => c.id === catSelectedSub1.value)?.children ?? []
-})
-
-// Breadcrumb pokazujący wybraną ścieżkę kategorii.
-const catBreadcrumb = computed<string>(() => {
-  const parts: string[] = []
-  const main = catMainOptions.value.find((c) => c.id === catSelectedMain.value)
-  if (main) parts.push(main.name)
-  const sub1 = catSub1Options.value.find((c) => c.id === catSelectedSub1.value)
-  if (sub1) parts.push(sub1.name)
-  const sub2 = catSub2Options.value.find((c) => c.id === catSelectedSub2.value)
-  if (sub2) parts.push(sub2.name)
-  return parts.join(' › ')
-})
-
-// Aktualizuj articleFilters.category_id przy zmianie kaskady.
-watch([catSelectedMain, catSelectedSub1, catSelectedSub2], () => {
-  const leaf = catSelectedSub2.value ?? catSelectedSub1.value ?? catSelectedMain.value
-  articleFilters.value.category_id = leaf
-  // Automatycznie zastosuj filtr po zmianie kategorii w kaskadzie.
-  void applyArticleFilters()
-})
-
-function onCatMainChange() {
-  catSelectedSub1.value = null
-  catSelectedSub2.value = null
-}
-function onCatSub1Change() {
-  catSelectedSub2.value = null
-}
-
 const articlesTotalPages = computed(() =>
   Math.max(1, Math.ceil(archiveStore.articlesTotal / archiveStore.articlesPerPage)),
 )
@@ -827,9 +748,6 @@ async function applyArticleFilters() {
 
 function clearArticleFilters() {
   articleFilters.value = { search: '', category_id: null }
-  catSelectedMain.value = null
-  catSelectedSub1.value = null
-  catSelectedSub2.value = null
   void applyArticleFilters()
 }
 
@@ -856,7 +774,7 @@ async function onArticleCategoryChange(articleId: number, event: Event) {
     await archiveStore.updateArticleCategory(articleId, categoryId)
   } catch (e: unknown) {
     const err = e as { response?: { data?: { detail?: string } } }
-    toastStore.error(err?.response?.data?.detail ?? 'Błąd zmiany kategorii')
+    alert(err?.response?.data?.detail ?? 'Błąd zmiany kategorii')
     // Odśwież listę aby przywrócić poprawny stan
     void applyArticleFilters()
   }
@@ -887,7 +805,7 @@ async function loadRoi() {
     await archiveStore.fetchMachineRoi(roiArticleId.value, statsDateFrom.value, statsDateTo.value)
   } catch (e: unknown) {
     const err = e as { response?: { data?: { detail?: string } } }
-    toastStore.error(err?.response?.data?.detail ?? 'Błąd pobierania ROI')
+    alert(err?.response?.data?.detail ?? 'Błąd pobierania ROI')
   }
 }
 
@@ -1057,7 +975,7 @@ async function addCategory() {
     newCat.value = { name: '', code: '', parent_id: null }
   } catch (e: unknown) {
     const err = e as { response?: { data?: { detail?: string } } }
-    toastStore.error(err?.response?.data?.detail ?? 'Błąd dodawania kategorii')
+    alert(err?.response?.data?.detail ?? 'Błąd dodawania kategorii')
   }
 }
 
@@ -1081,7 +999,7 @@ async function saveEditCat() {
     editingCatId.value = null
   } catch (e: unknown) {
     const err = e as { response?: { data?: { detail?: string } } }
-    toastStore.error(err?.response?.data?.detail ?? 'Błąd zapisu kategorii')
+    alert(err?.response?.data?.detail ?? 'Błąd zapisu kategorii')
   }
 }
 
@@ -1091,7 +1009,7 @@ async function deleteCat(id: number) {
     await archiveStore.deleteCategory(id)
   } catch (e: unknown) {
     const err = e as { response?: { data?: { detail?: string } } }
-    toastStore.error(err?.response?.data?.detail ?? 'Błąd usuwania kategorii')
+    alert(err?.response?.data?.detail ?? 'Błąd usuwania kategorii')
   }
 }
 
@@ -1124,10 +1042,6 @@ async function loadTabData(tab: TabId) {
       if (!archiveStore.categories.length) {
         await archiveStore.fetchCategories()
       }
-      // RAO-P1-002: kaskada kategorii (główna → sub1 → sub2) wymaga drzewa.
-      if (!archiveStore.categoriesTree.length) {
-        await archiveStore.fetchCategoriesTree()
-      }
     } else if (tab === 'stats') {
       if (!archiveStore.statsSummary) {
         await loadStats()
@@ -1159,30 +1073,6 @@ onMounted(() => {
   overflow: hidden;
   background: var(--color-bg-light);
   font-family: var(--font-family);
-}
-
-/* RAO-P1-002: Kaskada kategorii (główna → sub1 → sub2) z breadcrumbem */
-.cat-cascade {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--spacing-2);
-}
-.cat-cascade .form-control {
-  width: 200px;
-}
-.cat-breadcrumb {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-primary);
-  background: var(--color-bg-light);
-  border: 1px solid var(--color-border);
-  border-radius: var(--border-radius-sm);
-  padding: 2px var(--spacing-2);
-  max-width: 360px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* ── Banner ─────────────────────────────────────────────────────────────────── */
