@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAnalyticsStore, type ExplorerResultItem, type AnalyticsFiltersPayload } from '@/stores/analytics'
 import AnalyticsTable, {
@@ -53,21 +53,20 @@ const sortedRowsView = computed(() => sortedRows(rows.value))
 const summary = computed(() => store.explorerSummary)
 
 async function search(): Promise<void> {
-  const q = query.value.trim()
-  if (!q) {
-    hasSearched.value = false
-    return
-  }
+  // Puste q = pokaż wszystkie wyniki (backend /explorer/search obsługuje q=None)
   hasSearched.value = true
-  await store.searchExplorer(q, props.dateFrom, props.dateTo, 50, props.filters)
+  await store.searchExplorer(query.value.trim(), props.dateFrom, props.dateTo, 50, props.filters)
 }
 
-async function onSearchInput(): Promise<void> {
-  // Reset wyników gdy pole puste — bez auto-search (szukaj na Enter / klik)
-  if (!query.value.trim()) {
-    hasSearched.value = false
-  }
-}
+// Auto-search na mount — pokaż domyślne wyniki (KOP-001, umowy, etc.)
+onMounted(() => {
+  search()
+})
+
+// Re-search gdy filtry/daty się zmienią
+watch(() => [props.dateFrom, props.dateTo, props.filters?.contractorId, props.filters?.city, props.filters?.articleType], () => {
+  if (hasSearched.value) search()
+})
 
 function onRowClick(row: AnalyticsRow): void {
   const articleId = Number(row.article_id)
@@ -93,7 +92,7 @@ function onRowClick(row: AnalyticsRow): void {
       <button
         type="button"
         class="ex-btn"
-        :disabled="store.loadingExplorer || !query.trim()"
+        :disabled="store.loadingExplorer"
         data-testid="explorer-search-btn"
         @click="search"
       >
@@ -135,7 +134,8 @@ function onRowClick(row: AnalyticsRow): void {
         </template>
         <template #empty>
           <template v-if="!hasSearched">Wpisz frazę i kliknij „Szukaj"</template>
-          <template v-else>Brak wyników dla zapytania „{{ query }}"</template>
+          <template v-else-if="query.trim()">Brak wyników dla zapytania „{{ query }}"</template>
+          <template v-else>Brak wyników w wybranym okresie</template>
         </template>
       </AnalyticsTable>
     </div>
