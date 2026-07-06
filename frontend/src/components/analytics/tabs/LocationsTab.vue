@@ -443,8 +443,3 @@ watch(groupBy, load)
   }
 }
 </style>
-  .loc-bar-row {
-    grid-template-columns: 140px 1fr 110px;
-  }
-}
-</style>

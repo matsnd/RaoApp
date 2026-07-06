@@ -781,6 +781,10 @@ async def positions(
     date_to: date | None = Query(None),
     contractor_id: int | None = Query(None, description="Filtruj po kontrahencie"),
     city: str | None = Query(None, description="Filtruj po mieście umowy (case-insensitive)"),
+    category_main: list[str] = Query(
+        default=[],
+        description="Filtr kategorii głównych (multi-value, opcjonalny) — drilldown kategorii",
+    ),
     limit: int | None = Query(
         None,
         ge=1,
@@ -849,6 +853,11 @@ async def positions(
 
     # Filtry contractor_id / city / internal_number
     all_pos = _apply_position_filters(all_pos, contractor_id=contractor_id, city=city)
+
+    # Filtr category_main (drilldown kategorii) — in-memory
+    if category_main:
+        cm_set = set(category_main)
+        all_pos = [p for p in all_pos if p["category_main"] in cm_set]
 
     # Agregacja per article
     agg = defaultdict(lambda: {

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, provide, ref, watch } from 'vue'
-import { useAnalyticsStore, type DrillDownKind } from '@/stores/analytics'
+import { useAnalyticsStore, type DrillDownKind, type AnalyticsFiltersPayload } from '@/stores/analytics'
 import { useContractorStore } from '@/stores/contractors'
 import AnalyticsTabs, { type AnalyticsTab } from '@/components/analytics/AnalyticsTabs.vue'
 import AnalyticsFilters, {
@@ -83,13 +83,21 @@ function onTabChange(key: string): void {
 
 // ── Drill-down (udostępniony tabom przez provide) ────────────────────────────
 // RAO-P2-065 #7: internalNumber opcjonalny — dodawany do subtitle drawera
+// RAO-P1-014: rozszerzone o 'service' | 'category' (drilldown modal z listą umów/maszyn)
 function openDrillDown(
   kind: DrillDownKind,
   id: number | string,
   name: string,
   internalNumber?: string | null,
 ): void {
-  store.openDrillDown(kind, id, name, filters.value.dateFrom, filters.value.dateTo, internalNumber)
+  const filtersPayload: AnalyticsFiltersPayload = {
+    dateFrom: filters.value.dateFrom,
+    dateTo: filters.value.dateTo,
+    contractorId: filters.value.contractorId,
+    city: filters.value.city,
+    articleType: filters.value.articleType,
+  }
+  store.openDrillDown(kind, id, name, filters.value.dateFrom, filters.value.dateTo, filtersPayload)
 }
 provide('analytics:openDrillDown', openDrillDown)
 
@@ -354,6 +362,100 @@ onMounted(async () => {
         </div>
       </div>
 
+      <!-- SERVICE: szczegóły usługi (top kontrahenci + lokalizacje) -->
+      <div v-else-if="store.drillDown.kind === 'service' && store.serviceDetails" class="drill-machine">
+        <div class="drill-metrics">
+          <div class="drill-metric">
+            <span class="dm-value">{{ formatCurrency(store.serviceDetails.metrics.total_revenue) }}</span>
+            <span class="dm-label">Przychód</span>
+          </div>
+          <div class="drill-metric">
+            <span class="dm-value">{{ store.serviceDetails.metrics.times_billed }}</span>
+            <span class="dm-label">Razy zafakturowane</span>
+          </div>
+        </div>
+
+        <div v-if="store.serviceDetails.top_contractors?.length" class="drill-subsection">
+          <span class="drill-subtitle">Top kontrahenci</span>
+          <table class="drill-table">
+            <thead>
+              <tr>
+                <th>Kontrahent</th>
+                <th style="text-align:right;">Umów</th>
+                <th style="text-align:right;">Przychód</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="c in store.serviceDetails.top_contractors" :key="c.contractor_name">
+                <td>{{ c.contractor_name }}</td>
+                <td style="text-align:right;">{{ c.contract_count }}</td>
+                <td class="td-strong">{{ formatCurrency(c.total_revenue) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div v-if="store.serviceDetails.location_breakdown?.length" class="drill-subsection">
+          <span class="drill-subtitle">Lokalizacje</span>
+          <table class="drill-table">
+            <thead>
+              <tr>
+                <th>Miasto</th>
+                <th>PNA</th>
+                <th style="text-align:right;">Umów</th>
+                <th style="text-align:right;">Przychód</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="l in store.serviceDetails.location_breakdown" :key="`${l.city}-${l.postal_code}`">
+                <td>{{ l.city }}</td>
+                <td>{{ l.postal_code ?? '—' }}</td>
+                <td style="text-align:right;">{{ l.contract_count }}</td>
+                <td class="td-strong">{{ formatCurrency(l.total_revenue) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- CATEGORY: lista maszyn w kategorii -->
+      <div v-else-if="store.drillDown.kind === 'category' && store.categoryDetails" class="drill-machine">
+        <div class="drill-metrics">
+          <div class="drill-metric">
+            <span class="dm-value">{{ formatCurrency(store.categoryDetails.total_revenue) }}</span>
+            <span class="dm-label">Przychód kategorii</span>
+          </div>
+          <div class="drill-metric">
+            <span class="dm-value">{{ store.categoryDetails.items.length }}</span>
+            <span class="dm-label">Maszyn</span>
+          </div>
+        </div>
+
+        <div v-if="store.categoryDetails.items.length" class="drill-subsection">
+          <span class="drill-subtitle">Maszyny w kategorii</span>
+          <table class="drill-table">
+            <thead>
+              <tr>
+                <th>Maszyna</th>
+                <th>Nr wewn.</th>
+                <th style="text-align:right;">Dni</th>
+                <th style="text-align:right;">Umów</th>
+                <th style="text-align:right;">Przychód</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="m in store.categoryDetails.items" :key="m.article_id">
+                <td>{{ m.article_name }}</td>
+                <td>{{ m.internal_number ?? '—' }}</td>
+                <td style="text-align:right;">{{ m.rented_days }}</td>
+                <td style="text-align:right;">{{ m.contracts_count }}</td>
+                <td class="td-strong">{{ formatCurrency(m.revenue) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- Pusty stan gdy brak danych -->
       <div
         v-else-if="!store.drillLoading && !store.drillError"
@@ -374,6 +476,9 @@ onMounted(async () => {
   flex-direction: column;
   gap: var(--spacing-lg);
   font-family: var(--font-family);
+  height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .av-header {

@@ -29,7 +29,7 @@ const props = defineProps<Props>()
 const store = useAnalyticsStore()
 
 const openDrillDown = inject<
-  (kind: 'machine' | 'location', id: number | string, name: string, internalNumber?: string | null) => void
+  (kind: 'machine' | 'location' | 'service' | 'category', id: number | string, name: string, internalNumber?: string | null) => void
 >('analytics:openDrillDown', () => {})
 
 // ── Sortowanie per tabela ────────────────────────────────────────────────────
@@ -94,6 +94,7 @@ const sortedTopMachinesRows = computed(() => topMachinesSort.sortedRows(topMachi
 
 const feesRows = computed<AnalyticsRow[]>(() =>
   (store.additionalFees?.breakdown ?? []).map((f: ServiceFeeItem) => ({
+    article_id: f.article_id,
     service_name: f.service_name,
     total_revenue: Number(f.total_revenue),
     times_billed: f.times_billed,
@@ -195,18 +196,17 @@ function onLocationRowClick(row: AnalyticsRow): void {
 
 function onServiceClick(row: AnalyticsRow) {
   // RAO-P1-014: drilldown do szczegółów usługi (które umowy, kiedy, kwota)
-  // Używamy alert jako tymczasowe rozwiązanie (TODO: drilldown modal)
-  const serviceName = row.service_name as string
-  const revenue = row.total_revenue as number
-  alert(`Szczegóły usługi: ${serviceName}\nPrzychód: ${revenue.toLocaleString('pl-PL')} zł\n\nTODO: Implement drilldown modal z listą umów`)
+  const articleId = Number(row.article_id)
+  const serviceName = String(row.service_name ?? '')
+  if (!Number.isFinite(articleId) || !serviceName) return
+  openDrillDown('service', articleId, serviceName)
 }
 
 function onCategoryClick(row: AnalyticsRow) {
   // RAO-P1-014: drilldown do szczegółów kategorii (jakie maszyny, umowy, przychód)
-  // Używamy alert jako tymczasowe rozwiązanie (TODO: drilldown modal)
-  const categoryName = row.category_name as string
-  const revenue = row.revenue as number
-  alert(`Szczegóły kategorii: ${categoryName}\nPrzychód: ${revenue.toLocaleString('pl-PL')} zł\n\nTODO: Implement drilldown modal z listą maszyn/umów`)
+  const categoryName = String(row.category_name ?? '')
+  if (!categoryName) return
+  openDrillDown('category', categoryName, categoryName)
 }
 
 // ── Fetch wszystkich 5 endpointów (parallel) ─────────────────────────────────

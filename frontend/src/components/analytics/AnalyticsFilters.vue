@@ -304,6 +304,3 @@ function clearFilters(): void {
   background: var(--color-bg-light);
 }
 </style>
-  background: var(--color-bg-light);
-}
-</style>

@@ -215,7 +215,15 @@ export interface LocationDetailsResponse {
 }
 
 // ── Drill-down state ──────────────────────────────────────────────────────────
-export type DrillDownKind = 'machine' | 'location'
+export type DrillDownKind = 'machine' | 'location' | 'service' | 'category'
+
+// RAO-P1-014: drilldown usługi — odpowiedź /explorer/services/{article_id}
+export interface ServiceDetailsResponse {
+  service: { id: number; name: string }
+  metrics: { times_billed: number; total_revenue: number }
+  top_contractors: { contractor_name: string; contract_count: number; total_revenue: number }[]
+  location_breakdown: { city: string; postal_code: string | null; contract_count: number; total_revenue: number }[]
+}
 
 export interface DrillDownState {
   open: boolean
@@ -271,6 +279,8 @@ export const useAnalyticsStore = defineStore('analytics', () => {
 
   const machineDetails = ref<MachineDetailsResponse | null>(null)
   const locationDetails = ref<LocationDetailsResponse | null>(null)
+  const serviceDetails = ref<ServiceDetailsResponse | null>(null)
+  const categoryDetails = ref<PositionStatsResponse | null>(null)
 
   const drillDown = ref<DrillDownState>({ ...emptyDrillDown })
 
@@ -540,6 +550,45 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     return data
   }
 
+  // RAO-P1-014: drilldown usługi — /explorer/services/{article_id}
+  async function fetchServiceDetails(
+    articleId: number,
+    dateFrom: string,
+    dateTo: string,
+  ): Promise<ServiceDetailsResponse> {
+    const params: Record<string, string> = {}
+    if (dateFrom) params.date_from = dateFrom
+    if (dateTo) params.date_to = dateTo
+    const { data } = await api.get<ServiceDetailsResponse>(
+      `/explorer/services/${articleId}`,
+      { params },
+    )
+    serviceDetails.value = data
+    return data
+  }
+
+  // RAO-P1-014: drilldown kategorii — /stats/positions?type=machines&category_main=...
+  async function fetchCategoryDetails(
+    categoryName: string,
+    dateFrom: string,
+    dateTo: string,
+    filters?: AnalyticsFiltersPayload,
+  ): Promise<PositionStatsResponse> {
+    const params: Record<string, string> = { type: 'machines' }
+    if (dateFrom) params.date_from = dateFrom
+    if (dateTo) params.date_to = dateTo
+    if (filters?.contractorId) params.contractor_id = String(filters.contractorId)
+    if (filters?.city) params.city = filters.city
+    // category_main jako multi-value parametr
+    const sp = new URLSearchParams(params)
+    sp.append('category_main', categoryName)
+    const { data } = await api.get<PositionStatsResponse>(
+      '/stats/positions?' + sp.toString(),
+    )
+    categoryDetails.value = data
+    return data
+  }
+
   // ── Drill-down orchestration ───────────────────────────────────────────────
   async function openDrillDown(
     kind: DrillDownKind,
@@ -547,32 +596,47 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     name: string,
     dateFrom: string,
     dateTo: string,
+    filters?: AnalyticsFiltersPayload,
   ): Promise<void> {
     // RAO-P2-069: 'location' z id numerycznym/city → miasto; PNA string → PNA
     // Konwencja: jeśli id zaczyna się od "city:" → drill po mieście
     const isCityDrill = typeof id === 'string' && id.startsWith('city:')
     const drillKind: DrillDownKind = isCityDrill ? 'location' : kind
 
+    const titleByKind: Record<DrillDownKind, string> = {
+      machine: `🏗️ ${name}`,
+      location: `📍 ${name}`,
+      service: `🔧 ${name}`,
+      category: `🏷️ ${name}`,
+    }
+    const subtitleByKind: Record<DrillDownKind, string> = {
+      machine: 'Historia wynajmów maszyny',
+      location: isCityDrill ? 'Umowy w mieście (wszystkie PNA)' : 'Umowy w lokalizacji (PNA)',
+      service: 'Umowy z tą usługą',
+      category: 'Maszyny w tej kategorii',
+    }
+
     drillDown.value = {
       open: true,
       kind: drillKind,
       id,
       name,
-      title: kind === 'machine' ? `🏗️ ${name}` : `📍 ${name}`,
-      subtitle:
-        kind === 'machine'
-          ? 'Historia wynajmów maszyny'
-          : isCityDrill
-            ? 'Umowy w mieście (wszystkie PNA)'
-            : 'Umowy w lokalizacji (PNA)',
+      title: titleByKind[kind],
+      subtitle: subtitleByKind[kind],
     }
     drillLoading.value = true
     drillError.value = null
     machineDetails.value = null
     locationDetails.value = null
+    serviceDetails.value = null
+    categoryDetails.value = null
     try {
       if (kind === 'machine') {
         await fetchMachineDetails(Number(id), dateFrom, dateTo)
+      } else if (kind === 'service') {
+        await fetchServiceDetails(Number(id), dateFrom, dateTo)
+      } else if (kind === 'category') {
+        await fetchCategoryDetails(String(id), dateFrom, dateTo, filters)
       } else if (isCityDrill) {
         await fetchCityDetails(String(id).slice(5), dateFrom, dateTo)
       } else {
@@ -591,6 +655,8 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     drillError.value = null
     machineDetails.value = null
     locationDetails.value = null
+    serviceDetails.value = null
+    categoryDetails.value = null
   }
 
   return {
@@ -615,6 +681,8 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     loadingLocations,
     machineDetails,
     locationDetails,
+    serviceDetails,
+    categoryDetails,
     drillDown,
     // getters
     liveUtilPct,
@@ -634,6 +702,8 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     fetchMachineDetails,
     fetchLocationDetails,
     fetchCityDetails,
+    fetchServiceDetails,
+    fetchCategoryDetails,
     openDrillDown,
     closeDrillDown,
   }
