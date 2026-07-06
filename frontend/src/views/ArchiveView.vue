@@ -381,7 +381,8 @@
             </div>
           </div>
 
-          <!-- ROI maszyny -->
+          <!-- ROI maszyny — ukryte (nie znamy ID artykułów jako userzy) -->
+          <!--
           <div class="stats-card">
             <div class="stats-card-header">📈 ROI maszyny</div>
             <div class="stats-card-body">
@@ -423,6 +424,7 @@
               </div>
             </div>
           </div>
+          -->
 
           <!-- Miasta -->
           <div class="stats-card">
