@@ -613,6 +613,22 @@ async def startup_migrations():
                 )
             await db.commit()
 
+        # RAO-P2-028 backfill: ustaw postal_code_id dla umów z NULL FK,
+        # gdzie contracts.postal_code istnieje w słowniku postal_codes.
+        # Idempotentne — UPDATE tylko wiersze z postal_code_id IS NULL.
+        from sqlalchemy import text as sa_text
+        backfilled = await db.execute(sa_text(
+            "UPDATE contracts c "
+            "JOIN postal_codes p ON c.postal_code = p.postal_code "
+            "SET c.postal_code_id = p.id "
+            "WHERE c.postal_code_id IS NULL "
+            "  AND c.postal_code IS NOT NULL "
+            "  AND c.postal_code <> ''"
+        ))
+        if backfilled.rowcount:
+            await db.commit()
+            print(f"[startup] Backfill postal_code_id: {backfilled.rowcount} umów zaktualizowanych")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.get_cors_origins(),

@@ -7,6 +7,7 @@ from sqlalchemy.orm import selectinload
 from contracts.models import Contract, ContractPosition, PositionCondition, ContractServiceFee
 from contracts.schemas import ContractCreate, PositionCreate, ConditionCreate, ContractServiceFeeCreate
 from shared.exceptions import not_found, conflict
+from shared.locations import resolve_postal_code_id
 
 
 async def generate_contract_number(db: AsyncSession, contract_type: str, branch_id: int | None = None) -> tuple[str, int]:
@@ -399,6 +400,9 @@ class ContractService:
                     auto_number=auto_num,
                     created_at=datetime.utcnow(),
                 )
+                # RAO-P2-028: ustaw postal_code_id z lookupu po PNA string
+                # (schema nie ma postal_code_id — ustawiamy ręcznie po create)
+                contract.postal_code_id = await resolve_postal_code_id(db, data.postal_code)
                 db.add(contract)
                 await db.commit()
                 await db.refresh(contract)
@@ -429,6 +433,9 @@ class ContractService:
         update_data.pop("contractor_name", None)
         for field, value in update_data.items():
             setattr(contract, field, value)
+        # RAO-P2-028: gdy aktualizowano postal_code, odśwież FK postal_code_id
+        if "postal_code" in update_data:
+            contract.postal_code_id = await resolve_postal_code_id(db, update_data.get("postal_code"))
         contract.updated_at = datetime.utcnow()
         await db.commit()
         await db.refresh(contract)

@@ -28,6 +28,26 @@ from stats.schemas import LocationStatItem
 NO_PNA_BUCKET = "(brak PNA)"
 
 
+async def resolve_postal_code_id(db: AsyncSession, postal_code: str | None) -> int | None:
+    """Znajdź FK do postal_codes po PNA string (deterministyczna lokalizacja — RAO-P2-028).
+
+    Zwraca id rekordu z postal_codes lub None gdy:
+    - postal_code jest None/pusty
+    - PNA nie istnieje w słowniku
+
+    Używane przez contracts/service.py (create/update) oraz backfill migracji.
+    """
+    if not postal_code:
+        return None
+    pc = postal_code.strip()
+    if not pc:
+        return None
+    result = await db.execute(
+        select(PostalCode.id).where(PostalCode.postal_code == pc).limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
 async def aggregate_by_pna(
     positions: list[dict],
     db: AsyncSession,
@@ -133,6 +153,10 @@ async def aggregate_by_pna(
             postal_code = (loc["pna"] or "").strip() or None
             if not city:
                 city = NO_PNA_BUCKET
+            elif postal_code is None:
+                # RAO-P2-028: umowa z miastem ale bez PNA → "{city} (brak PNA)"
+                # — odróżnia od umów z PNA w tym samym mieście (inny bucket agregacji)
+                city = f"{city} (brak PNA)"
             gmina = None
             powiat = None
             wojewodztwo = None
