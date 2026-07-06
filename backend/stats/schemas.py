@@ -18,7 +18,7 @@ class FleetSummary(BaseModel):
 
 
 class TopMachineItem(BaseModel):
-    article_id: int
+    article_id: int | None  # RAO Faza 2a (opcja E): None dla unmapped bucket
     name: str
     internal_number: str | None
     revenue: Decimal
