@@ -52,7 +52,11 @@ def step1_legacy(args) -> int:
 
 
 def step2_archive(args) -> int:
-    return _run_script("migrate_to_archive.py")
+    cmd = [PYTHON, str(BACKEND / "migrate_to_archive.py")]
+    if getattr(args, "reseed", False):
+        cmd.append("--force")
+    proc = subprocess.run(cmd, cwd=str(BACKEND))
+    return proc.returncode
 
 
 def step3_demo(args) -> int:
@@ -158,11 +162,17 @@ def parse_steps(spec: str) -> list[str]:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="RAO — orchestrator migracji i środowiska demo")
-    ap.add_argument("--steps", default="3-5", help="Kroki do wykonania, np. '3-5', '1,4' (domyślnie 3-5)")
+    ap.add_argument("--steps", default=None, help="Kroki do wykonania, np. '3-5', '1,4' (domyślnie 3-5, z --reseed: 2-5)")
     ap.add_argument("--list", action="store_true", help="Pokaż listę kroków i wyjdź")
     ap.add_argument("--confirm-drop", action="store_true", help="Potwierdź DROP bazy dla kroku 1")
     ap.add_argument("--demo", action="store_true", help="Flaga demo: pomija step 1 (legacy dump), tylko step 2-5 (dla szybkiego refresha demo)")
+    ap.add_argument("--reseed", action="store_true",
+                    help="Re-seed demo: archiwizuj aktualne contracts (--force) + seed + FA + verify. Skrót: --steps 2-5 --reseed")
     args = ap.parse_args()
+
+    # Domyślny zestaw kroków: --reseed → 2-5, w przeciwnym razie 3-5
+    if args.steps is None:
+        args.steps = "2-5" if args.reseed else "3-5"
 
     if args.list:
         print("Kroki migrate_all.py:")

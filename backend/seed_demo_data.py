@@ -521,15 +521,16 @@ def _lokalizacja(i):
 
 
 def generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_name):
-    """Generuje umowy demo (RAO-P2-067): 3 pule.
+    """Generuje umowy demo (RAO-P2-067): 4 pule.
 
     Pula A — historia 2025 (24 umowy, 12-24 mies. wstecz, wszystkie rozliczone)
              → bogate statystyki roczne, wykresy by-period, lokalizacje.
-    Pula B — bieżące 2026 (24 umowy, 0-12 mies. wstecz, mix stanów)
-             → aktywne wynajmy, flota teraz, KPI.
-    Pula C — FA-pending (16 umów, zakończone NIEROZLICZONE, bez settlements w RAO)
-             → faktury czekają w Fakturowni (seed_fa_invoices) — demo integracji:
-               user klika "Pobierz z Fakturowni" → rozliczenia się tworzą na żywo.
+    Pula B — bieżące 2026 (24 umowy):
+             B1: 10 AKTYWNYCH FA-pending (date_to >= today, is_settled=False, faktura w FA)
+                 → demo rozliczeń: user klika "Pobierz z Fakturowni" → rozliczenia na żywo.
+             B2: 14 historii 2026 (1-7 mies. wstecz, mix rozliczone / FA-pending zakończone).
+    Pula C — FA-pending zakończone (16 umów, NIEROZLICZONE, faktura czeka w FA)
+             → demo integracji na umowach zakończonych.
     """
     contractors = list(con_by_name.values())
     salespeople = list(sp_by_name.values())
@@ -583,10 +584,22 @@ def generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_n
         number = f"{contract_type}{i + 1:03d}/2025"
         _add(number, i, date_from, days, contract_type, is_settled=True, branch_idx=i % 4)
 
-    # ── Pula B: bieżące 2026 (0-12 miesięcy wstecz, mix stanów) ──────────────
-    for i in range(24):
+    # ── Pula B1: 10 AKTYWNYCH FA-pending (date_to >= today, faktura w FA) ────
+    # Demo rozliczeń: user otwiera aktywną umowę → "Pobierz z Fakturowni" →
+    # rozliczenia tworzą się na żywo → zapisz → następna umowa.
+    # date_from = today - (i*2) dni (0,2,4,...,18 dni temu)
+    # days = 21 + (i%3)*7 (21,28,35,21,28,35,21,28,35,21) → date_to w przyszłości
+    for i in range(10):
         contract_type = "S" if i % 3 != 2 else "U"
-        months_back = i // 2  # 0,0,1,1,...,11,11
+        date_from = today - timedelta(days=i * 2)
+        days = 21 + (i % 3) * 7
+        number = f"{contract_type}{i + 1:03d}/2026"
+        _add(number, i, date_from, days, contract_type, is_settled=False, fa_pending=True, branch_idx=i % 4)
+
+    # ── Pula B2: 14 historii 2026 (1-7 mies. wstecz, mix rozliczone / FA-pending) ──
+    for i in range(10, 24):
+        contract_type = "S" if i % 3 != 2 else "U"
+        months_back = (i - 10) // 2 + 1  # 1,1,2,2,...,7,7
         date_from = today - timedelta(days=months_back * 30 + (i % 2) * 15)
         days = 7 + (i % 4) * 7
         date_to = date_from + timedelta(days=days)

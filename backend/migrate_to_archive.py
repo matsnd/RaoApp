@@ -591,13 +591,14 @@ async def verify(conn) -> list:
     return results
 
 
-async def main() -> int:
+async def main(force: bool = False) -> int:
     log("=" * 72)
-    log("RAO-P2-062 Faza 0 — Migracja legacy do archive_*")
+    log("RAO-P2-062 Faza 0 — Migracja legacy do archive_*" + (" [--force]" if force else ""))
     log("=" * 72)
 
     # 1. Backup (PRZED migracją — krytyczne)
-    make_backup()
+    if not force:
+        make_backup()
 
     # Połączenie bezpośrednio przez aiomysql (pełna kontrola nad transakcją)
     log(f"Łączenie z DB: {DB_USER}@{DB_HOST}:{DB_PORT}/{DB_NAME}")
@@ -630,16 +631,19 @@ async def main() -> int:
             log(f"  {k} = {v}")
 
         # Skip jeśli archiwum już ma dane (re-run po sukcesie lub --demo)
+        # --force: zawsze archiwizuj aktualne contracts + usuń z demo tabel
         async with conn.cursor() as cur:
             await cur.execute("SELECT COUNT(*) FROM `archive_contracts`")
             ac = (await cur.fetchone())[0]
-        if ac > 0:
+        if ac > 0 and not force:
             log(f"archive_contracts ma {ac} rekordów — migracja już wykonana. Weryfikuję...")
             results = await verify(conn)
             for label, val in results:
                 log(f"  {label} = {val}")
             await conn.commit()
             return 0
+        if ac > 0 and force:
+            log(f"archive_contracts ma {ac} rekordów (--force: archiwizuję aktualne contracts)")
 
         if pre_counts["contracts_total"] == 0:
             log("Brak umów w bazie i archiwum puste — brak danych do migracji. Kończę.")
@@ -709,37 +713,10 @@ async def main() -> int:
 
 
 if __name__ == "__main__":
-    rc = asyncio.run(main())
-    sys.exit(rc)
-    sys.exit(rc)
-if __name__ == "__main__":
-    rc = asyncio.run(main())
-    sys.exit(rc)
-if __name__ == "__main__":
-    rc = asyncio.run(main())
-    sys.exit(rc)
-if __name__ == "__main__":
-    rc = asyncio.run(main())
-    sys.exit(rc)
-if __name__ == "__main__":
-    rc = asyncio.run(main())
-    sys.exit(rc)
-
-if __name__ == "__main__":
-    rc = asyncio.run(main())
-    sys.exit(rc)
-if __name__ == "__main__":
-    rc = asyncio.run(main())
-    sys.exit(rc)
-if __name__ == "__main__":
-    rc = asyncio.run(main())
-    sys.exit(rc)
-if __name__ == "__main__":
-    rc = asyncio.run(main())
-    sys.exit(rc)
-if __name__ == "__main__":
-    rc = asyncio.run(main())
-    sys.exit(rc)
-if __name__ == "__main__":
-    rc = asyncio.run(main())
+    import argparse
+    ap = argparse.ArgumentParser(description="RAO — migracja legacy do archive_*")
+    ap.add_argument("--force", action="store_true",
+                    help="Wymuś archiwizację aktualnych contracts + DELETE z demo tabel (re-seed)")
+    args = ap.parse_args()
+    rc = asyncio.run(main(force=args.force))
     sys.exit(rc)
