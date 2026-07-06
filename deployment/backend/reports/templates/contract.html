@@ -149,7 +149,7 @@
       </div>
     </td>
     <td class="info-col" style="vertical-align:top;padding-top:6px;">
-      {% if contract.delivery_address %}Adres dostawy: {{ contract.delivery_address }}<br>{% endif %}
+      {% if contract.hide_delivery_address %}Adres dostawy: <span style="border-bottom:1px solid #888;display:inline-block;min-width:220px;">&nbsp;</span><br>{% elif contract.delivery_address and contract.delivery_address.strip() %}Adres dostawy: {{ contract.delivery_address }}<br>{% endif %}
     </td>
   </tr>
 </table>
@@ -158,14 +158,18 @@
 <div class="uz-wrap">
   <div class="uz-label">uzupełnij</div>
   <table class="uz">
+    {% if contract.show_person1 %}
     <tr>
       <td style="width:130px;">reprezentowany przez:</td>
       <td><div class="fill">{{ contract.contact_person1 or '' }}</div></td>
     </tr>
+    {% endif %}
+    {% if contract.show_person2 %}
     <tr>
       <td>osoba kontaktowa:</td>
       <td><div class="fill">{{ contract.contact_person2 or '' }}</div></td>
     </tr>
+    {% endif %}
     <tr>
       <td>na budowie:</td>
       <td><div class="fill-wide"></div></td>
@@ -214,16 +218,16 @@
       {% if fees %}
       <div class="inne-label">Inne usługi</div>
       <div style="margin: 0; font-size: 8.5px; line-height: 1.45; color: #333;">
-        {% for f in fees if f.is_active %}
+        {% for fd in fees if fd.fee.is_active %}
         <div style="white-space: nowrap; margin-bottom: 1.5px;">
-          {% if f.description %}
-            {% if f.description[:1] == '-' or f.description[:1] == '•' %}
-              {{ f.description }}
+          {% if fd.description %}
+            {% if fd.description[:1] == '-' or fd.description[:1] == '•' %}
+              {{ fd.description }}
             {% else %}
-              - {{ f.description }}
+              - {{ fd.description }}
             {% endif %}
           {% else %}
-            - {{ f.name }}: {% if f.amount_from %}{{ f.amount_from | money_plain }}{% endif %}{% if f.amount_to %} - {{ f.amount_to | money_plain }}{% endif %}{% if f.unit %} {{ f.unit }}{% endif %}
+            - {{ fd.fee.name }}: {% if fd.fee.amount_from %}{{ fd.fee.amount_from | money_plain }}{% endif %}{% if fd.fee.amount_to %} - {{ fd.fee.amount_to | money_plain }}{% endif %}{% if fd.fee.unit %} {{ fd.fee.unit }}{% endif %}
           {% endif %}
         </div>
         {% endfor %}
@@ -241,9 +245,7 @@
         <p style="margin:0 0 4px 0;"><strong>Ilość dni pracy w tygodniu:</strong> {% if contract.working_days_per_week %}{{ contract.working_days_per_week }}{% else %}6{% endif %}.</p>
         <p style="margin:0;"><strong>Dokumentacja zdjęciowa:</strong> wykonano.</p>
         {% endif %}
-        {% if contract.total_value %}
-        <div style="margin-top:8px;font-size:9px;"><strong>Wartość umowy: {{ contract.total_value | money }}</strong></div>
-        {% endif %}
+        {# RAO-P1-021/P2-033: Wartość umowy usunięte (martwe pole) #}
       </div>
     </td>
   </tr>
@@ -251,7 +253,8 @@
 
 <div class="content-spacer" style="height: 35mm;"></div>
 
-<!-- SIGNATURES -->
+<!-- SIGNATURES (RAO-P2-064: warunkowo na str 1 gdy signatures_on_page1=TRUE) -->
+{% if contract.signatures_on_page1 %}
 <table class="sigs">
   <tr>
     <td>
@@ -264,6 +267,7 @@
     </td>
   </tr>
 </table>
+{% endif %}
 
 <!-- FOOTER LEGAL -->
 <div id="footer-legal-running">

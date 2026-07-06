@@ -7,47 +7,50 @@
   * { box-sizing: border-box; }
   body { margin: 0; padding: 0; font-family: 'Montserrat', sans-serif; font-size: 10px; color: #000; }
 
-  /* HEADER */
+  /* HEADER — RAO-P1-019: padding 11mm jak w contract.html */
   table.hdr { width: 100%; background: #1D2B53; color: #fff; border-collapse: collapse; }
-  .hdr-left { width: 28%; padding: 10px 10px 10px 14mm; font-size: 8px; line-height: 1.6; vertical-align: middle; }
+  .hdr-left { width: 28%; padding: 10px 10px 10px 11mm; font-size: 8px; line-height: 1.6; vertical-align: middle; }
   .hdr-center { text-align: center; vertical-align: middle; padding: 8px; }
   .hdr-logo-img { height: 18px; width: auto; display: block; margin: 0 auto 3px auto; object-fit: contain; }
   .hdr-slogan { font-size: 7.5px; letter-spacing: 3px; margin-top: 2px; }
-  .hdr-right { width: 28%; text-align: right; padding: 10px 14mm 10px 10px; font-size: 8px; line-height: 1.6; vertical-align: middle; }
+  .hdr-right { width: 28%; text-align: right; padding: 10px 11mm 10px 10px; font-size: 8px; line-height: 1.6; vertical-align: middle; }
 
-  /* CONTENT */
-  .content { padding: 8px 14mm 8px 14mm; }
+  /* CONTENT — RAO-P1-019: padding 11mm jak w contract.html */
+  .content { padding: 8px 11mm 0 11mm; }
   .content-spacer { display: block; }
 
-  /* TITLE */
-  .doc-title { font-size: 16px; text-align: center; margin: 16px 0 4px; font-weight: normal; }
-  .doc-sub { font-size: 10px; text-align: center; margin-bottom: 24px; }
+  /* TITLE — RAO-P1-019: navy color jak w contract.html */
+  .doc-title { font-size: 16px; text-align: center; margin: 14px 0 2px; font-weight: normal; color: #1D2B53; }
+  .doc-sub { font-size: 10px; text-align: center; margin-bottom: 16px; color: #1D2B53; }
 
-  /* PARTIES */
+  /* PARTIES — RAO-P1-019: width 46% jak w contract.html */
   table.parties { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
-  .party-box { width: 42%; vertical-align: top; padding: 0 10px 0 0; }
+  .party-box { width: 46%; vertical-align: top; padding: 0 10px 0 0; }
   .party-box-inner { border: 1px solid #aaa; padding: 5px 8px; font-size: 9px; line-height: 1.5; }
   .party-label { font-size: 8px; color: #888; }
-  .info-col { vertical-align: top; padding-left: 4px; font-size: 9.5px; line-height: 1.7; }
+  .party-data { color: #1D2B53; font-size: 9px; }
+  .info-col { vertical-align: top; padding-left: 4px; font-size: 9.5px; line-height: 1.8; color: #000; }
 
-  /* UZUPELNIJ */
-  .uz-wrap { border: 1px solid #aaa; margin-bottom: 8px; }
-  .uz-label { color: #E07800; font-size: 9px; padding: 5px 8px 0 8px; }
+  /* UZUPELNIJ — RAO-P1-019: solid border, gray label (nie orange), padding inside jak w contract.html */
+  .uz-wrap { border: 1px solid #aaa; margin-bottom: 6px; padding: 4px 8px 4px 8px; }
+  .uz-label { font-size: 8px; color: #888; margin-bottom: 3px; }
   /* FOOTER LEGAL */
   .footer-legal { font-size: 8px; line-height: 1.35; margin-top: 4px; padding-top: 0; page-break-after: avoid; }
   .footer-legal strong { font-size: 7.5px; }
-  table.uz { width: 100%; border-collapse: collapse; padding: 0 8px 4px 8px; }
-  table.uz td { font-size: 9px; padding: 2px 4px; vertical-align: bottom; }
-  .fill { background: #ffff99; border-bottom: 2px dotted #c00000; height: 20px; min-width: 140px; padding: 2px 4px; font-size: 10px; }
-  .fill-wide { background: #ffff99; border-bottom: 2px dotted #c00000; height: 20px; padding: 2px 4px; font-size: 10px; width: 100%; }
+  table.uz { width: 100%; border-collapse: collapse; }
+  table.uz td { font-size: 9px; padding: 1px 3px; vertical-align: bottom; white-space: nowrap; }
+  /* RAO-P1-019: "kropki do wywalenia" = dotted red → solid gray jak w contract.html */
+  .fill { background: #ffff99; border-bottom: 1px solid #aaa; height: 18px; min-width: 120px; padding: 1px 3px; font-size: 9px; width: 100%; }
+  .fill-wide { background: #ffff99; border-bottom: 1px solid #aaa; height: 18px; padding: 1px 3px; font-size: 9px; width: 100%; }
 
   /* LEGAL ITALIC */
   .legal-italic { font-size: 8.5px; font-style: italic; line-height: 1.4; margin: 6px 0; }
 
-  /* POSITIONS TABLE */
+  /* POSITIONS TABLE — RAO-P1-019: art-name navy bold jak w contract.html */
   table.pos { width: 100%; border-collapse: collapse; font-size: 8.5px; margin: 4px 0 6px; }
   table.pos th { font-size: 8.5px; color: #555; padding: 2px 4px; border-bottom: 1px solid #aaa; font-weight: normal; }
   table.pos td { padding: 2px 4px; border-bottom: 1px solid #ddd; vertical-align: top; }
+  .art-name { color: #1D2B53; font-weight: bold; }
   .cond { white-space: pre-line; font-size: 8.5px; }
 
   /* BOTTOM TWO COLUMNS */
@@ -132,7 +135,7 @@
       </div>
     </td>
     <td class="info-col" style="vertical-align:top;padding-top:8px;">
-      {% if contract.delivery_address %}Adres dostawy: {{ contract.delivery_address }}<br>{% endif %}
+      {% if contract.hide_delivery_address %}Adres dostawy: <span style="border-bottom:1px solid #888;display:inline-block;min-width:220px;">&nbsp;</span><br>{% elif contract.delivery_address and contract.delivery_address.strip() %}Adres dostawy: {{ contract.delivery_address }}<br>{% endif %}
     </td>
   </tr>
 </table>
@@ -143,11 +146,11 @@
   <table class="uz">
     <tr>
       <td style="width:130px;">reprezentowany przez:</td>
-      <td class="fill">{{ contract.contact_person1 or '' }}</td>
+      <td class="fill">{% if contract.show_person1 %}{{ contract.contact_person1 or '' }}{% endif %}</td>
     </tr>
     <tr>
       <td>osoba kontaktowa:</td>
-      <td class="fill">{{ contract.contact_person2 or '' }}</td>
+      <td class="fill">{% if contract.show_person2 %}{{ contract.contact_person2 or '' }}{% endif %}</td>
     </tr>
     <tr>
       <td>na budowie:</td>
@@ -180,7 +183,7 @@
   {% for p in positions %}
   <tr>
     <td>{{ loop.index }}</td>
-    <td>{{ p.pos.article_name or '' }}</td>
+    <td class="art-name">{{ p.pos.article_name or '' }}</td>
     <td style="text-align:center;">{{ p.rate_type_name or p.pos.rental_type or '' }}</td>
     <td style="text-align:center;">{{ p.pos.quantity or 1 }}</td>
     <td><div class="cond">{{ p.conditions_text }}</div></td>
@@ -198,18 +201,17 @@
         <div class="bottom-box-label">uwagi</div>
         {% if contract.notes %}
         {{ contract.notes }}
-        {% else %}
-        <p style="margin:0 0 4px 0;"><strong>Doba wynajmu:</strong> obejmuje 1 dzień kalendarzowy (do 8 godz. pracy jednego dnia).</p>
-        <p style="margin:0 0 4px 0;"><strong>Zgłoszenie zwrotu urządzenia:</strong> pisemne, min. z jednodniowym wyprzedzeniem.</p>
-        <p style="margin:0 0 4px 0;"><strong>Ilość dni pracy w tygodniu:</strong> {% if contract.working_days_per_week %}{{ contract.working_days_per_week }}{% else %}6{% endif %}.</p>
-        <p style="margin:0;"><strong>Dokumentacja zdjęciowa:</strong> wykonano.</p>
         {% endif %}
+        {# RAO: Umowa usługi nie ma bloku "Doba wynajmu" — to warunki wynajmu maszyny,
+           nie usługi. W legacy WinForms ten blok NIE występował na umowie usługi.
+           Puste notes = pusty blok uwag. #}
       </div>
     </td>
     <td class="bottom-right">
       <div class="bottom-box">
-        <div class="bottom-box-label">wartość umowy</div>
-        <strong>{{ contract.total_value | money }}</strong>
+        {# RAO-P1-021/P2-033: Wartość umowy usunięte (martwe pole) #}
+        <div class="bottom-box-label">&nbsp;</div>
+        <strong>&nbsp;</strong>
       </div>
     </td>
   </tr>
@@ -217,7 +219,8 @@
 
 <div class="content-spacer" style="height: 35mm;"></div>
 
-<!-- SIGNATURES -->
+<!-- SIGNATURES (RAO-P2-064: warunkowo na str 1 gdy signatures_on_page1=TRUE) -->
+{% if contract.signatures_on_page1 %}
 <table class="sigs">
   <tr>
     <td>
@@ -230,6 +233,7 @@
     </td>
   </tr>
 </table>
+{% endif %}
 
 <!-- FOOTER LEGAL -->
 <div id="footer-legal-running">

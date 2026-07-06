@@ -1,6 +1,7 @@
 """
 Migration: old dump (toolsmart_roa) -> rao_new
 Step 5b added: migrate umowa2.OPLATY -> contract_service_fees (free-text parsing).
+Step 18 added: service_hours table (new functionality - empty on migration).
 
 Verified source tables from dump:
   firma(41)  kategoria(4)  oddzial(7)  handlowiec(4)  stawka(4)
@@ -16,6 +17,9 @@ Strategy:
   5. Build service_fee_templates from firma.oplata_* columns
   6. DROP old tables + views
   7. Rehash plaintext passwords with bcrypt
+
+Note: service_hours table is NEW (no old data) - will be empty after migration.
+      Users will add data through the UI for service contracts.
 
 Usage: python migrate.py
 """
@@ -41,6 +45,7 @@ from decimal import Decimal, InvalidOperation
 
 import bcrypt
 import aiomysql
+import pymysql  # RAO-P2-062: IntegrityError catch dla orphaned OPLATY
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from database import Base
@@ -270,11 +275,11 @@ async def step4_migrate_data():
         #   pokaz_osobe1, pokaz_osobe2, telefon, typ, ilepoz, pz_bez,
         #   autonumer, id_handlowca
         ("contracts", """
-            INSERT INTO contracts
+            INSERT IGNORE INTO contracts
                 (id, contractor_id, salesperson_id,
                  number, auto_number, contract_type,
                  delivery_address, date_from, date_to,
-                 total_value, prepayment_amount, prepayment_document,
+                 prepayment_amount, prepayment_document,
                  invoice_amount, invoice_document,
                  notes, contact_person1, contact_phone1, show_person1,
                  contact_person2, contact_phone2, show_person2,
@@ -287,7 +292,7 @@ async def step4_migrate_data():
                 id, id_kontrahenta, NULLIF(id_handlowca, 0),
                 numer, autonumer, CASE WHEN typ = 'N' THEN 'S' WHEN typ = 'U' THEN 'U' ELSE 'S' END,
                 adres, data_od, data_do,
-                wartosc, przedplata_kwota, przedplata_dokument,
+                przedplata_kwota, przedplata_dokument,
                 faktura_kwota, faktura_dokument,
                 uwagi, osoba1, telefon1, COALESCE(pokaz_osobe1, 1),
                 osoba2, telefon2, COALESCE(pokaz_osobe2, 1),
@@ -341,6 +346,23 @@ async def step4_migrate_data():
             print(f"   [{i:2d}/{len(M)}] {tbl}: ERROR — {e}")
 
     await cur.execute("SET FOREIGN_KEY_CHECKS = 1")
+
+    # RAO-P2-028: Deduplikacja numerów umów (legacy miał duplikaty — np. "111", "S142/2026")
+    # Dodajemy suffix _DUP{N} do duplikatów aby UNIQUE INDEX uq_contracts_number nie zawiesił startup
+    await cur.execute("""
+        UPDATE contracts c
+        JOIN (
+            SELECT id, number,
+                   ROW_NUMBER() OVER (PARTITION BY number ORDER BY id) as rn
+            FROM contracts
+        ) ranked ON c.id = ranked.id
+        SET c.number = CONCAT(ranked.number, '_DUP', ranked.rn)
+        WHERE ranked.rn > 1
+    """)
+    dup_fixed = cur.rowcount
+    if dup_fixed:
+        print(f"   [dedup] contracts.number: {dup_fixed} duplicates renamed with _DUP suffix")
+
     await conn.commit()
     await cur.close()
     conn.close()
@@ -707,26 +729,31 @@ async def step5b_contract_service_fees():
 
     inserted = 0
     skipped  = 0
+    orphaned = 0
     for contract_id, oplaty in rows:
         fees = _parse_text_to_fees(oplaty)
         for fee in fees:
-            await cur.execute(
-                """INSERT INTO contract_service_fees
-                   (contract_id, sort_order, name,
-                    amount_from, amount_to, unit, description, is_active)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
-                (contract_id, fee['sort_order'], fee['name'],
-                 fee['amount_from'], fee['amount_to'],
-                 fee['unit'], fee['description'], fee['is_active'])
-            )
-            inserted += 1
+            try:
+                await cur.execute(
+                    """INSERT INTO contract_service_fees
+                       (contract_id, sort_order, name,
+                        amount_from, amount_to, unit, description, is_active)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                    (contract_id, fee['sort_order'], fee['name'],
+                     fee['amount_from'], fee['amount_to'],
+                     fee['unit'], fee['description'], fee['is_active'])
+                )
+                inserted += 1
+            except pymysql.err.IntegrityError:
+                # RAO-P2-062: contract_id nie istnieje (INSERT IGNORE w contracts pominął duplikaty)
+                orphaned += 1
         if not fees:
             skipped += 1
 
     await conn.commit()
     await cur.close()
     conn.close()
-    print(f"   {inserted} service fee rows from {len(rows)} contracts ({skipped} unparseable skipped)")
+    print(f"   {inserted} service fee rows from {len(rows)} contracts ({skipped} unparseable, {orphaned} orphaned skipped)")
 
 
 async def step5e_fix_placeholders():
@@ -1349,7 +1376,7 @@ async def step9_postal_codes_migration():
     conn = await aiomysql.connect(host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASS, db=DB_NAME)
     cur = await conn.cursor()
 
-    # 9.1 Seed postal_codes table from CSV
+    # 9.1 Seed postal_codes table from CSV (RAO-P2-028: full Spis PNA Poczty Polskiej, 5 kolumn)
     csv_path = os.path.join(project_root, "backend", "data", "postal_codes.csv")
     if os.path.exists(csv_path):
         print(f"   Seeding postal_codes from {csv_path}...")
@@ -1358,16 +1385,21 @@ async def step9_postal_codes_migration():
             next(reader, None)  # skip header
             inserted = 0
             for row in reader:
-                if len(row) >= 3:  # code, city, voivodeship
-                    code, city, voivodeship = row[0].strip(), row[1].strip(), row[2].strip() if len(row) > 2 else None
+                # CSV: postal_code, city, gmina, powiat, wojewodztwo (5 kolumn z oficjalnego Spisu PNA)
+                if len(row) >= 2:
+                    code = row[0].strip()
+                    city = row[1].strip()
+                    gmina = row[2].strip() if len(row) > 2 and row[2].strip() else None
+                    powiat = row[3].strip() if len(row) > 3 and row[3].strip() else None
+                    wojewodztwo = row[4].strip() if len(row) > 4 and row[4].strip() else None
                     if code and city:
                         await cur.execute(
-                            "INSERT IGNORE INTO postal_codes (postal_code, city, wojewodztwo) VALUES (%s, %s, %s)",
-                            (code, city, voivodeship)
+                            "INSERT IGNORE INTO postal_codes (postal_code, city, gmina, powiat, wojewodztwo) VALUES (%s, %s, %s, %s, %s)",
+                            (code, city, gmina, powiat, wojewodztwo)
                         )
                         inserted += 1
             await conn.commit()
-            print(f"   Seeded {inserted} postal codes")
+            print(f"   Seeded {inserted} postal codes (full Spis PNA: 5 kolumn)")
     else:
         print(f"   WARN: postal_codes.csv not found at {csv_path} - skipping seed")
 
@@ -1487,15 +1519,181 @@ async def step9_postal_codes_migration():
             updated += 1
     
     await conn.commit()
-    
-    # 9.3 Report
+
+    # 9.3 Backfill postal_code_id (RAO-P2-028: FK do postal_codes dla deterministycznych statystyk)
+    print("   Backfilling postal_code_id from postal_codes dictionary...")
+    await cur.execute("""
+        UPDATE contracts c
+        JOIN postal_codes p ON c.postal_code = p.postal_code
+        SET c.postal_code_id = p.id
+        WHERE c.postal_code IS NOT NULL AND c.postal_code != '' AND c.postal_code_id IS NULL
+    """)
+    await conn.commit()
+    await cur.execute("SELECT COUNT(*) FROM contracts WHERE postal_code_id IS NOT NULL")
+    with_fk = (await cur.fetchone())[0]
+    print(f"   Backfilled postal_code_id: {with_fk} contracts")
+
+    # 9.4 Report
     await cur.execute("SELECT COUNT(*) FROM contracts WHERE postal_code IS NOT NULL")
     with_code = (await cur.fetchone())[0]
     await cur.execute("SELECT COUNT(*) FROM contracts WHERE delivery_address IS NOT NULL")
     with_address = (await cur.fetchone())[0]
-    
+    # RAO-P2-062: is_legacy column removed — all migrated contracts are legacy by definition
+    legacy_ct = await cur.execute("SELECT COUNT(*) FROM contracts")
+    legacy_ct = (await cur.fetchone())[0]
+    await cur.execute("SELECT COUNT(*) FROM postal_codes")
+    pna_total = (await cur.fetchone())[0]
+
     print(f"   Updated {updated}/{len(rows)} contracts with postal_code")
     print(f"   Coverage: {with_code}/{with_address} ({with_code*100//with_address if with_address else 0}%)")
+    print(f"   postal_code_id FK: {with_fk} contracts")
+    print(f"   total contracts: {legacy_ct} (all legacy — migrated from dump)")
+    print(f"   postal_codes dict: {pna_total} entries (full Spis PNA Poczty Polskiej)")
+    print("   OK")
+
+    await cur.close()
+    conn.close()
+
+
+async def step10_import_rozliczenie() -> None:
+    """
+    RAO-P2-032: Import rzeczywistych rozliczeń z dumpa starej bazy (rozliczenie table).
+
+    Source: spec/backlog/archiwum/refinement/toolsmart_roa_*.sql
+    Tabela: rozliczenie (id, data, id_pozycji, wartosc)
+    Target: contract_settlements (contract_id, position_id, cost_client, settled_at, source='legacy')
+
+    Algorytm:
+    1. Parsuj INSERT INTO rozliczenie VALUES z dumpa SQL (regex)
+    2. Dla każdego wiersza: mapuj id_pozycji → contract_positions.id (zachowane w migracji)
+    3. Pobierz contract_id z contract_positions
+    4. INSERT IGNORE do contract_settlements (idempotentny — UNIQUE constraint)
+    5. Orphaned (id_pozycji nie istnieje) → _import_errors
+
+    Determinizm: sortowanie po id_pozycji, data — reproducible.
+    Idempotentność: INSERT IGNORE + UNIQUE (contract_id, position_id, service_fee_id=NULL, settled_at)
+    """
+    import re
+    import glob
+
+    print("\n── step10: Import rozliczenie → contract_settlements ──")
+
+    # Znajdź dump SQL
+    csv_dir = os.path.join(project_root, "spec", "backlog", "archiwum", "refinement")
+    sql_matches = glob.glob(os.path.join(csv_dir, "toolsmart_roa_*.sql"))
+    if not sql_matches:
+        print("   WARN: toolsmart_roa_*.sql not found — skipping rozliczenie import")
+        return
+    sql_path = sql_matches[0]
+    print(f"   Source: {os.path.basename(sql_path)}")
+
+    # Parsuj rozliczenie VALUES z dumpa
+    rozliczenia = []  # (id, data, id_pozycji, wartosc)
+    in_rozliczenie = False
+    with open(sql_path, "r", encoding="utf-8") as f:
+        for line in f:
+            if "INSERT INTO `rozliczenie` VALUES" in line:
+                in_rozliczenie = True
+                continue
+            if in_rozliczenie:
+                if line.startswith("("):
+                    # (27815,'2025-08-19',10220,300.0000),
+                    m = re.match(r"\((\d+),'([^']*)',(\d+),([\d.]+)\)", line.strip().rstrip(","))
+                    if m:
+                        rozliczenia.append({
+                            "legacy_id": int(m.group(1)),
+                            "data": m.group(2),
+                            "id_pozycji": int(m.group(3)),
+                            "wartosc": float(m.group(4)),
+                        })
+                elif "/*!40000 ALTER TABLE `rozliczenie` ENABLE KEYS" in line:
+                    break
+
+    print(f"   Parsed: {len(rozliczenia)} rozliczenie rows")
+    if not rozliczenia:
+        print("   WARN: no rozliczenie rows found — skipping")
+        return
+
+    # Połącz z DB
+    conn = await aiomysql.connect(host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASS,
+                                   db=DB_NAME, autocommit=False)
+    cur = await conn.cursor()
+
+    # RAO-P2-062: tabela na logowanie orphaned rows (brakowała — CREATE IF NOT EXISTS)
+    await cur.execute("""
+        CREATE TABLE IF NOT EXISTS _import_errors (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            source VARCHAR(50) NOT NULL,
+            raw_data TEXT,
+            error_message VARCHAR(500),
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    """)
+
+    # Pobierz mapowanie: contract_positions.id → contract_id
+    await cur.execute("SELECT id, contract_id FROM contract_positions")
+    pos_to_contract = {r[0]: r[1] for r in await cur.fetchall()}
+
+    # Grupuj rozliczenia po (id_pozycji, data) — suma wartosc per dzień
+    # (stara aplikacja insertowała 1 wiersz/dzień, ale mogą być duplikaty)
+    from collections import defaultdict
+    grouped = defaultdict(lambda: {"wartosc": 0.0, "contract_id": None})
+    for r in rozliczenia:
+        pid = r["id_pozycji"]
+        if pid not in pos_to_contract:
+            # Orphaned — log do _import_errors
+            await cur.execute(
+                "INSERT INTO _import_errors (source, raw_data, error_message) VALUES (%s, %s, %s)",
+                ("rozliczenie", str(r), f"id_pozycji={pid} not found in contract_positions"),
+            )
+            continue
+        contract_id = pos_to_contract[pid]
+        key = (pid, r["data"])
+        grouped[key]["wartosc"] += r["wartosc"]
+        grouped[key]["contract_id"] = contract_id
+
+    # INSERT IGNORE (idempotentny — UNIQUE constraint zapobiega duplikatom)
+    inserted = 0
+    skipped = 0
+    orphaned = sum(1 for r in rozliczenia if r["id_pozycji"] not in pos_to_contract)
+
+    for (pid, data), info in sorted(grouped.items(), key=lambda x: (x[0][0], x[0][1])):
+        contract_id = info["contract_id"]
+        wartosc = round(info["wartosc"], 2)
+        try:
+            await cur.execute(
+                """INSERT IGNORE INTO contract_settlements
+                   (contract_id, position_id, service_fee_id, cost_client, settled_at, source, notes)
+                   VALUES (%s, %s, NULL, %s, %s, 'legacy', 'Import z rozliczenie (RAO-P2-032)')""",
+                (contract_id, pid, wartosc, data),
+            )
+            if cur.rowcount > 0:
+                inserted += 1
+            else:
+                skipped += 1
+        except Exception as e:
+            await cur.execute(
+                "INSERT INTO _import_errors (source, raw_data, error_message) VALUES (%s, %s, %s)",
+                ("rozliczenie", f"pid={pid} data={data} wartosc={wartosc}", str(e)),
+            )
+            skipped += 1
+
+    await conn.commit()
+
+    # Weryfikacja
+    await cur.execute("SELECT COUNT(*) FROM contract_settlements WHERE source='legacy'")
+    total_settlements = (await cur.fetchone())[0]
+    await cur.execute("SELECT SUM(cost_client) FROM contract_settlements WHERE source='legacy'")
+    total_revenue = (await cur.fetchone())[0]
+    await cur.execute("SELECT COUNT(*) FROM _import_errors WHERE source='rozliczenie'")
+    errors = (await cur.fetchone())[0]
+
+    print(f"   Inserted: {inserted} settlements")
+    print(f"   Skipped (duplicates): {skipped}")
+    print(f"   Orphaned (logged): {orphaned}")
+    print(f"   Total legacy settlements: {total_settlements}")
+    print(f"   Total legacy revenue: {total_revenue:.2f} zl")
+    print(f"   Import errors: {errors}")
     print("   OK")
 
     await cur.close()
@@ -1523,6 +1721,7 @@ async def main():
         # step7_rehash removed - passwords already hashed in step4b
         await step8_csv_categories()   # RAO-P1-017
         await step9_postal_codes_migration()  # RAO-P1-008
+        await step10_import_rozliczenie()  # RAO-P2-032: rzeczywiste rozliczenia z legacy
         await verify()
         print("\n✓ Migration complete!")
         print("⚠ All users have must_change_password=1 and random bcrypt passwords")

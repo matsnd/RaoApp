@@ -11,10 +11,14 @@ class FleetSummary(BaseModel):
     top_machine_name: str | None
     top_machine_revenue: Decimal | None
     contracts_in_period: int
+    # RAO-P2-032: breakdown po źródłach przychodu (actual/estimate_lookup/estimate_tiered)
+    revenue_actual: Decimal | None = None
+    revenue_estimate: Decimal | None = None
+    revenue_source_label: str | None = None  # "rzeczywiste" | "szacunek" | "mieszane"
 
 
 class TopMachineItem(BaseModel):
-    article_id: int
+    article_id: int | None  # RAO Faza 2a (opcja E): None dla unmapped bucket
     name: str
     internal_number: str | None
     revenue: Decimal
@@ -59,7 +63,7 @@ class ServiceFeeItem(BaseModel):
 
 
 class AdditionalFeesResponse(BaseModel):
-    date_from: date
+    date_from: date | None  # RAO-P0-006/BUG-6: None gdy preset='all'
     date_to: date
     total_services_revenue: Decimal
     breakdown: list[ServiceFeeItem]
@@ -67,6 +71,10 @@ class AdditionalFeesResponse(BaseModel):
 
 class LocationStatItem(BaseModel):
     city: str
+    postal_code: str | None = None  # RAO-P2-028: grupowanie po PNA
+    gmina: str | None = None        # RAO-P2-028: rollup z postal_codes (LEFT JOIN)
+    powiat: str | None = None       # RAO-P2-028: rollup z postal_codes (LEFT JOIN)
+    wojewodztwo: str | None = None  # RAO-P2-028: rollup z postal_codes (LEFT JOIN)
     rentals_count: int
     total_revenue: Decimal
 
@@ -136,7 +144,7 @@ class SalespersonCommissionItem(BaseModel):
 
 
 class CommissionReportResponse(BaseModel):
-    date_from: date
+    date_from: date | None  # RAO-P0-006/BUG-6: None gdy preset='all'
     date_to: date
     items: list[SalespersonCommissionItem]
     grand_total_revenue: Decimal
@@ -156,7 +164,7 @@ class CategoryStatItem(BaseModel):
 
 class CategoryStatsResponse(BaseModel):
     """Odpowiedź endpointu GET /stats/by-category."""
-    date_from: date
+    date_from: date | None  # RAO-P0-006/BUG-6: None gdy preset='all'
     date_to: date
     level: str              # "main" | "sub1"
     total_revenue: Decimal
@@ -180,12 +188,15 @@ class PositionStatItem(BaseModel):
 
 class PositionStatsResponse(BaseModel):
     """Odpowiedź endpointu GET /stats/positions."""
-    date_from: date
+    date_from: date | None  # RAO-P0-006/BUG-6: None gdy preset='all'
     date_to: date
     type: str                         # "machines" | "services" | "all"
     total_revenue: Decimal
     total_machines_revenue: Decimal   # podsumowanie per typ (zawsze, niezależnie od filtra)
     total_services_revenue: Decimal   # ↑ pozwala FE pokazać "Z czego usługi: X zł"
+    total_count: int = 0              # RAO-P2-053: łączna liczba pozycji (przed paginacją)
+    limit: int | None = None          # RAO-P2-053: zastosowany limit (None = brak paginacji)
+    offset: int = 0                   # RAO-P2-053: zastosowany offset
     items: list[PositionStatItem]
 
 
@@ -202,7 +213,7 @@ class ByPeriodItem(BaseModel):
 
 class ByPeriodResponse(BaseModel):
     """Odpowiedź endpointu GET /stats/by-period — RAO-P1-026."""
-    date_from: date
+    date_from: date | None  # RAO-P0-006/BUG-6: None gdy preset='all'
     date_to: date
     granularity: str        # "month" | "year"
     items: list[ByPeriodItem]
@@ -220,3 +231,45 @@ class CategoriesListNode(BaseModel):
 
 
 CategoriesListNode.model_rebuild()
+
+
+# ── RAO-P2-056: Statystyki po contract_type (S=najem, U=usługa) ────────────────
+
+class ContractTypeStatItem(BaseModel):
+    """Agregat statystyk dla jednego contract_type (S | U)."""
+    contract_type: str                # "S" (najem) | "U" (usługa)
+    contract_type_label: str          # "najem" | "usługa" (dla wyświetlania FE)
+    contracts_count: int              # unikalne umowy danego typu
+    positions_count: int              # łączna liczba pozycji
+    articles_count: int               # unikalne maszyny/artykuły
+    rented_days: int                  # suma dni wynajmu (maszyny; 0 dla usług)
+    revenue: Decimal                  # suma przychodu
+
+
+class ContractTypeStatsResponse(BaseModel):
+    """Odpowiedź endpointu GET /stats/by-contract-type — RAO-P2-056."""
+    date_from: date | None  # RAO-P0-006/BUG-6: None gdy preset='all'
+    date_to: date
+    total_revenue: Decimal
+    items: list[ContractTypeStatItem]
+
+
+# ── RAO-P1-055: Statystyki po oddziałach (branch) ─────────────────────────────
+
+class BranchStatItem(BaseModel):
+    """Agregat statystyk dla jednego oddziału (branch)."""
+    branch_id: int | None              # None = umowy bez przypisanego oddziału
+    branch_name: str                   # nazwa oddziału lub "(bez oddziału)"
+    contracts_count: int               # unikalne umowy danego oddziału
+    positions_count: int               # łączna liczba pozycji
+    articles_count: int                # unikalne maszyny/artykuły
+    rented_days: int                   # suma dni wynajmu (maszyny; 0 dla usług)
+    revenue: Decimal                   # suma przychodu
+
+
+class ByBranchStatsResponse(BaseModel):
+    """Odpowiedź endpointu GET /stats/by-branch — RAO-P1-055."""
+    date_from: date | None  # RAO-P0-006/BUG-6: None gdy preset='all'
+    date_to: date
+    total_revenue: Decimal
+    items: list[BranchStatItem]

@@ -1,13 +1,46 @@
 from datetime import datetime
+import re
+import unicodedata
 from sqlalchemy import select, func, update, delete
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from sqlalchemy.orm import selectinload
-from settings.models import Company, FeePresetGroup, ServiceFeeTemplate, Salesperson, RateType, Branch
-from settings.schemas import CompanyUpdate, FeePresetGroupCreate, ServiceFeeTemplateCreate, SalespersonCreate, CategoryCreate, BranchCreate, RateTypeCreate
+from settings.models import (
+    Company, FeePresetGroup, ServiceFeeTemplate, Salesperson, RateType, Branch,
+    ArticleRatePreset, ArticleRatePresetItem,
+)
+from settings.schemas import (
+    CompanyUpdate, FeePresetGroupCreate, ServiceFeeTemplateCreate, SalespersonCreate,
+    CategoryCreate, BranchCreate, RateTypeCreate,
+    ArticleRatePresetCreate, ArticleRatePresetUpdate,
+    ArticleRatePresetItemCreate, ArticleRatePresetItemUpdate,
+)
 from categories.models import Category
 from shared.exceptions import not_found, conflict
+
+
+def _normalize_category_name(name: str) -> str:
+    """RAO-P0-054: Normalizacja nazwy kategorii — trim + collapse whitespace.
+    Zachowuje polskie znaki (DB ma utf8mb4_polish_ci), ale usuwa podwójne spacje
+    i leading/trailing whitespace. Nie usuwa diakrytyków (to robi tylko migrate.py
+    do porównania, nie do przechowywania).
+    """
+    if not name:
+        return ""
+    return re.sub(r"\s+", " ", name.strip())
+
+
+def _normalize_category_key(name: str) -> str:
+    """RAO-P0-054: Klucz normalizacji do porównania (NFD + usuwanie Mn + ł→l + lower).
+    Używane do wykrywania duplikatów (np. 'Koparki' vs 'koparki ' vs 'Koparki  ').
+    """
+    if not name:
+        return ""
+    nfd = unicodedata.normalize("NFD", name.strip())
+    no_dia = "".join(ch for ch in nfd if unicodedata.category(ch) != "Mn")
+    no_dia = no_dia.replace("\u0142", "l").replace("\u0141", "L")
+    return re.sub(r"\s+", " ", no_dia.lower()).strip()
 
 
 class SettingsService:
@@ -285,7 +318,20 @@ class SettingsService:
         return result.scalars().all()
 
     async def create_category(self, db: AsyncSession, data: CategoryCreate) -> Category:
-        cat = Category(**data.model_dump())
+        # RAO-P0-054: Normalizacja nazwy + wykrywanie duplikatów (case/diakrytyki-insensitive)
+        payload = data.model_dump()
+        payload["name"] = _normalize_category_name(payload.get("name", ""))
+        if not payload["name"]:
+            raise conflict("Nazwa kategorii nie może być pusta")
+        # Sprawdź duplikat w tej samej hierarchii (parent_id) po znormalizowanej nazwie
+        new_key = _normalize_category_key(payload["name"])
+        existing = await db.execute(
+            select(Category).where(Category.parent_id == payload.get("parent_id"))
+        )
+        for cat in existing.scalars().all():
+            if _normalize_category_key(cat.name) == new_key:
+                raise conflict(f"Kategoria '{cat.name}' już istnieje w tej hierarchii")
+        cat = Category(**payload)
         db.add(cat)
         await db.commit()
         await db.refresh(cat)
@@ -296,7 +342,23 @@ class SettingsService:
         cat = result.scalar_one_or_none()
         if not cat:
             raise not_found("Kategoria")
-        for field, value in data.model_dump().items():
+        # RAO-P0-054: Normalizacja nazwy + wykrywanie duplikatów
+        payload = data.model_dump()
+        payload["name"] = _normalize_category_name(payload.get("name", ""))
+        if not payload["name"]:
+            raise conflict("Nazwa kategorii nie może być pusta")
+        new_key = _normalize_category_key(payload["name"])
+        new_parent = payload.get("parent_id")
+        dup_check = await db.execute(
+            select(Category).where(
+                Category.parent_id == new_parent,
+                Category.id != cat_id,
+            )
+        )
+        for other in dup_check.scalars().all():
+            if _normalize_category_key(other.name) == new_key:
+                raise conflict(f"Kategoria '{other.name}' już istnieje w tej hierarchii")
+        for field, value in payload.items():
             setattr(cat, field, value)
         await db.commit()
         await db.refresh(cat)
@@ -321,7 +383,7 @@ class SettingsService:
             raise conflict("Kategoria jest używana przez artykuły i nie może zostać usunięta")
 
     async def list_branches(self, db: AsyncSession):
-        result = await db.execute(select(Branch).order_by(Branch.name))
+        result = await db.execute(select(Branch).order_by(Branch.id))
         return result.scalars().all()
 
     async def create_branch(self, db: AsyncSession, data: BranchCreate) -> Branch:
@@ -374,6 +436,206 @@ class SettingsService:
         except IntegrityError:
             await db.rollback()
             raise conflict("Handlowiec jest przypisany do umów i nie może zostać usunięty")
+
+    # ------------------------------------------------------------------
+    # RAO-P1-001: Predefiniowane cenniki warunków rozliczenia maszyn
+    # ------------------------------------------------------------------
+
+    async def list_article_rate_presets(self, db: AsyncSession, article_id: int) -> list[ArticleRatePreset]:
+        result = await db.execute(
+            select(ArticleRatePreset)
+            .options(selectinload(ArticleRatePreset.items))
+            .where(ArticleRatePreset.article_id == article_id)
+            .order_by(ArticleRatePreset.sort_order, ArticleRatePreset.id)
+        )
+        return list(result.scalars().all())
+
+    async def get_article_rate_preset(self, db: AsyncSession, preset_id: int) -> ArticleRatePreset:
+        result = await db.execute(
+            select(ArticleRatePreset)
+            .options(selectinload(ArticleRatePreset.items))
+            .where(ArticleRatePreset.id == preset_id)
+        )
+        preset = result.scalar_one_or_none()
+        if not preset:
+            raise not_found("Cennik")
+        return preset
+
+    async def create_article_rate_preset(
+        self, db: AsyncSession, article_id: int, data: ArticleRatePresetCreate
+    ) -> ArticleRatePreset:
+        # Walidacja FK: artykuł musi istnieć
+        from articles.models import Article
+        art = await db.get(Article, article_id)
+        if art is None:
+            raise not_found("Artykuł")
+
+        max_order = await db.execute(
+            select(func.max(ArticleRatePreset.sort_order))
+            .where(ArticleRatePreset.article_id == article_id)
+        )
+        next_order = (max_order.scalar_one_or_none() or 0) + 1
+
+        preset = ArticleRatePreset(
+            company_id=1,
+            article_id=article_id,
+            name=data.name,
+            description=data.description,
+            is_default=False,  # ustawione niżej jeśli data.is_default
+            sort_order=next_order,
+            updated_at=datetime.utcnow(),
+        )
+        db.add(preset)
+        await db.flush()  # potrzebne preset.id dla items
+
+        for i, item in enumerate(data.items):
+            db.add(ArticleRatePresetItem(
+                preset_id=preset.id,
+                sort_order=i,
+                rate_type_id=item.rate_type_id,
+                description=item.description,
+                rate1=item.rate1,
+                rate2=item.rate2,
+                billing_label=item.billing_label,
+                period_count=item.period_count,
+                minimum=item.minimum,
+            ))
+
+        if data.is_default:
+            # unset innych presetów tej maszyny, ustaw ten
+            await db.execute(
+                update(ArticleRatePreset)
+                .where(ArticleRatePreset.article_id == article_id, ArticleRatePreset.id != preset.id)
+                .values(is_default=False)
+            )
+            preset.is_default = True
+
+        await db.commit()
+        return await self.get_article_rate_preset(db, preset.id)
+
+    async def update_article_rate_preset(
+        self, db: AsyncSession, preset_id: int, data: ArticleRatePresetUpdate
+    ) -> ArticleRatePreset:
+        preset = await self.get_article_rate_preset(db, preset_id)
+        update_data = data.model_dump(exclude_unset=True)
+        new_is_default = update_data.pop("is_default", None)
+        for field, value in update_data.items():
+            setattr(preset, field, value)
+        preset.updated_at = datetime.utcnow()
+
+        if new_is_default is True:
+            await db.execute(
+                update(ArticleRatePreset)
+                .where(ArticleRatePreset.article_id == preset.article_id, ArticleRatePreset.id != preset_id)
+                .values(is_default=False)
+            )
+            preset.is_default = True
+        elif new_is_default is False:
+            preset.is_default = False
+
+        await db.commit()
+        return await self.get_article_rate_preset(db, preset_id)
+
+    async def delete_article_rate_preset(self, db: AsyncSession, preset_id: int) -> None:
+        preset = await self.get_article_rate_preset(db, preset_id)
+        await db.execute(delete(ArticleRatePreset).where(ArticleRatePreset.id == preset_id))
+        await db.commit()
+
+    async def set_default_preset(self, db: AsyncSession, preset_id: int) -> ArticleRatePreset:
+        """Atomowo ustawia dany preset jako domyślny dla swojej maszyny.
+
+        1. UPDATE article_rate_presets SET is_default=0 WHERE article_id=:aid AND id<>:pid
+        2. UPDATE article_rate_presets SET is_default=1 WHERE id=:pid
+        """
+        preset = await self.get_article_rate_preset(db, preset_id)
+        await db.execute(
+            update(ArticleRatePreset)
+            .where(ArticleRatePreset.article_id == preset.article_id, ArticleRatePreset.id != preset_id)
+            .values(is_default=False)
+        )
+        await db.execute(
+            update(ArticleRatePreset)
+            .where(ArticleRatePreset.id == preset_id)
+            .values(is_default=True, updated_at=datetime.utcnow())
+        )
+        await db.commit()
+        return await self.get_article_rate_preset(db, preset_id)
+
+    async def get_default_preset(self, db: AsyncSession, article_id: int) -> ArticleRatePreset | None:
+        result = await db.execute(
+            select(ArticleRatePreset)
+            .options(selectinload(ArticleRatePreset.items))
+            .where(ArticleRatePreset.article_id == article_id, ArticleRatePreset.is_default == True)
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
+    async def add_preset_item(
+        self, db: AsyncSession, preset_id: int, data: ArticleRatePresetItemCreate
+    ) -> ArticleRatePresetItem:
+        preset = await self.get_article_rate_preset(db, preset_id)
+        max_order = await db.execute(
+            select(func.max(ArticleRatePresetItem.sort_order))
+            .where(ArticleRatePresetItem.preset_id == preset_id)
+        )
+        next_order = (max_order.scalar_one_or_none() or 0) + 1
+        item = ArticleRatePresetItem(
+            preset_id=preset_id,
+            sort_order=next_order,
+            rate_type_id=data.rate_type_id,
+            description=data.description,
+            rate1=data.rate1,
+            rate2=data.rate2,
+            billing_label=data.billing_label,
+            period_count=data.period_count,
+            minimum=data.minimum,
+        )
+        db.add(item)
+        # bump updated_at na presercie
+        preset.updated_at = datetime.utcnow()
+        await db.commit()
+        await db.refresh(item)
+        return item
+
+    async def update_preset_item(
+        self, db: AsyncSession, item_id: int, data: ArticleRatePresetItemUpdate
+    ) -> ArticleRatePresetItem:
+        result = await db.execute(
+            select(ArticleRatePresetItem).where(ArticleRatePresetItem.id == item_id)
+        )
+        item = result.scalar_one_or_none()
+        if not item:
+            raise not_found("Warunek cennika")
+        for field, value in data.model_dump(exclude_unset=True).items():
+            setattr(item, field, value)
+        # bump updated_at na presercie
+        preset_result = await db.execute(
+            select(ArticleRatePreset).where(ArticleRatePreset.id == item.preset_id)
+        )
+        preset = preset_result.scalar_one_or_none()
+        if preset:
+            preset.updated_at = datetime.utcnow()
+        await db.commit()
+        await db.refresh(item)
+        return item
+
+    async def delete_preset_item(self, db: AsyncSession, item_id: int) -> None:
+        result = await db.execute(
+            select(ArticleRatePresetItem).where(ArticleRatePresetItem.id == item_id)
+        )
+        item = result.scalar_one_or_none()
+        if not item:
+            raise not_found("Warunek cennika")
+        preset_id = item.preset_id
+        await db.execute(delete(ArticleRatePresetItem).where(ArticleRatePresetItem.id == item_id))
+        # bump updated_at na presercie
+        preset_result = await db.execute(
+            select(ArticleRatePreset).where(ArticleRatePreset.id == preset_id)
+        )
+        preset = preset_result.scalar_one_or_none()
+        if preset:
+            preset.updated_at = datetime.utcnow()
+        await db.commit()
 
 
 settings_service = SettingsService()

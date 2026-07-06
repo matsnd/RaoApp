@@ -261,9 +261,7 @@ async def init_contract_settlements_from_fakturownia(
                 # bez position_id (snapshot nazwy w article_name_snapshot).
                 # NIE tworzymy artykułu on-the-fly — tylko snapshot nazwy.
                 # Idempotentność: UNIQUE(unmapped_key) chroni przed duplikatem.
-                # Guard: pid not in mapped_pids — nie twórz unmapped jeśli pozycja FA
-                # jest zmapowana jako service_fee (pętla 2 utworzy mapped settlement).
-                if pid is not None and pid != 0 and pid not in mapped_pids:
+                if pid is not None and pid != 0:
                     existing = await db.execute(
                         select(ContractSettlement).where(
                             ContractSettlement.contract_id == contract_id,
@@ -338,9 +336,7 @@ async def init_contract_settlements_from_fakturownia(
                 # pozycji powyżej — UNIQUE(unmapped_key) chroni przed duplikatem
                 # (klucz = unmapped:pid:invoice_number, identyczny niezależnie od
                 # tego, w której pętli próbujemy dodać).
-                # Guard: pid not in mapped_pids — nie twórz unmapped jeśli pozycja FA
-                # jest zmapowana jako position (pętla 1 utworzyła mapped settlement).
-                if pid is not None and pid != 0 and pid not in mapped_pids:
+                if pid is not None and pid != 0:
                     existing = await db.execute(
                         select(ContractSettlement).where(
                             ContractSettlement.contract_id == contract_id,
@@ -417,3 +413,24 @@ async def delete_settlement(
     if not deleted:
         raise HTTPException(status_code=404, detail="Rozliczenie nie znalezione")
     return {"message": "Rozliczenie usunięte"}
+
+
+@router.delete("/contract/{contract_id}/all")
+async def clear_all_settlements(
+    contract_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """P0-013: Wyczyść wszystkie rozliczenia dla umowy (bulk DELETE).
+
+    Operator potrzebuje korekt po pobraniu z Fakturownia (np. faktura zawiera
+    pozycje niepasujące do umowy, błędne kwoty, duplikaty).
+    """
+    # Weryfikacja: umowa istnieje
+    from contracts.models import Contract
+    contract = await db.execute(select(Contract).where(Contract.id == contract_id))
+    if not contract.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Umowa nie znaleziona")
+
+    count = await service.clear_settlements_by_contract(db, contract_id)
+    return {"message": f"Usunięto {count} rozliczeń", "deleted_count": count}

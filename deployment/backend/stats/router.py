@@ -85,6 +85,20 @@ def _default_dates(date_from: date | None, date_to: date | None):
     return date_from, date_to
 
 
+def _validate_date_range(date_from: date | None, date_to: date | None):
+    """RAO-P2-065 #10: walidacja date_from > date_to → 422.
+
+    Alias dla compat testów P2-065. Waliduje zakres dat przed defaultowaniem.
+    Rzuca HTTPException(422) gdy date_from > date_to (gdy oba podane).
+    """
+    if date_from and date_to and date_from > date_to:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Data początkowa ({date_from}) nie może być późniejsza niż końcowa ({date_to}).",
+        )
+    return _default_dates(date_from, date_to)
+
+
 def _contract_date_filter(df: date | None, dt: date | None):
     """Zbuduj warunki nakładania się umowy z okresem [df, dt] (RAO-P0-006/BUG-6).
 
@@ -189,6 +203,9 @@ async def fleet_summary(
         revenue_source_label = "brak danych"
     elif revenue_actual == 0:
         revenue_source_label = "szacunek"
+    elif revenue_estimate > 0:
+        # RAO-P2-065 #11: mieszane = oba źródła > 0 → "razem (rzecz.+szac.)"
+        revenue_source_label = "razem (rzecz.+szac.)"
     else:
         revenue_source_label = "rzeczywiste"
 
@@ -333,11 +350,14 @@ async def currently_rented(
             Article.internal_number,  # r[2]
             Article.category_main,    # r[3] — RAO-P1-017
             Contract.number,          # r[4]
-            Contract.contractor_name, # r[5]
+            # RAO-P2-065 #2: coalesce Contractor.name z snapshot contractor_name
+            func.coalesce(Contractor.name, Contract.contractor_name).label("contractor_name"),  # r[5]
             Contract.date_to,         # r[6]
         )
         .select_from(ContractPosition)
         .join(Contract, Contract.id == ContractPosition.contract_id)
+        # RAO-P2-065 #2: LEFT JOIN contractors — contractor_name snapshot NULL dla umów z contractor_id
+        .outerjoin(Contractor, Contractor.id == Contract.contractor_id)
         .join(Article, Article.id == ContractPosition.article_id)
         .where(
             and_(
@@ -345,12 +365,16 @@ async def currently_rented(
                 Article.is_archival == False,   # RAO-P1-017: wyklucz archiwalne
                 Article.is_external == False,   # RAO-P1-027: wyklucz zewnętrzne
                 Contract.date_from <= today,
-                Contract.date_to >= today,
+                # RAO-P2-065 #4: umowa na czas nieokreślony (date_to=NULL) = wciąż wynajęta
+                (Contract.date_to.is_(None)) | (Contract.date_to >= today),
+                # RAO-P2-065 #4: wyklucz rozliczone umowy (zgodnie z fleet-summary)
+                Contract.is_settled == False,
             )
         )
+        # RAO-P2-065 #2: group_by po coalesce zamiast po Contract.contractor_name
         .group_by(
             Article.id, Article.name, Article.internal_number, Article.category_main,
-            Contract.number, Contract.contractor_name, Contract.date_to,
+            Contract.number, Contractor.name, Contract.contractor_name, Contract.date_to,
         )
         .order_by(Article.name)
     )
@@ -757,6 +781,10 @@ async def positions(
     date_to: date | None = Query(None),
     contractor_id: int | None = Query(None, description="Filtruj po kontrahencie"),
     city: str | None = Query(None, description="Filtruj po mieście umowy (case-insensitive)"),
+    category_main: list[str] = Query(
+        default=[],
+        description="Filtr kategorii głównych (multi-value, opcjonalny) — drilldown kategorii",
+    ),
     limit: int | None = Query(
         None,
         ge=1,
@@ -825,6 +853,11 @@ async def positions(
 
     # Filtry contractor_id / city / internal_number
     all_pos = _apply_position_filters(all_pos, contractor_id=contractor_id, city=city)
+
+    # Filtr category_main (drilldown kategorii) — in-memory
+    if category_main:
+        cm_set = set(category_main)
+        all_pos = [p for p in all_pos if p["category_main"] in cm_set]
 
     # Agregacja per article
     agg = defaultdict(lambda: {

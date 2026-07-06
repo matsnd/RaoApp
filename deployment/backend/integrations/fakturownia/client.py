@@ -215,11 +215,14 @@ class FakturowniaClient:
             lines: List[InvoiceLine] = []
             for pos in positions:
                 pid = pos.get("product_id")
+                # P0-014: FA API może zwrócić pusty `name` gdy faktura utworzona
+                # z samym product_id. Spróbuj też `product_name` jako fallback.
+                product_name = pos.get("name") or pos.get("product_name") or ""
                 try:
                     lines.append(
                         InvoiceLine(
                             fakturownia_product_id=int(pid) if pid is not None else 0,
-                            fakturownia_product_name=str(pos.get("name") or ""),
+                            fakturownia_product_name=str(product_name),
                             quantity=Decimal(str(pos.get("quantity") or 1)),
                             price_net=Decimal(str(pos.get("price_net") or 0)),
                             total_net=Decimal(str(pos.get("total_price_net") or 0)),

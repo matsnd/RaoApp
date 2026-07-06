@@ -4,6 +4,7 @@ from sqlalchemy import select
 
 from auth.dependencies import get_current_user, require_admin
 from auth.models import User
+from auth.rate_limit import enforce_auth_rate_limit
 from auth.schemas import (
     ChangePasswordRequest, ForgotPasswordRequest, LoginRequest,
     ProfileUpdate, RegisterRequest, ResetPasswordRequest,
@@ -17,7 +18,11 @@ admin_router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
+async def login(
+    data: LoginRequest,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(enforce_auth_rate_limit),
+):
     token, user = await auth_service.login(db, data.login, data.password)
     return TokenResponse(
         access_token=token,
@@ -50,7 +55,11 @@ async def change_password(
 
 
 @router.post("/forgot-password")
-async def forgot_password(data: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+async def forgot_password(
+    data: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(enforce_auth_rate_limit),
+):
     await auth_service.forgot_password(db, data.email)
     return {"message": "Jeśli email istnieje w systemie, wysłaliśmy link do resetu hasła"}
 

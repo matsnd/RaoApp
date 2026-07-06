@@ -24,6 +24,14 @@ import httpx
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+# Załaduj root .env (FAKTUROWNIA_API_TOKEN) — deterministyczne uruchomienie
+_root_env = Path(__file__).parent.parent / ".env"
+if _root_env.exists():
+    for _line in _root_env.read_text(encoding="utf-8").splitlines():
+        if "=" in _line and not _line.startswith("#"):
+            _k, _v = _line.split("=", 1)
+            os.environ.setdefault(_k.strip(), _v.strip())
+
 from sqlalchemy import select, text
 from database import AsyncSessionLocal
 

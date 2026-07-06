@@ -255,6 +255,9 @@ async def _resolve_invoice(db: AsyncSession, invoice: InvoiceOut) -> ResolvedInv
     }
 
     pid_to_articles: dict = {}
+    # P0-014: cache nazw produktów FA — fallback gdy pozycja faktury ma puste `name`
+    # (FA API zwraca pusty name gdy faktura utworzona z samym product_id, bez nazwy)
+    pid_to_product_name: dict = {}
     if product_ids:
         art_rows = await db.execute(
             select(Article.id, Article.name, Article.fakturownia_product_id)
@@ -266,6 +269,17 @@ async def _resolve_invoice(db: AsyncSession, invoice: InvoiceOut) -> ResolvedInv
                 RaoArticleRef(id=row.id, name=row.name)
             )
 
+        # P0-014: pobierz nazwy produktów z lokalnego cache FA dla fallbacku
+        from .models import FakturowniaProductCache
+        cache_rows = await db.execute(
+            select(
+                FakturowniaProductCache.product_id,
+                FakturowniaProductCache.name,
+            ).where(FakturowniaProductCache.product_id.in_(product_ids))
+        )
+        for row in cache_rows.all():
+            pid_to_product_name[int(row.product_id)] = row.name
+
     resolved_lines: List[ResolvedInvoiceLine] = []
     mapped_total = Decimal("0.00")
     unmapped_count = 0
@@ -274,10 +288,17 @@ async def _resolve_invoice(db: AsyncSession, invoice: InvoiceOut) -> ResolvedInv
         pid = line.fakturownia_product_id
         rao_articles = pid_to_articles.get(pid, [])
 
+        # P0-014: fallback nazwy produktu — pozycja FA → cache FA → placeholder
+        product_name = line.fakturownia_product_name
+        if not product_name:
+            product_name = pid_to_product_name.get(pid, "")
+        if not product_name:
+            product_name = f"Produkt FA #{pid}" if pid else "Pozycja FA"
+
         resolved_lines.append(
             ResolvedInvoiceLine(
                 fakturownia_product_id=pid,
-                fakturownia_product_name=line.fakturownia_product_name,
+                fakturownia_product_name=product_name,
                 quantity=line.quantity,
                 price_net=line.price_net,
                 total_net=line.total_net,

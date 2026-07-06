@@ -15,12 +15,10 @@ Zasila:
 - Zestawy usług dodatkowych (6 presetów: najem, usługa z operatorem,
   kontrakt długoterminowy, weekend, kontrakt zagraniczny, operator premium)
   + ServiceFeeTemplateItem (relacja N:M preset → artykuł z domyślną ceną)
-- Umowy (68 szt: 24 historia 2025 + 24 bieżące 2026 + 16 FA-pending zakończone
-  + 12 FA-pending aktywne P1-004)
+- Umowy (56 szt: 24 historia 2025 + 24 bieżące 2026 + 8 FA-pending)
   z predefiniowanymi cennikami kaskadowymi per maszyna (1-3 dni, 4-16 dni,
   powyżej 16 dni) — jak w starej aplikacji WinForms
-- Pozycje umów (maszyny + usługi jako standardowe pozycje — P1-007: usługi
-  widoczne w /analytics; plus usługi dodatkowe jako ContractServiceFee)
+- Pozycje umów (z warunkami rozliczeniowymi kaskadowymi)
 - Usługi dodatkowe (z article_id)
 - Rozliczenia (80% source=fakturownia, 20% source=manual/estimate)
 - Mapowanie Article.fakturownia_product_id ↔ produkty FA
@@ -494,32 +492,6 @@ def _build_positions_and_fees(i, days, maszyny, uslugi, rt_dniowy):
             "conditions": conditions,
         })
 
-    # P1-007: usługi jako STANDARDOWE pozycje umowy (nie tylko service_fees) —
-    # dzięki temu są widoczne w /stats/positions?type=services, /stats/additional-fees
-    # i /stats/by-category (compute_position_revenues zlicza tylko contract_positions).
-    # Pozycje usług: jednorazowe (rental_days=1, billing_frequency=jednorazowo),
-    # stawka = replacement_value usługi.
-    num_service_positions = 1 + (i % 3)  # 1, 2, 3 usługi jako pozycje
-    for j in range(num_service_positions):
-        usluga = uslugi[(i + j) % len(uslugi)]
-        cena_usl = usluga.replacement_value or Decimal("100")
-        positions.append({
-            "article_id": usluga.id,
-            "article_name": usluga.name,
-            "rental_days": 1,
-            "quantity": 1,
-            "unit_price": cena_usl,
-            "rate_type_id": rt_dniowy.id if rt_dniowy else None,
-            "billing_frequency": "jednorazowo",
-            "billing_unit": "szt",
-            "conditions": [
-                {"rate1": cena_usl, "rate2": None, "period_count": 1, "minimum": 1,
-                 "billing_label": "jednorazowo",
-                 "description": f"{usluga.name} — jednorazowo",
-                 "rate_type_id": rt_dniowy.id if rt_dniowy else None},
-            ],
-        })
-
     fees = []
     num_fees = 2 + (i % 3)  # 2, 3, 4
     for j in range(num_fees):
@@ -553,15 +525,12 @@ def generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_n
 
     Pula A — historia 2025 (24 umowy, 12-24 mies. wstecz, wszystkie rozliczone)
              → bogate statystyki roczne, wykresy by-period, lokalizacje.
-    Pula B — bieżące 2026 (24 umowy, 0-12 mies. wstecz, mix stanów)
-             → aktywne wynajmy, flota teraz, KPI.
-    Pula C — FA-pending (16 umów, zakończone NIEROZLICZONE, bez settlements w RAO)
-             → faktury czekają w Fakturowni (seed_fa_invoices) — demo integracji:
-               user klika "Pobierz z Fakturowni" → rozliczenia się tworzą na żywo.
-    Pula D — aktywne FA-pending (12 umów, date_to w przyszłości, bez settlements)
-             → P1-004: aktywne umowy w trakcie wynajmu z fakturami w FA gotowymi
-               do pobrania. Demo: user widzi aktywną umowę → "Pobierz z FA" →
-               rozliczenia tworzą się na żywo (10+ aktywnych gotowych do pobrania).
+    Pula B — bieżące 2026 (24 umowy):
+             B1: 10 AKTYWNYCH FA-pending (date_to >= today, is_settled=False, faktura w FA)
+                 → demo rozliczeń: user klika "Pobierz z Fakturowni" → rozliczenia na żywo.
+             B2: 14 historii 2026 (1-7 mies. wstecz, mix rozliczone / FA-pending zakończone).
+    Pula C — FA-pending zakończone (16 umów, NIEROZLICZONE, faktura czeka w FA)
+             → demo integracji na umowach zakończonych.
     """
     contractors = list(con_by_name.values())
     salespeople = list(sp_by_name.values())
@@ -615,10 +584,22 @@ def generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_n
         number = f"{contract_type}{i + 1:03d}/2025"
         _add(number, i, date_from, days, contract_type, is_settled=True, branch_idx=i % 4)
 
-    # ── Pula B: bieżące 2026 (0-12 miesięcy wstecz, mix stanów) ──────────────
-    for i in range(24):
+    # ── Pula B1: 10 AKTYWNYCH FA-pending (date_to >= today, faktura w FA) ────
+    # Demo rozliczeń: user otwiera aktywną umowę → "Pobierz z Fakturowni" →
+    # rozliczenia tworzą się na żywo → zapisz → następna umowa.
+    # date_from = today - (i*2) dni (0,2,4,...,18 dni temu)
+    # days = 21 + (i%3)*7 (21,28,35,21,28,35,21,28,35,21) → date_to w przyszłości
+    for i in range(10):
         contract_type = "S" if i % 3 != 2 else "U"
-        months_back = i // 2  # 0,0,1,1,...,11,11
+        date_from = today - timedelta(days=i * 2)
+        days = 21 + (i % 3) * 7
+        number = f"{contract_type}{i + 1:03d}/2026"
+        _add(number, i, date_from, days, contract_type, is_settled=False, fa_pending=True, branch_idx=i % 4)
+
+    # ── Pula B2: 14 historii 2026 (1-7 mies. wstecz, mix rozliczone / FA-pending) ──
+    for i in range(10, 24):
+        contract_type = "S" if i % 3 != 2 else "U"
+        months_back = (i - 10) // 2 + 1  # 1,1,2,2,...,7,7
         date_from = today - timedelta(days=months_back * 30 + (i % 2) * 15)
         days = 7 + (i % 4) * 7
         date_to = date_from + timedelta(days=days)
@@ -637,135 +618,7 @@ def generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_n
         number = f"{contract_type}{k + 25:03d}/2026"  # S025..S040/2026 — kontynuacja numeracji
         _add(number, i, date_from, days, contract_type, is_settled=False, fa_pending=True, branch_idx=k % 4)
 
-    # ── Pula D (P1-004): aktywne umowy z fakturami w FA gotowymi do pobrania ──
-    # 12 aktywnych umów (date_to w przyszłości +7..+30 dni), NIEROZLICZONE,
-    # bez settlements w RAO — faktura czeka w FA. Demo: user widzi aktywną umowę
-    # w trakcie wynajmu → "Pobierz z Fakturowni" → rozliczenia tworzą się na żywo.
-    # Rozpoczęte niedawno (0-7 dni temu), wynajem 10-30 dni → date_to w przyszłości.
-    for k in range(12):
-        i = k + 7  # offset — inne kombinacje maszyn/kontrahentów niż pula B/C
-        contract_type = "S" if k % 4 != 3 else "U"
-        date_from = today - timedelta(days=3 + (k % 5))   # 3-7 dni temu (rozpoczęte niedawno)
-        days = 10 + (k % 21)  # 10-30 dni wynajmu → date_to w przyszłości
-        number = f"{contract_type}{k + 41:03d}/2026"  # S041..S052/2026 — kontynuacja numeracji
-        _add(number, i, date_from, days, contract_type, is_settled=False, fa_pending=True, branch_idx=k % 4)
-
-    # ── Pula E (Faza 2d — opcja E): demo umowy z niezmapowanymi pozycjami FA ──
-    # Umowa typu 'U' (usługowa) z 2 usługami dodatkowymi ZMAPOWANYMI w RAO:
-    #   - Transport maszyny (article_id → fakturownia_product_id = 8845156432587)
-    #   - Tankowanie paliwa (article_id → fakturownia_product_id = 8845156432620)
-    # Faktura FA (seed_fa_invoices.py) wystawi 3 pozycje:
-    #   1. Transport        (mapped)   — 350 zł brutto → mapped settlement
-    #   2. Tankowanie        (mapped)   — 200 zł brutto → mapped settlement
-    #   3. Praca operatora   (UNMAPPED) — 800 zł brutto → unmapped settlement (source='fa_unmapped')
-    # Po "Pobierz z FA": 3 settlements (2 mapped + 1 unmapped), analytics = 1350 zł.
-    # Umowa NIEROZLICZONA (fa_pending) — user klika "Pobierz z FA" na demo.
-    # Numer S099/2026 — unikalny, łatwy do znalezienia w UI.
-    demo_unmapped = _build_demo_unmapped_contract(
-        contractors=contractors,
-        salespeople=salespeople,
-        branches=branches,
-        maszyny=maszyny,
-        uslugi=uslugi,
-        rt_dniowy=rt_dniowy,
-        today=today,
-    )
-    contracts.append(demo_unmapped)
-
     return contracts
-
-
-# Numer umowy demo dla scenariusza unmapped (opcja E) — używany też w seed_fa_invoices.py
-DEMO_UNMAPPED_CONTRACT_NUMBER = "S099/2026"
-
-
-def _build_demo_unmapped_contract(contractors, salespeople, branches, maszyny, uslugi, rt_dniowy, today):
-    """Faza 2d (opcja E): umowa demo z 2 zmapowanymi usługami + FA przyniesie 3. niezmapowaną.
-
-    Umowa typu 'U' (usługowa), zakończona (date_to < today), NIEROZLICZONA (fa_pending).
-    Pozycje: 1 maszyna (Koparka JCB 8035 — zmapowana w RAO).
-    Usługi dodatkowe: Transport maszyny + Tankowanie paliwa (obie zmapowane w RAO).
-    FA faktura (seed_fa_invoices.py) doda 3. pozycję "Praca operatora" (niezmapowaną).
-    """
-    # Znajdź artykuły po nazwie
-    transport = next(u for u in uslugi if u.name == "Transport maszyny")
-    tankowanie = next(u for u in uslugi if u.name == "Tankowanie paliwa")
-    maszyna = next(m for m in maszyny if m.name == "Koparka gąsienicowa JCB 8035")
-
-    date_from = today - timedelta(days=20)
-    days = 7
-    date_to = date_from + timedelta(days=days)
-
-    # Pozycja maszyny (1 pozycja — wynajem koparki)
-    stawka = STAWKA_EFEKTYWNA.get(maszyna.name, Decimal("750.00"))
-    cennik = CENNIKI_KASKADOWE.get(maszyna.name)
-    if cennik:
-        conditions = [
-            {**w, "rate_type_id": rt_dniowy.id if rt_dniowy else None}
-            for w in cennik["warunki"]
-        ]
-    else:
-        conditions = [
-            {"rate1": stawka, "rate2": None, "period_count": days, "minimum": 1,
-             "billing_label": "doba", "description": f"Wynajem {maszyna.name}",
-             "rate_type_id": rt_dniowy.id if rt_dniowy else None},
-        ]
-    positions = [{
-        "article_id": maszyna.id,
-        "article_name": maszyna.name,
-        "rental_days": days,
-        "quantity": 1,
-        "unit_price": stawka,
-        "rate_type_id": rt_dniowy.id if rt_dniowy else None,
-        "billing_frequency": "dniowa",
-        "billing_unit": "doba",
-        "conditions": conditions,
-    }]
-
-    # Usługi dodatkowe — TYLKO Transport + Tankowanie (obie zmapowane w RAO).
-    # "Praca operatora" NIE jest w umowie — pojawi się dopiero z FA (unmapped).
-    fees = [
-        {
-            "name": "Transport",
-            "article_id": transport.id,
-            "default_price": Decimal("350.00"),
-            "amount_from": Decimal("350.00"),
-            "amount_to": None,
-            "unit": "dostawa",
-            "description": "Transport maszyny — 350.00 zł",
-            "is_active": True,
-        },
-        {
-            "name": "Usługa tankowania",
-            "article_id": tankowanie.id,
-            "default_price": Decimal("200.00"),
-            "amount_from": Decimal("200.00"),
-            "amount_to": None,
-            "unit": "tankowanie",
-            "description": "Tankowanie paliwa — 200.00 zł (plus koszt paliwa)",
-            "is_active": True,
-        },
-    ]
-
-    loc = LOKALIZACJE_BUDOWY[0]
-    return {
-        "number": DEMO_UNMAPPED_CONTRACT_NUMBER,
-        "contractor_id": contractors[0].id,  # Bud-Plus
-        "branch_id": branches[0].id,         # WARSZAWA
-        "salesperson_id": salespeople[0].id,
-        "contract_type": "U",
-        "date_from": date_from,
-        "date_to": date_to,
-        "is_settled": False,
-        "settled_at": None,
-        "positions": positions,
-        "fees": fees,
-        "is_active_contract": False,  # zakończona
-        "fa_pending": True,           # bez settlements w RAO — user klika "Pobierz z FA"
-        "city": loc["city"],
-        "postal_code": loc["postal_code"],
-        "delivery_address": f"{loc['street']}, {loc['postal_code']} {loc['city']}",
-    }
 
 
 # ── Konfiguracja "jak od klienta" (RAO-P2-067) ────────────────────────────────
@@ -1228,6 +1081,11 @@ async def main():
 
         print("\n[7/9] Konfiguracja firmy (NIP, konto, header_text)...")
         await seed_company(db)
+
+        print("\n[7.1/9] Integracja Fakturownia (bootstrap z env)...")
+        from integrations.fakturownia.service import get_or_create_settings
+        fa_settings = await get_or_create_settings(db)
+        print(f"  FA: enabled={fa_settings.enabled}, domain={fa_settings.domain_subdomain}")
 
         print("\n[7.5/9] Cenniki kaskadowe per maszyna (RAO-P1-001)...")
         await seed_article_rate_presets(db, art_by_name)

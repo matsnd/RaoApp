@@ -37,6 +37,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from articles.models import Article
 from contracts.models import Contract, ContractPosition, PositionCondition
+from contractors.models import Contractor
 from settlements.models import ContractSettlement
 from stats.calc import calculate_position_value
 
@@ -144,7 +145,10 @@ async def compute_position_revenues(
             Article.internal_number,        # p[8]
             Article.is_service,             # p[9]
             Contract.number.label("contract_number"),  # p[10]
-            Contract.contractor_name,       # p[11]
+            # RAO-P2-065 #2: coalesce Contractor.name z snapshot contractor_name
+            # — snapshot może być NULL gdy umowa ma contractor_id (FK) ale nie
+            # zapisano denormalizowanej nazwy. LEFT JOIN rozwiązuje z contractors.
+            func.coalesce(Contractor.name, Contract.contractor_name).label("contractor_name"),  # p[11]
             Contract.contractor_id,         # p[12]
             Contract.date_from,             # p[13]
             Contract.date_to,               # p[14]
@@ -158,6 +162,9 @@ async def compute_position_revenues(
         )
         .select_from(ContractPosition)
         .join(Contract, Contract.id == ContractPosition.contract_id)
+        # RAO-P2-065 #2: LEFT JOIN contractors — contractor_name snapshot NULL
+        # dla umów z contractor_id (FK) — rozwiązujemy nazwę z contractors.name
+        .outerjoin(Contractor, Contractor.id == Contract.contractor_id)
         .join(Article, Article.id == ContractPosition.article_id)
     )
     # RAO-P0-006/BUG-6: df/dt mogą być None (preset='all' = brak filtra daty).
@@ -325,7 +332,8 @@ async def compute_position_revenues(
             ContractSettlement.cost_client,              # u[4]
             ContractSettlement.settled_at,               # u[5]
             Contract.number.label("contract_number"),    # u[6]
-            Contract.contractor_name,                    # u[7]
+            # RAO-P2-065 #2: coalesce Contractor.name z snapshot (jak w głównym zapytaniu)
+            func.coalesce(Contractor.name, Contract.contractor_name).label("contractor_name"),  # u[7]
             Contract.contractor_id,                      # u[8]
             Contract.date_from,                          # u[9]
             Contract.date_to,                            # u[10]
@@ -335,6 +343,8 @@ async def compute_position_revenues(
         )
         .select_from(ContractSettlement)
         .join(Contract, Contract.id == ContractSettlement.contract_id)
+        # RAO-P2-065 #2: LEFT JOIN contractors — rozwiązuj nazwę z contractor_id
+        .outerjoin(Contractor, Contractor.id == Contract.contractor_id)
         .where(ContractSettlement.position_id.is_(None))
         .where(ContractSettlement.service_fee_id.is_(None))
         .where(ContractSettlement.source == "fa_unmapped")

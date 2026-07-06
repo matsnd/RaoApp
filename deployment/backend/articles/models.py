@@ -39,6 +39,10 @@ class Article(Base):
     # RAO-P2-012: integracja Fakturownia — 1:N globalny mapping produktu FA → artykułów RAO
     fakturownia_product_id = Column(BigInteger, nullable=True,
                                     comment="ID produktu w Fakturownia (mapping globalny 1:N)")
+    # RAO-P2-058: snapshot metadanych z Fakturownia (refresh przy sync/picker selection)
+    fakturownia_tax_rate = Column(String(10), nullable=True, comment="Stawka VAT z Fakturownia (snapshot)")
+    fakturownia_gtu_code = Column(String(20), nullable=True, comment="Kod GTU z Fakturownia (snapshot)")
+    fakturownia_pkwiu = Column(String(50), nullable=True, comment="PKWiU z Fakturownia (snapshot)")
     created_at = Column(DateTime, nullable=False)
     updated_at = Column(DateTime, nullable=True)
 

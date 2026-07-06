@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime, date, time
 from decimal import Decimal
 from typing import Literal, Annotated, Optional
 from pydantic import BaseModel, Field, model_validator
@@ -326,3 +326,30 @@ class ContractUpdate(BaseModel):
                 raise ValueError(f"{field} nie może być ujemne.")
         return self
 
+
+class ServiceHourResponse(BaseModel):
+    id: int
+    position_id: int
+    service_date: date
+    time_from: time | None
+    time_to: time | None
+    notes: str | None
+    created_at: datetime
+    updated_at: datetime | None
+
+    class Config:
+        from_attributes = True
+
+
+class ServiceHourCreate(BaseModel):
+    service_date: date
+    time_from: time | None = None
+    time_to: time | None = None
+    notes: str | None = Field(None, max_length=500)
+
+
+class ServiceHourUpdate(BaseModel):
+    service_date: date | None = None
+    time_from: time | None = None
+    time_to: time | None = None
+    notes: str | None = Field(None, max_length=500)

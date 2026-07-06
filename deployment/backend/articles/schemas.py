@@ -30,6 +30,10 @@ class ArticleListItem(BaseModel):
     active_contract_number: str | None
     # RAO-P2-012: Fakturownia product mapping (1:N global)
     fakturownia_product_id: int | None = None
+    # RAO-P2-058: snapshot metadanych z FA
+    fakturownia_tax_rate: str | None = None
+    fakturownia_gtu_code: str | None = None
+    fakturownia_pkwiu: str | None = None
     created_at: datetime
     updated_at: datetime | None
     conditions_count: int
@@ -70,6 +74,10 @@ class ArticleDetail(BaseModel):
     dodatki: str | None = None
     # RAO-P2-012: Fakturownia product mapping (1:N global)
     fakturownia_product_id: int | None = None
+    # RAO-P2-058: snapshot metadanych z FA
+    fakturownia_tax_rate: str | None = None
+    fakturownia_gtu_code: str | None = None
+    fakturownia_pkwiu: str | None = None
     created_at: datetime
     updated_at: datetime | None
 
@@ -100,6 +108,10 @@ class ArticleCreate(BaseModel):
     dodatki: str | None = None
     # RAO-P2-012: Fakturownia product mapping (1:N global)
     fakturownia_product_id: int | None = None
+    # RAO-P2-058: snapshot metadanych z FA
+    fakturownia_tax_rate: str | None = None
+    fakturownia_gtu_code: str | None = None
+    fakturownia_pkwiu: str | None = None
 
 
 class AvailabilityConflict(BaseModel):
@@ -110,6 +122,18 @@ class AvailabilityConflict(BaseModel):
     contractor_name: str
 
 
+class AvailabilityReservationConflict(BaseModel):
+    """RAO-P2-066: konflikt z ręczną rezerwacją maszyny (article_reservations)."""
+    reservation_id: int
+    reserved_from: date
+    reserved_to: date
+    note: str | None = None
+    # Data, od której maszyna będzie dostępna (= reserved_to + 1 dzień)
+    available_from: date | None = None
+
+
 class AvailabilityResponse(BaseModel):
     is_available: bool
     conflicting_contracts: list[AvailabilityConflict]
+    # RAO-P2-066: konflikty z rezerwacjami (article_reservations)
+    conflicting_reservations: list[AvailabilityReservationConflict] = []

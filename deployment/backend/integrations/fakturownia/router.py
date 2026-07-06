@@ -12,10 +12,12 @@ from database import get_db
 
 from . import service
 from .schemas import (
+    FakturowniaProductCacheOut,
     FakturowniaProductOut,
     FakturowniaSettingsIn,
     FakturowniaSettingsOut,
     ResolvedInvoiceOut,
+    SyncProductsResultOut,
 )
 
 logger = logging.getLogger(__name__)
@@ -116,6 +118,35 @@ async def get_products(
 ):
     """Pobierz katalog produktow z Fakturownia (admin only)."""
     return await service.fetch_products(db)
+
+
+# ── RAO-P2-058: Product cache (sync + search) ────────────────────────────────
+
+@router.post("/sync-products", response_model=SyncProductsResultOut)
+async def sync_products(
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """Synchronizuj katalog produktów FA → lokalny cache (admin only).
+
+    Pobiera wszystkie produkty z FA (paginated, per_page=100) i upsert do
+    tabeli `fakturownia_products_cache`. Zwraca statystyki sync (fetched/upserted/pages).
+    """
+    return await service.sync_products(db)
+
+
+@router.get("/products/search", response_model=List[FakturowniaProductCacheOut])
+async def search_products(
+    q: str = Query(..., min_length=1, max_length=100, description="Szukana fraza (name/code)"),
+    limit: int = Query(50, ge=1, le=200, description="Max wyników"),
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(get_current_user),
+):
+    """Przeszukaj lokalny cache produktów FA (LIKE %q% na name/code).
+
+    Wymaga auth (każdy zalogowany user). Zwraca produkty z cache, nie z FA API.
+    """
+    return await service.search_products(db, q, limit=limit)
 
 
 @router.get("/invoices", response_model=List[ResolvedInvoiceOut])

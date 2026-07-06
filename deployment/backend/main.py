@@ -1,9 +1,13 @@
 import os
+import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from config import settings
+
+logger = logging.getLogger("rao.errors")
 
 from auth.router import router as auth_router, admin_router
 from contractors.router import router as contractors_router
@@ -17,6 +21,7 @@ from integrations.fakturownia.router import router as fakturownia_router
 from stats.router import router as stats_router
 from explorer.router import router as explorer_router
 from reservations.router import router as reservations_router  # RAO-P1-015
+from archive.router import router as archive_router  # RAO-P2-062 Faza 1
 from database import engine, Base
 import auth.models  # Auth tables
 import integrations.models  # RAO-P1-008
@@ -24,22 +29,46 @@ import reservations.models  # RAO-P1-015
 import deliveries.models  # RAO-P3-005
 import contract_costs.models  # RAO-P3-005
 import audit.models  # RAO-P3-005
+import archive.models  # RAO-P2-062 Faza 1 — tabele archive_*
 
 app = FastAPI(
     title="RAO API",
     description="RAO - Wynajem maszyn budowlanych",
     version="1.0.0",
     root_path="/rao/api",
+    # RAO-P2-048: wyłącz publiczny Swagger/ReDoc poza dev mode (security hardening)
+    docs_url="/docs" if settings.environment == "development" else None,
+    redoc_url="/redoc" if settings.environment == "development" else None,
+    openapi_url="/openapi.json" if settings.environment == "development" else None,
 )
+
+
+# RAO-P0-036: Global exception handler — nie ujawniaj stack trace klientowi
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Błąd serwera"},
+    )
 
 
 @app.on_event("startup")
 async def startup_migrations():
     import sqlalchemy as sa
     from database import AsyncSessionLocal
-    from settings.models import FeePresetGroup, ServiceFeeTemplate
+    from settings.models import FeePresetGroup, ServiceFeeTemplate, Company
     import settlements.models  # RAO-P1-012
     import integrations.fakturownia.models  # RAO-P2-012
+
+    # Upewnij się że istnieje domyślna firma (id=1) — FK dla FeePresetGroup
+    # Musi być utworzone PRZED seedem presetów (RAO-P2-001 niżej).
+    async with AsyncSessionLocal() as db:
+        from sqlalchemy import select, func
+        has_company = (await db.execute(select(func.count()).select_from(Company))).scalar_one()
+        if has_company == 0:
+            db.add(Company(id=1, name="RAO — Wynajem Maszyn"))
+            await db.commit()
 
     # RAO-P2-001: seed default fees for contract type S (najmu)
     async with AsyncSessionLocal() as db:
@@ -124,6 +153,13 @@ async def startup_migrations():
             "ALTER TABLE categories ADD COLUMN IF NOT EXISTS "
             "level ENUM('main','sub1','sub2','sub3') NOT NULL DEFAULT 'main'"
         ))
+        # RAO-P0-054: Collation polish_ci dla kategorii (normalizacja diakrytyk + spacji)
+        try:
+            await conn.execute(sa.text(
+                "ALTER TABLE categories CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_polish_ci"
+            ))
+        except Exception:
+            pass  # Już jest polish_ci lub MariaDB nie wspiera — idempotentne
         await conn.execute(sa.text(
             "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
             "category_main VARCHAR(100) NULL"
@@ -229,6 +265,37 @@ async def startup_migrations():
             "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
             "city VARCHAR(100) NULL"
         ))
+        # RAO-P2-028: FK do postal_codes (deterministyczna lokalizacja PNA)
+        await conn.execute(sa.text(
+            "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
+            "postal_code_id INT NULL COMMENT 'RAO-P2-028: FK do postal_codes'"
+        ))
+        # RAO-P2-062 Faza 1: kolumna is_legacy usunięta (legacy dane przeniesione
+        # do tabel archive_* w Fazie 0). Idempotentny DROP COLUMN IF EXISTS.
+        try:
+            await conn.execute(sa.text(
+                "ALTER TABLE contracts DROP COLUMN IF EXISTS is_legacy"
+            ))
+        except Exception:
+            pass  # MariaDB <10.6 nie wspiera IF EXISTS w DROP COLUMN — kolumna już nie istnieje
+        # FK + index (try/except bo MariaDB <10.6 nie wspiera IF NOT EXISTS dla CONSTRAINT)
+        try:
+            await conn.execute(sa.text(
+                "ALTER TABLE contracts ADD CONSTRAINT fk_contracts_postal_code "
+                "FOREIGN KEY (postal_code_id) REFERENCES postal_codes(id) ON DELETE SET NULL"
+            ))
+        except Exception:
+            pass  # FK już istnieje
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_contracts_postal_code_id ON contracts(postal_code_id)"
+        ))
+        # RAO-P2-060: indeksy dla statystyk rozliczeń (source + settled_at)
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_settlements_source ON contract_settlements(source)"
+        ))
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_settlements_settled_at ON contract_settlements(settled_at)"
+        ))
         # RAO-P2-015: tabela postal_codes (słownik kodów pocztowych)
         await conn.execute(sa.text("""
             CREATE TABLE IF NOT EXISTS postal_codes (
@@ -252,6 +319,19 @@ async def startup_migrations():
         await conn.execute(sa.text(
             "ALTER TABLE postal_codes ADD COLUMN IF NOT EXISTS "
             "gmina VARCHAR(100) NULL"
+        ))
+        # RAO-P2-028: indeksy dla statystyk hierarchicznych
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_postal_codes_gmina ON postal_codes(gmina)"
+        ))
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_postal_codes_powiat ON postal_codes(powiat)"
+        ))
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_postal_codes_city_gmina ON postal_codes(city, gmina)"
+        ))
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_postal_codes_woj_pow ON postal_codes(wojewodztwo, powiat)"
         ))
         # RAO-P2-012: integracja Fakturownia — singleton settings + mapping produktu w articles
         await conn.execute(sa.text("""
@@ -278,6 +358,19 @@ async def startup_migrations():
             "CREATE INDEX IF NOT EXISTS idx_articles_fakturownia_product "
             "ON articles(fakturownia_product_id)"
         ))
+        # RAO-P2-058: snapshot metadanych z Fakturownia na artykułach
+        await conn.execute(sa.text(
+            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "fakturownia_tax_rate VARCHAR(10) NULL COMMENT 'RAO-P2-058: Stawka VAT z FA (snapshot)'"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "fakturownia_gtu_code VARCHAR(20) NULL COMMENT 'RAO-P2-058: Kod GTU z FA (snapshot)'"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "fakturownia_pkwiu VARCHAR(50) NULL COMMENT 'RAO-P2-058: PKWiU z FA (snapshot)'"
+        ))
         await conn.execute(sa.text(
             "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
             "oid VARCHAR(40) NULL COMMENT 'RAO-P2-012: Numer zamówienia w Fakturownia'"
@@ -294,6 +387,27 @@ async def startup_migrations():
         await conn.execute(sa.text(
             "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
             "longitude DECIMAL(11,8) NULL"
+        ))
+        # RAO-P0-030: UNIQUE constraint na contracts.number (zapobiega duplikatom)
+        # Idempotentne: CREATE UNIQUE INDEX IF NOT EXISTS
+        await conn.execute(sa.text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_contracts_number ON contracts(number)"
+        ))
+        # RAO-P1-038: indeksy na często filtrowanych kolumnach contracts
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_contracts_is_settled ON contracts(is_settled)"
+        ))
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_contracts_created_at ON contracts(created_at)"
+        ))
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_contracts_salesperson_id ON contracts(salesperson_id)"
+        ))
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_contracts_print_date ON contracts(print_date)"
+        ))
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_contracts_delivery_date ON contracts(date_to)"
         ))
         # RAO-P3-002: logo firmy — ścieżka do pliku statycznego
         await conn.execute(sa.text(
@@ -328,16 +442,17 @@ async def startup_migrations():
             "ALTER TABLE contract_settlements ADD COLUMN IF NOT EXISTS "
             "service_fee_id INT NULL"
         ))
-        # RAO-P2-032: settled_at + source + UNIQUE dla idempotentnego importu
+        # RAO-P2-032: settled_at (data rozliczenia z legacy rozliczenie.data lub Fakturownia)
         await conn.execute(sa.text(
             "ALTER TABLE contract_settlements ADD COLUMN IF NOT EXISTS "
             "settled_at DATE NULL COMMENT 'RAO-P2-032: Data rozliczenia'"
         ))
+        # RAO-P2-032: source (legacy/fakturownia/manual) — identyfikacja pochodzenia kwoty
         await conn.execute(sa.text(
             "ALTER TABLE contract_settlements ADD COLUMN IF NOT EXISTS "
-            "source VARCHAR(20) NULL DEFAULT 'manual' "
-            "COMMENT 'RAO-P2-032: legacy/fakturownia/manual/fa_unmapped'"
+            "source VARCHAR(20) NULL DEFAULT 'manual' COMMENT 'RAO-P2-032: legacy/fakturownia/manual'"
         ))
+        # RAO-P2-032: UNIQUE constraint — idempotentny import rozliczenie (zapobiega duplikatom)
         try:
             await conn.execute(sa.text(
                 "ALTER TABLE contract_settlements ADD UNIQUE INDEX IF NOT EXISTS "
@@ -345,8 +460,9 @@ async def startup_migrations():
                 "(contract_id, position_id, service_fee_id, settled_at)"
             ))
         except Exception:
-            pass
-        # RAO Faza 2a (opcja E): unmapped settlements z Fakturownia
+            pass  # MariaDB <10.6 nie wspiera IF NOT EXISTS na UNIQUE INDEX
+        # RAO Faza 2a (opcja E): unmapped settlements z Fakturownia — pozycje FA nieobecne w umowie
+        # position_id=NULL + service_fee_id=NULL + snapshot nazwy (NIE tworzymy artykułu on-the-fly)
         await conn.execute(sa.text(
             "ALTER TABLE contract_settlements ADD COLUMN IF NOT EXISTS "
             "article_name_snapshot VARCHAR(255) NULL "
@@ -362,6 +478,9 @@ async def startup_migrations():
             "fakturownia_invoice_number VARCHAR(50) NULL "
             "COMMENT 'Numer faktury FA (wydzielony z notes dla query)'"
         ))
+        # Generated column (STORED) — idempotentność unmapped importu.
+        # MariaDB 10.2+ wspiera GENERATED ALWAYS AS ... STORED; IF NOT EXISTS od 10.6.
+        # try/except — fallback gdy kolumna już istnieje (MariaDB <10.6 bez IF NOT EXISTS).
         try:
             await conn.execute(sa.text(
                 "ALTER TABLE contract_settlements ADD COLUMN IF NOT EXISTS "
@@ -371,14 +490,26 @@ async def startup_migrations():
                 "ELSE NULL END) STORED COMMENT 'Klucz deduplikacji unmapped (NULL dla mapped)'"
             ))
         except Exception:
-            pass
+            pass  # kolumna już istnieje (MariaDB <10.6 bez IF NOT EXISTS dla generated)
+        # UNIQUE index na unmapped_key — NULL w UNIQUE dozwolony wielokrotnie (mapped nie koliduje)
         try:
             await conn.execute(sa.text(
                 "ALTER TABLE contract_settlements ADD UNIQUE INDEX IF NOT EXISTS "
                 "uq_settlements_unmapped_key (unmapped_key)"
             ))
         except Exception:
-            pass
+            pass  # MariaDB <10.6 nie wspiera IF NOT EXISTS na UNIQUE INDEX
+        # RAO-P2-032: tabela _import_errors — logowanie orphaned settlements (QA edge #1)
+        await conn.execute(sa.text(
+            "CREATE TABLE IF NOT EXISTS _import_errors ("
+            " id INT AUTO_INCREMENT PRIMARY KEY,"
+            " source VARCHAR(50) NOT NULL,"
+            " raw_data TEXT NOT NULL,"
+            " error_message TEXT NOT NULL,"
+            " created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"
+            ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_polish_ci"
+            " COMMENT='RAO-P2-032: Log błędów importu (orphaned settlements itp.)'"
+        ))
         # RAO-P1-011: article_id i default_price w contract_service_fees (kopia z szablonu)
         await conn.execute(sa.text(
             "ALTER TABLE contract_service_fees ADD COLUMN IF NOT EXISTS "
@@ -387,6 +518,38 @@ async def startup_migrations():
         await conn.execute(sa.text(
             "ALTER TABLE contract_service_fees ADD COLUMN IF NOT EXISTS "
             "default_price DECIMAL(18,2) NULL"
+        ))
+        # RAO-P1-021/P2-033: DROP COLUMN contracts.total_value (martwe pole, 100% NULL)
+        # Zgoda użytkownika: potwierdzone w przepytywaniu backlogu.
+        # try/except bo MariaDB <10.6 nie wspiera IF EXISTS w DROP COLUMN.
+        try:
+            await conn.execute(sa.text(
+                "ALTER TABLE contracts DROP COLUMN total_value"
+            ))
+        except Exception:
+            pass  # kolumna już nie istnieje — OK
+
+        # RAO-P1-055: Migracja branch_id z suffixu "G" w numerze umowy (Gdańsk).
+        # Idempotentna: WHERE branch_id IS NULL — kolejne uruchomienia nie modyfikują.
+        # Numer umowy format: "{type}{auto:03d}/{year}{suffix}" gdzie suffix="G" dla GDAŃSK.
+        # 1) Umowy z suffixem "G" → przypisz do oddziału GDAŃSK (case-insensitive).
+        await conn.execute(sa.text(
+            "UPDATE contracts c SET c.branch_id = ("
+            "  SELECT b.id FROM branches b WHERE UPPER(b.name) = 'GDAŃSK' LIMIT 1"
+            ") WHERE c.number LIKE '%G' AND c.branch_id IS NULL"
+            "  AND EXISTS (SELECT 1 FROM branches b WHERE UPPER(b.name) = 'GDAŃSK')"
+        ))
+        # 2) Umowy BEZ suffixu "G" → przypisz do domyślnego oddziału (najniższe id,
+        #    który NIE jest GDAŃSK = oddział główny/siedziba). Idempotentne.
+        await conn.execute(sa.text(
+            "UPDATE contracts c SET c.branch_id = ("
+            "  SELECT b.id FROM branches b WHERE UPPER(b.name) <> 'GDAŃSK' ORDER BY b.id LIMIT 1"
+            ") WHERE c.number NOT LIKE '%G' AND c.branch_id IS NULL"
+            "  AND EXISTS (SELECT 1 FROM branches b WHERE UPPER(b.name) <> 'GDAŃSK')"
+        ))
+        # RAO-P1-055: indeks na branch_id dla statystyk /stats/by-branch (WHERE + JOIN)
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_contracts_branch_id ON contracts(branch_id)"
         ))
 
     # FK + index dodawane z IF NOT EXISTS (MariaDB 10.0.2+ dla FK, 10.0.9+ dla indeksów)
@@ -459,6 +622,22 @@ async def startup_migrations():
                 )
             await db.commit()
 
+        # RAO-P2-028 backfill: ustaw postal_code_id dla umów z NULL FK,
+        # gdzie contracts.postal_code istnieje w słowniku postal_codes.
+        # Idempotentne — UPDATE tylko wiersze z postal_code_id IS NULL.
+        from sqlalchemy import text as sa_text
+        backfilled = await db.execute(sa_text(
+            "UPDATE contracts c "
+            "JOIN postal_codes p ON c.postal_code = p.postal_code "
+            "SET c.postal_code_id = p.id "
+            "WHERE c.postal_code_id IS NULL "
+            "  AND c.postal_code IS NOT NULL "
+            "  AND c.postal_code <> ''"
+        ))
+        if backfilled.rowcount:
+            await db.commit()
+            print(f"[startup] Backfill postal_code_id: {backfilled.rowcount} umów zaktualizowanych")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.get_cors_origins(),
@@ -481,6 +660,7 @@ app.include_router(fakturownia_router)
 app.include_router(stats_router)
 app.include_router(explorer_router)
 app.include_router(reservations_router)  # RAO-P1-015
+app.include_router(archive_router)  # RAO-P2-062 Faza 1
 
 # RAO-P3-002: serwowanie statycznych plików (loga firmy itp.)
 # Katalog tworzony powyżej (os.makedirs), mount musi być po include_router

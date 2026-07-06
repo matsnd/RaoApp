@@ -42,30 +42,45 @@ class ArticleService:
         result = await db.execute(stmt)
         articles = result.scalars().all()
 
+        # RAO-P0-035: Batch-fetch categories, owners & active contracts to eliminate N+1
+        article_ids = [a.id for a in articles]
+        category_ids = {a.category_id for a in articles if a.category_id}
+        owner_ids = {a.owner_id for a in articles if a.owner_id}
+
+        cat_map = {}
+        if category_ids:
+            cat_result = await db.execute(
+                select(Category.id, Category.name).where(Category.id.in_(category_ids))
+            )
+            cat_map = dict(cat_result.all())
+
+        owner_map = {}
+        if owner_ids:
+            own_result = await db.execute(
+                select(Contractor.id, Contractor.name).where(Contractor.id.in_(owner_ids))
+            )
+            owner_map = dict(own_result.all())
+
+        # Batch-fetch active contract numbers for all articles in one query
+        active_map = {}
+        if article_ids:
+            today = date.today()
+            active_result = await db.execute(
+                select(ContractPosition.article_id, Contract.number)
+                .join(Contract, ContractPosition.contract_id == Contract.id)
+                .where(ContractPosition.article_id.in_(article_ids))
+                .where(Contract.date_to >= today)
+                .distinct()
+            )
+            for aid, num in active_result.all():
+                if aid not in active_map:
+                    active_map[aid] = num
+
         items = []
         for a in articles:
-            cat_name = None
-            if a.category_id:
-                cat = await db.get(Category, a.category_id)
-                cat_name = cat.name if cat else None
-
-            own_name = None
-            if a.owner_id:
-                own = await db.get(Contractor, a.owner_id)
-                own_name = own.name if own else None
-
-            active_num = None
-            try:
-                active = await db.execute(
-                    select(Contract.number)
-                    .join(ContractPosition, ContractPosition.contract_id == Contract.id)
-                    .where(ContractPosition.article_id == a.id)
-                    .where(Contract.date_to >= date.today())
-                    .limit(1)
-                )
-                active_num = active.scalar_one_or_none()
-            except Exception:
-                pass
+            cat_name = cat_map.get(a.category_id) if a.category_id else None
+            own_name = owner_map.get(a.owner_id) if a.owner_id else None
+            active_num = active_map.get(a.id)
 
             cond_count = 0
             items.append(ArticleListItem(
@@ -148,7 +163,23 @@ class ArticleService:
     ):
         from contracts.models import Contract, ContractPosition
         from contractors.models import Contractor
-        from articles.schemas import AvailabilityConflict, AvailabilityResponse
+        from reservations.models import ArticleReservation
+        from articles.schemas import (
+            AvailabilityConflict,
+            AvailabilityResponse,
+            AvailabilityReservationConflict,
+        )
+        from datetime import timedelta
+
+        # RAO-P2-057: maszyna zewnętrzna (is_external) nie blokuje — można wypożyczyć
+        # w wielu umowach jednocześnie (nie wpływa na rentowność floty własnej)
+        article = await db.get(Article, article_id)
+        if article and article.is_external:
+            return AvailabilityResponse(
+                is_available=True,
+                conflicting_contracts=[],
+                conflicting_reservations=[],
+            )
 
         stmt = (
             select(Contract.id, Contract.number, Contract.date_from, Contract.date_to, Contractor.name)
@@ -169,7 +200,36 @@ class ArticleService:
             )
             for r in rows
         ]
-        return AvailabilityResponse(is_available=len(conflicts) == 0, conflicting_contracts=conflicts)
+
+        # RAO-P2-066: konflikty z ręcznymi rezerwacjami (article_reservations)
+        # Zakładka czasowa pokrywa się gdy: reserved_from <= date_to AND reserved_to >= date_from
+        res_stmt = (
+            select(ArticleReservation)
+            .where(ArticleReservation.article_id == article_id)
+            .where(ArticleReservation.reserved_from <= date_to)
+            .where(ArticleReservation.reserved_to >= date_from)
+            .order_by(ArticleReservation.reserved_from)
+        )
+        res_result = await db.execute(res_stmt)
+        reservations = res_result.scalars().all()
+        res_conflicts = [
+            AvailabilityReservationConflict(
+                reservation_id=r.id,
+                reserved_from=r.reserved_from,
+                reserved_to=r.reserved_to,
+                note=r.note,
+                # Maszyna dostępna od dnia następnego po zakończeniu rezerwacji
+                available_from=r.reserved_to + timedelta(days=1),
+            )
+            for r in reservations
+        ]
+
+        is_available = len(conflicts) == 0 and len(res_conflicts) == 0
+        return AvailabilityResponse(
+            is_available=is_available,
+            conflicting_contracts=conflicts,
+            conflicting_reservations=res_conflicts,
+        )
 
 
 article_service = ArticleService()
