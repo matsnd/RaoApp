@@ -1337,8 +1337,7 @@ async def verify():
     for tbl in ["company","categories","branches","salespeople","rate_types",
                 "contractors","contractor_addresses","articles","users",
                 "contracts","contract_positions","position_conditions",
-                "fee_preset_groups","service_fee_templates","contract_service_fees",
-                "service_hours"]:
+                "fee_preset_groups","service_fee_templates","contract_service_fees"]:
         await cur.execute(f"SELECT COUNT(*) FROM `{tbl}`")
         cnt = (await cur.fetchone())[0]
         print(f"   {tbl}: {cnt}")

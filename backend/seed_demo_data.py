@@ -1082,6 +1082,11 @@ async def main():
         print("\n[7/9] Konfiguracja firmy (NIP, konto, header_text)...")
         await seed_company(db)
 
+        print("\n[7.1/9] Integracja Fakturownia (bootstrap z env)...")
+        from integrations.fakturownia.service import get_or_create_settings
+        fa_settings = await get_or_create_settings(db)
+        print(f"  FA: enabled={fa_settings.enabled}, domain={fa_settings.domain_subdomain}")
+
         print("\n[7.5/9] Cenniki kaskadowe per maszyna (RAO-P1-001)...")
         await seed_article_rate_presets(db, art_by_name)
 

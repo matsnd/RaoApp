@@ -57,9 +57,18 @@ async def global_exception_handler(request: Request, exc: Exception):
 async def startup_migrations():
     import sqlalchemy as sa
     from database import AsyncSessionLocal
-    from settings.models import FeePresetGroup, ServiceFeeTemplate
+    from settings.models import FeePresetGroup, ServiceFeeTemplate, Company
     import settlements.models  # RAO-P1-012
     import integrations.fakturownia.models  # RAO-P2-012
+
+    # Upewnij się że istnieje domyślna firma (id=1) — FK dla FeePresetGroup
+    # Musi być utworzone PRZED seedem presetów (RAO-P2-001 niżej).
+    async with AsyncSessionLocal() as db:
+        from sqlalchemy import select, func
+        has_company = (await db.execute(select(func.count()).select_from(Company))).scalar_one()
+        if has_company == 0:
+            db.add(Company(id=1, name="RAO — Wynajem Maszyn"))
+            await db.commit()
 
     # RAO-P2-001: seed default fees for contract type S (najmu)
     async with AsyncSessionLocal() as db:
