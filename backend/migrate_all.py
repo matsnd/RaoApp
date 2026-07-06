@@ -59,6 +59,42 @@ def step2_archive(args) -> int:
     return proc.returncode
 
 
+def step2b_clean_demo(args) -> int:
+    """Wyczyść tabele demo (bez archiwizacji) — dla --reseed.
+
+    Demo dane z seeda NIE idą do archiwum (archiwum = tylko legacy WinForms).
+    Usuwa: contracts, contract_positions, position_conditions,
+    contract_service_fees, contract_settlements.
+    """
+    import sqlalchemy as sa
+    from database import AsyncSessionLocal
+    import contracts.models, settlements.models  # noqa: F401
+
+    async def _clean():
+        async with AsyncSessionLocal() as db:
+            print("Czyszczenie tabel demo (bez archiwizacji)...")
+            for sql in [
+                "DELETE FROM contract_settlements",
+                "DELETE FROM contract_service_fees",
+                "DELETE FROM position_conditions",
+                "DELETE FROM contract_positions",
+                "DELETE FROM contracts",
+                "ALTER TABLE contracts AUTO_INCREMENT = 1",
+                "ALTER TABLE contract_positions AUTO_INCREMENT = 1",
+                "ALTER TABLE position_conditions AUTO_INCREMENT = 1",
+                "ALTER TABLE contract_service_fees AUTO_INCREMENT = 1",
+                "ALTER TABLE contract_settlements AUTO_INCREMENT = 1",
+            ]:
+                result = await db.execute(sa.text(sql))
+                if result.rowcount:
+                    print(f"  {sql.split(' FROM ')[-1].split(' AUTO')[0]}: {result.rowcount} usuniętych")
+            await db.commit()
+            print("  OK — tabele demo wyczyszczone.")
+        return 0
+
+    return asyncio.run(_clean())
+
+
 def step3_demo(args) -> int:
     return _run_script("seed_demo_data.py")
 
@@ -141,6 +177,7 @@ def step5_verify(args) -> int:
 STEPS = [
     ("1", "legacy", "Migracja legacy dump → rao_new (DROP bazy! wymaga --confirm-drop)", step1_legacy),
     ("2", "archive", "Archive split: legacy → archive_* (gruba krecha)", step2_archive),
+    ("2b", "clean", "Czyszczenie tabel demo (bez archiwizacji — dla --reseed)", step2b_clean_demo),
     ("3", "demo", "Seed danych demo (umowy+lokalizacje+zestawy usług+cenniki kaskadowe+FA-pending)", step3_demo),
     ("4", "fa", "Faktury w Fakturowni (backfill + FA-pending)", step4_fa),
     ("5", "verify", "Weryfikacja środowiska demo", step5_verify),
@@ -148,13 +185,20 @@ STEPS = [
 
 
 def parse_steps(spec: str) -> list[str]:
-    """'3-5' → ['3','4','5']; '1,3' → ['1','3']; '4' → ['4']."""
+    """'3-5' → ['3','4','5']; '1,3' → ['1','3']; '4' → ['4']; '2b-5' → ['2b','3','4','5']."""
+    # Mapa kroków w kolejności (obsługa alfanumerycznych jak '2b')
+    step_order = [s[0] for s in STEPS]
     out: list[str] = []
     for part in spec.split(","):
         part = part.strip()
         if "-" in part:
             lo, hi = part.split("-", 1)
-            out.extend(str(x) for x in range(int(lo), int(hi) + 1))
+            try:
+                lo_idx = step_order.index(lo)
+                hi_idx = step_order.index(hi)
+                out.extend(step_order[lo_idx:hi_idx + 1])
+            except ValueError:
+                print(f"Nieznany krok w zakresie '{part}' — dostępne: {step_order}")
         elif part:
             out.append(part)
     return out
@@ -170,9 +214,10 @@ def main() -> int:
                     help="Re-seed demo: archiwizuj aktualne contracts (--force) + seed + FA + verify. Skrót: --steps 2-5 --reseed")
     args = ap.parse_args()
 
-    # Domyślny zestaw kroków: --reseed → 2-5, w przeciwnym razie 3-5
+    # Domyślny zestaw kroków: --reseed → 2b-5 (clean+seed+fa+verify, bez archiwizacji),
+    # w przeciwnym razie 3-5 (tylko seed+fa+verify)
     if args.steps is None:
-        args.steps = "2-5" if args.reseed else "3-5"
+        args.steps = "2b-5" if args.reseed else "3-5"
 
     if args.list:
         print("Kroki migrate_all.py:")
