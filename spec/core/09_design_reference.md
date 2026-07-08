@@ -117,6 +117,7 @@ Użyj wartości z sekcji poniżej — są zweryfikowane i aktualne na dzień two
   --color-bg-light: #F8F9FA;         /* Tło naprzemiennych sekcji, light gray */
   --color-bg-card: #FFFFFF;          /* Tło kart */
   --color-bg-card-hover: #FCFCFE;    /* Hover na kartach */
+  --color-bg-editing: #FFFBEB;       /* Warm cream tint dla wierszy w trybie inline edit */
 
   /* === TEXT === */
   --color-text-heading: #1D2B53;     /* Nagłówki — navy blue */
