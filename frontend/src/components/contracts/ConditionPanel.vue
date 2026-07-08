@@ -36,7 +36,7 @@
         <button class="btn btn-secondary btn-sm" @click="autoPrefillFromLast" :disabled="!articleId || autoPrefillLoading" title="Wypełnij z ostatniej umowy tej maszyny">
           {{ autoPrefillLoading ? '...' : '↻ Z ostatniej umowy' }}
         </button>
-        <button class="btn btn-primary btn-sm" @click="addCondition">+ Dodaj warunek</button>
+        <button class="btn btn-primary btn-sm" @click="addCondition" data-testid="add-condition">+ Dodaj warunek</button>
       </div>
     </div>
     <table class="data-grid" v-if="conditions.length">
@@ -68,8 +68,8 @@
           <td>{{ cond.billing_label || '—' }}</td>
           <td>{{ cond.minimum || '—' }}</td>
           <td>
-            <button class="btn-icon" aria-label="Edytuj" title="Edytuj" @click.stop="editCondition(cond)">✎</button>
-            <button class="btn-icon" aria-label="Usuń" title="Usuń" @click.stop="removeCondition(cond)">✕</button>
+            <button class="btn-icon" aria-label="Edytuj" title="Edytuj" @click.stop="editCondition(cond)" data-testid="edit-condition">✎</button>
+            <button class="btn-icon" aria-label="Usuń" title="Usuń" @click.stop="removeCondition(cond)" data-testid="delete-condition">✕</button>
           </td>
         </tr>
         <tr v-if="gapError" class="row-error">
@@ -89,7 +89,7 @@
     <div v-else class="empty-state" style="padding:16px;">Brak warunków — dodaj warunek rozliczenia</div>
 
     <!-- RAO-P1-005: podgląd PDF live -->
-    <div v-if="conditions.length" style="margin-top:12px;padding:12px;background:#F7F9FC;border-radius:8px;">
+    <div v-if="conditions.length" style="margin-top:12px;padding:12px;background:#F7F9FC;border-radius:8px;" data-testid="conditions-preview">
       <div style="font-size:11px;font-weight:600;color:#5A6B7E;margin-bottom:8px;">Podgląd PDF:</div>
       <div style="font-size:11px;color:#333;line-height:1.6;">
         <div v-for="cond in conditions" :key="cond.id">
@@ -106,34 +106,44 @@
           <div class="form-row-2">
             <div class="form-group">
               <label class="form-label">Typ stawki</label>
-              <select v-model="condForm.rate_type_id" class="form-control">
+              <select v-model="condForm.rate_type_id" class="form-control" data-testid="rate-type">
                 <option :value="null">— brak —</option>
                 <option v-for="rt in rateTypes" :key="rt.id" :value="rt.id">{{ rt.name }}</option>
               </select>
             </div>
             <div class="form-group">
               <label class="form-label">Jednostka rozliczeniowa</label>
-              <input v-model="condForm.billing_label" type="text" class="form-control" placeholder="doba" />
+              <input v-model="condForm.billing_label" type="text" class="form-control" placeholder="doba" data-testid="billing-label" />
             </div>
           </div>
           <div class="form-row-2">
             <div class="form-group">
               <label class="form-label">Od (dni)</label>
-              <input v-model.number="condForm.period_from" type="number" class="form-control" min="1" placeholder="1" />
+              <input v-model.number="condForm.period_from" type="number" class="form-control" min="1" placeholder="1" data-testid="period-from" />
             </div>
             <div class="form-group">
               <label class="form-label">Do (dni)</label>
-              <input v-model.number="condForm.period_to" type="number" class="form-control" min="1" placeholder="np. 3" />
+              <input v-model.number="condForm.period_to" type="number" class="form-control" min="1" placeholder="np. 3" data-testid="period-to" />
+            </div>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Okresy (legacy)</label>
+              <input v-model.number="condForm.period_count" type="number" class="form-control" min="1" placeholder="np. 3" data-testid="period-count" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Minimum</label>
+              <input v-model.number="condForm.minimum" type="number" class="form-control" min="0" placeholder="0" />
             </div>
           </div>
           <div class="form-row-2">
             <div class="form-group">
               <label class="form-label">Stawka 1 (zł)</label>
-              <input v-model.number="condForm.rate1" type="number" class="form-control" step="0.01" placeholder="0.00" />
+              <input v-model.number="condForm.rate1" type="number" class="form-control" step="0.01" placeholder="0.00" data-testid="rate1" />
             </div>
             <div class="form-group">
               <label class="form-label">Stawka 2 (zł)</label>
-              <input v-model.number="condForm.rate2" type="number" class="form-control" step="0.01" placeholder="0.00" />
+              <input v-model.number="condForm.rate2" type="number" class="form-control" step="0.01" placeholder="0.00" data-testid="rate2" />
             </div>
           </div>
           <div class="form-row-2">
@@ -369,6 +379,11 @@ function editCondition(cond) {
 }
 
 async function saveCondition() {
+  // RAO-P1-005: walidacja Od > Do
+  if (condForm.value.period_from && condForm.value.period_to && condForm.value.period_from > condForm.value.period_to) {
+    toastStore.error('Od musi być mniejsze lub równe Do')
+    return
+  }
   // RAO-P0-012: Stawka 1 wymagana TYLKO gdy nie podano Stawki 2.
   // Warunek "powyżej X dni" ma tylko rate2 (bez rate1) — nie blokować zapisu.
   const hasRate1 = condForm.value.rate1 !== null && condForm.value.rate1 !== '' && condForm.value.rate1 !== undefined

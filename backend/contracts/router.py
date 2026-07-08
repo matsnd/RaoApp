@@ -28,6 +28,7 @@ async def _cond_response(db, cond):
         rate_type_id=cond.rate_type_id, rate_type_name=rt_name,
         description=cond.description, rate1=cond.rate1, rate2=cond.rate2,
         billing_label=cond.billing_label, period_count=cond.period_count,
+        period_from=cond.period_from, period_to=cond.period_to,  # RAO-P1-005
         minimum=cond.minimum,
     )
 
@@ -199,6 +200,7 @@ async def list_conditions(
             rate_type_id=c.rate_type_id, rate_type_name=rate_types.get(c.rate_type_id),
             description=c.description, rate1=c.rate1, rate2=c.rate2,
             billing_label=c.billing_label, period_count=c.period_count,
+            period_from=c.period_from, period_to=c.period_to,  # RAO-P1-005
             minimum=c.minimum,
         )
         for c in conds
