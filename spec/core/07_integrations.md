@@ -494,6 +494,15 @@ class ReportService:
 | Nagłówek kolumny "Przewidywana ilość dni najmu" | Zmieniono na `white-space:normal` (automatyczne łamanie wierszy zamiast `<br>`) |
 | Przedpłata | Przeniesiona z sekcji "Dane podstawowe" na dół sekcji "Uwagi" (border-top + font-weight:bold) |
 
+### Zmiany w protocol_zo_u.html (RAO-P1-007, 2026-07-08)
+
+| Sekcja | Zmiana |
+|--------|--------|
+| Dodatkowe informacje | Nowe pole "Dodatkowe informacje" nad podpisami (nad pieczątką) |
+| Lokalizacja | Nad sekcją SIGNATURES, po sekcji UWAGI BOX |
+| Wypełnienie | `{% if contract.notes %}{{ contract.notes }}{% else %}{% endif %}` |
+| Styl | Border 1px solid #aaa, padding 8px 12px, font-size 10px, min-height 60px |
+
 ### Szablon HTML (przykład: contract.html)
 
 ```html

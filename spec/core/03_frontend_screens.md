@@ -1285,6 +1285,16 @@ async function handleFakturownia() {
     - Modal jest zamykany
     - Formularz jest resetowany
   - Walidacja: nazwa kontrahenta jest wymagana
+- **RAO-P1-001 (2026-07-08):** Checkbox is_external w Article picker modal
+  - Kolumna "Zewnętrzna" w tabeli wyników picker
+  - Badge ✓ (is_external=true) lub — (is_external=false)
+  - Backend pole `is_external` już istnieje w `articles` table
+- **RAO-P1-002 (2026-07-08):** Checkbox "Ręczny adres" w sekcji Adres dostawy
+  - Checkbox: "Ręczny adres (wyłącz auto-fill z PNA/Nominatim)"
+  - Gdy zaznaczony → pola postal_code/city disabled
+  - Auto-fill z PNA/Nominatim skipowane w trybie ręcznym
+  - Placeholder textarea: "Uwagi dojazdowe (opcjonalnie) — numer działki, bramka, wskazówki dojazdu"
+
 - **RAO-P1-100 (2026-07-08):** Zmiany w sekcji "Usługi dodatkowe"
   - **Dropdown zestawu inline** (zamiast modal picker)
     - Nagłówek sekcji: select z presetami (filter po contract_type)
