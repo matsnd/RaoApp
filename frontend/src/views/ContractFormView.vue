@@ -215,7 +215,7 @@
         <div v-if="isEdit" class="page-card" style="margin-bottom:var(--spacing-md);">
           <div style="display:flex;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
             <span class="section-title" style="margin:0;border:none;">Pozycje umowy</span>
-            <span style="font-size:11px;color:#718096;">Kliknij wiersz aby edytować • Enter = zapisz • Esc = anuluj</span>
+            <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);">Kliknij wiersz aby edytować • Enter = zapisz • Esc = anuluj</span>
             <button class="btn btn-primary btn-sm" style="margin-left:auto;" @click="addPosition">+ Dodaj pozycję</button>
           </div>
           <table class="data-grid">
@@ -274,7 +274,7 @@
                   <td><input v-model="editingPosData.delivery_date" type="date" class="form-control form-control-xs" @keydown.enter="saveInlinePos" @keydown.esc="cancelInlinePos" /></td>
                   <td style="text-align:center;"><span class="badge badge-info">{{ pos.conditions_count || 0 }}</span></td>
                   <td>
-                    <button class="btn-icon" style="color:#22543D;" title="Zapisz (Enter)" @click.stop="saveInlinePos">✓</button>
+                    <button class="btn-icon" style="color:var(--color-success);" title="Zapisz (Enter)" @click.stop="saveInlinePos">✓</button>
                     <button class="btn-icon" title="Anuluj (Esc)" @click.stop="cancelInlinePos">✕</button>
                   </td>
                 </tr>
@@ -328,7 +328,7 @@
                 <td><input v-model="newPosData.delivery_date" type="date" class="form-control form-control-xs" @keydown.enter="saveNewPosRow" @keydown.esc="cancelNewPosRow" /></td>
                 <td style="text-align:center;"><span class="badge badge-muted">0</span></td>
                 <td>
-                  <button class="btn-icon" style="color:#22543D;" title="Zapisz (Enter)" @click.stop="saveNewPosRow" :disabled="savingPos">✓</button>
+                  <button class="btn-icon" style="color:var(--color-success);" title="Zapisz (Enter)" @click.stop="saveNewPosRow" :disabled="savingPos">✓</button>
                   <button class="btn-icon" title="Anuluj (Esc)" @click.stop="cancelNewPosRow">✕</button>
                 </td>
               </tr>
@@ -347,7 +347,7 @@
         <div v-if="isEdit" class="page-card">
           <div style="display:flex;align-items:center;margin-bottom:8px;">
             <span class="section-title" style="margin:0;border:none;">Usługi dodatkowe</span>
-            <span style="font-size:11px;color:#718096;margin-left:12px;">Kliknij wiersz • Enter = zapisz • Esc = anuluj</span>
+            <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-left:12px;">Kliknij wiersz • Enter = zapisz • Esc = anuluj</span>
             <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
               <select v-model="selectedPresetId" @change="applyPresetWithConfirm" class="form-control form-control-xs" style="width:200px;">
                 <option :value="null">Wybierz zestaw…</option>
@@ -383,7 +383,7 @@
                   <td><input v-model="editingFeeData.description" class="form-control form-control-xs" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" /></td>
                   <td style="text-align:center;"><input type="checkbox" v-model="editingFeeData.is_active" /></td>
                   <td>
-                    <button class="btn-icon" style="color:#22543D;" title="Zapisz (Enter)" @click="saveInlineFee">✓</button>
+                    <button class="btn-icon" style="color:var(--color-success);" title="Zapisz (Enter)" @click="saveInlineFee">✓</button>
                     <button class="btn-icon" title="Anuluj (Esc)" @click="cancelInlineFee">✕</button>
                   </td>
                 </tr>
@@ -427,7 +427,7 @@
                 <td><input v-model="newFeeData.description" class="form-control form-control-xs" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" /></td>
                 <td style="text-align:center;"><input type="checkbox" v-model="newFeeData.is_active" /></td>
                 <td>
-                  <button class="btn-icon" style="color:#22543D;" title="Dodaj (Enter)" @click="saveNewFeeRow">✓</button>
+                  <button class="btn-icon" style="color:var(--color-success);" title="Dodaj (Enter)" @click="saveNewFeeRow">✓</button>
                   <button class="btn-icon" title="Anuluj (Esc)" @click="cancelNewFeeRow">✕</button>
                 </td>
               </tr>
@@ -2502,20 +2502,20 @@ async function applyPreset(preset) {
   transition: opacity 150ms;
 }
 .btn-icon:hover { opacity: 1; }
-.badge-danger { background: #FED7D7; color: #9B2C2C; }
+.badge-danger { background: var(--color-error-bg); color: var(--color-error); }
 .form-control-xs {
   padding: 2px 6px;
   height: 28px;
   font-size: 12px;
   width: 100%;
   border: 1px solid var(--color-border);
-  border-radius: 4px;
-  background: #fff;
+  border-radius: var(--border-radius-sm);
+  background: var(--color-bg-white);
 }
-.row-editing { background: #fffff0; }
-.row-editing:hover { background: #fffff0 !important; }
+.row-editing { background: var(--color-bg-editing); }
+.row-editing:hover { background: var(--color-bg-editing) !important; }
 .row-inactive td { opacity: 0.5; }
-/* RAO-P2-071: link-button w empty state */
+/* RAO-P2-071: link-button w empty state — underline on hover (design reference) */
 .btn-link {
   background: none;
   border: none;
@@ -2524,9 +2524,11 @@ async function applyPreset(preset) {
   font-family: inherit;
   font-size: inherit;
   padding: 0;
-  text-decoration: underline;
+  text-decoration: none;
 }
-.btn-link:hover { text-decoration: none; opacity: 0.85; }
+.btn-link:hover { text-decoration: underline; opacity: 0.85; }
+.btn-link:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.btn-link:active { transform: translateY(1px); }
 /* RAO-P2-071: wyróżnienie wiersza w trybie inline edit — navy border */
 .row-editing td {
   border-bottom: 1px solid var(--color-border);
@@ -2538,55 +2540,55 @@ async function applyPreset(preset) {
 .preset-picker-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.45);
+  background: rgba(0,0,0,0.5);
   z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .preset-picker-modal {
-  background: #fff;
-  border-radius: 12px;
-  padding: 24px;
+  background: var(--color-bg-white);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-6);
   width: 560px;
   max-width: 95vw;
   max-height: 80vh;
   overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  box-shadow: var(--shadow-modal);
 }
 .preset-picker-title {
-  font-size: 16px;
-  font-weight: 700;
-  color: #0F234E;
-  margin-bottom: 16px;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+  margin-bottom: var(--spacing-4);
 }
 .preset-picker-card {
-  border: 1px solid #E2E8F0;
-  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
   padding: 14px 16px;
   margin-bottom: 10px;
   cursor: pointer;
   transition: border-color 150ms, box-shadow 150ms;
 }
 .preset-picker-card:hover {
-  border-color: #0F234E;
-  box-shadow: 0 2px 8px rgba(15,35,78,0.12);
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-card-hover);
 }
 .preset-picker-card-name {
-  font-weight: 600;
-  font-size: 14px;
-  color: #0F234E;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-base);
+  color: var(--color-primary);
   margin-bottom: 4px;
 }
 .preset-picker-card-items {
-  font-size: 11px;
-  color: #718096;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
   line-height: 1.6;
 }
 .preset-picker-empty {
   text-align: center;
-  color: #A0AEC0;
-  padding: 32px 0;
-  font-size: 13px;
+  color: var(--color-text-muted);
+  padding: var(--spacing-8) 0;
+  font-size: var(--font-size-sm);
 }
 </style>

@@ -7,6 +7,7 @@
   --color-bg-light: #F8F9FA;
   --color-bg-card: #FFFFFF;
   --color-bg-card-hover: #FCFCFE;
+  --color-bg-editing: #FFFBEB; /* warm cream tint dla wierszy w trybie inline edit */
   --color-text-heading: #1D2B53;
   --color-text-body: #4A5568;
   --color-text-muted: #718096;
