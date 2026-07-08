@@ -27,8 +27,12 @@
       </Transition>
     </div>
 
+    <!-- RAO-P2-071: helper text + akcje nad gridem (inline editing, zero modali ustawień) -->
     <div class="cond-header">
-      <span class="cond-title">Warunki rozliczenia</span>
+      <div class="cond-header-left">
+        <span class="cond-title">Warunki rozliczenia</span>
+        <span class="cond-hint">Kliknij wiersz aby edytować • Enter = zapisz • Esc = anuluj</span>
+      </div>
       <div style="display:flex;gap:6px;">
         <button class="btn btn-secondary btn-sm" @click="openPresetPicker" :disabled="!articleId" title="Zastosuj predefiniowany cennik">
           📋 Zastosuj cennik
@@ -36,10 +40,11 @@
         <button class="btn btn-secondary btn-sm" @click="autoPrefillFromLast" :disabled="!articleId || autoPrefillLoading" title="Wypełnij z ostatniej umowy tej maszyny">
           {{ autoPrefillLoading ? '...' : '↻ Z ostatniej umowy' }}
         </button>
-        <button class="btn btn-primary btn-sm" @click="addCondition" data-testid="add-condition">+ Dodaj warunek</button>
+        <button class="btn btn-primary btn-sm" @click="addCondition" :disabled="showNewCondRow || editingCondId !== null" data-testid="add-condition">+ Dodaj warunek</button>
       </div>
     </div>
-    <table class="data-grid" v-if="conditions.length">
+
+    <table class="data-grid" v-if="conditions.length || showNewCondRow">
       <thead>
         <tr>
           <th>Typ stawki</th>
@@ -53,27 +58,92 @@
         </tr>
       </thead>
       <tbody>
-        <tr
-          v-for="cond in conditions"
-          :key="cond.id"
-          :class="{ selected: selectedCondId === cond.id, 'row-error': cond._error }"
-          @click="selectedCondId = cond.id"
-          @dblclick="editCondition(cond)"
-        >
-          <td>{{ cond.rate_type_name || '—' }}</td>
-          <td>{{ cond.period_from || '—' }}</td>
-          <td>{{ cond.period_to || '—' }}</td>
-          <td style="font-weight:600;">{{ cond.rate1 ? formatCurrency(cond.rate1) : '—' }}</td>
-          <td>{{ cond.rate2 ? formatCurrency(cond.rate2) : '—' }}</td>
-          <td>{{ cond.billing_label || '—' }}</td>
-          <td>{{ cond.minimum || '—' }}</td>
+        <template v-for="(cond, idx) in conditions" :key="cond.id">
+          <!-- EDIT MODE (inline) -->
+          <tr v-if="editingCondId === cond.id" class="row-editing">
+            <td>
+              <select v-model="editingCondData.rate_type_id" class="form-control form-control-xs" data-testid="rate-type">
+                <option :value="null">— brak —</option>
+                <option v-for="rt in rateTypes" :key="rt.id" :value="rt.id">{{ rt.name }}</option>
+              </select>
+            </td>
+            <td>
+              <input v-model.number="editingCondData.period_from" type="number" min="1" class="form-control form-control-xs" placeholder="1" data-testid="period-from" @keydown.enter="saveInlineCond" @keydown.esc="cancelInlineCond" />
+            </td>
+            <td>
+              <input v-model.number="editingCondData.period_to" type="number" min="1" class="form-control form-control-xs" placeholder="np. 3" data-testid="period-to" @keydown.enter="saveInlineCond" @keydown.esc="cancelInlineCond" />
+            </td>
+            <td>
+              <input v-model.number="editingCondData.rate1" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" data-testid="rate1" @keydown.enter="saveInlineCond" @keydown.esc="cancelInlineCond" />
+            </td>
+            <td>
+              <input v-model.number="editingCondData.rate2" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" data-testid="rate2" @keydown.enter="saveInlineCond" @keydown.esc="cancelInlineCond" />
+            </td>
+            <td>
+              <input v-model="editingCondData.billing_label" type="text" class="form-control form-control-xs" placeholder="doba" data-testid="billing-label" @keydown.enter="saveInlineCond" @keydown.esc="cancelInlineCond" />
+            </td>
+            <td>
+              <input v-model.number="editingCondData.minimum" type="number" min="0" class="form-control form-control-xs" placeholder="0" @keydown.enter="saveInlineCond" @keydown.esc="cancelInlineCond" />
+            </td>
+            <td>
+              <button class="btn-icon" style="color:var(--color-success);" title="Zapisz (Enter)" @click.stop="saveInlineCond" :disabled="savingCond">✓</button>
+              <button class="btn-icon" title="Anuluj (Esc)" @click.stop="cancelInlineCond" :disabled="savingCond">✕</button>
+            </td>
+          </tr>
+          <!-- DISPLAY MODE -->
+          <tr
+            v-else
+            :class="{ selected: selectedCondId === cond.id, 'row-error': cond._error }"
+            style="cursor:pointer;"
+            @click="selectedCondId = cond.id"
+            @dblclick="startEditCond(cond)"
+          >
+            <td>{{ cond.rate_type_name || '—' }}</td>
+            <td>{{ cond.period_from || '—' }}</td>
+            <td>{{ cond.period_to || '—' }}</td>
+            <td style="font-weight:600;">{{ cond.rate1 ? formatCurrency(cond.rate1) : '—' }}</td>
+            <td>{{ cond.rate2 ? formatCurrency(cond.rate2) : '—' }}</td>
+            <td>{{ cond.billing_label || '—' }}</td>
+            <td>{{ cond.minimum || '—' }}</td>
+            <td>
+              <button class="btn-icon" aria-label="Edytuj" title="Edytuj" @click.stop="startEditCond(cond)" data-testid="edit-condition">✎</button>
+              <button class="btn-icon" aria-label="Usuń" title="Usuń" @click.stop="removeCondition(cond)" data-testid="delete-condition">✕</button>
+            </td>
+          </tr>
+        </template>
+        <!-- NEW ROW (inline add) -->
+        <tr v-if="showNewCondRow" class="row-editing">
           <td>
-            <button class="btn-icon" aria-label="Edytuj" title="Edytuj" @click.stop="editCondition(cond)" data-testid="edit-condition">✎</button>
-            <button class="btn-icon" aria-label="Usuń" title="Usuń" @click.stop="removeCondition(cond)" data-testid="delete-condition">✕</button>
+            <select ref="newCondRateTypeSelect" v-model="newCondData.rate_type_id" class="form-control form-control-xs" data-testid="new-rate-type">
+              <option :value="null">— brak —</option>
+              <option v-for="rt in rateTypes" :key="rt.id" :value="rt.id">{{ rt.name }}</option>
+            </select>
+          </td>
+          <td>
+            <input v-model.number="newCondData.period_from" type="number" min="1" class="form-control form-control-xs" placeholder="1" data-testid="new-period-from" @keydown.enter="saveNewCondRow" @keydown.esc="cancelNewCondRow" />
+          </td>
+          <td>
+            <input v-model.number="newCondData.period_to" type="number" min="1" class="form-control form-control-xs" placeholder="np. 3" data-testid="new-period-to" @keydown.enter="saveNewCondRow" @keydown.esc="cancelNewCondRow" />
+          </td>
+          <td>
+            <input v-model.number="newCondData.rate1" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" data-testid="new-rate1" @keydown.enter="saveNewCondRow" @keydown.esc="cancelNewCondRow" />
+          </td>
+          <td>
+            <input v-model.number="newCondData.rate2" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" data-testid="new-rate2" @keydown.enter="saveNewCondRow" @keydown.esc="cancelNewCondRow" />
+          </td>
+          <td>
+            <input v-model="newCondData.billing_label" type="text" class="form-control form-control-xs" placeholder="doba" data-testid="new-billing-label" @keydown.enter="saveNewCondRow" @keydown.esc="cancelNewCondRow" />
+          </td>
+          <td>
+            <input v-model.number="newCondData.minimum" type="number" min="0" class="form-control form-control-xs" placeholder="0" @keydown.enter="saveNewCondRow" @keydown.esc="cancelNewCondRow" />
+          </td>
+          <td>
+            <button class="btn-icon" style="color:var(--color-success);" title="Zapisz (Enter)" @click.stop="saveNewCondRow" :disabled="savingCond">✓</button>
+            <button class="btn-icon" title="Anuluj (Esc)" @click.stop="cancelNewCondRow" :disabled="savingCond">✕</button>
           </td>
         </tr>
         <tr v-if="gapError" class="row-error">
-          <td colspan="8" style="color:#E53E3E;font-size:11px;padding:4px;">
+          <td colspan="8" style="color:var(--color-error);font-size:11px;padding:4px;">
             ⚠️ {{ gapError }}
           </td>
         </tr>
@@ -86,104 +156,26 @@
         </tr>
       </tfoot>
     </table>
-    <div v-else class="empty-state" style="padding:16px;">Brak warunków — dodaj warunek rozliczenia</div>
+    <!-- EMPTY STATE z CTA — tylko gdy nie dodajemy (RAO-P2-071) -->
+    <div v-else class="empty-state" style="padding:16px;">
+      Brak warunków — <button class="btn-link" @click="addCondition"><strong>dodaj warunek rozliczenia</strong></button>
+    </div>
 
-    <!-- Condition form modal -->
+    <!-- Confirm modal — zastępuje confirm() (RAO-P2-071) -->
     <Transition name="modal">
-      <div v-if="showCondModal" class="modal-overlay" @click.self="showCondModal = false">
-        <div class="modal-box" style="min-width:520px;" role="dialog" aria-modal="true" aria-labelledby="cond-modal-title">
-          <div class="modal-title" id="cond-modal-title">{{ editingCond ? 'Edycja warunku' : 'Nowy warunek' }}</div>
-          <div class="form-row-2">
-            <div class="form-group">
-              <label class="form-label">Typ stawki</label>
-              <select v-model="condForm.rate_type_id" class="form-control" data-testid="rate-type">
-                <option :value="null">— brak —</option>
-                <option v-for="rt in rateTypes" :key="rt.id" :value="rt.id">{{ rt.name }}</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Jednostka rozliczeniowa</label>
-              <input v-model="condForm.billing_label" type="text" class="form-control" placeholder="doba" data-testid="billing-label" />
-            </div>
-          </div>
-          <div class="form-row-2">
-            <div class="form-group">
-              <label class="form-label">Od (dni)</label>
-              <input v-model.number="condForm.period_from" type="number" class="form-control" min="1" placeholder="1" data-testid="period-from" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Do (dni)</label>
-              <input v-model.number="condForm.period_to" type="number" class="form-control" min="1" placeholder="np. 3" data-testid="period-to" />
-            </div>
-          </div>
-          <div class="form-row-2">
-            <div class="form-group">
-              <label class="form-label">Okresy (legacy)</label>
-              <input v-model.number="condForm.period_count" type="number" class="form-control" min="1" placeholder="np. 3" data-testid="period-count" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Minimum</label>
-              <input v-model.number="condForm.minimum" type="number" class="form-control" min="0" placeholder="0" />
-            </div>
-          </div>
-          <div class="form-row-2">
-            <div class="form-group">
-              <label class="form-label">Stawka 1 (zł)</label>
-              <input v-model.number="condForm.rate1" type="number" class="form-control" step="0.01" placeholder="0.00" data-testid="rate1" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Stawka 2 (zł)</label>
-              <input v-model.number="condForm.rate2" type="number" class="form-control" step="0.01" placeholder="0.00" data-testid="rate2" />
-            </div>
-          </div>
-          <div class="form-row-2">
-            <div class="form-group">
-              <label class="form-label">Minimum</label>
-              <input v-model.number="condForm.minimum" type="number" class="form-control" min="0" placeholder="0" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Opis</label>
-              <input v-model="condForm.description" type="text" class="form-control" placeholder="Opis (opcjonalnie)" />
-            </div>
-          </div>
-          <div class="form-row-2">
-            <div class="form-group">
-              <label class="form-label">Stawka 1 (zł) <span v-if="!condForm.rate2" title="Wymagane gdy nie podano Stawki 2">*</span></label>
-              <input v-model="condForm.rate1" type="number" step="0.01" class="form-control" placeholder="0.00" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Stawka 2 (zł)</label> <span class="field-tooltip" title="ostatni warunek (powyżej) — pozostaw period_count puste">ⓘ</span>
-              <input v-model="condForm.rate2" type="number" step="0.01" class="form-control" placeholder="0.00" />
-            </div>
-          </div>
-          <div class="form-row-2">
-            <div class="form-group">
-              <label class="form-label">Liczba okresów</label>
-              <input v-model.number="condForm.period_count" type="number" class="form-control" placeholder="np. 5" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Minimum (okresów)</label>
-              <input v-model.number="condForm.minimum" type="number" class="form-control" placeholder="np. 1" />
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Opis <button type="button" class="btn-auto-desc" title="Generuj opis automatycznie" @click="condForm.description = buildAutoDescription()">↻ auto</button></label>
-            <input v-model="condForm.description" type="text" class="form-control" placeholder="np. stawka 5000 zł/tyg. do 5 tygodni" />
-          </div>
-                    <!-- Live Preview -->
-          <div class="form-group" v-if="condForm.rate1 || condForm.rate2">
-            <label class="form-label">Podgląd formatu kaskadowego</label>
-            <div class="live-preview">{{ formatCascadingPreview() }}</div>
-          </div>
-<div class="modal-actions">
-            <button class="btn btn-secondary btn-sm" @click="showCondModal = false">Anuluj</button>
-            <button class="btn btn-primary btn-sm" @click="saveCondition" :disabled="savingCond">{{ savingCond ? '...' : 'Zapisz' }}</button>
+      <div v-if="confirmState.show" class="modal-overlay" @click.self="cancelConfirm">
+        <div class="modal-box" style="max-width:440px;" role="dialog" aria-modal="true">
+          <div class="modal-title">{{ confirmState.title }}</div>
+          <p style="margin:12px 0 20px;font-size:14px;line-height:1.5;color:var(--color-text-body);">{{ confirmState.message }}</p>
+          <div class="modal-actions">
+            <button class="btn btn-secondary btn-sm" @click="cancelConfirm">Anuluj</button>
+            <button class="btn btn-primary btn-sm" @click="acceptConfirm">{{ confirmState.confirmText }}</button>
           </div>
         </div>
       </div>
     </Transition>
 
-    <!-- RAO-P1-001: Apply preset picker -->
+    <!-- RAO-P1-001: Apply preset picker (jedyne dozwolone użycie modala) -->
     <Transition name="modal">
       <div v-if="showPresetPicker" class="modal-overlay" @click.self="showPresetPicker = false">
         <div class="modal-box" style="min-width:560px;" role="dialog" aria-modal="true" aria-labelledby="preset-picker-title">
@@ -257,14 +249,51 @@ const rateTypes = computed(() => settingsStore.rateTypes || [])
 const conditions = ref([])
 const showHelp = ref(false)
 const selectedCondId = ref(null)
-const showCondModal = ref(false)
-const editingCond = ref(null)
 const savingCond = ref(false)
-const condForm = ref({
-  rate_type_id: null, description: '', rate1: null, rate2: null,
-  billing_label: '', period_count: null, period_from: null, period_to: null, minimum: null,
-})
+
+// RAO-P2-071: inline editing w gridzie (pattern z ContractFormView.vue — zero modali ustawień)
+const editingCondId = ref<number | null>(null)
+const editingCondData = ref(emptyCondData())
+const showNewCondRow = ref(false)
+const newCondData = ref(emptyCondData())
+const newCondRateTypeSelect = ref<HTMLSelectElement | null>(null)
+
 const gapError = ref('')  // RAO-P1-005: walidacja ciągłości
+
+// RAO-P2-071: Confirm modal — zastępuje confirm() (pattern z ContractFormView.vue)
+const confirmState = ref<{
+  show: boolean
+  title: string
+  message: string
+  confirmText: string
+  onConfirm: (() => void) | null
+}>({ show: false, title: '', message: '', confirmText: 'Potwierdź', onConfirm: null })
+
+function requestConfirm(message: string, onConfirm: () => void, title = 'Potwierdzenie', confirmText = 'Potwierdź') {
+  confirmState.value = { show: true, title, message, confirmText, onConfirm }
+}
+function acceptConfirm() {
+  const fn = confirmState.value.onConfirm
+  confirmState.value = { show: false, title: '', message: '', confirmText: 'Potwierdź', onConfirm: null }
+  fn?.()
+}
+function cancelConfirm() {
+  confirmState.value = { show: false, title: '', message: '', confirmText: 'Potwierdź', onConfirm: null }
+}
+
+function emptyCondData() {
+  return {
+    rate_type_id: null as number | null,
+    description: '' as string,
+    rate1: null as number | null,
+    rate2: null as number | null,
+    billing_label: '' as string,
+    period_count: null as number | null,
+    period_from: null as number | null,
+    period_to: null as number | null,
+    minimum: null as number | null,
+  }
+}
 
 const calculatedValue = computed(() => {
   return conditions.value.reduce((sum, c) => {
@@ -308,93 +337,90 @@ async function loadConditions() {
   } catch { conditions.value = [] }
 }
 
-function buildAutoDescription() {
-  const parts = []
-  const rtName = rateTypes.value.find(rt => rt.id === condForm.value.rate_type_id)?.name
+// RAO-P2-071: buildAutoDescription — generuje opis z inline data (używany przy zapisie)
+function buildAutoDescriptionFrom(data: ReturnType<typeof emptyCondData>): string {
+  const parts: string[] = []
+  const rtName = rateTypes.value.find(rt => rt.id === data.rate_type_id)?.name
   if (rtName) parts.push(rtName)
-  const r1 = condForm.value.rate1
-  const r2 = condForm.value.rate2
+  const r1 = data.rate1
+  const r2 = data.rate2
   const hasR1 = r1 !== null && r1 !== '' && r1 !== undefined
   const hasR2 = r2 !== null && r2 !== '' && r2 !== undefined && Number(r2) > 0
   // RAO-P0-012: warunek "powyżej X dni" — tylko rate2, opis "powyżej N dni - 120,00 / doba"
-  if (!hasR1 && hasR2 && !condForm.value.period_count) {
-    const formatted = formatCurrency(r2)
-    parts.push(condForm.value.billing_label ? `powyżej — ${formatted}/${condForm.value.billing_label}` : `powyżej — ${formatted}`)
+  if (!hasR1 && hasR2 && !data.period_count) {
+    const formatted = formatCurrency(r2 as number)
+    parts.push(data.billing_label ? `powyżej — ${formatted}/${data.billing_label}` : `powyżej — ${formatted}`)
   } else {
     if (hasR1 || r1 === 0) {
-      const formatted = formatCurrency(r1)
-      parts.push(condForm.value.billing_label ? `${formatted}/${condForm.value.billing_label}` : formatted)
+      const formatted = formatCurrency(r1 as number)
+      parts.push(data.billing_label ? `${formatted}/${data.billing_label}` : formatted)
     }
-    if (hasR2) parts.push(`+ ${formatCurrency(r2)}`)
-    if (condForm.value.period_count) {
-      parts.push(`do ${condForm.value.period_count}${condForm.value.billing_label ? ' ' + condForm.value.billing_label : ''}`)
+    if (hasR2) parts.push(`+ ${formatCurrency(r2 as number)}`)
+    if (data.period_from && data.period_to) {
+      parts.push(`${data.period_from}-${data.period_to} dni`)
+    } else if (data.period_count) {
+      parts.push(`do ${data.period_count}${data.billing_label ? ' ' + data.billing_label : ''}`)
     }
   }
-  if (condForm.value.minimum) parts.push(`min. ${condForm.value.minimum}`)
+  if (data.minimum) parts.push(`min. ${data.minimum}`)
   return parts.join(', ')
 }
 
-// Auto-fill description for new conditions when fields change
-watch(
-  () => [condForm.value.rate_type_id, condForm.value.rate1, condForm.value.rate2, condForm.value.billing_label, condForm.value.period_from, condForm.value.period_to],
-  () => {
-    if (!showCondModal.value || editingCond.value) return
-    condForm.value.description = buildAutoDescription()
-  }
-)
-
+// RAO-P2-071: addCondition → dodaje pusty row w trybie inline-edit (zero modali)
 function addCondition() {
-  editingCond.value = null
-  Object.assign(condForm.value, {
-    rate_type_id: null, description: '', rate1: null, rate2: null,
-    billing_label: '', period_count: null, period_from: null, period_to: null, minimum: null,
+  if (showNewCondRow.value || editingCondId.value !== null) return
+  newCondData.value = emptyCondData()
+  showNewCondRow.value = true
+  nextTick(() => {
+    newCondRateTypeSelect.value?.focus()
   })
-  showCondModal.value = true
 }
 
-function editCondition(cond) {
-  editingCond.value = cond
-  Object.assign(condForm.value, {
-    rate_type_id: cond.rate_type_id,
+// RAO-P2-071: startEditCond — inline edit istniejącego warunku (pattern jak startEditPos)
+function startEditCond(cond: any) {
+  if (showNewCondRow.value) return // nie edytuj gdy dodajemy nowy
+  editingCondId.value = cond.id
+  editingCondData.value = {
+    rate_type_id: cond.rate_type_id ?? null,
     description: cond.description || '',
-    rate1: cond.rate1,
-    rate2: cond.rate2,
+    rate1: cond.rate1 ?? null,
+    rate2: cond.rate2 ?? null,
     billing_label: cond.billing_label || '',
-    period_count: cond.period_count,
-    period_from: cond.period_from,
-    period_to: cond.period_to,
-    minimum: cond.minimum,
-  })
-  showCondModal.value = true
+    period_count: cond.period_count ?? null,
+    period_from: cond.period_from ?? null,
+    period_to: cond.period_to ?? null,
+    minimum: cond.minimum ?? null,
+  }
 }
 
-async function saveCondition() {
+function cancelInlineCond() {
+  editingCondId.value = null
+  editingCondData.value = emptyCondData()
+}
+
+async function saveInlineCond() {
+  if (!editingCondId.value) return
+  if (savingCond.value) return // RAO-P0: guard przed double-click
   // RAO-P1-005: walidacja Od > Do
-  if (condForm.value.period_from && condForm.value.period_to && condForm.value.period_from > condForm.value.period_to) {
+  if (editingCondData.value.period_from && editingCondData.value.period_to && editingCondData.value.period_from > editingCondData.value.period_to) {
     toastStore.error('Od musi być mniejsze lub równe Do')
     return
   }
   // RAO-P0-012: Stawka 1 wymagana TYLKO gdy nie podano Stawki 2.
-  // Warunek "powyżej X dni" ma tylko rate2 (bez rate1) — nie blokować zapisu.
-  const hasRate1 = condForm.value.rate1 !== null && condForm.value.rate1 !== '' && condForm.value.rate1 !== undefined
-  const hasRate2 = condForm.value.rate2 !== null && condForm.value.rate2 !== '' && condForm.value.rate2 !== undefined
+  const hasRate1 = editingCondData.value.rate1 !== null && editingCondData.value.rate1 !== '' && editingCondData.value.rate1 !== undefined
+  const hasRate2 = editingCondData.value.rate2 !== null && editingCondData.value.rate2 !== '' && editingCondData.value.rate2 !== undefined
   if (!hasRate1 && !hasRate2) {
     toastStore.warning('Podaj stawkę 1 lub stawkę 2')
     return
   }
   savingCond.value = true
   try {
-    const payload = { ...condForm.value }
-    if (!payload.billing_label) payload.billing_label = null
-    if (!payload.rate1) payload.rate1 = null
-    if (!payload.rate2) payload.rate2 = null
-    if (editingCond.value) {
-      await contractStore.updateCondition(props.contractId, props.positionId, editingCond.value.id, payload)
-    } else {
-      await contractStore.createCondition(props.contractId, props.positionId, payload)
-    }
+    const payload = buildCondPayload(editingCondData.value)
+    await contractStore.updateCondition(props.contractId, props.positionId, editingCondId.value, payload)
     await loadConditions()
-    showCondModal.value = false
+    editingCondId.value = null
+    editingCondData.value = emptyCondData()
+    toastStore.success('Warunek zapisany')
   } catch (e) {
     const err = e as { response?: { data?: { detail?: string } } }
     toastStore.error(err?.response?.data?.detail || 'Błąd zapisu warunku')
@@ -403,65 +429,71 @@ async function saveCondition() {
   }
 }
 
-async function removeCondition(cond) {
-  if (!confirm('Usunąć ten warunek?')) return
+function cancelNewCondRow() {
+  showNewCondRow.value = false
+  newCondData.value = emptyCondData()
+}
+
+async function saveNewCondRow() {
+  if (savingCond.value) return // RAO-P0: guard przed double-click
+  // RAO-P1-005: walidacja Od > Do
+  if (newCondData.value.period_from && newCondData.value.period_to && newCondData.value.period_from > newCondData.value.period_to) {
+    toastStore.error('Od musi być mniejsze lub równe Do')
+    return
+  }
+  // RAO-P0-012: Stawka 1 wymagana TYLKO gdy nie podano Stawki 2.
+  const hasRate1 = newCondData.value.rate1 !== null && newCondData.value.rate1 !== '' && newCondData.value.rate1 !== undefined
+  const hasRate2 = newCondData.value.rate2 !== null && newCondData.value.rate2 !== '' && newCondData.value.rate2 !== undefined
+  if (!hasRate1 && !hasRate2) {
+    toastStore.warning('Podaj stawkę 1 lub stawkę 2')
+    return
+  }
+  savingCond.value = true
   try {
-    await contractStore.deleteCondition(props.contractId, props.positionId, cond.id)
+    const payload = buildCondPayload(newCondData.value)
+    await contractStore.createCondition(props.contractId, props.positionId, payload)
     await loadConditions()
-  } catch (e: any) {
-    toastStore.error(e?.response?.data?.detail || 'Błąd')
+    showNewCondRow.value = false
+    newCondData.value = emptyCondData()
+    toastStore.success('Warunek dodany')
+  } catch (e) {
+    const err = e as { response?: { data?: { detail?: string } } }
+    toastStore.error(err?.response?.data?.detail || 'Błąd zapisu warunku')
+  } finally {
+    savingCond.value = false
   }
 }
 
+// RAO-P2-071: buildCondPayload — normalizuje dane przed wysłaniem do API
+function buildCondPayload(data: ReturnType<typeof emptyCondData>) {
+  const payload: any = { ...data }
+  if (!payload.billing_label) payload.billing_label = null
+  if (!payload.rate1) payload.rate1 = null
+  if (!payload.rate2) payload.rate2 = null
+  if (!payload.period_from) payload.period_from = null
+  if (!payload.period_to) payload.period_to = null
+  if (!payload.minimum) payload.minimum = null
+  // Auto-generuj opis jeśli pusty
+  if (!payload.description) payload.description = buildAutoDescriptionFrom(data)
+  return payload
+}
 
-
-function formatCascadingPreview() {
-  // Frontend version of format_position_conditions_cascading from backend
-  const tempConds = []
-  // RAO-P0-012: warunek "powyżej X dni" ma tylko rate2 (bez rate1) — też pokaż w preview
-  const hasRate1 = condForm.value.rate1 !== null && condForm.value.rate1 !== undefined && condForm.value.rate1 !== ''
-  const hasRate2 = condForm.value.rate2 !== null && condForm.value.rate2 !== undefined && condForm.value.rate2 !== ''
-  if (hasRate1 || hasRate2) {
-    tempConds.push({
-      rate1: hasRate1 ? Number(condForm.value.rate1) : null,
-      rate2: hasRate2 ? Number(condForm.value.rate2) : null,
-      billing_label: condForm.value.billing_label || 'doba',
-      period_count: condForm.value.period_count
-    })
-  }
-  
-  if (!tempConds.length) return ''
-  
-  const sorted = [...tempConds].sort((a, b) => {
-    if (a.period_count === null || a.period_count === undefined) return 1
-    if (b.period_count === null || b.period_count === undefined) return -1
-    return a.period_count - b.period_count
-  })
-  
-  const lines = []
-  let prevPeriod = 0
-  
-  for (const c of sorted) {
-    const label = c.billing_label || 'doba'
-    if (c.period_count !== null && c.period_count !== undefined && c.rate1 !== null) {
-      const start = prevPeriod + 1
-      const end = c.period_count
-      let rangeText = ''
-      if (start === end) {
-        rangeText = `${start} ${label}`
-      } else {
-        rangeText = `${start} - ${end} dni`
+// RAO-P2-071: removeCondition — zastąpiono confirm() modalnem potwierdzenia
+async function removeCondition(cond: any) {
+  requestConfirm(
+    `Usunąć warunek rozliczenia (${cond.rate_type_name || '—'})?`,
+    async () => {
+      try {
+        await contractStore.deleteCondition(props.contractId, props.positionId, cond.id)
+        await loadConditions()
+        toastStore.success('Warunek usunięty')
+      } catch (e: any) {
+        toastStore.error(e?.response?.data?.detail || 'Błąd usuwania warunku')
       }
-      const rateText = c.rate1.toFixed(2).replace('.', ',')
-      lines.push(`${rangeText} - ${rateText} / ${label}`)
-      prevPeriod = c.period_count
-    } else if (c.rate2 !== null && prevPeriod > 0) {
-      const rateText = c.rate2.toFixed(2).replace('.', ',')
-      lines.push(`powyżej ${prevPeriod} dni - ${rateText} / ${label}`)
-    }
-  }
-
-  return lines.join('\n') || 'Wypełnij pola, aby zobaczyć podgląd'
+    },
+    'Usuń warunek',
+    'Usuń',
+  )
 }
 
 watch(() => props.positionId, loadConditions, { immediate: true })
@@ -565,12 +597,39 @@ defineExpose({ loadConditions, calculatedValue })
   display: flex;
   align-items: center;
   margin-bottom: 8px;
+  gap: 12px;
+}
+.cond-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-right: auto;
 }
 .cond-title {
   font-size: 13px;
   font-weight: 700;
-  color: #0F234E;
-  margin-right: auto;
+  color: var(--color-primary);
+}
+.cond-hint {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0;
+  text-decoration: underline;
+}
+.btn-link:hover { text-decoration: none; }
+.form-control-xs {
+  font-size: 12px;
+  padding: 4px 6px;
+}
+.row-editing {
+  background: var(--color-bg-light);
 }
 .btn-icon {
   background: none;
