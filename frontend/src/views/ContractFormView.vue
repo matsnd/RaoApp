@@ -234,8 +234,14 @@
               </tr>
             </thead>
             <tbody>
-              <!-- EMPTY STATE z CTA -->
-              <tr v-if="!contractStore.positions.length && !showNewPosRow">
+              <!-- SKELETON LOADER — podczas ładowania pozycji (RAO-P0) -->
+              <tr v-if="positionsLoading && !showNewPosRow">
+                <td colspan="10" class="empty-state">
+                  <span class="skeleton-bar"></span> Ładowanie pozycji…
+                </td>
+              </tr>
+              <!-- EMPTY STATE z CTA — tylko gdy nie ładujemy i nie dodajemy (RAO-P0) -->
+              <tr v-else-if="!contractStore.positions.length && !showNewPosRow">
                 <td colspan="10" class="empty-state">
                   Brak pozycji na tej umowie. <button class="btn-link" @click="addPosition"><strong>Dodaj pierwszy artykuł</strong></button>
                 </td>
@@ -251,8 +257,14 @@
                     </div>
                   </td>
                   <td><input v-model="editingPosData.rental_type" type="text" class="form-control form-control-xs" placeholder="—" @keydown.enter="saveInlinePos" @keydown.esc="cancelInlinePos" /></td>
-                  <td><input v-model.number="editingPosData.rental_days" type="number" min="0" class="form-control form-control-xs" @keydown.enter="saveInlinePos" @keydown.esc="cancelInlinePos" /></td>
-                  <td><input v-model.number="editingPosData.quantity" type="number" min="1" class="form-control form-control-xs" @keydown.enter="saveInlinePos" @keydown.esc="cancelInlinePos" /></td>
+                  <td>
+                    <input v-model.number="editingPosData.rental_days" type="number" min="0" class="form-control form-control-xs" :class="{ 'input-error': inlinePosErrors.rental_days }" @keydown.enter="saveInlinePos" @keydown.esc="cancelInlinePos" />
+                    <span v-if="inlinePosErrors.rental_days" class="field-error field-error-inline">{{ inlinePosErrors.rental_days }}</span>
+                  </td>
+                  <td>
+                    <input v-model.number="editingPosData.quantity" type="number" min="1" class="form-control form-control-xs" :class="{ 'input-error': inlinePosErrors.quantity }" @keydown.enter="saveInlinePos" @keydown.esc="cancelInlinePos" />
+                    <span v-if="inlinePosErrors.quantity" class="field-error field-error-inline">{{ inlinePosErrors.quantity }}</span>
+                  </td>
                   <td>
                     <select v-model="editingPosData.billing_frequency" class="form-control form-control-xs">
                       <option :value="null">— brak —</option>
@@ -274,8 +286,8 @@
                   <td><input v-model="editingPosData.delivery_date" type="date" class="form-control form-control-xs" @keydown.enter="saveInlinePos" @keydown.esc="cancelInlinePos" /></td>
                   <td style="text-align:center;"><span class="badge badge-info">{{ pos.conditions_count || 0 }}</span></td>
                   <td>
-                    <button class="btn-icon" style="color:var(--color-success);" title="Zapisz (Enter)" @click.stop="saveInlinePos">✓</button>
-                    <button class="btn-icon" title="Anuluj (Esc)" @click.stop="cancelInlinePos">✕</button>
+                    <button class="btn-icon" style="color:var(--color-success);" title="Zapisz (Enter)" @click.stop="saveInlinePos" :disabled="savingPos">✓</button>
+                    <button class="btn-icon" title="Anuluj (Esc)" @click.stop="cancelInlinePos" :disabled="savingPos">✕</button>
                   </td>
                 </tr>
                 <!-- DISPLAY MODE -->
@@ -305,8 +317,14 @@
                   </div>
                 </td>
                 <td><input ref="newPosRentalTypeInput" v-model="newPosData.rental_type" type="text" class="form-control form-control-xs" placeholder="—" @keydown.enter="saveNewPosRow" @keydown.esc="cancelNewPosRow" /></td>
-                <td><input v-model.number="newPosData.rental_days" type="number" min="0" class="form-control form-control-xs" @keydown.enter="saveNewPosRow" @keydown.esc="cancelNewPosRow" /></td>
-                <td><input v-model.number="newPosData.quantity" type="number" min="1" class="form-control form-control-xs" @keydown.enter="saveNewPosRow" @keydown.esc="cancelNewPosRow" /></td>
+                <td>
+                  <input v-model.number="newPosData.rental_days" type="number" min="0" class="form-control form-control-xs" :class="{ 'input-error': inlinePosErrors.rental_days }" @keydown.enter="saveNewPosRow" @keydown.esc="cancelNewPosRow" />
+                  <span v-if="inlinePosErrors.rental_days" class="field-error field-error-inline">{{ inlinePosErrors.rental_days }}</span>
+                </td>
+                <td>
+                  <input v-model.number="newPosData.quantity" type="number" min="1" class="form-control form-control-xs" :class="{ 'input-error': inlinePosErrors.quantity }" @keydown.enter="saveNewPosRow" @keydown.esc="cancelNewPosRow" />
+                  <span v-if="inlinePosErrors.quantity" class="field-error field-error-inline">{{ inlinePosErrors.quantity }}</span>
+                </td>
                 <td>
                   <select v-model="newPosData.billing_frequency" class="form-control form-control-xs">
                     <option :value="null">— brak —</option>
@@ -1228,6 +1246,33 @@ const showNewPosRow = ref(false)
 const newPosData = ref<PosInlineData>(emptyPosData())
 const newPosRentalTypeInput = ref<HTMLInputElement | null>(null)
 const savingPos = ref(false)
+// RAO-P0: flaga ładowania pozycji — skeleton loader zamiast mylącego empty state
+const positionsLoading = ref(false)
+// RAO-P0: błędy walidacji inline (quantity ≥ 1, rental_days ≥ 0)
+const inlinePosErrors = ref<{ quantity?: string; rental_days?: string }>({})
+
+function clearInlinePosErrors() {
+  inlinePosErrors.value = {}
+}
+
+// RAO-P0: walidacja inline przed zapisem — zwraca true jeśli OK, false jeśli błąd (ustawia inlinePosErrors)
+function validatePosInline(d: PosInlineData): boolean {
+  clearInlinePosErrors()
+  let ok = true
+  // quantity: ≥ 1, nie NaN (puste pole z v-model.number daje '' → NaN/undefined)
+  const q = d.quantity
+  if (q == null || Number.isNaN(q) || q < 1) {
+    inlinePosErrors.value.quantity = 'Ilość musi być ≥ 1'
+    ok = false
+  }
+  // rental_days: ≥ 0 jeśli podane (może być null = brak)
+  const rd = d.rental_days
+  if (rd != null && !Number.isNaN(rd) && rd < 0) {
+    inlinePosErrors.value.rental_days = 'Dni nie mogą być ujemne'
+    ok = false
+  }
+  return ok
+}
 // Tryb wyboru artykułu: 'new' | 'edit' — determinuje cel po wyborze z ArticlePicker
 const articlePickerMode = ref<'new' | 'edit'>('new')
 const showArticlePicker = ref(false)
@@ -1482,7 +1527,13 @@ onMounted(async () => {
           await loadContractorAddresses(data.contractor_id)
         } catch {}
       }
-      await contractStore.fetchPositions(Number(props.id))
+      // RAO-P0: skeleton loader podczas ładowania pozycji (zamiast mylącego empty state)
+      positionsLoading.value = true
+      try {
+        await contractStore.fetchPositions(Number(props.id))
+      } finally {
+        positionsLoading.value = false
+      }
       await contractStore.fetchServiceFees(Number(props.id))
       await fetchSettlements(Number(props.id))
     } finally {
@@ -1888,6 +1939,7 @@ function addPosition() {
 // RAO-P2-071: startEditPos — inline edit istniejącej pozycji (pattern jak startEditFee)
 function startEditPos(pos) {
   editingPosId.value = pos.id
+  clearInlinePosErrors()
   editingPosData.value = {
     article_id: pos.article_id,
     article_name: pos.article_name || '',
@@ -1909,21 +1961,30 @@ function startEditPos(pos) {
 function cancelInlinePos() {
   editingPosId.value = null
   editingPosData.value = emptyPosData()
+  clearInlinePosErrors()
 }
 
 async function saveInlinePos() {
   if (!editingPosId.value) return
+  if (savingPos.value) return // RAO-P0: guard przed double-click
   if (!editingPosData.value.article_id) {
     toastStore.error('Wybierz artykuł przed zapisem')
+    return
+  }
+  // RAO-P0: walidacja inline (quantity ≥ 1, rental_days ≥ 0)
+  if (!validatePosInline(editingPosData.value)) {
     return
   }
   savingPos.value = true
   try {
     const payload = buildPosPayload(editingPosData.value)
-    await contractStore.updatePosition(Number(props.id), editingPosId.value, payload)
+    const updated = await contractStore.updatePosition(Number(props.id), editingPosId.value, payload)
     await contractStore.fetchPositions(Number(props.id))
+    // RAO-P0: kaskada — pokaż ConditionPanel dla zapisanej pozycji
+    if (updated?.id) selectedPosId.value = updated.id
     editingPosId.value = null
     editingPosData.value = emptyPosData()
+    clearInlinePosErrors()
     await recalcTotal()
     toastStore.success('Pozycja zapisana')
   } catch (e: any) {
@@ -1936,20 +1997,29 @@ async function saveInlinePos() {
 function cancelNewPosRow() {
   showNewPosRow.value = false
   newPosData.value = emptyPosData()
+  clearInlinePosErrors()
 }
 
 async function saveNewPosRow() {
+  if (savingPos.value) return // RAO-P0: guard przed double-click
   if (!newPosData.value.article_id) {
     toastStore.error('Wybierz artykuł przed zapisem')
+    return
+  }
+  // RAO-P0: walidacja inline (quantity ≥ 1, rental_days ≥ 0)
+  if (!validatePosInline(newPosData.value)) {
     return
   }
   savingPos.value = true
   try {
     const payload = buildPosPayload(newPosData.value)
-    await contractStore.createPosition(Number(props.id), payload)
+    const created = await contractStore.createPosition(Number(props.id), payload)
     await contractStore.fetchPositions(Number(props.id))
+    // RAO-P0: kaskada — pokaż ConditionPanel dla nowo dodanej pozycji
+    if (created?.id) selectedPosId.value = created.id
     showNewPosRow.value = false
     newPosData.value = emptyPosData()
+    clearInlinePosErrors()
     await recalcTotal()
     toastStore.success('Pozycja dodana')
   } catch (e: any) {
@@ -2415,6 +2485,36 @@ async function applyPreset(preset) {
 .form-control.error {
   border-color: var(--color-error);
   background: var(--color-error-bg);
+}
+/* RAO-P0: walidacja inline w tabeli pozycji */
+.form-control.input-error {
+  border-color: var(--color-error);
+  background: var(--color-error-bg);
+}
+.field-error-inline {
+  display: block;
+  color: var(--color-error);
+  font-size: 10px;
+  line-height: 1.2;
+  margin-top: 2px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+/* RAO-P0: skeleton loader dla pozycji */
+.skeleton-bar {
+  display: inline-block;
+  width: 120px;
+  height: 10px;
+  border-radius: var(--border-radius);
+  background: linear-gradient(90deg, var(--color-bg-light) 25%, #e9ecef 50%, var(--color-bg-light) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 .address-layout {
   display: flex;
