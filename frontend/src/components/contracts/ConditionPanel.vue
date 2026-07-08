@@ -88,16 +88,6 @@
     </table>
     <div v-else class="empty-state" style="padding:16px;">Brak warunków — dodaj warunek rozliczenia</div>
 
-    <!-- RAO-P1-005: podgląd PDF live -->
-    <div v-if="conditions.length" style="margin-top:12px;padding:12px;background:#F7F9FC;border-radius:8px;" data-testid="conditions-preview">
-      <div style="font-size:11px;font-weight:600;color:#5A6B7E;margin-bottom:8px;">Podgląd PDF:</div>
-      <div style="font-size:11px;color:#333;line-height:1.6;">
-        <div v-for="cond in conditions" :key="cond.id">
-          - {{ formatPreview(cond) }}
-        </div>
-      </div>
-    </div>
-
     <!-- Condition form modal -->
     <Transition name="modal">
       <div v-if="showCondModal" class="modal-overlay" @click.self="showCondModal = false">

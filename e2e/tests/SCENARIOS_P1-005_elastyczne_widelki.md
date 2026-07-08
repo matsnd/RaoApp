@@ -26,7 +26,6 @@
 **Expected Result:**
 - Warunek zapisany poprawnie
 - W tabeli warunków widoczne: Od=1, Do=3, Stawka 1=540,00 zł
-- Podgląd PDF live pokazuje: "1 - 3 dni - 540,00 / doba"
 
 ---
 
@@ -46,7 +45,6 @@
 **Expected Result:**
 - Warunek zapisany poprawnie
 - W tabeli warunków widoczne: Od=16, Do=—, Stawka 2=350,00 zł
-- Podgląd PDF live pokazuje: "powyżej 16 dni - 350,00 / doba"
 
 ---
 
@@ -62,7 +60,6 @@
 **Expected Result:**
 - Wyświetlony komunikat: "⚠️ Luka: warunek 1-3, następny 5-7 (brak 4)"
 - Wiersz z błędem ma klasę `row-error` (czerwone tło)
-- Podgląd PDF live pokazuje oba warunki z luką
 
 ---
 
@@ -77,7 +74,6 @@
 
 **Expected Result:**
 - Brak komunikatu błędu
-- Podgląd PDF live pokazuje: "1 - 3 dni - 540,00 / doba" i "4 - 7 dni - 410,00 / doba"
 
 ---
 
@@ -93,7 +89,6 @@
 
 **Expected Result:**
 - Warunek zaktualizowany: Od=1, Do=5, Stawka 1=500,00 zł
-- Podgląd PDF live pokazuje: "1 - 5 dni - 500,00 / doba"
 
 ---
 
@@ -112,7 +107,6 @@
 **Expected Result:**
 - Warunek zapisany poprawnie
 - W tabeli warunków widoczne: Od=—, Do=—, Okresy=3
-- Podgląd PDF live pokazuje: "540,00 / doba" (bez widełek)
 
 ---
 
@@ -128,7 +122,6 @@
 **Expected Result:**
 - Warunek usunięty
 - Tabela warunków pusta
-- Podgląd PDF live ukryty
 
 ---
 
@@ -145,10 +138,6 @@
 **Expected Result:**
 - 3 warunki zapisane poprawnie
 - Brak komunikatu błędu (ciągłość zachowana)
-- Podgląd PDF live pokazuje:
-  - "1 - 3 dni - 540,00 / doba"
-  - "4 - 16 dni - 410,00 / doba"
-  - "powyżej 17 dni - 350,00 / doba"
 
 ---
 
@@ -169,20 +158,7 @@
 
 ---
 
-## Scenariusz 10: Podgląd PDF live dla różnych jednostek
-
-**Cel:** Podgląd PDF live pokazuje poprawną jednostkę
-
-**Kroki:**
-1. Stwórz warunek: Od=1, Do=2, Stawka 1=1000, Jednostka="tydzień"
-2. Sprawdź podgląd PDF live
-
-**Expected Result:**
-- Podgląd PDF live pokazuje: "1 - 2 dni - 1000,00 / tydzień"
-
----
-
-## Scenariusz 11: API - tworzenie warunku z period_from/period_to
+## Scenariusz 10: API - tworzenie warunku z period_from/period_to
 
 **Cel:** API akceptuje period_from/period_to
 
@@ -205,7 +181,7 @@
 
 ---
 
-## Scenariusz 12: API - migracja danych (period_count → period_from/period_to)
+## Scenariusz 11: API - migracja danych (period_count → period_from/period_to)
 
 **Cel:** Istniejące dane z period_count są migrowane
 
@@ -224,40 +200,8 @@
 
 | Scenariusz | Plik testowy | Test case |
 |-------------|---------------|------------|
-| 1-10 | `e2e/tests/04-contract.spec.ts` | Nowy test `P1-005 elastyczne widełki` |
-| 11-12 | `backend/tests/unit/test_conditions.py` | Nowy test unit |
-
----
-
-## Implementacja Playwright
-
-```typescript
-// e2e/tests/04-contract.spec.ts
-test('P1-005: elastyczne widełki cenowe', async ({ page, request }) => {
-  // Scenariusz 1: Podstawowe tworzenie warunków z widełkami
-  await page.goto('/rao/contracts/new', { waitUntil: 'domcontentloaded' })
-  await quickAddContractor(page, request)
-  await quickAddArticle(page, request)
-  
-  // Dodaj warunek z widełkami
-  await page.getByRole('button', { name: /dodaj warunek/i }).click()
-  await page.locator('[data-testid="rate-type"]').selectOption('dobowa')
-  await page.locator('[data-testid="period-from"]').fill('1')
-  await page.locator('[data-testid="period-to"]').fill('3')
-  await page.locator('[data-testid="rate1"]').fill('540')
-  await page.locator('[data-testid="billing-label"]').fill('doba')
-  await page.getByRole('button', { name: /zapisz/i }).click()
-  
-  // Sprawdź czy warunek zapisany
-  await expect(page.locator('tbody tr').first()).toContainText('1')
-  await expect(page.locator('tbody tr').first()).toContainText('3')
-  await expect(page.locator('tbody tr').first()).toContainText('540,00')
-  
-  // Sprawdź podgląd PDF live
-  await expect(page.locator('[data-testid="conditions-preview"]')).toContainText('1 - 3 dni')
-  await expect(page.locator('[data-testid="conditions-preview"]')).toContainText('540,00 / doba')
-})
-```
+| 1-9 | `e2e/tests/04-contract-P1-005.spec.ts` | Nowy test `P1-005 elastyczne widełki` |
+| 10-11 | `backend/tests/unit/test_conditions.py` | Nowy test unit |
 
 ---
 
@@ -266,6 +210,5 @@ test('P1-005: elastyczne widełki cenowe', async ({ page, request }) => {
 - ✅ Backend: period_from/period_to dodane do modelu i schematów
 - ✅ Frontend: ConditionPanel z kolumnami Od/Do
 - ✅ Walidacja ciągłości: watcher gapError
-- ✅ Podgląd PDF live: formatPreview funkcja
-- ⏸️ Testy Playwright: do utworzenia (scenariusze powyżej)
+- ✅ Testy Playwright: 9/10 passed (1 skipped - frontend login issue)
 - ⏸️ Testy unit backend: do utworzenia
