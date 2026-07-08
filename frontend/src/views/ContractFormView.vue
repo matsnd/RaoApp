@@ -76,13 +76,19 @@
                   </option>
                 </select>
               </div>
+              <div class="address-row" style="margin-top:4px;">
+                <label class="checkbox-group" style="font-size:12px;">
+                  <input type="checkbox" v-model="manualAddressMode" />
+                  <span>Ręczny adres (wyłącz auto-fill z PNA/Nominatim)</span>
+                </label>
+              </div>
               <div class="address-row">
-                <input v-model="form.postal_code" @blur="onPostalCodeBlur" @input="onPostalInput" class="form-control postal-input" placeholder="00-000" maxlength="6" data-testid="contract-postal-code" />
-                <input v-model="form.city" @input="onCityInput" class="form-control city-input" placeholder="Miasto" :class="{ 'input-loading': pnaLoading }" data-testid="contract-city" />
+                <input v-model="form.postal_code" @blur="onPostalCodeBlur" @input="onPostalInput" class="form-control postal-input" placeholder="00-000" maxlength="6" data-testid="contract-postal-code" :disabled="manualAddressMode" />
+                <input v-model="form.city" @input="onCityInput" class="form-control city-input" placeholder="Miasto" :class="{ 'input-loading': pnaLoading }" data-testid="contract-city" :disabled="manualAddressMode" />
                 <div v-if="pnaLoading" class="pna-spinner" data-testid="pna-spinner"></div>
               </div>
-              <div v-if="pnaError" class="pna-error" data-testid="pna-error">{{ pnaError }}</div>
-              <div v-if="pnaInfo.found" class="pna-info-panel" data-testid="pna-info-panel">
+              <div v-if="!manualAddressMode && pnaError" class="pna-error" data-testid="pna-error">{{ pnaError }}</div>
+              <div v-if="!manualAddressMode && pnaInfo.found" class="pna-info-panel" data-testid="pna-info-panel">
                 <span class="pna-info-title">Wypełnione z PNA {{ form.postal_code }}</span>
                 <span class="pna-info-row">
                   <span class="pna-info-item"><span class="pna-info-label">Gmina:</span> {{ pnaInfo.gmina || '—' }}</span>
@@ -93,7 +99,7 @@
                 </span>
               </div>
               <div class="address-row">
-                <textarea v-model="form.delivery_address" @input="onDeliveryAddressInput" class="form-control" rows="2" placeholder="Uwagi dojazdowe (opcjonalnie) — auto-uzupełni miasto i kod pocztowy"></textarea>
+                <textarea v-model="form.delivery_address" @input="onDeliveryAddressInput" class="form-control" rows="2" placeholder="Uwagi dojazdowe (opcjonalnie) — numer działki, bramka, wskazówki dojazdu"></textarea>
               </div>
             </div>
           </div>
@@ -778,16 +784,20 @@
           </div>
           <div style="max-height:320px;overflow:auto;">
             <table class="data-grid">
-              <thead><tr><th>Nazwa</th><th>Nr rej.</th><th>Marka</th><th>Typ</th><th>Dostępność</th><th style="width:80px;">Akcje</th></tr></thead>
+              <thead><tr><th>Nazwa</th><th>Nr rej.</th><th>Marka</th><th>Typ</th><th>Zewnętrzna</th><th>Dostępność</th><th style="width:80px;">Akcje</th></tr></thead>
               <tbody>
                 <tr v-if="!articlePickerList.length">
-                  <td colspan="6" class="empty-state">Brak wyników dla "{{ articlePickerSearch }}"</td>
+                  <td colspan="7" class="empty-state">Brak wyników dla "{{ articlePickerSearch }}"</td>
                 </tr>
                 <tr v-for="a in articlePickerList" :key="a.id" style="cursor:pointer;">
                   <td @click="selectArticle(a)">{{ a.name }}</td>
                   <td @click="selectArticle(a)">{{ a.registration_no || '—' }}</td>
                   <td @click="selectArticle(a)">{{ a.brand || '—' }}</td>
                   <td @click="selectArticle(a)"><span :class="['badge', a.is_service ? 'badge-warning' : 'badge-info']">{{ a.is_service ? 'Usługa' : 'Sprzęt' }}</span></td>
+                  <td @click="selectArticle(a)" style="text-align:center;">
+                    <span v-if="a.is_external" class="badge badge-warning">✓</span>
+                    <span v-else class="badge badge-muted">—</span>
+                  </td>
                   <td @click="selectArticle(a)">
                     <span v-if="a._avail === true" class="badge badge-success">Wolny</span>
                     <span v-else-if="a._avail === false" class="badge badge-danger">Zajęty</span>
@@ -1109,8 +1119,10 @@ const pnaError = ref<string | null>(null)
 const pnaInfo = ref<{ city: string; gmina: string | null; powiat: string | null; voivodeship: string | null; found: boolean }>({
   city: '', gmina: null, powiat: null, voivodeship: null, found: false,
 })
+const manualAddressMode = ref(false)  // P1-002: ręczny adres (wyłącz auto-fill)
 
 const onPostalCodeBlur = async () => {
+  if (manualAddressMode.value) return  // P1-002: skip auto-fill w trybie ręcznym
   const code = form.value.postal_code.trim()
   // Reset state on every blur
   pnaError.value = null
@@ -1165,6 +1177,7 @@ const onCityInput = () => { cityManuallyEdited = true }
 const onPostalInput = () => { postalManuallyEdited = true }
 
 const onDeliveryAddressInput = () => {
+  if (manualAddressMode.value) return  // P1-002: skip auto-fill w trybie ręcznym
   if (deliveryAddressTimer) clearTimeout(deliveryAddressTimer)
   deliveryAddressTimer = setTimeout(async () => {
     const addr = form.value.delivery_address?.trim()

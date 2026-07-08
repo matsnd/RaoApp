@@ -189,6 +189,14 @@
     <!-- UWAGI BOX -->
     <div class="ret-uwagi" style="border: 1px solid #aaa; padding: 8px 12px; font-size: 10px; min-height: 120px; color: #888; margin: 15px 0 15px 0;">uwagi</div>
 
+    <!-- DODATKOWE INFORMACJE (P1-007) -->
+    <div style="margin: 15px 0 15px 0;">
+      <div style="font-size: 10px; font-weight: bold; color: #333; margin-bottom: 4px;">Dodatkowe informacje:</div>
+      <div style="border: 1px solid #aaa; padding: 8px 12px; font-size: 10px; min-height: 60px; color: #888;">
+        {% if contract.notes %}{{ contract.notes }}{% else %}{% endif %}
+      </div>
+    </div>
+
     <!-- SIGNATURES -->
     <table class="sigs" style="margin-top: 15px;">
       <tr>

@@ -29,7 +29,7 @@
 
 ```yaml
 id: P1-001
-status: triaged
+status: done
 priority: P1
 created: 2026-07-08
 source: client-request (uwagi klienta 2026-07-08, pozycja 1)
@@ -38,13 +38,15 @@ component: frontend/ContractFormView + backend/contracts
 
 **Opis:** Możliwość odhaczenia (checkbox) czy maszyna jest nasza (własna firmy) czy zewnętrzna (podnajem od innej firmy).
 
+**Implementacja:** Checkbox w inline article form + kolumna "Zewnętrzna" w Article picker modal (badge ✓/—). Backend pole `is_external` już istnieje w `articles` table.
+
 ---
 
 ### P1-002: Ręczne dodawanie adresu
 
 ```yaml
 id: P1-002
-status: triaged
+status: done
 priority: P1
 created: 2026-07-08
 source: client-request (uwagi klienta 2026-07-08, pozycja 2)
@@ -53,13 +55,15 @@ component: frontend/ContractFormView + integrations/GUS-Nominatim
 
 **Opis:** Możliwość dodawania adresu ręcznie, jeśli system nie zaciągnie po adresie/kodzie pocztowym, lub jeśli będzie potrzeba dopisania szczegółów (np. numer działki, bramka, dodatkowe wskazówki dojazdu).
 
+**Implementacja:** Checkbox "Ręczny adres (wyłącz auto-fill z PNA/Nominatim)" w sekcji Adres dostawy. Gdy zaznaczony → pola postal_code/city disabled, auto-fill z PNA/Nominatim skipowane.
+
 ---
 
 ### P1-003: Wybór liczby dni wynajmu w tygodniu (5/6/7)
 
 ```yaml
 id: P1-003
-status: triaged
+status: done
 priority: P1
 created: 2026-07-08
 source: client-request (uwagi klienta 2026-07-08, pozycja 3)
@@ -68,13 +72,15 @@ component: frontend/ContractFormView + backend/contracts + backend/settlements
 
 **Opis:** Możliwość liczenia wynajmu 5, 6 lub 7 dni w tygodniu — operator wybiera przy tworzeniu umowy. Obecnie system liczy stałą liczbę dni; klient potrzebuje elastyczności (niektóre umowy 5 dni/tyg, inne 6 lub 7).
 
+**Implementacja:** Segmented control 5/6/7 (inline buttons) w ContractFormView. Backend pole `working_days_per_week` już istnieje.
+
 ---
 
 ### P1-004: Zapis o naliczaniu dni w tyg. i weekendach z GPS
 
 ```yaml
 id: P1-004
-status: triaged
+status: done
 priority: P1
 created: 2026-07-08
 source: client-request (uwagi klienta 2026-07-08, pozycja 4)
@@ -97,6 +103,8 @@ Uwagi
 Klient zaznaczył na czerwono linię „Naliczanie: 5 dni w tygodniu (pozostałe dni według zapisu GPS)" — to jest docelowe brzmienie, które ma się pojawiać na umowach.
 
 Tabela główna umowy: kolumny „Przewidywana ilość dni najmu | Wartość odtworzeniowa | Rozliczenie", przykładowy wiersz: „2 | 261 000,00 | 215,00 zł / doba".
+
+**Implementacja:** Zmiana brzmienia w contract.html sekcja Uwagi: "Naliczanie: {working_days_per_week} dni w tygodniu (pozostałe dni według zapisu GPS)".
 
 ---
 
@@ -123,7 +131,7 @@ Klient chce elastycznego definiowania widełek zamiast sztywnych dropdown-ów.
 
 ```yaml
 id: P1-006
-status: triaged
+status: done
 priority: P1
 created: 2026-07-08
 source: client-request (uwagi klienta 2026-07-08, pozycja 6)
@@ -164,13 +172,15 @@ Domyślna kwota przeglądu dla elektryków: **90,00 zł** *(uwaga: w tekście uw
 - Domyślnie pojawiają się jak powyżej: diesel 150 zł, elektryk 90 zł
 - Pozostałe pozycje (transport, tankowanie, przestój, serwis) wspólne dla obu wariantów
 
+**Implementacja:** Seed Diesel/Elektryk presetów w backend/main.py (idempotentny po nazwie). Dropdown inline w ContractFormView. OWN 8b zaktualizowany w contract.html.
+
 ---
 
 ### P1-007: Miejsce na dodatkowe informacje na protokole usług
 
 ```yaml
 id: P1-007
-status: triaged
+status: done
 priority: P1
 created: 2026-07-08
 source: client-request (uwagi klienta 2026-07-08, pozycja 7)
@@ -179,13 +189,15 @@ component: frontend/ProtocolForm + backend/reports (PDF protokołu)
 
 **Opis:** Dodać miejsce zapisu dodatkowych informacji na protokole dla usług. Umiejscowienie: nad górnymi polami do podpisu (nad pieczątką) — tak jak ustalano z klientem.
 
+**Implementacja:** Dodatkowe pole "Dodatkowe informacje" w protocol_zo_u.html (nad podpisami). Wypełniane z contract.notes.
+
 ---
 
 ### P1-008: „Przewidywana ilość dni najmu" w dwóch linijkach
 
 ```yaml
 id: P1-008
-status: triaged
+status: done
 priority: P1
 created: 2026-07-08
 source: client-request (uwagi klienta 2026-07-08, pozycja 8)
@@ -197,6 +209,8 @@ component: frontend/ContractFormView + backend/reports (PDF umowy)
 Przewidywana
 ilość dni najmu
 ```
+
+**Implementacja:** `white-space:normal` w contract.html nagłówek kolumny.
 
 **Kontekst z obrazka (image4 — skan tabeli z umowy):**
 Obecnie nagłówek kolumny jest w jednej linii i się nie mieści. Kolumna jest zaznaczona czerwoną ramką przez klienta. Tabela ma kolumny: „Przedmiot najmu | Przewidywana ilość dni najmu | Wartość | Wartość odtworzeniowa". Przykładowy wiersz: „Ładowarka teleskopowa obrotowa 3,2t | 1 | 590 000,00 | 1 000 – 3000,00 / doba".
