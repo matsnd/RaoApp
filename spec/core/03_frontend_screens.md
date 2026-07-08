@@ -635,6 +635,65 @@ Row 2.5 (rozliczenie umowy - RAO-P1-012):
 **Pozycje [+] otwiera `ArticlePicker.vue` (replika FormAwybor).**
 **Warunki [+] otwiera `ConditionFormView.vue` (replika FormW).**
 
+### RAO-P2-071: Inline editing pozycji (zero modali ustawień)
+
+**Refactor 2026-07-05:** Usunięto modal pełnego formularza pozycji (`showPosModal`).
+Pozycje umowy edytowane są wyłącznie inline w gridzie — jedynym dozwolonym modalem
+dla pozycji jest `ArticlePicker` (wybór artykułu) oraz `ConflictModal` (konflikt dostępności).
+
+**Flow dodawania pozycji:**
+1. User klika `+ Dodaj pozycję` → otwiera się `ArticlePicker` (modal wyboru artykułu)
+2. User wybiera artykuł → `ArticlePicker` się zamyka
+3. W gridzie pojawia się nowy wiersz (`showNewPosRow`) w trybie edycji inline (podświetlony)
+4. User edytuje pola inline (Tab/Enter → następna komórka)
+5. Enter w ostatniej komórce LUB klik `✓` → `saveNewPosRow()` → `POST /contracts/{id}/positions`
+
+**Flow edycji istniejącej pozycji:**
+1. User klika wiersz LUB `✎` → `startEditPos(pos)` → wiersz przechodzi w tryb edit (`editingPosId`)
+2. User edytuje pola inline
+3. Enter LUB `✓` → `saveInlinePos()` → `PUT /contracts/{id}/positions/{posId}`
+4. Esc LUB `✕` → `cancelInlinePos()` → powrót do display mode
+
+**Pattern (skopiowany z Service Fees):**
+- `editingPosId: ref<number | null>` — id edytowanej pozycji (null = brak)
+- `editingPosData: ref<PosInlineData>` — bufor edycji
+- `showNewPosRow: ref<boolean>` — czy pokażać wiersz "nowa pozycja"
+- `newPosData: ref<PosInlineData>` — bufor nowej pozycji
+- `articlePickerMode: ref<'new' | 'edit'>` — cel wyboru z ArticlePicker
+
+**Grid pozycji — kolumny:**
+| Kolumna | Display mode | Edit mode |
+|---------|-------------|-----------|
+| # | idx+1 | idx+1 (lub `*` dla new) |
+| Artykuł | nazwa (read-only) | nazwa + `✎` → `reopenArticlePickerForEdit` |
+| Typ najmu | tekst | `<input type="text">` |
+| Dni | liczba | `<input type="number" min="0">` |
+| Ilość | liczba | `<input type="number" min="1">` |
+| Rozliczanie | tekst | `<select>` (dziennie/tygodniowo/...) |
+| Dostawca | nazwa (read-only) | nazwa + `✎` → `openSupplierPickerForEdit` |
+| Data dost. | data PL | `<input type="date">` |
+| Warunki | badge z licznikiem | badge (klik → `ConditionPanel`) |
+| Akcje | `✎` edit / `✕` usuń | `✓` zapisz / `✕` anuluj |
+
+**Empty state:** `Brak pozycji na tej umowie. [Dodaj pierwszy artykuł]` — CTA wewnątrz empty state.
+
+**Helper text nad gridem:** `Pozycje umowy    Kliknij wiersz aby edytować • Enter = zapisz • Esc = anuluj    [+ Dodaj pozycję]`
+
+**Zachowane modale (dozwolone):**
+- `ArticlePicker` — wybór artykułu (modal wyboru, nie ustawień)
+- `ConflictModal` — konflikt dostępności maszyny (RAO-P1-023)
+- `SupplierPicker` — wybór dostawcy (modal wyboru, nie ustawień)
+- `ConfirmModal` — potwierdzenie usunięcia (zastępuje `confirm()`)
+
+**Usunięte:**
+- `showPosModal` — modal pełnego formularza pozycji (105 linii template)
+- `posForm`, `editingPos`, `selectedArticleName`, `articleAvailability` — stan starego modala
+- `savePosition()`, `editPosition()` — funkcje starego modala
+- Wszystkie `alert()` i `confirm()` w komponencie → zastąpione toastami / `ConfirmModal`
+
+**Toast system:** `useToastStore` z `@/stores/toast` — success/error/info/warning.
+Auto-dismiss po 4s (error 6s). Renderowany przez `AppToast.vue` (top-right).
+
 ---
 
 ## Dialog: `ArticlePicker.vue`

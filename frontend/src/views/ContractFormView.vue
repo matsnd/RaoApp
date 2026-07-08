@@ -211,50 +211,125 @@
           </div>
         </div>
 
-        <!-- Positions section -->
+        <!-- Positions section — inline editing (RAO-P2-071: zero modali ustawień, tylko ArticlePicker) -->
         <div v-if="isEdit" class="page-card" style="margin-bottom:var(--spacing-md);">
-          <div style="display:flex;align-items:center;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
             <span class="section-title" style="margin:0;border:none;">Pozycje umowy</span>
+            <span style="font-size:11px;color:#718096;">Kliknij wiersz aby edytować • Enter = zapisz • Esc = anuluj</span>
             <button class="btn btn-primary btn-sm" style="margin-left:auto;" @click="addPosition">+ Dodaj pozycję</button>
           </div>
           <table class="data-grid">
             <thead>
               <tr>
-                <th>#</th>
+                <th style="width:32px;">#</th>
                 <th>Artykuł</th>
-                <th>Typ</th>
-                <th>Dni</th>
-                <th>Ilość</th>
-                <th>Rozliczanie</th>
-                <th>Warunki</th>
+                <th style="width:90px;">Typ najmu</th>
+                <th style="width:60px;">Dni</th>
+                <th style="width:60px;">Ilość</th>
+                <th style="width:110px;">Rozliczanie</th>
                 <th>Dostawca</th>
-                <th>Data dost.</th>
+                <th style="width:120px;">Data dost.</th>
+                <th style="width:70px;">Warunki</th>
                 <th style="width:80px;"></th>
               </tr>
             </thead>
             <tbody>
-              <tr v-if="!contractStore.positions.length">
-                <td colspan="10" class="empty-state">Brak pozycji</td>
+              <!-- EMPTY STATE z CTA -->
+              <tr v-if="!contractStore.positions.length && !showNewPosRow">
+                <td colspan="10" class="empty-state">
+                  Brak pozycji na tej umowie. <button class="btn-link" @click="addPosition"><strong>Dodaj pierwszy artykuł</strong></button>
+                </td>
               </tr>
-              <tr
-                v-for="(pos, idx) in contractStore.positions"
-                :key="pos.id"
-                :class="{ selected: selectedPosId === pos.id }"
-                @click="selectPosition(pos)"
-                @dblclick="editPosition(pos)"
-              >
-                <td>{{ idx + 1 }}</td>
-                <td>{{ pos.article_name }}</td>
-                <td>{{ pos.rental_type || '—' }}</td>
-                <td>{{ pos.rental_days || '—' }}</td>
-                <td>{{ pos.quantity || 1 }}</td>
-                <td>{{ pos.billing_frequency || '—' }}</td>
-                <td><span class="badge badge-info">{{ pos.conditions_count || 0 }}</span></td>
-                <td>{{ pos.supplier_name || '—' }}</td>
-                <td>{{ pos.delivery_date ? new Date(pos.delivery_date).toLocaleDateString('pl-PL') : '—' }}</td>
+              <template v-for="(pos, idx) in contractStore.positions" :key="pos.id">
+                <!-- EDIT MODE -->
+                <tr v-if="editingPosId === pos.id" class="row-editing">
+                  <td>{{ idx + 1 }}</td>
+                  <td>
+                    <div style="display:flex;align-items:center;gap:4px;">
+                      <span style="flex:1;font-size:12px;">{{ editingPosData.article_name || '—' }}</span>
+                      <button class="btn-icon" title="Zmień artykuł" @click.stop="reopenArticlePickerForEdit(pos)">✎</button>
+                    </div>
+                  </td>
+                  <td><input v-model="editingPosData.rental_type" type="text" class="form-control form-control-xs" placeholder="—" @keydown.enter="saveInlinePos" @keydown.esc="cancelInlinePos" /></td>
+                  <td><input v-model.number="editingPosData.rental_days" type="number" min="0" class="form-control form-control-xs" @keydown.enter="saveInlinePos" @keydown.esc="cancelInlinePos" /></td>
+                  <td><input v-model.number="editingPosData.quantity" type="number" min="1" class="form-control form-control-xs" @keydown.enter="saveInlinePos" @keydown.esc="cancelInlinePos" /></td>
+                  <td>
+                    <select v-model="editingPosData.billing_frequency" class="form-control form-control-xs">
+                      <option :value="null">— brak —</option>
+                      <option value="dziennie">dziennie</option>
+                      <option value="tygodniowo">tygodniowo</option>
+                      <option value="dwutygodniowo">dwutygodniowo</option>
+                      <option value="miesięcznie">miesięcznie</option>
+                      <option value="godzinowo">godzinowo</option>
+                      <option value="jednorazowo">jednorazowo</option>
+                    </select>
+                  </td>
+                  <td>
+                    <div style="display:flex;align-items:center;gap:4px;">
+                      <span style="flex:1;font-size:12px;">{{ editingPosData.supplier_name || '—' }}</span>
+                      <button class="btn-icon" title="Wybierz dostawcę" @click.stop="openSupplierPickerForEdit(pos)">✎</button>
+                      <button v-if="editingPosData.supplier_id" class="btn-icon" title="Wyczyść dostawcę" @click.stop="editingPosData.supplier_id = null; editingPosData.supplier_name = ''">✕</button>
+                    </div>
+                  </td>
+                  <td><input v-model="editingPosData.delivery_date" type="date" class="form-control form-control-xs" @keydown.enter="saveInlinePos" @keydown.esc="cancelInlinePos" /></td>
+                  <td style="text-align:center;"><span class="badge badge-info">{{ pos.conditions_count || 0 }}</span></td>
+                  <td>
+                    <button class="btn-icon" style="color:#22543D;" title="Zapisz (Enter)" @click.stop="saveInlinePos">✓</button>
+                    <button class="btn-icon" title="Anuluj (Esc)" @click.stop="cancelInlinePos">✕</button>
+                  </td>
+                </tr>
+                <!-- DISPLAY MODE -->
+                <tr v-else :class="{ selected: selectedPosId === pos.id }" @click="selectPosition(pos)" @dblclick="startEditPos(pos)" style="cursor:pointer;">
+                  <td>{{ idx + 1 }}</td>
+                  <td>{{ pos.article_name }}</td>
+                  <td>{{ pos.rental_type || '—' }}</td>
+                  <td>{{ pos.rental_days || '—' }}</td>
+                  <td>{{ pos.quantity || 1 }}</td>
+                  <td>{{ pos.billing_frequency || '—' }}</td>
+                  <td>{{ pos.supplier_name || '—' }}</td>
+                  <td>{{ pos.delivery_date ? new Date(pos.delivery_date).toLocaleDateString('pl-PL') : '—' }}</td>
+                  <td style="text-align:center;"><span class="badge badge-info">{{ pos.conditions_count || 0 }}</span></td>
+                  <td>
+                    <button class="btn-icon" title="Edytuj" @click.stop="startEditPos(pos)">✎</button>
+                    <button class="btn-icon" title="Usuń" @click.stop="deletePosition(pos)">✕</button>
+                  </td>
+                </tr>
+              </template>
+              <!-- NEW ROW (po wyborze artykułu z ArticlePicker) -->
+              <tr v-if="showNewPosRow" class="row-editing">
+                <td>*</td>
                 <td>
-                  <button class="btn-icon" title="Edytuj" @click.stop="editPosition(pos)">✎</button>
-                  <button class="btn-icon" title="Usuń" @click.stop="deletePosition(pos)">✕</button>
+                  <div style="display:flex;align-items:center;gap:4px;">
+                    <span style="flex:1;font-size:12px;font-weight:600;">{{ newPosData.article_name || '—' }}</span>
+                    <button class="btn-icon" title="Zmień artykuł" @click.stop="showArticlePicker = true">✎</button>
+                  </div>
+                </td>
+                <td><input ref="newPosRentalTypeInput" v-model="newPosData.rental_type" type="text" class="form-control form-control-xs" placeholder="—" @keydown.enter="saveNewPosRow" @keydown.esc="cancelNewPosRow" /></td>
+                <td><input v-model.number="newPosData.rental_days" type="number" min="0" class="form-control form-control-xs" @keydown.enter="saveNewPosRow" @keydown.esc="cancelNewPosRow" /></td>
+                <td><input v-model.number="newPosData.quantity" type="number" min="1" class="form-control form-control-xs" @keydown.enter="saveNewPosRow" @keydown.esc="cancelNewPosRow" /></td>
+                <td>
+                  <select v-model="newPosData.billing_frequency" class="form-control form-control-xs">
+                    <option :value="null">— brak —</option>
+                    <option value="dziennie">dziennie</option>
+                    <option value="tygodniowo">tygodniowo</option>
+                    <option value="dwutygodniowo">dwutygodniowo</option>
+                    <option value="miesięcznie">miesięcznie</option>
+                    <option value="godzinowo">godzinowo</option>
+                    <option value="jednorazowo">jednorazowo</option>
+                  </select>
+                </td>
+                <td>
+                  <div style="display:flex;align-items:center;gap:4px;">
+                    <span style="flex:1;font-size:12px;">{{ newPosData.supplier_name || '—' }}</span>
+                    <button class="btn-icon" title="Wybierz dostawcę" @click.stop="openSupplierPickerForNew">✎</button>
+                    <button v-if="newPosData.supplier_id" class="btn-icon" title="Wyczyść dostawcę" @click.stop="newPosData.supplier_id = null; newPosData.supplier_name = ''">✕</button>
+                  </div>
+                </td>
+                <td><input v-model="newPosData.delivery_date" type="date" class="form-control form-control-xs" @keydown.enter="saveNewPosRow" @keydown.esc="cancelNewPosRow" /></td>
+                <td style="text-align:center;"><span class="badge badge-muted">0</span></td>
+                <td>
+                  <button class="btn-icon" style="color:#22543D;" title="Zapisz (Enter)" @click.stop="saveNewPosRow" :disabled="savingPos">✓</button>
+                  <button class="btn-icon" title="Anuluj (Esc)" @click.stop="cancelNewPosRow">✕</button>
                 </td>
               </tr>
             </tbody>
@@ -669,110 +744,6 @@
     </Transition>
 
 
-    <!-- Position form modal (EXTENDED with 6 missing fields) -->
-    <Transition name="modal">
-      <div v-if="showPosModal" class="modal-overlay" @click.self="showPosModal = false">
-        <div class="modal-box" style="min-width:640px;max-height:90vh;overflow-y:auto;">
-          <div class="modal-title">{{ editingPos ? 'Edycja pozycji' : 'Nowa pozycja' }}</div>
-          <div class="form-group">
-            <label class="form-label">Artykuł *</label>
-            <div style="display:flex;gap:8px;">
-              <input :value="selectedArticleName" type="text" class="form-control" disabled placeholder="Wybierz artykuł..." style="flex:1;" />
-              <button type="button" class="btn btn-secondary btn-sm" @click="showArticlePicker = true">Wybierz</button>
-            </div>
-            <div v-if="articleAvailability !== null" style="margin-top:4px;">
-              <span :class="['badge', articleAvailability ? 'badge-success' : 'badge-danger']">
-                {{ articleAvailability ? 'Dostępny' : 'Wynajęty w tym okresie!' }}
-              </span>
-            </div>
-          </div>
-          <div class="form-row-2">
-            <div class="form-group">
-              <label class="form-label">Typ najmu</label>
-              <input v-model="posForm.rental_type" type="text" class="form-control" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Dni najmu</label>
-              <input v-model.number="posForm.rental_days" type="number" class="form-control" />
-            </div>
-          </div>
-          <div class="form-row-2">
-            <div class="form-group">
-              <label class="form-label">Ilość</label>
-              <input v-model.number="posForm.quantity" type="number" class="form-control" min="1" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Cena jednostkowa (zł)</label>
-              <input v-model="posForm.unit_price" type="number" step="0.01" class="form-control" />
-            </div>
-          </div>
-          <div class="form-row-2">
-            <div class="form-group">
-              <label class="form-label">Koszty własne (zł)</label>
-              <input v-model="posForm.costs" type="number" step="0.01" class="form-control" placeholder="0.00" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">&nbsp;</label>
-            </div>
-          </div>
-          <div class="form-row-2">
-            <div class="form-group">
-              <label class="form-label">Rozliczanie</label>
-              <select v-model="posForm.billing_frequency" class="form-control">
-                <option :value="null">— brak —</option>
-                <option value="dziennie">dziennie</option>
-                <option value="tygodniowo">tygodniowo</option>
-                <option value="dwutygodniowo">dwutygodniowo</option>
-                <option value="miesięcznie">miesięcznie</option>
-                <option value="godzinowo">godzinowo</option>
-                <option value="jednorazowo">jednorazowo</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Opłata za</label>
-              <select v-model="posForm.billing_unit" class="form-control">
-                <option :value="null">— brak —</option>
-                <option value="doba">doba</option>
-                <option value="tydzień">tydzień</option>
-                <option value="miesiąc">miesiąc</option>
-                <option value="godzina">godzina</option>
-                <option value="sztuka">sztuka</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-row-2">
-            <div class="form-group">
-              <label class="form-label">Typ stawki</label>
-              <select v-model="posForm.rate_type_id" class="form-control">
-                <option :value="null">— brak —</option>
-                <option v-for="rt in settingsStore.rateTypes" :key="rt.id" :value="rt.id">{{ rt.name }}</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Data dostawy</label>
-              <input v-model="posForm.delivery_date" type="date" class="form-control" />
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Dostawca</label>
-            <div style="display:flex;gap:8px;">
-              <input :value="supplierName" type="text" class="form-control" disabled placeholder="Opcjonalnie wybierz dostawcę..." style="flex:1;" />
-              <button type="button" class="btn btn-secondary btn-sm" @click="openSupplierPicker">Wybierz</button>
-              <button v-if="posForm.supplier_id" type="button" class="btn btn-secondary btn-sm" @click="posForm.supplier_id = null; supplierName = ''">✕</button>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Opis</label>
-            <textarea v-model="posForm.description" class="form-control" rows="2"></textarea>
-          </div>
-          <div class="modal-actions">
-            <button class="btn btn-secondary btn-sm" @click="showPosModal = false">Anuluj</button>
-            <button class="btn btn-primary btn-sm" @click="savePosition" :disabled="savingPos">{{ savingPos ? '...' : 'Zapisz' }}</button>
-          </div>
-        </div>
-      </div>
-    </Transition>
-
     <!-- Article picker modal (with availability badge) -->
     <Transition name="modal">
       <div v-if="showArticlePicker" class="modal-overlay" @click.self="showArticlePicker = false">
@@ -815,6 +786,20 @@
               ➕ Dodaj nowy artykuł
             </button>
             <button class="btn btn-secondary btn-sm" @click="showArticlePicker = false">Anuluj</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Confirm modal — zastępuje confirm() (RAO-P2-071) -->
+    <Transition name="modal">
+      <div v-if="confirmState.show" class="modal-overlay" @click.self="cancelConfirm">
+        <div class="modal-box" style="max-width:440px;">
+          <div class="modal-title">{{ confirmState.title }}</div>
+          <p style="margin:12px 0 20px;font-size:14px;line-height:1.5;color:var(--color-text-body);">{{ confirmState.message }}</p>
+          <div class="modal-actions">
+            <button class="btn btn-secondary btn-sm" @click="cancelConfirm">Anuluj</button>
+            <button class="btn btn-primary btn-sm" @click="acceptConfirm">{{ confirmState.confirmText }}</button>
           </div>
         </div>
       </div>
@@ -1006,6 +991,7 @@ import { useContractorStore } from '@/stores/contractors'
 import { useArticleStore } from '@/stores/articles'
 import { useSettingsStore } from '@/stores/settings'
 import { useFakturowniaStore } from '@/stores/fakturownia'
+import { useToastStore } from '@/stores/toast'
 import ConditionPanel from '@/components/contracts/ConditionPanel.vue'
 import ContractPeriodPicker from '@/components/shared/ContractPeriodPicker.vue'
 import api from '@/composables/useApi'
@@ -1018,6 +1004,7 @@ const contractorStore = useContractorStore()
 const articleStore = useArticleStore()
 const settingsStore = useSettingsStore()
 const fakturowniaStore = useFakturowniaStore()
+const toastStore = useToastStore()
 
 const isEdit = computed(() => !!props.id)
 const loading = ref(false)
@@ -1217,15 +1204,65 @@ onUnmounted(() => {
   if (supTimer) clearTimeout(supTimer)
 })
 
-const showPosModal = ref(false)
-const editingPos = ref(null)
+// RAO-P2-071: Inline editing pozycji — zero modali ustawień, tylko ArticlePicker
+// Pattern skopiowany z Service Fees (editingFeeId / editingFeeData / startEditFee / saveInlineFee)
+interface PosInlineData {
+  article_id: number | null
+  article_name: string
+  rental_type: string | null
+  rental_days: number | null
+  quantity: number
+  unit_price: number | null
+  costs: number | null
+  rate_type_id: number | null
+  billing_frequency: string | null
+  billing_unit: string | null
+  supplier_id: number | null
+  supplier_name: string
+  delivery_date: string | null
+  description: string | null
+}
+const editingPosId = ref<number | null>(null)
+const editingPosData = ref<PosInlineData>(emptyPosData())
+const showNewPosRow = ref(false)
+const newPosData = ref<PosInlineData>(emptyPosData())
+const newPosRentalTypeInput = ref<HTMLInputElement | null>(null)
 const savingPos = ref(false)
-const posForm = ref({ article_id: null, rental_type: '', description: '', rental_days: null, quantity: 1, unit_price: null, costs: null, rate_type_id: null, billing_frequency: null, billing_unit: null, supplier_id: null, delivery_date: null })
-const selectedArticleName = ref('')
-const articleAvailability = ref(null)
+// Tryb wyboru artykułu: 'new' | 'edit' — determinuje cel po wyborze z ArticlePicker
+const articlePickerMode = ref<'new' | 'edit'>('new')
 const showArticlePicker = ref(false)
 const articlePickerSearch = ref('')
 const articlePickerList = ref([])
+
+function emptyPosData(): PosInlineData {
+  return {
+    article_id: null, article_name: '', rental_type: null, rental_days: null,
+    quantity: 1, unit_price: null, costs: null, rate_type_id: null,
+    billing_frequency: null, billing_unit: null, supplier_id: null,
+    supplier_name: '', delivery_date: null, description: null,
+  }
+}
+
+// RAO-P2-071: Confirm modal — zastępuje confirm() w całym komponencie
+const confirmState = ref<{
+  show: boolean
+  title: string
+  message: string
+  confirmText: string
+  onConfirm: (() => void) | null
+}>({ show: false, title: '', message: '', confirmText: 'Potwierdź', onConfirm: null })
+
+function requestConfirm(message: string, onConfirm: () => void, title = 'Potwierdzenie', confirmText = 'Potwierdź') {
+  confirmState.value = { show: true, title, message, confirmText, onConfirm }
+}
+function acceptConfirm() {
+  const fn = confirmState.value.onConfirm
+  confirmState.value = { show: false, title: '', message: '', confirmText: 'Potwierdź', onConfirm: null }
+  fn?.()
+}
+function cancelConfirm() {
+  confirmState.value = { show: false, title: '', message: '', confirmText: 'Potwierdź', onConfirm: null }
+}
 
 // RAO-P2-006: Category cascade computed properties for inline article form
 const catMainOptions = computed(() => settingsStore.categoriesTree)
@@ -1552,8 +1589,8 @@ async function recalcTotal() {
     // RAO-P1-021/P2-033: nie zapisujemy total_value (usunięte), tylko odświeżamy settlements
     await api.post(`/contracts/${props.id}/recalculate`)
     await contractStore.fetchOne(Number(props.id))
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd kalkulacji')
+  } catch (e: any) {
+    toastStore.error(e.response?.data?.detail || 'Błąd kalkulacji')
   }
 }
 
@@ -1564,12 +1601,12 @@ async function handleFakturownia() {
     await fakturowniaStore.fetchInvoicesByContractId(contractStore.current.id)
     if (fakturowniaStore.invoices.length > 0) {
       const total = fakturowniaStore.invoices.reduce((sum, inv) => sum + inv.total_net, 0)
-      alert(`Pobrano ${fakturowniaStore.invoices.length} faktur o łącznej kwocie ${total.toFixed(2)} zł`)
+      toastStore.info(`Pobrano ${fakturowniaStore.invoices.length} faktur o łącznej kwocie ${total.toFixed(2)} zł`)
     } else {
-      alert('Brak faktur dla tej umowy')
+      toastStore.info('Brak faktur dla tej umowy')
     }
   } catch (e: any) {
-    alert(e.response?.data?.detail || 'Błąd pobierania faktur z Fakturownia')
+    toastStore.error(e.response?.data?.detail || 'Błąd pobierania faktur z Fakturownia')
   }
 }
 
@@ -1578,7 +1615,7 @@ async function generateReport(type) {
   try {
     await contractStore.generateReport(Number(props.id), type)
   } catch (e) {
-    alert('Błąd generowania raportu')
+    toastStore.error('Błąd generowania raportu')
   }
 }
 
@@ -1593,8 +1630,8 @@ async function toggleSettled() {
     form.value.is_settled = data.is_settled
     form.value.settled_at = data.settled_at
     await nextTick() // Force Vue re-render
-  } catch (e) {
-    alert('Błąd zmiany statusu rozliczenia: ' + (e.response?.data?.detail || e.message))
+  } catch (e: any) {
+    toastStore.error('Błąd zmiany statusu rozliczenia: ' + (e.response?.data?.detail || e.message))
   } finally {
     settlingContract.value = false
   }
@@ -1639,7 +1676,7 @@ async function updateSettlement(settlement) {
     // Re-fetch to get updated margin
     await fetchSettlements(Number(props.id))
   } catch (e) {
-    alert('Błąd aktualizacji rozliczenia')
+    toastStore.error('Błąd aktualizacji rozliczenia')
     // Revert to original values
     await fetchSettlements(Number(props.id))
   }
@@ -1649,27 +1686,41 @@ async function updateSettlement(settlement) {
 const clearingSettlements = ref(false)
 
 async function deleteSettlement(settlement) {
-  if (!confirm(`Usunąć pozycję rozliczenia "${getSettlementLabel(settlement)}"?`)) return
-  try {
-    await api.delete(`/settlements/${settlement.id}`)
-    await fetchSettlements(Number(props.id))
-  } catch (e) {
-    alert('Błąd usuwania rozliczenia: ' + (e.response?.data?.detail || e.message))
-  }
+  requestConfirm(
+    `Usunąć pozycję rozliczenia „${getSettlementLabel(settlement)}"?`,
+    async () => {
+      try {
+        await api.delete(`/settlements/${settlement.id}`)
+        await fetchSettlements(Number(props.id))
+        toastStore.success('Pozycja rozliczenia usunięta')
+      } catch (e: any) {
+        toastStore.error('Błąd usuwania rozliczenia: ' + (e.response?.data?.detail || e.message))
+      }
+    },
+    'Usuń pozycję rozliczenia',
+    'Usuń',
+  )
 }
 
 async function clearAllSettlements() {
   if (!settlements.value.length) return
-  if (!confirm(`Usunąć WSZYSTKIE pozycje rozliczenia (${settlements.value.length})? Tej operacji nie można cofnąć.`)) return
-  clearingSettlements.value = true
-  try {
-    await api.delete(`/settlements/contract/${props.id}/all`)
-    await fetchSettlements(Number(props.id))
-  } catch (e) {
-    alert('Błąd czyszczenia rozliczeń: ' + (e.response?.data?.detail || e.message))
-  } finally {
-    clearingSettlements.value = false
-  }
+  requestConfirm(
+    `Usunąć WSZYSTKIE pozycje rozliczenia (${settlements.value.length})? Tej operacji nie można cofnąć.`,
+    async () => {
+      clearingSettlements.value = true
+      try {
+        await api.delete(`/settlements/contract/${props.id}/all`)
+        await fetchSettlements(Number(props.id))
+        toastStore.success('Rozliczenia wyczyszczone')
+      } catch (e: any) {
+        toastStore.error('Błąd czyszczenia rozliczeń: ' + (e.response?.data?.detail || e.message))
+      } finally {
+        clearingSettlements.value = false
+      }
+    },
+    'Wyczyść rozliczenia',
+    'Usuń wszystkie',
+  )
 }
 
 async function initSettlements() {
@@ -1678,8 +1729,9 @@ async function initSettlements() {
   try {
     const { data } = await api.post(`/settlements/contract/${props.id}/init`)
     settlements.value = data
-  } catch (e) {
-    alert('Błąd inicjalizacji rozliczenia: ' + (e.response?.data?.detail || e.message))
+    toastStore.success('Rozliczenie zainicjowane')
+  } catch (e: any) {
+    toastStore.error('Błąd inicjalizacji rozliczenia: ' + (e.response?.data?.detail || e.message))
   } finally {
     initializingSettlements.value = false
   }
@@ -1691,8 +1743,9 @@ async function initSettlementsFromFakturownia() {
   try {
     const { data } = await api.post(`/settlements/contract/${props.id}/init-from-fakturownia`)
     settlements.value = data
+    toastStore.success('Rozliczenie zainicjowane z Fakturownia')
   } catch (e: any) {
-    alert('Błąd pobierania z Fakturownia: ' + (e.response?.data?.detail || e.message))
+    toastStore.error('Błąd pobierania z Fakturownia: ' + (e.response?.data?.detail || e.message))
   } finally {
     initializingFromFakturownia.value = false
   }
@@ -1826,59 +1879,133 @@ function selectPosition(pos) {
   selectedPosId.value = pos.id
 }
 
+// RAO-P2-071: addPosition → otwiera ArticlePicker bezpośrednio (zero modali ustawień)
 function addPosition() {
-  editingPos.value = null
-  Object.assign(posForm.value, { article_id: null, rental_type: '', description: '', rental_days: null, quantity: 1, unit_price: null, costs: null, rate_type_id: null, billing_frequency: null, billing_unit: null, supplier_id: null, delivery_date: null })
-  selectedArticleName.value = ''
-  supplierName.value = ''
-  articleAvailability.value = null
-  showPosModal.value = true
+  articlePickerMode.value = 'new'
+  showArticlePicker.value = true
 }
 
-function editPosition(pos) {
-  editingPos.value = pos
-  Object.assign(posForm.value, {
-    article_id: pos.article_id, rental_type: pos.rental_type || '', description: pos.description || '',
-    rental_days: pos.rental_days, quantity: pos.quantity || 1, unit_price: pos.unit_price, costs: pos.costs,
-    rate_type_id: pos.rate_type_id, billing_frequency: pos.billing_frequency,
-    billing_unit: pos.billing_unit, supplier_id: pos.supplier_id, delivery_date: pos.delivery_date,
-  })
-  selectedArticleName.value = pos.article_name || ''
-  supplierName.value = pos.supplier_name || ''
-  articleAvailability.value = null
-  showPosModal.value = true
+// RAO-P2-071: startEditPos — inline edit istniejącej pozycji (pattern jak startEditFee)
+function startEditPos(pos) {
+  editingPosId.value = pos.id
+  editingPosData.value = {
+    article_id: pos.article_id,
+    article_name: pos.article_name || '',
+    rental_type: pos.rental_type ?? null,
+    rental_days: pos.rental_days ?? null,
+    quantity: pos.quantity ?? 1,
+    unit_price: pos.unit_price ?? null,
+    costs: pos.costs ?? null,
+    rate_type_id: pos.rate_type_id ?? null,
+    billing_frequency: pos.billing_frequency ?? null,
+    billing_unit: pos.billing_unit ?? null,
+    supplier_id: pos.supplier_id ?? null,
+    supplier_name: pos.supplier_name || '',
+    delivery_date: pos.delivery_date ?? null,
+    description: pos.description ?? null,
+  }
 }
 
-async function savePosition() {
-  if (!posForm.value.article_id) { alert('Wybierz artykuł'); return }
+function cancelInlinePos() {
+  editingPosId.value = null
+  editingPosData.value = emptyPosData()
+}
+
+async function saveInlinePos() {
+  if (!editingPosId.value) return
+  if (!editingPosData.value.article_id) {
+    toastStore.error('Wybierz artykuł przed zapisem')
+    return
+  }
   savingPos.value = true
   try {
-    const payload = { ...posForm.value }
-    if (!payload.delivery_date) payload.delivery_date = null
-    if (editingPos.value) {
-      await contractStore.updatePosition(Number(props.id), editingPos.value.id, payload)
-    } else {
-      await contractStore.createPosition(Number(props.id), payload)
-    }
+    const payload = buildPosPayload(editingPosData.value)
+    await contractStore.updatePosition(Number(props.id), editingPosId.value, payload)
     await contractStore.fetchPositions(Number(props.id))
-    showPosModal.value = false
+    editingPosId.value = null
+    editingPosData.value = emptyPosData()
     await recalcTotal()
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd zapisu pozycji')
+    toastStore.success('Pozycja zapisana')
+  } catch (e: any) {
+    toastStore.error(e.response?.data?.detail || 'Błąd zapisu pozycji')
   } finally {
     savingPos.value = false
   }
 }
 
-async function deletePosition(pos) {
-  if (!confirm('Usunąć tę pozycję?')) return
-  try {
-    await contractStore.deletePosition(Number(props.id), pos.id)
-    if (selectedPosId.value === pos.id) selectedPosId.value = null
-    await contractStore.fetchPositions(Number(props.id))
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd')
+function cancelNewPosRow() {
+  showNewPosRow.value = false
+  newPosData.value = emptyPosData()
+}
+
+async function saveNewPosRow() {
+  if (!newPosData.value.article_id) {
+    toastStore.error('Wybierz artykuł przed zapisem')
+    return
   }
+  savingPos.value = true
+  try {
+    const payload = buildPosPayload(newPosData.value)
+    await contractStore.createPosition(Number(props.id), payload)
+    await contractStore.fetchPositions(Number(props.id))
+    showNewPosRow.value = false
+    newPosData.value = emptyPosData()
+    await recalcTotal()
+    toastStore.success('Pozycja dodana')
+  } catch (e: any) {
+    toastStore.error(e.response?.data?.detail || 'Błąd dodawania pozycji')
+  } finally {
+    savingPos.value = false
+  }
+}
+
+// Buduje payload API z inline data — nulluje puste pola opcjonalne
+function buildPosPayload(d: PosInlineData) {
+  const payload: Record<string, unknown> = {
+    article_id: d.article_id,
+    rental_type: d.rental_type || null,
+    description: d.description || null,
+    rental_days: d.rental_days ?? null,
+    quantity: d.quantity ?? 1,
+    unit_price: d.unit_price ?? null,
+    costs: d.costs ?? null,
+    rate_type_id: d.rate_type_id ?? null,
+    billing_frequency: d.billing_frequency || null,
+    billing_unit: d.billing_unit || null,
+    supplier_id: d.supplier_id ?? null,
+    delivery_date: d.delivery_date || null,
+  }
+  return payload
+}
+
+// Otwiera ArticlePicker ponownie dla istniejącej pozycji w trybie edit
+function reopenArticlePickerForEdit(_pos: any) {
+  articlePickerMode.value = 'edit'
+  showArticlePicker.value = true
+}
+
+// Otwiera ArticlePicker dla nowego wiersza
+function reopenArticlePickerForNew() {
+  articlePickerMode.value = 'new'
+  showArticlePicker.value = true
+}
+
+async function deletePosition(pos) {
+  requestConfirm(
+    `Usunąć pozycję „${pos.article_name || ''}"? Warunki rozliczeniowe tej pozycji również zostaną usunięte.`,
+    async () => {
+      try {
+        await contractStore.deletePosition(Number(props.id), pos.id)
+        if (selectedPosId.value === pos.id) selectedPosId.value = null
+        await contractStore.fetchPositions(Number(props.id))
+        toastStore.success('Pozycja usunięta')
+      } catch (e: any) {
+        toastStore.error(e.response?.data?.detail || 'Błąd usuwania pozycji')
+      }
+    },
+    'Usuń pozycję',
+    'Usuń',
+  )
 }
 
 function onConditionValueChanged(_value) {
@@ -1915,6 +2042,8 @@ async function searchArticles() {
   }, 300)
 }
 
+// RAO-P2-071: selectArticle — po wyborze z ArticlePicker, dodaje pusty row (tryb new)
+// lub aktualizuje article_id w istniejącym row (tryb edit). Zero modali ustawień.
 async function selectArticle(a) {
   // RAO-P1-023: check availability before closing picker
   if (form.value.date_from && form.value.date_to && !a.is_service) {
@@ -1930,11 +2059,24 @@ async function selectArticle(a) {
       }
     } catch { /* ignore — proceed normally on error */ }
   }
-  // No conflict (or service / no dates) — proceed normally
+  applySelectedArticle(a)
+}
+
+function applySelectedArticle(a) {
   showArticlePicker.value = false
-  posForm.value.article_id = a.id
-  selectedArticleName.value = a.name
-  articleAvailability.value = null
+  if (articlePickerMode.value === 'edit' && editingPosId.value !== null) {
+    editingPosData.value.article_id = a.id
+    editingPosData.value.article_name = a.name
+  } else {
+    // Tryb 'new' — ustaw artykuł w nowym wierszu i pokaż go
+    newPosData.value = emptyPosData()
+    newPosData.value.article_id = a.id
+    newPosData.value.article_name = a.name
+    newPosData.value.delivery_date = form.value.date_from || null
+    showNewPosRow.value = true
+    editingPosId.value = null
+    nextTick(() => { newPosRentalTypeInput.value?.focus() })
+  }
 }
 
 function cancelConflictSelection() {
@@ -1947,21 +2089,19 @@ function confirmConflictSelection() {
   showConflictModal.value = false
   showArticlePicker.value = false
   if (pendingArticle.value) {
-    posForm.value.article_id = pendingArticle.value.id
-    selectedArticleName.value = pendingArticle.value.name
-    articleAvailability.value = null
+    applySelectedArticle(pendingArticle.value)
   }
   pendingArticle.value = null
   conflictList.value = []
 }
 
+// duplicateArticle — szybkie dodanie pozycji bezpośrednio z pickera (bez inline edit)
 async function duplicateArticle(a) {
-  // Add the article as a new position immediately
   try {
     const payload = {
       article_id: a.id,
-      rental_type: '',
-      description: a.name || '',
+      rental_type: null,
+      description: a.name || null,
       rental_days: null,
       quantity: 1,
       unit_price: null,
@@ -1975,14 +2115,25 @@ async function duplicateArticle(a) {
     await contractStore.createPosition(Number(props.id), payload)
     await contractStore.fetchPositions(Number(props.id))
     await recalcTotal()
+    toastStore.success(`Dodano: ${a.name}`)
     // Don't close picker, keep it open for more selections
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd dodawania pozycji')
+  } catch (e: any) {
+    toastStore.error(e.response?.data?.detail || 'Błąd dodawania pozycji')
   }
 }
 
 let supTimer: ReturnType<typeof setTimeout> | null = null
-async function openSupplierPicker() {
+// RAO-P2-071: Supplier picker dla inline edit — osobne entry dla new/edit
+const supplierPickerTarget = ref<'new' | 'edit'>('new')
+async function openSupplierPickerForNew() {
+  supplierPickerTarget.value = 'new'
+  supplierSearch.value = ''
+  showSupplierPicker.value = true
+  const { data } = await api.get('/contractors', { params: { per_page: 30 } })
+  supplierList.value = data.items
+}
+async function openSupplierPickerForEdit(_pos: any) {
+  supplierPickerTarget.value = 'edit'
   supplierSearch.value = ''
   showSupplierPicker.value = true
   const { data } = await api.get('/contractors', { params: { per_page: 30 } })
@@ -1998,8 +2149,13 @@ async function searchSuppliers() {
 }
 
 function selectSupplier(c) {
-  posForm.value.supplier_id = c.id
-  supplierName.value = c.name
+  if (supplierPickerTarget.value === 'edit') {
+    editingPosData.value.supplier_id = c.id
+    editingPosData.value.supplier_name = c.name
+  } else {
+    newPosData.value.supplier_id = c.id
+    newPosData.value.supplier_name = c.name
+  }
   showSupplierPicker.value = false
 }
 
@@ -2031,8 +2187,9 @@ async function saveInlineFee() {
     await contractStore.fetchServiceFees(Number(props.id))
     editingFeeId.value = null
     editingFeeData.value = {}
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd zapisu')
+    toastStore.success('Usługa zapisana')
+  } catch (e: any) {
+    toastStore.error(e.response?.data?.detail || 'Błąd zapisu')
   }
 }
 
@@ -2057,29 +2214,44 @@ async function saveNewFeeRow() {
     await contractStore.fetchServiceFees(Number(props.id))
     showNewFeeRow.value = false
     newFeeData.value = { name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true, article_id: null, default_price: null }
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd dodawania')
+    toastStore.success('Usługa dodana')
+  } catch (e: any) {
+    toastStore.error(e.response?.data?.detail || 'Błąd dodawania')
   }
 }
 
 async function deleteServiceFee(fee) {
-  if (!confirm('Usunąć tę usługę dodatkową?')) return
-  try {
-    await api.delete(`/contracts/${props.id}/service-fees/${fee.id}`)
-    await contractStore.fetchServiceFees(Number(props.id))
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd')
-  }
+  requestConfirm(
+    `Usunąć usługę dodatkową „${fee.name}"?`,
+    async () => {
+      try {
+        await api.delete(`/contracts/${props.id}/service-fees/${fee.id}`)
+        await contractStore.fetchServiceFees(Number(props.id))
+        toastStore.success('Usługa usunięta')
+      } catch (e: any) {
+        toastStore.error(e.response?.data?.detail || 'Błąd usuwania')
+      }
+    },
+    'Usuń usługę',
+    'Usuń',
+  )
 }
 
 async function resetServiceFees() {
-  if (!confirm('Zresetować usługi dodatkowe do szablonu? Obecne zostaną usunięte.')) return
-  try {
-    await api.post(`/contracts/${props.id}/service-fees/reset`)
-    await contractStore.fetchServiceFees(Number(props.id))
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd resetu')
-  }
+  requestConfirm(
+    'Zresetować usługi dodatkowe do szablonu? Obecne zostaną usunięte.',
+    async () => {
+      try {
+        await api.post(`/contracts/${props.id}/service-fees/reset`)
+        await contractStore.fetchServiceFees(Number(props.id))
+        toastStore.success('Usługi zresetowane do szablonu')
+      } catch (e: any) {
+        toastStore.error(e.response?.data?.detail || 'Błąd resetu')
+      }
+    },
+    'Reset usług',
+    'Resetuj',
+  )
 }
 
 const showPresetPicker = ref(false)
@@ -2113,25 +2285,49 @@ async function applyPresetWithConfirm() {
   const preset = presetPickerList.value.find(p => p.id === selectedPresetId.value)
   if (!preset) return
   const hasFees = contractStore.serviceFees.length > 0
-  if (hasFees && !confirm(`Zastosować zestaw „${preset.name}"? Obecne ${contractStore.serviceFees.length} pozycji zostaną zastąpione.`)) return
-  try {
-    await api.post(`/contracts/${props.id}/service-fees/apply-preset?preset_id=${preset.id}&replace=true`)
-    await contractStore.fetchServiceFees(Number(props.id))
-    selectedPresetId.value = null
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd aplikowania zestawu')
+  const doApply = async () => {
+    try {
+      await api.post(`/contracts/${props.id}/service-fees/apply-preset?preset_id=${preset.id}&replace=true`)
+      await contractStore.fetchServiceFees(Number(props.id))
+      selectedPresetId.value = null
+      toastStore.success(`Zastosowano zestaw „${preset.name}"`)
+    } catch (e: any) {
+      toastStore.error(e.response?.data?.detail || 'Błąd aplikowania zestawu')
+    }
+  }
+  if (hasFees) {
+    requestConfirm(
+      `Zastosować zestaw „${preset.name}"? Obecne ${contractStore.serviceFees.length} pozycji zostaną zastąpione.`,
+      doApply,
+      'Zastosuj zestaw',
+      'Zastosuj',
+    )
+  } else {
+    await doApply()
   }
 }
 
 async function applyPreset(preset) {
   const hasFees = contractStore.serviceFees.length > 0
-  if (hasFees && !confirm(`Zastosować zestaw „${preset.name}"? Obecne ${contractStore.serviceFees.length} pozycji zostaną zastąpione.`)) return
-  try {
-    await api.post(`/contracts/${props.id}/service-fees/apply-preset?preset_id=${preset.id}&replace=true`)
-    await contractStore.fetchServiceFees(Number(props.id))
-    showPresetPicker.value = false
-  } catch (e) {
-    alert(e.response?.data?.detail || 'Błąd aplikowania zestawu')
+  const doApply = async () => {
+    try {
+      await api.post(`/contracts/${props.id}/service-fees/apply-preset?preset_id=${preset.id}&replace=true`)
+      await contractStore.fetchServiceFees(Number(props.id))
+      showPresetPicker.value = false
+      toastStore.success(`Zastosowano zestaw „${preset.name}"`)
+    } catch (e: any) {
+      toastStore.error(e.response?.data?.detail || 'Błąd aplikowania zestawu')
+    }
+  }
+  if (hasFees) {
+    requestConfirm(
+      `Zastosować zestaw „${preset.name}"? Obecne ${contractStore.serviceFees.length} pozycji zostaną zastąpione.`,
+      doApply,
+      'Zastosuj zestaw',
+      'Zastosuj',
+    )
+  } else {
+    await doApply()
   }
 }
 
@@ -2319,6 +2515,25 @@ async function applyPreset(preset) {
 .row-editing { background: #fffff0; }
 .row-editing:hover { background: #fffff0 !important; }
 .row-inactive td { opacity: 0.5; }
+/* RAO-P2-071: link-button w empty state */
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  padding: 0;
+  text-decoration: underline;
+}
+.btn-link:hover { text-decoration: none; opacity: 0.85; }
+/* RAO-P2-071: wyróżnienie wiersza w trybie inline edit — navy border */
+.row-editing td {
+  border-bottom: 1px solid var(--color-border);
+}
+.row-editing:first-child td {
+  border-top: 2px solid var(--color-primary);
+}
 
 .preset-picker-overlay {
   position: fixed;
