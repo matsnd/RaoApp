@@ -130,6 +130,8 @@ Klient chce elastycznego definiowania widełek zamiast sztywnych dropdown-ów.
 - Frontend: ConditionPanel nowe kolumny Od/Do w tabeli + modal form + walidacja ciągłości + podgląd PDF live
 - Commit: 72ce2c3
 
+**Scenariusze testowe:** `e2e/tests/SCENARIOS_P1-005_elastyczne_widelki.md` (12 scenariuszy)
+
 ---
 
 ### P1-006: Dwa warianty zapisów w umowie — diesel vs elektryk
