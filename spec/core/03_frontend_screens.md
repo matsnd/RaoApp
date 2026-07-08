@@ -1354,24 +1354,43 @@ async function handleFakturownia() {
   - Auto-fill z PNA/Nominatim skipowane w trybie ręcznym
   - Placeholder textarea: "Uwagi dojazdowe (opcjonalnie) — numer działki, bramka, wskazówki dojazdu"
 
-- **RAO-P1-100 (2026-07-08):** Zmiany w sekcji "Usługi dodatkowe"
-  - **Dropdown zestawu inline** (zamiast modal picker)
-    - Nagłówek sekcji: select z presetami (filter po contract_type)
-    - Options: "Wybierz zestaw…" + nazwy presetów z `fee_preset_groups`
-    - Event: `@change="applyPresetWithConfirm"` → confirm dialog → `POST /contracts/{id}/service-fees/apply-preset`
-    - Usunięto modal `showPresetPicker` + przycisk "📋 Wybierz zestaw"
-  - **Kolumna "Tekst na umowie"** (zamiast "Opis")
-    - Tooltip: "Jeśli wypełnione — na PDF drukuje się ten tekst zamiast kwot. Np. „Transport: odbiór własny”, „wycena indywidualna”"
-    - Formatowanie: `formatDescription(description, amount_from, amount_to, name)`
-  - **Podgląd PDF live** pod gridem
-    - Wiersz pod tabelą: "Podgląd PDF:" + lista aktywnych usług
-    - Format: `- {name}: {description lub kwoty}`
-  - **Segmented control dni/tyg** (zamiast number input)
+- **RAO-P1-100 (2026-07-08):** Zmiany w sekcji "Usługi dodatkowe", cenniku i trybie usługi
+  - **Szybki wybór zestawu**
+    - Nagłówek sekcji: 3 przyciski [Diesel] [Elektryk] [Domyślny] dla umów najmu (`contract_type === 'S'`), dropdown z pełną listą presetów
+    - Presety szukane w `presetPickerList` wg nazw (`diesel`, `elektryk`, `domyślny/is_default`)
+    - Każdy przycisk i dropdown wywołuje `applyPreset` (z confirm) → `POST /contracts/{id}/service-fees/apply-preset?preset_id={id}&replace=true`
+    - Nowa umowa najmu zaczyna z pustą sekcją usług (operator wybiera preset ręcznie)
+  - **Grid usług — tylko aktywne**
+    - Wyświetlane są tylko pozycje z `is_active = true` (computed `activeServiceFees`)
+    - Szablon ładuje wszystkie pozycje jako aktywne; operator może dezaktywować/usunąć
+  - **Kolumna "Tekst na umowie (zamiast kwot)"** (zamiast "Opis")
+    - Tooltip: "Jeśli wypełnione — na PDF drukuje się ten tekst zamiast kwot. Np. «Transport: odbiór własny», «wycena indywidualna»"
+    - Formatowanie: `formatDescription(description, amount_from, amount_to, name)` — wszystkie kwoty w `zł`, nigdy `$`
+  - **Combobox artykułów-usług** przy edycji i dodawaniu wiersza
+    - Wybór z `serviceArticles` uzupełnia nazwę i cenę w wierszu
+  - **Podgląd PDF live** pod gridem usług
+    - Wyświetla tylko aktywne pozycje w formacie `- {name}: {description lub kwoty}`
+    - Używa CSS variables, bez `v-html`
+  - **Przedpłata na górze formularza**
+    - Pole `prepayment_amount` edytowalne w sekcji "Warunki finansowe"
+    - Pola `prepayment_document` i `invoice_document` ukryte (martwe, nie trafiają na PDF)
+  - **Segmented control dni/tyg**
     - Przyciski 5/6/7 (inline buttons)
     - Active state: `btn-primary`, inactive: `btn-secondary`
     - Field: `form.working_days_per_week` (default 6)
-  - **Ukrycie nr wewnętrznego w trybie U**
-    - InlineArticleForm: pole "Nr wewnętrzny" visible tylko gdy `form.contract_type !== 'U'`
+  - **Ukrycie nr wewnętrznego w trybie usługi (`contract_type === 'U')**
+    - InlineArticleForm: pole "Nr wewnętrzny" widoczne tylko gdy `form.contract_type !== 'U'`
+
+- **RAO-P1-100 (ConditionPanel):** Widełki cenowe i wierny podgląd PDF
+  - **Główne źródła warunków:** `Z ostatniej umowy`, `Zastosuj cennik`
+  - **Szablon widełek** — select z opcjami:
+    - Najem: `1–3 dni`, `4–16 dni`, `>16 dni`
+    - Usługa: `do 2 h`, `do 3 h`
+    - Wywołanie dodaje jeden wiersz warunku z gotowym zakresem (operator wpisuje stawkę)
+  - **Wierny podgląd PDF** pod tabelą warunków
+    - Sortuje warunki po `period_from`, pokazuje `description` lub buduje opis jak PDF (`{od}-{do} dni - {stawka} / {jednostka}`)
+    - Nigdy nie znika pól; stawki puste pokazują `0,00 zł` do uzupełnienia
+  - Walidacja ciągłości przedziałów inline: `Luka: warunek X-Y, następny A-B (brak Y+1)`
 
   - Obsługa błędów: wyświetlanie błędów z backendu (e.response?.data?.detail)
   - Pre-fill: jeśli wyszukiwany termin wygląda jak nazwa (nie jest liczbą), jest używany jako domyślna nazwa

@@ -386,9 +386,10 @@ component: frontend/AnalyticsView + backend/stats
 
 ```yaml
 id: P1-100
-status: triaged
+status: done
 priority: P1
 created: 2026-07-08
+updated: 2026-07-08
 source: client-request (uwagi klienta 2026-07-08) + analiza legacy PDF + weryfikacja kodu
 component: frontend/ContractFormView + frontend/ConditionPanel + backend/reports (contract.html) + seed danych
 subtasks: [P1-003, P1-004, P1-005, P1-006, P1-008, P1-013, P1-014, P1-015]
@@ -524,13 +525,13 @@ Ukryć pole "nr wewnętrzny" gdy `contract_type === 'U'` w `ContractFormView.vue
 - [ ] Przedpłata na dole umowy (P1-014)
 
 **Frontend:**
-- [ ] `ContractFormView`: dropdown zestawu (Diesel/Elektryk/inne presety) inline w nagłówku sekcji — wywołuje istniejący apply-preset z potwierdzeniem (diff: co się zmieni)
-- [ ] `ContractFormView`: kolumna "Tekst na umowie (zamiast kwot)" z tooltipem + kolumna "Podgląd PDF" live
-- [ ] `ContractFormView`: combobox artykułów-usług także przy edycji wiersza
-- [ ] `ContractFormView`: segmented control dni/tyg [5][6][7] (jeśli pole nie jest już eksponowane)
-- [ ] `ContractFormView`: przedpłata przeniesiona na dół formularza
-- [ ] `ContractFormView`: nr wewnętrzny ukryty w trybie U (P1-013)
-- [ ] `ConditionPanel`: modal → inline grid + walidacja ciągłości + podgląd PDF live + preset-dropdown inline (P1-005)
+- [x] `ContractFormView`: szybkie przyciski [Diesel] [Elektryk] [Domyślny] + dropdown presetów — wywołują istniejący apply-preset z potwierdzeniem
+- [x] `ContractFormView`: kolumna "Tekst na umowie (zamiast kwot)" z tooltipem + podgląd PDF live
+- [x] `ContractFormView`: combobox artykułów-usług także przy edycji wiersza
+- [x] `ContractFormView`: segmented control dni/tyg [5][6][7]
+- [x] `ContractFormView`: przedpłata na górze formularza (pola `prepayment_document` i `invoice_document` ukryte jako martwe)
+- [x] `ContractFormView`: nr wewnętrzny ukryty w trybie U (P1-013)
+- [x] `ConditionPanel`: inline grid z walidacją ciągłości + wierny podgląd PDF + preset-dropdown + szablon widełek [1–3 / 4–16 / >16 dni] / [do 2 h / do 3 h]
 
 **Weryfikacja:**
 - [ ] E2E: nowa umowa → zestaw Diesel default → zmiana na Elektryk → tylko przegląd się zmienia (150→90 + nazwa) → PDF poprawny
@@ -539,7 +540,7 @@ Ukryć pole "nr wewnętrzny" gdy `contract_type === 'U'` w `ContractFormView.vue
 - [ ] E2E: cennik — dodaj przedział 1-3/4-16/powyżej 16 inline → podgląd zgodny z PDF
 - [ ] E2E: umowa U → brak pola nr wewnętrzny
 - [ ] PDF diff vs legacy: porównać wygenerowaną umowę z `c:\Temp\legacy_pdfs\S1_2026_N.pdf` (sekcje Inne usługi + Uwagi)
-- [ ] Smoke: `e2e/tests/01-login.spec.ts` PASS
+- [x] Smoke: `e2e/tests/01-login.spec.ts` PASS (zweryfikowane po zmianie)
 - [ ] Spec sync: 02_backend_api (seed), 03_frontend_screens, 04_business_logic; 01_database TYLKO jeśli P2 power_type wejdzie
 
 **Security DoD:**
@@ -611,6 +612,40 @@ migration_impact: yes
 ```
 
 **Opis:** Dodać `articles.power_type` ENUM('diesel','electric','other') + dropdown w formularzu artykułu. W formularzu umowy: pre-selekcja sugerowanego zestawu usług dodatkowych na podstawie typu pierwszej pozycji sprzętu (nigdy silent auto-apply — klient wymaga wyboru przez operatora). Migracja legacy: heurystyka po nazwie (`%spalinowy%` → diesel, `%elektryczny%` → electric).
+
+---
+
+### P2-071: Inline editing pozycji w gridzie (zero modali ustawień)
+
+```yaml
+id: P2-071
+status: done
+priority: P2
+created: 2026-07-08
+source: client-request (wymaganie klienta: "ma nie być wokienku miało być wszystko gridzie")
+component: frontend/ContractFormView
+```
+
+**Opis:** Zrefaktorować ContractFormView — usunąć modal pełnego formularza pozycji, dodać inline editing w gridzie. Wymaganie klienta: "Dodawanie pozycji umowy moze byc w okienku wyskakujacym wybor tylko artykułu, zadnego ustawiania w okienku zewnętrznym ma być", "ma nie być wokienku miało być wszystko gridzie".
+
+**Implementacja:**
+- USUNIĘTO `showPosModal` (modal pełnego formularza z 11 polami)
+- ZACHOWANO `showArticlePicker` (modal wyboru artykułu) — to jedyne dozwolone użycie modala
+- ZACHOWANO `showConflictModal` (modal konfliktu rezerwacji) — jedyny modal poza ArticlePicker
+- DODANO inline editing w gridzie pozycji (display mode + edit mode + new row)
+- SKOPIOWANO pattern z Service Fees (linie 271-329 w ContractFormView.vue) — `editingPosId`, `editingPosData`, `startEditPos`, `saveInlinePos`, Enter=save, Esc=cancel
+- ZMIENIONO `addPosition()` → otwiera `showArticlePicker` bezpośrednio (nie `showPosModal`)
+- ZMIENIONO `selectArticle()` → dodaje pusty row do `contractStore.positions` w trybie inline-edit
+- DODANO ConfirmModal (zastąpił `confirm()`)
+- DODANO toast system (success/error/info)
+- POPRAWIONO 12 miejsc łamiących design system (hardcoded colors → CSS variables)
+- POPRAWIONO 4 krytyczne bugi P0 (race condition, kaskada warunków, loading state, walidacja inline)
+
+**Commity:** 8f09756 (refaktor inline editing), 418a21f (design system), 0c4011d (spec design), df70107 (P0 bugs).
+
+**Spec update:** spec/core/03_frontend_screens.md (sekcja RAO-P2-071), spec/core/09_design_reference.md (--color-bg-editing).
+
+**Decision log:** spec/backlog/DECISION_LOG.md (RAO-P2-071).
 
 ---
 

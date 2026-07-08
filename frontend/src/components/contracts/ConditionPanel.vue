@@ -33,12 +33,16 @@
         <span class="cond-title">Warunki rozliczenia</span>
         <span class="cond-hint">Kliknij wiersz aby edytować • Enter = zapisz • Esc = anuluj</span>
       </div>
-      <div style="display:flex;gap:6px;">
-        <button class="btn btn-secondary btn-sm" @click="openPresetPicker" :disabled="!articleId" title="Zastosuj predefiniowany cennik">
-          📋 Zastosuj cennik
-        </button>
+      <div class="cond-header-right">
+        <select v-if="rangeTemplateOptions.length" v-model="selectedRangeTemplate" @change="applyRangeTemplate" class="form-control form-control-xs" title="Szablon widełek: doda gotowe przedziały">
+          <option :value="null">Szablon widełek…</option>
+          <option v-for="opt in rangeTemplateOptions" :key="opt.key" :value="opt.key">{{ opt.label }}</option>
+        </select>
         <button class="btn btn-secondary btn-sm" @click="autoPrefillFromLast" :disabled="!articleId || autoPrefillLoading" title="Wypełnij z ostatniej umowy tej maszyny">
           {{ autoPrefillLoading ? '...' : '↻ Z ostatniej umowy' }}
+        </button>
+        <button class="btn btn-secondary btn-sm" @click="openPresetPicker" :disabled="!articleId" title="Zastosuj predefiniowany cennik">
+          📋 Zastosuj cennik
         </button>
         <button class="btn btn-primary btn-sm" @click="addCondition" :disabled="showNewCondRow || editingCondId !== null" data-testid="add-condition">+ Dodaj warunek</button>
       </div>
@@ -156,6 +160,15 @@
         </tr>
       </tfoot>
     </table>
+    <!-- RAO-P1-100: wierny podgląd warunków rozliczenia (dokładnie to, co trafi do PDF) -->
+    <div v-if="conditions.length" class="cond-pdf-preview">
+      <div class="cond-pdf-label">Podgląd PDF:</div>
+      <div class="cond-pdf-list">
+        <div v-for="(cond, idx) in conditionsForPreview" :key="cond.id" class="cond-pdf-line">
+          {{ idx + 1 }}. {{ formatPreview(cond) }}
+        </div>
+      </div>
+    </div>
     <!-- EMPTY STATE z CTA — tylko gdy nie dodajemy (RAO-P2-071) -->
     <div v-else class="empty-state" style="padding:16px;">
       Brak warunków — <button class="btn-link" @click="addCondition"><strong>dodaj warunek rozliczenia</strong></button>
@@ -237,6 +250,7 @@ const props = defineProps({
   contractId: { type: Number, required: true },
   positionId: { type: Number, required: true },
   articleId: { type: Number, default: null },  // RAO-P1-001: do apply-preset + auto-prefill
+  contractType: { type: String, default: 'S' },  // RAO-P1-100: 'S' = najem, 'U' = usługa
 })
 
 const emit = defineEmits(['value-changed'])
@@ -318,15 +332,18 @@ function validateContinuity() {
 
 watch(conditions, validateContinuity, { deep: true })
 
-// RAO-P1-005: podgląd PDF live
+// RAO-P1-005 / RAO-P1-100: wierny podgląd PDF — używa opisu (description) lub buduje go dokładnie jak PDF
 function formatPreview(cond) {
+  if (cond.description) return cond.description
+  const rateStr = cond.rate1 ? formatCurrency(cond.rate1) : cond.rate2 ? formatCurrency(cond.rate2) : '0,00 zł'
+  const unit = cond.billing_label || 'doba'
   if (cond.period_from && cond.period_to) {
-    return `${cond.period_from} - ${cond.period_to} dni - ${formatCurrency(cond.rate1)} / ${cond.billing_label || 'doba'}`
+    return `${cond.period_from} - ${cond.period_to} dni - ${rateStr} / ${unit}`
   }
   if (cond.period_from && !cond.period_to) {
-    return `powyżej ${cond.period_from} dni - ${formatCurrency(cond.rate1)} / ${cond.billing_label || 'doba'}`
+    return `powyżej ${cond.period_from} dni - ${rateStr} / ${unit}`
   }
-  return `${formatCurrency(cond.rate1)} / ${cond.billing_label || 'doba'}`
+  return `${rateStr} / ${unit}`
 }
 
 watch(calculatedValue, (val) => emit('value-changed', val))
@@ -588,6 +605,61 @@ async function autoPrefillFromLast() {
   }
 }
 
+// RAO-P1-100: szablony widełek cenowych
+const selectedRangeTemplate = ref<string | null>(null)
+
+interface RangeTemplateOption { key: string; label: string }
+const rangeTemplateOptions = computed<RangeTemplateOption[]>(() => {
+  if (props.contractType === 'U') {
+    return [
+      { key: 'service-2h', label: 'do 2 h' },
+      { key: 'service-3h', label: 'do 3 h' },
+    ]
+  }
+  return [
+    { key: 'rental-1-3', label: '1–3 dni' },
+    { key: 'rental-4-16', label: '4–16 dni' },
+    { key: 'rental-over-16', label: '>16 dni' },
+  ]
+})
+
+const conditionsForPreview = computed(() => {
+  return [...conditions.value]
+    .filter(c => c.rate1 !== null || c.rate2 !== null)
+    .sort((a, b) => (a.period_from || 0) - (b.period_from || 0))
+})
+
+async function applyRangeTemplate() {
+  const key = selectedRangeTemplate.value
+  if (!key) return
+  const opt = rangeTemplateOptions.value.find(o => o.key === key)
+  if (!opt) return
+  const unit = props.contractType === 'U' ? 'godzina' : 'doba'
+  const rows = {
+    'rental-1-3': { period_from: 1, period_to: 3, billing_label: unit },
+    'rental-4-16': { period_from: 4, period_to: 16, billing_label: unit },
+    'rental-over-16': { period_from: 17, period_to: null, billing_label: unit },
+    'service-2h': { period_from: 1, period_to: 2, billing_label: unit },
+    'service-3h': { period_from: 1, period_to: 3, billing_label: unit },
+  }[key]
+  if (!rows) return
+  savingCond.value = true
+  try {
+    await contractStore.createCondition(props.contractId, props.positionId, buildCondPayload({
+      ...emptyCondData(),
+      ...rows,
+    }))
+    await loadConditions()
+    toastStore.success(`Dodano przedział „${opt.label}”`)
+  } catch (e) {
+    const err = e as { response?: { data?: { detail?: string } } }
+    toastStore.error(err?.response?.data?.detail || 'Błąd dodawania warunku')
+  } finally {
+    savingCond.value = false
+    selectedRangeTemplate.value = null
+  }
+}
+
 defineExpose({ loadConditions, calculatedValue })
 </script>
 
@@ -768,5 +840,32 @@ defineExpose({ loadConditions, calculatedValue })
   align-items: center;
   gap: 6px;
   cursor: pointer;
+}
+
+.cond-header-right {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.cond-pdf-preview {
+  margin-top: 8px;
+  padding: var(--spacing-3);
+  background: var(--color-bg-light);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+}
+.cond-pdf-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+}
+.cond-pdf-list {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-body);
+  line-height: 1.5;
+}
+.cond-pdf-line {
+  margin-bottom: 2px;
 }
 </style>

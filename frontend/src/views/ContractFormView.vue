@@ -135,16 +135,12 @@
 
           <div class="form-row-4">
             <div class="form-group">
-              <label class="form-label">Dok. przedpłaty</label>
-              <input v-model="form.prepayment_document" type="text" class="form-control" />
+              <label class="form-label">Przedpłata (zł)</label>
+              <input v-model.number="form.prepayment_amount" type="number" step="0.01" class="form-control" placeholder="0.00" />
             </div>
             <div class="form-group">
               <label class="form-label">Faktura (zł)</label>
-              <input v-model="form.invoice_amount" type="number" step="0.01" class="form-control" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Dok. faktury</label>
-              <input v-model="form.invoice_document" type="text" class="form-control" />
+              <input v-model.number="form.invoice_amount" type="number" step="0.01" class="form-control" placeholder="0.00" />
             </div>
           </div>
         </div>
@@ -358,20 +354,37 @@
             v-if="selectedPosId && isEdit"
             :contract-id="Number(props.id)"
             :position-id="selectedPosId"
+            :article-id="selectedPositionArticleId"
+            :contract-type="form.contract_type"
             @value-changed="onConditionValueChanged"
           />
 
           <!-- Service fees section -->
         <div v-if="isEdit" class="page-card">
-          <div style="display:flex;align-items:center;margin-bottom:8px;">
-            <span class="section-title" style="margin:0;border:none;">Usługi dodatkowe</span>
-            <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);margin-left:12px;">Kliknij wiersz • Enter = zapisz • Esc = anuluj</span>
-            <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
-              <select v-model="selectedPresetId" @change="applyPresetWithConfirm" class="form-control form-control-xs" style="width:200px;">
+          <div class="fee-header">
+            <div class="fee-header-left">
+              <span class="section-title" style="margin:0;border:none;">Usługi dodatkowe</span>
+              <span class="fee-hint">Kliknij wiersz • Enter = zapisz • Esc = anuluj</span>
+            </div>
+            <div class="fee-header-right">
+              <template v-if="form.contract_type === 'S'">
+                <button class="btn btn-secondary btn-sm" @click="applyQuickFeePreset('diesel')" :disabled="!dieselPreset" title="Załaduj zestaw Diesel">
+                  Diesel
+                </button>
+                <button class="btn btn-secondary btn-sm" @click="applyQuickFeePreset('elektryk')" :disabled="!elektrykPreset" title="Załaduj zestaw Elektryk">
+                  Elektryk
+                </button>
+              </template>
+              <button class="btn btn-secondary btn-sm" @click="applyQuickFeePreset('default')" :disabled="!defaultPreset" title="Załaduj zestaw domyślny">
+                Domyślny
+              </button>
+              <select v-if="presetPickerList.length" v-model="selectedPresetId" @change="applyPresetWithConfirm" class="form-control form-control-xs" style="width:200px;">
                 <option :value="null">Wybierz zestaw…</option>
-                <option v-for="p in presetList" :key="p.id" :value="p.id">{{ p.name }}</option>
+                <option v-for="p in presetPickerList" :key="p.id" :value="p.id">{{ p.name }}</option>
               </select>
-              <button class="btn btn-secondary btn-sm" @click="resetServiceFees" title="Reset do domyślnego szablonu">↻ Reset</button>
+              <span v-else-if="presetPickerLoading" class="fee-hint">Ładowanie zestawów…</span>
+              <span v-else class="fee-hint">Brak zestawów</span>
+              <button class="btn btn-secondary btn-sm" @click="resetServiceFees" title="Wyczyść i załaduj domyślny szablon">↻ Reset</button>
               <button class="btn btn-primary btn-sm" @click="addFeeRow">+ Dodaj</button>
             </div>
           </div>
@@ -388,13 +401,19 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-if="!contractStore.serviceFees.length && !showNewFeeRow">
-                <td colspan="7" class="empty-state">Brak usług dodatkowych — kliknij „+ Dodaj”, „💻 Wybierz zestaw” lub „↻ Reset”</td>
+              <tr v-if="!activeServiceFees.length && !showNewFeeRow">
+                <td colspan="7" class="empty-state">Brak aktywnych usług dodatkowych — wybierz zestaw lub kliknij „+ Dodaj"</td>
               </tr>
-              <template v-for="fee in contractStore.serviceFees" :key="fee.id">
+              <template v-for="fee in activeServiceFees" :key="fee.id">
                 <!-- EDIT MODE -->
                 <tr v-if="editingFeeId === fee.id" class="row-editing">
-                  <td><input v-model="editingFeeData.name" class="form-control form-control-xs" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" /></td>
+                  <td>
+                    <select v-if="serviceArticles.length" v-model="editingFeeData.article_id" class="form-control form-control-xs" style="margin-bottom:4px;" @change="onEditingServiceArticleSelect">
+                      <option :value="null">— wybierz usługę z listy —</option>
+                      <option v-for="a in serviceArticles" :key="a.id" :value="a.id">{{ a.name }}{{ a.replacement_value ? ` (${Number(a.replacement_value).toFixed(2)} zł)` : '' }}</option>
+                    </select>
+                    <input v-model="editingFeeData.name" class="form-control form-control-xs" placeholder="Nazwa usługi" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" />
+                  </td>
                   <td><input v-model="editingFeeData.amount_from" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" /></td>
                   <td><input v-model="editingFeeData.amount_to" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" /></td>
                   <td><input v-model="editingFeeData.unit" class="form-control form-control-xs" placeholder="h, km…" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" /></td>
@@ -406,13 +425,13 @@
                   </td>
                 </tr>
                 <!-- DISPLAY MODE -->
-                <tr v-else @click="startEditFee(fee)" style="cursor:pointer;" :class="{ 'row-inactive': !fee.is_active }">
+                <tr v-else @click="startEditFee(fee)" style="cursor:pointer;">
                   <td>{{ fee.name }}</td>
                   <td>{{ fee.amount_from ? Number(fee.amount_from).toFixed(2) + ' zł' : '—' }}</td>
                   <td>{{ fee.amount_to ? Number(fee.amount_to).toFixed(2) + ' zł' : '—' }}</td>
                   <td>{{ fee.unit || '—' }}</td>
                   <td style="font-size:11px;">{{ formatDescription(fee.description, fee.amount_from, fee.amount_to, fee.name) }}</td>
-                  <td style="text-align:center;"><span :class="['badge', fee.is_active ? 'badge-success' : 'badge-muted']">{{ fee.is_active ? 'Tak' : 'Nie' }}</span></td>
+                  <td style="text-align:center;"><span class="badge badge-success">Tak</span></td>
                   <td>
                     <button class="btn-icon" title="Edytuj" @click.stop="startEditFee(fee)">✎</button>
                     <button class="btn-icon" title="Usuń" @click.stop="deleteServiceFee(fee)">✕</button>
@@ -420,11 +439,11 @@
                 </tr>
               </template>
               <!-- PDF PREVIEW LIVE -->
-              <tr v-if="contractStore.serviceFees.length">
-                <td colspan="7" style="padding:4px 0 0 0;">
-                  <div style="font-size:10px;color:#718096;margin-bottom:4px;">Podgląd PDF:</div>
-                  <div style="font-size:11px;color:#2D3748;line-height:1.4;">
-                    <div v-for="fee in contractStore.serviceFees.filter(f => f.is_active)" :key="fee.id" style="margin-bottom:1px;">
+              <tr v-if="activeServiceFees.length">
+                <td colspan="7" class="fee-pdf-preview">
+                  <div class="fee-pdf-label">Podgląd PDF:</div>
+                  <div class="fee-pdf-list">
+                    <div v-for="fee in activeServiceFees" :key="fee.id" class="fee-pdf-line">
                       - {{ formatDescription(fee.description, fee.amount_from, fee.amount_to, fee.name) }}
                     </div>
                   </div>
@@ -1063,6 +1082,17 @@ const remainingValue = computed(() => {
   return remaining.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' zł'
 })
 
+// RAO-P1-100: artykuł wybranej pozycji dla ConditionPanel (cennik / ostatnia umowa)
+const selectedPositionArticleId = computed(() => {
+  const pos = contractStore.positions.find(p => p.id === selectedPosId.value)
+  return pos?.article_id ?? null
+})
+
+// RAO-P1-100: grid usług pokazuje tylko aktywne pozycje
+const activeServiceFees = computed(() =>
+  (contractStore.serviceFees || []).filter(f => f.is_active)
+)
+
 const contractorName = ref('')
 interface ContractorAddress {
   id: number
@@ -1432,6 +1462,26 @@ function onServiceArticleSelect(event: Event) {
     newFeeData.value.default_price = price
     if (price !== null && newFeeData.value.amount_from === null) {
       newFeeData.value.amount_from = price
+    }
+  }
+}
+
+function onEditingServiceArticleSelect(event: Event) {
+  const select = event.target as HTMLSelectElement
+  const articleId = Number(select.value)
+  if (!articleId) {
+    editingFeeData.value.article_id = null
+    editingFeeData.value.default_price = null
+    return
+  }
+  const article = serviceArticles.value.find(a => a.id === articleId)
+  if (article) {
+    editingFeeData.value.article_id = article.id
+    editingFeeData.value.name = article.name
+    const price = article.replacement_value ? Number(article.replacement_value) : null
+    editingFeeData.value.default_price = price
+    if (price !== null && editingFeeData.value.amount_from === null) {
+      editingFeeData.value.amount_from = price
     }
   }
 }
@@ -2239,6 +2289,8 @@ function startEditFee(fee) {
     unit: fee.unit || '',
     description: fee.description || '',
     is_active: fee.is_active,
+    article_id: fee.article_id ?? null,
+    default_price: fee.default_price ?? null,
   }
 }
 
@@ -2322,6 +2374,24 @@ async function resetServiceFees() {
     'Reset usług',
     'Resetuj',
   )
+}
+
+// RAO-P1-100: szybki wybór zestawów usług dodatkowych
+const dieselPreset = computed(() => presetPickerList.value.find(p => p.name && /diesel/i.test(p.name)))
+const elektrykPreset = computed(() => presetPickerList.value.find(p => p.name && /elektryk|elektryczny/i.test(p.name)))
+const defaultPreset = computed(() =>
+  presetPickerList.value.find(p => p.is_default) ||
+  presetPickerList.value.find(p => p.name && /domyślny|standardowy|default/i.test(p.name)) ||
+  null
+)
+
+async function applyQuickFeePreset(kind: 'diesel' | 'elektryk' | 'default') {
+  const preset = kind === 'diesel' ? dieselPreset.value : kind === 'elektryk' ? elektrykPreset.value : defaultPreset.value
+  if (!preset) {
+    toastStore.warning(`Nie znaleziono zestawu „${kind}" dla tego typu umowy`)
+    return
+  }
+  await applyPreset(preset)
 }
 
 const showPresetPicker = ref(false)
@@ -2690,5 +2760,50 @@ async function applyPreset(preset) {
   color: var(--color-text-muted);
   padding: var(--spacing-8) 0;
   font-size: var(--font-size-sm);
+}
+
+/* RAO-P1-100: Usługi dodatkowe */
+.fee-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.fee-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.fee-header-right {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+.fee-hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.fee-preview-cell {
+  font-size: var(--font-size-xs);
+}
+.fee-pdf-preview {
+  padding: 8px 0 0 0;
+  background: transparent;
+}
+.fee-pdf-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+}
+.fee-pdf-list {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-body);
+  line-height: 1.4;
+}
+.fee-pdf-line {
+  margin-bottom: 1px;
 }
 </style>
