@@ -357,311 +357,239 @@ component: frontend/AnalyticsView + backend/stats
 
 ---
 
-## \U0001f3d7\ufe0f P1-100 — EPIC: Us\u0142ugi dodatkowe + rozliczenie umowy (cennik)
+## 🏗️ P1-100 — EPIC: Usługi dodatkowe + rozliczenie umowy (cennik) — v2
 
-> **Scalony epic** \u2014 \u0142\u0105czy P1-003, P1-004, P1-005, P1-006, P1-008 (freebie), P1-013, P1-014, P1-015
-> **Uzasadnienie scalenia:** wszystkie taski dotykaj\u0105 tych samych 3 plik\u00f3w (`ContractFormView.vue`, `backend/contracts/models.py`, `backend/reports/templates/contract.html`). Robienie ich osobno = 8\u00d7 merge conflict, 8\u00d7 regresja PDF, 8\u00d7 test tego samego flow umowy. Scalenie = jeden sp\u00f3jny redesign formularza z grid-ed cennikiem.
-> **Analiza \u017ar\u00f3d\u0142owa:** 515 PDF-\u00f3w legacy z `c:\Temp\legacy_pdfs\` (374 umowy najmu N + 141 um\u00f3w us\u0142ug U), 157 unikalnych wariant\u00f3w sekcji "Inne us\u0142ugi" \u2014 pe\u0142na analiza w `temp/legacy_summary.txt`
+> **Scalony epic** — łączy P1-003, P1-004, P1-005, P1-006, P1-008 (freebie), P1-013, P1-014, P1-015
+> **Wersja 2 (2026-07-08)** — po weryfikacji każdego założenia w kodzie. Kluczowa zmiana vs v1: **zero migracji DB w minimalnym scope** — większość infrastruktury już istnieje, epic to głównie UX + seed danych + 4 zmiany w szablonie PDF.
+> **Analiza źródłowa:** 515 PDF-ów legacy z `c:\Temp\legacy_pdfs\` (374 N + 141 U, 157 wariantów "Inne usługi") — `temp/legacy_summary.txt`
 
 ```yaml
 id: P1-100
 status: triaged
 priority: P1
 created: 2026-07-08
-source: client-request (uwagi klienta 2026-07-08) + analiza legacy PDF
-component: frontend/ContractFormView + frontend/ConditionPanel + backend/contracts + backend/settings + backend/articles + backend/reports
+source: client-request (uwagi klienta 2026-07-08) + analiza legacy PDF + weryfikacja kodu
+component: frontend/ContractFormView + frontend/ConditionPanel + backend/reports (contract.html) + seed danych
 subtasks: [P1-003, P1-004, P1-005, P1-006, P1-008, P1-013, P1-014, P1-015]
-classification: cross-stack
-migration_impact: yes
-estimated_complexity: high
+classification: frontend-heavy (backend: seed + PDF template)
+migration_impact: no (minimalny scope) / yes (tylko opcjonalny power_type, P2)
+estimated_complexity: medium
 ```
 
 ### User story
 
-Jako handlowiec (Patrycja), chc\u0119 edytowa\u0107 us\u0142ugi dodatkowe, wide\u0142ki cenowe i warunki rozliczenia **bezpo\u015brednio w widoku umowy** (jak w gridzie Excel), bez przechodzenia przez osobne ekrany/modal, \u017ceby m\u00f3c szybko przygotowa\u0107 umow\u0119 z poprawnym cennikiem diesel/elektryk.
+Jako handlowiec (Patrycja), chcę edytować usługi dodatkowe, widełki cenowe i warunki rozliczenia **bezpośrednio w widoku umowy** (jak w gridzie Excel), bez osobnych ekranów/modali, żeby szybko przygotować umowę z poprawnym cennikiem diesel/elektryk.
 
-### Kontekst z analizy legacy (515 PDF-\u00f3w)
+### Kluczowe odkrycie v2: infrastruktura JUŻ ISTNIEJE
 
-**Sekcja "Inne us\u0142ugi" \u2014 wzorce z 412 um\u00f3w z t\u0105 sekcj\u0105:**
+Weryfikacja kodu obaliła 5 założeń z v1:
 
-| Us\u0142uga | Warianty | Najcz\u0119stsza |
-|--------|----------|-------------|
-| Transport | 111 wariant\u00f3w kwot (100\u20133900 z\u0142, "odbi\u00f3r w\u0142asny", "w cenie us\u0142ugi") | 500 z\u0142 dostawa/odbi\u00f3r (45\u00d7), "odbi\u00f3r w\u0142asny" (43\u00d7) |
-| Czyszczenie (drobne) | 3 warianty | 150\u2013400 z\u0142 (373\u00d7) |
-| Czyszczenie (trudne) | 1 wariant | 400\u20131500 z\u0142 (374\u00d7) |
-| Tankowanie | 2 warianty | 200 z\u0142 (235\u00d7), 150 z\u0142 (139\u00d7) |
-| Przest\u00f3j transportu | 1 wariant (sta\u0142y) | 200\u2013300 z\u0142/h (374\u00d7) |
-| Serwis nieuzasadniony | 1 wariant (sta\u0142y) | 280 z\u0142 + transport (374\u00d7) |
-| Butla gazowa | 3 warianty | 120 z\u0142 (6\u00d7), 100 z\u0142 (2\u00d7), 150 z\u0142 (1\u00d7) |
-| Inne (dodatki operatora, dojazd, wyw\u00f3z gruzu, rolki) | 30 wariant\u00f3w | \u2014 |
+| Założenie v1 | Fakt z kodu (zweryfikowany) |
+|---|---|
+| "Dodać `contracts.days_per_week`" | ❌ **`working_days_per_week` JUŻ ISTNIEJE** (`contracts/models.py:47`, default 6) i **już drukuje się w PDF** (`contract.html:245`: "Ilość dni pracy w tygodniu: {{ working_days_per_week }}") |
+| "Dodać `variant` ENUM na szablonach + endpoint reset?variant=" | ❌ **`FeePresetGroup` już to robi** — diesel/elektryk to **dwa zestawy jako SEED DANYCH**, endpoint `POST /contracts/{id}/service-fees/apply-preset` już istnieje (`contracts/router.py`), `apply_preset_to_contract()` w service już działa |
+| "PDF nie wyrazi tekstów typu 'odbiór własny'" | ❌ **PDF już wspiera pełny override tekstowy** przez `description` (`contract.html:223-230`): jeśli `description` ustawione → drukuje się zamiast kwot. Legacy: "Transport: odbiór własny" (43×), "wycena indywidualna", "(plus koszt paliwa)" — wszystko wyrażalne dziś |
+| "Auto-detekcja power_type jako rdzeń feature" | ❌ Klient napisał wprost: **"Wybór przez operatora (Patrycję)"**. Auto-detekcja = over-engineering. Najwyżej pre-selekcja sugerowana (P2) |
+| "Usunąć kolumnę Opis z gridu" (sugestia UX) | ❌ **Błąd** — `description` to jedyny sposób na wartości tekstowe. Legacy dowodzi że są niezbędne. Kolumnę trzeba **przemianować i wyjaśnić**, nie usuwać |
 
-**Wniosek:** Transport jest najbardziej zmienny (111 wariant\u00f3w) \u2014 musi by\u0107 w pe\u0142ni edytowalny. Pozosta\u0142e us\u0142ugi maj\u0105 1\u20133 warianty \u2014 mog\u0105 mie\u0107 defaulty ale z override. **Brak przegl\u0105du "diesel vs elektryk"** w legacy (przegl\u0105d nie pojawia si\u0119 wcale w PDF-ach!) \u2014 to jest **nowe wymaganie** klienta (P1-006).
+**Co FAKTYCZNIE brakuje (zweryfikowana luka):**
+1. Brak zestawów diesel/elektryk w danych (`fee_preset_groups`) — **seed, nie kod**
+2. Preset-picker i edycja warunków są w **modalach** — klient chce inline grid
+3. Grid nie tłumaczy Patrycji mechaniki `description`-override — zły UX dla wartości tekstowych
+4. Tekst "Ilość dni pracy w tygodniu: X" w PDF ma złe brzmienie (P1-004 chce "Naliczanie: X dni w tygodniu (pozostałe dni według zapisu GPS)")
+5. OWN pkt 8b hardcoded ze starym tekstem (`contract.html:330` — tylko umowa najmu; `contract_u.html` ma inny §8, **nie dotyczy**)
+6. Nagłówek kolumny PDF w 1 linii (P1-008)
+7. Przedpłata na górze umowy (P1-014)
+8. Nr wewnętrzny widoczny w trybie usługi (P1-013)
 
-**Rozliczenie (cennik) \u2014 wzorce z 374 um\u00f3w N:**
-- Kaskadowe stawki dobowe: "1-3 dni - 540 z\u0142/doba, 4-16 dni - 410 z\u0142/doba, powy\u017cej 16 dni - 350 z\u0142/doba"
-- 127 unikalnych wariant\u00f3w rozliczenia \u2014 ka\u017cda maszyna ma w\u0142asny cennik
+### Kontekst z analizy legacy (515 PDF-ów) — wnioski projektowe
 
-**Rozliczenie us\u0142ug (141 um\u00f3w U):**
-- "do 2 godzin - 1600 z\u0142, ka\u017cda kolejna 200 z\u0142" (w\u00f3zek wid\u0142owy)
-- "do 8 godzin - 4700 z\u0142, ka\u017cda kolejna 300 z\u0142" (\u0142adowarka obrotowa 18m)
-- "110 z\u0142/godzina" (us\u0142uga operatorska)
+| Usługa | Zmienność | Wniosek projektowy |
+|--------|-----------|--------------------|
+| Transport | **111 wariantów** (100–3900 zł, "odbiór własny" 43×, "w cenie usługi", "zamiana maszyn", per-maszyna "Transport Ładowarka:") | Kwota ZAWSZE edytowana per umowa; często tekst zamiast kwoty → grid musi mieć łatwy tryb tekstowy |
+| Czyszczenie drobne/trudne | 1–3 warianty (150–400 / 400–1500) | Stałe defaulty z zestawu, rzadko edytowane |
+| Tankowanie | 2 warianty (150/200 zł "+ koszt paliwa") | Default z zestawu; suffix "(plus koszt paliwa)" = tekst w description |
+| Przestój, serwis | 1 wariant każdy (200–300 zł/h; 280 zł) | Stałe, nigdy nie edytowane — idealni kandydaci na zestaw |
+| Butla gazowa, wywóz gruzu, rolki, zawiesia, dodatki operatora | 30 wariantów ad-hoc | Dodawane ręcznie z artykułów-usług lub wpisywane; zestaw ich NIE zawiera |
+| **Przegląd diesel/elektryk** | **0× w legacy!** | To NOWE wymaganie klienta — nie ma wzorca w legacy, defaulty tylko z uwag klienta (diesel 150, elektryk 90) |
 
-### Stan obecny kodu (co ju\u017c jest)
+**Rozliczenie (cennik):** 127 unikalnych wariantów kaskad ("1-3 dni - 540/doba, 4-16 - 410, powyżej 16 - 350"; usługi: "do 2 godzin - 1600, każda kolejna 200"). Model `position_conditions` **już wyraża dowolne przedziały** (period_count jest dowolnym int) — P1-005 to problem czysto UX-owy (modal + niezrozumiałe pola), nie danych.
 
-| Element | Status | Plik |
-|---------|--------|------|
-| `ContractServiceFee` model | \u2705 Istnieje (id, contract_id, sort_order, name, amount_from, amount_to, unit, description, is_active, article_id, default_price) | `backend/contracts/models.py:99` |
-| `ServiceFeeTemplate` (szablon) | \u2705 Istnieje | `backend/settings/models.py:46` |
-| `FeePresetGroup` (zestaw szablon\u00f3w) | \u2705 Istnieje | `backend/settings/models.py:32` |
-| `ArticleRatePreset` (cennik per maszyna) | \u2705 Istnieje | `backend/settings/models.py:123` |
-| `ArticleRatePresetItem` (warunek w cenniku) | \u2705 Istnieje | `backend/settings/models.py:152` |
-| Endpointy CRUD service-fees | \u2705 Istniej\u0105 (list/create/update/delete/reorder/reset/apply-preset) | `backend/contracts/router.py:254-315` |
-| Grid "Inne us\u0142ugi" inline | \u2705 Istnieje (Excel-style: click\u2192edit, Enter/Esc) | `frontend/src/views/ContractFormView.vue:266-339` |
-| `ConditionPanel.vue` (cennik) | \u26a0\ufe0f Ma modal do edycji \u2014 **do zamiany na inline grid** | `frontend/src/components/contracts/ConditionPanel.vue` |
-| Reset do szablonu | \u2705 Jest \u2014 ale **jeden sztywny zestaw**, nie rozr\u00f3\u017cnia diesla/elektryka | `backend/contracts/service.py:673` |
-| `copy_fee_templates()` przy tworzeniu umowy | \u2705 Kopiuje szablony `ServiceFeeTemplate` wg `contract_type` (S/U) | `backend/contracts/service.py:49` |
-| `article.power_type` (diesel/elektryk) | \u274c **Brak pola** \u2014 trzeba doda\u0107 | `backend/articles/models.py` |
-| Warianty diesel/elektryk w szablonach | \u274c **Brak** \u2014 `ServiceFeeTemplate` nie ma pola `variant` | `backend/settings/models.py` |
-| OWN (Og\u00f3lne Warunki Najmu) | \u26a0\ufe0f **Hardcoded w HTML** (`contract.html`) \u2014 P1-015 wymaga zmiany kodu | `backend/reports/templates/contract.html:281-420` |
-| `contract.days_per_week` (5/6/7) | \u274c **Brak pola** \u2014 trzeba doda\u0107 | `backend/contracts/models.py` |
+### Architektura v2 (minimalna, na istniejącej infrastrukturze)
 
-### Architektura docelowa (Tech Lead)
+#### A. Diesel/elektryk = dwa zestawy `FeePresetGroup` (SEED danych, zero zmian schema)
 
-#### 1. Nowe pola DB (migracja deterministyczna)
+Seed (idempotentny, w startup lub skrypcie seed):
 
-**`articles.power_type`** (P1-006 auto-detekcja):
-```sql
-ALTER TABLE articles ADD COLUMN IF NOT EXISTS power_type ENUM('diesel','electric','other')
-  NOT NULL DEFAULT 'other' COMMENT 'Typ zasilania maszyny dla auto-wariantu us\u0142ug dodatkowych';
 ```
-- Warto\u015bci: `diesel` | `electric` | `other`
-- Default: `other` (bezpieczne dla istniej\u0105cych danych)
-- UI: dropdown w `ArticleFormView.vue` (3 opcje)
-- Migracja legacy: heurystyka po nazwie artyku\u0142u (`LIKE '%spalinowy%'` \u2192 diesel, `LIKE '%elektryczny%'` \u2192 electric, reszta \u2192 other)
+FeePresetGroup: "Najem — Diesel" (contract_type=S, is_default=True)
+  ├─ Transport: 1200 / 1200 zł (amount_from/to; opis dostawa/odbiór w description)
+  ├─ Przegląd techniczny i czyszczenie maszyny: 150 zł
+  ├─ Czyszczenie maszyny (zabrudzenia ponadnormatywne): description="wycena indywidualna"
+  ├─ Usługa tankowania: 200 zł, description="200,00 zł (plus koszt paliwa)"
+  ├─ Ponadnormatywny przestój transportu: 200–300, unit="zł/h"
+  └─ Nieuzasadnione wezwanie serwisowe: 280 zł, description="280,00 zł (plus transport)"
 
-**`contracts.days_per_week`** (P1-003):
-```sql
-ALTER TABLE contracts ADD COLUMN IF NOT EXISTS days_per_week TINYINT UNSIGNED
-  NOT NULL DEFAULT 5 COMMENT 'Liczba dni wynajmu w tygodniu (5/6/7) dla naliczania';
-```
-- Warto\u015bci: 5 | 6 | 7
-- Default: 5 (najcz\u0119stsze w legacy \u2014 "Ilo\u015b\u0107 dni pracy w tygodniu: 6" pojawia si\u0119 w 80% PDF-\u00f3w, ale klient chce domy\u015blnie 5 wg P1-004)
-- UI: segmented control w sekcji rozliczenia (3 przyciski: 5 / 6 / 7)
-- Wp\u0142ywa na: tekst w sekcji Uwagi PDF ("Naliczanie: 5 dni w tygodniu (pozosta\u0142e dni wed\u0142ug zapisu GPS)")
-
-**`service_fee_templates.variant`** (P1-006 warianty szablon\u00f3w):
-```sql
-ALTER TABLE service_fee_templates ADD COLUMN IF NOT EXISTS variant ENUM('diesel','electric','common','custom')
-  NOT NULL DEFAULT 'common' COMMENT 'Wariant us\u0142ug: diesel/elektryk/common (wsp\u00f3lny)/custom';
-```
-- `common` \u2014 us\u0142ugi wsp\u00f3lne dla obu wariant\u00f3w (transport, tankowanie, przest\u00f3j, serwis, czyszczenie)
-- `diesel` \u2014 us\u0142ugi specyficzne dla diesla (przegl\u0105d 150 z\u0142, nazwa "Przegl\u0105d techniczny i czyszczenie maszyny")
-- `electric` \u2014 us\u0142ugi specyficzne dla elektryka (przegl\u0105d 90 z\u0142, nazwa "Przegl\u0105d techniczny, \u0142adowanie akumulator\u00f3w oraz czyszczenie maszyny")
-- `custom` \u2014 us\u0142ugi niestandardowe (butla gazowa, wyw\u00f3z gruzu, rolki, itp.)
-- Reset context-aware: \u0142aduje `common` + `diesel` LUB `common` + `electric` w zale\u017cno\u015bci od wariantu
-
-#### 2. Decyzja: NIE tworzymy osobnego modelu `ServiceFeeVariantGroup`
-
-Zamiast tego:
-- `ServiceFeeTemplate.variant` (ENUM) wystarczy
-- Reset: `SELECT * FROM service_fee_templates WHERE contract_type=? AND is_active=1 AND (variant='common' OR variant=?)` \u2014 drugi `?` = auto-detekcja z pozycji umowy LUB r\u0119czny wyb\u00f3r operatora
-- Endpoint: `POST /contracts/{id}/service-fees/reset?variant=diesel|electric|custom`
-
-#### 3. Auto-detekcja wariantu z pozycji umowy
-
-**Logika (backend, `contracts/service.py`):**
-```python
-async def detect_variant_from_positions(db, contract_id) -> str:
-    """Auto-detekcja wariantu diesel/elektryk z pierwszej pozycji sprz\u0119tu."""
-    positions = await db.execute(
-        select(ContractPosition)
-        .join(Article, ContractPosition.article_id == Article.id)
-        .where(ContractPosition.contract_id == contract_id)
-        .where(Article.is_service == False)  # tylko sprz\u0119t, nie us\u0142ugi
-        .order_by(ContractPosition.sort_order)
-        .limit(1)
-    )
-    pos = positions.scalars().first()
-    if not pos or not pos.article:
-        return "custom"
-    return pos.article.power_type or "other"  # 'diesel'|'electric'|'other'
+FeePresetGroup: "Najem — Elektryk" (contract_type=S)
+  └─ jak wyżej, ale: "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny: 90 zł"
 ```
 
-**Kiedy wywo\u0142a\u0107:**
-- Po dodaniu pierwszej pozycji sprz\u0119tu do nowej umowy \u2192 auto-apply zestawu (je\u015bli brak service_fees)
-- Po usuni\u0119ciu ostatniej pozycji sprz\u0119tu \u2192 NIE auto-reset (zachowaj r\u0119czne zmiany)
-- Przy edycji istniej\u0105cej umowy \u2192 **NIGDY** auto-apply (zachowaj r\u0119czne zmiany)
+- Każda pozycja zestawu linkuje `article_id` do artykułu-usługi (`is_service=1`) — zgodnie ze spec `core/25_uslugi_dodatkowe` ("nie stringi tylko matchowane z artykułami usługi"). Seed tworzy brakujące artykuły-usługi (Transport, Przegląd diesel, Przegląd elektryk, Tankowanie, ...).
+- Wybór wariantu w UI = wywołanie istniejącego `apply-preset?preset_id=X&replace=true` z potwierdzeniem. **Zero nowego backendu.**
+- `copy_fee_templates()` przy tworzeniu umowy zostaje bez zmian (kopiuje default) — dropdown wariantu podmienia zestaw świadomie, na życzenie operatora.
 
-#### 4. OWN \u2014 wyci\u0105gni\u0119cie do edytowalnego szablonu (P1-015)
+#### B. Wartości tekstowe — UX nad istniejącym `description`
 
-**Obecnie:** OWN jest hardcoded w `contract.html` (Jinja2 template, ~140 linii HTML).
-**Decyzja architektoniczna:** NIE wyci\u0105gamy ca\u0142ego OWN do DB (to prawniczy tekst, rzadko si\u0119 zmienia). Zamiast:
-- **Opcja A (prostsza, rekomendowana):** Zmiana tekstu pkt 8b bezpo\u015brednio w `contract.html` (1 commit, 5 minut)
-- **Opcja B (przysz\u0142o\u015b\u0107):** Wyci\u0105gni\u0119cie OWN do `settings.own_text` (TEXT field) + rendering przez Jinja2 `{{ own_text|safe }}` \u2014 ale to scope creep, **odk\u0142adamy na P2**
+Mechanika już działa (PDF: `description` override). Luka = grid. Zmiana w gridzie "Usługi dodatkowe":
+- Kolumnę "Opis" przemianować na **"Tekst na umowie (zamiast kwot)"** + tooltip: "Jeśli wypełnione — na PDF drukuje się ten tekst zamiast kwot. Np. «Transport: odbiór własny», «wycena indywidualna»"
+- Kolumna **"Podgląd PDF"** (live, read-only) — pokazuje dokładnie linię jaka wyjdzie na umowie (ta sama logika co Jinja: description || auto-format). Patrycja widzi efekt bez generowania PDF
+- Combobox artykułów-usług także przy edycji istniejącego wiersza (dziś tylko w nowym)
 
-**Implementacja P1-015:** Opcja A \u2014 edycja `contract.html` linia ~360 (pkt 8b), zmiana tekstu na:
+#### C. Dni w tygodniu (P1-003 + P1-004) — pole już jest, brakuje UI + brzmienia
+
+- `working_days_per_week` istnieje (default 6). **Sprawdzić czy formularz umowy eksponuje pole** — jeśli nie, dodać segmented control [5][6][7] w sekcji pozycji/rozliczenia
+- `contract.html:245` — zmienić brzmienie na: `Naliczanie: {{ working_days_per_week }} dni w tygodniu (pozostałe dni według zapisu GPS)` (P1-004, dokładne brzmienie z uwagi klienta)
+- Uwaga: linia drukuje się tylko gdy `contract.notes` puste (else-branch) — zdecydować czy linia naliczania ma być ZAWSZE (rekomendacja: tak, wynieść przed `{% if notes %}`)
+
+#### D. Cennik rozliczenia (P1-005) — czysty UX, zero backendu
+
+Model `position_conditions` już wyraża dowolne widełki. Zmiany tylko w `ConditionPanel.vue`:
+- Usunąć modal edycji → inline grid (klik wiersz = edycja, Enter/Esc)
+- Kolumny: # | Od–Do (okresy) | Stawka | Jednostka | Min. | **Podgląd PDF (live)**
+- Walidacja ciągłości przedziałów inline ("Luka między 3 a 5 — ustaw Od = 4")
+- "Zastosuj cennik" (ArticleRatePreset) → inline dropdown zamiast modala
+- "Z ostatniej umowy" — zostaje (działa)
+
+#### E. Zmiany w `contract.html` (4 punktowe edycje)
+
+1. **OWN pkt 8b** (linia 330) — nowy tekst z uwagi klienta (stawka 250 zł netto/rozpoczęta rg + materiały). Zweryfikowano: klauzula jest TYLKO w `contract.html` (najem); `contract_u.html` ma inny §8 — nie dotykać
+2. **Sekcja Uwagi** (linia 245) — brzmienie "Naliczanie: X dni w tygodniu (pozostałe dni według zapisu GPS)" (pkt C)
+3. **Nagłówek "Przewidywana ilość dni najmu"** — złamanie na 2 linie (`Przewidywana<br>ilość dni najmu`) (P1-008)
+4. **Przedpłata** — przenieść z góry na dół (sekcja rozliczenia/podpisów) (P1-014); równolegle w formularzu przenieść pole niżej
+
+#### F. Tryb usługi (P1-013) — frontend only
+
+Ukryć pole "nr wewnętrzny" gdy `contract_type === 'U'` w `ContractFormView.vue`.
+
+#### G. OPCJONALNIE / P2 (nie blokuje epica)
+
+- `articles.power_type` ENUM — tylko jako **pre-selekcja sugerowanego zestawu** w dropdownie wariantu (nigdy silent auto-apply). Jedyna migracja w całym epicu — odłożona do P2
+- Wyciągnięcie całego OWN do `settings.own_text` — P2-001 (już w backlogu)
+
+### Kolejność sekcji na formularzu (UX, "od pierwsze do drugie")
+
 ```
-b) Zwrotu zabrudzonego Przedmiotu Najmu, w przypadku kt\u00f3rego Najemca zostanie obci\u0105\u017cony
-   kosztami jego czyszczenia po ocenie stanu czysto\u015bci zwracanego Sprz\u0119tu. Rozliczenie
-   koszt\u00f3w czyszczenia nast\u0105pi wed\u0142ug stawki 250,00 z\u0142 netto za ka\u017cd\u0105 rozpocz\u0119t\u0105
-   roboczogodzin\u0119 oraz koszt\u00f3w materia\u0142\u00f3w, \u015brodk\u00f3w czyszcz\u0105cych i eksploatacyjnych
-   niezb\u0119dnych do usuni\u0119cia zabrudze\u0144 i przywr\u00f3cenia Przedmiotu Najmu do stanu czysto\u015bci
-   z dnia jego wydania.
+1. Dane podstawowe (typ, numer, okres)
+2. Kontrahent i adres
+3. Pozycje umowy (CO wynajmujemy)
+   └─ Cennik rozliczenia (ZA ILE) — inline grid pod wybraną pozycją
+4. Usługi dodatkowe (CO DODATKOWO)
+   └─ [Zestaw: Najem — Diesel ▾] [↻ Reset] [+ Dodaj]   ← dropdown zestawu inline, nie modal
+5. Rozliczenie umowy (finanse)
+   └─ Dni w tygodniu: [5][6][7] · Przedpłata (przeniesiona z góry)
+6. Uwagi
 ```
-
-#### 5. Frontend \u2014 grid inline (bez modali)
-
-**Kluczowa zasada klienta:** "MA NIE BY\u0106 \u017cadnych dodatkowych screen\u00f3w/modali \u2014 wszystko edytowane jakby w gridzie z widoku umowy"
-
-**Zmiany w `ContractFormView.vue`:**
-1. **Sekcja "Inne us\u0142ugi"** (ju\u017c jest grid inline \u2705) \u2014 rozbudowa\u0107 o:
-   - Dropdown "Wariant: Diesel/Elektryk/Inny" w nag\u0142\u00f3wku sekcji
-   - Auto-apply zestawu po dodaniu pierwszej pozycji sprz\u0119tu (nowa umowa)
-   - Combobox z artyku\u0142ami-us\u0142ugami w edycji istniej\u0105cego wiersza (nie tylko nowy)
-   - Kolumna \u2191\u2193 (kolejno\u015b\u0107) \u2014 backend `sort_order` ju\u017c jest
-   - Usun\u0105\u0107 kolumn\u0119 "Opis" (dubluje si\u0119 z Nazwa) \u2014 opis auto-generowany z Nazwa+Kwota+J.m.
-   - Podgl\u0105d PDF live pod gridem
-
-2. **Sekcja "Cennik rozliczenia"** (`ConditionPanel.vue`) \u2014 **usun\u0105\u0107 modal**, zamieni\u0107 na inline grid:
-   - Kolumny: # | Przedzia\u0142 (Od/Do) | Stawka | J.m. | Min. | Podgl\u0105d PDF (live)
-   - Walidacja ci\u0105g\u0142o\u015bci przedzia\u0142\u00f3w (inline error: "Luka mi\u0119dzy 3 a 5")
-   - "Zastosuj cennik" \u2192 inline dropdown (nie modal) z list\u0105 `ArticleRatePreset`
-   - "Z ostatniej umowy" \u2192 zostaje (ju\u017c dzia\u0142a)
-
-3. **Sekcja rozliczenia** \u2014 doda\u0107:
-   - Segmented control "Dni w tygodniu: [5] [6] [7]" (P1-003)
-   - Przedp\u0142ata przeniesiona z g\u00f3ry na d\u00f3\u0142 (P1-014)
-   - Pole "nr wewn\u0119trzny" ukryte w trybie us\u0142uga (P1-013)
-
-4. **Kolejno\u015b\u0107 sekcji na formularzu** (od g\u00f3ry do do\u0142u):
-   ```
-   1. Dane podstawowe (typ, numer, okres)
-   2. Kontrahent i adres
-   3. Warunki finansowe (handlowiec) \u2014 BEZ przedp\u0142aty (P1-014)
-   4. Pozycje umowy (CO wynajmujemy)
-      \u2514\u2500 Cennik rozliczenia (ZA ILE \u2014 wide\u0142ki, inline grid)  \u2190 PRZENIE\u015a\u0106 z modala
-   5. Inne us\u0142ugi (CO DODATKOWO \u2014 transport, przegl\u0105d, tankowanie)
-      \u2514\u2500 Wariant: Diesel/Elektryk dropdown
-   6. Rozliczenie umowy (KOSZT vs KOSZT FIRMY)
-      \u2514\u2500 Dni w tygodniu: 5/6/7 (P1-003)
-      \u2514\u2500 Przedp\u0142ata (P1-014 \u2014 przeniesiona z g\u00f3ry)
-   7. Uwagi (tekst swobodny na PDF)
-   ```
-
-#### 6. PDF umowy \u2014 zmiany szablonu (`contract.html`)
-
-**Sekcja "Inne us\u0142ugi"** (linia 219) \u2014 ju\u017c renderuje z `fees` (ContractServiceFee) \u2705. Zmiany:
-- Auto-generowanie tekstu z `name + amount_from + amount_to + unit` (je\u015bli `description` puste)
-- Format: `- {name}: {amount_from} z\u0142 - {amount_to} z\u0142 {unit}` (z wide\u0142kami)
-- Format (sta\u0142a): `- {name}: {amount_from} z\u0142` (bez `amount_to`)
-- Format (wycena indywidualna): `- {name}: wycena indywidualna` (je\u015bli obie kwoty puste)
-
-**Sekcja "Uwagi"** (P1-004) \u2014 doda\u0107 lini\u0119:
-```
-- Naliczanie: {{ contract.days_per_week }} dni w tygodniu (pozosta\u0142e dni wed\u0142ug zapisu GPS)
-```
-Zamiast sztywnego "5" \u2014 warto\u015b\u0107 z `contract.days_per_week`.
-
-**Sekcja OWN pkt 8b** (P1-015) \u2014 zmiana tekstu (patrz pkt 4 wy\u017cej).
-
-**Nag\u0142\u00f3wek kolumny "Przewidywana ilo\u015b\u0107 dni najmu"** (P1-008 freebie) \u2014 CSS `white-space: normal` + `max-width` \u017ceby \u0142ama\u0142 si\u0119 na 2 linie:
-```html
-<th style="white-space: normal; max-width: 80px;">Przewidywana<br>ilo\u015b\u0107 dni najmu</th>
-```
-
-**Przedp\u0142ata** (P1-014) \u2014 przenie\u015b\u0107 z g\u00f3ry umowy na d\u00f3\u0142 (sekcja rozliczenia).
 
 ### Definition of Done
 
-**Backend / DB:**
-- [ ] `articles.power_type` (ENUM diesel/electric/other, default 'other') \u2014 migracja + heurystyka legacy
-- [ ] `contracts.days_per_week` (TINYINT, default 5) \u2014 migracja
-- [ ] `service_fee_templates.variant` (ENUM diesel/electric/common/custom, default 'common') \u2014 migracja
-- [ ] Seed: szablony `common` (transport, czyszczenie\u00d72, tankowanie, przest\u00f3j, serwis) + `diesel` (przegl\u0105d 150 z\u0142) + `electric` (przegl\u0105d 90 z\u0142)
-- [ ] `detect_variant_from_positions()` w `contracts/service.py`
-- [ ] Endpoint `POST /contracts/{id}/service-fees/reset?variant=diesel|electric|custom` \u2014 reset context-aware
-- [ ] Endpoint `POST /contracts/{id}/service-fees/auto-apply-variant` \u2014 auto-apply po dodaniu pozycji
-- [ ] `contract.html` \u2014 zmiana OWN pkt 8b (P1-015)
-- [ ] `contract.html` \u2014 sekcja Uwagi z `days_per_week` (P1-004)
-- [ ] `contract.html` \u2014 nag\u0142\u00f3wek "Przewidywana ilo\u015b\u0107 dni najmu" w 2 liniach (P1-008)
-- [ ] `contract.html` \u2014 przedp\u0142ata na dole (P1-014)
-- [ ] `contract.html` \u2014 auto-generowanie tekstu "Inne us\u0142ugi" z name+amount+unit
+**Seed / dane:**
+- [ ] Artykuły-usługi (is_service=1): Transport, Przegląd (diesel), Przegląd (elektryk), Czyszczenie ponadnormatywne, Tankowanie, Przestój transportu, Wezwanie serwisowe — idempotentny seed
+- [ ] `FeePresetGroup` "Najem — Diesel" (is_default) + "Najem — Elektryk", pozycje z article_id + kwoty/teksty jak w uwagach klienta (diesel 150, elektryk 90)
+
+**PDF (`contract.html` — 4 edycje):**
+- [ ] OWN 8b: nowy tekst 250 zł/rg + materiały (P1-015)
+- [ ] Uwagi: "Naliczanie: {{working_days_per_week}} dni w tygodniu (pozostałe dni według zapisu GPS)" (P1-004), drukowana zawsze
+- [ ] Nagłówek kolumny w 2 liniach (P1-008)
+- [ ] Przedpłata na dole umowy (P1-014)
 
 **Frontend:**
-- [ ] `ArticleFormView.vue` \u2014 dropdown `power_type` (diesel/electric/other)
-- [ ] `ContractFormView.vue` \u2014 dropdown "Wariant: Diesel/Elektryk/Inny" w sekcji "Inne us\u0142ugi"
-- [ ] `ContractFormView.vue` \u2014 auto-apply zestawu po dodaniu pierwszej pozycji sprz\u0119tu (nowa umowa)
-- [ ] `ContractFormView.vue` \u2014 combobox z artyku\u0142ami-us\u0142ugami w edycji istniej\u0105cego wiersza
-- [ ] `ContractFormView.vue` \u2014 kolumna \u2191\u2193 (kolejno\u015b\u0107) w "Inne us\u0142ugi"
-- [ ] `ContractFormView.vue` \u2014 usun\u0105\u0107 kolumn\u0119 "Opis" (auto-generowany)
-- [ ] `ContractFormView.vue` \u2014 podgl\u0105d PDF live pod gridem
-- [ ] `ContractFormView.vue` \u2014 segmented control "Dni w tygodniu: 5/6/7" (P1-003)
-- [ ] `ContractFormView.vue` \u2014 przedp\u0142ata przeniesiona na d\u00f3\u0142 (P1-014)
-- [ ] `ContractFormView.vue` \u2014 pole "nr wewn\u0119trzny" ukryte w trybie us\u0142uga (P1-013)
-- [ ] `ContractFormView.vue` \u2014 preset-picker jako inline dropdown (nie modal)
-- [ ] `ConditionPanel.vue` \u2014 **usun\u0105\u0107 modal**, zamieni\u0107 na inline grid
-- [ ] `ConditionPanel.vue` \u2014 kolumna "Podgl\u0105d na PDF" (live)
-- [ ] `ConditionPanel.vue` \u2014 walidacja ci\u0105g\u0142o\u015bci przedzia\u0142\u00f3w (inline error)
-- [ ] `ConditionPanel.vue` \u2014 "Zastosuj cennik" jako inline dropdown (nie modal)
+- [ ] `ContractFormView`: dropdown zestawu (Diesel/Elektryk/inne presety) inline w nagłówku sekcji — wywołuje istniejący apply-preset z potwierdzeniem (diff: co się zmieni)
+- [ ] `ContractFormView`: kolumna "Tekst na umowie (zamiast kwot)" z tooltipem + kolumna "Podgląd PDF" live
+- [ ] `ContractFormView`: combobox artykułów-usług także przy edycji wiersza
+- [ ] `ContractFormView`: segmented control dni/tyg [5][6][7] (jeśli pole nie jest już eksponowane)
+- [ ] `ContractFormView`: przedpłata przeniesiona na dół formularza
+- [ ] `ContractFormView`: nr wewnętrzny ukryty w trybie U (P1-013)
+- [ ] `ConditionPanel`: modal → inline grid + walidacja ciągłości + podgląd PDF live + preset-dropdown inline (P1-005)
 
 **Weryfikacja:**
-- [ ] E2E: nowa umowa diesel \u2192 auto-apply zestaw diesel (przegl\u0105d 150 z\u0142) \u2192 edytuj kwot\u0119 inline \u2192 PDF poprawny
-- [ ] E2E: nowa umowa elektryk \u2192 auto-apply zestaw elektryk (przegl\u0105d 90 z\u0142) \u2192 zmiana nazwy przegl\u0105du
-- [ ] E2E: zmiana wariantu diesel\u2192elektryk \u2192 modal potwierdzenia z diff \u2192 tylko przegl\u0105d si\u0119 zmienia
-- [ ] E2E: wybierz 6 dni/tyg \u2192 PDF "Uwagi" pokazuje "6 dni w tygodniu"
-- [ ] E2E: umowa us\u0142ugi (typ U) \u2192 brak "nr wewn\u0119trznego" \u2192 brak auto-apply zestawu
-- [ ] E2E: PDF umowy \u2014 przedp\u0142ata na dole, OWN pkt 8b z 250 z\u0142/rg, nag\u0142\u00f3wek kolumny w 2 liniach
+- [ ] E2E: nowa umowa → zestaw Diesel default → zmiana na Elektryk → tylko przegląd się zmienia (150→90 + nazwa) → PDF poprawny
+- [ ] E2E: transport → wpisz tekst "odbiór własny" w kolumnie tekstowej → PDF drukuje "- Transport: odbiór własny"
+- [ ] E2E: dni/tyg = 6 → PDF "Naliczanie: 6 dni w tygodniu (pozostałe dni według zapisu GPS)"
+- [ ] E2E: cennik — dodaj przedział 1-3/4-16/powyżej 16 inline → podgląd zgodny z PDF
+- [ ] E2E: umowa U → brak pola nr wewnętrzny
+- [ ] PDF diff vs legacy: porównać wygenerowaną umowę z `c:\Temp\legacy_pdfs\S1_2026_N.pdf` (sekcje Inne usługi + Uwagi)
 - [ ] Smoke: `e2e/tests/01-login.spec.ts` PASS
-- [ ] `git diff spec/core/` niepusty (01_database, 02_backend_api, 03_frontend_screens, 04_business_logic)
+- [ ] Spec sync: 02_backend_api (seed), 03_frontend_screens, 04_business_logic; 01_database TYLKO jeśli P2 power_type wejdzie
 
 **Security DoD:**
-- [ ] Nowe endpointy maj\u0105 `Depends(get_current_user)`
-- [ ] Endpointy z `{contract_id}` w \u015bcie\u017cce: test IDOR (user A nie modyfikuje umowy user B)
-- [ ] Pydantic schemas z constraints na `days_per_week` (5\u20137), `power_type` (enum), `variant` (enum)
-- [ ] Brak `v-html` na user-input w podgl\u0105dzie PDF live
+- [ ] apply-preset i service-fees mają już `Depends(get_current_user)` — potwierdzić testem IDOR na `{contract_id}`
+- [ ] Brak `v-html` w podglądzie PDF live (renderować jako text)
 
-### Czerwone flagi (do weryfikacji z klientem PRZED implementacj\u0105)
+### Czerwone flagi — pytania do klienta PRZED implementacją
 
-\u26a0\ufe0f **P1-005 "operator definiuje przedzia\u0142y"** \u2014 czy Patrycja chce **dodawa\u0107/usuwa\u0107 przedzia\u0142y** wide\u0142ek, czy tylko **edytowa\u0107 kwoty w obecnych**? Je\u015bli to drugie \u2192 uproszczenie o 60% scope (nie trzeba add/delete przedzia\u0142\u00f3w, tylko edit stawek).
+⚠️ **P1-005:** czy Patrycja chce dodawać/usuwać przedziały widełek, czy tylko edytować kwoty w istniejących? (model wspiera oba — pytanie o UI)
+⚠️ **P1-003:** wybór dni/tyg statyczny (info na PDF) czy wpływa na naliczanie w rozliczeniu? Legacy sugeruje statyczny (naliczanie wg GPS) — przyjęto statyczny, potwierdzić
+⚠️ **Trzy różne stawki czyszczenia** to różne byty — nie łączyć: przegląd+czyszczenie (150/90, zestaw), czyszczenie ponadnormatywne ("wycena indywidualna", zestaw), OWN 8b (250 zł/rg, tekst prawny)
+⚠️ **Default dni/tyg:** kod ma 6, uwaga klienta pokazuje przykład z 5 — potwierdzić domyślną wartość
 
-\u26a0\ufe0f **P1-003 "5/6/7 dni"** \u2014 czy to wyb\u00f3r przy tworzeniu umowy (static) czy zmiana w trakcie trwania (dynamic, wp\u0142ywa na rozliczenie ju\u017c naliczonych dni)? Static = proste pole + tekst PDF. Dynamic = przeliczenie ca\u0142ego rozliczenia \u2014 drastycznie wi\u0119kszy scope.
+### Podział na subtaski (kolejność)
 
-\u26a0\ufe0f **P1-006 + P1-015 musz\u0105 by\u0107 projektowane wsp\u00f3lnie** \u2014 czyszczenie maszyny pojawia si\u0119 w "Inne us\u0142ugi" (150\u2013400 z\u0142 drobne, 400\u20131500 z\u0142 trudne) i w OWN 8b (250 z\u0142/rg). To **trzy r\u00f3\u017cne stawki za trzy r\u00f3\u017cne sytuacje** (przegl\u0105d vs drobne vs trudne vs ponadnormatywne rg). Nie po\u0142\u0105czy\u0107 w jedn\u0105 pozycj\u0119.
-
-\u26a0\ufe0f **"Edycja jakby w gridzie"** \u2014 constraint na architektur\u0119 frontendu. NIE budowa\u0107 osobnego screena "Edytor cennika". Wszystko inline w `ContractFormView`.
-
-### Podzia\u0142 na subtaski (kolejno\u015b\u0107 implementacji)
-
-| # | Subtask | Stack | Zale\u017cno\u015bci |
+| # | Subtask | Stack | Zależności |
 |---|---------|-------|------------|
-| 1 | Migracja DB: `power_type`, `days_per_week`, `variant` + seed szablon\u00f3w | DB | \u2014 |
-| 2 | Backend: `detect_variant_from_positions()` + endpointy reset/auto-apply | Backend | 1 |
-| 3 | Backend: `contract.html` zmiany (OWN 8b, Uwagi days_per_week, nag\u0142\u00f3wek 2 linie, przedp\u0142ata d\u00f3\u0142, auto-tekst Inne us\u0142ugi) | Backend | 1 |
-| 4 | Frontend: `ArticleFormView` \u2014 dropdown `power_type` | Frontend | 1 |
-| 5 | Frontend: `ContractFormView` \u2014 wariant dropdown + auto-apply + combobox + kolejno\u015b\u0107 + podgl\u0105d PDF | Frontend | 2 |
-| 6 | Frontend: `ContractFormView` \u2014 segmented control dni/tyg + przedp\u0142ata d\u00f3\u0142 + nr wewn. ukryty | Frontend | 1 |
-| 7 | Frontend: `ConditionPanel` \u2014 inline grid (usun\u0105\u0107 modal) + walidacja ci\u0105g\u0142o\u015bci + podgl\u0105d PDF | Frontend | \u2014 |
-| 8 | Frontend: preset-picker inline dropdown (nie modal) | Frontend | 5 |
-| 9 | E2E: scenariusze diesel/elektryk/us\u0142uga/dni-tyg/zmiana-wariantu | QA | 1-8 |
-| 10 | Spec sync: 01_database, 02_backend_api, 03_frontend_screens, 04_business_logic | Tech Lead | 1-9 |
+| 1 | Seed: artykuły-usługi + 2 zestawy diesel/elektryk | Backend (dane) | — |
+| 2 | `contract.html`: OWN 8b + Naliczanie + nagłówek 2 linie + przedpłata dół | Backend (PDF) | — |
+| 3 | `ContractFormView`: dropdown zestawu inline + potwierdzenie z diff | Frontend | 1 |
+| 4 | `ContractFormView`: kolumna tekstowa + podgląd PDF live + combobox w edycji | Frontend | — |
+| 5 | `ContractFormView`: dni/tyg control + przedpłata dół + nr wewn. ukryty | Frontend | — |
+| 6 | `ConditionPanel`: inline grid + walidacja + podgląd + preset-dropdown | Frontend | — |
+| 7 | E2E scenariusze + PDF diff vs legacy | QA | 1–6 |
+| 8 | Spec sync | Tech Lead | 1–7 |
+
+Subtaski 2, 4, 5, 6 są niezależne — można robić równolegle.
 
 ### Szacowanie
 
-- **Bez uproszcze\u0144 (pe\u0142en scope):** 3-5 dni dev (1 DB + 1 backend + 2 frontend + 0.5 QA)
-- **Z uproszczeniami (po odpowiedziach klienta na czerwone flagi):** 2-3 dni dev
+- **v2 (minimalny scope, zero migracji):** 1.5–2.5 dnia dev — vs 3–5 dni w v1
+- Różnica bierze się z wykorzystania istniejącej infrastruktury (FeePresetGroup, apply-preset, description-override, working_days_per_week) zamiast budowania równoległych mechanizmów
 
-### Dane \u017ar\u00f3d\u0142owe
+### Dane źródłowe
 
-- Analiza legacy PDF: `temp/legacy_summary.txt` (515 PDF-\u00f3w, 157 wariant\u00f3w "Inne us\u0142ugi")
-- Pe\u0142na ekstrakcja: `temp/legacy_analysis.txt` (11987 linii, wszystkie PDF-y)
-- UX spec (od UX Designer): powy\u017cej w tej sekcji
-- Product review (od Product Owner): powy\u017cej w tej sekcji
+- Analiza legacy: `temp/legacy_summary.txt` (515 PDF, 157 wariantów), `temp/legacy_analysis.txt` (pełna ekstrakcja)
+- Zweryfikowane pliki: `backend/contracts/models.py:47` (working_days_per_week), `backend/settings/models.py:32-90` (FeePresetGroup/ServiceFeeTemplate), `backend/contracts/service.py:123` (apply_preset_to_contract), `backend/reports/templates/contract.html:214-250,330` (fees render + Uwagi + OWN 8b)
 
 
 ---
 
 ## 🟡 P2 — Should-Have
-*(brak)*
+
+### P2-001: Wyciągnięcie OWN do edytowalnego szablonu w settings
+
+```yaml
+id: P2-001
+status: triaged
+priority: P2
+created: 2026-07-08
+source: tech-lead (follow-up po P1-100)
+component: backend/settings + backend/reports
+```
+
+**Opis:** Wyciągnięcie tekstu OWN (Ogólne Warunki Najmu) z `contract.html` do edytowalnego pola w settings (np. `settings.own_text`, TEXT) + rendering przez Jinja2. Pozwoli operatorowi edytować OWN bez zmiany kodu. Odłożone z P1-100 (P1-015 zmienia tylko pkt 8b bezpośrednio w szablonie).
+
+---
+
+### P2-002: `articles.power_type` — sugestia zestawu diesel/elektryk
+
+```yaml
+id: P2-002
+status: triaged
+priority: P2
+created: 2026-07-08
+source: tech-lead (follow-up po P1-100)
+component: backend/articles + frontend/ArticleFormView + frontend/ContractFormView
+migration_impact: yes
+```
+
+**Opis:** Dodać `articles.power_type` ENUM('diesel','electric','other') + dropdown w formularzu artykułu. W formularzu umowy: pre-selekcja sugerowanego zestawu usług dodatkowych na podstawie typu pierwszej pozycji sprzętu (nigdy silent auto-apply — klient wymaga wyboru przez operatora). Migracja legacy: heurystyka po nazwie (`%spalinowy%` → diesel, `%elektryczny%` → electric).
 
 ---
 
