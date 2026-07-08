@@ -112,7 +112,7 @@ Tabela główna umowy: kolumny „Przewidywana ilość dni najmu | Wartość odt
 
 ```yaml
 id: P1-005
-status: triaged
+status: in_progress
 priority: P1
 created: 2026-07-08
 source: client-request (uwagi klienta 2026-07-08, pozycja 5)
@@ -124,8 +124,6 @@ component: frontend/ConditionPanel + backend/contracts (warunki rozliczeniowe)
 - **Usługa:** np. do 2h, do 3h (podstawa) — również konfigurowalne
 
 Klient chce elastycznego definiowania widełek zamiast sztywnych dropdown-ów.
-
-**Uwaga:** Zadanie odroczone — wymaga ConditionPanel inline grid (większe zadanie).
 
 ---
 

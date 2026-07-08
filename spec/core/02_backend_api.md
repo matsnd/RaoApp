@@ -861,7 +861,9 @@ class ConditionResponse(BaseModel):
     rate1: Decimal | None
     rate2: Decimal | None
     billing_label: str | None
-    period_count: int | None
+    period_count: int | None  # RAO-P1-005: backward compatibility
+    period_from: int | None  # RAO-P1-005: elastyczne widełki (od)
+    period_to: int | None    # RAO-P1-005: elastyczne widełki (do)
     minimum: int | None
 ```
 
@@ -874,7 +876,9 @@ class ConditionCreate(BaseModel):
     rate1: Decimal | None = None
     rate2: Decimal | None = None
     billing_label: str | None = None
-    period_count: int | None = None
+    period_count: int | None = None  # RAO-P1-005: backward compatibility
+    period_from: int | None = None  # RAO-P1-005: elastyczne widełki (od)
+    period_to: int | None = None    # RAO-P1-005: elastyczne widełki (do)
     minimum: int | None = None
 ```
 

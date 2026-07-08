@@ -1726,6 +1726,61 @@ W modalu dodawania warunku:
 - Przykłady:
   - Warunek 1: `rate_type="dobowa"`, `rate1=540`, `period_count=3`, `billing_label="doba"` → `"1 - 3 dni - 540,00 / doba"`
   - Warunek 2: `rate_type="dobowa"`, `rate1=410`, `period_count=16`, `billing_label="doba"` → `"4 - 16 dni - 410,00 / doba"`
+
+---
+
+## ConditionPanel — Elastyczne widełki cenowe (RAO-P1-005)
+
+> **Zaimplementowano:** 2026-07-08 | **RAO-P1-005**
+
+**Cel:** Uproszczenie wybierania widełek cenowych — operator definiuje przedziały ręcznie (np. 1-3 dni, 4-7 dni, powyżej 16).
+
+**Lokalizacja:** `frontend/src/components/contracts/ConditionPanel.vue`
+
+### Zmiany w tabeli warunków
+- **Nowe kolumny:** "Od" (period_from), "Do" (period_to) — zamiast pojedynczej kolumny "Okresy" (period_count)
+- **Usunięta kolumna:** "Opis" (description) — przeniesiona do modal form
+- **Walidacja ciągłości:** watcher sprawdza czy są luki między warunkami (np. 1-3, następny 5-7 → błąd)
+- **Podgląd PDF live:** pod tabelą wyświetla preview formatu warunków (np. "1 - 3 dni - 540,00 / doba")
+
+### Zmiany w modal form
+- **Nowe pola:** "Od (dni)", "Do (dni)" — number inputs z min=1
+- **Pole "Okresy" (period_count):** zachowane dla backward compatibility
+- **Walidacja:** jeśli period_from > period_to → toast error
+
+### Funkcje walidacji
+```javascript
+function validateContinuity() {
+  const sorted = [...conditions.value].sort((a, b) => (a.period_from || 0) - (b.period_from || 0))
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const curr = sorted[i]
+    const next = sorted[i + 1]
+    if (curr.period_to && next.period_from && curr.period_to + 1 !== next.period_from) {
+      gapError.value = `Luka: warunek ${curr.period_from}-${curr.period_to}, następny ${next.period_from}-${next.period_to || '∞'}`
+      return
+    }
+  }
+  gapError.value = ''
+}
+```
+
+### Podgląd PDF live
+```javascript
+function formatPreview(cond) {
+  if (cond.period_from && cond.period_to) {
+    return `${cond.period_from} - ${cond.period_to} dni - ${formatCurrency(cond.rate1)} / ${cond.billing_label || 'doba'}`
+  }
+  if (cond.period_from && !cond.period_to) {
+    return `powyżej ${cond.period_from} dni - ${formatCurrency(cond.rate1)} / ${cond.billing_label || 'doba'}`
+  }
+  return `${formatCurrency(cond.rate1)} / ${cond.billing_label || 'doba'}`
+}
+```
+
+### Backend changes
+- **DB:** `position_conditions` — dodane kolumny `period_from INT NULL`, `period_to INT NULL`
+- **Schemas:** `ConditionResponse`, `ConditionCreate` — dodane pola `period_from`, `period_to`
+- **Migration:** `ALTER TABLE position_conditions ADD COLUMN IF NOT EXISTS period_from/period_to` + `UPDATE` danych (period_from=1, period_to=period_count)
   - Warunek 3: `rate_type="dobowa"`, `rate2=350`, `billing_label="doba"` (bez `period_count`) → `"powyżej 16 dni - 350,00 / doba"`
 
 #### 2. Tooltip dla pola "Stawka 2"

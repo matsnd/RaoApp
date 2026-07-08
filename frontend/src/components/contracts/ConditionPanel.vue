@@ -43,12 +43,12 @@
       <thead>
         <tr>
           <th>Typ stawki</th>
+          <th>Od</th>
+          <th>Do</th>
           <th>Stawka 1 (zł)</th>
           <th>Stawka 2 (zł)</th>
           <th>Jednostka</th>
-          <th>Okresy</th>
           <th>Minimum</th>
-          <th>Opis</th>
           <th style="width:80px;"></th>
         </tr>
       </thead>
@@ -56,20 +56,25 @@
         <tr
           v-for="cond in conditions"
           :key="cond.id"
-          :class="{ selected: selectedCondId === cond.id }"
+          :class="{ selected: selectedCondId === cond.id, 'row-error': cond._error }"
           @click="selectedCondId = cond.id"
           @dblclick="editCondition(cond)"
         >
           <td>{{ cond.rate_type_name || '—' }}</td>
+          <td>{{ cond.period_from || '—' }}</td>
+          <td>{{ cond.period_to || '—' }}</td>
           <td style="font-weight:600;">{{ cond.rate1 ? formatCurrency(cond.rate1) : '—' }}</td>
           <td>{{ cond.rate2 ? formatCurrency(cond.rate2) : '—' }}</td>
           <td>{{ cond.billing_label || '—' }}</td>
-          <td>{{ cond.period_count || '—' }}</td>
           <td>{{ cond.minimum || '—' }}</td>
-          <td style="font-size:11px;color:#5A6B7E;">{{ cond.description || '—' }}</td>
           <td>
             <button class="btn-icon" aria-label="Edytuj" title="Edytuj" @click.stop="editCondition(cond)">✎</button>
             <button class="btn-icon" aria-label="Usuń" title="Usuń" @click.stop="removeCondition(cond)">✕</button>
+          </td>
+        </tr>
+        <tr v-if="gapError" class="row-error">
+          <td colspan="8" style="color:#E53E3E;font-size:11px;padding:4px;">
+            ⚠️ {{ gapError }}
           </td>
         </tr>
       </tbody>
@@ -82,6 +87,16 @@
       </tfoot>
     </table>
     <div v-else class="empty-state" style="padding:16px;">Brak warunków — dodaj warunek rozliczenia</div>
+
+    <!-- RAO-P1-005: podgląd PDF live -->
+    <div v-if="conditions.length" style="margin-top:12px;padding:12px;background:#F7F9FC;border-radius:8px;">
+      <div style="font-size:11px;font-weight:600;color:#5A6B7E;margin-bottom:8px;">Podgląd PDF:</div>
+      <div style="font-size:11px;color:#333;line-height:1.6;">
+        <div v-for="cond in conditions" :key="cond.id">
+          - {{ formatPreview(cond) }}
+        </div>
+      </div>
+    </div>
 
     <!-- Condition form modal -->
     <Transition name="modal">
@@ -98,15 +113,37 @@
             </div>
             <div class="form-group">
               <label class="form-label">Jednostka rozliczeniowa</label>
-              <select v-model="condForm.billing_label" class="form-control">
-                <option value="">— brak —</option>
-                <option value="doba">doba</option>
-                <option value="tydzień">tydzień</option>
-                <option value="2 tygodnie">2 tygodnie</option>
-                <option value="miesiąc">miesiąc</option>
-                <option value="godzina">godzina</option>
-                <option value="jednorazowo">jednorazowo</option>
-              </select>
+              <input v-model="condForm.billing_label" type="text" class="form-control" placeholder="doba" />
+            </div>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Od (dni)</label>
+              <input v-model.number="condForm.period_from" type="number" class="form-control" min="1" placeholder="1" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Do (dni)</label>
+              <input v-model.number="condForm.period_to" type="number" class="form-control" min="1" placeholder="np. 3" />
+            </div>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Stawka 1 (zł)</label>
+              <input v-model.number="condForm.rate1" type="number" class="form-control" step="0.01" placeholder="0.00" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Stawka 2 (zł)</label>
+              <input v-model.number="condForm.rate2" type="number" class="form-control" step="0.01" placeholder="0.00" />
+            </div>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Minimum</label>
+              <input v-model.number="condForm.minimum" type="number" class="form-control" min="0" placeholder="0" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Opis</label>
+              <input v-model="condForm.description" type="text" class="form-control" placeholder="Opis (opcjonalnie)" />
             </div>
           </div>
           <div class="form-row-2">
@@ -225,14 +262,43 @@ const editingCond = ref(null)
 const savingCond = ref(false)
 const condForm = ref({
   rate_type_id: null, description: '', rate1: null, rate2: null,
-  billing_label: '', period_count: null, minimum: null,
+  billing_label: '', period_count: null, period_from: null, period_to: null, minimum: null,
 })
+const gapError = ref('')  // RAO-P1-005: walidacja ciągłości
 
 const calculatedValue = computed(() => {
   return conditions.value.reduce((sum, c) => {
-    return sum + (Number(c.rate1) || 0) * (Number(c.period_count) || 0)
+    const days = c.period_to ? (c.period_to - (c.period_from || 1) + 1) : (c.period_count || 0)
+    return sum + (Number(c.rate1) || 0) * days
   }, 0)
 })
+
+// RAO-P1-005: walidacja ciągłości warunków
+function validateContinuity() {
+  const sorted = [...conditions.value].sort((a, b) => (a.period_from || 0) - (b.period_from || 0))
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const curr = sorted[i]
+    const next = sorted[i + 1]
+    if (curr.period_to && next.period_from && curr.period_to + 1 !== next.period_from) {
+      gapError.value = `Luka: warunek ${curr.period_from}-${curr.period_to}, następny ${next.period_from}-${next.period_to || '∞'} (brak ${curr.period_to + 1})`
+      return
+    }
+  }
+  gapError.value = ''
+}
+
+watch(conditions, validateContinuity, { deep: true })
+
+// RAO-P1-005: podgląd PDF live
+function formatPreview(cond) {
+  if (cond.period_from && cond.period_to) {
+    return `${cond.period_from} - ${cond.period_to} dni - ${formatCurrency(cond.rate1)} / ${cond.billing_label || 'doba'}`
+  }
+  if (cond.period_from && !cond.period_to) {
+    return `powyżej ${cond.period_from} dni - ${formatCurrency(cond.rate1)} / ${cond.billing_label || 'doba'}`
+  }
+  return `${formatCurrency(cond.rate1)} / ${cond.billing_label || 'doba'}`
+}
 
 watch(calculatedValue, (val) => emit('value-changed', val))
 
@@ -270,7 +336,7 @@ function buildAutoDescription() {
 
 // Auto-fill description for new conditions when fields change
 watch(
-  () => [condForm.value.rate_type_id, condForm.value.rate1, condForm.value.rate2, condForm.value.billing_label, condForm.value.period_count],
+  () => [condForm.value.rate_type_id, condForm.value.rate1, condForm.value.rate2, condForm.value.billing_label, condForm.value.period_from, condForm.value.period_to],
   () => {
     if (!showCondModal.value || editingCond.value) return
     condForm.value.description = buildAutoDescription()
@@ -281,7 +347,7 @@ function addCondition() {
   editingCond.value = null
   Object.assign(condForm.value, {
     rate_type_id: null, description: '', rate1: null, rate2: null,
-    billing_label: '', period_count: null, minimum: null,
+    billing_label: '', period_count: null, period_from: null, period_to: null, minimum: null,
   })
   showCondModal.value = true
 }
@@ -295,6 +361,8 @@ function editCondition(cond) {
     rate2: cond.rate2,
     billing_label: cond.billing_label || '',
     period_count: cond.period_count,
+    period_from: cond.period_from,
+    period_to: cond.period_to,
     minimum: cond.minimum,
   })
   showCondModal.value = true

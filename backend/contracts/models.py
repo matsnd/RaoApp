@@ -90,7 +90,9 @@ class PositionCondition(Base):
     rate1 = Column(Numeric(18, 2), nullable=True)
     rate2 = Column(Numeric(18, 2), nullable=True)
     billing_label = Column(String(20), nullable=True)
-    period_count = Column(Integer, nullable=True)
+    period_count = Column(Integer, nullable=True)  # RAO-P1-005: backward compatibility
+    period_from = Column(Integer, nullable=True)  # RAO-P1-005: elastyczne widełki (od)
+    period_to = Column(Integer, nullable=True)    # RAO-P1-005: elastyczne widełki (do)
     minimum = Column(Integer, nullable=True)
 
     position = relationship("ContractPosition", back_populates="conditions")

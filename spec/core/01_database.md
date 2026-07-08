@@ -485,7 +485,9 @@ CREATE TABLE position_conditions (
     rate1           DECIMAL(18,2) NULL COMMENT 'Opłata 1 (podstawowa)',
     rate2           DECIMAL(18,2) NULL COMMENT 'Opłata 2 (dodatkowa/zmienna)',
     billing_label   VARCHAR(20)  NULL COMMENT 'Nazwa rozliczenia: tygodniowo/dziennie/etc',
-    period_count    INT          NULL COMMENT 'Ile okresów (dni/tygodni/etc)',
+    period_count    INT          NULL COMMENT 'RAO-P1-005: backward compatibility',
+    period_from     INT          NULL COMMENT 'RAO-P1-005: elastyczne widełki (od)',
+    period_to       INT          NULL COMMENT 'RAO-P1-005: elastyczne widełki (do)',
     minimum         INT          NULL COMMENT 'Minimalna liczba okresów',
     CONSTRAINT fk_cond_position FOREIGN KEY (position_id)
         REFERENCES contract_positions(id) ON DELETE CASCADE,

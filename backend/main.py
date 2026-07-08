@@ -491,6 +491,19 @@ async def startup_migrations():
         await conn.execute(sa.text(
             "ALTER TABLE company ADD COLUMN IF NOT EXISTS logo_path VARCHAR(500) NULL"
         ))
+        # RAO-P1-005: elastyczne widełki cenowe - period_from/period_to
+        await conn.execute(sa.text(
+            "ALTER TABLE position_conditions ADD COLUMN IF NOT EXISTS "
+            "period_from INT NULL COMMENT 'RAO-P1-005: elastyczne widełki (od)'"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE position_conditions ADD COLUMN IF NOT EXISTS "
+            "period_to INT NULL COMMENT 'RAO-P1-005: elastyczne widełki (do)'"
+        ))
+        # Migracja danych: period_from=1, period_to=period_count dla istniejących rekordów
+        await conn.execute(sa.text(
+            "UPDATE position_conditions SET period_from = 1, period_to = period_count WHERE period_count IS NOT NULL AND period_from IS NULL"
+        ))
         # service_fee_template_items utworzone przez Base.metadata.create_all (nowa tabela)
         # RAO-P1-012: contract_settlements - rozliczenia umów (koszty klient vs firma)
         await conn.execute(sa.text("""
