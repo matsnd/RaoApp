@@ -473,58 +473,70 @@ class ContractService:
         from settings.models import RateType
         from contractors.models import Contractor
 
-        result = await db.execute(
-            select(ContractPosition)
-            .options(selectinload(ContractPosition.conditions))
-            .where(ContractPosition.contract_id == contract_id)
-        )
-        positions = result.scalars().all()
-
-        # RAO-P0-035: Batch-fetch RateTypes & Contractors (suppliers) to eliminate N+1
-        rate_type_ids = {p.rate_type_id for p in positions if p.rate_type_id}
-        rate_type_ids |= {cond.rate_type_id for p in positions for cond in p.conditions if cond.rate_type_id}
-        supplier_ids = {p.supplier_id for p in positions if p.supplier_id}
-
-        rt_map = {}
-        if rate_type_ids:
-            rt_result = await db.execute(
-                select(RateType.id, RateType.name).where(RateType.id.in_(rate_type_ids))
+        print(f"DEBUG: list_positions called with contract_id={contract_id}")
+        try:
+            result = await db.execute(
+                select(ContractPosition)
+                .options(selectinload(ContractPosition.conditions))
+                .where(ContractPosition.contract_id == contract_id)
             )
-            rt_map = dict(rt_result.all())
+            positions = result.scalars().all()
+            print(f"DEBUG: positions fetched: {len(positions)}")
 
-        supplier_map = {}
-        if supplier_ids:
-            sp_result = await db.execute(
-                select(Contractor.id, Contractor.name).where(Contractor.id.in_(supplier_ids))
-            )
-            supplier_map = dict(sp_result.all())
+            # RAO-P0-035: Batch-fetch RateTypes & Contractors (suppliers) to eliminate N+1
+            rate_type_ids = {p.rate_type_id for p in positions if p.rate_type_id}
+            rate_type_ids |= {cond.rate_type_id for p in positions for cond in p.conditions if cond.rate_type_id}
+            supplier_ids = {p.supplier_id for p in positions if p.supplier_id}
+            print(f"DEBUG: rate_type_ids={rate_type_ids}, supplier_ids={supplier_ids}")
 
-        out = []
-        for p in positions:
-            rt_name = rt_map.get(p.rate_type_id) if p.rate_type_id else None
-            sp_name = supplier_map.get(p.supplier_id) if p.supplier_id else None
-            conditions = []
-            for cond in p.conditions:
-                crt_name = rt_map.get(cond.rate_type_id) if cond.rate_type_id else None
-                conditions.append(ConditionResponse(
-                    id=cond.id, position_id=cond.position_id,
-                    rate_type_id=cond.rate_type_id, rate_type_name=crt_name,
-                    description=cond.description, rate1=cond.rate1, rate2=cond.rate2,
-                    billing_label=cond.billing_label, period_count=cond.period_count,
-                    minimum=cond.minimum,
+            rt_map = {}
+            if rate_type_ids:
+                rt_result = await db.execute(
+                    select(RateType.id, RateType.name).where(RateType.id.in_(rate_type_ids))
+                )
+                rt_map = dict(rt_result.all())
+                print(f"DEBUG: rt_map={rt_map}")
+
+            supplier_map = {}
+            if supplier_ids:
+                sp_result = await db.execute(
+                    select(Contractor.id, Contractor.name).where(Contractor.id.in_(supplier_ids))
+                )
+                supplier_map = dict(sp_result.all())
+                print(f"DEBUG: supplier_map={supplier_map}")
+
+            out = []
+            for p in positions:
+                rt_name = rt_map.get(p.rate_type_id) if p.rate_type_id else None
+                sp_name = supplier_map.get(p.supplier_id) if p.supplier_id else None
+                conditions = []
+                for cond in p.conditions:
+                    crt_name = rt_map.get(cond.rate_type_id) if cond.rate_type_id else None
+                    conditions.append(ConditionResponse(
+                        id=cond.id, position_id=cond.position_id,
+                        rate_type_id=cond.rate_type_id, rate_type_name=crt_name,
+                        description=cond.description, rate1=cond.rate1, rate2=cond.rate2,
+                        billing_label=cond.billing_label, period_count=cond.period_count,
+                        period_from=cond.period_from, period_to=cond.period_to,  # RAO-P1-005
+                        minimum=cond.minimum,
+                    ))
+                out.append(PositionResponse(
+                    id=p.id, contract_id=p.contract_id, article_id=p.article_id,
+                    article_name=p.article_name, rental_type=p.rental_type,
+                    description=p.description, rental_days=p.rental_days,
+                    quantity=p.quantity, unit_price=p.unit_price, costs=p.costs,
+                    rate_type_id=p.rate_type_id, rate_type_name=rt_name,
+                    billing_frequency=p.billing_frequency, billing_unit=p.billing_unit,
+                    supplier_id=p.supplier_id, supplier_name=sp_name,
+                    delivery_date=p.delivery_date,
+                    conditions_count=len(p.conditions), conditions=conditions,
                 ))
-            out.append(PositionResponse(
-                id=p.id, contract_id=p.contract_id, article_id=p.article_id,
-                article_name=p.article_name, rental_type=p.rental_type,
-                description=p.description, rental_days=p.rental_days,
-                quantity=p.quantity, unit_price=p.unit_price, costs=p.costs,
-                rate_type_id=p.rate_type_id, rate_type_name=rt_name,
-                billing_frequency=p.billing_frequency, billing_unit=p.billing_unit,
-                supplier_id=p.supplier_id, supplier_name=sp_name,
-                delivery_date=p.delivery_date,
-                conditions_count=len(p.conditions), conditions=conditions,
-            ))
-        return out
+            print(f"DEBUG: returning {len(out)} positions")
+            return out
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            raise
 
     async def create_position(self, db: AsyncSession, contract_id: int, data: PositionCreate) -> ContractPosition:
         # RAO-P1-040: is_settled blokuje mutacje — guard na create_position
