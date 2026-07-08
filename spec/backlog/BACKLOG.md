@@ -125,6 +125,8 @@ component: frontend/ConditionPanel + backend/contracts (warunki rozliczeniowe)
 
 Klient chce elastycznego definiowania widełek zamiast sztywnych dropdown-ów.
 
+**Uwaga:** Zadanie odroczone — wymaga ConditionPanel inline grid (większe zadanie).
+
 ---
 
 ### P1-006: Dwa warianty zapisów w umowie — diesel vs elektryk
