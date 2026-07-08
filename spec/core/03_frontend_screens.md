@@ -1710,10 +1710,25 @@ Puste tabele (brak rekordów) wyświetlają przycisk akcji:
 
 ## ConditionPanel — Auto-opis warunku (P3-006)
 
-W modalu dodawania warunku:
-- Przycisk `↻ auto` przy polu Opis generuje opis na podstawie: nazwa typu stawki, stawka 1 + jednostka, stawka 2, liczba okresów, minimum
-- Format: `"Typ stawki, 500.00 zł/doba, do 5 dób, min. 1"`
-- Watcher auto-wypełnia opis przy zmianach pól (tylko dla nowych warunków, nie dla edycji)
+> **RAO-P2-071 (refaktor 2026-07):** Modal pełnego formularza warunków (`showCondModal`) **usunięty**. Warunki edytowane **inline w gridzie** (pattern z `ContractFormView.vue` dla pozycji). Auto-opis generowany automatycznie przy zapisie inline przez `buildAutoDescriptionFrom()`.
+
+**Inline editing w gridzie warunków (RAO-P2-071):**
+- Display mode + edit mode + new row (jak pozycje w `ContractFormView.vue`)
+- `editingCondId`, `editingCondData`, `showNewCondRow`, `newCondData`
+- `startEditCond` / `saveInlineCond` / `cancelInlineCond` / `saveNewCondRow` / `cancelNewCondRow`
+- Enter = zapisz, Esc = anuluj (w każdym polu input)
+- `addCondition()` → dodaje pusty row w trybie inline-edit (zero modali)
+- Akcje: `✓` zapisz / `✕` anuluj (edit mode) • `✎` edytuj / `✕` usuń (display mode)
+- `confirm()` zastąpione modalnem potwierdzenia (`confirmState`, pattern z `ContractFormView.vue`)
+- Helper text nad gridem: "Kliknij wiersz aby edytować • Enter = zapisz • Esc = anuluj"
+- Empty state z CTA: "Brak warunków — dodaj warunek rozliczenia" (link → `addCondition`)
+- **Jedyne dozwolone użycie modala:** `showPresetPicker` (wybór cennika predefiniowanego)
+
+**Kolumny gridu (inline editing):** Typ stawki (select) • Od (number) • Do (number) • Stawka 1 (number) • Stawka 2 (number) • Jednostka (text) • Minimum (number) • Akcje
+
+Auto-opis (legacy, teraz generowany przy zapisie inline):
+- Generuje opis na podstawie: nazwa typu stawki, stawka 1 + jednostka, stawka 2, zakres okresów, minimum
+- Format: `"Typ stawki, 500.00 zł/doba, 1-3 dni, min. 1"`
 
 ---
 
