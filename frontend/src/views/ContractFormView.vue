@@ -41,6 +41,7 @@
             <div class="form-group">
               <label class="form-label">Okres umowy *</label>
               <ContractPeriodPicker
+                v-model:working-days-per-week="form.working_days_per_week"
                 :date-from="form.date_from"
                 :date-to="form.date_to"
                 @update:date-from="form.date_from = $event"
@@ -83,8 +84,8 @@
                 </label>
               </div>
               <div class="address-row">
-                <input v-model="form.postal_code" @blur="onPostalCodeBlur" @input="onPostalInput" class="form-control postal-input" placeholder="00-000" maxlength="6" data-testid="contract-postal-code" :disabled="manualAddressMode" />
-                <input v-model="form.city" @input="onCityInput" class="form-control city-input" placeholder="Miasto" :class="{ 'input-loading': pnaLoading }" data-testid="contract-city" :disabled="manualAddressMode" />
+                <input v-model="form.postal_code" @blur="onPostalCodeBlur" @input="onPostalInput" class="form-control postal-input" placeholder="00-000" maxlength="6" data-testid="contract-postal-code" title="Pozostaje edytowalne; auto-fill PNA/Nominatim wyłącza się powyżej" />
+                <input v-model="form.city" @input="onCityInput" class="form-control city-input" placeholder="Miasto" :class="{ 'input-loading': pnaLoading && !manualAddressMode }" data-testid="contract-city" title="Pozostaje edytowalne; auto-fill PNA/Nominatim wyłącza się powyżej" />
                 <div v-if="pnaLoading" class="pna-spinner" data-testid="pna-spinner"></div>
               </div>
               <div v-if="!manualAddressMode && pnaError" class="pna-error" data-testid="pna-error">{{ pnaError }}</div>
@@ -188,20 +189,6 @@
               <div style="display:flex;gap:16px;padding-top:6px;">
                 <label class="checkbox-group"><input type="checkbox" v-model="form.hide_delivery_address" /> Ukryj adres dostawy na umowie (klient wpisze ręcznie)</label>
                 <label class="checkbox-group"><input type="checkbox" v-model="form.signatures_on_page1" /> Podpisy wymagane na stronie 1</label>
-                <div style="display:flex;align-items:center;gap:6px;">
-                  <span style="font-size:12px;">Dni rob./tydz.:</span>
-                  <div style="display:flex;gap:4px;">
-                    <button
-                      v-for="d in [5, 6, 7]"
-                      :key="d"
-                      @click="form.working_days_per_week = d"
-                      :class="['btn', 'btn-xs', form.working_days_per_week === d ? 'btn-primary' : 'btn-secondary']"
-                      style="padding:2px 8px;font-size:11px;"
-                    >
-                      {{ d }}
-                    </button>
-                  </div>
-                </div>
               </div>
             </div>
           </div>

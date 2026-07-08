@@ -96,6 +96,33 @@ Wymaga comboboxa (input + autouzupełnianie). Naprawa w `AnalyticsFilters.vue`.
 
 ---
 
+## P2 — Should-Have
+
+### RAO-P2-071 — Inline editing pozycji w gridzie (zero modali ustawień)
+
+**Data:** 2026-07-08
+**Status:** done (zaimplementowane 2026-07-08)
+**Decyzja:** Zrefaktorować ContractFormView — usunąć modal pełnego formularza pozycji, dodać inline editing w gridzie. Wymaganie klienta: "Dodawanie pozycji umowy moze byc w okienku wyskakujacym wybor tylko artykułu, zadnego ustawiania w okienku zewnętrznym ma być", "ma nie być wokienku miało być wszystko gridzie".
+**Root cause:** Obecny flow używa 2 modali (showPosModal + ArticlePicker) — klient wyraźnie powiedział że to jest źle.
+**Solution:**
+- USUNIĘTO `showPosModal` (modal pełnego formularza z 11 polami)
+- ZACHOWANO `showArticlePicker` (modal wyboru artykułu) — to jedyne dozwolone użycie modala
+- ZACHOWANO `showConflictModal` (modal konfliktu rezerwacji) — jedyny modal poza ArticlePicker
+- DODANO inline editing w gridzie pozycji (display mode + edit mode + new row)
+- SKOPIOWANO pattern z Service Fees (linie 271-329 w ContractFormView.vue) — `editingPosId`, `editingPosData`, `startEditPos`, `saveInlinePos`, Enter=save, Esc=cancel
+- ZMIENIONO `addPosition()` → otwiera `showArticlePicker` bezpośrednio (nie `showPosModal`)
+- ZMIENIONO `selectArticle()` → dodaje pusty row do `contractStore.positions` w trybie inline-edit
+- DODANO ConfirmModal (zastąpił `confirm()`)
+- DODANO toast system (success/error/info)
+- POPRAWIONO 12 miejsc łamiących design system (hardcoded colors → CSS variables)
+- POPRAWIONO 4 krytyczne bugi P0 (race condition, kaskada warunków, loading state, walidacja inline)
+**Weryfikacja:** vue-tsc --noEmit PASS, npm run build PASS, smoke E2E PASS (01-login.spec.ts 11 passed), type check PASS.
+**Commity:** 8f09756 (refaktor inline editing), 418a21f (design system), 0c4011d (spec design), df70107 (P0 bugs).
+**Spec update:** spec/core/03_frontend_screens.md (sekcja RAO-P2-071), spec/core/09_design_reference.md (--color-bg-editing).
+**Impact:** 4 klików do dodania pozycji (vs 6 obecnie), 1 modal (vs 2), spójność z Service Fees w tym samym widoku, zgodność z wymaganiami klienta.
+
+---
+
 ## P0 — Production Blockers (wszystkie done/team-verified)
 
 | ID | Tytuł | Decyzja / Dlaczego | Status | Implementacja |
@@ -219,6 +246,21 @@ Wymaga comboboxa (input + autouzupełnianie). Naprawa w `AnalyticsFilters.vue`.
 - Blokada = pytanie z informacją (gdzie i dlaczego zablokowana)
 **Status:** team-verified
 
+### Okres umowy — dni robocze i ręczna data końcowa
+
+**Data:** 2026-07-09
+**Decyzja:**
+1. Pole "Liczba dni" w okresie umowy to **liczba dni roboczych** (nie kalendarzowych).
+2. Przyciski 5/6/7 decydują ile dni w tygodniu jest roboczych.
+3. Data końcowa jest obliczana kalendarzowo tak, by w okresie było tyle dni roboczych, ile wpisano.
+4. Przycisk "Wpisz datę końcową" przełącza tryb ręczny z pickiem `Data do`. Wtedy liczba dni jest computed z kalendarza.
+5. Podsumowanie wyświetla liczbę dni roboczych i kalendarzowych.
+**Dlaczego:** Dotychczasowy licznik traktował dni jako kalendarzowe i nie uwzględniał różnych trybów 5/6/7 dni w tygodniu. Przy najmie krótkoterminowym i weekendach operator musi widzieć faktyczną liczbę dni roboczych oraz mieć możliwość ręcznego wpisania końca okresu.
+**Implementacja:**
+- `frontend/src/components/shared/ContractPeriodPicker.vue`: nowe props/emity, algorytmy `addWorkingDays` / `countWorkingDays`, tryb ręczny, podsumowanie.
+- `frontend/src/views/ContractFormView.vue`: `v-model:working-days-per-week="form.working_days_per_week"`, usunięcie zdublowanych przycisków z sekcji Opcje.
+**Status:** dev-verified (vue-tsc PASS, build PASS, Playwright UI PASS dla 26.06.2026 + 31 dni/6 dni -> 31.07.2026)
+
 ---
 
 ## Architektura — kluczowe decyzje techniczne
@@ -252,6 +294,22 @@ Wymaga comboboxa (input + autouzupełnianie). Naprawa w `AnalyticsFilters.vue`.
 ### Locations — `shared/locations.py` (PNA-based)
 **Decyzja:** Grupowanie lokalizacji po `postal_code` (PNA) z LEFT JOIN do `postal_codes`.
 **Dlaczego:** Precyzja — jedno miasto ma wiele PNA. Fallback na `contracts.postal_code` gdy brak FK.
+
+### RAO-P1-100 — Usługi dodatkowe + warunki + cennik (decyzje 2026-07-08)
+**Decyzja:** Realizacja P1-100 bez migracji DB. Wykorzystanie istniejących tabel `ContractServiceFee`, `FeePresetGroup`, `ServiceFeeTemplate`, `PositionCondition`.
+
+**Szczegóły:**
+- Diesel/Elektryk: ręczny wybór presetu w P1-100 (trzy szybkie przyciski + lista rozwijana). Auto-sugestia na podstawie `articles.power_type` odłożona na P2-002.
+- Nowa umowa najmu: sekcja usług zaczyna pusta, operator wybiera gotowy zestaw (Diesel / Elektryk / Domyślny) jednym kliknięciem.
+- Szablon ładuje wszystkie pozycje jako aktywne; operator może usuwać/dezaktywować, w gridzie nie pokazujemy nieaktywnych.
+- "Inne usługi" (6 pozycji płatnych) i "Uwagi" (4 parametry umowne + notes + przedpłata) są osobnymi sekcjami na PDF.
+- Przedpłata zostaje na górze formularza, usuwamy `prepayment_document` i `invoice_document` z UI.
+- OWN 8b: już poprawnie zaimplementowane w `contract.html`, P2-001 zrobi edytowalny szablon w settings.
+- Widełki: główne źródło to "Z ostatniej umowy" + predefiniowane cenniki artykułów (P1-001). Szybki select "Szablon widełek" jako dodatek; UX designer przeglądnie lokalizację i formę.
+- Rozliczenie "Pobierz z umowy": idempotentne (czyści poprzednie pozycje i buduje na nowo z aktualnych pozycji). Główny flow to Fakturownia.
+- PDF live: wierny podgląd sekcji usług (istniejący) + dodanie wiernego podglądu warunków, bez znikających pól.
+
+**Dlaczego:** Zero migracji przyspiesza P1-100. Ręczny wybór presetu eliminuje błąd auto-sugestii i daje operatorowi pełną kontrolę. P2-002 doda później optymalizację auto-suggest.
 
 ---
 

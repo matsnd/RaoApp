@@ -11,18 +11,59 @@
         />
       </div>
       <div class="input-group">
+        <label class="input-label">Dni rob./tydz.</label>
+        <div class="days-per-week-group">
+          <button
+            v-for="d in [5, 6, 7]"
+            :key="d"
+            type="button"
+            class="btn btn-xs"
+            :class="workingDaysPerWeekInternal === d ? 'btn-primary' : 'btn-secondary'"
+            @click="workingDaysPerWeekInternal = d"
+          >
+            {{ d }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="period-inputs" style="margin-top: var(--spacing-1);">
+      <div class="input-group days-input-group">
         <label class="input-label">Liczba dni</label>
         <input
           v-model.number="daysInternal"
           type="number"
           min="1"
           class="form-control"
+          :disabled="manualEndDate"
           data-testid="days-input"
         />
       </div>
+      <div class="input-group toggle-group">
+        <button
+          type="button"
+          class="btn btn-secondary btn-sm"
+          @click="toggleManualEndDate"
+        >
+          {{ manualEndDate ? 'Przelicz z dni' : 'Wpisz datę końcową' }}
+        </button>
+      </div>
+      <div v-if="manualEndDate" class="input-group date-to-group">
+        <label class="input-label">Data do</label>
+        <input
+          v-model="dateToManual"
+          type="date"
+          class="form-control"
+          data-testid="date-to-input"
+        />
+      </div>
     </div>
-    <div v-if="dateFromInternal && daysInternal >= 1" class="period-display">
-      Okres umowy: {{ dateFromPl }} – {{ dateToPl }}
+
+    <div
+      v-if="dateFromInternal && effectiveDateTo && effectiveCalendarDays != null"
+      class="period-display"
+    >
+      Okres umowy: {{ dateFromPl }} – {{ dateToPl }} ({{ effectiveWorkingDays }} dni roboczych / {{ effectiveCalendarDays }} dni kalendarzowych)
     </div>
   </div>
 </template>
@@ -34,20 +75,29 @@ import { formatDate } from '@/utils/format'
 const props = defineProps<{
   dateFrom: string | null
   dateTo: string | null
+  workingDaysPerWeek?: number
 }>()
 
 const emit = defineEmits<{
   (e: 'update:dateFrom', val: string | null): void
   (e: 'update:dateTo', val: string | null): void
+  (e: 'update:workingDaysPerWeek', val: number): void
 }>()
 
-// Internal state for date_from
+// Internal state
 const dateFromInternal = ref<string>(props.dateFrom || '')
+const dateToManual = ref<string>(props.dateTo || '')
+const daysInput = ref<number>(1)
+const manualEndDate = ref<boolean>(false)
+const workingDaysPerWeekInternal = ref<number>(props.workingDaysPerWeek ?? 6)
 
-// Internal state for days
-const daysInternal = ref<number>(1)
+// Parse YYYY-MM-DD to local midnight Date (avoids UTC timezone bug)
+function parseLocalDate(iso: string | null): Date | null {
+  if (!iso) return null
+  return new Date(iso + 'T00:00:00')
+}
 
-// Format a Date as YYYY-MM-DD using LOCAL time (not UTC — avoids timezone bug)
+// Format a Date as YYYY-MM-DD using LOCAL time
 function toLocalISODate(d: Date): string {
   const yyyy = d.getFullYear()
   const mm = String(d.getMonth() + 1).padStart(2, '0')
@@ -55,85 +105,195 @@ function toLocalISODate(d: Date): string {
   return `${yyyy}-${mm}-${dd}`
 }
 
-// Count business days (Mon-Sat, skip Sundays) between from and to (inclusive)
-// fromDate always counts as day 1 (symmetry with dateToComputed forward logic)
-function calculateDaysFromDates(from: string | null, to: string | null): number {
-  if (!from || !to) return 1
-  const fromDate = new Date(from + 'T00:00:00')
-  const toDate = new Date(to + 'T00:00:00')
-  if (fromDate > toDate) return 1 // guard: reversed dates
-  // day 1 = fromDate itself (always, even if Sunday — matches forward logic)
-  let count = 1
-  const cur = new Date(fromDate)
-  cur.setDate(cur.getDate() + 1) // start from next day
-  while (cur <= toDate) {
-    if (cur.getDay() !== 0) count++ // 0 = Sunday → skip
-    cur.setDate(cur.getDate() + 1)
+// Add working days to start (inclusive) and return the calendar end date.
+// daysPerWeek: 5 (Mon-Fri), 6 (Mon-Sat), 7 (all days).
+function addWorkingDays(startDate: Date, workingDays: number, daysPerWeek: number): Date {
+  if (daysPerWeek === 7) {
+    const d = new Date(startDate)
+    d.setDate(d.getDate() + workingDays - 1)
+    return d
+  }
+  const current = new Date(startDate)
+  let count = 0
+  while (count < workingDays) {
+    const day = current.getDay()
+    if (day >= 1 && day <= daysPerWeek) {
+      count++
+    }
+    if (count < workingDays) {
+      current.setDate(current.getDate() + 1)
+    }
+  }
+  return current
+}
+
+// Count working days between start and end (inclusive).
+// daysPerWeek: 5 (Mon-Fri), 6 (Mon-Sat), 7 (all days).
+function countWorkingDays(start: Date, end: Date, daysPerWeek: number): number {
+  const current = new Date(start)
+  let count = 0
+  while (current <= end) {
+    const day = current.getDay()
+    if (daysPerWeek === 7 || (day >= 1 && day <= daysPerWeek)) {
+      count++
+    }
+    current.setDate(current.getDate() + 1)
   }
   return count
 }
 
-// Initialize days when both dates are provided on mount
-if (props.dateFrom && props.dateTo) {
-  daysInternal.value = calculateDaysFromDates(props.dateFrom, props.dateTo)
+// Calendar days between start and end (inclusive), ignoring DST by using UTC components.
+function calendarDaysInPeriod(start: Date, end: Date): number {
+  const startUtc = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate())
+  const endUtc = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate())
+  return Math.floor((endUtc - startUtc) / 86400000) + 1
 }
 
-// Calculate date_to from date_from + (days - 1) business days (skip Sundays)
+// End date computed from date_from + working days (used in automatic mode)
 const dateToComputed = computed<string | null>(() => {
-  if (!dateFromInternal.value || daysInternal.value < 1) return null
-  const fromDate = new Date(dateFromInternal.value + 'T00:00:00')
-  const toDate = new Date(fromDate)
-  // day 1 = fromDate itself; add (days-1) more business days
-  let added = 0
-  while (added < daysInternal.value - 1) {
-    toDate.setDate(toDate.getDate() + 1)
-    if (toDate.getDay() !== 0) added++ // skip Sundays
-  }
-  return toLocalISODate(toDate)
+  if (manualEndDate.value) return null
+  const start = parseLocalDate(dateFromInternal.value)
+  if (!start || daysInput.value < 1) return null
+  const end = addWorkingDays(start, daysInput.value, workingDaysPerWeekInternal.value)
+  return toLocalISODate(end)
+})
+
+// Effective end date depending on mode
+const effectiveDateTo = computed<string | null>(() =>
+  manualEndDate.value ? (dateToManual.value || null) : dateToComputed.value
+)
+
+const effectiveWorkingDays = computed<number | null>(() => {
+  const start = parseLocalDate(dateFromInternal.value)
+  const end = parseLocalDate(effectiveDateTo.value)
+  if (!start || !end || end < start) return null
+  return countWorkingDays(start, end, workingDaysPerWeekInternal.value)
+})
+
+const effectiveCalendarDays = computed<number | null>(() => {
+  const start = parseLocalDate(dateFromInternal.value)
+  const end = parseLocalDate(effectiveDateTo.value)
+  if (!start || !end || end < start) return null
+  return calendarDaysInPeriod(start, end)
+})
+
+// Days field is editable in automatic mode and computed in manual mode
+const daysInternal = computed<number | null>({
+  get: () => (manualEndDate.value ? effectiveWorkingDays.value : daysInput.value),
+  set: (val) => {
+    if (manualEndDate.value) return
+    const n = Number(val)
+    daysInput.value = Number.isNaN(n) || n < 1 ? 1 : n
+  },
 })
 
 const dateFromPl = computed(() => formatDate(dateFromInternal.value))
-const dateToPl = computed(() => formatDate(dateToComputed.value))
+const dateToPl = computed(() => formatDate(effectiveDateTo.value))
 
-// Watch date_from changes and emit
+function toggleManualEndDate() {
+  if (!manualEndDate.value) {
+    // Switch from automatic → manual: seed the manual end date from computed
+    const computedTo = dateToComputed.value
+    if (computedTo) {
+      dateToManual.value = computedTo
+    }
+    manualEndDate.value = true
+  } else {
+    // Switch from manual → automatic: derive working days from the manual period
+    const start = parseLocalDate(dateFromInternal.value)
+    const end = parseLocalDate(dateToManual.value)
+    if (start && end && end >= start) {
+      daysInput.value = countWorkingDays(start, end, workingDaysPerWeekInternal.value)
+    }
+    manualEndDate.value = false
+  }
+}
+
+// Set initial state from props and decide whether the existing date_to is manual
+function initFromProps() {
+  if (props.workingDaysPerWeek != null) {
+    workingDaysPerWeekInternal.value = props.workingDaysPerWeek
+  }
+  if (props.dateFrom) {
+    dateFromInternal.value = props.dateFrom
+  }
+  if (props.dateFrom && props.dateTo) {
+    const start = parseLocalDate(props.dateFrom)
+    const end = parseLocalDate(props.dateTo)
+    if (start && end && end >= start) {
+      const days = countWorkingDays(start, end, workingDaysPerWeekInternal.value)
+      const recomputedEnd = addWorkingDays(start, days, workingDaysPerWeekInternal.value)
+      const recomputedEndStr = toLocalISODate(recomputedEnd)
+      if (recomputedEndStr === props.dateTo) {
+        manualEndDate.value = false
+        daysInput.value = days
+      } else {
+        manualEndDate.value = true
+        dateToManual.value = props.dateTo
+        daysInput.value = days
+      }
+    }
+  } else if (props.dateFrom) {
+    manualEndDate.value = false
+    daysInput.value = 1
+  } else {
+    manualEndDate.value = false
+    daysInput.value = 1
+  }
+}
+
+initFromProps()
+
 watch(dateFromInternal, (newVal) => {
   emit('update:dateFrom', newVal || null)
 })
 
-// Watch days changes and emit updated date_to
-watch(daysInternal, () => {
-  if (daysInternal.value < 1) {
-    daysInternal.value = 1
-  }
-})
-
-// Emit date_to when computed value changes
-watch(dateToComputed, (newVal) => {
+watch(effectiveDateTo, (newVal) => {
   emit('update:dateTo', newVal)
 })
 
-// Watch props changes (for external updates)
-watch(
-  () => props.dateFrom,
-  (newVal) => {
-    if (newVal !== dateFromInternal.value) {
-      dateFromInternal.value = newVal || ''
-    }
-  }
-)
+watch(workingDaysPerWeekInternal, (newVal) => {
+  emit('update:workingDaysPerWeek', newVal)
+})
 
-watch(
-  () => props.dateTo,
-  (newTo) => {
-    // Only recalculate days if we have both dates and they differ from current state
-    if (newTo && dateFromInternal.value) {
-      const currentToDate = dateToComputed.value
-      if (newTo !== currentToDate) {
-        daysInternal.value = calculateDaysFromDates(dateFromInternal.value, newTo)
-      }
+watch(() => props.dateFrom, (newVal) => {
+  if (newVal !== dateFromInternal.value) {
+    dateFromInternal.value = newVal || ''
+  }
+})
+
+watch(() => props.workingDaysPerWeek, (newVal) => {
+  if (newVal != null && newVal !== workingDaysPerWeekInternal.value) {
+    workingDaysPerWeekInternal.value = newVal
+  }
+})
+
+watch(() => props.dateTo, (newTo) => {
+  if (!newTo) {
+    if (manualEndDate.value) {
+      manualEndDate.value = false
+      daysInput.value = 1
+    }
+    return
+  }
+  if (manualEndDate.value) {
+    if (newTo !== dateToManual.value) {
+      dateToManual.value = newTo
+    }
+    return
+  }
+  // Automatic mode: if the incoming date_to differs from computed, assume manual override
+  const computedTo = dateToComputed.value
+  if (newTo !== computedTo) {
+    const start = parseLocalDate(dateFromInternal.value)
+    const end = parseLocalDate(newTo)
+    if (start && end && end >= start) {
+      manualEndDate.value = true
+      dateToManual.value = newTo
+      daysInput.value = countWorkingDays(start, end, workingDaysPerWeekInternal.value)
     }
   }
-)
+})
 </script>
 
 <style scoped>
@@ -145,6 +305,7 @@ watch(
   display: flex;
   gap: var(--spacing-2);
   margin-bottom: var(--spacing-2);
+  align-items: flex-start;
 }
 
 .input-group {
@@ -152,6 +313,34 @@ watch(
   display: flex;
   flex-direction: column;
   gap: var(--spacing-1);
+}
+
+.days-input-group {
+  flex: 0 0 120px;
+  min-width: 100px;
+}
+
+.toggle-group {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+}
+
+.toggle-group button {
+  white-space: nowrap;
+}
+
+.date-to-group {
+  flex: 1;
+  min-width: 140px;
+}
+
+.days-per-week-group {
+  display: flex;
+  gap: 4px;
+}
+
+.days-per-week-group button {
+  min-width: 32px;
 }
 
 .input-label {
@@ -171,6 +360,12 @@ watch(
   width: 100%;
   box-sizing: border-box;
   background: var(--color-bg-white);
+}
+
+.form-control:disabled {
+  background: var(--color-bg-light);
+  opacity: 0.8;
+  cursor: not-allowed;
 }
 
 .form-control:focus {

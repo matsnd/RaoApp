@@ -72,7 +72,12 @@ component: frontend/ContractFormView + backend/contracts + backend/settlements
 
 **Opis:** Możliwość liczenia wynajmu 5, 6 lub 7 dni w tygodniu — operator wybiera przy tworzeniu umowy. Obecnie system liczy stałą liczbę dni; klient potrzebuje elastyczności (niektóre umowy 5 dni/tyg, inne 6 lub 7).
 
-**Implementacja:** Segmented control 5/6/7 (inline buttons) w ContractFormView. Backend pole `working_days_per_week` już istnieje.
+**Implementacja:**
+- Segment control 5/6/7 (inline buttons) wewnątrz `ContractPeriodPicker.vue`.
+- Logika okresu przerobiona: `Liczba dni` to dni **robocze**, a `Data do` jest liczona kalendarzowo uwzględniając dni wolne w tygodniu.
+- Dodany przycisk "Wpisz datę końcową" — przełącza tryb ręczny, gdzie `Data do` jest pickowana, a `Liczba dni` jest computed z kalendarza.
+- Podsumowanie okresu wyświetla `{dni robocze} / {dni kalendarzowych}`.
+- Backend pole `working_days_per_week` już istnieje.
 
 ---
 

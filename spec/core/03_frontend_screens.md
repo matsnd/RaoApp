@@ -1308,17 +1308,19 @@ async function handleFakturownia() {
   - Help text: "Puste = użyj numeru umowy. Tylko litery, cyfry, -, /, _."
   - Backend: `oid = contract.oid if contract.oid else contract.number` (hybrydowe)
   - Walidacja backend: `^[A-Za-z0-9\-/_]+$` (OidStr Annotated type)
-- **RAO-P2-004:** Pola `date_from`/`date_to` zastąpione komponentem `ContractPeriodPicker.vue`
+- **RAO-P2-004 (+ decyzja 2026-07-08):** Pola `date_from`/`date_to` zastąpione komponentem `ContractPeriodPicker.vue`
   - Komponent: `frontend/src/components/shared/ContractPeriodPicker.vue`
   - Input 1: `date_from` (date picker) - data rozpoczęcia umowy
-  - Input 2: `days` (number input, min=1) - liczba dni trwania umowy
-  - Computed: `date_to = date_from + (days - 1) days`
-  - Display: "Okres umowy: {date_from_pl} – {date_to_pl}"
+  - Input 2: `Liczba dni` (number input, min=1) - **dni robocze** (nie kalendarzowe)
+  - Przyciski 5/6/7: wybór dni roboczych w tygodniu (`working_days_per_week`)
+  - Computed: `date_to` kalendarzowo z `Data od + Liczba dni roboczych + dni/tyg`
+  - Display: "Okres umowy: {date_from_pl} – {date_to_pl} ({N} dni roboczych / {M} dni kalendarzowych)"
   - Emity: `update:dateFrom`, `update:dateTo` → `form.date_from`, `form.date_to`
-  - Mount z istniejącymi danymi: `days = (date_to - date_from).days + 1`
+  - `v-model:working-days-per-week` → `form.working_days_per_week`
+  - Przycisk "Wpisz datę końcową": przełącza w tryb ręczny z pickiem `date_to`
+  - W trybie ręcznym pole `Liczba dni` jest disabled i computed z kalendarza
   - Label: "Okres umowy *"
   - Walidacja: `v-if="!form.date_from"` → "Podaj datę od"
-  - **2026-05-21:** Wyświetlanie dat bez godziny (format: dd.MM.yyyy - dd.MM.yyyy)
 - **RAO-P3-007 (legacy):** Poprzednio używany `DateRangePicker.vue` (z @vuepic/vue-datepicker) - zachowany jako fallback
 - **2026-05-21:** Wyświetlanie błędów walidacji
   - Błędy walidacji z backendu (Pydantic) są parsowane z tablicy JSON
@@ -1374,10 +1376,11 @@ async function handleFakturownia() {
   - **Przedpłata na górze formularza**
     - Pole `prepayment_amount` edytowalne w sekcji "Warunki finansowe"
     - Pola `prepayment_document` i `invoice_document` ukryte (martwe, nie trafiają na PDF)
-  - **Segmented control dni/tyg**
+  - **Segmented control dni/tyg** w komponencie `ContractPeriodPicker`
     - Przyciski 5/6/7 (inline buttons)
     - Active state: `btn-primary`, inactive: `btn-secondary`
-    - Field: `form.working_days_per_week` (default 6)
+    - Decyduje ile dni w tygodniu jest roboczych (5: pn–pt, 6: pn–sb, 7: wszystkie)
+    - Bindowane przez `v-model:working-days-per-week="form.working_days_per_week"` (default 6)
   - **Ukrycie nr wewnętrznego w trybie usługi (`contract_type === 'U')**
     - InlineArticleForm: pole "Nr wewnętrzny" widoczne tylko gdy `form.contract_type !== 'U'`
 
@@ -1930,50 +1933,90 @@ function formatPreview(cond) {
 |------|-----|------|
 | `dateFrom` | `string \| null` | Data rozpoczęcia umowy (ISO format: YYYY-MM-DD) |
 | `dateTo` | `string \| null` | Data zakończenia umowy (ISO format: YYYY-MM-DD) |
+| `workingDaysPerWeek` | `number` | Ilość dni roboczych w tygodniu: `5`, `6` lub `7` (domyślnie `6`) |
 
 ### Emity
 
 | Event | Payload | Opis |
 |-------|---------|------|
 | `update:dateFrom` | `string \| null` | Emitowana przy zmianie daty rozpoczęcia |
-| `update:dateTo` | `string \| null` | Emitowana przy zmianie daty zakończenia (przeliczanej z dni) |
+| `update:dateTo` | `string \| null` | Emitowana przy zmianie daty zakończenia |
+| `update:workingDaysPerWeek` | `number` | Emitowana przy zmianie dni roboczych w tygodniu |
 
 ### Interfejs
 
 ```
-┌─────────────────────────────────────────┐
-│ Data od          │ Liczba dni          │
-│ [2026-05-25   ]  │ [10              ]  │
-├─────────────────────────────────────────┤
-│ Okres umowy: 25.05.2026 – 03.06.2026   │
-└─────────────────────────────────────────┘
+┌────────────────────────────────────────────────────┐
+│ Data od          │ Dni rob./tydz.                │
+│ [2026-06-26   ]  │ [5] [6] [7]                   │
+├────────────────────────────────────────────────────┤
+│ Liczba dni │ [Wpisz datę końcową] [Data do  ]  │
+│ [31        ] │                                  │
+├────────────────────────────────────────────────────┤
+│ Okres umowy: 26.06.2026 – 31.07.2026            │
+│ (31 dni roboczych / 36 dni kalendarzowych)        │
+└────────────────────────────────────────────────────┘
 ```
 
 ### Logika
 
-1. **Input 1: Data od** (`date_from`)
-   - Typ: `date` (native HTML5 date picker)
-   - Wartość początkowa: `props.dateFrom` lub pusty string
+1. **Liczba dni = dni robocze** (nie kalendarzowe).
+2. **Dni robocze w tygodniu** (`workingDaysPerWeek`)
+   - `5`: poniedziałek–piątek
+   - `6`: poniedziałek–sobota
+   - `7`: wszystkie dni tygodnia
+   - Wybór przez przyciski `[5] [6] [7]` w komponencie
+3. **Tryb automatyczny** (domyślny)
+   - `Data do` jest obliczana kalendarzowo z `Data od + Liczba dni roboczych`
+   - Dni wolne (weekendy) są pomijane przy przesuwaniu daty końcowej
+   - Pole `Liczba dni` jest edytowalne
+4. **Tryb ręczny** (przycisk "Wpisz datę końcową")
+   - Pojawia się pole `Data do` (typ `date`)
+   - Pole `Liczba dni` staje się read-only / disabled
+   - Liczba dni roboczych jest liczona kalendarzowo w zadanym okresie
+5. **Podsumowanie**
+   - Format: `"Okres umowy: {date_from_pl} – {date_to_pl} ({N} dni roboczych / {M} dni kalendarzowych)"`
+   - Pokazywane gdy są obie daty i okres ma przynajmniej 1 dzień kalendarzowy
+6. **Inicjalizacja z danych (edycja umowy)**
+   - Jeśli istniejące `dateTo` odpowiada obliczonemu końcowi dla zadanej liczby dni roboczych — tryb automatyczny
+   - W przeciwnym razie tryb ręczny (np. data końcowa była wprowadzona ręcznie)
 
-2. **Input 2: Liczba dni** (`days`)
-   - Typ: `number`, min=1
-   - Wartość początkowa: obliczana z `(date_to - date_from).days + 1` przy mount
-   - Walidacja: nie pozwala na wartości < 1
+### Algorytmy
 
-3. **Computed: Data do** (`date_to`)
-   - Formula: `date_to = date_from + (days - 1) days`
-   - Przykład: `2026-05-25 + 9 dni = 2026-05-03` (czerwiec)
-   - Emitowana automatycznie przy zmianie `date_from` lub `days`
+```ts
+function addWorkingDays(startDate: Date, workingDays: number, daysPerWeek: number): Date {
+  if (daysPerWeek === 7) {
+    const d = new Date(startDate)
+    d.setDate(d.getDate() + workingDays - 1)
+    return d
+  }
+  const current = new Date(startDate)
+  let count = 0
+  while (count < workingDays) {
+    const day = current.getDay()
+    if (day >= 1 && day <= daysPerWeek) count++
+    if (count < workingDays) current.setDate(current.getDate() + 1)
+  }
+  return current
+}
 
-4. **Display**
-   - Format: `"Okres umowy: {date_from_pl} – {date_to_pl}"`
-   - Format daty PL: `dd.MM.yyyy` (np. `25.05.2026 – 03.06.2026`)
-   - Widoczne tylko gdy `date_from` i `days >= 1`
+function countWorkingDays(start: Date, end: Date, daysPerWeek: number): number {
+  const current = new Date(start)
+  let count = 0
+  while (current <= end) {
+    const day = current.getDay()
+    if (daysPerWeek === 7 || (day >= 1 && day <= daysPerWeek)) count++
+    current.setDate(current.getDate() + 1)
+  }
+  return count
+}
+```
 
 ### Przykład użycia (ContractFormView.vue)
 
 ```vue
 <ContractPeriodPicker
+  v-model:working-days-per-week="form.working_days_per_week"
   :date-from="form.date_from"
   :date-to="form.date_to"
   @update:date-from="form.date_from = $event"
@@ -1984,17 +2027,18 @@ function formatPreview(cond) {
 ### Kompatybilność z API
 
 - Komponent emituje `date_from` i `date_to` w formacie ISO (YYYY-MM-DD)
+- Emituje `working_days_per_week` jako liczbę całkowitą
 - Pełna kompatybilność z istniejącym API backendu
 - Możliwość montowania z istniejącymi danymi (edycja umowy)
 
 ### Przykłady obliczeń
 
-| date_from | days | date_to | Display |
-|-----------|------|---------|---------|
-| 2026-05-25 | 1 | 2026-05-25 | 25.05.2026 – 25.05.2026 |
-| 2026-05-25 | 10 | 2026-06-03 | 25.05.2026 – 03.06.2026 |
-| 2026-05-01 | 31 | 2026-05-31 | 01.05.2026 – 31.05.2026 |
-| 2026-12-25 | 10 | 2027-01-03 | 25.12.2026 – 03.01.2027 |
+| date_from | workingDays | daysPerWeek | date_to | Display |
+|-----------|-------------|-------------|---------|---------|
+| 2026-06-26 | 31 | 6 | 2026-07-31 | 26.06.2026 – 31.07.2026 (31 dni roboczych / 36 dni kalendarzowych) |
+| 2026-06-26 | 7 | 6 | 2026-07-02 | 26.06.2026 – 02.07.2026 (7 dni roboczych / 7 dni kalendarzowych) |
+| 2026-06-26 | 31 | 5 | 2026-08-07 | 26.06.2026 – 07.08.2026 (31 dni roboczych / 43 dni kalendarzowych) |
+| 2026-06-26 | 31 | 7 | 2026-07-26 | 26.06.2026 – 26.07.2026 (31 dni roboczych / 31 dni kalendarzowych) |
 
 ## RAO-P1-043: Cleanup event listenerów i timerów (memory leaks)
 
