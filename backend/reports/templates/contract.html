@@ -134,7 +134,6 @@
     <td class="info-col" style="vertical-align:top;padding-top:6px;">
       Przewidywany okres: {{ contract.date_from | datepl }}{% if contract.date_to %} - {{ contract.date_to | datepl }}{% endif %}<br>
       Termin przekazania: {{ contract.date_from | datepl }}<br>
-      {% if contract.prepayment_amount and contract.prepayment_amount > 0 %}Przedpłata: {{ contract.prepayment_amount | money }}<br>{% endif %}
     </td>
   </tr>
   <tr>
@@ -192,7 +191,7 @@
     <tr>
       <th style="width:18px;text-align:center;"></th>
       <th style="text-align:left;">Przedmiot najmu</th>
-      <th style="width:80px;text-align:center;">Przewidywana ilość<br>dni najmu</th>
+      <th style="width:80px;text-align:center;white-space:normal;">Przewidywana ilość dni najmu</th>
       <th style="width:90px;text-align:right;">Wartość<br>odtworzeniowa</th>
       <th style="text-align:left;">Rozliczenie</th>
     </tr>
@@ -237,13 +236,16 @@
     <td class="inne-right">
       <div class="inne-box">
         <div class="inne-label">Uwagi</div>
-        {% if contract.notes %}
-        <div style="white-space: pre-wrap;">{{ contract.notes }}</div>
-        {% else %}
         <p style="margin:0 0 4px 0;"><strong>Doba wynajmu:</strong> obejmuje 1 dzień kalendarzowy (do 8 godz. pracy jednego dnia).</p>
         <p style="margin:0 0 4px 0;"><strong>Zgłoszenie zwrotu urządzenia:</strong> pisemne, min. z jednodniowym wyprzedzeniem.</p>
-        <p style="margin:0 0 4px 0;"><strong>Ilość dni pracy w tygodniu:</strong> {% if contract.working_days_per_week %}{{ contract.working_days_per_week }}{% else %}6{% endif %}.</p>
-        <p style="margin:0;"><strong>Dokumentacja zdjęciowa:</strong> wykonano.</p>
+        <p style="margin:0 0 4px 0;"><strong>Naliczanie:</strong> {% if contract.working_days_per_week %}{{ contract.working_days_per_week }}{% else %}6{% endif %} dni w tygodniu (pozostałe dni według zapisu GPS).</p>
+        <p style="margin:0 0 4px 0;"><strong>Dokumentacja zdjęciowa:</strong> wykonano.</p>
+        {% if contract.notes %}
+        <div style="white-space: pre-wrap; margin-top:8px; border-top:1px solid #ddd; padding-top:4px;">{{ contract.notes }}</div>
+        {% endif %}
+        {# RAO-P1-014: przedpłata przeniesiona na dół sekcji Uwagi #}
+        {% if contract.prepayment_amount and contract.prepayment_amount > 0 %}
+        <div style="margin-top:8px; border-top:1px solid #ddd; padding-top:4px; font-weight:bold;">Przedpłata: {{ contract.prepayment_amount | money }}</div>
         {% endif %}
         {# RAO-P1-021/P2-033: Wartość umowy usunięte (martwe pole) #}
       </div>
@@ -327,7 +329,7 @@
       <p class="own-num"><span class="num">7.</span><span class="txt">Czynsz uiszczany będzie gotówką lub przelewem na konto oraz w terminie wskazanym na fakturze / umowie. W przypadku nieuiszczenia czynszu w terminie wynikającym z postanowień niniejszej umowy, Najemca zobowiązany będzie do zapłacenia odsetek maksymalnych. Wynajmujący ma prawo obciążyć Najemcę kosztami dochodzenia od Najemcy należności wynikających z niniejszej umowy – do kosztów tych należeć będzie w szczególności wynagrodzenie kancelarii prawnych lub firm windykacyjnych, którym Wynajmujący zleci dochodzenie roszczeń od Najemcy.</span></p>
       <p class="own-num"><span class="num">8.</span><span class="txt">Najemca zobowiązuje się do dodatkowej zapłaty w następujących przypadkach:</span></p>
       <p class="own-num-indent"><span class="num">a)</span><span class="txt">Uszkodzenia Przedmiotu Najmu w trakcie trwania umowy lub zwrotu niesprawnego Przedmiotu Najmu oraz konieczności dokonania naprawy przez Wynajmującego. Naprawy w takich przypadkach przeprowadza lub zleca wyłącznie Wynajmujący. Najemca w żadnym razie nie jest uprawniony do dokonywania samodzielnych napraw, wprowadzania zmian, uzupełnienia Przedmiotu Najmu o dodatkowe elementy, ani do zlecenia ich wykonania osobom trzecim.</span></p>
-      <p class="own-num-indent"><span class="num">b)</span><span class="txt">Zwrotu zabrudzonego Przedmiotu Najmu, gdzie Najemca zostanie obciążony kosztami jego czyszczenia – po ocenie stanu czystości zwracanego Sprzętu – wg stawki ustalonej w Umowie Najmu.</span></p>
+      <p class="own-num-indent"><span class="num">b)</span><span class="txt">Zwrotu zabrudzonego Przedmiotu Najmu, w przypadku którego Najemca zostanie obciążony kosztami jego czyszczenia po ocenie stanu czystości zwracanego Sprzętu. Rozliczenie kosztów czyszczenia nastąpi według stawki 250,00 zł netto za każdą rozpoczętą roboczogodzinę oraz kosztów materiałów, środków czyszczących i eksploatacyjnych niezbędnych do usunięcia zabrudzeń i przywrócenia Przedmiotu Najmu do stanu czystości z dnia jego wydania.</span></p>
       <p class="own-num-indent"><span class="num">c)</span><span class="txt">W przypadku wezwania serwisowego, które okaże się nieuzasadnione, a problem wynikać będzie z prostych do usunięcia przyczyn (np. wciśnięty wyłącznik awaryjny, nieprawidłowo załączony bieg, brak paliwa, niewłaściwie ustawienie przełączników lub inne błędne operacje eksploatacyjne), Najemca ponosi koszt takiego wezwania zgodnie z obowiązującym cennikiem serwisowym.</span></p>
       <p class="own-num-indent"><span class="num">d)</span><span class="txt">W przypadku opóźnienia po stronie Najemcy w odbiorze lub przyjęciu dostawy Przedmiotu Najmu, Wynajmujący zastrzega sobie prawo do naliczenia opłaty za przestój kierowcy wynikający z konieczności oczekiwania na Najemcę według ustalonych stawek.</span></p>
 

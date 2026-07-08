@@ -485,6 +485,15 @@ class ReportService:
         return output_path
 ```
 
+### Zmiany w contract.html (RAO-P1-100, 2026-07-08)
+
+| Sekcja | Zmiana |
+|--------|--------|
+| OWN §3 pkt 8b | Nowy tekst: "Rozliczenie kosztów czyszczenia nastąpi według stawki 250,00 zł netto za każdą rozpoczętą roboczogodzinę oraz kosztów materiałów, środków czyszczących i eksploatacyjnych niezbędnych do usunięcia zabrudzeń i przywrócenia Przedmiotu Najmu do stanu czystości z dnia jego wydania." |
+| Uwagi (prawy panel) | Zmieniono brzmienie: "Naliczanie: {working_days_per_week} dni w tygodniu (pozostałe dni według zapisu GPS)". Pola zawsze drukowane (nie w else). Notes dodawane na dole z border-top. |
+| Nagłówek kolumny "Przewidywana ilość dni najmu" | Zmieniono na `white-space:normal` (automatyczne łamanie wierszy zamiast `<br>`) |
+| Przedpłata | Przeniesiona z sekcji "Dane podstawowe" na dół sekcji "Uwagi" (border-top + font-weight:bold) |
+
 ### Szablon HTML (przykład: contract.html)
 
 ```html

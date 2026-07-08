@@ -136,6 +136,12 @@ CREATE TABLE fee_preset_groups (
     INDEX idx_fpg_type (company_id, contract_type, sort_order)
 ) ENGINE=InnoDB COMMENT='Grupy szablonów usług dodatkowych (RAO-P1-011)';
 
+-- 1.7b Seedowanie presetów Diesel/Elektryk (RAO-P1-100)
+-- Startup migration w backend/main.py tworzy dwa zestawy:
+-- - "Najem — Diesel": przegląd techniczny 150 zł (maszyny dieslowe)
+-- - "Najem — Elektryk": przegląd techniczny 90 zł (maszyny elektryczne)
+-- Idempotentne po nazwie — nie tworzy duplikatów przy każdym restarcie.
+
 -- 1.8 Szablony usług dodatkowych (zastępuje firma.uslugi1/2 + firma.oplata_*)
 -- Każdy wiersz = jedna pozycja z listy "-" np. "Transport: 400 zł"
 -- RAO-P1-011: Zesłownikowanie z artykułami - article_id wskazuje na articles (zwykle usługa, is_service=1)

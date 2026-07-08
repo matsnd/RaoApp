@@ -117,6 +117,84 @@ async def startup_migrations():
                 ))
             await db.commit()
 
+    # RAO-P1-100: seed zestawów Diesel/Elektryk (idempotentny po nazwie)
+    async with AsyncSessionLocal() as db:
+        # Diesel preset
+        diesel_exists = await db.execute(
+            sa.select(FeePresetGroup).where(FeePresetGroup.name == "Najem — Diesel")
+        )
+        if not diesel_exists.scalar_one_or_none():
+            diesel_preset = FeePresetGroup(
+                company_id=1,
+                name="Najem — Diesel",
+                contract_type='S',
+                description="Zestaw usług dla maszyn dieslowych (przegląd 150 zł)",
+                is_default=False,
+                sort_order=1
+            )
+            db.add(diesel_preset)
+            await db.flush()
+            diesel_fees = [
+                {"name": "Transport", "amount_from": 1200.00, "amount_to": 1200.00, "unit": "dostawa", "description": "1200.00 zł dostawa / 1200.00 zł odbiór", "sort_order": 1},
+                {"name": "Przegląd techniczny i czyszczenie maszyny", "amount_from": 150.00, "amount_to": None, "unit": "sztuka", "description": "150.00 zł", "sort_order": 2},
+                {"name": "Czyszczenie maszyny (zabrudzenia ponadnormatywne)", "amount_from": None, "amount_to": None, "unit": "sztuka", "description": "wycena indywidualna", "sort_order": 3},
+                {"name": "Usługa tankowania", "amount_from": 200.00, "amount_to": None, "unit": "tankowanie", "description": "200.00 zł (plus koszt paliwa)", "sort_order": 4},
+                {"name": "Ponadnormatywny przestój transportu", "amount_from": 200.00, "amount_to": 300.00, "unit": "godzina", "description": "200.00 zł / h - 300.00 zł / h", "sort_order": 5},
+                {"name": "Nieuzasadnione wezwanie serwisowe", "amount_from": 280.00, "amount_to": None, "unit": "wizyta", "description": "280.00 zł (plus transport)", "sort_order": 6},
+            ]
+            for fee_data in diesel_fees:
+                db.add(ServiceFeeTemplate(
+                    company_id=1,
+                    preset_id=diesel_preset.id,
+                    contract_type='S',
+                    name=fee_data["name"],
+                    amount_from=fee_data["amount_from"],
+                    amount_to=fee_data["amount_to"],
+                    unit=fee_data["unit"],
+                    description=fee_data["description"],
+                    is_active=True,
+                    sort_order=fee_data["sort_order"]
+                ))
+            await db.commit()
+
+        # Electric preset
+        electric_exists = await db.execute(
+            sa.select(FeePresetGroup).where(FeePresetGroup.name == "Najem — Elektryk")
+        )
+        if not electric_exists.scalar_one_or_none():
+            electric_preset = FeePresetGroup(
+                company_id=1,
+                name="Najem — Elektryk",
+                contract_type='S',
+                description="Zestaw usług dla maszyn elektrycznych (przegląd 90 zł)",
+                is_default=False,
+                sort_order=2
+            )
+            db.add(electric_preset)
+            await db.flush()
+            electric_fees = [
+                {"name": "Transport", "amount_from": 1200.00, "amount_to": 1200.00, "unit": "dostawa", "description": "1200.00 zł dostawa / 1200.00 zł odbiór", "sort_order": 1},
+                {"name": "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny", "amount_from": 90.00, "amount_to": None, "unit": "sztuka", "description": "90.00 zł", "sort_order": 2},
+                {"name": "Czyszczenie maszyny (zabrudzenia ponadnormatywne)", "amount_from": None, "amount_to": None, "unit": "sztuka", "description": "wycena indywidualna", "sort_order": 3},
+                {"name": "Usługa tankowania", "amount_from": 200.00, "amount_to": None, "unit": "tankowanie", "description": "200.00 zł (plus koszt paliwa)", "sort_order": 4},
+                {"name": "Ponadnormatywny przestój transportu", "amount_from": 200.00, "amount_to": 300.00, "unit": "godzina", "description": "200.00 zł / h - 300.00 zł / h", "sort_order": 5},
+                {"name": "Nieuzasadnione wezwanie serwisowe", "amount_from": 280.00, "amount_to": None, "unit": "wizyta", "description": "280.00 zł (plus transport)", "sort_order": 6},
+            ]
+            for fee_data in electric_fees:
+                db.add(ServiceFeeTemplate(
+                    company_id=1,
+                    preset_id=electric_preset.id,
+                    contract_type='S',
+                    name=fee_data["name"],
+                    amount_from=fee_data["amount_from"],
+                    amount_to=fee_data["amount_to"],
+                    unit=fee_data["unit"],
+                    description=fee_data["description"],
+                    is_active=True,
+                    sort_order=fee_data["sort_order"]
+                ))
+            await db.commit()
+
     # RAO-P3-002: katalog na logo firmy (startup guard)
     os.makedirs("static/logos", exist_ok=True)
 

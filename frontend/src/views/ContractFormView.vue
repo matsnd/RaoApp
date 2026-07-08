@@ -129,10 +129,6 @@
 
           <div class="form-row-4">
             <div class="form-group">
-              <label class="form-label">Przedpłata (zł)</label>
-              <input v-model="form.prepayment_amount" type="number" step="0.01" class="form-control" />
-            </div>
-            <div class="form-group">
               <label class="form-label">Dok. przedpłaty</label>
               <input v-model="form.prepayment_document" type="text" class="form-control" />
             </div>
@@ -192,7 +188,17 @@
                 <label class="checkbox-group"><input type="checkbox" v-model="form.signatures_on_page1" /> Podpisy wymagane na stronie 1</label>
                 <div style="display:flex;align-items:center;gap:6px;">
                   <span style="font-size:12px;">Dni rob./tydz.:</span>
-                  <input v-model.number="form.working_days_per_week" type="number" min="1" max="7" class="form-control" style="width:60px;" />
+                  <div style="display:flex;gap:4px;">
+                    <button
+                      v-for="d in [5, 6, 7]"
+                      :key="d"
+                      @click="form.working_days_per_week = d"
+                      :class="['btn', 'btn-xs', form.working_days_per_week === d ? 'btn-primary' : 'btn-secondary']"
+                      style="padding:2px 8px;font-size:11px;"
+                    >
+                      {{ d }}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -261,18 +267,23 @@
           <div style="display:flex;align-items:center;margin-bottom:8px;">
             <span class="section-title" style="margin:0;border:none;">Usługi dodatkowe</span>
             <span style="font-size:11px;color:#718096;margin-left:12px;">Kliknij wiersz • Enter = zapisz • Esc = anuluj</span>
-            <button class="btn btn-secondary btn-sm" style="margin-left:auto;margin-right:6px;" @click="openPresetPicker" title="Wybierz zestaw usług">📋 Wybierz zestaw</button>
-            <button class="btn btn-secondary btn-sm" style="margin-right:8px;" @click="resetServiceFees" title="Reset do domyślnego szablonu">↻ Reset</button>
-            <button class="btn btn-primary btn-sm" @click="addFeeRow">+ Dodaj</button>
+            <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
+              <select v-model="selectedPresetId" @change="applyPresetWithConfirm" class="form-control form-control-xs" style="width:200px;">
+                <option :value="null">Wybierz zestaw…</option>
+                <option v-for="p in presetList" :key="p.id" :value="p.id">{{ p.name }}</option>
+              </select>
+              <button class="btn btn-secondary btn-sm" @click="resetServiceFees" title="Reset do domyślnego szablonu">↻ Reset</button>
+              <button class="btn btn-primary btn-sm" @click="addFeeRow">+ Dodaj</button>
+            </div>
           </div>
           <table class="data-grid">
             <thead>
               <tr>
-                <th style="width:26%;">Nazwa</th>
-                <th style="width:11%;">Kwota od</th>
-                <th style="width:11%;">Kwota do</th>
-                <th style="width:8%;">J.m.</th>
-                <th>Opis</th>
+                <th style="width:22%;">Nazwa</th>
+                <th style="width:9%;">Kwota od</th>
+                <th style="width:9%;">Kwota do</th>
+                <th style="width:6%;">J.m.</th>
+                <th title="Jeśli wypełnione — na PDF drukuje się ten tekst zamiast kwot. Np. „Transport: odbiór własny”, „wycena indywidualna”">Tekst na umowie</th>
                 <th style="width:62px;">Aktywna</th>
                 <th style="width:56px;"></th>
               </tr>
@@ -301,7 +312,7 @@
                   <td>{{ fee.amount_from ? Number(fee.amount_from).toFixed(2) + ' zł' : '—' }}</td>
                   <td>{{ fee.amount_to ? Number(fee.amount_to).toFixed(2) + ' zł' : '—' }}</td>
                   <td>{{ fee.unit || '—' }}</td>
-                  <td style="font-size:11px;">{{ formatDescription(fee.description, fee.amount_from, fee.amount_to) }}</td>
+                  <td style="font-size:11px;">{{ formatDescription(fee.description, fee.amount_from, fee.amount_to, fee.name) }}</td>
                   <td style="text-align:center;"><span :class="['badge', fee.is_active ? 'badge-success' : 'badge-muted']">{{ fee.is_active ? 'Tak' : 'Nie' }}</span></td>
                   <td>
                     <button class="btn-icon" title="Edytuj" @click.stop="startEditFee(fee)">✎</button>
@@ -309,6 +320,17 @@
                   </td>
                 </tr>
               </template>
+              <!-- PDF PREVIEW LIVE -->
+              <tr v-if="contractStore.serviceFees.length">
+                <td colspan="7" style="padding:4px 0 0 0;">
+                  <div style="font-size:10px;color:#718096;margin-bottom:4px;">Podgląd PDF:</div>
+                  <div style="font-size:11px;color:#2D3748;line-height:1.4;">
+                    <div v-for="fee in contractStore.serviceFees.filter(f => f.is_active)" :key="fee.id" style="margin-bottom:1px;">
+                      - {{ formatDescription(fee.description, fee.amount_from, fee.amount_to, fee.name) }}
+                    </div>
+                  </div>
+                </td>
+              </tr>
               <!-- NEW ROW -->
               <tr v-if="showNewFeeRow" class="row-editing">
                 <td>
@@ -641,44 +663,6 @@
     </Transition>
 
 
-    <!-- Preset picker modal -->
-    <Transition name="modal">
-      <div v-if="showPresetPicker" class="preset-picker-overlay" @click.self="showPresetPicker = false">
-        <div class="preset-picker-modal">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-            <div class="preset-picker-title">Wybierz zestaw usług dodatkowych</div>
-            <button class="btn-icon" style="font-size:18px;" @click="showPresetPicker = false">✕</button>
-          </div>
-          <div v-if="presetPickerLoading" style="text-align:center;padding:32px;color:#A0AEC0;">Ładowanie zestawów...</div>
-          <div v-else-if="!presetPickerList.length" class="preset-picker-empty">
-            Brak zestawów usług dla tego typu umowy ({{ form.contract_type }}).<br/>
-            Dodaj zestawy w <strong>Ustawienia → Zestawy usług</strong>.
-          </div>
-          <div v-else>
-            <div
-              v-for="preset in presetPickerList"
-              :key="preset.id"
-              class="preset-picker-card"
-              @click="applyPreset(preset)"
-            >
-              <div style="display:flex;align-items:center;justify-content:space-between;">
-                <div class="preset-picker-card-name">{{ preset.name }}</div>
-                <div style="display:flex;gap:6px;align-items:center;">
-                  <span v-if="preset.is_default" class="badge badge-muted" style="font-size:10px;">Domyślny</span>
-                  <span class="badge badge-info" style="font-size:10px;">{{ preset.templates.length }} pozycji</span>
-                  <button class="btn btn-primary btn-sm" style="pointer-events:none;">Zastosuj</button>
-                </div>
-              </div>
-              <div v-if="preset.description" class="preset-picker-card-items" style="margin-top:4px;">{{ preset.description }}</div>
-              <div v-if="preset.templates.length" class="preset-picker-card-items" style="margin-top:6px;">
-                {{ preset.templates.slice(0, 4).map(t => t.name).join(' • ') }}{{ preset.templates.length > 4 ? ` • +${preset.templates.length - 4} więcej` : '' }}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Transition>
-
     <!-- Position form modal (EXTENDED with 6 missing fields) -->
     <Transition name="modal">
       <div v-if="showPosModal" class="modal-overlay" @click.self="showPosModal = false">
@@ -883,7 +867,7 @@
             </label>
           </div>
           <div class="form-row-2">
-            <div class="form-group">
+            <div class="form-group" v-if="form.contract_type !== 'U'">
               <label class="form-label">Nr wewnętrzny</label>
               <input v-model="inlineArticleForm.internal_number" type="text" class="form-control" />
             </div>
@@ -1380,18 +1364,20 @@ const fakturowniaConfigured = computed(() => {
 
 // Format description with actual amounts instead of placeholders
 // Format: "{name}: {amount_from} zł - {amount_to} zł" or "{name}: {amount_from} zł ({description})"
-function formatDescription(description, amount_from, amount_to) {
+function formatDescription(description, amount_from, amount_to, name = '') {
   if (!description) {
     // If no description, format amounts directly
     if (amount_from !== null && amount_from !== undefined) {
       const formattedFrom = Number(amount_from).toLocaleString('pl-PL', { minimumFractionDigits: 2 })
       if (amount_to !== null && amount_to !== undefined) {
         const formattedTo = Number(amount_to).toLocaleString('pl-PL', { minimumFractionDigits: 2 })
-        return `${formattedFrom} zł - ${formattedTo} zł`
+        const prefix = name ? `${name}: ` : ''
+        return `${prefix}${formattedFrom} zł - ${formattedTo} zł`
       }
-      return `${formattedFrom} zł`
+      const prefix = name ? `${name}: ` : ''
+      return `${prefix}${formattedFrom} zł`
     }
-    return '—'
+    return name ? `${name}: wycena indywidualna` : '—'
   }
 
   // If description exists, replace $1/$2 placeholders with actual amounts
@@ -1404,7 +1390,8 @@ function formatDescription(description, amount_from, amount_to) {
     const formattedTo = Number(amount_to).toLocaleString('pl-PL', { minimumFractionDigits: 2 })
     result = result.replace(/\$2/g, formattedTo + ' zł')
   }
-  return result
+  const prefix = name ? `${name}: ` : ''
+  return `${prefix}${result}`
 }
 
 onMounted(async () => {
@@ -2085,6 +2072,17 @@ async function resetServiceFees() {
 const showPresetPicker = ref(false)
 const presetPickerList = ref([])
 const presetPickerLoading = ref(false)
+const selectedPresetId = ref<number | null>(null)
+
+// Load presets on mount
+onMounted(async () => {
+  try {
+    const { data } = await api.get('/settings/fee-preset-groups')
+    presetPickerList.value = data.filter(p => p.contract_type === form.value.contract_type)
+  } catch (e) {
+    console.error('Błąd ładowania zestawów:', e)
+  }
+})
 
 async function openPresetPicker() {
   showPresetPicker.value = true
@@ -2094,6 +2092,21 @@ async function openPresetPicker() {
     presetPickerList.value = data.filter(p => p.contract_type === form.value.contract_type)
   } finally {
     presetPickerLoading.value = false
+  }
+}
+
+async function applyPresetWithConfirm() {
+  if (!selectedPresetId.value) return
+  const preset = presetPickerList.value.find(p => p.id === selectedPresetId.value)
+  if (!preset) return
+  const hasFees = contractStore.serviceFees.length > 0
+  if (hasFees && !confirm(`Zastosować zestaw „${preset.name}"? Obecne ${contractStore.serviceFees.length} pozycji zostaną zastąpione.`)) return
+  try {
+    await api.post(`/contracts/${props.id}/service-fees/apply-preset?preset_id=${preset.id}&replace=true`)
+    await contractStore.fetchServiceFees(Number(props.id))
+    selectedPresetId.value = null
+  } catch (e) {
+    alert(e.response?.data?.detail || 'Błąd aplikowania zestawu')
   }
 }
 
