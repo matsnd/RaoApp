@@ -557,6 +557,75 @@ migration_impact: yes (drop unit column)
 
 ---
 
+### P1-103: Usuń pole "Faktura (zł)" z Warunków Finansowych + zmień kolor "Pozostało" z czerwonego na zwykły
+
+```yaml
+id: P1-103
+status: triaged
+priority: P1
+created: 2026-07-09
+source: client-request (KISS Warunki Finansowe)
+component: frontend/ContractFormView + backend/contracts + backend/archive
+migration_impact: yes (drop invoice_amount + invoice_document columns)
+```
+
+**Kontekst:** Pole "Faktura (zł)" w sekcji Warunki Finansowe jest niepotrzebne — prawdziwe kwoty faktur pobierane są z Fakturowni. Ręczne wpisywanie kwoty faktury w formularzu umowy jest redundantne i mylące. Dodatkowo pole "Pozostało" ma czerwony kolor (`var(--color-error)`) który "bolą oczy" — powinno mieć zwykły kolor tekstu.
+
+**Zadania:**
+
+1. **Usuń "Faktura (zł)" z frontendu:**
+   - `frontend/src/views/ContractFormView.vue` linia 143-145: usuń `<div class="form-group">` z label "Faktura (zł)" i input `form.invoice_amount`
+   - Usuń `invoice_amount` z `form` reactive object (linia 1026)
+   - Usuń `invoice_amount` z `remainingValue` computed (linia 1049) — `remaining = total - pre` (bez `inv`)
+   - Usuń `invoice_amount` z `startEditFee`/`saveFee` jeśli używane
+
+2. **Usuń "Faktura" z ArchiveView:**
+   - `frontend/src/views/ArchiveView.vue` linia 118: usuń `<div><strong>Faktura:</strong> ...`
+
+3. **Usuń `invoice_amount` + `invoice_document` z backendu:**
+   - `backend/contracts/models.py` linia 30-31: usuń `invoice_amount` + `invoice_document` z `Contract`
+   - `backend/contracts/schemas.py`: usuń z `ContractOut`, `ContractDetail`, `ContractCreate`, `ContractUpdate` (linie 225, 263-264, 309-310, 356-357)
+   - `backend/contracts/service.py`: usuń z `ContractOut`/`ContractDetail` konstrukcji (linie 519-520, 623-624)
+   - `backend/archive/models.py` linia 150-151: usuń z `ArchiveContract`
+   - `backend/archive/schemas.py` linia 181, 216-217: usuń z `ArchiveContractOut`/`ArchiveContractDetail`
+   - `backend/archive/service.py` linia 152: usuń z mapowania
+   - `backend/migrate.py` linia 305: usuń z migracji legacy
+   - `backend/migrate_to_archive.py` linia 155-156, 366-367, 375: usuń z migracji archive
+   - `backend/tests/unit/test_archive.py` linia 67: usuń z testu
+
+4. **Migracja DB (DROP COLUMN):**
+   - `backend/main.py` startup: `ALTER TABLE contracts DROP COLUMN IF EXISTS invoice_amount`
+   - `backend/main.py` startup: `ALTER TABLE contracts DROP COLUMN IF EXISTS invoice_document`
+   - `backend/main.py` startup: `ALTER TABLE archive_contracts DROP COLUMN IF EXISTS invoice_amount`
+   - `backend/main.py` startup: `ALTER TABLE archive_contracts DROP COLUMN IF EXISTS invoice_document`
+   - **Backup przed DROP** (mariadb-dump) — dane invoice_amount mogą być potrzebne do audytu
+
+5. **Zmień kolor "Pozostało" z czerwonego na zwykły:**
+   - `frontend/src/views/ContractFormView.vue` linia 133: usuń `color:var(--color-error);` z style
+   - Zostaw `font-weight:700;` (pogrubienie OK, tylko kolor do zmiany)
+
+6. **Testy + weryfikacja:**
+   - pytest: testy archive bez invoice_amount
+   - vue-tsc + npm build
+   - Playwright: Warunki Finansowe bez pola Faktura, Pozostało = zwykły kolor
+   - Commit
+
+**Definition of Done:**
+- [ ] Pole "Faktura (zł)" usunięte z ContractFormView
+- [ ] Pole "Faktura" usunięte z ArchiveView
+- [ ] `invoice_amount` + `invoice_document` usunięte z backend (models, schemas, service, archive)
+- [ ] Migracja DROP COLUMN (z backupem)
+- [ ] Kolor "Pozostało" = zwykły (nie czerwony)
+- [ ] `remainingValue` = `total - pre` (bez `inv`)
+- [ ] Testy passing
+- [ ] Spec sync: spec/core/01_database.md, spec/core/02_backend_api.md, spec/core/03_frontend_screens.md
+
+**Ryzyka:**
+- DROP COLUMN = utrata danych historycznych invoice_amount. Backup + ewentualne zachowanie w archive dump.
+- `remainingValue` bez `inv` = "Pozostało" = `total - prepayment` (bez odliczania faktury). Jeśli faktura była wpłacana, "Pozostało" będzie wyższe. Ale skoro faktura idzie z Fakturowni, to pole było i tak ignorowane w rozliczeniu.
+
+---
+
 ## 🏗️ P1-100 — EPIC: Usługi dodatkowe + rozliczenie umowy (cennik) — v2
 
 > **Scalony epic** — łączy P1-003, P1-004, P1-005, P1-006, P1-008 (freebie), P1-013, P1-014, P1-015
