@@ -132,9 +132,6 @@
       </div>
     </td>
     <td class="info-col" style="vertical-align:top;padding-top:6px;">
-      {% if contract.prepayment_amount and contract.prepayment_amount > 0 %}
-      <strong>Przedpłata: {{ contract.prepayment_amount | money }}</strong><br>
-      {% endif %}
       Przewidywany okres: {{ contract.date_from | datepl }}{% if contract.date_to %} - {{ contract.date_to | datepl }}{% endif %}<br>
       Termin przekazania: {{ contract.date_from | datepl }}<br>
     </td>
@@ -152,6 +149,7 @@
     </td>
     <td class="info-col" style="vertical-align:top;padding-top:6px;">
       {% if contract.hide_delivery_address %}Adres dostawy: <span style="border-bottom:1px solid #888;display:inline-block;min-width:220px;">&nbsp;</span><br>{% elif contract.delivery_address and contract.delivery_address.strip() %}Adres dostawy: {{ contract.delivery_address }}<br>{% endif %}
+      {% if contract.prepayment_amount and contract.prepayment_amount > 0 %}Przedpłata: {{ contract.prepayment_amount | money }}<br>{% endif %}
     </td>
   </tr>
 </table>
@@ -404,6 +402,11 @@
       </td>
     </tr>
   </table>
+
+  <!-- P1-009: Opiekun umowy na dole na środku -->
+  <div style="text-align:center; margin-top: 20px; font-size: 9px; color: #555;">
+    Opiekun umowy: {{ salesperson.name if salesperson else '' }}{% if salesperson and salesperson.phone %} · tel. {{ salesperson.phone }}{% endif %}
+  </div>
 </div>
 
 </body>

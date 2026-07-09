@@ -108,7 +108,6 @@
 <!-- TITLE -->
 <div class="doc-title">Umowa usługi nr: {{ contract.number }}</div>
 <div class="doc-sub">Zawarta w dniu: {{ contract.date_from | datepl }}</div>
-{% if contract.prepayment_amount and contract.prepayment_amount > 0 %}<div class="doc-sub">Przedpłata: {{ contract.prepayment_amount | money }}</div>{% endif %}
 
 <!-- PARTIES -->
 <table class="parties">
@@ -137,6 +136,7 @@
     </td>
     <td class="info-col" style="vertical-align:top;padding-top:8px;">
       {% if contract.hide_delivery_address %}Adres dostawy: <span style="border-bottom:1px solid #888;display:inline-block;min-width:220px;">&nbsp;</span><br>{% elif contract.delivery_address and contract.delivery_address.strip() %}Adres dostawy: {{ contract.delivery_address }}<br>{% endif %}
+      {% if contract.prepayment_amount and contract.prepayment_amount > 0 %}Przedpłata: {{ contract.prepayment_amount | money }}<br>{% endif %}
     </td>
   </tr>
 </table>
@@ -301,6 +301,11 @@
       </td>
     </tr>
   </table>
+
+  <!-- P1-009: Opiekun umowy na dole na środku -->
+  <div style="text-align:center; margin-top: 20px; font-size: 9px; color: #555;">
+    Opiekun umowy: {{ salesperson.name if salesperson else '' }}{% if salesperson and salesperson.phone %} · tel. {{ salesperson.phone }}{% endif %}
+  </div>
 </div>
 
 </body>
