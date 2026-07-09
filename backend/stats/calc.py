@@ -35,6 +35,78 @@ def get_days_per_period(billing_frequency: str | None) -> int:
     return DAYS_PER_PERIOD.get(billing_frequency or "dziennie", 1)
 
 
+def _to_decimal(value) -> Decimal:
+    if value is None:
+        return Decimal("0.00")
+    return Decimal(str(value))
+
+
+def _extract_rate_tiers(conditions: list[dict]) -> list[tuple[int, int | None, Decimal]]:
+    """
+    Build a list of logical rate tiers from possibly-cascading conditions.
+
+    A condition may carry:
+      - rate1 for periods within its period_count,
+      - rate2 for periods above its period_count ("kolejne okresy"),
+        continuing until the next condition starts.
+
+    Returns list of (tier_start, tier_end, rate). `tier_end` = None means
+    open-ended (continues for all remaining periods).
+    """
+    if not conditions:
+        return []
+
+    # Sort by period_count ASC, with NULL (open-ended) at the end
+    conds = sorted(
+        conditions,
+        key=lambda c: (c.get("period_count") is None, c.get("period_count") or 0)
+    )
+
+    tiers: list[tuple[int, int | None, Decimal]] = []
+    current_end = 0  # last period already covered by a generated tier
+
+    for i, cond in enumerate(conds):
+        pc = cond.get("period_count")
+        rate1 = _to_decimal(cond.get("rate1"))
+        rate2 = _to_decimal(cond.get("rate2"))
+
+        # Find the next condition that has a concrete period_count
+        next_pc = None
+        for j in range(i + 1, len(conds)):
+            npc = conds[j].get("period_count")
+            if npc is not None:
+                next_pc = npc
+                break
+
+        if rate1 > 0 and pc is not None:
+            start = current_end + 1
+            end = pc
+            if start <= end:
+                tiers.append((start, end, rate1))
+                current_end = end
+
+        if rate2 > 0:
+            if rate1 > 0 and pc is not None:
+                start = pc + 1
+            else:
+                start = current_end + 1
+
+            if next_pc is not None:
+                end = next_pc - 1
+            else:
+                end = None  # open-ended
+
+            if end is None or start <= end:
+                # Avoid generating a zero/negative tier when the next rate1
+                # starts immediately after this period_count.
+                if start > current_end or end is None:
+                    tiers.append((start, end, rate2))
+                    if end is not None:
+                        current_end = end
+
+    return tiers
+
+
 def calculate_position_value(
     rental_days: int | None,
     billing_frequency: str | None,
@@ -76,37 +148,41 @@ def calculate_position_value(
     if total_periods <= 0:
         return Decimal("0.00")
 
-    # Tiered calculation
+    tiers = _extract_rate_tiers(conditions)
+
     total_value = Decimal("0.00")
     remaining = total_periods
 
-    for i, cond in enumerate(conditions):
+    for start, end, rate in tiers:
         if remaining <= 0:
             break
-
-        pc = cond.get("period_count") or remaining
-        rate = Decimal(str(cond.get("rate1") or 0))
-
-        if rate <= 0:
+        if start > total_periods:
             continue
 
-        if i == 0:
-            periods_in_tier = min(remaining, pc)
-        else:
-            prev_pc = conditions[i - 1].get("period_count") or 0
-            tier_size = (pc or 999) - prev_pc
-            periods_in_tier = min(remaining, tier_size)
+        effective_end = end if end is not None else total_periods
+        # Clamp to the total number of periods and remaining budget
+        periods = min(effective_end, total_periods) - start + 1
+        periods = max(0, periods)
+        if periods > remaining:
+            periods = remaining
+        if periods <= 0:
+            continue
 
-        total_value += rate * periods_in_tier
-        remaining -= periods_in_tier
+        total_value += rate * periods
+        remaining -= periods
 
-    # If remaining periods after all tiers, use last non-zero rate
+    # Fallback: if no condition covered all periods, use the last non-zero rate
     if remaining > 0:
+        last_rate = Decimal("0.00")
         for cond in reversed(conditions):
-            rate = Decimal(str(cond.get("rate1") or 0))
-            if rate > 0:
-                total_value += rate * remaining
-                break
+            rate1 = _to_decimal(cond.get("rate1"))
+            rate2 = _to_decimal(cond.get("rate2"))
+            if rate1 > 0 or rate2 > 0:
+                last_rate = rate1 if rate1 > 0 else rate2
+                if last_rate > 0:
+                    break
+        if last_rate > 0:
+            total_value += last_rate * remaining
 
     # RAO-P0-033: multiply by quantity consistently (matches no-conditions branch)
     return total_value * int(quantity or 1)

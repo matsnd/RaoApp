@@ -544,7 +544,8 @@ class GusLookupResponse(BaseModel):
 ### `GET /articles`
 
 ```python
-# Query: ?search=koparka&category_id=1&owner_id=5&archival_status=active&page=1&per_page=50
+# Query: ?search=koparka&category_id=1&owner_id=5&is_service=true&archival_status=active&page=1&per_page=50
+# is_service: bool | None (optional filter for services vs machines)
 
 class ArticleArchivalFilter(str, Enum):
     ACTIVE = "active"      # domyślnie — tylko aktywne (backward compatible)
@@ -873,49 +874,69 @@ class ConditionResponse(BaseModel):
 class ConditionCreate(BaseModel):
     rate_type_id: int | None = None
     description: str | None = Field(None, max_length=400)
-    rate1: Decimal | None = None
-    rate2: Decimal | None = None
-    billing_label: str | None = None
-    period_count: int | None = None  # RAO-P1-005: backward compatibility
-    period_from: int | None = None  # RAO-P1-005: elastyczne widełki (od)
-    period_to: int | None = None    # RAO-P1-005: elastyczne widełki (do)
-    minimum: int | None = None
+    rate1: Decimal | None = Field(None, ge=0, decimal_places=2)
+    rate2: Decimal | None = Field(None, ge=0, decimal_places=2)
+    billing_label: str | None = Field(None, max_length=50)
+    period_count: int | None = Field(None, ge=0)  # backward compatibility
+    period_from: int | None = Field(None, ge=0)  # RAO-P1-005: elastyczne widełki (od)
+    period_to: int | None = Field(None, ge=0)    # RAO-P1-005: elastyczne widełki (do)
+    minimum: int | None = Field(None, ge=0)
+
+    @model_validator(mode='after')
+    def check_condition(self):
+        # At least one rate must be provided
+        if not (self.rate1 is not None or self.rate2 is not None):
+            raise ValueError("Przynajmniej jedna stawka (rate1 lub rate2) jest wymagana.")
+        if self.period_from is not None and self.period_to is not None and self.period_to <= self.period_from:
+            raise ValueError("period_to musi być większe od period_from.")
+        return self
 ```
 
 ### `PUT /contracts/{id}/value`
 
-**Algorytm kalkulacji wartości umowy:**
+**Algorytm kalkulacji wartości umowy (RAO-P0-033):**
 ```python
-async def recalculate_contract_value(db: AsyncSession, contract_id: int):
+async def recalculate_contract_value(db: AsyncSession, contract_id: int, user: User):
     """
-    Algorytm identyczny z WinForms FormU4:
-    1. Pobierz wszystkie pozycje umowy
-    2. Dla każdej pozycji pobierz warunki
-    3. Oblicz wartość pozycji na basis warunków i liczby dni
-    4. Suma = total_value
-    5. Remaining = total_value - prepayment_amount - invoice_amount
+    Algorytm kaskadowy (tiered) — identyczny z WinForms FormU4:
+    1. Sprawdź ownership (branch_id) i status rozliczenia (allow read-only)
+    2. Pobierz wszystkie pozycje umowy z załadowanymi warunkami
+    3. Dla każdej pozycji posortuj warunki po period_count
+    4. Przekaż quantity do calculate_position_value (mnożenie już wew.)
+    5. rate2 („powyżej”) jest aktywny dla dni spoza period_to
+    6. Suma = total_value (read-only, total_value column removed)
     """
+    contract = await contract_service.verify_contract_access(db, contract_id, user)
     positions = await db.execute(
         select(ContractPosition)
+        .options(selectinload(ContractPosition.conditions))
         .where(ContractPosition.contract_id == contract_id)
     )
     total = Decimal("0.00")
     for pos in positions.scalars():
-        conditions = await db.execute(
-            select(PositionCondition)
-            .where(PositionCondition.position_id == pos.id)
-            .order_by(PositionCondition.period_count)
+        sorted_conds = sorted(
+            pos.conditions,
+            key=lambda c: (c.period_count is None, c.period_count or 0)
         )
+        cond_dicts = [
+            {
+                "rate1": c.rate1,
+                "rate2": c.rate2,
+                "period_count": c.period_count,
+                "minimum": c.minimum,
+                "rate_type_id": c.rate_type_id,
+            }
+            for c in sorted_conds
+        ]
         pos_value = calculate_position_value(
-            pos.rental_days, pos.billing_frequency, conditions.scalars().all()
+            rental_days=pos.rental_days,
+            billing_frequency=pos.billing_frequency,
+            unit_price=pos.unit_price,
+            quantity=pos.quantity or 1,
+            conditions=cond_dicts,
         )
         total += pos_value
-
-    await db.execute(
-        update(Contract)
-        .where(Contract.id == contract_id)
-        .values(total_value=total)
-    )
+    return total
 ```
 
 ### `GET /contracts/{id}/service-fees`
@@ -952,12 +973,20 @@ class ContractServiceFeeResponse(BaseModel):
     is_active: bool
 
 class ContractServiceFeeCreate(BaseModel):
-    name: str = Field(..., max_length=200)
-    amount_from: Decimal | None = None
-    amount_to: Decimal | None = None
+    name: str = Field(..., min_length=1, max_length=200)
+    amount_from: Decimal | None = Field(None, ge=0, decimal_places=2)
+    amount_to: Decimal | None = Field(None, ge=0, decimal_places=2)
     unit: str | None = Field(None, max_length=50)
     description: str | None = Field(None, max_length=400)
     is_active: bool = True
+    article_id: int | None = None  # must reference an article with is_service=True
+    default_price: Decimal | None = Field(None, ge=0, decimal_places=2)
+
+    @model_validator(mode='after')
+    def check_amounts(self):
+        if self.amount_from is not None and self.amount_to is not None and self.amount_to < self.amount_from:
+            raise ValueError("amount_to nie może być mniejsze od amount_from.")
+        return self
 
 class ContractServiceFeeReorder(BaseModel):
     ids: list[int]
@@ -1318,11 +1347,14 @@ Response 200: { applied_count: int, conditions: [ConditionResponse] }
 ```
 
 Logika `ContractService.apply_rate_preset_to_position`:
-1. Guard: `contract.is_settled` → 409
+1. Guard: ownership (`branch_id`) + `contract.is_settled` → 409
 2. If `replace`: `DELETE FROM position_conditions WHERE position_id=:pos_id`
 3. Bulk copy: dla każdego `ArticleRatePresetItem` → `PositionCondition(position_id, **pola)`
-4. `commit` + `refresh` + bump `contract.updated_at`
-5. Brak FK z `PositionCondition` do cennika (snapshot — edycja cennika nie wpływa na umowy)
+4. Wylicz kaskadowo `period_from`/`period_to`:
+   - rate1: [poprzedni `period_to` + 1, `period_count`]
+   - rate2: [period_count + 1, następny `period_count` - 1] lub open-ended
+5. `commit` + `refresh` + bump `contract.updated_at`
+6. Brak FK z `PositionCondition` do cennika (snapshot — edycja cennika nie wpływa na umowy)
 
 ### Endpoint — ARTICLES: auto-prefill z ostatniej umowy
 
@@ -1340,6 +1372,7 @@ Response 200: {
 
 Logika `ContractService.get_last_conditions_for_article`:
 - `SELECT ContractPosition JOIN Contract WHERE article_id=:aid ORDER BY Contract.created_at DESC LIMIT 1`
+- Sprawdź ownership (`branch_id`) — IDOR guard.
 - Zwraca warunki (`PositionCondition`) z tej pozycji + metadane umowy (number, created_at).
 - Batch-fetch `RateType.name` (eliminacja N+1).
 
@@ -1989,6 +2022,29 @@ class PaginationParams(BaseModel):
     def offset(self) -> int:
         return (self.page - 1) * self.per_page
 ```
+
+### Contract Access Control (RAO-P0-049)
+
+```python
+async def verify_contract_access(
+    db: AsyncSession,
+    contract_id: int,
+    user: User,
+    allow_mutation: bool = False,
+) -> Contract:
+    """
+    IDOR guard for all contract-scoped resources.
+    - admin: full access (still blocked if allow_mutation and contract.is_settled)
+    - user/viewer: see only contracts where branch_id equals user's branch_id
+                   (or NULL branch_id for legacy data)
+    - viewer: cannot mutate even with ownership
+    - settled contracts: mutation is blocked for all roles
+    Returns the contract (or raises 404/403/409).
+    """
+```
+
+Every `/contracts/{contract_id}/...` endpoint and `/articles/{id}/last-conditions`
+uses `verify_contract_access` to enforce ownership.
 
 ---
 

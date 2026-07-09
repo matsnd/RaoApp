@@ -14,6 +14,7 @@ class ArticleService:
         category_id: int | None = None,
         owner_id: int | None = None,
         archival_status: str = "active",
+        is_service: bool | None = None,
         page: int = 1,
         per_page: int = 50,
     ):
@@ -34,6 +35,8 @@ class ArticleService:
             stmt = stmt.where(Article.category_id == category_id)
         if owner_id:
             stmt = stmt.where(Article.owner_id == owner_id)
+        if is_service is not None:
+            stmt = stmt.where(Article.is_service == is_service)
 
         count_stmt = select(func.count()).select_from(stmt.subquery())
         total = (await db.execute(count_stmt)).scalar_one()

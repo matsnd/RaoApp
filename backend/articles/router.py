@@ -49,6 +49,7 @@ async def list_articles(
     search: str | None = Query(None),
     category_id: int | None = Query(None),
     owner_id: int | None = Query(None),
+    is_service: bool | None = Query(None),
     archival_status: ArticleArchivalFilter = Query(ArticleArchivalFilter.ACTIVE),
     page: int = Query(1, ge=1),
     per_page: int = Query(50, ge=1, le=200),
@@ -56,7 +57,7 @@ async def list_articles(
     _: User = Depends(get_current_user),
 ):
     items, total = await article_service.list_articles(
-        db, search, category_id, owner_id, archival_status.value, page, per_page
+        db, search, category_id, owner_id, archival_status.value, is_service, page, per_page
     )
     return PaginatedResponse(items=items, total=total, page=page, per_page=per_page)
 
@@ -137,7 +138,7 @@ async def check_availability(
 async def get_last_conditions_for_article(
     article_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
 ):
     """Auto-prefill — warunki z najnowszej umowy zawierającej pozycję z tym article_id.
 
@@ -147,7 +148,7 @@ async def get_last_conditions_for_article(
     404 jeśli brak historii.
     """
     from contracts.service import contract_service
-    data = await contract_service.get_last_conditions_for_article(db, article_id)
+    data = await contract_service.get_last_conditions_for_article(db, article_id, user)
     if data is None:
         raise HTTPException(status_code=404, detail="Brak historii umów dla tej maszyny")
     return data

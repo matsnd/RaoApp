@@ -129,7 +129,7 @@ async def fleet_summary(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    df, dt = _default_dates(date_from, date_to)
+    df, dt = _validate_date_range(date_from, date_to)
     today = date.today()
 
     # RAO-P2-051: cache TTL 5 min — stats read-heavy
@@ -266,7 +266,7 @@ async def top_machines(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    df, dt = _default_dates(date_from, date_to)
+    df, dt = _validate_date_range(date_from, date_to)
     # RAO-P2-051: cache TTL 5 min
     _ckey = cache.make_key("stats:top-machines", _.id, {
         "df": str(df), "dt": str(dt), "in": internal_number,
@@ -411,7 +411,7 @@ async def machine_roi(
     ROI konkretnej maszyny (article_id). RAO-P1-017: dodano category_main w odpowiedzi.
     include_archival=False (domyślnie) — jeśli maszyna jest archiwalna, zwraca 404.
     """
-    df, dt = _default_dates(date_from, date_to)
+    df, dt = _validate_date_range(date_from, date_to)
 
     # RAO-P2-051: cache TTL 5 min (per article + params)
     _ckey = cache.make_key("stats:machine-roi", _.id, {
@@ -465,7 +465,7 @@ async def additional_fees(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    df, dt = _default_dates(date_from, date_to)
+    df, dt = _validate_date_range(date_from, date_to)
     # RAO-P2-051: cache TTL 5 min
     _ckey = cache.make_key("stats:additional-fees", _.id, {"df": str(df), "dt": str(dt), "cid": contractor_id, "city": city})
     _cached = cache.get(_ckey)
@@ -517,7 +517,7 @@ async def locations(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    df, dt = _default_dates(date_from, date_to)
+    df, dt = _validate_date_range(date_from, date_to)
     # RAO-P2-051: cache TTL 5 min
     _ckey = cache.make_key("stats:locations", _.id, {
         "df": str(df), "dt": str(dt), "in": internal_number, "cid": contractor_id, "city": city, "gb": group_by,
@@ -588,7 +588,7 @@ async def by_category(
     - Maszyny bez kategorii trafiają do grupy "(bez kategorii)"
     - RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
     """
-    df, dt = _default_dates(date_from, date_to)
+    df, dt = _validate_date_range(date_from, date_to)
     service_filter = {"machine": False, "service": True}.get(article_type)  # None dla "all"
 
     # RAO-P2-051: cache TTL 5 min
@@ -673,7 +673,7 @@ async def by_period(
     - Archiwalne maszyny SĄ ZAWSZE uwzględniane (spójne z /by-category).
     - RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
     """
-    df, dt = _default_dates(date_from, date_to)
+    df, dt = _validate_date_range(date_from, date_to)
     service_filter = {"machine": False, "service": True}.get(article_type)
 
     # RAO-P2-051: cache TTL 5 min
@@ -820,7 +820,7 @@ async def positions(
       filtrowanie typu robione in-memory, totale liczone z tego samego zbioru.
     - RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
     """
-    df, dt = _default_dates(date_from, date_to)
+    df, dt = _validate_date_range(date_from, date_to)
 
     # RAO-P2-051: cache TTL 5 min
     _ckey = cache.make_key("stats:positions", _.id, {
@@ -960,7 +960,7 @@ async def by_contract_type(
     Archiwalne maszyny uwzględnione (statystyki historyczne).
     RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
     """
-    df, dt = _default_dates(date_from, date_to)
+    df, dt = _validate_date_range(date_from, date_to)
 
     all_pos = await _compute_position_revenues(db, df, dt, service_filter=None, exclude_archival=False)
     all_pos = _apply_position_filters(all_pos, contractor_id=contractor_id, city=city)
@@ -1015,7 +1015,7 @@ async def by_branch(
     """
     from settings.models import Branch
 
-    df, dt = _default_dates(date_from, date_to)
+    df, dt = _validate_date_range(date_from, date_to)
 
     all_pos = await _compute_position_revenues(db, df, dt, service_filter=None, exclude_archival=False)
     all_pos = _apply_position_filters(all_pos, contractor_id=contractor_id, city=city)
@@ -1274,7 +1274,7 @@ async def commissions(
     """Commission report: margin per salesperson × commission_rate (RAO-P1-018)."""
     from settings.models import Salesperson
     from settlements.models import ContractSettlement
-    df, dt = _default_dates(date_from, date_to)
+    df, dt = _validate_date_range(date_from, date_to)
 
     # RAO-P1-018: Prowizja od marży, nie od przychodu
     # Oblicz marżę z contract_settlements dla umów w zakresie dat

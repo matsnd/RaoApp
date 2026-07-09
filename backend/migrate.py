@@ -1700,6 +1700,19 @@ async def step10_import_rozliczenie() -> None:
     conn.close()
 
 
+async def step11_fix_position_condition_periods() -> None:
+    """RAO-P0-048: backfill period_from/period_to for migrated position_conditions."""
+    print("[11/11] RAO-P0-048: Poprawa period_from/period_to dla warunków ...")
+    from database import AsyncSessionLocal
+    from contracts.service import contract_service
+    async with AsyncSessionLocal() as db:
+        try:
+            fixed = await contract_service.migrate_position_condition_periods(db)
+            print(f"   Fixed {fixed} conditions")
+        except Exception as e:
+            print(f"   WARN: failed to fix periods: {e}")
+
+
 async def main():
     print("=" * 60)
     print("RAO Migration  —  deterministic dump → rao_new")
@@ -1722,6 +1735,7 @@ async def main():
         await step8_csv_categories()   # RAO-P1-017
         await step9_postal_codes_migration()  # RAO-P1-008
         await step10_import_rozliczenie()  # RAO-P2-032: rzeczywiste rozliczenia z legacy
+        await step11_fix_position_condition_periods()  # RAO-P0-048
         await verify()
         print("\n✓ Migration complete!")
         print("⚠ All users have must_change_password=1 and random bcrypt passwords")

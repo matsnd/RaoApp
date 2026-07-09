@@ -504,7 +504,7 @@ def _build_positions_and_fees(i, days, maszyny, uslugi, rt_dniowy):
             "amount_from": cena_usl,
             "amount_to": None,
             "unit": "szt" if "Transport" in usluga.name else "kpl",
-            "description": f"{usluga.name} — usługa dodatkowa",
+            "description": None,  # RAO-P3-014: frontend sam dopisze cenę; unikamy dublowania nazwy
             "is_active": True,
         })
     return positions, fees
@@ -972,20 +972,63 @@ async def seed_umowy(db: AsyncSession, contracts_data, art_by_name):
             await db.flush()
             created_positions += 1
 
-            # Warunki
-            for cond_data in pos_data["conditions"]:
-                cond = PositionCondition(
-                    position_id=pos.id,
-                    rate_type_id=cond_data["rate_type_id"],
-                    description=cond_data["description"],
-                    rate1=cond_data["rate1"],
-                    rate2=cond_data["rate2"],
-                    period_count=cond_data["period_count"],
-                    minimum=cond_data["minimum"],
-                    billing_label=cond_data["billing_label"],
-                )
-                db.add(cond)
-                created_conditions += 1
+            # Warunki — RAO-P0-048: wyliczamy period_from/period_to kaskadowo
+            sorted_conds = sorted(
+                pos_data["conditions"],
+                key=lambda c: (c["period_count"] is None, c["period_count"] or 0)
+            )
+            current_end = 0
+            for i, cond_data in enumerate(sorted_conds):
+                pc = cond_data["period_count"]
+                has_rate1 = cond_data.get("rate1") is not None and cond_data["rate1"] > 0
+                has_rate2 = cond_data.get("rate2") is not None and cond_data["rate2"] > 0
+
+                next_pc = None
+                for j in range(i + 1, len(sorted_conds)):
+                    npc = sorted_conds[j]["period_count"]
+                    if npc is not None:
+                        next_pc = npc
+                        break
+
+                if has_rate1 and pc is not None:
+                    period_from_r1 = current_end + 1
+                    period_to_r1 = pc
+                    current_end = pc
+                    cond = PositionCondition(
+                        position_id=pos.id,
+                        rate_type_id=cond_data["rate_type_id"],
+                        description=cond_data["description"],
+                        rate1=cond_data["rate1"],
+                        rate2=None,
+                        period_count=pc,
+                        period_from=period_from_r1,
+                        period_to=period_to_r1,
+                        minimum=cond_data["minimum"],
+                        billing_label=cond_data["billing_label"],
+                    )
+                    db.add(cond)
+                    created_conditions += 1
+
+                if has_rate2:
+                    r2_from = (pc + 1) if has_rate1 and pc is not None else (current_end + 1)
+                    r2_to = (next_pc - 1) if next_pc is not None else None
+                    if r2_to is None or r2_from <= r2_to:
+                        cond = PositionCondition(
+                            position_id=pos.id,
+                            rate_type_id=cond_data["rate_type_id"],
+                            description=cond_data["description"],
+                            rate1=None,
+                            rate2=cond_data["rate2"],
+                            period_count=None,
+                            period_from=r2_from,
+                            period_to=r2_to,
+                            minimum=cond_data["minimum"],
+                            billing_label=cond_data["billing_label"],
+                        )
+                        db.add(cond)
+                        created_conditions += 1
+                        if r2_to is not None:
+                            current_end = r2_to
 
             # Rozliczenie dla pozycji (80% source=fakturownia, 20% manual).
             # fa_pending → BEZ rozliczeń (faktura czeka w FA — "Pobierz z Fakturowni" na demo)

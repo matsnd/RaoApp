@@ -78,8 +78,11 @@ def test_position_create_requires_article_id():
 
 
 def test_condition_create_all_optional():
-    cond = ConditionCreate()
-    assert cond.rate1 is None
+    # Rate fields are optional individually, but at least one rate is required.
+    with pytest.raises(ValidationError):
+        ConditionCreate()  # type: ignore[call-arg]
+    cond = ConditionCreate(rate1=Decimal("100.00"))
+    assert cond.rate2 is None
     assert cond.minimum is None
 
 
@@ -252,13 +255,15 @@ async def test_apply_rate_preset_position_not_found_raises_404():
     """apply_rate_preset_to_position zwraca 404 gdy pozycja nie istnieje."""
     from fastapi import HTTPException
     from contracts.service import contract_service
+    from auth.models import User
+    user = MagicMock(spec=User, role="admin", branch_id=1)
     db = AsyncMock()
     result = MagicMock()
     result.scalar_one_or_none.return_value = None  # brak pozycji
     db.execute = AsyncMock(return_value=result)
 
     with pytest.raises(HTTPException) as exc:
-        await contract_service.apply_rate_preset_to_position(db, 999, 1, replace=True)
+        await contract_service.apply_rate_preset_to_position(db, 999, 1, user, replace=True)
     assert exc.value.status_code == 404
 
 
@@ -268,6 +273,8 @@ async def test_apply_rate_preset_settled_contract_raises_409():
     from fastapi import HTTPException
     from contracts.service import contract_service
     from contracts.models import ContractPosition, Contract
+    from auth.models import User
+    user = MagicMock(spec=User, role="admin", branch_id=1)
 
     db = AsyncMock()
     pos = MagicMock(spec=ContractPosition)
@@ -284,7 +291,7 @@ async def test_apply_rate_preset_settled_contract_raises_409():
     db.get = AsyncMock(return_value=contract)
 
     with pytest.raises(HTTPException) as exc:
-        await contract_service.apply_rate_preset_to_position(db, 1, 1, replace=True)
+        await contract_service.apply_rate_preset_to_position(db, 1, 1, user, replace=True)
     assert exc.value.status_code == 409
 
 
@@ -292,10 +299,12 @@ async def test_apply_rate_preset_settled_contract_raises_409():
 async def test_get_last_conditions_for_article_no_history_returns_none():
     """get_last_conditions_for_article zwraca None gdy brak historii umów."""
     from contracts.service import contract_service
+    from auth.models import User
+    user = MagicMock(spec=User, role="admin", branch_id=1)
     db = AsyncMock()
     result = MagicMock()
     result.scalar_one_or_none.return_value = None  # brak pozycji
     db.execute = AsyncMock(return_value=result)
 
-    out = await contract_service.get_last_conditions_for_article(db, 999)
+    out = await contract_service.get_last_conditions_for_article(db, 999, user)
     assert out is None

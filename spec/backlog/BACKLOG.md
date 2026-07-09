@@ -19,7 +19,40 @@
 ---
 
 ## 🚨 P0 — Production Blockers
-*(brak)*
+
+### P0-001: P0 critical bug fixes (cascading rates, IDOR, validators, fees)
+
+```yaml
+id: P0-001
+status: dev-verified
+priority: P0
+created: 2026-07-05
+source: internal-audit
+component: backend/contracts + backend/articles + backend/stats + backend/reports
+```
+
+**Opis:** Naprawa krytycznych P0 z poprzedniego audytu:
+- rate2 poprawnie interpretowane w `calculate_position_value` i `recalculate_total`
+- `format_position_conditions_cascading` wyświetla rate2 („do X dni Y / doba, każda kolejna doba Z”)
+- `apply_rate_preset_to_position` wylicza kaskadowo `period_from`/`period_to`
+- `main.py` i `seed_demo_data` nie ustawiają naiwnie `period_from=1` dla wszystkich warunków
+- brakujące `is_settled` checks w mutations conditions/service fees
+- mass IDOR na zasobach umów — `verify_contract_access` we wszystkich endpointach
+- brakujące Pydantic validators dla `period_*`, `rate*`, `minimum`, `amount_*`, `SafeName/SafeDescription`
+- `is_service` filter w `GET /articles` oraz walidacja `article_id` usługi
+- `generate_fees_text` nie traktuje `Decimal(0)` jako falsy
+- `POST /contracts/{cid}/positions/{pid}/conditions` nie ujawnia `e.orig`
+
+**Implementacja:**
+- `backend/stats/calc.py`: kaskadowy algorytm z rate2
+- `backend/contracts/service.py`: `verify_contract_access`, `is_settled` guards, kaskadowe `period_from/period_to`, walidacja `is_service`
+- `backend/contracts/router.py`: przekazywanie `user` i użycie `verify_contract_access`
+- `backend/contracts/schemas.py`: `SafeName`, `SafeDescription`, validators
+- `backend/articles/router.py`, `backend/articles/service.py`: `is_service` filter
+- `backend/reports/service.py`: `is not None` dla `amount_from`/`amount_to`
+- `backend/main.py`: poprawna migracja `period_from/period_to` w startup
+- `backend/seed_demo_data.py`: kaskadowe `period_from/period_to` przy seedzie
+- `backend/migrate.py`: krok `step11_fix_position_condition_periods`
 
 ---
 

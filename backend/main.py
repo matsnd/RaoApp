@@ -500,10 +500,15 @@ async def startup_migrations():
             "ALTER TABLE position_conditions ADD COLUMN IF NOT EXISTS "
             "period_to INT NULL COMMENT 'RAO-P1-005: elastyczne widełki (do)'"
         ))
-        # Migracja danych: period_from=1, period_to=period_count dla istniejących rekordów
-        await conn.execute(sa.text(
-            "UPDATE position_conditions SET period_from = 1, period_to = period_count WHERE period_count IS NOT NULL AND period_from IS NULL"
-        ))
+        # Migracja danych: RAO-P0-048 popraw kaskadowe period_from/period_to
+        # (zamiast naiwnego period_from=1 dla każdego rekordu)
+        async with AsyncSessionLocal() as db:
+            from contracts.service import contract_service
+            try:
+                await contract_service.migrate_position_condition_periods(db)
+            except Exception as exc:
+                logger.exception("RAO-P0-048 migrate_position_condition_periods failed: %s", exc)
+                await db.rollback()
         # service_fee_template_items utworzone przez Base.metadata.create_all (nowa tabela)
         # RAO-P1-012: contract_settlements - rozliczenia umów (koszty klient vs firma)
         await conn.execute(sa.text("""

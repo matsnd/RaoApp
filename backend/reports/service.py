@@ -28,10 +28,13 @@ def generate_fees_text(fees: list) -> str:
     for f, desc in sorted(normalized, key=lambda x: x[0].sort_order):
         if not f.is_active:
             continue
-        if f.amount_from and f.amount_to:
+        # RAO-P0-050: Decimal(0) is truthy-by-value but falsy in Python; use is not None
+        if f.amount_from is not None and f.amount_to is not None:
             kwota = f"{f.amount_from:.2f} zł - {f.amount_to:.2f} zł"
-        elif f.amount_from:
+        elif f.amount_from is not None:
             kwota = f"{f.amount_from:.2f} zł"
+        elif f.amount_to is not None:
+            kwota = f"{f.amount_to:.2f} zł"
         else:
             kwota = ""
         unit = f" / {f.unit}" if f.unit else ""
@@ -42,6 +45,43 @@ def generate_fees_text(fees: list) -> str:
 
 # RAO-P1-045: _build_conditions_text removed — dead code.
 # build_contract_data already uses format_position_conditions_cascading (dedup + cascading).
+
+
+def _build_fee_amount_line(fee: ContractServiceFee) -> str:
+    """Format amount + unit for PDF service-fee display."""
+    if fee.amount_from is None and fee.amount_to is None:
+        return ""
+    if fee.amount_from is not None and fee.amount_to is not None and fee.amount_to == fee.amount_from:
+        amount_text = _fmt_money(fee.amount_from)
+    elif fee.amount_from is not None and fee.amount_to is not None:
+        amount_text = f"{_fmt_money(fee.amount_from)} - {_fmt_money(fee.amount_to)}"
+    elif fee.amount_from is not None:
+        amount_text = _fmt_money(fee.amount_from)
+    else:
+        amount_text = _fmt_money(fee.amount_to)
+    if fee.unit:
+        return f"{amount_text} / {fee.unit}"
+    return amount_text
+
+
+def _format_fee_display(fee: ContractServiceFee, description: str | None = None) -> str:
+    """Build one-line PDF display for a service fee.
+
+    Legacy descriptions that already start with '-' or '•' are returned as-is.
+    Otherwise returns '- {name}: {description}' or '- {name}: {amount} / {unit}'.
+    """
+    name = (fee.name or "").strip()
+    desc = (description or fee.description or "").strip()
+    if desc and desc[0] in {"-", "•"}:
+        return desc
+    parts = [f"- {name}"]
+    if desc:
+        parts.append(f": {desc}")
+    else:
+        amount_line = _build_fee_amount_line(fee)
+        if amount_line:
+            parts.append(f": {amount_line}")
+    return "".join(parts)
 
 
 async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
@@ -80,6 +120,7 @@ async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
         fees_data.append({
             "fee": f,
             "description": desc,
+            "display": _format_fee_display(f, desc),
         })
 
     positions_data = []
