@@ -626,6 +626,104 @@ migration_impact: yes (drop invoice_amount + invoice_document columns)
 
 ---
 
+### P1-104: Naprawa alignment sekcji "DANE PODSTAWOWE" — równy grid + przyciski dni zgodne z DS
+
+```yaml
+id: P1-104
+status: triaged
+priority: P1
+created: 2026-07-09
+source: client-request (nierówne pola + przyciski 5/6/7 oderwane)
+component: frontend/ContractFormView + frontend/src/components/contracts/ContractPeriodPicker
+migration_impact: no
+```
+
+**Kontekst:** Analiza rao-vision (Claude Opus) + UX Designer wykazała problemy wizualne w sekcji "DANE PODSTAWOWE" formularza edycji umowy. Pola mają nierówne szerokości, przyciski dni tygodnia 5/6/7 są oderwane od pola "Data od" i niezgodne z design systemem.
+
+**Zidentyfikowane problemy:**
+
+1. **NIERÓWNE SZEROKOŚCI PÓL** (P0):
+   - Typ umowy ~160px, Numer umowy ~140px, OID ~180px, Okres umowy ~150px
+   - Helper text pod OID wystaje poza szerokość pola
+   - Pola nie tworzą równej siatki grid
+
+2. **PRZYCISKI 5/6/7 ODERWANE OD "DATA OD"** (P0):
+   - Brak wizualnego związku między "Data od" a przyciskami dni
+   - Brak labela `<label>` dla "Dni rob./tydz." — wygląda jak zwykły tekst
+   - Przyciski w 4. kolumnie grid która jest przeładowana (daty + przyciski + error)
+
+3. **PRZYCISKI 5/6/7 NIEZGODNE Z DS** (P1):
+   - Border-radius pill zamiast 12px (var(--border-radius-md))
+   - Spacing 8px zamiast 12px (var(--spacing-3))
+   - Brak focus-ring na selected
+
+**Rozwiązanie (UX Designer):**
+
+1. **Grid `repeat(4, 1fr)` z gap 16px** — równe kolumny:
+   ```css
+   .form-row-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--spacing-4); }
+   ```
+
+2. **Dni robocze jako osobny wiersz wewnątrz sekcji** (nie 4. kolumna):
+   ```
+   ┌─ DANE PODSTAWOWE ──────────────────────────────────┐
+   │ [Typ umowy] [Numer] [OID] [Okres umowy — Data od]  │
+   │                                                      │
+   │ ┌─ Dni robocze w tygodniu (label) ───────────────┐  │
+   │ │ [5] [6] [7]  ← 44x44, radius 12px, gap 12px   │  │
+   │ └────────────────────────────────────────────────┘  │
+   └──────────────────────────────────────────────────────┘
+   ```
+
+3. **Przyciski 5/6/7 zgodne z DS:**
+   ```css
+   .day-btn { width: 44px; height: 44px; border-radius: var(--border-radius-md); margin-right: var(--spacing-3); }
+   .day-btn.selected { background: var(--color-primary); color: #fff; outline: 2px solid var(--color-primary); outline-offset: 2px; }
+   .day-btn:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+   ```
+
+4. **Label "Dni robocze w tygodniu"** (zamiast skrótu "Dni rob./tydz."):
+   - `<label id="days-label">Dni robocze w tygodniu</label>`
+   - `<div role="group" aria-labelledby="days-label">` dla przycisków
+
+5. **Helper OID skrócony:** "Puste = numer umowy. Dozwolone: litery, cyfry, -, /, _"
+   - `max-width: 100%; word-break: break-word; font-size: 11px; line-height: 1.3;`
+
+6. **Empty state:** brak daty "od" → przyciski 5/6/7 disabled z tooltip "Najpierw wybierz datę początkową"
+
+**Zadania:**
+
+1. **Frontend ContractFormView.vue:**
+   - Zamień `form-row-4` na `grid-template-columns: repeat(4, 1fr); gap: var(--spacing-4)`
+   - Wyciągnij przyciski dni z 4. kolumny do osobnego wiersza pod gridem
+   - Dodaj `<label>` i `role="group"` dla przycisków dni
+   - Skróć helper text OID + dodaj `max-width: 100%; word-break: break-word`
+
+2. **Frontend ContractPeriodPicker.vue (jeśli osobny komponent):**
+   - Przyciski 5/6/7: border-radius 12px, spacing 12px, focus-ring
+   - Empty state: disabled gdy brak daty "od"
+
+3. **CSS:**
+   - Dodaj style `.day-btn` zgodne z DS
+   - Grupa dni: `border: 1px solid var(--color-border); padding: var(--spacing-3); border-radius: var(--border-radius-md);`
+
+4. **Testy + weryfikacja:**
+   - vue-tsc + npm build
+   - Playwright: screenshot przed/po, porównanie alignment
+   - rao-vision: re-analiza po fixie
+   - Commit
+
+**Definition of Done:**
+- [ ] Grid `repeat(4, 1fr)` — równe kolumny
+- [ ] Dni robocze jako osobny wiersz z `<label>` i `role="group"`
+- [ ] Przyciski 5/6/7: 44x44, radius 12px, gap 12px, focus-ring
+- [ ] Helper OID skrócony + `max-width: 100%`
+- [ ] Empty state: disabled gdy brak daty "od"
+- [ ] rao-vision re-analiza: brak problemów alignment
+- [ ] Testy passing
+
+---
+
 ## 🏗️ P1-100 — EPIC: Usługi dodatkowe + rozliczenie umowy (cennik) — v2
 
 > **Scalony epic** — łączy P1-003, P1-004, P1-005, P1-006, P1-008 (freebie), P1-013, P1-014, P1-015
