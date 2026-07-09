@@ -28,7 +28,7 @@
           <th>{{ isRental ? 'Do (dni)' : 'Do (godz.)' }}</th>
           <th>Stawka (zł)</th>
           <th>Jednostka</th>
-          <th>Minimum</th>
+          <th>Min.</th>
           <th style="width:80px;"></th>
         </tr>
       </thead>
@@ -37,10 +37,10 @@
           <!-- EDIT MODE (inline) -->
           <tr v-if="editingCondId === cond.id" class="row-editing">
             <td>
-              <input v-model.number="editingCondData.period_from" type="number" :min="isRental ? 1 : 0" class="form-control form-control-xs" :placeholder="isRental ? '1' : '0'" data-testid="period-from" :disabled="isSettled" @keydown.enter="saveInlineCond" @keydown.esc="cancelInlineCond" />
+              <input v-model.number="editingCondData.period_from" type="number" min="0" class="form-control form-control-xs" :placeholder="isRental ? '1' : '0'" data-testid="period-from" :disabled="isSettled" @keydown.enter="saveInlineCond" @keydown.esc="cancelInlineCond" />
             </td>
             <td>
-              <input v-model.number="editingCondData.period_to" type="number" :min="isRental ? 1 : 0" class="form-control form-control-xs" :placeholder="isRental ? 'np. 3' : 'np. 8'" data-testid="period-to" :disabled="isSettled" @keydown.enter="saveInlineCond" @keydown.esc="cancelInlineCond" />
+              <input v-model.number="editingCondData.period_to" type="number" min="0" class="form-control form-control-xs" :placeholder="isRental ? 'np. 3 (puste = i więcej)' : 'np. 8 (puste = i więcej)'" data-testid="period-to" :disabled="isSettled" @keydown.enter="saveInlineCond" @keydown.esc="cancelInlineCond" />
             </td>
             <td>
               <input v-model.number="editingCondData.rate1" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" data-testid="rate1" :disabled="isSettled" @keydown.enter="saveInlineCond" @keydown.esc="cancelInlineCond" />
@@ -80,10 +80,10 @@
         <!-- NEW ROW (inline add) -->
         <tr v-if="showNewCondRow" class="row-editing">
           <td>
-            <input ref="newCondPeriodFromInput" v-model.number="newCondData.period_from" type="number" :min="isRental ? 1 : 0" class="form-control form-control-xs" :placeholder="isRental ? '1' : '0'" data-testid="new-period-from" :disabled="isSettled" @keydown.enter="saveNewCondRow" @keydown.esc="cancelNewCondRow" />
+            <input ref="newCondPeriodFromInput" v-model.number="newCondData.period_from" type="number" min="0" class="form-control form-control-xs" :placeholder="isRental ? '1' : '0'" data-testid="new-period-from" :disabled="isSettled" @keydown.enter="saveNewCondRow" @keydown.esc="cancelNewCondRow" />
           </td>
           <td>
-            <input v-model.number="newCondData.period_to" type="number" :min="isRental ? 1 : 0" class="form-control form-control-xs" :placeholder="isRental ? 'np. 3' : 'np. 8'" data-testid="new-period-to" :disabled="isSettled" @keydown.enter="saveNewCondRow" @keydown.esc="cancelNewCondRow" />
+            <input v-model.number="newCondData.period_to" type="number" min="0" class="form-control form-control-xs" :placeholder="isRental ? 'np. 3 (puste = i więcej)' : 'np. 8 (puste = i więcej)'" data-testid="new-period-to" :disabled="isSettled" @keydown.enter="saveNewCondRow" @keydown.esc="cancelNewCondRow" />
           </td>
           <td>
             <input v-model.number="newCondData.rate1" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" data-testid="new-rate1" :disabled="isSettled" @keydown.enter="saveNewCondRow" @keydown.esc="cancelNewCondRow" />
@@ -415,10 +415,12 @@ watch(conditions, validateContinuity, { deep: true })
 
 // RAO-P1-005 / RAO-P1-100: wierny podgląd PDF — zgodny z legacy WinForms + backend
 // Legacy format (c:\Temp\legacy_pdfs\):
-//   "1 - 3 dni - 800,00 / doba"
-//   "powyżej 3 dni - 700,00 / doba"
-//   "1 dzień - 630,00 / doba"
-//   "do 2 godzin - 1900,00zł"
+//   "1 - 3 dni - 800,00 / doba"        (closed range)
+//   "powyżej 3 dni - 700,00 / doba"    (open-ended after closed)
+//   "1 dzień - 630,00 / doba"          (single day)
+//   "230,00 / doba"                    (flat rate — NO range prefix)
+//   "do 2 godzin - 1900,00 / doba"     (service 0-X)
+//   Minimum is NOT shown in condition line (legacy shows it in Uwagi)
 function formatPreview(cond: any): string {
   if (cond.description) {
     return cond.description
@@ -430,21 +432,22 @@ function formatPreview(cond: any): string {
   const labels = unitLabels(cond.billing_label, isService.value)
   const pf = cond.period_from ?? (isService.value ? 0 : 1)
   const pt = cond.period_to
-  const minimum = cond.minimum
-  const minSuffix = (minimum && minimum > 0) ? ` (min. ${minimum} ${formatCount(minimum, labels.count)})` : ''
+  const rateText = `${rateStr} / ${labels.rate}`
 
   if (pt == null) {
-    // Legacy: "powyżej X dni" where X = period_from - 1
-    const threshold = Math.max(pf - 1, 0)
-    return `powyżej ${threshold} ${formatCount(threshold, labels.count)}${minSuffix} - ${rateStr} / ${labels.rate}`
+    // Flat rate (pf <= 1): no range prefix — legacy: "230,00 / doba"
+    if (pf <= 1) return rateText
+    // Open-ended after closed tier: "powyżej X dni"
+    const threshold = pf - 1
+    return `powyżej ${threshold} ${formatCount(threshold, labels.count)} - ${rateText}`
   }
   if (pf === 0) {
-    return `do ${pt} ${formatCount(pt, labels.count)}${minSuffix} - ${rateStr} / ${labels.rate}`
+    return `do ${pt} ${formatCount(pt, labels.count)} - ${rateText}`
   }
   if (pf === pt) {
-    return `${pf} ${formatCount(1, labels.count)}${minSuffix} - ${rateStr} / ${labels.rate}`
+    return `${pf} ${formatCount(1, labels.count)} - ${rateText}`
   }
-  return `${pf} - ${pt} ${formatCount(pt - pf + 1, labels.count)}${minSuffix} - ${rateStr} / ${labels.rate}`
+  return `${pf} - ${pt} ${formatCount(pt - pf + 1, labels.count)} - ${rateText}`
 }
 
 const pdfPreviewLines = computed(() => {

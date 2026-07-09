@@ -165,19 +165,20 @@ def _format_period_range(
     """Build a human-readable period range for PDF/print.
 
     Legacy format (from WinForms app, confirmed via c:\\Temp\\legacy_pdfs\\):
-      - Closed range:  "1 - 3 dni"
-      - Single day:    "1 dzień"
-      - Open-ended:    "powyżej 3 dni"  (NOT "3 dni i więcej")
-      - Service 0-X:   "do 8 godzin"
+      - Flat rate:    "230,00zł / doba" (no range text — just rate in line)
+      - Closed range: "1 - 3 dni"
+      - Single day:   "1 dzień"
+      - Open-ended:   "powyżej 3 dni"  (NOT "3 dni i więcej")
+      - Service 0-X:  "do 8 godzin"
+      - Minimum:      NOT shown in condition line (legacy shows it in Uwagi)
     """
     pf = period_from if period_from is not None else 1
     if pf < 0:
         pf = 0
 
-    # Include minimum in the display when it is set.
-    min_suffix = ""
-    if minimum is not None and minimum > 0:
-        min_suffix = f" (min. {minimum} {_format_count_unit(minimum, count_unit)})"
+    # Legacy: minimum is NOT shown in the condition line.
+    # It was displayed in the "Uwagi" section of the PDF, not inline.
+    # We keep it out of the range text to match legacy format exactly.
 
     if period_to is not None:
         if period_to < pf:
@@ -185,17 +186,19 @@ def _format_period_range(
         # "do X" form is natural for service tiers starting at 0 (e.g. 0-8 hours).
         if pf == 0:
             count = max(period_to, 1)
-            return f"do {period_to} {_format_count_unit(count, count_unit)}{min_suffix}"
+            return f"do {period_to} {_format_count_unit(count, count_unit)}"
         if pf == period_to:
-            return f"{pf} {_format_count_unit(1, count_unit)}{min_suffix}"
-        return f"{pf} - {period_to} {_format_count_unit(period_to - pf + 1, count_unit)}{min_suffix}"
+            return f"{pf} {_format_count_unit(1, count_unit)}"
+        return f"{pf} - {period_to} {_format_count_unit(period_to - pf + 1, count_unit)}"
 
-    # Open-ended: legacy uses "powyżej X dni" (NOT "X dni i więcej").
-    # When pf <= 1, the threshold is 0 (powyżej 0 = everything from day 1).
+    # Open-ended: flat rate (pf <= 1) has NO range prefix in legacy.
+    # Legacy: "230,00zł / doba" — just the rate, no "powyżej 0 dni".
+    if pf <= 1:
+        return ""
+
+    # Open-ended after a closed tier: "powyżej X dni" where X = pf - 1.
     threshold = pf - 1
-    if threshold < 0:
-        threshold = 0
-    return f"powyżej {threshold} {_format_count_unit(threshold, count_unit)}{min_suffix}"
+    return f"powyżej {threshold} {_format_count_unit(threshold, count_unit)}"
 
 
 def _normalize_conditions_for_format(
@@ -333,10 +336,13 @@ def format_position_conditions_cascading(
             label = "doba" if contract_type == "S" else "godzina"
         count_unit, rate_unit = _unit_labels(label, contract_type)
 
-        lines.append(
-            f"{_format_period_range(n['period_from'], n['period_to'], count_unit, n['minimum'])} - "
-            f"{_format_rate(n['rate'])} / {rate_unit}"
-        )
+        range_text = _format_period_range(n['period_from'], n['period_to'], count_unit, n['minimum'])
+        rate_text = f"{_format_rate(n['rate'])} / {rate_unit}"
+        if range_text:
+            lines.append(f"{range_text} - {rate_text}")
+        else:
+            # Flat rate: no range prefix (legacy: "230,00zł / doba")
+            lines.append(rate_text)
 
     return '\n'.join(lines)
 

@@ -21,7 +21,7 @@ class MockCondition:
 
 def test_cascading_3_conditions_matches_old_app():
     """Test with 3 conditions converted to new period_from/period_to/rate1 fields.
-    Legacy format: 'powyżej X dni' (NOT 'X dni i więcej')."""
+    Legacy format: 'powyżej X dni' (NOT 'X dni i więcej'). Minimum NOT in line."""
     conditions = [
         MockCondition(period_from=1, period_to=3, rate1=Decimal("540"), billing_label='doba'),
         MockCondition(period_from=4, period_to=16, rate1=Decimal("410"), billing_label='doba'),
