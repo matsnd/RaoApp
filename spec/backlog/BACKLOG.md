@@ -724,7 +724,7 @@ migration_impact: no
 
 ---
 
-### P1-105: "Wpisz datę końcową" — liczba dni znika zamiast się przeliczyć
+### P1-105: Przebudowa ContractPeriodPicker — segmented control + oba pola zawsze widoczne
 
 ```yaml
 id: P1-105
@@ -767,6 +767,17 @@ migration_impact: no
 - [ ] Gdy data końcowa pusta → placeholder "— wybierz datę do —"
 - [ ] Gdy data końcowa ustawiona → przeliczona liczba dni roboczych
 - [ ] Testy passing
+
+**Rekomendacja UX Designera (segmented control):**
+
+Zastąp przycisk toggle **segmented control** "Liczba dni" | "Data końcowa":
+- Aktywny segment: `btn-primary`, nieaktywny: `btn-secondary`
+- Obu pola ZAWSZE widoczne — jedno editable, drugie read-only z przeliczoną wartością
+- Tryb "Liczba dni": `[(3) editable]` + `[10.07.2026] read-only` (przeliczona)
+- Tryb "Data końcowa": `[3] read-only "z daty końcowej"` + `[12.07.2026] editable`
+- Edge: brak daty od → segmented disabled + hint; data do < od → czerwona obwódka
+
+**Powiązane:** P1-104 (naprawa alignment DANE PODSTAWOWE) — ten sam komponent ContractPeriodPicker
 
 ---
 
