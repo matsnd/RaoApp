@@ -484,6 +484,79 @@ Obecna aplikacja nie rozróżnia tych modeli — zawsze generuje "0 - X godzin -
 
 ---
 
+### P1-102: KISS opłaty dodatkowe — usuń `unit` (JM), grid 3-kolumnowy, szablon = single source of truth
+
+```yaml
+id: P1-102
+status: triaged
+priority: P1
+created: 2026-07-09
+source: client-request (wizja KISS opłat dodatkowych)
+component: frontend/ContractFormView + backend/contracts/models + backend/settings/models + backend/reports/service
+migration_impact: yes (drop unit column)
+```
+
+**Kontekst:** Aktualny grid opłat dodatkowych ma 5 kolumn (Nazwa | Kwota1 | Kwota2 | JM | Tekst na umowie) — przekomplikowane. `unit` (JM) jest prawie bezużyteczny bo `description` (szablon z `$1`/`$2`) jest single source of truth dla PDF. Kwoty są informacyjne (prawdziwe rozliczenie idzie z Fakturowni).
+
+**Wizja KISS:**
+- Grid: Nazwa | Kwota1 | Kwota2 | (akcje) — 3 kolumny + akcje
+- `description` (szablon `$1`/`$2`) = single source of truth dla PDF
+- Pod gridem: Podgląd PDF (już działa)
+- `unit` (JM) usunięte z DB i GUI
+
+**Przykłady (wszystkie działają bez unit):**
+- Transport: kwota1=1200, kwota2=1200, desc="$1 dostawa / $2 odbiór" → "1 200,00 zł dostawa / 1 200,00 zł odbiór"
+- Czyszczenie: kwota1=null, kwota2=null, desc="wycena indywidualna" → "wycena indywidualna"
+- Przystój: kwota1=200, kwota2=300, desc="$1 / h - $2 / h" → "200,00 zł / h - 300,00 zł / h"
+- Tankowanie: kwota1=200, kwota2=null, desc="$1 (plus koszt paliwa)" → "200,00 zł (plus koszt paliwa)"
+
+**Zadania:**
+
+1. **Usuń `unit` z DB:**
+   - `contract_service_fees.unit` — DROP COLUMN (z backupem)
+   - `fee_preset_templates.unit` — DROP COLUMN (z backupem)
+   - Migracja w `backend/main.py` startup: `ALTER TABLE ... DROP COLUMN IF EXISTS unit`
+   - Backup: `mariadb-dump` przed migracją
+
+2. **Migracja danych:** istniejące opłaty z `unit` → wpleć unit w description:
+   - Jeśli description zawiera `$1`/`$2` i unit != null → dodaj unit do description
+   - Np. desc="$1", unit="h" → desc="$1 / h"
+   - Np. desc="$1 - $2", unit="h" → desc="$1 / h - $2 / h"
+   - Skrypt migracyjny w `backend/main.py` startup (jednorazowy)
+
+3. **Usuń `unit` z backend:**
+   - `backend/contracts/models.py`: usuń `unit = Column(...)` z `ContractServiceFee`
+   - `backend/settings/models.py`: usuń `unit = Column(...)` z `FeePresetTemplate`
+   - `backend/contracts/schemas.py`: usuń `unit` z `ServiceFeeCreate/Update/Response`
+   - `backend/reports/service.py`: usuń `_build_fee_amount_line` fallback z unit (zostaje tylko desc)
+
+4. **Usuń kolumnę JM z frontend gridu:**
+   - `frontend/src/views/ContractFormView.vue`: usuń kolumnę JM z tabeli opłat
+   - Grid: Nazwa | Kwota1 | Kwota2 | (akcje) — 3 kolumny
+   - Formularz edycji: usuń pole JM
+   - Podgląd PDF pod gridem — zostaje bez zmian
+
+5. **Testy + weryfikacja:**
+   - pytest: test opłat bez unit (description = single source of truth)
+   - vue-tsc + npm build
+   - Playwright: opłata z desc → PDF poprawny, opłata bez desc → fallback
+   - Commit
+
+**Definition of Done:**
+- [ ] `unit` usunięte z `contract_service_fees` + `fee_preset_templates`
+- [ ] Migracja danych: unit wpleciony w description
+- [ ] Grid 3-kolumnowy (Nazwa | Kwota1 | Kwota2 | akcje)
+- [ ] `description` = single source of truth dla PDF
+- [ ] Podgląd PDF pod gridem działa
+- [ ] Testy passing
+- [ ] Spec sync: spec/core/04_business_logic.md
+
+**Ryzyka:**
+- DROP COLUMN unit = utrata danych. Backup + migracja danych (wpleć unit w desc) przed DROP.
+- Opłaty z unit ale bez description → fallback musi działać (kwota bez / unit).
+
+---
+
 ## 🏗️ P1-100 — EPIC: Usługi dodatkowe + rozliczenie umowy (cennik) — v2
 
 > **Scalony epic** — łączy P1-003, P1-004, P1-005, P1-006, P1-008 (freebie), P1-013, P1-014, P1-015
