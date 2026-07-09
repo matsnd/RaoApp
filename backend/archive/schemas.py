@@ -136,7 +136,6 @@ class ArchiveServiceFeeResponse(BaseModel):
     name: str
     amount_from: Decimal | None = None
     amount_to: Decimal | None = None
-    unit: str | None = None
     description: str | None = None
     is_active: bool
     article_id: int | None = None
@@ -178,7 +177,6 @@ class ArchiveContractListItem(BaseModel):
     date_from: date | None = None
     date_to: date | None = None
     prepayment_amount: Decimal | None = None
-    invoice_amount: Decimal | None = None
     notes: str | None = None
     email: str | None = None
     contact_person1: str | None = None
@@ -213,8 +211,6 @@ class ArchiveContractDetail(BaseModel):
     date_to: date | None = None
     prepayment_amount: Decimal | None = None
     prepayment_document: str | None = None
-    invoice_amount: Decimal | None = None
-    invoice_document: str | None = None
     notes: str | None = None
     contact_person1: str | None = None
     contact_phone1: str | None = None

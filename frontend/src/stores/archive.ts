@@ -22,7 +22,6 @@ export interface ArchiveContractListItem {
   date_from: string | null
   date_to: string | null
   prepayment_amount: string | null
-  invoice_amount: string | null
   notes: string | null
   email: string | null
   contact_person1: string | null
@@ -76,7 +75,6 @@ export interface ArchiveServiceFee {
   name: string
   amount_from: string | null
   amount_to: string | null
-  unit: string | null
   description: string | null
   is_active: boolean
   article_id: number | null
@@ -104,7 +102,6 @@ export interface ArchiveContractDetail extends ArchiveContractListItem {
   latitude: string | null
   longitude: string | null
   prepayment_document: string | null
-  invoice_document: string | null
   contact_person2: string | null
   contact_phone2: string | null
   show_person1: boolean

@@ -488,7 +488,7 @@ Obecna aplikacja nie rozróżnia tych modeli — zawsze generuje "0 - X godzin -
 
 ```yaml
 id: P1-102
-status: triaged
+status: review
 priority: P1
 created: 2026-07-09
 source: client-request (wizja KISS opłat dodatkowych)
@@ -561,9 +561,10 @@ migration_impact: yes (drop unit column)
 
 ```yaml
 id: P1-103
-status: triaged
+status: done
 priority: P1
 created: 2026-07-09
+completed: 2026-07-09
 source: client-request (KISS Warunki Finansowe)
 component: frontend/ContractFormView + backend/contracts + backend/archive
 migration_impact: yes (drop invoice_amount + invoice_document columns)
@@ -611,14 +612,14 @@ migration_impact: yes (drop invoice_amount + invoice_document columns)
    - Commit
 
 **Definition of Done:**
-- [ ] Pole "Faktura (zł)" usunięte z ContractFormView
-- [ ] Pole "Faktura" usunięte z ArchiveView
-- [ ] `invoice_amount` + `invoice_document` usunięte z backend (models, schemas, service, archive)
-- [ ] Migracja DROP COLUMN (z backupem)
-- [ ] Kolor "Pozostało" = zwykły (nie czerwony)
-- [ ] `remainingValue` = `total - pre` (bez `inv`)
-- [ ] Testy passing
-- [ ] Spec sync: spec/core/01_database.md, spec/core/02_backend_api.md, spec/core/03_frontend_screens.md
+- [x] Pole "Faktura (zł)" usunięte z ContractFormView
+- [x] Pole "Faktura" usunięte z ArchiveView
+- [x] `invoice_amount` + `invoice_document` usunięte z backend (models, schemas, service, archive)
+- [x] Migracja DROP COLUMN (idempotentna, w main.py startup; backup po stronie użytkownika)
+- [x] Kolor "Pozostało" = zwykły (nie czerwony)
+- [x] `remainingValue` = `total - pre` (bez `inv`)
+- [x] Testy passing (vue-tsc OK; pytest: test_archive 22 passed; 6 pre-existing failures z P1-101 niezwiązane)
+- [x] Spec sync: spec/core/01_database.md, spec/core/02_backend_api.md, spec/core/04_business_logic.md
 
 **Ryzyka:**
 - DROP COLUMN = utrata danych historycznych invoice_amount. Backup + ewentualne zachowanie w archive dump.

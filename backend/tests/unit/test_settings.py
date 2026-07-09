@@ -59,10 +59,8 @@ def test_service_fee_template_with_amounts():
         name="Praca operatora",
         amount_from=Decimal("100.00"),
         amount_to=Decimal("500.00"),
-        unit="zł/h",
     )
     assert t.amount_from == Decimal("100.00")
-    assert t.unit == "zł/h"
 
 
 def test_fee_preset_group_create_valid():

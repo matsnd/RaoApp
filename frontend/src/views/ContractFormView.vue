@@ -387,15 +387,14 @@
                 <th style="width:18%;">Nazwa</th>
                 <th style="width:9%;">Kwota od</th>
                 <th style="width:9%;">Kwota do</th>
-                <th style="width:6%;">J.m.</th>
-                <th style="width:40%; min-width:280px;">Tekst na umowie</th>
+                <th style="width:46%; min-width:280px;">Tekst na umowie</th>
                 <th style="width:62px;">Aktywna</th>
                 <th style="width:56px;"></th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="!activeServiceFees.length && !showNewFeeRow">
-                <td colspan="7" class="empty-state">Brak aktywnych usług dodatkowych — wybierz zestaw lub kliknij „+ Dodaj"</td>
+                <td colspan="6" class="empty-state">Brak aktywnych usług dodatkowych — wybierz zestaw lub kliknij „+ Dodaj"</td>
               </tr>
               <template v-for="fee in activeServiceFees" :key="fee.id">
                 <!-- EDIT MODE -->
@@ -405,7 +404,6 @@
                   </td>
                   <td><input v-model="editingFeeData.amount_from" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" /></td>
                   <td><input v-model="editingFeeData.amount_to" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" /></td>
-                  <td><input v-model="editingFeeData.unit" class="form-control form-control-xs" placeholder="h, km…" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" /></td>
                   <td><input v-model="editingFeeData.description" class="form-control form-control-xs" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" /></td>
                   <td style="text-align:center;"><input type="checkbox" v-model="editingFeeData.is_active" /></td>
                   <td>
@@ -418,7 +416,6 @@
                   <td>{{ fee.name }}</td>
                   <td>{{ fee.amount_from ? Number(fee.amount_from).toFixed(2) + ' zł' : '—' }}</td>
                   <td>{{ fee.amount_to ? Number(fee.amount_to).toFixed(2) + ' zł' : '—' }}</td>
-                  <td>{{ fee.unit || '—' }}</td>
                   <td style="font-size:var(--font-size-sm); line-height:1.45; white-space:normal; word-break:break-word; padding:6px 8px;">{{ formatDescription(fee.description, fee.amount_from, fee.amount_to, fee.name) }}</td>
                   <td style="text-align:center;"><span class="badge badge-success">Tak</span></td>
                   <td>
@@ -434,7 +431,6 @@
                 </td>
                 <td><input v-model="newFeeData.amount_from" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" /></td>
                 <td><input v-model="newFeeData.amount_to" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" /></td>
-                <td><input v-model="newFeeData.unit" class="form-control form-control-xs" placeholder="h, km…" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" /></td>
                 <td><input v-model="newFeeData.description" class="form-control form-control-xs" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" /></td>
                 <td style="text-align:center;"><input type="checkbox" v-model="newFeeData.is_active" /></td>
                 <td>
@@ -1409,14 +1405,13 @@ interface FeeData {
   name: string
   amount_from: number | null
   amount_to: number | null
-  unit: string
   description: string
   is_active: boolean
 }
 const editingFeeId = ref<number | null>(null)
 const editingFeeData = ref<Partial<FeeData>>({})
 const showNewFeeRow = ref(false)
-const newFeeData = ref<FeeData>({ name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true })
+const newFeeData = ref<FeeData>({ name: '', amount_from: null, amount_to: null, description: '', is_active: true })
 const newFeeNameInput = ref(null)
 
 // RAO-P1-012: Settlements
@@ -2219,7 +2214,6 @@ function startEditFee(fee) {
     name: fee.name,
     amount_from: fee.amount_from,
     amount_to: fee.amount_to,
-    unit: fee.unit || '',
     description: fee.description || '',
     is_active: fee.is_active,
   }
@@ -2234,7 +2228,6 @@ async function saveInlineFee() {
   if (!editingFeeData.value.name) { cancelInlineFee(); return }
   try {
     const payload = { ...editingFeeData.value }
-    if (!payload.unit) payload.unit = null
     if (!payload.description) payload.description = null
     await api.put(`/contracts/${props.id}/service-fees/${editingFeeId.value}`, payload)
     await contractStore.fetchServiceFees(Number(props.id))
@@ -2248,7 +2241,7 @@ async function saveInlineFee() {
 
 function addFeeRow() {
   editingFeeId.value = null
-  newFeeData.value = { name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true }
+  newFeeData.value = { name: '', amount_from: null, amount_to: null, description: '', is_active: true }
   showNewFeeRow.value = true
   nextTick(() => { newFeeNameInput.value?.focus() })
 }
@@ -2261,12 +2254,11 @@ async function saveNewFeeRow() {
   if (!newFeeData.value.name) { cancelNewFeeRow(); return }
   try {
     const payload = { ...newFeeData.value }
-    if (!payload.unit) payload.unit = null
     if (!payload.description) payload.description = null
     await api.post(`/contracts/${props.id}/service-fees`, payload)
     await contractStore.fetchServiceFees(Number(props.id))
     showNewFeeRow.value = false
-    newFeeData.value = { name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true }
+    newFeeData.value = { name: '', amount_from: null, amount_to: null, description: '', is_active: true }
     toastStore.success('Usługa dodana')
   } catch (e: any) {
     toastStore.error(e.response?.data?.detail || 'Błąd dodawania')
@@ -2361,21 +2353,21 @@ async function applyHardcodedFeePreset(kind: 'wspolne' | 'diesel' | 'elektryk') 
   if (isService.value && kind !== 'wspolne') return
 
   const rentalCommonRows: FeeData[] = [
-    { name: 'Transport', amount_from: 1200, amount_to: 1200, unit: 'dostawa', description: '$1 dostawa / $2 odbiór', is_active: true },
-    { name: 'Czyszczenie maszyny (zabrudzenia ponadnormatywne)', amount_from: null, amount_to: null, unit: 'sztuka', description: 'wycena indywidualna', is_active: true },
-    { name: 'Usługa tankowania', amount_from: 200, amount_to: null, unit: 'tankowanie', description: '$1 (plus koszt paliwa)', is_active: true },
-    { name: 'Ponadnormatywny przestój transportu', amount_from: 200, amount_to: 300, unit: 'godzina', description: '$1 / h - $2 / h', is_active: true },
-    { name: 'Nieuzasadnione wezwanie serwisowe', amount_from: 280, amount_to: null, unit: 'wizyta', description: '$1 (plus transport)', is_active: true },
+    { name: 'Transport', amount_from: 1200, amount_to: 1200, description: '$1 dostawa / $2 odbiór', is_active: true },
+    { name: 'Czyszczenie maszyny (zabrudzenia ponadnormatywne)', amount_from: null, amount_to: null, description: 'wycena indywidualna', is_active: true },
+    { name: 'Usługa tankowania', amount_from: 200, amount_to: null, description: '$1 (plus koszt paliwa)', is_active: true },
+    { name: 'Ponadnormatywny przestój transportu', amount_from: 200, amount_to: 300, description: '$1 / h - $2 / h', is_active: true },
+    { name: 'Nieuzasadnione wezwanie serwisowe', amount_from: 280, amount_to: null, description: '$1 (plus transport)', is_active: true },
   ]
 
   const serviceCommonRows: FeeData[] = [
-    { name: 'Transport', amount_from: 1200, amount_to: 1200, unit: 'dostawa', description: '$1 dostawa / $2 odbiór', is_active: true },
-    { name: 'Praca operatora', amount_from: 120, amount_to: null, unit: 'godzina', description: '$1 / h', is_active: true },
+    { name: 'Transport', amount_from: 1200, amount_to: 1200, description: '$1 dostawa / $2 odbiór', is_active: true },
+    { name: 'Praca operatora', amount_from: 120, amount_to: null, description: '$1 / h', is_active: true },
   ]
 
   const reviewRows: Record<string, FeeData> = {
-    diesel: { name: 'Przegląd techniczny i czyszczenie maszyny', amount_from: 150, amount_to: null, unit: 'sztuka', description: '$1', is_active: true },
-    elektryk: { name: 'Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny', amount_from: 90, amount_to: null, unit: 'sztuka', description: '$1', is_active: true },
+    diesel: { name: 'Przegląd techniczny i czyszczenie maszyny', amount_from: 150, amount_to: null, description: '$1', is_active: true },
+    elektryk: { name: 'Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny', amount_from: 90, amount_to: null, description: '$1', is_active: true },
   }
 
   const commonRows = isService.value ? serviceCommonRows : rentalCommonRows

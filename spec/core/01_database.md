@@ -155,7 +155,6 @@ CREATE TABLE service_fee_templates (
     name         VARCHAR(200) NOT NULL COMMENT 'Nazwa np. Transport, Czyszczenie (snapshot z articles.name jeśli article_id ustawiony)',
     amount_from  DECIMAL(18,2) NULL    COMMENT 'Kwota od (NULL = brak)',
     amount_to    DECIMAL(18,2) NULL    COMMENT 'Kwota do (NULL = jednorazowa)',
-    unit         VARCHAR(50)  NULL     COMMENT 'Jednostka np. zł, zł/h',
     description  VARCHAR(400) NULL     COMMENT 'Opis np. dostawa / odbiór',
     is_active    BOOLEAN      NOT NULL DEFAULT TRUE,
     CONSTRAINT fk_sft_company FOREIGN KEY (company_id) REFERENCES company(id),
@@ -335,8 +334,7 @@ CREATE TABLE contracts (
     date_to             DATE         NULL,
     prepayment_amount   DECIMAL(18,2) NULL DEFAULT 0.00,
     prepayment_document VARCHAR(200) NULL,
-    invoice_amount      DECIMAL(18,2) NULL DEFAULT 0.00,
-    invoice_document    VARCHAR(40)  NULL,
+    -- RAO-P1-103: invoice_amount + invoice_document usunięte (kwoty faktur z Fakturowni)
     notes               TEXT         NULL,
     -- UWAGA: Usługi dodatkowe w tabeli contract_service_fees (relacyjnie)
     -- Osoby kontaktowe (snapshot z momentu umowy) - tekst w PDF: "reprezentowany przez" i "osoba kontaktowa"
@@ -564,7 +562,6 @@ CREATE TABLE contract_service_fees (
     name         VARCHAR(200) NOT NULL COMMENT 'Nazwa np. Transport',
     amount_from  DECIMAL(18,2) NULL    COMMENT 'Kwota od',
     amount_to    DECIMAL(18,2) NULL    COMMENT 'Kwota do (NULL = jednorazowa)',
-    unit         VARCHAR(50)  NULL     COMMENT 'Jednostka np. zł, zł/h',
     description  VARCHAR(400) NULL     COMMENT 'Opis np. dostawa / odbiór',
     is_active    BOOLEAN      NOT NULL DEFAULT TRUE COMMENT 'Pokazuje na PDF',
     CONSTRAINT fk_csf_contract FOREIGN KEY (contract_id)
@@ -721,8 +718,7 @@ CREATE TABLE IF NOT EXISTS archive_contracts (
   date_to               DATE NULL,
   prepayment_amount     DECIMAL(18,2) NULL,
   prepayment_document   VARCHAR(200) NULL,
-  invoice_amount        DECIMAL(18,2) NULL,
-  invoice_document      VARCHAR(40)  NULL,
+  -- RAO-P1-103: invoice_amount + invoice_document usunięte
   notes                 TEXT NULL,
   contact_person1       VARCHAR(100) NULL,
   contact_phone1        VARCHAR(100) NULL,
@@ -824,7 +820,6 @@ CREATE TABLE IF NOT EXISTS archive_contract_service_fees (
   name           VARCHAR(200) NOT NULL,
   amount_from    DECIMAL(18,2) NULL,
   amount_to      DECIMAL(18,2) NULL,
-  unit           VARCHAR(50)  NULL,
   description    VARCHAR(400) NULL,
   is_active      TINYINT(1) NOT NULL,
   article_id     INT NULL,
@@ -934,8 +929,7 @@ SELECT
     c.total_value AS wartosc,
     c.prepayment_amount AS przedplata_kwota,
     c.prepayment_document AS przedplata_dokument,
-    c.invoice_amount AS faktura_kwota,
-    c.invoice_document AS faktura_dokument,
+    -- RAO-P1-103: invoice_amount/invoice_document usunięte (kwoty faktur z Fakturowni)
     c.created_at AS wprowadzona,
     DATEDIFF(c.date_to, c.date_from) AS trwa,
     c.email,

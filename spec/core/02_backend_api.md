@@ -689,7 +689,7 @@ class ContractListItem(BaseModel):
     date_to: date | None
     # RAO-P1-021/P2-033: total_value usunięte
     prepayment_amount: Decimal | None
-    invoice_amount: Decimal | None
+    # RAO-P1-103: invoice_amount usunięte (kwoty faktur z Fakturowni)
     notes: str | None
     email: str | None
     phone: str | None
@@ -723,8 +723,7 @@ class ContractCreate(BaseModel):
     # RAO-P1-021/P2-033: total_value usunięte
     prepayment_amount: Decimal | None = None
     prepayment_document: str | None = None
-    invoice_amount: Decimal | None = None
-    invoice_document: str | None = None
+    # RAO-P1-103: invoice_amount + invoice_document usunięte (kwoty faktur z Fakturowni)
     notes: str | None = None
     # UWAGA: Usługi dodatkowe tworzone automatycznie z service_fee_templates
     # Endpoint: POST /contracts/{id}/service-fees do późniejszej edycji
@@ -974,7 +973,6 @@ class ContractServiceFeeResponse(BaseModel):
     name: str
     amount_from: Decimal | None
     amount_to: Decimal | None
-    unit: str | None
     description: str | None
     is_active: bool
 
@@ -982,7 +980,6 @@ class ContractServiceFeeCreate(BaseModel):
     name: SafeName
     amount_from: Decimal | None = Field(None, ge=0, decimal_places=2)
     amount_to: Decimal | None = Field(None, ge=0, decimal_places=2)
-    unit: SafeName | None = None
     description: SafeDescription = None  # RAO-P1-100: "Tekst na umowie"; pusty → auto name
     is_active: bool = True
 
@@ -1000,7 +997,6 @@ class ContractServiceFeeUpdate(BaseModel):
     name: SafeName | None = None
     amount_from: Decimal | None = Field(None, ge=0, decimal_places=2)
     amount_to: Decimal | None = Field(None, ge=0, decimal_places=2)
-    unit: SafeName | None = None
     description: SafeDescription = None
     is_active: bool | None = None
 
@@ -1050,7 +1046,6 @@ async def copy_fee_templates_to_contract(
             name=t.name,
             amount_from=t.amount_from,
             amount_to=t.amount_to,
-            unit=t.unit,
             description=t.description,
             is_active=t.is_active,
         ))
@@ -1129,7 +1124,6 @@ class ServiceFeeTemplateResponse(BaseModel):
     name: str
     amount_from: Decimal | None
     amount_to: Decimal | None
-    unit: str | None
     description: str | None
     is_active: bool
 
@@ -1141,7 +1135,6 @@ class ServiceFeeTemplateCreate(BaseModel):
     name: str = Field(..., max_length=200)
     amount_from: Decimal | None = None
     amount_to: Decimal | None = None
-    unit: str | None = Field(None, max_length=50)
     description: str | None = Field(None, max_length=400)
     is_active: bool = True
 

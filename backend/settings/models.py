@@ -58,7 +58,6 @@ class ServiceFeeTemplate(Base):
     name = Column(String(200), nullable=False)
     amount_from = Column(Numeric(18, 2), nullable=True)
     amount_to = Column(Numeric(18, 2), nullable=True)
-    unit = Column(String(50), nullable=True)
     description = Column(String(400), nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
 

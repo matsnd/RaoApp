@@ -115,7 +115,6 @@
                   <div><strong>Okres:</strong> {{ formatDate(archiveStore.currentContract.date_from) }} – {{ formatDate(archiveStore.currentContract.date_to) }}</div>
                   <div><strong>Osoba kontaktowa:</strong> {{ archiveStore.currentContract.contact_person1 || '—' }} {{ archiveStore.currentContract.contact_phone1 || '' }}</div>
                   <div><strong>Zaliczka:</strong> {{ formatMoney(archiveStore.currentContract.prepayment_amount) }}</div>
-                  <div><strong>Faktura:</strong> <span class="est-value">{{ formatMoney(archiveStore.currentContract.invoice_amount) }}</span> <span class="est-suffix">[szac.]</span></div>
                 </div>
 
                 <h4>Pozycje ({{ archiveStore.currentContract.positions.length }})</h4>
@@ -145,14 +144,13 @@
                 <h4 v-if="archiveStore.currentContract.service_fees.length">Opłaty dodatkowe ({{ archiveStore.currentContract.service_fees.length }})</h4>
                 <table v-if="archiveStore.currentContract.service_fees.length" class="data-grid details-table">
                   <thead>
-                    <tr><th>Nazwa</th><th>Od</th><th>Do</th><th>Jm.</th><th>Aktywna</th></tr>
+                    <tr><th>Nazwa</th><th>Od</th><th>Do</th><th>Aktywna</th></tr>
                   </thead>
                   <tbody>
                     <tr v-for="f in archiveStore.currentContract.service_fees" :key="f.id">
                       <td>{{ f.name }}</td>
                       <td>{{ formatMoney(f.amount_from) }}</td>
                       <td>{{ formatMoney(f.amount_to) }}</td>
-                      <td>{{ f.unit || '—' }}</td>
                       <td>
                         <span :class="['badge', f.is_active ? 'badge-success' : 'badge-muted']">{{ f.is_active ? 'Tak' : 'Nie' }}</span>
                       </td>

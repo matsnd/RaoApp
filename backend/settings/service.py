@@ -68,17 +68,17 @@ class SettingsService:
             if existing.scalar_one() > 0:
                 return 0
         DEFAULT_FEES = [
-            ("Transport",                                    400.00, 400.00,  "dostawa/odbiór", None),
-            ("Czyszczenie (zabrudzenia drobne)",             150.00, 400.00,  None,              None),
-            ("Czyszczenie (zabrudzenia trudnościeralne)",    400.00, 1500.00, None,              None),
-            ("Usługa tankowania",                            200.00, None,    None,              "plus koszt paliwa"),
-            ("Ponadnormatywny przestój transportu",          200.00, 300.00,  "h",               None),
-            ("Nieuzasadnione wezwanie serwisowe",            280.00, None,    None,              "plus transport"),
+            ("Transport",                                    400.00, 400.00,  None),
+            ("Czyszczenie (zabrudzenia drobne)",             150.00, 400.00,  None),
+            ("Czyszczenie (zabrudzenia trudnościeralne)",    400.00, 1500.00, None),
+            ("Usługa tankowania",                            200.00, None,    "plus koszt paliwa"),
+            ("Ponadnormatywny przestój transportu",          200.00, 300.00,  None),
+            ("Nieuzasadnione wezwanie serwisowe",            280.00, None,    "plus transport"),
         ]
         from decimal import Decimal
         count = 0
         for contract_type in ("S", "U"):
-            for i, (name, amt_from, amt_to, unit, desc) in enumerate(DEFAULT_FEES):
+            for i, (name, amt_from, amt_to, desc) in enumerate(DEFAULT_FEES):
                 db.add(ServiceFeeTemplate(
                     company_id=1,
                     contract_type=contract_type,
@@ -86,7 +86,6 @@ class SettingsService:
                     name=name,
                     amount_from=Decimal(str(amt_from)) if amt_from else None,
                     amount_to=Decimal(str(amt_to)) if amt_to else None,
-                    unit=unit,
                     description=desc,
                     is_active=True,
                 ))
@@ -218,7 +217,6 @@ class SettingsService:
             name=name,
             amount_from=data.amount_from,
             amount_to=data.amount_to,
-            unit=data.unit,
             description=data.description,
             is_active=data.is_active,
         )
@@ -242,7 +240,7 @@ class SettingsService:
             new_name = art.name
         t.article_id = data.article_id
         t.name = new_name
-        for field in ("amount_from", "amount_to", "unit", "description", "is_active"):
+        for field in ("amount_from", "amount_to", "description", "is_active"):
             setattr(t, field, getattr(data, field))
         await db.commit()
         await db.refresh(t)

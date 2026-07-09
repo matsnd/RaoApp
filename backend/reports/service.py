@@ -72,23 +72,21 @@ def generate_fees_text(fees: list) -> str:
 
 
 def _build_fee_amount_line(fee: ContractServiceFee) -> str:
-    """Format amount + unit for PDF service-fee display.
+    """Format amount for PDF service-fee display (description is the single source of truth;
+    this fallback only formats the raw amount when description is empty).
 
     RAO-P0-050: Decimal(0) is truthy-by-value but falsy in Python; use is not None.
+    RAO-P1-102: KISS — unit (JM) removed; description carries the full printed text.
     """
     if fee.amount_from is None and fee.amount_to is None:
         return ""
     if fee.amount_from is not None and fee.amount_to is not None and fee.amount_to == fee.amount_from:
-        amount_text = _fmt_money(fee.amount_from)
-    elif fee.amount_from is not None and fee.amount_to is not None:
-        amount_text = f"{_fmt_money(fee.amount_from)} - {_fmt_money(fee.amount_to)}"
-    elif fee.amount_from is not None:
-        amount_text = _fmt_money(fee.amount_from)
-    else:
-        amount_text = _fmt_money(fee.amount_to)
-    if fee.unit:
-        return f"{amount_text} / {fee.unit}"
-    return amount_text
+        return _fmt_money(fee.amount_from)
+    if fee.amount_from is not None and fee.amount_to is not None:
+        return f"{_fmt_money(fee.amount_from)} - {_fmt_money(fee.amount_to)}"
+    if fee.amount_from is not None:
+        return _fmt_money(fee.amount_from)
+    return _fmt_money(fee.amount_to)
 
 
 def _format_fee_display(fee: ContractServiceFee, description: str | None = None) -> str:

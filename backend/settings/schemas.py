@@ -65,7 +65,6 @@ class ServiceFeeTemplateResponse(BaseModel):
     name: str
     amount_from: Decimal | None
     amount_to: Decimal | None
-    unit: str | None
     description: str | None
     is_active: bool
 
@@ -81,7 +80,6 @@ class ServiceFeeTemplateCreate(BaseModel):
     name: str = Field(..., max_length=200)
     amount_from: Decimal | None = None
     amount_to: Decimal | None = None
-    unit: str | None = Field(None, max_length=50)
     description: str | None = Field(None, max_length=400)
     is_active: bool = True
 

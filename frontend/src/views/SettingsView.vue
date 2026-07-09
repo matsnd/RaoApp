@@ -276,7 +276,6 @@
                         <th style="width:10%;">Cena dom.</th>
                         <th style="width:10%;">Kwota od</th>
                         <th style="width:10%;">Kwota do</th>
-                        <th style="width:8%;">J.m.</th>
                         <th>Opis</th>
                         <th style="width:60px;">Aktywna</th>
                         <th style="width:64px;"></th>
@@ -299,7 +298,6 @@
                           <td><input v-model="editingPresetItemData.default_price" type="number" step="0.01" class="form-control form-control-xs" placeholder="Cena domyślna" @keydown.enter="savePresetItem(preset.id)" @keydown.esc="editingPresetItemId = null" /></td>
                           <td><input v-model="editingPresetItemData.amount_from" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="savePresetItem(preset.id)" @keydown.esc="editingPresetItemId = null" /></td>
                           <td><input v-model="editingPresetItemData.amount_to" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="savePresetItem(preset.id)" @keydown.esc="editingPresetItemId = null" /></td>
-                          <td><input v-model="editingPresetItemData.unit" class="form-control form-control-xs" placeholder="h, km…" @keydown.enter="savePresetItem(preset.id)" @keydown.esc="editingPresetItemId = null" /></td>
                           <td><input v-model="editingPresetItemData.description" class="form-control form-control-xs" @keydown.enter="savePresetItem(preset.id)" @keydown.esc="editingPresetItemId = null" /></td>
                           <td style="text-align:center;"><input type="checkbox" v-model="editingPresetItemData.is_active" /></td>
                           <td>
@@ -314,7 +312,6 @@
                           <td @click="startEditPresetItem(tpl)" style="cursor:pointer;">{{ tpl.default_price ? formatCurrency(tpl.default_price) : '—' }}</td>
                           <td @click="startEditPresetItem(tpl)" style="cursor:pointer;">{{ tpl.amount_from ? formatCurrency(tpl.amount_from) : '—' }}</td>
                           <td @click="startEditPresetItem(tpl)" style="cursor:pointer;">{{ tpl.amount_to ? formatCurrency(tpl.amount_to) : '—' }}</td>
-                          <td @click="startEditPresetItem(tpl)" style="cursor:pointer;">{{ tpl.unit || '—' }}</td>
                           <td @click="startEditPresetItem(tpl)" style="cursor:pointer; font-size:11px;">{{ tpl.description || '—' }}</td>
                           <td @click="startEditPresetItem(tpl)" style="cursor:pointer;"><span :class="['badge', tpl.is_active ? 'badge-success' : 'badge-muted']">{{ tpl.is_active ? 'Tak' : 'Nie' }}</span></td>
                           <td>
@@ -326,7 +323,7 @@
                     </tbody>
                     <tbody v-else>
                       <tr>
-                        <td colspan="9" style="text-align:center; padding: 20px; color: #5A6B7E;">
+                        <td colspan="8" style="text-align:center; padding: 20px; color: #5A6B7E;">
                           Brak szablonów w tym zestawie
                         </td>
                       </tr>
@@ -346,7 +343,6 @@
                         <td><input v-model="newPresetItem.default_price" type="number" step="0.01" class="form-control form-control-xs" placeholder="Cena domyślna" @keydown.enter="saveNewPresetItem(preset)" @keydown.esc="addingToPresetId = null" /></td>
                         <td><input v-model="newPresetItem.amount_from" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="saveNewPresetItem(preset)" @keydown.esc="addingToPresetId = null" /></td>
                         <td><input v-model="newPresetItem.amount_to" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="saveNewPresetItem(preset)" @keydown.esc="addingToPresetId = null" /></td>
-                        <td><input v-model="newPresetItem.unit" class="form-control form-control-xs" placeholder="h, km…" @keydown.enter="saveNewPresetItem(preset)" @keydown.esc="addingToPresetId = null" /></td>
                         <td><input v-model="newPresetItem.description" class="form-control form-control-xs" @keydown.enter="saveNewPresetItem(preset)" @keydown.esc="addingToPresetId = null" /></td>
                         <td style="text-align:center;"><input type="checkbox" v-model="newPresetItem.is_active" /></td>
                         <td>
@@ -582,7 +578,7 @@ const editingPresetName = ref('')
 const editingPresetItemId = ref(null)
 const editingPresetItemData = ref({})
 const addingToPresetId = ref(null)
-const newPresetItem = ref({ name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true, article_id: null, default_price: null })
+const newPresetItem = ref({ name: '', amount_from: null, amount_to: null, description: '', is_active: true, article_id: null, default_price: null })
 const newPresetItemNameRef = ref(null)
 
 // --- Folder RAO (File System Access API) ---
@@ -706,7 +702,6 @@ function startEditPresetItem(tpl) {
     default_price: tpl.default_price,
     amount_from: tpl.amount_from,
     amount_to: tpl.amount_to,
-    unit: tpl.unit || '',
     description: tpl.description || '',
     is_active: tpl.is_active,
     contract_type: tpl.contract_type,
@@ -730,7 +725,6 @@ function onArticleSelected(mode) {
 async function savePresetItem(presetId) {
   if (!editingPresetItemData.value.name) return
   const payload = { ...editingPresetItemData.value }
-  if (!payload.unit) payload.unit = null
   if (!payload.description) payload.description = null
   // RAO-P1-011: Send article_id and default_price
   if (!payload.article_id) payload.article_id = null
@@ -748,7 +742,7 @@ async function deletePresetItem(presetId, tplId) {
 
 async function startAddPresetItem(presetId) {
   addingToPresetId.value = presetId
-  newPresetItem.value = { name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true }
+  newPresetItem.value = { name: '', amount_from: null, amount_to: null, description: '', is_active: true }
   await import('vue').then(({ nextTick }) => nextTick(() => newPresetItemNameRef.value?.focus()))
 }
 
@@ -756,11 +750,10 @@ async function startAddPresetItem(presetId) {
 watch(() => newPresetItem.value.name, (newName) => {
   if (!newName) return
   const lower = newName.toLowerCase()
-  if ((lower.includes('tankowanie') || lower.includes('paliwo') || lower.includes('fuel')) && 
+  if ((lower.includes('tankowanie') || lower.includes('paliwo') || lower.includes('fuel')) &&
       newPresetItem.value.amount_from === null && newPresetItem.value.amount_to === null) {
     newPresetItem.value.amount_from = 200
     newPresetItem.value.amount_to = 200
-    newPresetItem.value.unit = 'szt'
   }
 })
 
@@ -771,7 +764,6 @@ async function saveNewPresetItem(preset) {
     contract_type: preset.contract_type,
     preset_id: preset.id,
   }
-  if (!payload.unit) payload.unit = null
   if (!payload.description) payload.description = null
   // RAO-P1-011: Send article_id and default_price
   if (!payload.article_id) payload.article_id = null
