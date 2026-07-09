@@ -74,12 +74,16 @@ async def calculate_position_value(
     Algorytm:
     1. Określ liczbę okresów (period) i pomnóż przez quantity dla S.
     2. Zastosuj globalne minimum (max z conditions.minimum).
-    3. Dla każdego warunku (posortowanego po period_from):
+    3. Posortuj warunki: najpierw zamknięte (period_to != None) rosnąco, potem otwarte.
+    4. Dla każdego warunku w kolejności kaskadowej:
        - start = max(period_from, 1)
-       - end   = period_to lub period (dla open-ended)
-       - periods = max(0, min(end, total_periods) - start + 1)
+       - end   = period_to lub total_periods (dla open-ended)
+       - effective_start = max(start, previous_end + 1)
+       - effective_end   = min(end, total_periods)
+       - periods = max(0, effective_end - effective_start + 1)
        - total += rate1 * periods
-    4. Fallback do rate2/ostatniej stawki gdy brak nowych pól.
+       - previous_end = effective_end
+    5. Fallback do ostatniej stawki jeśli zostanie nierozliczony okres.
     """
     if not conditions:
         if unit_price and quantity:
@@ -104,14 +108,19 @@ async def calculate_position_value(
     tiers = extract_rate_tiers(conditions)  # preferuje period_from/period_to/rate1
     total = Decimal("0.00")
     remaining = total_periods
+    previous_end = 0
 
     for start, end, rate in tiers:
         if remaining <= 0:
             break
         if start > total_periods:
             continue
+        effective_start = max(start, previous_end + 1)
+        if end is not None and effective_start > end:
+            continue
         effective_end = end if end is not None else total_periods
-        periods = min(effective_end, total_periods) - start + 1
+        effective_end = min(effective_end, total_periods)
+        periods = effective_end - effective_start + 1
         periods = max(0, periods)
         if periods > remaining:
             periods = remaining
@@ -119,6 +128,7 @@ async def calculate_position_value(
             continue
         total += rate * periods
         remaining -= periods
+        previous_end = effective_end
 
     return total * (1 if is_service else (quantity or 1))
 
@@ -149,32 +159,71 @@ def format_position_conditions_cascading(
 
     Przykłady:
     - najem (S):  "1 - 3 dni - 540,00 / doba"
+    - najem (S):  "1 dzień - 150,00 / doba"
     - najem (S):  "17 dni i więcej - 350,00 / doba"
     - usługa (U): "do 8 godz. - 100,00 / godz."
     - usługa (U): "8 godz. i więcej - 80,00 / godz."
+
+    Kolejność: zamknięte przedziały rosnąco, potem otwarte (np. 1-3, 4-4, 5-∞).
     """
     if not conditions:
         return ""
 
+    # Zamknięte przedziały pierwsze, potem otwarte; w obu grupach rosnąco.
+    sorted_conds = sorted(
+        conditions,
+        key=lambda c: (
+            c.period_to is None,
+            c.period_from is None,
+            c.period_from or 0,
+            c.period_to or 0,
+        )
+    )
+
     lines = []
-    for cond in conditions:
+    for cond in sorted_conds:
         rate = cond.rate1 if cond.rate1 else cond.rate2
         if not rate or rate <= 0:
             continue
 
         label = cond.billing_label or ("doba" if contract_type == "S" else "godzina")
-        count_unit = "godz." if "godz" in label.lower() else "dni"
-        rate_unit = "godz." if "godz" in label.lower() else "doba"
+        l = label.lower()
+        if "godz" in l:
+            count_unit, rate_unit = "godz.", "godz."
+        elif "mies" in l:
+            count_unit, rate_unit = "mies.", "mies."
+        elif "tyg" in l:
+            count_unit, rate_unit = "tyg.", "tyg."
+        elif contract_type == "U":
+            count_unit, rate_unit = "godz.", "godz."
+        else:
+            count_unit, rate_unit = "dni", "doba"
+
+        # liczba pojedyncza dla "1 dni" -> "1 dzień"
+        def pluralize(n, u):
+            if n == 1 and u == "dni":
+                return "dzień"
+            return u
 
         pf = cond.period_from or 1
         pt = cond.period_to
+        minimum = cond.minimum
+        min_suffix = f" (min. {minimum} {pluralize(minimum, count_unit)})" if minimum else ""
+
         if pt is not None:
+            if pt < pf:
+                pt = pf
             if pf == 0:
-                text = f"do {pt} {count_unit}"
+                text = f"do {pt} {pluralize(pt, count_unit)}{min_suffix}"
+            elif pf == pt:
+                text = f"{pf} {pluralize(1, count_unit)}{min_suffix}"
             else:
-                text = f"{pf} - {pt} {count_unit}"
+                text = f"{pf} - {pt} {pluralize(pt - pf + 1, count_unit)}{min_suffix}"
         else:
-            text = f"{pf} {count_unit} i więcej"
+            if pf <= 1:
+                text = f"1 {pluralize(1, count_unit)} i więcej{min_suffix}"
+            else:
+                text = f"{pf} {pluralize(pf, count_unit)} i więcej{min_suffix}"
 
         rate_str = f"{rate:.2f}".replace(".", ",")
         lines.append(f"{text} - {rate_str} / {rate_unit}")

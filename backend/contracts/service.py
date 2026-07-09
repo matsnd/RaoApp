@@ -148,6 +148,14 @@ def _unit_labels(label: str | None, contract_type: str = "S") -> tuple[str, str]
     return "dni", "doba"
 
 
+def _format_count_unit(count: int, unit: str) -> str:
+    """Pluralize Polish count unit for the number 1 (dni -> dzień).
+    Other units are kept as short forms (godz., mies., tyg.)."""
+    if count == 1 and unit == "dni":
+        return "dzień"
+    return unit
+
+
 def _format_period_range(
     period_from: int | None,
     period_to: int | None,
@@ -162,22 +170,23 @@ def _format_period_range(
     # Include minimum in the display when it is set.
     min_suffix = ""
     if minimum is not None and minimum > 0:
-        min_suffix = f" (min. {minimum} {count_unit})"
+        min_suffix = f" (min. {minimum} {_format_count_unit(minimum, count_unit)})"
 
     if period_to is not None:
         if period_to < pf:
             period_to = pf
         # "do X" form is natural for service tiers starting at 0 (e.g. 0-8 hours).
         if pf == 0:
-            return f"do {period_to} {count_unit}{min_suffix}"
+            count = max(period_to, 1)
+            return f"do {period_to} {_format_count_unit(count, count_unit)}{min_suffix}"
         if pf == period_to:
-            return f"{pf} {count_unit}{min_suffix}"
-        return f"{pf} - {period_to} {count_unit}{min_suffix}"
+            return f"{pf} {_format_count_unit(1, count_unit)}{min_suffix}"
+        return f"{pf} - {period_to} {_format_count_unit(period_to - pf + 1, count_unit)}{min_suffix}"
 
     # Open-ended: use the lower bound as "X i więcej".
     if pf <= 1:
-        return f"1 {count_unit} i więcej{min_suffix}"
-    return f"{pf} {count_unit} i więcej{min_suffix}"
+        return f"1 {_format_count_unit(1, count_unit)} i więcej{min_suffix}"
+    return f"{pf} {_format_count_unit(pf, count_unit)} i więcej{min_suffix}"
 
 
 def _normalize_conditions_for_format(
@@ -298,8 +307,15 @@ def format_position_conditions_cascading(
             seen.add(key)
             unique.append(n)
 
-    # Sort by period_from (NULL / open-ended at the end)
-    unique.sort(key=lambda n: (n["period_from"] is None, n["period_from"] or 0))
+    # Sort closed-ended ranges first, then open-ended; within each group by start/end.
+    unique.sort(
+        key=lambda n: (
+            n["period_to"] is None,
+            n["period_from"] is None,
+            n["period_from"] or 0,
+            n["period_to"] or 0,
+        )
+    )
 
     lines = []
     for n in unique:
@@ -1133,9 +1149,15 @@ class ContractService:
         total = Decimal("0.00")
         for pos in positions:
             # Build conditions dicts in the format calculate_position_value expects
+            # Closed-ended tiers first, then open-ended, to match the cascading UI.
             sorted_conds = sorted(
                 pos.conditions,
-                key=lambda c: (c.period_from is None, c.period_from or 0)
+                key=lambda c: (
+                    c.period_to is None,
+                    c.period_from is None,
+                    c.period_from or 0,
+                    c.period_to or 0,
+                )
             )
             cond_dicts = [
                 {

@@ -103,8 +103,16 @@ def _extract_rate_tiers_from_new_fields(
     if not conds:
         return []
 
-    # Sort by start period. NULL (open-ended) at the end.
-    conds.sort(key=lambda c: (c["period_from"] is None, c["period_from"] or 0))
+    # Sort closed-ended tiers first, then open-ended; within each group by start.
+    # This ensures a cascading range like 1-3, 4-4, 5-... is processed correctly.
+    conds.sort(
+        key=lambda c: (
+            c["period_to"] is None,
+            c["period_from"] is None,
+            c["period_from"] or 0,
+            c["period_to"] or 0,
+        )
+    )
 
     tiers: list[tuple[int, int | None, Decimal]] = []
     for c in conds:
@@ -237,6 +245,7 @@ def calculate_position_value(
 
     total_value = Decimal("0.00")
     remaining = total_periods
+    previous_end = 0
 
     for start, end, rate in tiers:
         if remaining <= 0:
@@ -244,9 +253,13 @@ def calculate_position_value(
         if start > total_periods:
             continue
 
+        effective_start = max(start, previous_end + 1)
+        if end is not None and effective_start > end:
+            continue
         effective_end = end if end is not None else total_periods
+        effective_end = min(effective_end, total_periods)
         # Clamp to the total number of periods and remaining budget
-        periods = min(effective_end, total_periods) - start + 1
+        periods = effective_end - effective_start + 1
         periods = max(0, periods)
         if periods > remaining:
             periods = remaining
@@ -255,6 +268,7 @@ def calculate_position_value(
 
         total_value += rate * periods
         remaining -= periods
+        previous_end = effective_end
 
     # Fallback: if no condition covered all periods, use the last non-zero rate
     if remaining > 0:

@@ -199,7 +199,7 @@ import { ref, watch, computed, nextTick } from 'vue'
 import { useContractStore } from '@/stores/contracts'
 import { useSettingsStore } from '@/stores/settings'
 import { useToastStore } from '@/stores/toast'
-import { formatCurrency } from '@/utils/format'
+import { formatCurrency, formatRate } from '@/utils/format'
 import api from '@/composables/useApi'
 
 const props = defineProps({
@@ -282,52 +282,6 @@ function emptyCondData() {
   }
 }
 
-const calculatedValue = computed(() => calculateCascadingValue())
-
-const calculatedValueDisplay = computed(() => {
-  const v = calculatedValue.value
-  if (v === null) return '—'
-  return formatCurrency(v)
-})
-
-// RAO-P1-005: poprawna kalkulacja kaskadowa (bez rate2; open-ended = pusty Do z rate1)
-// TODO: po zmianie API przekaź full position (billing_frequency, quantity) – obecnie używa props
-function calculateCascadingValue(): number | null {
-  const days = Number(props.rentalDays)
-  if (!Number.isFinite(days) || days <= 0) return null
-  const daysPerPeriod = getDaysPerPeriod(props.billingFrequency || 'dziennie')
-  if (daysPerPeriod <= 0) return null
-  const totalPeriods = Math.ceil(days / daysPerPeriod)
-
-  const sorted = [...conditions.value]
-    .filter(c => c.rate1 !== null && c.rate1 !== undefined)
-    .sort((a, b) => (a.period_from || 0) - (b.period_from || 0))
-
-  if (!sorted.length) return null
-
-  let value = 0
-  let remaining = totalPeriods
-  let previousEnd = 0
-
-  for (const c of sorted) {
-    if (remaining <= 0) break
-    const start = c.period_from || 1
-    // period_count (legacy) determines end when period_to is open-ended
-    const end = c.period_to ?? c.period_count ?? Infinity
-    // pomiń przerwy/nakładania — liczymy tylko okresy objęte warunkiem
-    if (start > remaining) break
-    const effectiveStart = Math.max(start, previousEnd + 1)
-    if (effectiveStart > end) continue
-    const effectiveEnd = Math.min(end, remaining)
-    if (effectiveEnd < effectiveStart) continue
-    const periods = effectiveEnd - effectiveStart + 1
-    value += periods * (Number(c.rate1) || 0)
-    remaining -= periods
-    previousEnd = effectiveEnd
-  }
-  return value
-}
-
 function getDaysPerPeriod(billingFrequency: string | null): number {
   const map: Record<string, number> = {
     dziennie: 1,
@@ -340,14 +294,117 @@ function getDaysPerPeriod(billingFrequency: string | null): number {
   return map[billingFrequency || ''] ?? 1
 }
 
-// RAO-P1-005: walidacja ciągłości warunków
+// RAO-P1-005: jednolita kolejność kaskadowa — zamknięte przedziały rosnąco, potem otwarte
+function sortForCascade<T extends { period_from?: number | null, period_to?: number | null, period_count?: number | null }>(list: T[]): T[] {
+  return [...list].sort((a, b) => {
+    const aOpen = a.period_to == null
+    const bOpen = b.period_to == null
+    if (aOpen !== bOpen) return aOpen ? 1 : -1
+    const aFrom = a.period_from ?? 0
+    const bFrom = b.period_from ?? 0
+    if (aFrom !== bFrom) return aFrom - bFrom
+    const aTo = a.period_to ?? a.period_count ?? Infinity
+    const bTo = b.period_to ?? b.period_count ?? Infinity
+    return aTo - bTo
+  })
+}
+
+// RAO-P1-005: najbliższy wolny dzień dla nowego warunku (ignoruje otwarte, bo powinno być ostatnie)
+function computeNextPeriodFrom(): number {
+  const closed = sortForCascade(conditions.value).filter(c => c.period_to != null)
+  let prevEnd = 0
+  for (const c of closed) {
+    const start = c.period_from ?? (isService.value ? 0 : 1)
+    const end = c.period_to ?? c.period_count ?? Infinity
+    if (start > end) continue
+    if (start > prevEnd + 1) {
+      return prevEnd + 1
+    }
+    prevEnd = Math.max(prevEnd, end)
+  }
+  return prevEnd + 1
+}
+
+// RAO-P1-005: poprawna kalkulacja kaskadowa (bez rate2; open-ended = pusty Do z rate1)
+// Uwaga: efektywny koniec ograniczony jest totalPeriods, a nie remaining (liczba, a nie dzień).
+function calculateCascadingValue(): number | null {
+  const days = Number(props.rentalDays)
+  if (!Number.isFinite(days) || days <= 0) return null
+  const daysPerPeriod = getDaysPerPeriod(props.billingFrequency || 'dziennie')
+  if (daysPerPeriod <= 0) return null
+  const rawPeriods = Math.ceil(days / daysPerPeriod)
+
+  // Globalne minimum (max z conditions.minimum) — zgodnie z backend/stats/calc.py
+  const minPeriods = Math.max(0, ...conditions.value.map((c: any) => c.minimum || 0))
+  const totalPeriods = Math.max(rawPeriods, minPeriods)
+
+  const sorted = sortForCascade(
+    conditions.value.filter((c: any) => c.rate1 != null && c.rate1 !== undefined && Number(c.rate1) > 0)
+  )
+  if (!sorted.length) return null
+
+  let value = 0
+  let remaining = totalPeriods
+  let previousEnd = 0
+  let lastRate = 0
+
+  for (const c of sorted) {
+    if (remaining <= 0) break
+    const rate = Number(c.rate1)
+    if (rate > 0) lastRate = rate
+    const start = c.period_from ?? (isService.value ? 0 : 1)
+    const end = c.period_to ?? c.period_count ?? Infinity
+    if (start > totalPeriods) break
+    const effectiveStart = Math.max(start, previousEnd + 1)
+    if (effectiveStart > end) continue
+    const effectiveEnd = Math.min(end, totalPeriods)
+    if (effectiveEnd < effectiveStart) continue
+    let periods = effectiveEnd - effectiveStart + 1
+    if (periods > remaining) periods = remaining
+    value += periods * rate
+    remaining -= periods
+    previousEnd = effectiveEnd
+  }
+
+  // Jeśli po warunkach zostanie nierozliczony okres, użyj ostatniej stawki (np. minimum)
+  if (remaining > 0 && lastRate > 0) {
+    value += remaining * lastRate
+  }
+  return value
+}
+
+const calculatedValue = computed(() => calculateCascadingValue())
+
+const calculatedValueDisplay = computed(() => {
+  const v = calculatedValue.value
+  if (v === null) return '—'
+  return formatCurrency(v)
+})
+
+// RAO-P1-005: walidacja ciągłości warunków (closed first, potem otwarte)
 function validateContinuity() {
-  const sorted = [...conditions.value].sort((a, b) => (a.period_from || 0) - (b.period_from || 0))
+  const sorted = sortForCascade(conditions.value)
   for (let i = 0; i < sorted.length - 1; i++) {
     const curr = sorted[i]
     const next = sorted[i + 1]
-    if (curr.period_to && next.period_from && curr.period_to + 1 !== next.period_from) {
-      gapError.value = `Luka: warunek ${curr.period_from}-${curr.period_to}, następny ${next.period_from}-${next.period_to || '∞'} (brak ${curr.period_to + 1})`
+    const currOpen = curr.period_to == null
+    const nextOpen = next.period_to == null
+    if (currOpen && nextOpen) {
+      gapError.value = 'Tylko jeden warunek otwarty może występować.'
+      return
+    }
+    if (currOpen) {
+      gapError.value = 'Warunek otwarty musi być ostatni.'
+      return
+    }
+    const expected = (curr.period_to ?? 0) + 1
+    const nextFrom = next.period_from ?? (isService.value ? 0 : 1)
+    if (nextFrom < expected) {
+      gapError.value = `Nakładanie: po ${curr.period_from || '—'}-${curr.period_to ?? '∞'} następny powinien zaczynać się od ${expected}`
+      return
+    }
+    if (nextFrom > expected) {
+      gapError.value = `Luka: po ${curr.period_from || '—'}-${curr.period_to ?? '∞'} brak ${expected}`
       return
     }
   }
@@ -360,72 +417,56 @@ watch(conditions, validateContinuity, { deep: true })
 function formatPreview(cond: any): string {
   if (cond.description) {
     return cond.description
-      .replace(/\$1/g, formatCurrency(cond.rate1 ?? 0))
-      .replace(/\$2/g, formatCurrency(cond.rate2 ?? 0))
+      .replace(/\$1/g, formatRate(cond.rate1 ?? 0))
+      .replace(/\$2/g, formatRate(cond.rate2 ?? 0))
   }
   const rate = cond.rate1 ?? cond.rate2
-  const rateStr = formatCurrency(rate)
-  const unit = cond.billing_label === 'dziennie' ? 'doba' : (cond.billing_label || (isService.value ? 'godzina' : 'doba'))
-  const rangeUnit = getPeriodRangeUnit(unit)
+  const rateStr = formatRate(rate)
+  const labels = unitLabels(cond.billing_label, isService.value)
+  const pf = cond.period_from ?? (isService.value ? 0 : 1)
+  const pt = cond.period_to
+  const minimum = cond.minimum
+  const minSuffix = (minimum && minimum > 0) ? ` (min. ${minimum} ${formatCount(minimum, labels.count)})` : ''
 
-  if (cond.period_from != null && cond.period_to != null) {
-    const count = cond.period_to - cond.period_from + 1
-    return `${cond.period_from} - ${cond.period_to} ${getPeriodLabel(count, rangeUnit)} - ${rateStr} / ${unitShort(unit)}`
+  if (pt == null) {
+    const from = Math.max(pf, 1)
+    return `${from} ${formatCount(from, labels.count)} i więcej${minSuffix} - ${rateStr} / ${labels.rate}`
   }
-  if (cond.period_from != null && cond.period_to == null) {
-    const count = cond.period_from - 1
-    return `powyżej ${count} ${getPeriodLabel(count, rangeUnit)} - ${rateStr} / ${unitShort(unit)}`
+  if (pf === 0) {
+    return `do ${pt} ${formatCount(pt, labels.count)}${minSuffix} - ${rateStr} / ${labels.rate}`
   }
-  return `${rateStr} / ${unitShort(unit)}`
+  if (pf === pt) {
+    return `${pf} ${formatCount(1, labels.count)}${minSuffix} - ${rateStr} / ${labels.rate}`
+  }
+  return `${pf} - ${pt} ${formatCount(pt - pf + 1, labels.count)}${minSuffix} - ${rateStr} / ${labels.rate}`
 }
 
 const pdfPreviewLines = computed(() => {
-  return [...conditions.value]
-    .filter(c => c.rate1 !== null || c.rate2 !== null || c.description)
-    .sort((a, b) => {
-      const aFrom = a.period_from === null || a.period_from === undefined ? Infinity : Number(a.period_from)
-      const bFrom = b.period_from === null || b.period_from === undefined ? Infinity : Number(b.period_from)
-      return aFrom - bFrom
-    })
+  return sortForCascade(conditions.value)
+    .filter((c: any) => c.rate1 != null || c.rate2 != null || c.description)
     .map(c => formatPreview(c))
 })
 
 watch(calculatedValue, (val) => emit('value-changed', val))
 
+function unitLabels(label: string | null, service: boolean): { count: string, rate: string } {
+  const l = (label || '').toLowerCase()
+  if (l.includes('godz')) return { count: 'godz.', rate: 'godz.' }
+  if (l.includes('mies')) return { count: 'mies.', rate: 'mies.' }
+  if (l.includes('tyg')) return { count: 'tyg.', rate: 'tyg.' }
+  if (service) return { count: 'godz.', rate: 'godz.' }
+  return { count: 'dni', rate: 'doba' }
+}
+
+function formatCount(count: number, unit: string): string {
+  if (count === 1 && unit === 'dni') return 'dzień'
+  return unit
+}
+
 function unitShort(unit: string): string {
   if (unit === 'dziennie' || unit === 'dzień' || unit === 'doba') return 'doba'
   if (unit === 'godzinowo' || unit === 'godzina' || unit === 'godz.') return 'godz.'
   return unit || 'doba'
-}
-
-function getPeriodRangeUnit(unit: string): string {
-  if (unit === 'dziennie' || unit === 'dzień' || unit === 'doba') return 'dzień'
-  if (unit === 'godzinowo' || unit === 'godzina' || unit === 'godz.') return 'godzina'
-  return unit || 'dzień'
-}
-
-function getPeriodLabel(count: number, unit: string): string {
-  if (count < 0) count = 0
-  if (unit === 'tydzień' || unit === 'tyg.') {
-    if (count === 1) return 'tydzień'
-    if (count >= 2 && count <= 4) return 'tygodnie'
-    return 'tygodni'
-  }
-  if (unit === 'doba' || unit === 'dzień') {
-    if (count === 1) return 'dzień'
-    return 'dni'
-  }
-  if (unit === 'godzina' || unit === 'godz.') {
-    if (count === 1) return 'godzina'
-    if (count >= 2 && count <= 4) return 'godziny'
-    return 'godzin'
-  }
-  if (unit === 'miesiąc' || unit === 'mies.') {
-    if (count === 1) return 'miesiąc'
-    if (count >= 2 && count <= 4) return 'miesiące'
-    return 'miesięcy'
-  }
-  return unit || 'dni'
 }
 
 async function loadConditions() {
@@ -438,6 +479,7 @@ async function loadConditions() {
 function addCondition() {
   if (props.isSettled || showNewCondRow.value || editingCondId.value !== null) return
   newCondData.value = emptyCondData()
+  newCondData.value.period_from = computeNextPeriodFrom()
   showNewCondRow.value = true
   nextTick(() => {
     newCondPeriodFromInput.value?.focus()

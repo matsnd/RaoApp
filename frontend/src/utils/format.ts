@@ -51,12 +51,24 @@ export function formatCurrency(
   const n = typeof value === 'string' ? parseFloat(value) : value
   if (!Number.isFinite(n)) return '0,00 zł'
   // pl-PL: spacja (nierozdzielajaca) jako separator grup, przecinek dziesietny
-  const formatted = new Intl.NumberFormat('pl-PL', {
+  return `${formatRate(value)}\u00A0zł`
+}
+
+/**
+ * Formatuje liczbe dziesietna jako kwote BEZ symbolu waluty: "1 234,50".
+ * Uzywane w miejscach gdzie waluta jest podana osobno (np. "5,00 / doba").
+ */
+export function formatRate(
+  value: number | string | null | undefined,
+): string {
+  if (value === null || value === undefined || value === '') return '0,00'
+  const n = typeof value === 'string' ? parseFloat(value) : value
+  if (!Number.isFinite(n)) return '0,00'
+  return new Intl.NumberFormat('pl-PL', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
     useGrouping: true,
   }).format(n)
-  return `${formatted}` + '\u00A0' + 'zł'
 }
 
 /**
