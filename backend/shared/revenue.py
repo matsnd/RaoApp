@@ -217,7 +217,6 @@ async def compute_position_revenues(
                 PositionCondition.period_count,
                 PositionCondition.period_from,
                 PositionCondition.period_to,
-                PositionCondition.minimum,
             )
             .where(PositionCondition.position_id.in_(pos_ids))
             .order_by(PositionCondition.position_id, PositionCondition.period_from)
@@ -227,7 +226,6 @@ async def compute_position_revenues(
             conds_by_pos[c[0]].append({
                 "rate1": c[1], "rate2": c[2], "period_count": c[3],
                 "period_from": c[4], "period_to": c[5],
-                "minimum": c[6],
             })
 
     # 2. Pobierz settlements (rzeczywiste rozliczenia) — skip gdy brak positions

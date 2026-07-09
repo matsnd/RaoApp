@@ -27,8 +27,6 @@ class Contract(Base):
     # RAO-P1-021/P2-033: total_value usunięte (martwe pole, 100% NULL)
     prepayment_amount = Column(Numeric(18, 2), nullable=True, default=0)
     prepayment_document = Column(String(200), nullable=True)
-    invoice_amount = Column(Numeric(18, 2), nullable=True, default=0)
-    invoice_document = Column(String(40), nullable=True)
     notes = Column(Text, nullable=True)
     contact_person1 = Column(String(100), nullable=True)
     contact_phone1 = Column(String(100), nullable=True)
@@ -90,7 +88,9 @@ class PositionCondition(Base):
     period_count = Column(Integer, nullable=True)  # RAO-P1-005: backward compatibility
     period_from = Column(Integer, nullable=True)  # RAO-P1-005: elastyczne widełki (od)
     period_to = Column(Integer, nullable=True)    # RAO-P1-005: elastyczne widełki (do)
-    minimum = Column(Integer, nullable=True)
+    # P1-101: ryczałt (kwota całkowita) vs stawka (kwota per jednostka).
+    # Default TRUE — 97% ryczałtów w legacy.
+    is_flat_rate = Column(Boolean, nullable=False, default=True, server_default="1")
 
     position = relationship("ContractPosition", back_populates="conditions")
 
@@ -104,7 +104,6 @@ class ContractServiceFee(Base):
     name = Column(String(200), nullable=False)
     amount_from = Column(Numeric(18, 2), nullable=True)
     amount_to = Column(Numeric(18, 2), nullable=True)
-    unit = Column(String(50), nullable=True)
     description = Column(String(400), nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
 

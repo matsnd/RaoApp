@@ -482,6 +482,12 @@ async def startup_migrations():
             "ALTER TABLE position_conditions ADD COLUMN IF NOT EXISTS "
             "period_to INT NULL COMMENT 'RAO-P1-005: elastyczne widełki (do)'"
         ))
+        # P1-101: ryczałt (kwota całkowita) vs stawka (per jednostka). Default TRUE.
+        await conn.execute(sa.text(
+            "ALTER TABLE position_conditions ADD COLUMN IF NOT EXISTS "
+            "is_flat_rate BOOLEAN NOT NULL DEFAULT TRUE "
+            "COMMENT 'P1-101: ryczałt=TRUE (kwota całkowita), stawka=FALSE (per jednostka)'"
+        ))
         # Migracja danych: RAO-P0-048 popraw kaskadowe period_from/period_to
         # (zamiast naiwnego period_from=1 dla każdego rekordu)
         async with AsyncSessionLocal() as db:
@@ -537,6 +543,24 @@ async def startup_migrations():
             await conn.execute(sa.text("ALTER TABLE position_conditions DROP COLUMN IF EXISTS description"))
         except Exception:
             pass
+
+        # P1-101: usuń martwą kolumnę minimum (0.6% użycia w legacy)
+        try:
+            await conn.execute(sa.text("ALTER TABLE position_conditions DROP COLUMN IF EXISTS minimum"))
+        except Exception:
+            pass
+
+        # RAO-P1-103: usuwanie martwych pól invoice_amount/invoice_document
+        # (pole "Faktura (zł)" usunięte z formularza; kwota faktury nie jest już śledzona na umowie)
+        for tbl in ("contracts", "archive_contracts"):
+            try:
+                await conn.execute(sa.text(f"ALTER TABLE {tbl} DROP COLUMN IF EXISTS invoice_amount"))
+            except Exception:
+                pass
+            try:
+                await conn.execute(sa.text(f"ALTER TABLE {tbl} DROP COLUMN IF EXISTS invoice_document"))
+            except Exception:
+                pass
 
         # service_fee_template_items
         try:

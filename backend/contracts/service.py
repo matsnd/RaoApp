@@ -80,7 +80,6 @@ async def copy_fee_templates(db: AsyncSession, contract_id: int, contract_type: 
             name=t.name,
             amount_from=t.amount_from,
             amount_to=t.amount_to,
-            unit=t.unit,
             description=t.description,
             is_active=t.is_active,
         ))
@@ -106,7 +105,7 @@ def _sync_condition_derived_fields(cond: PositionCondition) -> None:
     """
     RAO-P2-071: period_count/rate2 are derived/sync columns for legacy consumers
     (stats/calc.py, shared/revenue.py). The new source of truth is
-    period_from/period_to/rate1/minimum.
+    period_from/period_to/rate1/is_flat_rate.
 
     - period_count mirrors period_to when period_to is known.
     - rate2 is kept only for legacy open-ended tiers where rate1 is missing.
@@ -161,7 +160,7 @@ def _format_period_range(
     period_from: int | None,
     period_to: int | None,
     count_unit: str,
-    minimum: int | None,
+    is_flat_rate: bool = True,
 ) -> str:
     """Build a human-readable period range for PDF/print.
 
@@ -170,23 +169,19 @@ def _format_period_range(
       - Closed range: "1 - 3 dni"
       - Single day:   "1 dzień"
       - Open-ended:   "powyżej 3 dni"  (NOT "3 dni i więcej")
-      - Service 0-X:  "do 8 godzin"
-      - Minimum:      NOT shown in condition line (legacy shows it in Uwagi)
+      - Service 0-X:  "do 8 godzin" (flat rate) / "0 - 8 godzin" (stawka per unit)
     """
     pf = period_from if period_from is not None else 1
     if pf < 0:
         pf = 0
 
-    # Legacy: minimum is NOT shown in the condition line.
-    # It was displayed in the "Uwagi" section of the PDF, not inline.
-    # We keep it out of the range text to match legacy format exactly.
-
     if period_to is not None:
         if period_to < pf:
             period_to = pf
-        # Legacy cascading: "0 - 2 godzin" (with 0, not "do 2 godzin").
-        # The "do X godzin" form was only used in old WinForms rate1+rate2
-        # single-line format which is now split into two tiers.
+        # P1-101: flat rate (ryczałt) with period_from=0 → "do X godzin"
+        # (kwota całkowita, nie per jednostka)
+        if is_flat_rate and pf == 0:
+            return f"do {period_to} {_format_count_unit(period_to, count_unit)}"
         if pf == period_to:
             return f"{pf} {_format_count_unit(1, count_unit)}"
         return f"{pf} - {period_to} {_format_count_unit(period_to - pf + 1, count_unit)}"
@@ -206,7 +201,7 @@ def _normalize_conditions_for_format(
 ) -> list[dict]:
     """
     Convert PositionCondition objects into a normalized list of:
-        {period_from, period_to, rate, minimum, billing_label}
+        {period_from, period_to, rate, is_flat_rate, billing_label}
 
     New source-of-truth fields (period_from/period_to/rate1) are preferred.
     Legacy rows using period_count/rate2 are converted to equivalent ranges.
@@ -228,7 +223,7 @@ def _normalize_conditions_for_format(
                 "period_from": c.period_from,
                 "period_to": c.period_to,
                 "rate": rate,
-                "minimum": c.minimum,
+                "is_flat_rate": getattr(c, "is_flat_rate", True),
                 "billing_label": c.billing_label,
             })
         return normalized
@@ -261,7 +256,7 @@ def _normalize_conditions_for_format(
                     "period_from": start,
                     "period_to": end,
                     "rate": rate1,
-                    "minimum": c.minimum,
+                    "is_flat_rate": getattr(c, "is_flat_rate", True),
                     "billing_label": c.billing_label,
                 })
                 current_end = end
@@ -283,7 +278,7 @@ def _normalize_conditions_for_format(
                         "period_from": start,
                         "period_to": end,
                         "rate": rate2,
-                        "minimum": c.minimum,
+                        "is_flat_rate": getattr(c, "is_flat_rate", True),
                         "billing_label": c.billing_label,
                     })
                     if end is not None:
@@ -336,13 +331,23 @@ def format_position_conditions_cascading(
             label = "doba" if contract_type == "S" else "godzina"
         count_unit, rate_unit = _unit_labels(label, contract_type)
 
-        range_text = _format_period_range(n['period_from'], n['period_to'], count_unit, n['minimum'])
+        is_flat = n.get("is_flat_rate", True)
+        range_text = _format_period_range(
+            n['period_from'], n['period_to'], count_unit, is_flat_rate=is_flat
+        )
         if range_text:
-            # Cascading range: "1 - 3 dni - 800,00zł / doba" (WITH zł, with / unit)
-            lines.append(f"{range_text} - {_format_rate(n['rate'])}zł / {rate_unit}")
+            if is_flat:
+                # P1-101: ryczałt — kwota całkowita, BEZ / unit
+                lines.append(f"{range_text} - {_format_rate(n['rate'])}zł")
+            else:
+                # P1-101: stawka — kwota per jednostka, Z / unit
+                lines.append(f"{range_text} - {_format_rate(n['rate'])}zł / {rate_unit}")
         else:
-            # Flat rate: "230,00zł / doba" (WITH zł, with / unit)
-            lines.append(f"{_format_rate(n['rate'])}zł / {rate_unit}")
+            # Flat rate with no range prefix
+            if is_flat:
+                lines.append(f"{_format_rate(n['rate'])}zł")
+            else:
+                lines.append(f"{_format_rate(n['rate'])}zł / {rate_unit}")
 
     return '\n'.join(lines)
 
@@ -516,8 +521,6 @@ class ContractService:
                 # RAO-P1-021/P2-033: total_value usunięte
                 prepayment_amount=c.prepayment_amount,
                 prepayment_document=c.prepayment_document,
-                invoice_amount=c.invoice_amount,
-                invoice_document=c.invoice_document,
                 notes=c.notes,
                 contact_person1=c.contact_person1,
                 contact_phone1=c.contact_phone1,
@@ -620,8 +623,6 @@ class ContractService:
                 # RAO-P1-021/P2-033: total_value usunięte
                 prepayment_amount=c.prepayment_amount,
                 prepayment_document=c.prepayment_document,
-                invoice_amount=c.invoice_amount,
-                invoice_document=c.invoice_document,
                 notes=c.notes,
                 contact_person1=c.contact_person1,
                 contact_phone1=c.contact_phone1,
@@ -720,7 +721,6 @@ class ContractService:
                     period_count=pc,
                     period_from=current_end + 1,
                     period_to=pc,
-                    minimum=item.minimum,
                 )
                 db.add(cond1)
                 new_conditions.append(cond1)
@@ -740,7 +740,6 @@ class ContractService:
                         period_count=r2_to,
                         period_from=r2_from,
                         period_to=r2_to,
-                        minimum=item.minimum,
                     )
                     db.add(cond2)
                     new_conditions.append(cond2)
@@ -918,7 +917,7 @@ class ContractService:
                     rate1=cond.rate1, rate2=cond.rate2,
                     billing_label=cond.billing_label, period_count=cond.period_count,
                     period_from=cond.period_from, period_to=cond.period_to,  # RAO-P1-005
-                    minimum=cond.minimum,
+                    is_flat_rate=cond.is_flat_rate if cond.is_flat_rate is not None else True,  # P1-101
                 ))
             out.append(PositionResponse(
                 id=p.id, contract_id=p.contract_id, article_id=p.article_id,
@@ -1181,7 +1180,6 @@ class ContractService:
                     "period_from": c.period_from,
                     "period_to": c.period_to,
                     "period_count": c.period_count,
-                    "minimum": c.minimum,
                 }
                 for c in sorted_conds
             ]

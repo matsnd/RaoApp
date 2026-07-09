@@ -981,7 +981,6 @@ async def seed_umowy(db: AsyncSession, contracts_data, art_by_name):
                         period_count=pc,
                         period_from=period_from_r1,
                         period_to=period_to_r1,
-                        minimum=cond_data["minimum"],
                         billing_label=cond_data["billing_label"],
                     )
                     db.add(cond)
@@ -998,7 +997,6 @@ async def seed_umowy(db: AsyncSession, contracts_data, art_by_name):
                             period_count=None,
                             period_from=r2_from,
                             period_to=r2_to,
-                            minimum=cond_data["minimum"],
                             billing_label=cond_data["billing_label"],
                         )
                         db.add(cond)

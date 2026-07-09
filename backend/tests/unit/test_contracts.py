@@ -85,7 +85,7 @@ def test_condition_create_all_optional():
         ConditionCreate()  # type: ignore[call-arg]
     cond = ConditionCreate(rate1=Decimal("100.00"))
     assert cond.rate2 is None
-    assert cond.minimum is None
+    assert cond.is_flat_rate is True  # P1-101: default ryczałt
 
 
 def test_service_fee_description_max_length():
@@ -187,7 +187,7 @@ def test_condition_update_exclude_unset():
     u = ConditionUpdate(rate1=Decimal("150"), period_count=7)
     dumped = u.model_dump(exclude_unset=True)
     assert dumped == {"rate1": Decimal("150"), "period_count": 7, "period_from": 1, "period_to": 7}
-    assert "minimum" not in dumped
+    assert "is_flat_rate" not in dumped  # P1-101: default, not explicitly set
 
 def test_contract_update_full_payload_still_works():
     """Full payload (like frontend sends) → all fields in dump (backward-compat)."""
