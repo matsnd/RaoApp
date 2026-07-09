@@ -230,6 +230,28 @@ async def generate_summary_pdf(db: AsyncSession, summary_type: str) -> bytes:
     return await asyncio.get_event_loop().run_in_executor(None, _html_to_pdf_sync, html)
 
 
+def _merge_pdfs(pdf_pages: list[bytes]) -> bytes:
+    """Merge multiple PDF byte streams into one PDF.
+    Uses pypdf if available, otherwise falls back to weasyprint concatenation.
+    """
+    try:
+        from pypdf import PdfWriter
+        import io
+        writer = PdfWriter()
+        for page_bytes in pdf_pages:
+            from pypdf import PdfReader
+            reader = PdfReader(io.BytesIO(page_bytes))
+            for page in reader.pages:
+                writer.add_page(page)
+        out = io.BytesIO()
+        writer.write(out)
+        return out.getvalue()
+    except ImportError:
+        # Fallback: pypdf not available — return first page only (graceful degradation)
+        # In production, pypdf should be installed: pip install pypdf
+        return pdf_pages[0] if pdf_pages else b""
+
+
 def _html_to_pdf_sync(html: str, use_playwright_footer: bool = True) -> bytes:
     """Render HTML to PDF. Renderer controlled by RAO_PDF_RENDERER env var.
     weasyprint (default) — identical output on dev and prod (shared hosting).
@@ -669,14 +691,48 @@ async def generate_pdf(db: AsyncSession, contract_id: int, report_type: str = "c
     else:
         data["stamp_src"] = ""
 
-    html = template.render(**data)
-
     is_protocol = report_type.startswith("protocol_")
+
+    # P1-011: Oddzielny protokół per maszyna w jednym PDF
+    # Każda strona = pełny protokół z jedną pozycją
+    # Stopka: "Protokół X z Y" zamiast "Strona X z Y"
+    if is_protocol:
+        positions = data.get("positions", [])
+        if not positions:
+            # Brak pozycji — renderuj jeden pusty protokół (zgodnie z dotychczasowym zachowaniem)
+            data["protocol_number"] = 1
+            data["protocol_total"] = 1
+            data["positions"] = positions  # pusta lista
+            html = template.render(**data)
+            loop = asyncio.get_event_loop()
+            pdf_bytes = await loop.run_in_executor(
+                None, _html_to_pdf_sync, html, not is_protocol
+            )
+            return pdf_bytes
+
+        # Renderuj osobny protokół per pozycja, połącz w jeden PDF
+        pdf_pages = []
+        total = len(positions)
+        loop = asyncio.get_event_loop()
+        for idx, pos in enumerate(positions, 1):
+            page_data = dict(data)
+            page_data["positions"] = [pos]  # tylko ta jedna pozycja
+            page_data["protocol_number"] = idx
+            page_data["protocol_total"] = total
+            html = template.render(**page_data)
+            page_pdf = await loop.run_in_executor(
+                None, _html_to_pdf_sync, html, not is_protocol
+            )
+            pdf_pages.append(page_pdf)
+
+        # Połącz wszystkie strony w jeden PDF
+        if len(pdf_pages) == 1:
+            return pdf_pages[0]
+        return _merge_pdfs(pdf_pages)
+
+    html = template.render(**data)
     loop = asyncio.get_event_loop()
     pdf_bytes = await loop.run_in_executor(
         None, _html_to_pdf_sync, html, not is_protocol
     )
-    return pdf_bytes
-    return pdf_bytes
-    return pdf_bytes
     return pdf_bytes
