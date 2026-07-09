@@ -118,7 +118,7 @@
       <div class="cond-pdf-label">Podgląd PDF:</div>
       <div class="cond-pdf-list">
         <div v-for="(line, idx) in pdfPreviewLines" :key="idx" class="cond-pdf-line">
-          {{ idx + 1 }}. {{ line }}
+          {{ line }}
         </div>
       </div>
     </div>
