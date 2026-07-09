@@ -417,6 +417,73 @@ component: frontend/AnalyticsView + backend/stats
 
 ---
 
+### P1-101: Checkbox "ryczałt" w warunkach rozliczeniowych + usuń Min. + placeholder "powyżej"
+
+```yaml
+id: P1-101
+status: triaged
+priority: P1
+created: 2026-07-09
+source: tech-lead (analiza legacy PDFs 515 szt. + ocena PO + UX)
+component: frontend/ConditionPanel + backend/contracts/service + backend/contracts/models + backend/contracts/schemas
+migration_impact: yes (drop minimum column)
+```
+
+**Kontekst:** Analiza 515 legacy PDFów wykazała DWA modele rozliczeń:
+1. RYCZAŁT (117x): "do 2 godzin - 1900,00zł" (BEZ / jednostka) — dominujący (97%)
+2. STAWKA/JEDNOSTKĘ (1x): "0 - 2 godzin - 1450,00 / godzina" (Z / jednostka)
+3. RATE1+RATE2 (3x): "Do 2 godzin - 1100,00zł, każda kolejna 190,00zł"
+
+Obecna aplikacja nie rozróżnia tych modeli — zawsze generuje "0 - X godzin - 1450,00zł / godzina" (z / unit), co jest błędne dla 117 ryczałtów.
+
+**Zadania:**
+
+1. **Checkbox "ryczałt" w gridzie warunków** (frontend ConditionPanel.vue):
+   - Checkbox w kolumnie Stawka (nie osobna kolumna), label "ryczałt"
+   - Default: ON (bo 117/121 = 97% to ryczałt w legacy)
+   - Ryczałt ON → PDF: "do 2 godzin - 1900,00zł" (bez / jednostka, z "do X" nie "0 - X")
+   - Ryczałt OFF → PDF: "0 - 2 godzin - 1450,00zł / godzina" (z / jednostka, z "0 - X")
+   - Tooltip: "Kwota za całość — bez /jednostka w PDF"
+   - Walidacja: ryczałt + zakres 0-X → warning inline ("Ryczałt zwykle używa 'do X', nie zakresu 0-X")
+
+2. **Backend: pole `is_flat_rate` w PositionCondition** (models.py + schemas.py + service.py):
+   - Nowe pole BOOLEAN DEFAULT TRUE (bo ryczałt dominuje w legacy)
+   - `_format_period_range`: jeśli is_flat_rate → "do X godzin" (nie "0 - X godzin")
+   - `format_position_conditions_cascading`: jeśli is_flat_rate → bez "/ jednostka"
+   - Migracja: ALTER TABLE position_conditions ADD COLUMN is_flat_rate BOOLEAN DEFAULT TRUE
+
+3. **Usuń Min. z gridu + bazy + API** (minimum używane w 3/515 = 0.6%):
+   - Usuń kolumnę Min. z ConditionPanel.vue
+   - Usuń pole `minimum` z PositionCondition (models.py)
+   - Usuń `minimum` z schemas.py (ConditionCreate/Update/Response)
+   - Migracja: ALTER TABLE position_conditions DROP COLUMN minimum
+   - Jeśli potrzebne → przenieś do pola Uwagi w sekcji KONTAKT I UWAGI
+
+4. **Placeholder "powyżej" zamiast "i więcej"** (ConditionPanel.vue):
+   - Zmień placeholder "Do" z "np. 8 (puste = i więcej)" na "np. 8 (puste = powyżej)"
+   - Spójne z legacy PDF format "powyżej X dni"
+
+5. **Testy + weryfikacja:**
+   - pytest: test ryczałt vs stawka/jednostkę
+   - vue-tsc + npm build
+   - Playwright: ryczałt → "do 2 godzin - 1900,00zł", stawka → "0 - 2 godzin - 1450,00zł / godzina"
+   - Commit
+
+**Definition of Done:**
+- [ ] Checkbox "ryczałt" w kolumnie Stawka, default ON
+- [ ] Ryczałt → "do X godzin - 1900,00zł" (bez / unit)
+- [ ] Stawka/jednostkę → "0 - X godzin - 1450,00zł / godzina" (z / unit)
+- [ ] Min. usunięte z gridu + bazy + API
+- [ ] Placeholder "powyżej"
+- [ ] Testy passing
+- [ ] Spec sync: spec/core/04_business_logic.md
+
+**Ryzyka:**
+- DROP COLUMN minimum = utrata danych (3 PDFy miały minimum). Backup przed migracją.
+- is_flat_rate DEFAULT TRUE = istniejące warunki zostaną ryczałtami. Jeśli były stawki/jednostkę, trzeba ręcznie odznaczyć.
+
+---
+
 ## 🏗️ P1-100 — EPIC: Usługi dodatkowe + rozliczenie umowy (cennik) — v2
 
 > **Scalony epic** — łączy P1-003, P1-004, P1-005, P1-006, P1-008 (freebie), P1-013, P1-014, P1-015
