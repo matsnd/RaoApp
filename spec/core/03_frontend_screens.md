@@ -568,7 +568,7 @@ Szczegółowy layout Row 1 (nagłówek):
 │ ☐ Reprezentująca  Tel1 [________]       │ Reprezentowany przez [____________]  │
 │ ☐ Kontaktowa      Tel2 [________]       │ Tel1   [____________]  │
 │                                         │ Osoba kontaktowa      [____________]  │
-│ Usługi dodatkowe [↺ Przywróć szablon]   │ Tel2   [____________]  │
+│ Opłaty dodatkowe [↺ Przywróć szablon]   │ Tel2   [____________]  │
 │ ┌────────────────────────────────────┐  │ Email  [____________]  │
 │ │ ☰ Transport    400zł-400zł [zł] ✅❌│  │                        │
 │ │ ☰ Czyszcz.1  150zł-400zł [zł] ✅❌ │  │                        │
@@ -832,7 +832,7 @@ Layout (replika WinForms Konfiguracjacs — scrollable):
 │ Bank [___] Rachunek [___]                    │
 │ Numeracja [1]  Folder [___]  Folder2 [___]   │
 └──────────────────────────────────────────────┘
-┌─ Usługi dodatkowe — Szablony ────────────────┐
+┌─ Opłaty dodatkowe — Szablony ────────────────┐
 │  ┌── Umowa najmu (S) ──┐ ┌── Umowa usługi (U)─┐│
 │  └────────────────────┘ └───────────────────┘ │
 │ (tabs przełączają widok szablonu)             │
@@ -1358,7 +1358,7 @@ async function handleFakturownia() {
   - Auto-fill z PNA/Nominatim skipowane w trybie ręcznym
   - Placeholder textarea: "Uwagi dojazdowe (opcjonalnie) — numer działki, bramka, wskazówki dojazdu"
 
-- **RAO-P1-100 (2026-07-08):** Zmiany w sekcji "Usługi dodatkowe", cenniku i trybie usługi
+- **RAO-P1-100 (2026-07-08):** Zmiany w sekcji "Opłaty dodatkowe", cenniku i trybie usługi
   - **Szybki wybór zestawu**
     - Najem (`contract_type === 'S'`): 3 przyciski [Wspólne] [Diesel] [Elektryk] + dropdown z pełną listą presetów
     - Usługa (`contract_type === 'U'`): 1 przycisk [Wspólne] (Transport + Praca operatora) + dropdown z presetami

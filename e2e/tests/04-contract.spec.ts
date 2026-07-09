@@ -105,7 +105,7 @@ test.describe('TEST-04: Umowy', () => {
 
     await expect(page.locator('.section-title', { hasText: 'Pozycje umowy' })).toBeVisible({ timeout: 8_000 })
     await expect(page.getByRole('button', { name: '+ Dodaj pozycję' })).toBeVisible()
-    await expect(page.locator('.section-title', { hasText: 'Usługi dodatkowe' })).toBeVisible()
+    await expect(page.locator('.section-title', { hasText: 'Opłaty dodatkowe' })).toBeVisible()
   })
 
   test('protokół ZO generuje PDF z sekcją wydania/odbioru', async ({ request }) => {
@@ -295,59 +295,61 @@ test.describe('TEST-04: Umowy', () => {
   })
 
   // --- RAO-P2-004: Frontend — okres umowy przez kalendarz + dni ---
-  test.fixme('RAO-P2-004: ContractPeriodPicker oblicza date_to poprawnie', async ({ page }) => {
-    // Wymaga data-testid attributes w ContractPeriodPicker component
-    // Owner: frontend-dev
+  test('RAO-P2-004: ContractPeriodPicker oblicza date_to poprawnie', async ({ page }) => {
     await page.goto('/rao/contracts/new', { waitUntil: 'domcontentloaded', timeout: 15_000 })
-    
+
     // Sprawdź czy ContractPeriodPicker jest widoczny
     await expect(page.locator('[data-testid="contract-period-picker"]')).toBeVisible({ timeout: 5_000 })
-    
+
+    // 7 dni roboczych w tygodniu -> 10 dni = 10 dni kalendarzowych
+    await page.locator('[data-testid="days-per-week-7"]').click()
+
     // Ustaw date_from = 25.05.2026
     await page.locator('[data-testid="date-from"]').fill('2026-05-25')
-    
+
     // Ustaw days = 10
     await page.locator('[data-testid="days-count"]').fill('10')
-    
+
     // Sprawdź czy date_to = 03.06.2026
     await expect(page.locator('[data-testid="date-to"]')).toHaveValue('2026-06-03')
-    
+
     // Sprawdź czy display text pokazuje poprawny okres
     await expect(page.locator('[data-testid="period-display"]')).toContainText('25.05.2026 – 03.06.2026')
   })
 
   // --- RAO-P2-005: Frontend — inline add kontrahenta ---
-  test.fixme('RAO-P2-005: inline add kontrahenta z picker', async ({ page }) => {
-    // Wymaga data-testid attributes w inline add components
-    // Owner: frontend-dev
+  test('RAO-P2-005: inline add kontrahenta z picker', async ({ page }) => {
     await page.goto('/rao/contracts/new', { waitUntil: 'domcontentloaded', timeout: 15_000 })
-    
+
+    // Otwórz picker kontrahenta
+    await page.locator('[data-testid="contractor-picker-button"]').click()
+
     // Wpisz nieistniejący kontrahent w picker
     const ts = Date.now()
     await page.locator('[data-testid="contractor-picker"]').fill(`NieistniejącyKontrahent${ts}`)
-    
+
     // Sprawdź czy wyświetla się "Brak wyników"
     await expect(page.locator('[data-testid="no-results"]')).toContainText('Brak wyników')
-    
+
     // Sprawdź czy przycisk "➕ Dodaj nowego kontrahenta" jest widoczny
     await expect(page.getByRole('button', { name: /dodaj nowego kontrahenta/i })).toBeVisible()
-    
+
     // Kliknij przycisk
     await page.getByRole('button', { name: /dodaj nowego kontrahenta/i }).click()
-    
+
     // Sprawdź czy modal się otworzył
     await expect(page.locator('[data-testid="contractor-modal"]')).toBeVisible()
-    
+
     // Wypełnij formularz
     await page.getByPlaceholder(/nazwa/i).fill(`TestKontrahent${ts}`)
     await page.getByPlaceholder(/nip/i).fill(genValidNip(ts))
-    
+
     // Zapisz
-    await page.getByRole('button', { name: /zapisz/i }).click()
-    
+    await page.getByRole('button', { name: 'Zapisz i wybierz' }).click()
+
     // Sprawdź czy modal zamknięty
     await expect(page.locator('[data-testid="contractor-modal"]')).not.toBeVisible()
-    
+
     // Sprawdź czy nowy kontrahent jest auto-selected w pickerze
     await expect(page.locator('[data-testid="contractor-picker"]')).toHaveValue(`TestKontrahent${ts}`)
   })

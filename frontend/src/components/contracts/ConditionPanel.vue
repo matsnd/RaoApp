@@ -753,7 +753,7 @@ defineExpose({ loadConditions, calculatedValue })
   display: flex;
   align-items: center;
   margin-bottom: 8px;
-  gap: 12px;
+  gap: 8px;
 }
 .cond-header-left {
   display: flex;
@@ -770,7 +770,7 @@ defineExpose({ loadConditions, calculatedValue })
   margin: 0;
 }
 .cond-hint {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
 .btn-link {
@@ -863,13 +863,13 @@ defineExpose({ loadConditions, calculatedValue })
 
 .cond-header-right {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   align-items: center;
   flex-wrap: wrap;
 }
 .cond-pdf-preview {
   margin-top: 8px;
-  padding: var(--spacing-3);
+  padding: var(--spacing-2) var(--spacing-3);
   background: var(--color-bg-light);
   border: 1px solid var(--color-border);
   border-radius: var(--border-radius-sm);

@@ -18,7 +18,7 @@
       <div v-if="loading" class="empty-state">Ładowanie...</div>
       <div v-else style="max-width:1100px;margin:0 auto;">
         <!-- Section 1: Dane podstawowe -->
-        <div class="page-card" style="margin-bottom:var(--spacing-md);">
+        <div class="page-card" style="margin-bottom:var(--spacing-lg);">
           <h3 class="section-title">Dane podstawowe</h3>
           <div v-if="errorMsg" class="error-message">{{ errorMsg }}</div>
           <div class="form-row-4" style="align-items:start;">
@@ -53,7 +53,7 @@
         </div>
 
         <!-- Section 2: Kontrahent i adres -->
-        <div class="page-card" style="margin-bottom:var(--spacing-md);">
+        <div class="page-card" style="margin-bottom:var(--spacing-lg);">
           <h3 class="section-title">Kontrahent i adres dostawy</h3>
           <div class="form-row-2" style="align-items:start;">
             <div class="form-group">
@@ -107,7 +107,7 @@
         </div>
 
         <!-- Section 3: Warunki finansowe -->
-        <div class="page-card" style="margin-bottom:var(--spacing-md);">
+        <div class="page-card" style="margin-bottom:var(--spacing-lg);">
           <h3 class="section-title">Warunki finansowe</h3>
           <div class="form-row-4">
             <div class="form-group">
@@ -129,7 +129,7 @@
               <input :value="settlementTotalFormatted" type="text" class="form-control" disabled style="font-weight:700;" />
             </div>
             <div class="form-group">
-              <label class="form-label">Pozostało (zł)</label>
+              <label class="form-label">Pozostało</label>
               <input :value="remainingValue" type="text" class="form-control" disabled style="font-weight:700;color:var(--color-error);" />
             </div>
           </div>
@@ -147,23 +147,29 @@
         </div>
 
         <!-- Section 4: Kontakt i uwagi -->
-        <div class="page-card" style="margin-bottom:var(--spacing-md);">
+        <div class="page-card" style="margin-bottom:var(--spacing-lg);">
           <h3 class="section-title">Kontakt i uwagi</h3>
           <div class="form-row-2">
             <div class="form-group">
               <label class="form-label">Reprezentowany przez</label>
-              <div style="display:flex;gap:8px;">
+              <div style="display:flex;gap:8px;align-items:center;">
                 <input v-model="form.contact_person1" type="text" class="form-control" placeholder="Imię i nazwisko" />
                 <input v-model="form.contact_phone1" type="text" class="form-control" placeholder="Telefon" style="width:140px;" />
-                <label class="checkbox-group" style="white-space:nowrap;"><input type="checkbox" v-model="form.show_person1" /> Drukuj</label>
+                <div style="display:flex;align-items:center;gap:6px;white-space:nowrap;">
+                  <input type="checkbox" id="show-person1" v-model="form.show_person1" />
+                  <label for="show-person1" style="cursor:pointer;white-space:nowrap;line-height:1;">Drukuj</label>
+                </div>
               </div>
             </div>
             <div class="form-group">
               <label class="form-label">Osoba kontaktowa</label>
-              <div style="display:flex;gap:8px;">
+              <div style="display:flex;gap:8px;align-items:center;">
                 <input v-model="form.contact_person2" type="text" class="form-control" placeholder="Imię i nazwisko" />
                 <input v-model="form.contact_phone2" type="text" class="form-control" placeholder="Telefon" style="width:140px;" />
-                <label class="checkbox-group" style="white-space:nowrap;"><input type="checkbox" v-model="form.show_person2" /> Drukuj</label>
+                <div style="display:flex;align-items:center;gap:6px;white-space:nowrap;">
+                  <input type="checkbox" id="show-person2" v-model="form.show_person2" />
+                  <label for="show-person2" style="cursor:pointer;white-space:nowrap;line-height:1;">Drukuj</label>
+                </div>
               </div>
             </div>
           </div>
@@ -195,7 +201,7 @@
         </div>
 
         <!-- Positions section — inline editing (RAO-P2-071: zero modali ustawień, tylko ArticlePicker) -->
-        <div v-if="isEdit" class="page-card" style="margin-bottom:var(--spacing-md);">
+        <div v-if="isEdit" class="page-card" style="margin-bottom:var(--spacing-lg);">
           <div style="display:flex;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
             <span class="section-title" style="margin:0;border:none;">{{ isRental ? 'Pozycje umowy' : 'Usługi' }}</span>
             <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);">Kliknij wiersz aby edytować • Enter = zapisz • Esc = anuluj</span>
@@ -335,10 +341,10 @@
           />
 
           <!-- Service fees section -->
-        <div v-if="isEdit" class="page-card">
+        <div v-if="isEdit" class="page-card" style="margin-bottom:var(--spacing-lg);">
           <div class="fee-header">
             <div class="fee-header-left">
-              <span class="section-title" style="margin:0;border:none;">Usługi dodatkowe</span>
+              <span class="section-title" style="margin:0;border:none;">Opłaty dodatkowe</span>
               <span class="fee-hint">Kliknij wiersz • Enter = zapisz • Esc = anuluj</span>
             </div>
             <div class="fee-header-right">
@@ -356,17 +362,19 @@
               </select>
               <span v-else-if="presetPickerLoading" class="fee-hint">Ładowanie zestawów…</span>
               <button class="btn btn-secondary btn-sm" @click="resetServiceFees" :disabled="form.is_settled" title="Wyczyść i załaduj domyślny szablon">↻ Reset</button>
-              <button class="btn btn-primary btn-sm" @click="addFeeRow" :disabled="form.is_settled">+ Dodaj</button>
+              <div class="fee-header-primary" style="display:flex;align-items:center;margin-left:12px;border-left:1px solid var(--color-border);padding-left:12px;">
+                <button class="btn btn-primary btn-sm" @click="addFeeRow" :disabled="form.is_settled">+ Dodaj</button>
+              </div>
             </div>
           </div>
           <table class="data-grid">
             <thead>
               <tr>
-                <th style="width:22%;">Nazwa</th>
+                <th style="width:18%;">Nazwa</th>
                 <th style="width:9%;">Kwota od</th>
                 <th style="width:9%;">Kwota do</th>
                 <th style="width:6%;">J.m.</th>
-                <th>Tekst na umowie</th>
+                <th style="width:40%;">Tekst na umowie</th>
                 <th style="width:62px;">Aktywna</th>
                 <th style="width:56px;"></th>
               </tr>
@@ -397,7 +405,7 @@
                   <td>{{ fee.amount_from ? Number(fee.amount_from).toFixed(2) + ' zł' : '—' }}</td>
                   <td>{{ fee.amount_to ? Number(fee.amount_to).toFixed(2) + ' zł' : '—' }}</td>
                   <td>{{ fee.unit || '—' }}</td>
-                  <td style="font-size:11px;">{{ formatDescription(fee.description, fee.amount_from, fee.amount_to, fee.name) }}</td>
+                  <td style="font-size:var(--font-size-sm); line-height:1.45; white-space:normal; word-break:break-word; padding:6px 8px;">{{ formatDescription(fee.description, fee.amount_from, fee.amount_to, fee.name) }}</td>
                   <td style="text-align:center;"><span class="badge badge-success">Tak</span></td>
                   <td>
                     <button class="btn-icon" title="Edytuj" @click.stop="startEditFee(fee)">✎</button>
@@ -405,17 +413,6 @@
                   </td>
                 </tr>
               </template>
-              <!-- PDF PREVIEW LIVE -->
-              <tr v-if="activeServiceFees.length">
-                <td colspan="7" class="fee-pdf-preview">
-                  <div class="fee-pdf-label">Podgląd PDF:</div>
-                  <div class="fee-pdf-list">
-                    <div v-for="fee in activeServiceFees" :key="fee.id" class="fee-pdf-line">
-                      - {{ formatDescription(fee.description, fee.amount_from, fee.amount_to, fee.name) }}
-                    </div>
-                  </div>
-                </td>
-              </tr>
               <!-- NEW ROW -->
               <tr v-if="showNewFeeRow" class="row-editing">
                 <td>
@@ -433,20 +430,28 @@
               </tr>
             </tbody>
           </table>
+          <div v-if="activeServiceFees.length" class="fee-pdf-preview">
+            <div class="fee-pdf-label">Podgląd PDF:</div>
+            <div class="fee-pdf-list">
+              <div v-for="fee in activeServiceFees" :key="fee.id" class="fee-pdf-line">
+                - {{ formatDescription(fee.description, fee.amount_from, fee.amount_to, fee.name) }}
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Settlements section (RAO-P1-012 + RAO-P2-022) -->
-        <div v-if="isEdit" class="page-card" style="margin-bottom:var(--spacing-md);">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-            <div style="display:flex;align-items:center;gap:10px;">
+        <div v-if="isEdit" class="page-card" style="margin-bottom:var(--spacing-lg);">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:12px;">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
               <span class="section-title" style="margin:0;border:none;">Rozliczenie umowy</span>
-              <span style="font-size:11px;color:var(--color-text-muted);">Koszt klienta vs koszt firmy</span>
+              <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);">Koszt klienta vs koszt firmy</span>
               <!-- RAO-P2-022: status badge -->
               <span v-if="form.is_settled" class="settled-badge-sm">
                 ✓ Rozliczona{{ form.settled_at ? ' · ' + new Date(form.settled_at).toLocaleDateString('pl-PL') : '' }}
               </span>
             </div>
-            <div style="display:flex;gap:8px;align-items:center;">
+            <div style="display:flex;gap:8px;align-items:center;margin-left:auto;">
               <!-- RAO-P2-022: toggle rozliczenia -->
               <button
                 class="btn btn-xs"
@@ -2709,7 +2714,7 @@ async function applyHardcodedFeePreset(kind: 'wspolne' | 'diesel' | 'elektryk') 
 }
 .fee-header-right {
   display: flex;
-  gap: 6px;
+  gap: 16px;
   align-items: center;
   margin-left: auto;
   flex-wrap: wrap;
@@ -2722,8 +2727,11 @@ async function applyHardcodedFeePreset(kind: 'wspolne' | 'diesel' | 'elektryk') 
   font-size: var(--font-size-xs);
 }
 .fee-pdf-preview {
-  padding: 8px 0 0 0;
-  background: transparent;
+  margin-top: 8px;
+  padding: var(--spacing-2) var(--spacing-3);
+  background: var(--color-bg-light);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
 }
 .fee-pdf-label {
   font-size: var(--font-size-xs);
@@ -2731,11 +2739,11 @@ async function applyHardcodedFeePreset(kind: 'wspolne' | 'diesel' | 'elektryk') 
   margin-bottom: 4px;
 }
 .fee-pdf-list {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   color: var(--color-text-body);
-  line-height: 1.4;
+  line-height: 1.5;
 }
 .fee-pdf-line {
-  margin-bottom: 1px;
+  margin-bottom: 2px;
 }
 </style>
