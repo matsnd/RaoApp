@@ -315,9 +315,10 @@ component: backend/protocols + backend/reports (PDF) + frontend/ProtocolForm
 
 ```yaml
 id: P1-012
-status: triaged
+status: done
 priority: P1
 created: 2026-07-08
+completed: 2026-07-09
 source: client-request (uwagi klienta 2026-07-08, pozycja 12)
 component: backend/reports (PDF umowy + PDF protokołu)
 ```
@@ -361,9 +362,10 @@ component: frontend/ContractFormView + backend/reports (PDF umowy)
 
 ```yaml
 id: P1-015
-status: triaged
+status: done
 priority: P1
 created: 2026-07-08
+completed: 2026-07-09
 source: client-request (uwagi klienta 2026-07-08, pozycja 15)
 component: backend/reports (PDF umowy — sekcja OWN) + backend/settings (szablony OWN)
 ```
@@ -1167,7 +1169,7 @@ Ukryć pole "nr wewnętrzny" gdy `contract_type === 'U'` w `ContractFormView.vue
 - [x] `FeePresetGroup` "Najem — Wspólny" (is_default) + "Najem — Diesel" + "Najem — Elektryk" + "Usługa — Wspólny", pozycje z article_id + kwoty/teksty jak w uwagach klienta (diesel 150, elektryk 90)
 
 **PDF (`contract.html` — 4 edycje):**
-- [ ] OWN 8b: nowy tekst 250 zł/rg + materiały (P1-015)
+- [x] OWN 8b: nowy tekst 250 zł/rg + materiały (P1-015)
 - [ ] Uwagi: "Naliczanie: {{working_days_per_week}} dni w tygodniu (pozostałe dni według zapisu GPS)" (P1-004), drukowana zawsze
 - [ ] Nagłówek kolumny w 2 liniach (P1-008)
 - [ ] Przedpłata na dole umowy (P1-014)

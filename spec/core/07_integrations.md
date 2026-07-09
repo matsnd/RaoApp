@@ -494,6 +494,12 @@ class ReportService:
 | Nagłówek kolumny "Przewidywana ilość dni najmu" | Zmieniono na `white-space:normal` (automatyczne łamanie wierszy zamiast `<br>`) |
 | Przedpłata | Przeniesiona z sekcji "Dane podstawowe" na dół sekcji "Uwagi" (border-top + font-weight:bold) |
 
+### Zmiany w contract.html + contract_u.html (RAO-P1-012, 2026-07-09)
+
+| Sekcja | Zmiana |
+|--------|--------|
+| Sekcja "uzupełnij" | Dodano nowy wiersz `telefon:` po `email do przesłania faktury:` z pustym polem `fill-wide` (do ręcznego wypełnienia przez klienta na papierze). NIE wypełniać danymi z DB — telefon klienta zostaje tylko na protokole (`protocol_zo*.html`: `contract.phone`, `contact_phone1`). |
+
 ### Zmiany w protocol_zo_u.html (RAO-P1-007, 2026-07-08)
 
 | Sekcja | Zmiana |
