@@ -10,15 +10,13 @@
           data-testid="date-from"
         />
       </div>
-      <div class="input-group days-input-group">
+      <div v-if="!manualEndDate" class="input-group days-input-group">
         <label class="input-label">Liczba dni</label>
         <input
           v-model.number="daysInternal"
           type="number"
           min="1"
           class="form-control"
-          :readonly="manualEndDate"
-          :placeholder="manualEndDate && !dateToManual ? '—' : ''"
           data-testid="days-count"
         />
       </div>
@@ -49,6 +47,25 @@
         :value="effectiveDateTo"
         data-testid="date-to"
       />
+    </div>
+
+    <!-- Dni robocze w tygodniu — blisko okresu umowy -->
+    <div class="working-days-row">
+      <label class="input-label">Dni robocze w tygodniu</label>
+      <div role="group" aria-labelledby="days-label-inline" class="days-week-group">
+        <button
+          v-for="d in [5, 6, 7]"
+          :key="d"
+          type="button"
+          class="day-week-btn"
+          :class="{ selected: workingDaysPerWeekInternal === d }"
+          :data-testid="`days-per-week-${d}`"
+          :aria-pressed="workingDaysPerWeekInternal === d"
+          @click="workingDaysPerWeekInternal = d"
+        >
+          {{ d }}
+        </button>
+      </div>
     </div>
 
     <div
@@ -431,5 +448,59 @@ watch(() => props.dateTo, (newTo) => {
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
   padding: var(--spacing-1) 0;
+}
+
+/* Dni robocze w tygodniu — inline w pickerze */
+.working-days-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  margin-top: var(--spacing-2);
+  margin-bottom: var(--spacing-1);
+}
+
+.days-week-group {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--color-border);
+  padding: var(--spacing-2);
+  border-radius: var(--border-radius-md);
+}
+
+.day-week-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--border-radius-sm);
+  margin-right: var(--spacing-2);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-white);
+  color: var(--color-text-body);
+  font-family: var(--font-family);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: background 120ms, color 120ms, border-color 120ms;
+}
+
+.day-week-btn:last-child {
+  margin-right: 0;
+}
+
+.day-week-btn:hover {
+  border-color: var(--color-border-hover);
+  background: var(--color-bg-light);
+}
+
+.day-week-btn.selected {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.day-week-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 </style>

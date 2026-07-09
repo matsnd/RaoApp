@@ -50,23 +50,6 @@
               <span v-if="!form.date_from" class="field-error">Podaj datę od</span>
             </div>
           </div>
-          <div class="form-group days-week-form-group">
-            <label id="days-label" class="form-label">Dni robocze w tygodniu</label>
-            <div role="group" aria-labelledby="days-label" class="days-week-group">
-              <button
-                v-for="d in [5, 6, 7]"
-                :key="d"
-                type="button"
-                class="day-week-btn"
-                :class="{ selected: form.working_days_per_week === d }"
-                :data-testid="`days-per-week-${d}`"
-                :aria-pressed="form.working_days_per_week === d"
-                @click="form.working_days_per_week = d"
-              >
-                {{ d }}
-              </button>
-            </div>
-          </div>
         </div>
 
         <!-- Section 2: Kontrahent i adres -->
