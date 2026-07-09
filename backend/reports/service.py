@@ -116,7 +116,10 @@ async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
     from contracts.service import format_position_conditions_cascading
     result = await db.execute(
         select(Contract)
-        .options(selectinload(Contract.positions).selectinload(ContractPosition.article))
+        .options(
+            selectinload(Contract.positions).selectinload(ContractPosition.article),
+            selectinload(Contract.service_fees),
+        )
         .where(Contract.id == contract_id)
     )
     contract = result.scalar_one_or_none()
@@ -157,7 +160,7 @@ async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
         article = await db.get(ArticleModel, pos.article_id) if pos.article_id else None
 
         # Use new cascading formatter for conditions
-        conditions_text = format_position_conditions_cascading(conditions)
+        conditions_text = format_position_conditions_cascading(conditions, contract.contract_type)
 
         # Fetch service hours for this position
         # RAO-P1-014 (usunięte): service_hours table dropped — PDF fallback to empty list.

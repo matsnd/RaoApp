@@ -47,22 +47,26 @@ from stats.calc import calculate_position_value
 def compute_position_value_lookup(
     rental_days: int | None,
     conditions: list[dict],
+    quantity: int | None = None,
+    is_service: bool = False,
 ) -> Decimal:
     """
     Reimplementacja `cena_pozycji` z starej aplikacji WinForms.
 
     Algorytm (lookup, NIE kaskadowe):
-    1. Jeśli liczba_dni > max(liczba_dni where oplata2>0):
+    1. Jeśli liczba okresów > max(liczba_dni where oplata2>0):
        - Weź ostatni warunek (order by id desc) gdzie liczba_dni >= w.liczba_dni
        - cena = oplata2 (lub oplata1 jeśli oplata2=0)
     2. W przeciwnym razie:
        - Weź pierwszy warunek (order by id) gdzie liczba_dni <= w.liczba_dni
        - cena = oplata2 (lub oplata1 jeśli oplata2=0)
-    3. revenue = cena × liczba_dni
+    3. revenue = cena × liczba okresów
 
     Source: AppRao/rao/FormU4.cs:1390-1396 + migrator/translated_objects/SQL_SCALAR_FUNCTION_cena_pozycji.sql
     """
-    if not conditions or not rental_days or rental_days <= 0:
+    # Phase 2: service contracts use quantity (hours) as the period value.
+    period_value = (quantity if is_service else rental_days) or 0
+    if not conditions or period_value <= 0:
         return Decimal("0.00")
 
     # Sort by period_count (liczba_dni) — zgodnie ze starą funkcją
@@ -75,17 +79,17 @@ def compute_position_value_lookup(
     )
 
     rate = Decimal("0.00")
-    if rental_days > max_pc_with_oplata2:
-        # powyżej zakresu: ostatni warunek gdzie liczba_dni <= rental_days
-        candidates = [c for c in sorted_conds if (c.get("period_count") or 0) <= rental_days]
+    if period_value > max_pc_with_oplata2:
+        # powyżej zakresu: ostatni warunek gdzie liczba_dni <= period_value
+        candidates = [c for c in sorted_conds if (c.get("period_count") or 0) <= period_value]
         if candidates:
             c = candidates[-1]  # ostatni (najwyższy period_count)
             op2 = Decimal(str(c.get("rate2") or 0))
             op1 = Decimal(str(c.get("rate1") or 0))
             rate = op2 if op2 > 0 else op1
     else:
-        # w zakresie: pierwszy warunek gdzie liczba_dni >= rental_days
-        candidates = [c for c in sorted_conds if (c.get("period_count") or 0) >= rental_days]
+        # w zakresie: pierwszy warunek gdzie liczba_dni >= period_value
+        candidates = [c for c in sorted_conds if (c.get("period_count") or 0) >= period_value]
         if candidates:
             c = candidates[0]  # pierwszy (najniższy period_count)
             op2 = Decimal(str(c.get("rate2") or 0))
@@ -95,8 +99,8 @@ def compute_position_value_lookup(
     if rate <= 0:
         return Decimal("0.00")
 
-    # revenue = cena × liczba_dni (zgodnie z FormU4.cs: rozliczenie insert per dzień)
-    return rate * rental_days
+    # revenue = cena × liczba okresów
+    return rate * period_value
 
 
 async def compute_position_revenues(
@@ -211,16 +215,19 @@ async def compute_position_revenues(
                 PositionCondition.rate1,
                 PositionCondition.rate2,
                 PositionCondition.period_count,
+                PositionCondition.period_from,
+                PositionCondition.period_to,
                 PositionCondition.minimum,
             )
             .where(PositionCondition.position_id.in_(pos_ids))
-            .order_by(PositionCondition.position_id, PositionCondition.period_count)
+            .order_by(PositionCondition.position_id, PositionCondition.period_from)
         )
         cond_rows = cond_result.all()
         for c in cond_rows:
             conds_by_pos[c[0]].append({
                 "rate1": c[1], "rate2": c[2], "period_count": c[3],
-                "minimum": c[4],
+                "period_from": c[4], "period_to": c[5],
+                "minimum": c[6],
             })
 
     # 2. Pobierz settlements (rzeczywiste rozliczenia) — skip gdy brak positions
@@ -242,12 +249,15 @@ async def compute_position_revenues(
     for p in positions:
         pid = p[0]
         conds = conds_by_pos.get(pid, [])
+        is_service = (p[20] or "S") == "U"
 
         # 3 źródła przychodu
         revenue_actual = sett_by_pos.get(pid)  # None jeśli brak settlements
         revenue_estimate_lookup = compute_position_value_lookup(
             rental_days=p[3],
             conditions=conds,
+            quantity=p[6],
+            is_service=is_service,
         )
         revenue_estimate_tiered = calculate_position_value(
             rental_days=p[3],
@@ -255,6 +265,7 @@ async def compute_position_revenues(
             unit_price=p[5],
             quantity=p[6],
             conditions=conds,
+            is_service=is_service,
         )
 
         # Precedence: actual > lookup > tiered

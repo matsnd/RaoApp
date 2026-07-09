@@ -216,7 +216,7 @@
                 <th v-if="isRental" style="width:60px;">Dni</th>
                 <th style="width:60px;">Ilość</th>
                 <th v-if="isService" style="width:80px;">Jednostka</th>
-                <th v-if="isService" style="width:140px;">Opis</th>
+                <th v-if="isService" style="width:220px;">Opis</th>
                 <th v-if="isRental">Dostawca</th>
                 <th v-if="isRental" style="width:120px;">Data dost.</th>
                 <th style="width:70px;">Warunki</th>
@@ -256,7 +256,7 @@
                     <span v-if="inlinePosErrors.quantity" class="field-error field-error-inline">{{ inlinePosErrors.quantity }}</span>
                   </td>
                   <td v-if="isService"><span class="form-control-xs" style="display:inline-flex;align-items:center;height:28px;padding:2px 0;">{{ editingPosData.billing_unit || 'godzina' }}</span></td>
-                  <td v-if="isService"><input v-model="editingPosData.description" type="text" class="form-control form-control-xs" placeholder="Opis" @keydown.enter="saveInlinePos" @keydown.esc="cancelInlinePos" /></td>
+                  <td v-if="isService" class="no-overflow" style="width:220px; max-width:none; white-space:normal;"><input v-model="editingPosData.description" type="text" class="form-control form-control-xs" placeholder="Opis" @keydown.enter="saveInlinePos" @keydown.esc="cancelInlinePos" /></td>
                   <td v-if="isRental">
                     <div style="display:flex;align-items:center;gap:4px;">
                       <span style="flex:1;font-size:12px;">{{ editingPosData.supplier_name || '—' }}</span>
@@ -279,7 +279,7 @@
                   <td v-if="isRental">{{ pos.rental_days || '—' }}</td>
                   <td>{{ pos.quantity || 1 }}</td>
                   <td v-if="isService">godzina</td>
-                  <td v-if="isService">{{ pos.description || '—' }}</td>
+                  <td v-if="isService" class="no-overflow" style="width:220px; max-width:none; white-space:normal;">{{ pos.description || '—' }}</td>
                   <td v-if="isRental">{{ pos.supplier_name || '—' }}</td>
                   <td v-if="isRental">{{ pos.delivery_date ? new Date(pos.delivery_date).toLocaleDateString('pl-PL') : '—' }}</td>
                   <td style="text-align:center;"><span class="badge badge-info">{{ pos.conditions_count || 0 }}</span></td>
@@ -308,7 +308,7 @@
                   <span v-if="inlinePosErrors.quantity" class="field-error field-error-inline">{{ inlinePosErrors.quantity }}</span>
                 </td>
                 <td v-if="isService"><span class="form-control-xs" style="display:inline-flex;align-items:center;height:28px;padding:2px 0;">{{ newPosData.billing_unit || 'godzina' }}</span></td>
-                <td v-if="isService"><input v-model="newPosData.description" type="text" class="form-control form-control-xs" placeholder="Opis" @keydown.enter="saveNewPosRow" @keydown.esc="cancelNewPosRow" /></td>
+                <td v-if="isService" class="no-overflow" style="width:220px; max-width:none; white-space:normal;"><input v-model="newPosData.description" type="text" class="form-control form-control-xs" placeholder="Opis" @keydown.enter="saveNewPosRow" @keydown.esc="cancelNewPosRow" /></td>
                 <td v-if="isRental">
                   <div style="display:flex;align-items:center;gap:4px;">
                     <span style="flex:1;font-size:12px;">{{ newPosData.supplier_name || '—' }}</span>
@@ -339,6 +339,7 @@
             :billing-frequency="selectedPosition?.billing_frequency || null"
             @value-changed="onConditionValueChanged"
           />
+        </div>
 
           <!-- Service fees section -->
         <div v-if="isEdit" class="page-card" style="margin-bottom:var(--spacing-lg);">
@@ -348,14 +349,14 @@
               <span class="fee-hint">Kliknij wiersz • Enter = zapisz • Esc = anuluj</span>
             </div>
             <div class="fee-header-right">
-              <template v-if="isRental">
+              <div v-if="isRental" class="fee-preset-group">
                 <button class="btn btn-secondary btn-sm" @click="applyHardcodedFeePreset('wspolne')" :disabled="form.is_settled" title="Wspólne (bez przeglądu)">Wspólne</button>
                 <button class="btn btn-secondary btn-sm" @click="applyHardcodedFeePreset('diesel')" :disabled="form.is_settled" title="Diesel (dodatkowo)">Diesel</button>
                 <button class="btn btn-secondary btn-sm" @click="applyHardcodedFeePreset('elektryk')" :disabled="form.is_settled" title="Elektryk (dodatkowo)">Elektryk</button>
-              </template>
-              <template v-else>
+              </div>
+              <div v-else class="fee-preset-group">
                 <button class="btn btn-secondary btn-sm" @click="applyHardcodedFeePreset('wspolne')" :disabled="form.is_settled" title="Wspólne (transport + operator)">Wspólne</button>
-              </template>
+              </div>
               <select v-if="presetPickerList.length" v-model="selectedPresetId" @change="applyPresetWithConfirm" class="form-control form-control-xs" style="width:180px;" :disabled="form.is_settled">
                 <option :value="null">Wybierz zestaw…</option>
                 <option v-for="p in presetPickerList" :key="p.id" :value="p.id">{{ p.name }}</option>
@@ -374,7 +375,7 @@
                 <th style="width:9%;">Kwota od</th>
                 <th style="width:9%;">Kwota do</th>
                 <th style="width:6%;">J.m.</th>
-                <th style="width:40%;">Tekst na umowie</th>
+                <th style="width:40%; min-width:280px;">Tekst na umowie</th>
                 <th style="width:62px;">Aktywna</th>
                 <th style="width:56px;"></th>
               </tr>
@@ -985,7 +986,6 @@
       </div>
     </Transition>
 
-  </div>
 </template>
 
 <script setup lang="ts">
@@ -1233,7 +1233,6 @@ interface PosInlineData {
   rental_days: number | null
   quantity: number
   unit_price: number | null
-  costs: number | null
   rate_type_id: number | null
   billing_frequency: string | null
   billing_unit: string | null
@@ -1284,7 +1283,7 @@ const articlePickerList = ref([])
 function emptyPosData(): PosInlineData {
   return {
     article_id: null, article_name: '', rental_type: null, rental_days: null,
-    quantity: 1, unit_price: null, costs: null, rate_type_id: null,
+    quantity: 1, unit_price: null, rate_type_id: null,
     billing_frequency: null, billing_unit: null, supplier_id: null,
     supplier_name: '', delivery_date: null, description: null,
   }
@@ -1917,7 +1916,6 @@ function startEditPos(pos) {
     rental_days: rental ? (pos.rental_days ?? null) : null,
     quantity: pos.quantity ?? 1,
     unit_price: pos.unit_price ?? null,
-    costs: pos.costs ?? null,
     rate_type_id: pos.rate_type_id ?? null,
     billing_frequency: pos.billing_frequency ?? (rental ? 'dziennie' : 'godzinowo'),
     billing_unit: pos.billing_unit ?? (rental ? 'doba' : 'godzina'),
@@ -2008,7 +2006,6 @@ function buildPosPayload(d: PosInlineData) {
     rental_days: isRental.value ? (d.rental_days ?? null) : null,
     quantity: d.quantity ?? 1,
     unit_price: d.unit_price ?? null,
-    costs: d.costs ?? null,
     rate_type_id: d.rate_type_id ?? null,
     billing_frequency: isRental.value ? 'dziennie' : 'godzinowo',
     billing_unit: isRental.value ? 'doba' : 'godzina',
@@ -2150,7 +2147,6 @@ async function duplicateArticle(a) {
       rental_days: rental ? null : null,
       quantity: 1,
       unit_price: null,
-      costs: null,
       rate_type_id: null,
       billing_frequency: rental ? 'dziennie' : 'godzinowo',
       billing_unit: rental ? 'doba' : 'godzina',
@@ -2714,10 +2710,15 @@ async function applyHardcodedFeePreset(kind: 'wspolne' | 'diesel' | 'elektryk') 
 }
 .fee-header-right {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   align-items: center;
   margin-left: auto;
   flex-wrap: wrap;
+}
+.fee-preset-group {
+  display: flex;
+  gap: 4px;
+  align-items: center;
 }
 .fee-hint {
   font-size: var(--font-size-xs);
@@ -2732,6 +2733,8 @@ async function applyHardcodedFeePreset(kind: 'wspolne' | 'diesel' | 'elektryk') 
   background: var(--color-bg-light);
   border: 1px solid var(--color-border);
   border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
 }
 .fee-pdf-label {
   font-size: var(--font-size-xs);

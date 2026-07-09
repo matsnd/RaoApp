@@ -1,32 +1,36 @@
 """Unit tests for format_position_conditions_cascading function."""
 
-from types import SimpleNamespace
+from decimal import Decimal
 from contracts.service import format_position_conditions_cascading
 from contracts.models import PositionCondition
 from reports.service import generate_fees_text, _format_fee_display
 
 
 class MockCondition:
-    """Mock PositionCondition for testing."""
-    def __init__(self, period_count, rate1, rate2, billing_label):
-        self.period_count = period_count
+    """Mock PositionCondition for testing (Phase 2 source fields)."""
+    def __init__(self, period_from=None, period_to=None, rate1=None, rate2=None,
+                 minimum=None, billing_label=None, period_count=None):
+        self.period_from = period_from
+        self.period_to = period_to
         self.rate1 = rate1
         self.rate2 = rate2
+        self.minimum = minimum
         self.billing_label = billing_label
+        self.period_count = period_count
 
 
 def test_cascading_3_conditions_matches_old_app():
-    """Test with 3 conditions matching the old WinForms app example."""
+    """Test with 3 conditions converted to new period_from/period_to/rate1 fields."""
     conditions = [
-        MockCondition(period_count=3, rate1=540, rate2=None, billing_label='doba'),
-        MockCondition(period_count=16, rate1=410, rate2=None, billing_label='doba'),
-        MockCondition(period_count=None, rate1=None, rate2=350, billing_label='doba'),
+        MockCondition(period_from=1, period_to=3, rate1=Decimal("540"), billing_label='doba'),
+        MockCondition(period_from=4, period_to=16, rate1=Decimal("410"), billing_label='doba'),
+        MockCondition(period_from=17, period_to=None, rate1=Decimal("350"), billing_label='doba'),
     ]
     result = format_position_conditions_cascading(conditions)
     expected = (
         "1 - 3 dni - 540,00 / doba\n"
         "4 - 16 dni - 410,00 / doba\n"
-        "powyżej 16 dni - 350,00 / doba"
+        "17 dni i więcej - 350,00 / doba"
     )
     assert result == expected
 
@@ -39,9 +43,9 @@ def test_cascading_empty_list():
 
 
 def test_cascading_single_condition():
-    """Test with single condition."""
+    """Test with single closed condition."""
     conditions = [
-        MockCondition(period_count=7, rate1=500, rate2=None, billing_label='doba'),
+        MockCondition(period_from=1, period_to=7, rate1=Decimal("500"), billing_label='doba'),
     ]
     result = format_position_conditions_cascading(conditions)
     expected = "1 - 7 dni - 500,00 / doba"
@@ -49,15 +53,41 @@ def test_cascading_single_condition():
 
 
 def test_cascading_custom_billing_label():
-    """Test with custom billing label."""
+    """Test with custom billing label (service hours)."""
     conditions = [
-        MockCondition(period_count=3, rate1=100, rate2=None, billing_label='godzina'),
-        MockCondition(period_count=None, rate1=None, rate2=80, billing_label='godzina'),
+        MockCondition(period_from=1, period_to=3, rate1=Decimal("100"), billing_label='godzina'),
+        MockCondition(period_from=4, period_to=None, rate1=Decimal("80"), billing_label='godzina'),
     ]
     result = format_position_conditions_cascading(conditions)
     expected = (
-        "1 - 3 dni - 100,00 / godzina\n"
-        "powyżej 3 dni - 80,00 / godzina"
+        "1 - 3 godz. - 100,00 / godz.\n"
+        "4 godz. i więcej - 80,00 / godz."
+    )
+    assert result == expected
+
+
+def test_service_open_ended_from_zero():
+    """Service condition with period_from=0 and open-ended should display as 'do X'."""
+    conditions = [
+        MockCondition(period_from=0, period_to=8, rate1=Decimal("100"), billing_label='godzina'),
+    ]
+    result = format_position_conditions_cascading(conditions, contract_type='U')
+    expected = "do 8 godz. - 100,00 / godz."
+    assert result == expected
+
+
+def test_legacy_rate2_fallback():
+    """Legacy conditions using period_count/rate2 still render correctly."""
+    conditions = [
+        MockCondition(period_count=3, rate1=Decimal("540"), billing_label='doba'),
+        MockCondition(period_count=16, rate1=Decimal("410"), billing_label='doba'),
+        MockCondition(period_count=None, rate2=Decimal("350"), billing_label='doba'),
+    ]
+    result = format_position_conditions_cascading(conditions)
+    expected = (
+        "1 - 3 dni - 540,00 / doba\n"
+        "4 - 16 dni - 410,00 / doba\n"
+        "17 dni i więcej - 350,00 / doba"
     )
     assert result == expected
 

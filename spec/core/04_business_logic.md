@@ -52,119 +52,85 @@ async def generate_contract_number(
 ## 2. Kalkulacja wartości umowy
 
 ```python
-async def calculate_contract_value(
-    db: AsyncSession,
-    contract_id: int
+async def calculate_position_value(
+    rental_days: int | None,
+    billing_frequency: str | None,
+    unit_price: Decimal | None,
+    quantity: int | None,
+    conditions: list[dict],
+    is_service: bool = False,
 ) -> Decimal:
     """
-    Źródło w WinForms: FormU4.cs → obliczanie wartości.
+    Faza 2: źródłem prawdy są period_from/period_to/rate1/minimum.
+    period_count/rate2 są kolumnami pochodnymi (backward compatibility).
+
+    Dla umów najmu (S):
+      - period = ceil(rental_days / dni_na_okres)
+      - quantity = liczba maszyn (mnożnik)
+    Dla umów usług (U):
+      - period = quantity (liczba godzin)
+      - quantity jest już okresem, nie mnoży się drugi raz
 
     Algorytm:
-    1. Pobierz wszystkie pozycje umowy
-    2. Dla każdej pozycji:
-       a. Pobierz warunki (position_conditions) posortowane wg period_count ASC
-       b. Oblicz wartość pozycji na podstawie algorytmu rate_type
-    3. Zwróć sumę wartości pozycji
-
-    Wartość pozycji = f(rental_days, billing_frequency, conditions)
+    1. Określ liczbę okresów (period) i pomnóż przez quantity dla S.
+    2. Zastosuj globalne minimum (max z conditions.minimum).
+    3. Dla każdego warunku (posortowanego po period_from):
+       - start = max(period_from, 1)
+       - end   = period_to lub period (dla open-ended)
+       - periods = max(0, min(end, total_periods) - start + 1)
+       - total += rate1 * periods
+    4. Fallback do rate2/ostatniej stawki gdy brak nowych pól.
     """
-    positions = await db.execute(
-        select(ContractPosition)
-        .where(ContractPosition.contract_id == contract_id)
-    )
-
-    total = Decimal("0.00")
-    for pos in positions.scalars():
-        value = await calculate_position_value(db, pos)
-        total += value
-
-    # Zapisz nową wartość
-    await db.execute(
-        update(Contract)
-        .where(Contract.id == contract_id)
-        .values(total_value=total, updated_at=func.now())
-    )
-    return total
-
-
-async def calculate_position_value(
-    db: AsyncSession,
-    position: ContractPosition
-) -> Decimal:
-    """
-    Algorytm obliczenia wartości jednej pozycji.
-
-    Typy stawek (rate_type_id):
-    - 1: Stawka jednorazowa (CENA × ILOSC)
-    - 2: Stawka z progami (obliczenie progowe)
-    - 3: Stawka prosta (OPLATA1 × ilość_okresów)
-    - (4: nieużywany - excluded w WHERE)
-
-    Obliczenie progowe (typ 2):
-    Warunki posortowane wg period_count ASC:
-    Warunek 1: { period_count: 5, rate1: 5000, billing: "tygodniowo" }
-    Warunek 2: { period_count: 99, rate1: 4000, billing: "tygodniowo" }
-
-    Przykład: rental_days = 45, billing = tygodniowo (7 dni/okres)
-    - Liczba tygodni = ceil(45 / 7) = 7
-    - Warunek 1: 5 tygodni × 5000 = 25000
-    - Warunek 2: 2 tygodnie × 4000 = 8000
-    - Suma = 33000
-    """
-    conditions = await db.execute(
-        select(PositionCondition)
-        .where(PositionCondition.position_id == position.id)
-        .order_by(PositionCondition.period_count.asc())
-    )
-    conds = conditions.scalars().all()
-
-    if not conds:
-        # Brak warunków → cena × ilość
-        if position.unit_price and position.quantity:
-            return position.unit_price * position.quantity
+    if not conditions:
+        if unit_price and quantity:
+            return Decimal(str(unit_price)) * int(quantity)
         return Decimal("0.00")
 
-    # Oblicz liczbę okresów
-    days = position.rental_days or 0
-    freq = position.billing_frequency or "dziennie"
-    days_per_period = get_days_per_period(freq)
-    total_periods = math.ceil(days / days_per_period) if days_per_period > 0 else 0
+    if is_service:
+        periods_raw = quantity or 0
+    else:
+        days = rental_days or 0
+        if days <= 0:
+            return Decimal("0.00")
+        dpp = get_days_per_period(billing_frequency or "dziennie")
+        periods_raw = math.ceil(days / dpp) if dpp > 0 else 0
 
-    # Zaaplikuj minimum (z pierwszego warunku)
-    min_periods = conds[0].minimum or 0
-    if total_periods < min_periods:
-        total_periods = min_periods
+    min_periods = max((c.get("minimum") or 0 for c in conditions), default=0)
+    total_periods = max(periods_raw, min_periods)
 
-    # Oblicz wartość progową
-    total_value = Decimal("0.00")
+    if total_periods <= 0:
+        return Decimal("0.00")
+
+    tiers = extract_rate_tiers(conditions)  # preferuje period_from/period_to/rate1
+    total = Decimal("0.00")
     remaining = total_periods
 
-    for i, cond in enumerate(conds):
+    for start, end, rate in tiers:
         if remaining <= 0:
             break
+        if start > total_periods:
+            continue
+        effective_end = end if end is not None else total_periods
+        periods = min(effective_end, total_periods) - start + 1
+        periods = max(0, periods)
+        if periods > remaining:
+            periods = remaining
+        if periods <= 0:
+            continue
+        total += rate * periods
+        remaining -= periods
 
-        # Ile okresów w tym progu
-        if i == 0:
-            periods_in_tier = min(remaining, cond.period_count or remaining)
-        else:
-            prev_count = conds[i-1].period_count or 0
-            periods_in_tier = min(remaining, (cond.period_count or 999) - prev_count)
-
-        rate = cond.rate1 or Decimal("0.00")
-        total_value += rate * periods_in_tier
-        remaining -= periods_in_tier
-
-    return total_value
+    return total * (1 if is_service else (quantity or 1))
 
 
 def get_days_per_period(billing_frequency: str) -> int:
-    """Mapowanie częstotliwości rozliczania na liczbę dni."""
+    """Mapowanie częstotliwości rozliczania na liczbę dni/godzin."""
     mapping = {
         "dziennie": 1,
         "tygodniowo": 7,
         "dwutygodniowo": 14,
         "miesięcznie": 30,
-        "godzinowo": 1,  # special case
+        "godzinowo": 1,
         "jednorazowo": 1,
     }
     return mapping.get(billing_frequency, 1)
@@ -173,63 +139,47 @@ def get_days_per_period(billing_frequency: str) -> int:
 ## 3. Generowanie opisu warunku
 
 ```python
-def generate_condition_description(
-    period_count: int,
-    rate1: Decimal,
-    rate2: Decimal | None,
-    billing_frequency: str,
-    billing_unit: str,
-    is_first: bool
+def format_position_conditions_cascading(
+    conditions: list[PositionCondition],
+    contract_type: str = "S",
 ) -> str:
     """
-    Źródło: FormW.cs → budowanie tekstu warunku (tbxwarunek).
+    Faza 2: źródłem prawdy są period_from/period_to/rate1/minimum.
+    period_count/rate2 są kolumnami pochodnymi.
 
-    Przykłady wygenerowanych opisów:
-    - "stawka 5000,00 zł/tyg. do 5 tygodni"
-    - "stawka 4000,00 zł/tyg. powyżej 5 tygodni"
-    - "stawka 100,00 zł/dzień do 30 dni, min. 5 dni"
+    Przykłady:
+    - najem (S):  "1 - 3 dni - 540,00 / doba"
+    - najem (S):  "17 dni i więcej - 350,00 / doba"
+    - usługa (U): "do 8 godz. - 100,00 / godz."
+    - usługa (U): "8 godz. i więcej - 80,00 / godz."
     """
-    unit_map = {
-        "tydzień": "tyg.",
-        "doba": "dzień",
-        "godzina": "godz.",
-        "miesiąc": "mies.",
-    }
-    unit_short = unit_map.get(billing_unit, billing_unit)
+    if not conditions:
+        return ""
 
-    rate_str = f"{rate1:,.2f}".replace(",", " ").replace(".", ",")
-    text = f"stawka {rate_str} zł/{unit_short}"
+    lines = []
+    for cond in conditions:
+        rate = cond.rate1 if cond.rate1 else cond.rate2
+        if not rate or rate <= 0:
+            continue
 
-    if is_first:
-        text += f" do {period_count} {get_period_label(period_count, billing_unit)}"
-    else:
-        text += f" powyżej {period_count} {get_period_label(period_count, billing_unit)}"
+        label = cond.billing_label or ("doba" if contract_type == "S" else "godzina")
+        count_unit = "godz." if "godz" in label.lower() else "dni"
+        rate_unit = "godz." if "godz" in label.lower() else "doba"
 
-    if rate2 and rate2 > 0:
-        rate2_str = f"{rate2:,.2f}".replace(",", " ").replace(".", ",")
-        text += f", stawka dodatkowa {rate2_str} zł"
+        pf = cond.period_from or 1
+        pt = cond.period_to
+        if pt is not None:
+            if pf == 0:
+                text = f"do {pt} {count_unit}"
+            else:
+                text = f"{pf} - {pt} {count_unit}"
+        else:
+            text = f"{pf} {count_unit} i więcej"
 
-    return text
+        rate_str = f"{rate:.2f}".replace(".", ",")
+        lines.append(f"{text} - {rate_str} / {rate_unit}")
 
-
-def get_period_label(count: int, unit: str) -> str:
-    """Polska odmiana: 1 tydzień, 2-4 tygodnie, 5+ tygodni."""
-    if unit in ("tydzień", "tyg."):
-        if count == 1: return "tydzień"
-        if 2 <= count <= 4: return "tygodnie"
-        return "tygodni"
-    if unit in ("doba", "dzień"):
-        if count == 1: return "dzień"
-        return "dni"
-    if unit in ("godzina", "godz."):
-        if count == 1: return "godzina"
-        if 2 <= count <= 4: return "godziny"
-        return "godzin"
-    if unit in ("miesiąc", "mies."):
-        if count == 1: return "miesiąc"
-        if 2 <= count <= 4: return "miesiące"
-        return "miesięcy"
-    return unit
+    return "\n".join(lines)
 ```
 
 ## 4. Duplikacja artykułu

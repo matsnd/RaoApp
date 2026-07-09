@@ -24,9 +24,10 @@
 
 ```yaml
 id: P0-001
-status: dev-verified
+status: team-verified
 priority: P0
 created: 2026-07-05
+updated: 2026-07-09
 source: internal-audit
 component: backend/contracts + backend/articles + backend/stats + backend/reports
 ```

@@ -67,10 +67,10 @@
             <td>{{ cond.period_from != null ? cond.period_from : '—' }}</td>
             <td>{{ cond.period_to != null ? cond.period_to : '—' }}</td>
             <td style="font-weight:600;">
-              {{ cond.rate1 != null ? formatCurrency(cond.rate1) : cond.rate2 != null ? formatCurrency(cond.rate2) : '—' }}
+              {{ cond.rate1 != null ? formatCurrency(cond.rate1) + ' / ' + shortUnit : cond.rate2 != null ? formatCurrency(cond.rate2) + ' / ' + shortUnit : '—' }}
             </td>
             <td>{{ cond.billing_label || defaultLabel }}</td>
-            <td>{{ cond.minimum != null ? cond.minimum : '—' }}</td>
+            <td>{{ cond.minimum ? cond.minimum : '—' }}</td>
             <td>
               <button class="btn-icon" aria-label="Edytuj" title="Edytuj" @click.stop="startEditCond(cond)" :disabled="isSettled" data-testid="edit-condition">✎</button>
               <button class="btn-icon" aria-label="Usuń" title="Usuń" @click.stop="removeCondition(cond)" :disabled="isSettled" data-testid="delete-condition">✕</button>
@@ -227,6 +227,7 @@ const panelMode = computed<'rental' | 'service'>(() => {
 const isRental = computed(() => panelMode.value === 'rental')
 const isService = computed(() => panelMode.value === 'service')
 const defaultLabel = computed(() => (isService.value ? 'godzina' : 'doba'))
+const shortUnit = computed(() => (isService.value ? 'godz.' : 'doba'))
 const defaultRateTypeId = computed(() => {
   const target = isService.value ? 'godz' : 'dob'
   const found = rateTypes.value.find(rt => rt.name && rt.name.toLowerCase().includes(target))
@@ -543,10 +544,12 @@ function buildCondPayload(data: ReturnType<typeof emptyCondData>) {
   if (payload.minimum === '' || payload.minimum === undefined) payload.minimum = null
   if (payload.description === '') payload.description = null
   if (payload.rate_type_id == null && defaultRateTypeId.value) payload.rate_type_id = defaultRateTypeId.value
-  // period_count (legacy) wyliczane z period_to przy zapisie
+  // period_count (legacy) is derived from period_to when closed, left null when open-ended
   if (payload.period_to != null) payload.period_count = payload.period_to
-  // backend open-ended tier expects rate2, but a fixed period_count means a single closed tier
-  if (payload.period_to == null && payload.period_count == null && payload.rate1 > 0) payload.rate2 = payload.rate1
+  else payload.period_count = null
+  // Phase 2: rate2 is not used by the new UI; leave it null.
+  // Legacy open-ended tiers are now represented by rate1 with period_to=null.
+  payload.rate2 = null
   return payload
 }
 
@@ -749,6 +752,7 @@ defineExpose({ loadConditions, calculatedValue })
 
 <style scoped>
 .condition-panel { margin-top: 12px; }
+.condition-panel table.data-grid thead th { text-transform: none; letter-spacing: normal; }
 .cond-header {
   display: flex;
   align-items: center;

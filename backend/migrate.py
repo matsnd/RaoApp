@@ -78,9 +78,31 @@ def hash_password(password: str) -> str:
 DB_HOST = "localhost"
 DB_PORT = 3306
 DB_USER = "rao_user"
-DB_PASS = "RaoPass2026!"
 DB_NAME = "rao_new"
 # DUMP_PATH is now defined above as absolute path
+
+
+def _load_db_password() -> str:
+    """P0 security: load DB password from env or .env, never hardcode."""
+    for env_var in ("DB_PASSWORD", "RAO_DB_PASSWORD"):
+        pw = os.environ.get(env_var)
+        if pw:
+            return pw
+    # Fallback to .env file in project root (manual parse, no extra dependency)
+    env_path = os.path.join(project_root, ".env")
+    if os.path.exists(env_path):
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                key, _, value = line.partition("=")
+                if key.strip() == "RAO_DB_PASSWORD":
+                    return value.strip().strip('"').strip("'")
+    raise RuntimeError(
+        "DB password not found. Set DB_PASSWORD or RAO_DB_PASSWORD env var, "
+        "or RAO_DB_PASSWORD in .env"
+    )
+
+
+DB_PASS = _load_db_password()
 
 # Every object imported from the dump (tables + views) to drop at the end
 OLD_OBJECTS = [
@@ -306,18 +328,18 @@ async def step4_migrate_data():
         """),
 
         # ── umowa_pozycja3 → contract_positions ──
-        # umowa_pozycja3: id, id_umowy, id_artykulu, typ_wynajmu, koszty, opis,
+        # umowa_pozycja3: id, id_umowy, id_artykulu, typ_wynajmu, opis,
         #   liczba_dni, id_stawki, rozliczanie, oplataza, ilosc, cena,
         #   id_dostawcy, data_dostawy, nazwa
         ("contract_positions", """
             INSERT INTO contract_positions
-                (id, contract_id, article_id, rental_type, costs, description,
-                 rental_days, rate_type_id, billing_frequency, billing_unit,
-                 quantity, unit_price, supplier_id, delivery_date, article_name)
+                (id, contract_id, article_id, rental_type, description, rental_days,
+                 quantity, unit_price, rate_type_id, billing_frequency, billing_unit,
+                 supplier_id, delivery_date, article_name)
             SELECT
-                id, id_umowy, id_artykulu, typ_wynajmu, koszty, opis,
-                liczba_dni, NULLIF(id_stawki, 0), rozliczanie, oplataza,
-                ilosc, cena, NULLIF(id_dostawcy, 0), data_dostawy, nazwa
+                id, id_umowy, id_artykulu, typ_wynajmu, opis, liczba_dni,
+                ilosc, cena, NULLIF(id_stawki, 0), rozliczanie, oplataza,
+                NULLIF(id_dostawcy, 0), data_dostawy, nazwa
             FROM umowa_pozycja3
         """),
 
@@ -326,13 +348,12 @@ async def step4_migrate_data():
         #   oplata1, oplata2, rozliczana, liczba_dni, minimum
         # id_pozycji references umowa_pozycja3.id (verified: 875/897 match)
         # Filter to only rows whose id_pozycji exists in contract_positions
+        # Note: rate_type_id and description columns removed in KISS refactor.
         ("position_conditions", """
             INSERT INTO position_conditions
-                (id, position_id, rate_type_id, description,
-                 rate1, rate2, billing_label, period_count, minimum)
+                (id, position_id, rate1, rate2, billing_label, period_count, minimum)
             SELECT
-                w.id, w.id_pozycji, NULLIF(w.id_stawki, 0), w.opis,
-                w.oplata1, w.oplata2, w.rozliczana, w.liczba_dni, w.minimum
+                w.id, w.id_pozycji, w.oplata1, w.oplata2, w.rozliczana, w.liczba_dni, w.minimum
             FROM umowa_pozycja2_warunek w
             WHERE w.id_pozycji IN (SELECT id FROM contract_positions)
         """),
@@ -622,7 +643,6 @@ async def step5d_link_articles_to_templates():
          po nazwie (case-insensitive, dopasowanie zaczynane od name).
       2. Preferuj artykuły z is_service=1 (usługi).
       3. Jeśli artykuł nie istnieje — utwórz go (is_service=1).
-      4. Wypełnij default_price = COALESCE(amount_from, amount_to).
 
     Idempotentne: pomija rekordy z już ustawionym article_id.
     """
@@ -671,10 +691,9 @@ async def step5d_link_articles_to_templates():
             article_id = cur.lastrowid
             created += 1
 
-        default_price = amt_from if amt_from is not None else amt_to
         await cur.execute(
-            "UPDATE service_fee_templates SET article_id = %s, default_price = %s WHERE id = %s",
-            (article_id, default_price, tpl_id)
+            "UPDATE service_fee_templates SET article_id = %s WHERE id = %s",
+            (article_id, tpl_id)
         )
         linked += 1
 

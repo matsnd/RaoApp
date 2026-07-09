@@ -41,14 +41,22 @@ def _to_decimal(value) -> Decimal:
     return Decimal(str(value))
 
 
+def _condition_has_new_periods(cond: dict) -> bool:
+    """RAO-P2-071: condition uses the new source-of-truth period fields."""
+    return (
+        cond.get("period_from") is not None
+        or cond.get("period_to") is not None
+    )
+
+
 def _extract_rate_tiers(conditions: list[dict]) -> list[tuple[int, int | None, Decimal]]:
     """
-    Build a list of logical rate tiers from possibly-cascading conditions.
+    Build a list of logical rate tiers from conditions.
 
-    A condition may carry:
-      - rate1 for periods within its period_count,
-      - rate2 for periods above its period_count ("kolejne okresy"),
-        continuing until the next condition starts.
+    Phase 2: primary source is period_from/period_to/rate1. If a condition
+    has the new fields (period_from or rate1), we use them directly.
+    Legacy rows still relying on period_count/rate2 are converted back into
+    ranges for compatibility.
 
     Returns list of (tier_start, tier_end, rate). `tier_end` = None means
     open-ended (continues for all remaining periods).
@@ -56,21 +64,81 @@ def _extract_rate_tiers(conditions: list[dict]) -> list[tuple[int, int | None, D
     if not conditions:
         return []
 
-    # Sort by period_count ASC, with NULL (open-ended) at the end
+    # Detect whether the conditions have the new source-of-truth fields.
+    if any(_condition_has_new_periods(c) for c in conditions):
+        return _extract_rate_tiers_from_new_fields(conditions)
+    return _extract_rate_tiers_from_legacy(conditions)
+
+
+def _extract_rate_tiers_from_new_fields(
+    conditions: list[dict],
+) -> list[tuple[int, int | None, Decimal]]:
+    """
+    New source of truth: period_from/period_to/rate1.
+
+    - period_from is inclusive. If period_from is 0, the first chargeable
+      period is 1, but the rate starts at 0 so the overlap is correct.
+    - period_to is inclusive. None means open-ended.
+    - rate1 is the rate for the whole range. rate2 is treated as legacy fallback
+      when rate1 is missing (open-ended tier generated from a legacy preset).
+    """
+    conds: list[dict] = []
+    for c in conditions:
+        rate = _to_decimal(c.get("rate1"))
+        if rate <= 0:
+            rate = _to_decimal(c.get("rate2"))
+        if rate <= 0:
+            continue
+        period_from = c.get("period_from")
+        period_to = c.get("period_to")
+        if period_from is None and period_to is None:
+            # Single open-ended rate with no explicit from; default to 1.
+            period_from = 1
+        conds.append({
+            "period_from": period_from,
+            "period_to": period_to,
+            "rate": rate,
+        })
+
+    if not conds:
+        return []
+
+    # Sort by start period. NULL (open-ended) at the end.
+    conds.sort(key=lambda c: (c["period_from"] is None, c["period_from"] or 0))
+
+    tiers: list[tuple[int, int | None, Decimal]] = []
+    for c in conds:
+        start = c["period_from"] or 1
+        end = c["period_to"]
+        if start < 1:
+            start = 1
+        if end is not None and end < start:
+            continue
+        tiers.append((start, end, c["rate"]))
+
+    return tiers
+
+
+def _extract_rate_tiers_from_legacy(
+    conditions: list[dict],
+) -> list[tuple[int, int | None, Decimal]]:
+    """
+    Legacy compatibility: builds tiers from period_count/rate1/rate2.
+    Kept for stats/calc.py and shared/revenue.py callers using old data.
+    """
     conds = sorted(
         conditions,
-        key=lambda c: (c.get("period_count") is None, c.get("period_count") or 0)
+        key=lambda c: (c.get("period_count") is None, c.get("period_count") or 0),
     )
 
     tiers: list[tuple[int, int | None, Decimal]] = []
-    current_end = 0  # last period already covered by a generated tier
+    current_end = 0
 
     for i, cond in enumerate(conds):
         pc = cond.get("period_count")
         rate1 = _to_decimal(cond.get("rate1"))
         rate2 = _to_decimal(cond.get("rate2"))
 
-        # Find the next condition that has a concrete period_count
         next_pc = None
         for j in range(i + 1, len(conds)):
             npc = conds[j].get("period_count")
@@ -94,11 +162,9 @@ def _extract_rate_tiers(conditions: list[dict]) -> list[tuple[int, int | None, D
             if next_pc is not None:
                 end = next_pc - 1
             else:
-                end = None  # open-ended
+                end = None
 
             if end is None or start <= end:
-                # Avoid generating a zero/negative tier when the next rate1
-                # starts immediately after this period_count.
                 if start > current_end or end is None:
                     tiers.append((start, end, rate2))
                     if end is not None:
@@ -107,43 +173,62 @@ def _extract_rate_tiers(conditions: list[dict]) -> list[tuple[int, int | None, D
     return tiers
 
 
+def _quantity_multiplier(quantity: int | None, is_service: bool) -> int:
+    """
+    For rental (S) `quantity` is the number of machines and multiplies the
+    per-day total. For service (U) `quantity` is already the hour count and
+    is used as the period value, so no extra multiplier is applied.
+    """
+    if is_service:
+        return 1
+    return int(quantity or 1)
+
+
 def calculate_position_value(
     rental_days: int | None,
     billing_frequency: str | None,
     unit_price: Decimal | None,
     quantity: int | None,
     conditions: list[dict],
+    is_service: bool = False,
 ) -> Decimal:
     """
     Calculate the value of a single position.
 
     Args:
-        rental_days: number of rental days from contract_positions
-        billing_frequency: e.g. 'dziennie', 'tygodniowo'
+        rental_days: number of rental days from contract_positions (S)
+        billing_frequency: e.g. 'dziennie', 'tygodniowo', 'godzinowo'
         unit_price: fallback if no conditions (usually NULL)
-        quantity: fallback multiplier (usually 1)
+        quantity: number of machines (S) or hours (U)
         conditions: list of dicts with keys:
             rate1 (Decimal), rate2 (Decimal|None),
-            period_count (int), minimum (int),
-            rate_type_id (int)
+            period_from (int), period_to (int),
+            period_count (int), minimum (int)
+        is_service: True for service contracts (U) where `quantity` is hours
     """
     if not conditions:
         if unit_price and quantity:
             return Decimal(str(unit_price)) * int(quantity)
         return Decimal("0.00")
 
-    days = rental_days or 0
-    if days <= 0:
+    # Phase 2: service uses quantity (hours) as the period value;
+    # rental uses rental_days (converted by billing_frequency).
+    if is_service:
+        periods_raw = quantity or 0
+    else:
+        days = rental_days or 0
+        if days <= 0:
+            return Decimal("0.00")
+        freq = billing_frequency or "dziennie"
+        dpp = get_days_per_period(freq)
+        periods_raw = math.ceil(days / dpp) if dpp > 0 else 0
+
+    if periods_raw <= 0:
         return Decimal("0.00")
 
-    freq = billing_frequency or "dziennie"
-    dpp = get_days_per_period(freq)
-    total_periods = math.ceil(days / dpp) if dpp > 0 else 0
-
-    # Apply minimum from first condition
-    min_periods = conditions[0].get("minimum") or 0
-    if total_periods < min_periods:
-        total_periods = min_periods
+    # Apply global minimum (taken from any condition; first is the legacy source).
+    min_periods = max((c.get("minimum") or 0 for c in conditions), default=0)
+    total_periods = max(periods_raw, min_periods)
 
     if total_periods <= 0:
         return Decimal("0.00")
@@ -184,8 +269,8 @@ def calculate_position_value(
         if last_rate > 0:
             total_value += last_rate * remaining
 
-    # RAO-P0-033: multiply by quantity consistently (matches no-conditions branch)
-    return total_value * int(quantity or 1)
+    # RAO-P0-033: multiply by quantity for rental; service is already counted
+    return total_value * _quantity_multiplier(quantity, is_service)
 
 
 # ── RAO-P1-017: Agregacja po kategoriach ─────────────────────────────────────

@@ -186,7 +186,7 @@ def test_position_update_exclude_unset():
 def test_condition_update_exclude_unset():
     u = ConditionUpdate(rate1=Decimal("150"), period_count=7)
     dumped = u.model_dump(exclude_unset=True)
-    assert dumped == {"rate1": Decimal("150"), "period_count": 7}
+    assert dumped == {"rate1": Decimal("150"), "period_count": 7, "period_from": 1, "period_to": 7}
     assert "minimum" not in dumped
 
 def test_contract_update_full_payload_still_works():

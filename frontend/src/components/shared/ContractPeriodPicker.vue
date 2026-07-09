@@ -1,5 +1,5 @@
 <template>
-  <div class="contract-period-picker">
+  <div class="contract-period-picker" data-testid="contract-period-picker">
     <div class="period-inputs">
       <div class="input-group">
         <label class="input-label">Data od</label>
@@ -7,7 +7,7 @@
           v-model="dateFromInternal"
           type="date"
           class="form-control"
-          data-testid="date-from-input"
+          data-testid="date-from"
         />
       </div>
       <div class="input-group">
@@ -19,6 +19,7 @@
             type="button"
             class="btn btn-xs"
             :class="workingDaysPerWeekInternal === d ? 'btn-primary' : 'btn-secondary'"
+            :data-testid="`days-per-week-${d}`"
             @click="workingDaysPerWeekInternal = d"
           >
             {{ d }}
@@ -36,7 +37,7 @@
           min="1"
           class="form-control"
           :disabled="manualEndDate"
-          data-testid="days-input"
+          data-testid="days-count"
         />
       </div>
       <div class="input-group toggle-group">
@@ -54,14 +55,21 @@
           v-model="dateToManual"
           type="date"
           class="form-control"
-          data-testid="date-to-input"
+          data-testid="date-to"
         />
       </div>
+      <input
+        v-else
+        type="hidden"
+        :value="effectiveDateTo"
+        data-testid="date-to"
+      />
     </div>
 
     <div
       v-if="dateFromInternal && effectiveDateTo && effectiveCalendarDays != null"
       class="period-display"
+      data-testid="period-display"
     >
       Okres umowy: {{ dateFromPl }} – {{ dateToPl }} ({{ effectiveWorkingDays }} dni roboczych / {{ effectiveCalendarDays }} dni kalendarzowych)
     </div>

@@ -89,8 +89,14 @@ class SettlementService:
         Najpierw usuwa poprzednie pozycje rozliczenia, potem buduje je na nowo
         z aktualnych pozycji umowy oraz aktywnych usług dodatkowych.
         """
-        from contracts.models import ContractPosition, ContractServiceFee
+        from contracts.models import ContractPosition, ContractServiceFee, Contract
         from sqlalchemy import select
+
+        # RAO-P0: zablokuj umowę na czas inicjalizacji, aby zapobiec race condition
+        # przy równoległych żądaniach init (pobierz + odśwież z UI).
+        await db.execute(
+            select(Contract.id).where(Contract.id == contract_id).with_for_update()
+        )
 
         # 1. Wyczyść poprzednie rozliczenia dla umowy
         await db.execute(

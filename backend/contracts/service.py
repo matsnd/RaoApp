@@ -87,57 +87,144 @@ async def copy_fee_templates(db: AsyncSession, contract_id: int, contract_type: 
     await db.commit()
 
 
-def format_position_conditions_cascading(conditions: list[PositionCondition]) -> str:
-    """Buduje opis kaskadowych warunków rozliczenia jak w starej aplikacji WinForms.
+def _condition_effective_rate(c: PositionCondition) -> Decimal | None:
+    """RAO-P2-071: new source is rate1; rate2 is legacy/fallback only."""
+    if c.rate1 is not None and c.rate1 > 0:
+        return c.rate1
+    if c.rate2 is not None and c.rate2 > 0:
+        return c.rate2
+    return None
 
-    Przykład wyjścia (3 warunki):
-      1 - 3 dni - 540,00 / doba
-      4 - 16 dni - 410,00 / doba
-      powyżej 16 dni - 350,00 / doba
 
-    RAO-P0-047: Poprawnie obsługuje rate2 zarówno w osobnym warunku (open-ended)
-    jak i w tym samym warunku co rate1 ("do period_count rate1, każda kolejna doba rate2").
+def _format_rate(value: Decimal | None) -> str:
+    if value is None:
+        return "0,00"
+    return f"{value:.2f}".replace('.', ',')
+
+
+def _sync_condition_derived_fields(cond: PositionCondition) -> None:
     """
-    if not conditions:
-        return ""
+    RAO-P2-071: period_count/rate2 are derived/sync columns for legacy consumers
+    (stats/calc.py, shared/revenue.py). The new source of truth is
+    period_from/period_to/rate1/minimum.
 
-    # RAO-P1-020: Deduplikuj warunki po (period_count, rate1, rate2) — migracja mogła stworzyć duplikaty
-    seen = set()
-    unique_conds = []
-    for c in conditions:
-        key = (c.period_count, c.rate1, c.rate2)
-        if key not in seen:
-            seen.add(key)
-            unique_conds.append(c)
+    - period_count mirrors period_to when period_to is known.
+    - rate2 is kept only for legacy open-ended tiers where rate1 is missing.
+      In the new UI rate1 is always set for every tier, so rate2 is nulled.
+    """
+    # Normalize rate2: only keep it when rate1 is missing (true legacy tier).
+    if cond.rate1 is not None and cond.rate1 > 0:
+        cond.rate2 = None
 
-    # Sortuj warunki rosnąco po period_count (NULL na końcu)
-    sorted_conds = sorted(
-        unique_conds,
-        key=lambda c: (c.period_count is None, c.period_count or 0)
+    # Sync period_count to the closed upper bound for backward compatibility.
+    if cond.period_to is not None:
+        cond.period_count = cond.period_to
+    elif cond.period_from is not None and cond.period_from > 0:
+        # Open-ended: legacy period_count is best represented by its start (or None)
+        # when no explicit end exists. For compatibility, leave it None.
+        cond.period_count = None
+    else:
+        cond.period_count = None
+
+
+def _unit_labels(label: str | None, contract_type: str = "S") -> tuple[str, str]:
+    """
+    Returns (count_unit, rate_unit) for a billing label.
+
+    - count_unit: plural word used in the period range ("dni", "godz.")
+    - rate_unit: short word used after the rate ("doba", "godz.")
+    """
+    l = (label or "").lower()
+    if "godz" in l or "godzina" in l:
+        return "godz.", "godz."
+    if "mies" in l:
+        return "mies.", "mies."
+    if "tyg" in l:
+        return "tyg.", "tyg."
+    # Default for rental (S) is "doba"/"dni"; for service (U) "godz." is used when
+    # no explicit billing label was provided.
+    if contract_type == "U":
+        return "godz.", "godz."
+    return "dni", "doba"
+
+
+def _format_period_range(
+    period_from: int | None,
+    period_to: int | None,
+    count_unit: str,
+    minimum: int | None,
+) -> str:
+    """Build a human-readable period range for PDF/print."""
+    pf = period_from if period_from is not None else 1
+    if pf < 0:
+        pf = 0
+
+    # Include minimum in the display when it is set.
+    min_suffix = ""
+    if minimum is not None and minimum > 0:
+        min_suffix = f" (min. {minimum} {count_unit})"
+
+    if period_to is not None:
+        if period_to < pf:
+            period_to = pf
+        # "do X" form is natural for service tiers starting at 0 (e.g. 0-8 hours).
+        if pf == 0:
+            return f"do {period_to} {count_unit}{min_suffix}"
+        if pf == period_to:
+            return f"{pf} {count_unit}{min_suffix}"
+        return f"{pf} - {period_to} {count_unit}{min_suffix}"
+
+    # Open-ended: use the lower bound as "X i więcej".
+    if pf <= 1:
+        return f"1 {count_unit} i więcej{min_suffix}"
+    return f"{pf} {count_unit} i więcej{min_suffix}"
+
+
+def _normalize_conditions_for_format(
+    conditions: list[PositionCondition],
+) -> list[dict]:
+    """
+    Convert PositionCondition objects into a normalized list of:
+        {period_from, period_to, rate, minimum, billing_label}
+
+    New source-of-truth fields (period_from/period_to/rate1) are preferred.
+    Legacy rows using period_count/rate2 are converted to equivalent ranges.
+    """
+    # If at least one condition has the new source fields, treat the whole set
+    # as new data. Otherwise fall back to legacy period_count/rate2 parsing.
+    has_new_fields = any(
+        c.period_from is not None or c.period_to is not None
+        for c in conditions
     )
 
-    def _rate_text(rate: Decimal | None) -> str:
-        if rate is None:
-            return "0,00"
-        return f"{rate:.2f}".replace('.', ',')
+    normalized: list[dict] = []
+    if has_new_fields:
+        for c in conditions:
+            rate = _condition_effective_rate(c)
+            if rate is None or rate <= 0:
+                continue
+            normalized.append({
+                "period_from": c.period_from,
+                "period_to": c.period_to,
+                "rate": rate,
+                "minimum": c.minimum,
+                "billing_label": c.billing_label,
+            })
+        return normalized
 
-    def _range_text(start: int, end: int | None, label: str) -> str:
-        if end is None:
-            return f"powyżej {start - 1} dni"
-        if start == end:
-            return f"{start} {label}"
-        return f"{start} - {end} dni"
-
-    lines = []
-    current_end = 0  # last period already covered by a generated line
+    # Legacy fallback: build cascading ranges from period_count/rate1/rate2
+    # exactly like the old WinForms formatter.
+    sorted_conds = sorted(
+        conditions,
+        key=lambda c: (c.period_count is None, c.period_count or 0),
+    )
+    current_end = 0
 
     for i, c in enumerate(sorted_conds):
-        label = c.billing_label or 'doba'
         pc = c.period_count
-        has_rate1 = c.rate1 is not None and c.rate1 > 0
-        has_rate2 = c.rate2 is not None and c.rate2 > 0
+        rate1 = c.rate1 if c.rate1 is not None and c.rate1 > 0 else None
+        rate2 = c.rate2 if c.rate2 is not None and c.rate2 > 0 else None
 
-        # Find next concrete period_count to know where a rate2 tier ends
         next_pc = None
         for j in range(i + 1, len(sorted_conds)):
             npc = sorted_conds[j].period_count
@@ -145,15 +232,21 @@ def format_position_conditions_cascading(conditions: list[PositionCondition]) ->
                 next_pc = npc
                 break
 
-        if has_rate1 and pc is not None:
+        if rate1 is not None and pc is not None:
             start = current_end + 1
             end = pc
             if start <= end:
-                lines.append(f"{_range_text(start, end, label)} - {_rate_text(c.rate1)} / {label}")
+                normalized.append({
+                    "period_from": start,
+                    "period_to": end,
+                    "rate": rate1,
+                    "minimum": c.minimum,
+                    "billing_label": c.billing_label,
+                })
                 current_end = end
 
-        if has_rate2:
-            if has_rate1 and pc is not None:
+        if rate2 is not None:
+            if rate1 is not None and pc is not None:
                 start = pc + 1
             else:
                 start = current_end + 1
@@ -161,16 +254,64 @@ def format_position_conditions_cascading(conditions: list[PositionCondition]) ->
             if next_pc is not None:
                 end = next_pc - 1
             else:
-                end = None  # open-ended
+                end = None
 
             if end is None or start <= end:
-                # Avoid a zero/negative tier when the next rate1 starts immediately
                 if start > current_end or end is None:
+                    normalized.append({
+                        "period_from": start,
+                        "period_to": end,
+                        "rate": rate2,
+                        "minimum": c.minimum,
+                        "billing_label": c.billing_label,
+                    })
                     if end is not None:
-                        lines.append(f"{_range_text(start, end, label)} - {_rate_text(c.rate2)} / {label}")
                         current_end = end
-                    else:
-                        lines.append(f"{_range_text(start, end, label)} - {_rate_text(c.rate2)} / {label}")
+
+    return normalized
+
+
+def format_position_conditions_cascading(
+    conditions: list[PositionCondition],
+    contract_type: str = "S",
+) -> str:
+    """Buduje opis kaskadowych warunków rozliczenia (źródło prawdy: period_from/period_to/rate1).
+
+    Przykład wyjścia (3 warunki):
+      1 - 3 dni - 540,00 / doba
+      4 - 16 dni - 410,00 / doba
+      17 dni i więcej - 350,00 / doba
+
+    RAO-P2-071: Obsługuje również stare dane oparte na period_count/rate2.
+    """
+    if not conditions:
+        return ""
+
+    normalized = _normalize_conditions_for_format(conditions)
+
+    # Deduplicate by (period_from, period_to, rate) to avoid duplicates after migration
+    seen = set()
+    unique = []
+    for n in normalized:
+        key = (n["period_from"], n["period_to"], n["rate"])
+        if key not in seen:
+            seen.add(key)
+            unique.append(n)
+
+    # Sort by period_from (NULL / open-ended at the end)
+    unique.sort(key=lambda n: (n["period_from"] is None, n["period_from"] or 0))
+
+    lines = []
+    for n in unique:
+        label = n["billing_label"]
+        if not label:
+            label = "doba" if contract_type == "S" else "godzina"
+        count_unit, rate_unit = _unit_labels(label, contract_type)
+
+        lines.append(
+            f"{_format_period_range(n['period_from'], n['period_to'], count_unit, n['minimum'])} - "
+            f"{_format_rate(n['rate'])} / {rate_unit}"
+        )
 
     return '\n'.join(lines)
 
@@ -565,7 +706,7 @@ class ContractService:
                         rate1=None,
                         rate2=item.rate2,
                         billing_label=item.billing_label,
-                        period_count=None,
+                        period_count=r2_to,
                         period_from=r2_from,
                         period_to=r2_to,
                         minimum=item.minimum,
@@ -842,7 +983,10 @@ class ContractService:
         if not pos:
             raise not_found("Pozycja")
         await self.verify_contract_access(db, pos.contract_id, user, allow_mutation=True)
-        cond = PositionCondition(**data.model_dump(), position_id=pos_id)
+        payload = data.model_dump()
+        print("[DEBUG] ConditionCreate payload:", payload)
+        cond = PositionCondition(**payload, position_id=pos_id)
+        _sync_condition_derived_fields(cond)
         db.add(cond)
         await db.commit()
         await db.refresh(cond)
@@ -865,6 +1009,7 @@ class ContractService:
         # RAO-P0-034: exclude_unset=True — only fields explicitly sent are applied
         for field, value in data.model_dump(exclude_unset=True).items():
             setattr(cond, field, value)
+        _sync_condition_derived_fields(cond)
         await db.commit()
         await db.refresh(cond)
         return cond
@@ -976,25 +1121,28 @@ class ContractService:
         Zwraca tylko total do wyświetlenia w UI.
         """
         from stats.calc import calculate_position_value
-        await self.verify_contract_access(db, contract_id, user)
-        # Load all positions with conditions
+        contract = await self.verify_contract_access(db, contract_id, user)
+        # Load all positions with their conditions
         result = await db.execute(
             select(ContractPosition)
             .options(selectinload(ContractPosition.conditions))
             .where(ContractPosition.contract_id == contract_id)
         )
         positions = result.scalars().all()
+        is_service = contract.contract_type == "U"
         total = Decimal("0.00")
         for pos in positions:
             # Build conditions dicts in the format calculate_position_value expects
             sorted_conds = sorted(
                 pos.conditions,
-                key=lambda c: (c.period_count is None, c.period_count or 0)
+                key=lambda c: (c.period_from is None, c.period_from or 0)
             )
             cond_dicts = [
                 {
                     "rate1": c.rate1,
                     "rate2": c.rate2,
+                    "period_from": c.period_from,
+                    "period_to": c.period_to,
                     "period_count": c.period_count,
                     "minimum": c.minimum,
                 }
@@ -1009,6 +1157,7 @@ class ContractService:
                 unit_price=pos.unit_price,
                 quantity=qty,
                 conditions=cond_dicts,
+                is_service=is_service,
             )
             total += pos_value
         # RAO-P1-021/P2-033: nie zapisujemy do DB (total_value usunięte)

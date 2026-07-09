@@ -64,6 +64,10 @@ class ConditionCreate(BaseModel):
         if self.rate1 is not None and self.rate2 is not None:
             if self.rate1 == 0 and self.rate2 == 0:
                 raise ValueError("Przynajmniej jedna stawka musi być większa od zera.")
+        # RAO-P1-005: backward compatibility — period_count maps to 1..period_count
+        if self.period_count is not None and self.period_from is None and self.period_to is None:
+            self.period_from = 1
+            self.period_to = self.period_count
         # period_to > period_from
         if self.period_from is not None and self.period_to is not None and self.period_to <= self.period_from:
             raise ValueError("period_to musi być większe od period_from.")
@@ -86,6 +90,10 @@ class ConditionUpdate(BaseModel):
         if self.rate1 is not None or self.rate2 is not None:
             if self.rate1 == 0 and self.rate2 == 0:
                 raise ValueError("Przynajmniej jedna stawka musi być większa od zera.")
+        # RAO-P1-005: backward compatibility — period_count maps to 1..period_count
+        if self.period_count is not None and self.period_from is None and self.period_to is None:
+            self.period_from = 1
+            self.period_to = self.period_count
         if self.period_from is not None and self.period_to is not None and self.period_to <= self.period_from:
             raise ValueError("period_to musi być większe od period_from.")
         return self
