@@ -562,6 +562,23 @@ async def startup_migrations():
             except Exception:
                 pass
 
+        # P1-102: KISS opłaty dodatkowe — usuń unit (JM) z service fees
+        # Migracja danych: wpleć unit w description przed DROP (zabezpieczenie danych)
+        for tbl in ("contract_service_fees", "service_fee_templates", "archive_contract_service_fees"):
+            try:
+                await conn.execute(sa.text(
+                    f"UPDATE {tbl} SET description = CONCAT(description, ' / ', unit) "
+                    f"WHERE unit IS NOT NULL AND unit <> '' "
+                    f"AND description IS NOT NULL AND description <> '' "
+                    f"AND description NOT LIKE '%/ %'"
+                ))
+            except Exception:
+                pass
+            try:
+                await conn.execute(sa.text(f"ALTER TABLE {tbl} DROP COLUMN IF EXISTS unit"))
+            except Exception:
+                pass
+
         # service_fee_template_items
         try:
             await conn.execute(sa.text("DROP TABLE IF EXISTS service_fee_template_items"))

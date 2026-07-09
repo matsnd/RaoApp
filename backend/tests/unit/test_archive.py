@@ -64,7 +64,6 @@ async def test_list_archive_contracts_returns_items_and_total():
     contract.date_from = date(2026, 1, 1)
     contract.date_to = date(2026, 1, 10)
     contract.prepayment_amount = None
-    contract.invoice_amount = None
     contract.notes = None
     contract.email = None
     contract.contact_person1 = None

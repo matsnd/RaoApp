@@ -149,7 +149,6 @@ async def list_archive_contracts(
                 date_from=c.date_from,
                 date_to=c.date_to,
                 prepayment_amount=c.prepayment_amount,
-                invoice_amount=c.invoice_amount,
                 notes=c.notes,
                 email=c.email,
                 contact_person1=c.contact_person1,

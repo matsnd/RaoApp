@@ -1383,7 +1383,9 @@ async function handleFakturownia() {
     - Używa CSS variables, bez `v-html`
   - **Przedpłata na górze formularza**
     - Pole `prepayment_amount` edytowalne w sekcji "Warunki finansowe"
-    - Pola `prepayment_document` i `invoice_document` ukryte (martwe, nie trafiają na PDF)
+    - Pole `prepayment_document` ukryte (martwe, nie trafia na PDF)
+    - RAO-P1-103: pole "Faktura (zł)" + `invoice_document` usunięte (kwoty faktur z Fakturowni)
+    - "Pozostało" = `total - prepayment` (zwykły kolor tekstu, pogrubione — nie czerwony)
   - **Segmented control dni/tyg** w komponencie `ContractPeriodPicker`
     - Przyciski 5/6/7 (inline buttons)
     - Active state: `btn-primary`, inactive: `btn-secondary`

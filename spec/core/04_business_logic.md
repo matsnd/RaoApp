@@ -543,13 +543,13 @@ async def delete_contractor_cascade(db: AsyncSession, contractor_id: int) -> Non
 def calculate_remaining(
     total_value: Decimal,
     prepayment_amount: Decimal,
-    invoice_amount: Decimal
 ) -> Decimal:
     """
     Źródło: FormU4.cs → pole "Pozostało".
-    remaining = total_value - prepayment_amount - invoice_amount
+    RAO-P1-103: invoice_amount usunięte — kwoty faktur pochodzą z Fakturowni.
+    remaining = total_value - prepayment_amount
     """
-    return (total_value or Decimal("0")) - (prepayment_amount or Decimal("0")) - (invoice_amount or Decimal("0"))
+    return (total_value or Decimal("0")) - (prepayment_amount or Decimal("0"))
 ```
 
 ## 12. Linkowanie szablonów usług dodatkowych z artykułami (RAO-P1-011)
