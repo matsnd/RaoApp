@@ -53,7 +53,6 @@ export interface ArchivePosition {
   contract_id: number
   article_id: number
   article_name: string | null
-  rental_type: string | null
   description: string | null
   rental_days: number | null
   quantity: number | null

@@ -48,7 +48,7 @@ test.describe('TEST-05-P1-100: Opłaty dodatkowe, warunki, cennik, przedpłata, 
     sContractId = sCtr.id
     createdContracts.push(sContractId)
 
-    const posS = await request.post(`${API}/contracts/${sContractId}/positions`, { headers, data: { article_id: equipmentArticleId, quantity: 1, unit_price: 500, rental_days: 10, rental_type: 'dobowy' }, timeout: 10_000 })
+    const posS = await request.post(`${API}/contracts/${sContractId}/positions`, { headers, data: { article_id: equipmentArticleId, quantity: 1, unit_price: 500, rental_days: 10 }, timeout: 10_000 })
     if (posS.status() !== 201) throw new Error(`create position failed: ${posS.status()}`)
     const pos = await posS.json()
     sPositionId = pos.id

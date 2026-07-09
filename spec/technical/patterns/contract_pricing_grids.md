@@ -45,9 +45,8 @@ Kolumny:
 |---|---------|-----|-------|
 | 1 | `Lp.` | index | tylko do wyświetlenia |
 | 2 | `Artykuł` | text | nazwa artykułu (maszyna), `is_service=false` w ArticlePicker |
-| 3 | `Typ najmu` | input | `rental_type`, opcjonalnie |
-| 4 | `Dni` | number | `rental_days` |
-| 5 | `Ilość` | number | `quantity` |
+| 3 | `Dni` | number | `rental_days` |
+| 4 | `Ilość` | number | `quantity` |
 | 6 | `Dostawca` | picker | `supplier_id` / `supplier_name` |
 | 7 | `Data dost.` | date | `delivery_date` |
 | 8 | `Warunki` | badge | liczba warunków, klik → rozwija `ConditionPanel` |

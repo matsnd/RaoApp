@@ -104,7 +104,6 @@ class PositionResponse(BaseModel):
     contract_id: int
     article_id: int
     article_name: str | None
-    rental_type: str | None
     description: str | None
     rental_days: int | None
     quantity: int | None
@@ -125,7 +124,6 @@ class PositionResponse(BaseModel):
 
 class PositionCreate(BaseModel):
     article_id: int
-    rental_type: SafeName | None = None
     description: SafeDescription = None
     rental_days: int | None = Field(None, ge=0)
     quantity: int = Field(1, ge=1)
@@ -140,7 +138,6 @@ class PositionCreate(BaseModel):
 class PositionUpdate(BaseModel):
     """RAO-P0-034: Partial update — only fields explicitly sent are applied."""
     article_id: int | None = None
-    rental_type: SafeName | None = None
     description: SafeDescription = None
     rental_days: int | None = Field(None, ge=0)
     quantity: int | None = Field(None, ge=1)

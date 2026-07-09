@@ -189,7 +189,7 @@
   <tr>
     <td>{{ loop.index }}</td>
     <td class="art-name">{{ p.pos.article_name or '' }}</td>
-    <td style="text-align:center;">{{ p.rate_type_name or p.pos.rental_type or '' }}</td>
+    <td style="text-align:center;">{{ p.rate_type_name or '' }}</td>
     <td style="text-align:center;">{{ p.pos.quantity or 1 }}</td>
     <td><div class="cond">{{ p.conditions_text }}</div></td>
   </tr>

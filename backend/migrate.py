@@ -331,11 +331,11 @@ async def step4_migrate_data():
         #   id_dostawcy, data_dostawy, nazwa
         ("contract_positions", """
             INSERT INTO contract_positions
-                (id, contract_id, article_id, rental_type, description, rental_days,
+                (id, contract_id, article_id, description, rental_days,
                  quantity, unit_price, rate_type_id, billing_frequency, billing_unit,
                  supplier_id, delivery_date, article_name)
             SELECT
-                id, id_umowy, id_artykulu, typ_wynajmu, opis, liczba_dni,
+                id, id_umowy, id_artykulu, opis, liczba_dni,
                 ilosc, cena, NULLIF(id_stawki, 0), rozliczanie, oplataza,
                 NULLIF(id_dostawcy, 0), data_dostawy, nazwa
             FROM umowa_pozycja3

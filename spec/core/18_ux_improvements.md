@@ -30,7 +30,7 @@ Przycisk "+ Dodaj warunek" poniżej każdej pozycji w formularzu umowy.
 **Propozycja:** Wywołaj `PATCH /contracts/{id}/recalculate` po każdym zapisie pozycji/warunków i wyświetl obliczoną wartość w nagłówku formularza umowy.
 
 ### U7: Brak 6 pól w modalu dodawania pozycji
-**Problem:** Modal pozycji nie zawiera: `rental_type`, `costs`, `billing_frequency`, `billing_unit`, `supplier_id`, `delivery_date`.  
+**Problem:** Modal pozycji nie zawiera: `costs`, `billing_frequency`, `billing_unit`, `supplier_id`, `delivery_date`.  
 **Propozycja:** Rozbuduj modal o te pola. Wystarczą proste inputy/selecty.
 
 ---

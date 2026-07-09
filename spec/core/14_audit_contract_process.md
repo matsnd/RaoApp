@@ -64,7 +64,7 @@
 | Uwagi | ✅ | Textarea |
 | Pozycje — lista | ✅ | Tabela z CRUD |
 | Pozycje — artykuł picker | ✅ | Modal z wyszukiwaniem |
-| Pozycje — rental_type, rental_days | ✅ | W modalu |
+| Pozycje — rental_days | ✅ | W modalu |
 | Pozycje — quantity, unit_price | ✅ | W modalu |
 | Usługi dodatkowe | ✅ | Read-only tabela, auto-kopiowanie z szablonów |
 | Raport PDF | ✅ | Przyciski w toolbar + context menu |

@@ -828,7 +828,6 @@ class PositionResponse(BaseModel):
     contract_id: int
     article_id: int
     article_name: str | None     # snapshot lub JOIN
-    rental_type: str | None
     description: str | None
     rental_days: int | None
     quantity: int | None
@@ -849,7 +848,6 @@ class PositionResponse(BaseModel):
 ```python
 class PositionCreate(BaseModel):
     article_id: int
-    rental_type: str | None = None
     description: str | None = Field(None, max_length=400)
     rental_days: int | None = None
     quantity: int = 1

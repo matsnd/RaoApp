@@ -203,7 +203,6 @@ CREATE TABLE IF NOT EXISTS `archive_contract_positions` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `contract_id` int(11) NOT NULL,
   `article_id` int(11) NOT NULL,
-  `rental_type` varchar(20) DEFAULT NULL,
   `description` varchar(400) DEFAULT NULL,
   `rental_days` int(11) DEFAULT NULL,
   `quantity` int(11) DEFAULT NULL,
@@ -381,10 +380,10 @@ FROM `contracts`
 # archive_contract_positions: pozycje dla legacy umów
 INS_POSITIONS = """
 INSERT IGNORE INTO `archive_contract_positions`
-  (id, contract_id, article_id, rental_type, description, rental_days, quantity,
+  (id, contract_id, article_id, description, rental_days, quantity,
    unit_price, costs, rate_type_id, billing_frequency, billing_unit, supplier_id,
    delivery_date, article_name)
-SELECT cp.id, cp.contract_id, cp.article_id, cp.rental_type, cp.description,
+SELECT cp.id, cp.contract_id, cp.article_id, cp.description,
        cp.rental_days, cp.quantity, cp.unit_price, cp.costs, cp.rate_type_id,
        cp.billing_frequency, cp.billing_unit, cp.supplier_id, cp.delivery_date,
        cp.article_name

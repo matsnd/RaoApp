@@ -122,7 +122,6 @@
                   <thead>
                     <tr>
                       <th>Maszyna</th>
-                      <th>Typ wynajmu</th>
                       <th>Dni</th>
                       <th>Ilość</th>
                       <th>Cena/jm.</th>
@@ -132,7 +131,6 @@
                   <tbody>
                     <tr v-for="p in archiveStore.currentContract.positions" :key="p.id">
                       <td>{{ p.article_name || '—' }}</td>
-                      <td>{{ p.rental_type || '—' }}</td>
                       <td>{{ p.rental_days ?? '—' }}</td>
                       <td>{{ p.quantity ?? '—' }}</td>
                       <td>{{ formatMoney(p.unit_price) }}</td>

@@ -203,7 +203,6 @@ class ArchiveContractPosition(Base):
         ForeignKey("archive_articles.id"),
         nullable=False,
     )
-    rental_type = Column(String(20), nullable=True)
     description = Column(String(400), nullable=True)
     rental_days = Column(Integer, nullable=True)
     quantity = Column(Integer, nullable=True, default=1)

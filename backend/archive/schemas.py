@@ -111,7 +111,6 @@ class ArchivePositionResponse(BaseModel):
     contract_id: int
     article_id: int
     article_name: str | None = None
-    rental_type: str | None = None
     description: str | None = None
     rental_days: int | None = None
     quantity: int | None = None

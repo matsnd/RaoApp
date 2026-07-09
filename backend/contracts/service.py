@@ -921,7 +921,7 @@ class ContractService:
                 ))
             out.append(PositionResponse(
                 id=p.id, contract_id=p.contract_id, article_id=p.article_id,
-                article_name=p.article_name, rental_type=p.rental_type,
+                article_name=p.article_name,
                 description=p.description, rental_days=p.rental_days,
                 quantity=p.quantity, unit_price=p.unit_price,
                 rate_type_id=p.rate_type_id, rate_type_name=rt_name,

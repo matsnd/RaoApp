@@ -208,7 +208,6 @@
               <tr>
                 <th style="width:32px;">#</th>
                 <th>{{ isRental ? 'Artykuł' : 'Usługa' }}</th>
-                <th v-if="isRental" style="width:90px;">Typ najmu</th>
                 <th v-if="isRental" style="width:60px;">Dni</th>
                 <th style="width:60px;">Ilość</th>
                 <th v-if="isService" style="width:80px;">Jednostka</th>
@@ -242,7 +241,6 @@
                       <button class="btn-icon" title="Zmień artykuł" @click.stop="reopenArticlePickerForEdit(pos)">✎</button>
                     </div>
                   </td>
-                  <td v-if="isRental"><input v-model="editingPosData.rental_type" type="text" class="form-control form-control-xs" placeholder="—" @keydown.enter="saveInlinePos" @keydown.esc="cancelInlinePos" /></td>
                   <td v-if="isRental">
                     <input v-model.number="editingPosData.rental_days" type="number" min="0" class="form-control form-control-xs" :class="{ 'input-error': inlinePosErrors.rental_days }" @keydown.enter="saveInlinePos" @keydown.esc="cancelInlinePos" />
                     <span v-if="inlinePosErrors.rental_days" class="field-error field-error-inline">{{ inlinePosErrors.rental_days }}</span>
@@ -271,7 +269,6 @@
                 <tr v-else :class="{ selected: selectedPosId === pos.id }" @click="selectPosition(pos)" @dblclick="startEditPos(pos)" style="cursor:pointer;">
                   <td>{{ idx + 1 }}</td>
                   <td>{{ pos.article_name }}</td>
-                  <td v-if="isRental">{{ pos.rental_type || '—' }}</td>
                   <td v-if="isRental">{{ pos.rental_days || '—' }}</td>
                   <td>{{ pos.quantity || 1 }}</td>
                   <td v-if="isService">godzina</td>
@@ -294,7 +291,6 @@
                     <button class="btn-icon" title="Zmień artykuł" @click.stop="showArticlePicker = true">✎</button>
                   </div>
                 </td>
-                <td v-if="isRental"><input ref="newPosRentalTypeInput" v-model="newPosData.rental_type" type="text" class="form-control form-control-xs" placeholder="—" @keydown.enter="saveNewPosRow" @keydown.esc="cancelNewPosRow" /></td>
                 <td v-if="isRental">
                   <input v-model.number="newPosData.rental_days" type="number" min="0" class="form-control form-control-xs" :class="{ 'input-error': inlinePosErrors.rental_days }" @keydown.enter="saveNewPosRow" @keydown.esc="cancelNewPosRow" />
                   <span v-if="inlinePosErrors.rental_days" class="field-error field-error-inline">{{ inlinePosErrors.rental_days }}</span>
@@ -1220,7 +1216,6 @@ onUnmounted(() => {
 interface PosInlineData {
   article_id: number | null
   article_name: string
-  rental_type: string | null
   rental_days: number | null
   quantity: number
   unit_price: number | null
@@ -1273,7 +1268,7 @@ const articlePickerList = ref([])
 
 function emptyPosData(): PosInlineData {
   return {
-    article_id: null, article_name: '', rental_type: null, rental_days: null,
+    article_id: null, article_name: '', rental_days: null,
     quantity: 1, unit_price: null, rate_type_id: null,
     billing_frequency: null, billing_unit: null, supplier_id: null,
     supplier_name: '', delivery_date: null, description: null,
@@ -1902,7 +1897,6 @@ function startEditPos(pos) {
   editingPosData.value = {
     article_id: pos.article_id,
     article_name: pos.article_name || '',
-    rental_type: rental ? (pos.rental_type ?? null) : null,
     rental_days: rental ? (pos.rental_days ?? null) : null,
     quantity: pos.quantity ?? 1,
     unit_price: pos.unit_price ?? null,
@@ -1991,7 +1985,6 @@ async function saveNewPosRow() {
 function buildPosPayload(d: PosInlineData) {
   const payload: Record<string, unknown> = {
     article_id: d.article_id,
-    rental_type: isRental.value ? (d.rental_type || null) : null,
     description: d.description || null,
     rental_days: isRental.value ? (d.rental_days ?? null) : null,
     quantity: d.quantity ?? 1,
@@ -2132,7 +2125,6 @@ async function duplicateArticle(a) {
     const rental = isRental.value
     const payload = {
       article_id: a.id,
-      rental_type: rental ? null : null,
       description: a.name || null,
       rental_days: rental ? null : null,
       quantity: 1,

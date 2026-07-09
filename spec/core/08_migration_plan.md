@@ -569,7 +569,7 @@ FROM rao.adres_dostawy;
 
 -- 14. CONTRACT POSITIONS (umowa_pozycja3 → contract_positions)
 INSERT INTO rao_new.contract_positions (
-    id, contract_id, article_id, rental_type, description, rental_days,
+    id, contract_id, article_id, description, rental_days,
     quantity, unit_price, costs, rate_type_id, billing_frequency,
     billing_unit, supplier_id, delivery_date, article_name
 )

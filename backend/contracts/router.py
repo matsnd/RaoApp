@@ -131,7 +131,7 @@ async def create_position(
     from contracts.schemas import PositionResponse as PR
     return PR(
         id=pos.id, contract_id=pos.contract_id, article_id=pos.article_id,
-        article_name=pos.article_name, rental_type=pos.rental_type,
+        article_name=pos.article_name,
         description=pos.description, rental_days=pos.rental_days,
         quantity=pos.quantity, unit_price=pos.unit_price,
         rate_type_id=pos.rate_type_id, rate_type_name=None,
@@ -153,7 +153,7 @@ async def update_position(
     from contracts.schemas import PositionResponse as PR
     return PR(
         id=pos.id, contract_id=pos.contract_id, article_id=pos.article_id,
-        article_name=pos.article_name, rental_type=pos.rental_type,
+        article_name=pos.article_name,
         description=pos.description, rental_days=pos.rental_days,
         quantity=pos.quantity, unit_price=pos.unit_price,
         rate_type_id=pos.rate_type_id, rate_type_name=None,

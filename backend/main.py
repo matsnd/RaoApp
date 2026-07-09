@@ -550,6 +550,13 @@ async def startup_migrations():
         except Exception:
             pass
 
+        # P1-106: usuń martwe pole rental_type (typ najmu) — zastąpione przez rate_type_id
+        for tbl in ("contract_positions", "archive_contract_positions"):
+            try:
+                await conn.execute(sa.text(f"ALTER TABLE {tbl} DROP COLUMN IF EXISTS rental_type"))
+            except Exception:
+                pass
+
         # RAO-P1-103: usuwanie martwych pól invoice_amount/invoice_document
         # (pole "Faktura (zł)" usunięte z formularza; kwota faktury nie jest już śledzona na umowie)
         for tbl in ("contracts", "archive_contracts"):
