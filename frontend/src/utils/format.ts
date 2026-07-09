@@ -55,8 +55,9 @@ export function formatCurrency(
 }
 
 /**
- * Formatuje liczbe dziesietna jako kwote BEZ symbolu waluty: "1 234,50".
+ * Formatuje liczbe dziesietna jako kwote BEZ symbolu waluty: "1234,50".
  * Uzywane w miejscach gdzie waluta jest podana osobno (np. "5,00 / doba").
+ * BEZ separatora tysiecy — zgodnie z legacy WinForms (c:\Temp\legacy_pdfs\).
  */
 export function formatRate(
   value: number | string | null | undefined,
@@ -67,7 +68,7 @@ export function formatRate(
   return new Intl.NumberFormat('pl-PL', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-    useGrouping: true,
+    useGrouping: false,
   }).format(n)
 }
 

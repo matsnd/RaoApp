@@ -419,7 +419,7 @@ watch(conditions, validateContinuity, { deep: true })
 //   "powyżej 3 dni - 700,00 / doba"    (open-ended after closed)
 //   "1 dzień - 630,00 / doba"          (single day)
 //   "230,00 / doba"                    (flat rate — NO range prefix)
-//   "do 2 godzin - 1900,00 / doba"     (service 0-X)
+//   "0 - 2 godzin - 1450,00 / godzina"  (service cascading 0-X)
 //   Minimum is NOT shown in condition line (legacy shows it in Uwagi)
 function formatPreview(cond: any): string {
   if (cond.description) {
@@ -432,17 +432,16 @@ function formatPreview(cond: any): string {
   const labels = unitLabels(cond.billing_label, isService.value)
   const pf = cond.period_from ?? (isService.value ? 0 : 1)
   const pt = cond.period_to
-  const rateText = `${rateStr} / ${labels.rate}`
+  // Legacy: ALL conditions have "zł" suffix on rate (c:\Temp\legacy_pdfs\)
+  //   "230,00zł / doba", "1 - 3 dni - 800,00zł / doba", "0 - 2 godzin - 1450,00zł / godzina"
+  const rateText = `${rateStr}zł / ${labels.rate}`
 
   if (pt == null) {
-    // Flat rate (pf <= 1): no range prefix — legacy: "230,00 / doba"
-    if (pf <= 1) return rateText
+    // Flat rate (pf <= 1): no range prefix — legacy: "230,00zł / doba"
+    if (pf <= 1) return `${rateStr}zł / ${labels.rate}`
     // Open-ended after closed tier: "powyżej X dni"
     const threshold = pf - 1
     return `powyżej ${threshold} ${formatCount(threshold, labels.count)} - ${rateText}`
-  }
-  if (pf === 0) {
-    return `do ${pt} ${formatCount(pt, labels.count)} - ${rateText}`
   }
   if (pf === pt) {
     return `${pf} ${formatCount(1, labels.count)} - ${rateText}`
@@ -460,10 +459,10 @@ watch(calculatedValue, (val) => emit('value-changed', val))
 
 function unitLabels(label: string | null, service: boolean): { count: string, rate: string } {
   const l = (label || '').toLowerCase()
-  if (l.includes('godz')) return { count: 'godz.', rate: 'godz.' }
+  if (l.includes('godz')) return { count: 'godzin', rate: 'godzina' }
   if (l.includes('mies')) return { count: 'mies.', rate: 'mies.' }
   if (l.includes('tyg')) return { count: 'tyg.', rate: 'tyg.' }
-  if (service) return { count: 'godz.', rate: 'godz.' }
+  if (service) return { count: 'godzin', rate: 'godzina' }
   return { count: 'dni', rate: 'doba' }
 }
 

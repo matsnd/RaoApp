@@ -29,9 +29,9 @@ def test_cascading_3_conditions_matches_old_app():
     ]
     result = format_position_conditions_cascading(conditions)
     expected = (
-        "1 - 3 dni - 540,00 / doba\n"
-        "4 - 16 dni - 410,00 / doba\n"
-        "powyżej 16 dni - 350,00 / doba"
+        "1 - 3 dni - 540,00zł / doba\n"
+        "4 - 16 dni - 410,00zł / doba\n"
+        "powyżej 16 dni - 350,00zł / doba"
     )
     assert result == expected
 
@@ -49,21 +49,21 @@ def test_cascading_single_condition():
         MockCondition(period_from=1, period_to=7, rate1=Decimal("500"), billing_label='doba'),
     ]
     result = format_position_conditions_cascading(conditions)
-    expected = "1 - 7 dni - 500,00 / doba"
+    expected = "1 - 7 dni - 500,00zł / doba"
     assert result == expected
 
 
 def test_cascading_custom_billing_label():
     """Test with custom billing label (service hours).
-    Legacy format: 'powyżej X godz.' for open-ended."""
+    Legacy format: 'powyżej X godzin' for open-ended. Units: 'godzin'/'godzina'."""
     conditions = [
         MockCondition(period_from=1, period_to=3, rate1=Decimal("100"), billing_label='godzina'),
         MockCondition(period_from=4, period_to=None, rate1=Decimal("80"), billing_label='godzina'),
     ]
     result = format_position_conditions_cascading(conditions)
     expected = (
-        "1 - 3 godz. - 100,00 / godz.\n"
-        "powyżej 3 godz. - 80,00 / godz."
+        "1 - 3 godzin - 100,00zł / godzina\n"
+        "powyżej 3 godzin - 80,00zł / godzina"
     )
     assert result == expected
 
@@ -74,7 +74,7 @@ def test_service_open_ended_from_zero():
         MockCondition(period_from=0, period_to=8, rate1=Decimal("100"), billing_label='godzina'),
     ]
     result = format_position_conditions_cascading(conditions, contract_type='U')
-    expected = "do 8 godz. - 100,00 / godz."
+    expected = "0 - 8 godzin - 100,00zł / godzina"
     assert result == expected
 
 
@@ -88,9 +88,9 @@ def test_legacy_rate2_fallback():
     ]
     result = format_position_conditions_cascading(conditions)
     expected = (
-        "1 - 3 dni - 540,00 / doba\n"
-        "4 - 16 dni - 410,00 / doba\n"
-        "powyżej 16 dni - 350,00 / doba"
+        "1 - 3 dni - 540,00zł / doba\n"
+        "4 - 16 dni - 410,00zł / doba\n"
+        "powyżej 16 dni - 350,00zł / doba"
     )
     assert result == expected
 

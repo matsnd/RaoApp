@@ -68,9 +68,9 @@ class ConditionCreate(BaseModel):
         if self.period_count is not None and self.period_from is None and self.period_to is None:
             self.period_from = 1
             self.period_to = self.period_count
-        # period_to > period_from
-        if self.period_from is not None and self.period_to is not None and self.period_to <= self.period_from:
-            raise ValueError("period_to musi być większe od period_from.")
+        # period_to >= period_from (allow single-day: pf=1, pt=1 = "1 dzień")
+        if self.period_from is not None and self.period_to is not None and self.period_to < self.period_from:
+            raise ValueError("period_to musi być większe lub równe period_from.")
         return self
 
 
@@ -94,8 +94,8 @@ class ConditionUpdate(BaseModel):
         if self.period_count is not None and self.period_from is None and self.period_to is None:
             self.period_from = 1
             self.period_to = self.period_count
-        if self.period_from is not None and self.period_to is not None and self.period_to <= self.period_from:
-            raise ValueError("period_to musi być większe od period_from.")
+        if self.period_from is not None and self.period_to is not None and self.period_to < self.period_from:
+            raise ValueError("period_to musi być większe lub równe period_from.")
         return self
 
 

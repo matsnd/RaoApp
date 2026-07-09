@@ -131,17 +131,18 @@ def _unit_labels(label: str | None, contract_type: str = "S") -> tuple[str, str]
     """
     Returns (count_unit, rate_unit) for a billing label.
 
-    - count_unit: plural word used in the period range ("dni", "godz.")
-    - rate_unit: short word used after the rate ("doba", "godz.")
+    Legacy format (c:\\Temp\\legacy_pdfs\\):
+    - Rental: count="dni" (or "dzień" for 1), rate="doba"
+    - Service: count="godzin", rate="godzina"
     """
     l = (label or "").lower()
     if "godz" in l or "godzina" in l:
-        return "godz.", "godz."
+        return "godzin", "godzina"
     if "mies" in l:
         return "mies.", "mies."
     if "tyg" in l:
         return "tyg.", "tyg."
-    # Default for rental (S) is "doba"/"dni"; for service (U) "godz." is used when
+    # Default for rental (S) is "doba"/"dni"; for service (U) "godzina"/"godzin" is used when
     # no explicit billing label was provided.
     if contract_type == "U":
         return "godz.", "godz."
@@ -183,10 +184,9 @@ def _format_period_range(
     if period_to is not None:
         if period_to < pf:
             period_to = pf
-        # "do X" form is natural for service tiers starting at 0 (e.g. 0-8 hours).
-        if pf == 0:
-            count = max(period_to, 1)
-            return f"do {period_to} {_format_count_unit(count, count_unit)}"
+        # Legacy cascading: "0 - 2 godzin" (with 0, not "do 2 godzin").
+        # The "do X godzin" form was only used in old WinForms rate1+rate2
+        # single-line format which is now split into two tiers.
         if pf == period_to:
             return f"{pf} {_format_count_unit(1, count_unit)}"
         return f"{pf} - {period_to} {_format_count_unit(period_to - pf + 1, count_unit)}"
@@ -337,12 +337,12 @@ def format_position_conditions_cascading(
         count_unit, rate_unit = _unit_labels(label, contract_type)
 
         range_text = _format_period_range(n['period_from'], n['period_to'], count_unit, n['minimum'])
-        rate_text = f"{_format_rate(n['rate'])} / {rate_unit}"
         if range_text:
-            lines.append(f"{range_text} - {rate_text}")
+            # Cascading range: "1 - 3 dni - 800,00zł / doba" (WITH zł, with / unit)
+            lines.append(f"{range_text} - {_format_rate(n['rate'])}zł / {rate_unit}")
         else:
-            # Flat rate: no range prefix (legacy: "230,00zł / doba")
-            lines.append(rate_text)
+            # Flat rate: "230,00zł / doba" (WITH zł, with / unit)
+            lines.append(f"{_format_rate(n['rate'])}zł / {rate_unit}")
 
     return '\n'.join(lines)
 
