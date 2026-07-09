@@ -121,6 +121,7 @@
       </div>
     </td>
     <td class="info-col" style="vertical-align:top;padding-top:8px;">
+      {% if contract.prepayment_amount and contract.prepayment_amount > 0 %}Przedpłata: {{ contract.prepayment_amount | money }}<br>{% endif %}
       {% set svc_date = (positions[0].pos.delivery_date if positions else None) or contract.date_from %}
       {% if svc_date %}Termin prac: {{ svc_date | datepl }}<br>{% endif %}
     </td>
@@ -136,7 +137,6 @@
     </td>
     <td class="info-col" style="vertical-align:top;padding-top:8px;">
       {% if contract.hide_delivery_address %}Adres dostawy: <span style="border-bottom:1px solid #888;display:inline-block;min-width:220px;">&nbsp;</span><br>{% elif contract.delivery_address and contract.delivery_address.strip() %}Adres dostawy: {{ contract.delivery_address }}<br>{% endif %}
-      {% if contract.prepayment_amount and contract.prepayment_amount > 0 %}Przedpłata: {{ contract.prepayment_amount | money }}<br>{% endif %}
     </td>
   </tr>
 </table>
