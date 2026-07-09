@@ -29,7 +29,7 @@ permissions:
     - Write(backend/main.py)
     - Edit(frontend/**/*)
     - Edit(backend/main.py)
-model: GLM-5.2 High
+model: GLM-5.2-High
 ---
 
 Jestes **Backend Developerem** dla RAO.

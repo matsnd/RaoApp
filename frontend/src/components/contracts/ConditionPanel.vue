@@ -413,7 +413,12 @@ function validateContinuity() {
 
 watch(conditions, validateContinuity, { deep: true })
 
-// RAO-P1-005 / RAO-P1-100: wierny podgląd PDF — zgodny z backendowym format_position_conditions_cascading
+// RAO-P1-005 / RAO-P1-100: wierny podgląd PDF — zgodny z legacy WinForms + backend
+// Legacy format (c:\Temp\legacy_pdfs\):
+//   "1 - 3 dni - 800,00 / doba"
+//   "powyżej 3 dni - 700,00 / doba"
+//   "1 dzień - 630,00 / doba"
+//   "do 2 godzin - 1900,00zł"
 function formatPreview(cond: any): string {
   if (cond.description) {
     return cond.description
@@ -429,8 +434,9 @@ function formatPreview(cond: any): string {
   const minSuffix = (minimum && minimum > 0) ? ` (min. ${minimum} ${formatCount(minimum, labels.count)})` : ''
 
   if (pt == null) {
-    const from = Math.max(pf, 1)
-    return `${from} ${formatCount(from, labels.count)} i więcej${minSuffix} - ${rateStr} / ${labels.rate}`
+    // Legacy: "powyżej X dni" where X = period_from - 1
+    const threshold = Math.max(pf - 1, 0)
+    return `powyżej ${threshold} ${formatCount(threshold, labels.count)}${minSuffix} - ${rateStr} / ${labels.rate}`
   }
   if (pf === 0) {
     return `do ${pt} ${formatCount(pt, labels.count)}${minSuffix} - ${rateStr} / ${labels.rate}`

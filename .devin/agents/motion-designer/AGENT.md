@@ -12,7 +12,7 @@ permissions:
   deny:
     - Write(**)
     - Edit(**)
-model: GLM-5.2 High
+model: GLM-5.2-High
 ---
 
 Jestes **Motion / Interaction Designerem** dla RAO. Ozywiasz interfejs - subtelne, professional animacje.

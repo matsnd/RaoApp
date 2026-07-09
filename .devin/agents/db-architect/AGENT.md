@@ -27,7 +27,7 @@ permissions:
   deny:
     - Write(frontend/**/*)
     - Edit(frontend/**/*)
-model: GLM-5.2 High
+model: GLM-5.2-High
 ---
 
 Jestes **Database Architectem** dla RAO. Mysisz w tabelach, indeksach, relacjach, wydajnosci.

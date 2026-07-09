@@ -20,7 +20,8 @@ class MockCondition:
 
 
 def test_cascading_3_conditions_matches_old_app():
-    """Test with 3 conditions converted to new period_from/period_to/rate1 fields."""
+    """Test with 3 conditions converted to new period_from/period_to/rate1 fields.
+    Legacy format: 'powyżej X dni' (NOT 'X dni i więcej')."""
     conditions = [
         MockCondition(period_from=1, period_to=3, rate1=Decimal("540"), billing_label='doba'),
         MockCondition(period_from=4, period_to=16, rate1=Decimal("410"), billing_label='doba'),
@@ -30,7 +31,7 @@ def test_cascading_3_conditions_matches_old_app():
     expected = (
         "1 - 3 dni - 540,00 / doba\n"
         "4 - 16 dni - 410,00 / doba\n"
-        "17 dni i więcej - 350,00 / doba"
+        "powyżej 16 dni - 350,00 / doba"
     )
     assert result == expected
 
@@ -53,7 +54,8 @@ def test_cascading_single_condition():
 
 
 def test_cascading_custom_billing_label():
-    """Test with custom billing label (service hours)."""
+    """Test with custom billing label (service hours).
+    Legacy format: 'powyżej X godz.' for open-ended."""
     conditions = [
         MockCondition(period_from=1, period_to=3, rate1=Decimal("100"), billing_label='godzina'),
         MockCondition(period_from=4, period_to=None, rate1=Decimal("80"), billing_label='godzina'),
@@ -61,7 +63,7 @@ def test_cascading_custom_billing_label():
     result = format_position_conditions_cascading(conditions)
     expected = (
         "1 - 3 godz. - 100,00 / godz.\n"
-        "4 godz. i więcej - 80,00 / godz."
+        "powyżej 3 godz. - 80,00 / godz."
     )
     assert result == expected
 
@@ -77,7 +79,8 @@ def test_service_open_ended_from_zero():
 
 
 def test_legacy_rate2_fallback():
-    """Legacy conditions using period_count/rate2 still render correctly."""
+    """Legacy conditions using period_count/rate2 still render correctly.
+    Legacy format: 'powyżej X dni' for open-ended."""
     conditions = [
         MockCondition(period_count=3, rate1=Decimal("540"), billing_label='doba'),
         MockCondition(period_count=16, rate1=Decimal("410"), billing_label='doba'),
@@ -87,7 +90,7 @@ def test_legacy_rate2_fallback():
     expected = (
         "1 - 3 dni - 540,00 / doba\n"
         "4 - 16 dni - 410,00 / doba\n"
-        "17 dni i więcej - 350,00 / doba"
+        "powyżej 16 dni - 350,00 / doba"
     )
     assert result == expected
 

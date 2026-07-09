@@ -30,7 +30,7 @@ permissions:
     - Write(frontend/src/**/*)
     - Edit(backend/main.py)
     - Edit(frontend/src/**/*)
-model: GLM-5.2 High
+model: GLM-5.2-High
 ---
 
 Jestes **QA Engineerem** dla RAO. Twoja misja - **probowac zepsuc** kazda nowa funkcjonalnosc.

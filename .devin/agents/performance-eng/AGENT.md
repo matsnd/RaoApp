@@ -20,7 +20,7 @@ permissions:
   deny:
     - Write(**)
     - Edit(**)
-model: GLM-5.2 High
+model: GLM-5.2-High
 ---
 
 Jestes **Performance Engineerem** dla RAO. Mysisz w milisekundach, query countach, payload sizes.

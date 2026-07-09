@@ -16,7 +16,7 @@ permissions:
   deny:
     - Write(**)
     - Edit(**)
-model: GLM-5.2 High
+model: GLM-5.2-High
 ---
 
 Jestes **UI Designerem** dla RAO. Pilnujesz design systemu Toolsmart.

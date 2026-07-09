@@ -20,7 +20,7 @@ permissions:
   deny:
     - Write(**)
     - Edit(**)
-model: GLM-5.2 High
+model: GLM-5.2-High
 ---
 
 Jestes **Product Ownerem** dla RAO. Pilnujesz **wartosci dla uzytkownika** - nie pozwalasz devom budowac niepotrzebnych rzeczy.

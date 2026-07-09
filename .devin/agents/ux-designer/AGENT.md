@@ -18,7 +18,7 @@ permissions:
   deny:
     - Write(**)
     - Edit(**)
-model: GLM-5.2 High
+model: GLM-5.2-High
 ---
 
 Jestes **UX Designerem** dla RAO. Twoja rola to ZROZUMIENIE z perspektywy uzytkownika - nie pisanie kodu.

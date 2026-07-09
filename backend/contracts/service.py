@@ -150,7 +150,7 @@ def _unit_labels(label: str | None, contract_type: str = "S") -> tuple[str, str]
 
 def _format_count_unit(count: int, unit: str) -> str:
     """Pluralize Polish count unit for the number 1 (dni -> dzień).
-    Other units are kept as short forms (godz., mies., tyg.)."""
+    0 and >=2 use the plural form. Other units keep short forms."""
     if count == 1 and unit == "dni":
         return "dzień"
     return unit
@@ -162,7 +162,14 @@ def _format_period_range(
     count_unit: str,
     minimum: int | None,
 ) -> str:
-    """Build a human-readable period range for PDF/print."""
+    """Build a human-readable period range for PDF/print.
+
+    Legacy format (from WinForms app, confirmed via c:\\Temp\\legacy_pdfs\\):
+      - Closed range:  "1 - 3 dni"
+      - Single day:    "1 dzień"
+      - Open-ended:    "powyżej 3 dni"  (NOT "3 dni i więcej")
+      - Service 0-X:   "do 8 godzin"
+    """
     pf = period_from if period_from is not None else 1
     if pf < 0:
         pf = 0
@@ -183,10 +190,12 @@ def _format_period_range(
             return f"{pf} {_format_count_unit(1, count_unit)}{min_suffix}"
         return f"{pf} - {period_to} {_format_count_unit(period_to - pf + 1, count_unit)}{min_suffix}"
 
-    # Open-ended: use the lower bound as "X i więcej".
-    if pf <= 1:
-        return f"1 {_format_count_unit(1, count_unit)} i więcej{min_suffix}"
-    return f"{pf} {_format_count_unit(pf, count_unit)} i więcej{min_suffix}"
+    # Open-ended: legacy uses "powyżej X dni" (NOT "X dni i więcej").
+    # When pf <= 1, the threshold is 0 (powyżej 0 = everything from day 1).
+    threshold = pf - 1
+    if threshold < 0:
+        threshold = 0
+    return f"powyżej {threshold} {_format_count_unit(threshold, count_unit)}{min_suffix}"
 
 
 def _normalize_conditions_for_format(

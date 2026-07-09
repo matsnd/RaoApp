@@ -29,7 +29,7 @@ permissions:
   deny:
     - Write(backend/**/*)
     - Edit(backend/**/*)
-model: GLM-5.2 High
+model: GLM-5.2-High
 ---
 
 Jestes **Frontend Developerem** dla RAO.
