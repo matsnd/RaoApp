@@ -424,14 +424,14 @@ component: frontend/AnalyticsView + backend/stats
 
 ```yaml
 id: P1-100
-status: done
+status: in-progress
 priority: P1
 created: 2026-07-08
-updated: 2026-07-08
+updated: 2026-07-09
 source: client-request (uwagi klienta 2026-07-08) + analiza legacy PDF + weryfikacja kodu
-component: frontend/ContractFormView + frontend/ConditionPanel + backend/reports (contract.html) + seed danych
+component: frontend/ContractFormView + frontend/ConditionPanel + backend/reports (contract.html) + backend/contracts + seed danych
 subtasks: [P1-003, P1-004, P1-005, P1-006, P1-008, P1-013, P1-014, P1-015]
-classification: frontend-heavy (backend: seed + PDF template)
+classification: frontend-heavy (backend: seed + PDF template + service fees KISS)
 migration_impact: no (minimalny scope) / yes (tylko opcjonalny power_type, P2)
 estimated_complexity: medium
 ```
@@ -553,8 +553,8 @@ Ukryć pole "nr wewnętrzny" gdy `contract_type === 'U'` w `ContractFormView.vue
 ### Definition of Done
 
 **Seed / dane:**
-- [ ] Artykuły-usługi (is_service=1): Transport, Przegląd (diesel), Przegląd (elektryk), Czyszczenie ponadnormatywne, Tankowanie, Przestój transportu, Wezwanie serwisowe — idempotentny seed
-- [ ] `FeePresetGroup` "Najem — Diesel" (is_default) + "Najem — Elektryk", pozycje z article_id + kwoty/teksty jak w uwagach klienta (diesel 150, elektryk 90)
+- [x] Artykuły-usługi (is_service=1): Transport, Przegląd (diesel), Przegląd (elektryk), Czyszczenie ponadnormatywne, Tankowanie, Przestój transportu, Wezwanie serwisowe — idempotentny seed (main.py + seed_demo_data.py)
+- [x] `FeePresetGroup` "Najem — Wspólny" (is_default) + "Najem — Diesel" + "Najem — Elektryk" + "Usługa — Wspólny", pozycje z article_id + kwoty/teksty jak w uwagach klienta (diesel 150, elektryk 90)
 
 **PDF (`contract.html` — 4 edycje):**
 - [ ] OWN 8b: nowy tekst 250 zł/rg + materiały (P1-015)
@@ -563,13 +563,14 @@ Ukryć pole "nr wewnętrzny" gdy `contract_type === 'U'` w `ContractFormView.vue
 - [ ] Przedpłata na dole umowy (P1-014)
 
 **Frontend:**
-- [x] `ContractFormView`: szybkie przyciski [Diesel] [Elektryk] [Domyślny] + dropdown presetów — wywołują istniejący apply-preset z potwierdzeniem
+- [x] `ContractFormView`: szybkie przyciski [Wspólne] [Diesel] [Elektryk] (najem) / [Wspólne] (usługa) + dropdown presetów — wywołują istniejący apply-preset z potwierdzeniem
 - [x] `ContractFormView`: kolumna "Tekst na umowie (zamiast kwot)" z tooltipem + podgląd PDF live
-- [x] `ContractFormView`: combobox artykułów-usług także przy edycji wiersza
+- [x] `ContractFormView`: **split grid pozycji** dla najmu (`Pozycje umowy` → kolumny Artykuł/Typ najmu/Dni/Dostawca/Data dost.) i usługi (`Usługi` → kolumny Usługa/Ilość/Jednostka/Opis)
+- [x] `ContractFormView`: usunięty combobox artykułów-usług z edycji/dodawania wiersza usługi (ręczne nazwa/kwota/tekst)
 - [x] `ContractFormView`: segmented control dni/tyg [5][6][7]
 - [x] `ContractFormView`: przedpłata na górze formularza (pola `prepayment_document` i `invoice_document` ukryte jako martwe)
 - [x] `ContractFormView`: nr wewnętrzny ukryty w trybie U (P1-013)
-- [x] `ConditionPanel`: inline grid z walidacją ciągłości + wierny podgląd PDF + preset-dropdown + szablon widełek [1–3 / 4–16 / >16 dni] / [do 2 h / do 3 h]
+- [x] `ConditionPanel`: inline grid z walidacją ciągłości + wierny podgląd PDF + preset-dropdown + szablony `mode='rental'` (dni) oraz `mode='service'` (godziny)
 
 **Weryfikacja:**
 - [ ] E2E: nowa umowa → zestaw Diesel default → zmiana na Elektryk → tylko przegląd się zmienia (150→90 + nazwa) → PDF poprawny
@@ -579,7 +580,7 @@ Ukryć pole "nr wewnętrzny" gdy `contract_type === 'U'` w `ContractFormView.vue
 - [ ] E2E: umowa U → brak pola nr wewnętrzny
 - [ ] PDF diff vs legacy: porównać wygenerowaną umowę z `c:\Temp\legacy_pdfs\S1_2026_N.pdf` (sekcje Inne usługi + Uwagi)
 - [x] Smoke: `e2e/tests/01-login.spec.ts` PASS (zweryfikowane po zmianie)
-- [ ] Spec sync: 02_backend_api (seed), 03_frontend_screens, 04_business_logic; 01_database TYLKO jeśli P2 power_type wejdzie
+- [x] Spec sync: 02_backend_api (service fees / KISS), 04_business_logic; 03_frontend_screens, 01_database — pending (Tylko jeśli P2 power_type wejdzie)
 
 **Security DoD:**
 - [ ] apply-preset i service-fees mają już `Depends(get_current_user)` — potwierdzić testem IDOR na `{contract_id}`

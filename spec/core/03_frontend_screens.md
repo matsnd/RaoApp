@@ -661,23 +661,25 @@ dla pozycji jest `ArticlePicker` (wybór artykułu) oraz `ConflictModal` (konfli
 - `newPosData: ref<PosInlineData>` — bufor nowej pozycji
 - `articlePickerMode: ref<'new' | 'edit'>` — cel wyboru z ArticlePicker
 
-**Grid pozycji — kolumny:**
-| Kolumna | Display mode | Edit mode |
-|---------|-------------|-----------|
-| # | idx+1 | idx+1 (lub `*` dla new) |
-| Artykuł | nazwa (read-only) | nazwa + `✎` → `reopenArticlePickerForEdit` |
-| Typ najmu | tekst | `<input type="text">` |
-| Dni | liczba | `<input type="number" min="0">` |
-| Ilość | liczba | `<input type="number" min="1">` |
-| Rozliczanie | tekst | `<select>` (dziennie/tygodniowo/...) |
-| Dostawca | nazwa (read-only) | nazwa + `✎` → `openSupplierPickerForEdit` |
-| Data dost. | data PL | `<input type="date">` |
-| Warunki | badge z licznikiem | badge (klik → `ConditionPanel`) |
-| Akcje | `✎` edit / `✕` usuń | `✓` zapisz / `✕` anuluj |
+**Grid pozycji — kolumny (zależne od `contract_type`):**
 
-**Empty state:** `Brak pozycji na tej umowie. [Dodaj pierwszy artykuł]` — CTA wewnątrz empty state.
+| Kolumna | Najem (`S`) | Usługa (`U`) | Display mode | Edit mode |
+|---------|-------------|--------------|-------------|-----------|
+| # | tak | tak | idx+1 | idx+1 (lub `*` dla new) |
+| Artykuł / Usługa | `Artykuł` | `Usługa` | nazwa (read-only) | nazwa + `✎` → `reopenArticlePickerForEdit` |
+| Typ najmu | tak | — | tekst | `<input type="text">` |
+| Dni | tak | — | liczba | `<input type="number" min="0">` |
+| Ilość | tak | tak | liczba | `<input type="number" min="1">` |
+| Jednostka | — | tak | tekst | read-only (`godzina`) |
+| Opis | — | tak | tekst | `<input type="text">` |
+| Dostawca | tak | — | nazwa (read-only) | nazwa + `✎` → `openSupplierPickerForEdit` |
+| Data dost. | tak | — | data PL | `<input type="date">` |
+| Warunki | tak | tak | badge z licznikiem | badge (klik → `ConditionPanel`) |
+| Akcje | tak | tak | `✎` edit / `✕` usuń | `✓` zapisz / `✕` anuluj |
 
-**Helper text nad gridem:** `Pozycje umowy    Kliknij wiersz aby edytować • Enter = zapisz • Esc = anuluj    [+ Dodaj pozycję]`
+**Empty state:** `Brak pozycji na tej umowie. [Dodaj pierwszy artykuł]` dla najmu, `Brak usług na tej umowie. [Dodaj pierwszą usługę]` dla usługi.
+
+**Helper text nad gridem:** `Pozycje umowy` / `Usługi` + `Kliknij wiersz aby edytować • Enter = zapisz • Esc = anuluj` + `[+ Dodaj pozycję]` / `[+ Dodaj usługę]`
 
 **Zachowane modale (dozwolone):**
 - `ArticlePicker` — wybór artykułu (modal wyboru, nie ustawień)
@@ -1358,18 +1360,24 @@ async function handleFakturownia() {
 
 - **RAO-P1-100 (2026-07-08):** Zmiany w sekcji "Usługi dodatkowe", cenniku i trybie usługi
   - **Szybki wybór zestawu**
-    - Nagłówek sekcji: 3 przyciski [Diesel] [Elektryk] [Domyślny] dla umów najmu (`contract_type === 'S'`), dropdown z pełną listą presetów
-    - Presety szukane w `presetPickerList` wg nazw (`diesel`, `elektryk`, `domyślny/is_default`)
-    - Każdy przycisk i dropdown wywołuje `applyPreset` (z confirm) → `POST /contracts/{id}/service-fees/apply-preset?preset_id={id}&replace=true`
-    - Nowa umowa najmu zaczyna z pustą sekcją usług (operator wybiera preset ręcznie)
+    - Najem (`contract_type === 'S'`): 3 przyciski [Wspólne] [Diesel] [Elektryk] + dropdown z pełną listą presetów
+    - Usługa (`contract_type === 'U'`): 1 przycisk [Wspólne] (Transport + Praca operatora) + dropdown z presetami
+    - Przyciski wywołują `applyHardcodedFeePreset('wspolne' | 'diesel' | 'elektryk')` — usuwają obecne usługi i tworzą nowe wiersze `ContractServiceFee` przez `POST /contracts/{id}/service-fees`
+    - Wspólny zestaw (najem): Transport, Czyszczenie, Tankowanie, Przestój, Wezwanie serwisowe
+    - Diesel dodaje przegląd 150 zł; Elektryk dodaje przegląd 90 zł (z ładowaniem akumulatorów)
+    - Wspólny zestaw (usługa): Transport, Praca operatora
+    - Dropdown wywołuje `applyPresetWithConfirm` → `POST /contracts/{id}/service-fees/apply-preset?preset_id={id}&replace=true`
+    - Nowa umowa zaczyna z pustą sekcją usług (operator wybiera preset ręcznie)
+    - Wszystkie przyciski/dropdown są disabled gdy `is_settled = true`
   - **Grid usług — tylko aktywne**
     - Wyświetlane są tylko pozycje z `is_active = true` (computed `activeServiceFees`)
     - Szablon ładuje wszystkie pozycje jako aktywne; operator może dezaktywować/usunąć
   - **Kolumna "Tekst na umowie (zamiast kwot)"** (zamiast "Opis")
     - Tooltip: "Jeśli wypełnione — na PDF drukuje się ten tekst zamiast kwot. Np. «Transport: odbiór własny», «wycena indywidualna»"
     - Formatowanie: `formatDescription(description, amount_from, amount_to, name)` — wszystkie kwoty w `zł`, nigdy `$`
-  - **Combobox artykułów-usług** przy edycji i dodawaniu wiersza
-    - Wybór z `serviceArticles` uzupełnia nazwę i cenę w wierszu
+    - Wartości kwotowe w `description` używają placeholderów `$1` (amount_from) i `$2` (amount_to) — frontend zamienia je na sformatowane kwoty z polskim separatorem tysięcy i przecinkiem (`1 200,00 zł`)
+    - Przykład: `description = "$1 dostawa / $2 odbiór"` + `name = "Transport"` + `amount_from = 1200` + `amount_to = 1200` → `Transport: 1 200,00 zł dostawa / 1 200,00 zł odbiór`
+  - **Usunięto combobox artykułów-usług** — wiersze usług dodatkowych są edytowane ręcznie (nazwa, kwota od/do, jednostka, tekst na umowie)
   - **Podgląd PDF live** pod gridem usług
     - Wyświetla tylko aktywne pozycje w formacie `- {name}: {description lub kwoty}`
     - Używa CSS variables, bez `v-html`
@@ -1384,16 +1392,25 @@ async function handleFakturownia() {
   - **Ukrycie nr wewnętrznego w trybie usługi (`contract_type === 'U')**
     - InlineArticleForm: pole "Nr wewnętrzny" widoczne tylko gdy `form.contract_type !== 'U'`
 
-- **RAO-P1-100 (ConditionPanel):** Widełki cenowe i wierny podgląd PDF
+- **RAO-P1-100 (ConditionPanel):** Widełki cenowe, wierny podgląd PDF i podział najem/usługa
+  - **Props:** `mode: 'rental' | 'service'` (lub fallback `contractType`) — steruje kolumnami, jednostką i szablonami
   - **Główne źródła warunków:** `Z ostatniej umowy`, `Zastosuj cennik`
-  - **Szablon widełek** — select z opcjami:
-    - Najem: `1–3 dni`, `4–16 dni`, `>16 dni`
-    - Usługa: `do 2 h`, `do 3 h`
-    - Wywołanie dodaje jeden wiersz warunku z gotowym zakresem (operator wpisuje stawkę)
+  - **Kolumny gridu warunków (zależne od `mode`):**
+    - `Od (dni)` / `Od (godz.)` dla najmu/usługi
+    - `Do (dni)` / `Do (godz.)` dla najmu/usługi
+    - `Stawka (zł)` — `rate1`
+    - `Jednostka` — `billing_label` (`doba` dla najmu, `godzina` dla usługi)
+    - `Minimum` — `minimum`
+    - `Akcje` — edytuj / usuń
+  - **Szablon widełek** — select **Gotowe przedziały…** z opcjami:
+    - Najem: `1 - 3 dni`, `1 - 8 dni`, `1 - 2 / 3 - 5 / >5 dni`, `>3 dni`, `>8 dni`, `>16 dni`, `>20 dni`, `1 dzień`
+    - Usługa: `do 2 godzin`, `do 3 godzin`, `do 8 godzin`, `0 - 2 / 3 - 8 / >8 godzin`, `każda kolejna`
+    - Wywołanie dodaje jeden lub więcej wierszy warunków z uzupełnionym `period_from`/`period_to`/`period_count` i placeholderem opisu (operator wpisuje stawkę)
   - **Wierny podgląd PDF** pod tabelą warunków
-    - Sortuje warunki po `period_from`, pokazuje `description` lub buduje opis jak PDF (`{od}-{do} dni - {stawka} / {jednostka}`)
+    - Sortuje warunki po `period_from`, pokazuje `description` lub buduje opis jak PDF (`{od}-{do} dni/godzin - {stawka} / {jednostka}`)
     - Nigdy nie znika pól; stawki puste pokazują `0,00 zł` do uzupełnienia
   - Walidacja ciągłości przedziałów inline: `Luka: warunek X-Y, następny A-B (brak Y+1)`
+  - Edycja gridu jest zablokowana gdy `is_settled = true` (w tym `select` przedziałów, inputy, akcje).
 
   - Obsługa błędów: wyświetlanie błędów z backendu (e.response?.data?.detail)
   - Pre-fill: jeśli wyszukiwany termin wygląda jak nazwa (nie jest liczbą), jest używany jako domyślna nazwa
@@ -1746,11 +1763,15 @@ Puste tabele (brak rekordów) wyświetlają przycisk akcji:
 - Empty state z CTA: "Brak warunków — dodaj warunek rozliczenia" (link → `addCondition`)
 - **Jedyne dozwolone użycie modala:** `showPresetPicker` (wybór cennika predefiniowanego)
 
-**Kolumny gridu (inline editing):** Typ stawki (select) • Od (number) • Do (number) • Stawka 1 (number) • Stawka 2 (number) • Jednostka (text) • Minimum (number) • Akcje
+**Kolumny gridu (inline editing):** Typ stawki (select) • Od (number) • Do (number) • Stawka (zł) (number) • Jednostka (text) • Minimum (number) • Akcje
+- Kolumna **Stawka 2** została usunięta z UI; open-ended realizowane jest przez pustą wartość **Do**.
+- Nad gridem znajduje się select **Gotowe przedziały…** z szablonami 1–2, 1–3, 1–4, 4–7, 4–8, >8, >16, >20 dni (dla najmu) oraz do 2 h, do 3 h (dla usługi). Wybór dodaje jeden wiersz warunku z uzupełnionym `period_from`/`period_to`.
+- Edycja jest zablokowana gdy `isSettled = true`.
 
-Auto-opis (legacy, teraz generowany przy zapisie inline):
-- Generuje opis na podstawie: nazwa typu stawki, stawka 1 + jednostka, stawka 2, zakres okresów, minimum
-- Format: `"Typ stawki, 500.00 zł/doba, 1-3 dni, min. 1"`
+Auto-opis (PDF live preview):
+- Generowany przy zapisie przez `buildAutoDescriptionFrom()` → `formatPreview()`.
+- Format wierny backendowemu `format_position_conditions_cascading`: `"1 - 3 dni - 150,00 zł / doba"`, `"powyżej 16 dni - 350,00 zł / doba"`.
+- Jeśli warunek ma `description`, wyświetlany jest on zamiast generowanego opisu.
 
 ---
 
@@ -1833,16 +1854,24 @@ Auto-opis (legacy, teraz generowany przy zapisie inline):
 
 **Lokalizacja:** `frontend/src/components/contracts/ConditionPanel.vue`
 
-### Zmiany w tabeli warunków
-- **Nowe kolumny:** "Od" (period_from), "Do" (period_to) — zamiast pojedynczej kolumny "Okresy" (period_count)
-- **Usunięta kolumna:** "Opis" (description) — przeniesiona do modal form
+### Zmiany w tabeli warunków (inline grid)
+- **Kolumny (zależne od `mode`):**
+  - Najem (`mode='rental'`): `Od (dni)` • `Do (dni)` • `Stawka (zł)` (`rate1`) • `Jednostka` (`billing_label='doba'`) • `Minimum` • `Akcje`
+  - Usługa (`mode='service'`): `Od (godz.)` • `Do (godz.)` • `Stawka (zł)` (`rate1`) • `Jednostka` (`billing_label='godzina'`) • `Minimum` • `Akcje`
+- **Open-ended:** `rate2` jest ustawianie automatycznie przez `buildCondPayload` gdy `Do` jest puste a `Stawka` wypełniona — backend drukuje `powyżej X dni/godzin`.
+- **Select "Gotowe przedziały…"** nad gridem:
+  - Najem: `1 - 3 dni`, `1 - 8 dni`, `1 - 2 / 3 - 5 / >5 dni`, `>3 dni`, `>8 dni`, `>16 dni`, `>20 dni`, `1 dzień`
+  - Usługa: `do 2 godzin`, `do 3 godzin`, `do 8 godzin`, `0 - 2 / 3 - 8 / >8 godzin`, `każda kolejna`
+  - Wybór dodaje jeden lub więcej wierszy z `period_from`/`period_to`/`period_count` i placeholderem opisu.
 - **Walidacja ciągłości:** watcher sprawdza czy są luki między warunkami (np. 1-3, następny 5-7 → błąd)
-- **Podgląd PDF live:** pod tabelą wyświetla preview formatu warunków (np. "1 - 3 dni - 540,00 / doba")
+- **Podgląd PDF live:** pod tabelą wyświetla preview formatu warunków (np. "1 - 3 dni - 540,00 zł / doba")
+- Edycja zablokowana gdy `isSettled = true`.
 
-### Zmiany w modal form
-- **Nowe pola:** "Od (dni)", "Do (dni)" — number inputs z min=1
-- **Pole "Okresy" (period_count):** zachowane dla backward compatibility
-- **Walidacja:** jeśli period_from > period_to → toast error
+### Inline form
+- **Pola:** "Od" / "Do" — number inputs z min=1, "Stawka (zł)" — `rate1`, "Jednostka" — `billing_label`, "Minimum" — `minimum`
+- **Pole "Okresy" (period_count):** zachowane w payloadzie dla zgodności z backendem (ustawiane z `period_to` lub `null` dla open-ended)
+- **Walidacja:** jeśli period_from > period_to → toast error; wymagana `rate1 > 0` przy zapisie
+- Enter = zapisz, Esc = anuluj
 
 ### Funkcje walidacji
 ```javascript
@@ -1852,7 +1881,7 @@ function validateContinuity() {
     const curr = sorted[i]
     const next = sorted[i + 1]
     if (curr.period_to && next.period_from && curr.period_to + 1 !== next.period_from) {
-      gapError.value = `Luka: warunek ${curr.period_from}-${curr.period_to}, następny ${next.period_from}-${next.period_to || '∞'}`
+      gapError.value = `Luka: warunek ${curr.period_from}-${curr.period_to}, następny ${next.period_from}-${next.period_to || '∞'} (brak ${curr.period_to + 1})`
       return
     }
   }
@@ -1862,20 +1891,32 @@ function validateContinuity() {
 
 ### Podgląd PDF live
 ```javascript
-function formatPreview(cond) {
-  if (cond.period_from && cond.period_to) {
-    return `${cond.period_from} - ${cond.period_to} dni - ${formatCurrency(cond.rate1)} / ${cond.billing_label || 'doba'}`
+function formatPreview(cond: any): string {
+  if (cond.description) {
+    return cond.description
+      .replace(/\$1/g, formatCurrency(cond.rate1 ?? 0))
+      .replace(/\$2/g, formatCurrency(cond.rate2 ?? 0))
   }
-  if (cond.period_from && !cond.period_to) {
-    return `powyżej ${cond.period_from} dni - ${formatCurrency(cond.rate1)} / ${cond.billing_label || 'doba'}`
+  const rate = cond.rate1 ?? cond.rate2
+  const rateStr = rate ? formatCurrency(rate) : '0,00 zł'
+  const unit = isService.value ? 'godzina' : (cond.billing_label || 'doba')
+  const rangeUnit = getPeriodRangeUnit(unit)
+
+  if (cond.period_from != null && cond.period_to != null) {
+    const count = cond.period_to - cond.period_from + 1
+    return `${cond.period_from} - ${cond.period_to} ${getPeriodLabel(count, rangeUnit)} - ${rateStr} / ${unitShort(unit)}`
   }
-  return `${formatCurrency(cond.rate1)} / ${cond.billing_label || 'doba'}`
+  if (cond.period_from != null && cond.period_to == null) {
+    const count = cond.period_from - 1
+    return `powyżej ${count} ${getPeriodLabel(count, rangeUnit)} - ${rateStr} / ${unitShort(unit)}`
+  }
+  return `${rateStr} / ${unitShort(unit)}`
 }
 ```
 
 ### Backend changes
-- **DB:** `position_conditions` — dodane kolumny `period_from INT NULL`, `period_to INT NULL`
-- **Schemas:** `ConditionResponse`, `ConditionCreate` — dodane pola `period_from`, `period_to`
+- **DB:** `position_conditions` — kolumny `period_from INT NULL`, `period_to INT NULL`, `period_count INT NULL`, `rate1`, `rate2`, `billing_label`
+- **Schemas:** `ConditionResponse`, `ConditionCreate`, `ConditionUpdate` — dodane pola `period_from`, `period_to`, `rate1`, `rate2`, `billing_label`
 - **Migration:** `ALTER TABLE position_conditions ADD COLUMN IF NOT EXISTS period_from/period_to` + `UPDATE` danych (period_from=1, period_to=period_count)
   - Warunek 3: `rate_type="dobowa"`, `rate2=350`, `billing_label="doba"` (bez `period_count`) → `"powyżej 16 dni - 350,00 / doba"`
 

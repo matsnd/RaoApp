@@ -60,7 +60,7 @@
               <label class="form-label">Kontrahent *</label>
               <div style="display:flex;gap:8px;">
                 <input :value="contractorName" type="text" class="form-control" disabled placeholder="Wybierz kontrahenta..." style="flex:1;" :class="{ 'error': !form.contractor_id }" />
-                <button type="button" class="btn btn-secondary btn-sm" @click="showContractorPicker = true">Wybierz</button>
+                <button type="button" data-testid="contractor-picker-button" class="btn btn-secondary btn-sm" @click="showContractorPicker = true">Wybierz</button>
               </div>
               <span v-if="!form.contractor_id" class="field-error">Wybierz kontrahenta</span>
             </div>
@@ -197,21 +197,22 @@
         <!-- Positions section — inline editing (RAO-P2-071: zero modali ustawień, tylko ArticlePicker) -->
         <div v-if="isEdit" class="page-card" style="margin-bottom:var(--spacing-md);">
           <div style="display:flex;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
-            <span class="section-title" style="margin:0;border:none;">Pozycje umowy</span>
+            <span class="section-title" style="margin:0;border:none;">{{ isRental ? 'Pozycje umowy' : 'Usługi' }}</span>
             <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);">Kliknij wiersz aby edytować • Enter = zapisz • Esc = anuluj</span>
-            <button class="btn btn-primary btn-sm" style="margin-left:auto;" @click="addPosition">+ Dodaj pozycję</button>
+            <button class="btn btn-primary btn-sm" style="margin-left:auto;" @click="addPosition">{{ isRental ? '+ Dodaj pozycję' : '+ Dodaj usługę' }}</button>
           </div>
           <table class="data-grid">
             <thead>
               <tr>
                 <th style="width:32px;">#</th>
-                <th>Artykuł</th>
-                <th style="width:90px;">Typ najmu</th>
-                <th style="width:60px;">Dni</th>
+                <th>{{ isRental ? 'Artykuł' : 'Usługa' }}</th>
+                <th v-if="isRental" style="width:90px;">Typ najmu</th>
+                <th v-if="isRental" style="width:60px;">Dni</th>
                 <th style="width:60px;">Ilość</th>
-                <th style="width:110px;">Rozliczanie</th>
-                <th>Dostawca</th>
-                <th style="width:120px;">Data dost.</th>
+                <th v-if="isService" style="width:80px;">Jednostka</th>
+                <th v-if="isService" style="width:140px;">Opis</th>
+                <th v-if="isRental">Dostawca</th>
+                <th v-if="isRental" style="width:120px;">Data dost.</th>
                 <th style="width:70px;">Warunki</th>
                 <th style="width:80px;"></th>
               </tr>
@@ -219,14 +220,14 @@
             <tbody>
               <!-- SKELETON LOADER — podczas ładowania pozycji (RAO-P0) -->
               <tr v-if="positionsLoading && !showNewPosRow">
-                <td colspan="10" class="empty-state">
-                  <span class="skeleton-bar"></span> Ładowanie pozycji…
+                <td :colspan="isRental ? 9 : 7" class="empty-state">
+                  <span class="skeleton-bar"></span> Ładowanie {{ isRental ? 'pozycji' : 'usług' }}…
                 </td>
               </tr>
               <!-- EMPTY STATE z CTA — tylko gdy nie ładujemy i nie dodajemy (RAO-P0) -->
               <tr v-else-if="!contractStore.positions.length && !showNewPosRow">
-                <td colspan="10" class="empty-state">
-                  Brak pozycji na tej umowie. <button class="btn-link" @click="addPosition"><strong>Dodaj pierwszy artykuł</strong></button>
+                <td :colspan="isRental ? 9 : 7" class="empty-state">
+                  Brak {{ isRental ? 'pozycji' : 'usług' }} na tej umowie. <button class="btn-link" @click="addPosition"><strong>Dodaj pierwszy {{ isRental ? 'artykuł' : 'usługę' }}</strong></button>
                 </td>
               </tr>
               <template v-for="(pos, idx) in contractStore.positions" :key="pos.id">
@@ -239,8 +240,8 @@
                       <button class="btn-icon" title="Zmień artykuł" @click.stop="reopenArticlePickerForEdit(pos)">✎</button>
                     </div>
                   </td>
-                  <td><input v-model="editingPosData.rental_type" type="text" class="form-control form-control-xs" placeholder="—" @keydown.enter="saveInlinePos" @keydown.esc="cancelInlinePos" /></td>
-                  <td>
+                  <td v-if="isRental"><input v-model="editingPosData.rental_type" type="text" class="form-control form-control-xs" placeholder="—" @keydown.enter="saveInlinePos" @keydown.esc="cancelInlinePos" /></td>
+                  <td v-if="isRental">
                     <input v-model.number="editingPosData.rental_days" type="number" min="0" class="form-control form-control-xs" :class="{ 'input-error': inlinePosErrors.rental_days }" @keydown.enter="saveInlinePos" @keydown.esc="cancelInlinePos" />
                     <span v-if="inlinePosErrors.rental_days" class="field-error field-error-inline">{{ inlinePosErrors.rental_days }}</span>
                   </td>
@@ -248,25 +249,16 @@
                     <input v-model.number="editingPosData.quantity" type="number" min="1" class="form-control form-control-xs" :class="{ 'input-error': inlinePosErrors.quantity }" @keydown.enter="saveInlinePos" @keydown.esc="cancelInlinePos" />
                     <span v-if="inlinePosErrors.quantity" class="field-error field-error-inline">{{ inlinePosErrors.quantity }}</span>
                   </td>
-                  <td>
-                    <select v-model="editingPosData.billing_frequency" class="form-control form-control-xs">
-                      <option :value="null">— brak —</option>
-                      <option value="dziennie">dziennie</option>
-                      <option value="tygodniowo">tygodniowo</option>
-                      <option value="dwutygodniowo">dwutygodniowo</option>
-                      <option value="miesięcznie">miesięcznie</option>
-                      <option value="godzinowo">godzinowo</option>
-                      <option value="jednorazowo">jednorazowo</option>
-                    </select>
-                  </td>
-                  <td>
+                  <td v-if="isService"><span class="form-control-xs" style="display:inline-flex;align-items:center;height:28px;padding:2px 0;">{{ editingPosData.billing_unit || 'godzina' }}</span></td>
+                  <td v-if="isService"><input v-model="editingPosData.description" type="text" class="form-control form-control-xs" placeholder="Opis" @keydown.enter="saveInlinePos" @keydown.esc="cancelInlinePos" /></td>
+                  <td v-if="isRental">
                     <div style="display:flex;align-items:center;gap:4px;">
                       <span style="flex:1;font-size:12px;">{{ editingPosData.supplier_name || '—' }}</span>
                       <button class="btn-icon" title="Wybierz dostawcę" @click.stop="openSupplierPickerForEdit(pos)">✎</button>
                       <button v-if="editingPosData.supplier_id" class="btn-icon" title="Wyczyść dostawcę" @click.stop="editingPosData.supplier_id = null; editingPosData.supplier_name = ''">✕</button>
                     </div>
                   </td>
-                  <td><input v-model="editingPosData.delivery_date" type="date" class="form-control form-control-xs" @keydown.enter="saveInlinePos" @keydown.esc="cancelInlinePos" /></td>
+                  <td v-if="isRental"><input v-model="editingPosData.delivery_date" type="date" class="form-control form-control-xs" @keydown.enter="saveInlinePos" @keydown.esc="cancelInlinePos" /></td>
                   <td style="text-align:center;"><span class="badge badge-info">{{ pos.conditions_count || 0 }}</span></td>
                   <td>
                     <button class="btn-icon" style="color:var(--color-success);" title="Zapisz (Enter)" @click.stop="saveInlinePos" :disabled="savingPos">✓</button>
@@ -277,12 +269,13 @@
                 <tr v-else :class="{ selected: selectedPosId === pos.id }" @click="selectPosition(pos)" @dblclick="startEditPos(pos)" style="cursor:pointer;">
                   <td>{{ idx + 1 }}</td>
                   <td>{{ pos.article_name }}</td>
-                  <td>{{ pos.rental_type || '—' }}</td>
-                  <td>{{ pos.rental_days || '—' }}</td>
+                  <td v-if="isRental">{{ pos.rental_type || '—' }}</td>
+                  <td v-if="isRental">{{ pos.rental_days || '—' }}</td>
                   <td>{{ pos.quantity || 1 }}</td>
-                  <td>{{ pos.billing_frequency || '—' }}</td>
-                  <td>{{ pos.supplier_name || '—' }}</td>
-                  <td>{{ pos.delivery_date ? new Date(pos.delivery_date).toLocaleDateString('pl-PL') : '—' }}</td>
+                  <td v-if="isService">godzina</td>
+                  <td v-if="isService">{{ pos.description || '—' }}</td>
+                  <td v-if="isRental">{{ pos.supplier_name || '—' }}</td>
+                  <td v-if="isRental">{{ pos.delivery_date ? new Date(pos.delivery_date).toLocaleDateString('pl-PL') : '—' }}</td>
                   <td style="text-align:center;"><span class="badge badge-info">{{ pos.conditions_count || 0 }}</span></td>
                   <td>
                     <button class="btn-icon" title="Edytuj" @click.stop="startEditPos(pos)">✎</button>
@@ -299,8 +292,8 @@
                     <button class="btn-icon" title="Zmień artykuł" @click.stop="showArticlePicker = true">✎</button>
                   </div>
                 </td>
-                <td><input ref="newPosRentalTypeInput" v-model="newPosData.rental_type" type="text" class="form-control form-control-xs" placeholder="—" @keydown.enter="saveNewPosRow" @keydown.esc="cancelNewPosRow" /></td>
-                <td>
+                <td v-if="isRental"><input ref="newPosRentalTypeInput" v-model="newPosData.rental_type" type="text" class="form-control form-control-xs" placeholder="—" @keydown.enter="saveNewPosRow" @keydown.esc="cancelNewPosRow" /></td>
+                <td v-if="isRental">
                   <input v-model.number="newPosData.rental_days" type="number" min="0" class="form-control form-control-xs" :class="{ 'input-error': inlinePosErrors.rental_days }" @keydown.enter="saveNewPosRow" @keydown.esc="cancelNewPosRow" />
                   <span v-if="inlinePosErrors.rental_days" class="field-error field-error-inline">{{ inlinePosErrors.rental_days }}</span>
                 </td>
@@ -308,25 +301,16 @@
                   <input v-model.number="newPosData.quantity" type="number" min="1" class="form-control form-control-xs" :class="{ 'input-error': inlinePosErrors.quantity }" @keydown.enter="saveNewPosRow" @keydown.esc="cancelNewPosRow" />
                   <span v-if="inlinePosErrors.quantity" class="field-error field-error-inline">{{ inlinePosErrors.quantity }}</span>
                 </td>
-                <td>
-                  <select v-model="newPosData.billing_frequency" class="form-control form-control-xs">
-                    <option :value="null">— brak —</option>
-                    <option value="dziennie">dziennie</option>
-                    <option value="tygodniowo">tygodniowo</option>
-                    <option value="dwutygodniowo">dwutygodniowo</option>
-                    <option value="miesięcznie">miesięcznie</option>
-                    <option value="godzinowo">godzinowo</option>
-                    <option value="jednorazowo">jednorazowo</option>
-                  </select>
-                </td>
-                <td>
+                <td v-if="isService"><span class="form-control-xs" style="display:inline-flex;align-items:center;height:28px;padding:2px 0;">{{ newPosData.billing_unit || 'godzina' }}</span></td>
+                <td v-if="isService"><input v-model="newPosData.description" type="text" class="form-control form-control-xs" placeholder="Opis" @keydown.enter="saveNewPosRow" @keydown.esc="cancelNewPosRow" /></td>
+                <td v-if="isRental">
                   <div style="display:flex;align-items:center;gap:4px;">
                     <span style="flex:1;font-size:12px;">{{ newPosData.supplier_name || '—' }}</span>
                     <button class="btn-icon" title="Wybierz dostawcę" @click.stop="openSupplierPickerForNew">✎</button>
                     <button v-if="newPosData.supplier_id" class="btn-icon" title="Wyczyść dostawcę" @click.stop="newPosData.supplier_id = null; newPosData.supplier_name = ''">✕</button>
                   </div>
                 </td>
-                <td><input v-model="newPosData.delivery_date" type="date" class="form-control form-control-xs" @keydown.enter="saveNewPosRow" @keydown.esc="cancelNewPosRow" /></td>
+                <td v-if="isRental"><input v-model="newPosData.delivery_date" type="date" class="form-control form-control-xs" @keydown.enter="saveNewPosRow" @keydown.esc="cancelNewPosRow" /></td>
                 <td style="text-align:center;"><span class="badge badge-muted">0</span></td>
                 <td>
                   <button class="btn-icon" style="color:var(--color-success);" title="Zapisz (Enter)" @click.stop="saveNewPosRow" :disabled="savingPos">✓</button>
@@ -343,6 +327,10 @@
             :position-id="selectedPosId"
             :article-id="selectedPositionArticleId"
             :contract-type="form.contract_type"
+            :mode="isRental ? 'rental' : 'service'"
+            :is-settled="form.is_settled"
+            :rental-days="selectedPosition?.rental_days || null"
+            :billing-frequency="selectedPosition?.billing_frequency || null"
             @value-changed="onConditionValueChanged"
           />
 
@@ -354,25 +342,21 @@
               <span class="fee-hint">Kliknij wiersz • Enter = zapisz • Esc = anuluj</span>
             </div>
             <div class="fee-header-right">
-              <template v-if="form.contract_type === 'S'">
-                <button class="btn btn-secondary btn-sm" @click="applyQuickFeePreset('diesel')" :disabled="!dieselPreset" title="Załaduj zestaw Diesel">
-                  Diesel
-                </button>
-                <button class="btn btn-secondary btn-sm" @click="applyQuickFeePreset('elektryk')" :disabled="!elektrykPreset" title="Załaduj zestaw Elektryk">
-                  Elektryk
-                </button>
+              <template v-if="isRental">
+                <button class="btn btn-secondary btn-sm" @click="applyHardcodedFeePreset('wspolne')" :disabled="form.is_settled" title="Wspólne (bez przeglądu)">Wspólne</button>
+                <button class="btn btn-secondary btn-sm" @click="applyHardcodedFeePreset('diesel')" :disabled="form.is_settled" title="Diesel (dodatkowo)">Diesel</button>
+                <button class="btn btn-secondary btn-sm" @click="applyHardcodedFeePreset('elektryk')" :disabled="form.is_settled" title="Elektryk (dodatkowo)">Elektryk</button>
               </template>
-              <button class="btn btn-secondary btn-sm" @click="applyQuickFeePreset('default')" :disabled="!defaultPreset" title="Załaduj zestaw domyślny">
-                Domyślny
-              </button>
-              <select v-if="presetPickerList.length" v-model="selectedPresetId" @change="applyPresetWithConfirm" class="form-control form-control-xs" style="width:200px;">
+              <template v-else>
+                <button class="btn btn-secondary btn-sm" @click="applyHardcodedFeePreset('wspolne')" :disabled="form.is_settled" title="Wspólne (transport + operator)">Wspólne</button>
+              </template>
+              <select v-if="presetPickerList.length" v-model="selectedPresetId" @change="applyPresetWithConfirm" class="form-control form-control-xs" style="width:180px;" :disabled="form.is_settled">
                 <option :value="null">Wybierz zestaw…</option>
                 <option v-for="p in presetPickerList" :key="p.id" :value="p.id">{{ p.name }}</option>
               </select>
               <span v-else-if="presetPickerLoading" class="fee-hint">Ładowanie zestawów…</span>
-              <span v-else class="fee-hint">Brak zestawów</span>
-              <button class="btn btn-secondary btn-sm" @click="resetServiceFees" title="Wyczyść i załaduj domyślny szablon">↻ Reset</button>
-              <button class="btn btn-primary btn-sm" @click="addFeeRow">+ Dodaj</button>
+              <button class="btn btn-secondary btn-sm" @click="resetServiceFees" :disabled="form.is_settled" title="Wyczyść i załaduj domyślny szablon">↻ Reset</button>
+              <button class="btn btn-primary btn-sm" @click="addFeeRow" :disabled="form.is_settled">+ Dodaj</button>
             </div>
           </div>
           <table class="data-grid">
@@ -382,7 +366,7 @@
                 <th style="width:9%;">Kwota od</th>
                 <th style="width:9%;">Kwota do</th>
                 <th style="width:6%;">J.m.</th>
-                <th title="Jeśli wypełnione — na PDF drukuje się ten tekst zamiast kwot. Np. „Transport: odbiór własny”, „wycena indywidualna”">Tekst na umowie</th>
+                <th>Tekst na umowie</th>
                 <th style="width:62px;">Aktywna</th>
                 <th style="width:56px;"></th>
               </tr>
@@ -395,10 +379,6 @@
                 <!-- EDIT MODE -->
                 <tr v-if="editingFeeId === fee.id" class="row-editing">
                   <td>
-                    <select v-if="serviceArticles.length" v-model="editingFeeData.article_id" class="form-control form-control-xs" style="margin-bottom:4px;" @change="onEditingServiceArticleSelect">
-                      <option :value="null">— wybierz usługę z listy —</option>
-                      <option v-for="a in serviceArticles" :key="a.id" :value="a.id">{{ a.name }}{{ a.replacement_value ? ` (${Number(a.replacement_value).toFixed(2)} zł)` : '' }}</option>
-                    </select>
                     <input v-model="editingFeeData.name" class="form-control form-control-xs" placeholder="Nazwa usługi" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" />
                   </td>
                   <td><input v-model="editingFeeData.amount_from" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" /></td>
@@ -439,10 +419,6 @@
               <!-- NEW ROW -->
               <tr v-if="showNewFeeRow" class="row-editing">
                 <td>
-                  <select v-if="serviceArticles.length" class="form-control form-control-xs" style="margin-bottom:4px;" @change="onServiceArticleSelect" :value="newFeeData.article_id || ''">
-                    <option value="">— wybierz usługę z listy —</option>
-                    <option v-for="a in serviceArticles" :key="a.id" :value="a.id">{{ a.name }}{{ a.replacement_value ? ` (${a.replacement_value} zł)` : '' }}</option>
-                  </select>
                   <input v-model="newFeeData.name" class="form-control form-control-xs" placeholder="Nazwa usługi" ref="newFeeNameInput" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" />
                 </td>
                 <td><input v-model="newFeeData.amount_from" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" /></td>
@@ -464,7 +440,7 @@
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
             <div style="display:flex;align-items:center;gap:10px;">
               <span class="section-title" style="margin:0;border:none;">Rozliczenie umowy</span>
-              <span style="font-size:11px;color:#718096;">Koszt klienta vs koszt firmy</span>
+              <span style="font-size:11px;color:var(--color-text-muted);">Koszt klienta vs koszt firmy</span>
               <!-- RAO-P2-022: status badge -->
               <span v-if="form.is_settled" class="settled-badge-sm">
                 ✓ Rozliczona{{ form.settled_at ? ' · ' + new Date(form.settled_at).toLocaleDateString('pl-PL') : '' }}
@@ -500,7 +476,7 @@
             <div v-if="fakturowniaStore.error" style="color:#e53e3e;font-size:12px;padding:8px;background:#fff5f5;border-radius:4px;">
               {{ fakturowniaStore.error }}
             </div>
-            <div v-else-if="!fakturowniaStore.invoices.length" style="color:#718096;font-size:12px;padding:8px;">
+            <div v-else-if="!fakturowniaStore.invoices.length" style="color:var(--color-text-muted);font-size:12px;padding:8px;">
               Brak faktur dla tego kontrahenta (OID: {{ form.contractor_id }})
             </div>
             <div v-else>
@@ -645,10 +621,10 @@
           <div class="modal-title">Wybierz kontrahenta</div>
           <div class="search-input-wrap" style="margin-bottom:12px;">
             <span class="search-icon">⌕</span>
-            <input v-model="pickerSearch" type="text" class="form-control" placeholder="Szukaj..." @input="searchContractors" />
+            <input v-model="pickerSearch" data-testid="contractor-picker" type="text" class="form-control" placeholder="Szukaj..." @input="searchContractors" />
           </div>
           <div style="max-height:320px;overflow:auto;">
-            <div v-if="!pickerList.length && pickerSearch" class="empty-state" style="padding:32px;text-align:center;color:var(--color-text-muted);">
+            <div v-if="!pickerList.length && pickerSearch" data-testid="no-results" class="empty-state" style="padding:32px;text-align:center;color:var(--color-text-muted);">
               Brak wyników dla "{{ pickerSearch }}"
             </div>
             <table v-else class="data-grid">
@@ -671,10 +647,10 @@
     </Transition>
     <!-- Inline contractor form modal - RAO-P2-005 -->
     <Transition name="modal">
-      <div v-if="showInlineContractorForm" class="modal-overlay" @click.self="showInlineContractorForm = false">
+      <div v-if="showInlineContractorForm" data-testid="contractor-modal" class="modal-overlay" @click.self="showInlineContractorForm = false">
         <div class="modal-box" style="min-width:700px;max-height:90vh;overflow-y:auto;">
           <div class="modal-title">Nowy kontrahent</div>
-          <div v-if="inlineContractorError" style="color:var(--color-danger);font-size:13px;margin-bottom:12px;padding:8px;background:#FED7D7;border-radius:6px;">
+          <div v-if="inlineContractorError" style="color:var(--color-danger);font-size:13px;margin-bottom:12px;padding:8px;background:var(--color-error-bg);border-radius:6px;">
             {{ inlineContractorError }}
           </div>
           <div class="form-group">
@@ -688,7 +664,7 @@
             </div>
             <div class="form-group">
               <label class="form-label">NIP</label>
-              <input v-model="inlineContractorForm.nip" type="text" class="form-control" placeholder="0000000000" maxlength="20" />
+              <input v-model="inlineContractorForm.nip" type="text" class="form-control" placeholder="NIP" maxlength="20" />
             </div>
           </div>
           <div class="form-row-2">
@@ -856,7 +832,7 @@
       <div v-if="showInlineArticleForm" class="modal-overlay" @click.self="showInlineArticleForm = false">
         <div class="modal-box" style="min-width:700px;max-height:90vh;overflow-y:auto;">
           <div class="modal-title">Nowy artykuł</div>
-          <div v-if="inlineArticleError" style="color:var(--color-danger);font-size:13px;margin-bottom:12px;padding:8px;background:#FED7D7;border-radius:6px;">
+          <div v-if="inlineArticleError" style="color:var(--color-danger);font-size:13px;margin-bottom:12px;padding:8px;background:var(--color-error-bg);border-radius:6px;">
             {{ inlineArticleError }}
           </div>
           <div class="form-row-2">
@@ -1016,6 +992,7 @@ import { useArticleStore } from '@/stores/articles'
 import { useSettingsStore } from '@/stores/settings'
 import { useFakturowniaStore } from '@/stores/fakturownia'
 import { useToastStore } from '@/stores/toast'
+import { formatCurrency } from '@/utils/format'
 import ConditionPanel from '@/components/contracts/ConditionPanel.vue'
 import ContractPeriodPicker from '@/components/shared/ContractPeriodPicker.vue'
 import api from '@/composables/useApi'
@@ -1070,10 +1047,13 @@ const remainingValue = computed(() => {
 })
 
 // RAO-P1-100: artykuł wybranej pozycji dla ConditionPanel (cennik / ostatnia umowa)
-const selectedPositionArticleId = computed(() => {
-  const pos = contractStore.positions.find(p => p.id === selectedPosId.value)
-  return pos?.article_id ?? null
-})
+const selectedPosition = computed(() =>
+  contractStore.positions.find(p => p.id === selectedPosId.value) || null
+)
+const selectedPositionArticleId = computed(() => selectedPosition.value?.article_id ?? null)
+
+const isRental = computed(() => form.value.contract_type === 'S')
+const isService = computed(() => form.value.contract_type === 'U')
 
 // RAO-P1-100: grid usług pokazuje tylko aktywne pozycje
 const activeServiceFees = computed(() =>
@@ -1416,62 +1396,12 @@ interface FeeData {
   unit: string
   description: string
   is_active: boolean
-  article_id?: number | null  // RAO-P2-059
-  default_price?: number | null  // RAO-P2-059
 }
 const editingFeeId = ref<number | null>(null)
 const editingFeeData = ref<Partial<FeeData>>({})
 const showNewFeeRow = ref(false)
-const newFeeData = ref<FeeData>({ name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true, article_id: null, default_price: null })
+const newFeeData = ref<FeeData>({ name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true })
 const newFeeNameInput = ref(null)
-
-// RAO-P2-059: ArticlePicker dla usług dodatkowych
-const serviceArticles = ref<any[]>([])
-async function fetchServiceArticles() {
-  try {
-    const { data } = await api.get('/articles', { params: { is_service: true, per_page: 100 } })
-    serviceArticles.value = data.items || []
-  } catch { serviceArticles.value = [] }
-}
-function onServiceArticleSelect(event: Event) {
-  const select = event.target as HTMLSelectElement
-  const articleId = Number(select.value)
-  if (!articleId) {
-    newFeeData.value.article_id = null
-    newFeeData.value.default_price = null
-    return
-  }
-  const article = serviceArticles.value.find(a => a.id === articleId)
-  if (article) {
-    newFeeData.value.article_id = article.id
-    newFeeData.value.name = article.name
-    const price = article.replacement_value ? Number(article.replacement_value) : null
-    newFeeData.value.default_price = price
-    if (price !== null && newFeeData.value.amount_from === null) {
-      newFeeData.value.amount_from = price
-    }
-  }
-}
-
-function onEditingServiceArticleSelect(event: Event) {
-  const select = event.target as HTMLSelectElement
-  const articleId = Number(select.value)
-  if (!articleId) {
-    editingFeeData.value.article_id = null
-    editingFeeData.value.default_price = null
-    return
-  }
-  const article = serviceArticles.value.find(a => a.id === articleId)
-  if (article) {
-    editingFeeData.value.article_id = article.id
-    editingFeeData.value.name = article.name
-    const price = article.replacement_value ? Number(article.replacement_value) : null
-    editingFeeData.value.default_price = price
-    if (price !== null && editingFeeData.value.amount_from === null) {
-      editingFeeData.value.amount_from = price
-    }
-  }
-}
 
 // RAO-P1-012: Settlements
 interface Settlement {
@@ -1500,28 +1430,23 @@ function formatDescription(description, amount_from, amount_to, name = '') {
   if (!description) {
     // If no description, format amounts directly
     if (amount_from !== null && amount_from !== undefined) {
-      const formattedFrom = Number(amount_from).toLocaleString('pl-PL', { minimumFractionDigits: 2 })
+      const formattedFrom = formatCurrency(amount_from)
       if (amount_to !== null && amount_to !== undefined) {
-        const formattedTo = Number(amount_to).toLocaleString('pl-PL', { minimumFractionDigits: 2 })
+        const formattedTo = formatCurrency(amount_to)
         const prefix = name ? `${name}: ` : ''
-        return `${prefix}${formattedFrom} zł - ${formattedTo} zł`
+        return `${prefix}${formattedFrom} - ${formattedTo}`
       }
       const prefix = name ? `${name}: ` : ''
-      return `${prefix}${formattedFrom} zł`
+      return `${prefix}${formattedFrom}`
     }
     return name ? `${name}: wycena indywidualna` : '—'
   }
 
-  // If description exists, replace $1/$2 placeholders with actual amounts
+  // If description exists, replace $1/$2 placeholders with actual amounts + zł.
+  // Missing amount -> 0,00 zł to avoid any $ sign in output.
   let result = description
-  if (amount_from !== null && amount_from !== undefined) {
-    const formattedFrom = Number(amount_from).toLocaleString('pl-PL', { minimumFractionDigits: 2 })
-    result = result.replace(/\$1/g, formattedFrom + ' zł')
-  }
-  if (amount_to !== null && amount_to !== undefined) {
-    const formattedTo = Number(amount_to).toLocaleString('pl-PL', { minimumFractionDigits: 2 })
-    result = result.replace(/\$2/g, formattedTo + ' zł')
-  }
+    .replace(/\$1/g, formatCurrency(amount_from))
+    .replace(/\$2/g, formatCurrency(amount_to))
   const prefix = name ? `${name}: ` : ''
   return `${prefix}${result}`
 }
@@ -1533,12 +1458,11 @@ onMounted(async () => {
     settingsStore.fetchRateTypes(),
     settingsStore.fetchCategoriesTree(), // RAO-P2-006: Load categories for inline article form
     fakturowniaStore.fetchSettings(),
-    fetchServiceArticles(), // RAO-P2-059: Load service articles for fee picker
   ])
 
   const [ctRes, artRes] = await Promise.allSettled([
     api.get('/contractors', { params: { per_page: 30 } }),
-    api.get('/articles', { params: { per_page: 50, is_service: form.value.contract_type === 'U' ? true : false } }),
+    api.get('/articles', { params: { per_page: 50, is_service: isService.value } }),
   ])
   if (ctRes.status === 'fulfilled') pickerList.value = ctRes.value.data.items
   if (artRes.status === 'fulfilled') articlePickerList.value = artRes.value.data.items
@@ -1730,8 +1654,7 @@ async function fetchSettlements(contractId) {
   try {
     const { data } = await api.get(`/settlements/contract/${contractId}`)
     settlements.value = data
-  } catch (e) {
-    console.error('Failed to fetch settlements:', e)
+  } catch {
     settlements.value = []
   }
 }
@@ -1880,10 +1803,14 @@ async function saveInlineContractor() {
   
   try {
     const result = await contractorStore.create(inlineContractorForm.value)
-    // Add to picker list
-    pickerList.value.unshift(result)
-    // Auto-select the new contractor
-    await selectContractor(result)
+    // Update picker so the new contractor is immediately visible/selected
+    pickerSearch.value = result.name
+    pickerList.value = [result]
+    // Set the selected contractor without closing the picker
+    form.value.contractor_id = result.id
+    form.value.contractor_name = result.name
+    contractorName.value = result.name
+    await loadContractorAddresses(result.id)
     // Close the inline form
     showInlineContractorForm.value = false
     // Reset the form
@@ -1977,20 +1904,21 @@ function addPosition() {
 function startEditPos(pos) {
   editingPosId.value = pos.id
   clearInlinePosErrors()
+  const rental = isRental.value
   editingPosData.value = {
     article_id: pos.article_id,
     article_name: pos.article_name || '',
-    rental_type: pos.rental_type ?? null,
-    rental_days: pos.rental_days ?? null,
+    rental_type: rental ? (pos.rental_type ?? null) : null,
+    rental_days: rental ? (pos.rental_days ?? null) : null,
     quantity: pos.quantity ?? 1,
     unit_price: pos.unit_price ?? null,
     costs: pos.costs ?? null,
     rate_type_id: pos.rate_type_id ?? null,
-    billing_frequency: pos.billing_frequency ?? null,
-    billing_unit: pos.billing_unit ?? null,
-    supplier_id: pos.supplier_id ?? null,
-    supplier_name: pos.supplier_name || '',
-    delivery_date: pos.delivery_date ?? null,
+    billing_frequency: pos.billing_frequency ?? (rental ? 'dziennie' : 'godzinowo'),
+    billing_unit: pos.billing_unit ?? (rental ? 'doba' : 'godzina'),
+    supplier_id: rental ? (pos.supplier_id ?? null) : null,
+    supplier_name: rental ? (pos.supplier_name || '') : '',
+    delivery_date: rental ? (pos.delivery_date ?? null) : null,
     description: pos.description ?? null,
   }
 }
@@ -2070,17 +1998,17 @@ async function saveNewPosRow() {
 function buildPosPayload(d: PosInlineData) {
   const payload: Record<string, unknown> = {
     article_id: d.article_id,
-    rental_type: d.rental_type || null,
+    rental_type: isRental.value ? (d.rental_type || null) : null,
     description: d.description || null,
-    rental_days: d.rental_days ?? null,
+    rental_days: isRental.value ? (d.rental_days ?? null) : null,
     quantity: d.quantity ?? 1,
     unit_price: d.unit_price ?? null,
     costs: d.costs ?? null,
     rate_type_id: d.rate_type_id ?? null,
-    billing_frequency: d.billing_frequency || null,
-    billing_unit: d.billing_unit || null,
-    supplier_id: d.supplier_id ?? null,
-    delivery_date: d.delivery_date || null,
+    billing_frequency: isRental.value ? 'dziennie' : 'godzinowo',
+    billing_unit: isRental.value ? 'doba' : 'godzina',
+    supplier_id: isRental.value ? (d.supplier_id ?? null) : null,
+    delivery_date: isRental.value ? (d.delivery_date || null) : null,
   }
   return payload
 }
@@ -2131,7 +2059,7 @@ let artTimer: ReturnType<typeof setTimeout> | null = null
 async function searchArticles() {
   if (artTimer) clearTimeout(artTimer)
   artTimer = setTimeout(async () => {
-    const { data } = await api.get('/articles', { params: { search: articlePickerSearch.value, per_page: 50, is_service: form.value.contract_type === 'U' ? true : false } })
+    const { data } = await api.get('/articles', { params: { search: articlePickerSearch.value, per_page: 50, is_service: isService.value } })
     articlePickerList.value = data.items.map(a => ({ ...a, _avail: null as AvailabilityResponse | null }))
     // Check availability (parallel) — RAO-P1-023 + RAO-P2-066 (z rezerwacjami)
     const excludeId = isEdit.value ? Number(props.id) : null
@@ -2171,6 +2099,7 @@ async function selectArticle(a) {
 
 function applySelectedArticle(a) {
   showArticlePicker.value = false
+  const rental = isRental.value
   if (articlePickerMode.value === 'edit' && editingPosId.value !== null) {
     editingPosData.value.article_id = a.id
     editingPosData.value.article_name = a.name
@@ -2179,7 +2108,10 @@ function applySelectedArticle(a) {
     newPosData.value = emptyPosData()
     newPosData.value.article_id = a.id
     newPosData.value.article_name = a.name
-    newPosData.value.delivery_date = form.value.date_from || null
+    newPosData.value.billing_frequency = rental ? 'dziennie' : 'godzinowo'
+    newPosData.value.billing_unit = rental ? 'doba' : 'godzina'
+    newPosData.value.delivery_date = rental ? (form.value.date_from || null) : null
+    newPosData.value.rental_days = rental ? newPosData.value.rental_days : null
     showNewPosRow.value = true
     editingPosId.value = null
     nextTick(() => { newPosRentalTypeInput.value?.focus() })
@@ -2205,19 +2137,20 @@ function confirmConflictSelection() {
 // duplicateArticle — szybkie dodanie pozycji bezpośrednio z pickera (bez inline edit)
 async function duplicateArticle(a) {
   try {
+    const rental = isRental.value
     const payload = {
       article_id: a.id,
-      rental_type: null,
+      rental_type: rental ? null : null,
       description: a.name || null,
-      rental_days: null,
+      rental_days: rental ? null : null,
       quantity: 1,
       unit_price: null,
       costs: null,
       rate_type_id: null,
-      billing_frequency: null,
-      billing_unit: null,
+      billing_frequency: rental ? 'dziennie' : 'godzinowo',
+      billing_unit: rental ? 'doba' : 'godzina',
       supplier_id: null,
-      delivery_date: form.value.date_from || null,
+      delivery_date: rental ? (form.value.date_from || null) : null,
     }
     await contractStore.createPosition(Number(props.id), payload)
     await contractStore.fetchPositions(Number(props.id))
@@ -2276,8 +2209,6 @@ function startEditFee(fee) {
     unit: fee.unit || '',
     description: fee.description || '',
     is_active: fee.is_active,
-    article_id: fee.article_id ?? null,
-    default_price: fee.default_price ?? null,
   }
 }
 
@@ -2304,7 +2235,7 @@ async function saveInlineFee() {
 
 function addFeeRow() {
   editingFeeId.value = null
-  newFeeData.value = { name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true, article_id: null, default_price: null }
+  newFeeData.value = { name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true }
   showNewFeeRow.value = true
   nextTick(() => { newFeeNameInput.value?.focus() })
 }
@@ -2322,7 +2253,7 @@ async function saveNewFeeRow() {
     await api.post(`/contracts/${props.id}/service-fees`, payload)
     await contractStore.fetchServiceFees(Number(props.id))
     showNewFeeRow.value = false
-    newFeeData.value = { name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true, article_id: null, default_price: null }
+    newFeeData.value = { name: '', amount_from: null, amount_to: null, unit: '', description: '', is_active: true }
     toastStore.success('Usługa dodana')
   } catch (e: any) {
     toastStore.error(e.response?.data?.detail || 'Błąd dodawania')
@@ -2364,48 +2295,23 @@ async function resetServiceFees() {
 }
 
 // RAO-P1-100: szybki wybór zestawów usług dodatkowych
-const dieselPreset = computed(() => presetPickerList.value.find(p => p.name && /diesel/i.test(p.name)))
-const elektrykPreset = computed(() => presetPickerList.value.find(p => p.name && /elektryk|elektryczny/i.test(p.name)))
-const defaultPreset = computed(() =>
-  presetPickerList.value.find(p => p.is_default) ||
-  presetPickerList.value.find(p => p.name && /domyślny|standardowy|default/i.test(p.name)) ||
-  null
-)
-
-async function applyQuickFeePreset(kind: 'diesel' | 'elektryk' | 'default') {
-  const preset = kind === 'diesel' ? dieselPreset.value : kind === 'elektryk' ? elektrykPreset.value : defaultPreset.value
-  if (!preset) {
-    toastStore.warning(`Nie znaleziono zestawu „${kind}" dla tego typu umowy`)
-    return
-  }
-  await applyPreset(preset)
-}
-
-const showPresetPicker = ref(false)
-const presetPickerList = ref([])
+const allPresetGroups = ref<any[]>([])
+const presetPickerList = computed(() => allPresetGroups.value.filter(p => p.contract_type === form.value.contract_type))
 const presetPickerLoading = ref(false)
 const selectedPresetId = ref<number | null>(null)
 
 // Load presets on mount
 onMounted(async () => {
-  try {
-    const { data } = await api.get('/settings/fee-preset-groups')
-    presetPickerList.value = data.filter(p => p.contract_type === form.value.contract_type)
-  } catch (e) {
-    console.error('Błąd ładowania zestawów:', e)
-  }
-})
-
-async function openPresetPicker() {
-  showPresetPicker.value = true
   presetPickerLoading.value = true
   try {
     const { data } = await api.get('/settings/fee-preset-groups')
-    presetPickerList.value = data.filter(p => p.contract_type === form.value.contract_type)
+    allPresetGroups.value = data || []
+  } catch {
+    allPresetGroups.value = []
   } finally {
     presetPickerLoading.value = false
   }
-}
+})
 
 async function applyPresetWithConfirm() {
   if (!selectedPresetId.value) return
@@ -2434,21 +2340,60 @@ async function applyPresetWithConfirm() {
   }
 }
 
-async function applyPreset(preset) {
+// RAO-P1-100: szybkie przyciski Diesel / Elektryk / Wspólne — ładują teksty bezpośrednio do tabeli usług
+async function applyHardcodedFeePreset(kind: 'wspolne' | 'diesel' | 'elektryk') {
+  if (form.value.is_settled) return
+  const contractId = Number(props.id)
+  if (!contractId) return
+  if (isService.value && kind !== 'wspolne') return
+
+  const rentalCommonRows: FeeData[] = [
+    { name: 'Transport', amount_from: 1200, amount_to: 1200, unit: 'dostawa', description: '$1 dostawa / $2 odbiór', is_active: true },
+    { name: 'Czyszczenie maszyny (zabrudzenia ponadnormatywne)', amount_from: null, amount_to: null, unit: 'sztuka', description: 'wycena indywidualna', is_active: true },
+    { name: 'Usługa tankowania', amount_from: 200, amount_to: null, unit: 'tankowanie', description: '$1 (plus koszt paliwa)', is_active: true },
+    { name: 'Ponadnormatywny przestój transportu', amount_from: 200, amount_to: 300, unit: 'godzina', description: '$1 / h - $2 / h', is_active: true },
+    { name: 'Nieuzasadnione wezwanie serwisowe', amount_from: 280, amount_to: null, unit: 'wizyta', description: '$1 (plus transport)', is_active: true },
+  ]
+
+  const serviceCommonRows: FeeData[] = [
+    { name: 'Transport', amount_from: 1200, amount_to: 1200, unit: 'dostawa', description: '$1 dostawa / $2 odbiór', is_active: true },
+    { name: 'Praca operatora', amount_from: 120, amount_to: null, unit: 'godzina', description: '$1 / h', is_active: true },
+  ]
+
+  const reviewRows: Record<string, FeeData> = {
+    diesel: { name: 'Przegląd techniczny i czyszczenie maszyny', amount_from: 150, amount_to: null, unit: 'sztuka', description: '$1', is_active: true },
+    elektryk: { name: 'Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny', amount_from: 90, amount_to: null, unit: 'sztuka', description: '$1', is_active: true },
+  }
+
+  const commonRows = isService.value ? serviceCommonRows : rentalCommonRows
+  let rows: FeeData[] = []
+  if (kind === 'wspolne') {
+    rows = commonRows
+  } else {
+    const review = reviewRows[kind]
+    if (!review) return
+    rows = [commonRows[0], review, ...commonRows.slice(1)]
+  }
+
   const hasFees = contractStore.serviceFees.length > 0
   const doApply = async () => {
     try {
-      await api.post(`/contracts/${props.id}/service-fees/apply-preset?preset_id=${preset.id}&replace=true`)
-      await contractStore.fetchServiceFees(Number(props.id))
-      showPresetPicker.value = false
-      toastStore.success(`Zastosowano zestaw „${preset.name}"`)
+      await Promise.all(contractStore.serviceFees.map(f => api.delete(`/contracts/${contractId}/service-fees/${f.id}`)))
+      for (const row of rows) {
+        await api.post(`/contracts/${contractId}/service-fees`, row)
+      }
+      await contractStore.fetchServiceFees(contractId)
+      const label = kind === 'wspolne' ? 'Wspólny' : kind === 'diesel' ? 'Diesel' : 'Elektryk'
+      toastStore.success(`Załadowano zestaw „${label}"`)
     } catch (e: any) {
-      toastStore.error(e.response?.data?.detail || 'Błąd aplikowania zestawu')
+      toastStore.error(e.response?.data?.detail || 'Błąd ładowania zestawu')
     }
   }
+
   if (hasFees) {
+    const label = kind === 'wspolne' ? 'Wspólny' : kind === 'diesel' ? 'Diesel' : 'Elektryk'
     requestConfirm(
-      `Zastosować zestaw „${preset.name}"? Obecne ${contractStore.serviceFees.length} pozycji zostaną zastąpione.`,
+      `Zastosować zestaw „${label}"? Obecne ${contractStore.serviceFees.length} pozycji zostaną zastąpione.`,
       doApply,
       'Zastosuj zestaw',
       'Zastosuj',

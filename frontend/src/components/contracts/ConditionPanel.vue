@@ -1,32 +1,5 @@
 <template>
   <div class="condition-panel">
-    <!-- UX Help Section -->
-    <div class="help-section">
-      <button class="help-toggle" @click="showHelp = !showHelp">
-        📖 Jak wpisać warunki rozliczenia?
-        <span class="help-toggle-icon">{{ showHelp ? '▼' : '▶' }}</span>
-      </button>
-      <Transition name="help-slide">
-        <div v-if="showHelp" class="help-content">
-          <div class="help-example">
-            <strong>Przykład — koparka z kaskadową stawką dobową (jak w starej aplikacji):</strong>
-            <div class="help-example-item">
-              <div>Warunek 1: <code>rate_type="dobowa"</code>, <code>rate1=540</code>, <code>period_count=3</code>, <code>billing_label="doba"</code></div>
-              <div class="help-preview">→ preview: <strong>"1 - 3 dni - 540,00 / doba"</strong></div>
-            </div>
-            <div class="help-example-item">
-              <div>Warunek 2: <code>rate_type="dobowa"</code>, <code>rate1=410</code>, <code>period_count=16</code>, <code>billing_label="doba"</code></div>
-              <div class="help-preview">→ preview: <strong>"4 - 16 dni - 410,00 / doba"</strong></div>
-            </div>
-            <div class="help-example-item">
-              <div>Warunek 3: <code>rate_type="dobowa"</code>, <code>rate2=350</code>, <code>billing_label="doba"</code> (bez <code>period_count</code>)</div>
-              <div class="help-preview">→ preview: <strong>"powyżej 16 dni - 350,00 / doba"</strong></div>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </div>
-
     <!-- RAO-P2-071: helper text + akcje nad gridem (inline editing, zero modali ustawień) -->
     <div class="cond-header">
       <div class="cond-header-left">
@@ -34,144 +7,127 @@
         <span class="cond-hint">Kliknij wiersz aby edytować • Enter = zapisz • Esc = anuluj</span>
       </div>
       <div class="cond-header-right">
-        <select v-if="rangeTemplateOptions.length" v-model="selectedRangeTemplate" @change="applyRangeTemplate" class="form-control form-control-xs" title="Szablon widełek: doda gotowe przedziały">
-          <option :value="null">Szablon widełek…</option>
+        <select v-if="rangeTemplateOptions.length" v-model="selectedRangeTemplate" @change="applyRangeTemplate" class="form-control form-control-xs" title="Dodaje gotowe przedziały dni lub godzin do cennika" :disabled="isSettled">
+          <option :value="null">Gotowe przedziały…</option>
           <option v-for="opt in rangeTemplateOptions" :key="opt.key" :value="opt.key">{{ opt.label }}</option>
         </select>
-        <button class="btn btn-secondary btn-sm" @click="autoPrefillFromLast" :disabled="!articleId || autoPrefillLoading" title="Wypełnij z ostatniej umowy tej maszyny">
+        <button class="btn btn-secondary btn-sm" @click="autoPrefillFromLast" :disabled="!articleId || autoPrefillLoading || isSettled" title="Wypełnij z ostatniej umowy tej maszyny">
           {{ autoPrefillLoading ? '...' : '↻ Z ostatniej umowy' }}
         </button>
-        <button class="btn btn-secondary btn-sm" @click="openPresetPicker" :disabled="!articleId" title="Zastosuj predefiniowany cennik">
+        <button class="btn btn-secondary btn-sm" @click="openPresetPicker" :disabled="!articleId || isSettled" title="Zastosuj predefiniowany cennik">
           📋 Zastosuj cennik
         </button>
-        <button class="btn btn-primary btn-sm" @click="addCondition" :disabled="showNewCondRow || editingCondId !== null" data-testid="add-condition">+ Dodaj warunek</button>
+        <button class="btn btn-primary btn-sm" @click="addCondition" :disabled="showNewCondRow || editingCondId !== null || isSettled" data-testid="add-condition">+ Dodaj warunek</button>
       </div>
     </div>
 
     <table class="data-grid" v-if="conditions.length || showNewCondRow">
       <thead>
         <tr>
-          <th>Typ stawki</th>
-          <th>Od</th>
-          <th>Do</th>
-          <th>Stawka 1 (zł)</th>
-          <th>Stawka 2 (zł)</th>
+          <th>{{ isRental ? 'Od (dni)' : 'Od (godz.)' }}</th>
+          <th>{{ isRental ? 'Do (dni)' : 'Do (godz.)' }}</th>
+          <th>Stawka (zł)</th>
           <th>Jednostka</th>
           <th>Minimum</th>
           <th style="width:80px;"></th>
         </tr>
       </thead>
       <tbody>
-        <template v-for="(cond, idx) in conditions" :key="cond.id">
+        <template v-for="(cond) in conditions" :key="cond.id">
           <!-- EDIT MODE (inline) -->
           <tr v-if="editingCondId === cond.id" class="row-editing">
             <td>
-              <select v-model="editingCondData.rate_type_id" class="form-control form-control-xs" data-testid="rate-type">
-                <option :value="null">— brak —</option>
-                <option v-for="rt in rateTypes" :key="rt.id" :value="rt.id">{{ rt.name }}</option>
-              </select>
+              <input v-model.number="editingCondData.period_from" type="number" :min="isRental ? 1 : 0" class="form-control form-control-xs" :placeholder="isRental ? '1' : '0'" data-testid="period-from" :disabled="isSettled" @keydown.enter="saveInlineCond" @keydown.esc="cancelInlineCond" />
             </td>
             <td>
-              <input v-model.number="editingCondData.period_from" type="number" min="1" class="form-control form-control-xs" placeholder="1" data-testid="period-from" @keydown.enter="saveInlineCond" @keydown.esc="cancelInlineCond" />
+              <input v-model.number="editingCondData.period_to" type="number" :min="isRental ? 1 : 0" class="form-control form-control-xs" :placeholder="isRental ? 'np. 3' : 'np. 8'" data-testid="period-to" :disabled="isSettled" @keydown.enter="saveInlineCond" @keydown.esc="cancelInlineCond" />
             </td>
             <td>
-              <input v-model.number="editingCondData.period_to" type="number" min="1" class="form-control form-control-xs" placeholder="np. 3" data-testid="period-to" @keydown.enter="saveInlineCond" @keydown.esc="cancelInlineCond" />
+              <input v-model.number="editingCondData.rate1" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" data-testid="rate1" :disabled="isSettled" @keydown.enter="saveInlineCond" @keydown.esc="cancelInlineCond" />
             </td>
             <td>
-              <input v-model.number="editingCondData.rate1" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" data-testid="rate1" @keydown.enter="saveInlineCond" @keydown.esc="cancelInlineCond" />
+              <span class="form-control-xs" style="display:inline-flex;align-items:center;height:28px;padding:2px 0;">{{ editingCondData.billing_label || defaultLabel }}</span>
             </td>
             <td>
-              <input v-model.number="editingCondData.rate2" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" data-testid="rate2" @keydown.enter="saveInlineCond" @keydown.esc="cancelInlineCond" />
+              <input v-model.number="editingCondData.minimum" type="number" min="0" class="form-control form-control-xs" placeholder="0" :disabled="isSettled" @keydown.enter="saveInlineCond" @keydown.esc="cancelInlineCond" />
             </td>
             <td>
-              <input v-model="editingCondData.billing_label" type="text" class="form-control form-control-xs" placeholder="doba" data-testid="billing-label" @keydown.enter="saveInlineCond" @keydown.esc="cancelInlineCond" />
-            </td>
-            <td>
-              <input v-model.number="editingCondData.minimum" type="number" min="0" class="form-control form-control-xs" placeholder="0" @keydown.enter="saveInlineCond" @keydown.esc="cancelInlineCond" />
-            </td>
-            <td>
-              <button class="btn-icon" style="color:var(--color-success);" title="Zapisz (Enter)" @click.stop="saveInlineCond" :disabled="savingCond">✓</button>
-              <button class="btn-icon" title="Anuluj (Esc)" @click.stop="cancelInlineCond" :disabled="savingCond">✕</button>
+              <button class="btn-icon" style="color:var(--color-success);" title="Zapisz (Enter)" @click.stop="saveInlineCond" :disabled="savingCond || isSettled">✓</button>
+              <button class="btn-icon" title="Anuluj (Esc)" @click.stop="cancelInlineCond" :disabled="savingCond || isSettled">✕</button>
             </td>
           </tr>
           <!-- DISPLAY MODE -->
           <tr
             v-else
             :class="{ selected: selectedCondId === cond.id, 'row-error': cond._error }"
-            style="cursor:pointer;"
+            :style="{ cursor: isSettled ? 'default' : 'pointer' }"
             @click="selectedCondId = cond.id"
-            @dblclick="startEditCond(cond)"
+            @dblclick="!isSettled && startEditCond(cond)"
           >
-            <td>{{ cond.rate_type_name || '—' }}</td>
-            <td>{{ cond.period_from || '—' }}</td>
-            <td>{{ cond.period_to || '—' }}</td>
-            <td style="font-weight:600;">{{ cond.rate1 ? formatCurrency(cond.rate1) : '—' }}</td>
-            <td>{{ cond.rate2 ? formatCurrency(cond.rate2) : '—' }}</td>
-            <td>{{ cond.billing_label || '—' }}</td>
-            <td>{{ cond.minimum || '—' }}</td>
+            <td>{{ cond.period_from != null ? cond.period_from : '—' }}</td>
+            <td>{{ cond.period_to != null ? cond.period_to : '—' }}</td>
+            <td style="font-weight:600;">
+              {{ cond.rate1 != null ? formatCurrency(cond.rate1) : cond.rate2 != null ? formatCurrency(cond.rate2) : '—' }}
+            </td>
+            <td>{{ cond.billing_label || defaultLabel }}</td>
+            <td>{{ cond.minimum != null ? cond.minimum : '—' }}</td>
             <td>
-              <button class="btn-icon" aria-label="Edytuj" title="Edytuj" @click.stop="startEditCond(cond)" data-testid="edit-condition">✎</button>
-              <button class="btn-icon" aria-label="Usuń" title="Usuń" @click.stop="removeCondition(cond)" data-testid="delete-condition">✕</button>
+              <button class="btn-icon" aria-label="Edytuj" title="Edytuj" @click.stop="startEditCond(cond)" :disabled="isSettled" data-testid="edit-condition">✎</button>
+              <button class="btn-icon" aria-label="Usuń" title="Usuń" @click.stop="removeCondition(cond)" :disabled="isSettled" data-testid="delete-condition">✕</button>
             </td>
           </tr>
         </template>
         <!-- NEW ROW (inline add) -->
         <tr v-if="showNewCondRow" class="row-editing">
           <td>
-            <select ref="newCondRateTypeSelect" v-model="newCondData.rate_type_id" class="form-control form-control-xs" data-testid="new-rate-type">
-              <option :value="null">— brak —</option>
-              <option v-for="rt in rateTypes" :key="rt.id" :value="rt.id">{{ rt.name }}</option>
-            </select>
+            <input ref="newCondPeriodFromInput" v-model.number="newCondData.period_from" type="number" :min="isRental ? 1 : 0" class="form-control form-control-xs" :placeholder="isRental ? '1' : '0'" data-testid="new-period-from" :disabled="isSettled" @keydown.enter="saveNewCondRow" @keydown.esc="cancelNewCondRow" />
           </td>
           <td>
-            <input v-model.number="newCondData.period_from" type="number" min="1" class="form-control form-control-xs" placeholder="1" data-testid="new-period-from" @keydown.enter="saveNewCondRow" @keydown.esc="cancelNewCondRow" />
+            <input v-model.number="newCondData.period_to" type="number" :min="isRental ? 1 : 0" class="form-control form-control-xs" :placeholder="isRental ? 'np. 3' : 'np. 8'" data-testid="new-period-to" :disabled="isSettled" @keydown.enter="saveNewCondRow" @keydown.esc="cancelNewCondRow" />
           </td>
           <td>
-            <input v-model.number="newCondData.period_to" type="number" min="1" class="form-control form-control-xs" placeholder="np. 3" data-testid="new-period-to" @keydown.enter="saveNewCondRow" @keydown.esc="cancelNewCondRow" />
+            <input v-model.number="newCondData.rate1" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" data-testid="new-rate1" :disabled="isSettled" @keydown.enter="saveNewCondRow" @keydown.esc="cancelNewCondRow" />
           </td>
           <td>
-            <input v-model.number="newCondData.rate1" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" data-testid="new-rate1" @keydown.enter="saveNewCondRow" @keydown.esc="cancelNewCondRow" />
+            <span class="form-control-xs" style="display:inline-flex;align-items:center;height:28px;padding:2px 0;">{{ newCondData.billing_label || defaultLabel }}</span>
           </td>
           <td>
-            <input v-model.number="newCondData.rate2" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" data-testid="new-rate2" @keydown.enter="saveNewCondRow" @keydown.esc="cancelNewCondRow" />
+            <input v-model.number="newCondData.minimum" type="number" min="0" class="form-control form-control-xs" placeholder="0" :disabled="isSettled" @keydown.enter="saveNewCondRow" @keydown.esc="cancelNewCondRow" />
           </td>
           <td>
-            <input v-model="newCondData.billing_label" type="text" class="form-control form-control-xs" placeholder="doba" data-testid="new-billing-label" @keydown.enter="saveNewCondRow" @keydown.esc="cancelNewCondRow" />
-          </td>
-          <td>
-            <input v-model.number="newCondData.minimum" type="number" min="0" class="form-control form-control-xs" placeholder="0" @keydown.enter="saveNewCondRow" @keydown.esc="cancelNewCondRow" />
-          </td>
-          <td>
-            <button class="btn-icon" style="color:var(--color-success);" title="Zapisz (Enter)" @click.stop="saveNewCondRow" :disabled="savingCond">✓</button>
-            <button class="btn-icon" title="Anuluj (Esc)" @click.stop="cancelNewCondRow" :disabled="savingCond">✕</button>
+            <button class="btn-icon" style="color:var(--color-success);" title="Zapisz (Enter)" @click.stop="saveNewCondRow" :disabled="savingCond || isSettled">✓</button>
+            <button class="btn-icon" title="Anuluj (Esc)" @click.stop="cancelNewCondRow" :disabled="savingCond || isSettled">✕</button>
           </td>
         </tr>
         <tr v-if="gapError" class="row-error">
-          <td colspan="8" style="color:var(--color-error);font-size:11px;padding:4px;">
+          <td colspan="6" style="color:var(--color-error);font-size:11px;padding:4px;">
             ⚠️ {{ gapError }}
           </td>
         </tr>
       </tbody>
       <tfoot>
         <tr>
-          <td colspan="8" style="font-weight:700;text-align:right;padding-top:8px;">
-            Wartość pozycji: {{ formatCurrency(calculatedValue) }}
+          <td colspan="6" style="font-weight:700;text-align:right;padding-top:8px;">
+            Wartość pozycji: {{ calculatedValueDisplay }}
           </td>
         </tr>
       </tfoot>
     </table>
     <!-- RAO-P1-100: wierny podgląd warunków rozliczenia (dokładnie to, co trafi do PDF) -->
-    <div v-if="conditions.length" class="cond-pdf-preview">
+    <div v-if="pdfPreviewLines.length" class="cond-pdf-preview">
       <div class="cond-pdf-label">Podgląd PDF:</div>
       <div class="cond-pdf-list">
-        <div v-for="(cond, idx) in conditionsForPreview" :key="cond.id" class="cond-pdf-line">
-          {{ idx + 1 }}. {{ formatPreview(cond) }}
+        <div v-for="(line, idx) in pdfPreviewLines" :key="idx" class="cond-pdf-line">
+          {{ idx + 1 }}. {{ line }}
         </div>
       </div>
     </div>
     <!-- EMPTY STATE z CTA — tylko gdy nie dodajemy (RAO-P2-071) -->
     <div v-else class="empty-state" style="padding:16px;">
-      Brak warunków — <button class="btn-link" @click="addCondition"><strong>dodaj warunek rozliczenia</strong></button>
+      <template v-if="isSettled">Brak warunków</template>
+      <template v-else>
+        Brak warunków — <button class="btn-link" @click="addCondition"><strong>dodaj warunek rozliczenia</strong></button>
+      </template>
     </div>
 
     <!-- Confirm modal — zastępuje confirm() (RAO-P2-071) -->
@@ -217,9 +173,9 @@
               <div style="display:flex;align-items:center;gap:8px;">
                 <span style="font-weight:600;">{{ preset.name }}</span>
                 <span v-if="preset.is_default" class="badge badge-muted" style="font-size:10px;">Domyślny</span>
-                <span style="font-size:11px;color:#5A6B7E;">({{ preset.items.length }} warunków)</span>
+                <span style="font-size:11px;color:var(--color-text-muted);">({{ preset.items.length }} warunków)</span>
               </div>
-              <div v-if="preset.description" style="font-size:11px;color:#5A6B7E;margin-top:2px;">{{ preset.description }}</div>
+              <div v-if="preset.description" style="font-size:11px;color:var(--color-text-muted);margin-top:2px;">{{ preset.description }}</div>
             </div>
           </div>
           <div class="modal-actions">
@@ -251,6 +207,10 @@ const props = defineProps({
   positionId: { type: Number, required: true },
   articleId: { type: Number, default: null },  // RAO-P1-001: do apply-preset + auto-prefill
   contractType: { type: String, default: 'S' },  // RAO-P1-100: 'S' = najem, 'U' = usługa
+  mode: { type: String, default: null },  // RAO-P1-100: 'rental' | 'service'
+  isSettled: { type: Boolean, default: false },  // RAO-P2-022: blokada edycji
+  rentalDays: { type: Number, default: null },   // do kalkulacji wartości pozycji
+  billingFrequency: { type: String, default: null },
 })
 
 const emit = defineEmits(['value-changed'])
@@ -260,8 +220,20 @@ const settingsStore = useSettingsStore()
 const toastStore = useToastStore()
 const rateTypes = computed(() => settingsStore.rateTypes || [])
 
+const panelMode = computed<'rental' | 'service'>(() => {
+  if (props.mode === 'rental' || props.mode === 'service') return props.mode
+  return props.contractType === 'U' ? 'service' : 'rental'
+})
+const isRental = computed(() => panelMode.value === 'rental')
+const isService = computed(() => panelMode.value === 'service')
+const defaultLabel = computed(() => (isService.value ? 'godzina' : 'doba'))
+const defaultRateTypeId = computed(() => {
+  const target = isService.value ? 'godz' : 'dob'
+  const found = rateTypes.value.find(rt => rt.name && rt.name.toLowerCase().includes(target))
+  return found?.id ?? null
+})
+
 const conditions = ref([])
-const showHelp = ref(false)
 const selectedCondId = ref(null)
 const savingCond = ref(false)
 
@@ -270,7 +242,7 @@ const editingCondId = ref<number | null>(null)
 const editingCondData = ref(emptyCondData())
 const showNewCondRow = ref(false)
 const newCondData = ref(emptyCondData())
-const newCondRateTypeSelect = ref<HTMLSelectElement | null>(null)
+const newCondPeriodFromInput = ref<HTMLInputElement | null>(null)
 
 const gapError = ref('')  // RAO-P1-005: walidacja ciągłości
 
@@ -297,24 +269,75 @@ function cancelConfirm() {
 
 function emptyCondData() {
   return {
-    rate_type_id: null as number | null,
+    rate_type_id: defaultRateTypeId.value as number | null,
     description: '' as string,
     rate1: null as number | null,
     rate2: null as number | null,
-    billing_label: '' as string,
+    billing_label: defaultLabel.value,
     period_count: null as number | null,
-    period_from: null as number | null,
+    period_from: isService.value ? 0 : 1,
     period_to: null as number | null,
     minimum: null as number | null,
   }
 }
 
-const calculatedValue = computed(() => {
-  return conditions.value.reduce((sum, c) => {
-    const days = c.period_to ? (c.period_to - (c.period_from || 1) + 1) : (c.period_count || 0)
-    return sum + (Number(c.rate1) || 0) * days
-  }, 0)
+const calculatedValue = computed(() => calculateCascadingValue())
+
+const calculatedValueDisplay = computed(() => {
+  const v = calculatedValue.value
+  if (v === null) return '—'
+  return formatCurrency(v)
 })
+
+// RAO-P1-005: poprawna kalkulacja kaskadowa (bez rate2; open-ended = pusty Do z rate1)
+// TODO: po zmianie API przekaź full position (billing_frequency, quantity) – obecnie używa props
+function calculateCascadingValue(): number | null {
+  const days = Number(props.rentalDays)
+  if (!Number.isFinite(days) || days <= 0) return null
+  const daysPerPeriod = getDaysPerPeriod(props.billingFrequency || 'dziennie')
+  if (daysPerPeriod <= 0) return null
+  const totalPeriods = Math.ceil(days / daysPerPeriod)
+
+  const sorted = [...conditions.value]
+    .filter(c => c.rate1 !== null && c.rate1 !== undefined)
+    .sort((a, b) => (a.period_from || 0) - (b.period_from || 0))
+
+  if (!sorted.length) return null
+
+  let value = 0
+  let remaining = totalPeriods
+  let previousEnd = 0
+
+  for (const c of sorted) {
+    if (remaining <= 0) break
+    const start = c.period_from || 1
+    // period_count (legacy) determines end when period_to is open-ended
+    const end = c.period_to ?? c.period_count ?? Infinity
+    // pomiń przerwy/nakładania — liczymy tylko okresy objęte warunkiem
+    if (start > remaining) break
+    const effectiveStart = Math.max(start, previousEnd + 1)
+    if (effectiveStart > end) continue
+    const effectiveEnd = Math.min(end, remaining)
+    if (effectiveEnd < effectiveStart) continue
+    const periods = effectiveEnd - effectiveStart + 1
+    value += periods * (Number(c.rate1) || 0)
+    remaining -= periods
+    previousEnd = effectiveEnd
+  }
+  return value
+}
+
+function getDaysPerPeriod(billingFrequency: string | null): number {
+  const map: Record<string, number> = {
+    dziennie: 1,
+    tygodniowo: 7,
+    dwutygodniowo: 14,
+    miesięcznie: 30,
+    godzinowo: 1,
+    jednorazowo: 1,
+  }
+  return map[billingFrequency || ''] ?? 1
+}
 
 // RAO-P1-005: walidacja ciągłości warunków
 function validateContinuity() {
@@ -332,21 +355,77 @@ function validateContinuity() {
 
 watch(conditions, validateContinuity, { deep: true })
 
-// RAO-P1-005 / RAO-P1-100: wierny podgląd PDF — używa opisu (description) lub buduje go dokładnie jak PDF
-function formatPreview(cond) {
-  if (cond.description) return cond.description
-  const rateStr = cond.rate1 ? formatCurrency(cond.rate1) : cond.rate2 ? formatCurrency(cond.rate2) : '0,00 zł'
-  const unit = cond.billing_label || 'doba'
-  if (cond.period_from && cond.period_to) {
-    return `${cond.period_from} - ${cond.period_to} dni - ${rateStr} / ${unit}`
+// RAO-P1-005 / RAO-P1-100: wierny podgląd PDF — zgodny z backendowym format_position_conditions_cascading
+function formatPreview(cond: any): string {
+  if (cond.description) {
+    return cond.description
+      .replace(/\$1/g, formatCurrency(cond.rate1 ?? 0))
+      .replace(/\$2/g, formatCurrency(cond.rate2 ?? 0))
   }
-  if (cond.period_from && !cond.period_to) {
-    return `powyżej ${cond.period_from} dni - ${rateStr} / ${unit}`
+  const rate = cond.rate1 ?? cond.rate2
+  const rateStr = formatCurrency(rate)
+  const unit = cond.billing_label === 'dziennie' ? 'doba' : (cond.billing_label || (isService.value ? 'godzina' : 'doba'))
+  const rangeUnit = getPeriodRangeUnit(unit)
+
+  if (cond.period_from != null && cond.period_to != null) {
+    const count = cond.period_to - cond.period_from + 1
+    return `${cond.period_from} - ${cond.period_to} ${getPeriodLabel(count, rangeUnit)} - ${rateStr} / ${unitShort(unit)}`
   }
-  return `${rateStr} / ${unit}`
+  if (cond.period_from != null && cond.period_to == null) {
+    const count = cond.period_from - 1
+    return `powyżej ${count} ${getPeriodLabel(count, rangeUnit)} - ${rateStr} / ${unitShort(unit)}`
+  }
+  return `${rateStr} / ${unitShort(unit)}`
 }
 
+const pdfPreviewLines = computed(() => {
+  return [...conditions.value]
+    .filter(c => c.rate1 !== null || c.rate2 !== null || c.description)
+    .sort((a, b) => {
+      const aFrom = a.period_from === null || a.period_from === undefined ? Infinity : Number(a.period_from)
+      const bFrom = b.period_from === null || b.period_from === undefined ? Infinity : Number(b.period_from)
+      return aFrom - bFrom
+    })
+    .map(c => formatPreview(c))
+})
+
 watch(calculatedValue, (val) => emit('value-changed', val))
+
+function unitShort(unit: string): string {
+  if (unit === 'dziennie' || unit === 'dzień' || unit === 'doba') return 'doba'
+  if (unit === 'godzinowo' || unit === 'godzina' || unit === 'godz.') return 'godz.'
+  return unit || 'doba'
+}
+
+function getPeriodRangeUnit(unit: string): string {
+  if (unit === 'dziennie' || unit === 'dzień' || unit === 'doba') return 'dzień'
+  if (unit === 'godzinowo' || unit === 'godzina' || unit === 'godz.') return 'godzina'
+  return unit || 'dzień'
+}
+
+function getPeriodLabel(count: number, unit: string): string {
+  if (count < 0) count = 0
+  if (unit === 'tydzień' || unit === 'tyg.') {
+    if (count === 1) return 'tydzień'
+    if (count >= 2 && count <= 4) return 'tygodnie'
+    return 'tygodni'
+  }
+  if (unit === 'doba' || unit === 'dzień') {
+    if (count === 1) return 'dzień'
+    return 'dni'
+  }
+  if (unit === 'godzina' || unit === 'godz.') {
+    if (count === 1) return 'godzina'
+    if (count >= 2 && count <= 4) return 'godziny'
+    return 'godzin'
+  }
+  if (unit === 'miesiąc' || unit === 'mies.') {
+    if (count === 1) return 'miesiąc'
+    if (count >= 2 && count <= 4) return 'miesiące'
+    return 'miesięcy'
+  }
+  return unit || 'dni'
+}
 
 async function loadConditions() {
   try {
@@ -354,57 +433,29 @@ async function loadConditions() {
   } catch { conditions.value = [] }
 }
 
-// RAO-P2-071: buildAutoDescription — generuje opis z inline data (używany przy zapisie)
-function buildAutoDescriptionFrom(data: ReturnType<typeof emptyCondData>): string {
-  const parts: string[] = []
-  const rtName = rateTypes.value.find(rt => rt.id === data.rate_type_id)?.name
-  if (rtName) parts.push(rtName)
-  const r1 = data.rate1
-  const r2 = data.rate2
-  const hasR1 = r1 !== null && r1 !== '' && r1 !== undefined
-  const hasR2 = r2 !== null && r2 !== '' && r2 !== undefined && Number(r2) > 0
-  // RAO-P0-012: warunek "powyżej X dni" — tylko rate2, opis "powyżej N dni - 120,00 / doba"
-  if (!hasR1 && hasR2 && !data.period_count) {
-    const formatted = formatCurrency(r2 as number)
-    parts.push(data.billing_label ? `powyżej — ${formatted}/${data.billing_label}` : `powyżej — ${formatted}`)
-  } else {
-    if (hasR1 || r1 === 0) {
-      const formatted = formatCurrency(r1 as number)
-      parts.push(data.billing_label ? `${formatted}/${data.billing_label}` : formatted)
-    }
-    if (hasR2) parts.push(`+ ${formatCurrency(r2 as number)}`)
-    if (data.period_from && data.period_to) {
-      parts.push(`${data.period_from}-${data.period_to} dni`)
-    } else if (data.period_count) {
-      parts.push(`do ${data.period_count}${data.billing_label ? ' ' + data.billing_label : ''}`)
-    }
-  }
-  if (data.minimum) parts.push(`min. ${data.minimum}`)
-  return parts.join(', ')
-}
-
 // RAO-P2-071: addCondition → dodaje pusty row w trybie inline-edit (zero modali)
 function addCondition() {
-  if (showNewCondRow.value || editingCondId.value !== null) return
+  if (props.isSettled || showNewCondRow.value || editingCondId.value !== null) return
   newCondData.value = emptyCondData()
   showNewCondRow.value = true
   nextTick(() => {
-    newCondRateTypeSelect.value?.focus()
+    newCondPeriodFromInput.value?.focus()
   })
 }
 
 // RAO-P2-071: startEditCond — inline edit istniejącego warunku (pattern jak startEditPos)
 function startEditCond(cond: any) {
-  if (showNewCondRow.value) return // nie edytuj gdy dodajemy nowy
+  if (props.isSettled || showNewCondRow.value) return // nie edytuj gdy dodajemy nowy
+  const desc = cond.description || ''
   editingCondId.value = cond.id
   editingCondData.value = {
-    rate_type_id: cond.rate_type_id ?? null,
-    description: cond.description || '',
+    rate_type_id: cond.rate_type_id ?? defaultRateTypeId.value,
+    description: /\$[12]/.test(desc) ? desc : '',
     rate1: cond.rate1 ?? null,
     rate2: cond.rate2 ?? null,
-    billing_label: cond.billing_label || '',
+    billing_label: cond.billing_label || defaultLabel.value,
     period_count: cond.period_count ?? null,
-    period_from: cond.period_from ?? null,
+    period_from: cond.period_from ?? (isService.value ? 0 : 1),
     period_to: cond.period_to ?? null,
     minimum: cond.minimum ?? null,
   }
@@ -417,17 +468,17 @@ function cancelInlineCond() {
 
 async function saveInlineCond() {
   if (!editingCondId.value) return
+  if (props.isSettled) return
   if (savingCond.value) return // RAO-P0: guard przed double-click
   // RAO-P1-005: walidacja Od > Do
-  if (editingCondData.value.period_from && editingCondData.value.period_to && editingCondData.value.period_from > editingCondData.value.period_to) {
+  if (editingCondData.value.period_from != null && editingCondData.value.period_to != null && editingCondData.value.period_from > editingCondData.value.period_to) {
     toastStore.error('Od musi być mniejsze lub równe Do')
     return
   }
-  // RAO-P0-012: Stawka 1 wymagana TYLKO gdy nie podano Stawki 2.
-  const hasRate1 = editingCondData.value.rate1 !== null && editingCondData.value.rate1 !== '' && editingCondData.value.rate1 !== undefined
-  const hasRate2 = editingCondData.value.rate2 !== null && editingCondData.value.rate2 !== '' && editingCondData.value.rate2 !== undefined
-  if (!hasRate1 && !hasRate2) {
-    toastStore.warning('Podaj stawkę 1 lub stawkę 2')
+  // RAO-P1-005: jedna stawka (rate1) — pusty Do = open-ended
+  const rate = Number(editingCondData.value.rate1)
+  if (!Number.isFinite(rate) || rate <= 0) {
+    toastStore.warning('Podaj stawkę')
     return
   }
   savingCond.value = true
@@ -452,17 +503,17 @@ function cancelNewCondRow() {
 }
 
 async function saveNewCondRow() {
+  if (props.isSettled) return
   if (savingCond.value) return // RAO-P0: guard przed double-click
   // RAO-P1-005: walidacja Od > Do
-  if (newCondData.value.period_from && newCondData.value.period_to && newCondData.value.period_from > newCondData.value.period_to) {
+  if (newCondData.value.period_from != null && newCondData.value.period_to != null && newCondData.value.period_from > newCondData.value.period_to) {
     toastStore.error('Od musi być mniejsze lub równe Do')
     return
   }
-  // RAO-P0-012: Stawka 1 wymagana TYLKO gdy nie podano Stawki 2.
-  const hasRate1 = newCondData.value.rate1 !== null && newCondData.value.rate1 !== '' && newCondData.value.rate1 !== undefined
-  const hasRate2 = newCondData.value.rate2 !== null && newCondData.value.rate2 !== '' && newCondData.value.rate2 !== undefined
-  if (!hasRate1 && !hasRate2) {
-    toastStore.warning('Podaj stawkę 1 lub stawkę 2')
+  // RAO-P1-005: jedna stawka (rate1) — pusty Do = open-ended
+  const rate = Number(newCondData.value.rate1)
+  if (!Number.isFinite(rate) || rate <= 0) {
+    toastStore.warning('Podaj stawkę')
     return
   }
   savingCond.value = true
@@ -484,19 +535,24 @@ async function saveNewCondRow() {
 // RAO-P2-071: buildCondPayload — normalizuje dane przed wysłaniem do API
 function buildCondPayload(data: ReturnType<typeof emptyCondData>) {
   const payload: any = { ...data }
-  if (!payload.billing_label) payload.billing_label = null
-  if (!payload.rate1) payload.rate1 = null
-  if (!payload.rate2) payload.rate2 = null
-  if (!payload.period_from) payload.period_from = null
-  if (!payload.period_to) payload.period_to = null
-  if (!payload.minimum) payload.minimum = null
-  // Auto-generuj opis jeśli pusty
-  if (!payload.description) payload.description = buildAutoDescriptionFrom(data)
+  if (payload.billing_label === '' || payload.billing_label === undefined || payload.billing_label === null) payload.billing_label = defaultLabel.value
+  if (payload.rate1 === '' || payload.rate1 === undefined) payload.rate1 = null
+  if (payload.rate2 === '' || payload.rate2 === undefined) payload.rate2 = null
+  if (payload.period_from === '' || payload.period_from === undefined) payload.period_from = null
+  if (payload.period_to === '' || payload.period_to === undefined) payload.period_to = null
+  if (payload.minimum === '' || payload.minimum === undefined) payload.minimum = null
+  if (payload.description === '') payload.description = null
+  if (payload.rate_type_id == null && defaultRateTypeId.value) payload.rate_type_id = defaultRateTypeId.value
+  // period_count (legacy) wyliczane z period_to przy zapisie
+  if (payload.period_to != null) payload.period_count = payload.period_to
+  // backend open-ended tier expects rate2, but a fixed period_count means a single closed tier
+  if (payload.period_to == null && payload.period_count == null && payload.rate1 > 0) payload.rate2 = payload.rate1
   return payload
 }
 
 // RAO-P2-071: removeCondition — zastąpiono confirm() modalnem potwierdzenia
 async function removeCondition(cond: any) {
+  if (props.isSettled) return
   requestConfirm(
     `Usunąć warunek rozliczenia (${cond.rate_type_name || '—'})?`,
     async () => {
@@ -525,6 +581,7 @@ const applyingPreset = ref(false)
 const autoPrefillLoading = ref(false)
 
 async function openPresetPicker() {
+  if (props.isSettled) return
   if (!props.articleId) {
     toastStore.warning('Pozycja nie ma przypisanej maszyny')
     return
@@ -547,6 +604,7 @@ async function openPresetPicker() {
 }
 
 async function applySelectedPreset() {
+  if (props.isSettled) return
   if (!selectedPresetId.value) return
   applyingPreset.value = true
   try {
@@ -568,6 +626,7 @@ async function applySelectedPreset() {
 }
 
 async function autoPrefillFromLast() {
+  if (props.isSettled) return
   if (!props.articleId) {
     toastStore.warning('Pozycja nie ma przypisanej maszyny')
     return
@@ -581,15 +640,17 @@ async function autoPrefillFromLast() {
     }
     // Skopiuj warunki jako nowe PositionCondition (dopisz, nie zastępuj)
     for (const cond of data.conditions) {
-      await contractStore.createCondition(props.contractId, props.positionId, {
-        rate_type_id: cond.rate_type_id,
+      await contractStore.createCondition(props.contractId, props.positionId, buildCondPayload({
+        rate_type_id: cond.rate_type_id ?? defaultRateTypeId.value,
         description: cond.description || null,
         rate1: cond.rate1,
         rate2: cond.rate2,
-        billing_label: cond.billing_label || null,
+        billing_label: cond.billing_label || defaultLabel.value,
         period_count: cond.period_count,
+        period_from: cond.period_from ?? null,
+        period_to: cond.period_to ?? null,
         minimum: cond.minimum,
-      })
+      }))
     }
     toastStore.success(`Wypełniono z umowy ${data.source_contract_number} (${data.conditions.length} warunków)`)
     await loadConditions()
@@ -610,45 +671,68 @@ const selectedRangeTemplate = ref<string | null>(null)
 
 interface RangeTemplateOption { key: string; label: string }
 const rangeTemplateOptions = computed<RangeTemplateOption[]>(() => {
-  if (props.contractType === 'U') {
+  if (isService.value) {
     return [
-      { key: 'service-2h', label: 'do 2 h' },
-      { key: 'service-3h', label: 'do 3 h' },
+      { key: 'service-do-2', label: 'do 2 godzin' },
+      { key: 'service-do-3', label: 'do 3 godzin' },
+      { key: 'service-do-8', label: 'do 8 godzin' },
+      { key: 'service-0-2-3-8-over8', label: '0 - 2 / 3 - 8 / >8 godzin' },
+      { key: 'service-each-additional', label: 'każda kolejna' },
     ]
   }
   return [
-    { key: 'rental-1-3', label: '1–3 dni' },
-    { key: 'rental-4-16', label: '4–16 dni' },
+    { key: 'rental-1-3', label: '1 - 3 dni' },
+    { key: 'rental-1-8', label: '1 - 8 dni' },
+    { key: 'rental-1-2-3-5-over5', label: '1 - 2 / 3 - 5 / >5 dni' },
+    { key: 'rental-over-3', label: '>3 dni' },
+    { key: 'rental-over-8', label: '>8 dni' },
     { key: 'rental-over-16', label: '>16 dni' },
+    { key: 'rental-over-20', label: '>20 dni' },
+    { key: 'rental-1-day', label: '1 dzień' },
   ]
 })
 
-const conditionsForPreview = computed(() => {
-  return [...conditions.value]
-    .filter(c => c.rate1 !== null || c.rate2 !== null)
-    .sort((a, b) => (a.period_from || 0) - (b.period_from || 0))
-})
+const TEMPLATE_ROWS: Record<string, any[]> = {
+  'rental-1-3': [{ period_from: 1, period_to: 3, billing_label: 'doba' }],
+  'rental-1-8': [{ period_from: 1, period_to: 8, billing_label: 'doba' }],
+  'rental-1-2-3-5-over5': [
+    { period_from: 1, period_to: 2, billing_label: 'doba' },
+    { period_from: 3, period_to: 5, billing_label: 'doba' },
+    { period_from: 6, period_to: null, billing_label: 'doba' },
+  ],
+  'rental-over-3': [{ period_from: 4, period_to: null, billing_label: 'doba' }],
+  'rental-over-8': [{ period_from: 9, period_to: null, billing_label: 'doba' }],
+  'rental-over-16': [{ period_from: 17, period_to: null, billing_label: 'doba' }],
+  'rental-over-20': [{ period_from: 21, period_to: null, billing_label: 'doba' }],
+  'rental-1-day': [{ period_from: 1, period_to: null, billing_label: 'doba', period_count: 1, description: '1 dzień - $1 zł' }],
+  'service-do-2': [{ period_from: 0, period_to: 2, billing_label: 'godzina', description: 'do 2 godzin - $1 zł' }],
+  'service-do-3': [{ period_from: 0, period_to: 3, billing_label: 'godzina', description: 'do 3 godzin - $1 zł' }],
+  'service-do-8': [{ period_from: 0, period_to: 8, billing_label: 'godzina', description: 'do 8 godzin - $1 zł' }],
+  'service-0-2-3-8-over8': [
+    { period_from: 0, period_to: 2, billing_label: 'godzina' },
+    { period_from: 3, period_to: 8, billing_label: 'godzina' },
+    { period_from: 9, period_to: null, billing_label: 'godzina' },
+  ],
+  'service-each-additional': [{ period_from: null, period_to: null, billing_label: 'godzina', description: 'każda kolejna $1 zł' }],
+}
 
 async function applyRangeTemplate() {
+  if (props.isSettled) return
   const key = selectedRangeTemplate.value
   if (!key) return
   const opt = rangeTemplateOptions.value.find(o => o.key === key)
   if (!opt) return
-  const unit = props.contractType === 'U' ? 'godzina' : 'doba'
-  const rows = {
-    'rental-1-3': { period_from: 1, period_to: 3, billing_label: unit },
-    'rental-4-16': { period_from: 4, period_to: 16, billing_label: unit },
-    'rental-over-16': { period_from: 17, period_to: null, billing_label: unit },
-    'service-2h': { period_from: 1, period_to: 2, billing_label: unit },
-    'service-3h': { period_from: 1, period_to: 3, billing_label: unit },
-  }[key]
-  if (!rows) return
+  const rows = TEMPLATE_ROWS[key]
+  if (!rows?.length) return
   savingCond.value = true
   try {
-    await contractStore.createCondition(props.contractId, props.positionId, buildCondPayload({
-      ...emptyCondData(),
-      ...rows,
-    }))
+    for (const row of rows) {
+      await contractStore.createCondition(props.contractId, props.positionId, buildCondPayload({
+        ...emptyCondData(),
+        ...row,
+        rate1: 0,
+      }))
+    }
     await loadConditions()
     toastStore.success(`Dodano przedział „${opt.label}”`)
   } catch (e) {
@@ -678,9 +762,12 @@ defineExpose({ loadConditions, calculatedValue })
   margin-right: auto;
 }
 .cond-title {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
-  color: var(--color-primary);
+  color: var(--color-text-heading);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0;
 }
 .cond-hint {
   font-size: 11px;
@@ -701,7 +788,7 @@ defineExpose({ loadConditions, calculatedValue })
   padding: 4px 6px;
 }
 .row-editing {
-  background: var(--color-bg-light);
+  background: var(--color-bg-editing);
 }
 .btn-icon {
   background: none;
@@ -715,106 +802,38 @@ defineExpose({ loadConditions, calculatedValue })
 .btn-icon:hover { opacity: 1; }
 .btn-auto-desc {
   background: none;
-  border: 1px solid #CBD5E0;
+  border: 1px solid var(--color-border-hover);
   border-radius: 4px;
   cursor: pointer;
   font-size: 12px;
   padding: 1px 5px;
   margin-left: 6px;
-  color: #5A6B7E;
+  color: var(--color-text-muted);
   vertical-align: middle;
   transition: background 150ms;
 }
-.btn-auto-desc:hover { background: #EDF2F7; }
+.btn-auto-desc:hover { background: var(--color-bg-light); }
 
-
-/* UX Help Section */
-.help-section {
-  margin-bottom: 12px;
-}
-.help-toggle {
-  background: var(--color-bg-light);
-  border: 1px solid var(--color-border);
-  border-radius: var(--border-radius);
-  padding: 8px 12px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-primary);
-  width: 100%;
-  text-align: left;
-  transition: all 150ms;
-}
-.help-toggle:hover {
-  background: #EDF2F7;
-}
-.help-toggle-icon {
-  float: right;
-  font-size: 12px;
-}
-.help-content {
-  background: var(--color-bg-light);
-  border: 1px solid var(--color-border);
-  border-radius: var(--border-radius);
-  padding: 12px;
-  margin-top: 8px;
-  font-size: 12px;
-}
-.help-example {
-  line-height: 1.6;
-}
-.help-example-item {
-  margin: 8px 0;
-  padding: 8px;
-  background: var(--color-bg-white);
-  border-radius: 8px;
-}
-.help-example-item code {
-  background: #EDF2F7;
-  padding: 2px 4px;
-  border-radius: 4px;
-  font-size: 13px;
-}
-.help-preview {
-  margin-top: 4px;
-  color: var(--color-text-body);
-  font-size: 13px;
-}
-.help-slide-enter-active,
-.help-slide-leave-active {
-  transition: all 200ms ease;
-}
-.help-slide-enter-from,
-.help-slide-leave-to {
-  opacity: 0;
-  max-height: 0;
-  overflow: hidden;
-}
-.help-slide-enter-to,
-.help-slide-leave-from {
-  opacity: 1;
-  max-height: 500px;
-}
 
 /* Field Tooltip */
 .field-tooltip {
   display: inline-block;
   margin-left: 6px;
-  color: #5A6B7E;
+  color: var(--color-text-muted);
   font-size: 12px;
   cursor: help;
 }
 
 /* Live Preview */
 .live-preview {
-  background: #F7FAFC;
-  border: 1px solid #E2E8F0;
+  background: var(--color-bg-light);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 12px;
   font-family: 'Courier New', monospace;
   font-size: 12px;
   white-space: pre-wrap;
-  color: #2D3748;
+  color: var(--color-text-body);
   min-height: 40px;
 }
 
@@ -828,11 +847,11 @@ defineExpose({ loadConditions, calculatedValue })
   transition: all 150ms;
 }
 .preset-pick-row:hover {
-  background: #F7FAFC;
+  background: var(--color-bg-light);
   border-color: var(--color-primary);
 }
 .preset-pick-row.selected {
-  background: #EBF4FF;
+  background: var(--color-bg-light);
   border-color: var(--color-primary);
 }
 .checkbox-group {
