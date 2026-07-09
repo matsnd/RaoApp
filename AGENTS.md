@@ -385,3 +385,4 @@ Po każdym zadaniu:
 - **JWT Auth:** reset hasła admina, token → `spec/technical/patterns/jwt_auth_e2e.md`
 - **Port Management:** alternatywne porty (8001, 5174) → `spec/technical/patterns/port_management.md`
 - **Migracje DB:** idempotentne ALTER TABLE → `spec/technical/patterns/migrations_mariadb.md`
+- **Contract Pricing Grids:** KISS split dla umów S/U i uproszczone usługi dodatkowe → `spec/technical/patterns/contract_pricing_grids.md`

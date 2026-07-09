@@ -44,6 +44,12 @@ spec/technical/
 - **API quirks:** `gtu_codes` (array nie string), `price_gross` required, `tax_no` (nie `nip`), `tax_no_kind: "other"` omija walidację NIP
 - **Demo data:** 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA
 
+### Contract Pricing Grids — KISS split by contract type
+- **Pattern:** `spec/technical/patterns/contract_pricing_grids.md` — Projekt UX rozdzielenia cenników maszyn/usług/usług dodatkowych w `ContractFormView`
+- **Scope:** Rozdzielenie UX dla `contract_type='S'` (najem, doby) i `contract_type='U'` (usługa, godziny), uproszczenie usług dodatkowych (bez artykułów)
+- **Source:** Analiza 515 legacy PDF z `c:\Temp\legacy_pdfs\`
+- **Status:** Projekt UX / specyfikacja do implementacji
+
 ## Skrypty (Scripts)
 
 ### PDF & Vision AI (RAO-P1-022)
