@@ -724,7 +724,7 @@ migration_impact: no
 
 ---
 
-### P1-105: Przebudowa ContractPeriodPicker — segmented control + oba pola zawsze widoczne
+### P1-105: Przebudowa ContractPeriodPicker — Data końcowa jako tryb awaryjny (fallback)
 
 ```yaml
 id: P1-105
@@ -768,14 +768,36 @@ migration_impact: no
 - [ ] Gdy data końcowa ustawiona → przeliczona liczba dni roboczych
 - [ ] Testy passing
 
-**Rekomendacja UX Designera (segmented control):**
+**Rekomendacja UX Designera (tryb awaryjny — progressive disclosure):**
 
-Zastąp przycisk toggle **segmented control** "Liczba dni" | "Data końcowa":
-- Aktywny segment: `btn-primary`, nieaktywny: `btn-secondary`
-- Obu pola ZAWSZE widoczne — jedno editable, drugie read-only z przeliczoną wartością
-- Tryb "Liczba dni": `[(3) editable]` + `[10.07.2026] read-only` (przeliczona)
-- Tryb "Data końcowa": `[3] read-only "z daty końcowej"` + `[12.07.2026] editable`
-- Edge: brak daty od → segmented disabled + hint; data do < od → czerwona obwódka
+Data końcowa = tryb AWARYJNY (fallback), nie równoległy. 95% umów idzie przez automat — ręczna data to wyjątek.
+
+**UI: link tekstowy, nie przycisk/checkbox:**
+```
+┌─ Okres umowy ──────────────────────────┐
+│ Data od:    [ 01.07.2026 ]             │
+│ Dni rob.:   ( 5 ) ( 6 ) ( 7 )          │
+│ Liczba dni: [ 10 ]                     │
+│                                         │
+│ Data do:    15.07.2026  (wyliczona)    │
+│             Wpisz datę końcową ręcznie →│
+│                                         │
+│     [ po kliknięciu — tryb awaryjny ]  │
+│ Data do:    [ __.__.____ ]  (edytowalne)│
+│             ← Wróć do wyliczania        │
+│                                         │
+│ Czas trwania: 14 dni kalendarzowych    │
+└─────────────────────────────────────────┘
+```
+
+**Kluczowe zasady:**
+- Tryb awaryjny: Liczba dni i Dni rob./tyg. NIE obowiązują (nie przeliczać, nie pokazywać dni roboczych)
+- Sekcja "Okres": tylko dni kalendarzowe + oznaczenie "(ręcznie)" przy dacie do
+- Powrót do automatycznego: zachować ostatnie Liczba dni i Dni rob./tyg. (nie resetować)
+- Link tekstowy `Wpisz datę końcową ręcznie →` / `← Wróć do wyliczania` (progressive disclosure)
+- Walidacja: Data do < Data od → inline error
+
+**Bonus (osobny task):** `addWorkingDays()` musi dostać kalendarz polskich świąt — to bug, nie problem UX. Awaryjny tryb to plaster, nie lekarstwo.
 
 **Powiązane:** P1-104 (naprawa alignment DANE PODSTAWOWE) — ten sam komponent ContractPeriodPicker
 
