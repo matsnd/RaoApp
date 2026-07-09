@@ -1258,9 +1258,10 @@ Subtaski 2, 4, 5, 6 są niezależne — można robić równolegle.
 
 ```yaml
 id: P2-001
-status: triaged
+status: cancelled
 priority: P2
 created: 2026-07-08
+updated: 2026-07-09
 source: tech-lead (follow-up po P1-100)
 component: backend/settings + backend/reports
 ```
