@@ -10,25 +10,6 @@
           data-testid="date-from"
         />
       </div>
-      <div class="input-group">
-        <label class="input-label">Dni rob./tydz.</label>
-        <div class="days-per-week-group">
-          <button
-            v-for="d in [5, 6, 7]"
-            :key="d"
-            type="button"
-            class="btn btn-xs"
-            :class="workingDaysPerWeekInternal === d ? 'btn-primary' : 'btn-secondary'"
-            :data-testid="`days-per-week-${d}`"
-            @click="workingDaysPerWeekInternal = d"
-          >
-            {{ d }}
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <div class="period-inputs" style="margin-top: var(--spacing-1);">
       <div class="input-group days-input-group">
         <label class="input-label">Liczba dni</label>
         <input
@@ -36,27 +17,31 @@
           type="number"
           min="1"
           class="form-control"
-          :disabled="manualEndDate"
+          :readonly="manualEndDate"
+          :placeholder="manualEndDate && !dateToManual ? '—' : ''"
           data-testid="days-count"
         />
       </div>
       <div class="input-group toggle-group">
         <button
           type="button"
-          class="btn btn-secondary btn-sm"
+          class="toggle-link"
           @click="toggleManualEndDate"
         >
-          {{ manualEndDate ? 'Przelicz z dni' : 'Wpisz datę końcową' }}
+          {{ manualEndDate ? '← Wróć do wyliczania' : 'Wpisz datę końcową ręcznie →' }}
         </button>
       </div>
       <div v-if="manualEndDate" class="input-group date-to-group">
-        <label class="input-label">Data do</label>
+        <label class="input-label">Data do <span class="manual-tag">(ręcznie)</span></label>
         <input
           v-model="dateToManual"
           type="date"
           class="form-control"
+          :class="{ 'form-control-error': dateToError }"
+          placeholder="— wybierz datę do —"
           data-testid="date-to"
         />
+        <span v-if="dateToError" class="period-error">{{ dateToError }}</span>
       </div>
       <input
         v-else
@@ -71,7 +56,12 @@
       class="period-display"
       data-testid="period-display"
     >
-      Okres umowy: {{ dateFromPl }} – {{ dateToPl }} ({{ effectiveWorkingDays }} dni roboczych / {{ effectiveCalendarDays }} dni kalendarzowych)
+      <template v-if="manualEndDate">
+        Okres umowy: {{ dateFromPl }} – {{ dateToPl }} (ręcznie) ({{ effectiveCalendarDays }} dni kalendarzowych)
+      </template>
+      <template v-else>
+        Okres umowy: {{ dateFromPl }} – {{ dateToPl }} ({{ effectiveWorkingDays }} dni roboczych / {{ effectiveCalendarDays }} dni kalendarzowych)
+      </template>
     </div>
   </div>
 </template>
@@ -183,6 +173,18 @@ const effectiveCalendarDays = computed<number | null>(() => {
   const end = parseLocalDate(effectiveDateTo.value)
   if (!start || !end || end < start) return null
   return calendarDaysInPeriod(start, end)
+})
+
+// P1-105: Walidacja — Data do < Data od (tryb awaryjny)
+const dateToError = computed<string | null>(() => {
+  if (!manualEndDate.value) return null
+  if (!dateToManual.value || !dateFromInternal.value) return null
+  const start = parseLocalDate(dateFromInternal.value)
+  const end = parseLocalDate(dateToManual.value)
+  if (start && end && end < start) {
+    return 'Data do nie może być wcześniejsza niż data od'
+  }
+  return null
 })
 
 // Days field is editable in automatic mode and computed in manual mode
@@ -314,6 +316,7 @@ watch(() => props.dateTo, (newTo) => {
   gap: var(--spacing-2);
   margin-bottom: var(--spacing-2);
   align-items: flex-start;
+  flex-wrap: wrap;
 }
 
 .input-group {
@@ -321,6 +324,7 @@ watch(() => props.dateTo, (newTo) => {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-1);
+  min-width: 120px;
 }
 
 .days-input-group {
@@ -331,24 +335,41 @@ watch(() => props.dateTo, (newTo) => {
 .toggle-group {
   flex: 0 0 auto;
   justify-content: flex-end;
+  align-self: flex-end;
+  padding-bottom: 6px;
 }
 
-.toggle-group button {
+.toggle-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  color: var(--color-primary);
+  cursor: pointer;
+  text-decoration: underline;
   white-space: nowrap;
+}
+
+.toggle-link:hover {
+  color: var(--color-primary-dark);
+}
+
+.toggle-link:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--border-radius-sm);
 }
 
 .date-to-group {
   flex: 1;
-  min-width: 140px;
+  min-width: 160px;
 }
 
-.days-per-week-group {
-  display: flex;
-  gap: 4px;
-}
-
-.days-per-week-group button {
-  min-width: 32px;
+.manual-tag {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-normal);
+  font-size: var(--font-size-xs);
 }
 
 .input-label {
@@ -376,10 +397,33 @@ watch(() => props.dateTo, (newTo) => {
   cursor: not-allowed;
 }
 
+.form-control[readonly] {
+  background: var(--color-bg-light);
+  cursor: default;
+}
+
 .form-control:focus {
   border-color: var(--color-accent-blue);
   outline: none;
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+/* P1-105: błąd walidacji — Data do < Data od */
+.form-control-error {
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15);
+}
+
+.form-control-error:focus {
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.25);
+}
+
+.period-error {
+  font-family: var(--font-family);
+  font-size: var(--font-size-xs);
+  color: var(--color-error);
+  margin-top: var(--spacing-1);
 }
 
 .period-display {

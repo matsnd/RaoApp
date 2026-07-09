@@ -36,7 +36,7 @@
             <div class="form-group">
               <label class="form-label">OID Fakturownia (opcjonalny)</label>
               <input v-model="form.oid" type="text" class="form-control" placeholder="(auto = numer umowy)" pattern="[A-Za-z0-9\-/_]+" maxlength="40" />
-              <small style="color:var(--color-text-muted);">Puste = użyj numeru umowy. Tylko litery, cyfry, -, /, _.</small>
+              <small class="oid-helper">Puste = numer umowy. Dozwolone: litery, cyfry, -, /, _</small>
             </div>
             <div class="form-group">
               <label class="form-label">Okres umowy *</label>
@@ -48,6 +48,23 @@
                 @update:date-to="form.date_to = $event"
               />
               <span v-if="!form.date_from" class="field-error">Podaj datę od</span>
+            </div>
+          </div>
+          <div class="form-group days-week-form-group">
+            <label id="days-label" class="form-label">Dni robocze w tygodniu</label>
+            <div role="group" aria-labelledby="days-label" class="days-week-group">
+              <button
+                v-for="d in [5, 6, 7]"
+                :key="d"
+                type="button"
+                class="day-week-btn"
+                :class="{ selected: form.working_days_per_week === d }"
+                :data-testid="`days-per-week-${d}`"
+                :aria-pressed="form.working_days_per_week === d"
+                @click="form.working_days_per_week = d"
+              >
+                {{ d }}
+              </button>
             </div>
           </div>
         </div>
@@ -130,7 +147,7 @@
             </div>
             <div class="form-group">
               <label class="form-label">Pozostało</label>
-              <input :value="remainingValue" type="text" class="form-control" disabled style="font-weight:700;color:var(--color-error);" />
+              <input :value="remainingValue" type="text" class="form-control" disabled style="font-weight:700;" />
             </div>
           </div>
 
@@ -138,10 +155,6 @@
             <div class="form-group">
               <label class="form-label">Przedpłata (zł)</label>
               <input v-model.number="form.prepayment_amount" type="number" step="0.01" class="form-control" placeholder="0.00" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Faktura (zł)</label>
-              <input v-model.number="form.invoice_amount" type="number" step="0.01" class="form-control" placeholder="0.00" />
             </div>
           </div>
         </div>
@@ -1023,7 +1036,7 @@ const form = ref({
   contract_type: 'S', oid: null, delivery_address: '', postal_code: '', city: '', latitude: null, longitude: null, date_from: '', date_to: '',
   // RAO-P1-021/P2-033: total_value usunięte (martwe pole)
   prepayment_amount: 0, prepayment_document: '',
-  invoice_amount: 0, invoice_document: '', notes: '',
+  notes: '',
   contact_person1: '', contact_phone1: '', show_person1: true,
   contact_person2: '', contact_phone2: '', show_person2: true,
   email: '', phone: '', contractor_name: '', working_days_per_week: 6, report_without_data: false, hide_delivery_address: false, signatures_on_page1: false,
@@ -1046,8 +1059,7 @@ const remainingValue = computed(() => {
   // RAO-P1-021/P2-033: użyj wartości z rozliczenia (total_value usunięte)
   const total = settlements.value.length ? settlementTotalValue.value : 0
   const pre = Number(form.value.prepayment_amount) || 0
-  const inv = Number(form.value.invoice_amount) || 0
-  const remaining = total - pre - inv
+  const remaining = total - pre
   return remaining.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' zł'
 })
 
@@ -1552,7 +1564,7 @@ function goBack() { router.push('/dashboard/contracts') }
 function buildPayload() {
   const v = { ...form.value }
   const dateFields = ['date_from', 'date_to']
-  const nullableStr = ['delivery_address', 'prepayment_document', 'invoice_document',
+  const nullableStr = ['delivery_address', 'prepayment_document',
     'notes', 'contact_person1', 'contact_phone1', 'contact_person2', 'contact_phone2',
     'email', 'phone', 'contractor_name']
   dateFields.forEach(f => { if (!v[f]) v[f] = null })
@@ -2459,6 +2471,67 @@ async function applyHardcodedFeePreset(kind: 'wspolne' | 'diesel' | 'elektryk') 
   transition: all 150ms;
 }
 .btn-outline-danger:hover { background: #fef2f2; border-color: #dc2626; }
+
+/* P1-104: OID helper text — krótki, czytelny, łamie słowa */
+.oid-helper {
+  color: var(--color-text-muted);
+  max-width: 100%;
+  word-break: break-word;
+  font-size: 11px;
+  line-height: 1.3;
+  display: block;
+}
+
+/* P1-104: Dni robocze w tygodniu — grupa przycisków 5/6/7 */
+.days-week-form-group {
+  margin-top: var(--spacing-4);
+  margin-bottom: 0;
+}
+
+.days-week-group {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--color-border);
+  padding: var(--spacing-3);
+  border-radius: var(--border-radius-md);
+}
+
+.day-week-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--border-radius-md);
+  margin-right: var(--spacing-3);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-white);
+  color: var(--color-text-body);
+  font-family: var(--font-family);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: background 120ms, color 120ms, border-color 120ms;
+}
+
+.day-week-btn:last-child {
+  margin-right: 0;
+}
+
+.day-week-btn:hover {
+  border-color: var(--color-border-hover);
+  background: var(--color-bg-light);
+}
+
+.day-week-btn.selected {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.day-week-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
 
 .section-title {
   font-size: 14px;
