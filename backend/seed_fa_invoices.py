@@ -120,7 +120,7 @@ async def get_contracts_with_fa_settlements(db):
                c.number as contract_number, c.date_from, c.date_to,
                ct.id as contractor_id, ct.nip, ct.name as contractor_name,
                cp.article_id as pos_article_id, cp.article_name as pos_article_name,
-               csf.article_id as fee_article_id, csf.name as fee_name
+               csf.name as fee_name
         FROM contract_settlements cs
         JOIN contracts c ON cs.contract_id = c.id
         JOIN contractors ct ON c.contractor_id = ct.id
@@ -154,8 +154,7 @@ async def get_contracts_with_fa_settlements(db):
             "cost_client": float(row[4]),
             "pos_article_id": row[11],
             "pos_article_name": row[12],
-            "fee_article_id": row[13],
-            "fee_name": row[14],
+            "fee_name": row[13],
         })
     return list(contracts.values())
 
@@ -184,7 +183,7 @@ async def get_fa_pending_contracts(db):
                ct.id as contractor_id, ct.nip, ct.name as contractor_name,
                cp.id as position_id, cp.article_id, cp.article_name,
                cp.unit_price, cp.rental_days,
-               NULL as fee_article_id, NULL as fee_name, NULL as fee_amount
+               NULL as service_fee_id, NULL as fee_name, NULL as fee_amount
         FROM contracts c
         JOIN contractors ct ON c.contractor_id = ct.id
         JOIN contract_positions cp ON cp.contract_id = c.id
@@ -194,7 +193,7 @@ async def get_fa_pending_contracts(db):
         SELECT c.id, c.number, c.date_from, c.date_to,
                ct.id, ct.nip, ct.name,
                NULL, NULL, NULL, NULL, NULL,
-               csf.article_id, csf.name, csf.amount_from
+               csf.id, csf.name, csf.amount_from
         FROM contracts c
         JOIN contractors ct ON c.contractor_id = ct.id
         JOIN contract_service_fees csf ON csf.contract_id = c.id
@@ -228,18 +227,16 @@ async def get_fa_pending_contracts(db):
                 "cost_client": amount,
                 "pos_article_id": row[8],
                 "pos_article_name": row[9],
-                "fee_article_id": None,
                 "fee_name": None,
             })
         elif row[13] is not None:  # usługa dodatkowa
             contracts[cid]["settlements"].append({
                 "settlement_id": None,
                 "position_id": None,
-                "service_fee_id": None,
+                "service_fee_id": row[12],
                 "cost_client": float(row[14] or 0),
                 "pos_article_id": None,
                 "pos_article_name": None,
-                "fee_article_id": row[12],
                 "fee_name": row[13],
             })
     return list(contracts.values())
@@ -366,7 +363,7 @@ async def create_fa_invoice(client, contract_data, art_map, db=None):
     positions = []
     for s in contract_data["settlements"]:
         # Ustal article_id i nazwę
-        article_id = s["pos_article_id"] or s["fee_article_id"]
+        article_id = s["pos_article_id"]
         article_name = s["pos_article_name"] or s["fee_name"]
         art_info = art_map.get(article_id, {})
         fa_product_id = art_info.get("fa_product_id")

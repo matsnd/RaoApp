@@ -83,8 +83,6 @@ async def copy_fee_templates(db: AsyncSession, contract_id: int, contract_type: 
             unit=t.unit,
             description=t.description,
             is_active=t.is_active,
-            article_id=t.article_id,
-            default_price=t.default_price,
         ))
     await db.commit()
 
@@ -179,6 +177,13 @@ def format_position_conditions_cascading(conditions: list[PositionCondition]) ->
 
 async def apply_preset_to_contract(db: AsyncSession, contract_id: int, preset_id: int, replace: bool = True):
     from settings.models import FeePresetGroup, ServiceFeeTemplate
+    contract = await db.get(Contract, contract_id)
+    if not contract:
+        from shared.exceptions import not_found
+        raise not_found("Umowa")
+    if contract.is_settled:
+        from shared.exceptions import conflict
+        raise conflict("Umowa jest rozliczona — modyfikacja zablokowana.")
     result = await db.execute(
         select(FeePresetGroup).where(FeePresetGroup.id == preset_id)
     )
@@ -205,8 +210,6 @@ async def apply_preset_to_contract(db: AsyncSession, contract_id: int, preset_id
             unit=t.unit,
             description=t.description,
             is_active=t.is_active,
-            article_id=t.article_id,
-            default_price=t.default_price,
         ))
     await db.commit()
 
@@ -539,8 +542,6 @@ class ContractService:
             if has_rate1 and pc is not None:
                 cond1 = PositionCondition(
                     position_id=pos_id,
-                    rate_type_id=item.rate_type_id,
-                    description=item.description,
                     rate1=item.rate1,
                     rate2=None,
                     billing_label=item.billing_label,
@@ -561,8 +562,6 @@ class ContractService:
                 if r2_to is None or r2_from <= r2_to:
                     cond2 = PositionCondition(
                         position_id=pos_id,
-                        rate_type_id=item.rate_type_id,
-                        description=item.description,
                         rate1=None,
                         rate2=item.rate2,
                         billing_label=item.billing_label,
@@ -720,7 +719,6 @@ class ContractService:
 
         # RAO-P0-035: Batch-fetch RateTypes & Contractors (suppliers) to eliminate N+1
         rate_type_ids = {p.rate_type_id for p in positions if p.rate_type_id}
-        rate_type_ids |= {cond.rate_type_id for p in positions for cond in p.conditions if cond.rate_type_id}
         supplier_ids = {p.supplier_id for p in positions if p.supplier_id}
 
         rt_map = {}
@@ -743,11 +741,9 @@ class ContractService:
             sp_name = supplier_map.get(p.supplier_id) if p.supplier_id else None
             conditions = []
             for cond in p.conditions:
-                crt_name = rt_map.get(cond.rate_type_id) if cond.rate_type_id else None
                 conditions.append(ConditionResponse(
                     id=cond.id, position_id=cond.position_id,
-                    rate_type_id=cond.rate_type_id, rate_type_name=crt_name,
-                    description=cond.description, rate1=cond.rate1, rate2=cond.rate2,
+                    rate1=cond.rate1, rate2=cond.rate2,
                     billing_label=cond.billing_label, period_count=cond.period_count,
                     period_from=cond.period_from, period_to=cond.period_to,  # RAO-P1-005
                     minimum=cond.minimum,
@@ -756,7 +752,7 @@ class ContractService:
                 id=p.id, contract_id=p.contract_id, article_id=p.article_id,
                 article_name=p.article_name, rental_type=p.rental_type,
                 description=p.description, rental_days=p.rental_days,
-                quantity=p.quantity, unit_price=p.unit_price, costs=p.costs,
+                quantity=p.quantity, unit_price=p.unit_price,
                 rate_type_id=p.rate_type_id, rate_type_name=rt_name,
                 billing_frequency=p.billing_frequency, billing_unit=p.billing_unit,
                 supplier_id=p.supplier_id, supplier_name=sp_name,
@@ -899,26 +895,23 @@ class ContractService:
         self, db: AsyncSession, contract_id: int, data: ContractServiceFeeCreate, user: User
     ) -> ContractServiceFee:
         await self.verify_contract_access(db, contract_id, user, allow_mutation=True)
-        if data.article_id is not None:
-            from articles.models import Article
-            article = await db.get(Article, data.article_id)
-            if article is None:
-                raise not_found("Artykuł")
-            if not article.is_service:
-                raise bad_request("Usługa dodatkowa musi być artykułem usługowym (is_service=True).")
         max_order = await db.execute(
             select(func.max(ContractServiceFee.sort_order))
             .where(ContractServiceFee.contract_id == contract_id)
         )
         next_order = (max_order.scalar_one_or_none() or 0) + 1
-        fee = ContractServiceFee(**data.model_dump(), contract_id=contract_id, sort_order=next_order)
+        payload = data.model_dump()
+        # RAO-P1-100: KISS fallback — "Tekst na umowie" pusty → użyj nazwy
+        if not payload.get("description") or not str(payload.get("description")).strip():
+            payload["description"] = payload.get("name")
+        fee = ContractServiceFee(**payload, contract_id=contract_id, sort_order=next_order)
         db.add(fee)
         await db.commit()
         await db.refresh(fee)
         return fee
 
     async def update_service_fee(
-        self, db: AsyncSession, fee_id: int, data: ContractServiceFeeCreate, user: User
+        self, db: AsyncSession, fee_id: int, data: ContractServiceFeeUpdate, user: User
     ) -> ContractServiceFee:
         result = await db.execute(
             select(ContractServiceFee).where(ContractServiceFee.id == fee_id)
@@ -927,15 +920,14 @@ class ContractService:
         if not fee:
             raise not_found("Usługa dodatkowa")
         await self.verify_contract_access(db, fee.contract_id, user, allow_mutation=True)
-        if data.article_id is not None:
-            from articles.models import Article
-            article = await db.get(Article, data.article_id)
-            if article is None:
-                raise not_found("Artykuł")
-            if not article.is_service:
-                raise bad_request("Usługa dodatkowa musi być artykułem usługowym (is_service=True).")
         # RAO-P0-034: exclude_unset=True — only fields explicitly sent are applied
-        for field, value in data.model_dump(exclude_unset=True).items():
+        payload = data.model_dump(exclude_unset=True)
+        # RAO-P1-100: KISS fallback — "Tekst na umowie" pusty → użyj nazwy (nowej lub istniejącej)
+        if "description" in payload:
+            desc = payload.get("description")
+            if not desc or not str(desc).strip():
+                payload["description"] = payload.get("name") or fee.name
+        for field, value in payload.items():
             setattr(fee, field, value)
         await db.commit()
         await db.refresh(fee)
@@ -1005,7 +997,6 @@ class ContractService:
                     "rate2": c.rate2,
                     "period_count": c.period_count,
                     "minimum": c.minimum,
-                    "rate_type_id": c.rate_type_id,
                 }
                 for c in sorted_conds
             ]

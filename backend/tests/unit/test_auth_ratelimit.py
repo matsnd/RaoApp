@@ -17,7 +17,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 
-def _build_app(monkeypatch_env: str = "development") -> FastAPI:
+def _build_app(monkeypatch_env: str = "test") -> FastAPI:
     """Izolowana app z routerem auth (bez DB startup, bez root_path)."""
     # Wymuszamy environment przed importem config (modul jest juz zaladowany,
     # wiec nadpisujemy pole bezposrednio na instancji settings).
@@ -39,7 +39,7 @@ def _build_app(monkeypatch_env: str = "development") -> FastAPI:
 
 @pytest.fixture
 def client():
-    app = _build_app("development")
+    app = _build_app("test")
     # Mockujemy serwis auth aby nie dotykac DB
     from auth import service as svc
 

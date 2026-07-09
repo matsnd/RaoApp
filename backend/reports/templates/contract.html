@@ -132,6 +132,9 @@
       </div>
     </td>
     <td class="info-col" style="vertical-align:top;padding-top:6px;">
+      {% if contract.prepayment_amount and contract.prepayment_amount > 0 %}
+      <strong>Przedpłata: {{ contract.prepayment_amount | money }}</strong><br>
+      {% endif %}
       Przewidywany okres: {{ contract.date_from | datepl }}{% if contract.date_to %} - {{ contract.date_to | datepl }}{% endif %}<br>
       Termin przekazania: {{ contract.date_from | datepl }}<br>
     </td>
@@ -191,7 +194,7 @@
     <tr>
       <th style="width:18px;text-align:center;"></th>
       <th style="text-align:left;">Przedmiot najmu</th>
-      <th style="width:80px;text-align:center;white-space:normal;">Przewidywana ilość dni najmu</th>
+      <th style="width:80px;text-align:center;white-space:normal;">Przewidywana<br>ilość dni najmu</th>
       <th style="width:90px;text-align:right;">Wartość<br>odtworzeniowa</th>
       <th style="text-align:left;">Rozliczenie</th>
     </tr>
@@ -216,18 +219,10 @@
     <td class="inne-left">
       {% if fees %}
       <div class="inne-label">Inne usługi</div>
-      <div style="margin: 0; font-size: 8.5px; line-height: 1.45; color: #333;">
+      <div style="font-size: 8.5px; line-height: 1.45; color: #333;">
         {% for fd in fees if fd.fee.is_active %}
-        <div style="white-space: nowrap; margin-bottom: 1.5px;">
-          {% if fd.description %}
-            {% if fd.description[:1] == '-' or fd.description[:1] == '•' %}
-              {{ fd.description }}
-            {% else %}
-              - {{ fd.description }}
-            {% endif %}
-          {% else %}
-            - {{ fd.fee.name }}: {% if fd.fee.amount_from %}{{ fd.fee.amount_from | money_plain }}{% endif %}{% if fd.fee.amount_to %} - {{ fd.fee.amount_to | money_plain }}{% endif %}{% if fd.fee.unit %} {{ fd.fee.unit }}{% endif %}
-          {% endif %}
+        <div class="inne-item">
+          {{ fd.display }}
         </div>
         {% endfor %}
       </div>
@@ -243,10 +238,7 @@
         {% if contract.notes %}
         <div style="white-space: pre-wrap; margin-top:8px; border-top:1px solid #ddd; padding-top:4px;">{{ contract.notes }}</div>
         {% endif %}
-        {# RAO-P1-014: przedpłata przeniesiona na dół sekcji Uwagi #}
-        {% if contract.prepayment_amount and contract.prepayment_amount > 0 %}
-        <div style="margin-top:8px; border-top:1px solid #ddd; padding-top:4px; font-weight:bold;">Przedpłata: {{ contract.prepayment_amount | money }}</div>
-        {% endif %}
+        {# RAO-P1-014: przedpłata przeniesiona do górnej tabeli informacyjnej #}
         {# RAO-P1-021/P2-033: Wartość umowy usunięte (martwe pole) #}
       </div>
     </td>

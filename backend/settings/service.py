@@ -127,10 +127,7 @@ class SettingsService:
         if art is None:
             raise not_found("Artykuł")
         # Snapshot artykułowej nazwy do `name` (zachowuje display name nawet po ON DELETE SET NULL)
-        if not payload.get("name"):
-            payload["name"] = art.name
-        else:
-            payload["name"] = art.name
+        payload["name"] = art.name
 
     async def update_fee_template(self, db: AsyncSession, template_id: int, data: ServiceFeeTemplateCreate) -> ServiceFeeTemplate:
         result = await db.execute(select(ServiceFeeTemplate).where(ServiceFeeTemplate.id == template_id))
@@ -218,7 +215,6 @@ class SettingsService:
             contract_type=grp.contract_type,
             sort_order=next_order,
             article_id=data.article_id,
-            default_price=data.default_price,
             name=name,
             amount_from=data.amount_from,
             amount_to=data.amount_to,
@@ -245,7 +241,6 @@ class SettingsService:
                 raise not_found("Artykuł")
             new_name = art.name
         t.article_id = data.article_id
-        t.default_price = data.default_price
         t.name = new_name
         for field in ("amount_from", "amount_to", "unit", "description", "is_active"):
             setattr(t, field, getattr(data, field))

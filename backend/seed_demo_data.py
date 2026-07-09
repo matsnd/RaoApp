@@ -14,12 +14,11 @@ Zasila:
 - Konfiguracja firmy (NIP, adres, konto bankowe, header_text do PDF)
 - Zestawy usług dodatkowych (6 presetów: najem, usługa z operatorem,
   kontrakt długoterminowy, weekend, kontrakt zagraniczny, operator premium)
-  + ServiceFeeTemplateItem (relacja N:M preset → artykuł z domyślną ceną)
 - Umowy (56 szt: 24 historia 2025 + 24 bieżące 2026 + 8 FA-pending)
   z predefiniowanymi cennikami kaskadowymi per maszyna (1-3 dni, 4-16 dni,
   powyżej 16 dni) — jak w starej aplikacji WinForms
 - Pozycje umów (z warunkami rozliczeniowymi kaskadowymi)
-- Usługi dodatkowe (z article_id)
+- Usługi dodatkowe
 - Rozliczenia (80% source=fakturownia, 20% source=manual/estimate)
 - Mapowanie Article.fakturownia_product_id ↔ produkty FA
 
@@ -145,46 +144,53 @@ MASZYNY = [
 
 USLUGI = [
     {
-        "name": "Transport maszyny", "is_service": True, "internal_number": "USL-001",
-        "replacement_value": Decimal("350.00"),
+        "name": "Transport", "is_service": True, "internal_number": "USL-001",
+        "replacement_value": Decimal("1200.00"),
         "category_main": "Usługi dodatkowe", "category_sub1": "Transport",
         "article_type": "usluga_dodatkowa",
         "fakturownia_product_id": 8845156432587,  # TRA001
     },
     {
-        "name": "Czyszczenie maszyny — drobne", "is_service": True, "internal_number": "USL-002",
-        "replacement_value": Decimal("80.00"),
+        "name": "Czyszczenie", "is_service": True, "internal_number": "USL-002",
+        "replacement_value": Decimal("0.00"),
         "category_main": "Usługi dodatkowe", "category_sub1": "Czyszczenie",
         "article_type": "usluga_dodatkowa",
         "fakturownia_product_id": 8845156432589,  # CZY001
     },
     {
-        "name": "Czyszczenie maszyny — trudne zabrudzenia", "is_service": True, "internal_number": "USL-003",
+        "name": "Tankowanie", "is_service": True, "internal_number": "USL-003",
         "replacement_value": Decimal("200.00"),
-        "category_main": "Usługi dodatkowe", "category_sub1": "Czyszczenie",
-        "article_type": "usluga_dodatkowa",
-        "fakturownia_product_id": 8845156436448,  # CZY002
-    },
-    {
-        "name": "Tankowanie paliwa", "is_service": True, "internal_number": "USL-004",
-        "replacement_value": Decimal("250.00"),
         "category_main": "Usługi dodatkowe", "category_sub1": "Tankowanie",
         "article_type": "usluga_dodatkowa",
         "fakturownia_product_id": 8845156432620,  # TAN001
     },
     {
-        "name": "Przestój maszyny", "is_service": True, "internal_number": "USL-005",
-        "replacement_value": Decimal("100.00"),
+        "name": "Przestój", "is_service": True, "internal_number": "USL-004",
+        "replacement_value": Decimal("250.00"),
         "category_main": "Usługi dodatkowe", "category_sub1": "Przestój",
         "article_type": "usluga_dodatkowa",
         "fakturownia_product_id": 8845156436449,  # PZT001
     },
     {
-        "name": "Serwis maszyny", "is_service": True, "internal_number": "USL-006",
-        "replacement_value": Decimal("300.00"),
+        "name": "Serwis", "is_service": True, "internal_number": "USL-005",
+        "replacement_value": Decimal("280.00"),
         "category_main": "Usługi dodatkowe", "category_sub1": "Serwis",
         "article_type": "usluga_dodatkowa",
         "fakturownia_product_id": 8845156436450,  # SER001
+    },
+    {
+        "name": "Przegląd Diesel", "is_service": True, "internal_number": "USL-006",
+        "replacement_value": Decimal("150.00"),
+        "category_main": "Usługi dodatkowe", "category_sub1": "Serwis",
+        "article_type": "usluga_dodatkowa",
+        "fakturownia_product_id": 8845156436451,  # DIE001
+    },
+    {
+        "name": "Przegląd Elektryk", "is_service": True, "internal_number": "USL-007",
+        "replacement_value": Decimal("90.00"),
+        "category_main": "Usługi dodatkowe", "category_sub1": "Serwis",
+        "article_type": "usluga_dodatkowa",
+        "fakturownia_product_id": 8845156436452,  # ELE001
     },
 ]
 
@@ -473,12 +479,12 @@ def _build_positions_and_fees(i, days, maszyny, uslugi, rt_dniowy):
         cennik = CENNIKI_KASKADOWE.get(maszyna.name)
         if cennik:
             conditions = [
-                {**w, "rate_type_id": rt_dniowy.id if rt_dniowy else None}
+                {**w}
                 for w in cennik["warunki"]
             ]
         else:
             conditions = [
-                {"rate1": stawka_efektywna, "rate2": None, "period_count": days, "minimum": 1, "billing_label": "doba", "description": f"Wynajem {maszyna.name}", "rate_type_id": rt_dniowy.id if rt_dniowy else None},
+                {"rate1": stawka_efektywna, "rate2": None, "period_count": days, "minimum": 1, "billing_label": "doba"},
             ]
         positions.append({
             "article_id": maszyna.id,
@@ -492,19 +498,28 @@ def _build_positions_and_fees(i, days, maszyny, uslugi, rt_dniowy):
             "conditions": conditions,
         })
 
+    # RAO-P1-100: KISS demo fee descriptions (printed text) per service article
+    DEMO_FEE_DESCRIPTION = {
+        "Transport": "1 200,00 zł dostawa / 1 200,00 zł odbiór",
+        "Czyszczenie": "wycena indywidualna",
+        "Tankowanie": "200,00 zł (plus koszt paliwa)",
+        "Przestój": "200,00 zł / h - 300,00 zł / h",
+        "Serwis": "280,00 zł (plus transport)",
+        "Przegląd Diesel": "150,00 zł",
+        "Przegląd Elektryk": "90,00 zł",
+    }
     fees = []
     num_fees = 2 + (i % 3)  # 2, 3, 4
     for j in range(num_fees):
         usluga = uslugi[(i + j) % len(uslugi)]
-        cena_usl = usluga.replacement_value or Decimal("100")
+        cena_usl = usluga.replacement_value if usluga.replacement_value is not None else Decimal("100")
+        fee_desc = DEMO_FEE_DESCRIPTION.get(usluga.name)
         fees.append({
             "name": usluga.name,
-            "article_id": usluga.id,
-            "default_price": cena_usl,
             "amount_from": cena_usl,
             "amount_to": None,
-            "unit": "szt" if "Transport" in usluga.name else "kpl",
-            "description": None,  # RAO-P3-014: frontend sam dopisze cenę; unikamy dublowania nazwy
+            "unit": "szt" if usluga.name == "Transport" else "kpl",
+            "description": fee_desc,
             "is_active": True,
         })
     return positions, fees
@@ -628,75 +643,57 @@ def generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_n
 
 ZESTAWY_USLUG = [
     {
-        "group_name": "Cennik usług — najem 2026",
+        "group_name": "Najem — Wspólny",
         "contract_type": "S",
         "is_default": True,
-        "description": "Standardowy cennik usług dodatkowych do umów najmu (aktualizacja 2026)",
+        "description": "Wspólny zestaw usług dla umów najmu",
         "templates": [
-            {"article": "Transport maszyny", "name": "Transport", "amount_from": Decimal("500.00"), "amount_to": Decimal("500.00"), "unit": "dostawa", "description": "500.00 zł dostawa / 500.00 zł odbiór", "default_price": Decimal("500.00")},
-            {"article": "Czyszczenie maszyny — drobne", "name": "Czyszczenie maszyny po wynajmie (zabrudzenia drobne)", "amount_from": Decimal("150.00"), "amount_to": Decimal("400.00"), "unit": "sztuka", "description": "150.00 zł - 400.00 zł", "default_price": Decimal("150.00")},
-            {"article": "Czyszczenie maszyny — trudne zabrudzenia", "name": "Czyszczenie maszyny po wynajmie (zabrudzenia trudnościeralne)", "amount_from": Decimal("400.00"), "amount_to": Decimal("1500.00"), "unit": "sztuka", "description": "400.00 zł - 1500.00 zł", "default_price": Decimal("400.00")},
-            {"article": "Tankowanie paliwa", "name": "Usługa tankowania", "amount_from": Decimal("200.00"), "amount_to": None, "unit": "tankowanie", "description": "200.00 zł (plus koszt paliwa)", "default_price": Decimal("200.00")},
-            {"article": "Przestój maszyny", "name": "Ponadnormatywny przestój transportu", "amount_from": Decimal("200.00"), "amount_to": Decimal("300.00"), "unit": "godzina", "description": "200.00 zł / h - 300.00 zł / h", "default_price": Decimal("200.00")},
-            {"article": "Serwis maszyny", "name": "Nieuzasadnione wezwanie serwisowe", "amount_from": Decimal("280.00"), "amount_to": None, "unit": "wizyta", "description": "280.00 zł (plus transport)", "default_price": Decimal("280.00")},
+            {"article": "Transport", "name": "Transport", "amount_from": Decimal("1200.00"), "amount_to": Decimal("1200.00"), "unit": "dostawa", "description": "1 200,00 zł dostawa / 1 200,00 zł odbiór"},
+            {"article": "Czyszczenie", "name": "Czyszczenie maszyny (zabrudzenia ponadnormatywne)", "amount_from": None, "amount_to": None, "unit": None, "description": "wycena indywidualna"},
+            {"article": "Tankowanie", "name": "Usługa tankowania", "amount_from": Decimal("200.00"), "amount_to": None, "unit": "tankowanie", "description": "200,00 zł (plus koszt paliwa)"},
+            {"article": "Przestój", "name": "Ponadnormatywny przestój transportu", "amount_from": Decimal("200.00"), "amount_to": Decimal("300.00"), "unit": "h", "description": "200,00 zł / h - 300,00 zł / h"},
+            {"article": "Serwis", "name": "Nieuzasadnione wezwanie serwisowe", "amount_from": Decimal("280.00"), "amount_to": None, "unit": "wizyta", "description": "280,00 zł (plus transport)"},
         ],
     },
     {
-        "group_name": "Cennik usług — usługa z operatorem 2026",
+        "group_name": "Najem — Diesel",
+        "contract_type": "S",
+        "is_default": False,
+        "description": "Wspólny + przegląd maszyny diesla 150,00 zł",
+        "templates": [
+            {"article": "Transport", "name": "Transport", "amount_from": Decimal("1200.00"), "amount_to": Decimal("1200.00"), "unit": "dostawa", "description": "1 200,00 zł dostawa / 1 200,00 zł odbiór"},
+            {"article": "Przegląd Diesel", "name": "Przegląd techniczny i czyszczenie maszyny", "amount_from": Decimal("150.00"), "amount_to": None, "unit": "sztuka", "description": "150,00 zł"},
+            {"article": "Czyszczenie", "name": "Czyszczenie maszyny (zabrudzenia ponadnormatywne)", "amount_from": None, "amount_to": None, "unit": None, "description": "wycena indywidualna"},
+            {"article": "Tankowanie", "name": "Usługa tankowania", "amount_from": Decimal("200.00"), "amount_to": None, "unit": "tankowanie", "description": "200,00 zł (plus koszt paliwa)"},
+            {"article": "Przestój", "name": "Ponadnormatywny przestój transportu", "amount_from": Decimal("200.00"), "amount_to": Decimal("300.00"), "unit": "h", "description": "200,00 zł / h - 300,00 zł / h"},
+            {"article": "Serwis", "name": "Nieuzasadnione wezwanie serwisowe", "amount_from": Decimal("280.00"), "amount_to": None, "unit": "wizyta", "description": "280,00 zł (plus transport)"},
+        ],
+    },
+    {
+        "group_name": "Najem — Elektryk",
+        "contract_type": "S",
+        "is_default": False,
+        "description": "Wspólny + przegląd maszyny elektrycznej 90,00 zł",
+        "templates": [
+            {"article": "Transport", "name": "Transport", "amount_from": Decimal("1200.00"), "amount_to": Decimal("1200.00"), "unit": "dostawa", "description": "1 200,00 zł dostawa / 1 200,00 zł odbiór"},
+            {"article": "Przegląd Elektryk", "name": "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny", "amount_from": Decimal("90.00"), "amount_to": None, "unit": "sztuka", "description": "90,00 zł"},
+            {"article": "Czyszczenie", "name": "Czyszczenie maszyny (zabrudzenia ponadnormatywne)", "amount_from": None, "amount_to": None, "unit": None, "description": "wycena indywidualna"},
+            {"article": "Tankowanie", "name": "Usługa tankowania", "amount_from": Decimal("200.00"), "amount_to": None, "unit": "tankowanie", "description": "200,00 zł (plus koszt paliwa)"},
+            {"article": "Przestój", "name": "Ponadnormatywny przestój transportu", "amount_from": Decimal("200.00"), "amount_to": Decimal("300.00"), "unit": "h", "description": "200,00 zł / h - 300,00 zł / h"},
+            {"article": "Serwis", "name": "Nieuzasadnione wezwanie serwisowe", "amount_from": Decimal("280.00"), "amount_to": None, "unit": "wizyta", "description": "280,00 zł (plus transport)"},
+        ],
+    },
+    {
+        "group_name": "Usługa — Wspólny",
         "contract_type": "U",
         "is_default": True,
-        "description": "Cennik usług dodatkowych do umów usługowych (praca z operatorem)",
+        "description": "Wspólny zestaw usług dla umów usługowych",
         "templates": [
-            {"article": "Transport maszyny", "name": "Transport", "amount_from": Decimal("350.00"), "amount_to": None, "unit": "dostawa", "description": "350.00 zł", "default_price": Decimal("350.00")},
-            {"article": None, "name": "Praca operatora", "amount_from": None, "amount_to": None, "unit": "dzień", "description": "Minimum 8 h / w ciągu dnia", "default_price": None},
-            {"article": "Tankowanie paliwa", "name": "Usługa tankowania", "amount_from": Decimal("200.00"), "amount_to": None, "unit": "tankowanie", "description": "200.00 zł (plus koszt paliwa)", "default_price": Decimal("200.00")},
-        ],
-    },
-    {
-        "group_name": "Kontrakt długoterminowy (rabat)",
-        "contract_type": "S",
-        "is_default": False,
-        "description": "Zestaw dla umów 30+ dni — obniżone stawki usług (do wyboru przy wydruku)",
-        "templates": [
-            {"article": "Transport maszyny", "name": "Transport", "amount_from": Decimal("350.00"), "amount_to": Decimal("350.00"), "unit": "dostawa", "description": "350.00 zł dostawa / 350.00 zł odbiór (rabat kontraktowy)", "default_price": Decimal("350.00")},
-            {"article": "Czyszczenie maszyny — drobne", "name": "Czyszczenie maszyny po wynajmie (zabrudzenia drobne)", "amount_from": Decimal("100.00"), "amount_to": Decimal("300.00"), "unit": "sztuka", "description": "100.00 zł - 300.00 zł", "default_price": Decimal("100.00")},
-            {"article": "Tankowanie paliwa", "name": "Usługa tankowania", "amount_from": Decimal("150.00"), "amount_to": None, "unit": "tankowanie", "description": "150.00 zł (plus koszt paliwa)", "default_price": Decimal("150.00")},
-            {"article": "Serwis maszyny", "name": "Przegląd okresowy w cenie", "amount_from": Decimal("0.00"), "amount_to": None, "unit": "wizyta", "description": "W ramach kontraktu długoterminowego", "default_price": Decimal("0.00")},
-        ],
-    },
-    {
-        "group_name": "Weekend / krótkoterminowy (1-3 dni)",
-        "contract_type": "S",
-        "is_default": False,
-        "description": "Zestaw dla wynajmu weekendowego — wyższe stawki transportu, brak rabatów",
-        "templates": [
-            {"article": "Transport maszyny", "name": "Transport ekspresowy", "amount_from": Decimal("650.00"), "amount_to": Decimal("650.00"), "unit": "dostawa", "description": "650.00 zł dostawa + 650.00 zł odbiór (weekend)", "default_price": Decimal("650.00")},
-            {"article": "Czyszczenie maszyny — drobne", "name": "Czyszczenie maszyny po wynajmie", "amount_from": Decimal("200.00"), "amount_to": Decimal("400.00"), "unit": "sztuka", "description": "200.00 zł - 400.00 zł", "default_price": Decimal("200.00")},
-            {"article": "Tankowanie paliwa", "name": "Usługa tankowania", "amount_from": Decimal("250.00"), "amount_to": None, "unit": "tankowanie", "description": "250.00 zł (plus koszt paliwa)", "default_price": Decimal("250.00")},
-        ],
-    },
-    {
-        "group_name": "Kontrakt zagraniczny (export)",
-        "contract_type": "S",
-        "is_default": False,
-        "description": "Zestaw dla umów zagranicznych — transport międzynarodowy, ubezpieczenie transportu",
-        "templates": [
-            {"article": "Transport maszyny", "name": "Transport międzynarodowy", "amount_from": Decimal("1500.00"), "amount_to": Decimal("3500.00"), "unit": "dostawa", "description": "1500.00 zł - 3500.00 zł (zależnie od kraju)", "default_price": Decimal("2000.00")},
-            {"article": "Czyszczenie maszyny — drobne", "name": "Czyszczenie maszyny po wynajmie", "amount_from": Decimal("200.00"), "amount_to": Decimal("500.00"), "unit": "sztuka", "description": "200.00 zł - 500.00 zł", "default_price": Decimal("300.00")},
-            {"article": "Tankowanie paliwa", "name": "Usługa tankowania", "amount_from": Decimal("300.00"), "amount_to": None, "unit": "tankowanie", "description": "300.00 zł (plus koszt paliwa)", "default_price": Decimal("300.00")},
-            {"article": "Serwis maszyny", "name": "Assistance zagraniczny", "amount_from": Decimal("500.00"), "amount_to": None, "unit": "wizyta", "description": "500.00 zł (plus transport międzynarodowy)", "default_price": Decimal("500.00")},
-        ],
-    },
-    {
-        "group_name": "Usługa z operatorem — premium",
-        "contract_type": "U",
-        "is_default": False,
-        "description": "Premium: doświadczony operator + serwis 24/7 + paliwo w cenie",
-        "templates": [
-            {"article": "Transport maszyny", "name": "Transport premium", "amount_from": Decimal("500.00"), "amount_to": None, "unit": "dostawa", "description": "500.00 zł (transport niskopodwoziowy)", "default_price": Decimal("500.00")},
-            {"article": None, "name": "Praca operatora (premium)", "amount_from": Decimal("450.00"), "amount_to": None, "unit": "dzień", "description": "450.00 zł/dzień — operator z uprawnieniami (minimum 8h)", "default_price": Decimal("450.00")},
-            {"article": "Tankowanie paliwa", "name": "Paliwo w cenie", "amount_from": Decimal("0.00"), "amount_to": None, "unit": "tankowanie", "description": "W ramach stawki premium", "default_price": Decimal("0.00")},
-            {"article": "Serwis maszyny", "name": "Serwis 24/7", "amount_from": Decimal("0.00"), "amount_to": None, "unit": "wizyta", "description": "Assistance 24/7 w ramach kontraktu premium", "default_price": Decimal("0.00")},
+            {"article": "Transport", "name": "Transport", "amount_from": Decimal("1200.00"), "amount_to": Decimal("1200.00"), "unit": "dostawa", "description": "1 200,00 zł dostawa / 1 200,00 zł odbiór"},
+            {"article": "Czyszczenie", "name": "Czyszczenie maszyny (zabrudzenia ponadnormatywne)", "amount_from": None, "amount_to": None, "unit": None, "description": "wycena indywidualna"},
+            {"article": "Tankowanie", "name": "Usługa tankowania", "amount_from": Decimal("200.00"), "amount_to": None, "unit": "tankowanie", "description": "200,00 zł (plus koszt paliwa)"},
+            {"article": "Przestój", "name": "Ponadnormatywny przestój transportu", "amount_from": Decimal("200.00"), "amount_to": Decimal("300.00"), "unit": "h", "description": "200,00 zł / h - 300,00 zł / h"},
+            {"article": "Serwis", "name": "Nieuzasadnione wezwanie serwisowe", "amount_from": Decimal("280.00"), "amount_to": None, "unit": "wizyta", "description": "280,00 zł (plus transport)"},
         ],
     },
 ]
@@ -707,15 +704,12 @@ async def seed_konfiguracja(db: AsyncSession, art_by_name):
 
     - Upsert grup presetów po nazwie (nie duplikuje istniejących default z main.py —
       przejmuje flagę is_default: stare defaulty tracą flagę na rzecz nowych).
-    - Szablony idempotentne po (preset_id, name), z article_id + default_price.
-    - RAO-P2-068: wypełnia ServiceFeeTemplateItem (relacja N:M preset → artykuł
-      z domyślną ceną) — frontend pokazuje konkretne artykuły w pickerze presetów.
+    - Szablony idempotentne po (preset_id, name), z article_id (bez default_price).
     """
-    from settings.models import FeePresetGroup, ServiceFeeTemplate, ServiceFeeTemplateItem
+    from settings.models import FeePresetGroup, ServiceFeeTemplate
 
     created_groups = 0
     created_templates = 0
-    created_items = 0
 
     for zestaw in ZESTAWY_USLUG:
         result = await db.execute(
@@ -758,11 +752,16 @@ async def seed_konfiguracja(db: AsyncSession, art_by_name):
             existing_obj = existing_tpl.scalar_one_or_none()
             article = art_by_name.get(tpl["article"]) if tpl["article"] else None
             if existing_obj:
-                # Enrich: uzupełnij article_id/default_price jeśli brak (stare rekordy)
-                if not existing_obj.article_id and article:
-                    existing_obj.article_id = article.id
-                if not existing_obj.default_price and tpl["default_price"]:
-                    existing_obj.default_price = tpl["default_price"]
+                # Idempotent update: nadpisz wszystkie pola (KISS redesign)
+                existing_obj.sort_order = idx
+                existing_obj.article_id = article.id if article else existing_obj.article_id
+                existing_obj.name = tpl["name"]
+                existing_obj.amount_from = tpl["amount_from"]
+                existing_obj.amount_to = tpl["amount_to"]
+                existing_obj.unit = tpl["unit"]
+                existing_obj.description = tpl["description"]
+                existing_obj.is_active = True
+                existing_obj.contract_type = zestaw["contract_type"]
                 tpl_obj = existing_obj
             else:
                 tpl_obj = ServiceFeeTemplate(
@@ -771,7 +770,6 @@ async def seed_konfiguracja(db: AsyncSession, art_by_name):
                     contract_type=zestaw["contract_type"],
                     sort_order=idx,
                     article_id=article.id if article else None,
-                    default_price=tpl["default_price"],
                     name=tpl["name"],
                     amount_from=tpl["amount_from"],
                     amount_to=tpl["amount_to"],
@@ -783,26 +781,8 @@ async def seed_konfiguracja(db: AsyncSession, art_by_name):
                 await db.flush()
                 created_templates += 1
 
-            # RAO-P2-068: ServiceFeeTemplateItem — relacja N:M preset → artykuł
-            # z domyślną ceną. Frontend pokazuje konkretne artykuły w pickerze.
-            if article:
-                existing_item = await db.execute(
-                    select(ServiceFeeTemplateItem).where(
-                        ServiceFeeTemplateItem.template_id == group.id,
-                        ServiceFeeTemplateItem.article_id == article.id,
-                    )
-                )
-                if not existing_item.scalar_one_or_none():
-                    db.add(ServiceFeeTemplateItem(
-                        template_id=group.id,
-                        article_id=article.id,
-                        default_price=tpl["default_price"],
-                        sort_order=idx,
-                    ))
-                    created_items += 1
-
     await db.commit()
-    print(f"  Zestawy usług: {created_groups} nowych grup, {created_templates} szablonów, {created_items} item-relacji")
+    print(f"  Zestawy usług: {created_groups} nowych grup, {created_templates} szablonów")
 
 
 async def seed_company(db: AsyncSession):
@@ -996,8 +976,6 @@ async def seed_umowy(db: AsyncSession, contracts_data, art_by_name):
                     current_end = pc
                     cond = PositionCondition(
                         position_id=pos.id,
-                        rate_type_id=cond_data["rate_type_id"],
-                        description=cond_data["description"],
                         rate1=cond_data["rate1"],
                         rate2=None,
                         period_count=pc,
@@ -1015,8 +993,6 @@ async def seed_umowy(db: AsyncSession, contracts_data, art_by_name):
                     if r2_to is None or r2_from <= r2_to:
                         cond = PositionCondition(
                             position_id=pos.id,
-                            rate_type_id=cond_data["rate_type_id"],
-                            description=cond_data["description"],
                             rate1=None,
                             rate2=cond_data["rate2"],
                             period_count=None,
@@ -1061,8 +1037,6 @@ async def seed_umowy(db: AsyncSession, contracts_data, art_by_name):
                 contract_id=contract.id,
                 sort_order=next_order,
                 name=fee_data["name"],
-                article_id=fee_data["article_id"],
-                default_price=fee_data["default_price"],
                 amount_from=fee_data["amount_from"],
                 amount_to=fee_data["amount_to"],
                 unit=fee_data["unit"],
@@ -1133,7 +1107,7 @@ async def main():
         print("\n[7.5/9] Cenniki kaskadowe per maszyna (RAO-P1-001)...")
         await seed_article_rate_presets(db, art_by_name)
 
-        print("\n[8/9] Konfiguracja zestawów usług (6 presetów + ServiceFeeTemplateItem)...")
+        print("\n[8/9] Konfiguracja zestawów usług (4 presety)...")
         await seed_konfiguracja(db, art_by_name)
 
         print("\n[9/9] Umowy + pozycje + warunki kaskadowe + usługi + rozliczenia...")

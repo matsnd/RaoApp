@@ -1,4 +1,5 @@
 import pathlib
+import re
 from collections import defaultdict
 from datetime import date
 from decimal import Decimal
@@ -10,12 +11,37 @@ from settings.models import Company, Salesperson, RateType
 from articles.models import Article as ArticleModel
 
 
+_FEE_PLACEHOLDER_RE = re.compile(r"\$(1|2)")
+
+
+def _resolve_fee_description(desc: str, amount_from, amount_to) -> str:
+    """Replace $1/$2 placeholders with formatted amounts + zł.
+
+    Missing amount -> '0,00 zł' so the printed line never contains a '$'.
+    """
+    if not desc:
+        return desc
+
+    def _amount_text(value):
+        if value is None:
+            return _fmt_money(0)
+        return _fmt_money(value)
+
+    def _repl(match: re.Match) -> str:
+        return _amount_text(amount_from if match.group(1) == "1" else amount_to)
+
+    return _FEE_PLACEHOLDER_RE.sub(_repl, desc)
+
+
 def generate_fees_text(fees: list) -> str:
     """Build human-readable fees text.
 
     RAO-P0-032: Accepts either raw ContractServiceFee objects (legacy) or
     dicts with {"fee": ContractServiceFee, "description": str} (new format
     that avoids mutating attached session objects).
+
+    RAO-P1-100: KISS redesign — "Tekst na umowie" (description) is used as-is
+    when filled. Fallback to legacy amount/unit formatting only if description is empty.
     """
     lines = []
     # Normalize: extract (fee, description) pairs
@@ -28,18 +54,16 @@ def generate_fees_text(fees: list) -> str:
     for f, desc in sorted(normalized, key=lambda x: x[0].sort_order):
         if not f.is_active:
             continue
-        # RAO-P0-050: Decimal(0) is truthy-by-value but falsy in Python; use is not None
-        if f.amount_from is not None and f.amount_to is not None:
-            kwota = f"{f.amount_from:.2f} zł - {f.amount_to:.2f} zł"
-        elif f.amount_from is not None:
-            kwota = f"{f.amount_from:.2f} zł"
-        elif f.amount_to is not None:
-            kwota = f"{f.amount_to:.2f} zł"
+        desc = (desc or "").strip()
+        if desc:
+            desc = _resolve_fee_description(desc, f.amount_from, f.amount_to)
+            lines.append(f"- {f.name}: {desc}")
         else:
-            kwota = ""
-        unit = f" / {f.unit}" if f.unit else ""
-        desc_txt = f" ({desc})" if desc else ""
-        lines.append(f"- {f.name}: {kwota}{unit}{desc_txt}".strip())
+            amount_line = _build_fee_amount_line(f)
+            if amount_line:
+                lines.append(f"- {f.name}: {amount_line}")
+            else:
+                lines.append(f"- {f.name}")
     return "\n".join(lines)
 
 
@@ -48,7 +72,10 @@ def generate_fees_text(fees: list) -> str:
 
 
 def _build_fee_amount_line(fee: ContractServiceFee) -> str:
-    """Format amount + unit for PDF service-fee display."""
+    """Format amount + unit for PDF service-fee display.
+
+    RAO-P0-050: Decimal(0) is truthy-by-value but falsy in Python; use is not None.
+    """
     if fee.amount_from is None and fee.amount_to is None:
         return ""
     if fee.amount_from is not None and fee.amount_to is not None and fee.amount_to == fee.amount_from:
@@ -67,21 +94,21 @@ def _build_fee_amount_line(fee: ContractServiceFee) -> str:
 def _format_fee_display(fee: ContractServiceFee, description: str | None = None) -> str:
     """Build one-line PDF display for a service fee.
 
-    Legacy descriptions that already start with '-' or '•' are returned as-is.
-    Otherwise returns '- {name}: {description}' or '- {name}: {amount} / {unit}'.
+    RAO-P1-100: KISS redesign — "Tekst na umowie" (description) is the single source
+    of truth for the printed line. Fallback to amount/unit only when description is empty.
+
+    Placeholders $1/$2 are replaced with the formatted amount + zł so the PDF
+    never contains a '$' sign.
     """
     name = (fee.name or "").strip()
     desc = (description or fee.description or "").strip()
-    if desc and desc[0] in {"-", "•"}:
-        return desc
-    parts = [f"- {name}"]
     if desc:
-        parts.append(f": {desc}")
-    else:
-        amount_line = _build_fee_amount_line(fee)
-        if amount_line:
-            parts.append(f": {amount_line}")
-    return "".join(parts)
+        desc = _resolve_fee_description(desc, fee.amount_from, fee.amount_to)
+        return f"- {name}: {desc}"
+    amount_line = _build_fee_amount_line(fee)
+    if amount_line:
+        return f"- {name}: {amount_line}"
+    return f"- {name}"
 
 
 async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
@@ -90,7 +117,6 @@ async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
     result = await db.execute(
         select(Contract)
         .options(selectinload(Contract.positions).selectinload(ContractPosition.article))
-        .options(selectinload(Contract.service_fees).selectinload(ContractServiceFee.article))
         .where(Contract.id == contract_id)
     )
     contract = result.scalar_one_or_none()
@@ -107,16 +133,11 @@ async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
     fees = contract.service_fees
 
     # RAO-P0-032: Nie mutuj obiektów sesji — buduj lokalne kopie description
-    # (wcześniej f.description = ... modyfikowało attached obiekt → trwała zmiana w DB)
+    # RAO-P1-100: KISS redesign — description zawiera gotowy tekst do wydruku;
+    # ewentualne placeholdery $1/$2 są rozwijane w _resolve_fee_description.
     fees_data = []
     for f in fees:
-        desc = f.description or ""
-        if f.amount_from is not None:
-            val_from = f"{f.amount_from:.2f} zł"
-            desc = desc.replace("$1 zł", val_from).replace("$1", val_from)
-        if f.amount_to is not None:
-            val_to = f"{f.amount_to:.2f} zł"
-            desc = desc.replace("$2 zł", val_to).replace("$2", val_to)
+        desc = (f.description or "").strip()
         fees_data.append({
             "fee": f,
             "description": desc,
@@ -357,7 +378,7 @@ def _fmt_money(v) -> str:
     try:
         f = float(v)
         formatted = f"{f:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '\u00a0')
-        return formatted + '\u00a0z\u0142'
+        return formatted + ' z\u0142'
     except (TypeError, ValueError):
         return str(v)
 

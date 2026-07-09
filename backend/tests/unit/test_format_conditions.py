@@ -1,7 +1,9 @@
 """Unit tests for format_position_conditions_cascading function."""
 
+from types import SimpleNamespace
 from contracts.service import format_position_conditions_cascading
 from contracts.models import PositionCondition
+from reports.service import generate_fees_text, _format_fee_display
 
 
 class MockCondition:
@@ -58,3 +60,60 @@ def test_cascading_custom_billing_label():
         "powyżej 3 dni - 80,00 / godzina"
     )
     assert result == expected
+
+
+# ── RAO-P1-100: KISS service-fee display ─────────────────────────────────────
+
+class MockFee:
+    def __init__(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+
+def test_generate_fees_text_uses_description_directly():
+    """If description is filled, use it as the printed line (with polish separators)."""
+    fee = MockFee(
+        name="Transport", description="1 200,00 zł dostawa / 1 200,00 zł odbiór",
+        is_active=True, sort_order=1, amount_from=None, amount_to=None, unit=None,
+    )
+    text = generate_fees_text([fee])
+    assert text == "- Transport: 1 200,00 zł dostawa / 1 200,00 zł odbiór"
+
+
+def test_generate_fees_text_fallback_to_amount():
+    """If description empty, fallback to name + formatted amount."""
+    fee = MockFee(
+        name="Serwis", description="", is_active=True, sort_order=1,
+        amount_from=280.00, amount_to=None, unit="wizyta",
+    )
+    text = generate_fees_text([fee])
+    assert "- Serwis: 280,00 zł / wizyta" == text
+
+
+def test_generate_fees_text_decimal_zero_not_falsy():
+    """Decimal(0) must not hide the amount line."""
+    from decimal import Decimal
+    fee = MockFee(
+        name="Czyszczenie", description="", is_active=True, sort_order=1,
+        amount_from=Decimal("0.00"), amount_to=None, unit="sztuka",
+    )
+    text = generate_fees_text([fee])
+    assert text == "- Czyszczenie: 0,00 zł / sztuka"
+
+
+def test_format_fee_display_uses_description():
+    fee = MockFee(
+        name="Transport", description="1 200,00 zł dostawa / 1 200,00 zł odbiór",
+        amount_from=None, amount_to=None, unit=None,
+    )
+    assert _format_fee_display(fee) == "- Transport: 1 200,00 zł dostawa / 1 200,00 zł odbiór"
+
+
+def test_format_fee_display_replaces_placeholders():
+    """Description placeholders $1/$2 are replaced with formatted amount + zł."""
+    fee = MockFee(
+        name="Transport", description="$1 dostawa / $2 odbiór",
+        amount_from=1200.00, amount_to=1200.00, unit="dostawa",
+    )
+    display = _format_fee_display(fee)
+    assert display == "- Transport: 1\u00a0200,00 zł dostawa / 1\u00a0200,00 zł odbiór"

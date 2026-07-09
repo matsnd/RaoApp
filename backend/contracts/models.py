@@ -67,7 +67,6 @@ class ContractPosition(Base):
     rental_days = Column(Integer, nullable=True)
     quantity = Column(Integer, nullable=True, default=1)
     unit_price = Column(Numeric(18, 2), nullable=True)
-    costs = Column(Numeric(18, 2), nullable=True, default=0)
     rate_type_id = Column(Integer, ForeignKey("rate_types.id", ondelete="SET NULL"), nullable=True)
     billing_frequency = Column(String(20), nullable=True)
     billing_unit = Column(String(20), nullable=True)
@@ -85,8 +84,6 @@ class PositionCondition(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     position_id = Column(Integer, ForeignKey("contract_positions.id", ondelete="CASCADE"), nullable=False)
-    rate_type_id = Column(Integer, ForeignKey("rate_types.id", ondelete="SET NULL"), nullable=True)
-    description = Column(String(400), nullable=True)
     rate1 = Column(Numeric(18, 2), nullable=True)
     rate2 = Column(Numeric(18, 2), nullable=True)
     billing_label = Column(String(20), nullable=True)
@@ -110,8 +107,5 @@ class ContractServiceFee(Base):
     unit = Column(String(50), nullable=True)
     description = Column(String(400), nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
-    article_id = Column(Integer, ForeignKey("articles.id", ondelete="SET NULL"), nullable=True)
-    default_price = Column(Numeric(18, 2), nullable=True)
 
     contract = relationship("Contract", back_populates="service_fees")
-    article = relationship("Article", lazy="selectin")

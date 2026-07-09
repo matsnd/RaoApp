@@ -16,6 +16,8 @@ from contracts.schemas import (
     PositionUpdate,
     ConditionCreate,
     ConditionUpdate,
+    ContractServiceFeeCreate,
+    ContractServiceFeeUpdate,
 )
 from contracts.service import generate_contract_number
 
@@ -86,9 +88,9 @@ def test_condition_create_all_optional():
     assert cond.minimum is None
 
 
-def test_condition_description_max_length():
+def test_service_fee_description_max_length():
     with pytest.raises(ValidationError):
-        ConditionCreate(description="x" * 401)
+        ContractServiceFeeCreate(name="Transport", description="x" * 401)
 
 
 # ── generate_contract_number (RAO-P1-022) ───────────────────────────────────
@@ -308,3 +310,35 @@ async def test_get_last_conditions_for_article_no_history_returns_none():
 
     out = await contract_service.get_last_conditions_for_article(db, 999, user)
     assert out is None
+
+
+# ── RAO-P1-100: KISS service fees (ContractServiceFeeCreate/Update) ───────────
+
+def test_service_fee_create_description_falls_back_to_name():
+    """"""
+    fee = ContractServiceFeeCreate(name="Transport")
+    assert fee.description == "Transport"
+
+
+def test_service_fee_create_description_keeps_user_value():
+    fee = ContractServiceFeeCreate(name="Transport", description="odbiór własny")
+    assert fee.description == "odbiór własny"
+
+
+def test_service_fee_create_invalid_description_chars_rejected():
+    with pytest.raises(ValidationError):
+        ContractServiceFeeCreate(name="Transport", description="<script>")
+
+
+def test_service_fee_update_partial_only_sent_fields():
+    """PUT with only is_active must NOT include name in dump."""
+    u = ContractServiceFeeUpdate(is_active=False)
+    dumped = u.model_dump(exclude_unset=True)
+    assert dumped == {"is_active": False}
+    assert "name" not in dumped
+    assert "description" not in dumped
+
+
+def test_service_fee_update_amount_to_less_than_from_rejected():
+    with pytest.raises(ValidationError):
+        ContractServiceFeeUpdate(amount_from=Decimal("300.00"), amount_to=Decimal("200.00"))

@@ -83,6 +83,71 @@ class SettlementService:
         await db.commit()
         return result.rowcount or 0
 
+    async def init_settlements_from_contract(self, db: AsyncSession, contract_id: int):
+        """RAO-P1-012: Idempotentnie inicjuje rozliczenia dla umowy.
+
+        Najpierw usuwa poprzednie pozycje rozliczenia, potem buduje je na nowo
+        z aktualnych pozycji umowy oraz aktywnych usług dodatkowych.
+        """
+        from contracts.models import ContractPosition, ContractServiceFee
+        from sqlalchemy import select
+
+        # 1. Wyczyść poprzednie rozliczenia dla umowy
+        await db.execute(
+            delete(ContractSettlement).where(
+                ContractSettlement.contract_id == contract_id
+            )
+        )
+        await db.flush()
+
+        created: list[ContractSettlement] = []
+
+        # 2. Pozycje umowy
+        positions_result = await db.execute(
+            select(ContractPosition).where(ContractPosition.contract_id == contract_id)
+        )
+        for pos in positions_result.scalars().all():
+            cost_client = None
+            if pos.unit_price is not None and pos.rental_days is not None and pos.quantity is not None:
+                cost_client = pos.unit_price * pos.rental_days * pos.quantity
+            settlement = ContractSettlement(
+                contract_id=contract_id,
+                position_id=pos.id,
+                cost_client=cost_client,
+                cost_company=None,
+                notes=None,
+                source="manual",
+            )
+            db.add(settlement)
+            created.append(settlement)
+
+        # 3. Aktywne usługi dodatkowe
+        fees_result = await db.execute(
+            select(ContractServiceFee).where(
+                ContractServiceFee.contract_id == contract_id,
+                ContractServiceFee.is_active == True,
+            )
+        )
+        for fee in fees_result.scalars().all():
+            cost_client = None
+            if fee.amount_from is not None:
+                cost_client = fee.amount_from
+            elif fee.amount_to is not None:
+                cost_client = fee.amount_to
+            settlement = ContractSettlement(
+                contract_id=contract_id,
+                service_fee_id=fee.id,
+                cost_client=cost_client,
+                cost_company=None,
+                notes=None,
+                source="manual",
+            )
+            db.add(settlement)
+            created.append(settlement)
+
+        await db.commit()
+        return created
+
     async def auto_create_settlements_for_contract(
         self, db: AsyncSession, contract_id: int, position_ids: list[int]
     ):

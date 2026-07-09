@@ -7,9 +7,9 @@ from auth.dependencies import get_current_user
 from auth.models import User
 from contracts.schemas import (
     ConditionCreate, ConditionResponse, ConditionUpdate, ContractCreate, ContractDetail,
-    ContractListItem, ContractServiceFeeCreate, ContractServiceFeeReorder,
-    ContractServiceFeeResponse, ContractUpdate, PositionCreate, PositionResponse,
-    PositionUpdate,
+    ContractListItem, ContractServiceFeeCreate, ContractServiceFeeUpdate,
+    ContractServiceFeeReorder, ContractServiceFeeResponse, ContractUpdate, PositionCreate,
+    PositionResponse, PositionUpdate,
     SettleContractRequest,
 )
 from contracts.service import contract_service
@@ -18,15 +18,9 @@ from shared.pagination import PaginatedResponse
 
 
 async def _cond_response(db, cond):
-    from settings.models import RateType
-    rt_name = None
-    if cond.rate_type_id:
-        rt = await db.get(RateType, cond.rate_type_id)
-        rt_name = rt.name if rt else None
     return ConditionResponse(
         id=cond.id, position_id=cond.position_id,
-        rate_type_id=cond.rate_type_id, rate_type_name=rt_name,
-        description=cond.description, rate1=cond.rate1, rate2=cond.rate2,
+        rate1=cond.rate1, rate2=cond.rate2,
         billing_label=cond.billing_label, period_count=cond.period_count,
         period_from=cond.period_from, period_to=cond.period_to,  # RAO-P1-005
         minimum=cond.minimum,
@@ -139,7 +133,7 @@ async def create_position(
         id=pos.id, contract_id=pos.contract_id, article_id=pos.article_id,
         article_name=pos.article_name, rental_type=pos.rental_type,
         description=pos.description, rental_days=pos.rental_days,
-        quantity=pos.quantity, unit_price=pos.unit_price, costs=pos.costs,
+        quantity=pos.quantity, unit_price=pos.unit_price,
         rate_type_id=pos.rate_type_id, rate_type_name=None,
         billing_frequency=pos.billing_frequency, billing_unit=pos.billing_unit,
         supplier_id=pos.supplier_id, supplier_name=None,
@@ -161,7 +155,7 @@ async def update_position(
         id=pos.id, contract_id=pos.contract_id, article_id=pos.article_id,
         article_name=pos.article_name, rental_type=pos.rental_type,
         description=pos.description, rental_days=pos.rental_days,
-        quantity=pos.quantity, unit_price=pos.unit_price, costs=pos.costs,
+        quantity=pos.quantity, unit_price=pos.unit_price,
         rate_type_id=pos.rate_type_id, rate_type_name=None,
         billing_frequency=pos.billing_frequency, billing_unit=pos.billing_unit,
         supplier_id=pos.supplier_id, supplier_name=None,
@@ -186,19 +180,11 @@ async def list_conditions(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    from settings.models import RateType
-    from sqlalchemy import select as sa_select
     conds = await contract_service.list_conditions(db, pos_id, user)
-    rt_ids = {c.rate_type_id for c in conds if c.rate_type_id}
-    rate_types: dict[int, str] = {}
-    if rt_ids:
-        rt_result = await db.execute(sa_select(RateType).where(RateType.id.in_(rt_ids)))
-        rate_types = {rt.id: rt.name for rt in rt_result.scalars()}
     return [
         ConditionResponse(
             id=c.id, position_id=c.position_id,
-            rate_type_id=c.rate_type_id, rate_type_name=rate_types.get(c.rate_type_id),
-            description=c.description, rate1=c.rate1, rate2=c.rate2,
+            rate1=c.rate1, rate2=c.rate2,
             billing_label=c.billing_label, period_count=c.period_count,
             period_from=c.period_from, period_to=c.period_to,  # RAO-P1-005
             minimum=c.minimum,
@@ -224,7 +210,7 @@ async def create_condition(
             await db.rollback()
             raise HTTPException(
                 status_code=422,
-                detail="Nieprawidłowe rate_type_id lub inny błąd FK.",
+                detail="Nieprawidłowy billing_label lub inny błąd FK.",
             )
         raise
 
@@ -278,7 +264,7 @@ async def create_service_fee(
 async def update_service_fee(
     contract_id: int,
     fee_id: int,
-    data: ContractServiceFeeCreate,
+    data: ContractServiceFeeUpdate,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):

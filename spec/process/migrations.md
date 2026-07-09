@@ -1,7 +1,7 @@
 # Migrations — Polityka Deterministyczna
 
 > **Owner:** DB Architect + Tech Lead  
-> **Last updated:** 2026-05-17  
+> **Last updated:** 2026-07-05  
 > **Read this if:** Dotykasz schematu bazy danych lub migracji danych
 
 ---
@@ -228,6 +228,33 @@ kill %1
 | Brak rollback plan | Produkcja broken i nie można wrócić | Zawsze dump przed migracją |
 
 ---
+
+## 🧹 Dead column/table cleanup
+
+Czasem dochodzi do sytuacji, gdy pole/tabela przestaje być używane (martwe kolumny).  
+Procedura w RAO jest taka sama jak dla każdej migracji forward-only — z jednym wyjątkiem:
+
+1. **Zgoda użytkownika + backup** — `DROP COLUMN`/`DROP TABLE` to destrukcyjne operacje.
+2. **Dodaj `IF EXISTS` i try/except** — MariaDB <10.6 nie wspiera `DROP COLUMN IF EXISTS`;
+   dla `DROP TABLE IF EXISTS` jest ono bezpieczne, ale try/except chroni przed innymi błędami.
+   ```python
+   try:
+       await conn.execute(sa.text("ALTER TABLE t DROP COLUMN IF EXISTS x"))
+   except Exception:
+       pass
+   ```
+3. **NIE usuwaj archive_** — tabele archiwalne (`archive_*`) zostaw w spokoju.
+4. **Usuń martwe kolumny z modelu SQLAlchemy** — inaczej `Base.metadata.create_all` przywróci
+   je na nowej bazie i `DROP` w `main.py` zrobi niepotrzebną pracę.
+5. **Uaktualnij `spec/core/01_database.md`** — finalny DDL nie może zawierać martwych kolumn/tabel.
+
+Przykład (RAO Phase 1, 2026-07-05):
+- `service_fee_templates.default_price`
+- `service_fee_template_items` (tabela)
+- `contract_positions.costs`
+- `position_conditions.rate_type_id`, `position_conditions.description`
+- `contract_service_fees.article_id`, `contract_service_fees.default_price`
+- `contracts.total_value`, `contracts.is_legacy` (wycofane wcześniej, usunięte z DDL)
 
 ## 📝 Rollback Policy
 

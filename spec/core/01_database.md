@@ -152,7 +152,6 @@ CREATE TABLE service_fee_templates (
     contract_type CHAR(1)     NOT NULL COMMENT 'S=najem, U=usługa',
     sort_order   INT          NOT NULL DEFAULT 0 COMMENT 'Kolejność wyświetlania',
     article_id   INT          NULL     COMMENT 'RAO-P1-011: FK do articles (usługi)',
-    default_price DECIMAL(18,2) NULL  COMMENT 'RAO-P1-011: Domyślna cena z artykułu',
     name         VARCHAR(200) NOT NULL COMMENT 'Nazwa np. Transport, Czyszczenie (snapshot z articles.name jeśli article_id ustawiony)',
     amount_from  DECIMAL(18,2) NULL    COMMENT 'Kwota od (NULL = brak)',
     amount_to    DECIMAL(18,2) NULL    COMMENT 'Kwota do (NULL = jednorazowa)',
@@ -166,24 +165,7 @@ CREATE TABLE service_fee_templates (
     INDEX idx_sft_article (article_id)
 ) ENGINE=InnoDB COMMENT='Szablony usług dodatkowych (stare: firma.uslugi1/2, firma.oplata_*)';
 
--- 1.8b Pozycje szablonów usług dodatkowych (RAO-P1-011)
--- Relacja N:M szablon (fee_preset_group) → artykuł z domyślną ceną
--- Pozwala budować zestawy usług jako listę konkretnych artykułów + cena
--- DEPRECATED (RAO-P2-059, 2026-07-01): 0 wierszy, 0 odwołań w kodzie.
--- ServiceFeeTemplate.article_id (sekcja 1.8a) daje ten sam rezultat relacyjnie.
--- Nie drop (forward-only), ale nie rozwijać. UI używa ServiceFeeTemplate z article_id.
-CREATE TABLE service_fee_template_items (
-    id           INT AUTO_INCREMENT PRIMARY KEY,
-    template_id  INT          NOT NULL COMMENT 'ID grupy szablonów (fee_preset_groups)',
-    article_id   INT          NOT NULL COMMENT 'ID artykułu (zwykle usługa)',
-    default_price DECIMAL(18,2) NULL  COMMENT 'Domyślna cena dla tego artykułu w tym szablonie',
-    sort_order   INT          NOT NULL DEFAULT 0 COMMENT 'Kolejność wyświetlania',
-    CONSTRAINT fk_sfti_template FOREIGN KEY (template_id) REFERENCES fee_preset_groups(id) ON DELETE CASCADE,
-    CONSTRAINT fk_sfti_article FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE,
-    INDEX idx_sfti_template (template_id, sort_order)
-) ENGINE=InnoDB COMMENT='Pozycje szablonów usług dodatkowych - link do artykułów (RAO-P1-011)';
-
--- 1.8c Kody pocztowe (RAO-P1-008, RAO-P2-015)
+-- 1.8b Kody pocztowe (RAO-P1-008, RAO-P2-015)
 -- Słownik kodów pocztowych Polski do auto-uzupełniania miast
 -- Źródło: GUS TERYT (200+ kodów z głównych miast dla developmentu)
 CREATE TABLE postal_codes (
@@ -349,10 +331,8 @@ CREATE TABLE contracts (
     postal_code         VARCHAR(20)  NULL COMMENT 'RAO-P1-008: Kod pocztowy z adresu dostawy',
     city                VARCHAR(100) NULL COMMENT 'RAO-P1-008: Miasto z adresu dostawy',
     postal_code_id      INT          NULL COMMENT 'RAO-P2-028: FK do postal_codes (deterministyczna lokalizacja PNA)',
-    is_legacy           TINYINT(1)   NOT NULL DEFAULT 0 COMMENT 'RAO-P2-028: umowa z legacy (data cut-off)',
     date_from           DATE         NULL,
     date_to             DATE         NULL,
-    total_value         DECIMAL(18,2) NULL DEFAULT 0.00,
     prepayment_amount   DECIMAL(18,2) NULL DEFAULT 0.00,
     prepayment_document VARCHAR(200) NULL,
     invoice_amount      DECIMAL(18,2) NULL DEFAULT 0.00,
@@ -457,7 +437,6 @@ CREATE TABLE contract_positions (
     rental_days     INT          NULL,
     quantity        INT          NULL DEFAULT 1,
     unit_price      DECIMAL(18,2) NULL,
-    costs           DECIMAL(18,2) NULL DEFAULT 0.00 COMMENT 'Koszty dodatkowe pozycji',
     rate_type_id    INT          NULL,
     billing_frequency VARCHAR(20) NULL COMMENT 'tygodniowo/dziennie/godzinowo/miesięcznie/jednorazowo',
     billing_unit    VARCHAR(20)  NULL COMMENT 'tydzień/doba/godzina/miesiąc/sztuka',
@@ -480,8 +459,6 @@ CREATE TABLE contract_positions (
 CREATE TABLE position_conditions (
     id              INT AUTO_INCREMENT PRIMARY KEY,
     position_id     INT          NOT NULL,
-    rate_type_id    INT          NULL,
-    description     VARCHAR(400) NULL COMMENT 'Opis słowny warunku np. "do 5 tygodni"',
     rate1           DECIMAL(18,2) NULL COMMENT 'Opłata 1 (podstawowa)',
     rate2           DECIMAL(18,2) NULL COMMENT 'Opłata 2 (dodatkowa/zmienna)',
     billing_label   VARCHAR(20)  NULL COMMENT 'Nazwa rozliczenia: tygodniowo/dziennie/etc',
@@ -491,8 +468,6 @@ CREATE TABLE position_conditions (
     minimum         INT          NULL COMMENT 'Minimalna liczba okresów',
     CONSTRAINT fk_cond_position FOREIGN KEY (position_id)
         REFERENCES contract_positions(id) ON DELETE CASCADE,
-    CONSTRAINT fk_cond_rate_type FOREIGN KEY (rate_type_id)
-        REFERENCES rate_types(id) ON DELETE SET NULL,
     INDEX idx_cond_position (position_id)
 ) ENGINE=InnoDB COMMENT='Warunki rozliczenia (stara tabela: umowa_pozycja2_warunek)';
 

@@ -70,130 +70,124 @@ async def startup_migrations():
             db.add(Company(id=1, name="RAO — Wynajem Maszyn"))
             await db.commit()
 
-    # RAO-P2-001: seed default fees for contract type S (najmu)
+    # RAO-P1-100: KISS seed service articles + Diesel/Elektryk/Wspólny presets (idempotent)
     async with AsyncSessionLocal() as db:
-        # Check if default preset for type S exists
-        existing = await db.execute(
-            sa.select(FeePresetGroup).where(
-                FeePresetGroup.contract_type == 'S',
-                FeePresetGroup.is_default == True
-            )
-        )
-        if not existing.scalar_one_or_none():
-            # Create default preset for type S
-            default_preset = FeePresetGroup(
-                company_id=1,
-                name="Domyślne usługi dodatkowe (najmu)",
-                contract_type='S',
-                description="Transport, czyszczenie, tankowanie - domyślne dla umów najmu",
-                is_default=True,
-                sort_order=0
-            )
-            db.add(default_preset)
-            await db.flush()
+        from articles.models import Article
+        from decimal import Decimal
+        from datetime import datetime
 
-            # Add default fees in specified order
-            # RAO-P3-014: Use concrete values in descriptions instead of placeholders $1/$2
-            default_fees = [
-                {"name": "Transport", "amount_from": 500.00, "amount_to": 500.00, "unit": "dostawa", "description": "500.00 zł dostawa / 500.00 zł odbiór", "sort_order": 1},
-                {"name": "Czyszczenie maszyny po wynajmie (zabrudzenia drobne)", "amount_from": 150.00, "amount_to": 400.00, "unit": "sztuka", "description": "150.00 zł - 400.00 zł", "sort_order": 2},
-                {"name": "Czyszczenie maszyny po wynajmie (zabrudzenia trudnościeralne)", "amount_from": 400.00, "amount_to": 1500.00, "unit": "sztuka", "description": "400.00 zł - 1500.00 zł", "sort_order": 3},
-                {"name": "Usługa tankowania", "amount_from": 200.00, "amount_to": None, "unit": "tankowanie", "description": "200.00 zł (plus koszt paliwa)", "sort_order": 4},
-                {"name": "Ponadnormatywny przestój transportu", "amount_from": 200.00, "amount_to": 300.00, "unit": "godzina", "description": "200.00 zł / h - 300.00 zł / h", "sort_order": 5},
-                {"name": "Nieuzasadnione wezwanie serwisowe", "amount_from": 280.00, "amount_to": None, "unit": "wizyta", "description": "280.00 zł (plus transport)", "sort_order": 6},
-            ]
-            for fee_data in default_fees:
-                db.add(ServiceFeeTemplate(
-                    company_id=1,
-                    preset_id=default_preset.id,
-                    contract_type='S',
-                    name=fee_data["name"],
-                    amount_from=fee_data["amount_from"],
-                    amount_to=fee_data["amount_to"],
-                    unit=fee_data["unit"],
-                    description=fee_data["description"],
-                    is_active=True,
-                    sort_order=fee_data["sort_order"]
-                ))
-            await db.commit()
+        now = datetime.utcnow()
 
-    # RAO-P1-100: seed zestawów Diesel/Elektryk (idempotentny po nazwie)
-    async with AsyncSessionLocal() as db:
-        # Diesel preset
-        diesel_exists = await db.execute(
-            sa.select(FeePresetGroup).where(FeePresetGroup.name == "Najem — Diesel")
-        )
-        if not diesel_exists.scalar_one_or_none():
-            diesel_preset = FeePresetGroup(
-                company_id=1,
-                name="Najem — Diesel",
-                contract_type='S',
-                description="Zestaw usług dla maszyn dieslowych (przegląd 150 zł)",
-                is_default=False,
-                sort_order=1
+        # Service articles used by KISS presets
+        SERVICE_ARTICLES = {
+            "Transport": None,
+            "Przegląd Diesel": None,
+            "Przegląd Elektryk": None,
+            "Czyszczenie": None,
+            "Tankowanie": None,
+            "Przestój": None,
+            "Serwis": None,
+        }
+        for art_name in SERVICE_ARTICLES:
+            result = await db.execute(
+                sa.select(Article).where(Article.name == art_name, Article.is_service == True)
             )
-            db.add(diesel_preset)
-            await db.flush()
-            diesel_fees = [
-                {"name": "Transport", "amount_from": 1200.00, "amount_to": 1200.00, "unit": "dostawa", "description": "1200.00 zł dostawa / 1200.00 zł odbiór", "sort_order": 1},
-                {"name": "Przegląd techniczny i czyszczenie maszyny", "amount_from": 150.00, "amount_to": None, "unit": "sztuka", "description": "150.00 zł", "sort_order": 2},
-                {"name": "Czyszczenie maszyny (zabrudzenia ponadnormatywne)", "amount_from": None, "amount_to": None, "unit": "sztuka", "description": "wycena indywidualna", "sort_order": 3},
-                {"name": "Usługa tankowania", "amount_from": 200.00, "amount_to": None, "unit": "tankowanie", "description": "200.00 zł (plus koszt paliwa)", "sort_order": 4},
-                {"name": "Ponadnormatywny przestój transportu", "amount_from": 200.00, "amount_to": 300.00, "unit": "godzina", "description": "200.00 zł / h - 300.00 zł / h", "sort_order": 5},
-                {"name": "Nieuzasadnione wezwanie serwisowe", "amount_from": 280.00, "amount_to": None, "unit": "wizyta", "description": "280.00 zł (plus transport)", "sort_order": 6},
-            ]
-            for fee_data in diesel_fees:
-                db.add(ServiceFeeTemplate(
-                    company_id=1,
-                    preset_id=diesel_preset.id,
-                    contract_type='S',
-                    name=fee_data["name"],
-                    amount_from=fee_data["amount_from"],
-                    amount_to=fee_data["amount_to"],
-                    unit=fee_data["unit"],
-                    description=fee_data["description"],
-                    is_active=True,
-                    sort_order=fee_data["sort_order"]
-                ))
-            await db.commit()
+            art = result.scalar_one_or_none()
+            if not art:
+                art = Article(
+                    name=art_name,
+                    is_service=True,
+                    article_type="usluga_dodatkowa",
+                    created_at=now,
+                    updated_at=now,
+                )
+                db.add(art)
+                await db.flush()
+            SERVICE_ARTICLES[art_name] = art.id
 
-        # Electric preset
-        electric_exists = await db.execute(
-            sa.select(FeePresetGroup).where(FeePresetGroup.name == "Najem — Elektryk")
-        )
-        if not electric_exists.scalar_one_or_none():
-            electric_preset = FeePresetGroup(
-                company_id=1,
-                name="Najem — Elektryk",
-                contract_type='S',
-                description="Zestaw usług dla maszyn elektrycznych (przegląd 90 zł)",
-                is_default=False,
-                sort_order=2
-            )
-            db.add(electric_preset)
-            await db.flush()
-            electric_fees = [
-                {"name": "Transport", "amount_from": 1200.00, "amount_to": 1200.00, "unit": "dostawa", "description": "1200.00 zł dostawa / 1200.00 zł odbiór", "sort_order": 1},
-                {"name": "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny", "amount_from": 90.00, "amount_to": None, "unit": "sztuka", "description": "90.00 zł", "sort_order": 2},
-                {"name": "Czyszczenie maszyny (zabrudzenia ponadnormatywne)", "amount_from": None, "amount_to": None, "unit": "sztuka", "description": "wycena indywidualna", "sort_order": 3},
-                {"name": "Usługa tankowania", "amount_from": 200.00, "amount_to": None, "unit": "tankowanie", "description": "200.00 zł (plus koszt paliwa)", "sort_order": 4},
-                {"name": "Ponadnormatywny przestój transportu", "amount_from": 200.00, "amount_to": 300.00, "unit": "godzina", "description": "200.00 zł / h - 300.00 zł / h", "sort_order": 5},
-                {"name": "Nieuzasadnione wezwanie serwisowe", "amount_from": 280.00, "amount_to": None, "unit": "wizyta", "description": "280.00 zł (plus transport)", "sort_order": 6},
-            ]
-            for fee_data in electric_fees:
-                db.add(ServiceFeeTemplate(
+        # Common Wspólny fees (name, description, article_name, amount_from, amount_to, unit)
+        WSPOLNY_FEES = [
+            ("Transport", "1 200,00 zł dostawa / 1 200,00 zł odbiór", "Transport", Decimal("1200.00"), Decimal("1200.00"), "dostawa"),
+            ("Czyszczenie maszyny (zabrudzenia ponadnormatywne)", "wycena indywidualna", "Czyszczenie", None, None, None),
+            ("Usługa tankowania", "200,00 zł (plus koszt paliwa)", "Tankowanie", Decimal("200.00"), None, "tankowanie"),
+            ("Ponadnormatywny przestój transportu", "200,00 zł / h - 300,00 zł / h", "Przestój", Decimal("200.00"), Decimal("300.00"), "h"),
+            ("Nieuzasadnione wezwanie serwisowe", "280,00 zł (plus transport)", "Serwis", Decimal("280.00"), None, "wizyta"),
+        ]
+
+        PRESETS = [
+            ("Najem — Wspólny", "S", True, "Wspólny zestaw usług dla umów najmu", WSPOLNY_FEES),
+            ("Najem — Diesel", "S", False, "Wspólny + przegląd maszyny diesla 150,00 zł", [
+                ("Transport", "1 200,00 zł dostawa / 1 200,00 zł odbiór", "Transport", Decimal("1200.00"), Decimal("1200.00"), "dostawa"),
+                ("Przegląd techniczny i czyszczenie maszyny", "150,00 zł", "Przegląd Diesel", Decimal("150.00"), None, "sztuka"),
+            ] + list(WSPOLNY_FEES[1:])),
+            ("Najem — Elektryk", "S", False, "Wspólny + przegląd maszyny elektrycznej 90,00 zł", [
+                ("Transport", "1 200,00 zł dostawa / 1 200,00 zł odbiór", "Transport", Decimal("1200.00"), Decimal("1200.00"), "dostawa"),
+                ("Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny", "90,00 zł", "Przegląd Elektryk", Decimal("90.00"), None, "sztuka"),
+            ] + list(WSPOLNY_FEES[1:])),
+            ("Usługa — Wspólny", "U", True, "Wspólny zestaw usług dla umów usługowych", WSPOLNY_FEES),
+        ]
+
+        for idx, (group_name, contract_type, is_default, group_desc, fees) in enumerate(PRESETS):
+            # Only one default per contract_type
+            if is_default:
+                await db.execute(
+                    sa.update(FeePresetGroup)
+                    .where(FeePresetGroup.contract_type == contract_type)
+                    .where(FeePresetGroup.name != group_name)
+                    .values(is_default=False)
+                )
+            result = await db.execute(sa.select(FeePresetGroup).where(FeePresetGroup.name == group_name))
+            group = result.scalar_one_or_none()
+            if not group:
+                group = FeePresetGroup(
                     company_id=1,
-                    preset_id=electric_preset.id,
-                    contract_type='S',
-                    name=fee_data["name"],
-                    amount_from=fee_data["amount_from"],
-                    amount_to=fee_data["amount_to"],
-                    unit=fee_data["unit"],
-                    description=fee_data["description"],
-                    is_active=True,
-                    sort_order=fee_data["sort_order"]
-                ))
-            await db.commit()
+                    name=group_name,
+                    contract_type=contract_type,
+                    description=group_desc,
+                    is_default=is_default,
+                    sort_order=idx,
+                )
+                db.add(group)
+                await db.flush()
+            else:
+                group.contract_type = contract_type
+                group.description = group_desc
+                group.is_default = is_default
+                group.sort_order = idx
+
+            for sort_order, (fee_name, fee_desc, art_name, amt_from, amt_to, unit) in enumerate(fees, start=1):
+                article_id = SERVICE_ARTICLES.get(art_name)
+                result = await db.execute(
+                    sa.select(ServiceFeeTemplate).where(
+                        ServiceFeeTemplate.preset_id == group.id,
+                        ServiceFeeTemplate.name == fee_name,
+                    )
+                )
+                tpl = result.scalar_one_or_none()
+                if not tpl:
+                    tpl = ServiceFeeTemplate(
+                        company_id=1,
+                        preset_id=group.id,
+                        contract_type=contract_type,
+                        sort_order=sort_order,
+                        name=fee_name,
+                        description=fee_desc,
+                        amount_from=amt_from,
+                        amount_to=amt_to,
+                        unit=unit,
+                        is_active=True,
+                        article_id=article_id,
+                    )
+                    db.add(tpl)
+                else:
+                    tpl.sort_order = sort_order
+                    tpl.description = fee_desc
+                    tpl.amount_from = amt_from
+                    tpl.amount_to = amt_to
+                    tpl.unit = unit
+                    tpl.is_active = True
+                    tpl.article_id = article_id
+        await db.commit()
 
     # RAO-P3-002: katalog na logo firmy (startup guard)
     os.makedirs("static/logos", exist_ok=True)
@@ -208,10 +202,6 @@ async def startup_migrations():
         await conn.execute(sa.text(
             "ALTER TABLE service_fee_templates ADD COLUMN IF NOT EXISTS "
             "article_id INT NULL"
-        ))
-        await conn.execute(sa.text(
-            "ALTER TABLE service_fee_templates ADD COLUMN IF NOT EXISTS "
-            "default_price DECIMAL(18,2) NULL"
         ))
         # RAO-P1-014: checkbox podpisów na stronie 1
         await conn.execute(sa.text(
@@ -348,14 +338,6 @@ async def startup_migrations():
             "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
             "postal_code_id INT NULL COMMENT 'RAO-P2-028: FK do postal_codes'"
         ))
-        # RAO-P2-062 Faza 1: kolumna is_legacy usunięta (legacy dane przeniesione
-        # do tabel archive_* w Fazie 0). Idempotentny DROP COLUMN IF EXISTS.
-        try:
-            await conn.execute(sa.text(
-                "ALTER TABLE contracts DROP COLUMN IF EXISTS is_legacy"
-            ))
-        except Exception:
-            pass  # MariaDB <10.6 nie wspiera IF EXISTS w DROP COLUMN — kolumna już nie istnieje
         # FK + index (try/except bo MariaDB <10.6 nie wspiera IF NOT EXISTS dla CONSTRAINT)
         try:
             await conn.execute(sa.text(
@@ -509,7 +491,58 @@ async def startup_migrations():
             except Exception as exc:
                 logger.exception("RAO-P0-048 migrate_position_condition_periods failed: %s", exc)
                 await db.rollback()
-        # service_fee_template_items utworzone przez Base.metadata.create_all (nowa tabela)
+        # RAO Phase 1 (2026-07-05): usuwanie martwych kolumn/tabeli z dev/test DB
+        # DROP IF EXISTS w try/except — MariaDB <10.6 wymaga cichego fallbacku
+
+        # service_fee_templates.default_price
+        try:
+            await conn.execute(sa.text("ALTER TABLE service_fee_templates DROP COLUMN IF EXISTS default_price"))
+        except Exception:
+            pass
+
+        # contract_service_fees.article_id / default_price
+        # FK first — SQLAlchemy autogenerowała różne nazwy FK na przestrzeni czasu
+        for fk in ("1", "fk_contract_service_fees_article_id"):
+            try:
+                await conn.execute(sa.text(f"ALTER TABLE contract_service_fees DROP FOREIGN KEY IF EXISTS `{fk}`"))
+            except Exception:
+                pass
+        try:
+            await conn.execute(sa.text("ALTER TABLE contract_service_fees DROP COLUMN IF EXISTS article_id"))
+        except Exception:
+            pass
+        try:
+            await conn.execute(sa.text("ALTER TABLE contract_service_fees DROP COLUMN IF EXISTS default_price"))
+        except Exception:
+            pass
+
+        # contract_positions.costs
+        try:
+            await conn.execute(sa.text("ALTER TABLE contract_positions DROP COLUMN IF EXISTS costs"))
+        except Exception:
+            pass
+
+        # position_conditions.rate_type_id / description
+        # FK first — SQLAlchemy mogła wygenerować nazwę `fk_position_conditions_rate_type_id` zamiast `fk_cond_rate_type`
+        for fk in ("fk_cond_rate_type", "fk_position_conditions_rate_type_id"):
+            try:
+                await conn.execute(sa.text(f"ALTER TABLE position_conditions DROP FOREIGN KEY IF EXISTS `{fk}`"))
+            except Exception:
+                pass
+        try:
+            await conn.execute(sa.text("ALTER TABLE position_conditions DROP COLUMN IF EXISTS rate_type_id"))
+        except Exception:
+            pass
+        try:
+            await conn.execute(sa.text("ALTER TABLE position_conditions DROP COLUMN IF EXISTS description"))
+        except Exception:
+            pass
+
+        # service_fee_template_items
+        try:
+            await conn.execute(sa.text("DROP TABLE IF EXISTS service_fee_template_items"))
+        except Exception:
+            pass
         # RAO-P1-012: contract_settlements - rozliczenia umów (koszty klient vs firma)
         await conn.execute(sa.text("""
             CREATE TABLE IF NOT EXISTS contract_settlements (
@@ -606,25 +639,6 @@ async def startup_migrations():
             ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_polish_ci"
             " COMMENT='RAO-P2-032: Log błędów importu (orphaned settlements itp.)'"
         ))
-        # RAO-P1-011: article_id i default_price w contract_service_fees (kopia z szablonu)
-        await conn.execute(sa.text(
-            "ALTER TABLE contract_service_fees ADD COLUMN IF NOT EXISTS "
-            "article_id INT NULL"
-        ))
-        await conn.execute(sa.text(
-            "ALTER TABLE contract_service_fees ADD COLUMN IF NOT EXISTS "
-            "default_price DECIMAL(18,2) NULL"
-        ))
-        # RAO-P1-021/P2-033: DROP COLUMN contracts.total_value (martwe pole, 100% NULL)
-        # Zgoda użytkownika: potwierdzone w przepytywaniu backlogu.
-        # try/except bo MariaDB <10.6 nie wspiera IF EXISTS w DROP COLUMN.
-        try:
-            await conn.execute(sa.text(
-                "ALTER TABLE contracts DROP COLUMN total_value"
-            ))
-        except Exception:
-            pass  # kolumna już nie istnieje — OK
-
         # RAO-P1-055: Migracja branch_id z suffixu "G" w numerze umowy (Gdańsk).
         # Idempotentna: WHERE branch_id IS NULL — kolejne uruchomienia nie modyfikują.
         # Numer umowy format: "{type}{auto:03d}/{year}{suffix}" gdzie suffix="G" dla GDAŃSK.

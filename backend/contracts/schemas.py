@@ -35,9 +35,6 @@ SafeDescription = Annotated[str | None, Field(
 class ConditionResponse(BaseModel):
     id: int
     position_id: int
-    rate_type_id: int | None
-    rate_type_name: str | None
-    description: str | None
     rate1: Decimal | None
     rate2: Decimal | None
     billing_label: str | None
@@ -51,8 +48,6 @@ class ConditionResponse(BaseModel):
 
 
 class ConditionCreate(BaseModel):
-    rate_type_id: int | None = None
-    description: SafeDescription = None
     rate1: Decimal | None = Field(None, ge=0, decimal_places=2)
     rate2: Decimal | None = Field(None, ge=0, decimal_places=2)
     billing_label: SafeName | None = None
@@ -77,8 +72,6 @@ class ConditionCreate(BaseModel):
 
 class ConditionUpdate(BaseModel):
     """RAO-P0-034: Partial update — only fields explicitly sent are applied."""
-    rate_type_id: int | None = None
-    description: SafeDescription = None
     rate1: Decimal | None = Field(None, ge=0, decimal_places=2)
     rate2: Decimal | None = Field(None, ge=0, decimal_places=2)
     billing_label: SafeName | None = None
@@ -108,7 +101,6 @@ class PositionResponse(BaseModel):
     rental_days: int | None
     quantity: int | None
     unit_price: Decimal | None
-    costs: Decimal | None
     rate_type_id: int | None
     rate_type_name: str | None
     billing_frequency: str | None
@@ -130,7 +122,6 @@ class PositionCreate(BaseModel):
     rental_days: int | None = Field(None, ge=0)
     quantity: int = Field(1, ge=1)
     unit_price: Decimal | None = Field(None, ge=0, decimal_places=2)
-    costs: Decimal | None = Field(None, ge=0, decimal_places=2)
     rate_type_id: int | None = None
     billing_frequency: str | None = None
     billing_unit: str | None = None
@@ -146,7 +137,6 @@ class PositionUpdate(BaseModel):
     rental_days: int | None = Field(None, ge=0)
     quantity: int | None = Field(None, ge=1)
     unit_price: Decimal | None = Field(None, ge=0, decimal_places=2)
-    costs: Decimal | None = Field(None, ge=0, decimal_places=2)
     rate_type_id: int | None = None
     billing_frequency: str | None = None
     billing_unit: str | None = None
@@ -163,8 +153,6 @@ class ContractServiceFeeResponse(BaseModel):
     unit: str | None
     description: str | None
     is_active: bool
-    article_id: int | None = None  # RAO-P1-011
-    default_price: Decimal | None = None  # RAO-P1-011
 
     class Config:
         from_attributes = True
@@ -177,8 +165,26 @@ class ContractServiceFeeCreate(BaseModel):
     unit: SafeName | None = None
     description: SafeDescription = None
     is_active: bool = True
-    article_id: int | None = None  # RAO-P2-059: link do artykułu usługi
-    default_price: Decimal | None = Field(None, ge=0, decimal_places=2)  # RAO-P2-059: snapshot ceny z artykułu
+
+    @model_validator(mode='after')
+    def check_and_fill_description(self):
+        if self.amount_from is not None and self.amount_to is not None:
+            if self.amount_to < self.amount_from:
+                raise ValueError("amount_to nie może być mniejsze od amount_from.")
+        # RAO-P1-100: KISS — "Tekst na umowie" zawsze wypełniony (fallback do nazwy)
+        if not self.description or not self.description.strip():
+            self.description = self.name
+        return self
+
+
+class ContractServiceFeeUpdate(BaseModel):
+    """RAO-P0-034: Partial update — only fields explicitly sent are applied."""
+    name: SafeName | None = None
+    amount_from: Decimal | None = Field(None, ge=0, decimal_places=2)
+    amount_to: Decimal | None = Field(None, ge=0, decimal_places=2)
+    unit: SafeName | None = None
+    description: SafeDescription = None
+    is_active: bool | None = None
 
     @model_validator(mode='after')
     def check_amounts(self):

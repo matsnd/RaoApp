@@ -680,19 +680,27 @@ class ContractListItem(BaseModel):
     number: str
     contract_type: str          # 'S' lub 'U'
     type_label: str             # 'Umowa najmu' / 'Umowa usługi'
-    description: str | None
     delivery_address: str | None
+    postal_code: str | None
+    city: str | None
+    latitude: Decimal | None
+    longitude: Decimal | None
     date_from: date | None
     date_to: date | None
-    total_value: Decimal | None
+    # RAO-P1-021/P2-033: total_value usunięte
     prepayment_amount: Decimal | None
     invoice_amount: Decimal | None
     notes: str | None
     email: str | None
+    phone: str | None
+    contact_person1: str | None = None
+    contact_phone1: str | None = None
     salesperson_name: str | None # JOIN
     print_date: datetime | None
     is_print_current: bool       # computed: print_date > updated_at
     duration_days: int | None    # computed: DATEDIFF
+    is_settled: bool = False
+    settled_at: datetime | None = None
     created_at: datetime
 ```
 
@@ -701,16 +709,21 @@ class ContractListItem(BaseModel):
 ```python
 class ContractCreate(BaseModel):
     contractor_id: int
-    branch_id: int | None = None
+    branch_id: int | None = 1  # RAO-P1-022: domyślnie Warszawa (id=1)
     salesperson_id: int | None = None
     contract_type: Literal["S", "U"] = "S"
-    delivery_address: str | None = None
+    oid: str | None = None  # RAO-P2-058: Fakturownia OID (pusty = użyj number)
+    delivery_address: str | None = Field(None, max_length=255)
+    postal_code: str | None = None
+    city: str | None = None
+    latitude: Decimal | None = None
+    longitude: Decimal | None = None
     date_from: date | None = None
     date_to: date | None = None
-    total_value: Decimal | None = None  # nullable dla Playwright (2026-05-21)
-    prepayment_amount: Decimal | None = None  # nullable dla Playwright (2026-05-21)
+    # RAO-P1-021/P2-033: total_value usunięte
+    prepayment_amount: Decimal | None = None
     prepayment_document: str | None = None
-    invoice_amount: Decimal | None = None  # nullable dla Playwright (2026-05-21)
+    invoice_amount: Decimal | None = None
     invoice_document: str | None = None
     notes: str | None = None
     # UWAGA: Usługi dodatkowe tworzone automatycznie z service_fee_templates
@@ -821,7 +834,6 @@ class PositionResponse(BaseModel):
     rental_days: int | None
     quantity: int | None
     unit_price: Decimal | None
-    costs: Decimal | None
     rate_type_id: int | None
     rate_type_name: str | None   # JOIN
     billing_frequency: str | None
@@ -856,9 +868,6 @@ class PositionCreate(BaseModel):
 class ConditionResponse(BaseModel):
     id: int
     position_id: int
-    rate_type_id: int | None
-    rate_type_name: str | None   # JOIN
-    description: str | None
     rate1: Decimal | None
     rate2: Decimal | None
     billing_label: str | None
@@ -872,8 +881,6 @@ class ConditionResponse(BaseModel):
 
 ```python
 class ConditionCreate(BaseModel):
-    rate_type_id: int | None = None
-    description: str | None = Field(None, max_length=400)
     rate1: Decimal | None = Field(None, ge=0, decimal_places=2)
     rate2: Decimal | None = Field(None, ge=0, decimal_places=2)
     billing_label: str | None = Field(None, max_length=50)
@@ -904,7 +911,7 @@ async def recalculate_contract_value(db: AsyncSession, contract_id: int, user: U
     3. Dla każdej pozycji posortuj warunki po period_count
     4. Przekaż quantity do calculate_position_value (mnożenie już wew.)
     5. rate2 („powyżej”) jest aktywny dla dni spoza period_to
-    6. Suma = total_value (read-only, total_value column removed)
+    6. Suma = total (zwracana, total_value usunięte)
     """
     contract = await contract_service.verify_contract_access(db, contract_id, user)
     positions = await db.execute(
@@ -924,7 +931,6 @@ async def recalculate_contract_value(db: AsyncSession, contract_id: int, user: U
                 "rate2": c.rate2,
                 "period_count": c.period_count,
                 "minimum": c.minimum,
-                "rate_type_id": c.rate_type_id,
             }
             for c in sorted_conds
         ]
@@ -973,14 +979,30 @@ class ContractServiceFeeResponse(BaseModel):
     is_active: bool
 
 class ContractServiceFeeCreate(BaseModel):
-    name: str = Field(..., min_length=1, max_length=200)
+    name: SafeName
     amount_from: Decimal | None = Field(None, ge=0, decimal_places=2)
     amount_to: Decimal | None = Field(None, ge=0, decimal_places=2)
-    unit: str | None = Field(None, max_length=50)
-    description: str | None = Field(None, max_length=400)
+    unit: SafeName | None = None
+    description: SafeDescription = None  # RAO-P1-100: "Tekst na umowie"; pusty → auto name
     is_active: bool = True
-    article_id: int | None = None  # must reference an article with is_service=True
-    default_price: Decimal | None = Field(None, ge=0, decimal_places=2)
+
+    @model_validator(mode='after')
+    def check_and_fill_description(self):
+        if self.amount_from is not None and self.amount_to is not None and self.amount_to < self.amount_from:
+            raise ValueError("amount_to nie może być mniejsze od amount_from.")
+        # RAO-P1-100: KISS — "Tekst na umowie" zawsze wypełniony (fallback do nazwy)
+        if not self.description or not self.description.strip():
+            self.description = self.name
+        return self
+
+class ContractServiceFeeUpdate(BaseModel):
+    """RAO-P0-034: Partial update — only fields explicitly sent are applied."""
+    name: SafeName | None = None
+    amount_from: Decimal | None = Field(None, ge=0, decimal_places=2)
+    amount_to: Decimal | None = Field(None, ge=0, decimal_places=2)
+    unit: SafeName | None = None
+    description: SafeDescription = None
+    is_active: bool | None = None
 
     @model_validator(mode='after')
     def check_amounts(self):
@@ -994,16 +1016,33 @@ class ContractServiceFeeReorder(BaseModel):
 
 **Algorytm POST /contracts (tworzenie umowy):**
 ```python
-# Po zapisaniu umowy ZAWSZE kopiuj szablony:
+# RAO-P1-100: Po zapisaniu umowy kopiuj DOMYŚLNY preset dla danego contract_type.
+# Dla 'S' domyślnym jest "Najem — Wspólny"; dla 'U' — "Usługa — Wspólny".
 async def copy_fee_templates_to_contract(
     db: AsyncSession, contract_id: int, contract_type: str
 ):
-    templates = await db.execute(
-        select(ServiceFeeTemplate)
-        .where(ServiceFeeTemplate.contract_type == contract_type)
-        .where(ServiceFeeTemplate.is_active == True)
-        .order_by(ServiceFeeTemplate.sort_order)
+    # Prefer default preset for this contract type; fallback to all active templates
+    default_group = await db.execute(
+        select(FeePresetGroup)
+        .where(FeePresetGroup.contract_type == contract_type)
+        .where(FeePresetGroup.is_default == True)
     )
+    group = default_group.scalar_one_or_none()
+    if group:
+        stmt = (
+            select(ServiceFeeTemplate)
+            .where(ServiceFeeTemplate.preset_id == group.id)
+            .where(ServiceFeeTemplate.is_active == True)
+            .order_by(ServiceFeeTemplate.sort_order)
+        )
+    else:
+        stmt = (
+            select(ServiceFeeTemplate)
+            .where(ServiceFeeTemplate.contract_type == contract_type)
+            .where(ServiceFeeTemplate.is_active == True)
+            .order_by(ServiceFeeTemplate.sort_order)
+        )
+    templates = await db.execute(stmt)
     for t in templates.scalars():
         db.add(ContractServiceFee(
             contract_id=contract_id,
@@ -1018,24 +1057,30 @@ async def copy_fee_templates_to_contract(
     await db.commit()
 ```
 
-**Algorytm POST /reset:** Usuwa wszystkie istniejące opłaty i kopiuje z szablonu od nowa.
+**Algorytm POST /contracts/{id}/service-fees/apply-preset:**
+- 404: umowa lub preset nie istnieje
+- 409: umowa rozliczona (`is_settled=true`)
+- `replace=true` (default): usuń istniejące `contract_service_fees`, wstaw szablony z grupy
+- `replace=false`: dołącz szablony z grupy
 
-**Logika PDF (service.py):** Generuje tekst z aktywnych pozycji:
+**Algorytm POST /reset:** Usuwa wszystkie istniejące opłaty i kopiuje z domyślnego szablonu od nowa.
+
+**Logika PDF (service.py):** Generuje tekst z aktywnych pozycji. KISS: `description` jest "Tekst na umowie" i drukowany bezpośrednio; fallback do kwoty/jednostki gdy `description` pusty. Kwoty formatowane polskimi separatorami (`1 200,00 zł`).
 ```python
-def generate_fees_text(fees: list[ContractServiceFee]) -> str:
+def generate_fees_text(fees: list) -> str:
     lines = []
     for f in sorted(fees, key=lambda x: x.sort_order):
         if not f.is_active:
             continue
-        if f.amount_from and f.amount_to:
-            kwota = f"{f.amount_from:.2f} zł - {f.amount_to:.2f} zł"
-        elif f.amount_from:
-            kwota = f"{f.amount_from:.2f} zł"
+        desc = (f.description or "").strip()
+        if desc:
+            lines.append(f"- {f.name}: {desc}")
         else:
-            kwota = ""
-        unit = f" / {f.unit}" if f.unit else ""
-        desc = f" ({f.description})" if f.description else ""
-        lines.append(f"- {f.name}: {kwota}{unit}{desc}".strip())
+            amount_line = _build_fee_amount_line(f)
+            if amount_line:
+                lines.append(f"- {f.name}: {amount_line}")
+            else:
+                lines.append(f"- {f.name}")
     return "\n".join(lines)
 ```
 
@@ -1081,7 +1126,6 @@ class ServiceFeeTemplateResponse(BaseModel):
     # RAO-P1-011: FK do articles + nazwa z articles (jeśli article_id ustawiony)
     article_id: int | None = None
     article_name: str | None = None
-    default_price: Decimal | None = None
     name: str
     amount_from: Decimal | None
     amount_to: Decimal | None
@@ -1094,7 +1138,6 @@ class ServiceFeeTemplateCreate(BaseModel):
     preset_id: int | None = None
     # RAO-P1-011: opcjonalna referencja do artykułu (gdy ustawiona, nazwa derive z articles)
     article_id: int | None = None
-    default_price: Decimal | None = None
     name: str = Field(..., max_length=200)
     amount_from: Decimal | None = None
     amount_to: Decimal | None = None
