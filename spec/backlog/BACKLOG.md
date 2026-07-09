@@ -267,9 +267,10 @@ Obecnie nagłówek kolumny jest w jednej linii i się nie mieści. Kolumna jest 
 
 ```yaml
 id: P1-009
-status: triaged
+status: done
 priority: P1
 created: 2026-07-08
+completed: 2026-07-09
 source: client-request (uwagi klienta 2026-07-08, pozycja 9)
 component: frontend/ProtocolForm + backend/protocols + backend/reports (PDF)
 ```
@@ -282,9 +283,10 @@ component: frontend/ProtocolForm + backend/protocols + backend/reports (PDF)
 
 ```yaml
 id: P1-010
-status: triaged
+status: done
 priority: P1
 created: 2026-07-08
+completed: 2026-07-09
 source: client-request (uwagi klienta 2026-07-08, pozycja 10)
 component: backend/reports (PDF protokołu) + frontend/ProtocolForm
 ```
@@ -297,9 +299,10 @@ component: backend/reports (PDF protokołu) + frontend/ProtocolForm
 
 ```yaml
 id: P1-011
-status: triaged
+status: done
 priority: P1
 created: 2026-07-08
+completed: 2026-07-09
 source: client-request (uwagi klienta 2026-07-08, pozycja 11)
 component: backend/protocols + backend/reports (PDF) + frontend/ProtocolForm
 ```
@@ -342,9 +345,10 @@ component: frontend/ContractFormView (tryb usługa) + backend/contracts
 
 ```yaml
 id: P1-014
-status: triaged
+status: done
 priority: P1
 created: 2026-07-08
+completed: 2026-07-09
 source: client-request (uwagi klienta 2026-07-08, pozycja 14)
 component: frontend/ContractFormView + backend/reports (PDF umowy)
 ```
@@ -421,9 +425,10 @@ component: frontend/AnalyticsView + backend/stats
 
 ```yaml
 id: P1-101
-status: triaged
+status: done
 priority: P1
 created: 2026-07-09
+completed: 2026-07-09
 source: tech-lead (analiza legacy PDFs 515 szt. + ocena PO + UX)
 component: frontend/ConditionPanel + backend/contracts/service + backend/contracts/models + backend/contracts/schemas
 migration_impact: yes (drop minimum column)
@@ -488,9 +493,10 @@ Obecna aplikacja nie rozróżnia tych modeli — zawsze generuje "0 - X godzin -
 
 ```yaml
 id: P1-102
-status: review
+status: done
 priority: P1
 created: 2026-07-09
+completed: 2026-07-09
 source: client-request (wizja KISS opłat dodatkowych)
 component: frontend/ContractFormView + backend/contracts/models + backend/settings/models + backend/reports/service
 migration_impact: yes (drop unit column)
@@ -631,9 +637,10 @@ migration_impact: yes (drop invoice_amount + invoice_document columns)
 
 ```yaml
 id: P1-104
-status: triaged
+status: done
 priority: P1
 created: 2026-07-09
+completed: 2026-07-09
 source: client-request (nierówne pola + przyciski 5/6/7 oderwane)
 component: frontend/ContractFormView + frontend/src/components/contracts/ContractPeriodPicker
 migration_impact: no
@@ -729,9 +736,10 @@ migration_impact: no
 
 ```yaml
 id: P1-105
-status: triaged
+status: done
 priority: P1
 created: 2026-07-09
+completed: 2026-07-09
 source: client-request (UX bug: liczba dni znika po kliknięciu "Wpisz datę końcową")
 component: frontend/src/components/shared/ContractPeriodPicker.vue
 migration_impact: no
@@ -808,9 +816,10 @@ Data końcowa = tryb AWARYJNY (fallback), nie równoległy. 95% umów idzie prze
 
 ```yaml
 id: P1-009
-status: triaged
+status: done
 priority: P1
 created: 2026-07-09
+completed: 2026-07-09
 source: client-request (uwagi klienta #9)
 component: backend/reports/templates/contract.html
 migration_impact: no
@@ -852,9 +861,10 @@ migration_impact: no
 
 ```yaml
 id: P1-010
-status: triaged
+status: done
 priority: P1
 created: 2026-07-09
+completed: 2026-07-09
 source: client-request (uwagi klienta #10)
 component: backend/reports/templates/protocol_zo.html
 migration_impact: no
@@ -899,9 +909,10 @@ Klient chce usunąć pieczątkę przy zwrocie, ale **layout nie może się rozje
 
 ```yaml
 id: P1-011
-status: triaged
+status: done
 priority: P1
 created: 2026-07-09
+completed: 2026-07-09
 source: client-request (uwagi klienta #11)
 component: backend/reports/service.py + backend/reports/templates/protocol_zo*.html
 migration_impact: no
@@ -961,9 +972,10 @@ migration_impact: no
 
 ```yaml
 id: P1-014
-status: triaged
+status: done
 priority: P1
 created: 2026-07-09
+completed: 2026-07-09
 source: client-request (uwagi klienta #14)
 component: backend/reports/templates/contract.html
 migration_impact: no
