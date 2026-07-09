@@ -331,9 +331,10 @@ component: backend/reports (PDF umowy + PDF protokołu)
 
 ```yaml
 id: P1-013
-status: triaged
+status: done
 priority: P1
 created: 2026-07-08
+completed: 2026-07-09
 source: client-request (uwagi klienta 2026-07-08, pozycja 13)
 component: frontend/ContractFormView (tryb usługa) + backend/contracts
 ```
