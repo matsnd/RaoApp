@@ -724,6 +724,52 @@ migration_impact: no
 
 ---
 
+### P1-105: "Wpisz datę końcową" — liczba dni znika zamiast się przeliczyć
+
+```yaml
+id: P1-105
+status: triaged
+priority: P1
+created: 2026-07-09
+source: client-request (UX bug: liczba dni znika po kliknięciu "Wpisz datę końcową")
+component: frontend/src/components/shared/ContractPeriodPicker.vue
+migration_impact: no
+```
+
+**Kontekst:** W `ContractPeriodPicker.vue` gdy użytkownik kliknie przycisk "Wpisz datę końcową" (`toggleManualEndDate`), pole "Liczba dni" staje się **disabled** (linia 39: `:disabled="manualEndDate"`). W trybie manualnym `daysInternal` (linia 190) zwraca `effectiveWorkingDays` które jest `null` gdy `dateToManual` jest puste (linia 177: `if (!start || !end || end < start) return null`). Efekt: **liczba dni znika** — użytkownik nie widzi ile dni ma umowa.
+
+**Oczekiwane zachowanie:** Po kliknięciu "Wpisz datę końcową" i wybraniu daty końcowej, pole "Liczba dni" powinno nadal pokazywać **przeliczoną** liczbę dni roboczych (tylko do odczytu, ale widoczną). Gdy data końcowa nie jest jeszcze wybrana, powinien być placeholder np. "— wybierz datę do —".
+
+**Zadania:**
+
+1. **Pole "Liczba dni" w trybie manualnym:**
+   - Gdy `manualEndDate = true` i `dateToManual` jest ustawione → pokaż `effectiveWorkingDays` (read-only, ale widoczne)
+   - Gdy `manualEndDate = true` i `dateToManual` puste → pokaż placeholder "— wybierz datę do —"
+   - Nie ukrywaj pola, nie czyść wartości — tylko przełącz na read-only
+
+2. **`toggleManualEndDate()` (linia 201-218):**
+   - Już seeduje `dateToManual` z `dateToComputed` — to OK
+   - Ale jeśli `dateToComputed` jest null (brak date_from lub days < 1), `dateToManual` zostaje puste → `effectiveWorkingDays` = null → liczba dni znika
+   - Fix: po ustawieniu `manualEndDate = true`, jeśli `dateToManual` jest puste, nie czyść `daysInput` — zostaw poprzednią wartość jako informacyjną
+
+3. **Wizualne odróżnienie read-only od disabled:**
+   - Obecnie `disabled` daje szare tło i brak wartości
+   - Zmień na `readonly` (nie `disabled`) — pole ma wartość, jest widoczne, ale nieedytowalne
+   - Lub: zostaw `disabled` ale zawsze pokaż obliczoną wartość (nawet jeśli 0)
+
+4. **Testy + weryfikacja:**
+   - vue-tsc + npm build
+   - Playwright: klik "Wpisz datę końcową" → liczba dni nadal widoczna
+   - Commit
+
+**Definition of Done:**
+- [ ] Po kliknięciu "Wpisz datę końcową" liczba dni jest nadal widoczna (read-only)
+- [ ] Gdy data końcowa pusta → placeholder "— wybierz datę do —"
+- [ ] Gdy data końcowa ustawiona → przeliczona liczba dni roboczych
+- [ ] Testy passing
+
+---
+
 ## 🏗️ P1-100 — EPIC: Usługi dodatkowe + rozliczenie umowy (cennik) — v2
 
 > **Scalony epic** — łączy P1-003, P1-004, P1-005, P1-006, P1-008 (freebie), P1-013, P1-014, P1-015
