@@ -265,6 +265,11 @@
 </table>
 {% endif %}
 
+<!-- P1-009: Opiekun umowy nad tekstem prawnym na środku -->
+<div style="text-align:center; margin-bottom: 6px; font-size: 9px; color: #555;">
+  Opiekun umowy: {{ salesperson.name if salesperson else '' }}{% if salesperson and salesperson.phone %} · tel. {{ salesperson.phone }}{% endif %}
+</div>
+
 <!-- FOOTER LEGAL -->
 <div id="footer-legal-running">
   <strong style="font-size: 8px; color: #c00; display: block; margin-bottom: 2px;">*ceny podane na umowie są cenami netto</strong>
@@ -406,11 +411,6 @@
       </td>
     </tr>
   </table>
-
-  <!-- P1-009: Opiekun umowy na dole na środku -->
-  <div style="text-align:center; margin-top: 20px; font-size: 9px; color: #555;">
-    Opiekun umowy: {{ salesperson.name if salesperson else '' }}{% if salesperson and salesperson.phone %} · tel. {{ salesperson.phone }}{% endif %}
-  </div>
 </div>
 
 </body>
