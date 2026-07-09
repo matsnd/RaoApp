@@ -803,6 +803,216 @@ Data końcowa = tryb AWARYJNY (fallback), nie równoległy. 95% umów idzie prze
 
 ---
 
+### P1-009: Opiekun umowy na dole PDF umowy (środek) — handlowiec + telefon
+
+```yaml
+id: P1-009
+status: triaged
+priority: P1
+created: 2026-07-09
+source: client-request (uwagi klienta #9)
+component: backend/reports/templates/contract.html
+migration_impact: no
+```
+
+**Kontekst:** Klient chce aby na PDF umowy (nie protokołu) na dole na środku był wpis "Opiekun umowy: [imię nazwisko] [telefon]". Handlowiec (salesperson) jest już przypisany do umowy (`contracts.salesperson_id`), backend pobiera dane salesperson i przekazuje do template. Trzeba tylko dodać renderowanie w `contract.html`.
+
+**Backend (już gotowe):**
+- `backend/contracts/models.py:14` — `salesperson_id` ForeignKey
+- `backend/settings/models.py:73-80` — `Salesperson` z `name` + `phone`
+- `backend/reports/service.py:131-133,185` — pobiera salesperson i przekazuje do template jako `salesperson`
+
+**Zadania:**
+
+1. **`backend/reports/templates/contract.html`** — dodaj na dole umowy (po sekcji OWN, przed podpisami lub po podpisach):
+   ```html
+   <div style="text-align:center; margin-top: 20px; font-size: 10px;">
+     Opiekun umowy: {{ salesperson.name if salesperson else '' }}
+     {% if salesperson and salesperson.phone %} · tel. {{ salesperson.phone }}{% endif %}
+   </div>
+   ```
+   - Na środku (text-align: center)
+   - Po sekcji podpisów lub w stopce umowy
+
+2. **Weryfikacja:**
+   - Generuj PDF umowy z przypisanym salesperson → sprawdź czy "Opiekun umowy: Jan Kowalski · tel. 123456789" jest na dole na środku
+   - Generuj PDF bez salesperson → puste pole lub brak wpisu
+   - pytest + smoke e2e
+   - Commit
+
+**Definition of Done:**
+- [ ] "Opiekun umowy: [imię nazwisko] · tel. [telefon]" na dole umowy na środku
+- [ ] Działa z salesperson i bez salesperson
+- [ ] Testy passing
+
+---
+
+### P1-010: Usuń pieczątkę przy zwrocie na protokole (zachowaj layout)
+
+```yaml
+id: P1-010
+status: triaged
+priority: P1
+created: 2026-07-09
+source: client-request (uwagi klienta #10)
+component: backend/reports/templates/protocol_zo.html
+migration_impact: no
+```
+
+**Kontekst:** W `protocol_zo.html` są DWIE sekcje podpisów z pieczątką:
+- Wydanie (linia 197): `{% if stamp_src %}<img src="{{ stamp_src }}" ...>{% endif %}` — ZOSTAWIĆ
+- Zwrot (linia 222): `{% if stamp_src %}<img src="{{ stamp_src }}" ...>{% endif %}` — USUNĄĆ
+
+Klient chce usunąć pieczątkę przy zwrocie, ale **layout nie może się rozjechać**. Trzeba zachować strukturę tabeli podpisów, tylko usunąć obrazek pieczątki (lub zastąpić pustym placeholderem tego samego rozmiaru).
+
+**Zadania:**
+
+1. **`backend/reports/templates/protocol_zo.html` linia 222:**
+   - Usuń `{% if stamp_src %}<img src="{{ stamp_src }}" ...>{% endif %}` z sekcji RETURN SIGNATURES
+   - Zostaw `<div class="sig-line">czytelny podpis Wynajmującego</div>` (bez zmian)
+   - Aby layout się nie rozjechał: dodaj pusty div tego samego rozmiaru:
+     ```html
+     <div style="height:70px;"></div>
+     ```
+     Lub po prostu usuń img — sprawdz czy layout się nie rozjedzie bez placeholdera
+
+2. **`backend/reports/templates/protocol_zo_u.html`** — sprawdź czy ma sekcję zwrotu z pieczątką (jeśli tak, usuń)
+
+3. **Weryfikacja:**
+   - Generuj protokół PDF → sprawdź: pieczątka przy wydaniu TAK, przy zwrocie NIE
+   - Layout podpisów nie rozjechany (wyrównanie kolumn, podpisy na tym samym poziomie)
+   - rao-vision: screenshot porównanie przed/po
+   - pytest + smoke e2e
+   - Commit
+
+**Definition of Done:**
+- [ ] Pieczątka usunięta z sekcji zwrotu w protocol_zo.html
+- [ ] Pieczątka zostaje w sekcji wydania
+- [ ] Layout nie rozjechany (podpisy wyrównane)
+- [ ] protocol_zo_u.html sprawdzone (jeśli ma zwrot z pieczątką — też usunąć)
+- [ ] Testy passing
+
+---
+
+### P1-011: Oddzielny protokół per maszyna — "Protokół 1 z 3" zamiast "Strona 1 z 3"
+
+```yaml
+id: P1-011
+status: triaged
+priority: P1
+created: 2026-07-09
+source: client-request (uwagi klienta #11)
+component: backend/reports/service.py + backend/reports/templates/protocol_zo*.html
+migration_impact: no
+```
+
+**Kontekst:** Aktualnie generowany jest JEDEN protokół PDF dla całej umowy ze wszystkimi pozycjami w jednej tabeli. Klient chce:
+- Osobny protokół dla każdej maszyny/pozycji w umowie
+- W jednym PDF (pobierane jako jeden plik, ale każda strona to osobny protokół)
+- Stopka: "Protokół 1 z 3" zamiast "Strona 1 z 3" (bo każda strona to inny protokół, nie kolejna strona tego samego)
+
+**Aktualny stan:**
+- `backend/reports/service.py:621-684` — `generate_pdf()` generuje jeden PDF dla umowy
+- `backend/reports/templates/protocol_zo.html` — jedna tabela positions z wszystkimi pozycjami
+- Template map (linie 634-644) — różne typy protokołów ale wszystkie per-umowa
+
+**Zadania:**
+
+1. **Backend `backend/reports/service.py`:**
+   - Generuj osobny protokół per pozycja (per maszyna) w umowie
+   - Łącz w jeden PDF (WeasyPrint multi-page lub PDF merge)
+   - Każda strona = jeden protokół z jedną maszyną
+   - Przekaż `protocol_number` i `protocol_total` do template (np. 1 z 3, 2 z 3, 3 z 3)
+
+2. **Template `protocol_zo.html` + `protocol_zo_u.html`:**
+   - Tabela positions: pokaż tylko JEDNĄ pozycję (aktualną)
+   - Stopka: "Protokół {{ protocol_number }} z {{ protocol_total }}" zamiast "Strona X z Y"
+   - Nagłówek: dodaj numer protokołu (np. "Protokół wydania 1/3")
+
+3. **Logika generacji:**
+   - Pobierz pozycje umowy
+   - Dla każdej pozycji: renderuj template z tą jedną pozycją
+   - Połącz wszystkie strony w jeden PDF
+   - Zwróć jeden plik PDF do pobrania
+
+4. **Weryfikacja:**
+   - Umowa z 3 pozycjami → PDF z 3 protokołami, każdy z jedną maszyną
+   - Stopka: "Protokół 1 z 3", "Protokół 2 z 3", "Protokół 3 z 3"
+   - Umowa z 1 pozycją → "Protokół 1 z 1"
+   - pytest + smoke e2e
+   - Commit
+
+**Definition of Done:**
+- [ ] Osobny protokół per maszyna (każda strona = jedna maszyna)
+- [ ] W jednym PDF (jeden plik do pobrania)
+- [ ] Stopka "Protokół X z Y" zamiast "Strona X z Y"
+- [ ] Działa dla umów z 1, 2, 3+ pozycjami
+- [ ] Testy passing
+
+**Ryzyka:**
+- WeasyPrint multi-page: sprawdź czy renderuje się poprawnie z wieloma stronami
+- Layout: każda strona musi być pełnym protokołem (nie ucięta)
+- Wydajność: umowy z 10+ pozycjami → 10+ stron PDF
+
+---
+
+### P1-014: Przedpłata na PDF umowy — przesuń do sekcji "Adres dostawy"
+
+```yaml
+id: P1-014
+status: triaged
+priority: P1
+created: 2026-07-09
+source: client-request (uwagi klienta #14)
+component: backend/reports/templates/contract.html
+migration_impact: no
+```
+
+**Kontekst:** Aktualnie przedpłata jest na górze umowy w tabeli informacyjnej (linia 135-137 `contract.html`), obok "Przewidywany okres" i "Termin przekazania". Klient chce przesunąć przedpłacę w inne miejsce — tam gdzie "Adres dostawy" (linia 154). Chodzi konkretnie o PDF umowy.
+
+**Aktualny layout (contract.html):**
+```
+┌─ Górna tabela informacyjna ──────────────────┐
+│ [logo]  Przedpłata: 500,00 zł     ← USUNĄĆ   │
+│         Przewidywany okres: ...               │
+│         Termin przekazania: ...               │
+│ [kontrahent] Adres dostawy: ...   ← DODAĆ    │
+└──────────────────────────────────────────────┘
+```
+
+**Zadania:**
+
+1. **`backend/reports/templates/contract.html`:**
+   - Usuń przedpłacę z górnej tabeli (linie 135-137):
+     ```html
+     {% if contract.prepayment_amount and contract.prepayment_amount > 0 %}
+     <strong>Przedpłata: {{ contract.prepayment_amount | money }}</strong><br>
+     {% endif %}
+     ```
+   - Dodaj przedpłacę do sekcji "Adres dostawy" (linia 154):
+     ```html
+     {% if contract.prepayment_amount and contract.prepayment_amount > 0 %}
+     Przedpłata: {{ contract.prepayment_amount | money }}<br>
+     {% endif %}
+     ```
+   - Zachowaj warunek `if contract.prepayment_amount > 0` (nie pokazuj jeśli 0)
+
+2. **Weryfikacja:**
+   - Generuj PDF umowy z przedpłacą → przedpłata w sekcji "Adres dostawy", NIE na górze
+   - Generuj PDF bez przedpłaty → brak wpisu
+   - Layout się nie rozjechał
+   - pytest + smoke e2e
+   - Commit
+
+**Definition of Done:**
+- [ ] Przedpłata usunięta z górnej tabeli informacyjnej
+- [ ] Przedpłata dodana do sekcji "Adres dostawy"
+- [ ] Działa z przedpłatą i bez przedpłaty
+- [ ] Layout nie rozjechany
+- [ ] Testy passing
+
+---
+
 ## 🏗️ P1-100 — EPIC: Usługi dodatkowe + rozliczenie umowy (cennik) — v2
 
 > **Scalony epic** — łączy P1-003, P1-004, P1-005, P1-006, P1-008 (freebie), P1-013, P1-014, P1-015
