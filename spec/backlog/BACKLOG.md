@@ -411,14 +411,32 @@ Kluczowa zmiana: zamiast „wg stawki ustalonej w Umowie Najmu" → konkretna st
 
 ```yaml
 id: P1-016
-status: triaged
+status: needs-repro
 priority: P1
 created: 2026-07-08
+updated: 2026-07-09
 source: client-request (uwagi klienta 2026-07-08, notatka na końcu dokumentu)
 component: frontend/AnalyticsView + backend/stats
 ```
 
 **Opis:** W statystykach pojawiają się błędne wartości: „-300%" i „-7". Klient zauważył nieprawidłowe dane w module statystyk/analytics. Wymaga analizy — prawdopodobnie błędne obliczenia delta/percentage lub brakujące dane powodujące ujemne wartości.
+
+**Analiza (2026-07-09):** Nie udało się odtworzyć błędu na aktualnych danych:
+- Fleet summary: utilization_pct=13.6%, period_revenue=1789944.00 — poprawne
+- By period: wszystkie wartości dodatnie
+- Machine ROI: roi_pct=null (brak replacement_value > 0 w DB)
+- Drilldown maszyny: przychód 7500 zł, 7 dni, 1 umowa — poprawne
+- Vision verification: brak ujemnych wartości na screenshocie
+- `clamped_days = max((c_to - c_from).days + 1, 0)` — zabezpieczone przed ujemnymi
+- `roi_pct = round(float(revenue) / float(art.replacement_value) * 100, 2)` — może być ujemne jeśli revenue < 0 (korekta/zwrot), ale brak replacement_value > 0 w DB
+
+**Potencjalne przyczyny:**
+1. Dane mogły się zmienić od czasu zgłoszenia (migracje, rozliczenia)
+2. Wartości mogły pochodzić z konkretnego filtru/okresu niedostępnego teraz
+3. "-300%" mogło być ROI z ujemnym revenue (korekta) i replacement_value > 0 (już usunięte)
+4. "-7" mogło być liczbą dni z błędną datą (date_to < date_from) — `clamped_days` zabezpiecza, ale stare dane mogły mieć inny kod
+
+**Do wyjaśnienia przez klienta:** W jakim dokładnie filtrze/okresie/zakładce pojawiły się te wartości?
 
 
 ---
