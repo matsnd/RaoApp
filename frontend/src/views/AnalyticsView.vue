@@ -176,9 +176,9 @@ onMounted(async () => {
     <!-- TABS -->
     <AnalyticsTabs :tabs="tabs" :active="activeTab" @change="onTabChange" />
 
-    <!-- FILTRY (ukryte na zakładce 'live' — live = "teraz") -->
+    <!-- FILTRY (ukryte na zakładce 'live' i 'reservations') -->
     <AnalyticsFilters
-      v-if="activeTab !== 'live'"
+      v-if="activeTab !== 'live' && activeTab !== 'reservations'"
       :model-value="filters"
       :contractors="contractorOptions"
       @update:model-value="onFiltersUpdate"

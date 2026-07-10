@@ -86,8 +86,7 @@ test.describe('AnalyticsView — statystyki', () => {
     expect(roiText).toContain('Przychód (szac.)')
   })
 
-  // PRE-EXISTING FAILURE: ContractorCombobox dropdown not opening in test env — unrelated to analytics refactor
-  test.fail('TEST-04: Filtr kontrahenta jest comboboxem z inputem', async ({ page }) => {
+  test('TEST-04: Filtr kontrahenta jest comboboxem z inputem', async ({ page }) => {
     const filter = page.getByTestId('filter-contractor')
     await expect(filter).toBeVisible()
     // ContractorCombobox renders a div wrapper with an input inside

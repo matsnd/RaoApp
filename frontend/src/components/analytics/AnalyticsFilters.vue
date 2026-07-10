@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import ContractorCombobox from '@/components/analytics/ContractorCombobox.vue'
 
 export type ArticleTypeFilter = 'all' | 'machine' | 'service'
 
