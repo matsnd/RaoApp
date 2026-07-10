@@ -589,6 +589,37 @@ CREATE TABLE audit_log (
     INDEX idx_audit_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_polish_ci
   COMMENT='RAO-P3-005: Dziennik zmian (kto, co, kiedy, JSON diff)';
+
+-- ============================================================
+-- 10. REZERWACJE ARTYKUŁÓW (RAO-P1-015 / RAO-L-Phase1)
+-- ============================================================
+
+-- Rezerwacja maszyny (article) na okres [reserved_from, reserved_to].
+-- Może być dla kontrahenta (contractor_id) lub bez (NULL = blokada wewnętrzna).
+-- status: confirmed = potwierdzona (domyślne), provisional = wstępna/proponowana.
+CREATE TABLE article_reservations (
+    id            INT AUTO_INCREMENT PRIMARY KEY,
+    article_id    INT          NOT NULL COMMENT 'FK articles.id — rezerwowana maszyna',
+    contractor_id INT          NULL     COMMENT 'RAO-L-Phase1: FK contractors.id (NULL = blokada wewnętrzna)',
+    reserved_from DATE         NOT NULL COMMENT 'Początek okresu rezerwacji (włącznie)',
+    reserved_to   DATE         NOT NULL COMMENT 'Koniec okresu rezerwacji (włącznie)',
+    status        ENUM('confirmed','provisional') NOT NULL DEFAULT 'confirmed'
+                  COMMENT 'RAO-L-Phase1: status rezerwacji',
+    note          VARCHAR(300) NULL     COMMENT 'Notatka/opis rezerwacji',
+    created_by    INT          NULL     COMMENT 'FK users.id — kto utworzył rezerwację',
+    created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_article_reservations_article FOREIGN KEY (article_id)
+        REFERENCES articles(id) ON DELETE CASCADE,
+    CONSTRAINT fk_article_reservations_contractor FOREIGN KEY (contractor_id)
+        REFERENCES contractors(id) ON DELETE SET NULL,
+    CONSTRAINT fk_article_reservations_created_by FOREIGN KEY (created_by)
+        REFERENCES users(id) ON DELETE SET NULL,
+    INDEX ix_article_reservations_article_id (article_id),
+    INDEX idx_article_reservations_contractor (contractor_id),
+    INDEX idx_article_reservations_reserved_from (reserved_from),
+    INDEX idx_article_reservations_reserved_to (reserved_to)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_polish_ci
+  COMMENT='RAO-P1-015: Rezerwacje maszyn na okres (kalendarz dostępności)';
 ```
 
 ## Tabele archiwum (archive_*) — RAO-P2-062 Faza 0

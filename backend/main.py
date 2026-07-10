@@ -796,6 +796,41 @@ async def startup_migrations():
             await db.commit()
             print(f"[startup] Backfill postal_code_id: {backfilled.rowcount} umów zaktualizowanych")
 
+    # RAO-L-Phase1: article_reservations — dodanie contractor_id + status + indeksy kalendarza
+    async with engine.begin() as conn:
+        await conn.execute(sa.text(
+            "ALTER TABLE article_reservations ADD COLUMN IF NOT EXISTS "
+            "contractor_id INT NULL COMMENT 'RAO-L-Phase1: FK do contractors.id (SET NULL)'"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE article_reservations ADD COLUMN IF NOT EXISTS "
+            "status ENUM('confirmed','provisional') NOT NULL DEFAULT 'confirmed' "
+            "COMMENT 'RAO-L-Phase1: status rezerwacji'"
+        ))
+        # FK contractor_id → contractors.id (try/except — MariaDB <10.6 nie wspiera IF NOT EXISTS dla CONSTRAINT)
+        try:
+            await conn.execute(sa.text(
+                "ALTER TABLE article_reservations ADD CONSTRAINT fk_article_reservations_contractor "
+                "FOREIGN KEY (contractor_id) REFERENCES contractors(id) ON DELETE SET NULL"
+            ))
+        except Exception:
+            pass  # FK już istnieje
+        # Indeks na contractor_id (FK bez indeksu = antywzorzec)
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_article_reservations_contractor "
+            "ON article_reservations(contractor_id)"
+        ))
+        # Indeksy na reserved_from / reserved_to — wydajność endpointu kalendarza
+        # (GET /reservations/calendar?from=&to= → WHERE reserved_from <= :to AND reserved_to >= :from)
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_article_reservations_reserved_from "
+            "ON article_reservations(reserved_from)"
+        ))
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_article_reservations_reserved_to "
+            "ON article_reservations(reserved_to)"
+        ))
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.get_cors_origins(),

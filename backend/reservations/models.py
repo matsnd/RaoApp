@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Date, DateTime, Enum, ForeignKey
 from sqlalchemy.sql import func
 from database import Base
 
@@ -13,9 +13,23 @@ class ArticleReservation(Base):
         nullable=False,
         index=True,
     )
-    reserved_from = Column(Date, nullable=False)
-    reserved_to = Column(Date, nullable=False)
+    reserved_from = Column(Date, nullable=False, index=True)
+    reserved_to = Column(Date, nullable=False, index=True)
     note = Column(String(300), nullable=True)
+    # RAO-L-Phase1: rezerwacja może być dla kontrahenta (contractor_id) lub bez (NULL)
+    contractor_id = Column(
+        Integer,
+        ForeignKey("contractors.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    # RAO-L-Phase1: status rezerwacji (confirmed = potwierdzona, provisional = wstępna)
+    status = Column(
+        Enum("confirmed", "provisional", name="reservation_status"),
+        nullable=False,
+        server_default="confirmed",
+        default="confirmed",
+    )
     created_by = Column(
         Integer,
         ForeignKey("users.id", ondelete="SET NULL"),
