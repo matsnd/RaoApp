@@ -265,9 +265,9 @@
 </table>
 {% endif %}
 
-<!-- P1-009: Opiekun umowy nad tekstem prawnym na środku -->
+<!-- P2-018: Opiekun zamówienia nad tekstem prawnym na środku -->
 <div style="text-align:center; margin-bottom: 6px; font-size: 9px; color: #555;">
-  Opiekun umowy: {{ salesperson.name if salesperson else '' }}{% if salesperson and salesperson.phone %} · tel. {{ salesperson.phone }}{% endif %}
+  Opiekun zamówienia: {{ salesperson.name if salesperson else '' }}{% if salesperson and salesperson.phone %} tel. {{ salesperson.phone }}{% endif %}
 </div>
 
 <!-- FOOTER LEGAL -->

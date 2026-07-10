@@ -20,7 +20,7 @@
 | 6 | Opłaty diesel/elektryk | ✅ Zrealizowane | `settings/router.py`, `ContractFormView.vue` |
 | 7 | Dodatkowe info na protokole usług | ✅ Zrealizowane | `protocol_zo_u.html` |
 | 8 | Przewidywana ilość dni — 2 linijki | ✅ Zrealizowane | `contract.html` |
-| 9 | Opiekun na protokole | ⚠️ Częściowo | `reports/service.py` (brak w szablonie protokołu) |
+| 9 | Opiekun na protokole | ✅ Zrealizowane | `protocol_zo*.html`, `contract*.html` |
 | 10 | Usunąć pieczątkę przy zwrocie | ✅ Zrealizowane | `protocol_zo.html` |
 | 11 | Osobny protokół per maszyna | ✅ Zrealizowane | `reports/service.py` |
 | 12 | Tel klienta tylko na protokole | ✅ Zrealizowane | `contract.html`, `protocol_zo.html` |
@@ -28,7 +28,7 @@
 | 14 | Przedpłata na dół | ✅ Zrealizowane | `contract.html` |
 | 15 | OWN §3 pkt 8b | ✅ Zrealizowane | `contract.html` |
 
-**Wynik:** 14/15 zrealizowane, 1 częściowo (uwaga 9 — opiekun na protokole).
+**Wynik:** 15/15 zrealizowane.
 
 ---
 
@@ -158,14 +158,14 @@
 **GLM-5.2:** Na każdym protokole (S i U) ma być imię, nazwisko i nr telefonu opiekuna umowy.
 
 **SWE-1.7:**
-- **Contract PDF:** `contract.html` — "Opiekun umowy: {{ salesperson.name }}" ✓ (weryfikacja PDF: "Opiekun umowy: Piotr")
+- **Contract PDF:** `contract.html` i `contract_u.html` — "Opiekun zamówienia: {{ salesperson.name }} tel. {{ salesperson.phone }}" ✓ (tylko strona 1, nie na OWN)
 - **Protocol PDF:** `reports/service.py:129-131` — `salesperson` jest ładowany z DB i przekazywany do szablonu
-- **Protocol templates:** `protocol_zo.html` i `protocol_zo_u.html` — **BRAK** renderowania `salesperson` w szablonie
-- **GAP:** Dane są dostępne w context ale nie są wyświetlane w protokole
+- **Protocol templates:** `protocol_zo.html`, `protocol_zo_u.html`, `protocol_zo_nodata.html`, `protocol_zo_nodata_u.html` — linia na dole protokołu, po sekcji bottom-section, przed stopką "Protokół X z Y"
+- **P2-018 zrealizowane:** etykieta zmieniona z "Opiekun umowy" na "Opiekun zamówienia", format "tel." bez separatora "·"
 
-**Weryfikacja PDF text (protocol):** Brak "Opiekun" w tekście protokołu. **GAP POTWIERDZONY.**
+**Weryfikacja PDF text (protocol):** "Opiekun zamówienia: {imię nazwisko} tel. {numer}" na dole protokołu. ✓
 
-**Status: ⚠️ Częściowo — opiekun jest na umowie ale NIE na protokole. Wymaga dodania do szablonów `protocol_zo.html` i `protocol_zo_u.html`.**
+**Status: ✅ Zrealizowane (P2-018)**
 
 ---
 

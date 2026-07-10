@@ -1324,7 +1324,7 @@ component: frontend/ContractFormView
 
 ```yaml
 id: P2-018
-status: triaged
+status: done
 priority: P2
 created: 2026-07-10
 updated: 2026-07-10
@@ -1341,10 +1341,12 @@ client_remark: "9. Opiekun zamówienia na każdym protokole (wynajem/usługa) �
 - UI Settings (`SettingsView.vue:104`) — pole telefonu jest edytowalne w formularzu handlowców
 - **Nie wymaga rozszerzenia modelu ani API** — wystarczy dodać renderowanie w szablonach PDF
 
-**Implementacja:**
-- Dodać sekcję "Opiekun umowy: {{ salesperson.name }}{% if salesperson.phone %}, tel: {{ salesperson.phone }}{% endif %}" do `protocol_zo.html` i `protocol_zo_u.html`
-- Pozycja: dolna sekcja przed podpisami lub górna sekcja obok danych najemcy
-- Sprawdzić czy `salesperson` jest w context dla `protocol_zo_nodata.html` i `protocol_zo_nodata_u.html`
+**Implementacja (zrealizowane):**
+- Zmiana etykiety we wszystkich dokumentach: "Opiekun umowy" → "Opiekun zamówienia"
+- Format: "Opiekun zamówienia: {imię nazwisko} tel. {numer}" (bez separatora "·")
+- Umowy (`contract.html`, `contract_u.html`): linia nad tekstem prawnym, **tylko strona 1** (w `<div class="content">`, nie na stronach OWN)
+- Protokoły (`protocol_zo.html`, `protocol_zo_u.html`, `protocol_zo_nodata.html`, `protocol_zo_nodata_u.html`): linia na dole, po sekcji bottom-section, przed stopką "Protokół X z Y"
+- Deployment copies zsyncowane (6 plików)
 
 **Weryfikacja:** Generacja PDF protokołu z umowy z przypisanym handlowcem → sprawdzenie tekstu.
 
