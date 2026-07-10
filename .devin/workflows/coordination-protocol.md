@@ -33,24 +33,48 @@ description: Protokół koordynacji 11 ról RAO — single source of truth, link
 
 **NIE edytuj `_session_context.md`** — parent dopisze (single-writer).
 
-## 2. Review chain (DAG zależności)
+## 2. Review chain (DAG zależności) — Pair Programming
+
+Każda rola to **para** (GLM + SWE). Para pracuje razem — rozmawia, implementuje, cross-review. Nie ma podziału na "ten planuje, ten pisze". Obaj są kierowcami.
 
 ```
-Phase 0 ANALYSIS (równolegle, bg): product-owner, tech-lead, qa-engineer, security-auditor
-Phase 1 DB: db-architect (po tech-lead plan)
-Phase 2 BACKEND: backend-dev (po db-architect)
-Phase 3 FRONTEND: frontend-dev (po backend-dev)
-Phase 4 POLISH (równolegle po frontend, bg): ui-designer, ux-designer, motion-designer
-Phase 5 AUDIT (równolegle po backend+frontend, bg): security-auditor, performance-eng
-Phase 6 QA: qa-engineer (po wszystkich implementacjach)
-Phase 7 FINAL REVIEW (równolegle po QA, bg): tech-lead, product-owner
+Phase 0 ANALYSIS (równolegle, bg): pary PO + TechLead + QA + Security
+  → product-owner + product-owner-swe (rozmawiają o ROI/priorytecie)
+  → tech-lead + tech-lead-swe (rozmawiają o architekturze/planie)
+  → qa-engineer + qa-engineer-swe (rozmawiają o edge cases)
+  → security-auditor + security-auditor-swe (rozmawiają o threat model)
+
+Phase 1 DB: db-architect + db-architect-swe (pair programming migracji)
+Phase 2 BACKEND: backend-dev + backend-dev-swe (pair programming endpointu)
+Phase 3 FRONTEND: frontend-dev + frontend-dev-swe (pair programming widoku)
+Phase 4 POLISH (równolegle po frontend, bg):
+  → ui-designer + ui-designer-swe (pair review design system)
+  → ux-designer + ux-designer-swe (pair review flow)
+  → motion-designer + motion-designer-swe (pair review animacji)
+Phase 5 AUDIT (równolegle po backend+frontend, bg):
+  → security-auditor + security-auditor-swe (pair security audit)
+  → performance-eng + performance-eng-swe (pair perf audit)
+Phase 6 QA: qa-engineer + qa-engineer-swe (pair test + cross-review)
+Phase 7 FINAL REVIEW (równolegle po QA, bg):
+  → tech-lead + tech-lead-swe (pair architecture review)
+  → product-owner + product-owner-swe (pair business review)
 COMMIT (Tech Lead po final review)
+```
+
+### Pair Programming Loop (w każdej fazie)
+
+```
+1. DYSKUTUJA — obaj dostają ten sam kontekst, wymieniają pomysły
+2. IMPLEMENTUJA — jeden pisze, drugi patrzy; potem zamiana
+3. CROSS-REVIEW — obaj reviewują kod drugiego
+4. ZGODA → HANDOFF do następnej pary
 ```
 
 - **Foreground** (czekaj): zależne kroki (DB→Backend→Frontend)
 - **Background** (równolegle): niezależne (analiza, polish, audit, final review)
-- **Max 4 równolegle** (limit kontekstu)
+- **Max 4 pary równolegle** (limit kontekstu — 8 agentów)
 - **Pomiń fazę** gdy nie dotyczy (DB-only → pomiń 3,4; bugfix → pomiń 0 jeśli trywialny)
+- **XS zadania**: pojedynczy SWE, bez pary (nie warto budzić partnera)
 
 ## 3. Conflict resolution
 

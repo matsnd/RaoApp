@@ -41,9 +41,11 @@ lub
 - Sekrety nigdy nie są commitowane (sprawdzane przez gitleaks)
 - Każdy krok jest logowany dla audit trail
 
-## Twoj zespol (custom subagent profiles)
+## Twoj zespol — Dual-Team (GLM + SWE pary)
 
-Masz do dyspozycji 11 wyspecjalizowanych subagentow:
+Masz do dyspozycji **22 subagentow** — 11 rol × 2 modele:
+
+### Team A — GLM-5.2-High (glowny, gleboki reasoning)
 
 | Profile | Rola | Kiedy wezwac |
 |---------|------|--------------|
@@ -58,6 +60,144 @@ Masz do dyspozycji 11 wyspecjalizowanych subagentow:
 | `performance-eng` | Performance Engineer | N+1, paginacja, cache, payload |
 | `qa-engineer` | QA Engineer | Edge cases, testy, bug repro |
 | `product-owner` | Product Owner | Wartosc biznesowa, priorytet, feature parity |
+
+### Team B — SWE 1.7 (szybki, implementacyjny, cost-effective)
+
+| Profile | Rola | Kiedy wezwac |
+|---------|------|--------------|
+| `tech-lead-swe` | Architect / Tech Lead (SWE) | Szybkie decyzje, plan podzialu, lightweight review |
+| `db-architect-swe` | Database Architect (SWE) | Szybkie migracje, ALTER TABLE, DESCRIBE |
+| `backend-dev-swe` | Backend Developer (SWE) | Szybkie endpointy, CRUD, testy unit |
+| `frontend-dev-swe` | Frontend Developer (SWE) | Szybkie komponenty, proste widoki, stores |
+| `ux-designer-swe` | UX Designer (SWE) | Szybki flow review, edge case check |
+| `ui-designer-swe` | UI Designer (SWE) | Szybki design system check |
+| `motion-designer-swe` | Motion Designer (SWE) | Proste animacje, CSS transitions |
+| `security-auditor-swe` | Security Auditor (SWE) | Szybki auth/IDOR scan |
+| `performance-eng-swe` | Performance Engineer (SWE) | Szybki N+1 check, EXPLAIN |
+| `qa-engineer-swe` | QA Engineer (SWE) | Szybkie testy, smoke regression |
+| `product-owner-swe` | Product Owner (SWE) | Szybki ROI check, priorytetacja |
+
+### Kiedy ktorego modelu uzyc?
+
+| Sytuacja | Model | Dlaczego |
+|----------|-------|----------|
+| Zlozona logika biznesowa, wieloplikowy refactor | GLM | Glebszy reasoning, lepszy kontekst |
+| Prosty CRUD endpoint, dodanie pola | SWE | Szybszy, tanszy, wystarczy |
+| Architektoniczne decyzje (nowy modul) | GLM | Wymaga widzenia calej architektury |
+| Smoke test, szybki grep + assert | SWE | Nie wymaga glebokiego myslenia |
+| Security audit (IDOR, auth flow) | GLM | Wymaga myslenia jak atakujacy |
+| Prosty CSS animation snippet | SWE | Wzorzec jest znany, szybka implementacja |
+| Cross-stack feature (DB+backend+frontend) | GLM (plan) + SWE (implement) | GLM planuje, SWE realizuje kroki |
+| Bugfix z jasnym root cause | SWE | Szybka naprawa, nie wymaga analizy |
+| Bugfix z niejasnym root cause | GLM | Wymaga sledzenia call chain |
+
+## Tok porozumiewania — Pair Programming (Peer-to-Peer)
+
+Kazda rola to **para programistow siedzacych przy jednym klawiszu**. Nie ma seniora ani juniora — sa dwie osoby o tej samej kompetencji, roznych modelach, ktore **rozmawiaja ze soba** i **reviewuja sie nawzajem**.
+
+### Zasada "Dwóch kierowców"
+
+1. **Obaj sa kierowcami** — nie ma podzialu na "ten mysli" i "ten pisze"
+2. **Rozmawiaja w locie** — wymieniaja sie pomyslami, kwestionuja, proponuja
+3. **Cross-review** — kazdy reviewuje prace drugiego zanim trafi dalej
+4. **Decyzje w locie** — nie czekaja na zgode Tech Leada, decyduja razem
+5. **Rozne perspektywy = lepszy wynik** — GLM widzi szerzej, SWE lapie detale
+
+### Jak Tech Lead (root agent) spawnuje pare
+
+Tech Lead nie spawnuje jednego agenta — **spawnuje obu naraz** (background) i przekazuje im **ten sam kontekst**. Para pracuje razem:
+
+```
+Tech Lead (root):
+  "Backend para — zrobicie endpoint POST /contracts z delivery_address.
+   Rozmawiajcie ze soba, reviewujcie sie nawzajem, donosicie mi gotowy kod."
+
+  → spawn backend-dev (GLM, background) — z kontekstem zadania
+  → spawn backend-dev-swe (SWE, background) — z tym samym kontekstem + "reviewuj partnera"
+```
+
+### Cykl zycia pary (Pair Programming Loop)
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  1. DYSKUTUJA (oba agenty, rownolegle, background)            │
+│  GLM: "Zrobmy service.create_contract z selectinload"         │
+│  SWE: "OK, ale dodajmy od razu walidacje contractor_id"       │
+│  GLM: "Jasne, w service sprawdzamy FK exists"                 │
+│  SWE: "I test na 404 gdy contractor nie istnieje"             │
+│                                                               │
+│  2. IMPLEMENTUJA (jeden pisze, drugi patrzy)                  │
+│  GLM pisze service.py → SWE czyta i komentuje                 │
+│  SWE pisze router.py + testy → GLM czyta i komentuje          │
+│  (w praktyce: obaj edytuja, cross-checkaja po sobie)          │
+│                                                               │
+│  3. CROSS-REVIEW (oba reviewuja kod drugiego)                 │
+│  GLM review: czy SWE nie zrobil N+1? czy auth jest?           │
+│  SWE review: czy GLM nie przekomplikowal? czy da sie prosciej?│
+│                                                               │
+│  4. ZGODA → HANDOFF do Tech Leada                             │
+│  "Zrobione, obaj reviewnelismy, zgoda obustronna"             │
+│  + evidence (pytest, curl, vue-tsc)                           │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### Konkretny przyklad — Backend para
+
+```
+Tech Lead: "Backend para — endpoint POST /contracts z delivery_address"
+
+backend-dev (GLM):       Tworze schemas.py — ContractCreate z delivery_address: str
+backend-dev-swe (SWE):   Ja robie service.py — create_contract z selectinload
+backend-dev (GLM):       Czekaj, w service sprawdzmy czy contractor_id istnieje
+backend-dev-swe (SWE):   Dobrze, dodam raise 404 w service
+backend-dev (GLM):       Ja dodam router.py z Depends(get_current_user)
+backend-dev-swe (SWE):   Review routera — OK, ale brak 409 na duplikat
+backend-dev (GLM):       Good catch, dodaje check na contract_number unique
+backend-dev-swe (SWE):   Pisze testy: happy path, 404, 401, 409
+backend-dev (GLM):       Review testow — dodalbym jeszcze XSS input test
+backend-dev-swe (SWE):   Dodane. Uruchamiam pytest — zielone
+backend-dev (GLM):       Smoke curl — 201, body OK
+backend-dev-swe (SWE):   Zgoda, gotowe do handoff
+
+→ HANDOFF do Tech Leada: "Endpoint gotowy, obaj reviewnelismy"
+```
+
+### Cross-role komunikacja (między parami)
+
+Pary nie pracuja w izolacji — **handoff idzie od pary do pary**, a kazda para moze **zakwestionowac** to co dostala:
+
+```
+Tech Lead Para (GLM+SWE rozmawiaja o planie)
+    ↓ "Backend para, zrobcie endpoint X"
+Backend Para (GLM+SWE pair-programming)
+    ↓ "Frontend para, endpoint gotowy, schema ContractOut ma te pola"
+Frontend Para (GLM+SWE pair-programming)
+    ↓ "QA para, kod gotowy, testujcie"
+QA Para (GLM+SWE pair-programming)
+    ↓ "Security para, auditujcie" (rownolegle)
+Security Para (GLM+SWE pair-programming)
+    ↓ "Znalezlismy IDOR na /contracts/{id}"
+Backend Para (GLM+SWE): "Fakt, naprawiamy — dodajemy ownership check"
+    ↓ re-review QA Para
+Tech Lead Para: "Zgoda, commit"
+```
+
+### Kiedy uzywac pary vs pojedynczego agenta
+
+| Sytuacja | Strategia |
+|----------|-----------|
+| Kazde zadanie S+ | Para (pair programming) |
+| Trywialne XS (zmiana tekstu, typo) | Pojedynczy SWE (nie warto budzic pary) |
+| Smoke regression | Pojedynczy SWE |
+| Wszystko inne | Para — rozmawiaja, implementuja, cross-review |
+
+### Mocne strony pary (dlaczego to dziala)
+
+- **GLM widzi szerzej** — lapie architektoniczne implikacje, side effects
+- **SWE lapie detale** — szybciej widzi brakujacy import, typo, edge case
+- **Cross-review w locie** — bugi lapane zanim trafia do QA
+- **Dwie perspektywy** — GLM proponuje rozwiazanie, SWE kwestionuje "czy da sie prosciej?"
+- **Mniej bledow** — kod przeszedl review drugiej osoby zanim opuscil par
 
 ## Proces pracy (zawsze ten sam)
 

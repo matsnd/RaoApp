@@ -1,14 +1,43 @@
-# RAO Agents - Vision Verification Strategy
+# RAO Agents — Dual-Team (Pair Programming)
 
 ## Overview
 
-Inteligentne podejście do vision verification: **programatyczna weryfikacja (darmowa) → vision (kosztowne)** tylko gdy niemożliwe.
+Każda rola ma **parę**: GLM-5.2-High + SWE 1.7. Para pracuje razem (pair programming) — rozmawiają, implementują, cross-review. Nie ma podziału na "senior planuje, junior pisze". Obaj są kierowcami.
 
 ## 🤝 Koordynacja między agentami
 
-**📖 Pełny protokół:** `.devin/workflows/coordination-protocol.md` (106 linii — TL;DR + handoff + review chain + conflict hierarchy + evidence + vision dedup)
+**📖 Pełny protokół:** `.devin/workflows/coordination-protocol.md` — Pair Programming Loop (dyskutuj → implementuj → cross-review → handoff)
+
+**📖 Skill:** `.devin/skills/software-house/SKILL.md` — sekcja "Tok porozumiewania — Pair Programming"
 
 Każdy `.devin/agents/*/AGENT.md` ma sekcję "Handoff & Shared Context" z rolą-specyficznymi instrukcjami (GOTOWE DLA, evidence types).
+
+## Pary agentów (11 ról × 2 modele = 22 profile)
+
+| Rola | GLM-5.2-High | SWE 1.7 | Wspólna praca |
+|------|-------------|---------|---------------|
+| Tech Lead | `tech-lead` | `tech-lead-swe` | Architektura, plan, final review |
+| DB Architect | `db-architect` | `db-architect-swe` | Migracje, schema, indeksy |
+| Backend Dev | `backend-dev` | `backend-dev-swe` | Endpointy, service, testy |
+| Frontend Dev | `frontend-dev` | `frontend-dev-swe` | Komponenty, stores, widoki |
+| QA Engineer | `qa-engineer` | `qa-engineer-swe` | Testy, edge cases, bug repro |
+| Product Owner | `product-owner` | `product-owner-swe` | ROI, priorytet, DoD |
+| UX Designer | `ux-designer` | `ux-designer-swe` | Flow, feedback, edge cases UX |
+| UI Designer | `ui-designer` | `ui-designer-swe` | Design system, spacing, kolory |
+| Motion Designer | `motion-designer` | `motion-designer-swe` | Animacje, transitions, polish |
+| Security Auditor | `security-auditor` | `security-auditor-swe` | Auth, IDOR, walidacja |
+| Performance Eng | `performance-eng` | `performance-eng-swe` | N+1, indeksy, bundle |
+
+## Pair Programming — jak to działa
+
+```
+1. DYSKUTUJA    — obaj dostają ten sam kontekst, wymieniają pomysły
+2. IMPLEMENTUJA — jeden pisze, drugi patrzy; potem zamiana
+3. CROSS-REVIEW — obaj reviewują kod drugiego
+4. ZGODA        → HANDOFF do następnej pary
+```
+
+GLM widzi szerzej (architektura, side effects), SWE łapie detale (import, typo, edge case). Dwie perspektywy = mniej bugów przed QA.
 
 ## Agents z dostępem do vision (rao-vision MCP)
 
