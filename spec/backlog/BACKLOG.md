@@ -1320,5 +1320,35 @@ component: frontend/ContractFormView
 
 ---
 
+### P2-018: Opiekun umowy na protokole zdawczo-odbiorczym (uwaga klienta #9)
+
+```yaml
+id: P2-018
+status: triaged
+priority: P2
+created: 2026-07-10
+updated: 2026-07-10
+source: client-remark
+component: backend/reports/templates
+client_remark: "9. Opiekun zamówienia na każdym protokole (wynajem/usługa) – Imię i nazwisko, i nr tel."
+```
+
+**Opis:** Na każdym protokole (S i U) ma być wyświetlony opiekun umowy — imię, nazwisko i nr telefonu. Aktualnie `salesperson` jest ładowany w `reports/service.py:129-131` i przekazywany do szablonu, ale `protocol_zo.html` i `protocol_zo_u.html` nie renderują go.
+
+**Analiza:**
+- `Salesperson` model (`backend/settings/models.py:72-79`) **już ma** pole `phone: String(100), nullable=True`
+- `SalespersonResponse` schema (`backend/settings/schemas.py:111-119`) **już ma** `phone: str | None`
+- UI Settings (`SettingsView.vue:104`) — pole telefonu jest edytowalne w formularzu handlowców
+- **Nie wymaga rozszerzenia modelu ani API** — wystarczy dodać renderowanie w szablonach PDF
+
+**Implementacja:**
+- Dodać sekcję "Opiekun umowy: {{ salesperson.name }}{% if salesperson.phone %}, tel: {{ salesperson.phone }}{% endif %}" do `protocol_zo.html` i `protocol_zo_u.html`
+- Pozycja: dolna sekcja przed podpisami lub górna sekcja obok danych najemcy
+- Sprawdzić czy `salesperson` jest w context dla `protocol_zo_nodata.html` i `protocol_zo_nodata_u.html`
+
+**Weryfikacja:** Generacja PDF protokołu z umowy z przypisanym handlowcem → sprawdzenie tekstu.
+
+---
+
 ## 🟢 P3 — Nice-to-Have
 *(brak)*
