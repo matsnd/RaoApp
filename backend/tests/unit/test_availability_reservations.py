@@ -17,7 +17,7 @@ from articles.models import Article
 from reservations.models import ArticleReservation
 
 
-def _mk_reservation(r_id, art_id, r_from, r_to, note=None):
+def _mk_reservation(r_id, art_id, r_from, r_to, note=None, contractor_id=None):
     """Tworzy mock ArticleReservation z polami używanymi przez check_availability."""
     r = MagicMock(spec=ArticleReservation)
     r.id = r_id
@@ -25,6 +25,7 @@ def _mk_reservation(r_id, art_id, r_from, r_to, note=None):
     r.reserved_from = r_from
     r.reserved_to = r_to
     r.note = note
+    r.contractor_id = contractor_id
     return r
 
 
@@ -37,8 +38,9 @@ def _mk_article(is_external=False):
 def _mock_db(article=None, contract_rows=None, reservations=None):
     """Buduje AsyncMock(AsyncSession):
     - db.get(Article, id) → article (lub None)
-    - db.execute(stmt) → result z .all() = contract_rows / .scalars().all() = reservations
+    - db.execute(stmt) → result z .all() = contract_rows / reservation tuples
     Kolejność execute: 1) contracts, 2) reservations.
+    RAO-L-Phase2: reservations query zwraca tuple (ArticleReservation, contractor_name).
     """
     db = AsyncMock()
 
@@ -49,10 +51,14 @@ def _mock_db(article=None, contract_rows=None, reservations=None):
     contract_result = MagicMock()
     contract_result.all.return_value = contract_rows or []
 
+    # Reservation rows are now tuples (reservation, contractor_name)
+    res_tuples = []
+    for r in (reservations or []):
+        contractor_name = "ACME Sp. z o.o." if r.contractor_id else None
+        res_tuples.append((r, contractor_name))
+
     res_result = MagicMock()
-    res_scalars = MagicMock()
-    res_scalars.all.return_value = reservations or []
-    res_result.scalars.return_value = res_scalars
+    res_result.all.return_value = res_tuples
 
     calls = {"i": 0}
 
@@ -143,3 +149,31 @@ async def test_availability_reservation_available_from_is_reserved_to_plus_one()
     out = await svc.check_availability(db, 1, date(2026, 2, 10), date(2026, 2, 20))
     assert out.conflicting_reservations[0].available_from == date(2026, 3, 1)
     assert out.conflicting_reservations[0].available_from == res.reserved_to + timedelta(days=1)
+
+
+@pytest.mark.asyncio
+async def test_availability_reservation_conflict_includes_contractor():
+    """RAO-L-Phase2: conflicting_reservations zawiera contractor_id i contractor_name."""
+    svc = ArticleService()
+    res = _mk_reservation(
+        7, 1, date(2026, 1, 5), date(2026, 1, 15),
+        note="Serwis", contractor_id=42,
+    )
+    db = _mock_db(article=_mk_article(), contract_rows=[], reservations=[res])
+    out = await svc.check_availability(db, 1, date(2026, 1, 1), date(2026, 1, 10))
+    assert out.is_available is False
+    rc = out.conflicting_reservations[0]
+    assert rc.contractor_id == 42
+    assert rc.contractor_name is not None
+
+
+@pytest.mark.asyncio
+async def test_availability_reservation_conflict_no_contractor():
+    """RAO-L-Phase2: rezerwacja bez contractor_id → contractor_id=None, contractor_name=None."""
+    svc = ArticleService()
+    res = _mk_reservation(7, 1, date(2026, 1, 5), date(2026, 1, 15), contractor_id=None)
+    db = _mock_db(article=_mk_article(), contract_rows=[], reservations=[res])
+    out = await svc.check_availability(db, 1, date(2026, 1, 1), date(2026, 1, 10))
+    rc = out.conflicting_reservations[0]
+    assert rc.contractor_id is None
+    assert rc.contractor_name is None

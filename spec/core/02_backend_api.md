@@ -643,6 +643,7 @@ HTTP: 200 | 401 | 404
 class AvailabilityResponse(BaseModel):
     is_available: bool
     conflicting_contracts: list[ConflictingContract]
+    conflicting_reservations: list[AvailabilityReservationConflict]  # RAO-P2-066
 
 class ConflictingContract(BaseModel):
     contract_id: int
@@ -650,10 +651,20 @@ class ConflictingContract(BaseModel):
     date_from: date
     date_to: date
     contractor_name: str
+
+class AvailabilityReservationConflict(BaseModel):  # RAO-P2-066, Phase2 2026-07-11
+    reservation_id: int
+    reserved_from: date
+    reserved_to: date
+    note: str | None
+    available_from: date | None  # reserved_to + 1 dzień
+    contractor_id: int | None    # Phase2: JOIN contractors
+    contractor_name: str | None  # Phase2: JOIN contractors
 ```
 
 **Algorytm (zastępuje procedurę `sprDostepnosc`):**
 ```sql
+-- Konflikty z umowami
 SELECT c.id, c.number, c.date_from, c.date_to, ct.name AS contractor_name
 FROM contract_positions cp
 JOIN contracts c ON cp.contract_id = c.id
@@ -661,6 +672,14 @@ JOIN contractors ct ON c.contractor_id = ct.id
 WHERE cp.article_id = :article_id
   AND c.date_from <= :date_to
   AND c.date_to >= :date_from
+
+-- Konflikty z rezerwacjami (RAO-P2-066, Phase2: JOIN contractors)
+SELECT r.*, ct.name AS contractor_name
+FROM article_reservations r
+LEFT JOIN contractors ct ON r.contractor_id = ct.id
+WHERE r.article_id = :article_id
+  AND r.reserved_from <= :date_to
+  AND r.reserved_to >= :date_from
 ```
 
 ---
@@ -2200,16 +2219,16 @@ npm install vue-draggable-plus @vuepic/vue-datepicker
 
 ---
 
-## Reservations API (RAO-P1-015, UPDATED 2026-07-15)
+## Reservations API (RAO-P1-015, UPDATED 2026-07-15, Phase2 2026-07-11)
 
 ### `GET /reservations`
 **Opis:** Lista wszystkich rezerwacji (management view).
-**Response:** `list[ReservationResponse]` (`{id, article_id, reserved_from, reserved_to, note, created_by, created_at}`)
+**Response:** `list[ReservationResponse]` (`{id, article_id, reserved_from, reserved_to, note, created_by, created_at, contractor_id?, status}`)
 **HTTP:** 200 | 401
 
 ### `GET /reservations/with-articles` (NOWY 2026-07-15)
-**Opis:** Lista wszystkich rezerwacji z nazwą maszyny i nr wewnętrznym (for analytics tab).
-**Response:** `list[ReservationWithArticleResponse]` (`{id, article_id, article_name, internal_number, reserved_from, reserved_to, note, created_by, created_at}`)
+**Opis:** Lista wszystkich rezerwacji z nazwą maszyny, nr wewnętrznym i kontrahentem (for analytics tab).
+**Response:** `list[ReservationWithArticleResponse]` (`{id, article_id, article_name, internal_number, reserved_from, reserved_to, note, created_by, created_at, contractor_id?, contractor_name?, status}`)
 **HTTP:** 200 | 401
 
 ### `GET /reservations/article/{article_id}`
@@ -2222,10 +2241,22 @@ npm install vue-draggable-plus @vuepic/vue-datepicker
 **Response:** `list[ReservationResponse]`
 **HTTP:** 200 | 401
 
+### `GET /reservations/calendar` (NOWY Phase2 2026-07-11)
+**Opis:** Zwraca eventy kalendarza (rezerwacje + umowy) pokrywające się z [date_from, date_to].
+**Query:** `date_from` (req), `date_to` (req), `article_id` (opt)
+**Response:** `list[CalendarEvent]` (`{source, source_id, article_id, article_name?, internal_number?, contractor_id?, contractor_name?, date_from, date_to, note?, status?}`)
+**HTTP:** 200 | 401
+
 ### `POST /reservations`
-**Body:** `ReservationCreate` (`{article_id, reserved_from, reserved_to, note?}`)
+**Body:** `ReservationCreate` (`{article_id, reserved_from, reserved_to, note?, contractor_id?, status?}`)
 **Response:** `ReservationResponse` (201)
 **HTTP:** 201 | 401 | 409 (konflikt dat)
+
+### `PUT /reservations/{reservation_id}` (NOWY Phase2 2026-07-11)
+**Opis:** Edycja rezerwacji (partial update — tylko przekazane pola).
+**Body:** `ReservationUpdate` (`{reserved_from?, reserved_to?, note?, contractor_id?, status?}`)
+**Response:** `ReservationResponse` (200)
+**HTTP:** 200 | 401 | 404 | 409 (konflikt dat)
 
 ### `DELETE /reservations/{reservation_id}`
 **Opis:** Usunięcie rezerwacji (wymaga admin).

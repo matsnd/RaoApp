@@ -1,10 +1,17 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from datetime import date
 
 from auth.dependencies import get_current_user, require_admin
 from auth.models import User
 from database import get_db
-from reservations.schemas import ReservationCreate, ReservationResponse, ReservationWithArticleResponse
+from reservations.schemas import (
+    ReservationCreate,
+    ReservationUpdate,
+    ReservationResponse,
+    ReservationWithArticleResponse,
+    CalendarEvent,
+)
 from reservations.service import reservation_service
 
 router = APIRouter(prefix="/reservations", tags=["reservations"])
@@ -56,6 +63,29 @@ async def create_reservation(
 ):
     """Create a new reservation. Returns 409 if dates conflict."""
     return await reservation_service.create(db, data, user.id)
+
+
+@router.get("/calendar", response_model=list[CalendarEvent])
+async def list_calendar(
+    date_from: date = Query(..., description="Początek zakresu kalendarza (YYYY-MM-DD)"),
+    date_to: date = Query(..., description="Koniec zakresu kalendarza (YYYY-MM-DD)"),
+    article_id: int | None = Query(None, description="Filtr po ID artykułu"),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Zwraca eventy kalendarza (rezerwacje + umowy) pokrywające się z [date_from, date_to]."""
+    return await reservation_service.list_calendar(db, date_from, date_to, article_id)
+
+
+@router.put("/{reservation_id}", response_model=ReservationResponse)
+async def update_reservation(
+    reservation_id: int,
+    data: ReservationUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Update an existing reservation (partial). 404 if not found, 409 on conflict."""
+    return await reservation_service.update(db, reservation_id, data, user.id)
 
 
 @router.delete("/{reservation_id}", status_code=204)

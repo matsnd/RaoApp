@@ -130,6 +130,9 @@ class AvailabilityReservationConflict(BaseModel):
     note: str | None = None
     # Data, od której maszyna będzie dostępna (= reserved_to + 1 dzień)
     available_from: date | None = None
+    # RAO-L-Phase2: powiązanie z kontrahentem (JOIN contractors)
+    contractor_id: int | None = None
+    contractor_name: str | None = None
 
 
 class AvailabilityResponse(BaseModel):

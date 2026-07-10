@@ -206,15 +206,17 @@ class ArticleService:
 
         # RAO-P2-066: konflikty z ręcznymi rezerwacjami (article_reservations)
         # Zakładka czasowa pokrywa się gdy: reserved_from <= date_to AND reserved_to >= date_from
+        # RAO-L-Phase2: JOIN contractors → contractor_id + contractor_name w konflikcie
         res_stmt = (
-            select(ArticleReservation)
+            select(ArticleReservation, Contractor.name)
+            .outerjoin(Contractor, ArticleReservation.contractor_id == Contractor.id)
             .where(ArticleReservation.article_id == article_id)
             .where(ArticleReservation.reserved_from <= date_to)
             .where(ArticleReservation.reserved_to >= date_from)
             .order_by(ArticleReservation.reserved_from)
         )
         res_result = await db.execute(res_stmt)
-        reservations = res_result.scalars().all()
+        res_rows = res_result.all()
         res_conflicts = [
             AvailabilityReservationConflict(
                 reservation_id=r.id,
@@ -223,8 +225,10 @@ class ArticleService:
                 note=r.note,
                 # Maszyna dostępna od dnia następnego po zakończeniu rezerwacji
                 available_from=r.reserved_to + timedelta(days=1),
+                contractor_id=r.contractor_id,
+                contractor_name=contractor_name,
             )
-            for r in reservations
+            for r, contractor_name in res_rows
         ]
 
         is_available = len(conflicts) == 0 and len(res_conflicts) == 0
