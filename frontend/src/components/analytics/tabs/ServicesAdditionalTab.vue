@@ -39,7 +39,6 @@ const sort = useSort<AnalyticsRow>('revenue', 'desc')
 const columns: AnalyticsColumn[] = [
   { key: 'rank', label: '#', align: 'right', width: '48px' },
   { key: 'article_name', label: 'Usługa dodatkowa', sortable: true },
-  { key: 'internal_number', label: 'Nr wewnętrzny', sortable: true },
   { key: 'category_main', label: 'Kategoria', sortable: true },
   { key: 'revenue', label: 'Przychód', align: 'right', sortable: true },
   { key: 'contracts_count', label: 'Umów', align: 'right', sortable: true },
@@ -52,7 +51,6 @@ const filteredData = computed<PositionStatItem[]>(() => {
   return data.value.filter(
     (item) =>
       item.article_name?.toLowerCase().includes(q) ||
-      item.internal_number?.toLowerCase().includes(q) ||
       item.category_main?.toLowerCase().includes(q),
   )
 })
@@ -61,7 +59,6 @@ const rows = computed<AnalyticsRow[]>(() =>
   filteredData.value.map((item, idx) => ({
     rank: idx + 1,
     article_name: item.article_name,
-    internal_number: item.internal_number ?? '—',
     category_main: item.category_main ?? '—',
     revenue: Number(item.revenue),
     rented_days: item.rented_days,
@@ -115,7 +112,6 @@ const kpiCards = computed<KpiCard[]>(() => {
 const csvColumns: CsvColumn[] = [
   { key: 'rank', label: '#' },
   { key: 'article_name', label: 'Usługa dodatkowa' },
-  { key: 'internal_number', label: 'Nr wewnętrzny' },
   { key: 'category_main', label: 'Kategoria' },
   { key: 'revenue', label: 'Przychód', format: (v) => formatCurrency(Number(v)) },
   { key: 'contracts_count', label: 'Umów' },
@@ -165,7 +161,7 @@ watch(() => [props.dateFrom, props.dateTo, props.filters?.contractorId, props.fi
               v-model="search"
               type="text"
               class="svc-search"
-              placeholder="Szukaj: nazwa, nr wewnętrzny, kategoria…"
+              placeholder="Szukaj: nazwa, kategoria…"
               data-testid="svc-s-search"
             />
             <ExportCsvButton

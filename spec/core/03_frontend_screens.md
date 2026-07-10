@@ -2210,11 +2210,12 @@ onUnmounted(() => {
   `DrillDownKind`, `DrillDownState`, `AnalyticsFiltersPayload`.
 
 ### `views/AnalyticsView.vue` (~650 linii)
-- Shell z 7 zakładkami przez `AnalyticsTabs`: `live` (🚜 Flota teraz), `machines` (🏗️ Maszyny), `services-s` (📦 Usługi dodatkowe), `services-u` (🔧 Usługi zwykłe), `period` (📅 Wynajem w okresie), `locations` (📍 Lokalizacje), `reservations` (📆 Rezerwacje).
-- **Explorer tab usunięty** (2026-07-15) — zastąpiony przez dedykowane taby Maszyny/Usługi/Rezerwacje.
+- Shell z 6 zakładkami przez `AnalyticsTabs`: `live` (🚜 Flota teraz), `machines` (🏗️ Maszyny), `services-s` (📦 Usługi dodatkowe), `services-u` (🔧 Usługi zwykłe), `period` (📅 Wynajem w okresie), `locations` (📍 Lokalizacje).
+- **Explorer tab usunięty** (2026-07-15) — zastąpiony przez dedykowane taby Maszyny/Usługi.
+- **Reservations tab usunięty z analityki** (2026-07-15, Phase A) — `ReservationsTab.vue` zostaje w repo (do przeniesienia do osobnego widoku w fazach 1-5). Import i użycie w template usunięte; typ `activeTab` zwężony.
 - Współdzielony stan filtrów (`ref<AnalyticsFiltersValue>` z dateFrom/dateTo/preset/articleType/contractorId/city).
-- `AnalyticsFilters` na górze — **ukryte na zakładce 'live' i 'reservations'** (live = "teraz", reservations niezależne od dat).
-- Renderuje aktywną tabę: `<LiveFleetTab v-if="activeTab==='live'"/>` itd. (lazy mount przez `v-if`).
+- `AnalyticsFilters` na górze — **ukryte na zakładce 'live'** (live = "teraz").
+- Renderuje aktywną tabę: `<LiveFleetTab v-if="activeTab==='live'"/>` itd. (lazy mount przez `v-if`). Wszystkie taby datowe (period, locations, machines, services-s, services-u) otrzymują `:filters` prop z pełnym `AnalyticsFiltersPayload`.
 - `DrillDownDrawer` na poziomie widoku (jeden, współdzielony). Treść zależna od `store.drillDown.kind`:
   - `machine` → tabela historii wynajmów (Umowa, Kontrahent, Od, Do, Dni, Kwota) + 4 KPI metrics.
   - `location` → 4 KPI metrics + Top maszyny + Top kontrahenci.
@@ -2231,6 +2232,7 @@ onUnmounted(() => {
   - Sortowanie przez `useSort('name', 'asc')`.
 - Stany: loading (`store.loadingLive`), empty (slot empty „Brak aktywnych wynajmów…"), data.
 - Fetch: `store.fetchCurrentlyRented()` onMounted (tylko gdy brak danych).
+- `.lf-section` — card styling (`background: var(--color-bg-card); border-radius; box-shadow; padding`) spójny z `.mt-section`/`.svc-section`/`.res-section` (od Phase A 2026-07-15 — wcześniej brak, sekcja bez tła/obramowania).
 - data-testid: `live-fleet-tab`, `kpi-live-available`, `kpi-live-rented`, `kpi-live-util`, `live-util-bar`.
 
 ### `components/analytics/tabs/PeriodRentalTab.vue`
@@ -2247,8 +2249,8 @@ onUnmounted(() => {
 - data-testid: `period-rental-tab`, `kpi-period-revenue`, `kpi-period-contracts`, `kpi-period-rented`, `kpi-period-util`, `revenue-breakdown`.
 
 ### `components/analytics/tabs/LocationsTab.vue` (RAO-P2-065 4b, 2026-07-04)
-- Props: `dateFrom, dateTo`. Przywrócona funkcjonalność paneli miast z legacy ReportsSection (zgubiona przy merge P2-063).
-- Fetch: `store.fetchLocationsRanking(dateFrom, dateTo, 100)` → GET `/explorer/locations` (ranking z rollup gmina/powiat/województwo).
+- Props: `dateFrom, dateTo, filters?: AnalyticsFiltersPayload`. Przywrócona funkcjonalność paneli miast z legacy ReportsSection (zgubiona przy merge P2-063). `filters` przekazywane do `fetchLocationsRanking` (od Phase A 2026-07-15 — wcześniej brak, ranking ignorował kontrahenta/miasto/typ artykułu).
+- Fetch: `store.fetchLocationsRanking(dateFrom, dateTo, 100, groupBy, filters)` → GET `/explorer/locations` (ranking z rollup gmina/powiat/województwo, z filtrami).
 - KPI row: Lokalizacji, Wynajmów (suma), Przychód (suma, accent), Top miasto (success).
 - **Wykres słupkowy poziomy (CSS bars)**: top 10 miast, toggle metryki Przychód/Wynajmy (pill buttons), klik słupka → drill-down lokalizacji (gdy postal_code). Spójny wizualnie z util-bar z LiveFleetTab.
 - Wyszukiwarka miast (client-side filter po city/postal_code/gmina/powiat/wojewodztwo).
@@ -2268,20 +2270,21 @@ onUnmounted(() => {
 ### `components/analytics/tabs/ServicesAdditionalTab.vue` (2026-07-15)
 - Props: `dateFrom, dateTo, filters: AnalyticsFiltersPayload`.
 - KPI row: Usług dodatkowych, Przychód (accent), Razy zafakturowane, Top usługa (success).
-- AnalyticsTable: #, Usługa dodatkowa, Nr wewnętrzny, Kategoria, Przychód, Umów, Razy (sortable, clickable → drill service).
-- Wyszukiwarka + ExportCsvButton.
+- AnalyticsTable: #, Usługa dodatkowa, Kategoria, Przychód, Umów, Razy (sortable, clickable → drill service). **Kolumna "Nr wewnętrzny" usunięta** (Phase A 2026-07-15) — usługi nie mają numerów wewnętrznych (zawsze "—").
+- Wyszukiwarka (nazwa, kategoria) + ExportCsvButton.
 - Fetch: `store.fetchPositions('services', dateFrom, dateTo, filters, undefined, 'desc', 'S')` → GET `/stats/positions?type=services&contract_type=S`.
 - data-testid: `services-additional-tab`, `kpi-svc-s-count/revenue/billed/top`, `svc-s-search`, `svc-s-table`, `svc-s-empty`.
 
 ### `components/analytics/tabs/ServicesRegularTab.vue` (2026-07-15)
 - Props: `dateFrom, dateTo, filters: AnalyticsFiltersPayload`.
 - KPI row: Usług zwykłych, Przychód (accent), Umów usługi, Top usługa (success).
-- AnalyticsTable: #, Usługa, Nr wewnętrzny, Kategoria, Przychód, Dni, Umów, Razy (sortable, clickable → drill service).
-- Wyszukiwarka + ExportCsvButton.
+- AnalyticsTable: #, Usługa, Kategoria, Przychód, Dni, Umów, Razy (sortable, clickable → drill service). **Kolumna "Nr wewnętrzny" usunięta** (Phase A 2026-07-15) — usługi nie mają numerów wewnętrznych (zawsze "—").
+- Wyszukiwarka (nazwa, kategoria) + ExportCsvButton.
 - Fetch: `store.fetchPositions('all', dateFrom, dateTo, filters, undefined, 'desc', 'U')` → GET `/stats/positions?type=all&contract_type=U`.
 - data-testid: `services-regular-tab`, `kpi-svc-u-count/revenue/contracts/top`, `svc-u-search`, `svc-u-table`, `svc-u-empty`.
 
-### `components/analytics/tabs/ReservationsTab.vue` (2026-07-15)
+### `components/analytics/tabs/ReservationsTab.vue` (2026-07-15) — USUNIĘTY Z ANALITYKI (Phase A 2026-07-15)
+- **Plik zostaje w repo** — do przeniesienia do osobnego widoku rezerwacji w fazach 1-5. Nie jest już importowany ani renderowany w `AnalyticsView.vue`.
 - Brak props — rezerwacje niezależne od dat/filtrów.
 - KPI row: Rezerwacji, Aktywnych (success), Wygasłych (warn), Maszyn.
 - Filter toggle: Wszystkie / Aktywne / Wygasłe.

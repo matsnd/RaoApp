@@ -13,7 +13,6 @@ import LocationsTab from '@/components/analytics/tabs/LocationsTab.vue'
 import MachinesTab from '@/components/analytics/tabs/MachinesTab.vue'
 import ServicesAdditionalTab from '@/components/analytics/tabs/ServicesAdditionalTab.vue'
 import ServicesRegularTab from '@/components/analytics/tabs/ServicesRegularTab.vue'
-import ReservationsTab from '@/components/analytics/tabs/ReservationsTab.vue'
 
 const store = useAnalyticsStore()
 const contractorsStore = useContractorStore()
@@ -25,10 +24,9 @@ const tabs: AnalyticsTab[] = [
   { key: 'services-u', label: 'Usługi zwykłe', icon: '🔧' },
   { key: 'period', label: 'Wynajem w okresie', icon: '📅' },
   { key: 'locations', label: 'Lokalizacje', icon: '📍' },
-  { key: 'reservations', label: 'Rezerwacje', icon: '�' },
 ]
 
-const activeTab = ref<'live' | 'machines' | 'services-s' | 'services-u' | 'period' | 'locations' | 'reservations'>('period')
+const activeTab = ref<'live' | 'machines' | 'services-s' | 'services-u' | 'period' | 'locations'>('period')
 
 const today = computed(() =>
   new Date().toLocaleDateString('pl-PL', {
@@ -176,9 +174,9 @@ onMounted(async () => {
     <!-- TABS -->
     <AnalyticsTabs :tabs="tabs" :active="activeTab" @change="onTabChange" />
 
-    <!-- FILTRY (ukryte na zakładce 'live' i 'reservations') -->
+    <!-- FILTRY (ukryte na zakładce 'live') -->
     <AnalyticsFilters
-      v-if="activeTab !== 'live' && activeTab !== 'reservations'"
+      v-if="activeTab !== 'live'"
       :model-value="filters"
       :contractors="contractorOptions"
       @update:model-value="onFiltersUpdate"
@@ -203,6 +201,13 @@ onMounted(async () => {
         v-else-if="activeTab === 'locations'"
         :date-from="filters.dateFrom"
         :date-to="filters.dateTo"
+        :filters="{
+          dateFrom: filters.dateFrom,
+          dateTo: filters.dateTo,
+          contractorId: filters.contractorId,
+          city: filters.city,
+          articleType: filters.articleType,
+        }"
       />
       <MachinesTab
         v-else-if="activeTab === 'machines'"
@@ -239,9 +244,6 @@ onMounted(async () => {
           city: filters.city,
           articleType: filters.articleType,
         }"
-      />
-      <ReservationsTab
-        v-else-if="activeTab === 'reservations'"
       />
     </div>
 
