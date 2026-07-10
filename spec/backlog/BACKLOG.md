@@ -1359,6 +1359,7 @@ id: P1-009
 status: in_progress
 priority: P1
 created: 2026-07-11
+updated: 2026-07-11
 source: client-request (statystyki klienta)
 component: frontend/AnalyticsView + backend/stats + backend/explorer (remove) + backend/reservations
 plan: C:/Users/mateu/.windsurf/plans/megaplan-statystyki-klienta-10c667.md
@@ -1375,6 +1376,22 @@ plan: C:/Users/mateu/.windsurf/plans/megaplan-statystyki-klienta-10c667.md
 - Regresja wszystkich 20 testów E2E + szukanie dziur → backlog (bez implementacji)
 
 **Implementacja:** 12 faz (0-11), patrz plan `megaplan-statystyki-klienta-10c667.md`
+
+**Status implementacji (2026-07-11):**
+- ✅ Fazy 0-8: Explorer tab usunięty, 4 nowe taby (Machines, ServicesAdditional, ServicesRegular, Reservations), ExportCsvButton, backend contract_type filter + /reservations/with-articles, spec updated, committed
+- ✅ Faza 9: Weryfikacja UI przez Playwright MCP — wszystkie taby renderują się poprawnie (KPI, tabele, empty states)
+- ✅ Faza 10: Spec zaktualizowane (03_frontend_screens.md, 02_backend_api.md)
+- ✅ Naprawiono pre-existing bug: brak importu ContractorCombobox w AnalyticsFilters.vue
+
+**Dead code findings (codebase-memory):**
+- `frontend/src/components/analytics/tabs/ExplorerTab.vue` — plik nie importowany nigdzie (martwy)
+- `searchExplorer()` w `frontend/src/stores/analytics.ts` — 0 callerów (martwy)
+- `explorerResults`, `explorerSummary`, `loadingExplorer` — state refs używane tylko przez searchExplorer (martwe)
+- Backend `/explorer/*` endpointy — **NIE usuwać** (drill-down drawer używa `fetchMachineDetails`, `fetchLocationDetails`, `fetchCityDetails`)
+
+**Pre-existing bugs (nie naprawione — do backlogu):**
+- TEST-03: Drill-down ROI section (`drill-machine-roi`) nie renderuje się — `test.fail` oznaczony
+- Depwire MCP `find_dead_code` i `get_health_score` — timeout/zawieszanie na dużym repo (315 plików)
 
 ---
 
