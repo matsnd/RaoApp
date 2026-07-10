@@ -382,12 +382,14 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     filters?: AnalyticsFiltersPayload,
     sortBy?: string,
     sortDir: 'asc' | 'desc' = 'desc',
+    contractType?: 'S' | 'U',
   ): Promise<PositionStatsResponse> {
     const params: Record<string, string> = { type }
     if (dateFrom) params.date_from = dateFrom
     if (dateTo) params.date_to = dateTo
     if (filters?.contractorId) params.contractor_id = String(filters.contractorId)
     if (filters?.city) params.city = filters.city
+    if (contractType) params.contract_type = contractType
     if (sortBy) {
       params.sort_by = sortBy
       params.sort_dir = sortDir

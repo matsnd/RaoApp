@@ -15,6 +15,11 @@ export interface ArticleReservation {
   created_at: string
 }
 
+export interface ReservationWithArticle extends ArticleReservation {
+  article_name: string | null
+  internal_number: string | null
+}
+
 export interface ReservationPayload {
   article_id: number
   reserved_from: string
@@ -24,8 +29,10 @@ export interface ReservationPayload {
 
 export const useReservationsStore = defineStore('reservations', () => {
   const list = ref<ArticleReservation[]>([])
+  const allList = ref<ReservationWithArticle[]>([])
   const loading = ref(false)
-  const error = ref<string | null>(null)
+  const loadingAll = ref(false)
+  const error = ref<string | null>( null)
 
   async function fetchForArticle(articleId: number): Promise<ArticleReservation[]> {
     loading.value = true
@@ -43,6 +50,23 @@ export const useReservationsStore = defineStore('reservations', () => {
       return []
     } finally {
       loading.value = false
+    }
+  }
+
+  async function fetchAllWithArticles(): Promise<ReservationWithArticle[]> {
+    loadingAll.value = true
+    error.value = null
+    try {
+      const { data } = await api.get<ReservationWithArticle[]>('/reservations/with-articles')
+      allList.value = data
+      return data
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { detail?: string } } }
+      error.value = err.response?.data?.detail || 'Błąd pobierania rezerwacji'
+      allList.value = []
+      return []
+    } finally {
+      loadingAll.value = false
     }
   }
 
@@ -80,5 +104,5 @@ export const useReservationsStore = defineStore('reservations', () => {
     loading.value = false
   }
 
-  return { list, loading, error, fetchForArticle, create, remove, reset }
+  return { list, allList, loading, loadingAll, error, fetchForArticle, fetchAllWithArticles, create, remove, reset }
 })

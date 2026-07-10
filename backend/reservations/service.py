@@ -31,6 +31,42 @@ class ReservationService:
         )
         return result.scalars().all()
 
+    async def list_all_with_articles(
+        self, db: AsyncSession
+    ) -> list[dict]:
+        """Return all reservations joined with article names."""
+        from articles.models import Article
+        result = await db.execute(
+            select(
+                ArticleReservation.id,
+                ArticleReservation.article_id,
+                Article.name.label("article_name"),
+                Article.internal_number.label("internal_number"),
+                ArticleReservation.reserved_from,
+                ArticleReservation.reserved_to,
+                ArticleReservation.note,
+                ArticleReservation.created_by,
+                ArticleReservation.created_at,
+            )
+            .outerjoin(Article, ArticleReservation.article_id == Article.id)
+            .order_by(ArticleReservation.reserved_from)
+        )
+        rows = result.all()
+        return [
+            {
+                "id": r[0],
+                "article_id": r[1],
+                "article_name": r[2],
+                "internal_number": r[3],
+                "reserved_from": r[4],
+                "reserved_to": r[5],
+                "note": r[6],
+                "created_by": r[7],
+                "created_at": r[8],
+            }
+            for r in rows
+        ]
+
     async def check_conflict(
         self,
         db: AsyncSession,

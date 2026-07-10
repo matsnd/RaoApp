@@ -10,19 +10,25 @@ import DrillDownDrawer from '@/components/analytics/DrillDownDrawer.vue'
 import LiveFleetTab from '@/components/analytics/tabs/LiveFleetTab.vue'
 import PeriodRentalTab from '@/components/analytics/tabs/PeriodRentalTab.vue'
 import LocationsTab from '@/components/analytics/tabs/LocationsTab.vue'
-import ExplorerTab from '@/components/analytics/tabs/ExplorerTab.vue'
+import MachinesTab from '@/components/analytics/tabs/MachinesTab.vue'
+import ServicesAdditionalTab from '@/components/analytics/tabs/ServicesAdditionalTab.vue'
+import ServicesRegularTab from '@/components/analytics/tabs/ServicesRegularTab.vue'
+import ReservationsTab from '@/components/analytics/tabs/ReservationsTab.vue'
 
 const store = useAnalyticsStore()
 const contractorsStore = useContractorStore()
 
 const tabs: AnalyticsTab[] = [
   { key: 'live', label: 'Flota teraz', icon: '🚜' },
+  { key: 'machines', label: 'Maszyny', icon: '🏗️' },
+  { key: 'services-s', label: 'Usługi dodatkowe', icon: '📦' },
+  { key: 'services-u', label: 'Usługi zwykłe', icon: '🔧' },
   { key: 'period', label: 'Wynajem w okresie', icon: '📅' },
   { key: 'locations', label: 'Lokalizacje', icon: '📍' },
-  { key: 'explorer', label: 'Eksplorator', icon: '🔍' },
+  { key: 'reservations', label: 'Rezerwacje', icon: '�' },
 ]
 
-const activeTab = ref<'live' | 'period' | 'locations' | 'explorer'>('period')
+const activeTab = ref<'live' | 'machines' | 'services-s' | 'services-u' | 'period' | 'locations' | 'reservations'>('period')
 
 const today = computed(() =>
   new Date().toLocaleDateString('pl-PL', {
@@ -141,7 +147,7 @@ watch(
     if (n.dateFrom === old?.dateFrom && n.dateTo === old?.dateTo &&
         n.contractorId === old?.contractorId && n.city === old?.city &&
         n.articleType === old?.articleType) return
-    // PeriodRentalTab / ExplorerTab same reagują na props (watch w komponencie).
+    // PeriodRentalTab / LocationsTab reagują na props (watch w komponencie).
     // Tu tylko ewentualny dodatkowy reload — puste (delegowane do tabów).
   },
   { deep: true },
@@ -198,10 +204,44 @@ onMounted(async () => {
         :date-from="filters.dateFrom"
         :date-to="filters.dateTo"
       />
-      <ExplorerTab
-        v-else-if="activeTab === 'explorer'"
+      <MachinesTab
+        v-else-if="activeTab === 'machines'"
         :date-from="filters.dateFrom"
         :date-to="filters.dateTo"
+        :filters="{
+          dateFrom: filters.dateFrom,
+          dateTo: filters.dateTo,
+          contractorId: filters.contractorId,
+          city: filters.city,
+          articleType: filters.articleType,
+        }"
+      />
+      <ServicesAdditionalTab
+        v-else-if="activeTab === 'services-s'"
+        :date-from="filters.dateFrom"
+        :date-to="filters.dateTo"
+        :filters="{
+          dateFrom: filters.dateFrom,
+          dateTo: filters.dateTo,
+          contractorId: filters.contractorId,
+          city: filters.city,
+          articleType: filters.articleType,
+        }"
+      />
+      <ServicesRegularTab
+        v-else-if="activeTab === 'services-u'"
+        :date-from="filters.dateFrom"
+        :date-to="filters.dateTo"
+        :filters="{
+          dateFrom: filters.dateFrom,
+          dateTo: filters.dateTo,
+          contractorId: filters.contractorId,
+          city: filters.city,
+          articleType: filters.articleType,
+        }"
+      />
+      <ReservationsTab
+        v-else-if="activeTab === 'reservations'"
       />
     </div>
 

@@ -1523,8 +1523,9 @@ Response: `list[CategoriesListNode]` — pełne drzewo kategorii:
 Zlicza tylko aktywne (nie-archiwalne) artykuły (`is_archival=false`) przypisane do danej kategorii.
 HTTP: 200 | 401
 
-### `GET /stats/positions` (RAO-P2-010, NOWY)
-Query: `?type=machines|services|all&date_from&date_to`
+### `GET /stats/positions` (RAO-P2-010, UPDATED 2026-07-15)
+Query: `?type=machines|services|all&contract_type=S|U&date_from&date_to&contractor_id&city&category_main&limit&offset&sort_by&sort_dir`
+- `contract_type` (optional): filtr po typie umowy — `S` (najem) lub `U` (usługa). Filter in-memory po `contract_type` z `compute_position_revenues`.
 Response: `PositionStatsResponse` with:
 - date_from, date_to, type (applied filter)
 - total_revenue, total_machines_revenue, total_services_revenue
@@ -2196,3 +2197,36 @@ npm install vue-draggable-plus @vuepic/vue-datepicker
 ```
 
 **Pliki:** `frontend/package.json`
+
+---
+
+## Reservations API (RAO-P1-015, UPDATED 2026-07-15)
+
+### `GET /reservations`
+**Opis:** Lista wszystkich rezerwacji (management view).
+**Response:** `list[ReservationResponse]` (`{id, article_id, reserved_from, reserved_to, note, created_by, created_at}`)
+**HTTP:** 200 | 401
+
+### `GET /reservations/with-articles` (NOWY 2026-07-15)
+**Opis:** Lista wszystkich rezerwacji z nazwą maszyny i nr wewnętrznym (for analytics tab).
+**Response:** `list[ReservationWithArticleResponse]` (`{id, article_id, article_name, internal_number, reserved_from, reserved_to, note, created_by, created_at}`)
+**HTTP:** 200 | 401
+
+### `GET /reservations/article/{article_id}`
+**Opis:** Lista rezerwacji dla konkretnego artykułu.
+**Response:** `list[ReservationResponse]`
+**HTTP:** 200 | 401
+
+### `GET /reservations/article/{article_id}/active`
+**Opis:** Aktywne rezerwacje (reserved_to >= today) dla artykułu.
+**Response:** `list[ReservationResponse]`
+**HTTP:** 200 | 401
+
+### `POST /reservations`
+**Body:** `ReservationCreate` (`{article_id, reserved_from, reserved_to, note?}`)
+**Response:** `ReservationResponse` (201)
+**HTTP:** 201 | 401 | 409 (konflikt dat)
+
+### `DELETE /reservations/{reservation_id}`
+**Opis:** Usunięcie rezerwacji (wymaga admin).
+**HTTP:** 204 | 401 | 403 | 404

@@ -777,6 +777,7 @@ async def categories_list(
 @router.get("/positions", response_model=PositionStatsResponse)
 async def positions(
     position_type: Literal["machines", "services", "all"] = Query("all", alias="type"),
+    contract_type: str | None = Query(None, description="Filtruj po typie umowy: S=najem, U=usługa"),
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     contractor_id: int | None = Query(None, description="Filtruj po kontrahencie"),
@@ -824,7 +825,7 @@ async def positions(
 
     # RAO-P2-051: cache TTL 5 min
     _ckey = cache.make_key("stats:positions", _.id, {
-        "t": position_type, "df": str(df), "dt": str(dt),
+        "t": position_type, "ct": contract_type, "df": str(df), "dt": str(dt),
         "cid": contractor_id, "city": city, "lim": limit, "off": offset,
         "sb": sort_by, "sd": sort_dir,
     })
@@ -850,6 +851,10 @@ async def positions(
         all_pos = [p for p in all_pos if p["is_service"] is False]
     elif position_type == "services":
         all_pos = [p for p in all_pos if p["is_service"] is True]
+
+    # Filtr contract_type (S=najem, U=usługa) — in-memory
+    if contract_type and contract_type in ("S", "U"):
+        all_pos = [p for p in all_pos if (p.get("contract_type") or "S") == contract_type]
 
     # Filtry contractor_id / city / internal_number
     all_pos = _apply_position_filters(all_pos, contractor_id=contractor_id, city=city)

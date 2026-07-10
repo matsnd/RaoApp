@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from auth.dependencies import get_current_user, require_admin
 from auth.models import User
 from database import get_db
-from reservations.schemas import ReservationCreate, ReservationResponse
+from reservations.schemas import ReservationCreate, ReservationResponse, ReservationWithArticleResponse
 from reservations.service import reservation_service
 
 router = APIRouter(prefix="/reservations", tags=["reservations"])
@@ -17,6 +17,15 @@ async def list_all_reservations(
 ):
     """List all reservations (for management view)."""
     return await reservation_service.list_all(db)
+
+
+@router.get("/with-articles", response_model=list[ReservationWithArticleResponse])
+async def list_all_reservations_with_articles(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """List all reservations joined with article names (for analytics tab)."""
+    return await reservation_service.list_all_with_articles(db)
 
 
 @router.get("/article/{article_id}", response_model=list[ReservationResponse])

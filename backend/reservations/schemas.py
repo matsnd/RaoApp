@@ -31,3 +31,15 @@ class ReservationResponse(BaseModel):
     created_by: Optional[int] = None
     created_at: datetime
     model_config = {"from_attributes": True}
+
+
+class ReservationWithArticleResponse(BaseModel):
+    id: int
+    article_id: int
+    article_name: Optional[str] = None
+    internal_number: Optional[str] = None
+    reserved_from: date
+    reserved_to: date
+    note: Optional[str] = None
+    created_by: Optional[int] = None
+    created_at: datetime

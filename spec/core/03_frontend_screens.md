@@ -2209,10 +2209,11 @@ onUnmounted(() => {
   `CategoriesListNode`, `ExplorerResultItem`, `MachineDetailsResponse`, `LocationDetailsResponse`,
   `DrillDownKind`, `DrillDownState`, `AnalyticsFiltersPayload`.
 
-### `views/AnalyticsView.vue` (~330 linii)
-- Shell z 4 zakładkami przez `AnalyticsTabs`: `live` (🚜 Flota teraz), `period` (📅 Wynajem w okresie), `locations` (📍 Lokalizacje — RAO-P2-065 4b), `explorer` (🔍 Eksplorator).
+### `views/AnalyticsView.vue` (~650 linii)
+- Shell z 7 zakładkami przez `AnalyticsTabs`: `live` (🚜 Flota teraz), `machines` (🏗️ Maszyny), `services-s` (📦 Usługi dodatkowe), `services-u` (🔧 Usługi zwykłe), `period` (📅 Wynajem w okresie), `locations` (📍 Lokalizacje), `reservations` (📆 Rezerwacje).
+- **Explorer tab usunięty** (2026-07-15) — zastąpiony przez dedykowane taby Maszyny/Usługi/Rezerwacje.
 - Współdzielony stan filtrów (`ref<AnalyticsFiltersValue>` z dateFrom/dateTo/preset/articleType/contractorId/city).
-- `AnalyticsFilters` na górze — **ukryte na zakładce 'live'** (live = "teraz", niezależne od dat).
+- `AnalyticsFilters` na górze — **ukryte na zakładce 'live' i 'reservations'** (live = "teraz", reservations niezależne od dat).
 - Renderuje aktywną tabę: `<LiveFleetTab v-if="activeTab==='live'"/>` itd. (lazy mount przez `v-if`).
 - `DrillDownDrawer` na poziomie widoku (jeden, współdzielony). Treść zależna od `store.drillDown.kind`:
   - `machine` → tabela historii wynajmów (Umowa, Kontrahent, Od, Do, Dni, Kwota) + 4 KPI metrics.
@@ -2255,16 +2256,45 @@ onUnmounted(() => {
 - Empty state z hintem: "Lokalizacje wykrywane są z adresu dostawy umowy (kod pocztowy)".
 - data-testid: `locations-tab`, `kpi-loc-count/rentals/revenue/top`, `loc-chart`, `loc-chart-revenue/rentals`, `loc-search`, `loc-ranking-table`, `loc-empty`.
 
-### `components/analytics/tabs/ExplorerTab.vue`
-- Props: `dateFrom, dateTo`.
-- Wyszukiwarka: input text + przycisk „Szukaj" (Enter lub klik).
-- AnalyticsTable: wyniki mieszane (Typ [badge], Nazwa, Nr wewn., Kontrahent, Data, Kwota).
-  - `clickable=true`, `@rowClick` → `router.push('/articles/{article_id}/edit')`.
-  - Sortowanie: `useSort('amount', 'desc')` (po amount/date/name/internal_number/contractor_name).
-- Podsumowanie: liczba wyników, łączny przychód (z `store.explorerSummary`).
-- Fetch: `store.searchExplorer(q, dateFrom, dateTo)`.
-- Empty state: „Wpisz frazę i kliknij „Szukaj"" (przed pierwszym search) / „Brak wyników dla zapytania…" (po search).
-- data-testid: `explorer-tab`, `explorer-search-bar`, `explorer-query`, `explorer-search-btn`, `explorer-summary`.
+### `components/analytics/tabs/MachinesTab.vue` (2026-07-15)
+- Props: `dateFrom, dateTo, filters: AnalyticsFiltersPayload`.
+- KPI row: Maszyn, Przychód (accent), Dni wynajmu, Top maszyna (success).
+- AnalyticsTable: #, Maszyna, Nr wewnętrzny, Kategoria, Przychód, Dni, Umów, Razy (sortable, clickable → drill machine).
+- Wyszukiwarka client-side (nazwa, nr wewnętrzny, kategoria).
+- ExportCsvButton — eksport do CSV.
+- Fetch: `store.fetchPositions('machines', dateFrom, dateTo, filters)` → GET `/stats/positions?type=machines`.
+- data-testid: `machines-tab`, `kpi-machines-count/revenue/days/top`, `machines-search`, `machines-table`, `machines-empty`.
+
+### `components/analytics/tabs/ServicesAdditionalTab.vue` (2026-07-15)
+- Props: `dateFrom, dateTo, filters: AnalyticsFiltersPayload`.
+- KPI row: Usług dodatkowych, Przychód (accent), Razy zafakturowane, Top usługa (success).
+- AnalyticsTable: #, Usługa dodatkowa, Nr wewnętrzny, Kategoria, Przychód, Umów, Razy (sortable, clickable → drill service).
+- Wyszukiwarka + ExportCsvButton.
+- Fetch: `store.fetchPositions('services', dateFrom, dateTo, filters, undefined, 'desc', 'S')` → GET `/stats/positions?type=services&contract_type=S`.
+- data-testid: `services-additional-tab`, `kpi-svc-s-count/revenue/billed/top`, `svc-s-search`, `svc-s-table`, `svc-s-empty`.
+
+### `components/analytics/tabs/ServicesRegularTab.vue` (2026-07-15)
+- Props: `dateFrom, dateTo, filters: AnalyticsFiltersPayload`.
+- KPI row: Usług zwykłych, Przychód (accent), Umów usługi, Top usługa (success).
+- AnalyticsTable: #, Usługa, Nr wewnętrzny, Kategoria, Przychód, Dni, Umów, Razy (sortable, clickable → drill service).
+- Wyszukiwarka + ExportCsvButton.
+- Fetch: `store.fetchPositions('all', dateFrom, dateTo, filters, undefined, 'desc', 'U')` → GET `/stats/positions?type=all&contract_type=U`.
+- data-testid: `services-regular-tab`, `kpi-svc-u-count/revenue/contracts/top`, `svc-u-search`, `svc-u-table`, `svc-u-empty`.
+
+### `components/analytics/tabs/ReservationsTab.vue` (2026-07-15)
+- Brak props — rezerwacje niezależne od dat/filtrów.
+- KPI row: Rezerwacji, Aktywnych (success), Wygasłych (warn), Maszyn.
+- Filter toggle: Wszystkie / Aktywne / Wygasłe.
+- AnalyticsTable: Maszyna, Nr wewnętrzny, Od, Do, Dni, Status (badge), Notatka (sortable).
+- Wyszukiwarka + ExportCsvButton.
+- Fetch: `reservationsStore.fetchAllWithArticles()` → GET `/reservations/with-articles`.
+- data-testid: `reservations-tab`, `kpi-res-total/active/expired/machines`, `res-filter-all/active/expired`, `res-search`, `res-table`, `res-empty`.
+
+### `components/analytics/ExportCsvButton.vue` (2026-07-15)
+- Props: `columns: CsvColumn[], rows: Record<string, unknown>[], filename?, label?, disabled?`.
+- Generuje CSV z BOM (UTF-8), escapuje przecinki/cudzysłowy/newline.
+- Trigger: click → Blob → download link.
+- data-testid: `export-csv-btn`.
 
 ### Routing / nawigacja
 - `router/index.js`: dodany route `path: 'analytics'`, `name: 'Analytics'`, lazy import `AnalyticsView.vue`.

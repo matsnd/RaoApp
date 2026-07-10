@@ -1352,5 +1352,31 @@ client_remark: "9. Opiekun zamówienia na każdym protokole (wynajem/usługa) �
 
 ---
 
+### P1-009: Przebudowa statystyk — osobne ekrany z drill-down + audyt obliczeń
+
+```yaml
+id: P1-009
+status: in_progress
+priority: P1
+created: 2026-07-11
+source: client-request (statystyki klienta)
+component: frontend/AnalyticsView + backend/stats + backend/explorer (remove) + backend/reservations
+plan: C:/Users/mateu/.windsurf/plans/megaplan-statystyki-klienta-10c667.md
+```
+
+**Opis:** Pełna przebudowa statystyk zgodnie z wymaganiami klienta:
+- Usunięcie eksploratora (nieintuicyjny, do zaorania)
+- 7 tabów w Analytics: Flota teraz, Maszyny, Usługi dodatkowe (S), Usługi zwykłe (U), Lokalizacje, Wynajem w okresie, Rezerwacje
+- Drill-down z wyszukiwarką na każdym tabie
+- Eksport CSV (wspólny komponent ExportCsvButton)
+- Pełny audyt obliczeń w całej aplikacji (nie tylko Analytics) z weryfikacją bazodanową
+- Testy Playwright dla każdego ekranu i obliczeń
+- Dead code analysis (depwire: 4268 martwych symboli = 24.9%)
+- Regresja wszystkich 20 testów E2E + szukanie dziur → backlog (bez implementacji)
+
+**Implementacja:** 12 faz (0-11), patrz plan `megaplan-statystyki-klienta-10c667.md`
+
+---
+
 ## 🟢 P3 — Nice-to-Have
 *(brak)*
