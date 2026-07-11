@@ -49,21 +49,33 @@ import integrations.models  # noqa: F401
 
 
 async def archive_table(
-    db: AsyncSession, source_model, archive_model, label: str, batch_size: int = 500
+    db: AsyncSession, source_model, archive_model, label: str, batch_size: int = 500,
+    parent_model=None, parent_fk: str = None,
 ):
     """Idempotentna archiwizacja: czyta batch z source, INSERT IGNORE do archive.
 
     Sprawdza istnienie po id (PK) — jeśli rekord o tym id już istnieje w archive,
     pomija go (idempotentność). Mapuje TYLKO wspólne kolumny (ignoruje drift typów).
+
+    parent_model + parent_fk: jeśli podane, filtruje source po FK istniejącym w parent
+    (pomija orphan rekordy — np. pozycje bez umowy).
     """
-    total = await db.scalar(select(func.count()).select_from(source_model))
+    stmt = select(source_model)
+    if parent_model is not None and parent_fk:
+        # Filtruj: tylko rekordy których FK parent istnieje w parent_model
+        stmt = stmt.where(
+            getattr(source_model, parent_fk).in_(
+                select(parent_model.id)
+            )
+        )
+    total = await db.scalar(select(func.count()).select_from(stmt.subquery()))
     if total is None:
         total = 0
     archived = 0
     offset = 0
     while offset < total:
         result = await db.execute(
-            select(source_model).order_by(source_model.id).offset(offset).limit(batch_size)
+            stmt.order_by(source_model.id).offset(offset).limit(batch_size)
         )
         rows = result.scalars().all()
         for row in rows:
@@ -106,26 +118,30 @@ async def main():
     print("=" * 60)
 
     async with AsyncSessionLocal() as db:
-        print("\n[1/7] Kategorie → archive_categories...")
+        print("\n[1/7] Kategorie -> archive_categories...")
         await archive_table(db, Category, ArchiveCategory, "Kategorie")
 
-        print("\n[2/7] Artykuły → archive_articles...")
-        await archive_table(db, Article, ArchiveArticle, "Artykuły")
+        print("\n[2/7] Artykuly -> archive_articles...")
+        await archive_table(db, Article, ArchiveArticle, "Artykuly")
 
-        print("\n[3/7] Umowy → archive_contracts...")
+        print("\n[3/7] Umowy -> archive_contracts...")
         await archive_table(db, Contract, ArchiveContract, "Umowy")
 
-        print("\n[4/7] Pozycje → archive_contract_positions...")
-        await archive_table(db, ContractPosition, ArchiveContractPosition, "Pozycje")
+        print("\n[4/7] Pozycje -> archive_contract_positions...")
+        await archive_table(db, ContractPosition, ArchiveContractPosition, "Pozycje",
+                            parent_model=ArchiveContract, parent_fk="contract_id")
 
-        print("\n[5/7] Warunki → archive_position_conditions...")
-        await archive_table(db, PositionCondition, ArchivePositionCondition, "Warunki")
+        print("\n[5/7] Warunki -> archive_position_conditions...")
+        await archive_table(db, PositionCondition, ArchivePositionCondition, "Warunki",
+                            parent_model=ArchiveContractPosition, parent_fk="position_id")
 
-        print("\n[6/7] Usługi dodatkowe → archive_contract_service_fees...")
-        await archive_table(db, ContractServiceFee, ArchiveContractServiceFee, "Usługi")
+        print("\n[6/7] Uslugi dodatkowe -> archive_contract_service_fees...")
+        await archive_table(db, ContractServiceFee, ArchiveContractServiceFee, "Uslugi",
+                            parent_model=ArchiveContract, parent_fk="contract_id")
 
-        print("\n[7/7] Rozliczenia → archive_contract_settlements...")
-        await archive_table(db, ContractSettlement, ArchiveContractSettlement, "Rozliczenia")
+        print("\n[7/7] Rozliczenia -> archive_contract_settlements...")
+        await archive_table(db, ContractSettlement, ArchiveContractSettlement, "Rozliczenia",
+                            parent_model=ArchiveContract, parent_fk="contract_id")
 
     print("\n" + "=" * 60)
     print("DONE — archiwizacja zakończona")

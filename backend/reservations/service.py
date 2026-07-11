@@ -111,6 +111,16 @@ class ReservationService:
     async def create(
         self, db: AsyncSession, data: ReservationCreate, user_id: int
     ) -> ArticleReservation:
+        # Pre-validate FK targets exist (avoids 500 IntegrityError → 404)
+        from articles.models import Article
+        from contractors.models import Contractor
+        article = await db.get(Article, data.article_id)
+        if not article:
+            raise HTTPException(404, "Artykuł nie został znaleziony")
+        if data.contractor_id is not None:
+            contractor = await db.get(Contractor, data.contractor_id)
+            if not contractor:
+                raise HTTPException(404, "Kontrahent nie został znaleziony")
         if await self.check_conflict(
             db, data.article_id, data.reserved_from, data.reserved_to
         ):
@@ -142,6 +152,13 @@ class ReservationService:
             raise HTTPException(404, "Rezerwacja nie została znaleziona")
 
         updates = data.model_dump(exclude_unset=True)
+
+        # Pre-validate FK if contractor_id is being updated
+        if "contractor_id" in updates and updates["contractor_id"] is not None:
+            from contractors.models import Contractor
+            contractor = await db.get(Contractor, updates["contractor_id"])
+            if not contractor:
+                raise HTTPException(404, "Kontrahent nie został znaleziony")
 
         # Determine effective date range for conflict check
         new_from = updates.get("reserved_from", obj.reserved_from)

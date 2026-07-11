@@ -758,7 +758,6 @@ async def seed_konfiguracja(db: AsyncSession, art_by_name):
                 existing_obj.name = tpl["name"]
                 existing_obj.amount_from = tpl["amount_from"]
                 existing_obj.amount_to = tpl["amount_to"]
-                existing_obj.unit = tpl["unit"]
                 existing_obj.description = tpl["description"]
                 existing_obj.is_active = True
                 existing_obj.contract_type = zestaw["contract_type"]
@@ -773,7 +772,6 @@ async def seed_konfiguracja(db: AsyncSession, art_by_name):
                     name=tpl["name"],
                     amount_from=tpl["amount_from"],
                     amount_to=tpl["amount_to"],
-                    unit=tpl["unit"],
                     description=tpl["description"],
                     is_active=True,
                 )
@@ -814,10 +812,27 @@ async def seed_company(db: AsyncSession):
     return company
 
 
-async def seed_article_rate_presets(db: AsyncSession, art_by_name: dict):
+async def seed_article_rate_presets(db: AsyncSession, art_by_name: dict, rt_by_name: dict = None):
     """RAO-P1-001: Predefiniowane cenniki kaskadowe per maszyna z CENNIKI_KASKADOWE."""
     from settings.models import ArticleRatePreset, ArticleRatePresetItem
     from sqlalchemy import select
+
+    # RAO-P2-071: dynamiczne rate_type_id (hardcoded 5 był błędny — ID zależy od stanu DB)
+    rt_dniowy = None
+    if rt_by_name:
+        rt_dniowy = rt_by_name.get("Stawka dniowa")
+    if not rt_dniowy:
+        # Fallback: znajdź po nazwie w DB
+        result = await db.execute(
+            select(ArticleRatePreset).where(ArticleRatePreset.name == "Stawka dniowa").limit(1)
+        )
+        # To nie zadziała — to preset, nie rate_type. Użyj RateType.
+        from settings.models import RateType
+        result = await db.execute(
+            select(RateType).where(RateType.name == "Stawka dniowa").limit(1)
+        )
+        rt_dniowy = result.scalar_one_or_none()
+    rt_dniowy_id = rt_dniowy.id if rt_dniowy else None
 
     created_presets = 0
     created_items = 0
@@ -856,7 +871,7 @@ async def seed_article_rate_presets(db: AsyncSession, art_by_name: dict):
         for idx, warunek in enumerate(cennik["warunki"], start=1):
             item = ArticleRatePresetItem(
                 preset_id=preset.id,
-                rate_type_id=5,  # "Stawka dniowa" — seed_rate_types tworzy id=5
+                rate_type_id=rt_dniowy_id,  # RAO-P2-071: dynamic ID (nie hardcoded)
                 description=warunek["description"],
                 rate1=warunek["rate1"],
                 rate2=warunek["rate2"],
@@ -1184,7 +1199,7 @@ async def main():
         print(f"  FA: enabled={fa_settings.enabled}, domain={fa_settings.domain_subdomain}")
 
         print("\n[7.5/9] Cenniki kaskadowe per maszyna (RAO-P1-001)...")
-        await seed_article_rate_presets(db, art_by_name)
+        await seed_article_rate_presets(db, art_by_name, rt_by_name)
 
         print("\n[8/9] Konfiguracja zestawów usług (4 presety)...")
         await seed_konfiguracja(db, art_by_name)
