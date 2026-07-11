@@ -1,0 +1,562 @@
+[
+  {
+    "category": "flat_hourly_u",
+    "source_file": "S019_2026_U.pdf",
+    "total_in_category": 115,
+    "contract": {
+      "contract_number": "S019/2026",
+      "contract_type": "U",
+      "date_from": "2026-01-22",
+      "date_to": null,
+      "prepayment": 5781.0,
+      "delivery_address": "Stacja Metra Połczyńska; obok Selgros",
+      "working_days_per_week": 6
+    },
+    "contractor": {
+      "name": "SUDRA SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ",
+      "nip": "9571061005",
+      "street": "Marynarki Polskiej 98 9",
+      "postal_code": "80-557",
+      "city": "Gdańsk"
+    },
+    "positions": [
+      {
+        "article_name": "Usługa ładowarką obrotową 18m + przedłużki",
+        "rental_days": null,
+        "replacement_value": null,
+        "conditions": [
+          {
+            "rate1": 4700.0,
+            "rate2": 300.0,
+            "billing_label": "do 8 godzin",
+            "period_from": null,
+            "period_to": null,
+            "is_flat_rate": true,
+            "pattern_type": "flat_hourly"
+          }
+        ]
+      }
+    ],
+    "service_fees": [
+      {
+        "name": "Transport",
+        "amount_text": "500,00 zł - dostawa / 500,00 zł - odbiór"
+      }
+    ]
+  },
+  {
+    "category": "flat_rate_u",
+    "source_file": "S551_2025_U.pdf",
+    "total_in_category": 2,
+    "contract": {
+      "contract_number": "S551/2025",
+      "contract_type": "U",
+      "date_from": "2025-09-23",
+      "date_to": null,
+      "prepayment": 2152.5,
+      "delivery_address": "Łodź Nad Sokołówką 9",
+      "working_days_per_week": 6
+    },
+    "contractor": {
+      "name": "VIDOK SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ",
+      "nip": "8131086710",
+      "street": "75",
+      "postal_code": "36-054",
+      "city": "Rudna Mała"
+    },
+    "positions": [
+      {
+        "article_name": "Usługa mini żurawiem dekarskim",
+        "rental_days": null,
+        "replacement_value": null,
+        "conditions": [
+          {
+            "rate1": 1450.0,
+            "rate2": null,
+            "billing_label": "do 2 godzin",
+            "period_from": null,
+            "period_to": null,
+            "is_flat_rate": true,
+            "pattern_type": "flat_rate"
+          }
+        ]
+      }
+    ],
+    "service_fees": []
+  },
+  {
+    "category": "multi_pos_n",
+    "source_file": "S410_2025_N.pdf",
+    "total_in_category": 83,
+    "contract": {
+      "contract_number": "S410/2025",
+      "contract_type": "N",
+      "date_from": "2025-07-21",
+      "date_to": "2025-08-04",
+      "prepayment": 15621.0,
+      "delivery_address": "Koziel 9A, 05-622 Koziel",
+      "working_days_per_week": 6
+    },
+    "contractor": {
+      "name": "MARTA MAZURKIEWICZ PRZEDSIĘBIORSTWO HANDLOWE USŁUGOWE \"MM FILIPS\"",
+      "nip": "8212383990",
+      "street": "129E",
+      "postal_code": "08-114",
+      "city": "Teodorów"
+    },
+    "positions": [
+      {
+        "article_name": "Ładowarka teleskopowa 13m",
+        "rental_days": 14,
+        "replacement_value": 241000.0,
+        "conditions": [
+          {
+            "rate1": 600.0,
+            "rate2": null,
+            "billing_label": "doba",
+            "period_from": 1,
+            "period_to": 3,
+            "is_flat_rate": false,
+            "pattern_type": "tiered"
+          },
+          {
+            "rate1": 500.0,
+            "rate2": null,
+            "billing_label": "doba",
+            "period_from": 4,
+            "period_to": 8,
+            "is_flat_rate": false,
+            "pattern_type": "tiered"
+          },
+          {
+            "rate1": 400.0,
+            "rate2": null,
+            "billing_label": "doba",
+            "period_from": 9,
+            "period_to": null,
+            "is_flat_rate": false,
+            "pattern_type": "tiered_above"
+          }
+        ]
+      },
+      {
+        "article_name": "Podnośnik nożycowy spalinowy 15m",
+        "rental_days": 14,
+        "replacement_value": 296000.0,
+        "conditions": [
+          {
+            "rate1": 420.0,
+            "rate2": null,
+            "billing_label": "doba",
+            "period_from": 1,
+            "period_to": 3,
+            "is_flat_rate": false,
+            "pattern_type": "tiered"
+          },
+          {
+            "rate1": 320.0,
+            "rate2": null,
+            "billing_label": "doba",
+            "period_from": 4,
+            "period_to": 8,
+            "is_flat_rate": false,
+            "pattern_type": "tiered"
+          },
+          {
+            "rate1": 220.0,
+            "rate2": null,
+            "billing_label": "doba",
+            "period_from": 9,
+            "period_to": null,
+            "is_flat_rate": false,
+            "pattern_type": "tiered_above"
+          }
+        ]
+      },
+      {
+        "article_name": "Podnośnik nożycowy spalinowy 15m",
+        "rental_days": 14,
+        "replacement_value": 241000.0,
+        "conditions": [
+          {
+            "rate1": 420.0,
+            "rate2": null,
+            "billing_label": "doba",
+            "period_from": 1,
+            "period_to": 3,
+            "is_flat_rate": false,
+            "pattern_type": "tiered"
+          },
+          {
+            "rate1": 320.0,
+            "rate2": null,
+            "billing_label": "doba",
+            "period_from": 4,
+            "period_to": 8,
+            "is_flat_rate": false,
+            "pattern_type": "tiered"
+          },
+          {
+            "rate1": 220.0,
+            "rate2": null,
+            "billing_label": "doba",
+            "period_from": 9,
+            "period_to": null,
+            "is_flat_rate": false,
+            "pattern_type": "tiered_above"
+          }
+        ]
+      }
+    ],
+    "service_fees": []
+  },
+  {
+    "category": "single_day_n",
+    "source_file": "S143_2026G_N.pdf",
+    "total_in_category": 23,
+    "contract": {
+      "contract_number": "S143/2026G",
+      "contract_type": "N",
+      "date_from": "2026-03-12",
+      "date_to": "2026-03-14",
+      "prepayment": 1740.45,
+      "delivery_address": "Boisko szkolne Łapalice 83-300",
+      "working_days_per_week": 6
+    },
+    "contractor": {
+      "name": "El Maxx JAKUB LIDZBARSKI",
+      "nip": "5882347664",
+      "street": "Biesiadna 24A",
+      "postal_code": "84-217",
+      "city": "Szemudzka Huta"
+    },
+    "positions": [
+      {
+        "article_name": "Podnośnik nożycowy elektryczny 12m",
+        "rental_days": 2,
+        "replacement_value": 91000.0,
+        "conditions": [
+          {
+            "rate1": 220.0,
+            "rate2": null,
+            "billing_label": "doba",
+            "period_from": 1,
+            "period_to": 1,
+            "is_flat_rate": false,
+            "pattern_type": "single_day"
+          }
+        ]
+      }
+    ],
+    "service_fees": [
+      {
+        "name": "Transport",
+        "amount_text": "480.00 zł dostawa / 480.00 zł odbiór"
+      },
+      {
+        "name": "Czyszczenie maszyny po wynajmie (zabrudzenia drobne)",
+        "amount_text": "150.00 zł - 400.00 zł"
+      },
+      {
+        "name": "Czyszczenie maszyny po wynajmie (zabrudzenia trudnościeralne)",
+        "amount_text": "400.00 zł - 1500.00 zł"
+      },
+      {
+        "name": "Usługa tankowania",
+        "amount_text": "200.00 zł (plus koszt paliwa)"
+      },
+      {
+        "name": "Ponadnormatywny przestój transportu",
+        "amount_text": "200.00 zł / h - 300.00 zł / h"
+      },
+      {
+        "name": "Nieuzasadnione wezwanie serwisowe",
+        "amount_text": "280,00 zł (plus transport)"
+      }
+    ]
+  },
+  {
+    "category": "single_rate_hour",
+    "source_file": "S423_2025_N.pdf",
+    "total_in_category": 1,
+    "contract": {
+      "contract_number": "S423/2025",
+      "contract_type": "N",
+      "date_from": "2025-07-22",
+      "date_to": "2025-07-23",
+      "prepayment": null,
+      "delivery_address": "ul. Nowowiejska 15/19 Warszawa",
+      "working_days_per_week": 6
+    },
+    "contractor": {
+      "name": "ARPRO SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ",
+      "nip": "1231523000",
+      "street": "ul. Waniliowa 1 79",
+      "postal_code": "05-500",
+      "city": "Zamienie"
+    },
+    "positions": [
+      {
+        "article_name": "Podnośnik koszowy 25m",
+        "rental_days": 1,
+        "replacement_value": 269000.0,
+        "conditions": [
+          {
+            "rate1": 280.0,
+            "rate2": null,
+            "billing_label": "godzina",
+            "period_from": null,
+            "period_to": null,
+            "is_flat_rate": false,
+            "pattern_type": "single_rate"
+          }
+        ]
+      }
+    ],
+    "service_fees": [
+      {
+        "name": "Transport",
+        "amount_text": "280,00 zł / h"
+      },
+      {
+        "name": "Czyszczenie maszyny po wynajmie (zabrudzenia drobne)",
+        "amount_text": "150.00 zł - 400.00 zł"
+      },
+      {
+        "name": "Czyszczenie maszyny po wynajmie (zabrudzenia trudnościeralne)",
+        "amount_text": "400.00 zł - 1500.00 zł"
+      },
+      {
+        "name": "Usługa tankowania",
+        "amount_text": "150.00 zł (plus koszt paliwa)"
+      },
+      {
+        "name": "Ponadnormatywny przestój transportu",
+        "amount_text": "200.00 zł / h - 300.00 zł / h"
+      },
+      {
+        "name": "Nieuzasadnione wezwanie serwisowe",
+        "amount_text": "280,00 zł (plus transport)"
+      }
+    ]
+  },
+  {
+    "category": "single_rate_n",
+    "source_file": "S020_2026_N.pdf",
+    "total_in_category": 162,
+    "contract": {
+      "contract_number": "S020/2026",
+      "contract_type": "N",
+      "date_from": "2026-01-14",
+      "date_to": "2026-01-15",
+      "prepayment": 3259.5,
+      "delivery_address": "Wierzbowa 7, 05-870 Błonie",
+      "working_days_per_week": 6
+    },
+    "contractor": {
+      "name": "TECHLINES LEWANDOWSKI SPÓŁKA KOMANDYTOWA",
+      "nip": "8792757756",
+      "street": "Trakt 31",
+      "postal_code": "87-140",
+      "city": "Chełmża"
+    },
+    "positions": [
+      {
+        "article_name": "Ładowarka teleskopowa 17m z przedłużkami",
+        "rental_days": 1,
+        "replacement_value": 240000.0,
+        "conditions": [
+          {
+            "rate1": 700.0,
+            "rate2": null,
+            "billing_label": "doba",
+            "period_from": null,
+            "period_to": null,
+            "is_flat_rate": false,
+            "pattern_type": "single_rate"
+          }
+        ]
+      }
+    ],
+    "service_fees": [
+      {
+        "name": "Transport",
+        "amount_text": "500.00 zł dostawa / 500.00 zł odbiór"
+      },
+      {
+        "name": "Czyszczenie maszyny po wynajmie (zabrudzenia drobne)",
+        "amount_text": "150.00 zł - 400.00 zł"
+      },
+      {
+        "name": "Czyszczenie maszyny po wynajmie (zabrudzenia trudnościeralne)",
+        "amount_text": "400.00 zł - 1500.00 zł"
+      },
+      {
+        "name": "Usługa tankowania",
+        "amount_text": "200.00 zł (plus koszt paliwa)"
+      },
+      {
+        "name": "Ponadnormatywny przestój transportu",
+        "amount_text": "200.00 zł / h - 300.00 zł / h"
+      },
+      {
+        "name": "Nieuzasadnione wezwanie serwisowe",
+        "amount_text": "280,00 zł (plus transport)"
+      }
+    ]
+  },
+  {
+    "category": "tiered_2_n",
+    "source_file": "S040_2026_N.pdf",
+    "total_in_category": 54,
+    "contract": {
+      "contract_number": "S040/2026",
+      "contract_type": "N",
+      "date_from": "2026-01-20",
+      "date_to": "2026-01-27",
+      "prepayment": 5239.8,
+      "delivery_address": "Spalska 103/105, 97-200 Tomaszów",
+      "working_days_per_week": 7
+    },
+    "contractor": {
+      "name": "NAWARA SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ",
+      "nip": "6121658598",
+      "street": "Strażacka 3A",
+      "postal_code": "59-700",
+      "city": "Trzebień"
+    },
+    "positions": [
+      {
+        "article_name": "Wózek widłowy 2t",
+        "rental_days": 7,
+        "replacement_value": 205000.0,
+        "conditions": [
+          {
+            "rate1": 420.0,
+            "rate2": null,
+            "billing_label": "doba",
+            "period_from": 1,
+            "period_to": 3,
+            "is_flat_rate": false,
+            "pattern_type": "tiered"
+          },
+          {
+            "rate1": 320.0,
+            "rate2": null,
+            "billing_label": "doba",
+            "period_from": 4,
+            "period_to": null,
+            "is_flat_rate": false,
+            "pattern_type": "tiered_above"
+          }
+        ]
+      }
+    ],
+    "service_fees": [
+      {
+        "name": "Transport",
+        "amount_text": "950.00 zł dostawa / 950.00 zł odbiór"
+      },
+      {
+        "name": "Butla gazowa",
+        "amount_text": "120,00 zł"
+      },
+      {
+        "name": "Czyszczenie maszyny po wynajmie (zabrudzenia drobne)",
+        "amount_text": "150.00 zł - 400.00 zł"
+      },
+      {
+        "name": "Czyszczenie maszyny po wynajmie (zabrudzenia trudnościeralne)",
+        "amount_text": "400.00 zł - 1500.00 zł"
+      },
+      {
+        "name": "Usługa tankowania",
+        "amount_text": "200.00 zł (plus koszt paliwa)"
+      },
+      {
+        "name": "Ponadnormatywny przestój transportu",
+        "amount_text": "200.00 zł / h - 300.00 zł / h"
+      },
+      {
+        "name": "Nieuzasadnione wezwanie serwisowe",
+        "amount_text": "280,00 zł (plus transport)"
+      }
+    ]
+  },
+  {
+    "category": "tiered_3_n",
+    "source_file": "S500_2025_N.pdf",
+    "total_in_category": 38,
+    "contract": {
+      "contract_number": "S500/2025",
+      "contract_type": "N",
+      "date_from": "2025-09-08",
+      "date_to": "2025-10-08",
+      "prepayment": 3591.6,
+      "delivery_address": "Magazyny muzeum narodowego",
+      "working_days_per_week": 6
+    },
+    "contractor": {
+      "name": "RACKSYSTEM SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ",
+      "nip": "9372663546",
+      "street": "Lipnicka 37 3",
+      "postal_code": "43-305",
+      "city": "Bielsko-Biała"
+    },
+    "positions": [
+      {
+        "article_name": "Wózek widłowy 2t gazowy",
+        "rental_days": 30,
+        "replacement_value": 195000.0,
+        "conditions": [
+          {
+            "rate1": 600.0,
+            "rate2": null,
+            "billing_label": "doba",
+            "period_from": 1,
+            "period_to": 3,
+            "is_flat_rate": false,
+            "pattern_type": "tiered"
+          },
+          {
+            "rate1": 485.0,
+            "rate2": null,
+            "billing_label": "doba",
+            "period_from": 4,
+            "period_to": 6,
+            "is_flat_rate": false,
+            "pattern_type": "tiered"
+          },
+          {
+            "rate1": 385.0,
+            "rate2": null,
+            "billing_label": "doba",
+            "period_from": 7,
+            "period_to": 9,
+            "is_flat_rate": false,
+            "pattern_type": "tiered"
+          },
+          {
+            "rate1": 285.0,
+            "rate2": null,
+            "billing_label": "doba",
+            "period_from": 10,
+            "period_to": 20,
+            "is_flat_rate": false,
+            "pattern_type": "tiered"
+          },
+          {
+            "rate1": 185.0,
+            "rate2": null,
+            "billing_label": "doba",
+            "period_from": 21,
+            "period_to": null,
+            "is_flat_rate": false,
+            "pattern_type": "tiered_above"
+          }
+        ]
+      }
+    ],
+    "service_fees": []
+  }
+]

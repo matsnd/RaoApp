@@ -79,10 +79,16 @@ spec/technical/
 - **Doc:** `spec/technical/scripts/playwright_ux_screenshots.md` — Opis użycia, lista 17 screenshotów, integracja z UX review
 
 ### Legacy PDF Extraction (RAO-P2-059)
-- **Script:** `spec/technical/scripts/extract_legacy_pdfs.py` — Ekstrakcja tekstu z legacy PDFów (PZO + umowy) używając PyMuPDF (fitz)
+- **Script:** `spec/technical/scripts/extract_legacy_pdfs.py` — Pełna ekstrakcja 515 PDF → strukturyzowany JSON (contractor, positions, conditions, service_fees)
+- **Script:** `spec/technical/scripts/categorize_test_cases.py` — Kategoryzacja 515 kontraktów w 8 wzorców rozliczeniowych + wybór reprezentatywnych przypadków
+- **Script:** `spec/technical/scripts/generate_fixtures.py` — Generowanie fixtures E2E z wyekstrahowanych przypadków (`e2e/tests/legacy-fixtures.json`)
 - **Doc:** `spec/technical/scripts/extract_legacy_pdfs.md` — Opis analizy 4 PDFów, wzorce usług dodatkowych
 - **Samples:** `spec/technical/legacy_samples/pzo_umowy/` — source PDFs, `pzo_umowy_extracted/` — wyekstraktowany tekst
 - **Wzorzec:** PyMuPDF `page.get_text("text")` ekstraktuje tekst z PDF binarnego (read tool nie działa na PDF)
+- ** Wynik ekstrakcji (515 PDF):** 8 kategorii wzorców rozliczeniowych (single_rate_n, single_rate_hour, single_day_n, tiered_2_n, tiered_3_n, multi_pos_n, flat_hourly_u, flat_rate_u), 478 skategoryzowanych (37 ma 0 pozycji), 174 unikalne nazwy artykułów, 296 unikalnych kontrahentów (NIP)
+- **E2E Test:** `e2e/tests/21-legacy-patterns.spec.ts` — 59 testów odtwarzających wszystkie wzorce z legacy PDF w nowej aplikacji RAO (API + PDF generation)
+- **API quirk:** `is_service=True` artykuły są ODRZUCANE przy dodawaniu pozycji (line 955-956 service.py) — wszystkie artykuły w testach muszą mieć `is_service=false`
+- **API quirk:** RAO-P2-071 `_sync_condition_derived_fields` nulluje `rate2` gdy `rate1` jest ustawione — rate2 jest legacy/fallback only. Testy weryfikują rate2 tylko gdy rate1 jest null/0.
 
 ### Vision AI UX Analysis (RAO-P2-016 + RAO-P2-017)
 - **Tool:** MCP `rao-vision` — Automatyczna analiza UX/UI przez Claude Vision
