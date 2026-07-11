@@ -84,14 +84,29 @@ export async function login(page: Page) {
   await expect(page.locator('nav')).toBeVisible({ timeout: 5_000 })
 }
 
-export async function navigateTo(page: Page, section: 'contracts' | 'contractors' | 'articles') {
+export async function navigateTo(
+  page: Page,
+  section: 'contracts' | 'contractors' | 'articles' | 'machines' | 'services' | 'additional-services',
+) {
   const labels: Record<string, string> = {
     contracts: 'Umowy',
     contractors: 'Kontrahenci',
-    articles: 'Artykuły',
+    articles: 'Artykuły', // backward compat — stare sidebar label
+    machines: 'Maszyny',
+    services: 'Usługi',
+    'additional-services': 'Usługi dodatkowe',
   }
   await page.getByRole('button', { name: labels[section], exact: true }).click()
-  await expect(page).toHaveURL(new RegExp(`/rao/dashboard/${section}`), { timeout: 8_000 })
+  // Nowe sekcje (machines/services/additional-services) używają bezpośrednich ścieżek,
+  // stare (contracts/contractors) używają /dashboard/{section}.
+  // Legacy /articles redirectuje na /machines w sidebarze.
+  const urlPattern =
+    section === 'machines' ? /\/rao\/machines/ :
+    section === 'services' ? /\/rao\/services(?!\/)/ :
+    section === 'additional-services' ? /\/rao\/additional-services/ :
+    section === 'articles' ? /\/rao\/(machines|dashboard\/articles)/ : // backward compat
+    new RegExp(`/rao/dashboard/${section}`)
+  await expect(page).toHaveURL(urlPattern, { timeout: 8_000 })
 }
 
 /**
@@ -148,8 +163,19 @@ export async function quickAddContractor(
 
 /**
  * Quick add article z picker (RAO-P2-006)
+ * Backward compat alias — deleguje do quickAddMachine.
  */
 export async function quickAddArticle(
+  page: Page,
+  data: { name: string; serial_number?: string; category?: string }
+): Promise<void> {
+  return quickAddMachine(page, data)
+}
+
+/**
+ * Quick add machine z picker (Faza 5 — zastępuje quickAddArticle)
+ */
+export async function quickAddMachine(
   page: Page,
   data: { name: string; serial_number?: string; category?: string }
 ): Promise<void> {
@@ -188,18 +214,18 @@ export async function createContractWithCascadingConditions(
   })
   const contract = await ctr.json()
 
-  // 2. Utwórz artykuł
+  // 2. Utwórz maszynę (Faza 5: było article, teraz machine)
   const ts = Date.now()
-  const ar = await req.post(`${API}/articles`, {
+  const ar = await req.post(`${API}/machines`, {
     headers: authHeaders(token),
-    data: { name: `TestArt ${ts}`, is_service: false },
+    data: { name: `TestMachine ${ts}` },
   })
-  const article = await ar.json()
+  const machine = await ar.json()
 
-  // 3. Utwórz pozycję
+  // 3. Utwórz pozycję (Faza 5: machine_id zamiast article_id)
   const pos = await req.post(`${API}/contracts/${contract.id}/positions`, {
     headers: authHeaders(token),
-    data: { article_id: article.id, quantity: 1 },
+    data: { machine_id: machine.id, quantity: 1 },
   })
   const position = await pos.json()
 
@@ -212,4 +238,96 @@ export async function createContractWithCascadingConditions(
   }
 
   return contract.id
+}
+
+// ─── Faza 5: CRUD helpers dla machines / services / additional-services ───
+
+/**
+ * Tworzy maszynę przez API. Zwraca id.
+ * (Faza 5: zastępuje createArticle dla maszyn)
+ */
+export async function createMachine(
+  req: APIRequestContext,
+  token: string,
+  data: { name: string; serial_no?: string; brand?: string; power_type?: string; replacement_value?: number },
+): Promise<number> {
+  const payload: Record<string, unknown> = { name: data.name }
+  if (data.serial_no) payload.serial_no = data.serial_no
+  if (data.brand) payload.brand = data.brand
+  if (data.power_type) payload.power_type = data.power_type
+  if (data.replacement_value !== undefined) payload.replacement_value = data.replacement_value
+  const res = await req.post(`${API}/machines`, {
+    headers: authHeaders(token),
+    data: payload,
+    timeout: 10_000,
+  })
+  expect(res.status(), `createMachine failed: ${data.name}`).toBe(201)
+  const body = await res.json()
+  return body.id
+}
+
+/**
+ * Tworzy usługę przez API. Zwraca id.
+ * (Faza 5: dla usług zwykłych — /services)
+ */
+export async function createService(
+  req: APIRequestContext,
+  token: string,
+  data: { name: string; description?: string; replacement_value?: number },
+): Promise<number> {
+  const payload: Record<string, unknown> = { name: data.name }
+  if (data.description) payload.description = data.description
+  if (data.replacement_value !== undefined) payload.replacement_value = data.replacement_value
+  const res = await req.post(`${API}/services`, {
+    headers: authHeaders(token),
+    data: payload,
+    timeout: 10_000,
+  })
+  expect(res.status(), `createService failed: ${data.name}`).toBe(201)
+  const body = await res.json()
+  return body.id
+}
+
+/**
+ * Tworzy usługę dodatkową przez API. Zwraca id.
+ * (Faza 5: dla usług dodatkowych — /additional-services)
+ */
+export async function createAdditionalService(
+  req: APIRequestContext,
+  token: string,
+  data: { name: string; default_amount?: number; description?: string },
+): Promise<number> {
+  const payload: Record<string, unknown> = { name: data.name }
+  if (data.default_amount !== undefined) payload.default_amount = data.default_amount
+  if (data.description) payload.description = data.description
+  const res = await req.post(`${API}/additional-services`, {
+    headers: authHeaders(token),
+    data: payload,
+    timeout: 10_000,
+  })
+  expect(res.status(), `createAdditionalService failed: ${data.name}`).toBe(201)
+  const body = await res.json()
+  return body.id
+}
+
+/**
+ * Tworzy artykuł przez API (backward compat — używa starego /articles endpoint).
+ * Zwraca id. Dla testów legacy.
+ */
+export async function createArticle(
+  req: APIRequestContext,
+  token: string,
+  data: { name: string; is_service?: boolean; replacement_value?: number },
+): Promise<number> {
+  const payload: Record<string, unknown> = { name: data.name }
+  if (data.is_service !== undefined) payload.is_service = data.is_service
+  if (data.replacement_value !== undefined) payload.replacement_value = data.replacement_value
+  const res = await req.post(`${API}/articles`, {
+    headers: authHeaders(token),
+    data: payload,
+    timeout: 10_000,
+  })
+  expect(res.status(), `createArticle failed: ${data.name}`).toBe(201)
+  const body = await res.json()
+  return body.id
 }

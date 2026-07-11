@@ -76,10 +76,33 @@ test.describe('RAO-P2-016: UX Screenshots', () => {
   })
 
   test('ArticleFormView - new article (empty)', async ({ page }) => {
+    // Backward compat — legacy /articles/new route (Faza 7: usuń po migracji)
     await login(page)
     await page.goto('/rao/articles/new', { waitUntil: 'domcontentloaded', timeout: 15_000 })
     await page.waitForTimeout(500)
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '07-article-form-new-empty.png') })
+  })
+
+  // Faza 5: nowe widoki maszyn / usług / usług dodatkowych
+  test('MachineFormView - new machine (empty)', async ({ page }) => {
+    await login(page)
+    await page.goto('/rao/machines/new', { waitUntil: 'domcontentloaded', timeout: 15_000 })
+    await page.waitForTimeout(500)
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '07a-machine-form-new-empty.png') })
+  })
+
+  test('ServiceFormView - new service (empty)', async ({ page }) => {
+    await login(page)
+    await page.goto('/rao/services/new', { waitUntil: 'domcontentloaded', timeout: 15_000 })
+    await page.waitForTimeout(500)
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '07b-service-form-new-empty.png') })
+  })
+
+  test('AdditionalServiceFormView - new additional service (empty)', async ({ page }) => {
+    await login(page)
+    await page.goto('/rao/additional-services/new', { waitUntil: 'domcontentloaded', timeout: 15_000 })
+    await page.waitForTimeout(500)
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '07c-additional-service-form-new-empty.png') })
   })
 
   test('ContractFormView - new contract (empty)', async ({ page }) => {

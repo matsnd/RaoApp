@@ -2,8 +2,8 @@ import { test, expect } from '@playwright/test'
 import { waitForBackend, login, API, CREDS, apiLogin, authHeaders, safeDelete, genValidNip } from './helpers'
 
 let contractorId = 0
-let equipmentArticleId = 0
-let serviceArticleId = 0
+let equipmentMachineId = 0  // Faza 5: było equipmentArticleId
+let serviceId = 0           // Faza 5: było serviceArticleId (is_service: true → /services)
 let sContractId = 0
 let uContractId = 0
 let sPositionId = 0
@@ -11,7 +11,8 @@ let uPositionId = 0
 let ratePresetId = 0
 const createdContracts: number[] = []
 const createdContractors: number[] = []
-const createdArticles: number[] = []
+const createdMachines: number[] = []   // Faza 5: było createdArticles
+const createdServices: number[] = []   // Faza 5: usługi przez /services
 const createdRatePresets: number[] = []
 
 test.describe('TEST-05-P1-100: Opłaty dodatkowe, warunki, cennik, przedpłata, tryb usługi', () => {
@@ -28,17 +29,19 @@ test.describe('TEST-05-P1-100: Opłaty dodatkowe, warunki, cennik, przedpłata, 
     contractorId = c.id
     createdContractors.push(contractorId)
 
-    const artEq = await request.post(`${API}/articles`, { headers, data: { name: `E2E P1-100 equip ${ts}`, is_service: false }, timeout: 10_000 })
-    if (artEq.status() !== 201) throw new Error(`create equipment article failed: ${artEq.status()}`)
+    // Faza 5: /articles (is_service: false) → /machines
+    const artEq = await request.post(`${API}/machines`, { headers, data: { name: `E2E P1-100 equip ${ts}` }, timeout: 10_000 })
+    if (artEq.status() !== 201) throw new Error(`create equipment machine failed: ${artEq.status()}`)
     const eqArt = await artEq.json()
-    equipmentArticleId = eqArt.id
-    createdArticles.push(equipmentArticleId)
+    equipmentMachineId = eqArt.id
+    createdMachines.push(equipmentMachineId)
 
-    const artSrv = await request.post(`${API}/articles`, { headers, data: { name: `E2E P1-100 service ${ts}`, is_service: true }, timeout: 10_000 })
+    // Faza 5: /articles (is_service: true) → /services
+    const artSrv = await request.post(`${API}/services`, { headers, data: { name: `E2E P1-100 service ${ts}` }, timeout: 10_000 })
     if (artSrv.status() === 201) {
       const srvArt = await artSrv.json()
-      serviceArticleId = srvArt.id
-      createdArticles.push(serviceArticleId)
+      serviceId = srvArt.id
+      createdServices.push(serviceId)
     }
 
     const today = new Date().toISOString().slice(0, 10)
@@ -48,12 +51,14 @@ test.describe('TEST-05-P1-100: Opłaty dodatkowe, warunki, cennik, przedpłata, 
     sContractId = sCtr.id
     createdContracts.push(sContractId)
 
-    const posS = await request.post(`${API}/contracts/${sContractId}/positions`, { headers, data: { article_id: equipmentArticleId, quantity: 1, unit_price: 500, rental_days: 10 }, timeout: 10_000 })
+    // Faza 5: article_id → machine_id
+    const posS = await request.post(`${API}/contracts/${sContractId}/positions`, { headers, data: { machine_id: equipmentMachineId, quantity: 1, unit_price: 500, rental_days: 10 }, timeout: 10_000 })
     if (posS.status() !== 201) throw new Error(`create position failed: ${posS.status()}`)
     const pos = await posS.json()
     sPositionId = pos.id
 
-    const rp = await request.post(`${API}/settings/articles/${equipmentArticleId}/rate-presets`, { headers, data: { name: `Test 1-3/4-16/>16 ${ts}`, is_default: true, items: [ { period_count: 3, rate1: 540, billing_label: 'doba' }, { period_count: 16, rate1: 410, billing_label: 'doba' }, { rate2: 350, billing_label: 'doba' } ] }, timeout: 10_000 })
+    // Faza 5: /settings/articles/{id}/rate-presets → /settings/machines/{id}/rate-presets
+    const rp = await request.post(`${API}/settings/machines/${equipmentMachineId}/rate-presets`, { headers, data: { name: `Test 1-3/4-16/>16 ${ts}`, is_default: true, items: [ { period_count: 3, rate1: 540, billing_label: 'doba' }, { period_count: 16, rate1: 410, billing_label: 'doba' }, { rate2: 350, billing_label: 'doba' } ] }, timeout: 10_000 })
     if (rp.status() === 201) {
       const rpd = await rp.json()
       ratePresetId = rpd.id
@@ -67,8 +72,9 @@ test.describe('TEST-05-P1-100: Opłaty dodatkowe, warunki, cennik, przedpłata, 
       const uCtr = await ctrU.json()
       uContractId = uCtr.id
       createdContracts.push(uContractId)
-      if (serviceArticleId) {
-        const posU = await request.post(`${API}/contracts/${uContractId}/positions`, { headers, data: { article_id: serviceArticleId, quantity: 1 }, timeout: 10_000 })
+      if (serviceId) {
+        // Faza 5: article_id → service_id (is_service: true → /services)
+        const posU = await request.post(`${API}/contracts/${uContractId}/positions`, { headers, data: { service_id: serviceId, quantity: 1 }, timeout: 10_000 })
         if (posU.status() === 201) { const pu = await posU.json(); uPositionId = pu.id }
       }
     }
@@ -83,7 +89,9 @@ test.describe('TEST-05-P1-100: Opłaty dodatkowe, warunki, cennik, przedpłata, 
     const token = await apiLogin(request)
     for (const cid of createdContracts) await safeDelete(request, `${API}/contracts/${cid}`, token)
     for (const rpid of createdRatePresets) await safeDelete(request, `${API}/settings/rate-presets/${rpid}`, token)
-    for (const aid of createdArticles) await safeDelete(request, `${API}/articles/${aid}`, token)
+    // Faza 5: cleanup przez /machines i /services (było /articles)
+    for (const mid of createdMachines) await safeDelete(request, `${API}/machines/${mid}`, token)
+    for (const sid of createdServices) await safeDelete(request, `${API}/services/${sid}`, token)
     for (const crid of createdContractors) await safeDelete(request, `${API}/contractors/${crid}`, token)
   })
 

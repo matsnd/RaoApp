@@ -1,6 +1,11 @@
 import { test, expect } from '@playwright/test'
 import { waitForBackend, login, navigateTo, API, apiLogin, authHeaders, safeDelete, newApiContext } from './helpers'
 
+// LEGACY BACKWARD COMPAT TEST — Faza 5
+// Ten plik testuje stare routingi /articles i API /articles (backward compat).
+// Nowe testy CRUD: 03-machine.spec.ts, 03b-service.spec.ts, 03c-additional-service.spec.ts
+// Nie modyfikuj — /articles endpoint i routing nadal działają (Faza 7: usuń po pełnej migracji).
+
 const TS = Date.now()
 const createdArticleIds: number[] = []
 

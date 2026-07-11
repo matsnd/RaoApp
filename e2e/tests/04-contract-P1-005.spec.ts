@@ -51,16 +51,18 @@ test.describe('TEST-04-P1-005: Elastyczne widełki cenowe', () => {
     const headers = authHeaders(token)
 
     const ts = Date.now()
-    const articleRes = await request.post(`${API}/articles`, {
+    // Faza 5: /articles → /machines (is_service: false → machine)
+    const articleRes = await request.post(`${API}/machines`, {
       headers,
-      data: { name: `TestArtykułP1-005-${ts}`, is_service: false },
+      data: { name: `TestMachineP1-005-${ts}` },
       timeout: 10_000,
     })
     const article = await articleRes.json()
 
+    // Faza 5: article_id → machine_id
     const posRes = await request.post(`${API}/contracts/${contractId}/positions`, {
       headers,
-      data: { article_id: article.id, quantity: 1 },
+      data: { machine_id: article.id, quantity: 1 },
       timeout: 10_000,
     })
     const position = await posRes.json()
@@ -83,16 +85,18 @@ test.describe('TEST-04-P1-005: Elastyczne widełki cenowe', () => {
     const headers = authHeaders(token)
 
     const ts = Date.now()
-    const articleRes = await request.post(`${API}/articles`, {
+    // Faza 5: /articles → /machines
+    const articleRes = await request.post(`${API}/machines`, {
       headers,
-      data: { name: `TestArtykułP1-005-${ts}`, is_service: false },
+      data: { name: `TestMachineP1-005-${ts}` },
       timeout: 10_000,
     })
     const article = await articleRes.json()
 
+    // Faza 5: article_id → machine_id
     const posRes = await request.post(`${API}/contracts/${contractId}/positions`, {
       headers,
-      data: { article_id: article.id, quantity: 1 },
+      data: { machine_id: article.id, quantity: 1 },
       timeout: 10_000,
     })
     const position = await posRes.json()
@@ -115,16 +119,18 @@ test.describe('TEST-04-P1-005: Elastyczne widełki cenowe', () => {
     const headers = authHeaders(token)
 
     const ts = Date.now()
-    const articleRes = await request.post(`${API}/articles`, {
+    // Faza 5: /articles → /machines
+    const articleRes = await request.post(`${API}/machines`, {
       headers,
-      data: { name: `TestArtykułP1-005-${ts}`, is_service: false },
+      data: { name: `TestMachineP1-005-${ts}` },
       timeout: 10_000,
     })
     const article = await articleRes.json()
 
+    // Faza 5: article_id → machine_id
     const posRes = await request.post(`${API}/contracts/${contractId}/positions`, {
       headers,
-      data: { article_id: article.id, quantity: 1 },
+      data: { machine_id: article.id, quantity: 1 },
       timeout: 10_000,
     })
     const position = await posRes.json()
@@ -151,16 +157,18 @@ test.describe('TEST-04-P1-005: Elastyczne widełki cenowe', () => {
     const headers = authHeaders(token)
 
     const ts = Date.now()
-    const articleRes = await request.post(`${API}/articles`, {
+    // Faza 5: /articles → /machines
+    const articleRes = await request.post(`${API}/machines`, {
       headers,
-      data: { name: `TestArtykułP1-005-${ts}`, is_service: false },
+      data: { name: `TestMachineP1-005-${ts}` },
       timeout: 10_000,
     })
     const article = await articleRes.json()
 
+    // Faza 5: article_id → machine_id
     const posRes = await request.post(`${API}/contracts/${contractId}/positions`, {
       headers,
-      data: { article_id: article.id, quantity: 1 },
+      data: { machine_id: article.id, quantity: 1 },
       timeout: 10_000,
     })
     const position = await posRes.json()
@@ -187,16 +195,18 @@ test.describe('TEST-04-P1-005: Elastyczne widełki cenowe', () => {
     const headers = authHeaders(token)
 
     const ts = Date.now()
-    const articleRes = await request.post(`${API}/articles`, {
+    // Faza 5: /articles → /machines
+    const articleRes = await request.post(`${API}/machines`, {
       headers,
-      data: { name: `TestArtykułP1-005-${ts}`, is_service: false },
+      data: { name: `TestMachineP1-005-${ts}` },
       timeout: 10_000,
     })
     const article = await articleRes.json()
 
+    // Faza 5: article_id → machine_id
     const posRes = await request.post(`${API}/contracts/${contractId}/positions`, {
       headers,
-      data: { article_id: article.id, quantity: 1 },
+      data: { machine_id: article.id, quantity: 1 },
       timeout: 10_000,
     })
     const position = await posRes.json()
@@ -227,16 +237,18 @@ test.describe('TEST-04-P1-005: Elastyczne widełki cenowe', () => {
     const headers = authHeaders(token)
 
     const ts = Date.now()
-    const articleRes = await request.post(`${API}/articles`, {
+    // Faza 5: /articles → /machines
+    const articleRes = await request.post(`${API}/machines`, {
       headers,
-      data: { name: `TestArtykułP1-005-${ts}`, is_service: false },
+      data: { name: `TestMachineP1-005-${ts}` },
       timeout: 10_000,
     })
     const article = await articleRes.json()
 
+    // Faza 5: article_id → machine_id
     const posRes = await request.post(`${API}/contracts/${contractId}/positions`, {
       headers,
-      data: { article_id: article.id, quantity: 1 },
+      data: { machine_id: article.id, quantity: 1 },
       timeout: 10_000,
     })
     const position = await posRes.json()
@@ -257,16 +269,18 @@ test.describe('TEST-04-P1-005: Elastyczne widełki cenowe', () => {
     const headers = authHeaders(token)
 
     const ts = Date.now()
-    const articleRes = await request.post(`${API}/articles`, {
+    // Faza 5: /articles → /machines
+    const articleRes = await request.post(`${API}/machines`, {
       headers,
-      data: { name: `TestArtykułP1-005-${ts}`, is_service: false },
+      data: { name: `TestMachineP1-005-${ts}` },
       timeout: 10_000,
     })
     const article = await articleRes.json()
 
+    // Faza 5: article_id → machine_id
     const posRes = await request.post(`${API}/contracts/${contractId}/positions`, {
       headers,
-      data: { article_id: article.id, quantity: 1 },
+      data: { machine_id: article.id, quantity: 1 },
       timeout: 10_000,
     })
     const position = await posRes.json()
@@ -291,16 +305,18 @@ test.describe('TEST-04-P1-005: Elastyczne widełki cenowe', () => {
     const headers = authHeaders(token)
 
     const ts = Date.now()
-    const articleRes = await request.post(`${API}/articles`, {
+    // Faza 5: /articles → /machines
+    const articleRes = await request.post(`${API}/machines`, {
       headers,
-      data: { name: `TestArtykułP1-005-${ts}`, is_service: false },
+      data: { name: `TestMachineP1-005-${ts}` },
       timeout: 10_000,
     })
     const article = await articleRes.json()
 
+    // Faza 5: article_id → machine_id
     const posRes = await request.post(`${API}/contracts/${contractId}/positions`, {
       headers,
-      data: { article_id: article.id, quantity: 1 },
+      data: { machine_id: article.id, quantity: 1 },
       timeout: 10_000,
     })
     const position = await posRes.json()
@@ -339,16 +355,18 @@ test.describe('TEST-04-P1-005: Elastyczne widełki cenowe', () => {
     const headers = authHeaders(token)
 
     const ts = Date.now()
-    const articleRes = await request.post(`${API}/articles`, {
+    // Faza 5: /articles → /machines
+    const articleRes = await request.post(`${API}/machines`, {
       headers,
-      data: { name: `TestArtykułP1-005-${ts}`, is_service: false },
+      data: { name: `TestMachineP1-005-${ts}` },
       timeout: 10_000,
     })
     const article = await articleRes.json()
 
+    // Faza 5: article_id → machine_id
     const posRes = await request.post(`${API}/contracts/${contractId}/positions`, {
       headers,
-      data: { article_id: article.id, quantity: 1 },
+      data: { machine_id: article.id, quantity: 1 },
       timeout: 10_000,
     })
     const position = await posRes.json()

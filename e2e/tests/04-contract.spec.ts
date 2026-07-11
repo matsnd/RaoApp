@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { waitForBackend, login, navigateTo, API, CREDS, apiLogin, authHeaders, safeDelete, newApiContext, genValidNip, quickAddContractor, quickAddArticle } from './helpers'
+import { waitForBackend, login, navigateTo, API, CREDS, apiLogin, authHeaders, safeDelete, newApiContext, genValidNip, quickAddContractor, quickAddArticle, quickAddMachine } from './helpers'
 
 let contractorId = 0
 let contractId = 0
@@ -233,16 +233,17 @@ test.describe('TEST-04: Umowy', () => {
   test('CRUD pozycji umowy przez API', async ({ request }) => {
     const token = await apiLogin(request)
     const ts = Date.now()
-    // Stwórz artykuł do pozycji
-    const ar = await request.post(`${API}/articles`, {
+    // Faza 5: stwórz maszynę do pozycji (było /articles, teraz /machines)
+    const ar = await request.post(`${API}/machines`, {
       headers: authHeaders(token),
-      data: { name: `PosArt ${ts}`, is_service: false },
+      data: { name: `PosMachine ${ts}` },
     })
-    const article = await ar.json()
+    const machine = await ar.json()
 
+    // Faza 5: machine_id zamiast article_id (XOR: machine_id lub service_id)
     const r = await request.post(`${API}/contracts/${contractId}/positions`, {
       headers: authHeaders(token),
-      data: { article_id: article.id, quantity: 1 },
+      data: { machine_id: machine.id, quantity: 1 },
     })
     if (![200, 201].includes(r.status())) {
       // Endpoint może wymagać innych pól — nie blokuj testu
@@ -257,8 +258,8 @@ test.describe('TEST-04: Umowy', () => {
     })
     expect(del.status()).toBe(204)
 
-    // Cleanup artykułu
-    await safeDelete(request, `${API}/articles/${article.id}`, token)
+    // Cleanup maszyny
+    await safeDelete(request, `${API}/machines/${machine.id}`, token)
   })
 
   test('CRUD usługi dodatkowej (service-fee) przez API', async ({ request }) => {
@@ -354,19 +355,20 @@ test.describe('TEST-04: Umowy', () => {
     await expect(page.locator('[data-testid="contractor-picker"]')).toHaveValue(`TestKontrahent${ts}`)
   })
 
-  // --- RAO-P2-006: Frontend — inline add artykuł ---
-  test.fixme('RAO-P2-006: inline add artykuł z picker', async ({ page }) => {
+  // --- RAO-P2-006: Frontend — inline add maszyny (było: artykuł) ---
+  test.fixme('RAO-P2-006: inline add maszyna z picker', async ({ page }) => {
     // Wymaga data-testid attributes w inline add components
     // Owner: frontend-dev
+    // Faza 5: article-picker → machine-picker
     await page.goto('/rao/contracts/new', { waitUntil: 'domcontentloaded', timeout: 15_000 })
     
     // Najpierw wybierz kontrahenta (wymagane przed dodaniem pozycji)
     await page.locator('[data-testid="contractor-picker"]').fill('E2E Firma')
     await page.waitForTimeout(500)
     
-    // Wpisz nieistniejący artykuł w picker
+    // Wpisz nieistniejącą maszynę w picker
     const ts = Date.now()
-    await page.locator('[data-testid="article-picker"]').fill(`NieistniejącyArtykuł${ts}`)
+    await page.locator('[data-testid="machine-picker"]').fill(`NieistniejącaMaszyna${ts}`)
     
     // Sprawdź czy wyświetla się "Brak wyników"
     await expect(page.locator('[data-testid="no-results"]')).toContainText('Brak wyników')
@@ -378,20 +380,20 @@ test.describe('TEST-04: Umowy', () => {
     await page.getByRole('button', { name: /dodaj nową maszynę/i }).click()
     
     // Sprawdź czy modal się otworzył
-    await expect(page.locator('[data-testid="article-modal"]')).toBeVisible()
+    await expect(page.locator('[data-testid="machine-modal"]')).toBeVisible()
     
     // Wypełnij formularz
-    await page.getByPlaceholder(/nazwa/i).fill(`TestArtykuł${ts}`)
+    await page.getByPlaceholder(/nazwa/i).fill(`TestMaszyna${ts}`)
     await page.getByPlaceholder(/numer seryjny/i).fill(`SN${ts}`)
     
     // Zapisz
     await page.getByRole('button', { name: /zapisz/i }).click()
     
     // Sprawdź czy modal zamknięty
-    await expect(page.locator('[data-testid="article-modal"]')).not.toBeVisible()
+    await expect(page.locator('[data-testid="machine-modal"]')).not.toBeVisible()
     
-    // Sprawdź czy nowy artykuł jest auto-selected w pickerze
-    await expect(page.locator('[data-testid="article-picker"]')).toHaveValue(`TestArtykuł${ts}`)
+    // Sprawdź czy nowa maszyna jest auto-selected w pickerze
+    await expect(page.locator('[data-testid="machine-picker"]')).toHaveValue(`TestMaszyna${ts}`)
   })
 
   // --- RAO-P2-007: Frontend — pomoc UX jak wpisywać warunki ---

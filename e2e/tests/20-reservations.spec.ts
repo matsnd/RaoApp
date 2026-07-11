@@ -20,8 +20,8 @@ test.describe('TEST-20: Rezerwacje maszyn (P2-066)', () => {
     expect(r.status()).toBe(200)
   })
 
-  test('GET /availability/{article_id} → 200 lub 404', async ({ request }) => {
-    // Sprawdź z article_id=1
+  test('GET /availability/{machine_id} → 200 lub 404', async ({ request }) => {
+    // Faza 5: article_id → machine_id (było /availability/1)
     const r = await request.get(`${API}/availability/1`, { headers: authHeaders(token) })
     if (r.status() === 404) {
       console.log('Availability/{id} endpoint nie istnieje')
@@ -44,20 +44,21 @@ test.describe('TEST-20: Rezerwacje maszyn (P2-066)', () => {
   })
 
   test('POST /reservations tworzy rezerwację + cleanup', async ({ request }) => {
-    // Najpierw pobierz artykuł
-    const arts = await request.get(`${API}/articles`, { headers: authHeaders(token) })
-    const articles = await arts.json()
-    if (!articles.length) {
-      console.log('Brak artykułów do testu rezerwacji')
+    // Faza 5: /articles → /machines (pobierz maszynę do rezerwacji)
+    const arts = await request.get(`${API}/machines`, { headers: authHeaders(token) })
+    const machines = await arts.json()
+    if (!machines.length) {
+      console.log('Brak maszyn do testu rezerwacji')
       return
     }
-    const articleId = articles[0].id
+    const machineId = machines[0].id
 
     const ts = Date.now()
     const r = await request.post(`${API}/reservations`, {
       headers: authHeaders(token),
       data: {
-        article_id: articleId,
+        // Faza 5: article_id → machine_id
+        machine_id: machineId,
         date_from: new Date(ts + 86400000).toISOString().slice(0, 10),
         date_to: new Date(ts + 172800000).toISOString().slice(0, 10),
         notes: `Test reservation ${ts}`,

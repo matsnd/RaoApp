@@ -14,7 +14,10 @@ test.describe('TEST-08: Auth & Security', () => {
     '/rao/contractors/1/edit',
     '/rao/contracts/new',
     '/rao/contracts/1/edit',
-    '/rao/articles/new',
+    '/rao/articles/new',       // backward compat — legacy route
+    '/rao/machines/new',       // Faza 5: nowy routing
+    '/rao/services/new',       // Faza 5: nowy routing
+    '/rao/additional-services/new', // Faza 5: nowy routing
     '/rao/settings',
     '/rao/dashboard/contracts',
   ]) {
@@ -35,7 +38,10 @@ test.describe('TEST-08: Auth & Security', () => {
   for (const ep of [
     { method: 'get', path: '/contractors' },
     { method: 'get', path: '/contracts' },
-    { method: 'get', path: '/articles' },
+    { method: 'get', path: '/articles' },           // backward compat
+    { method: 'get', path: '/machines' },            // Faza 5
+    { method: 'get', path: '/services' },            // Faza 5
+    { method: 'get', path: '/additional-services' }, // Faza 5
     { method: 'get', path: '/settings/company' },
     { method: 'get', path: '/auth/profile' },
   ]) {

@@ -1,6 +1,11 @@
 /**
  * E2E Test: Legacy PDF Pattern Recreation
  *
+ * LEGACY BACKWARD COMPAT — Faza 5
+ * Ten plik używa starego API /articles (backward compat) do odtwarzania wzorców
+ * z legacy PDF-ów. Nie modyfikuj — /articles endpoint nadal działa.
+ * Nowe testy używają /machines, /services, /additional-services.
+ *
  * Odtwarza wszystkie wzorce warunków rozliczeniowych wyekstrahowane
  * z ~515 PDF-ów legacy (WinForms/Crystal Reports) w nowej aplikacji RAO.
  *
