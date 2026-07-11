@@ -90,6 +90,17 @@
           </div>
         </div>
 
+        <div class="form-row-2">
+          <div class="form-group">
+            <label class="form-label" for="article-power-type">Typ zasilania</label>
+            <select id="article-power-type" v-model="form.power_type" class="form-control" data-testid="article-power-type">
+              <option value="diesel">Diesel</option>
+              <option value="electric">Elektryk</option>
+              <option value="other">Inny</option>
+            </select>
+          </div>
+        </div>
+
         <!-- RAO-P2-058: Mapowanie artykułu z produktem Fakturownia -->
         <div class="section-title" style="font-size:var(--font-size-sm);margin-top:var(--spacing-4);margin-bottom:var(--spacing-3);padding-bottom:var(--spacing-2);">Integracja Fakturownia</div>
         <div class="form-group">
@@ -254,6 +265,7 @@ const form = ref({
   description: '', notes: '', rental_days: null, article_type: '',
   zasieg_m: null, udzwig_t: null, dodatki: null,
   is_archival: false, is_external: false,  // RAO-P1-027
+  power_type: 'other',  // RAO: typ zasilania maszyny (diesel|electric|other)
   fakturownia_product_id: null,  // RAO-P2-058
   fakturownia_tax_rate: null,    // RAO-P2-058: snapshot z FA
   fakturownia_gtu_code: null,    // RAO-P2-058: snapshot z FA

@@ -333,6 +333,17 @@
           />
         </div>
 
+          <!-- RAO: sugestia zestawu usług dodatkowych z backendu (tylko informacja, nie auto-apply) -->
+          <div
+            v-if="isEdit && suggestedPresetLabel"
+            class="suggested-preset-banner"
+            data-testid="suggested-preset-banner"
+            role="status"
+          >
+            <span class="suggested-preset-icon" aria-hidden="true">💡</span>
+            <span>Sugerowany zestaw: <strong>{{ suggestedPresetLabel }}</strong></span>
+          </div>
+
           <!-- Service fees section -->
         <div v-if="isEdit" class="page-card" style="margin-bottom:var(--spacing-lg);">
           <div class="fee-header">
@@ -1048,6 +1059,7 @@ const form = ref({
   contact_person2: '', contact_phone2: '', show_person2: true,
   email: '', phone: '', contractor_name: '', working_days_per_week: 6, hide_delivery_address: false, signatures_on_page1: false,
   is_settled: false, settled_at: null,  // RAO-P2-022
+  suggested_preset: null as string | null,  // RAO: sugestia zestawu z backendu (tylko info)
 })
 
 // RAO-P1-021: Wartość umowy z rozliczenia (suma cost_client z settlements)
@@ -1078,6 +1090,15 @@ const selectedPositionArticleId = computed(() => selectedPosition.value?.article
 
 const isRental = computed(() => form.value.contract_type === 'S')
 const isService = computed(() => form.value.contract_type === 'U')
+
+// RAO: etykieta sugestii zestawu usług dodatkowych (z backendu, tylko informacja dla operatora)
+const suggestedPresetLabel = computed(() => {
+  const preset = contractStore.current?.suggested_preset ?? form.value.suggested_preset ?? null
+  if (!preset) return ''
+  if (preset === 'diesel') return 'Diesel'
+  if (preset === 'electric') return 'Elektryk'
+  return ''
+})
 
 // RAO-P1-100: grid usług pokazuje tylko aktywne pozycje
 const activeServiceFees = computed(() =>
@@ -2806,6 +2827,21 @@ async function applyHardcodedFeePreset(kind: 'wspolne' | 'diesel' | 'elektryk') 
 }
 
 /* RAO-P1-100: Usługi dodatkowe */
+.suggested-preset-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-bottom: var(--spacing-3);
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--border-radius-md);
+  color: var(--color-text-body);
+  font-size: var(--font-size-sm);
+}
+.suggested-preset-banner .suggested-preset-icon {
+  font-size: 16px;
+}
 .fee-header {
   display: flex;
   align-items: center;
