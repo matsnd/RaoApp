@@ -173,7 +173,7 @@ async function loadArticles() {
   try {
     // Tylko non-service, non-archival (sprzęt aktywny)
     await articleStore.fetchList({ is_service: false, archival_status: 'active', per_page: 200 })
-    articleOptions.value = (articleStore.list as ArticleOption[]).filter((a) => !a.is_service)
+    articleOptions.value = (articleStore.list as ArticleOption[]).filter((a) => !a.is_service && !a.is_external)
   } catch {
     articleOptions.value = []
   }

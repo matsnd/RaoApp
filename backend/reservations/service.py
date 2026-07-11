@@ -117,6 +117,8 @@ class ReservationService:
         article = await db.get(Article, data.article_id)
         if not article:
             raise HTTPException(404, "Artykuł nie został znaleziony")
+        if article.is_external:
+            raise HTTPException(400, "Nie można rezerwować maszyn zewnętrznych")
         if data.contractor_id is not None:
             contractor = await db.get(Contractor, data.contractor_id)
             if not contractor:
@@ -159,6 +161,15 @@ class ReservationService:
             contractor = await db.get(Contractor, updates["contractor_id"])
             if not contractor:
                 raise HTTPException(404, "Kontrahent nie został znaleziony")
+
+        # P2-003: walidacja is_external gdy article_id zmieniane
+        if "article_id" in updates:
+            from articles.models import Article
+            article = await db.get(Article, updates["article_id"])
+            if not article:
+                raise HTTPException(404, "Artykuł nie został znaleziony")
+            if article.is_external:
+                raise HTTPException(400, "Nie można rezerwować maszyn zewnętrznych")
 
         # Determine effective date range for conflict check
         new_from = updates.get("reserved_from", obj.reserved_from)
