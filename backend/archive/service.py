@@ -13,6 +13,8 @@ from decimal import Decimal
 from sqlalchemy import and_, delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from stats.calc import compute_roi_pct, clamp_days
 from sqlalchemy.orm import selectinload
 
 from archive.models import (
@@ -425,7 +427,7 @@ async def get_archive_top_machines(
         agg[aid]["article_name"] = p.article.name
         agg[aid]["internal_number"] = p.article.internal_number
         agg[aid]["contracts"].add(p.contract_id)
-        agg[aid]["rented_days"] += (p.rental_days or 0)
+        agg[aid]["rented_days"] += max(p.rental_days or 0, 0)
         agg[aid]["revenue_estimate"] += _estimate_position_value(p)
 
     sorted_items = sorted(agg.items(), key=lambda x: x[1]["revenue_estimate"], reverse=True)[:limit]
@@ -491,12 +493,10 @@ async def get_archive_machine_roi(
     positions = await _fetch_positions_with_conds(db, date_from, date_to)
     relevant = [p for p in positions if p.article_id == article_id]
     revenue = sum((_estimate_position_value(p) for p in relevant), Decimal("0.00"))
-    days = sum((p.rental_days or 0) for p in relevant)
+    days = clamp_days(sum((p.rental_days or 0) for p in relevant))
     cnt = len({p.contract_id for p in relevant})
 
-    roi_pct = None
-    if article.replacement_value and article.replacement_value > 0:
-        roi_pct = round(float(revenue) / float(article.replacement_value) * 100, 2)
+    roi_pct = compute_roi_pct(revenue, article.replacement_value)
 
     return ArchiveMachineRoiResponse(
         article_id=article.id,
