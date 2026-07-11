@@ -1032,6 +1032,8 @@ import { formatCurrency } from '@/utils/format'
 import ConditionPanel from '@/components/contracts/ConditionPanel.vue'
 import ContractPeriodPicker from '@/components/shared/ContractPeriodPicker.vue'
 import api from '@/composables/useApi'
+import { usePdfFolders, type PdfDocType } from '@/composables/usePdfFolders'
+import { useFileDownload } from '@/composables/useFileDownload'
 
 const props = defineProps({ id: String })
 const router = useRouter()
@@ -1669,9 +1671,39 @@ async function handleFakturownia() {
 
 async function generateReport(type) {
   if (!isEdit.value) return
+  // RAO: auto-zapis PDF do folderów klienta (File System Access API).
+  // Backend zostaje jako backup (POST /reports/contract generuje + zapis na serwerze).
+  // Fallback: gdy brak folderów lub brak File System Access API → zwykły download.
   try {
-    await contractStore.generateReport(Number(props.id), type)
-  } catch (e) {
+    const response = await api.post(`/reports/contract/${props.id}`, null, {
+      params: { type },
+      responseType: 'blob',
+    })
+    const cd = response.headers['content-disposition'] || ''
+    // Parsowanie nazwy pliku z Content-Disposition (RFC 5987 / klasyczny)
+    let filename = type === 'contract' ? 'Umowa.pdf' : 'Protokol.pdf'
+    const rfc5987 = cd.match(/filename\*=UTF-8''([^;]+)/i)
+    if (rfc5987) {
+      try { filename = decodeURIComponent(rfc5987[1]) } catch { /* fallback */ }
+    } else {
+      const classic = cd.match(/filename="?([^";\n]+)"?/i)
+      if (classic) filename = classic[1].trim()
+    }
+    const docType: PdfDocType = type === 'contract' ? 'contract' : 'protocol'
+    const blob: Blob = response.data
+    const bytes: ArrayBuffer = await blob.arrayBuffer()
+    const { savePdf, loadFolders, hasFileSystemAccess } = usePdfFolders()
+    // Upewnij się że handle są załadowane z IndexedDB (mogą być niezaładowane po nawigacji)
+    if (hasFileSystemAccess.value) await loadFolders()
+    const savedCount = await savePdf(bytes, filename, form.value.branch_id, docType)
+    if (savedCount > 0) {
+      toastStore.success(`Zapisano do ${savedCount} folder${savedCount === 1 ? 'u' : 'ów'}`)
+    } else {
+      // Fallback: zwykły download (<a download>) — jak wcześniej
+      const { downloadBlob } = useFileDownload()
+      downloadBlob(blob, cd, filename)
+    }
+  } catch (e: any) {
     toastStore.error('Błąd generowania raportu')
   }
 }

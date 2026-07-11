@@ -499,6 +499,52 @@
               </div>
             </div>
 
+            <!-- Foldery PDF (auto-zapis per oddział/typ) tab -->
+            <div v-if="activeTab === 'pdf-folders'">
+              <div style="max-width:640px;">
+                <p style="color:var(--color-text-secondary);font-size:13px;margin-bottom:16px;">
+                  Skonfiguruj foldery automatycznego zapisu PDF per oddział i typ dokumentu.
+                  Działa w Chrome i Edge (File System Access API). Firefox i Safari używają standardowego pobierania.
+                </p>
+                <div v-if="!pdfFoldersSupported" class="empty-state" style="padding:16px;text-align:left;">
+                  Twoja przeglądarka nie wspiera auto-zapisu. Użyj Chrome lub Edge.
+                </div>
+                <template v-else>
+                  <div v-for="row in pdfFolderRows" :key="row.key" style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:12px;background:var(--color-bg-subtle,#F7FAFC);border-radius:var(--border-radius,12px);border:1px solid var(--color-border,#E2E8F0);">
+                    <span style="font-size:20px;">📁</span>
+                    <div style="flex:1;">
+                      <div style="font-size:13px;font-weight:600;color:var(--color-text);">{{ row.label }}</div>
+                      <div style="font-size:11px;color:var(--color-text-secondary);">
+                        Status:
+                        <strong :style="{ color: pdfFolders[row.key] ? 'var(--color-success,#38A169)' : 'var(--color-text-secondary)' }">
+                          {{ pdfFolders[row.key] ? 'Zapisany (' + pdfFolders[row.key].name + ')' : 'Nie ustawiony' }}
+                        </strong>
+                      </div>
+                    </div>
+                    <button
+                      class="btn btn-primary btn-sm"
+                      :data-testid="'pdf-folder-' + row.key"
+                      :disabled="row.picking"
+                      @click="handlePickPdfFolder(row.key)"
+                    >
+                      {{ row.picking ? '...' : 'Wybierz folder' }}
+                    </button>
+                    <button
+                      v-if="pdfFolders[row.key]"
+                      class="btn btn-secondary btn-sm"
+                      :data-testid="'pdf-folder-clear-' + row.key"
+                      @click="handleClearPdfFolder(row.key)"
+                    >
+                      Wyczyść
+                    </button>
+                  </div>
+                  <div v-if="pdfFolderMsg" style="margin-top:8px;font-size:12px;" :style="{ color: pdfFolderMsgOk ? 'var(--color-success,#38A169)' : 'var(--color-danger,#E53E3E)' }">
+                    {{ pdfFolderMsg }}
+                  </div>
+                </template>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
@@ -517,6 +563,7 @@ import StateMessage from '@/components/StateMessage.vue'
 import TableSkeleton from '@/components/TableSkeleton.vue'
 import api from '@/composables/useApi'
 import { useTargetFolder } from '@/composables/useTargetFolder.js'
+import { usePdfFolders, type PdfFolderKey } from '@/composables/usePdfFolders'
 import { formatCurrency } from '@/utils/format'
 
 const settingsStore = useSettingsStore()
@@ -548,6 +595,7 @@ const tabs = [
   { id: 'machine-rate-presets', label: 'Cenniki rozliczeń maszyn' },
   { id: 'fakturownia', label: 'Fakturownia' },
   { id: 'folder', label: 'Folder RAO' },
+  { id: 'pdf-folders', label: 'Foldery PDF' },
 ]
 
 const currentTabLabel = computed(() => tabs.find(t => t.id === activeTab.value)?.label || '')
@@ -623,6 +671,54 @@ async function handleClearFolder() {
   scheduleUiTimer(() => { folderMsg.value = '' }, 3000)
 }
 
+// --- Foldery PDF (auto-zapis per oddział/typ) ---
+const {
+  folders: pdfFolders,
+  hasFileSystemAccess: pdfFoldersSupported,
+  loadFolders: loadPdfFolders,
+  pickFolder: pickPdfFolder,
+  clearFolder: clearPdfFolder,
+} = usePdfFolders()
+
+const pdfFolderRows = ref([
+  { key: 'report_main' as PdfFolderKey, label: 'Folder umów (główny)', picking: false },
+  { key: 'protocol_main' as PdfFolderKey, label: 'Folder protokołów (główny)', picking: false },
+  { key: 'report_gdansk' as PdfFolderKey, label: 'Folder umów (Gdańsk)', picking: false },
+  { key: 'protocol_gdansk' as PdfFolderKey, label: 'Folder protokołów (Gdańsk)', picking: false },
+])
+const pdfFolderMsg = ref('')
+const pdfFolderMsgOk = ref(true)
+
+async function handlePickPdfFolder(key: PdfFolderKey) {
+  const row = pdfFolderRows.value.find((r) => r.key === key)
+  if (!row) return
+  row.picking = true
+  pdfFolderMsg.value = ''
+  try {
+    const name = await pickPdfFolder(key)
+    if (name) {
+      pdfFolderMsg.value = `Folder "${name}" zapisany.`
+      pdfFolderMsgOk.value = true
+    } else {
+      pdfFolderMsg.value = 'Anulowano wybór folderu.'
+      pdfFolderMsgOk.value = false
+    }
+  } catch {
+    pdfFolderMsg.value = 'Błąd wyboru folderu.'
+    pdfFolderMsgOk.value = false
+  } finally {
+    row.picking = false
+    scheduleUiTimer(() => { pdfFolderMsg.value = '' }, 5000)
+  }
+}
+
+async function handleClearPdfFolder(key: PdfFolderKey) {
+  await clearPdfFolder(key)
+  pdfFolderMsg.value = 'Folder wyczyszczony.'
+  pdfFolderMsgOk.value = true
+  scheduleUiTimer(() => { pdfFolderMsg.value = '' }, 3000)
+}
+
 onMounted(async () => {
   await reloadAll()
 })
@@ -639,6 +735,8 @@ async function reloadAll(): Promise<void> {
     await articleStore.fetchList({ is_service: true })
     // RAO-P3-013: Load saved folder name
     await loadFolderName()
+    // Foldery PDF (auto-zapis per oddział/typ)
+    await loadPdfFolders()
   } catch (e: any) {
     loadError.value = e?.response?.data?.detail || e?.message || 'Nie udalo sie pobrac ustawien'
   }

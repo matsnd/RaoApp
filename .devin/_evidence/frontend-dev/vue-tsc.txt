@@ -1,0 +1,2 @@
+(no output — 0 errors)
+EXIT: 0
