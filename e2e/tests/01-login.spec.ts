@@ -36,7 +36,7 @@ test.describe('TEST-01: Logowanie', () => {
     await expect(page.locator('nav')).toBeVisible({ timeout: 5_000 })
     await expect(page.getByRole('button', { name: 'Umowy', exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Kontrahenci', exact: true })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Artykuły', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Maszyny', exact: true })).toBeVisible()
   })
 
   test('wylogowanie czyści sesję', async ({ page }) => {
