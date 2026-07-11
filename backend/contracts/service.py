@@ -391,6 +391,37 @@ async def apply_preset_to_contract(db: AsyncSession, contract_id: int, preset_id
 
 
 class ContractService:
+    # RAO: mapowanie power_type pierwszej pozycji → sugerowany zestaw opłat.
+    # NIGDY silent auto-apply — operator musi świadomie wybrać zestaw.
+    _POWER_TYPE_PRESET = {
+        "diesel": "diesel",
+        "electric": "electric",
+    }
+
+    async def suggest_preset(self, db: AsyncSession, contract_id: int) -> str | None:
+        """RAO: pre-selekcja zestawu opłat na podstawie power_type pierwszej pozycji.
+
+        Zwraca 'diesel' / 'electric' gdy pierwsza pozycja umowy wskazuje maszynę
+        o danym typie zasilania; w pozostałych przypadkach (brak pozycji, 'other',
+        nieznana wartość) zwraca None. Metoda NIE modyfikuje umowy ani zestawów —
+        to wyłącznie sugestia dla operatora (frontend / router pobiera ją i prezentuje).
+        """
+        from articles.models import Article
+        # Pierwsza pozycja = najniższe id (kolejność dodawania).
+        pos_result = await db.execute(
+            select(ContractPosition)
+            .where(ContractPosition.contract_id == contract_id)
+            .order_by(ContractPosition.id.asc())
+            .limit(1)
+        )
+        pos = pos_result.scalar_one_or_none()
+        if pos is None:
+            return None
+        article = await db.get(Article, pos.article_id)
+        if article is None:
+            return None
+        return self._POWER_TYPE_PRESET.get(article.power_type)
+
     async def verify_contract_access(
         self,
         db: AsyncSession,

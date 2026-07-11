@@ -269,6 +269,9 @@ class ContractDetail(BaseModel):
     print_date: datetime | None
     is_settled: bool = False          # RAO-P2-022
     settled_at: datetime | None = None  # RAO-P2-022
+    # RAO: pre-selekcja zestawu opłat — sugestia na podstawie power_type
+    # pierwszej pozycji (diesel/electric). NIGDY auto-apply — operator wybiera.
+    suggested_preset: str | None = None
     created_at: datetime
     updated_at: datetime | None
 

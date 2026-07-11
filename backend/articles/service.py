@@ -3,7 +3,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from articles.models import Article
-from articles.schemas import ArticleCreate
+from articles.schemas import ArticleCreate, ArticleUpdate
 from shared.exceptions import not_found
 
 
@@ -111,15 +111,18 @@ class ArticleService:
         return article
 
     async def create_article(self, db: AsyncSession, data: ArticleCreate) -> Article:
+        # RAO: power_type przekazywany z data do modelu (via model_dump)
         article = Article(**data.model_dump(), created_at=datetime.utcnow())
         db.add(article)
         await db.commit()
         await db.refresh(article)
         return article
 
-    async def update_article(self, db: AsyncSession, article_id: int, data: ArticleCreate) -> Article:
+    async def update_article(self, db: AsyncSession, article_id: int, data: ArticleUpdate) -> Article:
         article = await self.get_article(db, article_id)
-        for field, value in data.model_dump().items():
+        # RAO-P0-034: exclude_unset=True — only fields explicitly sent are applied.
+        # RAO: power_type aktualizowany tylko gdy operator go przesłał.
+        for field, value in data.model_dump(exclude_unset=True).items():
             setattr(article, field, value)
         article.updated_at = datetime.utcnow()
         await db.commit()

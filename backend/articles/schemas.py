@@ -1,7 +1,11 @@
 from datetime import datetime, date
 from decimal import Decimal
 from enum import Enum
+from typing import Literal
 from pydantic import BaseModel, Field
+
+# RAO: typ zasilania maszyny — dopuszczalne wartości (kolumna articles.power_type)
+PowerType = Literal["diesel", "electric", "other"]
 
 
 class ArticleArchivalFilter(str, Enum):
@@ -78,6 +82,8 @@ class ArticleDetail(BaseModel):
     fakturownia_tax_rate: str | None = None
     fakturownia_gtu_code: str | None = None
     fakturownia_pkwiu: str | None = None
+    # RAO: typ zasilania maszyny (backward compat — default 'other')
+    power_type: str = "other"
     created_at: datetime
     updated_at: datetime | None
 
@@ -112,6 +118,41 @@ class ArticleCreate(BaseModel):
     fakturownia_tax_rate: str | None = None
     fakturownia_gtu_code: str | None = None
     fakturownia_pkwiu: str | None = None
+    # RAO: typ zasilania maszyny
+    power_type: PowerType = "other"
+
+
+class ArticleUpdate(BaseModel):
+    """RAO: Partial update — only fields explicitly sent are applied.
+
+    Używana z model_dump(exclude_unset=True) w ArticleService.update_article
+    (zgodnie ze wzorcem RAO-P0-034 jak ContractUpdate/ConditionUpdate).
+    """
+    name: str | None = Field(None, min_length=1, max_length=200)
+    is_service: bool | None = None
+    is_archival: bool | None = None
+    is_external: bool | None = None
+    internal_number: str | None = Field(None, max_length=50)
+    registration_no: str | None = Field(None, max_length=40)
+    serial_no: str | None = Field(None, max_length=40)
+    brand: str | None = Field(None, max_length=100)
+    model: str | None = Field(None, max_length=100)
+    replacement_value: Decimal | None = None
+    category_id: int | None = None
+    owner_id: int | None = None
+    branch_id: int | None = None
+    description: str | None = Field(None, max_length=400)
+    notes: str | None = Field(None, max_length=200)
+    article_type: str | None = Field(None, max_length=20)
+    zasieg_m: Decimal | None = None
+    udzwig_t: Decimal | None = None
+    dodatki: str | None = None
+    fakturownia_product_id: int | None = None
+    fakturownia_tax_rate: str | None = None
+    fakturownia_gtu_code: str | None = None
+    fakturownia_pkwiu: str | None = None
+    # RAO: typ zasilania maszyny (opcjonalny przy partial update)
+    power_type: PowerType | None = None
 
 
 class AvailabilityConflict(BaseModel):
