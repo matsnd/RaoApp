@@ -174,7 +174,6 @@ async def startup_migrations():
                         description=fee_desc,
                         amount_from=amt_from,
                         amount_to=amt_to,
-                        unit=unit,
                         is_active=True,
                         article_id=article_id,
                     )
@@ -184,7 +183,6 @@ async def startup_migrations():
                     tpl.description = fee_desc
                     tpl.amount_from = amt_from
                     tpl.amount_to = amt_to
-                    tpl.unit = unit
                     tpl.is_active = True
                     tpl.article_id = article_id
         await db.commit()

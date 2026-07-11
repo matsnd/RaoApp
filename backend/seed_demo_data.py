@@ -446,6 +446,52 @@ async def seed_oddzialy(db: AsyncSession):
     return br_by_name
 
 
+# RAO-P2-071: Demo users (admin/admin123) — dla fresh database
+DEMO_USERS = [
+    {"login": "admin", "password": "admin123", "email": "admin@rao.local",
+     "first_name": "Admin", "last_name": "System", "role": "admin", "branch": "WARSZAWA"},
+    {"login": "lukasz", "password": "lukasz123", "email": "lukasz@rao.local",
+     "first_name": "Łukasz", "last_name": "Kowalski", "role": "admin", "branch": "WARSZAWA"},
+    {"login": "test", "password": "test123", "email": "test@rao.local",
+     "first_name": "Test", "last_name": "User", "role": "user", "branch": "GDAŃSK"},
+    {"login": "patrycja", "password": "patrycja123", "email": "patrycja@rao.local",
+     "first_name": "Patrycja", "last_name": "Nowak", "role": "user", "branch": "GDAŃSK"},
+]
+
+
+async def seed_users(db: AsyncSession, br_by_name: dict):
+    """RAO-P2-071: Seed demo users z bcrypt hasłami. Idempotentny po login."""
+    import bcrypt
+    from auth.models import User
+
+    created = 0
+    now = datetime.now()
+    for u in DEMO_USERS:
+        existing = await db.execute(select(User).where(User.login == u["login"]))
+        if existing.scalar_one_or_none():
+            continue
+        branch = br_by_name.get(u["branch"])
+        hashed = bcrypt.hashpw(u["password"].encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        user = User(
+            login=u["login"],
+            email=u["email"],
+            password=hashed,
+            first_name=u["first_name"],
+            last_name=u["last_name"],
+            role=u["role"],
+            branch_id=branch.id if branch else None,
+            is_active=True,
+            must_change_password=False,
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(user)
+        created += 1
+    await db.commit()
+    print(f"  Użytkownicy: {created} nowych (admin/admin123, lukasz/lukasz123, test/test123, patrycja/patrycja123)")
+    return created
+
+
 async def seed_rate_types(db: AsyncSession):
     created = 0
     rt_by_name = {}
@@ -1186,6 +1232,9 @@ async def main():
 
         print("\n[5/9] Oddziały...")
         br_by_name = await seed_oddzialy(db)
+
+        print("\n[5.5/9] Użytkownicy demo (admin/admin123)...")
+        await seed_users(db, br_by_name)
 
         print("\n[6/9] Rate types (6 typów — jak w starej aplikacji)...")
         rt_by_name = await seed_rate_types(db)
