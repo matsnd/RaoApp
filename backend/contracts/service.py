@@ -406,7 +406,7 @@ class ContractService:
         nieznana wartość) zwraca None. Metoda NIE modyfikuje umowy ani zestawów —
         to wyłącznie sugestia dla operatora (frontend / router pobiera ją i prezentuje).
         """
-        from articles.models import Article
+        from machines.models import Machine
         # Pierwsza pozycja = najniższe id (kolejność dodawania).
         pos_result = await db.execute(
             select(ContractPosition)
@@ -417,10 +417,10 @@ class ContractService:
         pos = pos_result.scalar_one_or_none()
         if pos is None:
             return None
-        article = await db.get(Article, pos.article_id)
-        if article is None:
+        machine = await db.get(Machine, pos.machine_id) if pos.machine_id else None
+        if machine is None:
             return None
-        return self._POWER_TYPE_PRESET.get(article.power_type)
+        return self._POWER_TYPE_PRESET.get(machine.power_type)
 
     async def verify_contract_access(
         self,
@@ -678,14 +678,14 @@ class ContractService:
         user: User,
         replace: bool = True,
     ) -> list[PositionCondition]:
-        """RAO-P1-001: Skopiuj warunki z cennika (ArticleRatePreset) do pozycji umowy.
+        """Skopiuj warunki z cennika (MachineRatePreset) do pozycji umowy.
 
-        RAO-P0-048: ArticleRatePresetItem ma tylko period_count. Przy kopiowaniu
+        RAO-P0-048: MachineRatePresetItem ma tylko period_count. Przy kopiowaniu
         do PositionCondition wyliczamy period_from/period_to kaskadowo. Jeśli
         item ma rate1+rate2, generujemy dwa PositionCondition: jeden z rate1, drugi
         z rate2, żeby uniknąć niejednoznaczności w period_from/period_to.
         """
-        from settings.models import ArticleRatePreset, ArticleRatePresetItem
+        from settings.models import MachineRatePreset, MachineRatePresetItem
 
         pos_result = await db.execute(
             select(ContractPosition).where(ContractPosition.id == pos_id)
@@ -696,7 +696,7 @@ class ContractService:
 
         await self.verify_contract_access(db, pos.contract_id, user, allow_mutation=True)
 
-        preset = await db.get(ArticleRatePreset, preset_id)
+        preset = await db.get(MachineRatePreset, preset_id)
         if not preset:
             raise not_found("Cennik")
 
@@ -705,9 +705,9 @@ class ContractService:
             await db.flush()
 
         items_result = await db.execute(
-            select(ArticleRatePresetItem)
-            .where(ArticleRatePresetItem.preset_id == preset_id)
-            .order_by(ArticleRatePresetItem.sort_order)
+            select(MachineRatePresetItem)
+            .where(MachineRatePresetItem.preset_id == preset_id)
+            .order_by(MachineRatePresetItem.sort_order)
         )
         items = list(items_result.scalars())
 
@@ -763,10 +763,10 @@ class ContractService:
         await db.commit()
         return new_conditions
 
-    async def get_last_conditions_for_article(
-        self, db: AsyncSession, article_id: int, user: User
+    async def get_last_conditions_for_machine(
+        self, db: AsyncSession, machine_id: int, user: User
     ) -> dict | None:
-        """RAO-P1-001: Warunki z najnowszej umowy zawierającej tę maszynę."""
+        """Warunki z najnowszej umowy zawierającej tę maszynę."""
         from sqlalchemy.orm import selectinload
 
         stmt = (
@@ -774,7 +774,7 @@ class ContractService:
             .join(Contract)
             .options(selectinload(ContractPosition.conditions))
             .options(selectinload(ContractPosition.contract))
-            .where(ContractPosition.article_id == article_id)
+            .where(ContractPosition.machine_id == machine_id)
             .order_by(Contract.created_at.desc())
             .limit(1)
         )
@@ -932,7 +932,8 @@ class ContractService:
                     is_flat_rate=cond.is_flat_rate if cond.is_flat_rate is not None else True,  # P1-101
                 ))
             out.append(PositionResponse(
-                id=p.id, contract_id=p.contract_id, article_id=p.article_id,
+                id=p.id, contract_id=p.contract_id, machine_id=p.machine_id,
+                service_id=p.service_id,
                 article_name=p.article_name,
                 description=p.description, rental_days=p.rental_days,
                 quantity=p.quantity, unit_price=p.unit_price,
@@ -948,16 +949,26 @@ class ContractService:
         self, db: AsyncSession, contract_id: int, data: PositionCreate, user: User
     ) -> ContractPosition:
         contract = await self.verify_contract_access(db, contract_id, user, allow_mutation=True)
-        from articles.models import Article
-        article = await db.get(Article, data.article_id)
-        if article is None:
-            raise not_found("Artykuł")
-        if article.is_service:
-            raise bad_request("Pozycja umowy musi być maszyną (is_service=False).")
+        # XOR walidacja: dokładnie jeden z machine_id / service_id
+        if (data.machine_id is None) == (data.service_id is None):
+            raise bad_request("Dokładnie jeden z machine_id / service_id musi być ustawiony.")
+        article_name = None
+        if data.machine_id is not None:
+            from machines.models import Machine
+            machine = await db.get(Machine, data.machine_id)
+            if machine is None:
+                raise not_found("Maszyna")
+            article_name = machine.name
+        elif data.service_id is not None:
+            from services.models import Service
+            service = await db.get(Service, data.service_id)
+            if service is None:
+                raise not_found("Usługa")
+            article_name = service.name
         pos = ContractPosition(
             **data.model_dump(),
             contract_id=contract_id,
-            article_name=article.name,
+            article_name=article_name,
         )
         db.add(pos)
         await db.execute(
@@ -980,16 +991,22 @@ class ContractService:
         if not pos:
             raise not_found("Pozycja")
         await self.verify_contract_access(db, pos.contract_id, user, allow_mutation=True)
-        if data.article_id is not None:
-            from articles.models import Article
-            article = await db.get(Article, data.article_id)
-            if article is None:
-                raise not_found("Artykuł")
-            if article.is_service:
-                raise bad_request("Pozycja umowy musi być maszyną (is_service=False).")
+        if data.machine_id is not None:
+            from machines.models import Machine
+            machine = await db.get(Machine, data.machine_id)
+            if machine is None:
+                raise not_found("Maszyna")
+        if data.service_id is not None:
+            from services.models import Service
+            service = await db.get(Service, data.service_id)
+            if service is None:
+                raise not_found("Usługa")
         # RAO-P0-034: exclude_unset=True — only fields explicitly sent are applied
         for field, value in data.model_dump(exclude_unset=True).items():
             setattr(pos, field, value)
+        # XOR invariant check on final state (Security finding #1)
+        if (pos.machine_id is None) == (pos.service_id is None):
+            raise bad_request("Dokładnie jeden z machine_id / service_id musi być ustawiony.")
         await db.commit()
         await db.refresh(pos)
         return pos

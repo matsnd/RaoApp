@@ -3,13 +3,13 @@ from sqlalchemy.sql import func
 from database import Base
 
 
-class ArticleReservation(Base):
-    __tablename__ = "article_reservations"
+class MachineReservation(Base):
+    __tablename__ = "machine_reservations"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    article_id = Column(
+    machine_id = Column(
         Integer,
-        ForeignKey("articles.id", ondelete="CASCADE"),
+        ForeignKey("machines.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )

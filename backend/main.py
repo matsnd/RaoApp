@@ -11,7 +11,9 @@ logger = logging.getLogger("rao.errors")
 
 from auth.router import router as auth_router, admin_router
 from contractors.router import router as contractors_router
-from articles.router import router as articles_router
+from machines.router import router as machines_router
+from services.router import router as services_router
+from additional_services.router import router as additional_services_router
 from contracts.router import router as contracts_router
 from settings.router import router as settings_router
 from settlements.router import router as settlements_router
@@ -30,6 +32,9 @@ import deliveries.models  # RAO-P3-005
 import contract_costs.models  # RAO-P3-005
 import audit.models  # RAO-P3-005
 import archive.models  # RAO-P2-062 Faza 1 — tabele archive_*
+import machines.models  # RAO articles split — maszyny
+import services.models  # RAO articles split — usługi
+import additional_services.models  # RAO articles split — usługi dodatkowe
 
 app = FastAPI(
     title="RAO API",
@@ -67,19 +72,19 @@ async def startup_migrations():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         # RAO: typ zasilania maszyny — diesel / electric / other (VARCHAR(10) dla elastyczności)
-        # Musi być dodane PRZED seedem Article poniżej (model deklaruje power_type,
+        # Musi być dodane PRZED seedem poniżej (model deklaruje power_type,
         # create_all nie doda kolumny do istniejącej tabeli → seed SELECT by się wywalił).
         await conn.execute(sa.text(
-            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
             "power_type VARCHAR(10) NOT NULL DEFAULT 'other'"
         ))
         # Heurystyka legacy: maszyny spalinowe → diesel, elektryczne → electric
         await conn.execute(sa.text(
-            "UPDATE articles SET power_type='diesel' WHERE power_type='other' AND "
+            "UPDATE machines SET power_type='diesel' WHERE power_type='other' AND "
             "(name LIKE '%spalin%' OR name LIKE '%diesel%' OR name LIKE '%benzyn%')"
         ))
         await conn.execute(sa.text(
-            "UPDATE articles SET power_type='electric' WHERE power_type='other' AND "
+            "UPDATE machines SET power_type='electric' WHERE power_type='other' AND "
             "(name LIKE '%elektr%' OR name LIKE '%battery%' OR name LIKE '%akumulator%')"
         ))
 
@@ -92,16 +97,16 @@ async def startup_migrations():
             db.add(Company(id=1, name="RAO — Wynajem Maszyn"))
             await db.commit()
 
-    # RAO-P1-100: KISS seed service articles + Diesel/Elektryk/Wspólny presets (idempotent)
+    # RAO-P1-100: KISS seed additional services + Diesel/Elektryk/Wspólny presets (idempotent)
     async with AsyncSessionLocal() as db:
-        from articles.models import Article
+        from additional_services.models import AdditionalService
         from decimal import Decimal
         from datetime import datetime
 
         now = datetime.utcnow()
 
-        # Service articles used by KISS presets
-        SERVICE_ARTICLES = {
+        # Additional services used by KISS presets
+        ADDITIONAL_SERVICES = {
             "Transport": None,
             "Przegląd Diesel": None,
             "Przegląd Elektryk": None,
@@ -110,22 +115,20 @@ async def startup_migrations():
             "Przestój": None,
             "Serwis": None,
         }
-        for art_name in SERVICE_ARTICLES:
+        for art_name in ADDITIONAL_SERVICES:
             result = await db.execute(
-                sa.select(Article).where(Article.name == art_name, Article.is_service == True)
+                sa.select(AdditionalService).where(AdditionalService.name == art_name)
             )
             art = result.scalar_one_or_none()
             if not art:
-                art = Article(
+                art = AdditionalService(
                     name=art_name,
-                    is_service=True,
-                    article_type="usluga_dodatkowa",
                     created_at=now,
                     updated_at=now,
                 )
                 db.add(art)
                 await db.flush()
-            SERVICE_ARTICLES[art_name] = art.id
+            ADDITIONAL_SERVICES[art_name] = art.id
 
         # Common Wspólny fees (name, description, article_name, amount_from, amount_to, unit)
         WSPOLNY_FEES = [
@@ -178,7 +181,7 @@ async def startup_migrations():
                 group.sort_order = idx
 
             for sort_order, (fee_name, fee_desc, art_name, amt_from, amt_to, unit) in enumerate(fees, start=1):
-                article_id = SERVICE_ARTICLES.get(art_name)
+                additional_service_id = ADDITIONAL_SERVICES.get(art_name)
                 result = await db.execute(
                     sa.select(ServiceFeeTemplate).where(
                         ServiceFeeTemplate.preset_id == group.id,
@@ -197,7 +200,7 @@ async def startup_migrations():
                         amount_from=amt_from,
                         amount_to=amt_to,
                         is_active=True,
-                        article_id=article_id,
+                        additional_service_id=additional_service_id,
                     )
                     db.add(tpl)
                 else:
@@ -206,7 +209,7 @@ async def startup_migrations():
                     tpl.amount_from = amt_from
                     tpl.amount_to = amt_to
                     tpl.is_active = True
-                    tpl.article_id = article_id
+                    tpl.additional_service_id = additional_service_id
         await db.commit()
 
     # RAO-P3-002: katalog na logo firmy (startup guard)
@@ -218,10 +221,10 @@ async def startup_migrations():
             "ALTER TABLE service_fee_templates ADD COLUMN IF NOT EXISTS "
             "preset_id INT NULL REFERENCES fee_preset_groups(id) ON DELETE CASCADE"
         ))
-        # RAO-P1-011: zesłownikowanie usług dodatkowych z artykułami
+        # RAO-P1-011: zesłownikowanie usług dodatkowych z additional_services
         await conn.execute(sa.text(
             "ALTER TABLE service_fee_templates ADD COLUMN IF NOT EXISTS "
-            "article_id INT NULL"
+            "additional_service_id INT NULL"
         ))
         # RAO-P1-014: checkbox podpisów na stronie 1
         await conn.execute(sa.text(
@@ -249,37 +252,37 @@ async def startup_migrations():
         except Exception:
             pass  # Już jest polish_ci lub MariaDB nie wspiera — idempotentne
         await conn.execute(sa.text(
-            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
             "category_main VARCHAR(100) NULL"
         ))
         await conn.execute(sa.text(
-            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
             "category_sub1 VARCHAR(100) NULL"
         ))
         await conn.execute(sa.text(
-            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
             "category_sub2 VARCHAR(100) NULL"
         ))
         await conn.execute(sa.text(
-            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
             "category_sub3 VARCHAR(100) NULL"
         ))
         await conn.execute(sa.text(
-            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
             "is_archival BOOLEAN NOT NULL DEFAULT FALSE"
         ))
         await conn.execute(sa.text(
-            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
             "technical_attributes JSON NULL"
         ))
         # RAO: dedykowane kolumny numeryczne dla filtrów statystyk (zastępują string-values w technical_attributes JSON)
         await conn.execute(sa.text(
-            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
-            "zasieg_m DECIMAL(8,2) NULL COMMENT 'Zasięg w metrach'"
+            "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
+            "reach_m DECIMAL(8,2) NULL COMMENT 'Zasięg w metrach'"
         ))
         await conn.execute(sa.text(
-            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
-            "udzwig_t DECIMAL(8,2) NULL COMMENT 'Udźwig w tonach'"
+            "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
+            "capacity_t DECIMAL(8,2) NULL COMMENT 'Udźwig w tonach'"
         ))
         # RAO-P1-012: tabela rozliczeń umów (contract_settlements)
         await conn.execute(sa.text("""
@@ -327,12 +330,12 @@ async def startup_migrations():
             WHERE description LIKE '%$1%' OR description LIKE '%$2%'
         """))
         await conn.execute(sa.text(
-            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
-            "dodatki TEXT NULL COMMENT 'Dodatkowe akcesoria / wyposażenie'"
+            "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
+            "accessories TEXT NULL COMMENT 'Dodatkowe akcesoria / wyposażenie'"
         ))
         # RAO-P1-030: maszyna zewnętrzna (nie wliczana do floty własnej)
         await conn.execute(sa.text(
-            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
             "is_external TINYINT(1) NOT NULL DEFAULT 0"
         ))
         # RAO-P2-022: status rozliczenia umowy
@@ -413,7 +416,7 @@ async def startup_migrations():
         await conn.execute(sa.text(
             "CREATE INDEX IF NOT EXISTS idx_postal_codes_woj_pow ON postal_codes(wojewodztwo, powiat)"
         ))
-        # RAO-P2-012: integracja Fakturownia — singleton settings + mapping produktu w articles
+        # RAO-P2-012: integracja Fakturownia — singleton settings + mapping produktu w machines
         await conn.execute(sa.text("""
             CREATE TABLE IF NOT EXISTS fakturownia_settings (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -431,24 +434,24 @@ async def startup_migrations():
               COMMENT='RAO-P2-012: Singleton konfiguracji integracji Fakturownia'
         """))
         await conn.execute(sa.text(
-            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
             "fakturownia_product_id BIGINT NULL COMMENT 'RAO-P2-012: ID produktu w Fakturownia (1:N globalny)'"
         ))
         await conn.execute(sa.text(
-            "CREATE INDEX IF NOT EXISTS idx_articles_fakturownia_product "
-            "ON articles(fakturownia_product_id)"
+            "CREATE INDEX IF NOT EXISTS idx_machines_fakturownia_product "
+            "ON machines(fakturownia_product_id)"
         ))
-        # RAO-P2-058: snapshot metadanych z Fakturownia na artykułach
+        # RAO-P2-058: snapshot metadanych z Fakturownia na maszynach
         await conn.execute(sa.text(
-            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
             "fakturownia_tax_rate VARCHAR(10) NULL COMMENT 'RAO-P2-058: Stawka VAT z FA (snapshot)'"
         ))
         await conn.execute(sa.text(
-            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
             "fakturownia_gtu_code VARCHAR(20) NULL COMMENT 'RAO-P2-058: Kod GTU z FA (snapshot)'"
         ))
         await conn.execute(sa.text(
-            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
             "fakturownia_pkwiu VARCHAR(50) NULL COMMENT 'RAO-P2-058: PKWiU z FA (snapshot)'"
         ))
         await conn.execute(sa.text(
@@ -507,6 +510,13 @@ async def startup_migrations():
             "ALTER TABLE position_conditions ADD COLUMN IF NOT EXISTS "
             "is_flat_rate BOOLEAN NOT NULL DEFAULT TRUE "
             "COMMENT 'P1-101: ryczałt=TRUE (kwota całkowita), stawka=FALSE (per jednostka)'"
+        ))
+        # RAO articles split: contract_positions.article_id → machine_id + service_id
+        await conn.execute(sa.text(
+            "ALTER TABLE contract_positions ADD COLUMN IF NOT EXISTS machine_id INT NULL"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE contract_positions ADD COLUMN IF NOT EXISTS service_id INT NULL"
         ))
         # Migracja danych: RAO-P0-048 popraw kaskadowe period_from/period_to
         # (zamiast naiwnego period_from=1 dla każdego rekordu)
@@ -792,11 +802,11 @@ async def startup_migrations():
     # RAO-P2-012 spike: commented out FK constraints due to MariaDB version compatibility (not in scope)
     async with engine.begin() as conn2:
         # await conn2.execute(sa.text(
-        #     "ALTER TABLE service_fee_templates ADD CONSTRAINT IF NOT EXISTS fk_sft_article "
-        #     "FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE SET NULL"
+        #     "ALTER TABLE service_fee_templates ADD CONSTRAINT IF NOT EXISTS fk_sft_additional_service "
+        #     "FOREIGN KEY (additional_service_id) REFERENCES additional_services(id) ON DELETE SET NULL"
         # ))
         await conn2.execute(sa.text(
-            "CREATE INDEX IF NOT EXISTS idx_sft_article ON service_fee_templates(article_id)"
+            "CREATE INDEX IF NOT EXISTS idx_sft_additional_service ON service_fee_templates(additional_service_id)"
         ))
         # RAO-P1-017: FK self-ref + indeksy dla hierarchii kategorii i archiwum
         # await conn2.execute(sa.text(
@@ -807,10 +817,10 @@ async def startup_migrations():
             "CREATE INDEX IF NOT EXISTS idx_categories_parent ON categories(parent_id)"
         ))
         await conn2.execute(sa.text(
-            "CREATE INDEX IF NOT EXISTS idx_articles_category_main ON articles(category_main)"
+            "CREATE INDEX IF NOT EXISTS idx_machines_category_main ON machines(category_main)"
         ))
         await conn2.execute(sa.text(
-            "CREATE INDEX IF NOT EXISTS idx_articles_archival ON articles(is_archival)"
+            "CREATE INDEX IF NOT EXISTS idx_machines_archival ON machines(is_archival)"
         ))
         # RAO-P1-008: indeksy dla strukturalizacji adresów
         await conn2.execute(sa.text(
@@ -819,21 +829,21 @@ async def startup_migrations():
         await conn2.execute(sa.text(
             "CREATE INDEX IF NOT EXISTS idx_contracts_city ON contracts(city)"
         ))
-        # RAO-P2-012: index na mapping FA produktu w artykułach (lookup po fakturownia_product_id)
+        # RAO-P2-012: index na mapping FA produktu w maszynach (lookup po fakturownia_product_id)
         await conn2.execute(sa.text(
-            "CREATE INDEX IF NOT EXISTS idx_articles_fakturownia_product "
-            "ON articles(fakturownia_product_id)"
+            "CREATE INDEX IF NOT EXISTS idx_machines_fakturownia_product "
+            "ON machines(fakturownia_product_id)"
         ))
-        # RAO: indeksy na zasieg_m / udzwig_t dla filtrów >=/<= w statystykach
+        # RAO: indeksy na reach_m / capacity_t dla filtrów >=/<= w statystykach
         await conn2.execute(sa.text(
-            "CREATE INDEX IF NOT EXISTS idx_articles_zasieg ON articles(zasieg_m)"
+            "CREATE INDEX IF NOT EXISTS idx_machines_reach ON machines(reach_m)"
         ))
         await conn2.execute(sa.text(
-            "CREATE INDEX IF NOT EXISTS idx_articles_udzwig ON articles(udzwig_t)"
+            "CREATE INDEX IF NOT EXISTS idx_machines_capacity ON machines(capacity_t)"
         ))
         # RAO-P1-030: indeks na is_external
         await conn2.execute(sa.text(
-            "CREATE INDEX IF NOT EXISTS idx_articles_external ON articles(is_external)"
+            "CREATE INDEX IF NOT EXISTS idx_machines_external ON machines(is_external)"
         ))
 
     async with AsyncSessionLocal() as db:
@@ -874,39 +884,39 @@ async def startup_migrations():
             await db.commit()
             print(f"[startup] Backfill postal_code_id: {backfilled.rowcount} umów zaktualizowanych")
 
-    # RAO-L-Phase1: article_reservations — dodanie contractor_id + status + indeksy kalendarza
+    # RAO-L-Phase1: machine_reservations — dodanie contractor_id + status + indeksy kalendarza
     async with engine.begin() as conn:
         await conn.execute(sa.text(
-            "ALTER TABLE article_reservations ADD COLUMN IF NOT EXISTS "
+            "ALTER TABLE machine_reservations ADD COLUMN IF NOT EXISTS "
             "contractor_id INT NULL COMMENT 'RAO-L-Phase1: FK do contractors.id (SET NULL)'"
         ))
         await conn.execute(sa.text(
-            "ALTER TABLE article_reservations ADD COLUMN IF NOT EXISTS "
+            "ALTER TABLE machine_reservations ADD COLUMN IF NOT EXISTS "
             "status ENUM('confirmed','provisional') NOT NULL DEFAULT 'confirmed' "
             "COMMENT 'RAO-L-Phase1: status rezerwacji'"
         ))
         # FK contractor_id → contractors.id (try/except — MariaDB <10.6 nie wspiera IF NOT EXISTS dla CONSTRAINT)
         try:
             await conn.execute(sa.text(
-                "ALTER TABLE article_reservations ADD CONSTRAINT fk_article_reservations_contractor "
+                "ALTER TABLE machine_reservations ADD CONSTRAINT fk_machine_reservations_contractor "
                 "FOREIGN KEY (contractor_id) REFERENCES contractors(id) ON DELETE SET NULL"
             ))
         except Exception:
             pass  # FK już istnieje
         # Indeks na contractor_id (FK bez indeksu = antywzorzec)
         await conn.execute(sa.text(
-            "CREATE INDEX IF NOT EXISTS idx_article_reservations_contractor "
-            "ON article_reservations(contractor_id)"
+            "CREATE INDEX IF NOT EXISTS idx_machine_reservations_contractor "
+            "ON machine_reservations(contractor_id)"
         ))
         # Indeksy na reserved_from / reserved_to — wydajność endpointu kalendarza
         # (GET /reservations/calendar?from=&to= → WHERE reserved_from <= :to AND reserved_to >= :from)
         await conn.execute(sa.text(
-            "CREATE INDEX IF NOT EXISTS idx_article_reservations_reserved_from "
-            "ON article_reservations(reserved_from)"
+            "CREATE INDEX IF NOT EXISTS idx_machine_reservations_reserved_from "
+            "ON machine_reservations(reserved_from)"
         ))
         await conn.execute(sa.text(
-            "CREATE INDEX IF NOT EXISTS idx_article_reservations_reserved_to "
-            "ON article_reservations(reserved_to)"
+            "CREATE INDEX IF NOT EXISTS idx_machine_reservations_reserved_to "
+            "ON machine_reservations(reserved_to)"
         ))
 
 app.add_middleware(
@@ -941,7 +951,9 @@ async def add_security_headers(request, call_next):
 app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(contractors_router)
-app.include_router(articles_router)
+app.include_router(machines_router)
+app.include_router(services_router)
+app.include_router(additional_services_router)
 app.include_router(contracts_router)
 app.include_router(settings_router)
 app.include_router(settlements_router)

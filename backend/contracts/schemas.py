@@ -102,7 +102,8 @@ class ConditionUpdate(BaseModel):
 class PositionResponse(BaseModel):
     id: int
     contract_id: int
-    article_id: int
+    machine_id: int | None = None
+    service_id: int | None = None
     article_name: str | None
     description: str | None
     rental_days: int | None
@@ -123,7 +124,8 @@ class PositionResponse(BaseModel):
 
 
 class PositionCreate(BaseModel):
-    article_id: int
+    machine_id: int | None = None
+    service_id: int | None = None
     description: SafeDescription = None
     rental_days: int | None = Field(None, ge=0)
     quantity: int = Field(1, ge=1)
@@ -134,10 +136,19 @@ class PositionCreate(BaseModel):
     supplier_id: int | None = None
     delivery_date: date | None = None
 
+    @model_validator(mode='after')
+    def validate_xor(self) -> "PositionCreate":
+        if (self.machine_id is None) == (self.service_id is None):
+            raise ValueError("Dokładnie jeden z machine_id / service_id musi być ustawiony.")
+        return self
+
 
 class PositionUpdate(BaseModel):
-    """RAO-P0-034: Partial update — only fields explicitly sent are applied."""
-    article_id: int | None = None
+    """Partial update — only fields explicitly sent are applied.
+    XOR invariant (machine_id XOR service_id) validated in service layer
+    on the final state after applying partial fields."""
+    machine_id: int | None = None
+    service_id: int | None = None
     description: SafeDescription = None
     rental_days: int | None = Field(None, ge=0)
     quantity: int | None = Field(None, ge=1)

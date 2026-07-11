@@ -8,13 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from settings.models import (
     Company, FeePresetGroup, ServiceFeeTemplate, Salesperson, RateType, Branch,
-    ArticleRatePreset, ArticleRatePresetItem,
+    MachineRatePreset, MachineRatePresetItem,
 )
 from settings.schemas import (
     CompanyUpdate, FeePresetGroupCreate, ServiceFeeTemplateCreate, SalespersonCreate,
     CategoryCreate, BranchCreate, RateTypeCreate,
-    ArticleRatePresetCreate, ArticleRatePresetUpdate,
-    ArticleRatePresetItemCreate, ArticleRatePresetItemUpdate,
+    MachineRatePresetCreate, MachineRatePresetUpdate,
+    MachineRatePresetItemCreate, MachineRatePresetItemUpdate,
 )
 from categories.models import Category
 from shared.exceptions import not_found, conflict
@@ -107,25 +107,25 @@ class SettingsService:
         )
         next_order = (max_order.scalar_one_or_none() or 0) + 1
         payload = data.model_dump()
-        # RAO-P1-011: jeśli wybrano artykuł, synchronizuj nazwę (snapshot do `name`)
-        await self._resolve_article_name(db, payload)
+        # RAO-P1-011: jeśli wybrano usługę dodatkową, synchronizuj nazwę (snapshot do `name`)
+        await self._resolve_additional_service_name(db, payload)
         t = ServiceFeeTemplate(**payload, company_id=1, sort_order=next_order)
         db.add(t)
         await db.commit()
         await db.refresh(t)
         return t
 
-    async def _resolve_article_name(self, db: AsyncSession, payload: dict) -> None:
-        """RAO-P1-011: jeśli payload zawiera article_id, ustaw `name` na articles.name."""
-        article_id = payload.get("article_id")
-        if not article_id:
+    async def _resolve_additional_service_name(self, db: AsyncSession, payload: dict) -> None:
+        """RAO-P1-011: jeśli payload zawiera additional_service_id, ustaw `name` na additional_services.name."""
+        additional_service_id = payload.get("additional_service_id")
+        if not additional_service_id:
             return
-        from articles.models import Article
-        result = await db.execute(select(Article).where(Article.id == article_id))
+        from additional_services.models import AdditionalService
+        result = await db.execute(select(AdditionalService).where(AdditionalService.id == additional_service_id))
         art = result.scalar_one_or_none()
         if art is None:
-            raise not_found("Artykuł")
-        # Snapshot artykułowej nazwy do `name` (zachowuje display name nawet po ON DELETE SET NULL)
+            raise not_found("Usługa dodatkowa")
+        # Snapshot nazwy usługi dodatkowej do `name` (zachowuje display name nawet po ON DELETE SET NULL)
         payload["name"] = art.name
 
     async def update_fee_template(self, db: AsyncSession, template_id: int, data: ServiceFeeTemplateCreate) -> ServiceFeeTemplate:
@@ -134,7 +134,7 @@ class SettingsService:
         if not t:
             raise not_found("Szablon")
         payload = data.model_dump()
-        await self._resolve_article_name(db, payload)
+        await self._resolve_additional_service_name(db, payload)
         for field, value in payload.items():
             setattr(t, field, value)
         await db.commit()
@@ -200,20 +200,20 @@ class SettingsService:
             select(func.max(ServiceFeeTemplate.sort_order)).where(ServiceFeeTemplate.preset_id == preset_id)
         )
         next_order = (max_order.scalar_one_or_none() or 0) + 1
-        # RAO-P1-011: jeśli article_id ustawiony, snapshot name z articles.name
+        # RAO-P1-011: jeśli additional_service_id ustawiony, snapshot name z additional_services.name
         name = data.name
-        if data.article_id:
-            from articles.models import Article
-            art = (await db.execute(select(Article).where(Article.id == data.article_id))).scalar_one_or_none()
+        if data.additional_service_id:
+            from additional_services.models import AdditionalService
+            art = (await db.execute(select(AdditionalService).where(AdditionalService.id == data.additional_service_id))).scalar_one_or_none()
             if art is None:
-                raise not_found("Artykuł")
+                raise not_found("Usługa dodatkowa")
             name = art.name
         t = ServiceFeeTemplate(
             company_id=1,
             preset_id=preset_id,
             contract_type=grp.contract_type,
             sort_order=next_order,
-            article_id=data.article_id,
+            additional_service_id=data.additional_service_id,
             name=name,
             amount_from=data.amount_from,
             amount_to=data.amount_to,
@@ -230,15 +230,15 @@ class SettingsService:
         t = result.scalar_one_or_none()
         if not t:
             raise not_found("Szablon")
-        # RAO-P1-011: jeśli article_id ustawiony, snapshot name z articles.name
+        # RAO-P1-011: jeśli additional_service_id ustawiony, snapshot name z additional_services.name
         new_name = data.name
-        if data.article_id:
-            from articles.models import Article
-            art = (await db.execute(select(Article).where(Article.id == data.article_id))).scalar_one_or_none()
+        if data.additional_service_id:
+            from additional_services.models import AdditionalService
+            art = (await db.execute(select(AdditionalService).where(AdditionalService.id == data.additional_service_id))).scalar_one_or_none()
             if art is None:
-                raise not_found("Artykuł")
+                raise not_found("Usługa dodatkowa")
             new_name = art.name
-        t.article_id = data.article_id
+        t.additional_service_id = data.additional_service_id
         t.name = new_name
         for field in ("amount_from", "amount_to", "description", "is_active"):
             setattr(t, field, getattr(data, field))
@@ -434,44 +434,44 @@ class SettingsService:
     # RAO-P1-001: Predefiniowane cenniki warunków rozliczenia maszyn
     # ------------------------------------------------------------------
 
-    async def list_article_rate_presets(self, db: AsyncSession, article_id: int) -> list[ArticleRatePreset]:
+    async def list_machine_rate_presets(self, db: AsyncSession, machine_id: int) -> list[MachineRatePreset]:
         result = await db.execute(
-            select(ArticleRatePreset)
-            .options(selectinload(ArticleRatePreset.items))
-            .where(ArticleRatePreset.article_id == article_id)
-            .order_by(ArticleRatePreset.sort_order, ArticleRatePreset.id)
+            select(MachineRatePreset)
+            .options(selectinload(MachineRatePreset.items))
+            .where(MachineRatePreset.machine_id == machine_id)
+            .order_by(MachineRatePreset.sort_order, MachineRatePreset.id)
         )
         return list(result.scalars().all())
 
-    async def get_article_rate_preset(self, db: AsyncSession, preset_id: int) -> ArticleRatePreset:
+    async def get_machine_rate_preset(self, db: AsyncSession, preset_id: int) -> MachineRatePreset:
         result = await db.execute(
-            select(ArticleRatePreset)
-            .options(selectinload(ArticleRatePreset.items))
-            .where(ArticleRatePreset.id == preset_id)
+            select(MachineRatePreset)
+            .options(selectinload(MachineRatePreset.items))
+            .where(MachineRatePreset.id == preset_id)
         )
         preset = result.scalar_one_or_none()
         if not preset:
             raise not_found("Cennik")
         return preset
 
-    async def create_article_rate_preset(
-        self, db: AsyncSession, article_id: int, data: ArticleRatePresetCreate
-    ) -> ArticleRatePreset:
-        # Walidacja FK: artykuł musi istnieć
-        from articles.models import Article
-        art = await db.get(Article, article_id)
+    async def create_machine_rate_preset(
+        self, db: AsyncSession, machine_id: int, data: MachineRatePresetCreate
+    ) -> MachineRatePreset:
+        # Walidacja FK: maszyna musi istnieć
+        from machines.models import Machine
+        art = await db.get(Machine, machine_id)
         if art is None:
-            raise not_found("Artykuł")
+            raise not_found("Maszyna")
 
         max_order = await db.execute(
-            select(func.max(ArticleRatePreset.sort_order))
-            .where(ArticleRatePreset.article_id == article_id)
+            select(func.max(MachineRatePreset.sort_order))
+            .where(MachineRatePreset.machine_id == machine_id)
         )
         next_order = (max_order.scalar_one_or_none() or 0) + 1
 
-        preset = ArticleRatePreset(
+        preset = MachineRatePreset(
             company_id=1,
-            article_id=article_id,
+            machine_id=machine_id,
             name=data.name,
             description=data.description,
             is_default=False,  # ustawione niżej jeśli data.is_default
@@ -482,7 +482,7 @@ class SettingsService:
         await db.flush()  # potrzebne preset.id dla items
 
         for i, item in enumerate(data.items):
-            db.add(ArticleRatePresetItem(
+            db.add(MachineRatePresetItem(
                 preset_id=preset.id,
                 sort_order=i,
                 rate_type_id=item.rate_type_id,
@@ -497,19 +497,19 @@ class SettingsService:
         if data.is_default:
             # unset innych presetów tej maszyny, ustaw ten
             await db.execute(
-                update(ArticleRatePreset)
-                .where(ArticleRatePreset.article_id == article_id, ArticleRatePreset.id != preset.id)
+                update(MachineRatePreset)
+                .where(MachineRatePreset.machine_id == machine_id, MachineRatePreset.id != preset.id)
                 .values(is_default=False)
             )
             preset.is_default = True
 
         await db.commit()
-        return await self.get_article_rate_preset(db, preset.id)
+        return await self.get_machine_rate_preset(db, preset.id)
 
-    async def update_article_rate_preset(
-        self, db: AsyncSession, preset_id: int, data: ArticleRatePresetUpdate
-    ) -> ArticleRatePreset:
-        preset = await self.get_article_rate_preset(db, preset_id)
+    async def update_machine_rate_preset(
+        self, db: AsyncSession, preset_id: int, data: MachineRatePresetUpdate
+    ) -> MachineRatePreset:
+        preset = await self.get_machine_rate_preset(db, preset_id)
         update_data = data.model_dump(exclude_unset=True)
         new_is_default = update_data.pop("is_default", None)
         for field, value in update_data.items():
@@ -518,8 +518,8 @@ class SettingsService:
 
         if new_is_default is True:
             await db.execute(
-                update(ArticleRatePreset)
-                .where(ArticleRatePreset.article_id == preset.article_id, ArticleRatePreset.id != preset_id)
+                update(MachineRatePreset)
+                .where(MachineRatePreset.machine_id == preset.machine_id, MachineRatePreset.id != preset_id)
                 .values(is_default=False)
             )
             preset.is_default = True
@@ -527,52 +527,52 @@ class SettingsService:
             preset.is_default = False
 
         await db.commit()
-        return await self.get_article_rate_preset(db, preset_id)
+        return await self.get_machine_rate_preset(db, preset_id)
 
-    async def delete_article_rate_preset(self, db: AsyncSession, preset_id: int) -> None:
-        preset = await self.get_article_rate_preset(db, preset_id)
-        await db.execute(delete(ArticleRatePreset).where(ArticleRatePreset.id == preset_id))
+    async def delete_machine_rate_preset(self, db: AsyncSession, preset_id: int) -> None:
+        preset = await self.get_machine_rate_preset(db, preset_id)
+        await db.execute(delete(MachineRatePreset).where(MachineRatePreset.id == preset_id))
         await db.commit()
 
-    async def set_default_preset(self, db: AsyncSession, preset_id: int) -> ArticleRatePreset:
+    async def set_default_preset(self, db: AsyncSession, preset_id: int) -> MachineRatePreset:
         """Atomowo ustawia dany preset jako domyślny dla swojej maszyny.
 
-        1. UPDATE article_rate_presets SET is_default=0 WHERE article_id=:aid AND id<>:pid
-        2. UPDATE article_rate_presets SET is_default=1 WHERE id=:pid
+        1. UPDATE machine_rate_presets SET is_default=0 WHERE machine_id=:mid AND id<>:pid
+        2. UPDATE machine_rate_presets SET is_default=1 WHERE id=:pid
         """
-        preset = await self.get_article_rate_preset(db, preset_id)
+        preset = await self.get_machine_rate_preset(db, preset_id)
         await db.execute(
-            update(ArticleRatePreset)
-            .where(ArticleRatePreset.article_id == preset.article_id, ArticleRatePreset.id != preset_id)
+            update(MachineRatePreset)
+            .where(MachineRatePreset.machine_id == preset.machine_id, MachineRatePreset.id != preset_id)
             .values(is_default=False)
         )
         await db.execute(
-            update(ArticleRatePreset)
-            .where(ArticleRatePreset.id == preset_id)
+            update(MachineRatePreset)
+            .where(MachineRatePreset.id == preset_id)
             .values(is_default=True, updated_at=datetime.utcnow())
         )
         await db.commit()
-        return await self.get_article_rate_preset(db, preset_id)
+        return await self.get_machine_rate_preset(db, preset_id)
 
-    async def get_default_preset(self, db: AsyncSession, article_id: int) -> ArticleRatePreset | None:
+    async def get_default_preset(self, db: AsyncSession, machine_id: int) -> MachineRatePreset | None:
         result = await db.execute(
-            select(ArticleRatePreset)
-            .options(selectinload(ArticleRatePreset.items))
-            .where(ArticleRatePreset.article_id == article_id, ArticleRatePreset.is_default == True)
+            select(MachineRatePreset)
+            .options(selectinload(MachineRatePreset.items))
+            .where(MachineRatePreset.machine_id == machine_id, MachineRatePreset.is_default == True)
             .limit(1)
         )
         return result.scalar_one_or_none()
 
     async def add_preset_item(
-        self, db: AsyncSession, preset_id: int, data: ArticleRatePresetItemCreate
-    ) -> ArticleRatePresetItem:
-        preset = await self.get_article_rate_preset(db, preset_id)
+        self, db: AsyncSession, preset_id: int, data: MachineRatePresetItemCreate
+    ) -> MachineRatePresetItem:
+        preset = await self.get_machine_rate_preset(db, preset_id)
         max_order = await db.execute(
-            select(func.max(ArticleRatePresetItem.sort_order))
-            .where(ArticleRatePresetItem.preset_id == preset_id)
+            select(func.max(MachineRatePresetItem.sort_order))
+            .where(MachineRatePresetItem.preset_id == preset_id)
         )
         next_order = (max_order.scalar_one_or_none() or 0) + 1
-        item = ArticleRatePresetItem(
+        item = MachineRatePresetItem(
             preset_id=preset_id,
             sort_order=next_order,
             rate_type_id=data.rate_type_id,
@@ -591,10 +591,10 @@ class SettingsService:
         return item
 
     async def update_preset_item(
-        self, db: AsyncSession, item_id: int, data: ArticleRatePresetItemUpdate
-    ) -> ArticleRatePresetItem:
+        self, db: AsyncSession, item_id: int, data: MachineRatePresetItemUpdate
+    ) -> MachineRatePresetItem:
         result = await db.execute(
-            select(ArticleRatePresetItem).where(ArticleRatePresetItem.id == item_id)
+            select(MachineRatePresetItem).where(MachineRatePresetItem.id == item_id)
         )
         item = result.scalar_one_or_none()
         if not item:
@@ -603,7 +603,7 @@ class SettingsService:
             setattr(item, field, value)
         # bump updated_at na presercie
         preset_result = await db.execute(
-            select(ArticleRatePreset).where(ArticleRatePreset.id == item.preset_id)
+            select(MachineRatePreset).where(MachineRatePreset.id == item.preset_id)
         )
         preset = preset_result.scalar_one_or_none()
         if preset:
@@ -614,16 +614,16 @@ class SettingsService:
 
     async def delete_preset_item(self, db: AsyncSession, item_id: int) -> None:
         result = await db.execute(
-            select(ArticleRatePresetItem).where(ArticleRatePresetItem.id == item_id)
+            select(MachineRatePresetItem).where(MachineRatePresetItem.id == item_id)
         )
         item = result.scalar_one_or_none()
         if not item:
             raise not_found("Warunek cennika")
         preset_id = item.preset_id
-        await db.execute(delete(ArticleRatePresetItem).where(ArticleRatePresetItem.id == item_id))
+        await db.execute(delete(MachineRatePresetItem).where(MachineRatePresetItem.id == item_id))
         # bump updated_at na presercie
         preset_result = await db.execute(
-            select(ArticleRatePreset).where(ArticleRatePreset.id == preset_id)
+            select(MachineRatePreset).where(MachineRatePreset.id == preset_id)
         )
         preset = preset_result.scalar_one_or_none()
         if preset:

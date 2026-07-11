@@ -2,7 +2,6 @@ from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, Num
 from sqlalchemy.orm import relationship
 from database import Base
 from decimal import Decimal
-from articles.models import Article
 
 
 class Contract(Base):
@@ -59,7 +58,8 @@ class ContractPosition(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     contract_id = Column(Integer, ForeignKey("contracts.id", ondelete="CASCADE"), nullable=False)
-    article_id = Column(Integer, ForeignKey("articles.id"), nullable=False)
+    machine_id = Column(Integer, ForeignKey("machines.id"), nullable=True)
+    service_id = Column(Integer, ForeignKey("services.id"), nullable=True)
     description = Column(String(400), nullable=True)
     rental_days = Column(Integer, nullable=True)
     quantity = Column(Integer, nullable=True, default=1)
@@ -73,7 +73,8 @@ class ContractPosition(Base):
 
     contract = relationship("Contract", back_populates="positions")
     conditions = relationship("PositionCondition", back_populates="position", cascade="all, delete-orphan")
-    article = relationship("Article", lazy="selectin")
+    machine = relationship("Machine", lazy="selectin")
+    service = relationship("Service", lazy="selectin")
 
 
 class PositionCondition(Base):

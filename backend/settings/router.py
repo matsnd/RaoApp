@@ -11,8 +11,8 @@ from settings.schemas import (
     CompanyResponse, CompanyUpdate, FeePresetGroupCreate, FeePresetGroupResponse,
     RateTypeCreate, RateTypeResponse, ReorderRequest, SalespersonCreate, SalespersonResponse,
     ServiceFeeTemplateCreate, ServiceFeeTemplateResponse,
-    ArticleRatePresetCreate, ArticleRatePresetUpdate, ArticleRatePresetResponse,
-    ArticleRatePresetItemCreate, ArticleRatePresetItemUpdate, ArticleRatePresetItemResponse,
+    MachineRatePresetCreate, MachineRatePresetUpdate, MachineRatePresetResponse,
+    MachineRatePresetItemCreate, MachineRatePresetItemUpdate, MachineRatePresetItemResponse,
 )
 from settings.service import settings_service
 
@@ -270,67 +270,67 @@ async def delete_preset_template(
 
 
 # ----------------------------------------------------------------------
-# RAO-P1-001: Predefiniowane cenniki warunków rozliczenia maszyn
+# Predefiniowane cenniki warunków rozliczenia maszyn
 # ----------------------------------------------------------------------
 
-@router.get("/articles/{article_id}/rate-presets", response_model=list[ArticleRatePresetResponse])
-async def list_article_rate_presets(
-    article_id: int,
+@router.get("/machines/{machine_id}/rate-presets", response_model=list[MachineRatePresetResponse])
+async def list_machine_rate_presets(
+    machine_id: int,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    return await settings_service.list_article_rate_presets(db, article_id)
+    return await settings_service.list_machine_rate_presets(db, machine_id)
 
 
-@router.get("/articles/{article_id}/rate-presets/default", response_model=ArticleRatePresetResponse | None)
+@router.get("/machines/{machine_id}/rate-presets/default", response_model=MachineRatePresetResponse | None)
 async def get_default_rate_preset(
-    article_id: int,
+    machine_id: int,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
     """Zwraca domyślny cennik maszyny lub null (200 z body null)."""
-    return await settings_service.get_default_preset(db, article_id)
+    return await settings_service.get_default_preset(db, machine_id)
 
 
-@router.post("/articles/{article_id}/rate-presets", response_model=ArticleRatePresetResponse, status_code=201)
-async def create_article_rate_preset(
-    article_id: int,
-    data: ArticleRatePresetCreate,
+@router.post("/machines/{machine_id}/rate-presets", response_model=MachineRatePresetResponse, status_code=201)
+async def create_machine_rate_preset(
+    machine_id: int,
+    data: MachineRatePresetCreate,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    return await settings_service.create_article_rate_preset(db, article_id, data)
+    return await settings_service.create_machine_rate_preset(db, machine_id, data)
 
 
-@router.get("/rate-presets/{preset_id}", response_model=ArticleRatePresetResponse)
-async def get_article_rate_preset(
+@router.get("/rate-presets/{preset_id}", response_model=MachineRatePresetResponse)
+async def get_machine_rate_preset(
     preset_id: int,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    return await settings_service.get_article_rate_preset(db, preset_id)
+    return await settings_service.get_machine_rate_preset(db, preset_id)
 
 
-@router.put("/rate-presets/{preset_id}", response_model=ArticleRatePresetResponse)
-async def update_article_rate_preset(
+@router.put("/rate-presets/{preset_id}", response_model=MachineRatePresetResponse)
+async def update_machine_rate_preset(
     preset_id: int,
-    data: ArticleRatePresetUpdate,
+    data: MachineRatePresetUpdate,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    return await settings_service.update_article_rate_preset(db, preset_id, data)
+    return await settings_service.update_machine_rate_preset(db, preset_id, data)
 
 
 @router.delete("/rate-presets/{preset_id}", status_code=204)
-async def delete_article_rate_preset(
+async def delete_machine_rate_preset(
     preset_id: int,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    await settings_service.delete_article_rate_preset(db, preset_id)
+    await settings_service.delete_machine_rate_preset(db, preset_id)
 
 
-@router.patch("/rate-presets/{preset_id}/set-default", response_model=ArticleRatePresetResponse)
+@router.patch("/rate-presets/{preset_id}/set-default", response_model=MachineRatePresetResponse)
 async def set_default_rate_preset(
     preset_id: int,
     db: AsyncSession = Depends(get_db),
@@ -339,20 +339,20 @@ async def set_default_rate_preset(
     return await settings_service.set_default_preset(db, preset_id)
 
 
-@router.post("/rate-presets/{preset_id}/items", response_model=ArticleRatePresetItemResponse, status_code=201)
+@router.post("/rate-presets/{preset_id}/items", response_model=MachineRatePresetItemResponse, status_code=201)
 async def add_rate_preset_item(
     preset_id: int,
-    data: ArticleRatePresetItemCreate,
+    data: MachineRatePresetItemCreate,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ):
     return await settings_service.add_preset_item(db, preset_id, data)
 
 
-@router.put("/rate-presets/items/{item_id}", response_model=ArticleRatePresetItemResponse)
+@router.put("/rate-presets/items/{item_id}", response_model=MachineRatePresetItemResponse)
 async def update_rate_preset_item(
     item_id: int,
-    data: ArticleRatePresetItemUpdate,
+    data: MachineRatePresetItemUpdate,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ):

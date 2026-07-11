@@ -55,9 +55,8 @@ class ServiceFeeTemplateResponse(BaseModel):
     preset_id: int | None
     contract_type: str
     sort_order: int
-    # RAO-P1-011: FK do articles + nazwa z articles (jeśli article_id ustawiony)
-    article_id: int | None = None
-    article_name: str | None = None
+    additional_service_id: int | None = None
+    article_name: str | None = None  # snapshot nazwy (z additional_service.name)
     name: str
     amount_from: Decimal | None
     amount_to: Decimal | None
@@ -71,8 +70,7 @@ class ServiceFeeTemplateResponse(BaseModel):
 class ServiceFeeTemplateCreate(BaseModel):
     contract_type: Literal["S", "U"]
     preset_id: int | None = None
-    # RAO-P1-011: opcjonalna referencja do artykułu (gdy ustawiona, nazwa derive z articles)
-    article_id: int | None = None
+    additional_service_id: int | None = None
     name: str = Field(..., max_length=200)
     amount_from: Decimal | None = None
     amount_to: Decimal | None = None
@@ -202,9 +200,9 @@ class ReorderRequest(BaseModel):
     order: list[ReorderItem]
 
 
-# RAO-P1-001: Predefiniowane cenniki warunków rozliczenia maszyn
+# Predefiniowane cenniki warunków rozliczenia maszyn
 
-class ArticleRatePresetItemCreate(BaseModel):
+class MachineRatePresetItemCreate(BaseModel):
     rate_type_id: int | None = None
     description: str | None = Field(None, max_length=400)
     rate1: Decimal | None = None
@@ -214,8 +212,8 @@ class ArticleRatePresetItemCreate(BaseModel):
     minimum: int | None = None
 
 
-class ArticleRatePresetItemUpdate(BaseModel):
-    """RAO-P0-034: Partial update — only fields explicitly sent are applied."""
+class MachineRatePresetItemUpdate(BaseModel):
+    """Partial update — only fields explicitly sent are applied."""
     rate_type_id: int | None = None
     description: str | None = Field(None, max_length=400)
     rate1: Decimal | None = None
@@ -225,7 +223,7 @@ class ArticleRatePresetItemUpdate(BaseModel):
     minimum: int | None = None
 
 
-class ArticleRatePresetItemResponse(ArticleRatePresetItemCreate):
+class MachineRatePresetItemResponse(MachineRatePresetItemCreate):
     id: int
     preset_id: int
     sort_order: int
@@ -234,28 +232,28 @@ class ArticleRatePresetItemResponse(ArticleRatePresetItemCreate):
         from_attributes = True
 
 
-class ArticleRatePresetCreate(BaseModel):
+class MachineRatePresetCreate(BaseModel):
     name: str = Field(..., max_length=200)
     description: str | None = Field(None, max_length=400)
     is_default: bool = False
-    items: list[ArticleRatePresetItemCreate] = []
+    items: list[MachineRatePresetItemCreate] = []
 
 
-class ArticleRatePresetUpdate(BaseModel):
-    """RAO-P0-034: Partial update — only fields explicitly sent are applied."""
+class MachineRatePresetUpdate(BaseModel):
+    """Partial update — only fields explicitly sent are applied."""
     name: str | None = Field(None, max_length=200)
     description: str | None = Field(None, max_length=400)
     is_default: bool | None = None
 
 
-class ArticleRatePresetResponse(BaseModel):
+class MachineRatePresetResponse(BaseModel):
     id: int
-    article_id: int
+    machine_id: int
     name: str
     description: str | None
     is_default: bool
     sort_order: int
-    items: list[ArticleRatePresetItemResponse] = []
+    items: list[MachineRatePresetItemResponse] = []
 
     class Config:
         from_attributes = True
