@@ -1,0 +1,314 @@
+Liczba anomalii: 16
+
+=== S142_2026_U.pdf (U) ===
+Rozliczenie
+Us│uga
+1
+Inne us│ugi
+
+
+---
+
+=== S152_2026_N.pdf (N) ===
+Rozliczenie
+WartoťŠ 
+odtworzeniowa
+Przedmiot najmu
+Przewidywana iloťŠ 
+dni najmu
+1
+Inne us│ugi
+- Transport: 400.00 z│ dostawa / 400.00 z│ odbiˇr
+- Czyszczenie maszyny po wynajmie (zabrudzenia drobne): 150.00 z│ - 400.00 z│
+- Czyszczenie maszyny po wynajmie (zabrudzenia trudnoťcieralne): 400.00 z│ - 1500.00 z│
+- Us│uga tankowania: 200.00 z│ (plus koszt paliwa)
+- Ponadnormatywny przestˇj transportu: 200.00 z│ / h - 300.00 z│ / h
+- Nieuzasadnione wezwanie serwisowe: 280,00 z│ (plus transport)
+- Doba wynajmu obejmuje 1 dzie˝ kalendarzowy (do 8 godz. pracy jednego dnia)
+- Zg│oszenie zwrotu urz╣dzenia: pisemnie, min. z jednodniowym wyprzedzeniem
+- IloťŠ dni pracy w tygodniu: 6
+- dokumentacja zdjŕciowa: wykonano
+Uwagi
+
+
+---
+
+=== S423_2025_N.pdf (N) ===
+Rozliczenie
+WartoťŠ 
+odtworzeniowa
+Przedmiot najmu
+Przewidywana iloťŠ 
+dni najmu
+1
+Podnoťnik koszowy 25m
+ 1
+ 269 000,00
+280,00z│ / godzina
+Inne us│ugi
+- Transport: 280,00 z│ / h
+- Czyszczenie maszyny po wynajmie (zabrudzenia drobne): 150.00 z│ - 400.00 z│
+- Czyszczenie maszyny po wynajmie (zabrudzenia trudnoťcieralne): 400.00 z│ - 1500.00 z│
+- Us│uga tankowania: 150.00 z│ (plus koszt paliwa)
+- Ponadnormatywny przestˇj transportu: 200.00 z│ / h - 300.00 z│ / h
+- Nieuzasadnione wezwanie serwisowe: 280,00 z│ (plus transport)
+- Doba wynajmu obejmuje 1 dzie˝ kalendarzowy (do 8 godz. pracy jednego dnia)
+- Zg│oszenie zwrotu urz╣dzenia: pisemnie, min. z jednodniowym wyprzedzeniem
+- IloťŠ dni pracy w tygodniu: 6
+- dokumentacja zdjŕciowa: wykonano
+Uwagi
+
+
+---
+
+=== S431_2025_N.pdf (N) ===
+Rozliczenie
+WartoťŠ 
+odtworzeniowa
+Przedmiot najmu
+Przewidywana iloťŠ 
+dni najmu
+1
+Podnoťnik teleskopowo - przegubowy 
+elektryczny 12m
+ 3
+ 241 000,00
+Inne us│ugi
+- Transport: 400.00 z│ dostawa / 400.00 z│ odbiˇr
+- Czyszczenie maszyny po wynajmie (zabrudzenia drobne): 150.00 z│ - 400.00 z│
+- Czyszczenie maszyny po wynajmie (zabrudzenia trudnoťcieralne): 400.00 z│ - 1500.00 z│
+- Us│uga tankowania: 150.00 z│ (plus koszt paliwa)
+- Ponadnormatywny przestˇj transportu: 200.00 z│ / h - 300.00 z│ / h
+- Nieuzasadnione wezwanie serwisowe: 280,00 z│ (plus transport)
+- Doba wynajmu obejmuje 1 dzie˝ kalendarzowy (do 8 godz. pracy jednego dnia)
+- Zg│oszenie zwrotu urz╣dzenia: pisemnie, min. z jednodniowym wyprzedzeniem
+- IloťŠ dni pracy w tygodniu: 6
+- dokumentacja zdjŕciowa: wykonano
+Uwagi
+
+
+---
+
+=== S433_2025_N.pdf (N) ===
+Rozliczenie
+WartoťŠ 
+odtworzeniowa
+Przedmiot najmu
+Przewidywana iloťŠ 
+dni najmu
+1
+Inne us│ugi
+- Transport: 550.00 z│ dostawa / 550.00 z│ odbiˇr
+- Czyszczenie maszyny po wynajmie (zabrudzenia drobne): 150.00 z│ - 400.00 z│
+- Czyszczenie maszyny po wynajmie (zabrudzenia trudnoťcieralne): 400.00 z│ - 1500.00 z│
+- Us│uga tankowania: 150.00 z│ (plus koszt paliwa)
+- Ponadnormatywny przestˇj transportu: 200.00 z│ / h - 300.00 z│ / h
+- Nieuzasadnione wezwanie serwisowe: 280,00 z│ (plus transport)
+- Doba wynajmu obejmuje 1 dzie˝ kalendarzowy (do 8 godz. pracy jednego dnia)
+- Zg│oszenie zwrotu urz╣dzenia: pisemnie, min. z jednodniowym wyprzedzeniem
+- IloťŠ dni pracy w tygodniu: 6
+- dokumentacja zdjŕciowa: wykonano
+Uwagi
+
+
+---
+
+=== S484_2025_N.pdf (N) ===
+Rozliczenie
+WartoťŠ 
+odtworzeniowa
+Przedmiot najmu
+Przewidywana iloťŠ 
+dni najmu
+1
+Inne us│ugi
+- Transport: odbiˇr w│asny
+- Czyszczenie maszyny po wynajmie (zabrudzenia drobne): 150.00 z│ - 400.00 z│
+- Czyszczenie maszyny po wynajmie (zabrudzenia trudnoťcieralne): 400.00 z│ - 1500.00 z│
+- Us│uga tankowania: 150.00 z│ (plus koszt paliwa)
+- Ponadnormatywny przestˇj transportu: 200.00 z│ / h - 300.00 z│ / h
+- Nieuzasadnione wezwanie serwisowe: 280,00 z│ (plus transport)
+- Doba wynajmu obejmuje 1 dzie˝ kalendarzowy (do 8 godz. pracy jednego dnia)
+- Zg│oszenie zwrotu urz╣dzenia: pisemnie, min. z jednodniowym wyprzedzeniem
+- IloťŠ dni pracy w tygodniu: 6
+- dokumentacja zdjŕciowa: wykonano
+Uwagi
+
+
+---
+
+=== S489_2025_N.pdf (N) ===
+Rozliczenie
+WartoťŠ 
+odtworzeniowa
+Przedmiot najmu
+Przewidywana iloťŠ 
+dni najmu
+1
+úadowarka teleskopowa 14m
+ 30
+ 236 000,00
+Inne us│ugi
+- Transport: 1 200.00 z│ dostawa / 1 200.00 z│ odbiˇr
+- Czyszczenie maszyny po wynajmie (zabrudzenia drobne): 150.00 z│ - 400.00 z│
+- Czyszczenie maszyny po wynajmie (zabrudzenia trudnoťcieralne): 400.00 z│ - 1500.00 z│
+- Us│uga tankowania: 150.00 z│ (plus koszt paliwa)
+- Ponadnormatywny przestˇj transportu: 200.00 z│ / h - 300.00 z│ / h
+- Nieuzasadnione wezwanie serwisowe: 280,00 z│ (plus transport)
+- Doba wynajmu obejmuje 1 dzie˝ kalendarzowy (do 8 godz. pracy jednego dnia)
+- Zg│oszenie zwrotu urz╣dzenia: pisemnie, min. z jednodniowym wyprzedzeniem
+- IloťŠ dni pracy w tygodniu: 6
+- dokumentacja zdjŕciowa: wykonano
+Uwagi
+
+
+---
+
+=== S506_2025_N.pdf (N) ===
+Rozliczenie
+WartoťŠ 
+odtworzeniowa
+Przedmiot najmu
+Przewidywana iloťŠ 
+dni najmu
+1
+Wˇzek wid│owy 3,5t LPG
+ 10
+ 145 000,00
+Inne us│ugi
+- Transport: 550.00 z│ dostawa / 550.00 z│ odbiˇr
+- Butla gazowa: 120,00 z│
+- Czyszczenie maszyny po wynajmie (zabrudzenia drobne): 150.00 z│ - 400.00 z│
+- Czyszczenie maszyny po wynajmie (zabrudzenia trudnoťcieralne): 400.00 z│ - 1500.00 z│
+- Us│uga tankowania: 150.00 z│ (plus koszt paliwa)
+- Ponadnormatywny przestˇj transportu: 200.00 z│ / h - 300.00 z│ / h
+- Nieuzasadnione wezwanie serwisowe: 280,00 z│ (plus transport)
+- Doba wynajmu obejmuje 1 dzie˝ kalendarzowy (do 8 godz. pracy jednego dnia)
+- Zg│oszenie zwrotu urz╣dzenia: pisemnie, min. z jednodniowym wyprzedzeniem
+- IloťŠ dni pracy w tygodniu: 7
+- dokumentacja zdjŕciowa: wykonano
+Uwagi
+
+
+---
+
+=== S578_2025_U.pdf (U) ===
+Rozliczenie
+Us│uga
+1
+4500,00z│ / doba
+Us│uga minikopark╣
+Inne us│ugi
+- Ciŕcie asfaltu ( bez otworzenia)
+- Kucie betonu ( bez otworzenia)
+
+
+---
+
+=== S607_2025_N.pdf (N) ===
+Rozliczenie
+WartoťŠ 
+odtworzeniowa
+Przedmiot najmu
+Przewidywana iloťŠ 
+dni najmu
+1
+Inne us│ugi
+- Transport: 1 400.00 z│ dostawa / 1 400.00 z│ odbiˇr
+- Czyszczenie maszyny po wynajmie (zabrudzenia drobne): 150.00 z│ - 400.00 z│
+- Czyszczenie maszyny po wynajmie (zabrudzenia trudnoťcieralne): 400.00 z│ - 1500.00 z│
+- Us│uga tankowania: 200.00 z│ (plus koszt paliwa)
+- Ponadnormatywny przestˇj transportu: 200.00 z│ / h - 300.00 z│ / h
+- Nieuzasadnione wezwanie serwisowe: 280,00 z│ (plus transport)
+- Doba wynajmu obejmuje 1 dzie˝ kalendarzowy (do 8 godz. pracy jednego dnia)
+- Zg│oszenie zwrotu urz╣dzenia: pisemnie, min. z jednodniowym wyprzedzeniem
+- IloťŠ dni pracy w tygodniu: 6
+- dokumentacja zdjŕciowa: wykonano
+Uwagi
+
+
+---
+
+=== S616_2025_U.pdf (U) ===
+Rozliczenie
+Us│uga
+1
+0 - 2 godzin - 1450,00 / godzina
+3 - 8 godzin - 2900,00 / godzina
+powy┐ej 8 godzin - 400,00 / godzina
+Us│uga mini ┐urawiem dekarskim
+Inne us│ugi
+- Transport: 300z│
+
+
+---
+
+=== S623_2025_U.pdf (U) ===
+Rozliczenie
+Us│uga
+1
+do 3 dni - 420,00z│
+Podest teleskopowo - przegubowy spalinowy 16m
+Inne us│ugi
+- Transport: 400 z│
+- Praca operatora: Minimum 4 h / w ci╣gu dnia
+- Op│ata w gotˇwce, za minimum godzinowe, zostanie pobrana przed rozpoczŕciem us│ugi
+
+
+---
+
+=== S663_2025_U.pdf (U) ===
+Rozliczenie
+Us│uga
+1
+800,00z│ / doba
+Podnoťnik przegubowo ľ teleskopowy spalinowy 16m
+Inne us│ugi
+- Transport: 800,00 z│ - dostawa / 800,00 z│ - odbiˇr
+- Praca operatora: Minimum 8 h / w ci╣gu dnia
+
+
+---
+
+=== S742_2025_U.pdf (U) ===
+Rozliczenie
+Us│uga
+1
+900,00z│ / doba
+Us│uga transportowa
+Inne us│ugi
+
+
+---
+
+=== TEST2_U.pdf (U) ===
+Rozliczenie
+Us│uga
+1
+Inne us│ugi
+- Transport: 400.00 z│ dostawa / 400.00 z│ odbiˇr
+- Czyszczenie maszyny po wynajmie (zabrudzenia drobne): 150.00 z│ - 400.00 z│
+- Czyszczenie maszyny po wynajmie (zabrudzenia trudnoťcieralne): 400.00 z│ - 1500.00 z│
+- Us│uga tankowania: 150.00 z│ (plus koszt paliwa)
+- Ponadnormatywny przestˇj transportu: 200.00 z│ / h - 300.00 z│ / h
+- Nieuzasadnione wezwanie serwisowe: 280,00 z│ (plus transport)
+
+
+---
+
+=== testowa_N.pdf (N) ===
+Rozliczenie
+WartoťŠ 
+odtworzeniowa
+Przedmiot najmu
+Przewidywana iloťŠ 
+dni najmu
+1
+Inne us│ugi
+-zedytowane us│ugi dodatkowe
+- Doba wynajmu obejmuje 1 dzie˝ kalendarzowy (do 8 godz. pracy jednego dnia)
+- Zg│oszenie zwrotu urz╣dzenia: pisemnie, min. z jednodniowym wyprzedzeniem
+- IloťŠ dni pracy w tygodniu: 6
+- dokumentacja zdjŕciowa: wykonano
+Uwagi
+---

@@ -1,0 +1,40 @@
+'230,00zł / doba' -> '230,00zl / doba'
+  prosta: <re.Match object; span=(0, 15), match='230,00zl / doba'>
+  do: None
+  od-do: None
+  powyzej: None
+'700,00zł / doba' -> '700,00zl / doba'
+  prosta: <re.Match object; span=(0, 15), match='700,00zl / doba'>
+  do: None
+  od-do: None
+  powyzej: None
+'1 dzień - 630,00 / doba' -> '1 dzien - 630,00 / doba'
+  prosta: None
+  do: None
+  od-do: None
+  powyzej: None
+'1 - 3 dni - 800,00 / doba' -> '1 - 3 dni - 800,00 / doba'
+  prosta: None
+  do: None
+  od-do: <re.Match object; span=(0, 25), match='1 - 3 dni - 800,00 / doba'>
+  powyzej: None
+'powyżej 3 dni - 700,00 / doba' -> 'powyzej 3 dni - 700,00 / doba'
+  prosta: None
+  do: None
+  od-do: None
+  powyzej: <re.Match object; span=(0, 29), match='powyzej 3 dni - 700,00 / doba'>
+'do 8 godzin - 4700,00zł' -> 'do 8 godzin - 4700,00zl'
+  prosta: None
+  do: <re.Match object; span=(0, 23), match='do 8 godzin - 4700,00zl'>
+  od-do: None
+  powyzej: None
+'każda kolejna 300,00zł' -> 'kazda kolejna 300,00zl'
+  prosta: None
+  do: None
+  od-do: None
+  powyzej: None
+'110,00zł / godzina' -> '110,00zl / godzina'
+  prosta: <re.Match object; span=(0, 18), match='110,00zl / godzina'>
+  do: None
+  od-do: None
+  powyzej: None

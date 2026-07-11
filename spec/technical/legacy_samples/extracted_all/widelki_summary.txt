@@ -1,0 +1,77 @@
+=== PODSUMOWANIE WIDEúEK ===
+Liczba plikow: 515
+
+Po typie:
+  N: 374
+  U: 141
+
+Patterny:
+  N_brak_ceny: 213
+  N_kaskadowa_doba (od-do + powyzej): 131
+  U_do_godzin_kazda_kolejna: 115
+  N_1dzien_doba: 30
+  U_brak_ceny: 22
+  U_do_dni (anomalia): 3
+  U_kaskadowa_godzinowa (od-do + powyzej): 1
+
+=== PRZYKúADY ===
+
+prosta_stawka (15 przykladow):
+  111_N.pdf: 230,00z│ / doba
+  S020_2026_N.pdf: 700,00z│ / doba
+  S023_2026_N.pdf: 380,00z│ / doba
+  S025_2026_N.pdf: 400,00z│ / doba
+  S026_2026_U.pdf: 110,00z│ / godzina
+  S034_2026_N.pdf: 420,00z│ / doba
+  S037_2026_N.pdf: 150,00z│ / doba
+  S038_2026_N.pdf: 370,00z│ / doba
+
+do_dni_godzin (15 przykladow):
+  S019_2026_U.pdf: do 8 godzin - 4700,00z│
+  S031_2026_U.pdf: do 2 godzin - 1900,00z│
+  S041_2026_U.pdf: do 2 godzin - 1700,00z│
+  S042_2026_U.pdf: do 2 godzin - 1900,00z│
+  S045_2026G_U.pdf: do 2 godzin - 1500,00z│
+  S144_2026_U.pdf: do 2 godzin - 1700,00z│
+  S161_2026G_U.pdf: do 2 godzin - 2300,00z│
+  S163_2026G_U.pdf: do 2 godzin - 2100,00z│
+
+kazda_kolejna (15 przykladow):
+  S019_2026_U.pdf: ka┐da kolejna 300,00z│
+  S031_2026_U.pdf: ka┐da kolejna 250,00z│
+  S041_2026_U.pdf: ka┐da kolejna 200,00z│
+  S042_2026_U.pdf: ka┐da kolejna 250,00z│
+  S045_2026G_U.pdf: ka┐da kolejna 500,00z│
+  S144_2026_U.pdf: ka┐da kolejna 190,00z│
+  S161_2026G_U.pdf: ka┐da kolejna 190,00z│
+  S163_2026G_U.pdf: ka┐da kolejna 190,00z│
+
+dni_1 (15 przykladow):
+  S021_2026_N.pdf: 1 dzie˝ - 630,00 / doba
+  S022_2026_N.pdf: 1 dzie˝ - 30,00 / doba
+  S030_2026_N.pdf: 1 dzie˝ - 50,00 / doba
+  S11_2026_N.pdf: 1 dzie˝ - 260,00 / doba
+  S12_2026_N.pdf: 1 dzie˝ - 750,00 / doba
+  S12_2026_N.pdf: 1 dzie˝ - 30,00 / doba
+  S142_2026_N.pdf: 1 dzie˝ - 440,00 / doba
+  S143_2026G_N.pdf: 1 dzie˝ - 220,00 / doba
+
+od_do (15 przykladow):
+  S022_2026_N.pdf: 1 - 3 dni - 800,00 / doba
+  S022_2026_N.pdf: 1 - 3 dni - 500,00 / doba
+  S030_2026_N.pdf: 1 - 8 dni - 750,00 / doba
+  S030_2026_N.pdf: 1 - 8 dni - 480,00 / doba
+  S032_2026_N.pdf: 1 - 2 dni - 1100,00 / doba
+  S032_2026_N.pdf: 3 - 5 dni - 900,00 / doba
+  S033_2026_N.pdf: 1 - 2 dni - 800,00 / doba
+  S035_2026_N.pdf: 1 - 6 dni - 260,00 / doba
+
+powyzej (15 przykladow):
+  S022_2026_N.pdf: powy┐ej 3 dni - 700,00 / doba
+  S022_2026_N.pdf: powy┐ej 3 dni - 400,00 / doba
+  S030_2026_N.pdf: powy┐ej 8 dni - 650,00 / doba
+  S030_2026_N.pdf: powy┐ej 8 dni - 380,00 / doba
+  S032_2026_N.pdf: powy┐ej 5 dni - 800,00 / doba
+  S033_2026_N.pdf: powy┐ej 2 dni - 700,00 / doba
+  S035_2026_N.pdf: powy┐ej 6 dni - 120,00 / doba
+  S040_2026_N.pdf: powy┐ej 3 dni - 320,00 / doba

@@ -1,4 +1,14 @@
+# Sekrety — NIGDY do repo
+config.json
 config.local.json
-*.log
+*.env
+
+# Artefakty sesji
 _evidence/
+_session_context.md
+_metrics.csv
 plans/
+_commit*
+audit_*
+CHANGES.md
+*.log

@@ -799,23 +799,55 @@
       </div>
     </Transition>
 
-    <!-- Conflict modal — RAO-P1-023 -->
+    <!-- Conflict modal — RAO-P1-023 + Phase 4: rezerwacje z 3 opcjami -->
     <Transition name="modal">
       <div v-if="showConflictModal" class="modal-overlay" @click.self="cancelConflictSelection">
-        <div class="modal-box" style="max-width:520px;">
+        <div class="modal-box" style="max-width:560px;">
           <div class="modal-title" style="color:var(--color-error);">⚠️ Maszyna zajęta</div>
           <p style="margin:12px 0 8px;">
             <strong>{{ pendingArticle?.name }}</strong> jest przypisana do:
           </p>
-          <ul style="margin:0 0 16px 0; padding-left:20px;">
+
+          <!-- Konflikty z umowami -->
+          <ul v-if="conflictList.length" style="margin:0 0 12px 0; padding-left:20px;">
             <li v-for="c in conflictList" :key="c.contract_id" style="margin-bottom:4px;">
               Umowa <strong>{{ c.contract_number }}</strong> — {{ c.contractor_name }}
               <span v-if="c.date_from && c.date_to" style="color:var(--color-text-muted);"> ({{ formatPickerDate(c.date_from) }} – {{ formatPickerDate(c.date_to) }})</span>
             </li>
           </ul>
-          <div class="modal-actions">
+
+          <!-- Konflikty z rezerwacjami -->
+          <ul v-if="reservationConflictList.length" style="margin:0 0 12px 0; padding-left:20px;">
+            <li v-for="r in reservationConflictList" :key="r.reservation_id" style="margin-bottom:4px;">
+              Rezerwacja <strong>{{ r.contractor_name || 'bez kontrahenta' }}</strong>
+              <span style="color:var(--color-text-muted);"> ({{ formatPickerDate(r.reserved_from) }} – {{ formatPickerDate(r.reserved_to) }})</span>
+              <span v-if="r.note" style="color:var(--color-text-muted);"> — {{ r.note }}</span>
+            </li>
+          </ul>
+
+          <!-- Przyciski akcji -->
+          <div class="modal-actions" style="flex-direction:column;gap:8px;align-items:stretch;">
+            <!-- 3 opcje gdy są rezerwacje dla tego samego kontrahenta -->
+            <button v-if="hasSameContractorReservations"
+              class="btn btn-primary btn-sm"
+              @click="confirmAndDeleteReservations"
+            >
+              ✅ Zatwierdź i usuń rezerwacje ({{ sameContractorReservations.length }})
+            </button>
+            <button v-if="hasSameContractorReservations"
+              class="btn btn-secondary btn-sm"
+              @click="confirmConflictSelection"
+            >
+              ✅ Zatwierdź i nie usuwaj rezerwacji
+            </button>
+            <!-- Standardowa opcja gdy brak rezerwacji tego samego kontrahenta -->
+            <button v-if="!hasSameContractorReservations"
+              class="btn btn-primary btn-sm"
+              @click="confirmConflictSelection"
+            >
+              Mimo to dodaj
+            </button>
             <button class="btn btn-secondary btn-sm" @click="cancelConflictSelection">Anuluj</button>
-            <button class="btn btn-primary btn-sm" @click="confirmConflictSelection">Mimo to dodaj</button>
           </div>
         </div>
       </div>
@@ -1350,12 +1382,15 @@ interface ConflictingContract {
   date_to: string | null
 }
 // RAO-P2-066: konflikt z rezerwacją maszyny (article_reservations)
+// Phase 4: dodano contractor_id / contractor_name dla logiki usuwania rezerwacji tego samego kontrahenta
 interface ConflictingReservation {
   reservation_id: number
   reserved_from: string
   reserved_to: string
   note: string | null
   available_from: string | null
+  contractor_id: number | null
+  contractor_name: string | null
 }
 interface AvailabilityResponse {
   is_available: boolean
@@ -2074,6 +2109,8 @@ async function selectArticle(a) {
         // Show conflict modal — keep picker open in background
         pendingArticle.value = a
         conflictList.value = av.conflicting_contracts ?? []
+        // Phase 4: populuj listę konfliktów z rezerwacjami (dla 3 opcji modala)
+        reservationConflictList.value = av.conflicting_reservations ?? []
         showConflictModal.value = true
         return
       }
@@ -2107,6 +2144,37 @@ function cancelConflictSelection() {
   showConflictModal.value = false
   pendingArticle.value = null
   conflictList.value = []
+  // Phase 4: czyść też listę konfliktów z rezerwacjami
+  reservationConflictList.value = []
+}
+
+// Phase 4: rezerwacje dla tego samego kontrahenta co aktualnie wybrany w umowie
+const sameContractorReservations = computed(() => {
+  const contractContractorId = form.value.contractor_id
+  return reservationConflictList.value.filter(r => r.contractor_id !== null && r.contractor_id === contractContractorId)
+})
+
+const hasSameContractorReservations = computed(() => sameContractorReservations.value.length > 0)
+
+// Phase 4: zatwierdź wybór maszyny i usuń rezerwacje dla tego samego kontrahenta
+async function confirmAndDeleteReservations() {
+  // Usuń rezerwacje dla tego samego kontrahenta
+  for (const r of sameContractorReservations.value) {
+    try {
+      await api.delete(`/reservations/${r.reservation_id}`)
+    } catch (e) {
+      console.error('Nie udało się usunąć rezerwacji:', r.reservation_id, e)
+    }
+  }
+  // Potwierdź wybór maszyny
+  showConflictModal.value = false
+  showArticlePicker.value = false
+  if (pendingArticle.value) {
+    applySelectedArticle(pendingArticle.value)
+  }
+  pendingArticle.value = null
+  conflictList.value = []
+  reservationConflictList.value = []
 }
 
 function confirmConflictSelection() {
@@ -2117,6 +2185,8 @@ function confirmConflictSelection() {
   }
   pendingArticle.value = null
   conflictList.value = []
+  // Phase 4: czyść też listę konfliktów z rezerwacjami
+  reservationConflictList.value = []
 }
 
 // duplicateArticle — szybkie dodanie pozycji bezpośrednio z pickera (bez inline edit)

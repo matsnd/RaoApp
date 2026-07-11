@@ -1,0 +1,129 @@
+ANALIZA UMOW NAJMU (N) vs USLUGI (U)
+
+Liczba plikow: 515
+Najem: 374
+Uslugi: 141
+Nieznane: 0
+
+=== TYP: N ===
+Liczba wierszy uslug: 3761
+Top uslugi:
+    374  Doba wynajmu obejmuje
+    374  Zgłoszenie zwrotu urządzenia
+    374  Ilość dni pracy w tygodniu
+    374  dokumentacja zdjęciowa
+    373  Czyszczenie maszyny po wynajmie (zabrudzenia trudnościeralne)
+    373  Usługa tankowania
+    373  Ponadnormatywny przestój transportu
+    373  Nieuzasadnione wezwanie serwisowe
+    372  Czyszczenie maszyny po wynajmie (zabrudzenia drobne)
+    364  Transport
+      9  Butla gazowa
+      7  Transport Ładowarka
+      6  Transport Podnośnik
+      1  Butl gazowa
+      1  Czyszczenie maszyny po wynajmie
+      1  Transport - Podnośnik
+      1  Transport - Ładowarka
+      1  Transport wózki
+      1  Transport ładowarka
+      1  Transport-podnośnik nożycowy
+      1  Transport-podnśnik teleskopowy
+      1  Transport przerzut
+      1  Zawiesia
+      1  Transport Podnośnik nożycowy
+      1  Transport Podnośnik teleskopowy
+      1  Transport Ładowarki
+      1  Transport Podnośników
+
+Top wzorce cennika:
+     15  150,00zł / doba
+     13  700,00zł / doba
+     11  350,00zł / doba
+     10  450,00zł / doba
+     10  200,00zł / doba
+     10  600,00zł / doba
+      9  400,00zł / doba
+      9  800,00zł / doba
+      8  370,00zł / doba
+      7  40,00zł / doba
+      6  500,00zł / doba
+      6  250,00zł / doba
+      6  650,00zł / doba
+      6  50,00zł / doba
+      6  280,00zł / doba
+      5  230,00zł / doba
+      5  900,00zł / doba
+      5  300,00zł / doba
+      5  20,00zł / doba
+      5  210,00zł / doba
+      5  55,00zł / doba
+      4  420,00zł / doba
+      4  180,00zł / doba
+      4  100,00zł / doba
+      4  220,00zł / doba
+      4  550,00zł / doba
+      4  160,00zł / doba
+      4  260,00zł / doba
+      3  380,00zł / doba
+      3  30,00zł / doba
+
+=== TYP: U ===
+Liczba wierszy uslug: 81
+Top uslugi:
+     28  Transport
+     23  Praca operatora
+      2  Dojazd operatora
+      2  nadgodzina
+      1  Rolki transportowe
+      1  Praca po godzinie
+      1  Dojazd
+      1  Ładowarka teleskopowa
+      1  Ładowarka teleskopowa - wynajem
+      1  Minimum godzinowe
+      1  Każda kolejna godzina pracy operatora po godzinie
+      1  Wywóz gruzu
+      1  Transport Gdańsk - Warszawa
+      1  Czas trwania usługi
+      1  Praca do
+      1  Podnośnik przegubowo – teleskopowy spalinowy
+      1  powyżej
+      1  Dodatek za pracę operatora - sobota
+      1  Dodatek za pracę operatora - niedziela
+      1  Czyszczenie maszyny po wynajmie (zabrudzenia drobne)
+      1  Czyszczenie maszyny po wynajmie (zabrudzenia trudnościeralne)
+      1  Usługa tankowania
+      1  Ponadnormatywny przestój transportu
+      1  Nieuzasadnione wezwanie serwisowe
+
+Top wzorce cennika:
+     60  każda kolejna 250,00zł
+     14  każda kolejna 200,00zł
+     12  każda kolejna 300,00zł
+     10  do 2 godzin - 1800,00zł
+      8  do 2 godzin - 1700,00zł
+      8  każda kolejna 190,00zł
+      8  do 2 godzin - 2500,00zł
+      7  do 2 godzin - 2800,00zł
+      7  każda kolejna 280,00zł
+      5  do 2 godzin - 1900,00zł
+      5  do 2 godzin - 2900,00zł
+      5  do 2 godzin - 3400,00zł
+      4  do 2 godzin - 1500,00zł
+      3  90,00zł / godzina
+      3  do 2 godzin - 2100,00zł
+      3  120,00zł / godzina
+      3  każda kolejna 220,00zł
+      3  do 2 godzin - 3600,00zł
+      3  do 2 godzin - 1200,00zł
+      2  110,00zł / godzina
+      2  do 2 godzin - 2300,00zł
+      2  do 2 godzin - 1600,00zł
+      2  do 3 godzin - 1800,00zł
+      2  do 2 godzin - 1400,00zł
+      2  każda kolejna 350,00zł
+      2  do 6 godzin - 2500,00zł
+      2  do 3 godzin - 1600,00zł
+      2  190,00zł / godzina
+      2  każda kolejna 290,00zł
+      2  do 2 godzin - 3500,00zł

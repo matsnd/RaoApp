@@ -1,0 +1,124 @@
+=== PODSUMOWANIE WIDEŁEK ===
+Liczba plikow: 515
+
+Po typie:
+  N: 374
+  U: 141
+
+Patterny:
+  N_prosta_doba: 199
+  N_kaskadowa_doba (od-do lub 1dzien + powyzej): 131
+  U_do_godzin_kazda_kolejna: 115
+  N_1dzien_doba: 30
+  U_prosta_godzina: 17
+  N_brak_ceny: 8
+  N_od_do_dni (bez powyzej): 5
+  U_dobowa (anomalia): 3
+  U_brak_ceny: 2
+  U_do_godzin_bez_kazda: 2
+  N_godzinowa (anomalia): 1
+  U_kaskadowa_godzinowa (od-do/do + powyzej): 1
+  U_do_dni (anomalia): 1
+
+=== WERYFIKACJA HIPOTEZY: 'od do i powyzej' ===
+Plikow z kaskadowym od-do + powyzej: 132
+  S022_2026_N.pdf (N): N_kaskadowa_doba (od-do lub 1dzien + powyzej)
+  S030_2026_N.pdf (N): N_kaskadowa_doba (od-do lub 1dzien + powyzej)
+  S032_2026_N.pdf (N): N_kaskadowa_doba (od-do lub 1dzien + powyzej)
+  S033_2026_N.pdf (N): N_kaskadowa_doba (od-do lub 1dzien + powyzej)
+  S035_2026_N.pdf (N): N_kaskadowa_doba (od-do lub 1dzien + powyzej)
+  S040_2026_N.pdf (N): N_kaskadowa_doba (od-do lub 1dzien + powyzej)
+  S044_2026_N.pdf (N): N_kaskadowa_doba (od-do lub 1dzien + powyzej)
+  S046_2026_N.pdf (N): N_kaskadowa_doba (od-do lub 1dzien + powyzej)
+  S10_2026_N.pdf (N): N_kaskadowa_doba (od-do lub 1dzien + powyzej)
+  S13_2026(1)_N.pdf (N): N_kaskadowa_doba (od-do lub 1dzien + powyzej)
+  S13_2026_N.pdf (N): N_kaskadowa_doba (od-do lub 1dzien + powyzej)
+  S147_2026G_N.pdf (N): N_kaskadowa_doba (od-do lub 1dzien + powyzej)
+  S148_2026_N.pdf (N): N_kaskadowa_doba (od-do lub 1dzien + powyzej)
+  S156_2026G_N.pdf (N): N_kaskadowa_doba (od-do lub 1dzien + powyzej)
+  S157_2026_N.pdf (N): N_kaskadowa_doba (od-do lub 1dzien + powyzej)
+  S158_2026_N.pdf (N): N_kaskadowa_doba (od-do lub 1dzien + powyzej)
+  S159_2026_N.pdf (N): N_kaskadowa_doba (od-do lub 1dzien + powyzej)
+  S160_2026G_N.pdf (N): N_kaskadowa_doba (od-do lub 1dzien + powyzej)
+  S166_2026_N.pdf (N): N_kaskadowa_doba (od-do lub 1dzien + powyzej)
+  S399_2025_N.pdf (N): N_kaskadowa_doba (od-do lub 1dzien + powyzej)
+
+=== ANOMALIE ===
+Liczba anomalii: 15
+  S142_2026_U.pdf (U): U_brak_ceny
+  S152_2026_N.pdf (N): N_brak_ceny
+  S423_2025_N.pdf (N): N_godzinowa (anomalia)
+  S431_2025_N.pdf (N): N_brak_ceny
+  S433_2025_N.pdf (N): N_brak_ceny
+  S484_2025_N.pdf (N): N_brak_ceny
+  S489_2025_N.pdf (N): N_brak_ceny
+  S506_2025_N.pdf (N): N_brak_ceny
+  S578_2025_U.pdf (U): U_dobowa (anomalia)
+  S607_2025_N.pdf (N): N_brak_ceny
+  S623_2025_U.pdf (U): U_do_dni (anomalia)
+  S663_2025_U.pdf (U): U_dobowa (anomalia)
+  S742_2025_U.pdf (U): U_dobowa (anomalia)
+  TEST2_U.pdf (U): U_brak_ceny
+  testowa_N.pdf (N): N_brak_ceny
+
+=== PRZYKŁADY ===
+
+prosta_stawka (20 przykladow):
+  111_N.pdf: 230,00zł / doba
+  S020_2026_N.pdf: 700,00zł / doba
+  S023_2026_N.pdf: 380,00zł / doba
+  S025_2026_N.pdf: 400,00zł / doba
+  S026_2026_U.pdf: 110,00zł / godzina
+  S034_2026_N.pdf: 420,00zł / doba
+  S037_2026_N.pdf: 150,00zł / doba
+  S038_2026_N.pdf: 370,00zł / doba
+
+do_dni_godzin (20 przykladow):
+  S019_2026_U.pdf: do 8 godzin - 4700,00zł
+  S031_2026_U.pdf: do 2 godzin - 1900,00zł
+  S041_2026_U.pdf: do 2 godzin - 1700,00zł
+  S042_2026_U.pdf: do 2 godzin - 1900,00zł
+  S045_2026G_U.pdf: do 2 godzin - 1500,00zł
+  S144_2026_U.pdf: do 2 godzin - 1700,00zł
+  S161_2026G_U.pdf: do 2 godzin - 2300,00zł
+  S163_2026G_U.pdf: do 2 godzin - 2100,00zł
+
+kazda_kolejna (20 przykladow):
+  S019_2026_U.pdf: każda kolejna 300,00zł
+  S031_2026_U.pdf: każda kolejna 250,00zł
+  S041_2026_U.pdf: każda kolejna 200,00zł
+  S042_2026_U.pdf: każda kolejna 250,00zł
+  S045_2026G_U.pdf: każda kolejna 500,00zł
+  S144_2026_U.pdf: każda kolejna 190,00zł
+  S161_2026G_U.pdf: każda kolejna 190,00zł
+  S163_2026G_U.pdf: każda kolejna 190,00zł
+
+dni_1 (20 przykladow):
+  S021_2026_N.pdf: 1 dzień - 630,00 / doba
+  S022_2026_N.pdf: 1 dzień - 30,00 / doba
+  S030_2026_N.pdf: 1 dzień - 50,00 / doba
+  S11_2026_N.pdf: 1 dzień - 260,00 / doba
+  S12_2026_N.pdf: 1 dzień - 750,00 / doba
+  S12_2026_N.pdf: 1 dzień - 30,00 / doba
+  S142_2026_N.pdf: 1 dzień - 440,00 / doba
+  S143_2026G_N.pdf: 1 dzień - 220,00 / doba
+
+od_do (20 przykladow):
+  S022_2026_N.pdf: 1 - 3 dni - 800,00 / doba
+  S022_2026_N.pdf: 1 - 3 dni - 500,00 / doba
+  S030_2026_N.pdf: 1 - 8 dni - 750,00 / doba
+  S030_2026_N.pdf: 1 - 8 dni - 480,00 / doba
+  S032_2026_N.pdf: 1 - 2 dni - 1100,00 / doba
+  S032_2026_N.pdf: 3 - 5 dni - 900,00 / doba
+  S033_2026_N.pdf: 1 - 2 dni - 800,00 / doba
+  S035_2026_N.pdf: 1 - 6 dni - 260,00 / doba
+
+powyzej (20 przykladow):
+  S022_2026_N.pdf: powyżej 3 dni - 700,00 / doba
+  S022_2026_N.pdf: powyżej 3 dni - 400,00 / doba
+  S030_2026_N.pdf: powyżej 8 dni - 650,00 / doba
+  S030_2026_N.pdf: powyżej 8 dni - 380,00 / doba
+  S032_2026_N.pdf: powyżej 5 dni - 800,00 / doba
+  S033_2026_N.pdf: powyżej 2 dni - 700,00 / doba
+  S035_2026_N.pdf: powyżej 6 dni - 120,00 / doba
+  S040_2026_N.pdf: powyżej 3 dni - 320,00 / doba

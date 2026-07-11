@@ -1,5 +1,5 @@
 {
-  "_comment": "Skopiuj ten plik jako .devin/config.json i wstaw swoje sekrety. config.json jest w .gitignore.",
+  "_readme": "Skopiuj jako config.json i NIE commituj (config.json jest w .gitignore). Sekrety WYLACZNIE w config.local.json. Uzywamy npx -y = przenosne (zero hardcoded C:/Users/...). Jesli npx w Twoim srodowisku Devin CLI zawodzi, dopiero wtedy pelne sciezki.",
   "read_config_from": {
     "windsurf": false,
     "claude": false,
@@ -7,46 +7,74 @@
   },
   "permissions": {
     "allow": [
-      "mcp__*"
+      "mcp__*",
+      "Exec(git status)",
+      "Exec(git diff*)",
+      "Exec(git log*)",
+      "Exec(git add *)",
+      "Exec(git commit*)",
+      "Exec(git checkout -- *)",
+      "Exec(git revert*)",
+      "Exec(python*)",
+      "Exec(pytest*)",
+      "Exec(uvicorn*)",
+      "Exec(npm run*)",
+      "Exec(npx vue-tsc*)",
+      "Exec(npx playwright*)",
+      "Exec(curl*)",
+      "Exec(gitleaks*)",
+      "Exec(node*)",
+      "Exec(ls)",
+      "Exec(cat*)",
+      "Exec(head*)",
+      "Exec(grep*)"
     ]
   },
   "mcpServers": {
     "rao-vision": {
       "command": "node",
-      "args": ["C:/projects/repos/RaoApp_new/mcp-vision/index.js"],
+      "args": ["mcp-vision/index.js"],
       "env": {
-        "ANTHROPIC_API_KEY": "sk-ant-api03-TWOJ-KLUCZ-TUTAJ"
+        "ANTHROPIC_API_KEY": "USTAW-W-config.local.json"
       }
     },
     "sequential-thinking": {
-      "command": "node",
-      "args": ["C:/Users/<USER>/AppData/Roaming/npm/node_modules/@modelcontextprotocol/server-sequential-thinking/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking@latest"],
       "env": {
         "DISABLE_THOUGHT_LOGGING": "true",
         "NODE_OPTIONS": "--max-old-space-size=512"
       }
     },
     "memory": {
-      "command": "node",
-      "args": ["C:/Users/<USER>/AppData/Roaming/npm/node_modules/@modelcontextprotocol/server-memory/dist/index.js"]
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory@latest"]
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest", "--headless"]
+    },
+    "codebase-memory": {
+      "command": "npx",
+      "args": ["-y", "codebase-memory-mcp"]
+    },
+    "depwire": {
+      "command": "npx",
+      "args": ["-y", "depwire-cli", "mcp"]
     },
     "github": {
-      "command": "node",
-      "args": ["C:/Users/<USER>/AppData/Roaming/npm/node_modules/@modelcontextprotocol/server-github/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github@latest"],
       "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_TWOJ_TOKEN_TUTAJ"
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "USTAW-W-config.local.json"
       }
     },
     "brave-search": {
-      "command": "node",
-      "args": ["C:/Users/<USER>/AppData/Roaming/npm/node_modules/@modelcontextprotocol/server-brave-search/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-brave-search@latest"],
       "env": {
-        "BRAVE_API_KEY": "BSA_TWOJ_KLUCZ_TUTAJ"
+        "BRAVE_API_KEY": "USTAW-W-config.local.json"
       }
-    },
-    "playwright": {
-      "command": "node",
-      "args": ["C:/Users/<USER>/AppData/Roaming/npm/node_modules/@playwright/mcp/cli.js", "--headless"]
     }
   }
 }

@@ -722,27 +722,41 @@ Layout (modal wbudowany w ContractFormView.vue):
 └──────────────────────────────────────────────────────┘
 ```
 
-**Conflict modal (RAO-P1-023)** — pojawia się gdy `is_available === false`:
+**Conflict modal (RAO-P1-023 + Phase 4)** — pojawia się gdy `is_available === false`:
 ```
 ┌──────────────────────────────────────────────────────┐
 │ ⚠️ Maszyna zajęta                                    │
 │ "Koparka 320" jest przypisana do:                    │
 │ • Umowa S001/2026 — Firma XYZ (01.03 – 31.05.2026)  │
+│ • Rezerwacja Firma XYZ (10.04 – 15.04.2026) — serwis│
 │                                                      │
-│ [Anuluj]                    [Mimo to dodaj]          │
+│ [✅ Zatwierdź i usuń rezerwacje (1)]   ← gdy rezerw.  │
+│ [✅ Zatwierdź i nie usuwaj rezerwacji]  tego samego   │
+│ [Mimo to dodaj]                        kontrahenta    │
+│ [Anuluj]                                             │
 └──────────────────────────────────────────────────────┘
 ```
+
+**3 opcje akcji (Phase 4):**
+- Gdy w `conflicting_reservations` są rezerwacje dla **tego samego kontrahenta** co `form.contractor_id`:
+  1. **Zatwierdź i usuń rezerwacje** — `confirmAndDeleteReservations()` → `DELETE /reservations/{id}` dla każdej, potem `applySelectedArticle()`
+  2. **Zatwierdź i nie usuwaj rezerwacji** — `confirmConflictSelection()` (dodaje mimo konfliktu)
+- Gdy brak rezerwacji tego samego kontrahenta (lub brak rezerwacji w ogóle):
+  3. **Mimo to dodaj** — `confirmConflictSelection()`
+- Rezerwacje z `contractor_id === null` (bez kontrahenta) NIE są traktowane jako "tego samego kontrahenta".
 
 **Logika selectArticle():**
 1. Brak dat umowy / artykuł-usługa → zamknij picker, dodaj bez sprawdzania
 2. `checkAvailability()` → `is_available: true` → zamknij picker normalnie
-3. `checkAvailability()` → `is_available: false` → pokaż conflict modal (picker zostaje otwarty)
-4. [Mimo to dodaj] → zamknij oba (modal + picker), dodaj artykuł
-5. [Anuluj] → zamknij tylko modal, picker pozostaje otwarty
+3. `checkAvailability()` → `is_available: false` → pokaż conflict modal (picker zostaje otwarty), populuj `conflictList` + `reservationConflictList`
+4. [Zatwierdź i usuń rezerwacje] → usuń rezerwacje tego samego kontrahenta, zamknij oba, dodaj artykuł
+5. [Zatwierdź / Mimo to dodaj] → zamknij oba (modal + picker), dodaj artykuł
+6. [Anuluj] → zamknij tylko modal, picker pozostaje otwarty
 
-**State (refs):** `showConflictModal`, `conflictList: ConflictingContract[]`, `pendingArticle: ArticlePickerItem | null`
+**State (refs):** `showConflictModal`, `conflictList: ConflictingContract[]`, `reservationConflictList: ConflictingReservation[]` (z `contractor_id`/`contractor_name`), `pendingArticle: ArticlePickerItem | null`
+**Computed (Phase 4):** `sameContractorReservations` (filtr po `form.contractor_id`), `hasSameContractorReservations`
 
-**API:** `GET /articles/{id}/availability?date_from&date_to&exclude_contract_id` (opcjonalny param przy edycji)
+**API:** `GET /articles/{id}/availability?date_from&date_to&exclude_contract_id` (opcjonalny param przy edycji), `DELETE /reservations/{id}` (opcja usuwania)
 
 ---
 
@@ -1699,6 +1713,10 @@ Następca: patrz sekcja `AnalyticsView.vue` poniżej.
 **Edit mode:** `Object.assign(form.value, data)` automatycznie wypełnia wszystkie pola z API.
 
 **Store:** `useArticleStore` (`stores/articles.js`) — `fetchOne`, `create`, `update`, `duplicate`
+
+> **Phase 5 (2026-07):** Sekcja "Rezerwacje maszyny" (RAO-P2-066) **usunięta** z ArticleFormView.
+> Zarządzanie rezerwacjami przeniesione do osobnego widoku `ReservationsView.vue` (Phase 3 — pełny CRUD: kalendarz + lista + modal).
+> Usunięto: template sekcji + modal dodawania, `useReservationsStore` import, `reservationsStore.fetchForArticle()` w `loadArticle`, refs (`showReservationModal`, `reservationSaving`, `reservationError`, `reservationForm`), computed `activeReservations`, funkcje (`openReservationForm`, `closeReservationForm`, `formatDate`, `addDay`, `saveReservation`, `deleteReservation`), CSS `.reservations-section`.
 
 ---
 

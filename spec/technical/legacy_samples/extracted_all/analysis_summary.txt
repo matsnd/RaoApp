@@ -1,0 +1,158 @@
+Liczba plikow: 515
+Typy umow: {'N': 374, 'U': 141}
+Przedplaty znalezione: 264
+  min: 141.45, max: 35178.0, avg: 3903.93
+
+Najczestsze uslugi dodatkowe (top 100):
+    392  Transport
+    374  Czyszczenie maszyny po wynajmie (zabrudzenia trudnościeralne)
+    374  Usługa tankowania
+    374  Ponadnormatywny przestój transportu
+    374  Nieuzasadnione wezwanie serwisowe
+    374  Doba wynajmu obejmuje
+    374  Zgłoszenie zwrotu urządzenia
+    374  Ilość dni pracy w tygodniu
+    374  dokumentacja zdjęciowa
+    373  Czyszczenie maszyny po wynajmie (zabrudzenia drobne)
+     23  Praca operatora
+      9  Butla gazowa
+      7  Transport Ładowarka
+      6  Transport Podnośnik
+      2  Dojazd operatora
+      2  nadgodzina
+      1  Rolki transportowe
+      1  Praca po godzinie
+      1  Dojazd
+      1  Butl gazowa
+      1  Ładowarka teleskopowa
+      1  Ładowarka teleskopowa - wynajem
+      1  Minimum godzinowe
+      1  Każda kolejna godzina pracy operatora po godzinie
+      1  Wywóz gruzu
+      1  Czyszczenie maszyny po wynajmie
+      1  Transport - Podnośnik
+      1  Transport - Ładowarka
+      1  Transport wózki
+      1  Transport ładowarka
+      1  Transport-podnośnik nożycowy
+      1  Transport-podnśnik teleskopowy
+      1  Transport Gdańsk - Warszawa
+      1  Czas trwania usługi
+      1  Praca do
+      1  Transport przerzut
+      1  Podnośnik przegubowo – teleskopowy spalinowy
+      1  Zawiesia
+      1  Transport Podnośnik nożycowy
+      1  Transport Podnośnik teleskopowy
+      1  Transport Ładowarki
+      1  powyżej
+      1  Dodatek za pracę operatora - sobota
+      1  Dodatek za pracę operatora - niedziela
+      1  Transport Podnośników
+
+Najczestsze wzorce cennika (top 100):
+     60  każda kolejna 250,00zł
+     15  150,00zł / doba
+     14  każda kolejna 200,00zł
+     13  700,00zł / doba
+     12  każda kolejna 300,00zł
+     11  350,00zł / doba
+     10  450,00zł / doba
+     10  do 2 godzin - 1800,00zł
+     10  200,00zł / doba
+     10  800,00zł / doba
+     10  600,00zł / doba
+      9  400,00zł / doba
+      8  370,00zł / doba
+      8  do 2 godzin - 1700,00zł
+      8  każda kolejna 190,00zł
+      8  do 2 godzin - 2500,00zł
+      7  40,00zł / doba
+      7  do 2 godzin - 2800,00zł
+      7  każda kolejna 280,00zł
+      6  900,00zł / doba
+      6  500,00zł / doba
+      6  250,00zł / doba
+      6  650,00zł / doba
+      6  50,00zł / doba
+      6  280,00zł / doba
+      5  230,00zł / doba
+      5  do 2 godzin - 1900,00zł
+      5  300,00zł / doba
+      5  20,00zł / doba
+      5  do 2 godzin - 2900,00zł
+      5  210,00zł / doba
+      5  55,00zł / doba
+      5  do 2 godzin - 3400,00zł
+      4  420,00zł / doba
+      4  do 2 godzin - 1500,00zł
+      4  180,00zł / doba
+      4  100,00zł / doba
+      4  220,00zł / doba
+      4  550,00zł / doba
+      4  160,00zł / doba
+      4  260,00zł / doba
+      3  380,00zł / doba
+      3  30,00zł / doba
+      3  90,00zł / godzina
+      3  do 2 godzin - 2100,00zł
+      3  120,00zł / godzina
+      3  każda kolejna 220,00zł
+      3  do 2 godzin - 3600,00zł
+      3  45,00zł / doba
+      3  190,00zł / doba
+      3  do 2 godzin - 1200,00zł
+      3  480,00zł / doba
+      3  360,00zł / doba
+      2  110,00zł / godzina
+      2  do 2 godzin - 2300,00zł
+      2  do 2 godzin - 1600,00zł
+      2  do 3 godzin - 1800,00zł
+      2  580,00zł / doba
+      2  950,00zł / doba
+      2  330,00zł / doba
+      2  1200,00zł / doba
+      2  do 2 godzin - 1400,00zł
+      2  każda kolejna 350,00zł
+      2  do 6 godzin - 2500,00zł
+      2  do 3 godzin - 1600,00zł
+      2  290,00zł / doba
+      2  190,00zł / godzina
+      2  każda kolejna 290,00zł
+      2  do 2 godzin - 3500,00zł
+      2  do 2 godzin - 1300,00zł
+      2  850,00zł / doba
+      2  780,00zł / doba
+      2  310,00zł / doba
+      2  140,00zł / doba
+      2  750,00zł / doba
+      2  1000,00zł / doba
+      2  do 3 godzin - 2500,00zł
+      2  do 4 godzin - 1900,00zł
+      2  1400,00zł / doba
+      2  nadgodzina 300,00 zł
+      2  120,00zł / doba
+      2  do 3 godzin - 3000,00zł
+      1  do 8 godzin - 4700,00zł
+      1  740,00zł / doba
+      1  każda kolejna 500,00zł
+      1  240,00zł / godzina
+      1  do 2 godzin - 800,00zł
+      1  do 3 godzin - 3800,00zł
+      1  720,00zł / doba
+      1  185,00zł / doba
+      1  315,00zł / godzina
+      1  do 3 godzin - 2300,00zł
+      1  280,00zł / godzina
+      1  do 2 godzin - 3000,00zł
+      1  do 3 godzin - 1900,00zł
+      1  do 5 godzin - 2900,00zł
+      1  220,00zł / godzina
+      1  Każda kolejna godzina pracy operatora po godzinie 17:00: 350,00 zł/ h
+      1  do 2 godzin - 2400,00zł
+      1  do 6 godzin - 4100,00zł
+
+Najczestsze przedzialy dni:
+      2  >2 - 
+
+Dni pracy w tygodniu: {'6': 354, '5': 4, '7': 16}

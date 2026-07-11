@@ -178,40 +178,6 @@
           <textarea id="article-notes" v-model="form.notes" class="form-control" rows="2"></textarea>
         </div>
 
-        <!-- RAO-P2-066: Rezerwacje maszyny — lista + dodaj + usuń -->
-        <div v-if="isEdit" class="reservations-section">
-          <div class="section-title" style="font-size:var(--font-size-sm);margin-top:var(--spacing-4);margin-bottom:var(--spacing-3);padding-bottom:var(--spacing-2);display:flex;align-items:center;justify-content:space-between;">
-            <span>Rezerwacje maszyny</span>
-            <button type="button" class="btn btn-secondary btn-sm" @click="openReservationForm">➕ Dodaj rezerwację</button>
-          </div>
-          <div v-if="reservationsStore.loading" class="empty-state">Ładowanie rezerwacji…</div>
-          <div v-else-if="!activeReservations.length" class="empty-state" style="padding:12px;color:var(--color-text-muted);">
-            Brak aktywnych rezerwacji — maszyna dostępna.
-          </div>
-          <table v-else class="data-grid">
-            <thead>
-              <tr>
-                <th>Od</th>
-                <th>Do</th>
-                <th>Dostępna od</th>
-                <th>Notatka</th>
-                <th style="width:60px;">Akcje</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="r in activeReservations" :key="r.id">
-                <td>{{ formatDate(r.reserved_from) }}</td>
-                <td>{{ formatDate(r.reserved_to) }}</td>
-                <td>{{ formatDate(addDay(r.reserved_to)) }}</td>
-                <td>{{ r.note || '—' }}</td>
-                <td>
-                  <button class="btn-icon" aria-label="Usuń rezerwację" title="Usuń rezerwację" @click="deleteReservation(r)">✕</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
         <!-- RAO-P1-001: Cenniki rozliczenia maszyny -->
         <RatePresetSection
           v-if="isEdit && !form.is_service"
@@ -221,42 +187,6 @@
         />
       </div>
     </div>
-
-    <!-- RAO-P2-066: Modal dodawania rezerwacji -->
-    <Transition name="modal">
-      <div v-if="showReservationModal" class="modal-overlay" @click.self="closeReservationForm">
-        <div class="modal-box" style="max-width:480px;" role="dialog" aria-modal="true" aria-labelledby="reservation-modal-title">
-          <div class="modal-title" id="reservation-modal-title">Nowa rezerwacja maszyny</div>
-          <p style="font-size:13px;color:var(--color-text-muted);margin:4px 0 12px;">
-            <strong>{{ form.name }}</strong> — rezerwacja blokuje wynajem w wybranym okresie
-            (z ostrzeżeniem w wyborze maszyny w umowie).
-          </p>
-          <div v-if="reservationError" style="color:var(--color-danger);padding:8px;background:#FED7D7;border-radius:6px;margin-bottom:12px;font-size:13px;" role="alert">
-            {{ reservationError }}
-          </div>
-          <div class="form-row-2">
-            <div class="form-group">
-              <label class="form-label" for="reservation-from">Data od *</label>
-              <input id="reservation-from" v-model="reservationForm.reserved_from" type="date" class="form-control" />
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="reservation-to">Data do *</label>
-              <input id="reservation-to" v-model="reservationForm.reserved_to" type="date" class="form-control" />
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="reservation-note">Notatka</label>
-            <input id="reservation-note" v-model="reservationForm.note" type="text" class="form-control" maxlength="300" placeholder="np. Serwis, klient rezerwuje…" />
-          </div>
-          <div class="modal-actions">
-            <button class="btn btn-secondary btn-sm" @click="closeReservationForm">Anuluj</button>
-            <button class="btn btn-primary btn-sm" @click="saveReservation" :disabled="reservationSaving">
-              {{ reservationSaving ? '...' : 'Zapisz rezerwację' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Transition>
 
     <!-- Owner picker modal -->
     <Transition name="modal">
@@ -293,7 +223,6 @@ import { useArticleStore } from '@/stores/articles'
 import { useSettingsStore } from '@/stores/settings'
 import { useFakturowniaStore } from '@/stores/fakturownia'
 import { useToastStore } from '@/stores/toast'
-import { useReservationsStore } from '@/stores/reservations'
 import GlossaryTip from '@/components/GlossaryTip.vue'
 import RatePresetSection from '@/components/articles/RatePresetSection.vue'
 import api from '@/composables/useApi'
@@ -304,7 +233,6 @@ const store = useArticleStore()
 const settingsStore = useSettingsStore()
 const fakturowniaStore = useFakturowniaStore()
 const toastStore = useToastStore()
-const reservationsStore = useReservationsStore()
 
 const isEdit = computed(() => !!props.id)
 const loading = ref(false)
@@ -417,13 +345,6 @@ onMounted(async () => {
       Object.assign(form.value, data)
       if (data.owner_name) ownerName.value = data.owner_name
       setCategoryFromId(data.category_id)
-      // RAO-P2-066: załaduj rezerwacje maszyny (tylko dla istniejącego artykułu)
-      try {
-        await reservationsStore.fetchForArticle(Number(props.id))
-      } catch (e) {
-        // Brak rezerwacji nie powinien blokować edycji artykułu
-        console.warn('Nie udało się pobrać rezerwacji:', e)
-      }
       // RAO-P1-001: załaduj cenniki rozliczenia (tylko dla maszyn, nie usług)
       if (!data.is_service) {
         try {
@@ -534,89 +455,6 @@ function clearOwner() {
   ownerName.value = ''
 }
 
-// --- RAO-P2-066: Rezerwacje maszyny ---
-const showReservationModal = ref(false)
-const reservationSaving = ref(false)
-const reservationError = ref('')
-const reservationForm = ref({
-  reserved_from: '',
-  reserved_to: '',
-  note: '',
-})
-
-// Aktywne rezerwacje = te, które kończą się dzisiaj lub później
-const activeReservations = computed(() => {
-  const today = new Date().toISOString().slice(0, 10)
-  return reservationsStore.list.filter(r => r.reserved_to >= today)
-})
-
-function openReservationForm() {
-  reservationForm.value = { reserved_from: '', reserved_to: '', note: '' }
-  reservationError.value = ''
-  showReservationModal.value = true
-}
-
-function closeReservationForm() {
-  showReservationModal.value = false
-  reservationError.value = ''
-}
-
-// Helper: format daty ISO (YYYY-MM-DD) → DD.MM.YYYY
-function formatDate(iso: string): string {
-  if (!iso) return '—'
-  const parts = iso.split('-')
-  if (parts.length === 3) return `${parts[2]}.${parts[1]}.${parts[0]}`
-  return iso
-}
-
-// Helper: dodaj 1 dzień do daty ISO (zwraca ISO YYYY-MM-DD)
-function addDay(iso: string): string {
-  if (!iso) return ''
-  const d = new Date(iso + 'T00:00:00')
-  d.setDate(d.getDate() + 1)
-  return d.toISOString().slice(0, 10)
-}
-
-async function saveReservation() {
-  reservationError.value = ''
-  const { reserved_from, reserved_to, note } = reservationForm.value
-  if (!reserved_from || !reserved_to) {
-    reservationError.value = 'Podaj daty od i do'
-    return
-  }
-  if (reserved_from > reserved_to) {
-    reservationError.value = 'Data od musi być wcześniejsza lub równa dacie do'
-    return
-  }
-  reservationSaving.value = true
-  try {
-    await reservationsStore.create({
-      article_id: Number(props.id),
-      reserved_from,
-      reserved_to,
-      note: note || null,
-    })
-    toastStore.success('Rezerwacja dodana')
-    closeReservationForm()
-  } catch (e) {
-    const err = e as { response?: { data?: { detail?: string } } }
-    reservationError.value = err.response?.data?.detail || 'Błąd zapisu rezerwacji'
-  } finally {
-    reservationSaving.value = false
-  }
-}
-
-async function deleteReservation(r: { id: number; reserved_from: string; reserved_to: string }) {
-  if (!confirm(`Usunąć rezerwację ${formatDate(r.reserved_from)} – ${formatDate(r.reserved_to)}?`)) return
-  try {
-    await reservationsStore.remove(r.id)
-    toastStore.success('Rezerwacja usunięta')
-  } catch (e) {
-    const err = e as { response?: { data?: { detail?: string } } }
-    toastStore.error(err.response?.data?.detail || 'Błąd usuwania rezerwacji')
-  }
-}
-
 // --- RAO-P1-001: Cenniki rozliczenia maszyny ---
 async function onPresetsChanged() {
   // Odśwież listę cenników po zmianach w RatePresetSection
@@ -642,20 +480,5 @@ async function onPresetsChanged() {
 .form-control.error {
   border-color: var(--color-error);
   background: var(--color-error-bg);
-}
-
-/* RAO-P2-066: sekcja rezerwacji maszyny */
-.reservations-section {
-  margin-top: var(--spacing-4);
-  padding-top: var(--spacing-3);
-  border-top: 1px solid var(--color-border, #e2e8f0);
-}
-.reservations-section .data-grid {
-  font-size: 13px;
-}
-.reservations-section .empty-state {
-  font-size: 13px;
-  text-align: left;
-  padding: 12px;
 }
 </style>
