@@ -35,7 +35,8 @@ from typing import Literal
 from sqlalchemy import and_, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from articles.models import Article
+from machines.models import Machine
+from services.models import Service
 from contracts.models import Contract, ContractPosition, PositionCondition
 from contractors.models import Contractor
 from settlements.models import ContractSettlement
@@ -123,8 +124,9 @@ async def compute_position_revenues(
     umowy (legacy przeniesione do archive_*). Statystyki archiwum osobno.
 
     Returns list of dicts with keys:
-        position_id, article_id, contract_id, contractor_id,
-        article_name, internal_number, is_service, contract_number,
+        position_id, machine_id, service_id, contract_id, contractor_id,
+        machine_name, service_name, article_name (alias), internal_number,
+        is_service, contract_number,
         contractor_name, rental_days, date_from, date_to,
         category_main, category_sub1, category_sub2, category_sub3,
         contract_date_from, clamped_days,
@@ -139,15 +141,15 @@ async def compute_position_revenues(
     stmt = (
         select(
             ContractPosition.id,            # p[0]
-            ContractPosition.article_id,    # p[1]
+            ContractPosition.machine_id,    # p[1]  (was article_id)
             ContractPosition.contract_id,   # p[2]
             ContractPosition.rental_days,   # p[3]
             ContractPosition.billing_frequency,  # p[4]
             ContractPosition.unit_price,    # p[5]
             ContractPosition.quantity,      # p[6]
-            Article.name.label("article_name"),  # p[7]
-            Article.internal_number,        # p[8]
-            Article.is_service,             # p[9]
+            Machine.name.label("machine_name"),  # p[7]  (was article_name)
+            Machine.internal_number,        # p[8]
+            ContractPosition.service_id,    # p[9]  (was Article.is_service; None=machine, !None=service)
             Contract.number.label("contract_number"),  # p[10]
             # RAO-P2-065 #2: coalesce Contractor.name z snapshot contractor_name
             # — snapshot może być NULL gdy umowa ma contractor_id (FK) ale nie
@@ -156,20 +158,23 @@ async def compute_position_revenues(
             Contract.contractor_id,         # p[12]
             Contract.date_from,             # p[13]
             Contract.date_to,               # p[14]
-            Article.category_main,          # p[15]
-            Article.category_sub1,          # p[16]
-            Article.category_sub2,          # p[17]
-            Article.category_sub3,          # p[18]
+            Machine.category_main,          # p[15]
+            Machine.category_sub1,          # p[16]
+            Machine.category_sub2,          # p[17]
+            Machine.category_sub3,          # p[18]
             Contract.city,                  # p[19] — RAO: filtr city w stats
             Contract.contract_type,         # p[20] — RAO-P2-056: grupowanie po S/U
             Contract.branch_id,             # p[21] — RAO-P1-055: grupowanie po oddziale
+            Service.name.label("service_name"),  # p[22] — LEFT JOIN, NULL dla machine pozycji
         )
         .select_from(ContractPosition)
         .join(Contract, Contract.id == ContractPosition.contract_id)
         # RAO-P2-065 #2: LEFT JOIN contractors — contractor_name snapshot NULL
         # dla umów z contractor_id (FK) — rozwiązujemy nazwę z contractors.name
         .outerjoin(Contractor, Contractor.id == Contract.contractor_id)
-        .join(Article, Article.id == ContractPosition.article_id)
+        # articles split: LEFT JOIN machines + services (pozycja ma machine_id LUB service_id)
+        .outerjoin(Machine, Machine.id == ContractPosition.machine_id)
+        .outerjoin(Service, Service.id == ContractPosition.service_id)
     )
     # RAO-P0-006/BUG-6: df/dt mogą być None (preset='all' = brak filtra daty).
     # Buduj warunki tylko dla nie-None wartości.
@@ -181,16 +186,25 @@ async def compute_position_revenues(
     if _date_conds:
         stmt = stmt.where(and_(*_date_conds))
     if service_filter is not None:
-        stmt = stmt.where(Article.is_service == service_filter)
+        # articles split: service_filter=True → tylko usługi (service_id != None);
+        # False → tylko maszyny (machine_id != None); None → wszystkie
+        if service_filter:
+            stmt = stmt.where(ContractPosition.service_id.isnot(None))
+        else:
+            stmt = stmt.where(ContractPosition.machine_id.isnot(None))
     if exclude_archival:
-        stmt = stmt.where(Article.is_archival == False)
-        stmt = stmt.where(Article.is_external == False)  # RAO-P1-027
+        # maszyny: Machine.is_archival == False; usługi: Service.is_archival == False
+        # (pozycja ma machine_id LUB service_id — coalesce rozwiązuje NULL z drugiego JOIN)
+        stmt = stmt.where(func.coalesce(Machine.is_archival, Service.is_archival) == False)
+        # is_external dotyczy tylko maszyn (Service nie ma tej flagi) — coalesce z False
+        stmt = stmt.where(func.coalesce(Machine.is_external, False) == False)  # RAO-P1-027
     if category_main_filter:
-        stmt = stmt.where(Article.category_main.in_(category_main_filter))
+        # kategorie tylko dla maszyn — service pozycje mają NULL i zostaną odfiltrowane
+        stmt = stmt.where(Machine.category_main.in_(category_main_filter))
     if category_sub1_filter:
-        stmt = stmt.where(Article.category_sub1 == category_sub1_filter)
+        stmt = stmt.where(Machine.category_sub1 == category_sub1_filter)
     if category_sub2_filter:
-        stmt = stmt.where(Article.category_sub2 == category_sub2_filter)
+        stmt = stmt.where(Machine.category_sub2 == category_sub2_filter)
     # RAO-P2-052: filtr po konkretnych kontraktach (SQL WHERE IN) — używany
     # przez /explorer/locations/city/{city} po wstępnym zmatchowaniu miasta w SQL.
     if contract_ids is not None:
@@ -247,7 +261,8 @@ async def compute_position_revenues(
     for p in positions:
         pid = p[0]
         conds = conds_by_pos.get(pid, [])
-        is_service = (p[20] or "S") == "U"
+        # articles split: is_service z position type (service_id != None), nie contract_type
+        is_service = p[9] is not None  # service_id is not None → usługa
 
         # 3 źródła przychodu
         revenue_actual = sett_by_pos.get(pid)  # None jeśli brak settlements
@@ -298,12 +313,15 @@ async def compute_position_revenues(
 
         results.append({
             "position_id": pid,
-            "article_id": p[1],
+            "machine_id": p[1],           # was article_id (articles split)
+            "service_id": p[9],           # NEW: service_id (None dla machine pozycji)
             "contract_id": p[2],
             "rental_days": p[3] or 0,
-            "article_name": p[7],
+            "machine_name": p[7],         # was article_name (Machine.name)
+            "service_name": p[22],        # NEW: Service.name (None dla machine pozycji)
+            "article_name": p[7] or p[22],  # backward compat: coalesce(machine_name, service_name)
             "internal_number": p[8],
-            "is_service": p[9],
+            "is_service": p[9] is not None,  # was p[9]=Article.is_service; now service_id != None
             "contract_number": p[10],
             "contractor_name": p[11],
             "contractor_id": p[12],
@@ -317,6 +335,7 @@ async def compute_position_revenues(
             "revenue_estimate_tiered": revenue_estimate_tiered,
             "revenue": revenue,
             "revenue_source": revenue_source,
+            # kategorie tylko dla maszyn (Service nie ma kategorii → NULL dla service pozycji)
             "category_main": p[15],
             "category_sub1": p[16],
             "category_sub2": p[17],
@@ -328,9 +347,9 @@ async def compute_position_revenues(
 
     # RAO Faza 2a (opcja E): unmapped settlements — syntetyczne wiersze dla analytics.
     # Pozycje FA nieobecne w umowie (position_id=NULL, service_fee_id=NULL, source='fa_unmapped')
-    # dostają syntetyczny wiersz z article_id=None, is_service=None, category_*=None.
+    # dostają syntetyczny wiersz z machine_id=None, service_id=None, is_service=None, category_*=None.
     # revenue = cost_client (actual), clamped_days=0 (nie zaburza utilization).
-    # Filtry service_filter/exclude_archival/category_* NIE aplikowane (unmapped nie ma Article).
+    # Filtry service_filter/exclude_archival/category_* NIE aplikowane (unmapped nie ma Machine/Service).
     unmapped_stmt = (
         select(
             ContractSettlement.id,                       # u[0]
@@ -372,10 +391,13 @@ async def compute_position_revenues(
         cost_client = Decimal(str(u[4])) if u[4] is not None else Decimal("0")
         results.append({
             "position_id": None,
-            "article_id": None,
+            "machine_id": None,           # was article_id (articles split)
+            "service_id": None,           # NEW: unmapped nie ma service_id
             "contract_id": u[1],
             "rental_days": 0,
-            "article_name": u[2] or "(niezmapowane z FA)",
+            "machine_name": None,         # was article_name
+            "service_name": None,         # NEW
+            "article_name": u[2] or "(niezmapowane z FA)",  # backward compat: snapshot z FA
             "internal_number": None,
             "is_service": None,
             "contract_number": u[6],
