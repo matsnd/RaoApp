@@ -110,6 +110,7 @@ def step3_demo(args) -> int:
 
 def step4_fa(args) -> int:
     import os
+    import asyncio
     if not (os.environ.get("FA_TOKEN") or os.environ.get("FAKTUROWNIA_API_TOKEN")):
         # Spróbuj załadować z root .env (FAKTUROWNIA_API_TOKEN)
         root_env = BACKEND.parent / ".env"
@@ -121,7 +122,56 @@ def step4_fa(args) -> int:
     if not (os.environ.get("FA_TOKEN") or os.environ.get("FAKTUROWNIA_API_TOKEN")):
         print("POMINIĘTO krok 4 (fa): brak tokenu FA_TOKEN/FAKTUROWNIA_API_TOKEN w env")
         return 0
+
+    # RAO-P1-005 fix: sync FA token w DB z env (bootstrap tylko gdy NULL,
+    # ale env moze sie zmienic — np. nowe konto FA testowe).
+    asyncio.run(_sync_fa_token_from_env())
+
     return _run_script("seed_fa_invoices.py")
+
+
+async def _sync_fa_token_from_env() -> None:
+    """Aktualizuj fakturownia_settings.api_token_ciphertext z env (idempotentny).
+
+    Bootstrap w service.py działa tylko gdy ciphertext IS NULL. Ta funkcja
+    wymusza update z env na każdym runie migrate_all — żeby zmiana tokenu
+    w .env od razu była widoczna w DB (bez ręcznego NULLowania).
+    """
+    from database import AsyncSessionLocal
+    from config import settings as app_settings
+    from integrations.fakturownia.crypto import encrypt_token, mask_token
+    from sqlalchemy import text
+    from datetime import datetime, timezone
+
+    token = app_settings.RAO_FAKTUROWNIA_API_TOKEN
+    enc_key = app_settings.RAO_FAKTUROWNIA_ENC_KEY
+    if not token or not enc_key:
+        print("  [fa-token] POMINIĘTO: brak RAO_FAKTUROWNIA_API_TOKEN lub ENC_KEY w env")
+        return
+
+    ciphertext = encrypt_token(token, enc_key)
+    preview = mask_token(token)
+
+    async with AsyncSessionLocal() as db:
+        # Sprawdź czy token się zmienił
+        result = await db.execute(text("SELECT api_token_preview FROM fakturownia_settings WHERE id=1"))
+        row = result.fetchone()
+        if row and row[0] == preview:
+            print(f"  [fa-token] Token aktualny (preview={preview}) — skip")
+            return
+
+        await db.execute(text(
+            "UPDATE fakturownia_settings SET "
+            "api_token_ciphertext = :ct, api_token_preview = :pv, "
+            "enabled = 1, domain_subdomain = :dom, "
+            "api_token_updated_at = :ts WHERE id = 1"
+        ), {
+            "ct": ciphertext, "pv": preview,
+            "dom": app_settings.RAO_FAKTUROWNIA_DOMAIN_SUBDOMAIN,
+            "ts": datetime.now(timezone.utc).replace(tzinfo=None),
+        })
+        await db.commit()
+        print(f"  [fa-token] Token zaktualizowany w DB (preview={preview})")
 
 
 async def _verify() -> int:
