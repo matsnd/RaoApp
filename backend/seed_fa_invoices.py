@@ -22,6 +22,11 @@ from pathlib import Path
 
 import httpx
 
+# Windows: cp1250 crashuje przy polskich znakach — wymuś UTF-8 (jak seed_demo_data.py)
+if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 sys.path.insert(0, str(Path(__file__).parent))
 
 # Załaduj root .env (FAKTUROWNIA_API_TOKEN) — deterministyczne uruchomienie
