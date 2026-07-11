@@ -12,6 +12,7 @@ graph TD
     B --> B1["Sidebar: <b>Umowy</b><br/>/dashboard/contracts"]
     B --> B2["Sidebar: <b>Kontrahenci</b><br/>/dashboard/contractors"]
     B --> B3["Sidebar: <b>Artykuły</b><br/>/dashboard/articles"]
+    B --> B3b["Sidebar: <b>Rezerwacje</b><br/>/reservations (Phase 3)"]
     B --> B7["Sidebar: <b>📊 Statystyki</b><br/>/analytics (merge Stats+Reports, RAO-P2-063)"]
     B --> B6["Sidebar: <b>📦 Archiwum</b><br/>/archive (RAO-P2-062)"]
     B --> B5["Sidebar: <b>Ustawienia</b><br/>/settings"]
@@ -51,6 +52,7 @@ graph TD
 | `Form2.cs` (Umowy tab) | `/dashboard/contracts` | Sidebar + content |
 | `Form2.cs` (Kontrahenci tab) | `/dashboard/contractors` | Sidebar + content |
 | `Form2.cs` (Artykuły tab) | `/dashboard/articles` | Sidebar + content |
+| `ReservationsView` (Phase 3) | `/reservations` | Sidebar + content (kalendarz + lista + modal CRUD) |
 | `Form2.cs` (Raporty tab) | `/analytics` (merge Stats+Reports, RAO-P2-063) | Sidebar + content |
 | `FormK.cs` | `/contractors/:id/edit` lub `/new` | Pełna strona (replace content) |
 | `FormU4.cs` | `/contracts/:id/edit` lub `/new` | Pełna strona (replace content) |
@@ -73,6 +75,7 @@ graph TD
 | `/contractors/:id/edit` | `ContractorEdit` | `ContractorFormView.vue` | tak | Edycja kontrahenta |
 | `/articles/new` | `ArticleNew` | `ArticleFormView.vue` | tak | Nowy artykuł |
 | `/articles/:id/edit` | `ArticleEdit` | `ArticleFormView.vue` | tak | Edycja artykułu |
+| `/reservations` | `Reservations` | `ReservationsView.vue` | tak | Rezerwacje maszyn — kalendarz + lista + modal CRUD (Phase 3) |
 | `/contracts/new` | `ContractNew` | `ContractFormView.vue` | tak | Nowa umowa |
 | `/contracts/:id/edit` | `ContractEdit` | `ContractFormView.vue` | tak | Edycja umowy |
 | `/worker` | `Worker` | `WorkerView.vue` | tak | Pulpit operacyjny (kończące, dostawy) |
@@ -95,6 +98,12 @@ Formularz umowy automatycznie wypełnia kontrahenta.
 ### 3. Kalendarz
 Kliknięcie na dzień w kalendarzu → filtruje listę umów do tych z `data_od <= dzień AND data_do >= dzień`.
 Dni z umowami są podświetlone (background color).
+
+### 3b. Rezerwacje (Phase 3)
+Widok `/reservations` — kalendarz month-view + lista + modal CRUD.
+- Klik na dniu kalendarza → modal dodawania rezerwacji z preustawioną datą.
+- Klik na kropce (event) → modal edycji (rezerwacja) lub info read-only (umowa).
+- Ctrl+N NIE otwiera formularza dla sekcji reservations (widok ma własny modal).
 
 ### 4. Toolbar [?]
 W sekcji Umowy: otwiera podgląd szczegółów zaznaczonej umowy (dialog z danymi).

@@ -57,6 +57,11 @@ const routes = [
         props: true,
       },
       {
+        path: 'reservations',
+        name: 'Reservations',
+        component: () => import('@/views/ReservationsView.vue'),
+      },
+      {
         path: 'contracts/new',
         name: 'ContractNew',
         component: () => import('@/views/ContractFormView.vue'),

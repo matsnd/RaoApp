@@ -77,6 +77,7 @@ const topItems = [
   { section: 'contracts', label: 'Umowy' },
   { section: 'contractors', label: 'Kontrahenci' },
   { section: 'articles', label: 'Artykuły' },
+  { section: 'reservations', label: 'Rezerwacje' },
 ]
 
 function handleLogout() {

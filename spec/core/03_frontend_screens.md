@@ -2308,3 +2308,56 @@ onUnmounted(() => {
 - `npx vue-tsc --noEmit` → PASS (exit 0, strict + noUnusedLocals/Parameters)
 - `npm run build` → PASS (chunk `AnalyticsView-*.js` ~31.7 kB / ~9.3 kB gzip; CSS `AnalyticsView-*.css` ~16 kB)
 
+---
+
+## ReservationsView (Phase 3, 2026-07-11)
+
+### `views/ReservationsView.vue` (~700 linii)
+- **Widok Rezerwacji maszyn** — kalendarz month-view + lista + modal CRUD.
+- **Toggle kalendarz/lista** (dwa przyciski, domyślnie kalendarz).
+- **Kalendarz month-view** (custom CSS grid 7×5-6, BEZ biblioteki):
+  - Nagłówek: miesiąc + rok (capitalize, pl-PL), przyciski ← → (poprzedni/następny miesiąc), "Dziś".
+  - Komórki dni: numer dnia + kropki (colored dots) reprezentujące eventy (max 4 + "+N").
+  - **Kolory kropek:** niebieski (`var(--color-primary)`) = rezerwacja confirmed; `var(--color-primary)` z `opacity: 0.5` = provisional; `var(--color-warning)` (#F59E0B) = umowa (source=contract).
+  - **Tooltip na dniu** (hover, CSS): lista eventów — "maszyna X, kontrahent Y, data od-do" + "(umowa)" dla contract.
+  - Klik na dniu → otwiera modal dodawania z preustawioną datą.
+  - Klik na kropce (event) → otwiera modal edycji (rezerwacja) lub info read-only (umowa).
+  - Tydzień zaczyna się od poniedziałku (Pn-Nd).
+- **Widok listy** (tabela): Maszyna (article_name + internal_number), Kontrahent (contractor_name lub "—"), Od, Do, Status (badge), Notatka, Akcje (edytuj ✏️, usuń 🗑️). Sortowanie po dacie od (rosnąco).
+- **Filtry** (nad kalendarzem/listą):
+  - Maszyna (select z artykułami non-service, non-archival).
+  - Kontrahent (`ContractorCombobox` z `components/analytics/`).
+  - Status (confirmed/provisional/wszystko).
+  - Zakres dat (`DateRangePicker` z `components/shared/`) — tylko dla widoku listy; kalendarz używa automatycznie miesiąc.
+- **Modal dodawania/edycji:**
+  - Pola: maszyna (select, wymagana), kontrahent (combobox, opcjonalny), data od (wymagana), data do (wymagana), status (confirmed/provisional), notatka (textarea).
+  - Walidacja: data od ≤ data do, maszyna wymagana.
+  - Edycja: przycisk "Usuń" (z confirm).
+  - Read-only dla umów (source=contract) — info z notką "edycja tylko z poziomu umowy".
+  - Loading state (modalSaving), error state (409 konflikt → komunikat).
+- **Stany:** loading (`StateMessage` type=loading), error (retry), empty ("Brak rezerwacji. Dodaj pierwszą rezerwację." + CTA).
+- **Store:** `useReservationsStore()` — `fetchCalendar`, `fetchAllWithArticles`, `create`, `update`, `remove`.
+- **Data loading:** onMounted → loadArticles (is_service=false, archival_status=active, per_page=200) + contractors (per_page=500) + refreshData. Watch: zmiana miesiąca/filtru artykułu → reload kalendarza; przełączenie trybu → reload.
+- **Design system:** wyłącznie zmienne CSS z `style.css` (`--color-primary`, `--color-warning`, `--color-bg-card`, `--border-radius-md`, `--shadow-card`, `--font-family`, spacing). Brak hardcoded kolorów.
+- data-testid: `reservations-view`, `rv-add-btn`, `rv-toggle-calendar`, `rv-toggle-list`, `rv-filter-article`, `rv-filter-contractor`, `rv-filter-status`, `rv-calendar`, `rv-cal-prev/next/today`, `rv-cal-cell`, `rv-list`, `rv-list-row`, `rv-edit-btn`, `rv-delete-btn`, `rv-modal`, `rv-modal-article`, `rv-modal-from`, `rv-modal-to`, `rv-modal-status`, `rv-modal-note`, `rv-modal-save`, `rv-modal-delete`, `rv-modal-error`.
+
+### `stores/reservations.ts` (rozszerzony, Phase 3)
+- Interfejs `ArticleReservation`: dodano `contractor_id: number | null`, `contractor_name: string | null`, `status: string | null`.
+- Interfejs `ReservationWithArticle`: dziedziczy rozszerzone `ArticleReservation`.
+- Interfejs `ReservationPayload`: dodano `contractor_id?: number | null`, `status?: string | null`.
+- Nowy interfejs `CalendarEvent`: `source`, `source_id`, `article_id`, `article_name`, `internal_number`, `contractor_id`, `contractor_name`, `date_from`, `date_to`, `note`, `status`.
+- Nowy interfejs `ReservationUpdatePayload`: partial (`reserved_from?`, `reserved_to?`, `note?`, `contractor_id?`, `status?`).
+- Nowy ref `calendarEvents: ref<CalendarEvent[]>([])`, `loadingCalendar: ref(false)`.
+- Nowa metoda `fetchCalendar(dateFrom, dateTo, articleId?)` → GET `/reservations/calendar`.
+- Nowa metoda `update(reservationId, payload)` → PUT `/reservations/{id}`.
+- `remove` odświeża też `allList`. `reset` czyści też `calendarEvents`.
+
+### Routing / nawigacja (Phase 3)
+- `router/index.js`: dodany route `path: 'reservations'`, `name: 'Reservations'`, lazy import `ReservationsView.vue` (w children array po articles).
+- `components/layout/AppLayout.vue`: `activeSection` rozpoznaje `/reservations`; `handleNavigate('reservations')` → `router.push('/reservations')`. Ctrl+N NIE otwiera formularza dla reservations (widok ma własny modal).
+- `components/layout/AppSidebar.vue`: `topItems` dodany `{ section: 'reservations', label: 'Rezerwacje' }` (po articles).
+
+### Weryfikacja (Phase 3)
+- `npx vue-tsc --noEmit` → PASS (exit 0, strict + noUnusedLocals/Parameters)
+- `npm run build` → PASS (chunk `ReservationsView-*.js` ~221 kB / ~65.9 kB gzip; CSS `ReservationsView-*.css` ~33.7 kB / ~6.0 kB gzip)
+
