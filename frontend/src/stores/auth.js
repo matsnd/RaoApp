@@ -9,7 +9,10 @@ export const useAuthStore = defineStore('auth', () => {
   const error = ref(null)
 
   const isAuthenticated = computed(() => !!token.value)
-  const isAdmin = computed(() => user.value?.role === 'admin')
+  // NOTE (2026-07-11): IDOR WYŁĄCZONY — single-user mode. Wszyscy zalogowani mają pełny dostęp.
+  // isAdmin zawsze true jeśli zalogowany (wyłącza guardy UI w AppSidebar, ArchiveView, router).
+  // Pełny RBAC wdrożony gdy pojawią się wymagania wieloużytkownikowe.
+  const isAdmin = computed(() => !!token.value)
   const mustChangePassword = computed(() => user.value?.must_change_password)
 
   async function login(login, password) {

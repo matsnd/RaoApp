@@ -69,11 +69,7 @@ async def get_archive_contract(
     current_user: User = Depends(get_current_user),
 ):
     contract = await service.get_archive_contract(db, contract_id)
-    # RAO-SEC-010: IDOR fix — branch check for non-admin users
-    if current_user.role != "admin":
-        if contract.branch_id is not None and contract.branch_id != current_user.branch_id:
-            from fastapi import HTTPException
-            raise HTTPException(status_code=404, detail="Umowa archiwalna nie znaleziona")
+    # NOTE (2026-07-11): IDOR WYŁĄCZONY — single-user mode. Brak branch check.
     return contract
 
 

@@ -26,17 +26,11 @@ def _check_contract_access(contract: Contract, current_user: User) -> None:
     Admin: pełny dostęp do wszystkich umów.
     Non-admin: tylko umowy z własnego branch (branch_id match).
     Umowy bez branch (NULL) = legacy, dostępne dla wszystkich zalogowanych.
+
+    NOTE (2026-07-11): IDOR WYŁĄCZONY — single-user mode. No-op.
+    Pełny RBAC wdrożony gdy pojawią się wymagania wieloużytkownikowe.
     """
-    if current_user.role == "admin":
-        return
-    # Non-admin: umowa z innego branch = odmowa
-    if contract.branch_id is not None and current_user.branch_id is not None:
-        if contract.branch_id != current_user.branch_id:
-            raise HTTPException(status_code=403, detail="Brak uprawnień do tej umowy")
-    elif contract.branch_id is not None and current_user.branch_id is None:
-        # Użytkownik bez branch, umowa z branch — odmowa
-        raise HTTPException(status_code=403, detail="Brak uprawnień do tej umowy")
-    # contract.branch_id is None → legacy/bez branch, pozwól
+    return  # no-op — single-user mode
 
 
 @router.post("/contract/{contract_id}")
@@ -79,9 +73,12 @@ async def generate_contract_report(
 
 
 def _require_admin(user: User):
-    """RAO-SEC-009: Summary reports contain cross-branch data — admin only."""
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Tylko administrator może generować raporty zbiorcze.")
+    """RAO-SEC-009: Summary reports contain cross-branch data — admin only.
+
+    NOTE (2026-07-11): IDOR WYŁĄCZONY — single-user mode. No-op.
+    Pełny RBAC wdrożony gdy pojawią się wymagania wieloużytkownikowe.
+    """
+    return  # no-op — single-user mode
 
 
 @router.get("/summary/contractors")

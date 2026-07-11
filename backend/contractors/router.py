@@ -16,9 +16,12 @@ router = APIRouter(prefix="/contractors", tags=["contractors"])
 
 
 def _require_admin(user: User):
-    """RAO-SEC-002 fix: IDOR guard — contractors are shared entities, write requires admin."""
-    if user.role != "admin":
-        raise forbidden("Tylko administrator może modyfikować kontrahentów.")
+    """RAO-SEC-002 fix: IDOR guard — contractors are shared entities, write requires admin.
+
+    NOTE (2026-07-11): IDOR WYŁĄCZONY — single-user mode. No-op, wszyscy mają pełny dostęp.
+    Pełny RBAC zostanie wdrożony gdy pojawią się wymagania wieloużytkownikowe.
+    """
+    pass  # no-op — single-user mode
 
 
 @router.get("", response_model=PaginatedResponse[ContractorListItem])

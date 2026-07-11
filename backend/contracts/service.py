@@ -435,21 +435,14 @@ class ContractService:
         - user/viewer widzi tylko własny branch
         - viewer może tylko odczytywać (allow_mutation=False)
         - kontrakty bez branch_id (legacy) są widoczne dla wszystkich zalogowanych
+
+        NOTE (2026-07-11): IDOR WYŁĄCZONY — single-user mode. Branch/viewer checks
+        pominięte. Funkcja zachowuje is_settled check (business logic, nie security).
+        Pełny RBAC zostanie wdrożony gdy pojawią się wymagania wieloużytkownikowe.
         """
         contract = await self.get_contract(db, contract_id)
 
-        if user.role == "admin":
-            if allow_mutation and contract.is_settled:
-                raise conflict("Umowa jest rozliczona — modyfikacja zablokowana. Najpierw cofnij rozliczenie.")
-            return contract
-
-        if contract.branch_id is not None and contract.branch_id != user.branch_id:
-            raise not_found("Umowa")  # 404 — nie ujawniaj istnienia cudzego zasobu
-
-        if allow_mutation and user.role == "viewer":
-            from shared.exceptions import forbidden
-            raise forbidden("Tylko odczyt — brak uprawnień do modyfikacji.")
-
+        # IDOR wyłączony — wszyscy mają pełny dostęp (single-user mode)
         if allow_mutation and contract.is_settled:
             raise conflict("Umowa jest rozliczona — modyfikacja zablokowana. Najpierw cofnij rozliczenie.")
 
@@ -471,12 +464,7 @@ class ContractService:
         from contracts.schemas import ContractListItem
 
         stmt = select(Contract)
-        if user.role != "admin":
-            # user/viewer widzą tylko swój branch; NULL branch = legacy, visible to all
-            stmt = stmt.where(
-                (Contract.branch_id == user.branch_id) |
-                (Contract.branch_id.is_(None))
-            )
+        # NOTE (2026-07-11): IDOR WYŁĄCZONY — single-user mode. Brak branch scopingu.
         if search:
             stmt = stmt.where(
                 (Contract.number.ilike(f"%{search}%")) |
@@ -593,11 +581,7 @@ class ContractService:
             Contract.date_to < today,
             Contract.is_settled == False
         )
-        if user.role != "admin":
-            stmt = stmt.where(
-                (Contract.branch_id == user.branch_id) |
-                (Contract.branch_id.is_(None))
-            )
+        # NOTE (2026-07-11): IDOR WYŁĄCZONY — single-user mode. Brak branch scopingu.
 
         count_stmt = select(func.count()).select_from(stmt.subquery())
         total = (await db.execute(count_stmt)).scalar_one()
@@ -813,8 +797,8 @@ class ContractService:
         from sqlalchemy.exc import IntegrityError
         max_retries = 3
 
-        # Admin może nadpisać branch; user/viewer tworzą w swoim branchu.
-        branch_id = data.branch_id if user.role == "admin" else user.branch_id
+        # NOTE (2026-07-11): IDOR WYŁĄCZONY — single-user mode. Wszyscy mogą ustawić branch.
+        branch_id = data.branch_id
 
         for attempt in range(max_retries):
             try:
@@ -866,9 +850,7 @@ class ContractService:
         # are applied. Prevents lost-data bug where omitted fields reset to defaults.
         update_data = data.model_dump(exclude_unset=True)
         update_data.pop("contractor_name", None)
-        # Tylko admin może zmieniać branch_id.
-        if user.role != "admin" and "branch_id" in update_data:
-            update_data.pop("branch_id", None)
+        # NOTE (2026-07-11): IDOR WYŁĄCZONY — single-user mode. Wszyscy mogą zmieniać branch_id.
         for field, value in update_data.items():
             setattr(contract, field, value)
         # RAO-P2-028: gdy aktualizowano postal_code, odśwież FK postal_code_id

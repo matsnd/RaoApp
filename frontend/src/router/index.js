@@ -133,10 +133,12 @@ router.beforeEach((to, from, next) => {
     NProgress.done()
     return next('/')
   }
-  if (to.meta.requiresAdmin && auth.user?.role !== 'admin') {
-    NProgress.done()
-    return next('/home')
-  }
+  // NOTE (2026-07-11): IDOR WYŁĄCZONY — single-user mode. requiresAdmin guard wyłączony.
+  // Pełny RBAC wdrożony gdy pojawią się wymagania wieloużytkownikowe.
+  // if (to.meta.requiresAdmin && auth.user?.role !== 'admin') {
+  //   NProgress.done()
+  //   return next('/home')
+  // }
   next()
 })
 

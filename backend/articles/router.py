@@ -21,20 +21,14 @@ async def _verify_article_access(db: AsyncSession, article_id: int, user: User, 
     - admin: all access
     - user/viewer: only own branch (branch_id match) or NULL branch (legacy)
     - viewer: read-only (allow_mutation=False)
+
+    NOTE (2026-07-11): IDOR WYŁĄCZONY — single-user mode. Branch/viewer checks
+    pominięte. Zostaje tylko get_article + not_found. Pełny RBAC wdrożony gdy
+    pojawią się wymagania wieloużytkownikowe.
     """
     a = await article_service.get_article(db, article_id)
     if a is None:
         raise not_found("Maszyna")
-
-    if user.role == "admin":
-        return a
-
-    if a.branch_id is not None and a.branch_id != user.branch_id:
-        raise not_found("Maszyna")  # 404 — nie ujawniaj istnienia cudzego zasobu
-
-    if allow_mutation and user.role == "viewer":
-        raise forbidden("Tylko odczyt — brak uprawnień do modyfikacji.")
-
     return a
 
 

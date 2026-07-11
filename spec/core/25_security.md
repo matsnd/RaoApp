@@ -32,7 +32,18 @@
 - **Security headers:** X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy (RAO-SEC-007: commit c572e6c). HSTS + CSP tylko w production.
 - **CORS:** ograniczony do konkretnych metod i nagłówków (RAO-SEC-008: commit c572e6c, był "*")
 
-## 3. AuthZ (RBAC matrix)
+> **DECYZJA BIZNESOWA (2026-07-11): SINGLE-USER MODE — IDOR WYŁĄCZONY**
+>
+> Na ten moment aplikacja działa w trybie single-user: **jeden użytkownik, pełny dostęp do wszystkiego, warunek = zalogowany**.
+> IDOR guardy (branch-scoped access, admin-only writes) zostały **WYŁĄCZONE** z routerów.
+> Funkcje guardów pozostają w service (do przyszłego użycia).
+>
+> **Uzasadnienie:** Faza MVP — jeden klient, jeden użytkownik. RBAC/branch-scoping będzie wdrożony za kasę gdy pojawią się wymagania (wielu użytkowników, wiele filii).
+>
+> **Co zostaje:** logowanie (JWT), zmiana hasła, reset hasła.
+> **Co jest wyłączone:** branch-scoped access, admin-only writes, summary reports admin-only, archive branch check.
+
+## 3. AuthZ (RBAC matrix) — WYŁĄCZONY (single-user mode)
 
 | Zasób | user | admin |
 |---|---|---|

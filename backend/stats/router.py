@@ -1065,9 +1065,7 @@ async def clear_cache(
 ):
     """Wyczyść cały cache statystyk/słowników (admin). Zwraca liczbę usuniętych wpisów."""
     from auth.models import User as _U
-    # tylko admin może czyścić cache
-    if _.role != "admin":
-        raise HTTPException(status_code=403, detail="Tylko admin może czyścić cache")
+    # NOTE (2026-07-11): IDOR WYŁĄCZONY — single-user mode. Brak admin check.
     removed = cache.clear()
     return {"cleared": removed, "remaining": cache.stats()["entries"]}
 

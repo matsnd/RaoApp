@@ -228,9 +228,7 @@ async def fetch_invoices_for_contract(
     if contract is None:
         raise HTTPException(status_code=404, detail="Umowa nie znaleziona")
 
-    if user.role != "admin":
-        if user.branch_id is None or contract.branch_id != user.branch_id:
-            raise HTTPException(status_code=403, detail="Brak dostepu do tej umowy")
+    # NOTE (2026-07-11): IDOR WYŁĄCZONY — single-user mode. Brak branch check.
 
     # RAO-P2-058: OID hybrydowe — użyj contract.oid jeśli ustawiony, w przeciwnym razie contract.number
     oid = contract.oid if contract.oid else contract.number
