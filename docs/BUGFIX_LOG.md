@@ -92,20 +92,20 @@
 
 | # | ID | Severity | Opis | Status |
 |---|----|----------|------|--------|
-| 4 | RAO-SEC-004 | HIGH | JWT TTL 480min vs spec 60min | PENDING |
-| 5 | RAO-SEC-005 | HIGH | Brak session invalidation po change-password | PENDING |
-| 6 | RAO-SEC-006 | HIGH | Password min 6 vs spec 12 | PENDING |
-| 7 | RAO-SEC-007 | HIGH | Brak security headers (CSP, HSTS, X-Frame) | PENDING |
-| 8 | RAO-SEC-008 | MEDIUM | CORS zbyt permisywny | PENDING |
-| 9 | RAO-SEC-009 | MEDIUM | Brak branch filter w summary PDF reports | PENDING |
-| 10 | RAO-SEC-010 | MEDIUM | Brak branch check w archive | PENDING |
-| 11 | RAO-SEC-011 | HIGH | DB password w spec/process/migrations.md | PENDING |
-| 12 | RAO-TECH-001 | LOW | Martwy store feeTemplates | PENDING |
-| 13 | RAO-TECH-002 | LOW | Martwe kolumny Company | PENDING |
-| 14 | RAO-TECH-003 | LOW | Zakładka folder vs pdf-folders | PENDING |
-| 15 | RAO-TECH-004 | LOW | STALE spec RAO-P1-023 | PENDING |
-| 16 | RAO-TECH-005 | LOW | STALE ASCII layout SettingsView | PENDING |
+| 4 | RAO-SEC-004 | HIGH | JWT TTL 480min vs spec 60min | FIXED ✅ (commit c572e6c) |
+| 5 | RAO-SEC-005 | HIGH | Brak session invalidation po change-password | WONTFIX (świadoma decyzja — TTL=60min akceptowalne dla B2B) |
+| 6 | RAO-SEC-006 | HIGH | Password min 6 vs spec 12 | FIXED ✅ (commit c572e6c, min=8) |
+| 7 | RAO-SEC-007 | HIGH | Brak security headers (CSP, HSTS, X-Frame) | FIXED ✅ (commit c572e6c) |
+| 8 | RAO-SEC-008 | MEDIUM | CORS zbyt permisywny | FIXED ✅ (commit c572e6c) |
+| 9 | RAO-SEC-009 | MEDIUM | Brak branch filter w summary PDF reports | FIXED ✅ (commit 35d6617, admin-only) |
+| 10 | RAO-SEC-010 | MEDIUM | Brak branch check w archive | FIXED ✅ (commit 35d6617) |
+| 11 | RAO-SEC-011 | HIGH | DB password w spec/process/migrations.md | FIXED ✅ (commit c572e6c) |
+| 12 | RAO-TECH-001 | LOW | Martwy store feeTemplates | FIXED ✅ (commit c572e6c) |
+| 13 | RAO-TECH-002 | LOW | Martwe kolumny Company | PENDING (wymaga DROP COLUMN + backup) |
+| 14 | RAO-TECH-003 | LOW | Zakładka folder vs pdf-folders | PENDING (decyzja produktowa) |
+| 15 | RAO-TECH-004 | LOW | STALE spec RAO-P1-023 | FIXED ✅ (commit c572e6c) |
+| 16 | RAO-TECH-005 | LOW | STALE ASCII layout SettingsView | FIXED ✅ (commit c572e6c) |
 | 17 | RAO-TECH-006 | LOW | spec/core/15_build_progress.md STALE | PENDING |
-| 18 | RAO-QA-002 | MEDIUM | POST contracts bez date_from → 500 | PENDING |
-| 19 | RAO-QA-003 | MEDIUM | PDF nieistniejący contract_id → 500 | PENDING |
+| 18 | RAO-QA-002 | MEDIUM | POST contracts bez date_from → 500 | FIXED ✅ (commit 35d6617, 422) |
+| 19 | RAO-QA-003 | MEDIUM | PDF nieistniejący contract_id → 500 | PENDING (już ma 404 check) |
 | 20 | RAO-QA-004 | MEDIUM | PDF nieistniejący contractor_id → 500 | PENDING |

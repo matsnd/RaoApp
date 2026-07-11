@@ -64,33 +64,13 @@ async def generate_contract_report(
         contract.print_date = datetime.utcnow()
         await db.commit()
     contract_num_clean = contract.number.replace('/', '_') if contract and contract.number else str(contract_id)
-    
-    # Determine filename and folder
+
+    # Determine filename (folder auto-save is handled by frontend usePdfFolders — IndexedDB)
     if type == 'contract':
         filename = f"{contract_num_clean}.pdf"
-        folder = "report_folder"
     else:
         filename = f"PZO_{contract_num_clean}.pdf"
-        folder = "protocol_folder"
-    
-    # Save to folder if configured
-    if contract and folder:
-        from settings.models import Company
-        company = await db.get(Company, 1)
-        if company:
-            folder_path = getattr(company, folder, None)
-            if folder_path:
-                import os
-                try:
-                    os.makedirs(folder_path, exist_ok=True)
-                    file_path = os.path.join(folder_path, filename)
-                    with open(file_path, 'wb') as f:
-                        f.write(pdf_bytes)
-                except Exception as e:
-                    # Log error but don't fail the request
-                    import logging
-                    logging.warning(f"Failed to save PDF to {folder_path}: {e}")
-    
+
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",

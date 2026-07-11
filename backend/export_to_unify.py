@@ -332,8 +332,7 @@ SHEETS: list[dict] = [
         "title": "Dane wlasnej firmy (1)",
         "sql": """
             SELECT id, name, name_short, nip, regon, postal_code, city, street,
-                   bank_name, bank_account, header_text, numbering_start, increment_step,
-                   report_folder, protocol_folder, app_version
+                   bank_name, bank_account, header_text, numbering_start, increment_step
             FROM company
         """,
         "columns": [
@@ -351,9 +350,6 @@ SHEETS: list[dict] = [
             ("Naglowek na dokumentach", "header_text", 50),
             ("Numer poczatkowy umow", "numbering_start", 14),
             ("Krok numeracji", "increment_step", 12),
-            ("Folder raportow", "report_folder", 20),
-            ("Folder protokolow", "protocol_folder", 20),
-            ("Wersja aplikacji", "app_version", 12),
             ("Uwagi klienta", "_notes", 40),
         ],
         "legend": [

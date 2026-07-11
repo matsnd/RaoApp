@@ -178,14 +178,12 @@ async def step4_migrate_data():
         ("company", """
             INSERT INTO company
                 (id, name, name_short, nip, regon, postal_code, city, street,
-                 header_text, logo, bank_name, bank_account,
-                 numbering_start, increment_step,
-                 report_folder, app_version, protocol_folder)
+                 header_text, bank_name, bank_account,
+                 numbering_start, increment_step)
             SELECT
                 id, nazwa, nazwa_krotka, nip, regon, kod_pocztowy, miejscowosc, ulica_lokal,
-                naglowek, logo, bank, rachunek,
-                numeracja, interwal,
-                folder, wersja, folder2
+                naglowek, bank, rachunek,
+                numeracja, interwal
             FROM firma
         """),
 

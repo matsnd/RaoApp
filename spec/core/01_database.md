@@ -109,15 +109,12 @@ CREATE TABLE company (
     city           VARCHAR(50)  NULL,
     street         VARCHAR(50)  NULL,
     header_text    TEXT         NULL COMMENT 'Nagłówek raportu (multiline)',
-    logo           LONGBLOB     NULL,
     bank_name      VARCHAR(200) NULL,
     bank_account   VARCHAR(40)  NULL,
     numbering_start INT         NULL DEFAULT 1 COMMENT 'Startowy numer dla auto-numeracji umów',
     increment_step DECIMAL(18,2) NULL DEFAULT 50.00 COMMENT 'Krok opłat +/- w konfiguracji',
-    report_folder  VARCHAR(200) NULL,
-    protocol_folder VARCHAR(200) NULL,
-    app_version    VARCHAR(20)  NULL,
     logo_path      VARCHAR(500) NULL COMMENT 'RAO-P3-002: URL do pliku logo (np. /rao/api/static/logos/company_logo.png)',
+    -- RAO-TECH-002 (2026-07-11): Usunięto martwe kolumny: logo (LONGBLOB), report_folder, protocol_folder, app_version
     -- UWAGA: Szablony usług dodatkowych przeniesione do tabeli service_fee_templates
 ) ENGINE=InnoDB COMMENT='Dane firmy - singleton (stara tabela: firma)';
 

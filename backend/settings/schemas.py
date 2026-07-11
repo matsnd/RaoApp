@@ -17,8 +17,6 @@ class CompanyResponse(BaseModel):
     bank_account: str | None
     numbering_start: int | None
     increment_step: Decimal | None
-    report_folder: str | None
-    protocol_folder: str | None
     logo_url: str | None = None  # RAO-P3-002: URL do logo firmy (mapuje logo_path z modelu)
 
     class Config:
@@ -50,8 +48,6 @@ class CompanyUpdate(BaseModel):
     bank_account: str | None = Field(None, max_length=40)
     numbering_start: int | None = None
     increment_step: Decimal | None = None
-    report_folder: str | None = Field(None, max_length=200)
-    protocol_folder: str | None = Field(None, max_length=200)
 
 
 class ServiceFeeTemplateResponse(BaseModel):

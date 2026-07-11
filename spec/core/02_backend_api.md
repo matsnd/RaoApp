@@ -1121,9 +1121,9 @@ class CompanyResponse(BaseModel):
     bank_account: str | None
     numbering_start: int | None
     increment_step: Decimal | None
-    report_folder: str | None
-    protocol_folder: str | None
+    logo_url: str | None  # RAO-P3-002: URL do logo (mapuje logo_path)
     # UWAGA: Szablony usług dodatkowych → GET /settings/service-fee-templates
+    # RAO-TECH-002 (2026-07-11): Usunięto report_folder, protocol_folder (martwe kolumny)
 ```
 
 ### `GET /settings/service-fee-templates`

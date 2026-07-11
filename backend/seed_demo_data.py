@@ -321,9 +321,6 @@ FIRMA_CONFIG = {
     "bank_account": "PL 12 1020 1026 0000 1234 5678 9012",
     "numbering_start": 1,
     "increment_step": Decimal("50.00"),
-    "report_folder": "C:\\RAO\\Raporty",
-    "protocol_folder": "C:\\RAO\\Protokoly",
-    "app_version": "2.0.0",
 }
 
 # ── Lokalizacje budów (RAO-P2-067) ────────────────────────────────────────────

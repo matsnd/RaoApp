@@ -28,7 +28,7 @@
 - **JWT_SECRET:** ≥32B z os.urandom (RAO_SECRET_KEY z .env, validator odrzuca pusty/"change-me")
 - **Hasła:** bcrypt, min length 8 (RAO-SEC-006: podniesiono z 6 do 8, commit c572e6c). TODO: min 12 + blacklist top-10k
 - **Rate-limit:** /auth/login 5/min/IP (wyłączony w dev mode)
-- **Change-password:** wymaga aktualnego hasła. TODO: jti blacklist dla session invalidation (RAO-SEC-005 pending)
+- **Change-password:** wymaga aktualnego hasła. **DECYZJA (2026-07-11):** Nie implementujemy jti blacklist — TTL=60min jest akceptowalne dla aplikacji B2B wewnętrznej. Stare tokeny wygasają naturalnie w max 60min. Świadoma decyzja: złożoność blacklist (DB/Redis + każdy request) > korzyść (natychmiastowa invalidacja). Jeśli wymagane w przyszłości: opcja `token_version` w DB (inkrement po change-password).
 - **Security headers:** X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy (RAO-SEC-007: commit c572e6c). HSTS + CSP tylko w production.
 - **CORS:** ograniczony do konkretnych metod i nagłówków (RAO-SEC-008: commit c572e6c, był "*")
 

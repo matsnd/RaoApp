@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, LargeBinary, Numeric, String, Text, func
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Numeric, String, Text, func
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -18,15 +18,11 @@ class Company(Base):
     city = Column(String(50), nullable=True)
     street = Column(String(50), nullable=True)
     header_text = Column(Text, nullable=True)
-    logo = Column(LargeBinary, nullable=True)
     bank_name = Column(String(200), nullable=True)
     bank_account = Column(String(40), nullable=True)
     numbering_start = Column(Integer, nullable=True, default=1)
     increment_step = Column(Numeric(18, 2), nullable=True, default=50)
-    report_folder = Column(String(200), nullable=True)
-    protocol_folder = Column(String(200), nullable=True)
-    app_version = Column(String(20), nullable=True)
-    logo_path = Column(String(500), nullable=True)  # RAO-P3-002: ścieżka do logo (zastępuje binary logo)
+    logo_path = Column(String(500), nullable=True)  # RAO-P3-002: ścieżka do logo
 
 
 class FeePresetGroup(Base):
