@@ -970,7 +970,10 @@ async def seed_umowy(db: AsyncSession, contracts_data, art_by_name):
         contract = existing.scalar_one_or_none()
         if contract:
             # Enrich: uzupełnij lokalizację jeśli brak (idempotentny update)
-            if not contract.city:
+            # RAO-P2-071 fix: sprawdzaj postal_code_id (nie city) — city może być
+            # ustawione z pierwszego seeda, ale postal_code_id NULL jeśli postal_codes
+            # był pusty w momencie tworzenia umowy.
+            if not contract.postal_code_id and pna_id:
                 contract.city = cd["city"]
                 contract.postal_code = cd["postal_code"]
                 contract.delivery_address = cd["delivery_address"]

@@ -2,18 +2,22 @@
 RAO-P2-067: migrate_all.py — orchestrator pełnej migracji + środowiska demo.
 
 Kroki (uruchamiane wybiórczo przez --steps):
-  1  legacy      Migracja legacy dump → rao_new (migrate.py — DROPUJE i odtwarza bazę!)
-  2  archive     Archive split — legacy umowy → tabele archive_* (migrate_to_archive.py)
-  3  demo        Seed danych demo (seed_demo_data.py): kontrahenci, maszyny, umowy
+  1   legacy     Migracja legacy dump → rao_new (migrate.py — DROPUJE i odtwarza bazę!)
+  2   archive    Archive split — legacy umowy → tabele archive_* (migrate_to_archive.py)
+  2b  clean      Czyszczenie tabel demo (bez archiwizacji — dla --reseed)
+  2c  postal     Seed postal_codes z CSV (wymagane przed demo — umowy referencjuja PNA)
+  3   demo       Seed danych demo (seed_demo_data.py): kontrahenci, maszyny, umowy
                  2025+2026 z lokalizacjami (PNA), zestawy usług "jak od klienta",
                  pula FA-pending (nierozliczone — do demo integracji FA)
-  4  fa          Faktury w Fakturowni (seed_fa_invoices.py): backfill invoice_id dla
-                 rozliczonych + faktury czekające dla FA-pending (OID = numer umowy)
-  5  verify      Weryfikacja stanu demo (liczby, lokalizacje, gruba krecha)
+  4   fa         Faktury w Fakturowni (seed_fa_invoices.py): utworz klienci+produkty w FA
+                 (jeśli puste), backfill invoice_id dla rozliczonych + faktury czekające
+                 dla FA-pending (OID = numer umowy)
+  5   verify     Weryfikacja stanu demo (liczby, lokalizacje, gruba krecha)
 
 Użycie:
     python migrate_all.py --list                 # pokaż kroki
-    python migrate_all.py --steps 3-5            # typowe odświeżenie demo (bez dropu bazy)
+    python migrate_all.py --steps 2c-5           # fresh seed bez legacy (schema z modeli)
+    python migrate_all.py --steps 3-5            # odświeżenie demo (bez postal_codes)
     python migrate_all.py --steps 1-5            # PEŁNA migracja od zera (wymaga dumpa!)
     python migrate_all.py --steps 4              # tylko faktury FA
 
@@ -93,6 +97,11 @@ def step2b_clean_demo(args) -> int:
         return 0
 
     return asyncio.run(_clean())
+
+
+def step2c_postal(args) -> int:
+    """Seed postal_codes from CSV — musi biec PRZED demo (umowy referencjuja postal_code_id)."""
+    return _run_script("seed_postal_codes.py")
 
 
 def step3_demo(args) -> int:
@@ -178,6 +187,7 @@ STEPS = [
     ("1", "legacy", "Migracja legacy dump → rao_new (DROP bazy! wymaga --confirm-drop)", step1_legacy),
     ("2", "archive", "Archive split: legacy → archive_* (gruba krecha)", step2_archive),
     ("2b", "clean", "Czyszczenie tabel demo (bez archiwizacji — dla --reseed)", step2b_clean_demo),
+    ("2c", "postal", "Seed postal_codes z CSV (wymagane przed demo — umowy referencjuja PNA)", step2c_postal),
     ("3", "demo", "Seed danych demo (umowy+lokalizacje+zestawy usług+cenniki kaskadowe+FA-pending)", step3_demo),
     ("4", "fa", "Faktury w Fakturowni (backfill + FA-pending)", step4_fa),
     ("5", "verify", "Weryfikacja środowiska demo", step5_verify),
