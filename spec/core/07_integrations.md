@@ -606,6 +606,41 @@ class ReportService:
 
 ---
 
+## 3.5. File System Access API — Auto-zapis PDF (P2-004, 2026-07-11)
+
+### Kiedy używane
+Po wygenerowaniu PDF umowy/protokołu w `ContractFormView` — auto-zapis do folderów klienta bez dialogu przeglądarki.
+
+### Wsparcie przeglądarek
+- **Chrome/Edge** (Chromium 86+): pełne wsparcie `window.showDirectoryPicker()` + `FileSystemDirectoryHandle.writeFile()`
+- **Firefox/Safari**: brak wsparcia → fallback do zwykłego download (`<a download>`)
+
+### Konfiguracja folderów
+4 foldery (per oddział + typ dokumentu):
+| Klucz | Opis | Branch |
+|-------|------|--------|
+| `report_main` | Umowy — oddział główny (Warszawa, id=1) | branchId=1 |
+| `protocol_main` | Protokoły — oddział główny | branchId=1 |
+| `report_gdansk` | Umowy — Gdańsk | branchId≠1 |
+| `protocol_gdansk` | Protokoły — Gdańsk | branchId≠1 |
+
+### Persistencja
+`directoryHandle` zapisywany w IndexedDB (klucz: `pdf-folder-<key>`) między sesjami. Uprawnienia weryfikowane przy każdym zapisie (`queryPermission` + `requestPermission`).
+
+### Composable
+`frontend/src/composables/usePdfFolders.ts`:
+- `pickFolder(key)` — otwiera dialog wyboru folderu, zapisuje handle w IndexedDB
+- `savePdf(bytes, filename, branchId, type)` — zapisuje do wszystkich skonfigurowanych folderów (główny + Gdańsk gdy branchId≠1), zwraca liczbę zapisanych
+- `hasFileSystemAccess` — computed boolean (czy przeglądarka wspiera API)
+- `clearFolder(key)` — usuwa handle z IndexedDB
+
+### Integracja
+- **SettingsView** — zakładka "Foldery PDF": 4 przyciski wyboru + status + clear
+- **ContractFormView** — `generateReport` wywołuje `savePdf`; gdy `savedCount > 0` → toast "Zapisano do N folderów"; gdy 0 → fallback download
+- **Backend** — zapis na serwerze pozostaje jako backup (bez zmian)
+
+---
+
 ## 4. Email (opcjonalnie, przyszłościowo)
 
 W WinForms: context menu "Wyślij" → generuje PDF i otwiera domyślny mail client.

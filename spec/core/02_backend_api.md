@@ -611,6 +611,7 @@ class ArticleCreate(BaseModel):
     zasieg_m: Decimal | None = None    # RAO-P1-026: zasięg roboczy [m]
     udzwig_t: Decimal | None = None    # RAO-P1-026: udźwig [t]
     dodatki: str | None = None         # RAO-P1-026: wyposażenie dodatkowe
+    power_type: Literal["diesel","electric","other"] = "other"  # P2-002: typ zasilania
 ```
 
 ### `GET /articles/{id}` (RAO-P1-026)
@@ -621,6 +622,7 @@ Response: `ArticleDetail` — rozszerzony obiekt artykułu z hierarchią kategor
 - `zasieg_m: Decimal | None` — zasięg roboczy [m]
 - `udzwig_t: Decimal | None` — udźwig [t]
 - `dodatki: str | None` — wyposażenie dodatkowe
+- `power_type: str` — typ zasilania (P2-002: diesel/electric/other, default 'other')
 
 HTTP: 200 | 401 | 404
 
@@ -720,6 +722,7 @@ class ContractListItem(BaseModel):
     duration_days: int | None    # computed: DATEDIFF
     is_settled: bool = False
     settled_at: datetime | None = None
+    suggested_preset: str | None = None  # P2-002: 'diesel'|'electric'|null (sugestia, nie auto-apply)
     created_at: datetime
 ```
 

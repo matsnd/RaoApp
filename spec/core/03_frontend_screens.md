@@ -826,7 +826,9 @@ Row 3 (30px): centered [ Zakończ ]
 
 ## Widok: `SettingsView.vue`
 
-**Zakładki:** Dane firmy | Handlowcy | Kategorie | Typy stawek | Zestawy usług dodatkowych | Fakturownia | Folder RAO
+**Zakładki:** Dane firmy | Handlowcy | Kategorie | Typy stawek | Zestawy usług dodatkowych | Fakturownia | Folder RAO | Foldery PDF (P2-004)
+
+> **P2-004 (2026-07-11):** Nowa zakładka "Foldery PDF" — auto-zapis PDF do folderów klienta przez File System Access API (Chrome/Edge). 4 foldery: `report_main` (umowy główny), `protocol_main` (protokoły główny), `report_gdansk` (umowy Gdańsk), `protocol_gdansk` (protokoły Gdańsk). Persistencja `directoryHandle` w IndexedDB. Fallback Firefox/Safari → zwykły download. Composable: `usePdfFolders.ts`.
 
 
 > **RAO-P2-019 (2026-05-30):** Zakl. Kategorie zastapiona drzewiastym widokiem: flatCategoryTree computed, fetchCategoriesTree() w store, inline edit, cascade subcat, addingSubcatParentId dla inline add.
@@ -1382,6 +1384,7 @@ async function handleFakturownia() {
     - Wspólny zestaw (usługa): Transport, Praca operatora
     - Dropdown wywołuje `applyPresetWithConfirm` → `POST /contracts/{id}/service-fees/apply-preset?preset_id={id}&replace=true`
     - Nowa umowa zaczyna z pustą sekcją usług (operator wybiera preset ręcznie)
+  - **P2-002 (2026-07-11): Banner sugestii zestawu** — gdy `contractStore.current?.suggested_preset` jest nie-null ('diesel'|'electric'), banner nad sekcją "Opłaty dodatkowe" (`data-testid="suggested-preset-banner"`) sugeruje odpowiedni zestaw. **NIE auto-apply** — tylko informacja dla operatora.
     - Wszystkie przyciski/dropdown są disabled gdy `is_settled = true`
   - **Grid usług — tylko aktywne**
     - Wyświetlane są tylko pozycje z `is_active = true` (computed `activeServiceFees`)
@@ -1691,6 +1694,7 @@ Następca: patrz sekcja `AnalyticsView.vue` poniżej.
   - `zasieg_m` — Zasięg (m), number, min=0, step=0.1, opcjonalne, null gdy puste
   - `udzwig_t` — Udźwig (t), number, min=0, step=0.1, opcjonalne, null gdy puste
   - `dodatki` — Dodatkowe wyposażenie, textarea rows=3, opcjonalne, null gdy puste
+  - `power_type` — Typ zasilania (select: diesel/electric/other, P2-002, `data-testid="article-power-type"`, default 'other')
 - `category_id` — Kategoria (kaskadowy picker 3-poziomowy)
 - `owner_id` — Właściciel/dostawca (picker kontrahentów)
 - `rental_days` — Min. dni najmu
