@@ -24,18 +24,28 @@
 
 ## 2. AuthN (Authentication)
 
-- **JWT HS256**, access TTL=60min, refresh TTL=7d, refresh w httpOnly cookie SameSite=Lax
-- **JWT_SECRET:** ≥32B z os.urandom, rotacja co 90d, stary klucz akceptowany 24h (grace)
-- **Hasła:** bcrypt cost=12, min length 12, blacklist top-10k haseł
-- **Rate-limit:** /auth/login 5/min/IP + 10/h/login, lockout 15min po 10 fail
-- **Change-password:** invalidates all sessions (jti blacklist)
+- **JWT HS256**, access TTL=60min (RAO-SEC-004: fixed from 480min to 60min, commit c572e6c)
+- **JWT_SECRET:** ≥32B z os.urandom (RAO_SECRET_KEY z .env, validator odrzuca pusty/"change-me")
+- **Hasła:** bcrypt, min length 8 (RAO-SEC-006: podniesiono z 6 do 8, commit c572e6c). TODO: min 12 + blacklist top-10k
+- **Rate-limit:** /auth/login 5/min/IP (wyłączony w dev mode)
+- **Change-password:** wymaga aktualnego hasła. TODO: jti blacklist dla session invalidation (RAO-SEC-005 pending)
+- **Security headers:** X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy (RAO-SEC-007: commit c572e6c). HSTS + CSP tylko w production.
+- **CORS:** ograniczony do konkretnych metod i nagłówków (RAO-SEC-008: commit c572e6c, był "*")
 
 ## 3. AuthZ (RBAC matrix)
 
 | Zasób | user | admin |
 |---|---|---|
-| GET /contracts/{id} | own only | all |
-| POST /contracts | yes | yes |
+| GET /contracts/{id} | own branch only (RAO-P0-049) | all |
+| POST /contracts | yes (own branch) | yes (any branch) |
+| GET /settlements/contract/{id} | own branch only (RAO-SEC-001) | all |
+| POST/PUT/DELETE /settlements | own branch only (RAO-SEC-001) | all |
+| GET /contractors/{id} | yes (shared entity) | all |
+| POST/PUT/DELETE /contractors | NO (admin only, RAO-SEC-002) | yes |
+| GET /articles/{id} | own branch or NULL (RAO-SEC-003) | all |
+| PUT/DELETE /articles/{id} | own branch only (RAO-SEC-003) | all |
+| GET /reports/summary/* | NO (admin only, RAO-SEC-009) | yes |
+| GET /archive/contracts/{id} | own branch only (RAO-SEC-010) | all |
 | DELETE /users/{id} | no | yes |
 | GET /audit_log | no | yes |
 | POST /settings/company | no | yes |
@@ -58,13 +68,15 @@
 - Rotacja: JWT_SECRET 90d, DB_PASSWORD 180d, GUS_KEY 365d
 - Manager: .env + chmod 600 (docelowo Vault/SOPS)
 
-## 7. Headers HTTP (FastAPI middleware)
+## 7. Headers HTTP (FastAPI middleware) — RAO-SEC-007/008 (commit c572e6c)
 
-- CORS: allow_origins=[FRONTEND_URL], credentials=True
-- CSP: default-src 'self'; img-src 'self' data:
-- X-Frame-Options: DENY
+- CORS: allow_origins z .env, credentials=True, methods=[GET,POST,PUT,PATCH,DELETE,OPTIONS], headers=[Authorization,Content-Type,Accept], expose=[Content-Disposition]
 - X-Content-Type-Options: nosniff
-- Strict-Transport-Security: max-age=31536000 (prod HTTPS only)
+- X-Frame-Options: DENY
+- X-XSS-Protection: 1; mode=block
+- Referrer-Policy: strict-origin-when-cross-origin
+- Strict-Transport-Security: max-age=31536000; includeSubDomains (prod only)
+- Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' (prod only)
 
 ## 8. Audit log
 
