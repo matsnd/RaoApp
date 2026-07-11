@@ -33,7 +33,7 @@ class TokenResponse(BaseModel):
 class RegisterRequest(BaseModel):
     login: str = Field(..., min_length=1, max_length=50, pattern=r"^[a-zA-Z0-9_]+$")
     email: str = Field(..., max_length=100)
-    password: str = Field(..., min_length=6, max_length=100)
+    password: str = Field(..., min_length=8, max_length=100)
     first_name: str | None = None
     last_name: str | None = None
     role: Literal["admin", "user", "viewer"] = "user"
@@ -42,7 +42,7 @@ class RegisterRequest(BaseModel):
 
 class ChangePasswordRequest(BaseModel):
     current_password: str
-    new_password: str = Field(..., min_length=6)
+    new_password: str = Field(..., min_length=8)
     confirm_password: str
 
 
@@ -52,7 +52,7 @@ class ForgotPasswordRequest(BaseModel):
 
 class ResetPasswordRequest(BaseModel):
     token: str
-    new_password: str = Field(..., min_length=6)
+    new_password: str = Field(..., min_length=8)
     confirm_password: str
 
 

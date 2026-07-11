@@ -9,7 +9,6 @@ export const useSettingsStore = defineStore('settings', () => {
   const categoriesTree = ref([])
   const branches = ref([])
   const rateTypes = ref([])
-  const feeTemplates = ref([])
   const loading = ref(false)
 
   async function fetchCompany() {
@@ -91,18 +90,6 @@ export const useSettingsStore = defineStore('settings', () => {
   async function updateSalesperson(id, payload) {
     const { data } = await api.put(`/settings/salespeople/${id}`, payload)
     await fetchSalespeople()
-    return data
-  }
-
-  async function fetchFeeTemplates() {
-    const { data } = await api.get('/settings/service-fee-templates')
-    feeTemplates.value = data
-    return data
-  }
-
-  async function seedFeeTemplates(force = false) {
-    const { data } = await api.post(`/settings/service-fee-templates/seed?force=${force}`)
-    await fetchFeeTemplates()
     return data
   }
 
@@ -189,7 +176,7 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   return {
-    company, salespeople, categories, categoriesTree, branches, rateTypes, feeTemplates, loading,
+    company, salespeople, categories, categoriesTree, branches, rateTypes, loading,
     // RAO-P1-001: cenniki rozliczenia maszyn
     ratePresets, ratePresetsLoading,
     fetchCompany, updateCompany, uploadLogo,
@@ -197,7 +184,7 @@ export const useSettingsStore = defineStore('settings', () => {
     fetchCategories, fetchCategoriesTree, updateCategory, deleteCategory,
     fetchBranches,
     fetchRateTypes, updateRateType, deleteRateType,
-    fetchFeeTemplates, seedFeeTemplates, fetchAll,
+    fetchAll,
     // RAO-P1-001: cenniki rozliczenia maszyn
     fetchRatePresets, fetchDefaultRatePreset,
     createRatePreset, updateRatePreset, deleteRatePreset,

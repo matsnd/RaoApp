@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     RAO_DATABASE_URL: str = "mysql+aiomysql://rao_user:<<DB_PASSWORD_PLACEHOLDER>>@localhost:3306/rao_new"
     # RAO-P1-041: No insecure fallback — must be set in .env
     RAO_SECRET_KEY: str = ""
-    RAO_ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
+    RAO_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     RAO_SMTP_HOST: str = "localhost"
     RAO_SMTP_PORT: int = 1025
     RAO_SMTP_USER: str = ""

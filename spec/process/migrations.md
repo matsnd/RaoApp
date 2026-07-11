@@ -96,13 +96,13 @@ send_reset_email(user.email, reset_token)
 
 **WYMAGANE:**
 ```yaml
-# ZAMIAST tego:
-password: 'RaoPass2026!'  # sekret w spec!
+# ZAMIAST tego (NIE ROBIC TEGO):
+password: '<<DB_PASSWORD_EXAMPLE>>'  # sekret w spec!
 
 # ZRÓB TO:
 password: '<<DB_PASSWORD>>'  # placeholder
-# W .env:
-DB_PASSWORD=RaoPass2026!
+# W .env (NIE w spec):
+DB_PASSWORD=<<twoje_haslo_tutaj>>
 ```
 
 **Powód:** Repo (nawet prywatne) → leak przez fork, AI training, copy-paste.

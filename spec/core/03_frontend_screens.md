@@ -834,9 +834,12 @@ Row 3 (30px): centered [ Zakończ ]
 > **RAO-P2-019 (2026-05-30):** Zakl. Kategorie zastapiona drzewiastym widokiem: flatCategoryTree computed, fetchCategoriesTree() w store, inline edit, cascade subcat, addingSubcatParentId dla inline add.
 
 
-> **RAO-P1-023 (2026-05-20):** Usunięto zakładkę "Rezerwacje maszyn" (RAO-P1-015).
-> `ReservationsPanel.vue` i `ReservationsView.vue` zostały usunięte — ręczne rezerwacje zastąpione
+> **RAO-P1-023 (2026-05-20):** Usunięto zakładkę "Rezerwacje maszyn" (stary system RAO-P1-015).
+> `ReservationsPanel.vue` zostało usunięte — ręczne rezerwacje zastąpione
 > automatycznym sprawdzaniem konfliktów z dat umów (`GET /articles/{id}/availability`).
+>
+> **UPDATE (2026-07-11):** `ReservationsView.vue` został ponownie dodany w Phase 3 (RAO-P1-015)
+> jako nowy, niezależny widok kalendarza rezerwacji (`/reservations`). Patrz sekcja poniżej.
 
 ```
 Layout (replika WinForms Konfiguracjacs — scrollable):
@@ -846,7 +849,7 @@ Layout (replika WinForms Konfiguracjacs — scrollable):
 │ Kod [___] Miasto [___] Ulica [___]           │
 │ Nagłówek [___textarea___]                    │
 │ Bank [___] Rachunek [___]                    │
-│ Numeracja [1]  Folder [___]  Folder2 [___]   │
+│ Numeracja [1]                                 │
 └──────────────────────────────────────────────┘
 ┌─ Opłaty dodatkowe — Szablony ────────────────┐
 │  ┌── Umowa najmu (S) ──┐ ┌── Umowa usługi (U)─┐│
