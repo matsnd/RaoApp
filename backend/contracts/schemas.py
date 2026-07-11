@@ -297,7 +297,7 @@ class SettleContractRequest(BaseModel):
 
 class ContractCreate(BaseModel):
     contractor_id: int
-    branch_id: int = 1  # RAO-P1-022: domyślnie Warszawa (id=1)
+    branch_id: int | None = 1  # RAO-P1-022: domyślnie Warszawa (id=1), None = brak oddziału
     salesperson_id: int | None = None
     contract_type: Literal["S", "U"] = "S"
     oid: Optional[OidStr] = None  # RAO-P2-058: Fakturownia OID (puste = użyj number)

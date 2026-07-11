@@ -14,8 +14,9 @@ export const useServiceStore = defineStore('services', () => {
     loading.value = true
     try {
       const { data } = await api.get('/services', { params })
-      list.value = data.items
-      total.value = data.total
+      // Backend zwraca list[ServiceListItem] (array), nie {items, total}
+      list.value = Array.isArray(data) ? data : (data.items ?? [])
+      total.value = Array.isArray(data) ? data.length : (data.total ?? 0)
     } finally {
       loading.value = false
     }

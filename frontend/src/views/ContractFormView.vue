@@ -1025,6 +1025,8 @@ import { useRouter, useRoute } from 'vue-router'
 import { useContractStore } from '@/stores/contracts'
 import { useContractorStore } from '@/stores/contractors'
 import { useArticleStore } from '@/stores/articles'
+import { useMachineStore } from '@/stores/machines'
+import { useServiceStore } from '@/stores/services'
 import { useSettingsStore } from '@/stores/settings'
 import { useFakturowniaStore } from '@/stores/fakturownia'
 import { useToastStore } from '@/stores/toast'
@@ -1041,6 +1043,8 @@ const route = useRoute()
 const contractStore = useContractStore()
 const contractorStore = useContractorStore()
 const articleStore = useArticleStore()
+const machineStore = useMachineStore()
+const serviceStore = useServiceStore()
 const settingsStore = useSettingsStore()
 const fakturowniaStore = useFakturowniaStore()
 const toastStore = useToastStore()
@@ -1510,10 +1514,15 @@ onMounted(async () => {
 
   const [ctRes, artRes] = await Promise.allSettled([
     api.get('/contractors', { params: { per_page: 30 } }),
-    api.get('/articles', { params: { per_page: 50, is_service: isService.value } }),
+    isRental.value
+      ? api.get('/machines', { params: { per_page: 50 } })
+      : api.get('/services', { params: { per_page: 50 } }),
   ])
   if (ctRes.status === 'fulfilled') pickerList.value = ctRes.value.data.items
-  if (artRes.status === 'fulfilled') articlePickerList.value = artRes.value.data.items
+  if (artRes.status === 'fulfilled') {
+    const d = artRes.value.data
+    articlePickerList.value = Array.isArray(d) ? d : (d.items ?? [])
+  }
 
   const contractorIdFromQuery = route.query.contractor_id
   if (contractorIdFromQuery) {
@@ -1598,7 +1607,7 @@ function buildPayload() {
   const dateFields = ['date_from', 'date_to']
   const nullableStr = ['delivery_address',
     'notes', 'contact_person1', 'contact_phone1', 'contact_person2', 'contact_phone2',
-    'email', 'phone', 'contractor_name']
+    'email', 'phone', 'contractor_name', 'postal_code', 'city']
   dateFields.forEach(f => { if (!v[f]) v[f] = null })
   nullableStr.forEach(f => { if (v[f] === '') v[f] = null })
   return v
@@ -1942,7 +1951,10 @@ async function saveInlineArticle() {
     if (!payload.udzwig_t) payload.udzwig_t = null
     if (!payload.dodatki) payload.dodatki = null
 
-    const result = await articleStore.create(payload)
+    // Faza 8: /articles → /machines (N) lub /services (U)
+    const result = isRental.value
+      ? await machineStore.create(payload)
+      : await serviceStore.create(payload)
     // Add to picker list
     articlePickerList.value.unshift(result)
     // Auto-select the new article
@@ -1962,7 +1974,7 @@ async function saveInlineArticle() {
     catSelectedSub1.value = null
     catSelectedSub2.value = null
   } catch (e: any) {
-    inlineArticleError.value = e?.response?.data?.detail || 'Błąd zapisu artykułu'
+    inlineArticleError.value = e?.response?.data?.detail || 'Błąd zapisu'
   } finally {
     savingInlineArticle.value = false
   }
@@ -2138,32 +2150,35 @@ let artTimer: ReturnType<typeof setTimeout> | null = null
 async function searchArticles() {
   if (artTimer) clearTimeout(artTimer)
   artTimer = setTimeout(async () => {
-    const { data } = await api.get('/articles', { params: { search: articlePickerSearch.value, per_page: 50, is_service: isService.value } })
-    articlePickerList.value = data.items.map(a => ({ ...a, _avail: null as AvailabilityResponse | null }))
-    // Check availability (parallel) — RAO-P1-023 + RAO-P2-066 (z rezerwacjami)
+    // Faza 8: /articles → /machines (N) lub /services (U)
+    const endpoint = isRental.value ? '/machines' : '/services'
+    const { data } = await api.get(endpoint, { params: { search: articlePickerSearch.value, per_page: 50 } })
+    const items = Array.isArray(data) ? data : (data.items ?? [])
+    articlePickerList.value = items.map(a => ({ ...a, _avail: null as AvailabilityResponse | null }))
+    // Check availability (parallel) — RAO-P1-023 + RAO-P2-066 (z rezerwacjami) — tylko maszyny
     const excludeId = isEdit.value ? Number(props.id) : null
-    await Promise.all(
-      articlePickerList.value
-        .filter(a => !a.is_service)
-        .map(async a => {
+    if (isRental.value) {
+      await Promise.all(
+        articlePickerList.value.map(async a => {
           if (form.value.date_from && form.value.date_to) {
-            await articleStore.checkAvailability(a.id, form.value.date_from, form.value.date_to, excludeId)
+            await machineStore.checkAvailability(a.id, form.value.date_from, form.value.date_to, excludeId)
               .then(av => { a._avail = av as AvailabilityResponse })
               .catch(() => { a._avail = null })
           }
         })
-    )
+      )
+    }
   }, 300)
 }
 
 // RAO-P2-071: selectArticle — po wyborze z ArticlePicker, dodaje pusty row (tryb new)
 // lub aktualizuje article_id w istniejącym row (tryb edit). Zero modali ustawień.
 async function selectArticle(a) {
-  // RAO-P1-023: check availability before closing picker
-  if (form.value.date_from && form.value.date_to && !a.is_service) {
+  // RAO-P1-023: check availability before closing picker — tylko maszyny (N)
+  if (form.value.date_from && form.value.date_to && isRental.value) {
     try {
       const excludeId = isEdit.value ? Number(props.id) : null
-      const av = await articleStore.checkAvailability(a.id, form.value.date_from, form.value.date_to, excludeId)
+      const av = await machineStore.checkAvailability(a.id, form.value.date_from, form.value.date_to, excludeId)
       if (!av.is_available) {
         // Show conflict modal — keep picker open in background
         pendingArticle.value = a

@@ -14,8 +14,9 @@ export const useMachineStore = defineStore('machines', () => {
     loading.value = true
     try {
       const { data } = await api.get('/machines', { params })
-      list.value = data.items
-      total.value = data.total
+      // Backend zwraca list[MachineListItem] (array), nie {items, total}
+      list.value = Array.isArray(data) ? data : (data.items ?? [])
+      total.value = Array.isArray(data) ? data.length : (data.total ?? 0)
     } finally {
       loading.value = false
     }

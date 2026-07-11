@@ -35,6 +35,7 @@ import archive.models  # RAO-P2-062 Faza 1 — tabele archive_*
 import machines.models  # RAO articles split — maszyny
 import services.models  # RAO articles split — usługi
 import additional_services.models  # RAO articles split — usługi dodatkowe
+import articles.models  # backward compat — tabela articles dla GUI
 
 app = FastAPI(
     title="RAO API",
@@ -86,6 +87,17 @@ async def startup_migrations():
         await conn.execute(sa.text(
             "UPDATE machines SET power_type='electric' WHERE power_type='other' AND "
             "(name LIKE '%elektr%' OR name LIKE '%battery%' OR name LIKE '%akumulator%')"
+        ))
+        # RAO-P1-011: zesłownikowanie usług dodatkowych z additional_services
+        # Musi być dodane PRZED seedem presetów (model deklaruje additional_service_id,
+        # create_all nie doda kolumny do istniejącej tabeli → seed SELECT by się wywalił).
+        await conn.execute(sa.text(
+            "ALTER TABLE service_fee_templates ADD COLUMN IF NOT EXISTS "
+            "preset_id INT NULL REFERENCES fee_preset_groups(id) ON DELETE CASCADE"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE service_fee_templates ADD COLUMN IF NOT EXISTS "
+            "additional_service_id INT NULL"
         ))
 
     # Upewnij się że istnieje domyślna firma (id=1) — FK dla FeePresetGroup
@@ -217,15 +229,6 @@ async def startup_migrations():
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        await conn.execute(sa.text(
-            "ALTER TABLE service_fee_templates ADD COLUMN IF NOT EXISTS "
-            "preset_id INT NULL REFERENCES fee_preset_groups(id) ON DELETE CASCADE"
-        ))
-        # RAO-P1-011: zesłownikowanie usług dodatkowych z additional_services
-        await conn.execute(sa.text(
-            "ALTER TABLE service_fee_templates ADD COLUMN IF NOT EXISTS "
-            "additional_service_id INT NULL"
-        ))
         # RAO-P1-014: checkbox podpisów na stronie 1
         await conn.execute(sa.text(
             "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
@@ -518,6 +521,13 @@ async def startup_migrations():
         await conn.execute(sa.text(
             "ALTER TABLE contract_positions ADD COLUMN IF NOT EXISTS service_id INT NULL"
         ))
+        # Faza 8: article_id musi być NULLABLE — nowy model używa machine_id/service_id (XOR)
+        try:
+            await conn.execute(sa.text(
+                "ALTER TABLE contract_positions MODIFY COLUMN article_id INT NULL"
+            ))
+        except Exception as exc:
+            logger.warning("Faza 8: cannot MODIFY article_id to nullable: %s", exc)
         # Migracja danych: RAO-P0-048 popraw kaskadowe period_from/period_to
         # (zamiast naiwnego period_from=1 dla każdego rekordu)
         async with AsyncSessionLocal() as db:
