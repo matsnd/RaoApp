@@ -44,6 +44,14 @@ spec/technical/
 - **API quirks:** `gtu_codes` (array nie string), `price_gross` required, `tax_no` (nie `nip`), `tax_no_kind: "other"` omija walidację NIP
 - **Demo data:** 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA
 
+### Archive Legacy Data (RAO-P2-071)
+- **Script:** `backend/archive_legacy_data.py` — Idempotentny skrypt archiwizacji (cut-off): przenosi WSZYSTKIE dane z tabel live do archive_* (parents-first: categories → articles → contracts → positions → conditions → fees → settlements)
+- **Strategy:** Python ORM (SQLAlchemy async), batch 500 rekordów, `_map_row` mapuje TYLKO wspólne kolumny (ignoruje drift typów między live a archive)
+- **Idempotentność:** Check existing po PK (id) — nie duplikuje przy re-run
+- **NIE czyści tabel live** — to osobny krok (Phase 3)
+- **Fix `seed_demo_data.py`:** Usunięto `unit=fee_data["unit"]` z konstrukcji `ContractServiceFee` (nieistniejąca kolumna w modelu/DB)
+- **Rezerwacje demo:** `seed_rezerwacje()` — 8 rezerwacji maszyn (aktywne + przeszłe + konflikt dat) dla pokazania kalendarza
+
 ### Contract Pricing Grids — KISS split by contract type
 - **Pattern:** `spec/technical/patterns/contract_pricing_grids.md` — Projekt UX rozdzielenia cenników maszyn/usług/usług dodatkowych w `ContractFormView`
 - **Scope:** Rozdzielenie UX dla `contract_type='S'` (najem, doby) i `contract_type='U'` (usługa, godziny), uproszczenie usług dodatkowych (bez artykułów)
@@ -103,3 +111,4 @@ Po każdym zadaniu:
 - **2026-05-19:** RAO-P2-016 — Playwright UX screenshots spike (17 screenshotów dla design review, checklist UX)
 - **2026-05-19:** RAO-P2-016 + RAO-P2-017 — Vision AI UX analysis (4 analizy, 20+ problemów UX/UI zidentyfikowanych, backlog item utworzony)
 - **2026-07-01:** RAO-P2-061 — Demo data seeding (11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia, 12 faktur FA, konto matsnd.fakturownia.pl skonfigurowane)
+- **2026-07-11:** RAO-P2-071 — Archive legacy data script + seed_demo_data fix (unit removal + rezerwacje demo)

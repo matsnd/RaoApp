@@ -1037,7 +1037,6 @@ async def seed_umowy(db: AsyncSession, contracts_data, art_by_name):
                 name=fee_data["name"],
                 amount_from=fee_data["amount_from"],
                 amount_to=fee_data["amount_to"],
-                unit=fee_data["unit"],
                 description=fee_data["description"],
                 is_active=fee_data["is_active"],
             )
@@ -1068,6 +1067,88 @@ async def seed_umowy(db: AsyncSession, contracts_data, art_by_name):
     print(f"  Usługi dodatkowe: {created_fees} nowych")
     print(f"  Rozliczenia: {created_settlements} nowych")
     return created_contracts
+
+
+# Rezerwacje demo — RAO-P2-071: dla pokazania kalendarza
+REZERWACJE_DEMO = [
+    # Aktywne rezerwacje (confirmed) — różne maszyny, różne kontrahenci
+    {"article": "Koparka gąsienicowa JCB 8035", "contractor": "Bud-Plus Sp. z o.o.",
+     "reserved_from": date.today() + timedelta(days=5),
+     "reserved_to": date.today() + timedelta(days=12),
+     "status": "confirmed", "note": "Rezerwacja na budowę Mokotów"},
+    {"article": "Ładowarka teleskopowa Manuscop 6.36", "contractor": "Invest S.A.",
+     "reserved_from": date.today() + timedelta(days=3),
+     "reserved_to": date.today() + timedelta(days=10),
+     "status": "confirmed", "note": "Kontrakt Q3 2026"},
+    {"article": "Podnośnik koszowy Haulotte HA16PX", "contractor": None,
+     "reserved_from": date.today() + timedelta(days=14),
+     "reserved_to": date.today() + timedelta(days=18),
+     "status": "provisional", "note": "Serwis planowany"},
+    {"article": "Spychar Wirtgen W100CFi", "contractor": "Terra-Masz Budownictwo",
+     "reserved_from": date.today() + timedelta(days=20),
+     "reserved_to": date.today() + timedelta(days=35),
+     "status": "confirmed", "note": "Frezowanie asfaltu A2"},
+    {"article": "Zagęszczarka Ammann APF 15/50", "contractor": None,
+     "reserved_from": date.today() + timedelta(days=2),
+     "reserved_to": date.today() + timedelta(days=4),
+     "status": "confirmed", "note": "Test maszyny"},
+    # Przeszłe rezerwacje (archiwalne)
+    {"article": "Koparka gąsienicowa JCB 8035", "contractor": "Wod-Bud Sp. z o.o.",
+     "reserved_from": date.today() - timedelta(days=30),
+     "reserved_to": date.today() - timedelta(days=20),
+     "status": "confirmed", "note": "Zakończona rezerwacja"},
+    {"article": "Ładowarka teleskopowa Manuscop 6.36", "contractor": "Fundament Sp. z o.o.",
+     "reserved_from": date.today() - timedelta(days=15),
+     "reserved_to": date.today() - timedelta(days=5),
+     "status": "confirmed", "note": "Zakończona rezerwacja"},
+    # Konflikt z aktywną umową (dla demo modala konfliktu)
+    {"article": "Podnośnik koszowy Haulotte HA16PX", "contractor": "Eko-Bud Nowoczesne Budownictwo",
+     "reserved_from": date.today() + timedelta(days=7),
+     "reserved_to": date.today() + timedelta(days=14),
+     "status": "provisional", "note": "Oczekuje na potwierdzenie"},
+]
+
+
+async def seed_rezerwacje(db: AsyncSession, art_by_name: dict, con_by_name: dict):
+    """RAO-P2-071: Rezerwacje maszyn demo — dla pokazania kalendarza."""
+    from reservations.models import ArticleReservation
+    created = 0
+    for r in REZERWACJE_DEMO:
+        article = art_by_name.get(r["article"])
+        if not article:
+            print(f"  [SKIP] {r['article']} — brak w art_by_name")
+            continue
+        contractor = None
+        if r["contractor"]:
+            contractor = con_by_name.get(r["contractor"])
+            if not contractor:
+                print(f"  [SKIP] kontrahent {r['contractor']} — brak")
+                continue
+        # Idempotent: sprawdź po (article_id, reserved_from, reserved_to, note)
+        existing = await db.execute(
+            select(ArticleReservation).where(
+                ArticleReservation.article_id == article.id,
+                ArticleReservation.reserved_from == r["reserved_from"],
+                ArticleReservation.reserved_to == r["reserved_to"],
+                ArticleReservation.note == r["note"],
+            )
+        )
+        if existing.scalar_one_or_none():
+            continue
+        reservation = ArticleReservation(
+            article_id=article.id,
+            contractor_id=contractor.id if contractor else None,
+            reserved_from=r["reserved_from"],
+            reserved_to=r["reserved_to"],
+            status=r["status"],
+            note=r["note"],
+            created_by=1,  # admin
+        )
+        db.add(reservation)
+        created += 1
+    await db.commit()
+    print(f"  Rezerwacje: {created} nowych")
+    return created
 
 
 async def main():
@@ -1111,6 +1192,9 @@ async def main():
         print("\n[9/9] Umowy + pozycje + warunki kaskadowe + usługi + rozliczenia...")
         contracts_data = generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_name)
         await seed_umowy(db, contracts_data, art_by_name)
+
+        print("\n[10/10] Rezerwacje maszyn demo (RAO-P2-071)...")
+        await seed_rezerwacje(db, art_by_name, con_by_name)
 
     print("\n" + "=" * 60)
     print("DONE — demo data seeded")
