@@ -909,7 +909,7 @@ Przyciski: **„Usuń"** (czerwony, tylko edycja), **„Anuluj"**, **„Zapisz"*
 
 ## 11. Umowy — tworzenie i edycja
 
-![Formularz umowy](screenshots/11_contract_form_contractformview.png)
+![Formularz umowy](screenshots/11_contract_new_contractformview.png)
 
 ### Jak się tam dostać
 
@@ -1072,7 +1072,7 @@ Aby odblokować — kliknij **„✕ Cofnij rozliczenie"** w sekcji rozliczenia.
 
 ## 12. Pulpit operacyjny
 
-![Pulpit operacyjny](screenshots/12_worker_dashboard_workerdashboardview.png)
+![Pulpit operacyjny](screenshots/12_worker_workerview.png)
 
 ### Jak się tam dostać
 
