@@ -45,6 +45,7 @@ const routes = [
         component: () => import('@/views/ContractorFormView.vue'),
         props: true,
       },
+      // TODO Faza 7: usuń po migracji frontendu — stare routing /articles (backward compat)
       {
         path: 'articles/new',
         name: 'ArticleNew',
@@ -54,6 +55,55 @@ const routes = [
         path: 'articles/:id/edit',
         name: 'ArticleEdit',
         component: () => import('@/views/ArticleFormView.vue'),
+        props: true,
+      },
+      // --- Faza 4a: nowe routingi machines / services / additional-services ---
+      {
+        path: 'machines',
+        name: 'MachinesList',
+        component: () => import('@/views/MachinesListView.vue'),
+      },
+      {
+        path: 'machines/new',
+        name: 'MachineNew',
+        component: () => import('@/views/MachineFormView.vue'),
+      },
+      {
+        path: 'machines/:id/edit',
+        name: 'MachineEdit',
+        component: () => import('@/views/MachineFormView.vue'),
+        props: true,
+      },
+      {
+        path: 'services',
+        name: 'ServicesList',
+        component: () => import('@/views/ServicesListView.vue'),
+      },
+      {
+        path: 'services/new',
+        name: 'ServiceNew',
+        component: () => import('@/views/ServiceFormView.vue'),
+      },
+      {
+        path: 'services/:id/edit',
+        name: 'ServiceEdit',
+        component: () => import('@/views/ServiceFormView.vue'),
+        props: true,
+      },
+      {
+        path: 'additional-services',
+        name: 'AdditionalServicesList',
+        component: () => import('@/views/AdditionalServicesListView.vue'),
+      },
+      {
+        path: 'additional-services/new',
+        name: 'AdditionalServiceNew',
+        component: () => import('@/views/AdditionalServiceFormView.vue'),
+      },
+      {
+        path: 'additional-services/:id/edit',
+        name: 'AdditionalServiceEdit',
+        component: () => import('@/views/AdditionalServiceFormView.vue'),
         props: true,
       },
       {
