@@ -7,10 +7,12 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from articles.models import Article
+from additional_services.models import AdditionalService
 from auth.models import User
 from config import settings
 from contracts.models import Contract
+from machines.models import Machine
+from services.models import Service
 
 from .client import FakturowniaClient
 from .crypto import decrypt_token, encrypt_token, mask_token
@@ -20,7 +22,9 @@ from .schemas import (
     FakturowniaProductOut,
     FakturowniaSettingsIn,
     InvoiceOut,
-    RaoArticleRef,
+    RaoAdditionalServiceRef,
+    RaoMachineRef,
+    RaoServiceRef,
     ResolvedInvoiceLine,
     ResolvedInvoiceOut,
     SyncProductsResultOut,
@@ -252,19 +256,43 @@ async def _resolve_invoice(db: AsyncSession, invoice: InvoiceOut) -> ResolvedInv
         if line.fakturownia_product_id
     }
 
-    pid_to_articles: dict = {}
+    pid_to_machines: dict = {}
+    pid_to_services: dict = {}
+    pid_to_additional_services: dict = {}
     # P0-014: cache nazw produktów FA — fallback gdy pozycja faktury ma puste `name`
     # (FA API zwraca pusty name gdy faktura utworzona z samym product_id, bez nazwy)
     pid_to_product_name: dict = {}
     if product_ids:
-        art_rows = await db.execute(
-            select(Article.id, Article.name, Article.fakturownia_product_id)
-            .where(Article.fakturownia_product_id.in_(product_ids))
+        # RAO articles split: przeszukaj 3 tabele (machines, services, additional_services)
+        # każda ma własne fakturownia_product_id. Mapping 1:N — każdy match dostaje full total_net.
+        mach_rows = await db.execute(
+            select(Machine.id, Machine.name, Machine.fakturownia_product_id)
+            .where(Machine.fakturownia_product_id.in_(product_ids))
         )
-        for row in art_rows.all():
+        for row in mach_rows.all():
             pid = int(row.fakturownia_product_id)
-            pid_to_articles.setdefault(pid, []).append(
-                RaoArticleRef(id=row.id, name=row.name)
+            pid_to_machines.setdefault(pid, []).append(
+                RaoMachineRef(id=row.id, name=row.name)
+            )
+
+        svc_rows = await db.execute(
+            select(Service.id, Service.name, Service.fakturownia_product_id)
+            .where(Service.fakturownia_product_id.in_(product_ids))
+        )
+        for row in svc_rows.all():
+            pid = int(row.fakturownia_product_id)
+            pid_to_services.setdefault(pid, []).append(
+                RaoServiceRef(id=row.id, name=row.name)
+            )
+
+        addsvc_rows = await db.execute(
+            select(AdditionalService.id, AdditionalService.name, AdditionalService.fakturownia_product_id)
+            .where(AdditionalService.fakturownia_product_id.in_(product_ids))
+        )
+        for row in addsvc_rows.all():
+            pid = int(row.fakturownia_product_id)
+            pid_to_additional_services.setdefault(pid, []).append(
+                RaoAdditionalServiceRef(id=row.id, name=row.name)
             )
 
         # P0-014: pobierz nazwy produktów z lokalnego cache FA dla fallbacku
@@ -284,7 +312,9 @@ async def _resolve_invoice(db: AsyncSession, invoice: InvoiceOut) -> ResolvedInv
 
     for line in invoice.lines:
         pid = line.fakturownia_product_id
-        rao_articles = pid_to_articles.get(pid, [])
+        rao_machines = pid_to_machines.get(pid, [])
+        rao_services = pid_to_services.get(pid, [])
+        rao_additional_services = pid_to_additional_services.get(pid, [])
 
         # P0-014: fallback nazwy produktu — pozycja FA → cache FA → placeholder
         product_name = line.fakturownia_product_name
@@ -301,12 +331,16 @@ async def _resolve_invoice(db: AsyncSession, invoice: InvoiceOut) -> ResolvedInv
                 price_net=line.price_net,
                 total_net=line.total_net,
                 invoice_number=line.invoice_number or invoice.invoice_number,
-                rao_articles=rao_articles,
+                rao_machines=rao_machines,
+                rao_services=rao_services,
+                rao_additional_services=rao_additional_services,
             )
         )
 
-        if rao_articles:
-            mapped_total += line.total_net * len(rao_articles)
+        # 1:N semantics: każdy match (machines + services + additional_services) dostaje full total_net
+        match_count = len(rao_machines) + len(rao_services) + len(rao_additional_services)
+        if match_count:
+            mapped_total += line.total_net * match_count
         else:
             unmapped_count += 1
 

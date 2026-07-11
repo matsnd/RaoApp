@@ -134,7 +134,8 @@ async def create_position(
     pos = await contract_service.create_position(db, contract_id, data, user)
     from contracts.schemas import PositionResponse as PR
     return PR(
-        id=pos.id, contract_id=pos.contract_id, article_id=pos.article_id,
+        id=pos.id, contract_id=pos.contract_id, machine_id=pos.machine_id,
+        service_id=pos.service_id,
         article_name=pos.article_name,
         description=pos.description, rental_days=pos.rental_days,
         quantity=pos.quantity, unit_price=pos.unit_price,
@@ -156,7 +157,8 @@ async def update_position(
     pos = await contract_service.update_position(db, pos_id, data, user)
     from contracts.schemas import PositionResponse as PR
     return PR(
-        id=pos.id, contract_id=pos.contract_id, article_id=pos.article_id,
+        id=pos.id, contract_id=pos.contract_id, machine_id=pos.machine_id,
+        service_id=pos.service_id,
         article_name=pos.article_name,
         description=pos.description, rental_days=pos.rental_days,
         quantity=pos.quantity, unit_price=pos.unit_price,
@@ -357,7 +359,7 @@ async def apply_rate_preset_to_position(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Kopiuje warunki z cennika (ArticleRatePreset) do PositionCondition jako snapshot."""
+    """Kopiuje warunki z cennika (MachineRatePreset) do PositionCondition jako snapshot."""
     conds = await contract_service.apply_rate_preset_to_position(
         db, pos_id, data.preset_id, user, data.replace
     )
