@@ -32,7 +32,7 @@ spec/
 || 12 | [core/12_logic_audit.md](./core/12_logic_audit.md) | Audyt logiki biznesowej (historyczne) |
 || 13 | [core/13_audit_all_processes.md](./core/13_audit_all_processes.md) | Cross-role audyt wszystkich 9 procesów (historyczne) |
 || 14 | [core/14_audit_contract_process.md](./core/14_audit_contract_process.md) | Szczegółowy audyt procesu umów (historyczne) |
-|| 15 | [core/15_build_progress.md](./core/15_build_progress.md) | Status budowy — implementacja P0/P1/P2 + migracja |
+|| 15 | [archive/15_build_progress.md](./archive/15_build_progress.md) | Status budowy — implementacja P0/P1/P2 + migracja (ARCHIVED — STALE 2026-03-15) |
 || 17 | [core/17_testing_plan.md](./core/17_testing_plan.md) | Strategia testowania + scenariusze |
 || 18 | [core/18_ux_improvements.md](./core/18_ux_improvements.md) | UX/GUI propozycje usprawnień (historyczne) |
 || 20 | [core/20_user_guide_settlement.md](./core/20_user_guide_settlement.md) | Instrukcja użytkownika: jak wykonać rozliczenie |
