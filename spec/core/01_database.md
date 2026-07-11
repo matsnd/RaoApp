@@ -708,6 +708,9 @@ CREATE TABLE IF NOT EXISTS archive_articles (
   udzwig_t              DECIMAL(8,2) NULL COMMENT 'Udźwig w tonach',
   dodatki               TEXT NULL COMMENT 'Dodatkowe akcesoria / wyposażenie',
   fakturownia_product_id BIGINT NULL COMMENT 'ID produktu w Fakturownia (mapping 1:N)',
+  fakturownia_tax_rate  VARCHAR(10) NULL COMMENT 'Stawka VAT z Fakturownia (snapshot)',
+  fakturownia_gtu_code  VARCHAR(20) NULL COMMENT 'Kod GTU z Fakturownia (snapshot)',
+  fakturownia_pkwiu     VARCHAR(50) NULL COMMENT 'PKWiU z Fakturownia (snapshot)',
   created_at            DATETIME NOT NULL,
   updated_at            DATETIME NULL,
   CONSTRAINT fk_archive_articles_branch_id
@@ -831,6 +834,9 @@ CREATE TABLE IF NOT EXISTS archive_position_conditions (
   rate2         DECIMAL(18,2) NULL,
   billing_label VARCHAR(20)  NULL,
   period_count  INT NULL,
+  period_from   INT NULL COMMENT 'RAO-P1-005: elastyczne widełki (od)',
+  period_to     INT NULL COMMENT 'RAO-P1-005: elastyczne widełki (do)',
+  is_flat_rate  TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'P1-101: ryczałt=TRUE (kwota całkowita), stawka=FALSE (per jednostka)',
   minimum       INT NULL,
   CONSTRAINT fk_archive_pc_position_id
     FOREIGN KEY (position_id) REFERENCES archive_contract_positions(id) ON DELETE CASCADE,
@@ -872,6 +878,9 @@ CREATE TABLE IF NOT EXISTS archive_contract_settlements (
   updated_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP(),
   settled_at     DATE NULL COMMENT 'Data rozliczenia',
   source         VARCHAR(20) DEFAULT 'manual' COMMENT 'legacy/fakturownia/manual',
+  article_name_snapshot VARCHAR(255) NULL COMMENT 'Snapshot nazwy pozycji z FA (gdy position_id=NULL)',
+  fakturownia_product_id BIGINT NULL COMMENT 'ID produktu FA (grupowanie w analytics, identyfikacja duplikatów)',
+  fakturownia_invoice_number VARCHAR(50) NULL COMMENT 'Numer faktury FA (wydzielony z notes dla query)',
   UNIQUE KEY uq_archive_settlements_contract_pos_fee_date
     (contract_id, position_id, service_fee_id, settled_at),
   CONSTRAINT fk_archive_cs_contract_id

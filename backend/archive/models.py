@@ -13,6 +13,7 @@ Zasada: archiwum = READ-ONLY z wyjatkiem:
   - archive_articles.category_id (PATCH - przypisanie maszyny do kategorii)
 """
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     Column,
     Date,
@@ -104,7 +105,11 @@ class ArchiveArticle(Base):
     zasieg_m = Column(Numeric(8, 2), nullable=True, comment="Zasieg w metrach")
     udzwig_t = Column(Numeric(8, 2), nullable=True, comment="Udwig w tonach")
     dodatki = Column(Text, nullable=True, comment="Dodatkowe akcesoria / wyposazenie")
-    fakturownia_product_id = Column(Integer, nullable=True)
+    # RAO-P2-071: mirror articles — ID Fakturownia jako BIGINT (>2^31)
+    fakturownia_product_id = Column(BigInteger, nullable=True)
+    fakturownia_tax_rate = Column(String(10), nullable=True, comment="Stawka VAT z Fakturownia (snapshot)")
+    fakturownia_gtu_code = Column(String(20), nullable=True, comment="Kod GTU z Fakturownia (snapshot)")
+    fakturownia_pkwiu = Column(String(50), nullable=True, comment="PKWiU z Fakturownia (snapshot)")
     created_at = Column(DateTime, nullable=False)
     updated_at = Column(DateTime, nullable=True)
 
@@ -240,6 +245,11 @@ class ArchivePositionCondition(Base):
     rate2 = Column(Numeric(18, 2), nullable=True)
     billing_label = Column(String(20), nullable=True)
     period_count = Column(Integer, nullable=True)
+    # RAO-P2-071: mirror position_conditions — elastyczne widełki + ryczałt
+    period_from = Column(Integer, nullable=True, comment="RAO-P1-005: elastyczne widełki (od)")
+    period_to = Column(Integer, nullable=True, comment="RAO-P1-005: elastyczne widełki (do)")
+    is_flat_rate = Column(Boolean, nullable=False, default=True, server_default="1",
+                          comment="P1-101: ryczałt=TRUE (kwota całkowita), stawka=FALSE (per jednostka)")
     minimum = Column(Integer, nullable=True)
 
     position = relationship("ArchiveContractPosition", back_populates="conditions")
@@ -300,6 +310,13 @@ class ArchiveContractSettlement(Base):
     settled_at = Column(Date, nullable=True, comment="Data rozliczenia")
     source = Column(String(20), nullable=True, server_default="manual",
                     comment="Zrodlo: legacy/fakturownia/manual")
+    # RAO-P2-071: mirror contract_settlements — unmapped settlements z Fakturownia
+    article_name_snapshot = Column(String(255), nullable=True,
+                                   comment="Snapshot nazwy pozycji z FA (gdy position_id=NULL)")
+    fakturownia_product_id = Column(BigInteger, nullable=True,
+                                    comment="ID produktu FA (grupowanie w analytics)")
+    fakturownia_invoice_number = Column(String(50), nullable=True,
+                                        comment="Numer faktury FA (wydzielony z notes)")
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
 

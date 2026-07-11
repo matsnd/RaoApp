@@ -687,6 +687,64 @@ async def startup_migrations():
             ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_polish_ci"
             " COMMENT='RAO-P2-032: Log błędów importu (orphaned settlements itp.)'"
         ))
+        # RAO-P2-071: Archive schema sync — dodaj brakujące kolumny do archive_*
+        # (mirror live tabel: position_conditions / articles / contract_settlements)
+        # aby archiwizacja nie straci danych. ALTER IF NOT EXISTS = idempotentny.
+        # archive_position_conditions: period_from / period_to / is_flat_rate
+        await conn.execute(sa.text(
+            "ALTER TABLE archive_position_conditions ADD COLUMN IF NOT EXISTS "
+            "period_from INT NULL COMMENT 'RAO-P1-005: elastyczne widełki (od)'"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE archive_position_conditions ADD COLUMN IF NOT EXISTS "
+            "period_to INT NULL COMMENT 'RAO-P1-005: elastyczne widełki (do)'"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE archive_position_conditions ADD COLUMN IF NOT EXISTS "
+            "is_flat_rate BOOLEAN NOT NULL DEFAULT TRUE "
+            "COMMENT 'P1-101: ryczałt=TRUE (kwota całkowita), stawka=FALSE (per jednostka)'"
+        ))
+        # archive_articles: fakturownia_tax_rate / gtu_code / pkwiu
+        await conn.execute(sa.text(
+            "ALTER TABLE archive_articles ADD COLUMN IF NOT EXISTS "
+            "fakturownia_tax_rate VARCHAR(10) NULL COMMENT 'Stawka VAT z Fakturownia (snapshot)'"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE archive_articles ADD COLUMN IF NOT EXISTS "
+            "fakturownia_gtu_code VARCHAR(20) NULL COMMENT 'Kod GTU z Fakturownia (snapshot)'"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE archive_articles ADD COLUMN IF NOT EXISTS "
+            "fakturownia_pkwiu VARCHAR(50) NULL COMMENT 'PKWiU z Fakturownia (snapshot)'"
+        ))
+        # archive_articles: bigint fix — fakturownia_product_id int(11) → bigint(20)
+        # MODIFY COLUMN nie wspiera IF NOT EXISTS; sprawdzamy typ przed zmianą (idempotentne).
+        # Bezpieczne: tabele archive są PUSTE, int→bigint jest nieinwazyjne.
+        result = await conn.execute(sa.text(
+            "SELECT DATA_TYPE FROM information_schema.COLUMNS "
+            "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='archive_articles' "
+            "AND COLUMN_NAME='fakturownia_product_id'"
+        ))
+        if result.scalar_one_or_none() != "bigint":
+            await conn.execute(sa.text(
+                "ALTER TABLE archive_articles MODIFY COLUMN fakturownia_product_id BIGINT NULL"
+            ))
+        # archive_contract_settlements: article_name_snapshot / fakturownia_product_id / invoice_number
+        await conn.execute(sa.text(
+            "ALTER TABLE archive_contract_settlements ADD COLUMN IF NOT EXISTS "
+            "article_name_snapshot VARCHAR(255) NULL "
+            "COMMENT 'Snapshot nazwy pozycji z FA (gdy position_id=NULL)'"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE archive_contract_settlements ADD COLUMN IF NOT EXISTS "
+            "fakturownia_product_id BIGINT NULL "
+            "COMMENT 'ID produktu FA (grupowanie w analytics, identyfikacja duplikatów)'"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE archive_contract_settlements ADD COLUMN IF NOT EXISTS "
+            "fakturownia_invoice_number VARCHAR(50) NULL "
+            "COMMENT 'Numer faktury FA (wydzielony z notes dla query)'"
+        ))
         # RAO-P1-055: Migracja branch_id z suffixu "G" w numerze umowy (Gdańsk).
         # Idempotentna: WHERE branch_id IS NULL — kolejne uruchomienia nie modyfikują.
         # Numer umowy format: "{type}{auto:03d}/{year}{suffix}" gdzie suffix="G" dla GDAŃSK.
