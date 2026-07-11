@@ -19,10 +19,7 @@
             <input id="service-name" v-model="form.name" type="text" class="form-control" :class="{ error: fieldErrors.name }" :aria-invalid="!!fieldErrors.name" aria-describedby="service-name-error" placeholder="Np. Usługa operatora" required />
             <span v-if="fieldErrors.name" class="field-error" id="service-name-error" role="alert">{{ fieldErrors.name }}</span>
           </div>
-          <div class="form-group">
-            <label class="form-label" for="service-internal">Nr wewnętrzny</label>
-            <input id="service-internal" v-model="form.internal_number" type="text" class="form-control" />
-          </div>
+          <!-- #13 uwagi klienta: Nr wewnętrzny wyeliminowany z usług -->
         </div>
 
         <div class="form-row-2">
@@ -87,7 +84,7 @@ const fieldErrors = ref<Record<string, string>>({})
 
 const form = ref({
   name: '',
-  internal_number: '',
+  // #13 uwagi klienta: internal_number usunięte z usług
   category_id: null as number | null,
   branch_id: null as number | null,
   description: '',
