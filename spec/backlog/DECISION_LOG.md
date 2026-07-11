@@ -88,9 +88,14 @@
 ### P0-006 — ContractFormView checkboxy niepowiązane z PDF
 
 **Data:** 2026-07-05
-**Status:** triaged (audyt wykonany przez Devina na żądanie operatora)
-**Decyzja:** Odłożone. Wymaga decyzji biznesowej: czy "Drukuj" ukrywa osobę w PDF, czy `prepayment_document`/`invoice_document` mają trafiać do PDF.
-**Audyt:** 4 pola broken (`show_person1`, `show_person2`, `prepayment_document`, `invoice_document`), 6 bindowanych poprawnie (`hide_delivery_address`, `signatures_on_page1`, `is_active`×2, `is_service`, `is_external`).
+**Status:** done (audyt + fix 2026-07-11, commit ee216c3)
+**Decyzja:** Audyt 2026-07-11 (FULL-AUTO):
+  - `show_person1/2` — JUŻ DZIAŁAJĄ w PDF (`contract.html:161-172`, `contract_u.html:150,154` — warunkowe renderowanie `{% if contract.show_person1 %}`)
+  - `prepayment_document` — usunięte z form data + buildPayload (martwe pole, nie w UI, nie w PDF)
+  - `report_without_data` — usunięte z form data (martwe pole, test `test_pdf_options.py` potwierdza brak wpływu)
+  - `invoice_document` — nie istnieje w ContractFormView (false alarm z poprzedniego audytu)
+  - Audyt wszystkich pozostałych pól: wszystkie aktywne (v-model w template lub ustawiane w skrypcie)
+**Impact:** Brak — 2 martwe pola usunięte z frontend, backend schemas/DB nienaruszone (kolumny nullable zostają).
 **Impact:** Użytkownik zaznacza "Drukuj" lub wpisuje nr dokumentu, ale PDF ignoruje te dane — błędne oczekiwanie.
 **Decyzje operatora (2026-07-05):**
 - "Drukuj" osoby kontaktowe → TAK, ukrywać w PDF gdy odznaczone
