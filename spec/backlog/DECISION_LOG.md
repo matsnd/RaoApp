@@ -68,9 +68,9 @@
 ### P0-005 — Wszystkie umowy prefiks `S` (niezależnie od typu)
 
 **Data:** 2026-07-05
-**Status:** triaged (zgłoszone przez operatora podczas manualnych testów e2e)
-**Decyzja:** Odłożone. Wymaga zmiany generatora numeru + możliwej migracji istniejących umów z `U` → `S`.
-**Impact:** Obecnie umowy usługowe mają prefiks `U` — niedopuszczalne, wszystkie mają być `S`.
+**Status:** done (naprawione w P1-022, zweryfikowane 2026-07-11)
+**Decyzja:** Audyt 2026-07-11 (FULL-AUTO): Generator `generate_contract_number()` w `contracts/service.py:46-47` zawsze zwraca prefiks "S" (RAO-P1-022), niezależnie od `contract_type`. W DB wszystkie 64 umowy mają prefiks "S" (0 z "U", 0 z "N"). G dla Gdańska działa (branch_id != 1).
+**Impact:** Brak — wszystkie umowy zaczynają się na S.
 
 ### P1-001 — Predefiniowane cenniki warunków rozliczenia maszyn + auto-prefill z historii
 
