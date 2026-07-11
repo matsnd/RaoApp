@@ -1,5 +1,17 @@
 import pymysql
-conn = pymysql.connect(host='localhost', user='rao_user', password='RaoPass2026!', database='rao_new', charset='utf8mb4')
+from urllib.parse import urlparse
+from config import settings
+
+# RAO-SEC: Read DB credentials from settings (.env) — never hardcode passwords.
+_url = urlparse(settings.RAO_DATABASE_URL)
+conn = pymysql.connect(
+    host=_url.hostname or 'localhost',
+    user=_url.username or 'rao_user',
+    password=_url.password or '',
+    database=_url.path.lstrip('/') or 'rao_new',
+    port=_url.port or 3306,
+    charset='utf8mb4',
+)
 try:
     with conn.cursor() as cur:
         cur.execute('SELECT number, COUNT(*) FROM contracts GROUP BY number HAVING COUNT(*) > 1')

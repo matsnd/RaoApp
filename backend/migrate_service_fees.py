@@ -55,7 +55,7 @@ import aiomysql
 DB_HOST = os.environ.get("RAO_DB_HOST", "localhost")
 DB_PORT = int(os.environ.get("RAO_DB_PORT", "3306"))
 DB_USER = os.environ.get("RAO_DB_USER", "rao_user")
-DB_PASS = os.environ.get("RAO_DB_PASSWORD", "RaoPass2026!")
+DB_PASS = os.environ.get("RAO_DB_PASSWORD", "")
 DB_NAME = os.environ.get("RAO_DB_NAME", "rao_new")
 
 

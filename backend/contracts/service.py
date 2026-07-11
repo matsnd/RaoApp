@@ -384,7 +384,6 @@ async def apply_preset_to_contract(db: AsyncSession, contract_id: int, preset_id
             name=t.name,
             amount_from=t.amount_from,
             amount_to=t.amount_to,
-            unit=t.unit,
             description=t.description,
             is_active=t.is_active,
         ))

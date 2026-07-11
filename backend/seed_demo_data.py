@@ -30,11 +30,15 @@ Wymaga:
     - .env z RAO_FAKTUROWNIA_ENC_KEY i DB credentials
 """
 import asyncio
+import io
 import os
 import sys
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
+
+# RAO: UTF-8 stdout — Python 3.14 na Windows cp1250 crashuje przy print polskich znaków
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
 # Dodaj backend do path
 sys.path.insert(0, str(Path(__file__).parent))

@@ -61,6 +61,12 @@ async def startup_migrations():
     import settlements.models  # RAO-P1-012
     import integrations.fakturownia.models  # RAO-P2-012
 
+    # RAO: create_all MUST run first — on a fresh DB, tables don't exist yet
+    # when the Company query below tries to access them. create_all is idempotent
+    # (only creates missing tables), so the second call on line ~194 is a no-op.
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
     # Upewnij się że istnieje domyślna firma (id=1) — FK dla FeePresetGroup
     # Musi być utworzone PRZED seedem presetów (RAO-P2-001 niżej).
     async with AsyncSessionLocal() as db:
