@@ -119,7 +119,7 @@ plan: C:/Users/mateu/.windsurf/plans/megaplan-statystyki-klienta-10c667.md
 
 ```yaml
 id: P2-002
-status: triaged
+status: team-verified
 priority: P2
 created: 2026-07-08
 source: tech-lead (follow-up po P1-100)
