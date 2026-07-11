@@ -231,15 +231,16 @@ def format_position_conditions_cascading(
     return "\n".join(lines)
 ```
 
-## 4. Duplikacja artykułu
+## 4. Duplikacja maszyny (refaktor: było `duplicate_article`)
 
 ```python
-async def duplicate_article(db: AsyncSession, article_id: int) -> int:
+async def duplicate_machine(db: AsyncSession, machine_id: int) -> int:
     """
     Źródło: procedura DuplikujArtykul2 w MariaDB.
+    Refaktor (Faza 7): article_id → machine_id, tabela `machines`.
 
     Algorytm:
-    1. SELECT * FROM articles WHERE id = article_id
+    1. SELECT * FROM machines WHERE id = machine_id
     2. INSERT nowy rekord z:
        - name = original.name + " (kopia)"
        - registration_no = NULL (nie kopiuj rejestracj.)
@@ -248,13 +249,12 @@ async def duplicate_article(db: AsyncSession, article_id: int) -> int:
        - Reszta pól = kopia
     3. Return new_id
     """
-    original = await db.get(Article, article_id)
+    original = await db.get(Machine, machine_id)
     if not original:
-        raise HTTPException(404, "Artykuł nie znaleziony")
+        raise HTTPException(404, "Maszyna nie znaleziona")
 
-    new_article = Article(
+    new_machine = Machine(
         name=f"{original.name} (kopia)",
-        is_service=original.is_service,
         registration_no=None,
         serial_no=None,
         brand=original.brand,
@@ -265,20 +265,27 @@ async def duplicate_article(db: AsyncSession, article_id: int) -> int:
         branch_id=original.branch_id,
         description=original.description,
         notes=original.notes,
-        rental_days=original.rental_days,
-        article_type=original.article_type,
+        reach_m=original.reach_m,
+        capacity_t=original.capacity_t,
+        accessories=original.accessories,
+        power_type=original.power_type,
+        is_external=original.is_external,
     )
-    db.add(new_article)
+    db.add(new_machine)
     await db.flush()
-    return new_article.id
+    return new_machine.id
 ```
 
-## 5. Sprawdzenie dostępności artykułu (Zamiennik d. `sprDostepnosc` i `sprUmowyArtykulu6`)
+## 5. Sprawdzenie dostępności maszyny (Zamiennik d. `sprDostepnosc` i `sprUmowyArtykulu6`)
+
+> **Refaktor (Faza 7, 2026-07-11):** `article_id` → `machine_id`. Pozycje umowy używają
+> `machine_id XOR service_id` (CHECK constraint). Dostępność sprawdzana tylko dla maszyn
+> (machine_id NOT NULL). Usługi (service_id) nie mają sprawdzania dostępności.
 
 ```python
 async def check_availability(
     db: AsyncSession,
-    article_id: int,
+    machine_id: int,
     proposed_date_from: date,
     rental_days: int,
     exclude_position_id: int | None = None
@@ -289,7 +296,7 @@ async def check_availability(
 
     Algorytm:
     Oblicza datę końcową: `proposed_date_to = proposed_date_from + days(rental_days)`.
-    Sprawdza, czy artykuł znajduje się na jakichkolwiek innych aktywnych umowach, 
+    Sprawdza, czy maszyna znajduje się na jakichkolwiek innych aktywnych umowach, 
     gdzie daty "Od - Do" (obliczone z `data_dostawy` i `liczba_dni`) nakładają się
     na podany przedział `[proposed_date_from, proposed_date_to]`.
     """
@@ -298,7 +305,7 @@ async def check_availability(
     proposed_date_to = proposed_date_from + timedelta(days=rental_days)
 
     # 2. Szukaj konfliktów z innymi pozycjami na umowach
-    # Zwróć uwagę, że daty trwania dotyczą *pozycji* (od kiedy do kiedy wynajęty konkretny artykuł)
+    # Zwróć uwagę, że daty trwania dotyczą *pozycji* (od kiedy do kiedy wynajęta konkretna maszyna)
     # Warunek Overlap: (existing_START <= proposed_END) AND (existing_END >= proposed_START)
     
     query = (
@@ -307,7 +314,7 @@ async def check_availability(
         .join(Contract, ContractPosition.contract_id == Contract.id)
         .join(Contractor, Contract.contractor_id == Contractor.id)
         .where(
-            ContractPosition.article_id == article_id,
+            ContractPosition.machine_id == machine_id,
             # Zakładamy, że delivery_date to START, a delivery_date + rental_days to END
             ContractPosition.delivery_date <= proposed_date_to,
             func.date_add(ContractPosition.delivery_date, text(f"INTERVAL ContractPosition.rental_days DAY")) >= proposed_date_from
@@ -338,6 +345,37 @@ async def check_availability(
         conflicting_contracts=conflicts
     )
 ```
+
+## 5b. Walidacja XOR pozycji umowy (machine_id XOR service_id) — NOWY (Faza 7, 2026-07-11)
+
+> **Refaktor (Faza 7):** `contract_positions.article_id` zostało rozdzielone na
+> `machine_id` (FK → machines) i `service_id` (FK → services).
+> CHECK constraint `chk_pos_machine_xor_service` wymusza dokładnie jeden z nich.
+
+```python
+class ContractPositionCreate(BaseModel):
+    machine_id: int | None = None
+    service_id: int | None = None
+    # ... inne pola
+
+    @model_validator(mode='after')
+    def validate_xor(self):
+        """XOR: dokładnie jeden z machine_id / service_id musi być ustawiony."""
+        has_machine = self.machine_id is not None
+        has_service = self.service_id is not None
+        if has_machine == has_service:  # oba True lub oba False
+            raise ValueError(
+                "Pozycja umowy musi mieć dokładnie jedno z: machine_id LUB service_id (XOR)."
+            )
+        return self
+```
+
+**Semantyka:**
+- `machine_id NOT NULL, service_id NULL` → pozycja dotyczy maszyny (najem, contract_type='S')
+- `service_id NOT NULL, machine_id NULL` → pozycja dotyczy usługi zwykłej (contract_type='U')
+- Obie NULL lub obie NOT NULL → błąd walidacji (Pydantic + DB CHECK constraint)
+
+---
 
 ## 6. GUS API (SOAP)
 
@@ -568,69 +606,72 @@ def calculate_remaining(
 > tylko `contract_positions` JOIN `articles` — usługi zapisane wyłącznie w
 > `contract_service_fees` były niewidoczne dla wszystkich endpointów statystyk
 > (`/stats/positions?type=services`, `/stats/additional-fees`, `/stats/by-category`).
+>
+> **Refaktor (Faza 7, 2026-07-11):** `compute_position_revenues()` w `shared/revenue.py`
+> zaktualizowane: zapytania JOIN `machines` (dla machine_id) + JOIN `services` (dla service_id)
+> zamiast JOIN `articles`. `article_id` → `machine_id XOR service_id`.
 
 ```python
-async def resolve_article_name_for_template(
+async def resolve_additional_service_name_for_template(
     db: AsyncSession,
-    article_id: int | None,
+    additional_service_id: int | None,
     name_override: str | None = None
 ) -> str:
     """
-    RAO-P1-011: Jeśli article_id ustawiony, pobierz nazwę z articles.name.
-    Jeśli name_override podany, użyj go (ale snapshot z articles.name jest zachowany w polu name).
+    RAO-P1-011 (refaktor Faza 7): Jeśli additional_service_id ustawiony, pobierz nazwę z additional_services.name.
+    Jeśli name_override podany, użyj go (ale snapshot z additional_services.name jest zachowany w polu name).
 
     Strategia:
-    1. Jeśli article_id NULL → zwróć name_override lub pusty string
-    2. Jeśli article_id ustawiony:
-       - Pobierz artykuł po ID
-       - Jeśli artykuł nie istnieje → raise 404
-       - Zwróć articles.name (snapshot w polu name ServiceFeeTemplate)
+    1. Jeśli additional_service_id NULL → zwróć name_override lub pusty string
+    2. Jeśli additional_service_id ustawiony:
+       - Pobierz usługę dodatkową po ID
+       - Jeśli nie istnieje → raise 404
+       - Zwróć additional_services.name (snapshot w polu name ServiceFeeTemplate)
     """
-    if not article_id:
+    if not additional_service_id:
         return name_override or ""
 
-    result = await db.execute(select(Article).where(Article.id == article_id))
-    article = result.scalar_one_or_none()
-    if not article:
-        raise HTTPException(status_code=404, detail="Artykuł nie znaleziony")
-    return article.name
+    result = await db.execute(select(AdditionalService).where(AdditionalService.id == additional_service_id))
+    add_service = result.scalar_one_or_none()
+    if not add_service:
+        raise HTTPException(status_code=404, detail="Usługa dodatkowa nie znaleziona")
+    return add_service.name
 
-async def sync_template_with_article(
+async def sync_template_with_additional_service(
     db: AsyncSession,
     template: ServiceFeeTemplate,
     data: ServiceFeeTemplateCreate
 ) -> None:
     """
-    RAO-P1-011: Synchronizacja szablonu z artykułem przy tworzeniu/edycji.
+    RAO-P1-011 (refaktor Faza 7): Synchronizacja szablonu z usługą dodatkową przy tworzeniu/edycji.
 
     Logika:
-    1. Jeśli data.article_id ustawiony:
-       - Pobierz nazwę z articles.name
-       - Ustaw template.name = articles.name (snapshot)
-       - Ustaw template.article_id = data.article_id
-       - Ustaw template.default_price = data.default_price lub article.price
-    2. Jeśli data.article_id NULL:
+    1. Jeśli data.additional_service_id ustawiony:
+       - Pobierz nazwę z additional_services.name
+       - Ustaw template.name = additional_services.name (snapshot)
+       - Ustaw template.additional_service_id = data.additional_service_id
+       - Ustaw template.default_price = data.default_price lub additional_service.default_amount
+    2. Jeśli data.additional_service_id NULL:
        - Ustaw template.name = data.name (manual input)
-       - Ustaw template.article_id = NULL
+       - Ustaw template.additional_service_id = NULL
        - Ustaw template.default_price = data.default_price lub NULL
     """
-    if data.article_id:
-        name = await resolve_article_name_for_template(db, data.article_id)
+    if data.additional_service_id:
+        name = await resolve_additional_service_name_for_template(db, data.additional_service_id)
         template.name = name
-        template.article_id = data.article_id
+        template.additional_service_id = data.additional_service_id
         template.default_price = data.default_price
     else:
         template.name = data.name
-        template.article_id = None
+        template.additional_service_id = None
         template.default_price = data.default_price
 ```
 
-**Migration (backend/migrate.py step5d):**
-- Mapowanie service_fee_templates.name → articles.id (po nazwie, case-insensitive)
-- Preferuj artykuły z is_service=1
-- Jeśli artykuł nie istnieje → utwórz (is_service=1)
-- Ustaw article_id i default_price
-- Idempotentne: pomija rekordy z już ustawionym article_id
+**Migration (backend/migrate.py step5d — refaktor Faza 7):**
+- Mapowanie service_fee_templates.name → additional_services.id (po nazwie, case-insensitive)
+- Jeśli usługa dodatkowa nie istnieje → utwórz w `additional_services`
+- Ustaw additional_service_id i default_price
+- Idempotentne: pomija rekordy z już ustawionym additional_service_id
 
 ## 13. Auto-creowanie rozliczeń umowy (RAO-P1-012)
 
@@ -743,17 +784,23 @@ async def init_contract_settlements_from_fakturownia(
     
     RAO-P2-012: Również pobiera usługi dodatkowe (contract_service_fees) z Fakturownia.
     
+    Refaktor (Faza 7, 2026-07-11): Mapowanie 3 tabel zamiast jednej `articles`:
+    - machines (fakturownia_product_id) — dla pozycji z machine_id
+    - services (fakturownia_product_id) — dla pozycji z service_id
+    - additional_services (fakturownia_product_id) — dla service_fee_templates
+    
     Logika mapowania:
     - Pobiera faktury z Fakturownia przez integrations/fakturownia/service
-    - Dla pozycji umowy: sprawdza czy są artykuły RAO ze zmapowanym fakturownia_product_id
-      Jeśli artykuł jest na umowie → tworzy/aktualizuje settlement z cost_client z faktury
-    - Dla usług dodatkowych: sprawdza czy service_fee_templates mają article_id z fakturownia_product_id
-      Jeśli artykuł jest zmapowany → tworzy/aktualizuje settlement z service_fee_id
-    - Semantyka 1:N: jeśli produkt FA jest przypisany do wielu artykułów RAO,
-      każdy artykuł na umowie dostaje pełną wartość z faktury (multiplikacja OK)
+    - Dla pozycji umowy: sprawdza czy są maszyny/usługi RAO ze zmapowanym fakturownia_product_id
+      Jeśli maszyna/usługa jest na umowie → tworzy/aktualizuje settlement z cost_client z faktury
+    - Dla usług dodatkowych: sprawdza czy service_fee_templates mają additional_service_id z fakturownia_product_id
+      Jeśli usługa dodatkowa jest zmapowana → tworzy/aktualizuje settlement z service_fee_id
+    - Semantyka 1:N: jeśli produkt FA jest przypisany do wielu maszyn/usług RAO,
+      każdy z nich na umowie dostaje pełną wartość z faktury (multiplikacja OK)
     """
     from integrations.fakturownia.service import fetch_invoices_for_contract
-    from articles.models import Article
+    from machines.models import Machine
+    from services.models import Service
     from contracts.models import ContractServiceFee
     from settings.models import ServiceFeeTemplate
     
@@ -771,22 +818,30 @@ async def init_contract_settlements_from_fakturownia(
     if not invoices:
         raise HTTPException(status_code=404, detail="Brak faktur w Fakturownia dla tej umowy")
     
-    # Pobierz pozycje umowy z artykułami (dla mapowania)
-    positions = await db.execute(
-        select(ContractPosition, Article)
-        .join(Article, ContractPosition.article_id == Article.id)
+    # Pobierz pozycje umowy z maszynami (dla mapowania — machine_id)
+    machine_positions = await db.execute(
+        select(ContractPosition, Machine)
+        .join(Machine, ContractPosition.machine_id == Machine.id)
         .where(ContractPosition.contract_id == contract_id)
     )
-    position_articles = positions.all()
+    pos_to_machine = {pa[0].id: (pa[0], pa[1]) for pa in machine_positions.all()}
     
-    # Map: position_id -> (position, article)
-    pos_to_article = {pa[0].id: (pa[0], pa[1]) for pa in position_articles}
+    # Pobierz pozycje umowy z usługami (dla mapowania — service_id)
+    service_positions = await db.execute(
+        select(ContractPosition, Service)
+        .join(Service, ContractPosition.service_id == Service.id)
+        .where(ContractPosition.contract_id == contract_id)
+    )
+    pos_to_service = {pa[0].id: (pa[0], pa[1]) for pa in service_positions.all()}
     
-    # Map: fakturownia_product_id -> list[position_id]
+    # Map: fakturownia_product_id -> list[position_id] (machines + services)
     pid_to_positions = {}
-    for pos, art in pos_to_article.values():
-        if art.fakturownia_product_id:
-            pid_to_positions.setdefault(art.fakturownia_product_id, []).append(pos.id)
+    for pos, mach in pos_to_machine.values():
+        if mach.fakturownia_product_id:
+            pid_to_positions.setdefault(mach.fakturownia_product_id, []).append(pos.id)
+    for pos, svc in pos_to_service.values():
+        if svc.fakturownia_product_id:
+            pid_to_positions.setdefault(svc.fakturownia_product_id, []).append(pos.id)
     
     # Pobierz usługi dodatkowe umowy z szablonami (dla mapowania)
     service_fees = await db.execute(
@@ -800,13 +855,15 @@ async def init_contract_settlements_from_fakturownia(
     fee_to_template = {ft[0].id: (ft[0], ft[1]) for ft in fee_templates}
     
     # Map: fakturownia_product_id -> list[service_fee_id]
+    # Refaktor: template.additional_service_id → additional_services.fakturownia_product_id
+    from additional_services.models import AdditionalService
     pid_to_service_fees = {}
     for fee, template in fee_to_template.values():
-        if template.article_id:
-            article_result = await db.execute(select(Article).where(Article.id == template.article_id))
-            article = article_result.scalar_one_or_none()
-            if article and article.fakturownia_product_id:
-                pid_to_service_fees.setdefault(article.fakturownia_product_id, []).append(fee.id)
+        if template.additional_service_id:
+            as_result = await db.execute(select(AdditionalService).where(AdditionalService.id == template.additional_service_id))
+            add_service = as_result.scalar_one_or_none()
+            if add_service and add_service.fakturownia_product_id:
+                pid_to_service_fees.setdefault(add_service.fakturownia_product_id, []).append(fee.id)
     
     # Przetwórz faktury i utwórz/aktualizuj settlements dla pozycji
     for invoice in invoices:
@@ -1321,7 +1378,7 @@ python migrate_all.py --list  # wyświetla dostępne kroki
 **Kroki (idempotentne, re-run safe):**
 1. `recreate_db` — DROP + CREATE database (czysty start)
 2. `import_dump` — import legacy dump (jeśli dostępny)
-3. `seed_demo_data` — umowy, pozycje, kontrahenci, artykuły, warunki, usługi dodatkowe, `delivery_address`
+3. `seed_demo_data` — umowy, pozycje, kontrahenci, maszyny/usługi/usługi dodatkowe, warunki, `delivery_address` (refaktor Faza 7: `articles` → `machines`/`services`/`additional_services`)
 4. `seed_fa_invoices` — faktury FA (wymaga `FAKTUROWNIA_API_TOKEN` w env)
 5. `verify` — sprawdź spójność (count umów, pozycji, rozliczeń, faktur FA, lokalizacji)
 
@@ -1377,7 +1434,7 @@ Każda maszyna ma 3 warunki kaskadowe:
 | Kontrakt zagraniczny (export) | S | – | 4 | Umowy zagraniczne (transport międzynarodowy) |
 | Usługa z operatorem — premium | U | – | 4 | Premium: operator + serwis 24/7 + paliwo w cenie |
 
-**ServiceFeeTemplateItem** (relacja N:M preset → artykuł): 22 relacji — frontend pokazuje konkretne artykuły w pickerze presetów.
+**ServiceFeeTemplateItem** (relacja N:M preset → usługa dodatkowa): 22 relacji — frontend pokazuje konkretne usługi dodatkowe w pickerze presetów. (Refaktor Faza 7: `article_id` → `additional_service_id`.)
 
 **Rate types (6 typów):**
 - Stawka dniowa, godzinowa, km (istniejące)
@@ -1389,3 +1446,38 @@ Każda maszyna ma 3 warunki kaskadowe:
 - Bank: PKO BP, konto: PL 12 1020 1026 0000 1234 5678 9012
 - header_text do PDF: pełne dane firmy (NIP, konto, adres)
 - numbering_start=1, increment_step=50
+
+---
+
+## Predefiniowane cenniki rozliczenia per-maszyna (RAO-P1-001, refaktor Faza 7)
+
+> **Refaktor (Faza 7, 2026-07-11):** `article_rate_presets` → `machine_rate_presets`
+> (article_id → machine_id). Tabela `machine_rate_presets` + `machine_rate_preset_items`.
+> Cenniki są per-maszyna (nie per-artykuł). Usługi nie mają cenników.
+
+```python
+async def apply_rate_preset_to_position(
+    db: AsyncSession,
+    contract_id: int,
+    position_id: int,
+    preset_id: int,
+    replace: bool = True
+) -> list[PositionCondition]:
+    """
+    Stosuje cennik (preset) na pozycję umowy — snapshot copy.
+    
+    Algorytm:
+    1. Pobierz preset z machine_rate_preset_items WHERE preset_id = :preset_id
+    2. Jeśli replace=True → usuń istniejące warunki pozycji
+    3. Bulk copy: dla każdego MachineRatePresetItem → PositionCondition(position_id, **pola)
+    4. Guard 409 jeśli umowa jest rozliczona (is_settled=True)
+    5. Return list[PositionCondition] — nowo utworzone warunki
+    """
+```
+
+**Snapshot principle:** Po zastosowaniu w umowie warunki są kopiowane (snapshot) —
+edycja cenniku NIE wpływa na istniejące umowy.
+
+**Default preset logic:**
+1. `UPDATE machine_rate_presets SET is_default=0 WHERE machine_id=:mid AND id<>:pid`
+2. `UPDATE machine_rate_presets SET is_default=1 WHERE id=:pid`

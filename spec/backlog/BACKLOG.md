@@ -241,3 +241,51 @@ generate_pdf() → bytes  →    usePdfFolders() composable
 ## 🟢 P3 — Nice-to-Have
 
 *Brak*
+
+---
+
+## ✅ Done — Ukończone zadania
+
+### REFACTOR-001: Articles split — rozdzielenie `articles` na `machines`/`services`/`additional_services`
+
+```yaml
+id: REFACTOR-001
+status: done
+priority: P1
+created: 2026-07-11
+completed: 2026-07-11
+source: tech-lead (architektura)
+component: backend (models, schemas, service, routers) + frontend (stores, views, router) + DB schema + e2e tests
+commits: 39f2958 → 862b66b (10 commitów)
+phases: 1-6 (DB schema + modele + schemas/service + routers + frontend + e2e + migracja)
+```
+
+**Opis:** Pełny refaktor architektury danych — rozdzielenie pojedynczej tabeli `articles` (z flagą `is_service`) na trzy dedykowane tabele:
+- `machines` — maszyny budowlane (najem, contract_type='S')
+- `services` — usługi zwykłe (contract_type='U')
+- `additional_services` — usługi dodatkowe (katalog opłat: transport, czyszczenie, tankowanie)
+
+**Kluczowe zmiany:**
+- `contract_positions.article_id` → `machine_id XOR service_id` (CHECK constraint `chk_pos_machine_xor_service`)
+- `service_fee_templates.article_id` → `additional_service_id` (FK → additional_services)
+- `article_rate_presets` → `machine_rate_presets` (article_id → machine_id)
+- `machine_reservations.article_id` → `machine_id`
+- Backend: 3 nowe moduły (`machines/`, `services/`, `additional_services/`) z CRUD
+- Frontend: 6 nowych widoków (MachinesListView, MachineFormView, ServicesListView, ServiceFormView, AdditionalServicesListView, AdditionalServiceFormView) + 3 nowe store'y + routing
+- E2E: testy zaktualizowane dla nowych endpointów
+- `shared/revenue.py`: JOIN Machine + Service zamiast JOIN Article
+- Fakturownia mapping: 3 tabele (machines, services, additional_services) zamiast articles
+
+**Commits (10):**
+1. `39f2958` — Faza 1: DB schema + 3 modele SQLAlchemy + FK update
+2. `362d6ff` — update revenue.py for articles split
+3. `0c4cec3` — Faza 2: schemas + service layer dla 3 nowych modułów
+4. `903b1ec` — Faza 3: update routers stats/reports/explorer/settlements
+5. `acb34fb` — Faza 3.5: unit tests update + 4 nowe testy CRUD
+6. `2a71128` — Faza 4a: stores + router + views dla machines/services/additional_services
+7. `31ab62e` — Faza 4b: articles→machines split w widokach i storeach
+8. `69ffce6` — Faza 4c: articles→machines w 12 komponentach
+9. `2723ff7` — Faza 5: update e2e tests for split
+10. `862b66b` — Faza 6: skrypty migracji + seed update
+
+**Spec sync:** `01_database.md`, `02_backend_api.md`, `03_frontend_screens.md`, `04_business_logic.md`, `06_navigation_flow.md`, `07_integrations.md`, `11_reports_stats.md`, `25_security.md` — wszystkie zaktualizowane.

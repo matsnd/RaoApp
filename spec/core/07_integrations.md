@@ -806,15 +806,20 @@ Response:
 - **IDOR fix:** contract_id zamiast oid (OID pobierany z DB po weryfikacji ownership)
 - **Rate limiting:** 30/min/user (invoices), 5/min/IP (settings token update)
 
-### Mapping 1:N
+### Mapping 1:N (refaktor Faza 7 — 3 tabele zamiast `articles`)
 
-Jeden produkt Fakturownia może być przypisany do wielu artykułów RAO (globalny w `articles.fakturownia_product_id`).
+> **Refaktor (Faza 7, 2026-07-11):** Mapowanie Fakturownia używa 3 tabel zamiast jednej `articles`:
+> - `machines.fakturownia_product_id` — dla maszyn (najem, contract_type='S')
+> - `services.fakturownia_product_id` — dla usług zwykłych (contract_type='U')
+> - `additional_services.fakturownia_product_id` — dla usług dodatkowych (service_fee_templates)
 
-**Semantyka sumowania:** Jeśli artykuł z mappingiem jest na umowie → każdy dostaje pełną wartość z faktury (multiplikacja OK).
+Jeden produkt Fakturownia może być przypisany do wielu maszyn/usług RAO (globalny w `machines.fakturownia_product_id`, `services.fakturownia_product_id`, `additional_services.fakturownia_product_id`).
+
+**Semantyka sumowania:** Jeśli maszyna/usługa z mappingiem jest na umowie → każdy dostaje pełną wartość z faktury (multiplikacja OK).
 
 Przykład:
 - Fakturownia: Koparka CAT 320 (id=456) → 10 000 zł
-- RAO: Koparka 1, Koparka 2, Koparka 3 (wszystkie mają fakturownia_product_id=456)
+- RAO: Koparka 1, Koparka 2, Koparka 3 (wszystkie mają fakturownia_product_id=456 w `machines`)
 - Umowa ma Koparka 2 i Koparka 3
 - Wynik: 2x 10 000 zł = 20 000 zł (każdy pełna wartość)
 
@@ -840,11 +845,11 @@ Konto testowe `matsnd.fakturownia.pl` skonfigurowane jako demo produkcyjne:
 - **8 klientów demo:** Bud-Plus, Invest, Terra-Masz, Wod-Bud, Fundament, Trakcja, Eko-Bud, Miejskie (wszystkie `tax_no_kind: "other"` — omija walidację NIP)
 - **31 faktur:** 19 backfill (rozliczone umowy z `source=fakturownia`) + 12 FA-pending (czekają na "Pobierz z Fakturowni" w UI)
 - **OID = numer umowy** w `description` faktury (np. "S005/2026")
-- **Mapowanie:** `Article.fakturownia_product_id` ↔ FA product ID (w `seed_demo_data.py`)
+- **Mapowanie:** `Machine.fakturownia_product_id` / `Service.fakturownia_product_id` / `AdditionalService.fakturownia_product_id` ↔ FA product ID (w `seed_demo_data.py`, refaktor Faza 7)
 - **`delivery_address`:** wszystkie umowy demo mają realistyczne adresy (10 miast PL z PNA) → zakładka "Lokalizacje" w AnalyticsView pokazuje dane
 - **Cenniki kaskadowe per maszyna:** 5 maszyn × 3 warunki (1-3 dni, 4-16 dni, powyżej 16 dni) — jak w starej aplikacji WinForms. User klika maszynę i ma gotowy cennik.
 - **6 presetów usług dodatkowych:** najem (default S), usługa z operatorem (default U), kontrakt długoterminowy, weekend, kontrakt zagraniczny, operator premium
-- **ServiceFeeTemplateItem:** 22 relacji N:M preset → artykuł (frontend pokazuje konkretne artykuły w pickerze)
+- **ServiceFeeTemplateItem:** 22 relacji N:M preset → usługa dodatkowa (frontend pokazuje konkretne usługi dodatkowe w pickerze, refaktor Faza 7: `article_id` → `additional_service_id`)
 - **6 rate types:** dniowa, godzinowa, km, tygodniowa, miesięczna, jednorazowa
 - **Skrypty:** `backend/seed_demo_data.py` (dane RAO) + `backend/seed_fa_invoices.py` (faktury FA, token z env) + `backend/migrate_all.py` (orchestrator)
 - **FA-pending flow:** 12 umów nierozliczonych z fakturą czekającą w FA → demo "Pobierz z Fakturowni" tworzy rozliczenie

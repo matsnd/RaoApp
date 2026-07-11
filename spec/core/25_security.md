@@ -53,8 +53,12 @@
 | POST/PUT/DELETE /settlements | own branch only (RAO-SEC-001) | all |
 | GET /contractors/{id} | yes (shared entity) | all |
 | POST/PUT/DELETE /contractors | NO (admin only, RAO-SEC-002) | yes |
-| GET /articles/{id} | own branch or NULL (RAO-SEC-003) | all |
-| PUT/DELETE /articles/{id} | own branch only (RAO-SEC-003) | all |
+| GET /articles/{id} | own branch or NULL (RAO-SEC-003) — DEPRECATED → /machines/{id} | all |
+| PUT/DELETE /articles/{id} | own branch only (RAO-SEC-003) — DEPRECATED → /machines/{id} | all |
+| GET /machines/{id} | own branch or NULL (RAO-SEC-003, refaktor Faza 7) | all |
+| PUT/DELETE /machines/{id} | own branch only (RAO-SEC-003, refaktor Faza 7) | all |
+| GET /services/{id} | yes (shared entity, refaktor Faza 7) | all |
+| PUT/DELETE /services/{id} | own branch only (refaktor Faza 7) | all |
 | GET /reports/summary/* | NO (admin only, RAO-SEC-009) | yes |
 | GET /archive/contracts/{id} | own branch only (RAO-SEC-010) | all |
 | DELETE /users/{id} | no | yes |

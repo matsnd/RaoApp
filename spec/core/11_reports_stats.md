@@ -189,9 +189,11 @@ z design systemem Toolsmart.
 - `table.pwo-table` — tabela 10-kolumnowa z border-collapse
 - `.pwo-row-label` — etykieta wiersza (Przy wydaniu / Przy odbiorze)
 
-### 1.8 Eager loading dla artykułów i usług dodatkowych (RAO-P2-XXX)
+### 1.8 Eager loading dla maszyn/usług i usług dodatkowych (RAO-P2-XXX, refaktor Faza 7)
 
-W `reports/service.py::build_contract_data()` dodano eager loading dla relacji `article` w `ContractPosition` i `ContractServiceFee` w celu uniknięcia błędów N+1 i zapewnienia poprawnego wyświetlania nazw artykułów w szablonach PDF.
+> **Refaktor (Faza 7, 2026-07-11):** `ContractPosition.article` → `ContractPosition.machine` / `ContractPosition.service` (XOR). Eager loading zaktualizowane.
+
+W `reports/service.py::build_contract_data()` dodano eager loading dla relacji `machine`/`service` w `ContractPosition` i `ContractServiceFee` w celu uniknięcia błędów N+1 i zapewnienia poprawnego wyświetlania nazw w szablonach PDF.
 
 **Implementacja:**
 ```python
@@ -199,15 +201,17 @@ W `reports/service.py::build_contract_data()` dodano eager loading dla relacji `
 from sqlalchemy.orm import selectinload
 result = await db.execute(
     select(Contract)
-    .options(selectinload(Contract.positions).selectinload(ContractPosition.article))
-    .options(selectinload(Contract.service_fees).selectinload(ContractServiceFee.article))
+    .options(selectinload(Contract.positions).selectinload(ContractPosition.machine))
+    .options(selectinload(Contract.positions).selectinload(ContractPosition.service))
+    .options(selectinload(Contract.service_fees))
     .where(Contract.id == contract_id)
 )
 ```
 
-**Relacje w modelach:**
-- `contracts/models.py::ContractPosition.article` — relacja do `Article` (lazy="selectin")
-- `contracts/models.py::ContractServiceFee.article` — relacja do `Article` (lazy="selectin")
+**Relacje w modelach (refaktor Faza 7):**
+- `contracts/models.py::ContractPosition.machine` — relacja do `Machine` (lazy="selectin")
+- `contracts/models.py::ContractPosition.service` — relacja do `Service` (lazy="selectin")
+- XOR: dokładnie jeden z machine/service jest NOT NULL per pozycja
 
 ### 1.9 Zapisywanie PDF do folderów z ustawień (RAO-P2-XXX)
 
@@ -230,11 +234,11 @@ Użytkownik potrzebuje narzędzi do badania rentowności maszyn. Poniżej specyf
 
 ### 2.1 Numer Wewnętrzny Maszyny
 
-W tabeli `articles` dodane zostało pole `internal_number`. Odróżnia ono maszyny systemowe (np. "Koparka ABC" nr seryjny 123) za pomocą wewnętrznych indeksów ewidencyjnych firmy. Wszystkie widoki na frontendzie (tabele, pola wyboru, PDFy) muszą uwzględniać ten numer tam gdzie wyświetlana jest maszyna.
+W tabeli `machines` (refaktor Faza 7: było `articles`) dodane zostało pole `internal_number`. Odróżnia ono maszyny systemowe (np. "Koparka ABC" nr seryjny 123) za pomocą wewnętrznych indeksów ewidencyjnych firmy. Wszystkie widoki na frontendzie (tabele, pola wyboru, PDFy) muszą uwzględniać ten numer tam gdzie wyświetlana jest maszyna.
 
 ### 2.1a Kategorie Maszyn (RAO-P1-017)
 
-Tabela `articles` posiada denormalizowane kolumny hierarchii kategorii:
+Tabela `machines` (refaktor Faza 7: było `articles`) posiada denormalizowane kolumny hierarchii kategorii:
 - `category_main VARCHAR(100)` — kategoria główna (snapshot nazwy)
 - `category_sub1 VARCHAR(100)` — podkategoria 1
 - `category_sub2 VARCHAR(100)` — podkategoria 2
@@ -246,16 +250,16 @@ Maszyny bez kategorii trafiają do grupy `(bez kategorii)` w raportach.
 
 ### 2.2 Endpoint: Rentowność Maszyny (ROI)
 
-**Cel:** Ile czasu dana maszyna (konkretny egzemplarz `article_id`) była wynajmowana w podanym okresie i ile bezpośrednio wygenerowała przychodu z tytułu *najmu*.
+**Cel:** Ile czasu dana maszyna (konkretny egzemplarz `machine_id`) była wynajmowana w podanym okresie i ile bezpośrednio wygenerowała przychodu z tytułu *najmu*.
 
 **`GET /stats/machine-roi`**
 ```
-Query: ?article_id=5&date_from=2026-01-01&date_to=2026-12-31&include_archival=false
+Query: ?machine_id=5&date_from=2026-01-01&date_to=2026-12-31&include_archival=false
 ```
 
 ```python
 class MachineRoiResponse(BaseModel):
-    article_id: int
+    machine_id: int
     name: str
     internal_number: str | None
     category_main: str | None     # RAO-P1-017: kategoria główna maszyny
@@ -267,11 +271,11 @@ class MachineRoiResponse(BaseModel):
 ```
 
 **Parametry:**
-- `article_id` (wymagany) — ID artykułu
+- `machine_id` (wymagany) — ID maszyny (refaktor Faza 7: było `article_id`)
 - `date_from`, `date_to` — zakres dat (domyślnie: bieżący miesiąc)
 - `include_archival=false` — gdy False (domyślnie), maszyny archiwalne zwracają 404
 
-*Opis algorytmu:* Pobierz wszystkie umowy, w których dany `article_id` widnieje, których daty trwania nakładają się na `[date_from, date_to]`. Zlicz przepracowane fizycznie dni i pomnóż przez wynegocjowane warunki z tych konkretnych umów.
+*Opis algorytmu:* Pobierz wszystkie umowy, w których dany `machine_id` widnieje (w `contract_positions.machine_id`), których daty trwania nakładają się na `[date_from, date_to]`. Zlicz przepracowane fizycznie dni i pomnóż przez wynegocjowane warunki z tych konkretnych umów.
 
 ### 2.3 Endpoint: Maszyny Obecnie Wynajęte
 
@@ -286,8 +290,7 @@ class CurrentlyRentedResponse(BaseModel):
     items: list[CurrentlyRentedItem]
 
 class CurrentlyRentedItem(BaseModel):
-    article_id: int
-    name: str
+    machine_id: int    name: str
     internal_number: str | None
     category_main: str | None     # RAO-P1-017: kategoria główna maszyny
     contract_number: str
@@ -315,13 +318,13 @@ class AdditionalFeesResponse(BaseModel):
     breakdown: list[ServiceFeeItem]
 
 class ServiceFeeItem(BaseModel):
-    article_id: int               # Usługi (mycie, transport) jako artykuły gdzie is_service=true
+    service_id: int              # Usługi dodatkowe (refaktor Faza 7: było article_id z articles WHERE is_service=true)
     service_name: str
     total_revenue: Decimal
     times_billed: int             # Użyte np. na 10 umowach
 ```
 
-*Opis algorytmu:* Sumujemy wartości pozycji na umowach, ale tylko tych, gdzie powiązany `articles.is_service = true` dla umów trwających w zadanym zakresie. Usługi nie mają filtra `is_archival`.
+*Opis algorytmu:* Sumujemy wartości pozycji na umowach z `service_id NOT NULL` (refaktor Faza 7: było `articles.is_service = true`) dla umów trwających w zadanym zakresie. Usługi nie mają filtra `is_archival`.
 
 ### 2.5 Statystyki Lokalizacji
 
@@ -361,7 +364,7 @@ class CategoryStatsResponse(BaseModel):
 
 class CategoryStatItem(BaseModel):
     category_name: str      # Nazwa kategorii lub "(bez kategorii)"
-    articles_count: int     # Ile unikalnych maszyn wynajętych w okresie
+    articles_count: int     # Ile unikalnych maszyn wynajętych w okresie (refaktor: machines, było articles)
     rented_days: int        # Suma dni wynajmu (z zakresu dat)
     revenue: Decimal        # Suma przychodu z kategorii
     contracts_count: int    # Ile unikalnych umów
@@ -381,7 +384,7 @@ class CategoryStatItem(BaseModel):
 1. Pobierz pozycje umów nakładające się na `[date_from, date_to]`, tylko maszyny (`is_service=FALSE`)
 2. Opcjonalnie filtruj `is_archival=FALSE` (domyślnie)
 3. Grupuj po `category_main` (lub `category_sub1`) — brak kategorii → `(bez kategorii)`
-4. Agreguj: `revenue`, `rented_days` (clamped do okna dat), unikalne `article_id`, unikalne `contract_id`
+4. Agreguj: `revenue`, `rented_days` (clamped do okna dat), unikalne `machine_id`, unikalne `contract_id`
 5. Sortuj malejąco po `revenue`
 
 **Implementacja:** `backend/stats/calc.py::aggregate_by_category()` (pure function, testowalny bez DB)

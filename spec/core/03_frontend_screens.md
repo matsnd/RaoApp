@@ -39,7 +39,7 @@ frontend/
 │   │   └── useFileDownload.js       # Pobieranie blob jako pliku przez <a download> (RAO-P2-018)
 │   ├── components/
 │   │   ├── layout/
-│   │   │   ├── AppSidebar.vue       # Lewy sidebar (Umowy/Kontrahenci/Artykuły/Statystyki/Prowizje/Ustawienia)
+│   │   │   ├── AppSidebar.vue       # Lewy sidebar (Umowy/Kontrahenci/Maszyny/Statystyki/Prowizje/Ustawienia)
 │   │   │   ├── AppToolbar.vue       # Górny toolbar (info + ? - + przyciski)
 │   │   │   └── AppLayout.vue        # Sidebar + content wrapper
 │   │   ├── shared/
@@ -146,7 +146,56 @@ const routes = [
         name: 'Dashboard',
         component: () => import('@/views/DashboardView.vue'),
         props: true
-        // section = 'contracts' | 'contractors' | 'articles' | 'reports' | 'settings'
+        // section = 'contracts' | 'contractors' | 'articles' (DEPRECATED) | 'reports' | 'settings'
+      },
+      // --- Faza 4a (2026-07-11): nowe routingi machines / services / additional-services ---
+      {
+        path: 'machines',
+        name: 'MachinesList',
+        component: () => import('@/views/MachinesListView.vue')
+      },
+      {
+        path: 'machines/new',
+        name: 'MachineNew',
+        component: () => import('@/views/MachineFormView.vue')
+      },
+      {
+        path: 'machines/:id/edit',
+        name: 'MachineEdit',
+        component: () => import('@/views/MachineFormView.vue'),
+        props: true
+      },
+      {
+        path: 'services',
+        name: 'ServicesList',
+        component: () => import('@/views/ServicesListView.vue')
+      },
+      {
+        path: 'services/new',
+        name: 'ServiceNew',
+        component: () => import('@/views/ServiceFormView.vue')
+      },
+      {
+        path: 'services/:id/edit',
+        name: 'ServiceEdit',
+        component: () => import('@/views/ServiceFormView.vue'),
+        props: true
+      },
+      {
+        path: 'additional-services',
+        name: 'AdditionalServicesList',
+        component: () => import('@/views/AdditionalServicesListView.vue')
+      },
+      {
+        path: 'additional-services/new',
+        name: 'AdditionalServiceNew',
+        component: () => import('@/views/AdditionalServiceFormView.vue')
+      },
+      {
+        path: 'additional-services/:id/edit',
+        name: 'AdditionalServiceEdit',
+        component: () => import('@/views/AdditionalServiceFormView.vue'),
+        props: true
       },
       {
         path: 'contractors/new',
@@ -242,10 +291,14 @@ Layout (dokładna replika WinForms Form2 lewego panelu):
 </template>
 
 <script setup>
+// Refaktor (Faza 7, 2026-07-11): 'articles' → 'machines' (usługi/usługi dodatkowe
+// mają osobne routingi /services, /additional-services — patrz AppLayout.vue handleNavigate)
 const menuItems = [
   { section: 'contracts', label: 'Umowy' },
   { section: 'contractors', label: 'Kontrahenci' },
-  { section: 'articles', label: 'Artykuły' },
+  { section: 'machines', label: 'Maszyny' },
+  // { section: 'services', label: 'Usługi' },          // TODO: dodać link w sidebar
+  // { section: 'additional-services', label: 'Usługi dodatkowe' }, // TODO: dodać link w sidebar
 ]
 defineProps({ activeSection: String })
 defineEmits(['navigate'])
@@ -326,7 +379,7 @@ Layout (replika WinForms Form2):
 │ DataGrid: lista danych                               │
 │  - contracts: numer, kontrahent, adres, od, do, val  │
 │  - contractors: nazwa, NIP, miasto, telefon          │
-│  - articles: nazwa, rejestr., kategoria, właściciel  │
+│  - articles: nazwa, rejestr., kategoria, właściciel  (DEPRECATED → /machines)
 ├──────────────────────────────────────────────────────┤
 │ (Sekcja reports): DateRangePicker + ReportCombo      │
 │ (Sekcja settings): redirect to /settings             │
@@ -388,7 +441,12 @@ const columnDefs = {
 - Kolumna **Status**: `Aktywna` (niebieski badge) | `Przeterminowana` (czerwony) | `Rozliczona` (zielony)
 - Wiersz `row-settled`: szare/wyciszone tło gdy `c.is_settled = true`
 
-**Lista artykułów — filtr archiwalny:**
+**Lista artykułów — filtr archiwalny (DEPRECATED — Faza 7 refaktor):**
+
+> **⚠️ DEPRECATED (2026-07):** Sekcja `articles` w DashboardView jest DEPRECATED.
+> Zastąpiona przez dedykowane widoki `MachinesListView.vue` (`/machines`),
+> `ServicesListView.vue` (`/services`), `AdditionalServicesListView.vue` (`/additional-services`).
+> Poniższe opisy pozostają jako dokumentacja legacy.
 
 - Filtr **archiwalny** (toggle checkbox w grid-header): domyślnie `Aktywne`, toggle → `Archiwalne`
 - Parametr API: `archival_status=active|archival`
@@ -417,7 +475,7 @@ const contextMenuItems = {
     { label: 'Dodaj umowę', action: 'add_contract' },
     { label: 'Wydruk', action: 'print' },
   ],
-  articles: [
+  articles: [  // DEPRECATED — patrz MachinesListView / ServicesListView
     { label: 'Pokaż', action: 'view' },
     { label: 'Usuń', action: 'delete' },
     { label: 'Duplikuj', action: 'duplicate' },
@@ -620,9 +678,10 @@ Row 2.5 (rozliczenie umowy - RAO-P1-012):
 │ │                                                                                 │ │
 │ │ RAO-P2-012: "Pobierz z Fakturownia" wywołuje POST /settlements/contract/{id}/init-from-fakturownia │ │
 │ │   Pobiera faktury z Fakturownia, mapuje pozycje przez fakturownia_product_id (1:N mapping) │ │
-│ │   Jeśli artykuł z mappingiem jest na umowie → automatycznie dodaje settlement z cost_client z faktury │ │
-│ │   Semantyka 1:N: jeśli produkt FA jest przypisany do wielu artykułów RAO, │ │
-│ │   każdy artykuł na umowie dostaje pełną wartość z faktury (multiplikacja OK) │ │
+│ │   Mapowanie 3 tabel: machines, services, additional_services (refaktor Faza 7) │ │
+│ │   Jeśli maszyna/usługa z mappingiem jest na umowie → automatycznie dodaje settlement z cost_client z faktury │ │
+│ │   Semantyka 1:N: jeśli produkt FA jest przypisany do wielu maszyn/usług RAO, │ │
+│ │   każdy z nich na umowie dostaje pełną wartość z faktury (multiplikacja OK) │ │
 │ │                                                                                 │ │
 │ │ Guzik "Pobierz z Fakturownia" jest nieaktywny jeśli Fakturownia nie jest skonfigurowana │ │
 │ │ (brak enabled, domain_subdomain lub api_token_preview w ustawieniach)        │ │
@@ -632,18 +691,18 @@ Row 2.5 (rozliczenie umowy - RAO-P1-012):
 └──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Pozycje [+] otwiera `ArticlePicker.vue` (replika FormAwybor).**
+**Pozycje [+] otwiera `ArticlePicker.vue` (replika FormAwybor — wybór z `machines` table).**
 **Warunki [+] otwiera `ConditionFormView.vue` (replika FormW).**
 
 ### RAO-P2-071: Inline editing pozycji (zero modali ustawień)
 
 **Refactor 2026-07-05:** Usunięto modal pełnego formularza pozycji (`showPosModal`).
 Pozycje umowy edytowane są wyłącznie inline w gridzie — jedynym dozwolonym modalem
-dla pozycji jest `ArticlePicker` (wybór artykułu) oraz `ConflictModal` (konflikt dostępności).
+dla pozycji jest `ArticlePicker` (wybór maszyny) oraz `ConflictModal` (konflikt dostępności).
 
 **Flow dodawania pozycji:**
-1. User klika `+ Dodaj pozycję` → otwiera się `ArticlePicker` (modal wyboru artykułu)
-2. User wybiera artykuł → `ArticlePicker` się zamyka
+1. User klika `+ Dodaj pozycję` → otwiera się `ArticlePicker` (modal wyboru maszyny)
+2. User wybiera maszynę → `ArticlePicker` się zamyka
 3. W gridzie pojawia się nowy wiersz (`showNewPosRow`) w trybie edycji inline (podświetlony)
 4. User edytuje pola inline (Tab/Enter → następna komórka)
 5. Enter w ostatniej komórce LUB klik `✓` → `saveNewPosRow()` → `POST /contracts/{id}/positions`
@@ -666,7 +725,7 @@ dla pozycji jest `ArticlePicker` (wybór artykułu) oraz `ConflictModal` (konfli
 | Kolumna | Najem (`S`) | Usługa (`U`) | Display mode | Edit mode |
 |---------|-------------|--------------|-------------|-----------|
 | # | tak | tak | idx+1 | idx+1 (lub `*` dla new) |
-| Artykuł / Usługa | `Artykuł` | `Usługa` | nazwa (read-only) | nazwa + `✎` → `reopenArticlePickerForEdit` |
+| Maszyna / Usługa | `Maszyna` | `Usługa` | nazwa (read-only) | nazwa + `✎` → `reopenArticlePickerForEdit` |
 | Typ najmu | tak | — | tekst | `<input type="text">` |
 | Dni | tak | — | liczba | `<input type="number" min="0">` |
 | Ilość | tak | tak | liczba | `<input type="number" min="1">` |
@@ -677,12 +736,12 @@ dla pozycji jest `ArticlePicker` (wybór artykułu) oraz `ConflictModal` (konfli
 | Warunki | tak | tak | badge z licznikiem | badge (klik → `ConditionPanel`) |
 | Akcje | tak | tak | `✎` edit / `✕` usuń | `✓` zapisz / `✕` anuluj |
 
-**Empty state:** `Brak pozycji na tej umowie. [Dodaj pierwszy artykuł]` dla najmu, `Brak usług na tej umowie. [Dodaj pierwszą usługę]` dla usługi.
+**Empty state:** `Brak pozycji na tej umowie. [Dodaj pierwszą maszynę]` dla najmu, `Brak usług na tej umowie. [Dodaj pierwszą usługę]` dla usługi.
 
 **Helper text nad gridem:** `Pozycje umowy` / `Usługi` + `Kliknij wiersz aby edytować • Enter = zapisz • Esc = anuluj` + `[+ Dodaj pozycję]` / `[+ Dodaj usługę]`
 
 **Zachowane modale (dozwolone):**
-- `ArticlePicker` — wybór artykułu (modal wyboru, nie ustawień)
+- `ArticlePicker` — wybór maszyny (modal wyboru, nie ustawień)
 - `ConflictModal` — konflikt dostępności maszyny (RAO-P1-023)
 - `SupplierPicker` — wybór dostawcy (modal wyboru, nie ustawień)
 - `ConfirmModal` — potwierdzenie usunięcia (zastępuje `confirm()`)
@@ -701,7 +760,7 @@ Auto-dismiss po 4s (error 6s). Renderowany przez `AppToast.vue` (top-right).
 ## Dialog: `ArticlePicker.vue`
 
 > **RAO-P1-023 (2026-05-20):** Usunięto kolumnę "Rezerwacja" (stary system RAO-P1-015).
-> Dostępność bazuje wyłącznie na datach umów przez `GET /articles/{id}/availability`.
+> Dostępność bazuje wyłącznie na datach umów przez `GET /machines/{id}/availability` (refaktor: było `GET /articles/{id}/availability`).
 > Dodano modal konfliktu przy wyborze zajętej maszyny.
 
 ```
@@ -716,7 +775,7 @@ Layout (modal wbudowany w ContractFormView.vue):
 │ └────────────────────────────────────────────────┘   │
 │ • Dostępność sprawdzana przez checkAvailability()    │
 │   z exclude_contract_id przy edycji umowy            │
-│ • [⧉] = duplikuj artykuł bezpośrednio do umowy      │
+│ • [⧉] = duplikuj maszynę bezpośrednio do umowy      │
 │                                                      │
 │ [Anuluj]                                             │
 └──────────────────────────────────────────────────────┘
@@ -746,17 +805,17 @@ Layout (modal wbudowany w ContractFormView.vue):
 - Rezerwacje z `contractor_id === null` (bez kontrahenta) NIE są traktowane jako "tego samego kontrahenta".
 
 **Logika selectArticle():**
-1. Brak dat umowy / artykuł-usługa → zamknij picker, dodaj bez sprawdzania
+1. Brak dat umowy / usługa (service_id) → zamknij picker, dodaj bez sprawdzania
 2. `checkAvailability()` → `is_available: true` → zamknij picker normalnie
 3. `checkAvailability()` → `is_available: false` → pokaż conflict modal (picker zostaje otwarty), populuj `conflictList` + `reservationConflictList`
-4. [Zatwierdź i usuń rezerwacje] → usuń rezerwacje tego samego kontrahenta, zamknij oba, dodaj artykuł
-5. [Zatwierdź / Mimo to dodaj] → zamknij oba (modal + picker), dodaj artykuł
+4. [Zatwierdź i usuń rezerwacje] → usuń rezerwacje tego samego kontrahenta, zamknij oba, dodaj maszynę
+5. [Zatwierdź / Mimo to dodaj] → zamknij oba (modal + picker), dodaj maszynę
 6. [Anuluj] → zamknij tylko modal, picker pozostaje otwarty
 
-**State (refs):** `showConflictModal`, `conflictList: ConflictingContract[]`, `reservationConflictList: ConflictingReservation[]` (z `contractor_id`/`contractor_name`), `pendingArticle: ArticlePickerItem | null`
+**State (refs):** `showConflictModal`, `conflictList: ConflictingContract[]`, `reservationConflictList: ConflictingReservation[]` (z `contractor_id`/`contractor_name`), `pendingArticle: ArticlePickerItem | null` (refaktor: wybór z `machines` table)
 **Computed (Phase 4):** `sameContractorReservations` (filtr po `form.contractor_id`), `hasSameContractorReservations`
 
-**API:** `GET /articles/{id}/availability?date_from&date_to&exclude_contract_id` (opcjonalny param przy edycji), `DELETE /reservations/{id}` (opcja usuwania)
+**API:** `GET /machines/{id}/availability?date_from&date_to&exclude_contract_id` (opcjonalny param przy edycji), `DELETE /reservations/{id}` (opcja usuwania)
 
 ---
 
@@ -838,10 +897,13 @@ Row 3 (30px): centered [ Zakończ ]
 
 > **RAO-P1-023 (2026-05-20):** Usunięto zakładkę "Rezerwacje maszyn" (stary system RAO-P1-015).
 > `ReservationsPanel.vue` zostało usunięte — ręczne rezerwacje zastąpione
-> automatycznym sprawdzaniem konfliktów z dat umów (`GET /articles/{id}/availability`).
+> automatycznym sprawdzaniem konfliktów z dat umów (`GET /machines/{id}/availability`).
 >
 > **UPDATE (2026-07-11):** `ReservationsView.vue` został ponownie dodany w Phase 3 (RAO-P1-015)
 > jako nowy, niezależny widok kalendarza rezerwacji (`/reservations`). Patrz sekcja poniżej.
+>
+> **Refaktor (Faza 7, 2026-07-11):** Rezerwacje używają `machine_id` (nie `article_id`).
+> `machine_reservations` table referencjonuje `machines.id`.
 
 ```
 Layout (replika WinForms Konfiguracjacs — scrollable):
@@ -938,11 +1000,11 @@ Sekcja "Stan floty teraz" ma wizualnie wyodrębniony nagłówek z gradient tłem
 
 Pole `internal_number` jest w pełni zaimplementowane:
 
-**Formularz artykułu (ArticleFormView.vue):**
-- Pole input `internal_number` w formularzu edycji/nowego artykułu
-- Pola techniczne (RAO-P1-026): `zasieg_m` (Zasięg m), `udzwig_t` (Udźwig t), `dodatki` (Dodatkowe wyposażenie)
+**Formularz maszyny (MachineFormView.vue):**
+- Pole input `internal_number` w formularzu edycji/nowej maszyny
+- Pola techniczne (RAO-P1-026): `reach_m` (Zasięg m), `capacity_t` (Udźwig t), `accessories` (Dodatkowe wyposażenie)
 
-**Article picker (ArticlePicker.vue):**
+**Machine picker (ArticlePicker.vue — refaktor: wybór z `machines` table):**
 - Wyszukiwanie po `internal_number` (case-insensitive)
 - Wyświetlanie `[nr wewnętrzny]` w wynikach wyszukiwania
 
@@ -1005,7 +1067,7 @@ Pole `internal_number` jest w pełni zaimplementowane:
 ### Statystyki per maszyna (RAO-P2-009)
 
 **Backend:**
-- Endpoint `/explorer/machines/{article_id}` z parametrami `date_from`, `date_to`
+- Endpoint `/explorer/machines/{machine_id}` z parametrami `date_from`, `date_to` (refaktor: było `article_id`)
 - Zwraca metryki: total_revenue, total_days, avg_daily, utilization_pct
 - Zwraca historię wynajmów: rentals[] z contract_number, contractor_name, dates, days, revenue
 
@@ -1025,7 +1087,7 @@ Pole `internal_number` jest w pełni zaimplementowane:
 - Endpoint `/stats/positions` z parametrami `type=machines|services|all`, `date_from`, `date_to`
 - Zwraca `PositionStatsResponse` z:
   - total_revenue, total_machines_revenue, total_services_revenue
-  - items[]: pozycje zagregowane per article (article_id, article_name, internal_number, is_service, category_main, revenue, rented_days, contracts_count, times_billed)
+  - items[]: pozycje zagregowane per machine/service (machine_id/service_id, name, internal_number, is_service, category_main, revenue, rented_days, contracts_count, times_billed)
 
 **Frontend (ReportsSection.vue):**
 - Filtr "Typ pozycji" w sub-tab "Ogólne" (Analiza historyczna):
@@ -1346,10 +1408,10 @@ async function handleFakturownia() {
     - Modal jest zamykany
     - Formularz jest resetowany
   - Walidacja: nazwa kontrahenta jest wymagana
-- **RAO-P1-001 (2026-07-08):** Checkbox is_external w Article picker modal
+- **RAO-P1-001 (2026-07-08):** Checkbox is_external w Machine picker modal
   - Kolumna "Zewnętrzna" w tabeli wyników picker
   - Badge ✓ (is_external=true) lub — (is_external=false)
-  - Backend pole `is_external` już istnieje w `articles` table
+  - Backend pole `is_external` istnieje w `machines` table (refaktor: było `articles`)
 - **RAO-P1-002 (2026-07-08):** Checkbox "Ręczny adres" w sekcji Adres dostawy
   - Checkbox: "Ręczny adres (wyłącz auto-fill z PNA/Nominatim)"
   - Gdy zaznaczony → pola postal_code/city disabled
@@ -1391,7 +1453,7 @@ async function handleFakturownia() {
     - Decyduje ile dni w tygodniu jest roboczych (5: pn–pt, 6: pn–sb, 7: wszystkie)
     - Bindowane przez `v-model:working-days-per-week="form.working_days_per_week"` (default 6)
   - **Ukrycie nr wewnętrznego w trybie usługi (`contract_type === 'U')**
-    - InlineArticleForm: pole "Nr wewnętrzny" widoczne tylko gdy `form.contract_type !== 'U'`
+    - InlineMachineForm: pole "Nr wewnętrzny" widoczne tylko gdy `form.contract_type !== 'U'`
 
 - **RAO-P1-100 (ConditionPanel):** Widełki cenowe, wierny podgląd PDF i podział najem/usługa
   - **Props:** `mode: 'rental' | 'service'` (lub fallback `contractType`) — steruje kolumnami, jednostką i szablonami
@@ -1415,14 +1477,13 @@ async function handleFakturownia() {
 
   - Obsługa błędów: wyświetlanie błędów z backendu (e.response?.data?.detail)
   - Pre-fill: jeśli wyszukiwany termin wygląda jak nazwa (nie jest liczbą), jest używany jako domyślna nazwa
-- **RAO-P2-006:** Inline dodawanie artykułu z formularza umowy
-  - W pickerze artykułów przycisk "➕ Dodaj nowy artykuł" (prominent CTA)
+- **RAO-P2-006:** Inline dodawanie maszyny z formularza umowy
+  - W pickerze maszyn przycisk "➕ Dodaj nową maszynę" (prominent CTA)
   - Gdy wyszukiwanie nie zwraca wyników, wyświetlany jest komunikat "Brak wyników dla {search}"
-  - Przycisk otwiera modal "Nowy artykuł" z formularzem inline
-  - Formularz zawiera wszystkie wymagane pola artykułu:
-    - Nazwa artykułu * (required)
-    - Typ artykułu (machine/vehicle/tool/service)
-    - Checkbox: Artykuł jest usługą (nie sprzętem)
+  - Przycisk otwiera modal "Nowa maszyna" z formularzem inline
+  - Formularz zawiera wszystkie wymagane pola maszyny:
+    - Nazwa maszyny * (required)
+    - Typ zasilania (diesel/electric/other)
     - Checkbox: Maszyna zewnętrzna (nie wliczana do floty własnej)
     - Nr wewnętrzny, Nr rejestracyjny, Nr seryjny
     - Wartość odtworzeniowa (zł)
@@ -1433,11 +1494,11 @@ async function handleFakturownia() {
     - Min. dni najmu
     - Opis, Uwagi
   - Po zapisie:
-    - Nowy artykuł jest dodany do lokalnej listy articlePickerList
-    - Artykuł jest automatycznie wybrany (selectArticle)
+    - Nowa maszyna jest dodana do lokalnej listy articlePickerList
+    - Maszyna jest automatycznie wybrana (selectArticle)
     - Modal jest zamykany
     - Formularz jest resetowany
-  - Walidacja: nazwa artykułu jest wymagana
+  - Walidacja: nazwa maszyny jest wymagana
   - Obsługa błędów: wyświetlanie błędów z backendu (e.response?.data?.detail)
   - Pre-fill: jeśli wyszukiwany termin wygląda jak nazwa (nie jest liczbą), jest używany jako domyślna nazwa
   - Pre-fill is_service: ustawiane na true jeśli typ umowy to 'U' (umowa usługi)
@@ -1540,7 +1601,7 @@ async function handleFakturownia() {
 
 **Opis:** Read-only przegląd danych historycznych (legacy umowy/maszyny przeniesione do tabel `archive_*` w Fazie 0). Wartości są szacunkowe (cennik × dni), nie z systemu rozliczeń. Jedyny write to edycja kategorii (admin).
 
-**Sidebar:** Przycisk "📦 Archiwum" w `AppSidebar.vue` — wyraźny dział główny z pomarańczowym separatorem (2px) + label "ARCHIWUM (szacunkowe)" + border-left na przycisku. Oddzielone od sekcji głównej (Umowy/Kontrahenci/Artykuły/Pulpit/Statystyki/Prowizje/Raporty) i od sekcji konta (Ustawienia/Admin/Hasło/Wyloguj).
+**Sidebar:** Przycisk "📦 Archiwum" w `AppSidebar.vue` — wyraźny dział główny z pomarańczowym separatorem (2px) + label "ARCHIWUM (szacunkowe)" + border-left na przycisku. Oddzielone od sekcji głównej (Umowy/Kontrahenci/Maszyny/Pulpit/Statystyki/Prowizje/Raporty) i od sekcji konta (Ustawienia/Admin/Hasło/Wyloguj).
 
 **Banner ostrzegawczy** (góra widoku):
 > ⚠️ Archiwum — dane historyczne (szacunkowe). Wartości pochodzą z cenników sprzed migracji, nie z systemu rozliczeń.
@@ -1553,7 +1614,7 @@ async function handleFakturownia() {
    - Grid: Numer, Typ (badge S/U), Kontrahent, Data od, Data do, Pozycji, Wartość szac. (z suffix `[szac.]`), Status (Rozliczona/Nierozliczona badge)
    - Klik wiersza → rozwija panel szczegółów: `GET /archive/contracts/{id}` (kontrahent, adres dostawy, okres, osoba kontaktowa, zaliczka, faktura szac., pozycje z warunkami, opłaty dodatkowe, rozliczenia)
 
-2. **Maszyny** (`activeTab='articles'`) — `GET /archive/articles` (paginacja 50, filtry: search, category_id)
+2. **Maszyny** (`activeTab='articles'`) — `GET /archive/articles` (paginacja 50, filtry: search, category_id) — legacy endpoint, dane historyczne z `archive_articles`
    - Grid: Nazwa, Nr wewn., Kategoria (dropdown — `PATCH /archive/articles/{id}/category`, admin), Kontraktów count, Wartość wymiany
    - Zmiana kategorii przez `<select>` → `PATCH /archive/articles/{id}/category` z `category_id`
 
@@ -1562,7 +1623,7 @@ async function handleFakturownia() {
    - Karta podsumowania: liczba umów, liczba pozycji, przychód szacunkowy
    - Top maszyny (limit 10): artykuł, kontraktów count, dni wynajmu, przychód szac. — **wiersze klikalne** (`.drill-row` z hover + ▸ strzałką), hint "Kliknij wiersz, aby zobaczyć umowy" w nagłówku
    - Per kategoria: kategoria, kontraktów, pozycji, przychód szac.
-   - ROI maszyny (opcjonalne): `GET /archive/stats/machine-roi?article_id=` — przychód szac. / wartość wymiany = ROI %; przycisk "Pokaż umowy ▸" otwiera drill-down
+   - ROI maszyny (opcjonalne): `GET /archive/stats/machine-roi?article_id=` — przychód szac. / wartość wymiany = ROI %; przycisk "Pokaż umowy ▸" otwiera drill-down (legacy param: `article_id` — archive endpointy zachowują starą nazwę)
    - **Miasta** (limit 20): `GET /archive/stats/by-city` — miasto, kontraktów, pozycji, kodów poczt., przychód szac. — wiersze klikalne (drill-down)
    - **Drill-down drawer** (`<Teleport to="body">`, 60% szerokości, slide-in z prawej):
      - Otwierany przez `openDrillDown(type, id, name, contractsCount, days, revenue)` z wierszy Top maszyny / Miasta / przycisku ROI
@@ -1572,7 +1633,7 @@ async function handleFakturownia() {
      - Loading (skeleton 5 wierszy pulse), Error (retry), Empty (📋 + komunikat), Footer z paginacją (50/strona)
      - Zamykanie: ✕, klik poza drawerem (overlay), **Esc** (globalny keydown listener w `onMounted`/`onUnmounted`)
      - Style w osobnym **non-scoped** `<style>` bloku (Vue 3 nie aplikuje scoped attrs do treści teleportowanej do `<body>`)
-     - `reloadDrillDown()` → `archiveStore.fetchContractsForDrillDown({ article_id | city, search, date_from, date_to, page, per_page:50 })`
+     - `reloadDrillDown()` → `archiveStore.fetchContractsForDrillDown({ article_id | city, search, date_from, date_to, page, per_page:50 })` (legacy: archive używa `article_id`)
 
 4. **Kategorie** (`activeTab='categories'`) — `GET /archive/categories/tree` + CRUD (admin)
    - Read-only dla non-admin (drzewo kategorii bez akcji edycji/usuwania)
@@ -1587,7 +1648,7 @@ async function handleFakturownia() {
 
 **Styl:** `--color-bg-light` tło, banner z `--color-warning` border-left, badge `[szac.]` przy kwotach
 
-**API:** wszystkie endpointy pod `/rao/api/archive/*` (auth wymagany, admin dla category CRUD + article category PATCH)
+**API:** wszystkie endpointy pod `/rao/api/archive/*` (auth wymagany, admin dla category CRUD + article category PATCH). Archive endpointy zachowują legacy nazwy (`article_id`, `archive_articles`) — są to tabele historyczne, nie podlegające refaktorowi Fazy 7.
 
 ---
 
@@ -1656,7 +1717,13 @@ Następca: patrz sekcja `AnalyticsView.vue` poniżej.
 
 ---
 
-### ArticleFormView.vue — Formularz artykułu (RAO-P1-026)
+### ArticleFormView.vue — Formularz artykułu (RAO-P1-026) — DEPRECATED (Faza 7 refaktor)
+
+> **⚠️ DEPRECATED (2026-07):** `ArticleFormView.vue` jest DEPRECATED — zastąpiony przez
+> `MachineFormView.vue` (`/machines/:id/edit`), `ServiceFormView.vue` (`/services/:id/edit`),
+> `AdditionalServiceFormView.vue` (`/additional-services/:id/edit`).
+> Route `/articles/new` i `/articles/:id/edit` pozostają jako backward-compat shim.
+> Poniższa dokumentacja opisuje stan legacy (przed refaktor).
 
 **Route:** `/articles/new` | `/articles/:id/edit` | **requiresAuth:** tak
 
@@ -1706,6 +1773,180 @@ Następca: patrz sekcja `AnalyticsView.vue` poniżej.
 
 ---
 
+### MachinesListView.vue — Lista maszyn (NOWY — Faza 4a, 2026-07-11)
+
+**Route:** `/machines` | **requiresAuth:** tak
+
+**Opis:** Pełnoekranowa lista maszyn budowlanych (zastępuje sekcję `articles` w DashboardView dla maszyn). Tylko maszyny (`machines` table, dawniej `articles WHERE is_service=FALSE`).
+
+**Layout:**
+```
+┌──────────────────────────────────────────────────────┐
+│ AppToolbar: info: Maszyny          [?] [-] [+]       │
+├──────────────────────────────────────────────────────┤
+│ [search...] [Kategoria ▼] ☐ Archiwalne               │
+├──────────────────────────────────────────────────────┤
+│ DataGrid: Nazwa | Nr wew. | Nr rej. | Marka |         │
+│          Kategoria | Zasilanie | Aktywna umowa       │
+├──────────────────────────────────────────────────────┤
+│ Empty: "Brak maszyn — [+ Nowa maszyna]"               │
+└──────────────────────────────────────────────────────┘
+```
+
+**Filtry:**
+- Search (nazwa, nr wewnętrzny, nr rejestracyjny)
+- Kategoria (select z `categories`)
+- Archiwalne (toggle checkbox — domyślnie aktywne)
+
+**Kolumny DataGrid:** Nazwa (sortable), Nr wew. (sortable), Nr rej. (sortable), Marka (sortable), Kategoria, Zasilanie (diesel/electric/other), Aktywna umowa
+
+**Akcje:**
+- `[+]` → `router.push({ name: 'MachineNew' })`
+- Double-click → `router.push({ name: 'MachineEdit', params: { id } })`
+- `[-]` → ConfirmDialog → `DELETE /machines/{id}`
+- Context menu: Edytuj, Usuń, Duplikuj (`POST /machines/{id}/duplicate`)
+
+**Store:** `useMachinesStore` (`stores/machines.js`) — `fetchList`, `remove`, `duplicate`
+**API:** `GET /machines?search&category_id&archival_status&page&per_page`
+
+---
+
+### MachineFormView.vue — Formularz maszyny (NOWY — Faza 4a, 2026-07-11)
+
+**Route:** `/machines/new` | `/machines/:id/edit` | **requiresAuth:** tak
+
+**Opis:** Pełnoekranowy formularz tworzenia i edycji maszyny budowlanej (zastępuje `ArticleFormView.vue` dla maszyn).
+
+**Pola formularza:**
+- `name` — Nazwa maszyny * (wymagana)
+- `internal_number` — Nr wewnętrzny
+- `registration_no` — Nr rejestracyjny
+- `serial_no` — Nr seryjny
+- `replacement_value` — Wartość odtworzeniowa (zł)
+- `brand` — Marka
+- `model` — Model
+- **Sekcja "Dane techniczne":**
+  - `reach_m` — Zasięg roboczy (m), number, min=0, step=0.1, opcjonalne
+  - `capacity_t` — Udźwig (t), number, min=0, step=0.1, opcjonalne
+  - `accessories` — Dodatkowe wyposażenie, textarea
+  - `power_type` — Typ zasilania (select: diesel/electric/other, default 'other')
+- `category_id` — Kategoria (kaskadowy picker 3-poziomowy)
+- `owner_id` — Właściciel/dostawca (picker kontrahentów)
+- `branch_id` — Filia (select)
+- `is_external` — Checkbox "Maszyna zewnętrzna" (nie wliczana do floty własnej)
+- `description` — Opis (textarea)
+- `notes` — Uwagi (textarea)
+- **Sekcja "Integracja Fakturownia":**
+  - `fakturownia_product_id` — Produkt Fakturownia (select, opcjonalny)
+- **Sekcja "Cenniki rozliczenia"** (tylko w trybie edycji):
+  - Lista cenników (presetów) per-maszyna — patrz `machine_rate_presets` w `01_database.md`
+  - API: `GET/POST /settings/machines/{machine_id}/rate-presets`
+
+**Store:** `useMachinesStore` (`stores/machines.js`) — `fetchOne`, `create`, `update`, `duplicate`
+**API:** `GET/POST/PUT/DELETE /machines`, `POST /machines/{id}/duplicate`
+
+---
+
+### ServicesListView.vue — Lista usług zwykłych (NOWY — Faza 4a, 2026-07-11)
+
+**Route:** `/services` | **requiresAuth:** tak
+
+**Opis:** Lista usług zwykłych (contract_type='U', dawniej `articles WHERE is_service=TRUE`).
+
+**Layout:**
+```
+┌──────────────────────────────────────────────────────┐
+│ AppToolbar: info: Usługi           [?] [-] [+]       │
+├──────────────────────────────────────────────────────┤
+│ [search...] ☐ Archiwalne                              │
+├──────────────────────────────────────────────────────┤
+│ DataGrid: Nazwa | Opis | Wartość | Archiwalny        │
+├──────────────────────────────────────────────────────┤
+│ Empty: "Brak usług — [+ Nowa usługa]"                 │
+└──────────────────────────────────────────────────────┘
+```
+
+**Kolumny DataGrid:** Nazwa (sortable), Opis, Wartość odtworzeniowa (currency), Archiwalny (badge)
+
+**Akcje:**
+- `[+]` → `router.push({ name: 'ServiceNew' })`
+- Double-click → `router.push({ name: 'ServiceEdit', params: { id } })`
+- `[-]` → ConfirmDialog → `DELETE /services/{id}`
+
+**Store:** `useServicesStore` (`stores/services.js`) — `fetchList`, `remove`
+**API:** `GET /services?search&archival_status&page&per_page`
+
+---
+
+### ServiceFormView.vue — Formularz usługi zwykłej (NOWY — Faza 4a, 2026-07-11)
+
+**Route:** `/services/new` | `/services/:id/edit` | **requiresAuth:** tak
+
+**Opis:** Formularz tworzenia i edycji usługi zwykłej (contract_type='U').
+
+**Pola formularza:**
+- `name` — Nazwa usługi * (wymagana)
+- `description` — Opis (textarea)
+- `notes` — Uwagi (textarea)
+- `replacement_value` — Wartość odtworzeniowa (zł)
+- **Sekcja "Integracja Fakturownia":**
+  - `fakturownia_product_id` — Produkt Fakturownia (select, opcjonalny)
+
+**Store:** `useServicesStore` (`stores/services.js`) — `fetchOne`, `create`, `update`
+**API:** `GET/POST/PUT/DELETE /services`
+
+---
+
+### AdditionalServicesListView.vue — Lista usług dodatkowych (NOWY — Faza 4a, 2026-07-11)
+
+**Route:** `/additional-services` | **requiresAuth:** tak
+
+**Opis:** Lista usług dodatkowych (katalog opłat dodatkowych: transport, czyszczenie, tankowanie itp.). Zastępuje referencję `service_fee_templates.article_id → articles`.
+
+**Layout:**
+```
+┌──────────────────────────────────────────────────────┐
+│ AppToolbar: info: Usługi dodatkowe [?] [-] [+]       │
+├──────────────────────────────────────────────────────┤
+│ [search...] ☐ Archiwalne                              │
+├──────────────────────────────────────────────────────┤
+│ DataGrid: Nazwa | Kwota domyślna | Opis | Archiwalny │
+├──────────────────────────────────────────────────────┤
+│ Empty: "Brak usług dodatkowych — [+ Nowa]"            │
+└──────────────────────────────────────────────────────┘
+```
+
+**Kolumny DataGrid:** Nazwa (sortable), Kwota domyślna (currency), Opis, Archiwalny (badge)
+
+**Akcje:**
+- `[+]` → `router.push({ name: 'AdditionalServiceNew' })`
+- Double-click → `router.push({ name: 'AdditionalServiceEdit', params: { id } })`
+- `[-]` → ConfirmDialog → `DELETE /additional-services/{id}`
+
+**Store:** `useAdditionalServicesStore` (`stores/additional_services.js`) — `fetchList`, `remove`
+**API:** `GET /additional-services?search&archival_status&page&per_page`
+
+---
+
+### AdditionalServiceFormView.vue — Formularz usługi dodatkowej (NOWY — Faza 4a, 2026-07-11)
+
+**Route:** `/additional-services/new` | `/additional-services/:id/edit` | **requiresAuth:** tak
+
+**Opis:** Formularz tworzenia i edycji usługi dodatkowej (katalog opłat).
+
+**Pola formularza:**
+- `name` — Nazwa * (wymagana, np. "Transport", "Czyszczenie")
+- `default_amount` — Kwota domyślna (zł)
+- `description` — Opis (textarea)
+- `notes` — Uwagi (textarea)
+- **Sekcja "Integracja Fakturownia":**
+  - `fakturownia_product_id` — Produkt Fakturownia (select, opcjonalny)
+
+**Store:** `useAdditionalServicesStore` (`stores/additional_services.js`) — `fetchOne`, `create`, `update`
+**API:** `GET/POST/PUT/DELETE /additional-services`
+
+---
+
 ### HomeView.vue — Główna strona (KPI Dashboard)
 
 **Route:** `/home` | **requiresAuth:** tak | **Default redirect:** `/` → `/home`
@@ -1738,7 +1979,7 @@ Następca: patrz sekcja `AnalyticsView.vue` poniżej.
 - Konfiguracja: `{ showSpinner: false, speed: 300, minimum: 0.2 }`
 
 ### Keyboard shortcuts (P3-008)
-- `Ctrl+N` → nowy rekord (kontekstowo: `ContractNew`, `ContractorNew`, `ArticleNew`)
+- `Ctrl+N` → nowy rekord (kontekstowo: `ContractNew`, `ContractorNew`, `MachineNew`/`ServiceNew`/`AdditionalServiceNew`)
 - `Escape` → cofnij do poprzedniej strony (tylko gdy trasa kończy się na `/new` lub `/edit`)
 - Guard: ignoruje gdy aktywny element to input/textarea/select lub gdy jest otwarte modal-overlay
 
@@ -1749,7 +1990,7 @@ Następca: patrz sekcja `AnalyticsView.vue` poniżej.
 Puste tabele (brak rekordów) wyświetlają przycisk akcji:
 - Umowy: "Brak umów — [+ Nowa umowa]" → `router.push({ name: 'ContractNew' })`
 - Kontrahenci: "Brak kontrahentów — [+ Nowy kontrahent]" → `router.push({ name: 'ContractorNew' })`
-- Artykuły: "Brak artykułów — [+ Nowy artykuł]" → `router.push({ name: 'ArticleNew' })`
+- Artykuły: "Brak artykułów — [+ Nowy artykuł]" → `router.push({ name: 'ArticleNew' })` (DEPRECATED — patrz MachinesListView/ServicesListView)
 
 ---
 
@@ -1783,11 +2024,15 @@ Auto-opis (PDF live preview):
 
 ## RAO-P1-001 — Predefiniowane cenniki warunków rozliczenia maszyn (frontend)
 
-### 1. ArticleFormView — sekcja "Cenniki rozliczenia" (CRUD)
+> **Refaktor (Faza 7, 2026-07-11):** `article_rate_presets` → `machine_rate_presets`
+> (article_id → machine_id). Endpointy `/settings/articles/{article_id}/rate-presets` →
+> `/settings/machines/{machine_id}/rate-presets`. Patrz `01_database.md` sekcja 11.
 
-**Lokalizacja:** `frontend/src/views/ArticleFormView.vue` + `frontend/src/components/articles/RatePresetSection.vue`
+### 1. MachineFormView — sekcja "Cenniki rozliczenia" (CRUD)
 
-**Widoczność:** Tylko w trybie edycji (`isEdit`) i gdy artykuł NIE jest usługą (`!form.is_service`). Sekcja pojawia się po sekcji "Rezerwacje maszyny".
+**Lokalizacja:** `frontend/src/views/MachineFormView.vue` + `frontend/src/components/articles/RatePresetSection.vue`
+
+**Widoczność:** Tylko w trybie edycji (`isEdit`) — maszyny nie mają flagi `is_service` (usługi w osobnej tabeli `services`). Sekcja pojawia się po sekcji "Dane techniczne".
 
 **Funkcjonalność:**
 - Lista cenników (presetów) dla tej maszyny z expand/collapse (wzorzec mirror z `fee-presets` w SettingsView)
@@ -1797,7 +2042,7 @@ Auto-opis (PDF live preview):
 
 **Store:** `useSettingsStore` (`stores/settings.js`) — `fetchRatePresets`, `createRatePreset`, `updateRatePreset`, `deleteRatePreset`, `setDefaultRatePreset`, `addRatePresetItem`, `updateRatePresetItem`, `deleteRatePresetItem`
 
-**API:** `GET/POST /settings/articles/{article_id}/rate-presets`, `GET/PUT/DELETE/PATCH /settings/rate-presets/{preset_id}...` (patrz `02_backend_api.md`)
+**API:** `GET/POST /settings/machines/{machine_id}/rate-presets`, `GET/PUT/DELETE/PATCH /settings/rate-presets/{preset_id}...` (patrz `02_backend_api.md`)
 
 **Snapshot principle:** Po zastosowaniu w umowie warunki są kopiowane (snapshot) — edycja cenniku NIE wpływa na istniejące umowy.
 
@@ -1807,11 +2052,11 @@ Auto-opis (PDF live preview):
 
 **Nowe przyciski w nagłówku panelu warunków:**
 - **📋 Zastosuj cennik** — otwiera modal picker z listą cenników maszyny (z `articleId` prop). Pre-wybiera domyślny. Checkbox "Zastąp istniejące warunki" (default true). Apply = `POST /contracts/{cid}/positions/{pid}/conditions/apply-preset` (snapshot copy, guard 409 gdy umowa rozliczona)
-- **↻ Z ostatniej umowy** — auto-prefill z najnowszej umowy tej maszyny. `GET /articles/{article_id}/last-conditions` (404 gdy brak historii → toast info). Warunki są dopisywane (nie zastępują).
+- **↻ Z ostatniej umowy** — auto-prefill z najnowszej umowy tej maszyny. `GET /machines/{machine_id}/last-conditions` (404 gdy brak historii → toast info). Warunki są dopisywane (nie zastępują).
 
-**Nowy prop:** `articleId` (Number, opcjonalny) — przekazywany z `ContractFormView` przez computed `selectedPositionArticleId` (znajduje pozycję w `contractStore.positions` po `selectedPosId`).
+**Nowy prop:** `machineId` (Number, opcjonalny) — przekazywany z `ContractFormView` przez computed `selectedPositionMachineId` (znajduje pozycję w `contractStore.positions` po `selectedPosId`).
 
-**Store:** `useContractStore` (`stores/contracts.js`) — `applyRatePreset(contractId, posId, presetId, replace)`, `fetchLastConditionsForArticle(articleId)`
+**Store:** `useContractStore` (`stores/contracts.js`) — `applyRatePreset(contractId, posId, presetId, replace)`, `fetchLastConditionsForMachine(machineId)`
 
 ### 3. SettingsView — tab "Cenniki rozliczeń maszyn" (read-only overview)
 
@@ -1822,12 +2067,12 @@ Auto-opis (PDF live preview):
 **Funkcjonalność (read-only):**
 - Filtr tekstowy po nazwie maszyny
 - Lazy-load przy aktywacji taba (watch `activeTab`)
-- Pobiera wszystkie nie-usługi z `GET /articles?is_service=false&per_page=500`, następnie dla każdej `GET /settings/articles/{id}/rate-presets` (równolegle `Promise.all`)
+- Pobiera wszystkie maszyny z `GET /machines?per_page=500`, następnie dla każdej `GET /settings/machines/{id}/rate-presets` (równolegle `Promise.all`)
 - Pokazuje tylko maszyny, które mają ≥1 cennik
-- Każda maszyna: card z nazwą, liczbą cenników, przycisk "Edytuj →" (deep-link do `/articles/{id}/edit`)
+- Każda maszyna: card z nazwą, liczbą cenników, przycisk "Edytuj →" (deep-link do `/machines/{id}/edit`)
 - Cenniki wyświetlone z warunkami w tabeli (rate_type, rate1, rate2, billing_label, period_count, minimum)
 
-**Brak mutacji:** Tab jest read-only — edycja cenników odbywa się w `ArticleFormView`.
+**Brak mutacji:** Tab jest read-only — edycja cenników odbywa się w `MachineFormView`.
 
 ---
 
@@ -2203,7 +2448,7 @@ onUnmounted(() => {
   - `fetchByPeriod(granularity, dateFrom, dateTo, categoryMain[], articleType)` → GET `/stats/by-period`
   - `fetchCategoriesList()` → GET `/stats/categories-list`
   - `searchExplorer(q, dateFrom, dateTo, limit=50)` → GET `/explorer/search`
-  - `fetchMachineDetails(articleId, dateFrom, dateTo)` → GET `/explorer/machines/{id}`
+  - `fetchMachineDetails(machineId, dateFrom, dateTo)` → GET `/explorer/machines/{id}`
   - `fetchLocationDetails(postalCode, dateFrom, dateTo)` → GET `/explorer/locations/{postal_code}`
   - `openDrillDown(kind, id, name, dateFrom, dateTo)` — ustawia `drillDown` ref + fetch details
     (kind='machine' → machineDetails z historią wynajmów; kind='location' → locationDetails z umowami).
@@ -2232,7 +2477,7 @@ onUnmounted(() => {
 - KPI row (KpiRow): Dostępne maszyny (success), Wynajęte teraz (accent), Wykorzystanie % (variant dynamiczny: ≥80 success / ≥50 accent / <50 warn).
 - Utilization bar (pasek postępu — width = utilPct%).
 - AnalyticsTable: Maszyny aktualnie wynajęte (kolumny: Maszyna [sortable], Nr wewnętrzny, Kategoria, Umowa, Kontrahent, Planowany zwrot).
-  - `clickable=true`, `@rowClick` → `openDrillDown('machine', article_id, name)`.
+  - `clickable=true`, `@rowClick` → `openDrillDown('machine', machine_id, name)`.
   - Sortowanie przez `useSort('name', 'asc')`.
 - Stany: loading (`store.loadingLive`), empty (slot empty „Brak aktywnych wynajmów…"), data.
 - Fetch: `store.fetchCurrentlyRented()` onMounted (tylko gdy brak danych).
@@ -2294,7 +2539,7 @@ onUnmounted(() => {
 - Filter toggle: Wszystkie / Aktywne / Wygasłe.
 - AnalyticsTable: Maszyna, Nr wewnętrzny, Od, Do, Dni, Status (badge), Notatka (sortable).
 - Wyszukiwarka + ExportCsvButton.
-- Fetch: `reservationsStore.fetchAllWithArticles()` → GET `/reservations/with-articles`.
+- Fetch: `reservationsStore.fetchAllWithArticles()` → GET `/reservations/with-articles` (refaktor: zwraca `machine_name` zamiast `article_name`).
 - data-testid: `reservations-tab`, `kpi-res-total/active/expired/machines`, `res-filter-all/active/expired`, `res-search`, `res-table`, `res-empty`.
 
 ### `components/analytics/ExportCsvButton.vue` (2026-07-15)
@@ -2327,9 +2572,9 @@ onUnmounted(() => {
   - Klik na dniu → otwiera modal dodawania z preustawioną datą.
   - Klik na kropce (event) → otwiera modal edycji (rezerwacja) lub info read-only (umowa).
   - Tydzień zaczyna się od poniedziałku (Pn-Nd).
-- **Widok listy** (tabela): Maszyna (article_name + internal_number), Kontrahent (contractor_name lub "—"), Od, Do, Status (badge), Notatka, Akcje (edytuj ✏️, usuń 🗑️). Sortowanie po dacie od (rosnąco).
+- **Widok listy** (tabela): Maszyna (machine_name + internal_number), Kontrahent (contractor_name lub "—"), Od, Do, Status (badge), Notatka, Akcje (edytuj ✏️, usuń 🗑️). Sortowanie po dacie od (rosnąco).
 - **Filtry** (nad kalendarzem/listą):
-  - Maszyna (select z artykułami non-service, non-archival).
+  - Maszyna (select z maszynami non-archival — `GET /machines?archival_status=active&per_page=200`).
   - Kontrahent (`ContractorCombobox` z `components/analytics/`).
   - Status (confirmed/provisional/wszystko).
   - Zakres dat (`DateRangePicker` z `components/shared/`) — tylko dla widoku listy; kalendarz używa automatycznie miesiąc.
@@ -2341,7 +2586,7 @@ onUnmounted(() => {
   - Loading state (modalSaving), error state (409 konflikt → komunikat).
 - **Stany:** loading (`StateMessage` type=loading), error (retry), empty ("Brak rezerwacji. Dodaj pierwszą rezerwację." + CTA).
 - **Store:** `useReservationsStore()` — `fetchCalendar`, `fetchAllWithArticles`, `create`, `update`, `remove`.
-- **Data loading:** onMounted → loadArticles (is_service=false, archival_status=active, per_page=200) + contractors (per_page=500) + refreshData. Watch: zmiana miesiąca/filtru artykułu → reload kalendarza; przełączenie trybu → reload.
+- **Data loading:** onMounted → loadMachines (archival_status=active, per_page=200) + contractors (per_page=500) + refreshData. Watch: zmiana miesiąca/filtru maszyny → reload kalendarza; przełączenie trybu → reload.
 - **Design system:** wyłącznie zmienne CSS z `style.css` (`--color-primary`, `--color-warning`, `--color-bg-card`, `--border-radius-md`, `--shadow-card`, `--font-family`, spacing). Brak hardcoded kolorów.
 - data-testid: `reservations-view`, `rv-add-btn`, `rv-toggle-calendar`, `rv-toggle-list`, `rv-filter-article`, `rv-filter-contractor`, `rv-filter-status`, `rv-calendar`, `rv-cal-prev/next/today`, `rv-cal-cell`, `rv-list`, `rv-list-row`, `rv-edit-btn`, `rv-delete-btn`, `rv-modal`, `rv-modal-article`, `rv-modal-from`, `rv-modal-to`, `rv-modal-status`, `rv-modal-note`, `rv-modal-save`, `rv-modal-delete`, `rv-modal-error`.
 
