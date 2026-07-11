@@ -31,7 +31,7 @@
 
 ## 1. Logowanie
 
-![Ekran logowania](screenshots/01_login_loginview.png)
+![Ekran logowania](./screenshots/01_login_loginview.png)
 
 ### Jak się tam dostać
 
@@ -127,7 +127,7 @@ Cały ekran ma ciemnogranatowe, gradientowe tło. Na samym środku znajduje się
 
 ## 2. Odzyskiwanie hasła
 
-![Ekran reset hasła](screenshots/02_reset_password_resetpasswordview.png)
+![Ekran reset hasła](./screenshots/02_reset_password_resetpasswordview.png)
 
 ### Jak się tam dostać
 
@@ -190,7 +190,7 @@ Cały ekran ma ciemnogranatowe, gradientowe tło (podobnie jak ekran logowania).
 
 ## 3. Zmiana hasła
 
-![Ekran zmiany hasła](screenshots/03_change_password_changepasswordview.png)
+![Ekran zmiany hasła](./screenshots/03_change_password_changepasswordview.png)
 
 ### Jak się tam dostać
 
@@ -253,7 +253,7 @@ Na środku ekranu (na jasnym tle aplikacji) znajduje się biała karta z lekkim 
 
 ## 4. Ekran główny — pulpit startowy
 
-![Ekran główny](screenshots/04_home_homeview.png)
+![Ekran główny](./screenshots/04_home_homeview.png)
 
 ### Jak się tam dostać
 
@@ -377,7 +377,7 @@ Kafelki są informacyjne (pokazują liczby), ale nie są klikalne — służą d
 
 ## 5. Lista umów
 
-![Lista umów](screenshots/05_dashboard_contracts_dashboardview.png)
+![Lista umów](./screenshots/05_dashboard_contracts_dashboardview.png)
 
 ### Jak się tam dostać
 
@@ -474,7 +474,7 @@ Na jednej stronie pokazanych jest do 50 elementów. W stopce widzisz łączną l
 
 ## 6. Lista kontrahentów
 
-![Lista kontrahentów](screenshots/06_dashboard_contractors_dashboardview.png)
+![Lista kontrahentów](./screenshots/06_dashboard_contractors_dashboardview.png)
 
 ### Jak się tam dostać
 
@@ -522,7 +522,7 @@ Kolumny w tabeli:
 
 ## 7. Lista maszyn i artykułów
 
-![Lista maszyn](screenshots/07_dashboard_articles_dashboardview.png)
+![Lista maszyn](./screenshots/07_dashboard_articles_dashboardview.png)
 
 ### Jak się tam dostać
 
@@ -568,7 +568,7 @@ Kolumny w tabeli:
 
 ## 8. Formularz kontrahenta
 
-![Formularz kontrahenta](screenshots/08_contractor_new_contractorformview.png)
+![Formularz kontrahenta](./screenshots/08_contractor_new_contractorformview.png)
 
 ### Jak się tam dostać
 
@@ -702,7 +702,7 @@ Kliknij **+** w nagłówku, aby dodać nowy adres. Otworzy się okienko z polami
 
 ## 9. Formularz maszyny/artukułu
 
-![Formularz maszyny](screenshots/09_article_new_articleformview.png)
+![Formularz maszyny](./screenshots/09_article_new_articleformview.png)
 
 ### Jak się tam dostać
 
@@ -839,7 +839,7 @@ Każdy cennik na liście pokazuje: nazwę, znacznik „Domyślny" (jeśli ustawi
 
 ## 10. Rezerwacje maszyn
 
-![Rezerwacje](screenshots/10_reservations_reservationsview.png)
+![Rezerwacje](./screenshots/10_reservations_reservationsview.png)
 
 ### Jak się tam dostać
 
@@ -909,7 +909,7 @@ Przyciski: **„Usuń"** (czerwony, tylko edycja), **„Anuluj"**, **„Zapisz"*
 
 ## 11. Umowy — tworzenie i edycja
 
-![Formularz umowy](screenshots/11_contract_new_contractformview.png)
+![Formularz umowy](./screenshots/11_contract_new_contractformview.png)
 
 ### Jak się tam dostać
 
@@ -1072,7 +1072,7 @@ Aby odblokować — kliknij **„✕ Cofnij rozliczenie"** w sekcji rozliczenia.
 
 ## 12. Pulpit operacyjny
 
-![Pulpit operacyjny](screenshots/12_worker_workerview.png)
+![Pulpit operacyjny](./screenshots/12_worker_workerview.png)
 
 ### Jak się tam dostać
 
@@ -1118,7 +1118,7 @@ Ikona ⚠️, nagłówek „Przeterminowane umowy", czerwona plakietka. Lista wi
 
 ## 13. Prowizje
 
-![Prowizje](screenshots/13_commissions_commissionview.png)
+![Prowizje](./screenshots/13_commissions_commissionview.png)
 
 ### Jak się tam dostać
 
@@ -1160,7 +1160,7 @@ Pod tabelą jasnoniebieski pasek: „**Jak ustawić stawkę prowizji?** Przejdź
 
 ## 14. Ustawienia
 
-![Ustawienia](screenshots/14_settings_settingsview.png)
+![Ustawienia](./screenshots/14_settings_settingsview.png)
 
 ### Jak się tam dostać
 
@@ -1256,7 +1256,7 @@ Cztery wiersze: Folder umów (główny), Folder protokołów (główny), Folder 
 
 ## 15. Administracja użytkownikami
 
-![Panel administracyjny](screenshots/15_admin_adminview.png)
+![Panel administracyjny](./screenshots/15_admin_adminview.png)
 
 ### Jak się tam dostać
 
@@ -1315,7 +1315,7 @@ Przyciski: **„Anuluj"**, **„Zapisz"**. Po zapisie: zielony toast „Dane uż
 
 ## 16. Archiwum
 
-![Archiwum](screenshots/16_archive_archiveview.png)
+![Archiwum](./screenshots/16_archive_archiveview.png)
 
 ### Jak się tam dostać
 
@@ -1375,7 +1375,7 @@ Zamykanie: przycisk ✕, klawisz Esc, lub kliknięcie poza panelem.
 
 ## 17. Analityka i statystyki
 
-![Statystyki](screenshots/17_analytics_analyticsview.png)
+![Statystyki](./screenshots/17_analytics_analyticsview.png)
 
 ### Jak się tam dostać
 
