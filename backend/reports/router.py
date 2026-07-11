@@ -98,11 +98,18 @@ async def generate_contract_report(
     )
 
 
+def _require_admin(user: User):
+    """RAO-SEC-009: Summary reports contain cross-branch data — admin only."""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Tylko administrator może generować raporty zbiorcze.")
+
+
 @router.get("/summary/contractors")
 async def summary_contractors(
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    _require_admin(current_user)
     pdf_bytes = await generate_summary_pdf(db, "contractors")
     filename = f"Kontrahenci_{datetime.utcnow().strftime('%Y-%m-%d')}.pdf"
     return Response(
@@ -115,8 +122,9 @@ async def summary_contractors(
 @router.get("/summary/machines")
 async def summary_machines(
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    _require_admin(current_user)
     pdf_bytes = await generate_summary_pdf(db, "machines")
     filename = f"Maszyny_{datetime.utcnow().strftime('%Y-%m-%d')}.pdf"
     return Response(
@@ -131,8 +139,9 @@ async def summary_commissions(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    _require_admin(current_user)
     today = datetime.utcnow().date()
     df = date_from or today.replace(day=1)
     dt = date_to or today
@@ -150,8 +159,9 @@ async def summary_stats(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    _require_admin(current_user)
     today = datetime.utcnow().date()
     df = date_from or today.replace(day=1)
     dt = date_to or today

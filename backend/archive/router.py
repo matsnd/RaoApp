@@ -66,9 +66,15 @@ async def list_archive_contracts(
 async def get_archive_contract(
     contract_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
-    return await service.get_archive_contract(db, contract_id)
+    contract = await service.get_archive_contract(db, contract_id)
+    # RAO-SEC-010: IDOR fix — branch check for non-admin users
+    if current_user.role != "admin":
+        if contract.branch_id is not None and contract.branch_id != current_user.branch_id:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="Umowa archiwalna nie znaleziona")
+    return contract
 
 
 # ── Artykuly archiwum (read + PATCH category_id) ─────────────────────────────

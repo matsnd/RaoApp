@@ -317,6 +317,9 @@ class ContractCreate(BaseModel):
 
     @model_validator(mode="after")
     def _validate_dates_and_amounts(self):
+        # RAO-QA-002: date_from required — without it, downstream code crashes with 500
+        if not self.date_from:
+            raise ValueError("Data rozpoczęcia (date_from) jest wymagana.")
         # RAO-P1-039: date_from must not be after date_to
         if self.date_from and self.date_to and self.date_from > self.date_to:
             raise ValueError("Data rozpoczęcia (date_from) nie może być po dacie zakończenia (date_to).")
