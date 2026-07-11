@@ -66,7 +66,9 @@ async def get_contract(
     user: User = Depends(get_current_user),
 ):
     c = await contract_service.verify_contract_access(db, contract_id, user)
-    return ContractDetail.model_validate(c)
+    detail = ContractDetail.model_validate(c)
+    detail.suggested_preset = await contract_service.suggest_preset(db, c.id)
+    return detail
 
 
 @router.post("", response_model=ContractDetail, status_code=201)
@@ -76,7 +78,9 @@ async def create_contract(
     user: User = Depends(get_current_user),
 ):
     c = await contract_service.create_contract(db, data, user)
-    return ContractDetail.model_validate(c)
+    detail = ContractDetail.model_validate(c)
+    detail.suggested_preset = await contract_service.suggest_preset(db, c.id)
+    return detail
 
 
 @router.put("/{contract_id}", response_model=ContractDetail)

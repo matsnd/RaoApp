@@ -40,6 +40,7 @@ async def _build_detail(db: AsyncSession, a: Article) -> ArticleDetail:
         is_external=a.is_external,  # RAO-P1-027
         zasieg_m=a.zasieg_m, udzwig_t=a.udzwig_t, dodatki=a.dodatki,
         fakturownia_product_id=a.fakturownia_product_id,
+        power_type=a.power_type,
         created_at=a.created_at, updated_at=a.updated_at,
     )
 
