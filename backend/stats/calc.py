@@ -14,9 +14,13 @@ RAO-P1-026: dodano aggregate_by_period() + rozszerzono poziomy sub2/sub3
 RAO-P2-071: usunięto legacy extract_city() + KNOWN_CITIES + IGNORE_PATTERNS (zastąpione
             deterministycznym PNA dictionary w shared/locations.py — RAO-P2-028).
 """
+import logging
 import math
 from collections import defaultdict
 from decimal import Decimal
+
+
+logger = logging.getLogger(__name__)
 
 
 DAYS_PER_PERIOD = {
@@ -335,7 +339,7 @@ def aggregate_by_category(
         agg[cat_name]["revenue"] += p.get("revenue", Decimal("0"))
         # RAO-P1-BUG-7: rented_days liczone tylko dla maszyn (usługi mają billing != DAILY)
         if not p.get("is_service"):
-            agg[cat_name]["days"] += p.get("clamped_days", 0)
+            agg[cat_name]["days"] += clamp_days(p.get("clamped_days", 0))
         agg[cat_name]["contracts"].add(p.get("contract_id"))
         # RAO Faza 2a (opcja E): unmapped (article_id=None) nie liczy się jako artykuł
         art_id = p.get("article_id")
@@ -404,7 +408,7 @@ def aggregate_by_period(
         agg[key]["revenue"] += p.get("revenue", Decimal("0"))
         # RAO-P1-BUG-7: rented_days liczone tylko dla maszyn (usługi mają billing != DAILY)
         if not p.get("is_service"):
-            agg[key]["days"] += p.get("clamped_days", 0)
+            agg[key]["days"] += clamp_days(p.get("clamped_days", 0))
         agg[key]["contracts"].add(p.get("contract_id"))
 
     return sorted(
@@ -459,7 +463,7 @@ def aggregate_by_contract_type(positions: list[dict]) -> list[dict]:
             agg[ctype]["articles"].add(art_id)
         # rented_days liczone tylko dla maszyn (usługi mają billing != DAILY)
         if not p.get("is_service"):
-            agg[ctype]["rented_days"] += p.get("clamped_days", 0)
+            agg[ctype]["rented_days"] += clamp_days(p.get("clamped_days", 0))
         agg[ctype]["revenue"] += p.get("revenue", Decimal("0"))
 
     return sorted(
@@ -531,7 +535,7 @@ def aggregate_by_branch(
         if art_id is not None:
             agg[key]["articles"].add(art_id)
         if not p.get("is_service"):
-            agg[key]["rented_days"] += p.get("clamped_days", 0)
+            agg[key]["rented_days"] += clamp_days(p.get("clamped_days", 0))
         agg[key]["revenue"] += p.get("revenue", Decimal("0"))
 
     items = []
@@ -555,3 +559,61 @@ def aggregate_by_branch(
     # Sortuj malejąco po revenue; wiersz "bez oddziału" zawsze na końcu
     items.sort(key=lambda x: (x["branch_id"] is None, -x["revenue"]))
     return items
+
+
+# ── RAO-P1-016: ROI / dni — defensive clamps dla anomalii w danych ────────────
+#
+# Bug P1-016: statystyki pokazywały ROI = -300% (korekta/zwrot → revenue < 0)
+# oraz dni = -7 (stare umowy z date_to < date_from). Te funkcje centralizują
+# logikę ROI i clamp dni, żeby ujemne anomalie nie przeciekały do frontendu.
+
+
+def compute_roi_pct(revenue, replacement_value) -> float | None:
+    """
+    Oblicz ROI (%) dla maszyny — RAO-P1-016.
+
+    Reguły (defensywne — anomalie w danych nie mają sensu biznesowego):
+    - replacement_value is None lub <= 0 → None (dzielenie przez zero / brak bazy)
+    - revenue < 0 (korekta/zwrot) → None (ROI z korektą nie ma sensu; log warning)
+    - revenue == 0 → 0.0 (maszyna wynajęta ale bez przychodu — poprawne 0%)
+    - revenue > 0 → round(revenue / replacement_value * 100, 2)
+
+    Args:
+        revenue: Decimal | int | float | None — przychód z pozycji maszyny
+        replacement_value: Decimal | int | float | None — wartość odtworzeniowa
+
+    Returns:
+        float | None — ROI w procentach, lub None gdy nie da się policzyć.
+    """
+    if replacement_value is None or float(replacement_value) <= 0:
+        return None
+
+    rev = float(revenue) if revenue is not None else 0.0
+    if rev < 0:
+        logger.warning(
+            "Negative ROI clamped: revenue=%s, replacement_value=%s",
+            revenue, replacement_value,
+        )
+        return None
+    return round(rev / float(replacement_value) * 100, 2)
+
+
+def clamp_days(days: int | None) -> int:
+    """
+    Sprowadź liczbę dni do nieujemnej wartości — RAO-P1-016.
+
+    Stare umowy z błędnymi datami (date_to < date_from) mogą dawać ujemne dni.
+    Zwraca 0 zamiast wartości ujemnej. None → 0.
+
+    Args:
+        days: liczba dni (może być ujemna dla anomalii w danych)
+
+    Returns:
+        int — max(0, days) lub 0 gdy None.
+    """
+    if days is None:
+        return 0
+    if days < 0:
+        logger.warning("Negative days clamped: days=%s", days)
+        return 0
+    return int(days)

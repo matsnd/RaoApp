@@ -15,7 +15,7 @@ from articles.models import Article
 from contracts.models import Contract, ContractPosition, PositionCondition
 from contractors.models import Contractor
 from sqlalchemy import func as sqlfunc
-from stats.calc import calculate_position_value, aggregate_by_category, aggregate_by_period, aggregate_by_contract_type, aggregate_by_branch
+from stats.calc import calculate_position_value, aggregate_by_category, aggregate_by_period, aggregate_by_contract_type, aggregate_by_branch, compute_roi_pct, clamp_days
 from shared.revenue import compute_position_revenues as _compute_position_revenues  # RAO-P2-028
 from shared.locations import aggregate_by_pna  # RAO-P2-028
 from shared.cache import cache, cached_or_compute, TTL_STATS  # RAO-P2-051: cache TTL 5 min
@@ -302,7 +302,7 @@ async def top_machines(
         agg[key]["name"] = p["article_name"]
         agg[key]["internal_number"] = p["internal_number"]
         agg[key]["revenue"] += p["revenue"]
-        agg[key]["days"] += p["clamped_days"]
+        agg[key]["days"] += clamp_days(p["clamped_days"])  # RAO-P1-016: defensive clamp
         agg[key]["contracts"].add(p["contract_id"])
 
     sorted_items = sorted(agg.items(), key=lambda x: x[1]["revenue"], reverse=True)
@@ -438,12 +438,12 @@ async def machine_roi(
     filtered = [p for p in all_pos if p["article_id"] == article_id]  # skip unmapped (None != article_id)
 
     revenue = sum(p["revenue"] for p in filtered)
-    days = sum(p["clamped_days"] for p in filtered)
+    days = sum(clamp_days(p["clamped_days"]) for p in filtered)
     cnt = len(set(p["contract_id"] for p in filtered))
 
-    roi_pct = None
-    if art.replacement_value and art.replacement_value > 0:
-        roi_pct = round(float(revenue) / float(art.replacement_value) * 100, 2)
+    # RAO-P1-016: ROI liczone przez compute_roi_pct — clamp ujemnego revenue
+    # (korekta/zwrot) do None zamiast -300%; replacement_value<=0 → None.
+    roi_pct = compute_roi_pct(revenue, art.replacement_value)
 
     result = MachineRoiResponse(
         article_id=art.id, name=art.name, internal_number=art.internal_number,
@@ -883,7 +883,7 @@ async def positions(
         agg[key]["is_service"] = p["is_service"]
         agg[key]["category_main"] = p["category_main"]
         agg[key]["revenue"] += p["revenue"]
-        agg[key]["rented_days"] += p["clamped_days"] if not p["is_service"] else 0
+        agg[key]["rented_days"] += clamp_days(p["clamped_days"]) if not p["is_service"] else 0  # RAO-P1-016
         agg[key]["contracts"].add(p["contract_id"])
         agg[key]["times_billed"] += 1
 
