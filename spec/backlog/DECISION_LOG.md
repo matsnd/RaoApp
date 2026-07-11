@@ -61,10 +61,9 @@
 ### P0-004 — Eksplorator: kontrahent jako dropdown zamiast wyszukiwarki
 
 **Data:** 2026-07-05
-**Status:** triaged (zgłoszone przez operatora podczas manualnych testów e2e)
-**Decyzja:** Odłożone — zwykły `<select>` przy 698 kontrahentach jest nieużywalny.
-Wymaga comboboxa (input + autouzupełnianie). Naprawa w `AnalyticsFilters.vue`.
-**Impact:** Eksplorator i inne taby analytics — filtr kontrahenta nieużywalny przy dużej liczbie.
+**Status:** done (naprawione w P1-110, zweryfikowane 2026-07-11)
+**Decyzja:** Audyt 2026-07-11 (FULL-AUTO): `ContractorCombobox` jest importowany w `AnalyticsFilters.vue` (linia 3) i używany (linia 160) z `data-testid="filter-contractor"`. Komponent istnieje w `components/analytics/ContractorCombobox.vue` — input + autouzupełnianie (filtrowanie case-insensitive, limit 100 wyników). Naprawione w P1-110 (faza import fix).
+**Impact:** Brak — combobox działa.
 
 ### P0-005 — Wszystkie umowy prefiks `S` (niezależnie od typu)
 
