@@ -1,5 +1,10 @@
 # RAO App — Build Progress
 
+> ⚠️ **STALE** — ostatnia aktualizacja 2026-03-15. Od tego czasu projekt znacznie ewoluował
+> (rezerwacje maszyn, analytics przebudowa, P1/P2/P3 z uwag klienta, DB reset + reseed).
+> **Wiarygodne źródła statusu:** `spec/backlog/BACKLOG.md` (aktywne taski) + `spec/backlog/DECISION_LOG.md` (historia).
+> Ten plik zachowany dla historycznego kontekstu faz 1-6 (budowa od zera).
+>
 > Ostatnia aktualizacja: 2026-03-15 00:27 | Kontekst: e2e-testing
 
 ---

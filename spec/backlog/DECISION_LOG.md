@@ -328,3 +328,17 @@ Wymaga comboboxa (input + autouzupełnianie). Naprawa w `AnalyticsFilters.vue`.
 3. Status flow: `triaged → in_progress → dev-verified → team-verified → user-verified → client-approved (done)`
 4. Po zakończeniu zadania → lokalny commit + update DECISION_LOG.md
 5. Każda decyzja architektoniczna/biznesowa → sekcja w DECISION_LOG.md
+
+---
+
+## Backlog cleanup — 2026-07-11
+
+**Akcja:** 28 tasków done/cancelled przeniesione z BACKLOG.md do `spec/backlog/archiwum/BACKLOG_SPRINT_20260705_20260711.md`.
+BACKLOG.md zredukowany z 1399 → 135 linii (3 aktywne taski).
+
+**Zmiany ID:**
+- P1-009 "Przebudowa statystyk" (3. kolizja z P1-009 "Opiekun zamówienia") → przemianowany na **P1-110**
+- P1-100 epic oznaczony **done** (wszystkie subtaski P1-003 do P1-015 zrealizowane)
+- Duplikaty P1-009/010/011/014 (druga, bardziej szczegółowa kopia) — scalone w archiwum
+
+**Dlaczego:** Backlog 1399 linii (3.5× powyżej progu 400), ID collisions, epic zrealizowany ale oznaczony in-progress. Czyszczenie do 3 aktywnych tasków dla czystego kontekstu.

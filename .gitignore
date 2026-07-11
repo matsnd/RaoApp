@@ -187,3 +187,6 @@ _fix_*
 /mcp-vision/_test*.cjs
 /mcp-vision/_test*.js
 /mcp-vision/_test*.mjs
+
+# Browser cookies (scratch, nie w repo)
+cookies.txt
