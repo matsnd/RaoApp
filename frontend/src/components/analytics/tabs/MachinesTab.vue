@@ -68,7 +68,7 @@ const rows = computed<AnalyticsRow[]>(() =>
     rented_days: item.rented_days,
     contracts_count: item.contracts_count,
     times_billed: item.times_billed,
-    article_id: item.article_id,
+    machine_id: item.machine_id ?? item.article_id,
   })),
 )
 
@@ -125,9 +125,9 @@ const csvColumns: CsvColumn[] = [
 ]
 
 function onRowClick(row: AnalyticsRow): void {
-  const articleId = row.article_id as number
-  if (!articleId) return
-  openDrillDown('machine', articleId, String(row.article_name), row.internal_number as string | null)
+  const machineId = row.machine_id as number
+  if (!machineId) return
+  openDrillDown('machine', machineId, String(row.article_name), row.internal_number as string | null)
 }
 
 async function load(): Promise<void> {
@@ -182,7 +182,7 @@ watch(() => [props.dateFrom, props.dateTo, props.filters?.contractorId, props.fi
           :rows="sortedRows"
           :sort-key="String(sort.sortKey.value)"
           :sort-dir="sort.sortDir.value"
-          row-key="article_id"
+          row-key="machine_id"
           clickable
           data-testid="machines-table"
           @sort="sort.toggleSort"

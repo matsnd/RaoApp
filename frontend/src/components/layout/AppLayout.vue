@@ -20,7 +20,10 @@ const activeSection = computed(() => {
   if (section) return section
   if (route.path.startsWith('/contractors')) return 'contractors'
   if (route.path.startsWith('/contracts')) return 'contracts'
-  if (route.path.startsWith('/articles')) return 'articles'
+  if (route.path.startsWith('/machines')) return 'machines'
+  if (route.path.startsWith('/services')) return 'services'
+  if (route.path.startsWith('/additional-services')) return 'additional-services'
+  if (route.path.startsWith('/articles')) return 'machines'  // backward compat
   if (route.path.startsWith('/reservations')) return 'reservations'
   if (route.path.startsWith('/worker')) return 'worker'
   if (route.path.startsWith('/analytics')) return 'analytics'
@@ -46,7 +49,7 @@ function handleKeydown(e) {
     const section = activeSection.value
     if (section === 'contracts') router.push({ name: 'ContractNew' })
     else if (section === 'contractors') router.push({ name: 'ContractorNew' })
-    else if (section === 'articles') router.push({ name: 'ArticleNew' })
+    else if (section === 'machines') router.push({ name: 'MachineNew' })
   }
   if (e.key === 'Escape') {
     // Go back if we are in a form view
@@ -79,6 +82,12 @@ function handleNavigate(section) {
     router.push('/commissions')
   } else if (section === 'reservations') {
     router.push('/reservations')
+  } else if (section === 'machines') {
+    router.push('/machines')
+  } else if (section === 'services') {
+    router.push('/services')
+  } else if (section === 'additional-services') {
+    router.push('/additional-services')
   } else if (section === 'archive') {
     router.push('/archive')
   } else {

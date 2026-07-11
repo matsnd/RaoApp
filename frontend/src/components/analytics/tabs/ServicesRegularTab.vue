@@ -65,7 +65,7 @@ const rows = computed<AnalyticsRow[]>(() =>
     rented_days: item.rented_days,
     contracts_count: item.contracts_count,
     times_billed: item.times_billed,
-    article_id: item.article_id,
+    service_id: item.service_id ?? item.article_id,
   })),
 )
 
@@ -121,9 +121,9 @@ const csvColumns: CsvColumn[] = [
 ]
 
 function onRowClick(row: AnalyticsRow): void {
-  const articleId = row.article_id as number
-  if (!articleId) return
-  openDrillDown('service', articleId, String(row.article_name))
+  const serviceId = row.service_id as number
+  if (!serviceId) return
+  openDrillDown('service', serviceId, String(row.article_name))
 }
 
 async function load(): Promise<void> {
@@ -178,7 +178,7 @@ watch(() => [props.dateFrom, props.dateTo, props.filters?.contractorId, props.fi
           :rows="sortedRows"
           :sort-key="String(sort.sortKey.value)"
           :sort-dir="sort.sortDir.value"
-          row-key="article_id"
+          row-key="service_id"
           clickable
           data-testid="svc-u-table"
           @sort="sort.toggleSort"

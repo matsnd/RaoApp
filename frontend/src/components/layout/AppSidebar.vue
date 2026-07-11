@@ -76,7 +76,9 @@ const settingsStore = useSettingsStore()
 const topItems = [
   { section: 'contracts', label: 'Umowy' },
   { section: 'contractors', label: 'Kontrahenci' },
-  { section: 'articles', label: 'Artykuły' },
+  { section: 'machines', label: 'Maszyny' },
+  { section: 'services', label: 'Usługi' },
+  { section: 'additional-services', label: 'Usługi dodatkowe' },
   { section: 'reservations', label: 'Rezerwacje' },
 ]
 

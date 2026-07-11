@@ -177,7 +177,7 @@
         <div class="modal-box" style="min-width:640px;" role="dialog" aria-modal="true" aria-labelledby="new-preset-title">
           <div class="modal-title" id="new-preset-title">Nowy cennik rozliczenia</div>
           <p style="font-size:13px;color:var(--color-text-muted);margin:4px 0 12px;">
-            <strong>{{ articleName }}</strong> — utwórz zestaw warunków rozliczenia do wielokrotnego użytku.
+            <strong>{{ machineName }}</strong> — utwórz zestaw warunków rozliczenia do wielokrotnego użytku.
           </p>
           <div v-if="presetError" style="color:var(--color-danger);padding:8px;background:#FED7D7;border-radius:6px;margin-bottom:12px;font-size:13px;" role="alert">
             {{ presetError }}
@@ -264,8 +264,8 @@ import { useToastStore } from '@/stores/toast'
 import { formatCurrency } from '@/utils/format'
 
 const props = defineProps({
-  articleId: { type: Number, required: true },
-  articleName: { type: String, default: '' },
+  machineId: { type: Number, required: true },
+  machineName: { type: String, default: '' },
 })
 
 const emit = defineEmits(['presets-changed'])
@@ -437,7 +437,7 @@ async function saveNewPreset() {
       minimum: it.minimum || null,
       description: it.description || null,
     }))
-    await settingsStore.createRatePreset(props.articleId, {
+    await settingsStore.createRatePreset(props.machineId, {
       name: newPreset.value.name,
       description: newPreset.value.description || null,
       is_default: newPreset.value.is_default,

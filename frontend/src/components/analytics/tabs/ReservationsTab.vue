@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useReservationsStore, type ReservationWithArticle } from '@/stores/reservations'
+import { useReservationsStore, type ReservationWithMachine } from '@/stores/reservations'
 import KpiRow, { type KpiCard } from '@/components/analytics/KpiRow.vue'
 import AnalyticsTable, {
   type AnalyticsColumn,
@@ -30,7 +30,7 @@ const columns: AnalyticsColumn[] = [
   { key: 'note', label: 'Notatka' },
 ]
 
-const filteredData = computed<ReservationWithArticle[]>(() => {
+const filteredData = computed<ReservationWithMachine[]>(() => {
   let items = store.allList
   if (filter.value === 'active') {
     items = items.filter((r) => r.reserved_to >= today)
@@ -74,7 +74,7 @@ const kpiCards = computed<KpiCard[]>(() => {
   if (!store.allList.length) return []
   const active = store.allList.filter((r) => r.reserved_to >= today).length
   const expired = store.allList.length - active
-  const uniqueMachines = new Set(store.allList.map((r) => r.article_id)).size
+  const uniqueMachines = new Set(store.allList.map((r) => r.machine_id ?? r.article_id)).size
   return [
     {
       value: store.allList.length,
@@ -125,7 +125,7 @@ function formatDate(d: string | null | undefined): string {
 }
 
 onMounted(() => {
-  store.fetchAllWithArticles()
+  store.fetchAllWithMachines()
 })
 </script>
 

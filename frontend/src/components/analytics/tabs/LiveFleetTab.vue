@@ -33,7 +33,7 @@ const columns: AnalyticsColumn[] = [
 const rentedRows = computed<AnalyticsRow[]>(() => {
   const items = store.currentlyRented?.items ?? []
   return items.map((it: CurrentlyRentedItem) => ({
-    article_id: it.article_id,
+    machine_id: it.machine_id ?? it.article_id,
     name: it.name,
     internal_number: it.internal_number ?? '',
     category_main: it.category_main ?? '',
@@ -82,9 +82,9 @@ const kpiCards = computed<KpiCard[]>(() => {
 const utilPct = computed(() => store.currentlyRented?.utilization_pct ?? 0)
 
 function onRowClick(row: AnalyticsRow): void {
-  const articleId = Number(row.article_id)
-  if (!Number.isFinite(articleId)) return
-  openDrillDown('machine', articleId, String(row.name))
+  const machineId = Number(row.machine_id)
+  if (!Number.isFinite(machineId)) return
+  openDrillDown('machine', machineId, String(row.name))
 }
 
 onMounted(() => {
@@ -124,7 +124,7 @@ onMounted(() => {
           :rows="sortedRentedRows"
           :sort-key="String(sortKey)"
           :sort-dir="sortDir"
-          row-key="article_id"
+          row-key="machine_id"
           :clickable="true"
           :loading="store.loadingLive"
           @sort="toggleSort"

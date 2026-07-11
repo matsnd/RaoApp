@@ -11,10 +11,10 @@
           <option :value="null">Gotowe przedziały…</option>
           <option v-for="opt in rangeTemplateOptions" :key="opt.key" :value="opt.key">{{ opt.label }}</option>
         </select>
-        <button class="btn btn-secondary btn-sm" @click="autoPrefillFromLast" :disabled="!articleId || autoPrefillLoading || isSettled" title="Wypełnij z ostatniej umowy tej maszyny">
+        <button class="btn btn-secondary btn-sm" @click="autoPrefillFromLast" :disabled="!machineId || autoPrefillLoading || isSettled" title="Wypełnij z ostatniej umowy tej maszyny">
           {{ autoPrefillLoading ? '...' : '↻ Z ostatniej umowy' }}
         </button>
-        <button class="btn btn-secondary btn-sm" @click="openPresetPicker" :disabled="!articleId || isSettled" title="Zastosuj predefiniowany cennik">
+        <button class="btn btn-secondary btn-sm" @click="openPresetPicker" :disabled="!machineId || isSettled" title="Zastosuj predefiniowany cennik">
           📋 Zastosuj cennik
         </button>
         <button class="btn btn-primary btn-sm" @click="addCondition" :disabled="showNewCondRow || editingCondId !== null || isSettled" data-testid="add-condition">+ Dodaj warunek</button>
@@ -207,7 +207,7 @@ import api from '@/composables/useApi'
 const props = defineProps({
   contractId: { type: Number, required: true },
   positionId: { type: Number, required: true },
-  articleId: { type: Number, default: null },  // RAO-P1-001: do apply-preset + auto-prefill
+  machineId: { type: Number, default: null },  // RAO-P1-001: do apply-preset + auto-prefill (Faza 4c: articleId → machineId)
   contractType: { type: String, default: 'S' },  // RAO-P1-100: 'S' = najem, 'U' = usługa
   mode: { type: String, default: null },  // RAO-P1-100: 'rental' | 'service'
   isSettled: { type: Boolean, default: false },  // RAO-P2-022: blokada edycji
@@ -635,7 +635,7 @@ const autoPrefillLoading = ref(false)
 
 async function openPresetPicker() {
   if (props.isSettled) return
-  if (!props.articleId) {
+  if (!props.machineId) {
     toastStore.warning('Pozycja nie ma przypisanej maszyny')
     return
   }
@@ -643,7 +643,7 @@ async function openPresetPicker() {
   selectedPresetId.value = null
   presetPickerLoading.value = true
   try {
-    const { data } = await api.get(`/settings/articles/${props.articleId}/rate-presets`)
+    const { data } = await api.get(`/settings/machines/${props.machineId}/rate-presets`)
     availablePresets.value = data
     // Pre-wybierz domyślny
     const def = data.find(p => p.is_default)
@@ -680,13 +680,13 @@ async function applySelectedPreset() {
 
 async function autoPrefillFromLast() {
   if (props.isSettled) return
-  if (!props.articleId) {
+  if (!props.machineId) {
     toastStore.warning('Pozycja nie ma przypisanej maszyny')
     return
   }
   autoPrefillLoading.value = true
   try {
-    const data = await contractStore.fetchLastConditionsForArticle(props.articleId)
+    const data = await contractStore.fetchLastConditionsForMachine(props.machineId)
     if (!data?.conditions?.length) {
       toastStore.info('Brak warunków w ostatniej umowie tej maszyny')
       return

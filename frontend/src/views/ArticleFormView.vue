@@ -192,8 +192,8 @@
         <!-- RAO-P1-001: Cenniki rozliczenia maszyny -->
         <RatePresetSection
           v-if="isEdit && !form.is_service"
-          :article-id="Number(props.id)"
-          :article-name="form.name"
+          :machine-id="Number(props.id)"
+          :machine-name="form.name"
           @presets-changed="onPresetsChanged"
         />
       </div>

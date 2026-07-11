@@ -80,7 +80,7 @@ const categoriesColumns: AnalyticsColumn[] = [
 // ── Mapowanie danych na wiersze tabeli ───────────────────────────────────────
 const topMachinesRows = computed<AnalyticsRow[]>(() =>
   store.topMachines.map((m: TopMachineItem, idx: number) => ({
-    article_id: m.article_id,
+    machine_id: m.machine_id ?? m.article_id,
     rank: idx + 1,
     name: m.name,
     internal_number: m.internal_number ?? '',
@@ -94,7 +94,7 @@ const sortedTopMachinesRows = computed(() => topMachinesSort.sortedRows(topMachi
 
 const feesRows = computed<AnalyticsRow[]>(() =>
   (store.additionalFees?.breakdown ?? []).map((f: ServiceFeeItem) => ({
-    article_id: f.article_id,
+    service_id: f.service_id ?? f.article_id,
     service_name: f.service_name,
     total_revenue: Number(f.total_revenue),
     times_billed: f.times_billed,
@@ -111,7 +111,7 @@ const locationsRows = computed<AnalyticsRow[]>(() =>
 
 const positionsRows = computed<AnalyticsRow[]>(() =>
   (store.positionsData?.items ?? []).map((p: PositionStatItem) => ({
-    article_id: p.article_id,
+    item_id: p.is_service ? (p.service_id ?? p.article_id) : (p.machine_id ?? p.article_id),
     article_name: p.article_name,
     internal_number: p.internal_number ?? '',
     category_main: p.category_main ?? '',
@@ -181,7 +181,7 @@ const kpiCards = computed<KpiCard[]>(() => {
 })
 
 function onMachineRowClick(row: AnalyticsRow): void {
-  const id = Number(row.article_id)
+  const id = Number(row.machine_id)
   if (!Number.isFinite(id)) return
   // RAO-P2-065 #7: przekaż internal_number, by tytuł drawera zawierał nr wewnętrzny.
   const internalNumber = row.internal_number ? String(row.internal_number) : null
@@ -196,10 +196,10 @@ function onLocationRowClick(row: AnalyticsRow): void {
 
 function onServiceClick(row: AnalyticsRow) {
   // RAO-P1-014: drilldown do szczegółów usługi (które umowy, kiedy, kwota)
-  const articleId = Number(row.article_id)
+  const serviceId = Number(row.service_id)
   const serviceName = String(row.service_name ?? '')
-  if (!Number.isFinite(articleId) || !serviceName) return
-  openDrillDown('service', articleId, serviceName)
+  if (!Number.isFinite(serviceId) || !serviceName) return
+  openDrillDown('service', serviceId, serviceName)
 }
 
 function onCategoryClick(row: AnalyticsRow) {
@@ -284,7 +284,7 @@ watch(
           :rows="sortedTopMachinesRows"
           :sort-key="String(topMachinesSort.sortKey.value)"
           :sort-dir="topMachinesSort.sortDir.value"
-          row-key="article_id"
+          row-key="machine_id"
           :clickable="true"
           :loading="store.loading"
           @sort="topMachinesSort.toggleSort"
@@ -371,7 +371,7 @@ watch(
           :rows="sortedPositionsRows"
           :sort-key="String(positionsSort.sortKey.value)"
           :sort-dir="positionsSort.sortDir.value"
-          row-key="article_id"
+          row-key="item_id"
           :loading="store.loading"
           @sort="positionsSort.toggleSort"
         >
