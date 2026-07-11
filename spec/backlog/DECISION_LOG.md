@@ -48,9 +48,15 @@
 ### P0-003 — Znak `$` kojarzy się z USD
 
 **Data:** 2026-07-05
-**Status:** triaged (zgłoszone przez operatora podczas manualnych testów e2e)
-**Decyzja:** Odłożone — wymaga audytu globalnego (frontend + PDF + opisy opłat).
-**Impact:** W polskiej aplikacji `$` jest niedopuszczalny — należy używać `zł` / `PLN`.
+**Status:** done (audyt 2026-07-11 — false alarm)
+**Decyzja:** Audyt 2026-07-11 (FULL-AUTO): wszystkie `$` w codebase to:
+  - JS template literals (`${...}`) — niewidoczne w UI
+  - Vue event handlers (`$event`, `$emit`) — niewidoczne
+  - Placeholdery `$1`/`$2` w opisach opłat — zamierzone, zastępowane przez `formatCurrency` + `zł` przed wyświetleniem
+  - Backend `reports/service.py:_resolve_fee_description` rozwija placeholdery w PDF
+  - Migracje `main.py`/`migrate.py` zamieniają `$1` → `$1 zł` w DB
+**Wniosek:** Brak `$` jako symbolu waluty w UI ani PDF. Klient potwierdził: `$` jako placeholder jest OK.
+**Impact:** Brak — false alarm.
 
 ### P0-004 — Eksplorator: kontrahent jako dropdown zamiast wyszukiwarki
 
