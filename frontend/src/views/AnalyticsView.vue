@@ -518,7 +518,8 @@ onMounted(async () => {
   flex-direction: column;
   gap: var(--spacing-lg);
   font-family: var(--font-family);
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   box-sizing: border-box;
 }
