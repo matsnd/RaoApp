@@ -1,0 +1,3 @@
+invoices total: 25
+clients total: 15
+products total: 8

@@ -1,0 +1,282 @@
+============================================================
+RAO-P2-061/067: Fakturownia invoices seeding
+============================================================
+
+Artyku┼éy z mapowaniem FA: 12
+
+[ensure_fa_clients] 8 kontrahent├│w z NIP do synchronizacji z FA
+  [client] EXISTS 'Bud-Plus Sp. z o.o.' NIP=7010001234 -> FA ID=262491183
+  [client] EXISTS 'Invest S.A.' NIP=5260005678 -> FA ID=262491184
+  [client] EXISTS 'Terra-Masz Budownictwo' NIP=7790009012 -> FA ID=262491185
+  [client] EXISTS 'Wod-Bud Sp. z o.o.' NIP=9510003456 -> FA ID=262491187
+  [client] EXISTS 'Fundament Sp. z o.o.' NIP=1460007890 -> FA ID=262491188
+  [client] EXISTS 'Trakcja-Polska S.A.' NIP=6790002345 -> FA ID=262491189
+  [client] EXISTS 'Eko-Bud Nowoczesne Budownictwo' NIP=2580006789 -> FA ID=262491190
+  [client] EXISTS 'Miejskie Inwestycje Sp. z o.o.' NIP=8350001230 -> FA ID=262491191
+[ensure_fa_clients] gotowe: 8 mapowa┼ä, 0 utworzonych
+
+[ensure_fa_products] 5 artyku┼é├│w z mapowaniem FA do synchronizacji
+  [product] EXISTS 'Koparka g─ůsienicowa JCB 8035' FA ID=8845156432567
+  [product] EXISTS '┼üadowarka teleskopowa Manuscop 6.36' FA ID=8845156436442
+  [product] EXISTS 'Podno┼Ťnik koszowy Haulotte HA16PX' FA ID=8845156436443
+  [product] EXISTS 'Spychar Wirtgen W100CFi' FA ID=8845156436444
+  [product] EXISTS 'Zag─Öszczarka Ammann APF 15/50' FA ID=8845156436446
+[ensure_fa_products] gotowe: 5 mapowa┼ä, 0 utworzonych
+
+Artyku┼éy z mapowaniem FA (po sync): 12
+
+[1/2] Umowy z rozliczeniami fakturownia (bez faktury): 28
+
+[S001/2025] Bud-Plus Sp. z o.o. (NIP 7010001234)
+  Rozliczenia: 4
+  OK: Faktura 1/07/2025 (ID=531045308) dla S001/2025 ÔÇö 4 pozycji
+
+[S002/2025G] Invest S.A. (NIP 5260005678)
+  Rozliczenia: 4
+  OK: Faktura 2/07/2025 (ID=531045311) dla S002/2025G ÔÇö 4 pozycji
+
+[S003/2025] Terra-Masz Budownictwo (NIP 7790009012)
+  Rozliczenia: 5
+  OK: Faktura 3/07/2025 (ID=531045314) dla S003/2025 ÔÇö 5 pozycji
+
+[S005/2025] Fundament Sp. z o.o. (NIP 1460007890)
+  Rozliczenia: 4
+  OK: Faktura 34/05/2025 (ID=531045317) dla S005/2025 ÔÇö 4 pozycji
+
+[S006/2025G] Trakcja-Polska S.A. (NIP 6790002345)
+  Rozliczenia: 5
+  OK: Faktura 35/05/2025 (ID=531045319) dla S006/2025G ÔÇö 5 pozycji
+
+[S007/2025] Eko-Bud Nowoczesne Budownictwo (NIP 2580006789)
+  Rozliczenia: 4
+  OK: Faktura 36/05/2025 (ID=531045321) dla S007/2025 ÔÇö 4 pozycji
+
+[S008/2025G] Miejskie Inwestycje Sp. z o.o. (NIP 8350001230)
+  Rozliczenia: 4
+  OK: Faktura 12/04/2025 (ID=531045322) dla S008/2025G ÔÇö 4 pozycji
+
+[S010/2025G] Invest S.A. (NIP 5260005678)
+  Rozliczenia: 4
+  OK: Faktura 25/03/2025 (ID=531045324) dla S010/2025G ÔÇö 4 pozycji
+
+[S011/2025] Terra-Masz Budownictwo (NIP 7790009012)
+  Rozliczenia: 4
+  OK: Faktura 26/03/2025 (ID=531045326) dla S011/2025 ÔÇö 4 pozycji
+
+[S013/2025] Fundament Sp. z o.o. (NIP 1460007890)
+  Rozliczenia: 4
+  OK: Faktura 23/01/2025 (ID=531045327) dla S013/2025 ÔÇö 4 pozycji
+
+[S015/2025] Eko-Bud Nowoczesne Budownictwo (NIP 2580006789)
+  Rozliczenia: 5
+  OK: Faktura 24/01/2025 (ID=531045328) dla S015/2025 ÔÇö 5 pozycji
+
+[S016/2025G] Miejskie Inwestycje Sp. z o.o. (NIP 8350001230)
+  Rozliczenia: 4
+  OK: Faktura 12/12/2024 (ID=531045329) dla S016/2025G ÔÇö 4 pozycji
+
+[S017/2025] Bud-Plus Sp. z o.o. (NIP 7010001234)
+  Rozliczenia: 4
+  OK: Faktura 24/11/2024 (ID=531045331) dla S017/2025 ÔÇö 4 pozycji
+
+[S018/2025G] Invest S.A. (NIP 5260005678)
+  Rozliczenia: 5
+  OK: Faktura 25/11/2024 (ID=531045333) dla S018/2025G ÔÇö 5 pozycji
+
+[S021/2025] Fundament Sp. z o.o. (NIP 1460007890)
+  Rozliczenia: 5
+  OK: Faktura 34/09/2024 (ID=531045334) dla S021/2025 ÔÇö 5 pozycji
+
+[S022/2025G] Trakcja-Polska S.A. (NIP 6790002345)
+  Rozliczenia: 4
+  OK: Faktura 35/09/2024 (ID=531045335) dla S022/2025G ÔÇö 4 pozycji
+
+[S023/2025] Eko-Bud Nowoczesne Budownictwo (NIP 2580006789)
+  Rozliczenia: 4
+  OK: Faktura 36/09/2024 (ID=531045336) dla S023/2025 ÔÇö 4 pozycji
+
+[S011/2026] Terra-Masz Budownictwo (NIP 7790009012)
+  Rozliczenia: 4
+  OK: Faktura 2/07/2026 (ID=531045337) dla S011/2026 ÔÇö 4 pozycji
+
+[S013/2026] Fundament Sp. z o.o. (NIP 1460007890)
+  Rozliczenia: 4
+  OK: Faktura 2/05/2026 (ID=531045339) dla S013/2026 ÔÇö 4 pozycji
+
+[S014/2026G] Trakcja-Polska S.A. (NIP 6790002345)
+  Rozliczenia: 4
+  OK: Faktura 3/05/2026 (ID=531045340) dla S014/2026G ÔÇö 4 pozycji
+
+[S016/2026G] Miejskie Inwestycje Sp. z o.o. (NIP 8350001230)
+  Rozliczenia: 4
+  OK: Faktura 1/04/2026 (ID=531045343) dla S016/2026G ÔÇö 4 pozycji
+
+[S017/2026] Bud-Plus Sp. z o.o. (NIP 7010001234)
+  Rozliczenia: 4
+  OK: Faktura 1/03/2026 (ID=531045344) dla S017/2026 ÔÇö 4 pozycji
+
+[S018/2026G] Invest S.A. (NIP 5260005678)
+  Rozliczenia: 5
+  OK: Faktura 2/03/2026 (ID=531045347) dla S018/2026G ÔÇö 5 pozycji
+
+[S019/2026] Terra-Masz Budownictwo (NIP 7790009012)
+  Rozliczenia: 4
+  OK: Faktura 3/03/2026 (ID=531045348) dla S019/2026 ÔÇö 4 pozycji
+
+[S021/2026] Fundament Sp. z o.o. (NIP 1460007890)
+  Rozliczenia: 5
+  OK: Faktura 1/01/2026 (ID=531045349) dla S021/2026 ÔÇö 5 pozycji
+
+[S022/2026G] Trakcja-Polska S.A. (NIP 6790002345)
+  Rozliczenia: 4
+  OK: Faktura 2/01/2026 (ID=531045351) dla S022/2026G ÔÇö 4 pozycji
+
+[S023/2026] Eko-Bud Nowoczesne Budownictwo (NIP 2580006789)
+  Rozliczenia: 4
+  OK: Faktura 3/01/2026 (ID=531045353) dla S023/2026 ÔÇö 4 pozycji
+
+[S024/2026G] Miejskie Inwestycje Sp. z o.o. (NIP 8350001230)
+  Rozliczenia: 5
+  OK: Faktura 1/12/2025 (ID=531045355) dla S024/2026G ÔÇö 5 pozycji
+
+[2/2] Umowy FA-pending (nierozliczone, faktura czeka w FA): 28
+
+[S001/2026] Bud-Plus Sp. z o.o. ÔÇö FA-pending
+  Pozycje faktury: 4
+  OK: Faktura 1/08/2026 (ID=531045356) dla S001/2026 ÔÇö 4 pozycji
+  READY: faktura czeka w FA ÔÇö demo 'Pobierz z Fakturowni' dla S001/2026
+
+[S002/2026G] Invest S.A. ÔÇö FA-pending
+  Pozycje faktury: 4
+  OK: Faktura 2/08/2026 (ID=531045359) dla S002/2026G ÔÇö 4 pozycji
+  READY: faktura czeka w FA ÔÇö demo 'Pobierz z Fakturowni' dla S002/2026G
+
+[S003/2026] Terra-Masz Budownictwo ÔÇö FA-pending
+  Pozycje faktury: 5
+  OK: Faktura 3/08/2026 (ID=531045362) dla S003/2026 ÔÇö 5 pozycji
+  READY: faktura czeka w FA ÔÇö demo 'Pobierz z Fakturowni' dla S003/2026
+
+[S004/2026G] Wod-Bud Sp. z o.o. ÔÇö FA-pending
+  Pozycje faktury: 4
+  EXISTS: Faktura ID=531044728 ju┼╝ czeka w FA ÔÇö OK (demo ready)
+
+[S005/2026] Fundament Sp. z o.o. ÔÇö FA-pending
+  Pozycje faktury: 4
+  OK: Faktura 3/07/2026 (ID=531045364) dla S005/2026 ÔÇö 4 pozycji
+  READY: faktura czeka w FA ÔÇö demo 'Pobierz z Fakturowni' dla S005/2026
+
+[S006/2026G] Trakcja-Polska S.A. ÔÇö FA-pending
+  Pozycje faktury: 5
+  OK: Faktura 4/08/2026 (ID=531045365) dla S006/2026G ÔÇö 5 pozycji
+  READY: faktura czeka w FA ÔÇö demo 'Pobierz z Fakturowni' dla S006/2026G
+
+[S007/2026] Eko-Bud Nowoczesne Budownictwo ÔÇö FA-pending
+  Pozycje faktury: 4
+  OK: Faktura 4/07/2026 (ID=531045366) dla S007/2026 ÔÇö 4 pozycji
+  READY: faktura czeka w FA ÔÇö demo 'Pobierz z Fakturowni' dla S007/2026
+
+[S008/2026G] Miejskie Inwestycje Sp. z o.o. ÔÇö FA-pending
+  Pozycje faktury: 4
+  OK: Faktura 5/07/2026 (ID=531045367) dla S008/2026G ÔÇö 4 pozycji
+  READY: faktura czeka w FA ÔÇö demo 'Pobierz z Fakturowni' dla S008/2026G
+
+[S009/2026] Bud-Plus Sp. z o.o. ÔÇö FA-pending
+  Pozycje faktury: 5
+  OK: Faktura 6/07/2026 (ID=531045368) dla S009/2026 ÔÇö 5 pozycji
+  READY: faktura czeka w FA ÔÇö demo 'Pobierz z Fakturowni' dla S009/2026
+
+[S010/2026G] Invest S.A. ÔÇö FA-pending
+  Pozycje faktury: 4
+  OK: Faktura 7/07/2026 (ID=531045371) dla S010/2026G ÔÇö 4 pozycji
+  READY: faktura czeka w FA ÔÇö demo 'Pobierz z Fakturowni' dla S010/2026G
+
+[S015/2026] Eko-Bud Nowoczesne Budownictwo ÔÇö FA-pending
+  Pozycje faktury: 5
+  OK: Faktura 4/05/2026 (ID=531045372) dla S015/2026 ÔÇö 5 pozycji
+  READY: faktura czeka w FA ÔÇö demo 'Pobierz z Fakturowni' dla S015/2026
+
+[S020/2026G] Wod-Bud Sp. z o.o. ÔÇö FA-pending
+  Pozycje faktury: 4
+  EXISTS: Faktura ID=531044731 ju┼╝ czeka w FA ÔÇö OK (demo ready)
+
+[S025/2026] Wod-Bud Sp. z o.o. ÔÇö FA-pending
+  Pozycje faktury: 4
+  EXISTS: Faktura ID=531044732 ju┼╝ czeka w FA ÔÇö OK (demo ready)
+
+[S026/2026G] Fundament Sp. z o.o. ÔÇö FA-pending
+  Pozycje faktury: 4
+  OK: Faktura 3/06/2026 (ID=531045375) dla S026/2026G ÔÇö 4 pozycji
+  READY: faktura czeka w FA ÔÇö demo 'Pobierz z Fakturowni' dla S026/2026G
+
+[S027/2026] Trakcja-Polska S.A. ÔÇö FA-pending
+  Pozycje faktury: 5
+  OK: Faktura 4/06/2026 (ID=531045377) dla S027/2026 ÔÇö 5 pozycji
+  READY: faktura czeka w FA ÔÇö demo 'Pobierz z Fakturowni' dla S027/2026
+
+[S028/2026G] Eko-Bud Nowoczesne Budownictwo ÔÇö FA-pending
+  Pozycje faktury: 4
+  OK: Faktura 5/06/2026 (ID=531045379) dla S028/2026G ÔÇö 4 pozycji
+  READY: faktura czeka w FA ÔÇö demo 'Pobierz z Fakturowni' dla S028/2026G
+
+[S029/2026] Miejskie Inwestycje Sp. z o.o. ÔÇö FA-pending
+  Pozycje faktury: 4
+  OK: Faktura 5/05/2026 (ID=531045381) dla S029/2026 ÔÇö 4 pozycji
+  READY: faktura czeka w FA ÔÇö demo 'Pobierz z Fakturowni' dla S029/2026
+
+[S030/2026G] Bud-Plus Sp. z o.o. ÔÇö FA-pending
+  Pozycje faktury: 5
+  OK: Faktura 6/05/2026 (ID=531045383) dla S030/2026G ÔÇö 5 pozycji
+  READY: faktura czeka w FA ÔÇö demo 'Pobierz z Fakturowni' dla S030/2026G
+
+[S031/2026] Invest S.A. ÔÇö FA-pending
+  Pozycje faktury: 4
+  OK: Faktura 7/05/2026 (ID=531045384) dla S031/2026 ÔÇö 4 pozycji
+  READY: faktura czeka w FA ÔÇö demo 'Pobierz z Fakturowni' dla S031/2026
+
+[S032/2026G] Terra-Masz Budownictwo ÔÇö FA-pending
+  Pozycje faktury: 4
+  OK: Faktura 8/05/2026 (ID=531045385) dla S032/2026G ÔÇö 4 pozycji
+  READY: faktura czeka w FA ÔÇö demo 'Pobierz z Fakturowni' dla S032/2026G
+
+[S033/2026] Wod-Bud Sp. z o.o. ÔÇö FA-pending
+  Pozycje faktury: 5
+  EXISTS: Faktura ID=531044734 ju┼╝ czeka w FA ÔÇö OK (demo ready)
+
+[S034/2026G] Fundament Sp. z o.o. ÔÇö FA-pending
+  Pozycje faktury: 4
+  OK: Faktura 2/04/2026 (ID=531045390) dla S034/2026G ÔÇö 4 pozycji
+  READY: faktura czeka w FA ÔÇö demo 'Pobierz z Fakturowni' dla S034/2026G
+
+[S035/2026] Trakcja-Polska S.A. ÔÇö FA-pending
+  Pozycje faktury: 4
+  OK: Faktura 3/04/2026 (ID=531045392) dla S035/2026 ÔÇö 4 pozycji
+  READY: faktura czeka w FA ÔÇö demo 'Pobierz z Fakturowni' dla S035/2026
+
+[S036/2026G] Eko-Bud Nowoczesne Budownictwo ÔÇö FA-pending
+  Pozycje faktury: 5
+  OK: Faktura 4/04/2026 (ID=531045394) dla S036/2026G ÔÇö 5 pozycji
+  READY: faktura czeka w FA ÔÇö demo 'Pobierz z Fakturowni' dla S036/2026G
+
+[S037/2026] Miejskie Inwestycje Sp. z o.o. ÔÇö FA-pending
+  Pozycje faktury: 4
+  OK: Faktura 4/03/2026 (ID=531045395) dla S037/2026 ÔÇö 4 pozycji
+  READY: faktura czeka w FA ÔÇö demo 'Pobierz z Fakturowni' dla S037/2026
+
+[S038/2026G] Bud-Plus Sp. z o.o. ÔÇö FA-pending
+  Pozycje faktury: 4
+  OK: Faktura 5/03/2026 (ID=531045396) dla S038/2026G ÔÇö 4 pozycji
+  READY: faktura czeka w FA ÔÇö demo 'Pobierz z Fakturowni' dla S038/2026G
+
+[S039/2026] Invest S.A. ÔÇö FA-pending
+  Pozycje faktury: 5
+  OK: Faktura 6/03/2026 (ID=531045398) dla S039/2026 ÔÇö 5 pozycji
+  READY: faktura czeka w FA ÔÇö demo 'Pobierz z Fakturowni' dla S039/2026
+
+[S040/2026G] Terra-Masz Budownictwo ÔÇö FA-pending
+  Pozycje faktury: 4
+  OK: Faktura 2/02/2026 (ID=531045401) dla S040/2026G ÔÇö 4 pozycji
+  READY: faktura czeka w FA ÔÇö demo 'Pobierz z Fakturowni' dla S040/2026G
+
+============================================================
+Podsumowanie: 52 utworzonych, 4 istniej─ůcych, 0 b┼é─Öd├│w
+============================================================
