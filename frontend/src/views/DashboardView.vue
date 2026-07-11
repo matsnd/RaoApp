@@ -293,11 +293,11 @@
                       v-if="archivalFilter === 'active'"
                       type="empty"
                       compact
-                      message="Brak artykulow"
-                      action-label="+ Nowy artykul"
+                      message="Brak maszyn"
+                      action-label="+ Nowa maszyna"
                       @action="router.push({ name: 'ArticleNew' })"
                     />
-                    <StateMessage v-else type="empty" compact message="Brak artykulow archiwalnych" />
+                    <StateMessage v-else type="empty" compact message="Brak maszyn archiwalnych" />
                   </td>
                 </tr>
                 <tr
@@ -323,7 +323,7 @@
             </table>
           </div>
           <div class="grid-footer">
-            <span>Łącznie: {{ articleStore.total }} artykułów</span>
+            <span>Łącznie: {{ articleStore.total }} maszyn</span>
             <div class="pagination">
               <button class="page-btn" :disabled="page <= 1" aria-label="Poprzednia strona artykułów" @click="page--">‹</button>
               <span style="padding:0 8px;font-size:12px;" aria-current="page">{{ page }} / {{ totalPages }}</span>

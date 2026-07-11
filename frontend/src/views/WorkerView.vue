@@ -78,14 +78,14 @@
             <span class="empty-ok">✓</span> Brak dostaw w wybranym okresie
           </div>
           <div v-else class="delivery-list">
-            <div v-for="d in deliveries" :key="d.contract_id + '-' + d.article_name" class="delivery-row">
+            <div v-for="d in deliveries" :key="d.contract_id + '-' + (d.machine_name || d.article_name)" class="delivery-row">
               <div class="del-chip" :class="isToday(d.delivery_date) ? 'chip-today' : 'chip-future'">
                 {{ isToday(d.delivery_date) ? 'Dziś' : isTomorrow(d.delivery_date) ? 'Jutro' : formatDate(d.delivery_date) }}
               </div>
               <div class="del-body">
                 <div class="del-top">
                   <router-link :to="`/contracts/${d.contract_id}/edit`" class="del-number">{{ d.contract_number }}</router-link>
-                  <span class="del-machine">{{ d.article_name || '—' }}</span>
+                  <span class="del-machine">{{ d.machine_name || d.article_name || '—' }}</span>
                 </div>
                 <div class="del-contractor">{{ d.contractor_name }}</div>
                 <div class="del-details">

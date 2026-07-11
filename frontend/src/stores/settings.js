@@ -93,14 +93,15 @@ export const useSettingsStore = defineStore('settings', () => {
     return data
   }
 
-  // --- RAO-P1-001: Cenniki warunków rozliczenia maszyn (ArticleRatePreset) ---
+  // --- RAO-P1-001: Cenniki warunków rozliczenia maszyn (MachineRatePreset) ---
+  // RAO Faza 4b: endpoint zmieniony /settings/articles/{id}/rate-presets → /settings/machines/{id}/rate-presets
   const ratePresets = ref([])        // lista presetów dla aktualnie edytowanej maszyny
   const ratePresetsLoading = ref(false)
 
-  async function fetchRatePresets(articleId) {
+  async function fetchRatePresets(machineId) {
     ratePresetsLoading.value = true
     try {
-      const { data } = await api.get(`/settings/articles/${articleId}/rate-presets`)
+      const { data } = await api.get(`/settings/machines/${machineId}/rate-presets`)
       ratePresets.value = data
       return data
     } finally {
@@ -108,57 +109,57 @@ export const useSettingsStore = defineStore('settings', () => {
     }
   }
 
-  async function fetchDefaultRatePreset(articleId) {
+  async function fetchDefaultRatePreset(machineId) {
     // 200 z body=null gdy brak domyślnego
-    const { data } = await api.get(`/settings/articles/${articleId}/rate-presets/default`)
+    const { data } = await api.get(`/settings/machines/${machineId}/rate-presets/default`)
     return data
   }
 
-  async function createRatePreset(articleId, payload) {
-    const { data } = await api.post(`/settings/articles/${articleId}/rate-presets`, payload)
-    await fetchRatePresets(articleId)
+  async function createRatePreset(machineId, payload) {
+    const { data } = await api.post(`/settings/machines/${machineId}/rate-presets`, payload)
+    await fetchRatePresets(machineId)
     return data
   }
 
   async function updateRatePreset(presetId, payload) {
     const { data } = await api.put(`/settings/rate-presets/${presetId}`, payload)
-    // Odśwież listę jeśli article_id znany (z payload lub z aktualnej listy)
-    const artId = data.article_id ?? ratePresets.value[0]?.article_id
-    if (artId) await fetchRatePresets(artId)
+    // Odśwież listę jeśli machine_id znany (z payload lub z aktualnej listy)
+    const mId = data.machine_id ?? ratePresets.value[0]?.machine_id
+    if (mId) await fetchRatePresets(mId)
     return data
   }
 
   async function deleteRatePreset(presetId) {
     await api.delete(`/settings/rate-presets/${presetId}`)
-    const artId = ratePresets.value[0]?.article_id
-    if (artId) await fetchRatePresets(artId)
+    const mId = ratePresets.value[0]?.machine_id
+    if (mId) await fetchRatePresets(mId)
   }
 
   async function setDefaultRatePreset(presetId) {
     const { data } = await api.patch(`/settings/rate-presets/${presetId}/set-default`)
-    const artId = data.article_id ?? ratePresets.value[0]?.article_id
-    if (artId) await fetchRatePresets(artId)
+    const mId = data.machine_id ?? ratePresets.value[0]?.machine_id
+    if (mId) await fetchRatePresets(mId)
     return data
   }
 
   async function addRatePresetItem(presetId, payload) {
     const { data } = await api.post(`/settings/rate-presets/${presetId}/items`, payload)
-    const artId = ratePresets.value[0]?.article_id
-    if (artId) await fetchRatePresets(artId)
+    const mId = ratePresets.value[0]?.machine_id
+    if (mId) await fetchRatePresets(mId)
     return data
   }
 
   async function updateRatePresetItem(itemId, payload) {
     const { data } = await api.put(`/settings/rate-presets/items/${itemId}`, payload)
-    const artId = ratePresets.value[0]?.article_id
-    if (artId) await fetchRatePresets(artId)
+    const mId = ratePresets.value[0]?.machine_id
+    if (mId) await fetchRatePresets(mId)
     return data
   }
 
   async function deleteRatePresetItem(itemId) {
     await api.delete(`/settings/rate-presets/items/${itemId}`)
-    const artId = ratePresets.value[0]?.article_id
-    if (artId) await fetchRatePresets(artId)
+    const mId = ratePresets.value[0]?.machine_id
+    if (mId) await fetchRatePresets(mId)
   }
 
   async function fetchAll() {
@@ -177,7 +178,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   return {
     company, salespeople, categories, categoriesTree, branches, rateTypes, loading,
-    // RAO-P1-001: cenniki rozliczenia maszyn
+    // RAO-P1-001: cenniki rozliczenia maszyn (MachineRatePreset)
     ratePresets, ratePresetsLoading,
     fetchCompany, updateCompany, uploadLogo,
     fetchSalespeople, updateSalesperson,
@@ -185,7 +186,7 @@ export const useSettingsStore = defineStore('settings', () => {
     fetchBranches,
     fetchRateTypes, updateRateType, deleteRateType,
     fetchAll,
-    // RAO-P1-001: cenniki rozliczenia maszyn
+    // RAO-P1-001: cenniki rozliczenia maszyn (MachineRatePreset)
     fetchRatePresets, fetchDefaultRatePreset,
     createRatePreset, updateRatePreset, deleteRatePreset,
     setDefaultRatePreset,

@@ -641,6 +641,8 @@ const authStore = useAuthStore()
 const toastStore = useToastStore()
 
 // ── Zakładki ─────────────────────────────────────────────────────────────────
+// RAO Faza 4b: archive backend NIE został zaktualizowany do machine_id —
+// endpointy /archive/* nadal używają article_id. Frontend zachowuje article_id w API calls.
 type TabId = 'contracts' | 'articles' | 'stats' | 'categories'
 const allTabs: { id: TabId; label: string; adminOnly?: boolean }[] = [
   { id: 'contracts', label: 'Umowy' },

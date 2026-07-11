@@ -3,8 +3,8 @@
  * RAO-P3 (Phase 3): Widok Rezerwacji maszyn — kalendarz + lista + modal CRUD.
  *
  * Endpointy (backend Phase 2):
- *  - GET /reservations/calendar?date_from&date_to&article_id → CalendarEvent[]
- *  - GET /reservations/with-articles → ReservationWithArticle[]
+ *  - GET /reservations/calendar?date_from&date_to&machine_id → CalendarEvent[]
+ *  - GET /reservations/with-machines → ReservationWithMachine[]
  *  - POST /reservations, PUT /reservations/{id}, DELETE /reservations/{id}
  *
  * Stany: loading (spinner), error (retry), empty (hint + CTA).
@@ -14,7 +14,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import {
   useReservationsStore,
   type CalendarEvent,
-  type ReservationWithArticle,
+  type ReservationWithMachine,
   type ReservationPayload,
   type ReservationUpdatePayload,
 } from '@/stores/reservations'
@@ -34,7 +34,7 @@ type ViewMode = 'calendar' | 'list'
 const viewMode = ref<ViewMode>('calendar')
 
 // ── Filtry ────────────────────────────────────────────────────────────────────
-const filterArticleId = ref<number | null>(null)
+const filterMachineId = ref<number | null>(null)
 const filterContractorId = ref<number | null>(null)
 const filterStatus = ref<'all' | 'confirmed' | 'provisional'>('all')
 // Zakres dat dla widoku listy
@@ -138,10 +138,10 @@ function dotClass(e: CalendarEvent): string {
 }
 
 // ── Lista rezerwacji ──────────────────────────────────────────────────────────
-const filteredList = computed<ReservationWithArticle[]>(() => {
+const filteredList = computed<ReservationWithMachine[]>(() => {
   let items = store.allList
-  if (filterArticleId.value != null) {
-    items = items.filter((r) => r.article_id === filterArticleId.value)
+  if (filterMachineId.value != null) {
+    items = items.filter((r) => r.machine_id === filterMachineId.value)
   }
   if (filterContractorId.value != null) {
     items = items.filter((r) => r.contractor_id === filterContractorId.value)
@@ -159,23 +159,23 @@ const filteredList = computed<ReservationWithArticle[]>(() => {
   return [...items].sort((a, b) => a.reserved_from.localeCompare(b.reserved_from))
 })
 
-// ── Artykuły (do selecta w modalu + filtru) ───────────────────────────────────
-interface ArticleOption {
+// ── Maszyny (do selecta w modalu + filtru) ───────────────────────────────────
+interface MachineOption {
   id: number
   name: string
   internal_number: string | null
   is_service: boolean
 }
 
-const articleOptions = ref<ArticleOption[]>([])
+const machineOptions = ref<MachineOption[]>([])
 
-async function loadArticles() {
+async function loadMachines() {
   try {
     // Tylko non-service, non-archival (sprzęt aktywny)
     await articleStore.fetchList({ is_service: false, archival_status: 'active', per_page: 200 })
-    articleOptions.value = (articleStore.list as ArticleOption[]).filter((a) => !a.is_service && !a.is_external)
+    machineOptions.value = (articleStore.list as MachineOption[]).filter((a) => !a.is_service && !a.is_external)
   } catch {
-    articleOptions.value = []
+    machineOptions.value = []
   }
 }
 
@@ -194,7 +194,7 @@ interface ModalState {
   // contract read-only info
   contractInfo: CalendarEvent | null
   form: {
-    article_id: number | null
+    machine_id: number | null
     contractor_id: number | null
     reserved_from: string
     reserved_to: string
@@ -209,7 +209,7 @@ const modal = ref<ModalState>({
   reservationId: null,
   contractInfo: null,
   form: {
-    article_id: null,
+    machine_id: null,
     contractor_id: null,
     reserved_from: '',
     reserved_to: '',
@@ -223,7 +223,7 @@ const modalError = ref<string | null>(null)
 const formValid = computed(() => {
   if (modal.value.mode === 'view') return true
   const f = modal.value.form
-  if (!f.article_id) return false
+  if (!f.machine_id) return false
   if (!f.reserved_from || !f.reserved_to) return false
   if (f.reserved_from > f.reserved_to) return false
   return true
@@ -237,7 +237,7 @@ function openCreate(presetDate?: string) {
     reservationId: null,
     contractInfo: null,
     form: {
-      article_id: filterArticleId.value,
+      machine_id: filterMachineId.value,
       contractor_id: filterContractorId.value,
       reserved_from: today,
       reserved_to: today,
@@ -248,7 +248,7 @@ function openCreate(presetDate?: string) {
   modalError.value = null
 }
 
-function openEdit(r: ReservationWithArticle | CalendarEvent) {
+function openEdit(r: ReservationWithMachine | CalendarEvent) {
   // Jeśli to event z umowy (read-only)
   if ('source' in r && r.source === 'contract') {
     const ev = r as CalendarEvent
@@ -258,7 +258,7 @@ function openEdit(r: ReservationWithArticle | CalendarEvent) {
       reservationId: null,
       contractInfo: ev,
       form: {
-        article_id: ev.article_id,
+        machine_id: ev.machine_id,
         contractor_id: ev.contractor_id,
         reserved_from: ev.date_from,
         reserved_to: ev.date_to,
@@ -269,18 +269,18 @@ function openEdit(r: ReservationWithArticle | CalendarEvent) {
     modalError.value = null
     return
   }
-  // Rezerwacja (edycja) — z listy (ReservationWithArticle) lub kalendarza (CalendarEvent source=reservation)
+  // Rezerwacja (edycja) — z listy (ReservationWithMachine) lub kalendarza (CalendarEvent source=reservation)
   const isList = 'reserved_from' in r
-  const from = isList ? (r as ReservationWithArticle).reserved_from : (r as CalendarEvent).date_from
-  const to = isList ? (r as ReservationWithArticle).reserved_to : (r as CalendarEvent).date_to
-  const id = isList ? (r as ReservationWithArticle).id : (r as CalendarEvent).source_id
+  const from = isList ? (r as ReservationWithMachine).reserved_from : (r as CalendarEvent).date_from
+  const to = isList ? (r as ReservationWithMachine).reserved_to : (r as CalendarEvent).date_to
+  const id = isList ? (r as ReservationWithMachine).id : (r as CalendarEvent).source_id
   modal.value = {
     open: true,
     mode: 'edit',
     reservationId: id,
     contractInfo: null,
     form: {
-      article_id: r.article_id,
+      machine_id: r.machine_id,
       contractor_id: r.contractor_id ?? null,
       reserved_from: from,
       reserved_to: to,
@@ -304,7 +304,7 @@ async function saveReservation() {
   try {
     if (modal.value.mode === 'create') {
       const payload: ReservationPayload = {
-        article_id: f.article_id!,
+        machine_id: f.machine_id!,
         reserved_from: f.reserved_from,
         reserved_to: f.reserved_to,
         note: f.note || null,
@@ -354,7 +354,7 @@ async function deleteReservation() {
 }
 
 // Usuń bezpośrednio z listy (z confirm, bez otwierania modalu)
-async function deleteFromList(r: ReservationWithArticle) {
+async function deleteFromList(r: ReservationWithMachine) {
   if (!confirm('Czy na pewno usunąć tę rezerwację?')) return
   try {
     await store.remove(r.id)
@@ -382,9 +382,9 @@ const hasData = computed(() => {
 // ── Data loading ──────────────────────────────────────────────────────────────
 async function refreshData() {
   if (viewMode.value === 'calendar') {
-    await store.fetchCalendar(calDateFrom.value, calDateTo.value, filterArticleId.value ?? undefined)
+    await store.fetchCalendar(calDateFrom.value, calDateTo.value, filterMachineId.value ?? undefined)
   } else {
-    await store.fetchAllWithArticles()
+    await store.fetchAllWithMachines()
   }
 }
 
@@ -392,10 +392,10 @@ async function retry() {
   await refreshData()
 }
 
-// Watch: zmiana miesiąca / filtru artykułu → reload kalendarza
-watch([calYear, calMonth, filterArticleId], () => {
+// Watch: zmiana miesiąca / filtru maszyny → reload kalendarza
+watch([calYear, calMonth, filterMachineId], () => {
   if (viewMode.value === 'calendar') {
-    store.fetchCalendar(calDateFrom.value, calDateTo.value, filterArticleId.value ?? undefined)
+    store.fetchCalendar(calDateFrom.value, calDateTo.value, filterMachineId.value ?? undefined)
   }
 })
 
@@ -413,7 +413,7 @@ onMounted(async () => {
       // ignore — filtr opcjonalny
     }
   }
-  await loadArticles()
+  await loadMachines()
   await refreshData()
 })
 </script>
@@ -447,12 +447,12 @@ onMounted(async () => {
       <div class="rv-filter-group">
         <label class="rv-filter-label">Maszyna</label>
         <select
-          v-model="filterArticleId"
+          v-model="filterMachineId"
           class="af-input rv-filter-select"
-          data-testid="rv-filter-article"
+          data-testid="rv-filter-machine"
         >
           <option :value="null">Wszystkie</option>
-          <option v-for="a in articleOptions" :key="a.id" :value="a.id">
+          <option v-for="a in machineOptions" :key="a.id" :value="a.id">
             {{ a.name }}{{ a.internal_number ? ` (${a.internal_number})` : '' }}
           </option>
         </select>
@@ -560,7 +560,7 @@ onMounted(async () => {
             <div v-for="(e, i) in cell.events" :key="i" class="rv-tooltip-event">
               <span :class="['rv-dot', dotClass(e)]"></span>
               <span class="rv-tooltip-text">
-                <strong>{{ e.article_name || e.internal_number || 'Maszyna' }}</strong>
+                <strong>{{ e.machine_name || e.article_name || e.internal_number || 'Maszyna' }}</strong>
                 <template v-if="e.contractor_name"> — {{ e.contractor_name }}</template>
                 <br />
                 <small>{{ formatDate(e.date_from) }} – {{ formatDate(e.date_to) }}</small>
@@ -590,7 +590,7 @@ onMounted(async () => {
           <tr v-for="r in filteredList" :key="r.id" data-testid="rv-list-row">
             <td>
               <div class="rv-cell-machine">
-                <span>{{ r.article_name || '—' }}</span>
+                <span>{{ r.machine_name || r.article_name || '—' }}</span>
                 <small v-if="r.internal_number" class="rv-cell-sub">{{ r.internal_number }}</small>
               </div>
             </td>
@@ -631,7 +631,7 @@ onMounted(async () => {
           </div>
 
           <div v-if="modal.mode === 'view' && modal.contractInfo" class="rv-contract-info">
-            <p><strong>Maszyna:</strong> {{ modal.contractInfo.article_name || modal.contractInfo.internal_number || '—' }}</p>
+            <p><strong>Maszyna:</strong> {{ modal.contractInfo.machine_name || modal.contractInfo.article_name || modal.contractInfo.internal_number || '—' }}</p>
             <p><strong>Kontrahent:</strong> {{ modal.contractInfo.contractor_name || '—' }}</p>
             <p><strong>Okres:</strong> {{ formatDate(modal.contractInfo.date_from) }} – {{ formatDate(modal.contractInfo.date_to) }}</p>
             <p v-if="modal.contractInfo.note"><strong>Notatka:</strong> {{ modal.contractInfo.note }}</p>
@@ -642,13 +642,13 @@ onMounted(async () => {
             <div class="rv-form-row">
               <label class="rv-form-label">Maszyna <span class="rv-req">*</span></label>
               <select
-                v-model="modal.form.article_id"
+                v-model="modal.form.machine_id"
                 class="af-input"
-                data-testid="rv-modal-article"
+                data-testid="rv-modal-machine"
                 :disabled="modalSaving"
               >
                 <option :value="null" disabled>Wybierz maszynę…</option>
-                <option v-for="a in articleOptions" :key="a.id" :value="a.id">
+                <option v-for="a in machineOptions" :key="a.id" :value="a.id">
                   {{ a.name }}{{ a.internal_number ? ` (${a.internal_number})` : '' }}
                 </option>
               </select>

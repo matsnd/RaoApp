@@ -20,8 +20,10 @@ export interface FleetSummary {
 
 export interface TopMachineItem {
   // RAO Faza 2a (opcja E): backend zwraca bucket "Inne (niezmapowane z FA)"
-  // z article_id=null dla settlementów FA bez zmapowanej pozycji umowy.
-  article_id: number | null
+  // z machine_id=null dla settlementów FA bez zmapowanej pozycji umowy.
+  // RAO Faza 4b: article_id → machine_id (backend stats zwraca machine_id).
+  machine_id: number | null
+  article_id: number | null  // backward-compat alias
   name: string
   internal_number: string | null
   revenue: string | number
@@ -30,7 +32,8 @@ export interface TopMachineItem {
 }
 
 export interface CurrentlyRentedItem {
-  article_id: number
+  machine_id: number
+  article_id: number  // backward-compat alias
   name: string
   internal_number: string | null
   category_main: string | null
@@ -47,7 +50,9 @@ export interface CurrentlyRentedResponse {
 }
 
 export interface ServiceFeeItem {
-  article_id: number
+  service_id: number | null  // RAO Faza 4c: service_id dla usług dodatkowych
+  machine_id: number  // backward-compat alias (phase 4b)
+  article_id: number  // backward-compat alias
   service_name: string
   total_revenue: string | number
   times_billed: number
@@ -71,8 +76,11 @@ export interface LocationStatItem {
 }
 
 export interface PositionStatItem {
-  article_id: number
-  article_name: string
+  machine_id: number
+  service_id: number | null  // RAO Faza 4c: service_id dla pozycji-usług (is_service=true)
+  article_id: number  // backward-compat alias
+  machine_name: string
+  article_name: string  // backward-compat alias (backend coalesce)
   internal_number: string | null
   is_service: boolean
   category_main: string | null
@@ -134,7 +142,8 @@ export interface CategoriesListNode {
 // RAO-P2-065 #1: ROI maszyny — mirror backend MachineRoiResponse (stats/schemas.py)
 // Wywoływane równolegle z fetchMachineDetails w drill-down maszyny (best-effort).
 export interface MachineRoiResponse {
-  article_id: number
+  machine_id: number
+  article_id: number  // backward-compat alias
   name: string
   internal_number: string | null
   category_main: string | null
@@ -437,8 +446,9 @@ export const useAnalyticsStore = defineStore('analytics', () => {
   }
 
   // RAO-P2-065 #1: ROI maszyny — best-effort (404 dla archiwalnych nie blokuje details)
+  // RAO Faza 4b: parametr article_id → machine_id (backend /stats/machine-roi)
   async function fetchMachineRoi(
-    articleId: number,
+    machineId: number,
     dateFrom: string,
     dateTo: string,
   ): Promise<MachineRoiResponse | null> {
@@ -446,7 +456,7 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     if (dateFrom) params.date_from = dateFrom
     if (dateTo) params.date_to = dateTo
     try {
-      const { data } = await api.get<MachineRoiResponse>('/stats/machine-roi', { params: { ...params, article_id: articleId } })
+      const { data } = await api.get<MachineRoiResponse>('/stats/machine-roi', { params: { ...params, machine_id: machineId } })
       machineRoi.value = data
       return data
     } catch {
@@ -481,8 +491,9 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     }
   }
 
+  // RAO Faza 4b: parametr articleId → machineId (endpoint /explorer/machines/{machine_id})
   async function fetchMachineDetails(
-    articleId: number,
+    machineId: number,
     dateFrom: string,
     dateTo: string,
   ): Promise<MachineDetailsResponse> {
@@ -490,7 +501,7 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     if (dateFrom) params.date_from = dateFrom
     if (dateTo) params.date_to = dateTo
     const { data } = await api.get<MachineDetailsResponse>(
-      `/explorer/machines/${articleId}`,
+      `/explorer/machines/${machineId}`,
       { params },
     )
     machineDetails.value = data

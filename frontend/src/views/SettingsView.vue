@@ -374,15 +374,15 @@
                 Brak cenników rozliczeń maszyn. Utwórz cennik w szczegółach maszyny.
               </div>
               <div v-else>
-                <div v-for="mp in filteredMachinePresets" :key="mp.article_id" class="preset-card">
+                <div v-for="mp in filteredMachinePresets" :key="mp.machine_id" class="preset-card">
                   <div class="preset-header">
                     <div style="display:flex;align-items:center;gap:8px;">
-                      <span style="font-weight:600;font-size:14px;">{{ mp.article_name }}</span>
+                      <span style="font-weight:600;font-size:14px;">{{ mp.machine_name || mp.article_name }}</span>
                       <span style="font-size:11px;color:#5A6B7E;">({{ mp.presets.length }} cennik{{ mp.presets.length === 1 ? '' : 'ów' }})</span>
                     </div>
                     <button
                       class="btn btn-secondary btn-sm"
-                      @click="goToArticle(mp.article_id)"
+                      @click="goToArticle(mp.machine_id)"
                       title="Otwórz szczegóły maszyny"
                     >Edytuj →</button>
                   </div>
@@ -999,7 +999,7 @@ watch(activeTab, async (newTab) => {
 // --- RAO-P1-001: Machine rate presets overview (read-only) ---
 import { useRouter } from 'vue-router'
 const router = useRouter()
-const machinePresets = ref([])  // [{ article_id, article_name, presets: [...] }]
+const machinePresets = ref([])  // [{ machine_id, machine_name, presets: [...] }]
 const machinePresetsLoading = ref(false)
 const machinePresetsLoaded = ref(false)
 const machinePresetFilter = ref('')
@@ -1007,7 +1007,7 @@ const machinePresetFilter = ref('')
 const filteredMachinePresets = computed(() => {
   if (!machinePresetFilter.value) return machinePresets.value
   const q = machinePresetFilter.value.toLowerCase()
-  return machinePresets.value.filter(mp => mp.article_name?.toLowerCase().includes(q))
+  return machinePresets.value.filter(mp => (mp.machine_name || mp.article_name)?.toLowerCase().includes(q))
 })
 
 function rateTypeName(id) {
@@ -1020,6 +1020,7 @@ async function loadMachineRatePresets() {
   try {
     // Pobierz wszystkie maszyny (nie-usługi), następnie dla każdej pobierz cenniki.
     // Optymalizacja: równoległe zapytania (limit ~20 jednoczesnych).
+    // RAO Faza 4b: endpoint /settings/articles/{id}/rate-presets → /settings/machines/{id}/rate-presets
     const { data: articles } = await api.get('/articles', { params: { is_service: false, per_page: 500 } })
     const items = articles.items || []
     const results = await Promise.all(
@@ -1027,10 +1028,10 @@ async function loadMachineRatePresets() {
         .filter(a => !a.is_service)
         .map(async (a) => {
           try {
-            const { data: presets } = await api.get(`/settings/articles/${a.id}/rate-presets`)
-            return { article_id: a.id, article_name: a.name, presets }
+            const { data: presets } = await api.get(`/settings/machines/${a.id}/rate-presets`)
+            return { machine_id: a.id, article_id: a.id, machine_name: a.name, article_name: a.name, presets }
           } catch {
-            return { article_id: a.id, article_name: a.name, presets: [] }
+            return { machine_id: a.id, article_id: a.id, machine_name: a.name, article_name: a.name, presets: [] }
           }
         })
     )

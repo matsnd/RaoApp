@@ -1,15 +1,17 @@
-// RAO-P2-066: Pinia store dla rezerwacji maszyn (article_reservations).
+// RAO-P2-066: Pinia store dla rezerwacji maszyn (machine_reservations).
 // Moduł backend /reservations istniał (RAO-P1-015) ale nie miał UI — to pierwsza
 // integracja frontendowa.
 // RAO-P3 (Phase 3): rozszerzony o CalendarEvent, fetchCalendar, update,
 // contractor_id/contractor_name/status.
+// RAO Faza 4b: ArticleReservation → MachineReservation, endpointy /article→/machine, /with-articles→/with-machines.
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import api from '@/composables/useApi'
 
-export interface ArticleReservation {
+export interface MachineReservation {
   id: number
-  article_id: number
+  machine_id: number
+  article_id?: number  // backward-compat alias (backend coalesce)
   reserved_from: string  // ISO date
   reserved_to: string    // ISO date
   note: string | null
@@ -20,13 +22,18 @@ export interface ArticleReservation {
   created_at: string
 }
 
-export interface ReservationWithArticle extends ArticleReservation {
-  article_name: string | null
+export interface ReservationWithMachine extends MachineReservation {
+  machine_name: string | null
+  article_name: string | null  // backward-compat alias (backend coalesce)
   internal_number: string | null
 }
 
+// RAO Faza 4c: backward-compat aliases — ReservationsView.vue nadal używa starych nazw
+export type ArticleReservation = MachineReservation
+export type ReservationWithArticle = ReservationWithMachine
+
 export interface ReservationPayload {
-  article_id: number
+  machine_id: number
   reserved_from: string
   reserved_to: string
   note?: string | null
@@ -47,8 +54,10 @@ export interface ReservationUpdatePayload {
 export interface CalendarEvent {
   source: 'reservation' | 'contract'
   source_id: number
-  article_id: number
-  article_name: string | null
+  machine_id: number
+  machine_name: string | null
+  article_name: string | null  // backward-compat alias (backend coalesce)
+  article_id?: number  // backward-compat alias (backend coalesce)
   internal_number: string | null
   contractor_id: number | null
   contractor_name: string | null
@@ -59,20 +68,20 @@ export interface CalendarEvent {
 }
 
 export const useReservationsStore = defineStore('reservations', () => {
-  const list = ref<ArticleReservation[]>([])
-  const allList = ref<ReservationWithArticle[]>([])
+  const list = ref<MachineReservation[]>([])
+  const allList = ref<ReservationWithMachine[]>([])
   const calendarEvents = ref<CalendarEvent[]>([])
   const loading = ref(false)
   const loadingAll = ref(false)
   const loadingCalendar = ref(false)
   const error = ref<string | null>(null)
 
-  async function fetchForArticle(articleId: number): Promise<ArticleReservation[]> {
+  async function fetchForMachine(machineId: number): Promise<MachineReservation[]> {
     loading.value = true
     error.value = null
     try {
-      const { data } = await api.get<ArticleReservation[]>(
-        `/reservations/article/${articleId}`,
+      const { data } = await api.get<MachineReservation[]>(
+        `/reservations/machine/${machineId}`,
       )
       list.value = data
       return data
@@ -86,11 +95,11 @@ export const useReservationsStore = defineStore('reservations', () => {
     }
   }
 
-  async function fetchAllWithArticles(): Promise<ReservationWithArticle[]> {
+  async function fetchAllWithMachines(): Promise<ReservationWithMachine[]> {
     loadingAll.value = true
     error.value = null
     try {
-      const { data } = await api.get<ReservationWithArticle[]>('/reservations/with-articles')
+      const { data } = await api.get<ReservationWithMachine[]>('/reservations/with-machines')
       allList.value = data
       return data
     } catch (e: unknown) {
@@ -107,7 +116,7 @@ export const useReservationsStore = defineStore('reservations', () => {
   async function fetchCalendar(
     dateFrom: string,
     dateTo: string,
-    articleId?: number,
+    machineId?: number,
   ): Promise<CalendarEvent[]> {
     loadingCalendar.value = true
     error.value = null
@@ -116,7 +125,7 @@ export const useReservationsStore = defineStore('reservations', () => {
         date_from: dateFrom,
         date_to: dateTo,
       }
-      if (articleId != null) params.article_id = articleId
+      if (machineId != null) params.machine_id = machineId
       const { data } = await api.get<CalendarEvent[]>('/reservations/calendar', { params })
       calendarEvents.value = data
       return data
@@ -130,10 +139,10 @@ export const useReservationsStore = defineStore('reservations', () => {
     }
   }
 
-  async function create(payload: ReservationPayload): Promise<ArticleReservation> {
+  async function create(payload: ReservationPayload): Promise<MachineReservation> {
     error.value = null
     try {
-      const { data } = await api.post<ArticleReservation>('/reservations', payload)
+      const { data } = await api.post<MachineReservation>('/reservations', payload)
       // Odśwież listę lokalnie — dodaj nową rezerwację
       list.value = [...list.value, data].sort(
         (a, b) => a.reserved_from.localeCompare(b.reserved_from),
@@ -150,10 +159,10 @@ export const useReservationsStore = defineStore('reservations', () => {
   async function update(
     reservationId: number,
     payload: ReservationUpdatePayload,
-  ): Promise<ArticleReservation> {
+  ): Promise<MachineReservation> {
     error.value = null
     try {
-      const { data } = await api.put<ArticleReservation>(`/reservations/${reservationId}`, payload)
+      const { data } = await api.put<MachineReservation>(`/reservations/${reservationId}`, payload)
       // Odśwież listy lokalnie
       list.value = list.value
         .map((r) => (r.id === reservationId ? data : r))
@@ -190,6 +199,10 @@ export const useReservationsStore = defineStore('reservations', () => {
     loading.value = false
   }
 
+  // RAO Faza 4c: backward-compat aliases — ReservationsView.vue nadal używa starych nazw
+  const fetchForArticle = fetchForMachine
+  const fetchAllWithArticles = fetchAllWithMachines
+
   return {
     list,
     allList,
@@ -198,6 +211,8 @@ export const useReservationsStore = defineStore('reservations', () => {
     loadingAll,
     loadingCalendar,
     error,
+    fetchForMachine,
+    fetchAllWithMachines,
     fetchForArticle,
     fetchAllWithArticles,
     fetchCalendar,

@@ -233,12 +233,12 @@
           </div>
 
           <div v-else class="delivery-list">
-            <div v-for="d in deliveries" :key="`${d.contract_id}-${d.article_name}`" class="delivery-row">
+            <div v-for="d in deliveries" :key="`${d.contract_id}-${d.machine_name || d.article_name}`" class="delivery-row">
               <div class="del-date-chip" :class="isToday(d.delivery_date) ? 'chip-today' : 'chip-tomorrow'">
                 {{ isToday(d.delivery_date) ? 'Dziś' : 'Jutro' }}
               </div>
               <div class="del-body">
-                <div class="del-article">{{ d.article_name }}</div>
+                <div class="del-article">{{ d.machine_name || d.article_name }}</div>
                 <div class="del-meta">
                   <span class="del-contractor">{{ d.contractor_name }}</span>
                   <span v-if="d.delivery_address" class="del-addr"> · {{ d.delivery_address }}</span>

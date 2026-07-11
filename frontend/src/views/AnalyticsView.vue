@@ -59,7 +59,7 @@ const filters = ref<AnalyticsFiltersValue>({
   dateFrom: initialRange.from,
   dateTo: initialRange.to,
   preset: 'month',
-  articleType: 'all',
+  articleType: 'all',  // RAO Faza 4b: filter nadal obsługuje maszyny+usługi (backend stats)
   contractorId: null,
   city: '',
 })
@@ -486,8 +486,8 @@ onMounted(async () => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="m in store.categoryDetails.items" :key="m.article_id">
-                <td>{{ m.article_name }}</td>
+              <tr v-for="m in store.categoryDetails.items" :key="m.machine_id ?? m.article_id">
+                <td>{{ m.machine_name || m.article_name }}</td>
                 <td>{{ m.internal_number ?? '—' }}</td>
                 <td style="text-align:right;">{{ m.rented_days }}</td>
                 <td style="text-align:right;">{{ m.contracts_count }}</td>

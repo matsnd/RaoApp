@@ -427,6 +427,8 @@ export const useArchiveStore = defineStore('archive', () => {
     return data
   }
 
+  // RAO Faza 4b: archive backend nadal używa article_id (nie zaktualizowany do machine_id).
+  // Parametr articleId zachowany dla kompatybilności z backendem archiwum.
   async function fetchMachineRoi(articleId: number, dateFrom?: string | null, dateTo?: string | null) {
     const params: Record<string, unknown> = { article_id: articleId }
     if (dateFrom) params.date_from = dateFrom

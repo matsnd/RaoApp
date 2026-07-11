@@ -22,7 +22,8 @@ interface FakturowniaProduct {
   pkwiu: string | null
 }
 
-interface RaoArticleRef {
+// RAO Faza 4b: RaoArticleRef → RaoMachineRef (articles split)
+interface RaoMachineRef {
   id: number
   name: string
 }
@@ -34,7 +35,7 @@ interface ResolvedInvoiceLine {
   price_net: number
   total_net: number
   invoice_number: string
-  rao_articles: RaoArticleRef[]
+  rao_articles: RaoMachineRef[]
 }
 
 interface ResolvedInvoice {

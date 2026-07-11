@@ -207,7 +207,7 @@
             <thead>
               <tr>
                 <th style="width:32px;">#</th>
-                <th>{{ isRental ? 'Artykuł' : 'Usługa' }}</th>
+                <th>{{ isRental ? 'Maszyna' : 'Usługa' }}</th>
                 <th v-if="isRental" style="width:60px;">Dni</th>
                 <th style="width:60px;">Ilość</th>
                 <th v-if="isService" style="width:80px;">Jednostka</th>
@@ -228,7 +228,7 @@
               <!-- EMPTY STATE z CTA — tylko gdy nie ładujemy i nie dodajemy (RAO-P0) -->
               <tr v-else-if="!contractStore.positions.length && !showNewPosRow">
                 <td :colspan="isRental ? 9 : 7" class="empty-state">
-                  Brak {{ isRental ? 'pozycji' : 'usług' }} na tej umowie. <button class="btn-link" @click="addPosition"><strong>Dodaj pierwszy {{ isRental ? 'artykuł' : 'usługę' }}</strong></button>
+                  Brak {{ isRental ? 'pozycji' : 'usług' }} na tej umowie. <button class="btn-link" @click="addPosition"><strong>Dodaj pierwszą {{ isRental ? 'maszynę' : 'usługę' }}</strong></button>
                 </td>
               </tr>
               <template v-for="(pos, idx) in contractStore.positions" :key="pos.id">
@@ -238,7 +238,7 @@
                   <td>
                     <div style="display:flex;align-items:center;gap:4px;">
                       <span style="flex:1;font-size:12px;">{{ editingPosData.article_name || '—' }}</span>
-                      <button class="btn-icon" title="Zmień artykuł" @click.stop="reopenArticlePickerForEdit(pos)">✎</button>
+                      <button class="btn-icon" :title="isRental ? 'Zmień maszynę' : 'Zmień usługę'" @click.stop="reopenArticlePickerForEdit(pos)">✎</button>
                     </div>
                   </td>
                   <td v-if="isRental">
@@ -288,7 +288,7 @@
                 <td>
                   <div style="display:flex;align-items:center;gap:4px;">
                     <span style="flex:1;font-size:12px;font-weight:600;">{{ newPosData.article_name || '—' }}</span>
-                    <button class="btn-icon" title="Zmień artykuł" @click.stop="showArticlePicker = true">✎</button>
+                    <button class="btn-icon" :title="isRental ? 'Zmień maszynę' : 'Zmień usługę'" @click.stop="showArticlePicker = true">✎</button>
                   </div>
                 </td>
                 <td v-if="isRental">
@@ -323,7 +323,7 @@
             v-if="selectedPosId && isEdit"
             :contract-id="Number(props.id)"
             :position-id="selectedPosId"
-            :article-id="selectedPositionArticleId"
+            :machine-id="selectedPositionArticleId"
             :contract-type="form.contract_type"
             :mode="isRental ? 'rental' : 'service'"
             :is-settled="form.is_settled"
@@ -749,11 +749,11 @@
     </Transition>
 
 
-    <!-- Article picker modal (with availability badge) -->
+    <!-- Machine/Service picker modal (with availability badge) -->
     <Transition name="modal">
       <div v-if="showArticlePicker" class="modal-overlay" @click.self="showArticlePicker = false">
         <div class="modal-box" style="min-width:650px;">
-          <div class="modal-title">Wybierz artykuł</div>
+          <div class="modal-title">{{ isRental ? 'Wybierz maszynę' : 'Wybierz usługę' }}</div>
           <div class="search-input-wrap" style="margin-bottom:12px;">
             <span class="search-icon">⌕</span>
             <input v-model="articlePickerSearch" type="text" class="form-control" placeholder="Szukaj..." @input="searchArticles" />
@@ -780,7 +780,7 @@
                     <span v-else class="badge badge-muted">—</span>
                   </td>
                   <td>
-                    <button class="btn-icon" title="Duplikuj artykuł" @click.stop="duplicateArticle(a)">⧉</button>
+                    <button class="btn-icon" :title="isRental ? 'Duplikuj maszynę' : 'Duplikuj usługę'" @click.stop="duplicateArticle(a)">⧉</button>
                   </td>
                 </tr>
               </tbody>
@@ -788,7 +788,7 @@
           </div>
           <div class="modal-actions">
             <button class="btn btn-primary btn-sm" @click="openInlineArticleForm">
-              ➕ Dodaj nowy artykuł
+              ➕ Dodaj nową {{ isRental ? 'maszynę' : 'usługę' }}
             </button>
             <button class="btn btn-secondary btn-sm" @click="showArticlePicker = false">Anuluj</button>
           </div>
@@ -868,17 +868,17 @@
     <Transition name="modal">
       <div v-if="showInlineArticleForm" class="modal-overlay" @click.self="showInlineArticleForm = false">
         <div class="modal-box" style="min-width:700px;max-height:90vh;overflow-y:auto;">
-          <div class="modal-title">Nowy artykuł</div>
+          <div class="modal-title">Nowa {{ isRental ? 'maszyna' : 'usługa' }}</div>
           <div v-if="inlineArticleError" style="color:var(--color-danger);font-size:13px;margin-bottom:12px;padding:8px;background:var(--color-error-bg);border-radius:6px;">
             {{ inlineArticleError }}
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">Nazwa artykułu *</label>
+              <label class="form-label">Nazwa {{ isRental ? 'maszyny' : 'usługi' }} *</label>
               <input v-model="inlineArticleForm.name" type="text" class="form-control" placeholder="Np. Koparka gąsienicowa" />
             </div>
             <div class="form-group">
-              <label class="form-label">Typ artykułu</label>
+              <label class="form-label">Typ</label>
               <select v-model="inlineArticleForm.article_type" class="form-control">
                 <option value="">— brak —</option>
                 <option value="machine">Maszyna</option>
@@ -891,7 +891,7 @@
           <div class="form-group">
             <label class="checkbox-group">
               <input type="checkbox" v-model="inlineArticleForm.is_service" />
-              <span>Artykuł jest usługą (nie sprzętem)</span>
+              <span>Usługa (nie sprzęt)</span>
             </label>
             <label class="checkbox-group" style="margin-top:6px;">
               <input type="checkbox" v-model="inlineArticleForm.is_external" />
@@ -1085,10 +1085,11 @@ const remainingValue = computed(() => {
 })
 
 // RAO-P1-100: artykuł wybranej pozycji dla ConditionPanel (cennik / ostatnia umowa)
+// RAO Faza 4b: pozycja ma machine_id LUB service_id (XOR) — czytaj z whichever jest ustawione
 const selectedPosition = computed(() =>
   contractStore.positions.find(p => p.id === selectedPosId.value) || null
 )
-const selectedPositionArticleId = computed(() => selectedPosition.value?.article_id ?? null)
+const selectedPositionArticleId = computed(() => selectedPosition.value?.machine_id ?? selectedPosition.value?.service_id ?? null)
 
 const isRental = computed(() => form.value.contract_type === 'S')
 const isService = computed(() => form.value.contract_type === 'U')
@@ -1983,7 +1984,8 @@ function startEditPos(pos) {
   clearInlinePosErrors()
   const rental = isRental.value
   editingPosData.value = {
-    article_id: pos.article_id,
+    // RAO Faza 4b: pozycja ma machine_id LUB service_id — czyń whichever jest ustawione
+    article_id: pos.machine_id ?? pos.service_id,
     article_name: pos.article_name || '',
     rental_days: rental ? (pos.rental_days ?? null) : null,
     quantity: pos.quantity ?? 1,
@@ -2008,7 +2010,7 @@ async function saveInlinePos() {
   if (!editingPosId.value) return
   if (savingPos.value) return // RAO-P0: guard przed double-click
   if (!editingPosData.value.article_id) {
-    toastStore.error('Wybierz artykuł przed zapisem')
+    toastStore.error(isRental.value ? 'Wybierz maszynę przed zapisem' : 'Wybierz usługę przed zapisem')
     return
   }
   // RAO-P0: walidacja inline (quantity ≥ 1, rental_days ≥ 0)
@@ -2043,7 +2045,7 @@ function cancelNewPosRow() {
 async function saveNewPosRow() {
   if (savingPos.value) return // RAO-P0: guard przed double-click
   if (!newPosData.value.article_id) {
-    toastStore.error('Wybierz artykuł przed zapisem')
+    toastStore.error(isRental.value ? 'Wybierz maszynę przed zapisem' : 'Wybierz usługę przed zapisem')
     return
   }
   // RAO-P0: walidacja inline (quantity ≥ 1, rental_days ≥ 0)
@@ -2070,9 +2072,13 @@ async function saveNewPosRow() {
 }
 
 // Buduje payload API z inline data — nulluje puste pola opcjonalne
+// RAO Faza 4b: PositionCreate wymaga machine_id LUB service_id (XOR).
+// contract_type S (rental) → machine_id; contract_type U (service) → service_id.
 function buildPosPayload(d: PosInlineData) {
   const payload: Record<string, unknown> = {
-    article_id: d.article_id,
+    // XOR: dokładnie jeden z machine_id / service_id
+    machine_id: isRental.value ? d.article_id : null,
+    service_id: isService.value ? d.article_id : null,
     description: d.description || null,
     rental_days: isRental.value ? (d.rental_days ?? null) : null,
     quantity: d.quantity ?? 1,
@@ -2247,7 +2253,9 @@ async function duplicateArticle(a) {
   try {
     const rental = isRental.value
     const payload = {
-      article_id: a.id,
+      // RAO Faza 4b: XOR machine_id / service_id
+      machine_id: rental ? a.id : null,
+      service_id: !rental ? a.id : null,
       description: a.name || null,
       rental_days: rental ? null : null,
       quantity: 1,

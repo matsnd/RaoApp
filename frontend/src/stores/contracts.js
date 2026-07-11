@@ -117,10 +117,13 @@ export const useContractStore = defineStore('contracts', () => {
   // RAO-P1-001: Auto-prefill — warunki z ostatniej umowy tej maszyny
   // Zwraca { source_contract_number, source_contract_date, source_position_id, conditions[] }
   // Rzuca błąd 404 gdy brak historii (axios throw)
-  async function fetchLastConditionsForArticle(articleId) {
-    const { data } = await api.get(`/articles/${articleId}/last-conditions`)
+  // RAO Faza 4b: endpoint zmieniony /articles/{id}/last-conditions → /machines/{id}/last-conditions
+  async function fetchLastConditionsForMachine(machineId) {
+    const { data } = await api.get(`/machines/${machineId}/last-conditions`)
     return data
   }
+  // Backward-compat alias — ConditionPanel.vue nadal używa starej nazwy
+  const fetchLastConditionsForArticle = fetchLastConditionsForMachine
 
   async function fetchServiceFees(contractId) {
     const { data } = await api.get(`/contracts/${contractId}/service-fees`)
@@ -159,7 +162,7 @@ export const useContractStore = defineStore('contracts', () => {
     fetchList, fetchOne, create, update, remove,
     fetchPositions, createPosition, updatePosition, deletePosition,
     fetchConditions, createCondition, updateCondition, deleteCondition,
-    applyRatePreset, fetchLastConditionsForArticle,
+    applyRatePreset, fetchLastConditionsForMachine, fetchLastConditionsForArticle,
     fetchServiceFees, generateReport,
   }
 })
