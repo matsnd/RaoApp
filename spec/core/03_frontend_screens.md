@@ -826,9 +826,11 @@ Row 3 (30px): centered [ Zakończ ]
 
 ## Widok: `SettingsView.vue`
 
-**Zakładki:** Dane firmy | Handlowcy | Kategorie | Typy stawek | Zestawy usług dodatkowych | Fakturownia | Folder RAO | Foldery PDF (P2-004)
+**Zakładki:** Dane firmy | Handlowcy | Kategorie | Typy stawek | Zestawy usług dodatkowych | Fakturownia | Foldery PDF (P2-004)
 
 > **P2-004 (2026-07-11):** Nowa zakładka "Foldery PDF" — auto-zapis PDF do folderów klienta przez File System Access API (Chrome/Edge). 4 foldery: `report_main` (umowy główny), `protocol_main` (protokoły główny), `report_gdansk` (umowy Gdańsk), `protocol_gdansk` (protokoły Gdańsk). Persistencja `directoryHandle` w IndexedDB. Fallback Firefox/Safari → zwykły download. Composable: `usePdfFolders.ts`.
+>
+> **RAO-TECH-003 (2026-07-11):** Usunięto zakładkę "Folder RAO" (stary pojedynczy folder). Konsolidacja → "Foldery PDF" (per-oddział). Composable `useTargetFolder.js` usunięty, `useFileDownload.js` używa `usePdfFolders`.
 
 
 > **RAO-P2-019 (2026-05-30):** Zakl. Kategorie zastapiona drzewiastym widokiem: flatCategoryTree computed, fetchCategoriesTree() w store, inline edit, cascade subcat, addingSubcatParentId dla inline add.
@@ -1130,39 +1132,16 @@ Tabela: data-testid="category-stats-table"
 
 ---
 
-## Folder dokumentów RAO (RAO-P3-013)
+## Folder dokumentów RAO (RAO-P3-013) — ARCHIVED
 
-### SettingsView — sekcja Folder RAO
+> **RAO-TECH-003 (2026-07-11):** Ta sekcja została zarchiwizowana. Zakładka "Folder RAO" (pojedynczy folder) została usunięta w ramach konsolidacji z "Foldery PDF" (per-oddział, RAO-P2-004). Composable `useTargetFolder.js` usunięty. `useFileDownload.js` używa teraz `usePdfFolders.savePdf()` dla umów/protokołów, z fallback `<a download>` dla zestawień.
 
-**Tab:** "Folder RAO" w SettingsView
+**Historia (archiwum):**
+- ~~Tab: "Folder RAO" w SettingsView~~ — usunięta
+- ~~Composable: `useTargetFolder.js`~~ — usunięty
+- ~~Subfoldery: Umowy/, Protokoly/, Zestawienia/~~ — zastąpione przez 4 foldery per-oddział
 
-**Cel:** Użytkownik raz wybiera folder na dysku — kolejne pobrania PDF trafiają automatycznie do podfolderów bez dialogu przeglądarki.
-
-**Obsługiwane przeglądarki:** Chrome 86+, Edge 86+. Firefox i Safari — automatyczny fallback na `<a download>`.
-
-**Subfoldery:**
-- `Umowy/` — umowy (S_xxx, U_xxx)
-- `Protokoly/` — protokoły ZO (PZO_xxx)
-- `Zestawienia/` — raporty i zestawienia
-
-**UI:**
-- Informacja o obsłudze API przez przeglądarkę (`folderApiSupported`)
-- Karta ze statusem aktualnego folderu (📁 ikona + nazwa / "Brak folderu")
-- Przycisk "Wybierz folder RAO" / "Zmień folder" (`handlePickFolder`)
-- Przycisk "Usuń konfigurację" (tylko gdy folder ustawiony, `handleClearFolder`)
-- Komunikat sukcesu/błędu z auto-ukryciem po 5s
-
-**Composables:**
-- `useTargetFolder.js` — File System Access API + IndexedDB (`idb` lib)
-  - `isSupported()` — feature detection
-  - `pickFolder()` — dialog wyboru + zapis do IndexedDB
-  - `saveToSubfolder(blob, filename, subfolder)` — zapis pliku
-  - `verifyPermission(handle)` — sprawdzenie/prośba o permission
-  - `clearStoredHandle()` — usunięcie handle z IndexedDB
-- `useFileDownload.js` — rozszerzone o `saveToFolder(blob, cd, fallback, docType)`
-  - Próbuje `saveToSubfolder` → jeśli false → fallback `downloadBlob`
-
-**Persystencja:** `FileSystemDirectoryHandle` w IndexedDB (`rao-fs` DB, `handles` store)
+Patrz: "Foldery PDF (RAO-P2-004)" poniżej dla aktualnego systemu.
 
 ---
 

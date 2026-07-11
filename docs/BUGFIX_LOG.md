@@ -101,8 +101,8 @@
 | 10 | RAO-SEC-010 | MEDIUM | Brak branch check w archive | FIXED ✅ (commit 35d6617) |
 | 11 | RAO-SEC-011 | HIGH | DB password w spec/process/migrations.md | FIXED ✅ (commit c572e6c) |
 | 12 | RAO-TECH-001 | LOW | Martwy store feeTemplates | FIXED ✅ (commit c572e6c) |
-| 13 | RAO-TECH-002 | LOW | Martwe kolumny Company | PENDING (wymaga DROP COLUMN + backup) |
-| 14 | RAO-TECH-003 | LOW | Zakładka folder vs pdf-folders | PENDING (decyzja produktowa) |
+| 13 | RAO-TECH-002 | LOW | Martwe kolumny Company | FIXED ✅ (commit 71598fd, DROP COLUMN + cleanup) |
+| 14 | RAO-TECH-003 | LOW | Zakładka folder vs pdf-folders | FIXED ✅ (konsolidacja → pdf-folders, usunięto useTargetFolder) |
 | 15 | RAO-TECH-004 | LOW | STALE spec RAO-P1-023 | FIXED ✅ (commit c572e6c) |
 | 16 | RAO-TECH-005 | LOW | STALE ASCII layout SettingsView | FIXED ✅ (commit c572e6c) |
 | 17 | RAO-TECH-006 | LOW | spec/core/15_build_progress.md STALE | PENDING |

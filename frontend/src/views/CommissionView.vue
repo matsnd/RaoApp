@@ -77,7 +77,6 @@ import { ref, onMounted } from 'vue'
 import api from '@/composables/useApi'
 import { useFileDownload } from '@/composables/useFileDownload'
 import { useToastStore } from '@/stores/toast'
-import { useTargetFolder } from '@/composables/useTargetFolder.js'
 import { formatCurrency } from '@/utils/format'
 
 const today = new Date()
@@ -90,7 +89,6 @@ const error    = ref(null)
 const report   = ref({ items: [], grand_total_revenue: 0, grand_total_commission: 0, date_from: '', date_to: '' })
 const { saveToFolder } = useFileDownload()
 const toastStore = useToastStore()
-const { getStoredFolderName } = useTargetFolder()
 
 async function printPage() {
   try {
@@ -108,11 +106,9 @@ async function printPage() {
       const classic = cd.match(/filename="?([^";\n]+)"?/i)
       if (classic) filename = classic[1].trim()
     }
-    const saved = await saveToFolder(response.data, cd, filename, 'zestawienia')
-    if (saved) {
-      const folderName = await getStoredFolderName()
-      toastStore.showToast(`${filename} zapisany do folderu ${folderName}/Zestawienia`, 'success')
-    }
+    // RAO-TECH-003: zestawienia nie mają folderu per-oddział — fallback download
+    await saveToFolder(response.data, cd, filename, 'zestawienia')
+    toastStore.showToast(`${filename} pobrany`, 'success')
   } catch {
     toastStore.error('Błąd generowania PDF')
   }

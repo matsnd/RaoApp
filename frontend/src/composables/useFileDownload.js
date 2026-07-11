@@ -2,9 +2,10 @@
  * useFileDownload — pobieranie pliku przez <a download> zamiast window.open
  * Parsuje Content-Disposition header żeby pobrać sugerowaną nazwę pliku.
  * RAO-P2-018: fix dla PDF otwierającego się w viewerze zamiast pobrania.
- * RAO-P3-013: saveToFolder — inteligentny zapis do skonfigurowanego folderu RAO.
+ * RAO-P3-013: saveToFolder — inteligentny zapis do skonfigurowanych folderów PDF.
+ * RAO-TECH-003 (2026-07-11): konsolidacja — usePdfFolders zamiast useTargetFolder.
  */
-import { useTargetFolder } from './useTargetFolder.js'
+import { usePdfFolders } from './usePdfFolders'
 
 export function useFileDownload() {
   /**
@@ -43,21 +44,31 @@ export function useFileDownload() {
   }
 
   /**
-   * Inteligentny zapis PDF: do folderu RAO (jeśli skonfigurowany) lub <a download> (fallback).
+   * Inteligentny zapis PDF: do folderów per-oddział (jeśli skonfigurowane) lub <a download> (fallback).
+   * RAO-TECH-003: konsolidacja z useTargetFolder → usePdfFolders.
    * @param {Blob} blob - dane pliku
    * @param {string} contentDisposition - nagłówek Content-Disposition
    * @param {string} fallbackFilename - nazwa pliku fallback
-   * @param {'umowy'|'protokoly'|'zestawienia'} docType - typ dokumentu (podfolder)
+   * @param {'umowy'|'protokoly'|'zestawienia'} docType - typ dokumentu
+   * @param {number|null} branchId - ID oddziału (do mapowania folderów per-oddział)
+   * @returns {Promise<boolean>} true jeśli zapisano do co najmniej jednego folderu
    */
-  async function saveToFolder(blob, contentDisposition, fallbackFilename = 'plik.pdf', docType = 'zestawienia') {
+  async function saveToFolder(blob, contentDisposition, fallbackFilename = 'plik.pdf', docType = 'zestawienia', branchId = null) {
     const filename = parseFilename(contentDisposition, fallbackFilename)
-    const { saveToSubfolder } = useTargetFolder()
-    const saved = await saveToSubfolder(blob, filename, docType)
-    if (!saved) {
-      // Fallback: standardowe pobieranie
-      downloadBlob(blob, contentDisposition, fallbackFilename)
+
+    // Mapuj docType na PdfDocType (usePdfFolders obsługuje tylko contract/protocol)
+    if (docType === 'umowy' || docType === 'protokoly') {
+      const pdfType = docType === 'umowy' ? 'contract' : 'protocol'
+      const { savePdf, loadFolders } = usePdfFolders()
+      await loadFolders()
+      const bytes = blob instanceof ArrayBuffer ? blob : await blob.arrayBuffer()
+      const savedCount = await savePdf(bytes, filename, branchId, pdfType)
+      if (savedCount > 0) return true
     }
-    return saved
+
+    // Fallback: standardowe pobieranie (zestawienia lub brak skonfigurowanego folderu)
+    downloadBlob(blob, contentDisposition, fallbackFilename)
+    return false
   }
 
   return { downloadBlob, parseFilename, saveToFolder }

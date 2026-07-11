@@ -3,7 +3,6 @@ import { ref } from 'vue'
 import api from '@/composables/useApi'
 import { useFileDownload } from '@/composables/useFileDownload'
 import { useToastStore } from '@/stores/toast'
-import { useTargetFolder } from '@/composables/useTargetFolder.js'
 
 export const useContractStore = defineStore('contracts', () => {
   const list = ref([])
@@ -15,7 +14,6 @@ export const useContractStore = defineStore('contracts', () => {
 
   const { saveToFolder } = useFileDownload()
   const toastStore = useToastStore()
-  const { getStoredFolderName } = useTargetFolder()
 
   const overdueList = ref([])
   const overdueTotal = ref(0)
@@ -147,11 +145,11 @@ export const useContractStore = defineStore('contracts', () => {
       const classic = cd.match(/filename="?([^";\n]+)"?/i)
       if (classic) filename = classic[1].trim()
     }
-    const saved = await saveToFolder(response.data, cd, filename, docType)
+    // RAO-TECH-003: branchId z current contract dla mapowania folderów per-oddział
+    const branchId = current.value?.branch_id ?? null
+    const saved = await saveToFolder(response.data, cd, filename, docType, branchId)
     if (saved) {
-      const folderName = await getStoredFolderName()
-      const subfolderNames = { umowy: 'Umowy', protokoly: 'Protokoly', zestawienia: 'Zestawienia' }
-      toastStore.showToast(`${filename} zapisany do folderu ${folderName}/${subfolderNames[docType]}`, 'success')
+      toastStore.showToast(`${filename} zapisany do folderu PDF`, 'success')
     }
   }
 
