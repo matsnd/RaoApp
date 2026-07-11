@@ -165,6 +165,78 @@ migration_impact: no
 
 ---
 
+### P2-004: Auto-zapis PDF do folderów klienta (File System Access API)
+
+```yaml
+id: P2-004
+status: triaged
+priority: P2
+created: 2026-07-11
+source: client-request (wywiad FULL-AUTO 2026-07-11)
+component: frontend (composable + SettingsView + ContractFormView)
+migration_impact: no
+browser: Chrome/Edge only (Firefox/Safari fallback do zwykłego download)
+```
+
+**Opis:** Klient chce auto-zapis PDF do folderów na swoim komputerze (nie na serwerze). Różne komputery = różne foldery. Multi-folder: umowa Gdańsk → zapis do głównego + Gdańsk jednocześnie.
+
+**Wymagania:**
+1. Umowy → folder główny (wszystkie umowy)
+2. Protokoły → folder główny (wszystkie protokoły)
+3. Umowy Gdańsk → główny + dodatkowy folder Gdańsk
+4. Protokoły Gdańsk → główny + dodatkowy folder Gdańsk
+5. Konfiguracja per-komputer (IndexedDB, nie w bazie — różne komputery mają różne foldery)
+6. Zostawić zapis na serwerze (report_folder/protocol_folder w Company) jako backup
+
+**Rozwiązanie: File System Access API (Chrome/Edge)**
+- `window.showDirectoryPicker()` — klient raz wybiera folder
+- `directoryHandle` zapisany w IndexedDB (persistencja między sesjami)
+- Przy pobraniu PDF: frontend zapisuje do wszystkich skonfigurowanych folderów automatycznie
+- Re-permission: jeden klik "Zezwól" przy pierwszym zapisie w nowej sesji
+- Fallback (Firefox/Safari): zwykły download (jak obecnie)
+
+**Zadania:**
+1. **Frontend** `composables/usePdfFolders.ts` (nowy) — directoryHandle management, IndexedDB persistencja, `savePdf(bytes, branch_id, type)`
+2. **Frontend** `views/SettingsView.vue` — UI: 4 przyciski "Wybierz folder" (główny umowy, główny protokoły, Gdańsk umowy, Gdańsk protokoły) + status (zapisany/nie)
+3. **Frontend** `views/ContractFormView.vue` — przy pobraniu PDF: użyj `usePdfFolders().savePdf()` zamiast zwykłego download
+4. **Backend** — bez zmian (zapis na serwerze zostaje jako backup)
+5. **Fallback** — detekcja `window.showDirectoryPicker` → jeśli brak, zwykły download
+6. **Testy** — E2E: smoke (File System Access API nie działa w Playwright headless → testować fallback path)
+
+**Architektura:**
+```
+Backend (bez zmian)          Frontend (nowe)
+─────────────────            ──────────────────
+generate_pdf() → bytes  →    usePdfFolders() composable
+                             ├─ główny umowy: directoryHandle (IndexedDB)
+                             ├─ główny protokoły: directoryHandle (IndexedDB)
+                             ├─ Gdańsk umowy: directoryHandle (IndexedDB)
+                             └─ Gdańsk protokoły: directoryHandle (IndexedDB)
+
+                             savePdf(bytes, branch_id, type):
+                               folders = getFolders(branch_id, type)
+                               for folder in folders:
+                                 if hasPermission(folder):
+                                   writeFile(folder, filename, bytes)
+                                 else:
+                                   requestPermission(folder)  ← 1 klik
+                                   writeFile(folder, filename, bytes)
+```
+
+**Definition of Done:**
+- [ ] `usePdfFolders.ts` composable — directoryHandle + IndexedDB + savePdf()
+- [ ] SettingsView — 4 przyciski wyboru folderu (główny umowy/protokoły, Gdańsk umowy/protokoły)
+- [ ] ContractFormView — auto-zapis do folderów przy pobraniu PDF
+- [ ] Umowa Warszawa → 1 folder (główny)
+- [ ] Umowa Gdańsk → 2 foldery (główny + Gdańsk) automatycznie
+- [ ] Protokół Gdańsk → 2 foldery (główny + Gdańsk) automatycznie
+- [ ] Re-permission przy nowej sesji (jeden klik)
+- [ ] Fallback Firefox/Safari → zwykły download
+- [ ] Zapis na serwerze zostaje (backup)
+- [ ] Spec sync: `03_frontend_screens.md`
+
+---
+
 ## 🟢 P3 — Nice-to-Have
 
 *Brak*
