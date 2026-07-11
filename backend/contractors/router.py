@@ -10,8 +10,15 @@ from contractors.schemas import (
 from contractors.service import contractor_service
 from database import get_db
 from shared.pagination import PaginatedResponse
+from shared.exceptions import forbidden
 
 router = APIRouter(prefix="/contractors", tags=["contractors"])
+
+
+def _require_admin(user: User):
+    """RAO-SEC-002 fix: IDOR guard — contractors are shared entities, write requires admin."""
+    if user.role != "admin":
+        raise forbidden("Tylko administrator może modyfikować kontrahentów.")
 
 
 @router.get("", response_model=PaginatedResponse[ContractorListItem])
@@ -41,8 +48,9 @@ async def get_contractor(
 async def create_contractor(
     data: ContractorCreate,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    _require_admin(current_user)
     c = await contractor_service.create_contractor(db, data)
     return ContractorDetail.model_validate(c)
 
@@ -52,8 +60,9 @@ async def update_contractor(
     contractor_id: int,
     data: ContractorCreate,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    _require_admin(current_user)
     c = await contractor_service.update_contractor(db, contractor_id, data)
     return ContractorDetail.model_validate(c)
 
@@ -62,8 +71,9 @@ async def update_contractor(
 async def delete_contractor(
     contractor_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    _require_admin(current_user)
     await contractor_service.delete_contractor(db, contractor_id)
 
 
@@ -81,8 +91,9 @@ async def create_address(
     contractor_id: int,
     data: AddressCreate,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    _require_admin(current_user)
     return await contractor_service.create_address(db, contractor_id, data)
 
 
@@ -92,8 +103,9 @@ async def update_address(
     address_id: int,
     data: AddressCreate,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    _require_admin(current_user)
     return await contractor_service.update_address(db, contractor_id, address_id, data)
 
 
@@ -102,6 +114,7 @@ async def delete_address(
     contractor_id: int,
     address_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    _require_admin(current_user)
     await contractor_service.delete_address(db, contractor_id, address_id)

@@ -10,8 +10,32 @@ from auth.dependencies import get_current_user
 from auth.models import User
 from database import get_db
 from shared.pagination import PaginatedResponse
+from shared.exceptions import not_found, forbidden
 
 router = APIRouter(prefix="/articles", tags=["articles"])
+
+
+async def _verify_article_access(db: AsyncSession, article_id: int, user: User, allow_mutation: bool = False):
+    """RAO-SEC-003 fix: IDOR guard for articles.
+
+    - admin: all access
+    - user/viewer: only own branch (branch_id match) or NULL branch (legacy)
+    - viewer: read-only (allow_mutation=False)
+    """
+    a = await article_service.get_article(db, article_id)
+    if a is None:
+        raise not_found("Maszyna")
+
+    if user.role == "admin":
+        return a
+
+    if a.branch_id is not None and a.branch_id != user.branch_id:
+        raise not_found("Maszyna")  # 404 — nie ujawniaj istnienia cudzego zasobu
+
+    if allow_mutation and user.role == "viewer":
+        raise forbidden("Tylko odczyt — brak uprawnień do modyfikacji.")
+
+    return a
 
 
 async def _build_detail(db: AsyncSession, a: Article) -> ArticleDetail:
@@ -67,9 +91,9 @@ async def list_articles(
 async def get_article(
     article_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
-    a = await article_service.get_article(db, article_id)
+    a = await _verify_article_access(db, article_id, current_user)
     return await _build_detail(db, a)
 
 
@@ -77,8 +101,10 @@ async def get_article(
 async def create_article(
     data: ArticleCreate,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    if current_user.role == "viewer":
+        raise forbidden("Tylko odczyt — brak uprawnień do modyfikacji.")
     a = await article_service.create_article(db, data)
     return await _build_detail(db, a)
 
@@ -88,18 +114,20 @@ async def update_article(
     article_id: int,
     data: ArticleCreate,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
-    a = await article_service.update_article(db, article_id, data)
-    return await _build_detail(db, a)
+    a = await _verify_article_access(db, article_id, current_user, allow_mutation=True)
+    updated = await article_service.update_article(db, article_id, data)
+    return await _build_detail(db, updated)
 
 
 @router.delete("/{article_id}", status_code=204)
 async def delete_article(
     article_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    await _verify_article_access(db, article_id, current_user, allow_mutation=True)
     await article_service.delete_article(db, article_id)
 
 
@@ -107,10 +135,11 @@ async def delete_article(
 async def duplicate_article(
     article_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
-    a = await article_service.duplicate_article(db, article_id)
-    return await _build_detail(db, a)
+    a = await _verify_article_access(db, article_id, current_user, allow_mutation=True)
+    dup = await article_service.duplicate_article(db, article_id)
+    return await _build_detail(db, dup)
 
 
 @router.get("/{article_id}/availability", response_model=AvailabilityResponse)

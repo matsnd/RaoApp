@@ -13,18 +13,32 @@ from .schemas import (
 from .service import SettlementService
 from .models import ContractSettlement
 from contracts.models import ContractPosition
+from contracts.service import contract_service
+from shared.exceptions import not_found, forbidden
 
 router = APIRouter(prefix="/settlements", tags=["settlements"])
 service = SettlementService()
+
+
+async def _verify_settlement_access(db: AsyncSession, settlement_id: int, user: User, allow_mutation: bool = False):
+    """IDOR guard: pobierz settlement → pobierz contract_id → verify_contract_access."""
+    settlement = await service.get_settlement(db, settlement_id)
+    if not settlement:
+        raise not_found("Rozliczenie")
+    await contract_service.verify_contract_access(
+        db, settlement.contract_id, user, allow_mutation=allow_mutation
+    )
+    return settlement
 
 
 @router.get("/contract/{contract_id}", response_model=list[ContractSettlementResponse])
 async def get_contract_settlements(
     contract_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Pobierz wszystkie rozliczenia dla umowy."""
+    await contract_service.verify_contract_access(db, contract_id, current_user)
     return await service.get_settlements_by_contract(db, contract_id)
 
 
@@ -32,22 +46,23 @@ async def get_contract_settlements(
 async def get_settlement(
     settlement_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Pobierz pojedyncze rozliczenie."""
-    settlement = await service.get_settlement(db, settlement_id)
-    if not settlement:
-        raise HTTPException(status_code=404, detail="Rozliczenie nie znalezione")
-    return settlement
+    return await _verify_settlement_access(db, settlement_id, current_user)
 
 
 @router.post("", response_model=ContractSettlementResponse)
 async def create_settlement(
     data: ContractSettlementCreate,
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Utwórz nowe rozliczenie."""
+    if data.contract_id:
+        await contract_service.verify_contract_access(
+            db, data.contract_id, current_user, allow_mutation=True
+        )
     return await service.create_settlement(db, data)
 
 
@@ -56,26 +71,27 @@ async def update_settlement(
     settlement_id: int,
     data: ContractSettlementUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Zaktualizuj rozliczenie."""
-    settlement = await service.update_settlement(db, settlement_id, data)
-    if not settlement:
-        raise HTTPException(status_code=404, detail="Rozliczenie nie znalezione")
-    return settlement
+    settlement = await _verify_settlement_access(db, settlement_id, current_user, allow_mutation=True)
+    return await service.update_settlement(db, settlement_id, data)
 
 
 @router.post("/contract/{contract_id}/init")
 async def init_contract_settlements(
     contract_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """RAO-P1-012: Inicjuj rozliczenia dla umowy.
 
     Idempotentnie: najpierw usuwa poprzednie pozycje, potem buduje na nowo
     z aktualnych pozycji umowy oraz aktywnych usług dodatkowych.
     """
+    await contract_service.verify_contract_access(
+        db, contract_id, current_user, allow_mutation=True
+    )
     await service.init_settlements_from_contract(db, contract_id)
     return await service.get_settlements_by_contract(db, contract_id)
 
@@ -104,6 +120,11 @@ async def init_contract_settlements_from_fakturownia(
     - Semantyka 1:N: jeśli produkt FA jest przypisany do wielu artykułów RAO,
       każdy artykuł na umowie dostaje pełną wartość z faktury (multiplikacja OK)
     """
+    # RAO-SEC-001 fix: IDOR guard — verify contract ownership before FA init
+    await contract_service.verify_contract_access(
+        db, contract_id, current_user, allow_mutation=True
+    )
+
     # RAO-P2-032 security: rate limit (zapobiega DDoS Fakturownia API)
     from integrations.fakturownia.router import _invoices_limiter
     rl_key = f"invoices:user:{current_user.id}"
@@ -331,9 +352,10 @@ async def init_contract_settlements_from_fakturownia(
 async def delete_settlement(
     settlement_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Usuń rozliczenie."""
+    await _verify_settlement_access(db, settlement_id, current_user, allow_mutation=True)
     deleted = await service.delete_settlement(db, settlement_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Rozliczenie nie znalezione")
@@ -344,18 +366,17 @@ async def delete_settlement(
 async def clear_all_settlements(
     contract_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """P0-013: Wyczyść wszystkie rozliczenia dla umowy (bulk DELETE).
 
     Operator potrzebuje korekt po pobraniu z Fakturownia (np. faktura zawiera
     pozycje niepasujące do umowy, błędne kwoty, duplikaty).
     """
-    # Weryfikacja: umowa istnieje
-    from contracts.models import Contract
-    contract = await db.execute(select(Contract).where(Contract.id == contract_id))
-    if not contract.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Umowa nie znaleziona")
+    # RAO-SEC-001 fix: IDOR guard — verify contract ownership before bulk delete
+    await contract_service.verify_contract_access(
+        db, contract_id, current_user, allow_mutation=True
+    )
 
     count = await service.clear_settlements_by_contract(db, contract_id)
     return {"message": f"Usunięto {count} rozliczeń", "deleted_count": count}
