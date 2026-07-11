@@ -40,13 +40,24 @@ subagent_general                (Ty)                        subagent_general
 4. **CHANGES** → respawn implementera z lista (pelny kontekst + diff + lista). **Max 2 iteracje** — po 2. iteracji orkiestrator rozstrzyga sam wg hierarchii konfliktow.
 5. **APPROVE** → commit fazy (targeted add + secret scan).
 
-## Kiedy review, kiedy nie
+## Kiedy review, kiedy nie (wg trybu)
 
-| Rozmiar | Review? |
-|---------|---------|
-| S | NIE — orkiestrator sam weryfikuje smoke testem |
-| M | TAK — 1 cykl na jedyna faze implementacyjna |
-| L | TAK — na kazda faze DB/Backend/Frontend; Audit i QA to osobne fazy, nie review |
+| Rozmiar | FAST | CHECKPOINT / FULL-AUTO |
+|---------|------|------------------------|
+| S | NIE | NIE |
+| M | tylko high-risk (nizej) | TAK — 1 cykl |
+| L | tylko fazy dotykajace high-risk | TAK — kazda faza DB/Backend/Frontend |
+
+## Pliki wysokiego ryzyka (review OBOWIAZKOWY w kazdym trybie, takze FAST)
+
+- `backend/stats/calc.py` — kaskadowe stawki, kalkulacje wartosci (blad = zle rozliczenia klienta)
+- `backend/contracts/service.py` — logika umow, `verify_contract_access` (IDOR)
+- `backend/auth/**` i wszystko z `get_current_user` / JWT / uprawnieniami
+- `backend/main.py` — startup migrations (idempotencja)
+- `backend/migrate.py` — migracja danych legacy
+- kazda zmiana algorytmow z `spec/core/04_business_logic.md` (numeracja, kalkulacje, rozliczenia)
+
+Heurystyka: jesli blad w tym pliku moze zepsuc PIENIADZE, DANE albo DOSTEP — review jest obowiazkowy, niezaleznie od trybu i rozmiaru zadania.
 
 ## Wariant ping-pong (opcjonalny, dla logiki biznesowej wysokiego ryzyka)
 

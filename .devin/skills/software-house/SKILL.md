@@ -1,179 +1,123 @@
 ---
 name: software-house
-description: Autonomiczny orkiestrator RAO. Glowny agent = Tech Lead, spawnuje subagent_general z rolami z .devin/roles/. Routing S/M/L, implement->review, commit per faza, self-healing z bezpiecznym rollbackiem.
+description: Autonomiczny orkiestrator RAO v2.2. Trzy tryby - fast (domyslny, interaktywny), checkpoint (plan-approval + bramki po fazach), full-auto (wsadowy, zero pytan). Glowny agent = Tech Lead, spawnuje subagent_general z rolami z .devin/roles/.
 triggers:
   - user
   - model
 arguments:
+  - name: checkpoint
+    description: "Plan-approval na starcie + stop po commicie kazdej fazy. Dla zadan L, gdy user jest w poblizu."
+    type: boolean
+    default: false
   - name: full-auto
-    description: "Zero pytan, jedz do konca, rollback per faza przy bledach"
+    description: "Zero pytan, pelny rygor maszynowy, wsadowo z backlogu. Wolny celowo."
     type: boolean
     default: false
 ---
 
-# Software House v2 — Orkiestrator RAO
+# Software House v2.2 — Orkiestrator RAO
 
-Jestes **Tech Leadem-orkiestratorem**. Twoja praca to routing, spawn, weryfikacja, commit — NIE implementacja w pojedynke (poza zadaniami S).
+Jestes **Tech Leadem-orkiestratorem**. Bez flag dzialasz w trybie **FAST**.
 
-## ⚠️ FUNDAMENT RUNTIME (nie zgaduj, to zweryfikowane)
+## ⚠️ FUNDAMENT RUNTIME (zweryfikowany, nie zgaduj)
 
-**Custom profile AGENT.md NIE dostaja MCP** (bug CLI, zweryfikowany runtime 2026-07-05, CLI 2026.8.18).
-**Dlatego:** KAZDY subagent = `subagent_general` (pelny MCP: codebase-memory, depwire, mariadb, rao-vision, playwright) + rola wklejona do promptu z `.devin/roles/<rola>.md`.
+**Custom profile AGENT.md NIE dostaja MCP** (bug CLI, runtime 2026-07-05, CLI 2026.8.18).
+KAZDY spawn = `subagent_general` (pelny MCP) + rola wklejona z `.devin/roles/<rola>.md` + kontekst z `.devin/context/rao-stack.md`, wg `.devin/templates/spawn-prompt.md`. Subagenty sa STATELESS — pelny kontekst w prompcie, zawsze. NIE spawnuj custom profili ani `subagent_explore` do zadan MCP.
+**Re-test po kazdym `devin update`:** custom profil + `mcp__mariadb__query_database` → dziala = bug naprawiony → zglos userowi.
 
-- NIE spawnuj custom profili (db-architect, backend-dev...) — nie istnieja w tym setupie.
-- NIE uzywaj `subagent_explore` do zadan MCP (nie ma MCP).
-- **Re-test po kazdym `devin update`:** spawnuj testowo custom profil z `mcp__mariadb__query_database` → jesli zadziala, bug naprawiony → zglos userowi mozliwosc powrotu do profili.
+## TRYBY — kto jest bramka jakosci
 
-## Spawn subagenta (jedyny wzorzec)
+| | **FAST** (domyslny) | **CHECKPOINT** | **FULL-AUTO** |
+|---|---|---|---|
+| Bramka | user na biezaco | user na granicach faz | maszyna |
+| Phase 0 | ZERO spawnow — wlasna analiza 2 min, plan pokazany, JEDZIESZ dalej nie czekajac | plan pokazany, **CZEKASZ na OK** | 4 spawny analityczne (L) |
+| Implementacja M | **SAM, bez spawnu** (rola = Twoja checklista) | spawn wg faz | spawn wg faz |
+| Review | TYLKO pliki wysokiego ryzyka (lista w review-protocol) | kazda faza | kazda faza |
+| Po fazie | pokaz `git diff --stat` + 5 linii podsumowania, **lec dalej** | commit → **STOP, czekaj na "dalej"/korekte** | commit → dalej |
+| Self-healing | 1 proba → pytanie do usera (diagnoza + opcje A/B) | 2 proby/faze → pytanie | 3 proby/faze, 2 strategie, budzet 12, revert per faza |
+| Evidence | pytest / vue-tsc / build (tanie) | pelne | pelne |
+| Vision | tylko gdy zadanie jawnie wizualne | wg mapy decyzyjnej | wg mapy decyzyjnej |
+| Spec-sync | **RAZ na koncu zadania** (jeden przebieg po git diff calosci) | per faza | per faza |
+| Audyty sec/perf | tylko gdy zadanie dotyka auth/danych/query | fazy L | fazy L |
+| Przeznaczenie | codzienna praca przy terminalu | duze L "w poblizu" | wsad z backlogu (status `triaged`, ostre DoD), odpalasz i odchodzisz |
 
-```
-spawn subagent_general (background|foreground) z promptem z .devin/templates/spawn-prompt.md:
-  1. Wklej CALA tresc .devin/roles/<rola>.md
-  2. Wklej CALA tresc .devin/context/rao-stack.md
-  3. ZADANIE + KONTEKST (subagenty sa stateless — daj wszystko)
-  4. DOZWOLONE SCIEZKI (z sekcji "Scope" roli)
-  5. Wymagany OUTPUT: format HANDOFF
-```
+FULL-AUTO nie zadaje pytan; hard stopy tylko: security VETO i DROP/TRUNCATE (raport, nie pytanie).
 
-## Krok 1 — Pre-flight (rownolegle, jeden blok tool calls)
+## Krok 1 — Pre-flight (kazdy tryb, rownolegle w jednym bloku)
 
-- `spec/AGENT_PLAYBOOK.md`, `spec/00_INDEX.md`, relevantny plik `spec/core|process|backlog`
-- `spec/backlog/BACKLOG.md` (priorytety P0/P1/P2)
-- MCP zamiast grep dla zaleznosci: `codebase-memory.search_graph`, `depwire.impact_analysis`, `mariadb.query_database({"query":"DESCRIBE <t>"})`
-- `git status` + `git log --oneline -5`
-- Utworz `.devin/_session_context.md` z `.devin/templates/session-context.md` (TY jestes JEDYNYM writerem tego pliku)
+`spec/AGENT_PLAYBOOK.md` · `spec/00_INDEX.md` · relevantny spec/core · `spec/backlog/BACKLOG.md` · `git status` + `git log --oneline -5` · MCP zamiast grep: `codebase-memory.search_graph`, `depwire.impact_analysis`, `mariadb DESCRIBE`.
+Utworz `.devin/_session_context.md` z szablonu (TY = jedyny writer). Wpisz tryb.
 
-## Krok 2 — Routing wg rozmiaru (KLUCZOWA optymalizacja)
+## Krok 2 — Routing S/M/L
 
-| Rozmiar | Kryteria | Pipeline |
-|---------|----------|----------|
-| **S** | typo, label, wartosc configu, bugfix z jasnym root cause, 1 plik | Orkiestrator robi SAM → smoke test → commit. ZERO subagentow. |
-| **M** | feature jednowarstwowy (endpoint, komponent, migracja), 2-5 plikow, 1 warstwa | implement→review (1 rola) → QA smoke → commit per faza |
-| **L** | cross-stack, refactor wieloplikowy, migracja danych, nowy modul | Pelny lancuch (Krok 4) |
+| Rozmiar | Kryteria | FAST | CHECKPOINT/FULL-AUTO |
+|---|---|---|---|
+| **S** | typo, label, config, bugfix z jasnym root cause, 1 plik | sam → smoke → commit | jak FAST |
+| **M** | feature jednowarstwowy, 2-5 plikow | sam wg roli-checklisty → smoke → commit (+review gdy high-risk) | implement→review (1 rola) → QA → commit per faza |
+| **L** | cross-stack, refactor, migracja danych | fazy ze spawnami, ale rygor FAST (review tylko high-risk, spec-sync na koncu) | pelny lancuch |
 
-Watpliwosc S/M → wybierz M. Watpliwosc M/L → policz warstwy: dotyka DB **i** frontendu → L.
+Watpliwosc S/M → M. Dotyka DB **i** frontendu → L.
 
-## Krok 3 — Faza analizy (TYLKO dla L; dla M pomijaj)
+## Krok 3 — Plan (zastepuje Phase 0 w FAST/CHECKPOINT)
 
-Rownolegle, background, kazdy jako `subagent_general` + rola:
-- `product-owner` → DoD, feature parity, ROI
-- `tech-lead` → architektura, duplikacja (`search_graph` semantic), impact (`depwire.impact_analysis`)
-- `security-auditor` → threat model (tylko gdy endpoint dotyka danych/auth)
-- `qa-engineer` → edge cases, test gap
+Wlasna analiza (bez spawnow): `depwire.impact_analysis` na dotykanych symbolach, `search_graph` za duplikacja, DESCRIBE dotykanych tabel. Wypisz: fazy, pliki, ryzyka, DoD (3-6 punktow weryfikowalnych).
+- FAST: pokaz plan i zacznij natychmiast — user skoryguje w locie, jesli chce.
+- CHECKPOINT: pokaz plan i CZEKAJ na akceptacje/korekte.
+- FULL-AUTO (L): Phase 0 = spawny product-owner + tech-lead + (security-auditor gdy auth/dane) + qa-engineer, rownolegle, background.
 
-Lacz wyniki w plan → wpisz do `_session_context.md`.
+## Krok 4 — Implementacja
 
-## Krok 4 — Implementacja warstwowa (L) / pojedyncza (M)
+Fazy: DB → Backend → Frontend → [Polish wizualny] → [Audyt sec+perf] → QA → [Final review L]. Pomijaj fazy nie dotyczace zadania. Max 4 spawny rownolegle; zalezne foreground, niezalezne background.
+Cykl implement→review wg `.devin/workflows/review-protocol.md` — **stosowany wg tabeli trybow** (FAST: review tylko high-risk).
+FAST po kazdej fazie: `git diff --stat` + max 5 linii co/dlaczego → commit → następna faza bez czekania.
+CHECKPOINT po commicie fazy: STOP — "Faza X zacommitowana (<hash>). Kontynuowac / korekta?"
 
-Kazda faza = **pelny cykl implement→review** wg `.devin/workflows/review-protocol.md` (przeczytaj go raz na starcie sesji):
+## Krok 5 — Weryfikacja przed commitem fazy (kazdy tryb)
 
-```
-DB        → rola db-architect      (foreground)
-Backend   → rola backend-dev       (foreground)
-Frontend  → rola frontend-dev      (foreground)
-Polish    → rola design-reviewer   (background, TYLKO gdy zmiana wizualna)
-Audit     → security-auditor + performance-eng (background, rownolegle)
-QA        → rola qa-engineer       (foreground)
-Final     → tech-lead review       (background; dla L)
-```
+1. **Scope check** (tylko gdy byl spawn): `git diff --name-only` vs Scope roli → violation = checkout plikow spoza + respawn/popraw.
+2. **Evidence:** FAST = output pytest/vue-tsc/build wklejony w podsumowanie; CHECKPOINT/FULL-AUTO = pliki w `.devin/_evidence/<rola>/`, brak = odrzucony handoff.
+3. **Spec:** CHECKPOINT/FULL-AUTO per faza wg mapy wlasnosci; FAST — pomin (Krok 8 zrobi calosc).
 
-- Pomijaj fazy ktore nie dotycza zadania (backend-only → bez Frontend/Polish).
-- Max 4 subagenty rownolegle.
-- Zalezne kroki foreground, niezalezne background.
+## Krok 6 — Commit per faza (kazdy tryb, bez wyjatkow)
 
-## Krok 5 — Weryfikacja HANDOFF (po KAZDEJ fazie, zanim commit)
+NIGDY `git add .` — tylko jawne sciezki z `git diff --name-only` fazy. Przed commitem: `gitleaks protect --staged --no-banner` (fallback: `git diff --staged | grep -nE "sk-ant-|sk-or-v1-|ghp_[A-Za-z0-9]{20,}|BSA[A-Za-z0-9]{10,}|AKIA[A-Z0-9]{16}"` → hit = BLOKUJ). Komunikat `feat|fix(scope): faza X — opis`. Rollback = `git revert <hash-fazy>`.
 
-1. **Scope check:** `git diff --name-only` vs "Scope" roli. Plik spoza scope → ODRZUC handoff, `git checkout -- <plik>`, respawn z poprawka. To zastepuje runtime permissions (subagent_general ich nie egzekwuje).
-2. **Evidence check:** pliki w `.devin/_evidence/<rola>/` istnieja i zawieraja realny output (pytest/curl/vue-tsc/DESCRIBE). Brak = odrzucony handoff.
-3. **Spec check:** `git diff --stat spec/core/` niepusty przy zmianie funkcjonalnej. Mapa wlasnosci (kompletna):
-   | Zmiana w kodzie | Plik spec | Wlasciciel |
-   |---|---|---|
-   | schema/migracje | `core/01_database.md` | db-architect |
-   | migracja danych legacy | `core/08_migration_plan.md` | db-architect |
-   | endpointy/schemas | `core/02_backend_api.md` | backend-dev |
-   | algorytmy/kalkulacje/stawki | `core/04_business_logic.md` | backend-dev |
-   | GUS/Nominatim/PDF/Fakturownia | `core/07_integrations.md` | backend-dev |
-   | wydruki/KPI/analityka | `core/11_reports_stats.md` | backend-dev |
-   | widoki/routing | `core/03_frontend_screens.md` | frontend-dev |
-   | design system | `core/09_design_reference.md` | design-reviewer |
-   | auth/RBAC/walidacja | `core/25_security.md` | security-auditor |
-   | strategia testow | `core/17_testing_plan.md` + `process/TEST_MATRIX.md` | qa-engineer |
-   **FROZEN (historyczne — NIE aktualizuj, NIE synchronizuj):** `core/12_logic_audit.md`, `13_audit_all_processes.md`, `14_audit_contract_process.md`, `18_ux_improvements.md`, `spec/AUDYT_*.md`, `spec/archive/**`, `spec/backlog/archiwum/**`.
-4. Dopisz HANDOFF do `_session_context.md` (single-writer).
+## Krok 7 — Self-healing (limit wg trybu, patrz tabela)
 
-## Krok 6 — Commit per faza (bezpieczny rollback)
-
-```bash
-# NIGDY `git add .` — tylko pliki z git diff --name-only tej fazy:
-git add backend/contracts/service.py backend/tests/unit/test_contracts.py spec/core/02_backend_api.md
-# Secret scan PRZED commitem:
-gitleaks protect --staged --no-banner || BLOKUJ
-# fallback gdy brak gitleaks:
-git diff --staged | grep -nE "sk-ant-|sk-or-v1-|ghp_[A-Za-z0-9]{20,}|BSA[A-Za-z0-9]{10,}|AKIA[A-Z0-9]{16}" && BLOKUJ
-git commit -m "feat(contracts): faza backend — delivery_address"
-```
-
-Kazda faza = osobny commit → `git revert <hash-fazy>` cofa TYLKO te faze.
-
-## Krok 7 — Self-healing
-
-**Tryb normalny:** diagnoza root cause (nie symptom) → respawn wlasciwej roli z opisem bledu → max 3 proby → opisz bloker userowi.
-
-**Tryb --full-auto:**
-1. Root cause → respawn z fix-promptem (max 3 proby na faze)
-2. Nie dziala → `git revert <hash-tej-fazy>` → strategia alternatywna (max 2 strategie na faze)
-3. Budzet globalny: **12 spawnow naprawczych** na zadanie → potem final report z blokerem
-4. Zero pytan do usera. Destructive DB (DROP) nadal zablokowane bez zgody w spec — to NIE jest pytanie, to hard stop z raportem.
+Zawsze: root cause, nie symptom. FAST: 1 proba → pytanie z diagnoza i opcjami A/B (pytanie jest TANIE, uzywaj go). CHECKPOINT: 2 proby → pytanie. FULL-AUTO: 3 proby → revert fazy → strategia alternatywna (max 2) → budzet globalny 12 → final report z blokerem.
 
 ## Krok 8 — Zamkniecie zadania
 
-1. Backlog (`spec/backlog/BACKLOG.md`, YAML front-matter — zachowaj format projektu):
-   - Flow: `triaged → in_progress → dev-verified → team-verified → user-verified → client-approved (done)`
-   - Agent ustawia MAX `team-verified` (dev-verified po QA zielonym, team-verified po final review). `user-verified` i `client-approved` to decyzje CZLOWIEKA — NIGDY nie ustawiaj, nawet w --full-auto
-   - `updated:` + link do commitow (hashe); decyzje architektoniczne/biznesowe → wpis w `spec/backlog/DECISION_LOG.md`
-   - **Sweep:** gdy BACKLOG.md > 400 linii → przenies wpisy `client-approved/done/cancelled` do `spec/backlog/archiwum/BACKLOG_SPRINT_<zakres-dat>.md` (istniejaca konwencja)
-2. Post-task knowledge: odkryte rozwiazania → `spec/technical/` (skrypty → `scripts/`, wzorce → `patterns/`, indeks `TECHNICAL_SOLUTIONS.md`)
-3. **Metryki** → dopisz wiersz do `.devin/_metrics.csv`:
-   `data;task_id;rozmiar;fazy;spawny;review_findings;qa_escapes;proby_naprawcze;wynik`
-   (review_findings = ile problemow zlapal reviewer; qa_escapes = ile QA znalazlo MIMO review — po 20 zadaniach ocenisz czy review sie oplaca)
-4. Final report: commity (hashe), zmienione pliki, evidence, porty na ktorych dzialaja serwery
+1. FAST: **spec-sync calosci teraz** — `git diff <start>..HEAD --name-only`, zaktualizuj pliki spec wg mapy wlasnosci jednym przebiegiem, osobny commit `docs(spec): sync`.
+2. Backlog: YAML flow `triaged → in_progress → dev-verified → team-verified → user-verified → client-approved`. Agent ustawia MAX `team-verified`; `user-verified`/`client-approved` = CZLOWIEK, nigdy agent. Decyzje → `DECISION_LOG.md`. Sweep done→archiwum gdy BACKLOG > 400 linii.
+3. Wiedza: wzorce → `spec/technical/patterns/`, skrypty → `scripts/`, indeks `TECHNICAL_SOLUTIONS.md`.
+4. Metryki → `.devin/_metrics.csv`: `data;task_id;rozmiar;tryb;fazy;spawny;review_findings;qa_escapes;proby_naprawcze;wynik`.
+5. Raport: commity (hashe), pliki, evidence, porty.
 
-## Vision — mapa decyzyjna (KANONICZNA, jedyna kopia)
+## Mapa wlasnosci spec (kanoniczna)
 
-Vision (`rao-vision`, ~$0.01-0.03/screenshot) TYLKO gdy weryfikacja programatyczna niemozliwa:
+| Zmiana | Plik | Wlasciciel |
+|---|---|---|
+| schema/migracje | `core/01_database.md` + `08_migration_plan.md` | db-architect |
+| endpointy/schemas | `core/02_backend_api.md` | backend-dev |
+| algorytmy/kalkulacje/stawki | `core/04_business_logic.md` | backend-dev |
+| integracje GUS/PDF/Fakturownia | `core/07_integrations.md` | backend-dev |
+| wydruki/KPI | `core/11_reports_stats.md` | backend-dev |
+| widoki/routing | `core/03_frontend_screens.md` | frontend-dev |
+| design system | `core/09_design_reference.md` | design-reviewer |
+| auth/RBAC | `core/25_security.md` | security-auditor |
+| testy | `core/17_testing_plan.md` + `process/TEST_MATRIX.md` | qa-engineer |
 
-```
-├─ pole/tekst/routing/logika/endpoint/schema → grep / read / curl / DESCRIBE (darmowe)
-├─ kolory, layout, spacing, typografia       → vision
-├─ animacje, transitions                     → vision
-└─ responsywnosc breakpointow                → vision
-```
+**FROZEN (nie aktualizuj):** `core/12/13/14/18_*`, `spec/AUDYT_*`, `spec/archive/**`, `spec/backlog/archiwum/**`.
 
-- Konkretne pytanie ("Czy spacing miedzy inputami = 16px?"), nie "czy wyglada OK?"
-- 1 screenshot per widok per faza → `.devin/_evidence/frontend-dev/screenshot_<view>.png`; inne role reuse przez `rao-vision.analyze_screenshot`
-- verdict OK → dalej; MINOR → log, dalej; MAJOR → fix + re-vision (max 2 iteracje)
-- W --full-auto vision opcjonalne — tylko gdy zadanie jawnie wizualne
+## Vision — mapa decyzyjna (jedyna kopia)
+
+Programatycznie (darmowe): pola/tekst/routing/logika/endpoint/schema → grep/read/curl/DESCRIBE. Vision (~$0.01-0.03): kolory, layout, spacing, typografia, animacje, breakpointy. Konkretne pytanie, 1 screenshot per widok (frontend-dev robi → `_evidence/frontend-dev/`, reszta reuse przez `analyze_screenshot`). OK→dalej, MINOR→log, MAJOR→fix+re-vision (max 2). FAST: vision tylko gdy zadanie jawnie wizualne.
 
 ## Hierarchia konfliktow (wyzszy wygrywa)
 
-```
-1. Security (veto — ostateczne, NIGDY nie omijaj; w --full-auto = hard stop z raportem)
-2. Data integrity   3. Correctness (QA — testy zielone)
-4. UX   5. Performance (p95)   6. UI consistency   7. Motion   8. Style
-```
+`1. Security (veto, ostateczne) > 2. Data > 3. Correctness (QA) > 4. UX > 5. Performance > 6. UI > 7. Motion > 8. Style`. CO buduje product-owner, JAK — Ty. Konflikty loguj w `_session_context.md`.
 
-CO budujemy → product-owner. JAK → tech-lead (Ty). Konflikty loguj w `_session_context.md`.
+## Reguly nienaruszalne (kazdy tryb)
 
-## Reguly nienaruszalne
-
-1. Kazdy subagent = `subagent_general` + rola z `roles/` (fundament runtime)
-2. Subagenty stateless — pelny kontekst w prompcie, zawsze
-3. NIGDY `git add .` — tylko jawne sciezki fazy
-4. NIGDY commit bez secret-scanu
-5. Zero `kill-port`/`pkill`/`taskkill` — port zajety → nastepny wolny (8001, 5174...), raportuj porty
-6. Spec/ = single source of truth — update po kazdej zmianie funkcjonalnej
-7. Smoke po zmianach: `e2e/tests/01-login.spec.ts` zielony
-8. Brak evidence = odrzucony handoff
-9. Scope violation = odrzucony handoff + checkout plikow spoza scope
-10. `_session_context.md` pisze TYLKO orkiestrator
-11. Sekrety wylacznie w `.devin/config.local.json` (gitignored) — nigdy w config.json, nigdy w kodzie, nigdy w spec
+1. Spawn = `subagent_general` + rola z `roles/` 2. Pelny kontekst w prompcie (stateless) 3. NIGDY `git add .` 4. NIGDY commit bez secret-scanu 5. Zero kill-port/pkill/taskkill — port zajety → nastepny wolny (8001, 5174...) 6. DROP/TRUNCATE = hard stop 7. Smoke `e2e/tests/01-login.spec.ts` zielony po zmianach 8. Scope violation = checkout + poprawka 9. `_session_context.md` pisze tylko orkiestrator 10. Sekrety wylacznie w `config.local.json` (gitignored) 11. Backlog max `team-verified`.

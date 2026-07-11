@@ -1,6 +1,17 @@
-# .devin v2 — Autonomiczny Software House RAO
+# .devin v2.2 — Autonomiczny Software House RAO
 
 Przeprojektowany setup zbudowany wokol jednego faktu runtime: **custom profile AGENT.md nie dostaja MCP** (bug CLI, zweryfikowany 2026-07-05, CLI 2026.8.18). W v2 nic nie jest martwe — kazdy plik robi to, co deklaruje.
+
+## Trzy tryby (nowosc v2.2) — kto jest bramka jakosci
+
+| Tryb | Wywolanie | Bramka | Kiedy |
+|---|---|---|---|
+| **FAST** (domyslny) | `/software-house "zadanie"` | Ty, na biezaco — orkiestrator pokazuje diff --stat po fazach i leci dalej; review-spawn tylko dla plikow wysokiego ryzyka (kalkulacje, auth, migracje); self-heal 1 proba potem pytanie; spec-sync raz na koncu | codzienna praca przy terminalu; M w 8-15 min |
+| **CHECKPOINT** | `--checkpoint` | Ty, na granicach faz — plan wymaga OK, stop po commicie kazdej fazy | duze L, gdy jestes w poblizu |
+| **FULL-AUTO** | `--full-auto` | maszyna — pelny rygor: Phase 0, review kazdej fazy, self-heal do 12 prob | wsad z backlogu (triaged + ostre DoD), odpalasz wieczorem, odbierasz rano |
+
+Konstytucja wspolna dla wszystkich: commit per faza, targeted `git add`, secret scan, scope check, hierarchia konfliktow, backlog max `team-verified`. Pelna tabela roznic — w SKILL.md.
+
 
 ## Architektura (co sie zmienilo vs v1)
 
@@ -48,8 +59,9 @@ Przeprojektowany setup zbudowany wokol jednego faktu runtime: **custom profile A
 ## Uzycie
 
 ```
-/software-house "Dodaj pole delivery_address do umow z UI i testami"
-/software-house --full-auto "Napraw filtr kontrahenta w AnalyticsView"
+/software-house "Dodaj pole delivery_address do umow z UI i testami"          # FAST (domyslny)
+/software-house --checkpoint "Refactor modulu rozliczen na nowy algorytm"   # plan-approval + bramki po fazach
+/software-house --full-auto "Zadanie P0-001 z BACKLOG.md"                   # wsad nocny, zero pytan
 ```
 
 ## Po kazdym `devin update`

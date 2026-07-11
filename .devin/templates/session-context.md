@@ -4,7 +4,7 @@
 
 ```markdown
 # Session: <task_id / krotki opis>
-Data: <YYYY-MM-DD> · Rozmiar: S|M|L · Tryb: normal|full-auto
+Data: <YYYY-MM-DD> · Rozmiar: S|M|L · Tryb: fast|checkpoint|full-auto
 
 ## Zadanie
 <opis od usera>
