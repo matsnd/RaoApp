@@ -16,7 +16,7 @@
         "method": "GET",
         "url": "/rao/api/stats/fleet-summary",
         "params": {},
-        "ts": "2026-07-08T23:58:51.631Z"
+        "ts": "2026-07-11T07:23:46.811Z"
       },
       {
         "method": "GET",
@@ -24,19 +24,19 @@
         "params": {
           "limit": "10"
         },
-        "ts": "2026-07-08T23:58:51.631Z"
+        "ts": "2026-07-11T07:23:46.811Z"
       },
       {
         "method": "GET",
         "url": "/rao/api/stats/additional-fees",
         "params": {},
-        "ts": "2026-07-08T23:58:51.631Z"
+        "ts": "2026-07-11T07:23:46.811Z"
       },
       {
         "method": "GET",
         "url": "/rao/api/stats/locations",
         "params": {},
-        "ts": "2026-07-08T23:58:51.631Z"
+        "ts": "2026-07-11T07:23:46.811Z"
       },
       {
         "method": "GET",
@@ -44,7 +44,7 @@
         "params": {
           "type": "all"
         },
-        "ts": "2026-07-08T23:58:51.631Z"
+        "ts": "2026-07-11T07:23:46.812Z"
       },
       {
         "method": "GET",
@@ -52,7 +52,7 @@
         "params": {
           "level": "main"
         },
-        "ts": "2026-07-08T23:58:51.631Z"
+        "ts": "2026-07-11T07:23:46.812Z"
       }
     ],
     "tabs": [
@@ -61,19 +61,19 @@
         "kpi": [
           {
             "testId": "kpi-live-available",
-            "value": "39",
+            "value": "17",
             "label": "Dostępne maszyny",
-            "sub": "z 39 łącznie"
+            "sub": "z 31 łącznie"
           },
           {
             "testId": "kpi-live-rented",
-            "value": "0",
+            "value": "14",
             "label": "Wynajęte teraz",
             "sub": "maszyn u klientów"
           },
           {
             "testId": "kpi-live-util",
-            "value": "0%",
+            "value": "45.2%",
             "label": "Wykorzystanie floty",
             "sub": "% maszyn u klientów teraz"
           }
@@ -81,14 +81,133 @@
         "tables": [
           {
             "section": "Maszyny aktualnie wynajęte",
-            "columns": [],
-            "rows": [],
-            "rowCount": 0,
-            "empty": "Brak aktywnych wynajmów — wszystkie maszyny dostępne"
+            "columns": [
+              "Maszyna",
+              "Nr wewnętrzny",
+              "Kategoria",
+              "Umowa",
+              "Kontrahent",
+              "Planowany zwrot"
+            ],
+            "rows": [
+              [
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "Koparki",
+                "S006/2026G",
+                "Trakcja-Polska S.A.",
+                "05.08.2026"
+              ],
+              [
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "Koparki",
+                "S010/2026G",
+                "Invest S.A.",
+                "14.07.2026"
+              ],
+              [
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "Koparki",
+                "S001/2026",
+                "Bud-Plus Sp. z o.o.",
+                "01.08.2026"
+              ],
+              [
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "Ładowarki Teleskopowe",
+                "S002/2026G",
+                "Invest S.A.",
+                "06.08.2026"
+              ],
+              [
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "Ładowarki Teleskopowe",
+                "S007/2026",
+                "Eko-Bud Nowoczesne Budownictwo",
+                "20.07.2026"
+              ],
+              [
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "Ładowarki Teleskopowe",
+                "S001/2026",
+                "Bud-Plus Sp. z o.o.",
+                "01.08.2026"
+              ],
+              [
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "Podnośniki",
+                "S008/2026G",
+                "Miejskie Inwestycje Sp. z o.o.",
+                "25.07.2026"
+              ],
+              [
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "Podnośniki",
+                "S003/2026",
+                "Terra-Masz Budownictwo",
+                "11.08.2026"
+              ],
+              [
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "Podnośniki",
+                "S007/2026",
+                "Eko-Bud Nowoczesne Budownictwo",
+                "20.07.2026"
+              ],
+              [
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "Spychacze",
+                "S009/2026",
+                "Bud-Plus Sp. z o.o.",
+                "30.07.2026"
+              ],
+              [
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "Spychacze",
+                "S004/2026G",
+                "Wod-Bud Sp. z o.o.",
+                "26.07.2026"
+              ],
+              [
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "Zagęszczarki",
+                "S005/2026",
+                "Fundament Sp. z o.o.",
+                "31.07.2026"
+              ],
+              [
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "Zagęszczarki",
+                "S010/2026G",
+                "Invest S.A.",
+                "14.07.2026"
+              ],
+              [
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "Zagęszczarki",
+                "S004/2026G",
+                "Wod-Bud Sp. z o.o.",
+                "26.07.2026"
+              ]
+            ],
+            "rowCount": 14
           }
         ],
         "extraText": {
-          "util-bar": "Wykorzystanie: 0%"
+          "util-bar": "Wykorzystanie: 45.2%"
         },
         "visible": false
       },
@@ -97,32 +216,32 @@
         "kpi": [
           {
             "testId": "kpi-period-revenue",
-            "value": "2 164 394,00 zł",
+            "value": "794120,00 zł",
             "label": "Przychód w okresie",
             "sub": "razem (rzecz.+szac.)"
           },
           {
             "testId": "kpi-period-contracts",
-            "value": "742",
+            "value": "64",
             "label": "Umów w okresie",
             "sub": "aktywnych umów"
           },
           {
             "testId": "kpi-period-rented",
-            "value": "1",
+            "value": "5",
             "label": "Wynajętych teraz",
-            "sub": "z 40 maszyn"
+            "sub": "z 31 maszyn"
           },
           {
             "testId": "kpi-period-util",
-            "value": "2.5%",
+            "value": "16.1%",
             "label": "Wykorzystanie",
             "sub": "floty teraz"
           }
         ],
         "tables": [
           {
-            "section": "Top maszyny po przychodzie (10)",
+            "section": "Top maszyny po przychodzie (5)",
             "columns": [
               "#",
               "Maszyna",
@@ -134,347 +253,53 @@
             "rows": [
               [
                 "1",
-                "Wózek widłowy 2t LPG",
-                "",
-                "102 050,00 zł",
-                "37",
-                "3"
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "276900,00 zł",
+                "270",
+                "17"
               ],
               [
                 "2",
-                "Ładowarka teleskopowo - obrotowa 21m",
-                "",
-                "87 120,00 zł",
-                "103",
-                "4"
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "187800,00 zł",
+                "277",
+                "18"
               ],
               [
                 "3",
-                "Podnośnik nożycowy elektryczny 14m",
-                "",
-                "64 240,00 zł",
-                "25",
-                "4"
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "171300,00 zł",
+                "240",
+                "16"
               ],
               [
                 "4",
-                "Ładowarka teleskopowa 14m",
-                "",
-                "41 590,00 zł",
-                "84",
-                "7"
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "117020,00 zł",
+                "279",
+                "18"
               ],
               [
                 "5",
-                "Ładowarka teleskopowa 17m",
-                "",
-                "40 690,00 zł",
-                "71",
-                "10"
-              ],
-              [
-                "6",
-                "Ładowarka teleskopowa obrotowa 18m",
-                "",
-                "38 650,00 zł",
-                "50",
-                "7"
-              ],
-              [
-                "7",
-                "Podnośnik teleskopowo - przegubowy 16m",
-                "",
-                "30 760,00 zł",
-                "131",
-                "3"
-              ],
-              [
-                "8",
-                "Ładowarka teleskopowa obrotowa 21m",
-                "",
-                "30 025,00 zł",
-                "36",
-                "4"
-              ],
-              [
-                "9",
-                "Ładowarka teleskopowa 14m",
-                "",
-                "27 180,00 zł",
-                "91",
-                "6"
-              ],
-              [
-                "10",
-                "Ładowarka teleskopowa 21m",
-                "",
-                "25 500,00 zł",
-                "30",
-                "1"
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "41100,00 zł",
+                "294",
+                "17"
               ]
             ],
-            "rowCount": 10
+            "rowCount": 5
           },
           {
             "section": "Pozycje dodatkowe (usługi)",
-            "columns": [
-              "Usługa",
-              "Przychód",
-              "Razy"
-            ],
-            "rows": [
-              [
-                "Usługa transportowa",
-                "320 900,00 zł",
-                "2"
-              ],
-              [
-                "Usługa ładowarką teleskopową 17m",
-                "49 940,00 zł",
-                "9"
-              ],
-              [
-                "Usługa minikoparką",
-                "5 080,00 zł",
-                "2"
-              ],
-              [
-                "Usługa ładowarką teleskopową",
-                "4 170,00 zł",
-                "5"
-              ],
-              [
-                "Usługa ładowarką teleskopową obrotową 18m",
-                "3 330,00 zł",
-                "12"
-              ],
-              [
-                "Usługa ładowarką teleskopową 17m",
-                "3 120,00 zł",
-                "12"
-              ],
-              [
-                "Usługa operatorska",
-                "3 120,00 zł",
-                "1"
-              ],
-              [
-                "Usługa ładowarką teleskopową 6m",
-                "2 770,00 zł",
-                "11"
-              ],
-              [
-                "Usluga ładowarką teleskopową 6m",
-                "2 480,00 zł",
-                "11"
-              ],
-              [
-                "Usługa ładowarką teleskopową obrotową 21m",
-                "2 280,00 zł",
-                "1"
-              ],
-              [
-                "Usługa mini żurawiem",
-                "2 250,00 zł",
-                "4"
-              ],
-              [
-                "Usługa operatorska",
-                "2 080,00 zł",
-                "6"
-              ],
-              [
-                "Usługa ładowarką teleskopową 17",
-                "1 870,00 zł",
-                "5"
-              ],
-              [
-                "Usługa ładowarką teleskopową obrotową 25m",
-                "1 620,00 zł",
-                "2"
-              ],
-              [
-                "Usługa wózkiem widłowym 2,5t",
-                "1 600,00 zł",
-                "7"
-              ],
-              [
-                "Podnośnik przegubowo – teleskopowy spalinowy 16m",
-                "1 600,00 zł",
-                "1"
-              ],
-              [
-                "Usługa wózkiem widłowym 8t",
-                "1 530,00 zł",
-                "7"
-              ],
-              [
-                "Usługa wózkiem widłowym 8t",
-                "1 500,00 zł",
-                "6"
-              ],
-              [
-                "Usługa ładowarką obrotową 18m + przedłużki",
-                "1 480,00 zł",
-                "5"
-              ],
-              [
-                "Usługa mini żurawiem dekarskim",
-                "1 450,00 zł",
-                "2"
-              ],
-              [
-                "Usługa ładowarką teleskopową 6m",
-                "1 200,00 zł",
-                "5"
-              ],
-              [
-                "Usługa ładowarką obrotową 21m",
-                "1 180,00 zł",
-                "4"
-              ],
-              [
-                "Usługa wózkiem widłowym",
-                "1 090,00 zł",
-                "5"
-              ],
-              [
-                "Usługa ładowarką teleskopową",
-                "1 080,00 zł",
-                "5"
-              ],
-              [
-                "Usługa wózkiem widłowym",
-                "950,00 zł",
-                "4"
-              ],
-              [
-                "Usługa ładowarką teleskopową 17m",
-                "950,00 zł",
-                "4"
-              ],
-              [
-                "Usługa ładowarką teleskopową 10t",
-                "900,00 zł",
-                "3"
-              ],
-              [
-                "Usługa ładowarką obrotową",
-                "880,00 zł",
-                "3"
-              ],
-              [
-                "Usługa ładowarką teleskopową 6m",
-                "780,00 zł",
-                "4"
-              ],
-              [
-                "Usługa ładowarką teleskopową 7m",
-                "760,00 zł",
-                "1"
-              ],
-              [
-                "Usługa ładowarką teleskopową 13m",
-                "750,00 zł",
-                "3"
-              ],
-              [
-                "Usługa podnośnikiem teleskopowo - przegubowym terenowym elektrycznym 18m",
-                "750,00 zł",
-                "1"
-              ],
-              [
-                "Usługa podnośnikiem na gąsienicach 23m",
-                "700,00 zł",
-                "2"
-              ],
-              [
-                "Usługa operatorska",
-                "680,00 zł",
-                "2"
-              ],
-              [
-                "Usługa ładowarką teleskopową obrotową 16m",
-                "630,00 zł",
-                "1"
-              ],
-              [
-                "Usługa wózkiem widłowym 7t",
-                "600,00 zł",
-                "2"
-              ],
-              [
-                "Usługa ładowarką teleskopową 18m",
-                "600,00 zł",
-                "2"
-              ],
-              [
-                "Usługa ładowarka teleskopowa 10 t",
-                "600,00 zł",
-                "2"
-              ],
-              [
-                "Usługa wózkiem widłowym 2,5t",
-                "590,00 zł",
-                "3"
-              ],
-              [
-                "Usługa operatorska",
-                "550,00 zł",
-                "1"
-              ],
-              [
-                "Usługa wózkiem widłowym 3t",
-                "540,00 zł",
-                "2"
-              ],
-              [
-                "Usługa ładowarką teleskopową 14m",
-                "500,00 zł",
-                "2"
-              ],
-              [
-                "Usługa minikoparka",
-                "500,00 zł",
-                "2"
-              ],
-              [
-                "Usługa wózkiem widłowym 14m",
-                "500,00 zł",
-                "1"
-              ],
-              [
-                "Usługa podnośnikiem teleskopowo - przegubowym 16m",
-                "450,00 zł",
-                "2"
-              ],
-              [
-                "Usługa wózkiem widłowym 4.5t",
-                "440,00 zł",
-                "2"
-              ],
-              [
-                "Usługa wózkiem widłowym 2t z przedłużkami",
-                "440,00 zł",
-                "2"
-              ],
-              [
-                "Podest teleskopowo - przegubowy spalinowy 16m",
-                "420,00 zł",
-                "1"
-              ],
-              [
-                "Usługa podnośnik koszowy na samochodzie 40m",
-                "390,00 zł",
-                "1"
-              ],
-              [
-                "Usługa wókiem widłowym 2t",
-                "390,00 zł",
-                "2"
-              ]
-            ],
-            "rowCount": 68
+            "columns": [],
+            "rows": [],
+            "rowCount": 0,
+            "empty": "Brak dodatkowych opłat w wybranym okresie"
           },
           {
             "section": "Lokalizacje wynajmu",
@@ -485,107 +310,67 @@
             ],
             "rows": [
               [
-                "Warszawa",
-                "100",
-                "323 025,00 zł"
-              ],
-              [
-                "Warszawa (brak PNA)",
-                "45",
-                "57 535,00 zł"
-              ],
-              [
-                "Wola (brak PNA)",
-                "31",
-                "90 575,00 zł"
-              ],
-              [
-                "Chylice-Pólko",
-                "24",
-                "35 540,00 zł"
-              ],
-              [
-                "Janczewice",
-                "21",
-                "40 635,00 zł"
-              ],
-              [
-                "Gdańsk (brak PNA)",
-                "21",
-                "78 470,00 zł"
-              ],
-              [
-                "Bronisze",
-                "18",
-                "41 060,00 zł"
-              ],
-              [
-                "Dawidy",
-                "14",
-                "331 630,00 zł"
-              ],
-              [
-                "Wrocław (brak PNA)",
-                "12",
-                "5 650,00 zł"
-              ],
-              [
                 "Wrocław",
-                "9",
-                "69 410,00 zł"
+                "6",
+                "158550,00 zł"
               ],
               [
-                "Piaseczno (brak PNA)",
-                "9",
-                "17 920,00 zł"
+                "Łódź",
+                "6",
+                "26250,00 zł"
               ],
               [
                 "Gdynia",
-                "9",
-                "3 840,00 zł"
-              ],
-              [
-                "Garbatka",
-                "8",
-                "7 060,00 zł"
-              ],
-              [
-                "Michałowice (brak PNA)",
-                "7",
-                "15 860,00 zł"
-              ],
-              [
-                "Borowiec",
                 "6",
-                "14 840,00 zł"
-              ],
-              [
-                "Bydgoszcz (brak PNA)",
-                "6",
-                "3 240,00 zł"
+                "47430,00 zł"
               ],
               [
                 "Gdańsk",
                 "6",
-                "3 210,00 zł"
+                "97180,00 zł"
               ],
               [
-                "Bąki",
-                "6",
-                "13 720,00 zł"
-              ],
-              [
-                "Michałowice",
+                "Warszawa",
                 "5",
-                "5 170,00 zł"
+                "71680,00 zł"
               ],
               [
-                "Kajetany",
+                "Kraków",
                 "5",
-                "4 230,00 zł"
+                "74200,00 zł"
+              ],
+              [
+                "Poznań",
+                "5",
+                "12550,00 zł"
+              ],
+              [
+                "Katowice",
+                "5",
+                "38920,00 zł"
+              ],
+              [
+                "Bydgoszcz",
+                "5",
+                "42200,00 zł"
+              ],
+              [
+                "Lublin",
+                "5",
+                "67620,00 zł"
+              ],
+              [
+                "Szczecin",
+                "5",
+                "49740,00 zł"
+              ],
+              [
+                "Radom",
+                "5",
+                "107800,00 zł"
               ]
             ],
-            "rowCount": 20
+            "rowCount": 12
           },
           {
             "section": "Pozycje umów",
@@ -600,461 +385,56 @@
             ],
             "rows": [
               [
-                "Usługa transportowa",
-                "",
-                "ogólna",
-                "320 900,00 zł",
-                "0",
-                "2",
-                "2"
-              ],
-              [
-                "Wózek widłowy 2t LPG",
-                "",
-                "Wózki widlowe",
-                "102 050,00 zł",
-                "37",
-                "3",
-                "3"
-              ],
-              [
-                "Ładowarka teleskopowo - obrotowa 21m",
-                "",
-                "Ładowarki Teleskopowe",
-                "87 120,00 zł",
-                "103",
-                "4",
-                "4"
-              ],
-              [
-                "Podnośnik nożycowy elektryczny 14m",
-                "",
-                "Podnośniki Nożycowe",
-                "64 240,00 zł",
-                "25",
-                "4",
-                "4"
-              ],
-              [
-                "Usługa ładowarką teleskopową 17m",
-                "",
-                "Ładowarki Teleskopowe",
-                "49 940,00 zł",
-                "0",
-                "9",
-                "9"
-              ],
-              [
-                "Ładowarka teleskopowa 17m",
-                "",
-                "Ładowarki Teleskopowe",
-                "42 270,00 zł",
-                "71",
-                "10",
-                "10"
-              ],
-              [
-                "Ładowarka teleskopowa 14m",
-                "",
-                "Ładowarki Teleskopowe",
-                "41 590,00 zł",
-                "84",
-                "7",
-                "7"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 18m",
-                "",
-                "Ładowarki Teleskopowe",
-                "37 750,00 zł",
-                "50",
-                "7",
-                "7"
-              ],
-              [
-                "Podnośnik teleskopowo - przegubowy 16m",
-                "",
-                "Podnośniki Teleskopowe",
-                "30 760,00 zł",
-                "131",
-                "3",
-                "3"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 21m",
-                "",
-                "Ładowarki Teleskopowe",
-                "30 025,00 zł",
-                "36",
-                "4",
-                "4"
-              ],
-              [
-                "Ładowarka teleskopowa 14m",
-                "",
-                "Ładowarki Teleskopowe",
-                "27 980,00 zł",
-                "91",
-                "6",
-                "6"
-              ],
-              [
-                "Ładowarka teleskopowa 17m",
-                "",
-                "Ładowarki Teleskopowe",
-                "27 380,00 zł",
-                "48",
-                "7",
-                "7"
-              ],
-              [
-                "Ładowarka teleskopowa 21m",
-                "",
-                "Ładowarki Teleskopowe",
-                "25 500,00 zł",
-                "30",
-                "1",
-                "1"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 18m",
-                "",
-                "Ładowarki Teleskopowe",
-                "24 940,00 zł",
-                "33",
-                "4",
-                "4"
-              ],
-              [
-                "Wciągarka do ładowarki",
-                "",
-                "Akcesoria",
-                "23 725,00 zł",
-                "49",
-                "6",
-                "6"
-              ],
-              [
-                "Wózek widłowy elektryczny 5t",
-                "",
-                "Wozidła",
-                "23 610,00 zł",
-                "56",
-                "5",
-                "5"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 21m",
-                "",
-                "Ładowarki Teleskopowe",
-                "21 910,00 zł",
-                "22",
-                "4",
-                "4"
-              ],
-              [
-                "Ładowarka teleskopowa 17m",
-                "",
-                "Ładowarki Teleskopowe",
-                "21 460,00 zł",
-                "40",
-                "5",
-                "5"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 21m z wciągarką",
-                "",
-                "Ładowarki Teleskopowe",
-                "20 800,00 zł",
-                "26",
-                "2",
-                "2"
-              ],
-              [
-                "Podnośnik teleskopowo - przegubowy spalinowy 16m",
-                "",
-                "Podnośniki Teleskopowe",
-                "20 785,00 zł",
-                "55",
-                "8",
-                "8"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 18m",
-                "",
-                "Ladowarki teleskopowe",
-                "19 500,00 zł",
-                "30",
-                "1",
-                "1"
-              ],
-              [
-                "Ładowarka teleskopowa 17m",
-                "",
-                "Ladowarki teleskopowe",
-                "19 350,00 zł",
-                "30",
-                "2",
-                "2"
-              ],
-              [
-                "Podnośnik teleskopowo - przegubowy spalinowy 16m",
-                "",
-                "Podnośniki Teleskopowe",
-                "19 240,00 zł",
-                "77",
-                "8",
-                "8"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 16m",
-                "",
-                "Ładowarki Teleskopowe",
-                "18 840,00 zł",
-                "25",
-                "5",
-                "5"
-              ],
-              [
-                "Podnośnik teleskopowo - przegubowy elektryczny 16m",
-                "",
-                "Podnośniki Teleskopowe",
-                "18 350,00 zł",
-                "61",
-                "2",
-                "2"
-              ],
-              [
-                "Podnośnik teleskopowo - przegubowy elektryczny 16m",
-                "",
-                "Podnośniki Teleskopowe",
-                "18 000,00 zł",
-                "60",
-                "1",
-                "1"
-              ],
-              [
-                "Ładowarka teleskopowa 10t",
-                "",
-                "Ładowarki Teleskopowe",
-                "16 800,00 zł",
-                "22",
-                "5",
-                "5"
-              ],
-              [
-                "Podnośnik nożycowy spalinowy 15m",
-                "",
-                "Podnośniki Nożycowe",
-                "15 945,00 zł",
-                "59",
-                "8",
-                "8"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 25m",
-                "",
-                "Ładowarki Teleskopowe",
-                "15 944,00 zł",
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "Spychacze",
+                "276900,00 zł",
+                "270",
                 "17",
-                "4",
-                "4"
+                "17"
               ],
               [
-                "Ładowarka teleskopowa 7t",
-                "",
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
                 "Ładowarki Teleskopowe",
-                "15 830,00 zł",
-                "28",
-                "6",
-                "6"
-              ],
-              [
-                "Wciągarka do ładowarki",
-                "",
-                "Akcesoria",
-                "15 270,00 zł",
-                "135",
-                "7",
-                "7"
-              ],
-              [
-                "Podnośnik teleskopowo - przegubowy spalinowy 16m",
-                "",
-                "Podnośniki Teleskopowe",
-                "15 120,00 zł",
-                "55",
-                "7",
-                "7"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 18m",
-                "",
-                "Ladowarki teleskopowe",
-                "14 920,00 zł",
+                "187800,00 zł",
+                "277",
                 "18",
-                "2",
-                "2"
+                "18"
               ],
               [
-                "Ładowarka teleskopowa 6m",
-                "",
-                "Ładowarki Teleskopowe",
-                "14 520,00 zł",
-                "31",
-                "12",
-                "12"
-              ],
-              [
-                "Podnośnik teleskopowy 20m",
-                "",
-                "Podnośniki Teleskopowe",
-                "14 520,00 zł",
-                "46",
-                "3",
-                "3"
-              ],
-              [
-                "Ładowarka teleskopowa- 6m",
-                "",
-                "Ładowarki Teleskopowe",
-                "14 480,00 zł",
-                "32",
-                "10",
-                "10"
-              ],
-              [
-                "Minikoparka 2,5t",
-                "",
-                "Maszyny Do Prac Ziemnych",
-                "14 450,00 zł",
-                "36",
-                "3",
-                "3"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 16m",
-                "",
-                "Ładowarki Teleskopowe",
-                "14 060,00 zł",
-                "21",
-                "3",
-                "3"
-              ],
-              [
-                "Wózek widłowy LPG 2,5t",
-                "",
-                "Wozidła",
-                "12 885,00 zł",
-                "51",
-                "2",
-                "2"
-              ],
-              [
-                "Podnośnik teleskopowo - przegubowy elektryczny 20m",
-                "",
-                "Podnośniki Teleskopowe",
-                "12 700,00 zł",
-                "35",
-                "2",
-                "2"
-              ],
-              [
-                "Podnośnik teleskopowo - przegubowy spalinowy 16m",
-                "",
-                "Podnośniki Teleskopowe",
-                "12 640,00 zł",
-                "45",
-                "11",
-                "11"
-              ],
-              [
-                "Ładowarka teleskopowa 17m z łyżką",
-                "",
-                "Ładowarki Teleskopowe",
-                "12 450,00 zł",
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "Koparki",
+                "171300,00 zł",
+                "240",
                 "16",
-                "3",
-                "3"
+                "16"
               ],
               [
-                "Ładowarka teleskopowo - obrotowa18m",
-                "",
-                "Ładowarki Teleskopowe",
-                "12 160,00 zł",
-                "16",
-                "3",
-                "3"
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "Podnośniki",
+                "117020,00 zł",
+                "279",
+                "18",
+                "18"
               ],
               [
-                "Wózek widłowy spalinowy 8t",
-                "",
-                "Wozidła",
-                "12 140,00 zł",
-                "33",
-                "4",
-                "4"
-              ],
-              [
-                "Ładowarka teleskopowa 9m",
-                "",
-                "Ładowarki Teleskopowe",
-                "12 100,00 zł",
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "Zagęszczarki",
+                "41100,00 zł",
+                "294",
                 "17",
-                "7",
-                "7"
-              ],
-              [
-                "Podnośnik gąsienicowy CELA DT25",
-                "",
-                "Podnośniki Specjalne",
-                "11 730,00 zł",
-                "15",
-                "4",
-                "4"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 16m",
-                "",
-                "Ladowarki teleskopowe",
-                "11 455,00 zł",
-                "15",
-                "5",
-                "5"
-              ],
-              [
-                "Ładowarka teleskopowa 8m",
-                "",
-                "Ładowarki Teleskopowe",
-                "11 400,00 zł",
-                "30",
-                "1",
-                "1"
-              ],
-              [
-                "Podnośnik teleskopowy spalinowy 28m",
-                "",
-                "ogólna",
-                "11 400,00 zł",
-                "15",
-                "1",
-                "1"
-              ],
-              [
-                "Podnośnik teleskopowo - przegubowy spalinowy 20m",
-                "",
-                "Podnośniki Teleskopowe",
-                "11 250,00 zł",
-                "31",
-                "2",
-                "2"
+                "17"
               ]
             ],
-            "rowCount": 351
+            "rowCount": 5
           }
         ],
         "extraText": {
-          "revenue-breakdown": "Rzeczywiste (z rozliczeń):776 304,00 złSzacunek (cennik):1 388 090,00 zł"
+          "revenue-breakdown": "Rzeczywiste (z rozliczeń):517790,00 złSzacunek (cennik):276330,00 zł"
         },
         "visible": true
       },
@@ -1063,51 +443,42 @@
         "kpi": [
           {
             "testId": "kpi-loc-count",
-            "value": "100",
+            "value": "12",
             "label": "Lokalizacji",
             "sub": "z wynajmami w okresie"
           },
           {
             "testId": "kpi-loc-rentals",
-            "value": "513",
+            "value": "64",
             "label": "Wynajmów",
             "sub": "we wszystkich miastach"
           },
           {
             "testId": "kpi-loc-revenue",
-            "value": "1 773 180,00 zł",
+            "value": "794 120,00 zł",
             "label": "Przychód",
             "sub": "łącznie w okresie"
           },
           {
             "testId": "kpi-loc-top",
-            "value": "Warszawa",
+            "value": "Wrocław",
             "label": "Top miasto",
-            "sub": "323 025,00 zł"
+            "sub": "158 550,00 zł"
           }
         ],
         "tables": [],
         "extraText": {
-          "chart-bars": "Dawidy 331 630,00 zł | Warszawa 323 025,00 zł | Wola (brak PNA) 90 575,00 zł | Charnowo 81 000,00 zł | Gdańsk (brak PNA) 78 470,00 zł | Wrocław 69 410,00 zł | Warszawa (brak PNA) 57 535,00 zł | Pruszków 51 760,00 zł | Bronisze 41 060,00 zł | Janczewice 40 635,00 zł"
+          "chart-bars": "Wrocław 158 550,00 zł | Radom 107 800,00 zł | Gdańsk 97 180,00 zł | Kraków 74 200,00 zł | Warszawa 71 680,00 zł | Lublin 67 620,00 zł | Szczecin 49 740,00 zł | Gdynia 47 430,00 zł | Bydgoszcz 42 200,00 zł | Katowice 38 920,00 zł"
         },
         "visible": true
       },
       {
         "tab": "explorer",
         "kpi": [],
-        "tables": [
-          {
-            "section": "Wyniki wyszukiwania",
-            "columns": [],
-            "rows": [],
-            "rowCount": 0,
-            "empty": "Brak wyników w wybranym okresie"
-          }
-        ],
-        "extraText": {
-          "summary": "Liczba wyników: 0Łączny przychód: 0,00 zł"
-        },
-        "visible": true
+        "tables": [],
+        "extraText": {},
+        "visible": false,
+        "error": "locator.click: Timeout 8000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-testid=\"tab-explorer\"]')\u001b[22m\n"
       }
     ],
     "filtersPanelVisible": true,
@@ -1130,14 +501,14 @@
     "apiCalls": [
       {
         "method": "GET",
-        "url": "/rao/api/explorer/search",
+        "url": "/rao/api/explorer/locations",
         "params": {
-          "q": "",
-          "limit": "50",
-          "date_from": "2026-07-08",
-          "date_to": "2026-07-08"
+          "limit": "100",
+          "group_by": "city",
+          "date_from": "2026-07-11",
+          "date_to": "2026-07-11"
         },
-        "ts": "2026-07-08T23:59:34.643Z"
+        "ts": "2026-07-11T07:24:07.140Z"
       }
     ],
     "tabs": [
@@ -1146,36 +517,83 @@
         "kpi": [
           {
             "testId": "kpi-period-revenue",
-            "value": "0,00 zł",
+            "value": "129520,00 zł",
             "label": "Przychód w okresie",
-            "sub": "brak danych"
+            "sub": "szacunek"
           },
           {
             "testId": "kpi-period-contracts",
-            "value": "0",
+            "value": "10",
             "label": "Umów w okresie",
             "sub": "aktywnych umów"
           },
           {
             "testId": "kpi-period-rented",
-            "value": "1",
+            "value": "5",
             "label": "Wynajętych teraz",
-            "sub": "z 40 maszyn"
+            "sub": "z 31 maszyn"
           },
           {
             "testId": "kpi-period-util",
-            "value": "2.5%",
+            "value": "16.1%",
             "label": "Wykorzystanie",
             "sub": "floty teraz"
           }
         ],
         "tables": [
           {
-            "section": "Top maszyny po przychodzie (0)",
-            "columns": [],
-            "rows": [],
-            "rowCount": 0,
-            "empty": "Brak danych o top maszynach w wybranym okresie"
+            "section": "Top maszyny po przychodzie (5)",
+            "columns": [
+              "#",
+              "Maszyna",
+              "Nr wewnętrzny",
+              "Przychód",
+              "Dni",
+              "Umów"
+            ],
+            "rows": [
+              [
+                "1",
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "42000,00 zł",
+                "3",
+                "3"
+              ],
+              [
+                "2",
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "32100,00 zł",
+                "3",
+                "3"
+              ],
+              [
+                "3",
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "24000,00 zł",
+                "2",
+                "2"
+              ],
+              [
+                "4",
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "20920,00 zł",
+                "3",
+                "3"
+              ],
+              [
+                "5",
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "10500,00 zł",
+                "3",
+                "3"
+              ]
+            ],
+            "rowCount": 5
           },
           {
             "section": "Pozycje dodatkowe (usługi)",
@@ -1186,20 +604,129 @@
           },
           {
             "section": "Lokalizacje wynajmu",
-            "columns": [],
-            "rows": [],
-            "rowCount": 0,
-            "empty": "Brak lokalizacji w wybranym okresie"
+            "columns": [
+              "Miasto",
+              "Wynajmów",
+              "Przychód"
+            ],
+            "rows": [
+              [
+                "Lublin",
+                "1",
+                "18900,00 zł"
+              ],
+              [
+                "Gdańsk",
+                "1",
+                "21420,00 zł"
+              ],
+              [
+                "Katowice",
+                "1",
+                "11760,00 zł"
+              ],
+              [
+                "Wrocław",
+                "1",
+                "26250,00 zł"
+              ],
+              [
+                "Bydgoszcz",
+                "1",
+                "900,00 zł"
+              ],
+              [
+                "Łódź",
+                "1",
+                "4200,00 zł"
+              ],
+              [
+                "Warszawa",
+                "1",
+                "28350,00 zł"
+              ],
+              [
+                "Gdynia",
+                "1",
+                "600,00 zł"
+              ],
+              [
+                "Kraków",
+                "1",
+                "16800,00 zł"
+              ],
+              [
+                "Poznań",
+                "1",
+                "340,00 zł"
+              ]
+            ],
+            "rowCount": 10
           },
           {
             "section": "Pozycje umów",
-            "columns": [],
-            "rows": [],
-            "rowCount": 0,
-            "empty": "Brak pozycji w wybranym okresie"
+            "columns": [
+              "Nazwa",
+              "Nr wewnętrzny",
+              "Kategoria",
+              "Przychód",
+              "Dni",
+              "Umów",
+              "Razy"
+            ],
+            "rows": [
+              [
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "Ładowarki Teleskopowe",
+                "42000,00 zł",
+                "3",
+                "3",
+                "3"
+              ],
+              [
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "Koparki",
+                "32100,00 zł",
+                "3",
+                "3",
+                "3"
+              ],
+              [
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "Spychacze",
+                "24000,00 zł",
+                "2",
+                "2",
+                "2"
+              ],
+              [
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "Podnośniki",
+                "20920,00 zł",
+                "3",
+                "3",
+                "3"
+              ],
+              [
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "Zagęszczarki",
+                "10500,00 zł",
+                "3",
+                "3",
+                "3"
+              ]
+            ],
+            "rowCount": 5
           }
         ],
-        "extraText": {},
+        "extraText": {
+          "revenue-breakdown": "Rzeczywiste (z rozliczeń):0,00 złSzacunek (cennik):129520,00 zł"
+        },
         "visible": true
       }
     ],
@@ -1225,58 +752,58 @@
         "method": "GET",
         "url": "/rao/api/stats/fleet-summary",
         "params": {
-          "date_from": "2026-07-02",
-          "date_to": "2026-07-08"
+          "date_from": "2026-07-04",
+          "date_to": "2026-07-11"
         },
-        "ts": "2026-07-08T23:59:40.894Z"
+        "ts": "2026-07-11T07:24:14.876Z"
       },
       {
         "method": "GET",
         "url": "/rao/api/stats/top-machines",
         "params": {
           "limit": "10",
-          "date_from": "2026-07-02",
-          "date_to": "2026-07-08"
+          "date_from": "2026-07-04",
+          "date_to": "2026-07-11"
         },
-        "ts": "2026-07-08T23:59:40.894Z"
+        "ts": "2026-07-11T07:24:14.876Z"
       },
       {
         "method": "GET",
         "url": "/rao/api/stats/additional-fees",
         "params": {
-          "date_from": "2026-07-02",
-          "date_to": "2026-07-08"
+          "date_from": "2026-07-04",
+          "date_to": "2026-07-11"
         },
-        "ts": "2026-07-08T23:59:40.894Z"
+        "ts": "2026-07-11T07:24:14.876Z"
       },
       {
         "method": "GET",
         "url": "/rao/api/stats/locations",
         "params": {
-          "date_from": "2026-07-02",
-          "date_to": "2026-07-08"
+          "date_from": "2026-07-04",
+          "date_to": "2026-07-11"
         },
-        "ts": "2026-07-08T23:59:40.894Z"
+        "ts": "2026-07-11T07:24:14.876Z"
       },
       {
         "method": "GET",
         "url": "/rao/api/stats/positions",
         "params": {
           "type": "all",
-          "date_from": "2026-07-02",
-          "date_to": "2026-07-08"
+          "date_from": "2026-07-04",
+          "date_to": "2026-07-11"
         },
-        "ts": "2026-07-08T23:59:40.894Z"
+        "ts": "2026-07-11T07:24:14.876Z"
       },
       {
         "method": "GET",
         "url": "/rao/api/stats/by-category",
         "params": {
           "level": "main",
-          "date_from": "2026-07-02",
-          "date_to": "2026-07-08"
+          "date_from": "2026-07-04",
+          "date_to": "2026-07-11"
         },
-        "ts": "2026-07-08T23:59:40.894Z"
+        "ts": "2026-07-11T07:24:14.876Z"
       }
     ],
     "tabs": [
@@ -1285,32 +812,32 @@
         "kpi": [
           {
             "testId": "kpi-period-revenue",
-            "value": "7 500,00 zł",
+            "value": "129520,00 zł",
             "label": "Przychód w okresie",
             "sub": "szacunek"
           },
           {
             "testId": "kpi-period-contracts",
-            "value": "1",
+            "value": "10",
             "label": "Umów w okresie",
             "sub": "aktywnych umów"
           },
           {
             "testId": "kpi-period-rented",
-            "value": "1",
+            "value": "5",
             "label": "Wynajętych teraz",
-            "sub": "z 40 maszyn"
+            "sub": "z 31 maszyn"
           },
           {
             "testId": "kpi-period-util",
-            "value": "2.5%",
+            "value": "16.1%",
             "label": "Wykorzystanie",
             "sub": "floty teraz"
           }
         ],
         "tables": [
           {
-            "section": "Top maszyny po przychodzie (1)",
+            "section": "Top maszyny po przychodzie (5)",
             "columns": [
               "#",
               "Maszyna",
@@ -1322,14 +849,46 @@
             "rows": [
               [
                 "1",
-                "Podnośnik teleskopowy 20m",
-                "",
-                "7 500,00 zł",
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "42000,00 zł",
+                "12",
+                "3"
+              ],
+              [
+                "2",
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "32100,00 zł",
+                "17",
+                "3"
+              ],
+              [
+                "3",
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "24000,00 zł",
+                "15",
+                "2"
+              ],
+              [
+                "4",
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "20920,00 zł",
+                "21",
+                "3"
+              ],
+              [
                 "5",
-                "1"
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "10500,00 zł",
+                "23",
+                "3"
               ]
             ],
-            "rowCount": 1
+            "rowCount": 5
           },
           {
             "section": "Pozycje dodatkowe (usługi)",
@@ -1340,10 +899,64 @@
           },
           {
             "section": "Lokalizacje wynajmu",
-            "columns": [],
-            "rows": [],
-            "rowCount": 0,
-            "empty": "Brak lokalizacji w wybranym okresie"
+            "columns": [
+              "Miasto",
+              "Wynajmów",
+              "Przychód"
+            ],
+            "rows": [
+              [
+                "Lublin",
+                "1",
+                "18900,00 zł"
+              ],
+              [
+                "Gdańsk",
+                "1",
+                "21420,00 zł"
+              ],
+              [
+                "Katowice",
+                "1",
+                "11760,00 zł"
+              ],
+              [
+                "Wrocław",
+                "1",
+                "26250,00 zł"
+              ],
+              [
+                "Bydgoszcz",
+                "1",
+                "900,00 zł"
+              ],
+              [
+                "Łódź",
+                "1",
+                "4200,00 zł"
+              ],
+              [
+                "Warszawa",
+                "1",
+                "28350,00 zł"
+              ],
+              [
+                "Gdynia",
+                "1",
+                "600,00 zł"
+              ],
+              [
+                "Kraków",
+                "1",
+                "16800,00 zł"
+              ],
+              [
+                "Poznań",
+                "1",
+                "340,00 zł"
+              ]
+            ],
+            "rowCount": 10
           },
           {
             "section": "Pozycje umów",
@@ -1358,20 +971,56 @@
             ],
             "rows": [
               [
-                "Podnośnik teleskopowy 20m",
-                "",
-                "Podnośniki Teleskopowe",
-                "7 500,00 zł",
-                "5",
-                "1",
-                "1"
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "Ładowarki Teleskopowe",
+                "42000,00 zł",
+                "12",
+                "3",
+                "3"
+              ],
+              [
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "Koparki",
+                "32100,00 zł",
+                "17",
+                "3",
+                "3"
+              ],
+              [
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "Spychacze",
+                "24000,00 zł",
+                "15",
+                "2",
+                "2"
+              ],
+              [
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "Podnośniki",
+                "20920,00 zł",
+                "21",
+                "3",
+                "3"
+              ],
+              [
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "Zagęszczarki",
+                "10500,00 zł",
+                "23",
+                "3",
+                "3"
               ]
             ],
-            "rowCount": 1
+            "rowCount": 5
           }
         ],
         "extraText": {
-          "revenue-breakdown": "Rzeczywiste (z rozliczeń):0,00 złSzacunek (cennik):7 500,00 zł"
+          "revenue-breakdown": "Rzeczywiste (z rozliczeń):0,00 złSzacunek (cennik):129520,00 zł"
         },
         "visible": true
       }
@@ -1399,9 +1048,9 @@
         "url": "/rao/api/stats/fleet-summary",
         "params": {
           "date_from": "2026-06-30",
-          "date_to": "2026-07-08"
+          "date_to": "2026-07-11"
         },
-        "ts": "2026-07-08T23:59:47.481Z"
+        "ts": "2026-07-11T07:24:22.627Z"
       },
       {
         "method": "GET",
@@ -1409,27 +1058,27 @@
         "params": {
           "limit": "10",
           "date_from": "2026-06-30",
-          "date_to": "2026-07-08"
+          "date_to": "2026-07-11"
         },
-        "ts": "2026-07-08T23:59:47.481Z"
+        "ts": "2026-07-11T07:24:22.627Z"
       },
       {
         "method": "GET",
         "url": "/rao/api/stats/additional-fees",
         "params": {
           "date_from": "2026-06-30",
-          "date_to": "2026-07-08"
+          "date_to": "2026-07-11"
         },
-        "ts": "2026-07-08T23:59:47.481Z"
+        "ts": "2026-07-11T07:24:22.627Z"
       },
       {
         "method": "GET",
         "url": "/rao/api/stats/locations",
         "params": {
           "date_from": "2026-06-30",
-          "date_to": "2026-07-08"
+          "date_to": "2026-07-11"
         },
-        "ts": "2026-07-08T23:59:47.481Z"
+        "ts": "2026-07-11T07:24:22.627Z"
       },
       {
         "method": "GET",
@@ -1437,9 +1086,9 @@
         "params": {
           "type": "all",
           "date_from": "2026-06-30",
-          "date_to": "2026-07-08"
+          "date_to": "2026-07-11"
         },
-        "ts": "2026-07-08T23:59:47.481Z"
+        "ts": "2026-07-11T07:24:22.627Z"
       },
       {
         "method": "GET",
@@ -1447,9 +1096,9 @@
         "params": {
           "level": "main",
           "date_from": "2026-06-30",
-          "date_to": "2026-07-08"
+          "date_to": "2026-07-11"
         },
-        "ts": "2026-07-08T23:59:47.481Z"
+        "ts": "2026-07-11T07:24:22.627Z"
       }
     ],
     "tabs": [
@@ -1458,32 +1107,32 @@
         "kpi": [
           {
             "testId": "kpi-period-revenue",
-            "value": "7 500,00 zł",
+            "value": "145270,00 zł",
             "label": "Przychód w okresie",
-            "sub": "szacunek"
+            "sub": "razem (rzecz.+szac.)"
           },
           {
             "testId": "kpi-period-contracts",
-            "value": "1",
+            "value": "11",
             "label": "Umów w okresie",
             "sub": "aktywnych umów"
           },
           {
             "testId": "kpi-period-rented",
-            "value": "1",
+            "value": "5",
             "label": "Wynajętych teraz",
-            "sub": "z 40 maszyn"
+            "sub": "z 31 maszyn"
           },
           {
             "testId": "kpi-period-util",
-            "value": "2.5%",
+            "value": "16.1%",
             "label": "Wykorzystanie",
             "sub": "floty teraz"
           }
         ],
         "tables": [
           {
-            "section": "Top maszyny po przychodzie (1)",
+            "section": "Top maszyny po przychodzie (5)",
             "columns": [
               "#",
               "Maszyna",
@@ -1495,14 +1144,46 @@
             "rows": [
               [
                 "1",
-                "Podnośnik teleskopowy 20m",
-                "",
-                "7 500,00 zł",
-                "7",
-                "1"
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "47850,00 zł",
+                "27",
+                "4"
+              ],
+              [
+                "2",
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "42000,00 zł",
+                "16",
+                "3"
+              ],
+              [
+                "3",
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "24000,00 zł",
+                "19",
+                "2"
+              ],
+              [
+                "4",
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "20920,00 zł",
+                "29",
+                "3"
+              ],
+              [
+                "5",
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "10500,00 zł",
+                "28",
+                "3"
               ]
             ],
-            "rowCount": 1
+            "rowCount": 5
           },
           {
             "section": "Pozycje dodatkowe (usługi)",
@@ -1513,10 +1194,69 @@
           },
           {
             "section": "Lokalizacje wynajmu",
-            "columns": [],
-            "rows": [],
-            "rowCount": 0,
-            "empty": "Brak lokalizacji w wybranym okresie"
+            "columns": [
+              "Miasto",
+              "Wynajmów",
+              "Przychód"
+            ],
+            "rows": [
+              [
+                "Szczecin",
+                "1",
+                "15750,00 zł"
+              ],
+              [
+                "Lublin",
+                "1",
+                "18900,00 zł"
+              ],
+              [
+                "Gdańsk",
+                "1",
+                "21420,00 zł"
+              ],
+              [
+                "Katowice",
+                "1",
+                "11760,00 zł"
+              ],
+              [
+                "Wrocław",
+                "1",
+                "26250,00 zł"
+              ],
+              [
+                "Bydgoszcz",
+                "1",
+                "900,00 zł"
+              ],
+              [
+                "Łódź",
+                "1",
+                "4200,00 zł"
+              ],
+              [
+                "Warszawa",
+                "1",
+                "28350,00 zł"
+              ],
+              [
+                "Gdynia",
+                "1",
+                "600,00 zł"
+              ],
+              [
+                "Kraków",
+                "1",
+                "16800,00 zł"
+              ],
+              [
+                "Poznań",
+                "1",
+                "340,00 zł"
+              ]
+            ],
+            "rowCount": 11
           },
           {
             "section": "Pozycje umów",
@@ -1531,20 +1271,56 @@
             ],
             "rows": [
               [
-                "Podnośnik teleskopowy 20m",
-                "",
-                "Podnośniki Teleskopowe",
-                "7 500,00 zł",
-                "7",
-                "1",
-                "1"
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "Koparki",
+                "47850,00 zł",
+                "27",
+                "4",
+                "4"
+              ],
+              [
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "Ładowarki Teleskopowe",
+                "42000,00 zł",
+                "16",
+                "3",
+                "3"
+              ],
+              [
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "Spychacze",
+                "24000,00 zł",
+                "19",
+                "2",
+                "2"
+              ],
+              [
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "Podnośniki",
+                "20920,00 zł",
+                "29",
+                "3",
+                "3"
+              ],
+              [
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "Zagęszczarki",
+                "10500,00 zł",
+                "28",
+                "3",
+                "3"
               ]
             ],
-            "rowCount": 1
+            "rowCount": 5
           }
         ],
         "extraText": {
-          "revenue-breakdown": "Rzeczywiste (z rozliczeń):0,00 złSzacunek (cennik):7 500,00 zł"
+          "revenue-breakdown": "Rzeczywiste (z rozliczeń):15750,00 złSzacunek (cennik):129520,00 zł"
         },
         "visible": true
       }
@@ -1572,9 +1348,9 @@
         "url": "/rao/api/stats/fleet-summary",
         "params": {
           "date_from": "2025-12-31",
-          "date_to": "2026-07-08"
+          "date_to": "2026-07-11"
         },
-        "ts": "2026-07-08T23:59:54.027Z"
+        "ts": "2026-07-11T07:24:30.343Z"
       },
       {
         "method": "GET",
@@ -1582,27 +1358,27 @@
         "params": {
           "limit": "10",
           "date_from": "2025-12-31",
-          "date_to": "2026-07-08"
+          "date_to": "2026-07-11"
         },
-        "ts": "2026-07-08T23:59:54.027Z"
+        "ts": "2026-07-11T07:24:30.343Z"
       },
       {
         "method": "GET",
         "url": "/rao/api/stats/additional-fees",
         "params": {
           "date_from": "2025-12-31",
-          "date_to": "2026-07-08"
+          "date_to": "2026-07-11"
         },
-        "ts": "2026-07-08T23:59:54.027Z"
+        "ts": "2026-07-11T07:24:30.343Z"
       },
       {
         "method": "GET",
         "url": "/rao/api/stats/locations",
         "params": {
           "date_from": "2025-12-31",
-          "date_to": "2026-07-08"
+          "date_to": "2026-07-11"
         },
-        "ts": "2026-07-08T23:59:54.027Z"
+        "ts": "2026-07-11T07:24:30.343Z"
       },
       {
         "method": "GET",
@@ -1610,9 +1386,9 @@
         "params": {
           "type": "all",
           "date_from": "2025-12-31",
-          "date_to": "2026-07-08"
+          "date_to": "2026-07-11"
         },
-        "ts": "2026-07-08T23:59:54.027Z"
+        "ts": "2026-07-11T07:24:30.343Z"
       },
       {
         "method": "GET",
@@ -1620,9 +1396,9 @@
         "params": {
           "level": "main",
           "date_from": "2025-12-31",
-          "date_to": "2026-07-08"
+          "date_to": "2026-07-11"
         },
-        "ts": "2026-07-08T23:59:54.027Z"
+        "ts": "2026-07-11T07:24:30.343Z"
       }
     ],
     "tabs": [
@@ -1631,32 +1407,32 @@
         "kpi": [
           {
             "testId": "kpi-period-revenue",
-            "value": "1 293 130,00 zł",
+            "value": "437400,00 zł",
             "label": "Przychód w okresie",
             "sub": "razem (rzecz.+szac.)"
           },
           {
             "testId": "kpi-period-contracts",
-            "value": "308",
+            "value": "39",
             "label": "Umów w okresie",
             "sub": "aktywnych umów"
           },
           {
             "testId": "kpi-period-rented",
-            "value": "1",
+            "value": "5",
             "label": "Wynajętych teraz",
-            "sub": "z 40 maszyn"
+            "sub": "z 31 maszyn"
           },
           {
             "testId": "kpi-period-util",
-            "value": "2.5%",
+            "value": "16.1%",
             "label": "Wykorzystanie",
             "sub": "floty teraz"
           }
         ],
         "tables": [
           {
-            "section": "Top maszyny po przychodzie (10)",
+            "section": "Top maszyny po przychodzie (5)",
             "columns": [
               "#",
               "Maszyna",
@@ -1668,277 +1444,53 @@
             "rows": [
               [
                 "1",
-                "Wózek widłowy 2t LPG",
-                "",
-                "91 650,00 zł",
-                "33",
-                "2"
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "130600,00 zł",
+                "130",
+                "10"
               ],
               [
                 "2",
-                "Ładowarka teleskopowo - obrotowa 21m",
-                "",
-                "76 500,00 zł",
-                "11",
-                "1"
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "116400,00 zł",
+                "148",
+                "11"
               ],
               [
                 "3",
-                "Podnośnik nożycowy elektryczny 14m",
-                "",
-                "62 000,00 zł",
-                "11",
-                "3"
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "103050,00 zł",
+                "143",
+                "10"
               ],
               [
                 "4",
-                "Ładowarka teleskopowa obrotowa 18m",
-                "",
-                "33 750,00 zł",
-                "43",
-                "6"
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "64100,00 zł",
+                "125",
+                "11"
               ],
               [
                 "5",
-                "Podnośnik teleskopowo - przegubowy 16m",
-                "",
-                "27 600,00 zł",
-                "34",
-                "1"
-              ],
-              [
-                "6",
-                "Wciągarka do ładowarki",
-                "",
-                "23 390,00 zł",
-                "42",
-                "4"
-              ],
-              [
-                "7",
-                "Ładowarka teleskopowa obrotowa 21m z wciągarką",
-                "",
-                "22 600,00 zł",
-                "26",
-                "2"
-              ],
-              [
-                "8",
-                "Ładowarka teleskopowa 17m",
-                "",
-                "21 950,00 zł",
-                "30",
-                "2"
-              ],
-              [
-                "9",
-                "Podnośnik teleskopowo - przegubowy spalinowy 16m",
-                "",
-                "21 800,00 zł",
-                "77",
-                "8"
-              ],
-              [
-                "10",
-                "Ładowarka teleskopowa obrotowa 21m",
-                "",
-                "19 860,00 zł",
-                "19",
-                "3"
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "23250,00 zł",
+                "169",
+                "11"
               ]
             ],
-            "rowCount": 10
+            "rowCount": 5
           },
           {
             "section": "Pozycje dodatkowe (usługi)",
-            "columns": [
-              "Usługa",
-              "Przychód",
-              "Razy"
-            ],
-            "rows": [
-              [
-                "Usługa transportowa",
-                "320 000,00 zł",
-                "1"
-              ],
-              [
-                "Usługa ładowarką teleskopową 17m",
-                "49 190,00 zł",
-                "6"
-              ],
-              [
-                "Usługa operatorska",
-                "3 120,00 zł",
-                "1"
-              ],
-              [
-                "Usługa ładowarką teleskopową obrotową 18m",
-                "2 510,00 zł",
-                "9"
-              ],
-              [
-                "Usluga ładowarką teleskopową 6m",
-                "1 980,00 zł",
-                "9"
-              ],
-              [
-                "Usługa ładowarką teleskopową 17m",
-                "1 700,00 zł",
-                "6"
-              ],
-              [
-                "Usługa operatorska",
-                "1 580,00 zł",
-                "5"
-              ],
-              [
-                "Usługa mini żurawiem",
-                "1 470,00 zł",
-                "1"
-              ],
-              [
-                "Usługa wózkiem widłowym 8t",
-                "930,00 zł",
-                "3"
-              ],
-              [
-                "Usługa wózkiem widłowym 2,5t",
-                "900,00 zł",
-                "4"
-              ],
-              [
-                "Usługa podnośnikiem teleskopowo - przegubowym terenowym elektrycznym 18m",
-                "750,00 zł",
-                "1"
-              ],
-              [
-                "Usługa ładowarką obrotową 18m + przedłużki",
-                "700,00 zł",
-                "2"
-              ],
-              [
-                "Usługa podnośnikiem na gąsienicach 23m",
-                "700,00 zł",
-                "2"
-              ],
-              [
-                "Usługa operatorska",
-                "680,00 zł",
-                "2"
-              ],
-              [
-                "Usługa wózkiem widłowym",
-                "640,00 zł",
-                "3"
-              ],
-              [
-                "Usługa ładowarką teleskopową",
-                "610,00 zł",
-                "3"
-              ],
-              [
-                "Usługa ładowarką teleskopową 6m",
-                "600,00 zł",
-                "3"
-              ],
-              [
-                "Usługa ładowarka teleskopowa 10 t",
-                "600,00 zł",
-                "2"
-              ],
-              [
-                "Usługa minikoparką",
-                "580,00 zł",
-                "1"
-              ],
-              [
-                "Usługa operatorska",
-                "550,00 zł",
-                "1"
-              ],
-              [
-                "Usługa ładowarką teleskopową 6m",
-                "500,00 zł",
-                "2"
-              ],
-              [
-                "Usługa wózkiem widłowym 14m",
-                "500,00 zł",
-                "1"
-              ],
-              [
-                "Usługa ładowarką teleskopową 17m",
-                "500,00 zł",
-                "2"
-              ],
-              [
-                "Usługa ładowarką teleskopową 13m",
-                "500,00 zł",
-                "2"
-              ],
-              [
-                "Usługa ładowarką teleskopową 18m",
-                "350,00 zł",
-                "1"
-              ],
-              [
-                "Usługa ładowarką teleskopową 10t",
-                "300,00 zł",
-                "1"
-              ],
-              [
-                "Usługa podnośnikiem teleskopowo - przegubowym 16m",
-                "270,00 zł",
-                "1"
-              ],
-              [
-                "Usługa wózkiem widłowym 2t z przedłużkami",
-                "250,00 zł",
-                "1"
-              ],
-              [
-                "Usługa wózkiem widłowym 4.5t",
-                "250,00 zł",
-                "1"
-              ],
-              [
-                "Usługa ładowarką teleskopową 14m",
-                "250,00 zł",
-                "1"
-              ],
-              [
-                "Usługa wózkiem widłowym",
-                "250,00 zł",
-                "1"
-              ],
-              [
-                "Usługa ładowarką teleskopową 17",
-                "250,00 zł",
-                "1"
-              ],
-              [
-                "Usługa ładowarką teleskopową obrotową 21m",
-                "250,00 zł",
-                "1"
-              ],
-              [
-                "Usługa ładowarką teleskopową 17m",
-                "240,00 zł",
-                "2"
-              ],
-              [
-                "Usługa wókiem widłowym 2t",
-                "200,00 zł",
-                "1"
-              ],
-              [
-                "Usługa wózkiem widłowym 2,5t",
-                "190,00 zł",
-                "1"
-              ]
-            ],
-            "rowCount": 36
+            "columns": [],
+            "rows": [],
+            "rowCount": 0,
+            "empty": "Brak dodatkowych opłat w wybranym okresie"
           },
           {
             "section": "Lokalizacje wynajmu",
@@ -1949,107 +1501,67 @@
             ],
             "rows": [
               [
-                "Warszawa",
-                "39",
-                "163 020,00 zł"
+                "Wrocław",
+                "4",
+                "85750,00 zł"
               ],
               [
-                "Warszawa (brak PNA)",
-                "17",
-                "20 925,00 zł"
-              ],
-              [
-                "Janczewice",
-                "15",
-                "32 460,00 zł"
-              ],
-              [
-                "Bronisze",
-                "12",
-                "17 670,00 zł"
-              ],
-              [
-                "Wola (brak PNA)",
-                "11",
-                "69 140,00 zł"
-              ],
-              [
-                "Gdańsk (brak PNA)",
-                "8",
-                "36 250,00 zł"
-              ],
-              [
-                "Dawidy",
-                "8",
-                "328 790,00 zł"
-              ],
-              [
-                "Chylice-Pólko",
-                "7",
-                "7 100,00 zł"
-              ],
-              [
-                "Bąki",
-                "6",
-                "12 280,00 zł"
+                "Łódź",
+                "4",
+                "21000,00 zł"
               ],
               [
                 "Gdynia",
-                "6",
-                "3 000,00 zł"
-              ],
-              [
-                "Garbatka",
-                "5",
-                "3 080,00 zł"
-              ],
-              [
-                "Wrocław",
-                "5",
-                "52 380,00 zł"
-              ],
-              [
-                "Borkowo",
                 "4",
-                "8 830,00 zł"
-              ],
-              [
-                "Pruszków",
-                "4",
-                "51 760,00 zł"
-              ],
-              [
-                "Barlewice",
-                "4",
-                "27 050,00 zł"
+                "31050,00 zł"
               ],
               [
                 "Gdańsk",
-                "3",
-                "1 310,00 zł"
+                "4",
+                "49510,00 zł"
               ],
               [
-                "Bielawa",
+                "Warszawa",
                 "3",
-                "10 750,00 zł"
+                "51590,00 zł"
               ],
               [
-                "Czaple",
+                "Kraków",
                 "3",
-                "6 780,00 zł"
+                "50400,00 zł"
               ],
               [
-                "Borowiec",
+                "Poznań",
                 "3",
-                "8 860,00 zł"
+                "580,00 zł"
+              ],
+              [
+                "Katowice",
+                "3",
+                "22960,00 zł"
+              ],
+              [
+                "Bydgoszcz",
+                "3",
+                "29250,00 zł"
               ],
               [
                 "Lublin",
                 "3",
-                "2 600,00 zł"
+                "40740,00 zł"
+              ],
+              [
+                "Szczecin",
+                "3",
+                "25170,00 zł"
+              ],
+              [
+                "Radom",
+                "2",
+                "29400,00 zł"
               ]
             ],
-            "rowCount": 20
+            "rowCount": 12
           },
           {
             "section": "Pozycje umów",
@@ -2064,461 +1576,56 @@
             ],
             "rows": [
               [
-                "Usługa transportowa",
-                "",
-                "ogólna",
-                "320 000,00 zł",
-                "0",
-                "1",
-                "1"
-              ],
-              [
-                "Wózek widłowy 2t LPG",
-                "",
-                "Wózki widlowe",
-                "100 650,00 zł",
-                "33",
-                "2",
-                "2"
-              ],
-              [
-                "Ładowarka teleskopowo - obrotowa 21m",
-                "",
-                "Ładowarki Teleskopowe",
-                "76 500,00 zł",
-                "11",
-                "1",
-                "1"
-              ],
-              [
-                "Podnośnik nożycowy elektryczny 14m",
-                "",
-                "Podnośniki Nożycowe",
-                "62 000,00 zł",
-                "11",
-                "3",
-                "3"
-              ],
-              [
-                "Usługa ładowarką teleskopową 17m",
-                "",
-                "Ładowarki Teleskopowe",
-                "49 190,00 zł",
-                "0",
-                "6",
-                "6"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 18m",
-                "",
-                "Ładowarki Teleskopowe",
-                "31 710,00 zł",
-                "43",
-                "6",
-                "6"
-              ],
-              [
-                "Podnośnik teleskopowo - przegubowy 16m",
-                "",
-                "Podnośniki Teleskopowe",
-                "27 600,00 zł",
-                "34",
-                "1",
-                "1"
-              ],
-              [
-                "Wciągarka do ładowarki",
-                "",
-                "Akcesoria",
-                "23 390,00 zł",
-                "42",
-                "4",
-                "4"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 21m",
-                "",
-                "Ładowarki Teleskopowe",
-                "21 100,00 zł",
-                "19",
-                "3",
-                "3"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 21m z wciągarką",
-                "",
-                "Ładowarki Teleskopowe",
-                "20 800,00 zł",
-                "26",
-                "2",
-                "2"
-              ],
-              [
-                "Ładowarka teleskopowa 17m",
-                "",
-                "Ladowarki teleskopowe",
-                "19 350,00 zł",
-                "30",
-                "2",
-                "2"
-              ],
-              [
-                "Podnośnik teleskopowo - przegubowy spalinowy 16m",
-                "",
-                "Podnośniki Teleskopowe",
-                "18 840,00 zł",
-                "77",
-                "8",
-                "8"
-              ],
-              [
-                "Ładowarka teleskopowa 17m",
-                "",
-                "Ładowarki Teleskopowe",
-                "18 600,00 zł",
-                "31",
-                "2",
-                "2"
-              ],
-              [
-                "Ładowarka teleskopowa 17m",
-                "",
-                "Ładowarki Teleskopowe",
-                "17 200,00 zł",
-                "27",
-                "6",
-                "6"
-              ],
-              [
-                "Podnośnik teleskopowo - przegubowy spalinowy 16m",
-                "",
-                "Podnośniki Teleskopowe",
-                "17 115,00 zł",
-                "50",
-                "7",
-                "7"
-              ],
-              [
-                "Podnośnik teleskopowo - przegubowy spalinowy 16m",
-                "",
-                "Podnośniki Teleskopowe",
-                "16 700,00 zł",
-                "55",
-                "7",
-                "7"
-              ],
-              [
-                "Wózek widłowy spalinowy 8t",
-                "",
-                "Wozidła",
-                "16 440,00 zł",
-                "31",
-                "2",
-                "2"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 18m",
-                "",
-                "Ładowarki Teleskopowe",
-                "14 860,00 zł",
-                "19",
-                "2",
-                "2"
-              ],
-              [
-                "Podnośnik teleskopowy 20m",
-                "",
-                "Podnośniki Teleskopowe",
-                "14 520,00 zł",
-                "46",
-                "3",
-                "3"
-              ],
-              [
-                "Wciągarka do ładowarki",
-                "",
-                "Akcesoria",
-                "13 845,00 zł",
-                "21",
-                "4",
-                "4"
-              ],
-              [
-                "Ładowarka teleskopowa 14m",
-                "",
-                "Ładowarki Teleskopowe",
-                "13 680,00 zł",
-                "31",
-                "4",
-                "4"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 18m",
-                "",
-                "Ladowarki teleskopowe",
-                "13 120,00 zł",
-                "16",
-                "1",
-                "1"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 21m",
-                "",
-                "Ładowarki Teleskopowe",
-                "12 320,00 zł",
-                "16",
-                "1",
-                "1"
-              ],
-              [
-                "Ładowarka teleskopowa 17m",
-                "",
-                "Ładowarki Teleskopowe",
-                "11 480,00 zł",
-                "23",
-                "2",
-                "2"
-              ],
-              [
-                "Ładowarka teleskopowa 9m",
-                "",
-                "Ładowarki Teleskopowe",
-                "11 360,00 zł",
-                "16",
-                "6",
-                "6"
-              ],
-              [
-                "Podnośnik nożycowy spalinowy 15m",
-                "",
-                "Podnośniki Nożycowe",
-                "9 990,00 zł",
-                "42",
-                "6",
-                "6"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 18m + żuraw",
-                "",
-                "Ladowarki teleskopowe",
-                "9 800,00 zł",
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "Spychacze",
+                "130600,00 zł",
+                "130",
                 "10",
-                "1",
-                "1"
+                "10"
               ],
               [
-                "Podnośnik teleskopowo - przegubowy elektryczny 16m",
-                "",
-                "Podnośniki Teleskopowe",
-                "9 760,00 zł",
-                "25",
-                "4",
-                "4"
-              ],
-              [
-                "Ładowarka teleskopowa 14m",
-                "",
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
                 "Ładowarki Teleskopowe",
-                "9 630,00 zł",
-                "16",
-                "5",
-                "5"
+                "116400,00 zł",
+                "148",
+                "11",
+                "11"
               ],
               [
-                "Ładowarka teleskopowa obrotowa 16m + żuraw",
-                "",
-                "Ladowarki teleskopowe",
-                "9 240,00 zł",
-                "14",
-                "1",
-                "1"
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "Koparki",
+                "103050,00 zł",
+                "143",
+                "10",
+                "10"
               ],
               [
-                "Ładowarka teleskopowa 6m",
-                "",
-                "Ladowarki teleskopowe",
-                "8 200,00 zł",
-                "22",
-                "3",
-                "3"
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "Podnośniki",
+                "64100,00 zł",
+                "125",
+                "11",
+                "11"
               ],
               [
-                "Ładowarka teleskopowa- 6m",
-                "",
-                "Ładowarki Teleskopowe",
-                "8 050,00 zł",
-                "17",
-                "6",
-                "6"
-              ],
-              [
-                "Ładowarka teleskopowa 6m",
-                "",
-                "Ładowarki Teleskopowe",
-                "7 060,00 zł",
-                "14",
-                "5",
-                "5"
-              ],
-              [
-                "Wózek widłowy elektryczny 5t",
-                "",
-                "Wozidła",
-                "6 960,00 zł",
-                "9",
-                "2",
-                "2"
-              ],
-              [
-                "Podnośnik nożycowy spalinowy 12m",
-                "",
-                "Podnośniki Nożycowe",
-                "6 910,00 zł",
-                "17",
-                "6",
-                "6"
-              ],
-              [
-                "Ładowarka teleskopowa 17m",
-                "",
-                "Ladowarki teleskopowe",
-                "6 750,00 zł",
-                "13",
-                "2",
-                "2"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 25m",
-                "",
-                "Ładowarki Teleskopowe",
-                "6 000,00 zł",
-                "6",
-                "2",
-                "2"
-              ],
-              [
-                "Wózek widłowy LPG 2,5t",
-                "",
-                "Wozidła",
-                "5 700,00 zł",
-                "30",
-                "1",
-                "1"
-              ],
-              [
-                "Ładowarka teleskopowa 17m",
-                "",
-                "Ladowarki teleskopowe",
-                "5 560,00 zł",
-                "9",
-                "3",
-                "3"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 16m",
-                "",
-                "Ladowarki teleskopowe",
-                "5 520,00 zł",
-                "8",
-                "2",
-                "2"
-              ],
-              [
-                "Podnośnik nożycowy elektryczny 12m",
-                "",
-                "Podnośniki Nożycowe",
-                "5 510,00 zł",
-                "35",
-                "6",
-                "6"
-              ],
-              [
-                "Podnośnik teleskopowo - przegubowy spalinowy 43m",
-                "",
-                "Podesty przegubowo-teleskopowe elektryczne",
-                "5 400,00 zł",
-                "3",
-                "1",
-                "1"
-              ],
-              [
-                "Ładowarka teleskopowa 13m",
-                "",
-                "Ładowarki Teleskopowe",
-                "5 040,00 zł",
-                "12",
-                "1",
-                "1"
-              ],
-              [
-                "Podnośnik teleskopowo - przegubowy spalinowy 18m",
-                "",
-                "Podesty przegubowo-teleskopowe elektryczne",
-                "5 000,00 zł",
-                "12",
-                "2",
-                "2"
-              ],
-              [
-                "Wózek widłowy 1,6t elektryczny",
-                "",
-                "Wózki widlowe",
-                "4 690,00 zł",
-                "7",
-                "1",
-                "1"
-              ],
-              [
-                "Podnośnik teleskopowo - przegubowy elektryczny 16m - LGMG A14JE-LI",
-                "",
-                "Podesty przegubowo-teleskopowe elektryczne",
-                "4 600,00 zł",
-                "20",
-                "1",
-                "1"
-              ],
-              [
-                "Podnośnik teleskopowo - przegubowy spalinowy 16m",
-                "",
-                "Podnośniki Teleskopowe",
-                "4 480,00 zł",
-                "14",
-                "1",
-                "1"
-              ],
-              [
-                "Wózek widłowy 5t LPG",
-                "",
-                "Wozidła",
-                "4 380,00 zł",
-                "7",
-                "3",
-                "3"
-              ],
-              [
-                "Wózek widłowy 1,6t elektryczny",
-                "",
-                "Wozidła",
-                "4 200,00 zł",
-                "30",
-                "1",
-                "1"
-              ],
-              [
-                "Ładowarka teleskopowa 7t",
-                "",
-                "Ładowarki Teleskopowe",
-                "4 130,00 zł",
-                "5",
-                "3",
-                "3"
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "Zagęszczarki",
+                "23250,00 zł",
+                "169",
+                "11",
+                "11"
               ]
             ],
-            "rowCount": 188
+            "rowCount": 5
           }
         ],
         "extraText": {
-          "revenue-breakdown": "Rzeczywiste (z rozliczeń):130 620,00 złSzacunek (cennik):1 162 510,00 zł"
+          "revenue-breakdown": "Rzeczywiste (z rozliczeń):161070,00 złSzacunek (cennik):276330,00 zł"
         },
         "visible": true
       }
@@ -2545,52 +1652,52 @@
         "method": "GET",
         "url": "/rao/api/stats/fleet-summary",
         "params": {
-          "date_to": "2026-07-09"
+          "date_to": "2026-07-11"
         },
-        "ts": "2026-07-09T00:00:21.074Z"
+        "ts": "2026-07-11T07:24:38.073Z"
       },
       {
         "method": "GET",
         "url": "/rao/api/stats/top-machines",
         "params": {
           "limit": "10",
-          "date_to": "2026-07-09"
+          "date_to": "2026-07-11"
         },
-        "ts": "2026-07-09T00:00:21.074Z"
+        "ts": "2026-07-11T07:24:38.073Z"
       },
       {
         "method": "GET",
         "url": "/rao/api/stats/additional-fees",
         "params": {
-          "date_to": "2026-07-09"
+          "date_to": "2026-07-11"
         },
-        "ts": "2026-07-09T00:00:21.074Z"
+        "ts": "2026-07-11T07:24:38.073Z"
       },
       {
         "method": "GET",
         "url": "/rao/api/stats/locations",
         "params": {
-          "date_to": "2026-07-09"
+          "date_to": "2026-07-11"
         },
-        "ts": "2026-07-09T00:00:21.074Z"
+        "ts": "2026-07-11T07:24:38.073Z"
       },
       {
         "method": "GET",
         "url": "/rao/api/stats/positions",
         "params": {
           "type": "all",
-          "date_to": "2026-07-09"
+          "date_to": "2026-07-11"
         },
-        "ts": "2026-07-09T00:00:21.074Z"
+        "ts": "2026-07-11T07:24:38.073Z"
       },
       {
         "method": "GET",
         "url": "/rao/api/stats/by-category",
         "params": {
           "level": "main",
-          "date_to": "2026-07-09"
+          "date_to": "2026-07-11"
         },
-        "ts": "2026-07-09T00:00:21.074Z"
+        "ts": "2026-07-11T07:24:38.073Z"
       }
     ],
     "tabs": [
@@ -2599,32 +1706,32 @@
         "kpi": [
           {
             "testId": "kpi-period-revenue",
-            "value": "2 164 394,00 zł",
+            "value": "794120,00 zł",
             "label": "Przychód w okresie",
             "sub": "razem (rzecz.+szac.)"
           },
           {
             "testId": "kpi-period-contracts",
-            "value": "742",
+            "value": "64",
             "label": "Umów w okresie",
             "sub": "aktywnych umów"
           },
           {
             "testId": "kpi-period-rented",
-            "value": "1",
+            "value": "5",
             "label": "Wynajętych teraz",
-            "sub": "z 40 maszyn"
+            "sub": "z 31 maszyn"
           },
           {
             "testId": "kpi-period-util",
-            "value": "2.5%",
+            "value": "16.1%",
             "label": "Wykorzystanie",
             "sub": "floty teraz"
           }
         ],
         "tables": [
           {
-            "section": "Top maszyny po przychodzie (10)",
+            "section": "Top maszyny po przychodzie (5)",
             "columns": [
               "#",
               "Maszyna",
@@ -2636,347 +1743,53 @@
             "rows": [
               [
                 "1",
-                "Wózek widłowy 2t LPG",
-                "",
-                "102 050,00 zł",
-                "37",
-                "3"
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "276900,00 zł",
+                "270",
+                "17"
               ],
               [
                 "2",
-                "Ładowarka teleskopowo - obrotowa 21m",
-                "",
-                "87 120,00 zł",
-                "103",
-                "4"
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
+                "187800,00 zł",
+                "277",
+                "18"
               ],
               [
                 "3",
-                "Podnośnik nożycowy elektryczny 14m",
-                "",
-                "64 240,00 zł",
-                "25",
-                "4"
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "171300,00 zł",
+                "240",
+                "16"
               ],
               [
                 "4",
-                "Ładowarka teleskopowa 14m",
-                "",
-                "41 590,00 zł",
-                "84",
-                "7"
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "117020,00 zł",
+                "279",
+                "18"
               ],
               [
                 "5",
-                "Ładowarka teleskopowa 17m",
-                "",
-                "40 690,00 zł",
-                "71",
-                "10"
-              ],
-              [
-                "6",
-                "Ładowarka teleskopowa obrotowa 18m",
-                "",
-                "38 650,00 zł",
-                "50",
-                "7"
-              ],
-              [
-                "7",
-                "Podnośnik teleskopowo - przegubowy 16m",
-                "",
-                "30 760,00 zł",
-                "131",
-                "3"
-              ],
-              [
-                "8",
-                "Ładowarka teleskopowa obrotowa 21m",
-                "",
-                "30 025,00 zł",
-                "36",
-                "4"
-              ],
-              [
-                "9",
-                "Ładowarka teleskopowa 14m",
-                "",
-                "27 180,00 zł",
-                "91",
-                "6"
-              ],
-              [
-                "10",
-                "Ładowarka teleskopowa 21m",
-                "",
-                "25 500,00 zł",
-                "30",
-                "1"
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "41100,00 zł",
+                "294",
+                "17"
               ]
             ],
-            "rowCount": 10
+            "rowCount": 5
           },
           {
             "section": "Pozycje dodatkowe (usługi)",
-            "columns": [
-              "Usługa",
-              "Przychód",
-              "Razy"
-            ],
-            "rows": [
-              [
-                "Usługa transportowa",
-                "320 900,00 zł",
-                "2"
-              ],
-              [
-                "Usługa ładowarką teleskopową 17m",
-                "49 940,00 zł",
-                "9"
-              ],
-              [
-                "Usługa minikoparką",
-                "5 080,00 zł",
-                "2"
-              ],
-              [
-                "Usługa ładowarką teleskopową",
-                "4 170,00 zł",
-                "5"
-              ],
-              [
-                "Usługa ładowarką teleskopową obrotową 18m",
-                "3 330,00 zł",
-                "12"
-              ],
-              [
-                "Usługa ładowarką teleskopową 17m",
-                "3 120,00 zł",
-                "12"
-              ],
-              [
-                "Usługa operatorska",
-                "3 120,00 zł",
-                "1"
-              ],
-              [
-                "Usługa ładowarką teleskopową 6m",
-                "2 770,00 zł",
-                "11"
-              ],
-              [
-                "Usluga ładowarką teleskopową 6m",
-                "2 480,00 zł",
-                "11"
-              ],
-              [
-                "Usługa ładowarką teleskopową obrotową 21m",
-                "2 280,00 zł",
-                "1"
-              ],
-              [
-                "Usługa mini żurawiem",
-                "2 250,00 zł",
-                "4"
-              ],
-              [
-                "Usługa operatorska",
-                "2 080,00 zł",
-                "6"
-              ],
-              [
-                "Usługa ładowarką teleskopową 17",
-                "1 870,00 zł",
-                "5"
-              ],
-              [
-                "Usługa ładowarką teleskopową obrotową 25m",
-                "1 620,00 zł",
-                "2"
-              ],
-              [
-                "Usługa wózkiem widłowym 2,5t",
-                "1 600,00 zł",
-                "7"
-              ],
-              [
-                "Podnośnik przegubowo – teleskopowy spalinowy 16m",
-                "1 600,00 zł",
-                "1"
-              ],
-              [
-                "Usługa wózkiem widłowym 8t",
-                "1 530,00 zł",
-                "7"
-              ],
-              [
-                "Usługa wózkiem widłowym 8t",
-                "1 500,00 zł",
-                "6"
-              ],
-              [
-                "Usługa ładowarką obrotową 18m + przedłużki",
-                "1 480,00 zł",
-                "5"
-              ],
-              [
-                "Usługa mini żurawiem dekarskim",
-                "1 450,00 zł",
-                "2"
-              ],
-              [
-                "Usługa ładowarką teleskopową 6m",
-                "1 200,00 zł",
-                "5"
-              ],
-              [
-                "Usługa ładowarką obrotową 21m",
-                "1 180,00 zł",
-                "4"
-              ],
-              [
-                "Usługa wózkiem widłowym",
-                "1 090,00 zł",
-                "5"
-              ],
-              [
-                "Usługa ładowarką teleskopową",
-                "1 080,00 zł",
-                "5"
-              ],
-              [
-                "Usługa wózkiem widłowym",
-                "950,00 zł",
-                "4"
-              ],
-              [
-                "Usługa ładowarką teleskopową 17m",
-                "950,00 zł",
-                "4"
-              ],
-              [
-                "Usługa ładowarką teleskopową 10t",
-                "900,00 zł",
-                "3"
-              ],
-              [
-                "Usługa ładowarką obrotową",
-                "880,00 zł",
-                "3"
-              ],
-              [
-                "Usługa ładowarką teleskopową 6m",
-                "780,00 zł",
-                "4"
-              ],
-              [
-                "Usługa ładowarką teleskopową 7m",
-                "760,00 zł",
-                "1"
-              ],
-              [
-                "Usługa ładowarką teleskopową 13m",
-                "750,00 zł",
-                "3"
-              ],
-              [
-                "Usługa podnośnikiem teleskopowo - przegubowym terenowym elektrycznym 18m",
-                "750,00 zł",
-                "1"
-              ],
-              [
-                "Usługa podnośnikiem na gąsienicach 23m",
-                "700,00 zł",
-                "2"
-              ],
-              [
-                "Usługa operatorska",
-                "680,00 zł",
-                "2"
-              ],
-              [
-                "Usługa ładowarką teleskopową obrotową 16m",
-                "630,00 zł",
-                "1"
-              ],
-              [
-                "Usługa wózkiem widłowym 7t",
-                "600,00 zł",
-                "2"
-              ],
-              [
-                "Usługa ładowarką teleskopową 18m",
-                "600,00 zł",
-                "2"
-              ],
-              [
-                "Usługa ładowarka teleskopowa 10 t",
-                "600,00 zł",
-                "2"
-              ],
-              [
-                "Usługa wózkiem widłowym 2,5t",
-                "590,00 zł",
-                "3"
-              ],
-              [
-                "Usługa operatorska",
-                "550,00 zł",
-                "1"
-              ],
-              [
-                "Usługa wózkiem widłowym 3t",
-                "540,00 zł",
-                "2"
-              ],
-              [
-                "Usługa ładowarką teleskopową 14m",
-                "500,00 zł",
-                "2"
-              ],
-              [
-                "Usługa minikoparka",
-                "500,00 zł",
-                "2"
-              ],
-              [
-                "Usługa wózkiem widłowym 14m",
-                "500,00 zł",
-                "1"
-              ],
-              [
-                "Usługa podnośnikiem teleskopowo - przegubowym 16m",
-                "450,00 zł",
-                "2"
-              ],
-              [
-                "Usługa wózkiem widłowym 4.5t",
-                "440,00 zł",
-                "2"
-              ],
-              [
-                "Usługa wózkiem widłowym 2t z przedłużkami",
-                "440,00 zł",
-                "2"
-              ],
-              [
-                "Podest teleskopowo - przegubowy spalinowy 16m",
-                "420,00 zł",
-                "1"
-              ],
-              [
-                "Usługa podnośnik koszowy na samochodzie 40m",
-                "390,00 zł",
-                "1"
-              ],
-              [
-                "Usługa wókiem widłowym 2t",
-                "390,00 zł",
-                "2"
-              ]
-            ],
-            "rowCount": 68
+            "columns": [],
+            "rows": [],
+            "rowCount": 0,
+            "empty": "Brak dodatkowych opłat w wybranym okresie"
           },
           {
             "section": "Lokalizacje wynajmu",
@@ -2987,107 +1800,67 @@
             ],
             "rows": [
               [
-                "Warszawa",
-                "100",
-                "323 025,00 zł"
-              ],
-              [
-                "Warszawa (brak PNA)",
-                "45",
-                "57 535,00 zł"
-              ],
-              [
-                "Wola (brak PNA)",
-                "31",
-                "90 575,00 zł"
-              ],
-              [
-                "Chylice-Pólko",
-                "24",
-                "35 540,00 zł"
-              ],
-              [
-                "Janczewice",
-                "21",
-                "40 635,00 zł"
-              ],
-              [
-                "Gdańsk (brak PNA)",
-                "21",
-                "78 470,00 zł"
-              ],
-              [
-                "Bronisze",
-                "18",
-                "41 060,00 zł"
-              ],
-              [
-                "Dawidy",
-                "14",
-                "331 630,00 zł"
-              ],
-              [
-                "Wrocław (brak PNA)",
-                "12",
-                "5 650,00 zł"
-              ],
-              [
                 "Wrocław",
-                "9",
-                "69 410,00 zł"
+                "6",
+                "158550,00 zł"
               ],
               [
-                "Piaseczno (brak PNA)",
-                "9",
-                "17 920,00 zł"
+                "Łódź",
+                "6",
+                "26250,00 zł"
               ],
               [
                 "Gdynia",
-                "9",
-                "3 840,00 zł"
-              ],
-              [
-                "Garbatka",
-                "8",
-                "7 060,00 zł"
-              ],
-              [
-                "Michałowice (brak PNA)",
-                "7",
-                "15 860,00 zł"
-              ],
-              [
-                "Borowiec",
                 "6",
-                "14 840,00 zł"
-              ],
-              [
-                "Bydgoszcz (brak PNA)",
-                "6",
-                "3 240,00 zł"
+                "47430,00 zł"
               ],
               [
                 "Gdańsk",
                 "6",
-                "3 210,00 zł"
+                "97180,00 zł"
               ],
               [
-                "Bąki",
-                "6",
-                "13 720,00 zł"
-              ],
-              [
-                "Michałowice",
+                "Warszawa",
                 "5",
-                "5 170,00 zł"
+                "71680,00 zł"
               ],
               [
-                "Kajetany",
+                "Kraków",
                 "5",
-                "4 230,00 zł"
+                "74200,00 zł"
+              ],
+              [
+                "Poznań",
+                "5",
+                "12550,00 zł"
+              ],
+              [
+                "Katowice",
+                "5",
+                "38920,00 zł"
+              ],
+              [
+                "Bydgoszcz",
+                "5",
+                "42200,00 zł"
+              ],
+              [
+                "Lublin",
+                "5",
+                "67620,00 zł"
+              ],
+              [
+                "Szczecin",
+                "5",
+                "49740,00 zł"
+              ],
+              [
+                "Radom",
+                "5",
+                "107800,00 zł"
               ]
             ],
-            "rowCount": 20
+            "rowCount": 12
           },
           {
             "section": "Pozycje umów",
@@ -3102,461 +1875,56 @@
             ],
             "rows": [
               [
-                "Usługa transportowa",
-                "",
-                "ogólna",
-                "320 900,00 zł",
-                "0",
-                "2",
-                "2"
-              ],
-              [
-                "Wózek widłowy 2t LPG",
-                "",
-                "Wózki widlowe",
-                "102 050,00 zł",
-                "37",
-                "3",
-                "3"
-              ],
-              [
-                "Ładowarka teleskopowo - obrotowa 21m",
-                "",
-                "Ładowarki Teleskopowe",
-                "87 120,00 zł",
-                "103",
-                "4",
-                "4"
-              ],
-              [
-                "Podnośnik nożycowy elektryczny 14m",
-                "",
-                "Podnośniki Nożycowe",
-                "64 240,00 zł",
-                "25",
-                "4",
-                "4"
-              ],
-              [
-                "Usługa ładowarką teleskopową 17m",
-                "",
-                "Ładowarki Teleskopowe",
-                "49 940,00 zł",
-                "0",
-                "9",
-                "9"
-              ],
-              [
-                "Ładowarka teleskopowa 17m",
-                "",
-                "Ładowarki Teleskopowe",
-                "42 270,00 zł",
-                "71",
-                "10",
-                "10"
-              ],
-              [
-                "Ładowarka teleskopowa 14m",
-                "",
-                "Ładowarki Teleskopowe",
-                "41 590,00 zł",
-                "84",
-                "7",
-                "7"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 18m",
-                "",
-                "Ładowarki Teleskopowe",
-                "37 750,00 zł",
-                "50",
-                "7",
-                "7"
-              ],
-              [
-                "Podnośnik teleskopowo - przegubowy 16m",
-                "",
-                "Podnośniki Teleskopowe",
-                "30 760,00 zł",
-                "131",
-                "3",
-                "3"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 21m",
-                "",
-                "Ładowarki Teleskopowe",
-                "30 025,00 zł",
-                "36",
-                "4",
-                "4"
-              ],
-              [
-                "Ładowarka teleskopowa 14m",
-                "",
-                "Ładowarki Teleskopowe",
-                "27 980,00 zł",
-                "91",
-                "6",
-                "6"
-              ],
-              [
-                "Ładowarka teleskopowa 17m",
-                "",
-                "Ładowarki Teleskopowe",
-                "27 380,00 zł",
-                "48",
-                "7",
-                "7"
-              ],
-              [
-                "Ładowarka teleskopowa 21m",
-                "",
-                "Ładowarki Teleskopowe",
-                "25 500,00 zł",
-                "30",
-                "1",
-                "1"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 18m",
-                "",
-                "Ładowarki Teleskopowe",
-                "24 940,00 zł",
-                "33",
-                "4",
-                "4"
-              ],
-              [
-                "Wciągarka do ładowarki",
-                "",
-                "Akcesoria",
-                "23 725,00 zł",
-                "49",
-                "6",
-                "6"
-              ],
-              [
-                "Wózek widłowy elektryczny 5t",
-                "",
-                "Wozidła",
-                "23 610,00 zł",
-                "56",
-                "5",
-                "5"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 21m",
-                "",
-                "Ładowarki Teleskopowe",
-                "21 910,00 zł",
-                "22",
-                "4",
-                "4"
-              ],
-              [
-                "Ładowarka teleskopowa 17m",
-                "",
-                "Ładowarki Teleskopowe",
-                "21 460,00 zł",
-                "40",
-                "5",
-                "5"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 21m z wciągarką",
-                "",
-                "Ładowarki Teleskopowe",
-                "20 800,00 zł",
-                "26",
-                "2",
-                "2"
-              ],
-              [
-                "Podnośnik teleskopowo - przegubowy spalinowy 16m",
-                "",
-                "Podnośniki Teleskopowe",
-                "20 785,00 zł",
-                "55",
-                "8",
-                "8"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 18m",
-                "",
-                "Ladowarki teleskopowe",
-                "19 500,00 zł",
-                "30",
-                "1",
-                "1"
-              ],
-              [
-                "Ładowarka teleskopowa 17m",
-                "",
-                "Ladowarki teleskopowe",
-                "19 350,00 zł",
-                "30",
-                "2",
-                "2"
-              ],
-              [
-                "Podnośnik teleskopowo - przegubowy spalinowy 16m",
-                "",
-                "Podnośniki Teleskopowe",
-                "19 240,00 zł",
-                "77",
-                "8",
-                "8"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 16m",
-                "",
-                "Ładowarki Teleskopowe",
-                "18 840,00 zł",
-                "25",
-                "5",
-                "5"
-              ],
-              [
-                "Podnośnik teleskopowo - przegubowy elektryczny 16m",
-                "",
-                "Podnośniki Teleskopowe",
-                "18 350,00 zł",
-                "61",
-                "2",
-                "2"
-              ],
-              [
-                "Podnośnik teleskopowo - przegubowy elektryczny 16m",
-                "",
-                "Podnośniki Teleskopowe",
-                "18 000,00 zł",
-                "60",
-                "1",
-                "1"
-              ],
-              [
-                "Ładowarka teleskopowa 10t",
-                "",
-                "Ładowarki Teleskopowe",
-                "16 800,00 zł",
-                "22",
-                "5",
-                "5"
-              ],
-              [
-                "Podnośnik nożycowy spalinowy 15m",
-                "",
-                "Podnośniki Nożycowe",
-                "15 945,00 zł",
-                "59",
-                "8",
-                "8"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 25m",
-                "",
-                "Ładowarki Teleskopowe",
-                "15 944,00 zł",
+                "Spychar Wirtgen W100CFi",
+                "SPY-004",
+                "Spychacze",
+                "276900,00 zł",
+                "270",
                 "17",
-                "4",
-                "4"
+                "17"
               ],
               [
-                "Ładowarka teleskopowa 7t",
-                "",
+                "Ładowarka teleskopowa Manuscop 6.36",
+                "LAD-002",
                 "Ładowarki Teleskopowe",
-                "15 830,00 zł",
-                "28",
-                "6",
-                "6"
-              ],
-              [
-                "Wciągarka do ładowarki",
-                "",
-                "Akcesoria",
-                "15 270,00 zł",
-                "135",
-                "7",
-                "7"
-              ],
-              [
-                "Podnośnik teleskopowo - przegubowy spalinowy 16m",
-                "",
-                "Podnośniki Teleskopowe",
-                "15 120,00 zł",
-                "55",
-                "7",
-                "7"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 18m",
-                "",
-                "Ladowarki teleskopowe",
-                "14 920,00 zł",
+                "187800,00 zł",
+                "277",
                 "18",
-                "2",
-                "2"
+                "18"
               ],
               [
-                "Ładowarka teleskopowa 6m",
-                "",
-                "Ładowarki Teleskopowe",
-                "14 520,00 zł",
-                "31",
-                "12",
-                "12"
-              ],
-              [
-                "Podnośnik teleskopowy 20m",
-                "",
-                "Podnośniki Teleskopowe",
-                "14 520,00 zł",
-                "46",
-                "3",
-                "3"
-              ],
-              [
-                "Ładowarka teleskopowa- 6m",
-                "",
-                "Ładowarki Teleskopowe",
-                "14 480,00 zł",
-                "32",
-                "10",
-                "10"
-              ],
-              [
-                "Minikoparka 2,5t",
-                "",
-                "Maszyny Do Prac Ziemnych",
-                "14 450,00 zł",
-                "36",
-                "3",
-                "3"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 16m",
-                "",
-                "Ładowarki Teleskopowe",
-                "14 060,00 zł",
-                "21",
-                "3",
-                "3"
-              ],
-              [
-                "Wózek widłowy LPG 2,5t",
-                "",
-                "Wozidła",
-                "12 885,00 zł",
-                "51",
-                "2",
-                "2"
-              ],
-              [
-                "Podnośnik teleskopowo - przegubowy elektryczny 20m",
-                "",
-                "Podnośniki Teleskopowe",
-                "12 700,00 zł",
-                "35",
-                "2",
-                "2"
-              ],
-              [
-                "Podnośnik teleskopowo - przegubowy spalinowy 16m",
-                "",
-                "Podnośniki Teleskopowe",
-                "12 640,00 zł",
-                "45",
-                "11",
-                "11"
-              ],
-              [
-                "Ładowarka teleskopowa 17m z łyżką",
-                "",
-                "Ładowarki Teleskopowe",
-                "12 450,00 zł",
+                "Koparka gąsienicowa JCB 8035",
+                "KOP-001",
+                "Koparki",
+                "171300,00 zł",
+                "240",
                 "16",
-                "3",
-                "3"
+                "16"
               ],
               [
-                "Ładowarka teleskopowo - obrotowa18m",
-                "",
-                "Ładowarki Teleskopowe",
-                "12 160,00 zł",
-                "16",
-                "3",
-                "3"
+                "Podnośnik koszowy Haulotte HA16PX",
+                "POD-003",
+                "Podnośniki",
+                "117020,00 zł",
+                "279",
+                "18",
+                "18"
               ],
               [
-                "Wózek widłowy spalinowy 8t",
-                "",
-                "Wozidła",
-                "12 140,00 zł",
-                "33",
-                "4",
-                "4"
-              ],
-              [
-                "Ładowarka teleskopowa 9m",
-                "",
-                "Ładowarki Teleskopowe",
-                "12 100,00 zł",
+                "Zagęszczarka Ammann APF 15/50",
+                "ZAG-005",
+                "Zagęszczarki",
+                "41100,00 zł",
+                "294",
                 "17",
-                "7",
-                "7"
-              ],
-              [
-                "Podnośnik gąsienicowy CELA DT25",
-                "",
-                "Podnośniki Specjalne",
-                "11 730,00 zł",
-                "15",
-                "4",
-                "4"
-              ],
-              [
-                "Ładowarka teleskopowa obrotowa 16m",
-                "",
-                "Ladowarki teleskopowe",
-                "11 455,00 zł",
-                "15",
-                "5",
-                "5"
-              ],
-              [
-                "Ładowarka teleskopowa 8m",
-                "",
-                "Ładowarki Teleskopowe",
-                "11 400,00 zł",
-                "30",
-                "1",
-                "1"
-              ],
-              [
-                "Podnośnik teleskopowy spalinowy 28m",
-                "",
-                "ogólna",
-                "11 400,00 zł",
-                "15",
-                "1",
-                "1"
-              ],
-              [
-                "Podnośnik teleskopowo - przegubowy spalinowy 20m",
-                "",
-                "Podnośniki Teleskopowe",
-                "11 250,00 zł",
-                "31",
-                "2",
-                "2"
+                "17"
               ]
             ],
-            "rowCount": 351
+            "rowCount": 5
           }
         ],
         "extraText": {
-          "revenue-breakdown": "Rzeczywiste (z rozliczeń):776 304,00 złSzacunek (cennik):1 388 090,00 zł"
+          "revenue-breakdown": "Rzeczywiste (z rozliczeń):517790,00 złSzacunek (cennik):276330,00 zł"
         },
         "visible": true
       }
@@ -3584,10 +1952,10 @@
         "url": "/rao/api/stats/fleet-summary",
         "params": {
           "date_from": "2026-06-30",
-          "date_to": "2026-07-09",
+          "date_to": "2026-07-11",
           "article_type": "machine"
         },
-        "ts": "2026-07-09T00:01:07.433Z"
+        "ts": "2026-07-11T07:24:47.695Z"
       },
       {
         "method": "GET",
@@ -3595,27 +1963,27 @@
         "params": {
           "limit": "10",
           "date_from": "2026-06-30",
-          "date_to": "2026-07-09"
+          "date_to": "2026-07-11"
         },
-        "ts": "2026-07-09T00:01:07.433Z"
+        "ts": "2026-07-11T07:24:47.697Z"
       },
       {
         "method": "GET",
         "url": "/rao/api/stats/additional-fees",
         "params": {
           "date_from": "2026-06-30",
-          "date_to": "2026-07-09"
+          "date_to": "2026-07-11"
         },
-        "ts": "2026-07-09T00:01:07.433Z"
+        "ts": "2026-07-11T07:24:47.697Z"
       },
       {
         "method": "GET",
         "url": "/rao/api/stats/locations",
         "params": {
           "date_from": "2026-06-30",
-          "date_to": "2026-07-09"
+          "date_to": "2026-07-11"
         },
-        "ts": "2026-07-09T00:01:07.434Z"
+        "ts": "2026-07-11T07:24:47.697Z"
       },
       {
         "method": "GET",
@@ -3623,9 +1991,9 @@
         "params": {
           "type": "machine",
           "date_from": "2026-06-30",
-          "date_to": "2026-07-09"
+          "date_to": "2026-07-11"
         },
-        "ts": "2026-07-09T00:01:07.435Z"
+        "ts": "2026-07-11T07:24:47.697Z"
       },
       {
         "method": "GET",
@@ -3633,10 +2001,10 @@
         "params": {
           "level": "main",
           "date_from": "2026-06-30",
-          "date_to": "2026-07-09",
+          "date_to": "2026-07-11",
           "article_type": "machine"
         },
-        "ts": "2026-07-09T00:01:07.435Z"
+        "ts": "2026-07-11T07:24:47.697Z"
       }
     ],
     "tabs": [
