@@ -51,7 +51,9 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from database import Base
 import auth.models         # noqa
 import contractors.models  # noqa
-import articles.models     # noqa
+import machines.models     # noqa
+import services.models     # noqa
+import additional_services.models  # noqa
 import contracts.models    # noqa
 import settings.models     # noqa
 import categories.models   # noqa
@@ -162,7 +164,7 @@ async def step4_migrate_data():
     conn = await aiomysql.connect(host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASS, db=DB_NAME)
     cur = await conn.cursor()
 
-    # Diagnostic: show rodzaj distribution to verify is_service mapping
+    # Diagnostic: show rodzaj distribution to verify machine/service/additional_service split
     await cur.execute("SELECT rodzaj, COUNT(*) FROM artykul3 GROUP BY rodzaj ORDER BY COUNT(*) DESC")
     print("   [diag] artykul3.rodzaj distribution:")
     for row in await cur.fetchall():
@@ -258,26 +260,54 @@ async def step4_migrate_data():
             JOIN umowa2 u ON u.id = a.id_umowy
         """),
 
-        # ── artykul3 → articles ──
+        # ── artykul3 → machines / services / additional_services ──
         # artykul3: id, nazwa, usluga(varchar), nr_rejestracyjny, id_kategorii,
         #   opis, marka, model, uwagi, data_dodania, id_wlasciciel, wartosc,
         #   nr_seryjny, data_modyfikacji, liczba_dni, rodzaj, id_oddzialu
-        ("articles", """
-            INSERT INTO articles
-                (id, name, is_service, registration_no, category_id,
+        # Split po kolumnie rodzaj (col[3]):
+        #   "Usługa" → services
+        #   "artykuł" / puste → machines
+        #   inne → additional_services
+        ("machines", """
+            INSERT INTO machines
+                (id, name, registration_no, category_id,
                  description, brand, model, notes, created_at,
                  owner_id, replacement_value, serial_no, updated_at,
-                 rental_days, article_type, branch_id)
+                 rental_days, branch_id)
             SELECT
                 id, nazwa,
-                CASE WHEN LOWER(rodzaj) = 'usługa' OR LOWER(rodzaj) = 'usluga' THEN 1 ELSE 0 END,
                 nr_rejestracyjny, NULLIF(id_kategorii, 0),
                 opis, marka, model, uwagi,
                 COALESCE(data_dodania, NOW()),
                 NULLIF(id_wlasciciel, 0), wartosc, nr_seryjny,
                 COALESCE(data_modyfikacji, NOW()),
-                liczba_dni, rodzaj, NULLIF(id_oddzialu, 0)
+                liczba_dni, NULLIF(id_oddzialu, 0)
             FROM artykul3
+            WHERE LOWER(rodzaj) IN ('artykuł', 'artykul', '')
+               OR rodzaj IS NULL
+        """),
+        ("services", """
+            INSERT INTO services
+                (id, name, description, notes, replacement_value,
+                 created_at, updated_at)
+            SELECT
+                id, nazwa, opis, uwagi, wartosc,
+                COALESCE(data_dodania, NOW()),
+                COALESCE(data_modyfikacji, NOW())
+            FROM artykul3
+            WHERE LOWER(rodzaj) IN ('usługa', 'usluga')
+        """),
+        ("additional_services", """
+            INSERT INTO additional_services
+                (id, name, description, notes, default_amount,
+                 created_at, updated_at)
+            SELECT
+                id, nazwa, opis, uwagi, wartosc,
+                COALESCE(data_dodania, NOW()),
+                COALESCE(data_modyfikacji, NOW())
+            FROM artykul3
+            WHERE LOWER(rodzaj) NOT IN ('usługa', 'usluga', 'artykuł', 'artykul', '')
+              AND rodzaj IS NOT NULL
         """),
 
         # ── uzytkownik → users ──
@@ -327,16 +357,23 @@ async def step4_migrate_data():
         # umowa_pozycja3: id, id_umowy, id_artykulu, typ_wynajmu, opis,
         #   liczba_dni, id_stawki, rozliczanie, oplataza, ilosc, cena,
         #   id_dostawcy, data_dostawy, nazwa
+        # article_id → machine_id (maszyny) lub service_id (usługi) zależnie od rodzaj
         ("contract_positions", """
             INSERT INTO contract_positions
-                (id, contract_id, article_id, description, rental_days,
+                (id, contract_id, machine_id, service_id, description, rental_days,
                  quantity, unit_price, rate_type_id, billing_frequency, billing_unit,
                  supplier_id, delivery_date, article_name)
             SELECT
-                id, id_umowy, id_artykulu, opis, liczba_dni,
-                ilosc, cena, NULLIF(id_stawki, 0), rozliczanie, oplataza,
-                NULLIF(id_dostawcy, 0), data_dostawy, nazwa
-            FROM umowa_pozycja3
+                p.id, p.id_umowy,
+                CASE WHEN LOWER(a.rodzaj) IN ('usługa', 'usluga') THEN NULL
+                     ELSE p.id_artykulu END,
+                CASE WHEN LOWER(a.rodzaj) IN ('usługa', 'usluga') THEN p.id_artykulu
+                     ELSE NULL END,
+                p.opis, p.liczba_dni,
+                p.ilosc, p.cena, NULLIF(p.id_stawki, 0), p.rozliczanie, p.oplataza,
+                NULLIF(p.id_dostawcy, 0), p.data_dostawy, p.nazwa
+            FROM umowa_pozycja3 p
+            LEFT JOIN artykul3 a ON a.id = p.id_artykulu
         """),
 
         # ── umowa_pozycja2_warunek → position_conditions ──
@@ -393,7 +430,7 @@ async def step4c_fix_category_duplicates():
 
     # 1. Ladowarki teleskopowe → Ładowarki Teleskopowe
     await cur.execute(
-        "UPDATE articles SET category_main = 'Ładowarki Teleskopowe' "
+        "UPDATE machines SET category_main = 'Ładowarki Teleskopowe' "
         "WHERE category_main = 'Ladowarki teleskopowe'"
     )
     rows1 = cur.rowcount
@@ -401,7 +438,7 @@ async def step4c_fix_category_duplicates():
 
     # 2. Wózek widłowy → Wózki widłowe w podkategoriach Wozidła (category_sub1)
     await cur.execute(
-        "UPDATE articles SET category_sub1 = 'Wózki widłowe' "
+        "UPDATE machines SET category_sub1 = 'Wózki widłowe' "
         "WHERE category_main = 'Wozidła' AND category_sub1 = 'Wózek widłowy'"
     )
     rows2 = cur.rowcount
@@ -409,7 +446,7 @@ async def step4c_fix_category_duplicates():
 
     # 3. Wózek widłowy elektryczny → Wózki widłowe elektryczne (category_sub2)
     await cur.execute(
-        "UPDATE articles SET category_sub2 = 'Wózki widłowe elektryczne' "
+        "UPDATE machines SET category_sub2 = 'Wózki widłowe elektryczne' "
         "WHERE category_main = 'Wozidła' AND category_sub2 = 'Wózek widłowy elektryczny'"
     )
     rows3 = cur.rowcount
@@ -632,24 +669,23 @@ def _parse_text_to_fees(text: str) -> list[dict]:
 
 
 async def step5d_link_articles_to_templates():
-    """RAO-P1-011: Mapowanie service_fee_templates.name → articles.id (FK).
+    """RAO-P1-011: Mapowanie service_fee_templates.name → additional_services.id (FK).
 
     Strategia:
-      1. Dla każdego service_fee_templates z article_id IS NULL, znajdź artykuł
-         po nazwie (case-insensitive, dopasowanie zaczynane od name).
-      2. Preferuj artykuły z is_service=1 (usługi).
-      3. Jeśli artykuł nie istnieje — utwórz go (is_service=1).
+      1. Dla każdego service_fee_templates z additional_service_id IS NULL, znajdź
+         usługę dodatkową po nazwie (case-insensitive, dopasowanie zaczynane od name).
+      2. Jeśli usługa dodatkowa nie istnieje — utwórz ją w additional_services.
 
-    Idempotentne: pomija rekordy z już ustawionym article_id.
+    Idempotentne: pomija rekordy z już ustawionym additional_service_id.
     """
-    print("[5d] Linking service_fee_templates.name → articles (RAO-P1-011) …")
+    print("[5d] Linking service_fee_templates.name → additional_services (RAO-P1-011) …")
     conn = await aiomysql.connect(host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASS, db=DB_NAME)
     cur = await conn.cursor()
 
     await cur.execute("""
         SELECT id, name, amount_from, amount_to
         FROM service_fee_templates
-        WHERE article_id IS NULL
+        WHERE additional_service_id IS NULL
     """)
     rows = await cur.fetchall()
 
@@ -658,38 +694,38 @@ async def step5d_link_articles_to_templates():
     for tpl_id, name, amt_from, amt_to in rows:
         if not name:
             continue
-        # Match by exact name (case-insensitive) — preferuj is_service=1
+        # Match by exact name (case-insensitive)
         await cur.execute(
-            "SELECT id FROM articles WHERE LOWER(name) = LOWER(%s) "
-            "ORDER BY is_service DESC, id ASC LIMIT 1",
+            "SELECT id FROM additional_services WHERE LOWER(name) = LOWER(%s) "
+            "ORDER BY id ASC LIMIT 1",
             (name,)
         )
         art = await cur.fetchone()
-        article_id = art[0] if art else None
+        addsvc_id = art[0] if art else None
 
-        if article_id is None:
+        if addsvc_id is None:
             # Spróbuj LIKE (prefix)
             await cur.execute(
-                "SELECT id FROM articles WHERE LOWER(name) LIKE LOWER(%s) "
-                "ORDER BY is_service DESC, id ASC LIMIT 1",
+                "SELECT id FROM additional_services WHERE LOWER(name) LIKE LOWER(%s) "
+                "ORDER BY id ASC LIMIT 1",
                 (name[:30] + "%",)
             )
             art = await cur.fetchone()
-            article_id = art[0] if art else None
+            addsvc_id = art[0] if art else None
 
-        if article_id is None:
-            # Utwórz nowy artykuł-usługę
+        if addsvc_id is None:
+            # Utwórz nową usługę dodatkową
             await cur.execute(
-                "INSERT INTO articles (name, is_service, article_type, created_at) "
-                "VALUES (%s, 1, 'usluga_dodatkowa', NOW())",
+                "INSERT INTO additional_services (name, created_at, updated_at) "
+                "VALUES (%s, NOW(), NOW())",
                 (name[:200],)
             )
-            article_id = cur.lastrowid
+            addsvc_id = cur.lastrowid
             created += 1
 
         await cur.execute(
-            "UPDATE service_fee_templates SET article_id = %s WHERE id = %s",
-            (article_id, tpl_id)
+            "UPDATE service_fee_templates SET additional_service_id = %s WHERE id = %s",
+            (addsvc_id, tpl_id)
         )
         linked += 1
 
@@ -698,10 +734,10 @@ async def step5d_link_articles_to_templates():
     # Verification
     await cur.execute("SELECT COUNT(*) FROM service_fee_templates")
     total = (await cur.fetchone())[0]
-    await cur.execute("SELECT COUNT(*) FROM service_fee_templates WHERE article_id IS NOT NULL")
+    await cur.execute("SELECT COUNT(*) FROM service_fee_templates WHERE additional_service_id IS NOT NULL")
     with_fk = (await cur.fetchone())[0]
     pct = (with_fk * 100 // total) if total else 0
-    print(f"   linked={linked}, articles_created={created}, FK coverage: {with_fk}/{total} ({pct}%)")
+    print(f"   linked={linked}, additional_services_created={created}, FK coverage: {with_fk}/{total} ({pct}%)")
 
     await cur.close()
     conn.close()
@@ -846,7 +882,7 @@ async def step6_drop_old():
 
 # Column indices w pliku CSV (0-based, po przecinku)
 _C_ID       = 0   # legacy id (int)
-_C_RODZAJ   = 3   # "Usługa" / "artykuł" → is_service + article_type
+_C_RODZAJ   = 3   # "Usługa" / "artykuł" → split machines / services / additional_services
 _C_MODEL    = 6   # Model urządzenia (tylko ~7 wierszy ma wartości)
 _C_NUMER    = 7   # Numer wewnętrzny
 _C_CAT_MAIN = 8   # Właściwa kategoria główna
@@ -1017,7 +1053,7 @@ def _parse_csv_file(csv_path: str) -> list:
 
 async def step8_csv_categories() -> None:
     """
-    RAO-P1-017: CSV → hierarchiczne kategorie + klasyfikacja → UPDATE articles.
+    RAO-P1-017: CSV → hierarchiczne kategorie + klasyfikacja → UPDATE machines.
 
     1. GET_LOCK(rao_migrate_csv, 0) — race condition guard (session-scoped)
     2. Parsowanie CSV (csv.reader — CSV-INJ-001 safe)
@@ -1027,14 +1063,12 @@ async def step8_csv_categories() -> None:
     3. Cache istniejących kategorii w pamięci (Python-side diacritic norm)
     4. Budowanie drzewa (main→sub1→sub2→sub3, sorted dla determinizmu):
        _upsert_cat(): SELECT-or-INSERT — idempotent
-    5. UPDATE articles (parametryzowane %s — SQL-INJ-001 safe):
+    5. UPDATE machines (parametryzowane %s — SQL-INJ-001 safe):
        category_main/sub1/sub2/sub3, category_id (najgłębszy poziom),
        technical_attributes (JSON — kompatybilność wsteczna, zachowany),
        zasieg_m DECIMAL — zasięg sparsowany z col[12] ("21m"→21.0, "-"→NULL),
        udzwig_t DECIMAL — udźwig sparsowany z col[13] ("5t"→5.0, "-"→NULL),
        dodatki  TEXT    — surowy string z col[14] (dodatki/wyposażenie),
-       is_service (1 jeśli rodzaj="Usługa", inaczej 0),
-       article_type (raw wartość z kolumny [3], np. "Usługa" / "artykuł"),
        model (COALESCE — nie nadpisuje istniejących wartości),
        internal_number (COALESCE — nie nadpisuje istniejących wartości),
        is_archival=FALSE
@@ -1154,12 +1188,12 @@ async def step8_csv_categories() -> None:
                     sub3_canon[(nm, ns1, ns2, ns3)], "sub3", sub2_id[(nm, ns1, ns2)])
         print(f"   Nowe kategorie: {cats_created}")
 
-        # ── UPDATE articles ───────────────────────────────────────────────────
+        # ── UPDATE machines ───────────────────────────────────────────────────
         n_matched   = 0
         n_unmatched = 0
         # SQL-INJ-001 SAFE: tylko %s placeholders, zero f-stringów z user data
         _UPDATE_SQL = (
-            "UPDATE articles SET"
+            "UPDATE machines SET"
             "  is_archival          = FALSE,"
             "  category_main        = %s,"
             "  category_sub1        = %s,"
@@ -1167,13 +1201,11 @@ async def step8_csv_categories() -> None:
             "  category_sub3        = %s,"
             "  category_id          = %s,"
             "  technical_attributes = %s,"
-            "  is_service           = %s,"
-            "  article_type         = %s,"
             "  model                = COALESCE(NULLIF(model, ''), %s),"
             "  internal_number      = COALESCE(NULLIF(internal_number, ''), %s),"
-            "  zasieg_m             = %s,"
-            "  udzwig_t             = %s,"
-            "  dodatki              = %s"
+            "  reach_m              = %s,"
+            "  capacity_t           = %s,"
+            "  accessories          = %s"
             " WHERE id = %s"
         )
         for rec in records:
@@ -1209,11 +1241,6 @@ async def step8_csv_categories() -> None:
                 tech["dodatki"] = rec["dodatki"]
             tech_json = json.dumps(tech, ensure_ascii=False) if tech else None
 
-            # is_service + article_type z kolumny [3] "rodzaj"
-            rodzaj_raw     = rec["rodzaj"]
-            is_service_val = 1 if rodzaj_raw.lower() in ("usługa", "usluga") else 0
-            article_type_val = rodzaj_raw if rodzaj_raw else None
-
             if cat_main is not None:
                 n_matched += 1
             else:
@@ -1222,30 +1249,30 @@ async def step8_csv_categories() -> None:
             await cur.execute(
                 _UPDATE_SQL,
                 (cat_main, cat_sub1, cat_sub2, cat_sub3, cat_id, tech_json,
-                 is_service_val, article_type_val, rec["model"],
+                 rec["model"],
                  rec["internal_number"],
                  rec["zasieg_m"], rec["udzwig_m"], rec["dodatki_txt"],
                  art_id),
             )
 
-        # ── Oznacz WSZYSTKIE artykuły is_archival=TRUE ──────────────
-        # RAO-P1-027: migrowane artykuły = archiwalne.
+        # ── Oznacz WSZYSTKIE maszyny is_archival=TRUE ──────────────
+        # RAO-P1-027: migrowane maszyny = archiwalne.
         # Niewidoczne na liście i w pickerze nowych umów, ale liczone w statystykach kategorii.
-        # Nowe artykuły dodawane przez użytkownika → domyślnie is_archival=FALSE.
+        # Nowe maszyny dodawane przez użytkownika → domyślnie is_archival=FALSE.
         await cur.execute(
-            "UPDATE articles SET is_archival = TRUE"
+            "UPDATE machines SET is_archival = TRUE"
         )
         extra = cur.rowcount
         if extra:
-            print(f"   {extra} artykułów oznaczonych is_archival=TRUE (archiwalne — RAO-P1-027)")
+            print(f"   {extra} maszyn oznaczonych is_archival=TRUE (archiwalne — RAO-P1-027)")
 
         # ── Backfill category_main/sub1 z category_id (RAO-P1-029) ───────────
-        # Artykuły które mają category_id (ze starego SQL dump) ale brak category_main
+        # Maszyny które mają category_id (ze starego SQL dump) ale brak category_main
         # (bo step8 CSV nie trafił w nie) → deterministyczny backfill po hierarchii.
         #
         # Krok 1: category_id wskazuje bezpośrednio na poziom 'main'
         await cur.execute(
-            "UPDATE articles a"
+            "UPDATE machines a"
             " JOIN categories c ON a.category_id = c.id AND c.level = 'main'"
             " SET a.category_main = c.name"
             " WHERE a.category_main IS NULL AND a.category_id IS NOT NULL"
@@ -1254,7 +1281,7 @@ async def step8_csv_categories() -> None:
 
         # Krok 2: category_id wskazuje na poziom 'sub1' → category_main = parent.name
         await cur.execute(
-            "UPDATE articles a"
+            "UPDATE machines a"
             " JOIN categories c  ON a.category_id = c.id   AND c.level = 'sub1'"
             " JOIN categories p  ON c.parent_id   = p.id   AND p.level = 'main'"
             " SET a.category_main = p.name, a.category_sub1 = c.name"
@@ -1264,7 +1291,7 @@ async def step8_csv_categories() -> None:
 
         # Krok 3: category_id wskazuje na poziom 'sub2' → 2 poziomy wyżej = main
         await cur.execute(
-            "UPDATE articles a"
+            "UPDATE machines a"
             " JOIN categories c  ON a.category_id = c.id   AND c.level = 'sub2'"
             " JOIN categories s1 ON c.parent_id   = s1.id  AND s1.level = 'sub1'"
             " JOIN categories p  ON s1.parent_id  = p.id   AND p.level = 'main'"
@@ -1276,7 +1303,7 @@ async def step8_csv_categories() -> None:
 
         # Krok 4: category_id wskazuje na poziom 'sub3'
         await cur.execute(
-            "UPDATE articles a"
+            "UPDATE machines a"
             " JOIN categories c  ON a.category_id = c.id   AND c.level = 'sub3'"
             " JOIN categories s2 ON c.parent_id   = s2.id  AND s2.level = 'sub2'"
             " JOIN categories s1 ON s2.parent_id  = s1.id  AND s1.level = 'sub1'"
@@ -1289,32 +1316,32 @@ async def step8_csv_categories() -> None:
 
         total_bf = bf_main + bf_sub1 + bf_sub2 + bf_sub3
         if total_bf:
-            print(f"   RAO-P1-029 backfill: {total_bf} artykułów"
+            print(f"   RAO-P1-029 backfill: {total_bf} maszyn"
                   f" (main={bf_main} sub1={bf_sub1} sub2={bf_sub2} sub3={bf_sub3})")
 
         # Weryfikacja gate: czy coś zostało bez kategorii mimo posiadania category_id?
         await cur.execute(
-            "SELECT COUNT(*) FROM articles"
+            "SELECT COUNT(*) FROM machines"
             " WHERE category_main IS NULL AND category_id IS NOT NULL"
         )
         gap = (await cur.fetchone())[0]
         if gap:
-            print(f"   WARN RAO-P1-029: {gap} artykułów ma category_id"
+            print(f"   WARN RAO-P1-029: {gap} maszyn ma category_id"
                   " ale nadal brak category_main (sprawdź hierarchię kategorii!)")
 
         await conn.commit()
 
         # ── Weryfikacja ───────────────────────────────────────────────────────
-        await cur.execute("SELECT COUNT(*) FROM articles")
+        await cur.execute("SELECT COUNT(*) FROM machines")
         total_arts = (await cur.fetchone())[0]
-        await cur.execute("SELECT COUNT(*) FROM articles WHERE is_archival = TRUE")
+        await cur.execute("SELECT COUNT(*) FROM machines WHERE is_archival = TRUE")
         archival_ct = (await cur.fetchone())[0]
-        await cur.execute("SELECT COUNT(*) FROM articles WHERE category_main IS NOT NULL")
+        await cur.execute("SELECT COUNT(*) FROM machines WHERE category_main IS NOT NULL")
         with_cat_main = (await cur.fetchone())[0]
-        await cur.execute("SELECT COUNT(*) FROM articles WHERE category_id IS NOT NULL")
+        await cur.execute("SELECT COUNT(*) FROM machines WHERE category_id IS NOT NULL")
         with_cat_id = (await cur.fetchone())[0]
         await cur.execute(
-            "SELECT COUNT(*) FROM articles"
+            "SELECT COUNT(*) FROM machines"
             " WHERE category_sub1 IS NOT NULL AND category_main IS NULL"
         )
         orphan_subs = (await cur.fetchone())[0]
@@ -1350,7 +1377,7 @@ async def verify():
     conn = await aiomysql.connect(host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASS, db=DB_NAME)
     cur = await conn.cursor()
     for tbl in ["company","categories","branches","salespeople","rate_types",
-                "contractors","contractor_addresses","articles","users",
+                "contractors","contractor_addresses","machines","services","additional_services","users",
                 "contracts","contract_positions","position_conditions",
                 "fee_preset_groups","service_fee_templates","contract_service_fees"]:
         await cur.execute(f"SELECT COUNT(*) FROM `{tbl}`")
@@ -1359,18 +1386,18 @@ async def verify():
 
     # ── RAO-P1-017 quality gates ───────────────────────────────────────────
     print("\n   [P1-017 gates]")
-    await cur.execute("SELECT COUNT(*) FROM articles")
+    await cur.execute("SELECT COUNT(*) FROM machines")
     total = (await cur.fetchone())[0]
-    await cur.execute("SELECT COUNT(*) FROM articles WHERE is_archival = FALSE")
+    await cur.execute("SELECT COUNT(*) FROM machines WHERE is_archival = FALSE")
     archival = (await cur.fetchone())[0]
-    await cur.execute("SELECT COUNT(*) FROM articles WHERE category_main IS NOT NULL")
+    await cur.execute("SELECT COUNT(*) FROM machines WHERE category_main IS NOT NULL")
     with_main = (await cur.fetchone())[0]
     await cur.execute(
-        "SELECT COUNT(*) FROM articles"
+        "SELECT COUNT(*) FROM machines"
         " WHERE category_sub1 IS NOT NULL AND category_main IS NULL"
     )
     orphan = (await cur.fetchone())[0]
-    print(f"   articles total:          {total}")
+    print(f"   machines total:          {total}")
     print(f"   is_archival=FALSE:       {archival}/{total}")
     print(f"   category_main set:       {with_main}/{total}")
     if orphan:

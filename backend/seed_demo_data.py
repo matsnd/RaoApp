@@ -48,16 +48,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import engine, AsyncSessionLocal
 from categories.models import Category
-from articles.models import Article
+from machines.models import Machine
+from additional_services.models import AdditionalService
 from contractors.models import Contractor, ContractorAddress
-from settings.models import Salesperson, Branch, RateType, ArticleRatePreset, ArticleRatePresetItem
+from settings.models import Salesperson, Branch, RateType, MachineRatePreset, MachineRatePresetItem
 from contracts.models import Contract, ContractPosition, PositionCondition, ContractServiceFee
 from settlements.models import ContractSettlement
 
 # Import wszystkich modeli żeby SQLAlchemy skonfigurowało relacje
 import auth.models  # noqa: F401
 import contractors.models  # noqa: F401
-import articles.models  # noqa: F401
+import machines.models  # noqa: F401
+import services.models  # noqa: F401
+import additional_services.models  # noqa: F401
 import contracts.models  # noqa: F401
 import settings.models  # noqa: F401
 import categories.models  # noqa: F401
@@ -96,104 +99,88 @@ KATEGORIE = [
 MASZYNY = [
     {
         "name": "Koparka gąsienicowa JCB 8035",
-        "is_service": False, "internal_number": "KOP-001",
+        "internal_number": "KOP-001",
         "registration_no": "RAO 12345", "serial_no": "JCB8035Z2021001",
         "brand": "JCB", "model": "8035 ZTS", "replacement_value": Decimal("280000.00"),
         "category_main": "Koparki", "category_sub1": "Koparki gąsienicowe",
-        "article_type": "artykuł", "udzwig_t": Decimal("3.5"),
-        "dodatki": "Łyżka standardowa, szybkozłącze hydrauliczne",
+        "capacity_t": Decimal("3.5"),
+        "accessories": "Łyżka standardowa, szybkozłącze hydrauliczne",
         "fakturownia_product_id": 8845156432567,  # KOP001
     },
     {
         "name": "Ładowarka teleskopowa Manuscop 6.36",
-        "is_service": False, "internal_number": "LAD-002",
+        "internal_number": "LAD-002",
         "registration_no": "RAO 23456", "serial_no": "MAN6362022001",
         "brand": "Manitou", "model": "Manuscop 6.36", "replacement_value": Decimal("420000.00"),
         "category_main": "Ładowarki Teleskopowe", "category_sub1": "Ładowarki Teleskopowe Sztywne",
-        "article_type": "artykuł", "zasieg_m": Decimal("6.0"), "udzwig_t": Decimal("3.6"),
-        "dodatki": "Widły paletowe, łyżka objętościowa 1.2m³",
+        "reach_m": Decimal("6.0"), "capacity_t": Decimal("3.6"),
+        "accessories": "Widły paletowe, łyżka objętościowa 1.2m³",
         "fakturownia_product_id": 8845156436442,  # LAD001
     },
     {
         "name": "Podnośnik koszowy Haulotte HA16PX",
-        "is_service": False, "internal_number": "POD-003",
+        "internal_number": "POD-003",
         "registration_no": "RAO 34567", "serial_no": "HAU16PX2021001",
         "brand": "Haulotte", "model": "HA16 PX", "replacement_value": Decimal("380000.00"),
         "category_main": "Podnośniki", "category_sub1": "Podnośnik koszowy na samochodzie",
-        "article_type": "artykuł", "zasieg_m": Decimal("16.0"),
-        "dodatki": "Kosz 230kg, wysięgnik obrotowy 360°",
+        "reach_m": Decimal("16.0"),
+        "accessories": "Kosz 230kg, wysięgnik obrotowy 360°",
         "fakturownia_product_id": 8845156436443,  # POD001
     },
     {
         "name": "Spychar Wirtgen W100CFi",
-        "is_service": False, "internal_number": "SPY-004",
+        "internal_number": "SPY-004",
         "registration_no": "RAO 45678", "serial_no": "WIR100CFI2022001",
         "brand": "Wirtgen", "model": "W 100 CFi", "replacement_value": Decimal("1200000.00"),
         "category_main": "Spychacze", "category_sub1": "Spychacze frezujące",
-        "article_type": "artykuł",
-        "dodatki": "Frez 1.0m, system chłodzenia wodnego",
+        "accessories": "Frez 1.0m, system chłodzenia wodnego",
         "fakturownia_product_id": 8845156436444,  # SPY001
     },
     {
         "name": "Zagęszczarka Ammann APF 15/50",
-        "is_service": False, "internal_number": "ZAG-005",
+        "internal_number": "ZAG-005",
         "registration_no": "RAO 56789", "serial_no": "AMM15502023001",
         "brand": "Ammann", "model": "APF 15/50", "replacement_value": Decimal("35000.00"),
         "category_main": "Zagęszczarki", "category_sub1": "Zagęszczarki płytowe",
-        "article_type": "artykuł",
-        "dodatki": "Ruch w przód i tył, nóż dociskowy",
+        "accessories": "Ruch w przód i tył, nóż dociskowy",
         "fakturownia_product_id": 8845156436446,  # ZAG001
     },
 ]
 
 USLUGI = [
     {
-        "name": "Transport", "is_service": True, "internal_number": "USL-001",
-        "replacement_value": Decimal("1200.00"),
-        "category_main": "Usługi dodatkowe", "category_sub1": "Transport",
-        "article_type": "usluga_dodatkowa",
+        "name": "Transport",
+        "default_amount": Decimal("1200.00"),
         "fakturownia_product_id": 8845156432587,  # TRA001
     },
     {
-        "name": "Czyszczenie", "is_service": True, "internal_number": "USL-002",
-        "replacement_value": Decimal("0.00"),
-        "category_main": "Usługi dodatkowe", "category_sub1": "Czyszczenie",
-        "article_type": "usluga_dodatkowa",
+        "name": "Czyszczenie",
+        "default_amount": Decimal("0.00"),
         "fakturownia_product_id": 8845156432589,  # CZY001
     },
     {
-        "name": "Tankowanie", "is_service": True, "internal_number": "USL-003",
-        "replacement_value": Decimal("200.00"),
-        "category_main": "Usługi dodatkowe", "category_sub1": "Tankowanie",
-        "article_type": "usluga_dodatkowa",
+        "name": "Tankowanie",
+        "default_amount": Decimal("200.00"),
         "fakturownia_product_id": 8845156432620,  # TAN001
     },
     {
-        "name": "Przestój", "is_service": True, "internal_number": "USL-004",
-        "replacement_value": Decimal("250.00"),
-        "category_main": "Usługi dodatkowe", "category_sub1": "Przestój",
-        "article_type": "usluga_dodatkowa",
+        "name": "Przestój",
+        "default_amount": Decimal("250.00"),
         "fakturownia_product_id": 8845156436449,  # PZT001
     },
     {
-        "name": "Serwis", "is_service": True, "internal_number": "USL-005",
-        "replacement_value": Decimal("280.00"),
-        "category_main": "Usługi dodatkowe", "category_sub1": "Serwis",
-        "article_type": "usluga_dodatkowa",
+        "name": "Serwis",
+        "default_amount": Decimal("280.00"),
         "fakturownia_product_id": 8845156436450,  # SER001
     },
     {
-        "name": "Przegląd Diesel", "is_service": True, "internal_number": "USL-006",
-        "replacement_value": Decimal("150.00"),
-        "category_main": "Usługi dodatkowe", "category_sub1": "Serwis",
-        "article_type": "usluga_dodatkowa",
+        "name": "Przegląd Diesel",
+        "default_amount": Decimal("150.00"),
         "fakturownia_product_id": 8845156436451,  # DIE001
     },
     {
-        "name": "Przegląd Elektryk", "is_service": True, "internal_number": "USL-007",
-        "replacement_value": Decimal("90.00"),
-        "category_main": "Usługi dodatkowe", "category_sub1": "Serwis",
-        "article_type": "usluga_dodatkowa",
+        "name": "Przegląd Elektryk",
+        "default_amount": Decimal("90.00"),
         "fakturownia_product_id": 8845156436452,  # ELE001
     },
 ]
@@ -388,20 +375,28 @@ async def seed_kategorie(db: AsyncSession):
 
 
 async def seed_artykuly(db: AsyncSession):
-    """Artykuły (maszyny + usługi) z mapowaniem FA."""
+    """Maszyny + usługi dodatkowe z mapowaniem FA."""
     created = 0
     art_by_name = {}
-    all_articles = MASZYNY + USLUGI
-    for a in all_articles:
-        a_with_ts = {**a, "created_at": datetime.now(), "updated_at": datetime.now()}
-        obj, was_created = await get_or_create(db, Article, {"name": a["name"]}, a_with_ts)
-        art_by_name[a["name"]] = obj
+    now = datetime.now()
+    # Maszyny → Machine
+    for m in MASZYNY:
+        m_with_ts = {**m, "created_at": now, "updated_at": now}
+        obj, was_created = await get_or_create(db, Machine, {"name": m["name"]}, m_with_ts)
+        art_by_name[m["name"]] = obj
+        if was_created:
+            created += 1
+    # Usługi dodatkowe → AdditionalService
+    for u in USLUGI:
+        u_with_ts = {**u, "created_at": now, "updated_at": now}
+        obj, was_created = await get_or_create(db, AdditionalService, {"name": u["name"]}, u_with_ts)
+        art_by_name[u["name"]] = obj
         if was_created:
             created += 1
     await db.commit()
-    maszyny_count = sum(1 for a in all_articles if not a["is_service"])
-    uslugi_count = sum(1 for a in all_articles if a["is_service"])
-    print(f"  Artykuły: {created} nowych ({maszyny_count} maszyn + {uslugi_count} usług)")
+    maszyny_count = len(MASZYNY)
+    uslugi_count = len(USLUGI)
+    print(f"  Maszyny + usługi: {created} nowych ({maszyny_count} maszyn + {uslugi_count} usług dodatkowych)")
     return art_by_name
 
 
@@ -534,7 +529,7 @@ def _build_positions_and_fees(i, days, maszyny, uslugi, rt_dniowy):
                 {"rate1": stawka_efektywna, "rate2": None, "period_count": days, "minimum": 1, "billing_label": "doba"},
             ]
         positions.append({
-            "article_id": maszyna.id,
+            "machine_id": maszyna.id,
             "article_name": maszyna.name,
             "rental_days": days,
             "quantity": 1,
@@ -559,7 +554,7 @@ def _build_positions_and_fees(i, days, maszyny, uslugi, rt_dniowy):
     num_fees = 2 + (i % 3)  # 2, 3, 4
     for j in range(num_fees):
         usluga = uslugi[(i + j) % len(uslugi)]
-        cena_usl = usluga.replacement_value if usluga.replacement_value is not None else Decimal("100")
+        cena_usl = usluga.default_amount if usluga.default_amount is not None else Decimal("100")
         fee_desc = DEMO_FEE_DESCRIPTION.get(usluga.name)
         fees.append({
             "name": usluga.name,
@@ -751,7 +746,7 @@ async def seed_konfiguracja(db: AsyncSession, art_by_name):
 
     - Upsert grup presetów po nazwie (nie duplikuje istniejących default z main.py —
       przejmuje flagę is_default: stare defaulty tracą flagę na rzecz nowych).
-    - Szablony idempotentne po (preset_id, name), z article_id (bez default_price).
+    - Szablony idempotentne po (preset_id, name), z additional_service_id (bez default_price).
     """
     from settings.models import FeePresetGroup, ServiceFeeTemplate
 
@@ -801,7 +796,7 @@ async def seed_konfiguracja(db: AsyncSession, art_by_name):
             if existing_obj:
                 # Idempotent update: nadpisz wszystkie pola (KISS redesign)
                 existing_obj.sort_order = idx
-                existing_obj.article_id = article.id if article else existing_obj.article_id
+                existing_obj.additional_service_id = article.id if article else existing_obj.additional_service_id
                 existing_obj.name = tpl["name"]
                 existing_obj.amount_from = tpl["amount_from"]
                 existing_obj.amount_to = tpl["amount_to"]
@@ -815,7 +810,7 @@ async def seed_konfiguracja(db: AsyncSession, art_by_name):
                     preset_id=group.id,
                     contract_type=zestaw["contract_type"],
                     sort_order=idx,
-                    article_id=article.id if article else None,
+                    additional_service_id=article.id if article else None,
                     name=tpl["name"],
                     amount_from=tpl["amount_from"],
                     amount_to=tpl["amount_to"],
@@ -861,7 +856,7 @@ async def seed_company(db: AsyncSession):
 
 async def seed_article_rate_presets(db: AsyncSession, art_by_name: dict, rt_by_name: dict = None):
     """RAO-P1-001: Predefiniowane cenniki kaskadowe per maszyna z CENNIKI_KASKADOWE."""
-    from settings.models import ArticleRatePreset, ArticleRatePresetItem
+    from settings.models import MachineRatePreset, MachineRatePresetItem
     from sqlalchemy import select
 
     # RAO-P2-071: dynamiczne rate_type_id (hardcoded 5 był błędny — ID zależy od stanu DB)
@@ -870,10 +865,6 @@ async def seed_article_rate_presets(db: AsyncSession, art_by_name: dict, rt_by_n
         rt_dniowy = rt_by_name.get("Stawka dniowa")
     if not rt_dniowy:
         # Fallback: znajdź po nazwie w DB
-        result = await db.execute(
-            select(ArticleRatePreset).where(ArticleRatePreset.name == "Stawka dniowa").limit(1)
-        )
-        # To nie zadziała — to preset, nie rate_type. Użyj RateType.
         from settings.models import RateType
         result = await db.execute(
             select(RateType).where(RateType.name == "Stawka dniowa").limit(1)
@@ -892,9 +883,9 @@ async def seed_article_rate_presets(db: AsyncSession, art_by_name: dict, rt_by_n
 
         # Sprawdź czy preset już istnieje (idempotentny)
         existing = await db.execute(
-            select(ArticleRatePreset).where(
-                ArticleRatePreset.article_id == article.id,
-                ArticleRatePreset.name == "Standard"
+            select(MachineRatePreset).where(
+                MachineRatePreset.machine_id == article.id,
+                MachineRatePreset.name == "Standard"
             )
         )
         if existing.scalar_one_or_none():
@@ -902,9 +893,9 @@ async def seed_article_rate_presets(db: AsyncSession, art_by_name: dict, rt_by_n
             continue
 
         # Utwórz preset
-        preset = ArticleRatePreset(
+        preset = MachineRatePreset(
             company_id=1,
-            article_id=article.id,
+            machine_id=article.id,
             name="Standard",
             description="Cennik kaskadowy standardowy (1-3 dni, 4-16 dni, powyżej 16 dni)",
             is_default=True,
@@ -916,7 +907,7 @@ async def seed_article_rate_presets(db: AsyncSession, art_by_name: dict, rt_by_n
 
         # Dodaj warunki (items)
         for idx, warunek in enumerate(cennik["warunki"], start=1):
-            item = ArticleRatePresetItem(
+            item = MachineRatePresetItem(
                 preset_id=preset.id,
                 rate_type_id=rt_dniowy_id,  # RAO-P2-071: dynamic ID (nie hardcoded)
                 description=warunek["description"],
@@ -1004,7 +995,7 @@ async def seed_umowy(db: AsyncSession, contracts_data, art_by_name):
         for pos_data in cd["positions"]:
             pos = ContractPosition(
                 contract_id=contract.id,
-                article_id=pos_data["article_id"],
+                machine_id=pos_data["machine_id"],
                 article_name=pos_data["article_name"],
                 rental_days=pos_data["rental_days"],
                 quantity=pos_data["quantity"],
@@ -1176,7 +1167,7 @@ REZERWACJE_DEMO = [
 
 async def seed_rezerwacje(db: AsyncSession, art_by_name: dict, con_by_name: dict):
     """RAO-P2-071: Rezerwacje maszyn demo — dla pokazania kalendarza."""
-    from reservations.models import ArticleReservation
+    from reservations.models import MachineReservation
     created = 0
     for r in REZERWACJE_DEMO:
         article = art_by_name.get(r["article"])
@@ -1189,19 +1180,19 @@ async def seed_rezerwacje(db: AsyncSession, art_by_name: dict, con_by_name: dict
             if not contractor:
                 print(f"  [SKIP] kontrahent {r['contractor']} — brak")
                 continue
-        # Idempotent: sprawdź po (article_id, reserved_from, reserved_to, note)
+        # Idempotent: sprawdź po (machine_id, reserved_from, reserved_to, note)
         existing = await db.execute(
-            select(ArticleReservation).where(
-                ArticleReservation.article_id == article.id,
-                ArticleReservation.reserved_from == r["reserved_from"],
-                ArticleReservation.reserved_to == r["reserved_to"],
-                ArticleReservation.note == r["note"],
+            select(MachineReservation).where(
+                MachineReservation.machine_id == article.id,
+                MachineReservation.reserved_from == r["reserved_from"],
+                MachineReservation.reserved_to == r["reserved_to"],
+                MachineReservation.note == r["note"],
             )
         )
         if existing.scalar_one_or_none():
             continue
-        reservation = ArticleReservation(
-            article_id=article.id,
+        reservation = MachineReservation(
+            machine_id=article.id,
             contractor_id=contractor.id if contractor else None,
             reserved_from=r["reserved_from"],
             reserved_to=r["reserved_to"],
@@ -1225,7 +1216,7 @@ async def main():
         print("\n[1/9] Kategorie...")
         await seed_kategorie(db)
 
-        print("\n[2/9] Artykuły (maszyny + usługi)...")
+        print("\n[2/9] Maszyny + usługi dodatkowe...")
         art_by_name = await seed_artykuly(db)
 
         print("\n[3/9] Kontrahenci...")

@@ -3,7 +3,7 @@ RAO-P2-059 (Faza 1): Migracja legacy `umowa2.oplaty` (plain text) -> `contract_s
 
 Standalone, idempotentny skrypt migracji danych. Przeznaczony do uruchomienia po
 `migrate.py` step2 (import dumpa) a przed step6 (DROP old tables) — albo na
-odtworzonej bazie z legacy dumpem.
+odtworzonej bazie z legacy dumpem. Usługi dodatkowe tworzone w additional_services.
 
 ALGORYTM (best-effort, forward-only):
   1. Sprawdź czy `umowa2` istnieje — jeśli nie, nic do zrobienia (exit 0).
@@ -14,17 +14,16 @@ ALGORYTM (best-effort, forward-only):
        "Dostawa 100 zł - 200 zł/odbiór", "Opłata: 150 zł (opis)" itp.
      - Nieparsowane linie są logowane (WARN) ale NIE crashują migracji.
   4. Dla każdego fee:
-     a. Znajdź artykuł-usługę po nazwie (case-insensitive, preferuj is_service=1).
-        Jeśli nie istnieje -> utwórz (is_service=1, article_type='usluga_dodatkowa').
+     a. Znajdź usługę dodatkową po nazwie (case-insensitive) w additional_services.
+        Jeśli nie istnieje -> utwórz w additional_services.
      b. UPSERT do contract_service_fees po (contract_id, sort_order):
         - SELECT istniejący wiersz -> UPDATE jeśli istnieje, INSERT jeśli nie.
-        - article_id + default_price = COALESCE(amount_from, amount_to).
-  5. Loguje statystyki: contracts, fees inserted/updated, articles created, unparseable.
+  5. Loguje statystyki: contracts, fees inserted/updated, additional_services created, unparseable.
 
 IDEMPOTENCJA:
   - Re-run bezpieczny: istniejące wiersze (contract_id, sort_order) są UPDATE-owane,
     nowe INSERT-owane. Brak DROP, brak DELETE.
-  - Artykuły tworzone tylko IF NOT EXISTS (po nazwie).
+  - Usługi dodatkowe tworzone tylko IF NOT EXISTS (po nazwie).
 
 Użycie:
     python migrate_service_fees.py             # pełna migracja
@@ -208,16 +207,16 @@ async def _table_exists(cur, table_name: str) -> bool:
     return bool(await cur.fetchone())
 
 
-async def _find_or_create_service_article(cur, name: str) -> tuple[int | None, bool]:
-    """Znajdź artykuł-usługę po nazwie (case-insensitive, preferuj is_service=1).
-    Jeśli nie istnieje -> utwórz. Zwraca (article_id, created).
+async def _find_or_create_additional_service(cur, name: str) -> tuple[int | None, bool]:
+    """Znajdź usługę dodatkową po nazwie (case-insensitive) w additional_services.
+    Jeśli nie istnieje -> utwórz. Zwraca (additional_service_id, created).
     """
     if not name:
         return None, False
-    # Exact match (case-insensitive) — preferuj is_service=1
+    # Exact match (case-insensitive)
     await cur.execute(
-        "SELECT id FROM articles WHERE LOWER(name) = LOWER(%s) "
-        "ORDER BY is_service DESC, id ASC LIMIT 1",
+        "SELECT id FROM additional_services WHERE LOWER(name) = LOWER(%s) "
+        "ORDER BY id ASC LIMIT 1",
         (name[:200],),
     )
     row = await cur.fetchone()
@@ -225,25 +224,24 @@ async def _find_or_create_service_article(cur, name: str) -> tuple[int | None, b
         return int(row[0]), False
     # Prefix match (pierwsze 30 znaków)
     await cur.execute(
-        "SELECT id FROM articles WHERE LOWER(name) LIKE LOWER(%s) "
-        "ORDER BY is_service DESC, id ASC LIMIT 1",
+        "SELECT id FROM additional_services WHERE LOWER(name) LIKE LOWER(%s) "
+        "ORDER BY id ASC LIMIT 1",
         (name[:30] + "%",),
     )
     row = await cur.fetchone()
     if row:
         return int(row[0]), False
-    # Utwórz nowy artykuł-usługę
+    # Utwórz nową usługę dodatkową
     await cur.execute(
-        "INSERT INTO articles (name, is_service, article_type, created_at, updated_at) "
-        "VALUES (%s, 1, 'usluga_dodatkowa', NOW(), NOW())",
+        "INSERT INTO additional_services (name, created_at, updated_at) "
+        "VALUES (%s, NOW(), NOW())",
         (name[:200],),
     )
     return int(cur.lastrowid), True
 
 
-async def _upsert_service_fee(cur, contract_id: int, fee: dict, article_id: int | None) -> str:
+async def _upsert_service_fee(cur, contract_id: int, fee: dict) -> str:
     """UPSERT po (contract_id, sort_order). Zwraca 'inserted' lub 'updated'."""
-    default_price = fee['amount_from'] if fee['amount_from'] is not None else fee['amount_to']
     await cur.execute(
         "SELECT id FROM contract_service_fees "
         "WHERE contract_id=%s AND sort_order=%s LIMIT 1",
@@ -254,21 +252,20 @@ async def _upsert_service_fee(cur, contract_id: int, fee: dict, article_id: int 
         await cur.execute(
             """UPDATE contract_service_fees
                SET name=%s, amount_from=%s, amount_to=%s, unit=%s,
-                   description=%s, is_active=%s, article_id=%s, default_price=%s
+                   description=%s, is_active=%s
                WHERE id=%s""",
             (fee['name'], fee['amount_from'], fee['amount_to'], fee['unit'],
-             fee['description'], fee['is_active'], article_id, default_price,
+             fee['description'], fee['is_active'],
              existing[0]),
         )
         return 'updated'
     await cur.execute(
         """INSERT INTO contract_service_fees
            (contract_id, sort_order, name, amount_from, amount_to, unit,
-            description, is_active, article_id, default_price)
-           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+            description, is_active)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
         (contract_id, fee['sort_order'], fee['name'], fee['amount_from'],
-         fee['amount_to'], fee['unit'], fee['description'], fee['is_active'],
-         article_id, default_price),
+         fee['amount_to'], fee['unit'], fee['description'], fee['is_active']),
     )
     return 'inserted'
 
@@ -299,7 +296,7 @@ async def migrate(dry_run: bool = False) -> int:
     print(f"\n[1/3] Wczytano {len(rows)} umów z niepustym `umowa2.oplaty`")
 
     # 3. Parsuj + UPSERT
-    stats = dict(contracts=0, inserted=0, updated=0, articles_created=0,
+    stats = dict(contracts=0, inserted=0, updated=0, additional_services_created=0,
                  unparseable_contracts=0, unparseable_lines=0)
 
     for contract_id, oplaty in rows:
@@ -321,22 +318,22 @@ async def migrate(dry_run: bool = False) -> int:
                 print(f"       • {line!r}")
 
         if dry_run:
-            # W dry-run tylko symuluj — znajdź artykuły ale nie zapisuj
+            # W dry-run tylko symuluj — znajdź usługi dodatkowe ale nie zapisuj
             for fee in fees:
-                article_id, created = await _find_or_create_service_article(cur, fee['name'])
+                addsvc_id, created = await _find_or_create_additional_service(cur, fee['name'])
                 if created:
-                    stats['articles_created'] += 1
-                    # W dry-run cofnij INSERT artykułu (symulacja)
-                    if article_id:
-                        await cur.execute("DELETE FROM articles WHERE id=%s", (article_id,))
-                        article_id = None
+                    stats['additional_services_created'] += 1
+                    # W dry-run cofnij INSERT usługi dodatkowej (symulacja)
+                    if addsvc_id:
+                        await cur.execute("DELETE FROM additional_services WHERE id=%s", (addsvc_id,))
+                        addsvc_id = None
             continue
 
         for fee in fees:
-            article_id, created = await _find_or_create_service_article(cur, fee['name'])
+            addsvc_id, created = await _find_or_create_additional_service(cur, fee['name'])
             if created:
-                stats['articles_created'] += 1
-            op = await _upsert_service_fee(cur, contract_id, fee, article_id)
+                stats['additional_services_created'] += 1
+            op = await _upsert_service_fee(cur, contract_id, fee)
             stats[op] += 1
 
     if not dry_run:
@@ -347,7 +344,7 @@ async def migrate(dry_run: bool = False) -> int:
     print(f"  contracts parsed:      {stats['contracts']}")
     print(f"  fees inserted:         {stats['inserted']}")
     print(f"  fees updated:          {stats['updated']}")
-    print(f"  articles created:      {stats['articles_created']}")
+    print(f"  additional_services created: {stats['additional_services_created']}")
     print(f"  unparseable contracts: {stats['unparseable_contracts']}")
     print(f"  unparseable lines:     {stats['unparseable_lines']}")
 
@@ -355,13 +352,10 @@ async def migrate(dry_run: bool = False) -> int:
     print(f"\n[3/3] Weryfikacja:")
     await cur.execute("SELECT COUNT(*) FROM contract_service_fees")
     total = (await cur.fetchone())[0]
-    await cur.execute("SELECT COUNT(*) FROM contract_service_fees WHERE article_id IS NOT NULL")
-    with_art = (await cur.fetchone())[0]
-    await cur.execute("SELECT COUNT(*) FROM articles WHERE is_service=1")
+    await cur.execute("SELECT COUNT(*) FROM additional_services")
     svc_art = (await cur.fetchone())[0]
-    pct = (with_art * 100 // total) if total else 0
-    print(f"  contract_service_fees: {total} (with article_id: {with_art}, {pct}%)")
-    print(f"  service articles (is_service=1): {svc_art}")
+    print(f"  contract_service_fees: {total}")
+    print(f"  additional_services:   {svc_art}")
 
     await cur.close()
     conn.close()
@@ -378,29 +372,25 @@ async def verify() -> int:
 
     await cur.execute("SELECT COUNT(*) FROM contract_service_fees")
     total = (await cur.fetchone())[0]
-    await cur.execute("SELECT COUNT(*) FROM contract_service_fees WHERE article_id IS NOT NULL")
-    with_art = (await cur.fetchone())[0]
-    await cur.execute("SELECT COUNT(*) FROM articles WHERE is_service=1")
+    await cur.execute("SELECT COUNT(*) FROM additional_services")
     svc_art = (await cur.fetchone())[0]
-    await cur.execute("SELECT COUNT(*) FROM service_fee_templates WHERE article_id IS NOT NULL")
+    await cur.execute("SELECT COUNT(*) FROM service_fee_templates WHERE additional_service_id IS NOT NULL")
     tpl_art = (await cur.fetchone())[0]
     await cur.execute("SELECT COUNT(*) FROM service_fee_templates")
     tpl_total = (await cur.fetchone())[0]
 
     print(f"contract_service_fees:       {total}")
-    print(f"  with article_id:           {with_art} ({(with_art*100//total if total else 0)}%)")
-    print(f"articles is_service=1:       {svc_art}")
-    print(f"service_fee_templates:       {tpl_total} (with article_id: {tpl_art})")
+    print(f"additional_services:         {svc_art}")
+    print(f"service_fee_templates:       {tpl_total} (with additional_service_id: {tpl_art})")
 
-    # Sample niepudłowane
+    # Sample
     await cur.execute(
-        "SELECT csf.id, csf.contract_id, csf.sort_order, csf.name, csf.article_id, a.name "
-        "FROM contract_service_fees csf LEFT JOIN articles a ON a.id=csf.article_id "
-        "WHERE csf.article_id IS NOT NULL ORDER BY csf.id LIMIT 5"
+        "SELECT csf.id, csf.contract_id, csf.sort_order, csf.name "
+        "FROM contract_service_fees csf ORDER BY csf.id LIMIT 5"
     )
-    print("\nSample (contract_service_fees z article_id):")
+    print("\nSample (contract_service_fees):")
     for row in await cur.fetchall():
-        print(f"  csf#{row[0]} contract={row[1]} order={row[2]} name={row[3]!r} -> article#{row[4]} ({row[5]!r})")
+        print(f"  csf#{row[0]} contract={row[1]} order={row[2]} name={row[3]!r}")
 
     await cur.close()
     conn.close()
@@ -408,7 +398,7 @@ async def verify() -> int:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="RAO-P2-059 — migracja umowa2.oplaty -> contract_service_fees")
+    ap = argparse.ArgumentParser(description="RAO-P2-059 — migracja umowa2.oplaty -> contract_service_fees (additional_services)")
     ap.add_argument("--dry-run", action="store_true", help="Tylko statystyki, bez zapisu do DB")
     ap.add_argument("--verify", action="store_true", help="Tylko weryfikacja stanu (read-only)")
     args = ap.parse_args()

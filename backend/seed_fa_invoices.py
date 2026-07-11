@@ -3,7 +3,7 @@ RAO-P2-061: Wystawia faktury w Fakturownia dla rozliczonych umów z source=faktu
 
 Dla każdej umowy z rozliczeniami source=fakturownia:
 1. Pobiera kontrahenta (NIP -> FA client_id)
-2. Pobiera pozycje/usługi z mapowaniem article_id -> FA product_id
+2. Pobiera pozycje/usługi z mapowaniem machine_id -> FA product_id
 3. Tworzy fakturę w FA z pozycjami (OID = numer umowy)
 4. Zapisuje invoice_id w contract_settlements.fakturownia_invoice_id
 
@@ -43,7 +43,9 @@ from database import AsyncSessionLocal
 # Import modeli
 import auth.models  # noqa
 import contractors.models  # noqa
-import articles.models  # noqa
+import machines.models  # noqa
+import services.models  # noqa
+import additional_services.models  # noqa
 import contracts.models  # noqa
 import settings.models  # noqa
 import categories.models  # noqa
@@ -58,7 +60,7 @@ import integrations.models  # noqa
 
 from contracts.models import Contract
 from contractors.models import Contractor
-from articles.models import Article
+from machines.models import Machine
 from settlements.models import ContractSettlement
 
 # FA config — token WYŁĄCZNIE z env (nigdy hardcoded — bezpieczeństwo).
@@ -70,10 +72,10 @@ FA_BASE = f"https://{FA_DOMAIN}.fakturownia.pl"
 # ── Faza 2d (opcja E): demo scenariusz unmapped ──────────────────────────────
 # Numer umowy demo (musi zgadzać się z DEMO_UNMAPPED_CONTRACT_NUMBER w seed_demo_data.py).
 # Dla tej umowy faktura FA dostaje 3. pozycję "Praca operatora" z product_id NIEZMAPOWANYM
-# w RAO (articles.fakturownia_product_id) → init-from-fakturownia tworzy unmapped settlement.
+# w RAO (machines.fakturownia_product_id) → init-from-fakturownia tworzy unmapped settlement.
 DEMO_UNMAPPED_CONTRACT_NUMBER = "S099/2026"
 
-# ID produktu "Praca operatora" w FA — NIE może być w articles.fakturownia_product_id w RAO.
+# ID produktu "Praca operatora" w FA — NIE może być w machines.fakturownia_product_id w RAO.
 # Konfigurowalne z env (FA_UNMAPPED_PRODUCT_ID). Jeśli brak — skrypt spróbuje utworzyć
 # produkt "Praca operatora" w FA (ensure_unmapped_fa_product) i użyć jego ID.
 FA_UNMAPPED_PRODUCT_ID = os.environ.get("FA_UNMAPPED_PRODUCT_ID")
@@ -160,11 +162,11 @@ async def ensure_fa_clients(client, db):
 async def ensure_fa_products(client, db):
     """Faza B: synchronizuje artykuły RAO (z fakturownia_product_id) → produkty FA.
 
-    Nowe konto FA jest puste — stare ID produktów (z articles.fakturownia_product_id)
-    nie istnieją. Dla każdego artykułu z fakturownia_product_id IS NOT NULL:
+    Nowe konto FA jest puste — stare ID produktów (z machines.fakturownia_product_id)
+    nie istnieją. Dla każdej maszyny z fakturownia_product_id IS NOT NULL:
     1. Sprawdź czy produkt istnieje w FA po ID (GET /products/<id>.json).
     2. Jeśli nie — utwórz nowy (POST /products.json z {name, price_net, tax, code}).
-    3. Zaktualizuj articles.fakturownia_product_id na nowe ID z FA.
+    3. Zaktualizuj machines.fakturownia_product_id na nowe ID z FA.
 
     Cena: replacement_value / 30 (dzienna stawka bazowa), fallback 100.00.
     Tax: 23. Code: internal_number z artykułu.
@@ -173,13 +175,13 @@ async def ensure_fa_products(client, db):
     """
     result = await db.execute(text(
         "SELECT id, name, internal_number, fakturownia_product_id, replacement_value "
-        "FROM articles WHERE fakturownia_product_id IS NOT NULL ORDER BY id"
+        "FROM machines WHERE fakturownia_product_id IS NOT NULL ORDER BY id"
     ))
-    articles = result.fetchall()
-    print(f"\n[ensure_fa_products] {len(articles)} artykułów z mapowaniem FA do synchronizacji")
+    machines = result.fetchall()
+    print(f"\n[ensure_fa_products] {len(machines)} maszyn z mapowaniem FA do synchronizacji")
     old_to_new = {}
     created = 0
-    for art_id, name, internal_number, old_fa_id, replacement_value in articles:
+    for mach_id, name, internal_number, old_fa_id, replacement_value in machines:
         old_fa_id = int(old_fa_id)
         # Krok 1: sprawdź czy stary produkt istnieje w FA
         try:
@@ -213,7 +215,7 @@ async def ensure_fa_products(client, db):
                 "name": name,
                 "price_net": price_net,
                 "tax": 23,
-                "code": internal_number or f"RAO-{art_id}",
+                "code": internal_number or f"RAO-{mach_id}",
             },
         }
         try:
@@ -222,10 +224,10 @@ async def ensure_fa_products(client, db):
             data = resp.json()
             new_fa_id = int(data["id"])
             old_to_new[old_fa_id] = new_fa_id
-            # Krok 3: zaktualizuj articles.fakturownia_product_id na nowe ID
+            # Krok 3: zaktualizuj machines.fakturownia_product_id na nowe ID
             await db.execute(text(
-                "UPDATE articles SET fakturownia_product_id = :new_id WHERE id = :art_id"
-            ), {"new_id": new_fa_id, "art_id": art_id})
+                "UPDATE machines SET fakturownia_product_id = :new_id WHERE id = :mach_id"
+            ), {"new_id": new_fa_id, "mach_id": mach_id})
             await db.commit()
             created += 1
             print(f"  [product] CREATED '{name}' old_fa={old_fa_id} -> new_fa={new_fa_id} (price_net={price_net})")
@@ -238,9 +240,9 @@ async def ensure_fa_products(client, db):
     return old_to_new
 
 
-async def get_article_fa_product_map(db):
-    """Mapowanie article_id -> FA product_id."""
-    result = await db.execute(select(Article.id, Article.fakturownia_product_id, Article.name))
+async def get_machine_fa_product_map(db):
+    """Mapowanie machine_id -> FA product_id."""
+    result = await db.execute(select(Machine.id, Machine.fakturownia_product_id, Machine.name))
     art_map = {}
     for row in result:
         art_map[row[0]] = {"fa_product_id": row[1], "name": row[2]}
@@ -263,7 +265,7 @@ async def get_contracts_with_fa_settlements(db):
         SELECT cs.id, cs.contract_id, cs.position_id, cs.service_fee_id, cs.cost_client,
                c.number as contract_number, c.date_from, c.date_to,
                ct.id as contractor_id, ct.nip, ct.name as contractor_name,
-               cp.article_id as pos_article_id, cp.article_name as pos_article_name,
+               cp.machine_id as pos_machine_id, cp.article_name as pos_article_name,
                csf.name as fee_name
         FROM contract_settlements cs
         JOIN contracts c ON cs.contract_id = c.id
@@ -296,7 +298,7 @@ async def get_contracts_with_fa_settlements(db):
             "position_id": row[2],
             "service_fee_id": row[3],
             "cost_client": float(row[4]),
-            "pos_article_id": row[11],
+            "pos_machine_id": row[11],
             "pos_article_name": row[12],
             "fee_name": row[13],
         })
@@ -325,7 +327,7 @@ async def get_fa_pending_contracts(db):
     query = text("""
         SELECT c.id, c.number, c.date_from, c.date_to,
                ct.id as contractor_id, ct.nip, ct.name as contractor_name,
-               cp.id as position_id, cp.article_id, cp.article_name,
+               cp.id as position_id, cp.machine_id, cp.article_name,
                cp.unit_price, cp.rental_days,
                NULL as service_fee_id, NULL as fee_name, NULL as fee_amount
         FROM contracts c
@@ -369,7 +371,7 @@ async def get_fa_pending_contracts(db):
                 "position_id": row[7],
                 "service_fee_id": None,
                 "cost_client": amount,
-                "pos_article_id": row[8],
+                "pos_machine_id": row[8],
                 "pos_article_name": row[9],
                 "fee_name": None,
             })
@@ -379,7 +381,7 @@ async def get_fa_pending_contracts(db):
                 "position_id": None,
                 "service_fee_id": row[12],
                 "cost_client": float(row[14] or 0),
-                "pos_article_id": None,
+                "pos_machine_id": None,
                 "pos_article_name": None,
                 "fee_name": row[13],
             })
@@ -412,7 +414,7 @@ async def ensure_unmapped_fa_product(client, db) -> int:
     1. Jeśli FA_UNMAPPED_PRODUCT_ID w env → użyj go (po weryfikacji że nie jest w RAO).
     2. W przeciwnym razie szukaj w FA po nazwie (GET /products.json?name=...).
     3. Jeśli nie znaleziono → utwórz nowy produkt w FA (POST /products.json).
-    4. Weryfikacja: product_id NIE może być w articles.fakturownia_product_id w RAO.
+    4. Weryfikacja: product_id NIE może być w machines.fakturownia_product_id w RAO.
 
     Zwraca FA product_id (int). Rzuca RuntimeError jeśli konflikt mapowania.
     """
@@ -421,11 +423,11 @@ async def ensure_unmapped_fa_product(client, db) -> int:
         pid = int(FA_UNMAPPED_PRODUCT_ID)
         # Weryfikacja: nie może być zmapowany w RAO
         mapped = await db.execute(
-            select(Article.id).where(Article.fakturownia_product_id == pid).limit(1)
+            select(Machine.id).where(Machine.fakturownia_product_id == pid).limit(1)
         )
         if mapped.scalar_one_or_none():
             raise RuntimeError(
-                f"FA_UNMAPPED_PRODUCT_ID={pid} jest zmapowany w RAO (articles.fakturownia_product_id) "
+                f"FA_UNMAPPED_PRODUCT_ID={pid} jest zmapowany w RAO (machines.fakturownia_product_id) "
                 f"— to MUSI być niezmapowany produkt. Ustaw inny ID w env."
             )
         print(f"  [unmapped] Używam FA_UNMAPPED_PRODUCT_ID z env: {pid}")
@@ -445,7 +447,7 @@ async def ensure_unmapped_fa_product(client, db) -> int:
                 pid = int(p["id"])
                 # Weryfikacja: nie zmapowany w RAO
                 mapped = await db.execute(
-                    select(Article.id).where(Article.fakturownia_product_id == pid).limit(1)
+                    select(Machine.id).where(Machine.fakturownia_product_id == pid).limit(1)
                 )
                 if mapped.scalar_one_or_none():
                     print(f"  [unmapped] Produkt FA '{p['name']}' (ID={pid}) jest zmapowany w RAO — szukam dalej")
@@ -508,10 +510,10 @@ async def create_fa_invoice(client, contract_data, art_map, db=None, nip_to_fa_c
     # Buduj pozycje faktury
     positions = []
     for s in contract_data["settlements"]:
-        # Ustal article_id i nazwę
-        article_id = s["pos_article_id"]
+        # Ustal machine_id i nazwę
+        machine_id = s.get("pos_machine_id")
         article_name = s["pos_article_name"] or s["fee_name"]
-        art_info = art_map.get(article_id, {})
+        art_info = art_map.get(machine_id, {})
         fa_product_id = art_info.get("fa_product_id")
 
         price_net = s["cost_client"] / 1.23  # netto z brutto (23% VAT)
@@ -605,8 +607,8 @@ async def main():
     _require_token()
 
     async with AsyncSessionLocal() as db:
-        art_map = await get_article_fa_product_map(db)
-        print(f"\nArtykuły z mapowaniem FA: {len(art_map)}")
+        art_map = await get_machine_fa_product_map(db)
+        print(f"\nMaszyny z mapowaniem FA: {len(art_map)}")
 
         created = 0
         skipped = 0
@@ -617,12 +619,12 @@ async def main():
             # Obsługa pustego konta FA — stare hardcoded NIP_TO_FA_CLIENT nie istnieją.
             nip_to_fa_client = await ensure_fa_clients(client, db)
 
-            # ── Faza B: utwórz produkty FA + zaktualizuj articles.fakturownia_product_id ──
+            # ── Faza B: utwórz produkty FA + zaktualizuj machines.fakturownia_product_id ──
             # Stare ID produktów nie istnieją na nowym koncie — tworzymy nowe.
             await ensure_fa_products(client, db)
-            # Odśwież art_map po aktualizacji articles.fakturownia_product_id
-            art_map = await get_article_fa_product_map(db)
-            print(f"\nArtykuły z mapowaniem FA (po sync): {len(art_map)}")
+            # Odśwież art_map po aktualizacji machines.fakturownia_product_id
+            art_map = await get_machine_fa_product_map(db)
+            print(f"\nMaszyny z mapowaniem FA (po sync): {len(art_map)}")
 
             # ── Część 1: umowy rozliczone source=fakturownia (backfill invoice_id) ──
             contracts = await get_contracts_with_fa_settlements(db)

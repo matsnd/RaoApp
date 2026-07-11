@@ -30,7 +30,9 @@ from config import settings as app_settings
 # Import modeli — ładują metadane
 import auth.models  # noqa
 import contractors.models  # noqa
-import articles.models  # noqa
+import machines.models  # noqa
+import services.models  # noqa
+import additional_services.models  # noqa
 import contracts.models  # noqa
 import settings.models  # noqa
 import categories.models  # noqa
@@ -43,7 +45,7 @@ import reservations.models  # noqa
 import integrations.fakturownia.models  # noqa
 import integrations.models  # noqa
 
-from articles.models import Article
+from machines.models import Machine
 from integrations.fakturownia.crypto import encrypt_token, mask_token
 from integrations.fakturownia.models import FakturowniaProductCache, FakturowniaSettings
 from integrations.fakturownia.schemas import FakturowniaProductOut
@@ -151,8 +153,8 @@ async def seed_fakturownia_products(db: AsyncSession) -> int:
     return count
 
 
-async def link_articles_to_fa_products(db: AsyncSession) -> int:
-    """Mapuje artykuły RAO na syntetyczne produkty FA po kluczowych słowach w nazwie."""
+async def link_machines_to_fa_products(db: AsyncSession) -> int:
+    """Mapuje maszyny RAO na syntetyczne produkty FA po kluczowych słowach w nazwie."""
     mapping = [
         ("kopark", 8845156432567),
         ("ładowark", 8845156436442),
@@ -167,11 +169,11 @@ async def link_articles_to_fa_products(db: AsyncSession) -> int:
         ("operator", 8845156436451),
     ]
     linked = 0
-    result = await db.execute(select(Article.id, Article.name))
+    result = await db.execute(select(Machine.id, Machine.name))
     rows = result.all()
 
     from sqlalchemy import text
-    for art_id, name in rows:
+    for mach_id, name in rows:
         matched_fa_id = None
         for keyword, fa_id in mapping:
             if keyword in (name or "").lower():
@@ -179,13 +181,13 @@ async def link_articles_to_fa_products(db: AsyncSession) -> int:
                 break
         if matched_fa_id:
             await db.execute(
-                text("UPDATE articles SET fakturownia_product_id = :fa_id WHERE id = :art_id"),
-                {"fa_id": matched_fa_id, "art_id": art_id},
+                text("UPDATE machines SET fakturownia_product_id = :fa_id WHERE id = :mach_id"),
+                {"fa_id": matched_fa_id, "mach_id": mach_id},
             )
             linked += 1
 
     await db.commit()
-    print(f"  Linked {linked} articles to FA products")
+    print(f"  Linked {linked} machines to FA products")
     return linked
 
 
@@ -194,7 +196,7 @@ async def main():
     async with AsyncSessionLocal() as db:
         await seed_fakturownia_settings(db)
         await seed_fakturownia_products(db)
-        await link_articles_to_fa_products(db)
+        await link_machines_to_fa_products(db)
     print("OK")
 
 

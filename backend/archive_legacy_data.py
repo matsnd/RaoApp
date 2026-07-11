@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import AsyncSessionLocal
 from categories.models import Category
-from articles.models import Article
+from machines.models import Machine
 from contracts.models import Contract, ContractPosition, PositionCondition, ContractServiceFee
 from settlements.models import ContractSettlement
 from archive.models import (
@@ -34,7 +34,9 @@ from archive.models import (
 # Import wszystkich modeli żeby SQLAlchemy skonfigurowało relacje
 import auth.models  # noqa: F401
 import contractors.models  # noqa: F401
-import articles.models  # noqa: F401
+import machines.models  # noqa: F401
+import services.models  # noqa: F401
+import additional_services.models  # noqa: F401
 import contracts.models  # noqa: F401
 import settings.models  # noqa: F401
 import categories.models  # noqa: F401
@@ -121,8 +123,8 @@ async def main():
         print("\n[1/7] Kategorie -> archive_categories...")
         await archive_table(db, Category, ArchiveCategory, "Kategorie")
 
-        print("\n[2/7] Artykuly -> archive_articles...")
-        await archive_table(db, Article, ArchiveArticle, "Artykuly")
+        print("\n[2/7] Maszyny -> archive_articles...")
+        await archive_table(db, Machine, ArchiveArticle, "Maszyny")
 
         print("\n[3/7] Umowy -> archive_contracts...")
         await archive_table(db, Contract, ArchiveContract, "Umowy")
