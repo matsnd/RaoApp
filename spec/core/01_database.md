@@ -267,6 +267,8 @@ CREATE TABLE articles (
     category_sub3     VARCHAR(100) NULL COMMENT 'RAO-P1-017: Podkategoria 3 (snapshot)',
     is_archival       BOOLEAN      NOT NULL DEFAULT FALSE COMMENT 'RAO-P1-017: maszyna archiwalna (FALSE domyślnie, użytkownik oznaczy ręcznie w przyszłości)',
     technical_attributes JSON      NULL COMMENT 'RAO-P1-017: dynamiczne atrybuty techniczne (np. waga, moc) - LEGACY, zostawione dla kompatybilności',
+    -- RAO: typ zasilania maszyny (VARCHAR dla elastyczności, wartości: 'diesel', 'electric', 'other')
+    power_type        VARCHAR(10)  NOT NULL DEFAULT 'other' COMMENT 'Typ zasilania: diesel / electric / other',
     -- RAO: dedykowane kolumny numeryczne dla filtrów statystyk (zastępują string-values w technical_attributes JSON)
     zasieg_m          DECIMAL(8,2) NULL COMMENT 'Zasięg w metrach (filtr >=/<= w statystykach)',
     udzwig_t          DECIMAL(8,2) NULL COMMENT 'Udźwig w tonach (filtr >=/<= w statystykach)',

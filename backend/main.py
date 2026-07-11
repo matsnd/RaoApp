@@ -66,6 +66,22 @@ async def startup_migrations():
     # (only creates missing tables), so the second call on line ~194 is a no-op.
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # RAO: typ zasilania maszyny — diesel / electric / other (VARCHAR(10) dla elastyczności)
+        # Musi być dodane PRZED seedem Article poniżej (model deklaruje power_type,
+        # create_all nie doda kolumny do istniejącej tabeli → seed SELECT by się wywalił).
+        await conn.execute(sa.text(
+            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "power_type VARCHAR(10) NOT NULL DEFAULT 'other'"
+        ))
+        # Heurystyka legacy: maszyny spalinowe → diesel, elektryczne → electric
+        await conn.execute(sa.text(
+            "UPDATE articles SET power_type='diesel' WHERE power_type='other' AND "
+            "(name LIKE '%spalin%' OR name LIKE '%diesel%' OR name LIKE '%benzyn%')"
+        ))
+        await conn.execute(sa.text(
+            "UPDATE articles SET power_type='electric' WHERE power_type='other' AND "
+            "(name LIKE '%elektr%' OR name LIKE '%battery%' OR name LIKE '%akumulator%')"
+        ))
 
     # Upewnij się że istnieje domyślna firma (id=1) — FK dla FeePresetGroup
     # Musi być utworzone PRZED seedem presetów (RAO-P2-001 niżej).

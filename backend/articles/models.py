@@ -31,6 +31,8 @@ class Article(Base):
     is_archival = Column(Boolean, nullable=False, default=False, server_default="0")
     # RAO-P1-027: maszyna zewnętrzna (nie wliczana do floty własnej)
     is_external = Column(Boolean, nullable=False, default=False, server_default="0")
+    # RAO: typ zasilania maszyny — 'diesel', 'electric', 'other' (VARCHAR dla elastyczności)
+    power_type = Column(String(10), nullable=False, server_default="other", default="other")
     technical_attributes = Column(JSON, nullable=True)
     # RAO-P2-XXX: dedykowane kolumny numeryczne dla filtrów (zastępują string-values w technical_attributes JSON)
     zasieg_m = Column(Numeric(8, 2), nullable=True, comment="Zasięg w metrach")
