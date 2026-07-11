@@ -25,7 +25,7 @@ def _mock_db_with_conflict(conflict: bool):
 async def test_check_conflict_returns_true_when_overlap():
     svc = ReservationService()
     db = _mock_db_with_conflict(True)
-    out = await svc.check_conflict(db, article_id=1,
+    out = await svc.check_conflict(db, machine_id=1,
                                    from_date=date(2026, 1, 1),
                                    to_date=date(2026, 1, 10))
     assert out is True
@@ -35,7 +35,7 @@ async def test_check_conflict_returns_true_when_overlap():
 async def test_check_conflict_returns_false_when_no_overlap():
     svc = ReservationService()
     db = _mock_db_with_conflict(False)
-    out = await svc.check_conflict(db, article_id=1,
+    out = await svc.check_conflict(db, machine_id=1,
                                    from_date=date(2026, 1, 1),
                                    to_date=date(2026, 1, 10))
     assert out is False
@@ -46,7 +46,7 @@ async def test_create_raises_409_on_conflict():
     svc = ReservationService()
     db = _mock_db_with_conflict(True)
     data = ReservationCreate(
-        article_id=1,
+        machine_id=1,
         reserved_from=date(2026, 1, 1),
         reserved_to=date(2026, 1, 10),
     )
@@ -60,7 +60,7 @@ async def test_create_succeeds_when_no_conflict():
     svc = ReservationService()
     db = _mock_db_with_conflict(False)
     data = ReservationCreate(
-        article_id=1,
+        machine_id=1,
         reserved_from=date(2026, 1, 1),
         reserved_to=date(2026, 1, 10),
     )
@@ -76,7 +76,7 @@ async def test_create_with_contractor_id_and_status():
     svc = ReservationService()
     db = _mock_db_with_conflict(False)
     data = ReservationCreate(
-        article_id=1,
+        machine_id=1,
         reserved_from=date(2026, 1, 1),
         reserved_to=date(2026, 1, 10),
         contractor_id=5,
@@ -92,7 +92,7 @@ async def test_create_invalid_status_raises_422():
     """RAO-L-Phase2: status spoza enum → błąd walidacji Pydantic."""
     with pytest.raises(Exception):
         ReservationCreate(
-            article_id=1,
+            machine_id=1,
             reserved_from=date(2026, 1, 1),
             reserved_to=date(2026, 1, 10),
             status="invalid",
@@ -117,10 +117,10 @@ def _mock_db_for_update(existing_obj, conflict: bool = False):
     return db
 
 
-def _mk_existing_reservation(r_id=1, art_id=1, r_from=date(2026, 1, 1), r_to=date(2026, 1, 10)):
+def _mk_existing_reservation(r_id=1, mach_id=1, r_from=date(2026, 1, 1), r_to=date(2026, 1, 10)):
     r = MagicMock()
     r.id = r_id
-    r.article_id = art_id
+    r.machine_id = mach_id
     r.reserved_from = r_from
     r.reserved_to = r_to
     r.note = None
@@ -201,7 +201,7 @@ async def test_check_conflict_exclude_contractor_id():
     svc = ReservationService()
     db = _mock_db_with_conflict(False)  # no conflict returned (excluded)
     out = await svc.check_conflict(
-        db, article_id=1,
+        db, machine_id=1,
         from_date=date(2026, 1, 1), to_date=date(2026, 1, 10),
         exclude_contractor_id=5,
     )

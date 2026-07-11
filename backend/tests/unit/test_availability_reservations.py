@@ -1,4 +1,4 @@
-"""RAO-P2-066: testy check_availability z uwzględnieniem article_reservations.
+"""RAO-P2-066: testy check_availability z uwzględnieniem machine_reservations.
 
 Weryfikują, że:
 - maszyna bez rezerwacji i bez umów → is_available=True, conflicting_reservations=[]
@@ -12,16 +12,16 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from articles.service import ArticleService
-from articles.models import Article
-from reservations.models import ArticleReservation
+from machines.service import MachineService
+from machines.models import Machine
+from reservations.models import MachineReservation
 
 
-def _mk_reservation(r_id, art_id, r_from, r_to, note=None, contractor_id=None):
-    """Tworzy mock ArticleReservation z polami używanymi przez check_availability."""
-    r = MagicMock(spec=ArticleReservation)
+def _mk_reservation(r_id, mach_id, r_from, r_to, note=None, contractor_id=None):
+    """Tworzy mock MachineReservation z polami używanymi przez check_availability."""
+    r = MagicMock(spec=MachineReservation)
     r.id = r_id
-    r.article_id = art_id
+    r.machine_id = mach_id
     r.reserved_from = r_from
     r.reserved_to = r_to
     r.note = note
@@ -29,23 +29,23 @@ def _mk_reservation(r_id, art_id, r_from, r_to, note=None, contractor_id=None):
     return r
 
 
-def _mk_article(is_external=False):
-    a = MagicMock(spec=Article)
+def _mk_machine(is_external=False):
+    a = MagicMock(spec=Machine)
     a.is_external = is_external
     return a
 
 
-def _mock_db(article=None, contract_rows=None, reservations=None):
+def _mock_db(machine=None, contract_rows=None, reservations=None):
     """Buduje AsyncMock(AsyncSession):
-    - db.get(Article, id) → article (lub None)
+    - db.get(Machine, id) → machine (lub None)
     - db.execute(stmt) → result z .all() = contract_rows / reservation tuples
     Kolejność execute: 1) contracts, 2) reservations.
-    RAO-L-Phase2: reservations query zwraca tuple (ArticleReservation, contractor_name).
+    RAO-L-Phase2: reservations query zwraca tuple (MachineReservation, contractor_name).
     """
     db = AsyncMock()
 
     async def _get(cls, _id):
-        return article
+        return machine
     db.get = AsyncMock(side_effect=_get)
 
     contract_result = MagicMock()
@@ -74,8 +74,8 @@ def _mock_db(article=None, contract_rows=None, reservations=None):
 
 @pytest.mark.asyncio
 async def test_availability_no_reservations_no_contracts_available():
-    svc = ArticleService()
-    db = _mock_db(article=_mk_article(), contract_rows=[], reservations=[])
+    svc = MachineService()
+    db = _mock_db(machine=_mk_machine(), contract_rows=[], reservations=[])
     out = await svc.check_availability(db, 1, date(2026, 1, 1), date(2026, 1, 10))
     assert out.is_available is True
     assert out.conflicting_contracts == []
@@ -85,9 +85,9 @@ async def test_availability_no_reservations_no_contracts_available():
 @pytest.mark.asyncio
 async def test_availability_overlapping_reservation_blocks():
     """Rezerwacja 05.01–15.01 pokrywa się z badanym okresem 01.01–10.01 → blokada."""
-    svc = ArticleService()
+    svc = MachineService()
     res = _mk_reservation(7, 1, date(2026, 1, 5), date(2026, 1, 15), note="Serwis")
-    db = _mock_db(article=_mk_article(), contract_rows=[], reservations=[res])
+    db = _mock_db(machine=_mk_machine(), contract_rows=[], reservations=[res])
     out = await svc.check_availability(db, 1, date(2026, 1, 1), date(2026, 1, 10))
     assert out.is_available is False
     assert len(out.conflicting_reservations) == 1
@@ -106,9 +106,9 @@ async def test_availability_reservation_outside_range_no_conflict():
 
     Logika SQL: reserved_from (11.01) <= date_to (10.01)? NIE → brak w wyniku.
     """
-    svc = ArticleService()
+    svc = MachineService()
     res = _mk_reservation(7, 1, date(2026, 1, 11), date(2026, 1, 20))
-    db = _mock_db(article=_mk_article(), contract_rows=[], reservations=[])
+    db = _mock_db(machine=_mk_machine(), contract_rows=[], reservations=[])
     out = await svc.check_availability(db, 1, date(2026, 1, 1), date(2026, 1, 10))
     assert out.is_available is True
     assert out.conflicting_reservations == []
@@ -117,9 +117,9 @@ async def test_availability_reservation_outside_range_no_conflict():
 @pytest.mark.asyncio
 async def test_availability_external_machine_ignores_reservations():
     """Maszyna zewnętrzna (is_external=True) → zawsze dostępna, rezerwacje ignorowane."""
-    svc = ArticleService()
+    svc = MachineService()
     res = _mk_reservation(7, 1, date(2026, 1, 5), date(2026, 1, 15))
-    db = _mock_db(article=_mk_article(is_external=True), reservations=[res])
+    db = _mock_db(machine=_mk_machine(is_external=True), reservations=[res])
     out = await svc.check_availability(db, 1, date(2026, 1, 1), date(2026, 1, 10))
     assert out.is_available is True
     assert out.conflicting_reservations == []
@@ -129,10 +129,10 @@ async def test_availability_external_machine_ignores_reservations():
 @pytest.mark.asyncio
 async def test_availability_both_contract_and_reservation_conflict():
     """Konflikt z umową i rezerwacją naraz → oba listy wypełnione, is_available=False."""
-    svc = ArticleService()
+    svc = MachineService()
     res = _mk_reservation(7, 1, date(2026, 1, 5), date(2026, 1, 15))
     contract_row = (10, "U/2026/001", date(2026, 1, 1), date(2026, 1, 31), "ACME Sp. z o.o.")
-    db = _mock_db(article=_mk_article(), contract_rows=[contract_row], reservations=[res])
+    db = _mock_db(machine=_mk_machine(), contract_rows=[contract_row], reservations=[res])
     out = await svc.check_availability(db, 1, date(2026, 1, 1), date(2026, 1, 10))
     assert out.is_available is False
     assert len(out.conflicting_contracts) == 1
@@ -143,9 +143,9 @@ async def test_availability_both_contract_and_reservation_conflict():
 @pytest.mark.asyncio
 async def test_availability_reservation_available_from_is_reserved_to_plus_one():
     """available_from musi być reserved_to + 1 dzień (data, od której maszyna wolna)."""
-    svc = ArticleService()
+    svc = MachineService()
     res = _mk_reservation(1, 1, date(2026, 2, 1), date(2026, 2, 28))
-    db = _mock_db(article=_mk_article(), contract_rows=[], reservations=[res])
+    db = _mock_db(machine=_mk_machine(), contract_rows=[], reservations=[res])
     out = await svc.check_availability(db, 1, date(2026, 2, 10), date(2026, 2, 20))
     assert out.conflicting_reservations[0].available_from == date(2026, 3, 1)
     assert out.conflicting_reservations[0].available_from == res.reserved_to + timedelta(days=1)
@@ -154,12 +154,12 @@ async def test_availability_reservation_available_from_is_reserved_to_plus_one()
 @pytest.mark.asyncio
 async def test_availability_reservation_conflict_includes_contractor():
     """RAO-L-Phase2: conflicting_reservations zawiera contractor_id i contractor_name."""
-    svc = ArticleService()
+    svc = MachineService()
     res = _mk_reservation(
         7, 1, date(2026, 1, 5), date(2026, 1, 15),
         note="Serwis", contractor_id=42,
     )
-    db = _mock_db(article=_mk_article(), contract_rows=[], reservations=[res])
+    db = _mock_db(machine=_mk_machine(), contract_rows=[], reservations=[res])
     out = await svc.check_availability(db, 1, date(2026, 1, 1), date(2026, 1, 10))
     assert out.is_available is False
     rc = out.conflicting_reservations[0]
@@ -170,9 +170,9 @@ async def test_availability_reservation_conflict_includes_contractor():
 @pytest.mark.asyncio
 async def test_availability_reservation_conflict_no_contractor():
     """RAO-L-Phase2: rezerwacja bez contractor_id → contractor_id=None, contractor_name=None."""
-    svc = ArticleService()
+    svc = MachineService()
     res = _mk_reservation(7, 1, date(2026, 1, 5), date(2026, 1, 15), contractor_id=None)
-    db = _mock_db(article=_mk_article(), contract_rows=[], reservations=[res])
+    db = _mock_db(machine=_mk_machine(), contract_rows=[], reservations=[res])
     out = await svc.check_availability(db, 1, date(2026, 1, 1), date(2026, 1, 10))
     rc = out.conflicting_reservations[0]
     assert rc.contractor_id is None

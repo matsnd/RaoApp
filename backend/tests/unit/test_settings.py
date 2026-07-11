@@ -13,10 +13,10 @@ from settings.schemas import (
     CompanyUpdate,
     ServiceFeeTemplateCreate,
     FeePresetGroupCreate,
-    ArticleRatePresetCreate,
-    ArticleRatePresetUpdate,
-    ArticleRatePresetItemCreate,
-    ArticleRatePresetItemUpdate,
+    MachineRatePresetCreate,
+    MachineRatePresetUpdate,
+    MachineRatePresetItemCreate,
+    MachineRatePresetItemUpdate,
 )
 from settings.service import SettingsService
 
@@ -103,31 +103,31 @@ async def test_get_company_returns_existing():
     assert out.id == 1
 
 
-# ── RAO-P1-001: ArticleRatePreset schemas ───────────────────────────────────
+# ── RAO-P1-001: MachineRatePreset schemas ───────────────────────────────────
 
-def test_article_rate_preset_create_minimal():
-    p = ArticleRatePresetCreate(name="Standard")
+def test_machine_rate_preset_create_minimal():
+    p = MachineRatePresetCreate(name="Standard")
     assert p.is_default is False
     assert p.items == []
 
 
-def test_article_rate_preset_create_requires_name():
+def test_machine_rate_preset_create_requires_name():
     with pytest.raises(ValidationError):
-        ArticleRatePresetCreate()  # type: ignore[call-arg]
+        MachineRatePresetCreate()  # type: ignore[call-arg]
 
 
-def test_article_rate_preset_create_name_max_length():
+def test_machine_rate_preset_create_name_max_length():
     with pytest.raises(ValidationError):
-        ArticleRatePresetCreate(name="x" * 201)
+        MachineRatePresetCreate(name="x" * 201)
 
 
-def test_article_rate_preset_create_with_items():
-    p = ArticleRatePresetCreate(
+def test_machine_rate_preset_create_with_items():
+    p = MachineRatePresetCreate(
         name="Promo",
         is_default=True,
         items=[
-            ArticleRatePresetItemCreate(rate1=Decimal("540.00"), period_count=3, billing_label="doba"),
-            ArticleRatePresetItemCreate(rate2=Decimal("350.00"), billing_label="doba"),
+            MachineRatePresetItemCreate(rate1=Decimal("540.00"), period_count=3, billing_label="doba"),
+            MachineRatePresetItemCreate(rate2=Decimal("350.00"), billing_label="doba"),
         ],
     )
     assert p.is_default is True
@@ -135,24 +135,24 @@ def test_article_rate_preset_create_with_items():
     assert p.items[0].rate1 == Decimal("540.00")
 
 
-def test_article_rate_preset_update_all_optional():
-    u = ArticleRatePresetUpdate()
+def test_machine_rate_preset_update_all_optional():
+    u = MachineRatePresetUpdate()
     assert u.name is None
     assert u.is_default is None
 
 
-def test_article_rate_preset_item_billing_label_max_length():
+def test_machine_rate_preset_item_billing_label_max_length():
     with pytest.raises(ValidationError):
-        ArticleRatePresetItemCreate(billing_label="x" * 21)
+        MachineRatePresetItemCreate(billing_label="x" * 21)
 
 
-def test_article_rate_preset_item_description_max_length():
+def test_machine_rate_preset_item_description_max_length():
     with pytest.raises(ValidationError):
-        ArticleRatePresetItemCreate(description="x" * 401)
+        MachineRatePresetItemCreate(description="x" * 401)
 
 
-def test_article_rate_preset_item_update_all_optional():
-    u = ArticleRatePresetItemUpdate()
+def test_machine_rate_preset_item_update_all_optional():
+    u = MachineRatePresetItemUpdate()
     assert u.rate1 is None
     assert u.period_count is None
 
@@ -160,8 +160,8 @@ def test_article_rate_preset_item_update_all_optional():
 # ── RAO-P1-001: SettingsService rate-preset methods (mocked DB) ──────────────
 
 @pytest.mark.asyncio
-async def test_get_article_rate_preset_not_found_raises_404():
-    """get_article_rate_preset zwraca 404 gdy preset nie istnieje."""
+async def test_get_machine_rate_preset_not_found_raises_404():
+    """get_machine_rate_preset zwraca 404 gdy preset nie istnieje."""
     from fastapi import HTTPException
     svc = SettingsService()
     db = AsyncMock()
@@ -170,13 +170,13 @@ async def test_get_article_rate_preset_not_found_raises_404():
     db.execute = AsyncMock(return_value=result)
 
     with pytest.raises(HTTPException) as exc:
-        await svc.get_article_rate_preset(db, 999)
+        await svc.get_machine_rate_preset(db, 999)
     assert exc.value.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_delete_article_rate_preset_not_found_raises_404():
-    """delete_article_rate_preset zwraca 404 gdy preset nie istnieje."""
+async def test_delete_machine_rate_preset_not_found_raises_404():
+    """delete_machine_rate_preset zwraca 404 gdy preset nie istnieje."""
     from fastapi import HTTPException
     svc = SettingsService()
     db = AsyncMock()
@@ -185,7 +185,7 @@ async def test_delete_article_rate_preset_not_found_raises_404():
     db.execute = AsyncMock(return_value=result)
 
     with pytest.raises(HTTPException) as exc:
-        await svc.delete_article_rate_preset(db, 999)
+        await svc.delete_machine_rate_preset(db, 999)
     assert exc.value.status_code == 404
 
 
@@ -200,7 +200,7 @@ async def test_update_preset_item_not_found_raises_404():
     db.execute = AsyncMock(return_value=result)
 
     with pytest.raises(HTTPException) as exc:
-        await svc.update_preset_item(db, 999, ArticleRatePresetItemUpdate())
+        await svc.update_preset_item(db, 999, MachineRatePresetItemUpdate())
     assert exc.value.status_code == 404
 
 
@@ -235,13 +235,13 @@ async def test_set_default_preset_not_found_raises_404():
 
 
 @pytest.mark.asyncio
-async def test_create_article_rate_preset_article_not_found_raises_404():
-    """create_article_rate_preset zwraca 404 gdy artykuł nie istnieje."""
+async def test_create_machine_rate_preset_machine_not_found_raises_404():
+    """create_machine_rate_preset zwraca 404 gdy maszyna nie istnieje."""
     from fastapi import HTTPException
     svc = SettingsService()
     db = AsyncMock()
-    db.get = AsyncMock(return_value=None)  # artykuł nie istnieje
+    db.get = AsyncMock(return_value=None)  # maszyna nie istnieje
 
     with pytest.raises(HTTPException) as exc:
-        await svc.create_article_rate_preset(db, 999, ArticleRatePresetCreate(name="X"))
+        await svc.create_machine_rate_preset(db, 999, MachineRatePresetCreate(name="X"))
     assert exc.value.status_code == 404

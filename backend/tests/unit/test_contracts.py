@@ -69,12 +69,12 @@ def test_contract_create_dates_optional():
 
 
 def test_position_create_defaults():
-    p = PositionCreate(article_id=42)
-    assert p.article_id == 42
+    p = PositionCreate(machine_id=42)
+    assert p.machine_id == 42
     assert p.quantity == 1
 
 
-def test_position_create_requires_article_id():
+def test_position_create_requires_machine_id():
     with pytest.raises(ValidationError):
         PositionCreate()  # type: ignore[call-arg]
 
@@ -180,7 +180,7 @@ def test_position_update_exclude_unset():
     u = PositionUpdate(quantity=5)
     dumped = u.model_dump(exclude_unset=True)
     assert dumped == {"quantity": 5}
-    assert "article_id" not in dumped
+    assert "machine_id" not in dumped
     assert "rental_days" not in dumped
 
 def test_condition_update_exclude_unset():
@@ -298,8 +298,8 @@ async def test_apply_rate_preset_settled_contract_raises_409():
 
 
 @pytest.mark.asyncio
-async def test_get_last_conditions_for_article_no_history_returns_none():
-    """get_last_conditions_for_article zwraca None gdy brak historii umów."""
+async def test_get_last_conditions_for_machine_no_history_returns_none():
+    """get_last_conditions_for_machine zwraca None gdy brak historii umów."""
     from contracts.service import contract_service
     from auth.models import User
     user = MagicMock(spec=User, role="admin", branch_id=1)
@@ -308,7 +308,7 @@ async def test_get_last_conditions_for_article_no_history_returns_none():
     result.scalar_one_or_none.return_value = None  # brak pozycji
     db.execute = AsyncMock(return_value=result)
 
-    out = await contract_service.get_last_conditions_for_article(db, 999, user)
+    out = await contract_service.get_last_conditions_for_machine(db, 999, user)
     assert out is None
 
 

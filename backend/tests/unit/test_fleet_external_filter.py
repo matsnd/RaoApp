@@ -40,70 +40,72 @@ def mk_pos(is_service=False, article_id=1, revenue=1000, name="M1", internal_num
 
 
 # ---------------------------------------------------------------------------
-# Testy Article model — is_external field present
+# Testy Machine model — is_external field present
 # ---------------------------------------------------------------------------
 
-def test_article_model_has_is_external():
-    """Article model musi mieć kolumnę is_external (RAO-P1-027)."""
-    from articles.models import Article
-    assert hasattr(Article, 'is_external'), "Article.is_external kolumna nie istnieje!"
+def test_machine_model_has_is_external():
+    """Machine model musi mieć kolumnę is_external (RAO-P1-027)."""
+    from machines.models import Machine
+    assert hasattr(Machine, 'is_external'), "Machine.is_external kolumna nie istnieje!"
 
 
-def test_article_model_is_external_default():
-    """Article.is_external ma default=False."""
-    from articles.models import Article
-    col = Article.__table__.c['is_external']
+def test_machine_model_is_external_default():
+    """Machine.is_external ma default=False."""
+    from machines.models import Machine
+    col = Machine.__table__.c['is_external']
     assert col.default is not None or col.server_default is not None, \
         "is_external musi mieć default=False / server_default='0'"
 
 
 # ---------------------------------------------------------------------------
-# Testy schema — is_external w ArticleCreate / ArticleDetail / ArticleListItem
+# Testy schema — is_external w MachineCreate / MachineDetail / MachineListItem
 # ---------------------------------------------------------------------------
 
-def test_article_create_schema_has_is_external():
-    """ArticleCreate musi przyjmować is_external."""
-    from articles.schemas import ArticleCreate
+def test_machine_create_schema_has_is_external():
+    """MachineCreate musi przyjmować is_external."""
+    from machines.schemas import MachineCreate
     payload = dict(
         name="Koparka",
-        is_service=False,
         is_external=True,
     )
-    obj = ArticleCreate(**payload)
+    obj = MachineCreate(**payload)
     assert obj.is_external is True
 
 
-def test_article_create_schema_is_external_default_false():
-    """ArticleCreate.is_external domyślnie False."""
-    from articles.schemas import ArticleCreate
-    obj = ArticleCreate(name="Koparka")
+def test_machine_create_schema_is_external_default_false():
+    """MachineCreate.is_external domyślnie False."""
+    from machines.schemas import MachineCreate
+    obj = MachineCreate(name="Koparka")
     assert obj.is_external is False
 
 
-def test_article_detail_schema_has_is_external():
-    """ArticleDetail musi eksponować is_external."""
-    from articles.schemas import ArticleDetail
+def test_machine_detail_schema_has_is_external():
+    """MachineDetail musi eksponować is_external."""
+    from machines.schemas import MachineDetail
     from datetime import datetime
-    obj = ArticleDetail(
-        id=1, name="Koparka", is_service=False,
+    obj = MachineDetail(
+        id=1, name="Koparka",
         internal_number=None, registration_no=None, serial_no=None,
         brand=None, model=None, replacement_value=None,
         category_id=None, category_name=None, owner_id=None, owner_name=None,
         branch_id=None, description=None, notes=None, rental_days=None,
-        article_type=None, is_archival=False, is_external=True,
+        category_main=None, category_sub1=None, category_sub2=None, category_sub3=None,
+        is_archival=False, is_external=True,
+        reach_m=None, capacity_t=None, accessories=None, technical_attributes=None,
         created_at=datetime.utcnow(), updated_at=None,
     )
     assert obj.is_external is True
 
 
-def test_article_list_item_schema_has_is_external():
-    """ArticleListItem musi eksponować is_external."""
-    from articles.schemas import ArticleListItem
+def test_machine_list_item_schema_has_is_external():
+    """MachineListItem musi eksponować is_external."""
+    from machines.schemas import MachineListItem
     from datetime import datetime
-    obj = ArticleListItem(
-        id=1, name="Koparka", is_service=False,
+    obj = MachineListItem(
+        id=1, name="Koparka",
         internal_number=None, registration_no=None, serial_no=None,
         brand=None, model=None, replacement_value=None, category_name=None,
+        category_main=None,
         owner_name=None, notes=None, active_contract_number=None,
         is_archival=False, is_external=True,
         conditions_count=0,
@@ -113,7 +115,7 @@ def test_article_list_item_schema_has_is_external():
 
 
 # ---------------------------------------------------------------------------
-# Testy fleet_summary logic — filtrowanie maszynen zewnętrznych w agregatach
+# Testy fleet_summary logic — filtrowanie maszyn zewnętrznych w agregatach
 # ---------------------------------------------------------------------------
 
 def test_fleet_summary_machine_revenue_excludes_services():

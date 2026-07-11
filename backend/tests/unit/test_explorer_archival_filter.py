@@ -70,7 +70,7 @@ def test_stats_router_fleet_summary_has_external_filter():
     section = content[start:end]
 
     assert 'is_external == False' in section, \
-        "fleet_summary musi filtrować Article.is_external==False"
+        "fleet_summary musi filtrować Machine.is_external==False"
 
 
 def test_stats_router_currently_rented_has_external_filter():
@@ -84,7 +84,7 @@ def test_stats_router_currently_rented_has_external_filter():
     section = content[start:end]
 
     assert 'is_external == False' in section, \
-        "currently_rented musi filtrować Article.is_external==False"
+        "currently_rented musi filtrować Machine.is_external==False"
 
 
 def test_stats_router_compute_revenues_has_external_filter():

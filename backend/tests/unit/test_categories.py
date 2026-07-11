@@ -5,9 +5,9 @@ from pydantic import ValidationError
 from fastapi import HTTPException
 
 # Wymuszamy inicjalizacje wszystkich mapperow SQLAlchemy
-# (ServiceFeeTemplate odwoluje sie do Article przez relationship;
+# (ServiceFeeTemplate odwoluje sie do AdditionalService przez relationship;
 #  Contract.postal_code_ref odwoluje sie do PostalCode)
-import articles.models  # noqa: F401
+import machines.models  # noqa: F401
 import integrations.models  # noqa: F401
 import contracts.models  # noqa: F401
 
