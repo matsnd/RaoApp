@@ -86,17 +86,156 @@ def _require_token() -> None:
         print("BŁĄD: brak tokenu Fakturownia. Ustaw FA_TOKEN lub FAKTUROWNIA_API_TOKEN w env/.env")
         sys.exit(1)
 
-# Mapowanie NIP -> FA client ID
-NIP_TO_FA_CLIENT = {
-    "7010001234": 260564893,  # Bud-Plus
-    "5260005678": 260564910,  # Invest
-    "7790009012": 260564912,  # Terra-Masz
-    "9510003456": 260564913,  # Wod-Bud
-    "1460007890": 260564914,  # Fundament
-    "6790002345": 260564915,  # Trakcja
-    "2580006789": 260564917,  # Eko-Bud
-    "8350001230": 260564918,  # Miejskie
-}
+# ── Faza A/B: dynamiczne mapowanie NIP → FA client_id i FA product_id ────────
+# Stare hardcoded NIP_TO_FA_CLIENT (stare konto FA) zostało zastąpione funkcjami
+# ensure_fa_clients / ensure_fa_products, które tworzą klientów i produkty w FA
+# na żądanie (obsługa PUSTEGO konta FA — nowe konto ma 0 klientów/produktów/faktur).
+
+
+async def ensure_fa_clients(client, db):
+    """Faza A: synchronizuje kontrahentów RAO → klienci FA po NIP.
+
+    Dla każdego kontrahenta z DB (SELECT id, name, nip FROM contractors WHERE nip IS NOT NULL):
+    1. Sprawdź czy klient istnieje w FA po NIP (GET /clients.json?tax_no=<nip>).
+    2. Jeśli nie — utwórz (POST /clients.json z {name, tax_no, country}).
+    Kraj: "PL" (polskie NIP).
+
+    Zwraca dict NIP → fa_client_id.
+    """
+    result = await db.execute(
+        text("SELECT id, name, nip FROM contractors WHERE nip IS NOT NULL ORDER BY id")
+    )
+    contractors = result.fetchall()
+    print(f"\n[ensure_fa_clients] {len(contractors)} kontrahentów z NIP do synchronizacji z FA")
+    nip_to_fa = {}
+    created = 0
+    for cid, name, nip in contractors:
+        if not nip:
+            continue
+        # Krok 1: sprawdź czy klient istnieje w FA po NIP
+        try:
+            resp = await client.get(
+                f"{FA_BASE}/clients.json",
+                params={"api_token": FA_TOKEN, "tax_no": nip},
+                timeout=15.0,
+            )
+            resp.raise_for_status()
+            existing = resp.json()
+        except Exception as e:
+            print(f"  [client] WARN: błąd szukania NIP={nip}: {e} — próbuję utworzyć")
+            existing = []
+
+        if isinstance(existing, list) and existing:
+            fa_id = int(existing[0]["id"])
+            nip_to_fa[nip] = fa_id
+            print(f"  [client] EXISTS '{name}' NIP={nip} -> FA ID={fa_id}")
+            continue
+
+        # Krok 2: utwórz nowego klienta w FA
+        body = {
+            "api_token": FA_TOKEN,
+            "client": {
+                "name": name,
+                "tax_no": nip,
+                "country": "PL",
+            },
+        }
+        try:
+            resp = await client.post(f"{FA_BASE}/clients.json", json=body, timeout=20.0)
+            resp.raise_for_status()
+            data = resp.json()
+            fa_id = int(data["id"])
+            nip_to_fa[nip] = fa_id
+            created += 1
+            print(f"  [client] CREATED '{name}' NIP={nip} -> FA ID={fa_id}")
+        except Exception as e:
+            err_body = ""
+            if hasattr(e, "response") and e.response is not None:
+                err_body = e.response.text[:200]
+            print(f"  [client] FAIL '{name}' NIP={nip}: {e} | {err_body}")
+    print(f"[ensure_fa_clients] gotowe: {len(nip_to_fa)} mapowań, {created} utworzonych")
+    return nip_to_fa
+
+
+async def ensure_fa_products(client, db):
+    """Faza B: synchronizuje artykuły RAO (z fakturownia_product_id) → produkty FA.
+
+    Nowe konto FA jest puste — stare ID produktów (z articles.fakturownia_product_id)
+    nie istnieją. Dla każdego artykułu z fakturownia_product_id IS NOT NULL:
+    1. Sprawdź czy produkt istnieje w FA po ID (GET /products/<id>.json).
+    2. Jeśli nie — utwórz nowy (POST /products.json z {name, price_net, tax, code}).
+    3. Zaktualizuj articles.fakturownia_product_id na nowe ID z FA.
+
+    Cena: replacement_value / 30 (dzienna stawka bazowa), fallback 100.00.
+    Tax: 23. Code: internal_number z artykułu.
+
+    Zwraca dict old_fa_id → new_fa_id.
+    """
+    result = await db.execute(text(
+        "SELECT id, name, internal_number, fakturownia_product_id, replacement_value "
+        "FROM articles WHERE fakturownia_product_id IS NOT NULL ORDER BY id"
+    ))
+    articles = result.fetchall()
+    print(f"\n[ensure_fa_products] {len(articles)} artykułów z mapowaniem FA do synchronizacji")
+    old_to_new = {}
+    created = 0
+    for art_id, name, internal_number, old_fa_id, replacement_value in articles:
+        old_fa_id = int(old_fa_id)
+        # Krok 1: sprawdź czy stary produkt istnieje w FA
+        try:
+            resp = await client.get(
+                f"{FA_BASE}/products/{old_fa_id}.json",
+                params={"api_token": FA_TOKEN},
+                timeout=15.0,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                new_fa_id = int(data["id"])
+                old_to_new[old_fa_id] = new_fa_id
+                print(f"  [product] EXISTS '{name}' FA ID={old_fa_id}")
+                continue
+        except Exception:
+            pass  # produkt nie istnieje — tworzymy nowy
+
+        # Krok 2: utwórz nowy produkt w FA
+        price_net = 100.00
+        if replacement_value is not None:
+            try:
+                rv = float(replacement_value)
+                if rv > 0:
+                    price_net = round(rv / 30, 2)  # dzienna stawka bazowa
+            except (TypeError, ValueError):
+                pass
+
+        body = {
+            "api_token": FA_TOKEN,
+            "product": {
+                "name": name,
+                "price_net": price_net,
+                "tax": 23,
+                "code": internal_number or f"RAO-{art_id}",
+            },
+        }
+        try:
+            resp = await client.post(f"{FA_BASE}/products.json", json=body, timeout=20.0)
+            resp.raise_for_status()
+            data = resp.json()
+            new_fa_id = int(data["id"])
+            old_to_new[old_fa_id] = new_fa_id
+            # Krok 3: zaktualizuj articles.fakturownia_product_id na nowe ID
+            await db.execute(text(
+                "UPDATE articles SET fakturownia_product_id = :new_id WHERE id = :art_id"
+            ), {"new_id": new_fa_id, "art_id": art_id})
+            await db.commit()
+            created += 1
+            print(f"  [product] CREATED '{name}' old_fa={old_fa_id} -> new_fa={new_fa_id} (price_net={price_net})")
+        except Exception as e:
+            err_body = ""
+            if hasattr(e, "response") and e.response is not None:
+                err_body = e.response.text[:200]
+            print(f"  [product] FAIL '{name}' old_fa={old_fa_id}: {e} | {err_body}")
+    print(f"[ensure_fa_products] gotowe: {len(old_to_new)} mapowań, {created} utworzonych")
+    return old_to_new
 
 
 async def get_article_fa_product_map(db):
@@ -350,6 +489,7 @@ async def _append_demo_unmapped_position(client, db, contract_data, positions):
         "quantity": 1,
         "price_net": FA_UNMAPPED_PRODUCT_PRICE_NET,  # 800 zł brutto / 1.23
         "tax": 23,
+        "total_price_gross": round(FA_UNMAPPED_PRODUCT_PRICE_NET * 1.23, 2),
         "product_id": unmapped_pid,
     })
     print(f"  [unmapped] Dodano pozycję '{FA_UNMAPPED_PRODUCT_NAME}' (FA product_id={unmapped_pid}, "
@@ -357,11 +497,12 @@ async def _append_demo_unmapped_position(client, db, contract_data, positions):
     return positions
 
 
-async def create_fa_invoice(client, contract_data, art_map, db=None):
+async def create_fa_invoice(client, contract_data, art_map, db=None, nip_to_fa_client=None):
     """Tworzy fakturę w FA dla jednej umowy."""
-    fa_client_id = NIP_TO_FA_CLIENT.get(contract_data["contractor_nip"])
+    nip = contract_data["contractor_nip"]
+    fa_client_id = (nip_to_fa_client or {}).get(nip)
     if not fa_client_id:
-        print(f"  SKIP: Brak mapowania FA dla NIP {contract_data['contractor_nip']}")
+        print(f"  SKIP: Brak mapowania FA dla NIP {nip} (uruchom ensure_fa_clients)")
         return None
 
     # Buduj pozycje faktury
@@ -373,11 +514,15 @@ async def create_fa_invoice(client, contract_data, art_map, db=None):
         art_info = art_map.get(article_id, {})
         fa_product_id = art_info.get("fa_product_id")
 
+        price_net = s["cost_client"] / 1.23  # netto z brutto (23% VAT)
+        quantity = 1
         pos = {
             "name": article_name,
-            "quantity": 1,
-            "price_net": s["cost_client"] / 1.23,  # netto z brutto (23% VAT)
+            "quantity": quantity,
+            "price_net": price_net,
             "tax": 23,
+            # FA API wymaga total_price_gross per pozycja (422 jeśli puste)
+            "total_price_gross": round(price_net * 1.23 * quantity, 2),
         }
         if fa_product_id:
             pos["product_id"] = fa_product_id
@@ -409,7 +554,12 @@ async def create_fa_invoice(client, contract_data, art_map, db=None):
             "number": None,  # FA auto-numeracja
             "issue_date": issue_date_str,
             "payment_to": issue_date_str,
-            "client_id": fa_client_id,
+            # UWAGA: nie używamy client_id na fakturze — FA waliduje checksum NIP (mod 11)
+            # pobrany z rekordu klienta, a demo NIP-y (np. 7010001234) nie przechodzą.
+            # Zamiast tego przekazujemy buyer_name + buyer_tax_no_kind="other" — FA tworzy
+            # fakturę z nabywcą bez NIP (buyer_tax_no=null). Klienci są utworzeni w FA
+            # (ensure_fa_clients) dla innych celów, ale faktura ich nie referencjuje.
+            "buyer_name": contract_data.get("contractor_name", ""),
             "buyer_tax_no_kind": "other",  # omija walidację NIP (demo NIP-y nie w GUS)
             # RAO-P2-067 fix: OID w dedykowanym polu — integracja RAO szuka
             # faktur przez GET /invoices.json?oid=<numer umowy> (nie po description!)
@@ -463,6 +613,17 @@ async def main():
         failed = 0
 
         async with httpx.AsyncClient() as client:
+            # ── Faza A: utwórz klientów FA (dynamiczne mapowanie NIP → fa_client_id) ──
+            # Obsługa pustego konta FA — stare hardcoded NIP_TO_FA_CLIENT nie istnieją.
+            nip_to_fa_client = await ensure_fa_clients(client, db)
+
+            # ── Faza B: utwórz produkty FA + zaktualizuj articles.fakturownia_product_id ──
+            # Stare ID produktów nie istnieją na nowym koncie — tworzymy nowe.
+            await ensure_fa_products(client, db)
+            # Odśwież art_map po aktualizacji articles.fakturownia_product_id
+            art_map = await get_article_fa_product_map(db)
+            print(f"\nArtykuły z mapowaniem FA (po sync): {len(art_map)}")
+
             # ── Część 1: umowy rozliczone source=fakturownia (backfill invoice_id) ──
             contracts = await get_contracts_with_fa_settlements(db)
             print(f"\n[1/2] Umowy z rozliczeniami fakturownia (bez faktury): {len(contracts)}")
@@ -477,7 +638,9 @@ async def main():
                     skipped += 1
                     continue
 
-                inv_id = await create_fa_invoice(client, cd, art_map, db=db)
+                inv_id = await create_fa_invoice(
+                    client, cd, art_map, db=db, nip_to_fa_client=nip_to_fa_client
+                )
                 if inv_id:
                     await update_settlements_with_invoice_id(db, cd["contract_id"], inv_id)
                     created += 1
@@ -500,7 +663,9 @@ async def main():
                     skipped += 1
                     continue
 
-                inv_id = await create_fa_invoice(client, cd, art_map, db=db)
+                inv_id = await create_fa_invoice(
+                    client, cd, art_map, db=db, nip_to_fa_client=nip_to_fa_client
+                )
                 if inv_id:
                     print(f"  READY: faktura czeka w FA — demo 'Pobierz z Fakturowni' dla {cd['contract_number']}")
                     created += 1
