@@ -131,26 +131,18 @@ export interface CategoriesListNode {
   children: CategoriesListNode[]
 }
 
-export interface ExplorerResultItem {
-  type: string
-  type_label: string
-  id: number
+// RAO-P2-065 #1: ROI maszyny — mirror backend MachineRoiResponse (stats/schemas.py)
+// Wywoływane równolegle z fetchMachineDetails w drill-down maszyny (best-effort).
+export interface MachineRoiResponse {
   article_id: number
   name: string
   internal_number: string | null
-  contract_number: string
-  contractor_name: string | null
-  date: string | null
-  city: string | null
-  amount: number
-}
-
-export interface ExplorerSearchResponse {
-  items: ExplorerResultItem[]
-  total: number
-  summary: { count: number; revenue: number }
-  offset: number
-  limit: number
+  category_main: string | null
+  replacement_value: string | number | null
+  total_rented_days: number
+  estimated_revenue: string | number
+  contracts_count: number
+  roi_pct: number | null
 }
 
 export interface MachineRentalRow {
@@ -257,7 +249,6 @@ export interface AnalyticsFiltersPayload {
 export const useAnalyticsStore = defineStore('analytics', () => {
   const loading = ref(false)
   const loadingLive = ref(false)
-  const loadingExplorer = ref(false)
   const drillLoading = ref(false)
   const drillError = ref<string | null>(null)
 
@@ -271,8 +262,8 @@ export const useAnalyticsStore = defineStore('analytics', () => {
   const byPeriodData = ref<ByPeriodResponse | null>(null)
   const categoriesList = ref<CategoriesListNode[]>([])
 
-  const explorerResults = ref<ExplorerResultItem[]>([])
-  const explorerSummary = ref<{ count: number; revenue: number }>({ count: 0, revenue: 0 })
+  // RAO-P2-065 #1: ROI maszyny — sekcja drill-down (AnalyticsView.vue)
+  const machineRoi = ref<MachineRoiResponse | null>(null)
 
   const locationsRanking = ref<LocationRankingItem[]>([])
   const loadingLocations = ref(false)
@@ -445,28 +436,23 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     return data
   }
 
-  // RAO-P0-001/BUG-4: searchExplorer przyjmuje filtry contractorId/city/articleType
-  async function searchExplorer(
-    q: string,
+  // RAO-P2-065 #1: ROI maszyny — best-effort (404 dla archiwalnych nie blokuje details)
+  async function fetchMachineRoi(
+    articleId: number,
     dateFrom: string,
     dateTo: string,
-    limit = 50,
-    filters?: AnalyticsFiltersPayload,
-  ): Promise<ExplorerSearchResponse> {
-    loadingExplorer.value = true
+  ): Promise<MachineRoiResponse | null> {
+    const params: Record<string, string> = {}
+    if (dateFrom) params.date_from = dateFrom
+    if (dateTo) params.date_to = dateTo
     try {
-      const params: Record<string, string | number> = { q, limit }
-      if (dateFrom) params.date_from = dateFrom
-      if (dateTo) params.date_to = dateTo
-      if (filters?.contractorId) params.contractor_id = String(filters.contractorId)
-      if (filters?.city) params.city = filters.city
-      if (filters?.articleType && filters.articleType !== 'all') params.article_type = filters.articleType
-      const { data } = await api.get<ExplorerSearchResponse>('/explorer/search', { params })
-      explorerResults.value = data.items || []
-      explorerSummary.value = data.summary || { count: 0, revenue: 0 }
+      const { data } = await api.get<MachineRoiResponse>('/stats/machine-roi', { params: { ...params, article_id: articleId } })
+      machineRoi.value = data
       return data
-    } finally {
-      loadingExplorer.value = false
+    } catch {
+      // Best-effort: brak ROI (np. maszyna archiwalna bez include_archival) nie blokuje drill-down
+      machineRoi.value = null
+      return null
     }
   }
 
@@ -629,12 +615,17 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     drillLoading.value = true
     drillError.value = null
     machineDetails.value = null
+    machineRoi.value = null
     locationDetails.value = null
     serviceDetails.value = null
     categoryDetails.value = null
     try {
       if (kind === 'machine') {
-        await fetchMachineDetails(Number(id), dateFrom, dateTo)
+        // RAO-P2-065 #1: fetchMachineRoi best-effort (nie blokuje details przy 404)
+        await Promise.all([
+          fetchMachineDetails(Number(id), dateFrom, dateTo),
+          fetchMachineRoi(Number(id), dateFrom, dateTo),
+        ])
       } else if (kind === 'service') {
         await fetchServiceDetails(Number(id), dateFrom, dateTo)
       } else if (kind === 'category') {
@@ -656,6 +647,7 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     drillDown.value = { ...emptyDrillDown }
     drillError.value = null
     machineDetails.value = null
+    machineRoi.value = null
     locationDetails.value = null
     serviceDetails.value = null
     categoryDetails.value = null
@@ -665,7 +657,6 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     // state
     loading,
     loadingLive,
-    loadingExplorer,
     drillLoading,
     drillError,
     summary,
@@ -677,8 +668,7 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     byCategoryData,
     byPeriodData,
     categoriesList,
-    explorerResults,
-    explorerSummary,
+    machineRoi,
     locationsRanking,
     loadingLocations,
     machineDetails,
@@ -699,7 +689,7 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     fetchByCategory,
     fetchByPeriod,
     fetchCategoriesList,
-    searchExplorer,
+    fetchMachineRoi,
     fetchLocationsRanking,
     fetchMachineDetails,
     fetchLocationDetails,

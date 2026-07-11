@@ -95,19 +95,20 @@ plan: C:/Users/mateu/.windsurf/plans/megaplan-statystyki-klienta-10c667.md
 - ✅ Naprawiono pre-existing bug: brak importu ContractorCombobox w AnalyticsFilters.vue
 
 **Dead code findings (codebase-memory):**
-- `frontend/src/components/analytics/tabs/ExplorerTab.vue` — plik nie importowany nigdzie (martwy)
-- `searchExplorer()` w `frontend/src/stores/analytics.ts` — 0 callerów (martwy)
-- `explorerResults`, `explorerSummary`, `loadingExplorer` — state refs używane tylko przez searchExplorer (martwe)
+- `frontend/src/components/analytics/tabs/ExplorerTab.vue` — plik nie importowany nigdzie (martwy) — ✅ USUNIĘTY (2026-07-11)
+- `searchExplorer()` w `frontend/src/stores/analytics.ts` — 0 callerów (martwy) — ✅ USUNIĘTY (2026-07-11)
+- `explorerResults`, `explorerSummary`, `loadingExplorer` — state refs używane tylko przez searchExplorer (martwe) — ✅ USUNIĘTE (2026-07-11)
+- Typy `ExplorerResultItem`, `ExplorerSearchResponse` — używane tylko przez martwy searchExplorer — ✅ USUNIĘTE (2026-07-11)
 - Backend `/explorer/*` endpointy — **NIE usuwać** (drill-down drawer używa `fetchMachineDetails`, `fetchLocationDetails`, `fetchCityDetails`)
 
 **Pre-existing bugs (nie naprawione — do backlogu):**
-- TEST-03: Drill-down ROI section (`drill-machine-roi`) nie renderuje się — `test.fail` oznaczony
+- ~~TEST-03: Drill-down ROI section (`drill-machine-roi`) nie renderuje się — `test.fail` oznaczony~~ — ✅ NAPRAWIONO (2026-07-11): `store.machineRoi` był referencjonowany w AnalyticsView.vue ale nie istniał w analytics store (regresja po refactorze). Dodano `MachineRoiResponse` interface + `machineRoi` ref + `fetchMachineRoi` action (best-effort, `/stats/machine-roi`), wywołanie równoległe z `fetchMachineDetails` w `openDrillDown`. `test.fail` usunięte.
 - Depwire MCP `find_dead_code` i `get_health_score` — timeout/zawieszanie na dużym repo (315 plików)
 
 **Pozostałe fazy (do dokończenia):**
 - [ ] Faza 11: Pełny audyt obliczeń w całej aplikacji z weryfikacją bazodanową
-- [ ] Dead code cleanup (frontend: ExplorerTab.vue, searchExplorer, explorerResults)
-- [ ] Test E2E: drill-down ROI section fix
+- [x] Dead code cleanup (frontend: ExplorerTab.vue, searchExplorer, explorerResults) — 2026-07-11
+- [x] Test E2E: drill-down ROI section fix — 2026-07-11 (TEST-03 `test.fail` usunięte)
 - [ ] Regresja wszystkich 20 testów E2E
 
 ---

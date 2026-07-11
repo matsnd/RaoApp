@@ -66,8 +66,8 @@ test.describe('AnalyticsView — statystyki', () => {
     await expect(page.locator('.pr-section').filter({ hasText: 'Top maszyny' })).toBeVisible()
   })
 
-  // PRE-EXISTING FAILURE: drill-down ROI section not rendering — unrelated to analytics refactor
-  test.fail('TEST-03: Drill-down maszyny pokazuje sekcję ROI', async ({ page }) => {
+  // RAO-P2-065 #1: drill-down ROI section — fixed (fetchMachineRoi podpięte do store)
+  test('TEST-03: Drill-down maszyny pokazuje sekcję ROI', async ({ page }) => {
     await page.getByTestId('tab-period').click()
 
     // Czekaj na załadowanie top maszyn
