@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from contracts.models import Contract, ContractPosition, PositionCondition, ContractServiceFee
 from contractors.models import Contractor
 from settings.models import Company, Salesperson, RateType
-from articles.models import Article as ArticleModel
+from machines.models import Machine as MachineModel
 
 
 _FEE_PLACEHOLDER_RE = re.compile(r"\$(1|2)")
@@ -115,7 +115,7 @@ async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
     result = await db.execute(
         select(Contract)
         .options(
-            selectinload(Contract.positions).selectinload(ContractPosition.article),
+            selectinload(Contract.positions).selectinload(ContractPosition.machine),
             selectinload(Contract.service_fees),
         )
         .where(Contract.id == contract_id)
@@ -155,7 +155,7 @@ async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
         if pos.rate_type_id:
             rate_type = await db.get(RateType, pos.rate_type_id)
 
-        article = await db.get(ArticleModel, pos.article_id) if pos.article_id else None
+        machine = await db.get(MachineModel, pos.machine_id) if pos.machine_id else None
 
         # Use new cascading formatter for conditions
         conditions_text = format_position_conditions_cascading(conditions, contract.contract_type)
@@ -170,9 +170,9 @@ async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
             "conditions": conditions,
             "conditions_text": conditions_text,
             "rate_type_name": rate_type.name if rate_type else None,
-            "replacement_value": article.replacement_value if article else None,
-            "serial_no": article.serial_no if article else None,
-            "registration_no": article.registration_no if article else None,
+            "replacement_value": machine.replacement_value if machine else None,
+            "serial_no": machine.serial_no if machine else None,
+            "registration_no": machine.registration_no if machine else None,
             "service_hours": service_hours,
         })
 
@@ -191,7 +191,7 @@ async def generate_summary_pdf(db: AsyncSession, summary_type: str) -> bytes:
     import asyncio
     from sqlalchemy import select
     from contractors.models import Contractor
-    from articles.models import Article
+    from machines.models import Machine
     from markupsafe import escape as _esc
 
     if summary_type == "contractors":
@@ -210,7 +210,7 @@ async def generate_summary_pdf(db: AsyncSession, summary_type: str) -> bytes:
             html += f"<tr><td>{i}</td><td>{_esc(c.name or '')}</td><td>{_esc(c.nip or '—')}</td><td>{_esc(c.city or '—')}</td><td>{_esc(c.phone1 or '—')}</td><td>{_esc(c.email or '—')}</td></tr>"
         html += "</tbody></table></body></html>"
     else:
-        result = await db.execute(select(Article).order_by(Article.name))
+        result = await db.execute(select(Machine).order_by(Machine.name))
         items = result.scalars().all()
         html = """<!DOCTYPE html><html><head><meta charset="UTF-8">
         <style>body{font-family:'Roboto',sans-serif;font-size:11px;color:#222;padding:20px;}
@@ -219,12 +219,11 @@ async def generate_summary_pdf(db: AsyncSession, summary_type: str) -> bytes:
         th{background:#1D2B53;color:#fff;padding:5px 8px;text-align:left;font-size:10px;}
         td{padding:4px 8px;border-bottom:1px solid #e2e8f0;font-size:10px;}
         tr:nth-child(even) td{background:#f7f8ff;}</style></head><body>
-        <h1>Zestawienie Maszyn / Artykułów</h1>
-        <table><thead><tr><th>#</th><th>Nazwa</th><th>Typ</th><th>Nr wew.</th><th>Nr rej.</th><th>Marka/Model</th></tr></thead><tbody>"""
+        <h1>Zestawienie Maszyn</h1>
+        <table><thead><tr><th>#</th><th>Nazwa</th><th>Nr wew.</th><th>Nr rej.</th><th>Marka/Model</th></tr></thead><tbody>"""
         for i, a in enumerate(items, 1):
-            typ = "Usługa" if a.is_service else "Sprzęt"
             marka = f"{a.brand or ''} {a.model or ''}".strip() or "—"
-            html += f"<tr><td>{i}</td><td>{_esc(a.name)}</td><td>{typ}</td><td>{_esc(a.internal_number or '—')}</td><td>{_esc(a.registration_no or '—')}</td><td>{_esc(marka)}</td></tr>"
+            html += f"<tr><td>{i}</td><td>{_esc(a.name)}</td><td>{_esc(a.internal_number or '—')}</td><td>{_esc(a.registration_no or '—')}</td><td>{_esc(marka)}</td></tr>"
         html += "</tbody></table></body></html>"
 
     return await asyncio.get_event_loop().run_in_executor(None, _html_to_pdf_sync, html)
@@ -502,7 +501,7 @@ td.commission{{color:#27ae60;font-weight:600;}}
 
 async def generate_stats_pdf(db: AsyncSession, date_from: date, date_to: date) -> bytes:
     from stats.router import _compute_position_revenues, _contract_date_filter
-    from articles.models import Article
+    from machines.models import Machine
     from markupsafe import escape as _esc
     import asyncio
 
@@ -512,14 +511,14 @@ async def generate_stats_pdf(db: AsyncSession, date_from: date, date_to: date) -
     all_pos = await _compute_position_revenues(db, df, dt)
 
     # Fleet summary
-    total_q = await db.execute(select(func.count()).select_from(Article).where(Article.is_service == False))
+    total_q = await db.execute(select(func.count()).select_from(Machine))
     total_machines = total_q.scalar() or 0
     rented_q = await db.execute(
-        select(func.count(func.distinct(ContractPosition.article_id)))
+        select(func.count(func.distinct(ContractPosition.machine_id)))
         .select_from(ContractPosition)
         .join(Contract, Contract.id == ContractPosition.contract_id)
-        .join(Article, Article.id == ContractPosition.article_id)
-        .where(and_(Article.is_service == False, Contract.date_from <= today, Contract.date_to >= today))
+        .join(Machine, Machine.id == ContractPosition.machine_id)
+        .where(and_(Contract.date_from <= today, Contract.date_to >= today))
     )
     total_rented = rented_q.scalar() or 0
     util_pct = round((total_rented / total_machines * 100) if total_machines else 0, 1)
@@ -535,8 +534,8 @@ async def generate_stats_pdf(db: AsyncSession, date_from: date, date_to: date) -
     machine_agg: dict = defaultdict(lambda: {"name": "", "internal_number": None, "revenue": Decimal(0), "days": 0, "contracts": set()})
     for p in all_pos:
         if not p["is_service"]:
-            k = p["article_id"]
-            machine_agg[k]["name"] = p["article_name"]
+            k = p["machine_id"]
+            machine_agg[k]["name"] = p["machine_name"]
             machine_agg[k]["internal_number"] = p["internal_number"]
             machine_agg[k]["revenue"] += p["revenue"]
             machine_agg[k]["days"] += p["clamped_days"]
@@ -547,8 +546,8 @@ async def generate_stats_pdf(db: AsyncSession, date_from: date, date_to: date) -
     svc_agg: dict = defaultdict(lambda: {"name": "", "revenue": Decimal(0), "contracts": set()})
     for p in all_pos:
         if p["is_service"]:
-            k = p["article_id"]
-            svc_agg[k]["name"] = p["article_name"]
+            k = p["service_id"]
+            svc_agg[k]["name"] = p["service_name"]
             svc_agg[k]["revenue"] += p["revenue"]
             svc_agg[k]["contracts"].add(p["contract_id"])
     svc_sorted = sorted(svc_agg.items(), key=lambda x: x[1]["revenue"], reverse=True)
