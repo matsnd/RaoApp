@@ -1042,11 +1042,11 @@ const form = ref({
   contractor_id: null, branch_id: null, salesperson_id: null,
   contract_type: 'S', oid: null, delivery_address: '', postal_code: '', city: '', latitude: null, longitude: null, date_from: '', date_to: '',
   // RAO-P1-021/P2-033: total_value usunięte (martwe pole)
-  prepayment_amount: 0, prepayment_document: '',
+  prepayment_amount: 0,
   notes: '',
   contact_person1: '', contact_phone1: '', show_person1: true,
   contact_person2: '', contact_phone2: '', show_person2: true,
-  email: '', phone: '', contractor_name: '', working_days_per_week: 6, report_without_data: false, hide_delivery_address: false, signatures_on_page1: false,
+  email: '', phone: '', contractor_name: '', working_days_per_week: 6, hide_delivery_address: false, signatures_on_page1: false,
   is_settled: false, settled_at: null,  // RAO-P2-022
 })
 
@@ -1572,7 +1572,7 @@ function goBack() { router.push('/dashboard/contracts') }
 function buildPayload() {
   const v = { ...form.value }
   const dateFields = ['date_from', 'date_to']
-  const nullableStr = ['delivery_address', 'prepayment_document',
+  const nullableStr = ['delivery_address',
     'notes', 'contact_person1', 'contact_phone1', 'contact_person2', 'contact_phone2',
     'email', 'phone', 'contractor_name']
   dateFields.forEach(f => { if (!v[f]) v[f] = null })
