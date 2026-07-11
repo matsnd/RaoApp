@@ -1,11 +1,7 @@
 /**
  * E2E Test: Legacy PDF Pattern Recreation
  *
- * LEGACY BACKWARD COMPAT — Faza 5
- * Ten plik używa starego API /articles (backward compat) do odtwarzania wzorców
- * z legacy PDF-ów. Nie modyfikuj — /articles endpoint nadal działa.
- * Nowe testy używają /machines, /services, /additional-services.
- *
+ * FAZA 8c — zaktualizowano do nowego API (/machines, /services, /additional-services)
  * Odtwarza wszystkie wzorce warunków rozliczeniowych wyekstrahowane
  * z ~515 PDF-ów legacy (WinForms/Crystal Reports) w nowej aplikacji RAO.
  *
@@ -15,12 +11,12 @@
  *
  * Każdy test:
  *   1. Tworzy kontrahenta (z danymi z legacy PDF)
- *   2. Tworzy artykuł/y (maszyny/usługi z legacy)
- *   3. Tworzy umowę (typ N lub U)
- *   4. Dodaje pozycje z warunkami rozliczeniowymi (kaskadowe stawki)
+ *   2. Tworzy maszynę/usługę przez /machines lub /services (zależnie od typu umowy)
+ *   3. Tworzy umowę (typ N→S lub U)
+ *   4. Dodaje pozycje z machine_id/service_id (XOR) + warunki rozliczeniowe
  *   5. Weryfikuje że warunki w API odpowiadają danym z legacy PDF
  *   6. Generuje PDF i sprawdza czy zawiera oczekiwany tekst stawki
- *   7. Cleanup (usuwa umowę, artykuły, kontrahenta)
+ *   7. Cleanup (usuwa umowę, maszyny/usługi, kontrahenta)
  */
 
 import { test, expect, APIRequestContext } from '@playwright/test'
@@ -108,22 +104,23 @@ async function createContractor(
 }
 
 /**
- * Create article via API.
+ * Create machine (N) or service (U) via API.
+ * Faza 8c: /articles → /machines lub /services
  */
-async function createArticle(
+async function createMachineOrService(
   req: APIRequestContext,
   token: string,
-  data: { name: string; is_service?: boolean; replacement_value?: number },
+  data: { name: string; is_service: boolean; replacement_value?: number },
 ): Promise<number> {
   const payload: Record<string, unknown> = { name: data.name }
-  if (data.is_service !== undefined) payload.is_service = data.is_service
   if (data.replacement_value !== undefined) payload.replacement_value = data.replacement_value
-  const res = await req.post(`${API}/articles`, {
+  const endpoint = data.is_service ? '/services' : '/machines'
+  const res = await req.post(`${API}${endpoint}`, {
     headers: authHeaders(token),
     data: payload,
     timeout: 10_000,
   })
-  expect(res.status(), `createArticle failed: ${data.name}`).toBe(201)
+  expect(res.status(), `createMachineOrService (${endpoint}) failed: ${data.name}`).toBe(201)
   const body = await res.json()
   return body.id
 }
@@ -168,14 +165,17 @@ async function createContract(
 
 /**
  * Add position to contract.
+ * Faza 8c: article_id → machine_id (N) lub service_id (U) — XOR
  */
 async function addPosition(
   req: APIRequestContext,
   token: string,
   contractId: number,
-  data: { article_id: number; rental_days?: number | null; quantity?: number },
+  data: { machine_id?: number; service_id?: number; rental_days?: number | null; quantity?: number },
 ): Promise<number> {
-  const payload: Record<string, unknown> = { article_id: data.article_id }
+  const payload: Record<string, unknown> = {}
+  if (data.machine_id) payload.machine_id = data.machine_id
+  if (data.service_id) payload.service_id = data.service_id
   if (data.rental_days) payload.rental_days = data.rental_days
   payload.quantity = data.quantity ?? 1
 
@@ -280,8 +280,8 @@ test.describe('Legacy PDF Pattern Recreation (515 contracts → 8 categories)', 
         token = await apiLogin(apiCtx)
         rateTypeId = await getRateTypeId(apiCtx, token)
 
-        // Create contractor
-        const nip = fixture.contractor.nip || genValidNip(Date.now())
+        // Create contractor — Faza 8c: użyj unikalnego NIP (fixture NIP może już istnieć w DB)
+        const nip = genValidNip(Date.now() + cat.length)
         const addressParts = [
           fixture.contractor.street,
           fixture.contractor.postal_code,
@@ -294,11 +294,12 @@ test.describe('Legacy PDF Pattern Recreation (515 contracts → 8 categories)', 
           address: addressParts || undefined,
         })
 
-        // Create articles (API requires is_service=false for contract positions)
+        // Faza 8c: Create machines (N) or services (U) via /machines or /services
+        const isService = fixture.contract.contract_type === 'U'
         for (const pos of fixture.positions) {
-          const artId = await createArticle(apiCtx, token, {
+          const artId = await createMachineOrService(apiCtx, token, {
             name: `LEGACY ${pos.article_name.substring(0, 180)}`,
-            is_service: false,
+            is_service: isService,
             replacement_value: pos.replacement_value || undefined,
           })
           articleIds.push(artId)
@@ -316,11 +317,12 @@ test.describe('Legacy PDF Pattern Recreation (515 contracts → 8 categories)', 
           working_days_per_week: fixture.contract.working_days_per_week,
         })
 
-        // Add positions with conditions
+        // Add positions with conditions — Faza 8c: machine_id (N) or service_id (U)
         for (let i = 0; i < fixture.positions.length; i++) {
           const pos = fixture.positions[i]
           const posId = await addPosition(apiCtx, token, contractId, {
-            article_id: articleIds[i],
+            machine_id: isService ? undefined : articleIds[i],
+            service_id: isService ? articleIds[i] : undefined,
             rental_days: pos.rental_days,
           })
           positionIds.push(posId)
@@ -332,9 +334,11 @@ test.describe('Legacy PDF Pattern Recreation (515 contracts → 8 categories)', 
       })
 
       test.afterAll(async () => {
-        // Cleanup
+        // Cleanup — Faza 8c: /machines lub /services zależnie od typu
+        const isService = fixture.contract.contract_type === 'U'
+        const endpoint = isService ? '/services' : '/machines'
         if (contractId) await safeDelete(apiCtx, `${API}/contracts/${contractId}`, token)
-        for (const artId of articleIds) await safeDelete(apiCtx, `${API}/articles/${artId}`, token)
+        for (const artId of articleIds) await safeDelete(apiCtx, `${API}${endpoint}/${artId}`, token)
         if (contractorId) await safeDelete(apiCtx, `${API}/contractors/${contractorId}`, token)
       })
 
