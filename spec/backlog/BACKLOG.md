@@ -130,6 +130,41 @@ migration_impact: yes
 
 ---
 
+### P2-003: Rezerwacje tylko na maszyny wewnętrzne
+
+```yaml
+id: P2-003
+status: triaged
+priority: P2
+created: 2026-07-11
+source: client-request (wywiad FULL-AUTO 2026-07-11)
+component: backend/reservations + frontend/ReservationsView
+migration_impact: no
+```
+
+**Opis:** Rezerwacje maszyn mają dotyczyć **tylko maszyn wewnętrznych** (`is_external = false`). Maszyny zewnętrzne (wynajmowane od innych firm) nie powinny być dostępne do rezerwacji.
+
+**Stan obecny:**
+- `Article.is_external` istnieje (Boolean, default False, index `idx_articles_external`)
+- Backend `reservations/service.py` — brak walidacji `is_external` (można zarezerwować dowolną maszynę)
+- Frontend `ReservationsView.vue:175` — pobiera maszyny z `is_service: false` ale bez filtra `is_external` (w dropdownie są też zewnętrzne)
+
+**Zadania:**
+1. **Frontend** `ReservationsView.vue:176` — dodać `.filter((a) => !a.is_service && !a.is_external)` do `articleOptions`
+2. **Backend** `reservations/service.py:create()` — walidacja: jeśli `article.is_external` → 400 "Nie można rezerwować maszyn zewnętrznych"
+3. **Backend** `reservations/service.py:update()` — to samo gdy zmieniają `article_id`
+4. **Testy** — unit test: rezerwacja maszyny zewnętrznej → 400. E2E: dropdown pokazuje tylko wewnętrzne
+
+**Definition of Done:**
+- [ ] Dropdown rezerwacji pokazuje tylko maszyny wewnętrzne (`is_external=false`)
+- [ ] Backend odrzuca rezerwację maszyny zewnętrznej (400)
+- [ ] Update rezerwacji na maszynę zewnętrzną → 400
+- [ ] Unit test: create reservation on external article → 400
+- [ ] E2E: dropdown nie zawiera maszyn zewnętrznych
+- [ ] Spec sync: `03_frontend_screens.md`, `02_backend_api.md`
+
+---
+
 ## 🟢 P3 — Nice-to-Have
 
 *Brak*
