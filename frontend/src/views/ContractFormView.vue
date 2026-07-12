@@ -386,18 +386,13 @@
                 <!-- EDIT MODE -->
                 <tr v-if="editingFeeId === fee.id" class="row-editing">
                   <td>
-                    <!-- P1-120: combobox z additional_services — zawsze select, bez text fallback -->
-                    <select
-                      class="form-control form-control-xs"
-                      :value="editingFeeData.additional_service_id ?? ''"
-                      @change="onFeeServicePick($event, editingFeeData)"
+                    <!-- P1-120: combobox z wyszukiwaniem z additional_services -->
+                    <ServiceCombobox
+                      :model-value="editingFeeData.additional_service_id ?? null"
+                      :services="additionalServiceStore.list"
+                      @update:model-value="(v) => onFeeServicePickById(v, editingFeeData)"
                       @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee"
-                    >
-                      <option value="" disabled>— wybierz usługę —</option>
-                      <option v-for="s in additionalServiceStore.list" :key="s.id" :value="s.id">
-                        {{ s.display_name || s.name }}
-                      </option>
-                    </select>
+                    />
                   </td>
                   <td><input v-model="editingFeeData.amount_from" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" /></td>
                   <td><input v-model="editingFeeData.amount_to" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" /></td>
@@ -424,18 +419,13 @@
               <!-- NEW ROW -->
               <tr v-if="showNewFeeRow" class="row-editing">
                 <td>
-                  <!-- P1-120: combobox z additional_services — zawsze select, bez text fallback -->
-                  <select
-                    class="form-control form-control-xs"
-                    :value="newFeeData.additional_service_id ?? ''"
-                    @change="onFeeServicePick($event, newFeeData)"
+                  <!-- P1-120: combobox z wyszukiwaniem z additional_services -->
+                  <ServiceCombobox
+                    :model-value="newFeeData.additional_service_id ?? null"
+                    :services="additionalServiceStore.list"
+                    @update:model-value="(v) => onFeeServicePickById(v, newFeeData)"
                     @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow"
-                  >
-                    <option value="" disabled>— wybierz usługę —</option>
-                    <option v-for="s in additionalServiceStore.list" :key="s.id" :value="s.id">
-                      {{ s.display_name || s.name }}
-                    </option>
-                  </select>
+                  />
                 </td>
                 <td><input v-model="newFeeData.amount_from" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" /></td>
                 <td><input v-model="newFeeData.amount_to" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" /></td>
@@ -1052,6 +1042,7 @@ import { useAdditionalServiceStore } from '@/stores/additional_services'
 import { formatCurrency } from '@/utils/format'
 import ConditionPanel from '@/components/contracts/ConditionPanel.vue'
 import ContractPeriodPicker from '@/components/shared/ContractPeriodPicker.vue'
+import ServiceCombobox from '@/components/contracts/ServiceCombobox.vue'
 import api from '@/composables/useApi'
 import { usePdfFolders, type PdfDocType } from '@/composables/usePdfFolders'
 import { useFileDownload } from '@/composables/useFileDownload'
@@ -2352,13 +2343,11 @@ function selectSupplier(c) {
 
 // Service fees — inline Excel-style CRUD
 // P1-120: wybór usługi dodatkowej z comboboxa → uzupełnia name + amount_from
-function onFeeServicePick(ev: Event, target: any) {
-  const val = (ev.target as HTMLSelectElement).value
-  if (!val) {
+function onFeeServicePickById(id: number | null, target: any) {
+  if (!id) {
     target.additional_service_id = null
     return
   }
-  const id = Number(val)
   const svc = additionalServiceStore.list.find((s: any) => s.id === id)
   if (!svc) return
   target.additional_service_id = id
@@ -2513,17 +2502,20 @@ async function applyHardcodedFeePreset(kind: 'diesel' | 'elektryk') {
   if (!contractId) return
   if (isService.value) return // Diesel/Elektryk tylko dla najmu maszyn (S)
 
+  // P1-120: wyszukaj additional_service_id po name z store
+  const svcId = (name: string) => additionalServiceStore.list.find((s: any) => s.name === name)?.id ?? null
+
   const rentalCommonRows: FeeData[] = [
-    { name: 'Transport', amount_from: 1200, amount_to: 1200, description: '$1 zł dostawa / $2 zł odbiór', is_active: true },
-    { name: 'Czyszczenie maszyny (zabrudzenia ponadnormatywne)', amount_from: null, amount_to: null, description: 'wycena indywidualna', is_active: true },
-    { name: 'Usługa tankowania', amount_from: 200, amount_to: null, description: '$1 zł (plus koszt paliwa)', is_active: true },
-    { name: 'Ponadnormatywny przestój transportu', amount_from: 200, amount_to: 300, description: '$1 zł / h - $2 zł / h', is_active: true },
-    { name: 'Nieuzasadnione wezwanie serwisowe', amount_from: 280, amount_to: null, description: '$1 zł (plus transport)', is_active: true },
+    { additional_service_id: svcId('Transport'), name: 'Transport', amount_from: 1200, amount_to: 1200, description: '$1 dostawa / $2 odbiór', is_active: true },
+    { additional_service_id: svcId('Czyszczenie'), name: 'Czyszczenie maszyny (zabrudzenia ponadnormatywne)', amount_from: null, amount_to: null, description: 'wycena indywidualna', is_active: true },
+    { additional_service_id: svcId('Tankowanie'), name: 'Usługa tankowania', amount_from: 200, amount_to: null, description: '$1 (plus koszt paliwa)', is_active: true },
+    { additional_service_id: svcId('Przestój'), name: 'Ponadnormatywny przestój transportu', amount_from: 200, amount_to: 300, description: '$1 / h - $2 / h', is_active: true },
+    { additional_service_id: svcId('Serwis'), name: 'Nieuzasadnione wezwanie serwisowe', amount_from: 280, amount_to: null, description: '$1 (plus transport)', is_active: true },
   ]
 
   const reviewRows: Record<string, FeeData> = {
-    diesel: { name: 'Przegląd techniczny i czyszczenie maszyny', amount_from: 150, amount_to: null, description: '$1 zł', is_active: true },
-    elektryk: { name: 'Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny', amount_from: 35, amount_to: null, description: '$1 zł', is_active: true },
+    diesel: { additional_service_id: svcId('Przegląd Diesel'), name: 'Przegląd techniczny i czyszczenie maszyny', amount_from: 150, amount_to: null, description: '$1', is_active: true },
+    elektryk: { additional_service_id: svcId('Przegląd Elektryk'), name: 'Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny', amount_from: 35, amount_to: null, description: '$1', is_active: true },
   }
 
   const review = reviewRows[kind]
