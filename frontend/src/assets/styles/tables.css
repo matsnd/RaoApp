@@ -48,7 +48,7 @@
   max-width: 200px;
 }
 
-.data-grid tbody td.no-overflow { white-space: normal; max-width: none; }
+.data-grid tbody td.no-overflow { white-space: normal; max-width: none; overflow: visible; }
 
 .grid-container {
   background: var(--color-bg-white);

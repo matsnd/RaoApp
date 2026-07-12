@@ -385,7 +385,7 @@
               <template v-for="fee in activeServiceFees" :key="fee.id">
                 <!-- EDIT MODE -->
                 <tr v-if="editingFeeId === fee.id" class="row-editing">
-                  <td>
+                  <td class="no-overflow">
                     <!-- P1-120: combobox z wyszukiwaniem z additional_services -->
                     <ServiceCombobox
                       :model-value="editingFeeData.additional_service_id ?? null"
@@ -418,7 +418,7 @@
               </template>
               <!-- NEW ROW -->
               <tr v-if="showNewFeeRow" class="row-editing">
-                <td>
+                <td class="no-overflow">
                   <!-- P1-120: combobox z wyszukiwaniem z additional_services -->
                   <ServiceCombobox
                     :model-value="newFeeData.additional_service_id ?? null"
