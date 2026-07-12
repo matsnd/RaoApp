@@ -632,11 +632,8 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     categoryDetails.value = null
     try {
       if (kind === 'machine') {
-        // RAO-P2-065 #1: fetchMachineRoi best-effort (nie blokuje details przy 404)
-        await Promise.all([
-          fetchMachineDetails(Number(id), dateFrom, dateTo),
-          fetchMachineRoi(Number(id), dateFrom, dateTo),
-        ])
+        // ROI panel usunięte — tylko details
+        await fetchMachineDetails(Number(id), dateFrom, dateTo)
       } else if (kind === 'service') {
         await fetchServiceDetails(Number(id), dateFrom, dateTo)
       } else if (kind === 'category') {

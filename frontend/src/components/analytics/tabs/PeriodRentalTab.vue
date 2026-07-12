@@ -148,8 +148,7 @@ const kpiCards = computed<KpiCard[]>(() => {
     {
       value: formatCurrency(s.period_revenue),
       label: 'Przychód w okresie',
-      // RAO-P2-065 #11: backend zwraca "razem (rzecz.+szac.)" gdy oba źródła > 0.
-      sub: s.revenue_source_label ?? '',
+      sub: '',
       variant: 'accent',
       icon: 'banknote' as AppIconName,
       testId: 'kpi-period-revenue',
@@ -252,26 +251,6 @@ watch(
     <template v-else-if="store.summary">
       <!-- KPI -->
       <KpiRow :cards="kpiCards" />
-
-      <!-- Revenue breakdown (rzeczywiste vs szacunek) -->
-      <div
-        v-if="Number(store.summary.revenue_actual) > 0 || Number(store.summary.revenue_estimate) > 0"
-        class="revenue-breakdown"
-        data-testid="revenue-breakdown"
-      >
-        <div class="breakdown-item">
-          <span class="breakdown-label">Rzeczywiste (z rozliczeń):</span>
-          <span class="breakdown-value breakdown-actual">
-            {{ formatCurrency(store.summary.revenue_actual) }}
-          </span>
-        </div>
-        <div v-if="Number(store.summary.revenue_estimate) > 0" class="breakdown-item">
-          <span class="breakdown-label">Szacunek (cennik):</span>
-          <span class="breakdown-value breakdown-estimate">
-            {{ formatCurrency(store.summary.revenue_estimate) }}
-          </span>
-        </div>
-      </div>
 
       <!-- Top maszyny -->
       <div class="pr-section">
@@ -404,33 +383,7 @@ watch(
   box-shadow: var(--shadow-card);
 }
 
-.revenue-breakdown {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-lg);
-  padding: var(--spacing-md) var(--spacing-lg);
-  background: var(--color-bg-card);
-  border-radius: var(--border-radius);
-  box-shadow: var(--shadow-card);
-}
-.breakdown-item {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  font-size: var(--font-size-sm);
-}
-.breakdown-label {
-  color: var(--color-text-muted);
-}
-.breakdown-value {
-  font-weight: var(--font-weight-semibold);
-}
-.breakdown-actual {
-  color: var(--color-success);
-}
-.breakdown-estimate {
-  color: var(--color-warning);
-}
+/* revenue-breakdown usunięte (szacunkowe wartości tylko w archiwum) */
 
 .pr-section {
   display: flex;
