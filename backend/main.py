@@ -697,8 +697,7 @@ async def startup_migrations():
             await conn.execute(sa.text(
                 "UPDATE additional_services SET description = '$1' "
                 "WHERE name IN ('Przegląd techniczny i czyszczenie maszyny', "
-                "'Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny', "
-                "'Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny Elektryk') "
+                "'Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny') "
                 "AND (description IS NULL OR description NOT LIKE '%$%')"
             ))
             # Usuń "Przegląd techniczny i czyszczenie maszyny Diesel" (duplikat z dopiskiem)
@@ -713,6 +712,21 @@ async def startup_migrations():
                 ))
                 await conn.execute(sa.text(
                     "DELETE FROM additional_services WHERE name = 'Przegląd techniczny i czyszczenie maszyny Diesel'"
+                ))
+            except Exception:
+                pass
+            # Usuń "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny Elektryk" (duplikat z dopiskiem)
+            # Przenieś referencje na "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny" (bez dopisku)
+            try:
+                await conn.execute(sa.text(
+                    "UPDATE contract_service_fees SET additional_service_id = "
+                    "(SELECT id FROM additional_services WHERE name = 'Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny' LIMIT 1) "
+                    "WHERE additional_service_id IN ("
+                    "  SELECT id FROM additional_services WHERE name = 'Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny Elektryk'"
+                    ")"
+                ))
+                await conn.execute(sa.text(
+                    "DELETE FROM additional_services WHERE name = 'Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny Elektryk'"
                 ))
             except Exception:
                 pass

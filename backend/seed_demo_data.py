@@ -433,8 +433,8 @@ USLUGI = [
         "fakturownia_product_id": 8845156436451,  # DIE001
     },
     {
-        "name": "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny Elektryk",
-        "display_name": "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny Elektryk",
+        "name": "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny",
+        "display_name": "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny",
         "default_amount": Decimal("35.00"),
         "description": "$1",
         "fakturownia_product_id": 8845156436452,  # ELE001
