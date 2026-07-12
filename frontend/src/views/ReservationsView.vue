@@ -97,9 +97,16 @@ const calendarCells = computed<CalCell[]>(() => {
   return cells
 })
 
-// Eventy kalendarza filtrowane po handlowcu/kontrahencie (machine filtrowany w API)
+// Eventy kalendarza filtrowane po handlowcu/kontrahencie/typie (machine filtrowany w API)
+// Checkboxy showReservations/showContracts filtrują zarówno kalendarz (kropki) jak i panel dnia.
 const filteredCalendarEvents = computed<CalendarEvent[]>(() => {
   let items = store.calendarEvents
+  if (!showReservations.value) {
+    items = items.filter((e) => e.source !== 'reservation')
+  }
+  if (!showContracts.value) {
+    items = items.filter((e) => e.source !== 'contract')
+  }
   if (filterSalespersonId.value != null) {
     items = items.filter((e) => e.source === 'reservation' && e.salesperson_id === filterSalespersonId.value)
   }
@@ -145,11 +152,7 @@ const dayEvents = computed<CalendarEvent[]>(() => {
   const day = selectedDay.value
   return filteredCalendarEvents.value.filter(
     (e) => day >= e.date_from && day <= e.date_to,
-  ).filter((e) => {
-    if (e.source === 'reservation') return showReservations.value
-    if (e.source === 'contract') return showContracts.value
-    return true
-  })
+  )
 })
 // P1-118: stronicowanie listy dnia — pokaż pierwsze N, reszta po "Pokaż więcej"
 const visibleDayEvents = computed(() => dayEvents.value.slice(0, visibleCount.value))
