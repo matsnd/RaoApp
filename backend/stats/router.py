@@ -385,7 +385,9 @@ async def currently_rented(
         )
         for r in rows
     ]
-    rented = len(items)
+    # RAO-P1-120: rented = unikalne maszyny (DISTINCT Machine.id), nie wiersze
+    # Jedna maszyna w 3 umowach = 1 maszyna wynajęta, nie 3
+    rented = len(set(r[0] for r in rows))
     util = round((rented / total_machines * 100) if total_machines else 0, 1)
 
     result = CurrentlyRentedResponse(

@@ -186,8 +186,21 @@ watch(filtered, () => {
 }
 
 .cc-input {
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
   padding-right: 28px;
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-body);
+  background: var(--color-bg-white);
   width: 240px;
+  box-sizing: border-box;
+  transition: border-color var(--transition-fast);
+}
+.cc-input:focus {
+  outline: none;
+  border-color: var(--color-border-focus);
 }
 
 .cc-clear,
