@@ -1193,7 +1193,11 @@ async def stale_print_contracts(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    """Contracts printed before last modification: active OR modified in last 30 days."""
+    """Contracts printed but with stale print_hash (print-relevant data changed after print).
+
+    RAO: print_hash IS NULL + print_date IS NOT NULL = nieaktualny wydruk.
+    (print_hash is set at print time, cleared on any print-relevant mutation.)
+    """
     from datetime import timedelta
     from sqlalchemy import or_
     today = date.today()
@@ -1206,8 +1210,7 @@ async def stale_print_contracts(
         )
         .where(and_(
             Contract.print_date.isnot(None),
-            Contract.updated_at.isnot(None),
-            Contract.print_date < Contract.updated_at,
+            Contract.print_hash.is_(None),  # RAO: invalidated by mutation
             or_(Contract.date_to >= today, Contract.updated_at >= cutoff),
         ))
         .order_by(Contract.updated_at.desc())

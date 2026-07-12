@@ -87,6 +87,120 @@ async def copy_fee_templates(db: AsyncSession, contract_id: int, contract_type: 
     await db.commit()
 
 
+# ── print_hash: detekcja nieaktualnego wydruku ──────────────────────────────
+# Hash z pól wpływających na TREŚĆ wydruku PDF (umowa/protokół).
+# NIE obejmuje: is_settled, settled_at, updated_at, print_date, print_hash,
+#   latitude/longitude, postal_code_id, oid, auto_number, position_count.
+# Zmiana rozliczenia FA (settle_contract) → NIE bumpuje hash → wydruk aktualny.
+# Zmiana pozycji/conditions/fees/contractora/company → bumpuje hash → nieaktualny.
+
+_PRINT_HASH_CONTRACT_FIELDS = (
+    "number", "contractor_id", "branch_id", "salesperson_id", "contract_type",
+    "delivery_address", "postal_code", "city", "date_from", "date_to",
+    "prepayment_amount", "prepayment_document", "notes",
+    "contact_person1", "contact_phone1", "show_person1",
+    "contact_person2", "contact_phone2", "show_person2",
+    "email", "phone", "contractor_name",
+    "report_without_data", "hide_delivery_address", "signatures_on_page1",
+    "working_days_per_week",
+)
+
+_PRINT_HASH_POSITION_FIELDS = (
+    "machine_id", "service_id", "description", "rental_days", "quantity",
+    "unit_price", "rate_type_id", "billing_frequency", "billing_unit",
+    "supplier_id", "delivery_date", "article_name",
+)
+
+_PRINT_HASH_CONDITION_FIELDS = (
+    "rate1", "rate2", "billing_label", "period_count", "period_from", "period_to",
+)
+
+_PRINT_HASH_FEE_FIELDS = (
+    "additional_service_id", "name", "amount_from", "amount_to",
+    "description", "is_active", "sort_order",
+)
+
+
+def _hash_row(prefix: str, fields: tuple[str, ...], obj) -> str:
+    """Build a stable string repr of one row for hashing."""
+    parts = [prefix]
+    for f in fields:
+        v = getattr(obj, f, None)
+        parts.append(f"{f}={v}")
+    return "|".join(parts)
+
+
+async def compute_print_hash(
+    db: AsyncSession,
+    contract: Contract,
+    contractor,
+    company,
+    salesperson,
+) -> str:
+    """Compute sha256 hash of all fields that affect the PDF output.
+
+    Deterministic: positions sorted by id, conditions sorted by id within position,
+    fees sorted by sort_order then id.
+    """
+    import hashlib
+
+    # Reload positions + conditions + fees with explicit ordering
+    pos_result = await db.execute(
+        select(ContractPosition)
+        .where(ContractPosition.contract_id == contract.id)
+        .order_by(ContractPosition.id)
+    )
+    positions = pos_result.scalars().all()
+
+    fee_result = await db.execute(
+        select(ContractServiceFee)
+        .where(ContractServiceFee.contract_id == contract.id)
+        .order_by(ContractServiceFee.sort_order, ContractServiceFee.id)
+    )
+    fees = fee_result.scalars().all()
+
+    rows = [_hash_row("C", _PRINT_HASH_CONTRACT_FIELDS, contract)]
+
+    if contractor:
+        rows.append(f"CTR|name={contractor.name}|nip={contractor.nip}|"
+                    f"postal_code={contractor.postal_code}|city={contractor.city}|"
+                    f"street={contractor.street}")
+    if company:
+        rows.append(f"CPY|name={company.name}|nip={company.nip}|"
+                    f"bank_account={company.bank_account}|header_text={company.header_text}")
+    if salesperson:
+        rows.append(f"SP|name={salesperson.name}")
+
+    for pos in positions:
+        rows.append(_hash_row("P", _PRINT_HASH_POSITION_FIELDS, pos))
+        cond_result = await db.execute(
+            select(PositionCondition)
+            .where(PositionCondition.position_id == pos.id)
+            .order_by(PositionCondition.id)
+        )
+        for cond in cond_result.scalars().all():
+            rows.append(_hash_row("PC", _PRINT_HASH_CONDITION_FIELDS, cond))
+
+    for fee in fees:
+        rows.append(_hash_row("F", _PRINT_HASH_FEE_FIELDS, fee))
+
+    payload = "\n".join(rows)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def is_print_current(print_hash: str | None, current_hash: str | None) -> bool:
+    """Check if stored print_hash matches current data hash.
+
+    Backward-compat: if print_hash is NULL (old prints before this feature),
+    treat as current (don't flag all legacy prints as stale).
+    """
+    if print_hash is None:
+        return True  # legacy print — don't invalidate
+    if current_hash is None:
+        return True  # can't compute — don't false-positive
+    return print_hash == current_hash
+
+
 def _condition_effective_rate(c: PositionCondition) -> Decimal | None:
     """RAO-P2-071: new source is rate1; rate2 is legacy/fallback only."""
     if c.rate1 is not None and c.rate1 > 0:
@@ -521,9 +635,11 @@ class ContractService:
             if c.date_from and c.date_to:
                 duration = (c.date_to - c.date_from).days
 
-            is_print_current = False
-            if c.print_date and c.updated_at:
-                is_print_current = c.print_date >= c.updated_at
+            # RAO: print_hash-based staleness detection (dirty-flag approach)
+            # print_hash IS NOT NULL → wydruk aktualny (hash stored at print time)
+            # print_hash IS NULL + print_date IS NOT NULL → nieaktualny (mutated after print)
+            # print_date IS NULL → nigdy nie drukowane
+            is_print_current = c.print_hash is not None
 
             items.append(ContractListItem(
                 id=c.id, contractor_id=c.contractor_id,
@@ -619,9 +735,11 @@ class ContractService:
             if c.date_from and c.date_to:
                 duration = (c.date_to - c.date_from).days
 
-            is_print_current = False
-            if c.print_date and c.updated_at:
-                is_print_current = c.print_date >= c.updated_at
+            # RAO: print_hash-based staleness detection (dirty-flag approach)
+            # print_hash IS NOT NULL → wydruk aktualny (hash stored at print time)
+            # print_hash IS NULL + print_date IS NOT NULL → nieaktualny (mutated after print)
+            # print_date IS NULL → nigdy nie drukowane
+            is_print_current = c.print_hash is not None
 
             items.append(ContractListItem(
                 id=c.id, contractor_id=c.contractor_id,
@@ -857,6 +975,10 @@ class ContractService:
         # RAO-P2-028: gdy aktualizowano postal_code, odśwież FK postal_code_id
         if "postal_code" in update_data:
             contract.postal_code_id = await resolve_postal_code_id(db, update_data.get("postal_code"))
+        # RAO: invalidate print_hash jeśli zmieniono pola wpływające na wydruk
+        changed_fields = set(update_data.keys())
+        if changed_fields & set(_PRINT_HASH_CONTRACT_FIELDS):
+            contract.print_hash = None
         contract.updated_at = datetime.utcnow()
         await db.commit()
         await db.refresh(contract)
@@ -973,7 +1095,8 @@ class ContractService:
         db.add(pos)
         await db.execute(
             update(Contract).where(Contract.id == contract_id)
-            .values(position_count=Contract.position_count + 1, updated_at=datetime.utcnow())
+            .values(position_count=Contract.position_count + 1, updated_at=datetime.utcnow(),
+                    print_hash=None)  # RAO: invalidate print — pozycja dodana
         )
         await db.commit()
         await db.refresh(pos)
@@ -1007,6 +1130,11 @@ class ContractService:
         # XOR invariant check on final state (Security finding #1)
         if (pos.machine_id is None) == (pos.service_id is None):
             raise bad_request("Dokładnie jeden z machine_id / service_id musi być ustawiony.")
+        # RAO: invalidate print_hash — pozycja zmieniona (wpływa na wydruk)
+        await db.execute(
+            update(Contract).where(Contract.id == pos.contract_id)
+            .values(print_hash=None)
+        )
         await db.commit()
         await db.refresh(pos)
         return pos
@@ -1017,7 +1145,7 @@ class ContractService:
         await db.execute(delete(ContractPosition).where(ContractPosition.id == pos_id))
         await db.execute(
             update(Contract).where(Contract.id == contract_id)
-            .values(updated_at=datetime.utcnow())
+            .values(updated_at=datetime.utcnow(), print_hash=None)  # RAO: invalidate print
         )
         await db.commit()
 
@@ -1047,6 +1175,11 @@ class ContractService:
         cond = PositionCondition(**payload, position_id=pos_id)
         _sync_condition_derived_fields(cond)
         db.add(cond)
+        # RAO: invalidate print_hash — warunek dodany (wpływa na wydruk)
+        await db.execute(
+            update(Contract).where(Contract.id == pos.contract_id)
+            .values(print_hash=None)
+        )
         await db.commit()
         await db.refresh(cond)
         return cond
@@ -1069,6 +1202,11 @@ class ContractService:
         for field, value in data.model_dump(exclude_unset=True).items():
             setattr(cond, field, value)
         _sync_condition_derived_fields(cond)
+        # RAO: invalidate print_hash — warunek zmieniony (wpływa na wydruk)
+        await db.execute(
+            update(Contract).where(Contract.id == pos.contract_id)
+            .values(print_hash=None)
+        )
         await db.commit()
         await db.refresh(cond)
         return cond
@@ -1084,6 +1222,11 @@ class ContractService:
             raise not_found("Pozycja")
         await self.verify_contract_access(db, pos.contract_id, user, allow_mutation=True)
         await db.execute(delete(PositionCondition).where(PositionCondition.id == cond_id))
+        # RAO: invalidate print_hash — warunek usunięty (wpływa na wydruk)
+        await db.execute(
+            update(Contract).where(Contract.id == pos.contract_id)
+            .values(print_hash=None)
+        )
         await db.commit()
 
     async def list_service_fees(self, db: AsyncSession, contract_id: int, user: User):
@@ -1110,6 +1253,11 @@ class ContractService:
             payload["description"] = payload.get("name")
         fee = ContractServiceFee(**payload, contract_id=contract_id, sort_order=next_order)
         db.add(fee)
+        # RAO: invalidate print_hash — opłata dodana (wpływa na wydruk)
+        await db.execute(
+            update(Contract).where(Contract.id == contract_id)
+            .values(print_hash=None)
+        )
         await db.commit()
         await db.refresh(fee)
         return fee
@@ -1133,6 +1281,11 @@ class ContractService:
                 payload["description"] = payload.get("name") or fee.name
         for field, value in payload.items():
             setattr(fee, field, value)
+        # RAO: invalidate print_hash — opłata zmieniona (wpływa na wydruk)
+        await db.execute(
+            update(Contract).where(Contract.id == fee.contract_id)
+            .values(print_hash=None)
+        )
         await db.commit()
         await db.refresh(fee)
         return fee
@@ -1146,6 +1299,11 @@ class ContractService:
             raise not_found("Usługa dodatkowa")
         await self.verify_contract_access(db, fee.contract_id, user, allow_mutation=True)
         await db.execute(delete(ContractServiceFee).where(ContractServiceFee.id == fee_id))
+        # RAO: invalidate print_hash — opłata usunięta (wpływa na wydruk)
+        await db.execute(
+            update(Contract).where(Contract.id == fee.contract_id)
+            .values(print_hash=None)
+        )
         await db.commit()
 
     async def reorder_service_fees(

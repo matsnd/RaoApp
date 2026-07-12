@@ -466,6 +466,11 @@ async def startup_migrations():
         await conn.execute(sa.text(
             "CREATE INDEX IF NOT EXISTS idx_contracts_print_date ON contracts(print_date)"
         ))
+        # RAO: print_hash — sha256 pól wpływających na wydruk (detekcja nieaktualnego wydruku)
+        await conn.execute(sa.text(
+            "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
+            "print_hash VARCHAR(64) NULL"
+        ))
         await conn.execute(sa.text(
             "CREATE INDEX IF NOT EXISTS idx_contracts_delivery_date ON contracts(date_to)"
         ))

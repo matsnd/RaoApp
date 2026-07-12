@@ -8,6 +8,9 @@ from auth.dependencies import get_current_user
 from auth.models import User
 from database import get_db
 from contracts.models import Contract
+from contractors.models import Contractor
+from settings.models import Company, Salesperson
+from contracts.service import compute_print_hash
 from reports.service import generate_pdf, generate_summary_pdf, generate_commissions_pdf, generate_stats_pdf
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -55,7 +58,13 @@ async def generate_contract_report(
         logging.exception("PDF generation failed for contract_id=%s type=%s", contract_id, type)
         raise HTTPException(status_code=500, detail="Błąd generowania raportu")
     if contract:
+        # RAO: compute + store print_hash for staleness detection
+        contractor = await db.get(Contractor, contract.contractor_id)
+        company = await db.get(Company, 1)
+        salesperson = await db.get(Salesperson, contract.salesperson_id) if contract.salesperson_id else None
+        p_hash = await compute_print_hash(db, contract, contractor, company, salesperson)
         contract.print_date = datetime.utcnow()
+        contract.print_hash = p_hash
         await db.commit()
     contract_num_clean = contract.number.replace('/', '_') if contract and contract.number else str(contract_id)
 

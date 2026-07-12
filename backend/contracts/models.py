@@ -38,6 +38,8 @@ class Contract(Base):
     contractor_name = Column(String(200), nullable=True)
     print_path = Column(String(100), nullable=True)
     print_date = Column(DateTime, nullable=True)
+    print_hash = Column(String(64), nullable=True, comment="RAO: sha256 pól wpływających na wydruk — do detekcji nieaktualnego wydruku")
+    print_hash = Column(String(64), nullable=True, comment="RAO-P2-072: sha256 pól wpływających na wydruk — porównywany z current hash dla is_print_current")
     report_without_data = Column(Boolean, nullable=False, default=False)
     hide_delivery_address = Column(Boolean, nullable=False, default=False)
     signatures_on_page1 = Column(Boolean, nullable=False, default=False)
