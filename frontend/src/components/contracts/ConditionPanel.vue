@@ -624,6 +624,42 @@ async function removeCondition(cond: any) {
 
 watch(() => props.positionId, loadConditions, { immediate: true })
 
+// P1-117: Auto-apply ostatniego cennika po wybraniu maszyny (gdy brak warunków)
+watch(() => props.machineId, async (newMachineId, oldMachineId) => {
+  if (!newMachineId || newMachineId === oldMachineId) return
+  if (props.isSettled) return
+  // Poczekaj aż loadConditions się zakończy (positionId może się zmienić równocześnie)
+  await nextTick()
+  if (conditions.value.length === 0) {
+    // Auto-prefill z ostatniej umowy tej maszyny — cichy tryb (bez toast jeśli brak historii)
+    autoPrefillLoading.value = true
+    try {
+      const data = await contractStore.fetchLastConditionsForMachine(newMachineId)
+      if (data?.conditions?.length) {
+        for (const cond of data.conditions) {
+          await contractStore.createCondition(props.contractId, props.positionId, buildCondPayload({
+            rate_type_id: cond.rate_type_id ?? defaultRateTypeId.value,
+            description: cond.description || null,
+            rate1: cond.rate1,
+            rate2: cond.rate2,
+            billing_label: cond.billing_label || defaultLabel.value,
+            period_count: cond.period_count,
+            period_from: cond.period_from ?? null,
+            period_to: cond.period_to ?? null,
+            is_flat_rate: cond.is_flat_rate !== false,
+          }))
+        }
+        toastStore.success(`Auto-apply cennika z umowy ${data.source_contract_number} (${data.conditions.length} warunków)`)
+        await loadConditions()
+      }
+    } catch {
+      // Cichy błąd — auto-apply jest opcjonalny, user może kliknąć przycisk ręcznie
+    } finally {
+      autoPrefillLoading.value = false
+    }
+  }
+})
+
 // --- RAO-P1-001: Apply preset + auto-prefill ---
 const showPresetPicker = ref(false)
 const presetPickerLoading = ref(false)
