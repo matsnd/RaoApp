@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { computed, inject, onMounted, ref, watch } from 'vue'
+import { Bar } from 'vue-chartjs'
 import { useAnalyticsStore, type LocationRankingItem, type AnalyticsFiltersPayload } from '@/stores/analytics'
 import KpiRow, { type KpiCard } from '@/components/analytics/KpiRow.vue'
+import ChartCard from '@/components/analytics/ChartCard.vue'
 import AnalyticsTable, {
   type AnalyticsColumn,
   type AnalyticsRow,
 } from '@/components/analytics/AnalyticsTable.vue'
 import { useSort } from '@/composables/useSort'
+import { useChartTheme } from '@/composables/useChartTheme'
 
 interface Props {
   dateFrom: string
@@ -81,9 +84,10 @@ const kpiCards = computed<KpiCard[]>(() => {
   ]
 })
 
-// ── Wykres słupkowy (top 10, toggle metryki) ─────────────────────────────────
+// ── Wykres Chart.js (top 10, toggle metryki) ─────────────────────────────────
 type ChartMetric = 'revenue' | 'rentals'
 const chartMetric = ref<ChartMetric>('revenue')
+const { colors, baseOptions } = useChartTheme()
 
 const chartData = computed(() => {
   const locs = [...store.locationsRanking]
@@ -93,23 +97,63 @@ const chartData = computed(() => {
       : b.rentals_count - a.rentals_count,
   )
   const top = locs.slice(0, 10)
-  const max = Math.max(
-    ...top.map((l) => (chartMetric.value === 'revenue' ? l.total_revenue : l.rentals_count)),
-    1,
-  )
-  return top.map((l) => {
-    const val = chartMetric.value === 'revenue' ? l.total_revenue : l.rentals_count
-    return {
-      key: (l.postal_code ?? '') + l.city,
-      city: l.city,
-      postal_code: l.postal_code,
-      value: val,
-      valueLabel:
-        chartMetric.value === 'revenue' ? formatCurrency(val) : `${val} wynajm.`,
-      pct: Math.round((val / max) * 100),
-    }
-  })
+  return {
+    labels: top.map((l) => l.city + (l.postal_code && groupBy.value === 'pna' ? ` ${l.postal_code}` : '')),
+    datasets: [
+      {
+        label: chartMetric.value === 'revenue' ? 'Przychód' : 'Wynajmów',
+        data: top.map((l) => chartMetric.value === 'revenue' ? l.total_revenue : l.rentals_count),
+        backgroundColor: chartMetric.value === 'revenue' ? colors.primary : colors.info,
+        borderRadius: 6,
+        borderSkipped: false,
+      },
+    ],
+  }
 })
+
+const chartOptions = computed(() => ({
+  ...baseOptions,
+  indexAxis: 'y' as const,
+  scales: {
+    x: {
+      ...baseOptions.scales?.x,
+      ticks: {
+        ...baseOptions.scales?.x?.ticks,
+        callback: (v: number | string) => {
+          if (chartMetric.value === 'revenue') {
+            const n = Number(v)
+            return n >= 1000 ? `${(n / 1000).toFixed(0)}k` : n
+          }
+          return v
+        },
+      },
+    },
+    y: { ...baseOptions.scales?.y },
+  },
+  plugins: {
+    ...baseOptions.plugins,
+    tooltip: {
+      ...baseOptions.plugins?.tooltip,
+      callbacks: {
+        label: (ctx: { parsed: { x: number } }) => {
+          const v = ctx.parsed.x
+          return chartMetric.value === 'revenue' ? formatCurrency(v) : `${v} wynajm.`
+        },
+      },
+    },
+  },
+  onClick: (_e: unknown, elements: { index: number }[]) => {
+    if (elements.length > 0) {
+      const locs = [...store.locationsRanking].sort((a, b) =>
+        chartMetric.value === 'revenue'
+          ? b.total_revenue - a.total_revenue
+          : b.rentals_count - a.rentals_count,
+      )
+      const item = locs[elements[0].index]
+      if (item) onChartBarClick(item)
+    }
+  },
+}))
 
 function onChartBarClick(bar: { city: string; postal_code: string | null }): void {
   if (groupBy.value === 'pna') {
@@ -204,10 +248,17 @@ watch(groupBy, load)
       <!-- KPI -->
       <KpiRow :cards="kpiCards" />
 
-      <!-- WYKRES: top 10 miast -->
-      <div class="loc-section">
-        <div class="loc-section-head">
-          <span class="loc-section-title">📊 Top miasta</span>
+      <!-- WYKRES: top 10 miast (Chart.js) -->
+      <ChartCard
+        title="Top miasta"
+        icon="📊"
+        :loading="store.loadingLocations"
+        :empty="!store.locationsRanking.length"
+        empty-message="Brak lokalizacji w wybranym okresie"
+        test-id="loc-chart"
+        :height="320"
+      >
+        <template #actions>
           <div class="loc-chart-toggle" role="group" aria-label="Metryka wykresu">
             <button
               :class="['loc-toggle-btn', { active: chartMetric === 'revenue' }]"
@@ -220,25 +271,9 @@ watch(groupBy, load)
               @click="chartMetric = 'rentals'"
             >Wynajmy</button>
           </div>
-        </div>
-        <div class="loc-chart" data-testid="loc-chart">
-          <div
-            v-for="bar in chartData"
-            :key="bar.key"
-            :class="['loc-bar-row', { clickable: groupBy === 'pna' ? !!bar.postal_code : !!bar.city }]"
-            @click="onChartBarClick(bar)"
-          >
-            <span class="loc-bar-city" :title="bar.city">
-              {{ bar.city }}
-              <span v-if="bar.postal_code" class="loc-bar-pna">{{ bar.postal_code }}</span>
-            </span>
-            <div class="loc-bar-track">
-              <div class="loc-bar-fill" :style="{ width: bar.pct + '%' }"></div>
-            </div>
-            <span class="loc-bar-value">{{ bar.valueLabel }}</span>
-          </div>
-        </div>
-      </div>
+        </template>
+        <Bar :data="chartData" :options="chartOptions" />
+      </ChartCard>
 
       <!-- WYSZUKIWARKA + RANKING -->
       <div class="loc-section">
