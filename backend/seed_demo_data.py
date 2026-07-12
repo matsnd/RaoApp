@@ -77,18 +77,33 @@ import integrations.models  # noqa: F401 — PostalCode potrzebny dla Contract.p
 # ── Dane demo (deterministyczne) ──────────────────────────────────────────────
 
 KATEGORIE = [
-    # Maszyny
-    {"name": "Koparki", "code": "KOP", "level": "main"},
-    {"name": "Koparki gąsienicowe", "code": "KOP-GAS", "level": "sub1", "parent_name": "Koparki"},
-    {"name": "Ładowarki Teleskopowe", "code": "LAD-TEL", "level": "main"},
-    {"name": "Ładowarki Teleskopowe Sztywne", "code": "LAD-TEL-SZW", "level": "sub1", "parent_name": "Ładowarki Teleskopowe"},
+    # ── Maszyny: kategorie od klienta ────────────────────────────────────────────
+    # Ładowarki teleskopowe (main + 2 sub1)
+    {"name": "Ładowarki teleskopowe", "code": "LAD-TEL", "level": "main"},
+    {"name": "Ładowarki teleskopowe proste", "code": "LAD-TEL-PRO", "level": "sub1", "parent_name": "Ładowarki teleskopowe"},
+    {"name": "Ładowarki teleskopowe obrotowe", "code": "LAD-TEL-OB", "level": "sub1", "parent_name": "Ładowarki teleskopowe"},
+    # Podnośniki (main + 7 sub1)
     {"name": "Podnośniki", "code": "POD", "level": "main"},
-    {"name": "Podnośnik koszowy na samochodzie", "code": "POD-KOSZ", "level": "sub1", "parent_name": "Podnośniki"},
+    {"name": "Podnośniki nożycowe elektryczne", "code": "POD-NZ-ELE", "level": "sub1", "parent_name": "Podnośniki"},
+    {"name": "Podnośniki nożycowe spalinowe", "code": "POD-NZ-SPI", "level": "sub1", "parent_name": "Podnośniki"},
+    {"name": "Podnośniki przegubowo-teleskopowe elektryczne", "code": "POD-PR-ELE", "level": "sub1", "parent_name": "Podnośniki"},
+    {"name": "Podnośniki przegubowo-teleskopowe spalinowe", "code": "POD-PR-SPI", "level": "sub1", "parent_name": "Podnośniki"},
+    {"name": "Podnośniki teleskopowe spalinowe", "code": "POD-TEL-SPI", "level": "sub1", "parent_name": "Podnośniki"},
+    {"name": "Podnośniki gąsienicowe", "code": "POD-GAS", "level": "sub1", "parent_name": "Podnośniki"},
+    {"name": "Podnośniki przyczepowe", "code": "POD-PRZ", "level": "sub1", "parent_name": "Podnośniki"},
+    # Wózki widłowe (main + 3 sub1)
+    {"name": "Wózki widłowe", "code": "WID", "level": "main"},
+    {"name": "Wózki widłowe elektryczne", "code": "WID-ELE", "level": "sub1", "parent_name": "Wózki widłowe"},
+    {"name": "Wózki widłowe LPG", "code": "WID-LPG", "level": "sub1", "parent_name": "Wózki widłowe"},
+    {"name": "Wózki widłowe Diesel", "code": "WID-DIE", "level": "sub1", "parent_name": "Wózki widłowe"},
+    # Akcesoria (main, flat — bez sub1)
+    {"name": "Akcesoria", "code": "AKC", "level": "main"},
+    # Dodatkowe kategorie (zachowane dla istniejących maszyn FA)
     {"name": "Spychacze", "code": "SPY", "level": "main"},
     {"name": "Spychacze frezujące", "code": "SPY-FREZ", "level": "sub1", "parent_name": "Spychacze"},
     {"name": "Zagęszczarki", "code": "ZAG", "level": "main"},
     {"name": "Zagęszczarki płytowe", "code": "ZAG-PLT", "level": "sub1", "parent_name": "Zagęszczarki"},
-    # Usługi
+    # ── Usługi dodatkowe (default data — jak ustawienia) ─────────────────────────
     {"name": "Usługi dodatkowe", "code": "USL", "level": "main"},
     {"name": "Transport", "code": "USL-TRA", "level": "sub1", "parent_name": "Usługi dodatkowe"},
     {"name": "Czyszczenie", "code": "USL-CZY", "level": "sub1", "parent_name": "Usługi dodatkowe"},
@@ -98,58 +113,279 @@ KATEGORIE = [
 ]
 
 MASZYNY = [
+    # ── Ładowarki teleskopowe proste (4 szt) ─────────────────────────────────────
     {
-        "name": "Koparka gąsienicowa JCB 8035",
-        "internal_number": "KOP-001",
-        "registration_no": "RAO 12345", "serial_no": "JCB8035Z2021001",
-        "brand": "JCB", "model": "8035 ZTS", "replacement_value": Decimal("280000.00"),
-        "category_main": "Koparki", "category_sub1": "Koparki gąsienicowe",
-        "capacity_t": Decimal("3.5"),
-        "accessories": "Łyżka standardowa, szybkozłącze hydrauliczne",
-        "power_type": "diesel",
-        "fakturownia_product_id": 8845156432567,  # KOP001
-    },
-    {
-        "name": "Ładowarka teleskopowa Manuscop 6.36",
-        "internal_number": "LAD-002",
-        "registration_no": "RAO 23456", "serial_no": "MAN6362022001",
+        "name": "Ładowarka teleskopowa prosta 6m Manuscop 6.36",
+        "internal_number": "LAD-001",
+        "registration_no": "RAO 10001", "serial_no": "MAN6362022001",
         "brand": "Manitou", "model": "Manuscop 6.36", "replacement_value": Decimal("420000.00"),
-        "category_main": "Ładowarki Teleskopowe", "category_sub1": "Ładowarki Teleskopowe Sztywne",
+        "category_main": "Ładowarki teleskopowe", "category_sub1": "Ładowarki teleskopowe proste",
         "reach_m": Decimal("6.0"), "capacity_t": Decimal("3.6"),
         "accessories": "Widły paletowe, łyżka objętościowa 1.2m³",
         "power_type": "diesel",
-        "fakturownia_product_id": 8845156436442,  # LAD001
     },
     {
-        "name": "Podnośnik koszowy Haulotte HA16PX",
+        "name": "Ładowarka teleskopowa prosta 9m JCB 535-95",
+        "internal_number": "LAD-002",
+        "registration_no": "RAO 10002", "serial_no": "JCB535952023001",
+        "brand": "JCB", "model": "535-95", "replacement_value": Decimal("520000.00"),
+        "category_main": "Ładowarki teleskopowe", "category_sub1": "Ładowarki teleskopowe proste",
+        "reach_m": Decimal("9.0"), "capacity_t": Decimal("3.5"),
+        "accessories": "Widły paletowe, łyżka objętościowa 1.0m³, szybkozłącze",
+        "power_type": "diesel",
+    },
+    {
+        "name": "Ładowarka teleskopowa prosta 12m Manitou MT 1240",
+        "internal_number": "LAD-003",
+        "registration_no": "RAO 10003", "serial_no": "MAN12402024001",
+        "brand": "Manitou", "model": "MT 1240", "replacement_value": Decimal("680000.00"),
+        "category_main": "Ładowarki teleskopowe", "category_sub1": "Ładowarki teleskopowe proste",
+        "reach_m": Decimal("12.0"), "capacity_t": Decimal("4.0"),
+        "accessories": "Widły paletowe, kosz 500kg, łyżka 1.5m³",
+        "power_type": "diesel",
+    },
+    {
+        "name": "Ładowarka teleskopowa prosta 18m JCB 540-170",
+        "internal_number": "LAD-004",
+        "registration_no": "RAO 10004", "serial_no": "JCB5401702024001",
+        "brand": "JCB", "model": "540-170", "replacement_value": Decimal("950000.00"),
+        "category_main": "Ładowarki teleskopowe", "category_sub1": "Ładowarki teleskopowe proste",
+        "reach_m": Decimal("18.0"), "capacity_t": Decimal("4.0"),
+        "accessories": "Widły paletowe, kosz 1000kg, łyżka 1.8m³",
+        "power_type": "diesel",
+    },
+    # ── Ładowarki teleskopowe obrotowe (3 szt) ───────────────────────────────────
+    {
+        "name": "Ładowarka teleskopowa obrotowa 14m Manuscop 14.36",
+        "internal_number": "LAD-005",
+        "registration_no": "RAO 10005", "serial_no": "MAN14362023001",
+        "brand": "Manitou", "model": "Manuscop 14.36", "replacement_value": Decimal("780000.00"),
+        "category_main": "Ładowarki teleskopowe", "category_sub1": "Ładowarki teleskopowe obrotowe",
+        "reach_m": Decimal("14.0"), "capacity_t": Decimal("3.6"),
+        "accessories": "Widły paletowe, łyżka 1.2m³, obrot 180°",
+        "power_type": "diesel",
+    },
+    {
+        "name": "Ładowarka teleskopowa obrotowa 20m JCB 540-200",
+        "internal_number": "LAD-006",
+        "registration_no": "RAO 10006", "serial_no": "JCB5402002024001",
+        "brand": "JCB", "model": "540-200", "replacement_value": Decimal("1100000.00"),
+        "category_main": "Ładowarki teleskopowe", "category_sub1": "Ładowarki teleskopowe obrotowe",
+        "reach_m": Decimal("20.0"), "capacity_t": Decimal("4.0"),
+        "accessories": "Widły paletowe, kosz 1000kg, obrot 360°",
+        "power_type": "diesel",
+    },
+    {
+        "name": "Ładowarka teleskopowa obrotowa 26m Manitou MT 2640",
+        "internal_number": "LAD-007",
+        "registration_no": "RAO 10007", "serial_no": "MAN26402025001",
+        "brand": "Manitou", "model": "MT 2640", "replacement_value": Decimal("1450000.00"),
+        "category_main": "Ładowarki teleskopowe", "category_sub1": "Ładowarki teleskopowe obrotowe",
+        "reach_m": Decimal("26.0"), "capacity_t": Decimal("4.0"),
+        "accessories": "Widły paletowe, kosz 1500kg, obrot 360°, kamera",
+        "power_type": "diesel",
+    },
+    # ── Podnośniki nożycowe elektryczne (3 szt) ──────────────────────────────────
+    {
+        "name": "Podnośnik nożycowy elektryczny 8m Haulotte H8E",
+        "internal_number": "POD-001",
+        "registration_no": "RAO 20001", "serial_no": "HAUH8E2022001",
+        "brand": "Haulotte", "model": "H8E", "replacement_value": Decimal("95000.00"),
+        "category_main": "Podnośniki", "category_sub1": "Podnośniki nożycowe elektryczne",
+        "reach_m": Decimal("8.0"),
+        "accessories": "Platforma 2.3m, napęd elektryczny, ładowarka",
+        "power_type": "elektryk",
+    },
+    {
+        "name": "Podnośnik nożycowy elektryczny 12m Haulotte H12E",
+        "internal_number": "POD-002",
+        "registration_no": "RAO 20002", "serial_no": "HAUH12E2023001",
+        "brand": "Haulotte", "model": "H12E", "replacement_value": Decimal("140000.00"),
+        "category_main": "Podnośniki", "category_sub1": "Podnośniki nożycowe elektryczne",
+        "reach_m": Decimal("12.0"),
+        "accessories": "Platforma 2.5m, napęd elektryczny, ładowarka",
+        "power_type": "elektryk",
+    },
+    {
+        "name": "Podnośnik nożycowy elektryczny 18m Haulotte H18E",
         "internal_number": "POD-003",
-        "registration_no": "RAO 34567", "serial_no": "HAU16PX2021001",
+        "registration_no": "RAO 20003", "serial_no": "HAUH18E2024001",
+        "brand": "Haulotte", "model": "H18E", "replacement_value": Decimal("220000.00"),
+        "category_main": "Podnośniki", "category_sub1": "Podnośniki nożycowe elektryczne",
+        "reach_m": Decimal("18.0"),
+        "accessories": "Platforma 2.8m, napęd elektryczny, ładowarka, 4WD",
+        "power_type": "elektryk",
+    },
+    # ── Podnośniki przegubowo-teleskopowe elektryczne (2 szt) ────────────────────
+    {
+        "name": "Podnośnik przegubowo-teleskopowy elektryczny 12m Haulotte HA12E",
+        "internal_number": "POD-004",
+        "registration_no": "RAO 20004", "serial_no": "HAUHA12E2023001",
+        "brand": "Haulotte", "model": "HA12E", "replacement_value": Decimal("180000.00"),
+        "category_main": "Podnośniki", "category_sub1": "Podnośniki przegubowo-teleskopowe elektryczne",
+        "reach_m": Decimal("12.0"),
+        "accessories": "Kosz 230kg, wysięgnik obrotowy, napęd elektryczny",
+        "power_type": "elektryk",
+    },
+    {
+        "name": "Podnośnik przegubowo-teleskopowy elektryczny 22m Haulotte HA22E",
+        "internal_number": "POD-005",
+        "registration_no": "RAO 20005", "serial_no": "HAUHA22E2024001",
+        "brand": "Haulotte", "model": "HA22E", "replacement_value": Decimal("320000.00"),
+        "category_main": "Podnośniki", "category_sub1": "Podnośniki przegubowo-teleskopowe elektryczne",
+        "reach_m": Decimal("22.0"),
+        "accessories": "Kosz 230kg, wysięgnik obrotowy 360°, napęd elektryczny",
+        "power_type": "elektryk",
+    },
+    # ── Podnośniki teleskopowe spalinowe (2 szt) ─────────────────────────────────
+    {
+        "name": "Podnośnik teleskopowy spalinowy 18m Haulotte HA16PX",
+        "internal_number": "POD-006",
+        "registration_no": "RAO 20006", "serial_no": "HAU16PX2021001",
         "brand": "Haulotte", "model": "HA16 PX", "replacement_value": Decimal("380000.00"),
-        "category_main": "Podnośniki", "category_sub1": "Podnośnik koszowy na samochodzie",
+        "category_main": "Podnośniki", "category_sub1": "Podnośniki teleskopowe spalinowe",
         "reach_m": Decimal("16.0"),
         "accessories": "Kosz 230kg, wysięgnik obrotowy 360°",
         "power_type": "diesel",
-        "fakturownia_product_id": 8845156436443,  # POD001
     },
     {
+        "name": "Podnośnik teleskopowy spalinowy 22m Haulotte HA20PX",
+        "internal_number": "POD-007",
+        "registration_no": "RAO 20007", "serial_no": "HAU20PX2023001",
+        "brand": "Haulotte", "model": "HA20 PX", "replacement_value": Decimal("450000.00"),
+        "category_main": "Podnośniki", "category_sub1": "Podnośniki teleskopowe spalinowe",
+        "reach_m": Decimal("20.0"),
+        "accessories": "Kosz 230kg, wysięgnik obrotowy 360°, 4WD",
+        "power_type": "diesel",
+    },
+    # ── Podnośniki gąsienicowe (1 szt) ───────────────────────────────────────────
+    {
+        "name": "Podnośnik gąsienicowy 22m Hinowa HS22",
+        "internal_number": "POD-008",
+        "registration_no": "RAO 20008", "serial_no": "HINHS222024001",
+        "brand": "Hinowa", "model": "HS22", "replacement_value": Decimal("420000.00"),
+        "category_main": "Podnośniki", "category_sub1": "Podnośniki gąsienicowe",
+        "reach_m": Decimal("22.0"),
+        "accessories": "Kosz 230kg, gąsienice, napęd spalinowy",
+        "power_type": "diesel",
+    },
+    # ── Podnośniki przyczepowe (1 szt) ───────────────────────────────────────────
+    {
+        "name": "Podnośnik przyczepowy 15m CTE B15",
+        "internal_number": "POD-009",
+        "registration_no": "RAO 20009", "serial_no": "CTEB152023001",
+        "brand": "CTE", "model": "B15", "replacement_value": Decimal("180000.00"),
+        "category_main": "Podnośniki", "category_sub1": "Podnośniki przyczepowe",
+        "reach_m": Decimal("15.0"),
+        "accessories": "Kosz 200kg, przyczepa, podpory hydrauliczne",
+        "power_type": "diesel",
+    },
+    # ── Wózki widłowe elektryczne (2 szt) ────────────────────────────────────────
+    {
+        "name": "Wózek widłowy elektryczny 2.5t Toyota 8FBE20",
+        "internal_number": "WID-001",
+        "registration_no": "RAO 30001", "serial_no": "TOY8FBE202023001",
+        "brand": "Toyota", "model": "8FBE20", "replacement_value": Decimal("120000.00"),
+        "category_main": "Wózki widłowe", "category_sub1": "Wózki widłowe elektryczne",
+        "capacity_t": Decimal("2.5"),
+        "accessories": "Widły 1.2m, napęd elektryczny, ładowarka",
+        "power_type": "elektryk",
+    },
+    {
+        "name": "Wózek widłowy elektryczny 5t Toyota 8FBE50",
+        "internal_number": "WID-002",
+        "registration_no": "RAO 30002", "serial_no": "TOY8FBE502024001",
+        "brand": "Toyota", "model": "8FBE50", "replacement_value": Decimal("220000.00"),
+        "category_main": "Wózki widłowe", "category_sub1": "Wózki widłowe elektryczne",
+        "capacity_t": Decimal("5.0"),
+        "accessories": "Widły 1.5m, napęd elektryczny, ładowarka",
+        "power_type": "elektryk",
+    },
+    # ── Wózki widłowe Diesel (2 szt) ─────────────────────────────────────────────
+    {
+        "name": "Wózek widłowy Diesel 3t Toyota 8FD30",
+        "internal_number": "WID-003",
+        "registration_no": "RAO 30003", "serial_no": "TOY8FD302023001",
+        "brand": "Toyota", "model": "8FD30", "replacement_value": Decimal("180000.00"),
+        "category_main": "Wózki widłowe", "category_sub1": "Wózki widłowe Diesel",
+        "capacity_t": Decimal("3.0"),
+        "accessories": "Widły 1.2m, napęd diesel, łyżka opcjonalna",
+        "power_type": "diesel",
+    },
+    {
+        "name": "Wózek widłowy Diesel 8t Toyota 8FD80",
+        "internal_number": "WID-004",
+        "registration_no": "RAO 30004", "serial_no": "TOY8FD802024001",
+        "brand": "Toyota", "model": "8FD80", "replacement_value": Decimal("380000.00"),
+        "category_main": "Wózki widłowe", "category_sub1": "Wózki widłowe Diesel",
+        "capacity_t": Decimal("8.0"),
+        "accessories": "Widły 1.8m, napęd diesel, łyżka 2.0m³",
+        "power_type": "diesel",
+    },
+    # ── Akcesoria (5 szt — jako maszyny z category_main=Akcesoria) ────────────────
+    {
+        "name": "Kosz osobowy do ładowarki",
+        "internal_number": "AKC-001",
+        "registration_no": "—", "serial_no": "AKC-KOSZ-001",
+        "brand": "Manitou", "model": "Kosz osobowy 500kg", "replacement_value": Decimal("15000.00"),
+        "category_main": "Akcesoria", "category_sub1": None,
+        "accessories": "Kosz 500kg, mocowanie do widły",
+        "power_type": None,
+    },
+    {
+        "name": "Chwytak do płyt",
+        "internal_number": "AKC-002",
+        "registration_no": "—", "serial_no": "AKC-CHWYT-001",
+        "brand": "JCB", "model": "Chwytak hydrauliczny", "replacement_value": Decimal("28000.00"),
+        "category_main": "Akcesoria", "category_sub1": None,
+        "accessories": "Chwytak hydrauliczny do płyt betonowych",
+        "power_type": None,
+    },
+    {
+        "name": "Łyżka objętościowa 1.5m³",
+        "internal_number": "AKC-003",
+        "registration_no": "—", "serial_no": "AKC-LYZK-001",
+        "brand": "JCB", "model": "Łyżka 1.5m³", "replacement_value": Decimal("12000.00"),
+        "category_main": "Akcesoria", "category_sub1": None,
+        "accessories": "Łyżka objętościowa 1.5m³, szybkozłącze",
+        "power_type": None,
+    },
+    {
+        "name": "Wciągarka typu żuraw",
+        "internal_number": "AKC-004",
+        "registration_no": "—", "serial_no": "AKC-WCIAG-001",
+        "brand": "Pfaff", "model": "Wciągarka 2000kg", "replacement_value": Decimal("35000.00"),
+        "category_main": "Akcesoria", "category_sub1": None,
+        "accessories": "Wciągarka 2000kg, hak, lin stalowy",
+        "power_type": None,
+    },
+    {
+        "name": "Przedłużenie wideł 1.2m",
+        "internal_number": "AKC-005",
+        "registration_no": "—", "serial_no": "AKC-WIDLY-001",
+        "brand": "Toyota", "model": "Przedłużenie wideł 1.2m", "replacement_value": Decimal("4500.00"),
+        "category_main": "Akcesoria", "category_sub1": None,
+        "accessories": "Przedłużenie wideł 1.2m, stal hartowana",
+        "power_type": None,
+    },
+    # ── Dodatkowe kategorie (zachowane — spychacz + zagęszczarka) ────────────────
+    {
         "name": "Spychar Wirtgen W100CFi",
-        "internal_number": "SPY-004",
-        "registration_no": "RAO 45678", "serial_no": "WIR100CFI2022001",
+        "internal_number": "SPY-001",
+        "registration_no": "RAO 40001", "serial_no": "WIR100CFI2022001",
         "brand": "Wirtgen", "model": "W 100 CFi", "replacement_value": Decimal("1200000.00"),
         "category_main": "Spychacze", "category_sub1": "Spychacze frezujące",
         "accessories": "Frez 1.0m, system chłodzenia wodnego",
         "power_type": "diesel",
-        "fakturownia_product_id": 8845156436444,  # SPY001
     },
     {
         "name": "Zagęszczarka Ammann APF 15/50",
-        "internal_number": "ZAG-005",
-        "registration_no": "RAO 56789", "serial_no": "AMM15502023001",
+        "internal_number": "ZAG-001",
+        "registration_no": "RAO 40002", "serial_no": "AMM15502023001",
         "brand": "Ammann", "model": "APF 15/50", "replacement_value": Decimal("35000.00"),
         "category_main": "Zagęszczarki", "category_sub1": "Zagęszczarki płytowe",
         "accessories": "Ruch w przód i tył, nóż dociskowy",
         "power_type": "elektryk",
-        "fakturownia_product_id": 8845156436446,  # ZAG001
     },
 ]
 
@@ -258,9 +494,42 @@ RATE_TYPES = [
 
 # Cena wynajmu/doba per maszyna (do warunków rozliczeniowych)
 CENY_WYNAJMU = {
-    "Koparka gąsienicowa JCB 8035": Decimal("800.00"),
-    "Ładowarka teleskopowa Manuscop 6.36": Decimal("650.00"),
-    "Podnośnik koszowy Haulotte HA16PX": Decimal("450.00"),
+    # Ładowarki teleskopowe proste
+    "Ładowarka teleskopowa prosta 6m Manuscop 6.36": Decimal("650.00"),
+    "Ładowarka teleskopowa prosta 9m JCB 535-95": Decimal("800.00"),
+    "Ładowarka teleskopowa prosta 12m Manitou MT 1240": Decimal("950.00"),
+    "Ładowarka teleskopowa prosta 18m JCB 540-170": Decimal("1300.00"),
+    # Ładowarki teleskopowe obrotowe
+    "Ładowarka teleskopowa obrotowa 14m Manuscop 14.36": Decimal("1100.00"),
+    "Ładowarka teleskopowa obrotowa 20m JCB 540-200": Decimal("1500.00"),
+    "Ładowarka teleskopowa obrotowa 26m Manitou MT 2640": Decimal("1900.00"),
+    # Podnośniki nożycowe elektryczne
+    "Podnośnik nożycowy elektryczny 8m Haulotte H8E": Decimal("250.00"),
+    "Podnośnik nożycowy elektryczny 12m Haulotte H12E": Decimal("350.00"),
+    "Podnośnik nożycowy elektryczny 18m Haulotte H18E": Decimal("550.00"),
+    # Podnośniki przegubowo-teleskopowe elektryczne
+    "Podnośnik przegubowo-teleskopowy elektryczny 12m Haulotte HA12E": Decimal("450.00"),
+    "Podnośnik przegubowo-teleskopowy elektryczny 22m Haulotte HA22E": Decimal("750.00"),
+    # Podnośniki teleskopowe spalinowe
+    "Podnośnik teleskopowy spalinowy 18m Haulotte HA16PX": Decimal("450.00"),
+    "Podnośnik teleskopowy spalinowy 22m Haulotte HA20PX": Decimal("550.00"),
+    # Podnośniki gąsienicowe
+    "Podnośnik gąsienicowy 22m Hinowa HS22": Decimal("650.00"),
+    # Podnośniki przyczepowe
+    "Podnośnik przyczepowy 15m CTE B15": Decimal("400.00"),
+    # Wózki widłowe elektryczne
+    "Wózek widłowy elektryczny 2.5t Toyota 8FBE20": Decimal("200.00"),
+    "Wózek widłowy elektryczny 5t Toyota 8FBE50": Decimal("350.00"),
+    # Wózki widłowe Diesel
+    "Wózek widłowy Diesel 3t Toyota 8FD30": Decimal("300.00"),
+    "Wózek widłowy Diesel 8t Toyota 8FD80": Decimal("500.00"),
+    # Akcesoria
+    "Kosz osobowy do ładowarki": Decimal("80.00"),
+    "Chwytak do płyt": Decimal("120.00"),
+    "Łyżka objętościowa 1.5m³": Decimal("60.00"),
+    "Wciągarka typu żuraw": Decimal("150.00"),
+    "Przedłużenie wideł 1.2m": Decimal("40.00"),
+    # Dodatkowe kategorie
     "Spychar Wirtgen W100CFi": Decimal("1200.00"),
     "Zagęszczarka Ammann APF 15/50": Decimal("150.00"),
 }
@@ -279,50 +548,19 @@ CENY_WYNAJMU = {
 # Koparka/ładowarka/spychacz = maszyny premium (wyższe stawki).
 # Podnośnik = maszyna średnia. Zagęszczarka = maszyna budżetowa.
 
-CENNIKI_KASKADOWE = {
-    "Koparka gąsienicowa JCB 8035": {
-        # 1-3 dni: 900 zł/doba (krótkoterminowa premium)
-        # 4-16 dni: 750 zł/doba (średnioterminowa)
-        # powyżej 16 dni: 600 zł/doba (długoterminowa kontraktowa)
+CENNIKI_KASKADOWE = {}
+for _name, _srednia in CENY_WYNAJMU.items():
+    # Krótkoterminowa = +20% (min 1-3 dni), Średnioterminowa = bazowa (4-16 dni),
+    # Długoterminowa = -20% (powyżej 16 dni). Zaokrąglenie do pełnych 10 zł.
+    _krotka = ((_srednia * Decimal("1.2")) // Decimal("10")) * Decimal("10")
+    _dluga = ((_srednia * Decimal("0.8")) // Decimal("10")) * Decimal("10")
+    CENNIKI_KASKADOWE[_name] = {
         "warunki": [
-            {"rate1": Decimal("900.00"), "rate2": None, "period_count": 3,  "minimum": 1, "billing_label": "doba", "description": "1 - 3 dni - 900,00 / doba"},
-            {"rate1": Decimal("750.00"), "rate2": None, "period_count": 16, "minimum": 1, "billing_label": "doba", "description": "4 - 16 dni - 750,00 / doba"},
-            {"rate1": None, "rate2": Decimal("600.00"), "period_count": None, "minimum": 1, "billing_label": "doba", "description": "powyżej 16 dni - 600,00 / doba"},
+            {"rate1": _krotka, "rate2": None, "period_count": 3,  "minimum": 1, "billing_label": "doba", "description": f"1 - 3 dni - {_krotka}0 / doba"},
+            {"rate1": _srednia, "rate2": None, "period_count": 16, "minimum": 1, "billing_label": "doba", "description": f"4 - 16 dni - {_srednia}0 / doba"},
+            {"rate1": None, "rate2": _dluga, "period_count": None, "minimum": 1, "billing_label": "doba", "description": f"powyżej 16 dni - {_dluga}0 / doba"},
         ],
-    },
-    "Ładowarka teleskopowa Manuscop 6.36": {
-        # 1-3 dni: 720 zł/doba, 4-16 dni: 600 zł/doba, powyżej 16 dni: 480 zł/doba
-        "warunki": [
-            {"rate1": Decimal("720.00"), "rate2": None, "period_count": 3,  "minimum": 1, "billing_label": "doba", "description": "1 - 3 dni - 720,00 / doba"},
-            {"rate1": Decimal("600.00"), "rate2": None, "period_count": 16, "minimum": 1, "billing_label": "doba", "description": "4 - 16 dni - 600,00 / doba"},
-            {"rate1": None, "rate2": Decimal("480.00"), "period_count": None, "minimum": 1, "billing_label": "doba", "description": "powyżej 16 dni - 480,00 / doba"},
-        ],
-    },
-    "Podnośnik koszowy Haulotte HA16PX": {
-        # 1-3 dni: 500 zł/doba, 4-16 dni: 420 zł/doba, powyżej 16 dni: 340 zł/doba
-        "warunki": [
-            {"rate1": Decimal("500.00"), "rate2": None, "period_count": 3,  "minimum": 1, "billing_label": "doba", "description": "1 - 3 dni - 500,00 / doba"},
-            {"rate1": Decimal("420.00"), "rate2": None, "period_count": 16, "minimum": 1, "billing_label": "doba", "description": "4 - 16 dni - 420,00 / doba"},
-            {"rate1": None, "rate2": Decimal("340.00"), "period_count": None, "minimum": 1, "billing_label": "doba", "description": "powyżej 16 dni - 340,00 / doba"},
-        ],
-    },
-    "Spychar Wirtgen W100CFi": {
-        # 1-3 dni: 1300 zł/doba (premium frezowanie), 4-16 dni: 1100 zł/doba, powyżej 16 dni: 900 zł/doba
-        "warunki": [
-            {"rate1": Decimal("1300.00"), "rate2": None, "period_count": 3,  "minimum": 1, "billing_label": "doba", "description": "1 - 3 dni - 1300,00 / doba"},
-            {"rate1": Decimal("1100.00"), "rate2": None, "period_count": 16, "minimum": 1, "billing_label": "doba", "description": "4 - 16 dni - 1100,00 / doba"},
-            {"rate1": None, "rate2": Decimal("900.00"),  "period_count": None, "minimum": 1, "billing_label": "doba", "description": "powyżej 16 dni - 900,00 / doba"},
-        ],
-    },
-    "Zagęszczarka Ammann APF 15/50": {
-        # 1-3 dni: 180 zł/doba (budżetowa), 4-16 dni: 150 zł/doba, powyżej 16 dni: 120 zł/doba
-        "warunki": [
-            {"rate1": Decimal("180.00"), "rate2": None, "period_count": 3,  "minimum": 1, "billing_label": "doba", "description": "1 - 3 dni - 180,00 / doba"},
-            {"rate1": Decimal("150.00"), "rate2": None, "period_count": 16, "minimum": 1, "billing_label": "doba", "description": "4 - 16 dni - 150,00 / doba"},
-            {"rate1": None, "rate2": Decimal("120.00"), "period_count": None, "minimum": 1, "billing_label": "doba", "description": "powyżej 16 dni - 120,00 / doba"},
-        ],
-    },
-}
+    }
 
 # Stawka "skuteczna" per maszyna — używana do rozliczeń (średnia z cennika
 # kaskadowego dla typowego wynajmu 7-14 dni = stawka średnioterminowa).
