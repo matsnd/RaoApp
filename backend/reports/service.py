@@ -143,6 +143,8 @@ async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
             "fee": f,
             "description": desc,
             "display": _format_fee_display(f, desc),
+            "name": (f.name or "").strip(),
+            "display_value": _format_fee_value(f, desc),
         })
 
     positions_data = []
