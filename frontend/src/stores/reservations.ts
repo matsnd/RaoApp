@@ -19,7 +19,6 @@ export interface MachineReservation {
   contractor_name: string | null
   salesperson_id: number | null  // P1-119
   salesperson_name: string | null  // P1-119
-  status: string | null  // "confirmed" | "provisional" | null
   created_by: number | null
   created_at: string
 }
@@ -41,7 +40,6 @@ export interface ReservationPayload {
   note?: string | null
   contractor_id?: number | null
   salesperson_id?: number | null  // P1-119
-  status?: string | null
 }
 
 // RAO-P3: partial update payload (PUT /reservations/{id})
@@ -51,7 +49,6 @@ export interface ReservationUpdatePayload {
   note?: string | null
   contractor_id?: number | null
   salesperson_id?: number | null  // P1-119
-  status?: string | null
 }
 
 // RAO-P3: event kalendarza (rezerwacja lub umowa)
@@ -70,7 +67,6 @@ export interface CalendarEvent {
   date_from: string  // ISO date
   date_to: string    // ISO date
   note: string | null
-  status: string | null  // "confirmed" | "provisional" | null (dla umow)
 }
 
 export const useReservationsStore = defineStore('reservations', () => {

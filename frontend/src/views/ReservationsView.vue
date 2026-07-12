@@ -36,7 +36,6 @@ const router = useRouter()
 const filterMachineId = ref<number | null>(null)
 const filterSalespersonId = ref<number | null>(null)  // P1-119+: filtr handlowca
 const filterContractorId = ref<number | null>(null)
-const filterStatus = ref<'all' | 'confirmed' | 'provisional'>('all')
 
 // ── Panel dnia (prawa kolumna) ────────────────────────────────────────────────
 const selectedDay = ref<string | null>(null)
@@ -98,7 +97,7 @@ const calendarCells = computed<CalCell[]>(() => {
   return cells
 })
 
-// Eventy kalendarza filtrowane po handlowcu/kontrahencie/statusie (machine filtrowany w API)
+// Eventy kalendarza filtrowane po handlowcu/kontrahencie (machine filtrowany w API)
 const filteredCalendarEvents = computed<CalendarEvent[]>(() => {
   let items = store.calendarEvents
   if (filterSalespersonId.value != null) {
@@ -106,10 +105,6 @@ const filteredCalendarEvents = computed<CalendarEvent[]>(() => {
   }
   if (filterContractorId.value != null) {
     items = items.filter((e) => e.contractor_id === filterContractorId.value)
-  }
-  if (filterStatus.value !== 'all') {
-    // Umowy (source=contract) mają status=null — przy filtrze status pokaż tylko rezerwacje
-    items = items.filter((e) => e.source === 'reservation' && e.status === filterStatus.value)
   }
   return items
 })
@@ -139,7 +134,6 @@ function goToday() {
 // Kolor kropki event
 function dotClass(e: CalendarEvent): string {
   if (e.source === 'contract') return 'dot-contract'
-  if (e.status === 'provisional') return 'dot-provisional'
   return 'dot-confirmed'
 }
 
@@ -240,7 +234,6 @@ interface ModalState {
     salesperson_id: number | null  // P1-119
     reserved_from: string
     reserved_to: string
-    status: 'confirmed' | 'provisional'
     note: string
   }
 }
@@ -256,7 +249,6 @@ const modal = ref<ModalState>({
     salesperson_id: null,  // P1-119
     reserved_from: '',
     reserved_to: '',
-    status: 'confirmed',
     note: '',
   },
 })
@@ -285,7 +277,6 @@ function openCreate(presetDate?: string) {
       salesperson_id: null,  // P1-119
       reserved_from: today,
       reserved_to: today,
-      status: 'confirmed',
       note: '',
     },
   }
@@ -307,7 +298,6 @@ function openEdit(r: ReservationWithMachine | CalendarEvent) {
         salesperson_id: ev.salesperson_id ?? null,  // P1-119
         reserved_from: ev.date_from,
         reserved_to: ev.date_to,
-        status: 'confirmed',
         note: ev.note ?? '',
       },
     }
@@ -330,7 +320,6 @@ function openEdit(r: ReservationWithMachine | CalendarEvent) {
       salesperson_id: (r as any).salesperson_id ?? null,  // P1-119
       reserved_from: from,
       reserved_to: to,
-      status: (r.status === 'provisional' ? 'provisional' : 'confirmed') as 'confirmed' | 'provisional',
       note: r.note ?? '',
     },
   }
@@ -356,7 +345,6 @@ async function saveReservation() {
         note: f.note || null,
         contractor_id: f.contractor_id,
         salesperson_id: f.salesperson_id,  // P1-119
-        status: f.status,
       }
       await store.create(payload)
     } else if (modal.value.mode === 'edit' && modal.value.reservationId != null) {
@@ -366,7 +354,6 @@ async function saveReservation() {
         note: f.note || null,
         contractor_id: f.contractor_id,
         salesperson_id: f.salesperson_id,  // P1-119
-        status: f.status,
       }
       await store.update(modal.value.reservationId, payload)
     }
@@ -505,25 +492,11 @@ onMounted(async () => {
           data-testid="rv-filter-contractor"
         />
       </div>
-
-      <div class="rv-filter-group">
-        <label class="rv-filter-label">Status</label>
-        <select
-          v-model="filterStatus"
-          class="af-input rv-filter-select"
-          data-testid="rv-filter-status"
-        >
-          <option value="all">Wszystkie</option>
-          <option value="confirmed">Potwierdzone</option>
-          <option value="provisional">Wstępne</option>
-        </select>
-      </div>
     </div>
 
     <!-- LEGENDA -->
     <div class="rv-legend">
-      <span class="rv-legend-item"><span class="rv-dot dot-confirmed"></span> Rezerwacja potwierdzona</span>
-      <span class="rv-legend-item"><span class="rv-dot dot-provisional"></span> Rezerwacja wstępna</span>
+      <span class="rv-legend-item"><span class="rv-dot dot-confirmed"></span> Rezerwacja</span>
       <span class="rv-legend-item"><span class="rv-dot dot-contract"></span> Umowa</span>
     </div>
 
@@ -734,19 +707,6 @@ onMounted(async () => {
                   :disabled="modalSaving"
                 />
               </div>
-            </div>
-
-            <div class="rv-form-row">
-              <label class="rv-form-label">Status</label>
-              <select
-                v-model="modal.form.status"
-                class="af-input"
-                data-testid="rv-modal-status"
-                :disabled="modalSaving"
-              >
-                <option value="confirmed">Potwierdzona</option>
-                <option value="provisional">Wstępna</option>
-              </select>
             </div>
 
             <div class="rv-form-row">
@@ -1088,10 +1048,6 @@ onMounted(async () => {
 .dot-confirmed {
   background: var(--color-primary);
 }
-.dot-provisional {
-  background: var(--color-primary);
-  opacity: 0.5;
-}
 /* TODO: design-reviewer — dodać --color-warning do style.css (już istnieje: --color-warning: #F59E0B) */
 .dot-contract {
   background: var(--color-warning);
@@ -1148,11 +1104,6 @@ onMounted(async () => {
 .rv-badge-confirmed {
   background: var(--color-primary);
   color: var(--color-text-on-primary);
-}
-.rv-badge-provisional {
-  background: var(--color-primary);
-  color: var(--color-text-on-primary);
-  opacity: 0.6;
 }
 
 /* Modal */

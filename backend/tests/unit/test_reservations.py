@@ -84,8 +84,8 @@ async def test_create_succeeds_when_no_conflict():
 
 
 @pytest.mark.asyncio
-async def test_create_with_contractor_id_and_status():
-    """RAO-L-Phase2: POST z contractor_id i status=provisional."""
+async def test_create_with_contractor_id():
+    """RAO-L-Phase2: POST z contractor_id."""
     svc = ReservationService()
     db = _mock_db_with_conflict(False)
     data = ReservationCreate(
@@ -93,23 +93,10 @@ async def test_create_with_contractor_id_and_status():
         reserved_from=date(2026, 1, 1),
         reserved_to=date(2026, 1, 10),
         contractor_id=5,
-        status="provisional",
     )
     obj = await svc.create(db, data, user_id=42)
     assert obj is not None
     db.add.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_create_invalid_status_raises_422():
-    """RAO-L-Phase2: status spoza enum → błąd walidacji Pydantic."""
-    with pytest.raises(Exception):
-        ReservationCreate(
-            machine_id=1,
-            reserved_from=date(2026, 1, 1),
-            reserved_to=date(2026, 1, 10),
-            status="invalid",
-        )
 
 
 # --- PUT /reservations/{id} (update) ---
@@ -138,7 +125,6 @@ def _mk_existing_reservation(r_id=1, mach_id=1, r_from=date(2026, 1, 1), r_to=da
     r.reserved_to = r_to
     r.note = None
     r.contractor_id = None
-    r.status = "confirmed"
     return r
 
 
@@ -194,15 +180,14 @@ async def test_update_partial_only_note():
 
 
 @pytest.mark.asyncio
-async def test_update_status_and_contractor():
-    """PUT — zmiana statusu i contractor_id."""
+async def test_update_contractor():
+    """PUT — zmiana contractor_id."""
     svc = ReservationService()
     existing = _mk_existing_reservation()
     db = _mock_db_for_update(existing, conflict=False)
-    data = ReservationUpdate(status="provisional", contractor_id=7)
+    data = ReservationUpdate(contractor_id=7)
     out = await svc.update(db, 1, data, user_id=42)
     assert out is existing
-    assert existing.status == "provisional"
     assert existing.contractor_id == 7
 
 
@@ -246,7 +231,7 @@ async def test_list_calendar_happy_path_reservation_and_contract():
     """GET /calendar — eventy z rezerwacji i umów, sortowane po date_from."""
     svc = ReservationService()
     # reservation: 05.01–15.01, contract: 01.01–31.01
-    res_row = (1, 10, "Koparka", "S001", 5, "ACME", date(2026, 1, 5), date(2026, 1, 15), "Serwis", "confirmed", None, None)  # P1-119: +salesperson_id, salesperson_name
+    res_row = (1, 10, "Koparka", "S001", 5, "ACME", date(2026, 1, 5), date(2026, 1, 15), "Serwis", None, None)  # P1-119: +salesperson_id, salesperson_name (bez status)
     contract_row = (100, 10, "Koparka", "S001", 5, "ACME", date(2026, 1, 1), date(2026, 1, 31), "U/2026/001")
     db = _mock_db_for_calendar(reservation_rows=[res_row], contract_rows=[contract_row])
     events = await svc.list_calendar(db, date(2026, 1, 1), date(2026, 1, 31))
@@ -257,7 +242,6 @@ async def test_list_calendar_happy_path_reservation_and_contract():
     assert events[0].note == "U/2026/001"
     assert events[1].source == "reservation"
     assert events[1].source_id == 1
-    assert events[1].status == "confirmed"
     assert events[1].contractor_name == "ACME"
 
 
@@ -274,7 +258,7 @@ async def test_list_calendar_empty_result():
 async def test_list_calendar_with_machine_filter():
     """GET /calendar — filtr machine_id przekazany do obu źródeł (refaktor articles→machines)."""
     svc = ReservationService()
-    res_row = (1, 10, "Koparka", "S001", None, None, date(2026, 1, 5), date(2026, 1, 15), None, "confirmed", None, None)  # P1-119: +salesperson_id, salesperson_name
+    res_row = (1, 10, "Koparka", "S001", None, None, date(2026, 1, 5), date(2026, 1, 15), None, None, None)  # P1-119: +salesperson_id, salesperson_name (bez status)
     db = _mock_db_for_calendar(reservation_rows=[res_row], contract_rows=[])
     events = await svc.list_calendar(db, date(2026, 1, 1), date(2026, 1, 31), machine_id=10)
     assert len(events) == 1

@@ -51,7 +51,6 @@ class ReservationService:
                 MachineReservation.created_at,
                 MachineReservation.contractor_id,
                 Contractor.name.label("contractor_name"),
-                MachineReservation.status,
                 MachineReservation.salesperson_id,  # P1-119
                 Salesperson.name.label("salesperson_name"),  # P1-119
             )
@@ -74,9 +73,8 @@ class ReservationService:
                 "created_at": r[8],
                 "contractor_id": r[9],
                 "contractor_name": r[10],
-                "status": r[11],
-                "salesperson_id": r[12],  # P1-119
-                "salesperson_name": r[13],  # P1-119
+                "salesperson_id": r[11],  # P1-119
+                "salesperson_name": r[12],  # P1-119
             }
             for r in rows
         ]
@@ -243,7 +241,6 @@ class ReservationService:
                 MachineReservation.reserved_from,
                 MachineReservation.reserved_to,
                 MachineReservation.note,
-                MachineReservation.status,
                 MachineReservation.salesperson_id,  # P1-119
                 Salesperson.name,  # P1-119
             )
@@ -268,9 +265,8 @@ class ReservationService:
                 date_from=r[6],
                 date_to=r[7],
                 note=r[8],
-                status=r[9],
-                salesperson_id=r[10],  # P1-119
-                salesperson_name=r[11],  # P1-119
+                salesperson_id=r[9],  # P1-119
+                salesperson_name=r[10],  # P1-119
             ))
 
         # Source 2: contracts (via contract_positions)
@@ -307,7 +303,6 @@ class ReservationService:
                 date_from=r[6],
                 date_to=r[7],
                 note=r[8],  # contract number
-                status=None,
             ))
 
         events.sort(key=lambda e: e.date_from)

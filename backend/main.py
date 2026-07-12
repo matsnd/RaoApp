@@ -878,11 +878,14 @@ async def startup_migrations():
             "ALTER TABLE machine_reservations ADD COLUMN IF NOT EXISTS "
             "contractor_id INT NULL COMMENT 'RAO-L-Phase1: FK do contractors.id (SET NULL)'"
         ))
-        await conn.execute(sa.text(
-            "ALTER TABLE machine_reservations ADD COLUMN IF NOT EXISTS "
-            "status ENUM('confirmed','provisional') NOT NULL DEFAULT 'confirmed' "
-            "COMMENT 'RAO-L-Phase1: status rezerwacji'"
-        ))
+        # RAO-simplify: status rezerwacji usunięty (uproszczenie, wszystkie potwierdzone)
+        # DROP COLUMN — bezpieczne bo dane demo, user wyraził zgodę
+        try:
+            await conn.execute(sa.text(
+                "ALTER TABLE machine_reservations DROP COLUMN status"
+            ))
+        except Exception:
+            pass  # kolumna już nie istnieje
         # FK contractor_id → contractors.id (try/except — MariaDB <10.6 nie wspiera IF NOT EXISTS dla CONSTRAINT)
         try:
             await conn.execute(sa.text(

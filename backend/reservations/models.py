@@ -23,13 +23,7 @@ class MachineReservation(Base):
         nullable=True,
         index=True,
     )
-    # RAO-L-Phase1: status rezerwacji (confirmed = potwierdzona, provisional = wstępna)
-    status = Column(
-        Enum("confirmed", "provisional", name="reservation_status"),
-        nullable=False,
-        server_default="confirmed",
-        default="confirmed",
-    )
+    # RAO-L-Phase1: status rezerwacji — usunięty (uproszczenie, wszystkie potwierdzone)
     created_by = Column(
         Integer,
         ForeignKey("users.id", ondelete="SET NULL"),

@@ -10,7 +10,6 @@ class ReservationCreate(BaseModel):
     note: Optional[str] = Field(None, max_length=300)
     contractor_id: Optional[int] = None
     salesperson_id: Optional[int] = None  # P1-119: opcjonalny handlowiec
-    status: str = Field("confirmed", pattern="^(confirmed|provisional)$")
 
     @model_validator(mode="after")
     def validate_dates(self) -> "ReservationCreate":
@@ -27,8 +26,6 @@ class ReservationUpdate(BaseModel):
     contractor_id: Optional[int] = None
     # P1-119: edycja powiązania z handlowcem
     salesperson_id: Optional[int] = None
-    # RAO-L-Phase2: edycja statusu rezerwacji
-    status: Optional[str] = Field(None, pattern="^(confirmed|provisional)$")
     # P2-003: zmiana maszyny (z walidacją is_external w service.update)
     machine_id: Optional[int] = None
 
@@ -53,7 +50,6 @@ class ReservationResponse(BaseModel):
     created_at: datetime
     contractor_id: Optional[int] = None
     salesperson_id: Optional[int] = None  # P1-119
-    status: str = "confirmed"
     model_config = {"from_attributes": True}
 
 
@@ -72,7 +68,6 @@ class ReservationWithMachineResponse(BaseModel):
     contractor_name: Optional[str] = None
     salesperson_id: Optional[int] = None  # P1-119
     salesperson_name: Optional[str] = None  # P1-119
-    status: str = "confirmed"
 
 
 class CalendarEvent(BaseModel):
@@ -87,6 +82,5 @@ class CalendarEvent(BaseModel):
     date_from: date
     date_to: Optional[date] = None  # umowa może nie mieć date_to
     note: Optional[str] = None  # note z rezerwacji lub number umowy
-    status: Optional[str] = None  # tylko dla rezerwacji
     salesperson_id: Optional[int] = None  # P1-119: tylko dla rezerwacji
     salesperson_name: Optional[str] = None  # P1-119: tylko dla rezerwacji
