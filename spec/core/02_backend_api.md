@@ -2394,9 +2394,9 @@ npm install vue-draggable-plus @vuepic/vue-datepicker
 **HTTP:** 200 | 401
 
 ### `GET /reservations/calendar` (NOWY Phase2 2026-07-11)
-**Opis:** Zwraca eventy kalendarza (rezerwacje + umowy) pokrywające się z [date_from, date_to].
-**Query:** `date_from` (req), `date_to` (req), `article_id` (opt)
-**Response:** `list[CalendarEvent]` (`{source, source_id, article_id, article_name?, internal_number?, contractor_id?, contractor_name?, salesperson_id?, salesperson_name?, date_from, date_to, note?}`)
+**Opis:** Zwraca eventy kalendarza (rezerwacje + umowy maszynowe) pokrywające się z [date_from, date_to]. Tylko pozycje z machine_id (INNER JOIN Machine) — pozycje usługowe (service_id) są wykluczone.
+**Query:** `date_from` (req), `date_to` (req), `machine_id` (opt)
+**Response:** `list[CalendarEvent]` (`{source: 'reservation'|'contract', source_id, machine_id, machine_name?, internal_number?, contractor_id?, contractor_name?, salesperson_id?, salesperson_name?, date_from, date_to, note?}`)
 **HTTP:** 200 | 401
 
 ### `POST /reservations`
