@@ -269,7 +269,7 @@ class ReservationService:
                 salesperson_name=r[10],  # P1-119
             ))
 
-        # Source 2: contracts (via contract_positions)
+        # Source 2: contracts (via contract_positions — tylko maszyny, nie usługi)
         contract_stmt = (
             select(
                 Contract.id,
@@ -283,7 +283,7 @@ class ReservationService:
                 Contract.number,
             )
             .join(ContractPosition, ContractPosition.contract_id == Contract.id)
-            .outerjoin(Machine, ContractPosition.machine_id == Machine.id)
+            .join(Machine, ContractPosition.machine_id == Machine.id)
             .join(Contractor, Contract.contractor_id == Contractor.id)
             .where(Contract.date_from <= date_to)
             .where(Contract.date_to >= date_from)

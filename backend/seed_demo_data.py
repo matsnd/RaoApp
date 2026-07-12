@@ -416,12 +416,12 @@ USLUGI = [
         "fakturownia_product_id": 8845156436450,  # SER001
     },
     {
-        "name": "Przegląd techniczny i czyszczenie maszyny",
+        "name": "Przegląd techniczny i czyszczenie maszyny Diesel",
         "default_amount": Decimal("150.00"),
         "fakturownia_product_id": 8845156436451,  # DIE001
     },
     {
-        "name": "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny",
+        "name": "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny Elektryk",
         "default_amount": Decimal("35.00"),
         "fakturownia_product_id": 8845156436452,  # ELE001
     },
@@ -1455,17 +1455,18 @@ async def seed_umowy(db: AsyncSession, contracts_data, art_by_name):
 
 
 # Rezerwacje demo — RAO-P2-071: dla pokazania kalendarza
+# Nazwy maszyn zaktualizowane po articles-split (zgodne z seed_artykuly)
 REZERWACJE_DEMO = [
     # Aktywne rezerwacje (confirmed) — różne maszyny, różne kontrahenci
-    {"article": "Koparka gąsienicowa JCB 8035", "contractor": "Bud-Plus Sp. z o.o.",
+    {"article": "Ładowarka teleskopowa prosta 6m Manuscop 6.36", "contractor": "Bud-Plus Sp. z o.o.",
      "reserved_from": date.today() + timedelta(days=5),
      "reserved_to": date.today() + timedelta(days=12),
      "note": "Rezerwacja na budowę Mokotów"},
-    {"article": "Ładowarka teleskopowa Manuscop 6.36", "contractor": "Invest S.A.",
+    {"article": "Ładowarka teleskopowa prosta 9m JCB 535-95", "contractor": "Invest S.A.",
      "reserved_from": date.today() + timedelta(days=3),
      "reserved_to": date.today() + timedelta(days=10),
      "note": "Kontrakt Q3 2026"},
-    {"article": "Podnośnik koszowy Haulotte HA16PX", "contractor": None,
+    {"article": "Podnośnik teleskopowy spalinowy 18m Haulotte HA16PX", "contractor": None,
      "reserved_from": date.today() + timedelta(days=14),
      "reserved_to": date.today() + timedelta(days=18),
      "note": "Serwis planowany"},
@@ -1478,18 +1479,18 @@ REZERWACJE_DEMO = [
      "reserved_to": date.today() + timedelta(days=4),
      "note": "Test maszyny"},
     # Przeszłe rezerwacje (archiwalne)
-    {"article": "Koparka gąsienicowa JCB 8035", "contractor": "Wod-Bud Sp. z o.o.",
+    {"article": "Ładowarka teleskopowa prosta 6m Manuscop 6.36", "contractor": "Wod-Bud Sp. z o.o.",
      "reserved_from": date.today() - timedelta(days=30),
      "reserved_to": date.today() - timedelta(days=20),
      "note": "Zakończona rezerwacja"},
-    {"article": "Ładowarka teleskopowa Manuscop 6.36", "contractor": "Fundament Sp. z o.o.",
+    {"article": "Ładowarka teleskopowa prosta 9m JCB 535-95", "contractor": "Fundament Sp. z o.o.",
      "reserved_from": date.today() - timedelta(days=15),
      "reserved_to": date.today() - timedelta(days=5),
      "note": "Zakończona rezerwacja"},
     # Konflikt z aktywną umową (dla demo modala konfliktu)
-    {"article": "Podnośnik koszowy Haulotte HA16PX", "contractor": "Eko-Bud Nowoczesne Budownictwo",
+    {"article": "Podnośnik teleskopowy spalinowy 18m Haulotte HA16PX", "contractor": "Eko-Bud Nowoczesne Budownictwo",
      "reserved_from": date.today() + timedelta(days=7),
-     "reserved_to": date.today() + timedelta(days=14),
+     "reserved_to": date.today() + timedelta(days=13),
      "note": "Oczekuje na potwierdzenie"},
 ]
 
