@@ -136,30 +136,31 @@ CREATE TABLE fee_preset_groups (
 -- 1.7b Seedowanie presetów Diesel/Elektryk (RAO-P1-100)
 -- Startup migration w backend/main.py tworzy dwa zestawy:
 -- - "Najem — Diesel": przegląd techniczny 150 zł (maszyny dieslowe)
--- - "Najem — Elektryk": przegląd techniczny 90 zł (maszyny elektryczne)
+-- - "Najem — Elektryk": przegląd techniczny 35 zł (maszyny elektryczne)
 -- Idempotentne po nazwie — nie tworzy duplikatów przy każdym restarcie.
 
 -- 1.8 Szablony usług dodatkowych (zastępuje firma.uslugi1/2 + firma.oplata_*)
 -- Każdy wiersz = jedna pozycja z listy "-" np. "Transport: 400 zł"
--- RAO-P1-011: Zesłownikowanie z artykułami - article_id wskazuje na articles (zwykle usługa, is_service=1)
+-- RAO-P1-011: Zesłownikowanie z usługami dodatkowymi - additional_service_id wskazuje na additional_services
+-- Refaktor (Faza 7): article_id → additional_service_id (articles usunięte)
 CREATE TABLE service_fee_templates (
     id           INT AUTO_INCREMENT PRIMARY KEY,
     company_id   INT          NOT NULL DEFAULT 1,
     preset_id    INT          NULL     COMMENT 'Grupa szablonów (fee_preset_groups)',
     contract_type CHAR(1)     NOT NULL COMMENT 'S=najem, U=usługa',
     sort_order   INT          NOT NULL DEFAULT 0 COMMENT 'Kolejność wyświetlania',
-    article_id   INT          NULL     COMMENT 'RAO-P1-011: FK do articles (usługi)',
-    name         VARCHAR(200) NOT NULL COMMENT 'Nazwa np. Transport, Czyszczenie (snapshot z articles.name jeśli article_id ustawiony)',
+    additional_service_id INT NULL     COMMENT 'FK do additional_services (refaktor: było article_id → articles)',
+    name         VARCHAR(200) NOT NULL COMMENT 'Nazwa np. Transport, Czyszczenie (snapshot z additional_services.name jeśli ustawiony)',
     amount_from  DECIMAL(18,2) NULL    COMMENT 'Kwota od (NULL = brak)',
     amount_to    DECIMAL(18,2) NULL    COMMENT 'Kwota do (NULL = jednorazowa)',
     description  VARCHAR(400) NULL     COMMENT 'Opis np. dostawa / odbiór',
     is_active    BOOLEAN      NOT NULL DEFAULT TRUE,
     CONSTRAINT fk_sft_company FOREIGN KEY (company_id) REFERENCES company(id),
     CONSTRAINT fk_sft_preset FOREIGN KEY (preset_id) REFERENCES fee_preset_groups(id) ON DELETE CASCADE,
-    CONSTRAINT fk_sft_article FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE SET NULL,
+    CONSTRAINT fk_sft_additional_service FOREIGN KEY (additional_service_id) REFERENCES additional_services(id) ON DELETE SET NULL,
     INDEX idx_sft_type (company_id, contract_type, sort_order),
-    INDEX idx_sft_article (article_id)
-) ENGINE=InnoDB COMMENT='Szablony usług dodatkowych (stare: firma.uslugi1/2, firma.oplata_*)';
+    INDEX idx_sft_additional_service (additional_service_id)
+) ENGINE=InnoDB COMMENT='Szablony usług dodatkowych (refaktor: additional_service_id, stare: firma.uslugi1/2, firma.oplata_*)';
 
 -- 1.8b Kody pocztowe (RAO-P1-008, RAO-P2-015)
 -- Słownik kodów pocztowych Polski do auto-uzupełniania miast
@@ -237,64 +238,117 @@ CREATE TABLE contractor_addresses (
 ) ENGINE=InnoDB COMMENT='Adresy kontrahentów (stara tabela: adres)';
 
 -- ============================================================
--- 3.2 Artykuły (Maszyny/Usługi)
+-- 3.2 Maszyny / Usługi / Usługi dodatkowe (refaktor: articles → 3 tabele)
 -- ============================================================
+-- POPRZEDNIO: jedna tabela `articles` z flagą `is_service` rozróżniającą
+-- maszyny od usług. Refaktor (Faza 7, 2026-07) rozdzielił na 3 tabele:
+--   machines             — maszyny budowlane (najem, contract_type='S')
+--   services             — usługi zwykłe (contract_type='U')
+--   additional_services  — usługi dodatkowe (szablony opłat, transport itp.)
+-- Tabela `articles` została USUNIĘTA ze schematu (zarchiwizowana w archive_articles).
+-- archive_articles pozostaje nietknięta (frozen snapshot legacy).
 
-CREATE TABLE articles (
-    id                INT AUTO_INCREMENT PRIMARY KEY,
-    name              VARCHAR(200) NOT NULL,
-    is_service        BOOLEAN      NOT NULL DEFAULT FALSE COMMENT 'Czy to usługa (np. transport, mycie)',
-    internal_number   VARCHAR(50)  NULL COMMENT 'Wewnętrzny numer maszyny w firmie',
-    registration_no   VARCHAR(40)  NULL COMMENT 'Numer rejestracyjny',
-    serial_no         VARCHAR(40)  NULL COMMENT 'Numer seryjny',
-    brand             VARCHAR(100) NULL,
-    model             VARCHAR(100) NULL COMMENT 'Model',
-    replacement_value DECIMAL(18,2) NULL COMMENT 'Wartość odtworzeniowa',
-    category_id       INT          NULL,
-    owner_id          INT          NULL COMMENT 'FK do kontrahenta-właściciela (dostawcy)',
-    branch_id         INT          NULL COMMENT 'FK do oddziału',
-    description       VARCHAR(400) NULL,
-    notes             VARCHAR(200) NULL,
-    rental_days       INT          NULL COMMENT 'Ile dni wynajmu default',
-    article_type      VARCHAR(20)  NULL COMMENT 'Rodzaj - typ artykułu',
+-- 3.2a Maszyny (machines) — zastępuje articles WHERE is_service=FALSE
+CREATE TABLE machines (
+    id                    INT AUTO_INCREMENT PRIMARY KEY,
+    name                  VARCHAR(200) NOT NULL,
+    internal_number       VARCHAR(50)  NULL COMMENT 'Wewnętrzny numer maszyny w firmie',
+    registration_no       VARCHAR(40)  NULL COMMENT 'Numer rejestracyjny',
+    serial_no             VARCHAR(40)  NULL COMMENT 'Numer seryjny',
+    brand                 VARCHAR(100) NULL,
+    model                 VARCHAR(100) NULL COMMENT 'Model',
+    replacement_value     DECIMAL(18,2) NULL COMMENT 'Wartość odtworzeniowa',
+    category_id           INT          NULL,
+    owner_id              INT          NULL COMMENT 'FK do kontrahenta-właściciela (dostawcy)',
+    branch_id             INT          NULL COMMENT 'FK do oddziału',
+    description           VARCHAR(400) NULL,
+    notes                 VARCHAR(200) NULL,
+    rental_days           INT          NULL COMMENT 'Ile dni wynajmu default',
     -- RAO-P1-017: kategoryzacja hierarchiczna (snapshot nazw + flaga archiwalna + atrybuty techniczne)
-    category_main     VARCHAR(100) NULL COMMENT 'RAO-P1-017: Kategoria główna (snapshot nazwy z categories.name level=main)',
-    category_sub1     VARCHAR(100) NULL COMMENT 'RAO-P1-017: Podkategoria 1 (snapshot)',
-    category_sub2     VARCHAR(100) NULL COMMENT 'RAO-P1-017: Podkategoria 2 (snapshot)',
-    category_sub3     VARCHAR(100) NULL COMMENT 'RAO-P1-017: Podkategoria 3 (snapshot)',
-    is_archival       BOOLEAN      NOT NULL DEFAULT FALSE COMMENT 'RAO-P1-017: maszyna archiwalna (FALSE domyślnie, użytkownik oznaczy ręcznie w przyszłości)',
-    technical_attributes JSON      NULL COMMENT 'RAO-P1-017: dynamiczne atrybuty techniczne (np. waga, moc) - LEGACY, zostawione dla kompatybilności',
-    -- RAO: typ zasilania maszyny (VARCHAR dla elastyczności, wartości: 'diesel', 'electric', 'other')
-    power_type        VARCHAR(10)  NOT NULL DEFAULT 'other' COMMENT 'Typ zasilania: diesel / electric / other',
-    -- RAO: dedykowane kolumny numeryczne dla filtrów statystyk (zastępują string-values w technical_attributes JSON)
-    zasieg_m          DECIMAL(8,2) NULL COMMENT 'Zasięg w metrach (filtr >=/<= w statystykach)',
-    udzwig_t          DECIMAL(8,2) NULL COMMENT 'Udźwig w tonach (filtr >=/<= w statystykach)',
-    dodatki           TEXT         NULL COMMENT 'Dodatkowe akcesoria / wyposażenie (było string w technical_attributes JSON)',
-    fakturownia_product_id BIGINT  NULL COMMENT 'RAO-P2-012: ID produktu w Fakturownia (mapping globalny 1:N)',
-    created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at        DATETIME     NULL ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_art_category FOREIGN KEY (category_id)
+    category_main         VARCHAR(100) NULL COMMENT 'Kategoria główna (snapshot nazwy z categories.name level=main)',
+    category_sub1         VARCHAR(100) NULL COMMENT 'Podkategoria 1 (snapshot)',
+    category_sub2         VARCHAR(100) NULL COMMENT 'Podkategoria 2 (snapshot)',
+    category_sub3         VARCHAR(100) NULL COMMENT 'Podkategoria 3 (snapshot)',
+    is_archival           BOOLEAN      NOT NULL DEFAULT FALSE COMMENT 'Maszyna archiwalna',
+    is_external           BOOLEAN      NOT NULL DEFAULT FALSE COMMENT 'Maszyna zewnętrzna (wynajmowana od innej firmy)',
+    power_type            VARCHAR(10)  NOT NULL DEFAULT 'other' COMMENT 'Typ zasilania: diesel / electric / other',
+    technical_attributes  JSON         NULL COMMENT 'Dynamiczne atrybuty techniczne (np. waga, moc) - LEGACY',
+    reach_m               DECIMAL(8,2) NULL COMMENT 'Zasięg w metrach (filtr >=/<= w statystykach)',
+    capacity_t            DECIMAL(8,2) NULL COMMENT 'Udźwig w tonach (filtr >=/<= w statystykach)',
+    accessories           TEXT         NULL COMMENT 'Dodatkowe akcesoria / wyposażenie',
+    -- Fakturownia mapping (seed od nowa)
+    fakturownia_product_id BIGINT      NULL COMMENT 'RAO-P2-012: ID produktu w Fakturownia (mapping globalny 1:N)',
+    fakturownia_tax_rate  VARCHAR(10)  NULL COMMENT 'Stawka VAT z Fakturownia (snapshot)',
+    fakturownia_gtu_code  VARCHAR(20)  NULL COMMENT 'Kod GTU z Fakturownia (snapshot)',
+    fakturownia_pkwiu     VARCHAR(50)  NULL COMMENT 'PKWiU z Fakturownia (snapshot)',
+    created_at            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at            DATETIME     NULL ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_mach_category FOREIGN KEY (category_id)
         REFERENCES categories(id) ON DELETE SET NULL,
-    CONSTRAINT fk_art_owner FOREIGN KEY (owner_id)
+    CONSTRAINT fk_mach_owner FOREIGN KEY (owner_id)
         REFERENCES contractors(id) ON DELETE SET NULL,
-    CONSTRAINT fk_art_branch FOREIGN KEY (branch_id)
+    CONSTRAINT fk_mach_branch FOREIGN KEY (branch_id)
         REFERENCES branches(id) ON DELETE SET NULL,
-    INDEX idx_art_name (name),
-    INDEX idx_art_category (category_id),
-    INDEX idx_art_owner (owner_id),
-    INDEX idx_art_registration (registration_no),
-    INDEX idx_articles_category_main (category_main),
-    INDEX idx_articles_archival (is_archival),
-    INDEX idx_articles_fakturownia_product (fakturownia_product_id),
-    INDEX idx_articles_zasieg (zasieg_m),
-    INDEX idx_articles_udzwig (udzwig_t)
-) ENGINE=InnoDB COMMENT='Artykuły/maszyny (stara tabela: artykul3)';
+    INDEX idx_mach_name (name),
+    INDEX idx_mach_category (category_id),
+    INDEX idx_mach_owner (owner_id),
+    INDEX idx_mach_registration (registration_no),
+    INDEX idx_machines_category_main (category_main),
+    INDEX idx_machines_archival (is_archival),
+    INDEX idx_machines_external (is_external),
+    INDEX idx_machines_fakturownia_product (fakturownia_product_id),
+    INDEX idx_machines_reach (reach_m),
+    INDEX idx_machines_capacity (capacity_t)
+) ENGINE=InnoDB COMMENT='Maszyny budowlane (refaktor z articles, stara tabela: artykul3 WHERE is_service=FALSE)';
+
+-- 3.2b Usługi zwykłe (services) — zastępuje articles WHERE is_service=TRUE
+CREATE TABLE services (
+    id                    INT AUTO_INCREMENT PRIMARY KEY,
+    name                  VARCHAR(200) NOT NULL,
+    description           VARCHAR(400) NULL,
+    notes                 VARCHAR(200) NULL,
+    replacement_value     DECIMAL(18,2) NULL COMMENT 'Wartość odtworzeniowa (opcjonalne dla usług)',
+    is_archival           BOOLEAN      NOT NULL DEFAULT FALSE COMMENT 'Usługa archiwalna',
+    -- Fakturownia mapping
+    fakturownia_product_id BIGINT      NULL COMMENT 'RAO-P2-012: ID produktu w Fakturownia (mapping globalny 1:N)',
+    fakturownia_tax_rate  VARCHAR(10)  NULL COMMENT 'Stawka VAT z Fakturownia (snapshot)',
+    fakturownia_gtu_code  VARCHAR(20)  NULL COMMENT 'Kod GTU z Fakturownia (snapshot)',
+    fakturownia_pkwiu     VARCHAR(50)  NULL COMMENT 'PKWiU z Fakturownia (snapshot)',
+    created_at            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at            DATETIME     NULL ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_svc_name (name),
+    INDEX idx_services_archival (is_archival),
+    INDEX idx_services_fakturownia_product (fakturownia_product_id)
+) ENGINE=InnoDB COMMENT='Usługi zwykłe (refaktor z articles WHERE is_service=TRUE, contract_type=U)';
+
+-- 3.2c Usługi dodatkowe (additional_services) — katalog opłat dodatkowych
+-- Zastępuje service_fee_templates.article_id → articles (usługi) referencję.
+-- Szablony opłat (service_fee_templates) teraz referencjonują additional_services.id.
+CREATE TABLE additional_services (
+    id                    INT AUTO_INCREMENT PRIMARY KEY,
+    name                  VARCHAR(200) NOT NULL,
+    default_amount        DECIMAL(18,2) NULL COMMENT 'Domyślna kwota opłaty',
+    description           VARCHAR(400) NULL,
+    notes                 VARCHAR(200) NULL,
+    is_archival           BOOLEAN      NOT NULL DEFAULT FALSE COMMENT 'Usługa dodatkowa archiwalna',
+    -- Fakturownia mapping
+    fakturownia_product_id BIGINT      NULL COMMENT 'RAO-P2-012: ID produktu w Fakturownia (mapping globalny 1:N)',
+    fakturownia_tax_rate  VARCHAR(10)  NULL COMMENT 'Stawka VAT z Fakturownia (snapshot)',
+    fakturownia_gtu_code  VARCHAR(20)  NULL COMMENT 'Kod GTU z Fakturownia (snapshot)',
+    fakturownia_pkwiu     VARCHAR(50)  NULL COMMENT 'PKWiU z Fakturownia (snapshot)',
+    created_at            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at            DATETIME     NULL ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_addsvc_name (name),
+    INDEX idx_additional_services_archival (is_archival),
+    INDEX idx_additional_services_fakturownia_product (fakturownia_product_id)
+) ENGINE=InnoDB COMMENT='Usługi dodatkowe — katalog opłat (refaktor: szablony referencjonują tę tabelę zamiast articles)';
 
 -- ============================================================
 -- 3.3 Integracja Fakturownia (RAO-P2-012) — singleton settings
 -- ============================================================
--- Mapping produktu Fakturownia → artykuły RAO realizowany przez articles.fakturownia_product_id
--- (1:N globalny, jeden produkt FA może odpowiadać wielu artykułom RAO).
+-- Mapping produktu Fakturownia → maszyny/usługi/usługi dodatkowe RAO realizowany przez
+-- machines.fakturownia_product_id / services.fakturownia_product_id / additional_services.fakturownia_product_id
+-- (1:N globalny, jeden produkt FA może odpowiadać wielu rekordom RAO).
 -- Token API szyfrowany Fernet (api_token_ciphertext VARBINARY).
 -- Singleton: zawsze tylko jeden wiersz id=1 (analogicznie do company).
 
@@ -428,7 +482,11 @@ CREATE TABLE delivery_addresses (
 CREATE TABLE contract_positions (
     id              INT AUTO_INCREMENT PRIMARY KEY,
     contract_id     INT          NOT NULL,
-    article_id      INT          NOT NULL,
+    -- Refaktor (Faza 7): article_id → machine_id XOR service_id
+    -- Pozycja umowy może dotyczyć maszyny (contract_type='S') LUB usługi (contract_type='U').
+    -- Walidacja XOR: dokładnie jeden z (machine_id, service_id) musi być NOT NULL.
+    machine_id      INT          NULL COMMENT 'FK machines.id — gdy pozycja dotyczy maszyny (najem)',
+    service_id      INT          NULL COMMENT 'FK services.id — gdy pozycja dotyczy usługi (usługa zwykła)',
     description     VARCHAR(400) NULL,
     rental_days     INT          NULL,
     quantity        INT          NULL DEFAULT 1,
@@ -438,18 +496,26 @@ CREATE TABLE contract_positions (
     billing_unit    VARCHAR(20)  NULL COMMENT 'tydzień/doba/godzina/miesiąc/sztuka',
     supplier_id     INT          NULL COMMENT 'FK do kontrahenta-dostawcy',
     delivery_date   DATE         NULL,
-    article_name    VARCHAR(400) NULL COMMENT 'Snapshot nazwy artykułu',
+    article_name    VARCHAR(400) NULL COMMENT 'Snapshot nazwy (maszyny lub usługi) — backward compat',
     CONSTRAINT fk_pos_contract FOREIGN KEY (contract_id)
         REFERENCES contracts(id) ON DELETE CASCADE,
-    CONSTRAINT fk_pos_article FOREIGN KEY (article_id)
-        REFERENCES articles(id),
+    CONSTRAINT fk_pos_machine FOREIGN KEY (machine_id)
+        REFERENCES machines(id) ON DELETE SET NULL,
+    CONSTRAINT fk_pos_service FOREIGN KEY (service_id)
+        REFERENCES services(id) ON DELETE SET NULL,
     CONSTRAINT fk_pos_rate_type FOREIGN KEY (rate_type_id)
         REFERENCES rate_types(id) ON DELETE SET NULL,
     CONSTRAINT fk_pos_supplier FOREIGN KEY (supplier_id)
         REFERENCES contractors(id) ON DELETE SET NULL,
+    -- XOR constraint: dokładnie jeden z machine_id / service_id musi być ustawiony
+    CONSTRAINT chk_pos_machine_xor_service CHECK (
+        (machine_id IS NOT NULL AND service_id IS NULL) OR
+        (machine_id IS NULL AND service_id IS NOT NULL)
+    ),
     INDEX idx_pos_contract (contract_id),
-    INDEX idx_pos_article (article_id)
-) ENGINE=InnoDB COMMENT='Pozycje umowy (stara tabela: umowa_pozycja3)';
+    INDEX idx_pos_machine (machine_id),
+    INDEX idx_pos_service (service_id)
+) ENGINE=InnoDB COMMENT='Pozycje umowy (refaktor: machine_id XOR service_id, stara tabela: umowa_pozycja3)';
 
 -- 5.1 Warunki rozliczenia per pozycja
 CREATE TABLE position_conditions (
@@ -576,7 +642,7 @@ CREATE TABLE audit_log (
     id           INT AUTO_INCREMENT PRIMARY KEY,
     user_id      INT          NULL COMMENT 'FK users.id - kto wykonał akcję',
     action       VARCHAR(100) NOT NULL COMMENT 'np. create / update / delete / login',
-    entity_type  VARCHAR(100) NOT NULL COMMENT 'np. contract / contractor / article',
+    entity_type  VARCHAR(100) NOT NULL COMMENT 'np. contract / contractor / machine / service / additional_service',
     entity_id    INT          NULL COMMENT 'ID rekordu którego dotyczy akcja',
     old_data     JSON         NULL COMMENT 'Snapshot przed zmianą',
     new_data     JSON         NULL COMMENT 'Snapshot po zmianie',
@@ -590,15 +656,16 @@ CREATE TABLE audit_log (
   COMMENT='RAO-P3-005: Dziennik zmian (kto, co, kiedy, JSON diff)';
 
 -- ============================================================
--- 10. REZERWACJE ARTYKUŁÓW (RAO-P1-015 / RAO-L-Phase1)
+-- 10. REZERWACJE MASZYN (RAO-P1-015 / RAO-L-Phase1)
 -- ============================================================
 
--- Rezerwacja maszyny (article) na okres [reserved_from, reserved_to].
+-- Rezerwacja maszyny (machine) na okres [reserved_from, reserved_to].
 -- Może być dla kontrahenta (contractor_id) lub bez (NULL = blokada wewnętrzna).
 -- status: confirmed = potwierdzona (domyślne), provisional = wstępna/proponowana.
-CREATE TABLE article_reservations (
+-- Refaktor (Faza 7): article_reservations → machine_reservations (article_id → machine_id)
+CREATE TABLE machine_reservations (
     id            INT AUTO_INCREMENT PRIMARY KEY,
-    article_id    INT          NOT NULL COMMENT 'FK articles.id — rezerwowana maszyna',
+    machine_id    INT          NOT NULL COMMENT 'FK machines.id — rezerwowana maszyna',
     contractor_id INT          NULL     COMMENT 'RAO-L-Phase1: FK contractors.id (NULL = blokada wewnętrzna)',
     reserved_from DATE         NOT NULL COMMENT 'Początek okresu rezerwacji (włącznie)',
     reserved_to   DATE         NOT NULL COMMENT 'Koniec okresu rezerwacji (włącznie)',
@@ -607,18 +674,57 @@ CREATE TABLE article_reservations (
     note          VARCHAR(300) NULL     COMMENT 'Notatka/opis rezerwacji',
     created_by    INT          NULL     COMMENT 'FK users.id — kto utworzył rezerwację',
     created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_article_reservations_article FOREIGN KEY (article_id)
-        REFERENCES articles(id) ON DELETE CASCADE,
-    CONSTRAINT fk_article_reservations_contractor FOREIGN KEY (contractor_id)
+    CONSTRAINT fk_machine_reservations_machine FOREIGN KEY (machine_id)
+        REFERENCES machines(id) ON DELETE CASCADE,
+    CONSTRAINT fk_machine_reservations_contractor FOREIGN KEY (contractor_id)
         REFERENCES contractors(id) ON DELETE SET NULL,
-    CONSTRAINT fk_article_reservations_created_by FOREIGN KEY (created_by)
+    CONSTRAINT fk_machine_reservations_created_by FOREIGN KEY (created_by)
         REFERENCES users(id) ON DELETE SET NULL,
-    INDEX ix_article_reservations_article_id (article_id),
-    INDEX idx_article_reservations_contractor (contractor_id),
-    INDEX idx_article_reservations_reserved_from (reserved_from),
-    INDEX idx_article_reservations_reserved_to (reserved_to)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_polish_ci
-  COMMENT='RAO-P1-015: Rezerwacje maszyn na okres (kalendarz dostępności)';
+    INDEX ix_machine_reservations_machine_id (machine_id),
+    INDEX idx_machine_reservations_contractor (contractor_id),
+    INDEX idx_machine_reservations_reserved_from (reserved_from),
+    INDEX idx_machine_reservations_reserved_to (reserved_to)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_polish_ci
+  COMMENT='RAO-P1-015: Rezerwacje maszyn na okres (refaktor: machine_reservations, kalendarz dostępności)';
+
+-- ============================================================
+-- 11. CENNIKI ROZLICZENIA MASZYN (RAO-P1-001, refaktor: article_rate_presets → machine_rate_presets)
+-- ============================================================
+
+-- Predefiniowane cenniki warunków rozliczenia per-maszyna.
+-- Refaktor (Faza 7): article_rate_presets → machine_rate_presets (article_id → machine_id)
+-- Po zastosowaniu w umowie warunki są kopiowane (snapshot) do position_conditions.
+CREATE TABLE machine_rate_presets (
+    id           INT AUTO_INCREMENT PRIMARY KEY,
+    company_id   INT          NOT NULL DEFAULT 1,
+    machine_id   INT          NOT NULL COMMENT 'FK machines.id — cennik dla tej maszyny',
+    name         VARCHAR(200) NOT NULL,
+    description  VARCHAR(400) NULL,
+    is_default   BOOLEAN      NOT NULL DEFAULT FALSE COMMENT 'Domyślny cennik (jeden per maszyna)',
+    sort_order   INT          NOT NULL DEFAULT 0,
+    created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at   DATETIME     NULL ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_mrp_company FOREIGN KEY (company_id) REFERENCES company(id),
+    CONSTRAINT fk_mrp_machine FOREIGN KEY (machine_id) REFERENCES machines(id) ON DELETE CASCADE,
+    INDEX idx_mrp_machine (machine_id)
+) ENGINE=InnoDB COMMENT='RAO-P1-001: Cenniki rozliczenia per-maszyna (refaktor: machine_rate_presets)';
+
+-- Pojedynczy warunek (prog) w presercie — 1:1 z PositionCondition
+CREATE TABLE machine_rate_preset_items (
+    id           INT AUTO_INCREMENT PRIMARY KEY,
+    preset_id    INT          NOT NULL COMMENT 'FK machine_rate_presets.id',
+    sort_order   INT          NOT NULL DEFAULT 0,
+    rate_type_id INT          NULL,
+    description  VARCHAR(400) NULL,
+    rate1        DECIMAL(18,2) NULL COMMENT 'Opłata 1 (podstawowa)',
+    rate2        DECIMAL(18,2) NULL COMMENT 'Opłata 2 (dodatkowa/zmienna)',
+    billing_label VARCHAR(20) NULL COMMENT 'Nazwa rozliczenia: tygodniowo/dziennie/etc',
+    period_count INT          NULL,
+    minimum      INT          NULL COMMENT 'Minimalna liczba okresów',
+    CONSTRAINT fk_mrpi_preset FOREIGN KEY (preset_id) REFERENCES machine_rate_presets(id) ON DELETE CASCADE,
+    CONSTRAINT fk_mrpi_rate_type FOREIGN KEY (rate_type_id) REFERENCES rate_types(id) ON DELETE SET NULL,
+    INDEX idx_mrpi_preset (preset_id)
+) ENGINE=InnoDB COMMENT='RAO-P1-001: Warunki cennika per-maszyna (snapshot copy do position_conditions)';
 ```
 
 ## Tabele archiwum (archive_*) — RAO-P2-062 Faza 0
@@ -628,6 +734,8 @@ CREATE TABLE article_reservations (
 > Kontrahenci (`contractors`), `users`, `branches`, `salespeople`, `rate_types`,
 > `postal_codes` są **współdzielone** między archiwum a nową aplikacją.
 > `articles` i `categories` są **osobne** — `archive_*` = frozen snapshot z migracji.
+> (Refaktor Faza 7: `articles` zostało rozdzielone na `machines`/`services`/`additional_services`,
+> ale `archive_articles` pozostaje nietknięte jako zarchiwizowany snapshot legacy.)
 >
 > **Migracja wykonana:** `backend/migrate_to_archive.py` (idempotentny, INSERT IGNORE).
 > **Backup:** `backup_pre_archive_split.sql` (przed migracją).
@@ -643,7 +751,7 @@ CREATE TABLE article_reservations (
 > - `archive_articles.owner_id` → `contractors.id` (współdzielone)
 > - `archive_articles.branch_id` → `branches.id` (współdzielone)
 > - `archive_contract_positions.contract_id` → `archive_contracts.id` (CASCADE)
-> - `archive_contract_positions.article_id` → `archive_articles.id`
+> - `archive_contract_positions.article_id` → `archive_articles.id` (archive FK, frozen — refaktor Fazy 7 nie dotyczy archive_*)
 > - `archive_contract_positions.rate_type_id` → `rate_types.id` (współdzielone, SET NULL)
 > - `archive_contract_positions.supplier_id` → `contractors.id` (współdzielone, SET NULL)
 > - `archive_position_conditions.position_id` → `archive_contract_positions.id` (CASCADE)
@@ -651,7 +759,8 @@ CREATE TABLE article_reservations (
 > - `archive_contract_service_fees.contract_id` → `archive_contracts.id` (CASCADE)
 > - `archive_contract_service_fees.article_id` — **brak FK** (service article może
 >   nie być w `archive_articles`, bo kopiujemy tylko maszyny z legacy pozycji;
->   kolumna z indeksem, wartość pozostaje jako referencja historyczna)
+>   kolumna z indeksem, wartość pozostaje jako referencja historyczna.
+>   Refaktor Faza 7: archive_* nie zaktualizowane — pozostaje jako frozen snapshot.)
 > - `archive_contract_settlements.contract_id` → `archive_contracts.id` (CASCADE)
 > - `archive_contract_settlements.position_id` → `archive_contract_positions.id` (CASCADE)
 > - `archive_contract_settlements.service_fee_id` → `archive_contract_service_fees.id` (CASCADE)
@@ -677,7 +786,10 @@ CREATE TABLE IF NOT EXISTS archive_categories (
   INDEX idx_archive_categories_parent (parent_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_polish_ci;
 
--- archive_articles — mirror articles, category_id → archive_categories.id
+-- archive_articles — mirror articles (FROZEN — nie zaktualizowane w refaktorze Fazy 7)
+-- Refaktor rozdzielił articles na machines/services/additional_services, ale archive_articles
+-- pozostaje jako legacy snapshot (read-only). Nowe tabele machines/services/additional_services
+-- nie mają odpowiedników w archive_* (archiwum = frozen).
 CREATE TABLE IF NOT EXISTS archive_articles (
   id                    INT AUTO_INCREMENT PRIMARY KEY,
   name                  VARCHAR(200) NOT NULL,
@@ -903,7 +1015,7 @@ CREATE TABLE IF NOT EXISTS archive_contract_settlements (
 | `contract_service_fees` | 0 | `archive_contract_service_fees` | 3396 |
 | `contract_settlements` | 0 | `archive_contract_settlements` | 1945 |
 | `categories` | 64 (nietknięte) | `archive_categories` | 64 |
-| `articles` | 419 (nietknięte) | `archive_articles` | 351 |
+| `articles` (DEPRECATED — rozdzielone) | 0 (migrowane do machines/services/additional_services) | `archive_articles` | 351 |
 | `contractors` | 662 (współdzielone) | — | — |
 
 > **Uwaga:** 3 osierocone pozycje (contract_id=9204 nie istnieje w `contracts`)
@@ -926,7 +1038,7 @@ CREATE TABLE IF NOT EXISTS archive_contract_settlements (
 | `firma.uslugi2` + `umowa2.oplaty` (usługi) | `service_fee_templates` (U) + `contract_service_fees` | Tekst rozdzielony na relacyjne wiersze |
 | `kontrahent2` | `contractors` | Połączono 2 osoby kontaktowe, dodano timestamps |
 | `adres` | `contractor_addresses` | Dodano FK constraint, precision lat/lng |
-| `artykul3` | `articles` | `USLUGA` → `is_service` BOOLEAN, FK constraints |
+| `artykul3` | `machines` + `services` + `additional_services` | Refaktor Faza 7: `USLUGA` → osobna tabela `services`; maszyny → `machines`; usługi dodatkowe → `additional_services`. `archive_articles` zachowane (frozen) |
 | `umowa2` | `contracts` | Snapshot kontrahenta zachowany, oddział jako FK |
 | `umowa_oddzial` | *(usunięta)* | Zastąpiona przez `contracts.branch_id` |
 | `dostawa` | `deliveries` | Bez zmian |

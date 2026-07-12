@@ -2475,21 +2475,21 @@ async function applyHardcodedFeePreset(kind: 'wspolne' | 'diesel' | 'elektryk') 
   if (isService.value && kind !== 'wspolne') return
 
   const rentalCommonRows: FeeData[] = [
-    { name: 'Transport', amount_from: 1200, amount_to: 1200, description: '$1 dostawa / $2 odbiór', is_active: true },
+    { name: 'Transport', amount_from: 1200, amount_to: 1200, description: '1 200,00 zł dostawa / 1 200,00 zł odbiór', is_active: true },
     { name: 'Czyszczenie maszyny (zabrudzenia ponadnormatywne)', amount_from: null, amount_to: null, description: 'wycena indywidualna', is_active: true },
-    { name: 'Usługa tankowania', amount_from: 200, amount_to: null, description: '$1 (plus koszt paliwa)', is_active: true },
-    { name: 'Ponadnormatywny przestój transportu', amount_from: 200, amount_to: 300, description: '$1 / h - $2 / h', is_active: true },
-    { name: 'Nieuzasadnione wezwanie serwisowe', amount_from: 280, amount_to: null, description: '$1 (plus transport)', is_active: true },
+    { name: 'Usługa tankowania', amount_from: 200, amount_to: null, description: '200,00 zł (plus koszt paliwa)', is_active: true },
+    { name: 'Ponadnormatywny przestój transportu', amount_from: 200, amount_to: 300, description: '200,00 zł / h - 300,00 zł / h', is_active: true },
+    { name: 'Nieuzasadnione wezwanie serwisowe', amount_from: 280, amount_to: null, description: '280,00 zł (plus transport)', is_active: true },
   ]
 
   const serviceCommonRows: FeeData[] = [
-    { name: 'Transport', amount_from: 1200, amount_to: 1200, description: '$1 dostawa / $2 odbiór', is_active: true },
-    { name: 'Praca operatora', amount_from: 120, amount_to: null, description: '$1 / h', is_active: true },
+    { name: 'Transport', amount_from: 1200, amount_to: 1200, description: '1 200,00 zł dostawa / 1 200,00 zł odbiór', is_active: true },
+    { name: 'Praca operatora', amount_from: 120, amount_to: null, description: '120,00 zł / h', is_active: true },
   ]
 
   const reviewRows: Record<string, FeeData> = {
-    diesel: { name: 'Przegląd techniczny i czyszczenie maszyny', amount_from: 150, amount_to: null, description: '$1', is_active: true },
-    elektryk: { name: 'Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny', amount_from: 90, amount_to: null, description: '$1', is_active: true },
+    diesel: { name: 'Przegląd techniczny i czyszczenie maszyny', amount_from: 150, amount_to: null, description: '150,00 zł', is_active: true },
+    elektryk: { name: 'Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny', amount_from: 35, amount_to: null, description: '35,00 zł', is_active: true },
   }
 
   const commonRows = isService.value ? serviceCommonRows : rentalCommonRows

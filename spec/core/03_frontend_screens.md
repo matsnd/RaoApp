@@ -1424,7 +1424,7 @@ async function handleFakturownia() {
     - Usługa (`contract_type === 'U'`): 1 przycisk [Wspólne] (Transport + Praca operatora) + dropdown z presetami
     - Przyciski wywołują `applyHardcodedFeePreset('wspolne' | 'diesel' | 'elektryk')` — usuwają obecne usługi i tworzą nowe wiersze `ContractServiceFee` przez `POST /contracts/{id}/service-fees`
     - Wspólny zestaw (najem): Transport, Czyszczenie, Tankowanie, Przestój, Wezwanie serwisowe
-    - Diesel dodaje przegląd 150 zł; Elektryk dodaje przegląd 90 zł (z ładowaniem akumulatorów)
+    - Diesel dodaje przegląd 150 zł; Elektryk dodaje przegląd 35 zł (z ładowaniem akumulatorów)
     - Wspólny zestaw (usługa): Transport, Praca operatora
     - Dropdown wywołuje `applyPresetWithConfirm` → `POST /contracts/{id}/service-fees/apply-preset?preset_id={id}&replace=true`
     - Nowa umowa zaczyna z pustą sekcją usług (operator wybiera preset ręcznie)

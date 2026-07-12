@@ -180,7 +180,7 @@ USLUGI = [
     },
     {
         "name": "Przegląd Elektryk",
-        "default_amount": Decimal("90.00"),
+        "default_amount": Decimal("35.00"),
         "fakturownia_product_id": 8845156436452,  # ELE001
     },
 ]
@@ -548,7 +548,7 @@ def _build_positions_and_fees(i, days, maszyny, uslugi, rt_dniowy):
         "Przestój": "200,00 zł / h - 300,00 zł / h",
         "Serwis": "280,00 zł (plus transport)",
         "Przegląd Diesel": "150,00 zł",
-        "Przegląd Elektryk": "90,00 zł",
+        "Przegląd Elektryk": "35,00 zł",
     }
     fees = []
     num_fees = 2 + (i % 3)  # 2, 3, 4
@@ -715,10 +715,10 @@ ZESTAWY_USLUG = [
         "group_name": "Najem — Elektryk",
         "contract_type": "S",
         "is_default": False,
-        "description": "Wspólny + przegląd maszyny elektrycznej 90,00 zł",
+        "description": "Wspólny + przegląd maszyny elektrycznej 35,00 zł",
         "templates": [
             {"article": "Transport", "name": "Transport", "amount_from": Decimal("1200.00"), "amount_to": Decimal("1200.00"), "unit": "dostawa", "description": "1 200,00 zł dostawa / 1 200,00 zł odbiór"},
-            {"article": "Przegląd Elektryk", "name": "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny", "amount_from": Decimal("90.00"), "amount_to": None, "unit": "sztuka", "description": "90,00 zł"},
+            {"article": "Przegląd Elektryk", "name": "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny", "amount_from": Decimal("35.00"), "amount_to": None, "unit": "sztuka", "description": "35,00 zł"},
             {"article": "Czyszczenie", "name": "Czyszczenie maszyny (zabrudzenia ponadnormatywne)", "amount_from": None, "amount_to": None, "unit": None, "description": "wycena indywidualna"},
             {"article": "Tankowanie", "name": "Usługa tankowania", "amount_from": Decimal("200.00"), "amount_to": None, "unit": "tankowanie", "description": "200,00 zł (plus koszt paliwa)"},
             {"article": "Przestój", "name": "Ponadnormatywny przestój transportu", "amount_from": Decimal("200.00"), "amount_to": Decimal("300.00"), "unit": "h", "description": "200,00 zł / h - 300,00 zł / h"},

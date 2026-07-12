@@ -114,7 +114,7 @@ test.describe('TEST-05-P1-100: Opłaty dodatkowe, warunki, cennik, przedpłata, 
     await expect(feeSection).not.toContainText('$')
   })
 
-  test('przełączenie na zestaw Elektryk: przegląd za 90 zł', async ({ page }) => {
+  test('przełączenie na zestaw Elektryk: przegląd za 35 zł', async ({ page }) => {
     await page.goto(`/rao/contracts/${sContractId}/edit`, { waitUntil: 'domcontentloaded', timeout: 15_000 })
     const feeSection = page.locator('.page-card:has-text("Opłaty dodatkowe")').first()
     const presetSelect = page.locator('select:has-text("Wybierz zestaw…")')
@@ -124,7 +124,7 @@ test.describe('TEST-05-P1-100: Opłaty dodatkowe, warunki, cennik, przedpłata, 
     await feeSection.getByText(/Przegląd techniczny.*150/).first().waitFor({ state: 'visible', timeout: 10_000 })
     await presetSelect.selectOption({ label: 'Najem — Elektryk' })
     await page.locator('button:has-text("Zastosuj")').first().click()
-    await expect(feeSection.getByText(/Przegląd techniczny.*90/).first()).toBeVisible({ timeout: 10_000 })
+    await expect(feeSection.getByText(/Przegląd techniczny.*35/).first()).toBeVisible({ timeout: 10_000 })
     await expect(feeSection).not.toContainText('$')
   })
 
@@ -136,7 +136,7 @@ test.describe('TEST-05-P1-100: Opłaty dodatkowe, warunki, cennik, przedpłata, 
     await presetSelect.selectOption({ label: 'Najem — Diesel' })
     await page.locator('button:has-text("Zastosuj")').first().click()
     await feeSection.getByText(/Przegląd techniczny.*150/).first().waitFor({ state: 'visible', timeout: 10_000 })
-    await presetSelect.selectOption({ label: 'Domyślny — najem' })
+    await presetSelect.selectOption({ label: 'Najem — Wspólny' })
     await page.locator('button:has-text("Zastosuj")').first().click()
     await expect(feeSection.getByText(/Tankowanie|Transport/).first()).toBeVisible({ timeout: 10_000 })
   })
@@ -159,17 +159,17 @@ test.describe('TEST-05-P1-100: Opłaty dodatkowe, warunki, cennik, przedpłata, 
   test('ustawienie dni roboczych = 7 jest odzwierciedlone w UI', async ({ page }) => {
     await page.goto(`/rao/contracts/${sContractId}/edit`, { waitUntil: 'domcontentloaded', timeout: 15_000 })
     await page.getByRole('button', { name: '7', exact: true }).click()
-    // weryfikacja stanu przycisku primary
+    // weryfikacja stanu przycisku selected
     const btn7 = page.getByRole('button', { name: '7', exact: true })
-    await expect(btn7).toHaveClass(/btn-primary/, { timeout: 5_000 })
+    await expect(btn7).toHaveClass(/selected/, { timeout: 5_000 })
   })
 
-  test('tryb usługi U: brak pola Numer wewnętrzny w formularzu nowego artykułu', async ({ page }) => {
+  test('tryb usługi U: brak pola Numer wewnętrzny w formularzu nowej usługi', async ({ page }) => {
     test.skip(!uContractId, 'Brak umowy U')
     await page.goto(`/rao/contracts/${uContractId}/edit`, { waitUntil: 'domcontentloaded', timeout: 15_000 })
     await page.getByRole('button', { name: '+ Dodaj usługę' }).click()
-    await expect(page.locator('.modal-box:has-text("Wybierz artykuł")')).toBeVisible({ timeout: 8_000 })
-    await page.getByRole('button', { name: /Dodaj nowy artykuł/ }).click()
+    await expect(page.locator('.modal-box:has-text("Wybierz usługę")')).toBeVisible({ timeout: 8_000 })
+    await page.getByRole('button', { name: /Dodaj nową usługę/ }).click()
     const modal = page.locator('.modal-box:visible')
     await expect(modal.getByText('Nr wewnętrzny')).not.toBeVisible({ timeout: 5_000 })
   })

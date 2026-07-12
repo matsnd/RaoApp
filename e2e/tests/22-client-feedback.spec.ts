@@ -75,8 +75,9 @@ test.describe('TEST-22: Uwagi klienta — weryfikacja E2E (Faza 9)', () => {
     await request.delete(`${API}/contractors/${c.id}`, { headers: authHeaders(token) })
   })
 
-  // #6: Cenniki diesel (150 zł) i elektryk (90 zł) w additional_services
-  test('#6: additional_services — cenniki Diesel 150 i Elektryk 90', async ({ request }) => {
+  // #6: Cenniki diesel (150 zł) i elektryk (35 zł) w additional_services
+  // Uwaga klienta 6: diesel przegląd 150 zł, elektryk przegląd+ładowanie 35 zł
+  test('#6: additional_services — cenniki Diesel 150 i Elektryk 35', async ({ request }) => {
     const r = await request.get(`${API}/additional-services`, { headers: authHeaders(token) })
     expect(r.ok()).toBeTruthy()
     const services = await r.json()
@@ -89,12 +90,12 @@ test.describe('TEST-22: Uwagi klienta — weryfikacja E2E (Faza 9)', () => {
     )
     expect(diesel, 'Brak cennika Diesel 150 zł').toBeTruthy()
 
-    // Znajdź usługę elektryk (przegląd + ładowanie + czyszczenie, 90 zł)
+    // Znajdź usługę elektryk (przegląd + ładowanie + czyszczenie, 35 zł)
     const elektryk = items.find((s: any) =>
       s.name.toLowerCase().includes('elektryk') &&
-      Number(s.default_amount) === 90
+      Number(s.default_amount) === 35
     )
-    expect(elektryk, 'Brak cennika Elektryk 90 zł').toBeTruthy()
+    expect(elektryk, 'Brak cennika Elektryk 35 zł').toBeTruthy()
   })
 
   // #9: Opiekun zamówienia na protokole

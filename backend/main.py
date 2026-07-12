@@ -305,6 +305,7 @@ async def startup_migrations():
             )
         """))
         # RAO-P3-014: Fix placeholders $1/$2 in service_fee_templates descriptions
+        # Pass 1: Replace "$1 zł" / "$2 zł" (with suffix) → amount + " zł"
         await conn.execute(sa.text("""
             UPDATE service_fee_templates 
             SET description = REPLACE(
@@ -318,7 +319,22 @@ async def startup_migrations():
             )
             WHERE description LIKE '%$1%' OR description LIKE '%$2%'
         """))
+        # Pass 2: Replace bare "$1" / "$2" (without suffix) → formatted amount + " zł"
+        await conn.execute(sa.text("""
+            UPDATE service_fee_templates 
+            SET description = REPLACE(
+                REPLACE(
+                    description,
+                    '$1',
+                    CONCAT(REPLACE(REPLACE(FORMAT(IFNULL(amount_from, 0), 2), ',', ' '), '.', ','), ' zł')
+                ),
+                '$2',
+                CONCAT(REPLACE(REPLACE(FORMAT(IFNULL(amount_to, 0), 2), ',', ' '), '.', ','), ' zł')
+            )
+            WHERE description LIKE '%$1%' OR description LIKE '%$2%'
+        """))
         # Fix placeholders $1/$2 in contract_service_fees descriptions (existing contracts)
+        # Pass 1: Replace "$1 zł" / "$2 zł" (with suffix)
         await conn.execute(sa.text("""
             UPDATE contract_service_fees 
             SET description = REPLACE(
@@ -329,6 +345,20 @@ async def startup_migrations():
                 ),
                 '$2 zł',
                 CONCAT(IFNULL(amount_to, ''), ' zł')
+            )
+            WHERE description LIKE '%$1%' OR description LIKE '%$2%'
+        """))
+        # Pass 2: Replace bare "$1" / "$2" (without suffix)
+        await conn.execute(sa.text("""
+            UPDATE contract_service_fees 
+            SET description = REPLACE(
+                REPLACE(
+                    description,
+                    '$1',
+                    CONCAT(REPLACE(REPLACE(FORMAT(IFNULL(amount_from, 0), 2), ',', ' '), '.', ','), ' zł')
+                ),
+                '$2',
+                CONCAT(REPLACE(REPLACE(FORMAT(IFNULL(amount_to, 0), 2), ',', ' '), '.', ','), ' zł')
             )
             WHERE description LIKE '%$1%' OR description LIKE '%$2%'
         """))

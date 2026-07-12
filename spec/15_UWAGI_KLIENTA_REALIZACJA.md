@@ -114,6 +114,8 @@
 
 **GLM-5.2:** Dwa zestawy opłat: diesel (przegląd 150 zł, czyszczenie indywidualne) i elektryk (przegląd+ładowanie 35 zł, czyszczenie indywidualne). Możliwość edycji kwot.
 
+**Fix 2026-07-12:** Kwota elektryk skorygowana z 90→35 zł zgodnie z uwagą klienta. Placeholdery `$1`/`$2` w opisach opłat zastąpione sformatowanymi kwotami (np. `150,00 zł` zamiast `$1`).
+
 **SWE-1.7:**
 - **Backend:** `FeePresetGroup` model z `contract_type` — `settings/router.py:198` — endpointy CRUD
 - **DB:** Presets: "Najem — Diesel" (id=3), "Najem — Elektryk" (id=4), "Najem — Wspólny" (id=17)
