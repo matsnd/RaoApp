@@ -147,13 +147,6 @@
           <label class="form-label" for="machine-notes">Uwagi</label>
           <textarea id="machine-notes" v-model="form.notes" class="form-control" rows="2"></textarea>
         </div>
-
-        <RatePresetSection
-          v-if="isEdit"
-          :machine-id="Number(props.id)"
-          :machine-name="form.name"
-          @presets-changed="onPresetsChanged"
-        />
       </div>
     </div>
 
@@ -191,7 +184,7 @@ import { useRouter } from 'vue-router'
 import { useMachineStore } from '@/stores/machines'
 import { useSettingsStore } from '@/stores/settings'
 import { useToastStore } from '@/stores/toast'
-import RatePresetSection from '@/components/articles/RatePresetSection.vue'
+
 import api from '@/composables/useApi'
 
 const props = defineProps({ id: String })
@@ -388,16 +381,6 @@ function selectOwner(c: any) {
 function clearOwner() {
   form.value.owner_id = null
   ownerName.value = ''
-}
-
-async function onPresetsChanged() {
-  if (props.id) {
-    try {
-      await settingsStore.fetchRatePresets(Number(props.id))
-    } catch (e) {
-      console.warn('Nie udało się odświeżyć cenników:', e)
-    }
-  }
 }
 </script>
 
