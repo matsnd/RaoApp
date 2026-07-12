@@ -435,7 +435,7 @@ USLUGI = [
     {
         "name": "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny",
         "display_name": "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny",
-        "default_amount": Decimal("35.00"),
+        "default_amount": Decimal("90.00"),
         "description": "$1",
         "fakturownia_product_id": 8845156436452,  # ELE001
     },
@@ -1073,7 +1073,7 @@ ZESTAWY_USLUG = [
         "description": "Pełny zestaw opłat Elektryk: transport + przegląd + czyszczenie + tankowanie + przestój + serwis",
         "templates": [
             {"article": "Transport", "name": "Transport", "amount_from": Decimal("1200.00"), "amount_to": Decimal("1200.00"), "unit": "dostawa", "description": "$1 dostawa / $2 odbiór"},
-            {"article": "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny", "name": "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny", "amount_from": Decimal("35.00"), "amount_to": None, "unit": "sztuka", "description": "$1"},
+            {"article": "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny", "name": "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny", "amount_from": Decimal("90.00"), "amount_to": None, "unit": "sztuka", "description": "$1"},
             {"article": "Czyszczenie maszyny (zabrudzenia ponadnormatywne)", "name": "Czyszczenie maszyny (zabrudzenia ponadnormatywne)", "amount_from": None, "amount_to": None, "unit": None, "description": "wycena indywidualna"},
             {"article": "Usługa tankowania", "name": "Usługa tankowania", "amount_from": Decimal("200.00"), "amount_to": None, "unit": "tankowanie", "description": "$1 (plus koszt paliwa)"},
             {"article": "Ponadnormatywny przestój transportu", "name": "Ponadnormatywny przestój transportu", "amount_from": Decimal("200.00"), "amount_to": Decimal("300.00"), "unit": "h", "description": "$1 / h - $2 / h"},

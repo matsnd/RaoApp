@@ -2559,7 +2559,7 @@ async function applyHardcodedFeePreset(kind: 'diesel' | 'elektryk') {
 
   const reviewRows: Record<string, FeeData> = {
     diesel: { additional_service_id: svcId('Przegląd techniczny i czyszczenie maszyny'), name: 'Przegląd techniczny i czyszczenie maszyny', amount_from: 150, amount_to: null, description: '$1', is_active: true },
-    elektryk: { additional_service_id: svcId('Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny'), name: 'Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny', amount_from: 35, amount_to: null, description: '$1', is_active: true },
+    elektryk: { additional_service_id: svcId('Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny'), name: 'Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny', amount_from: 90, amount_to: null, description: '$1', is_active: true },
   }
 
   const review = reviewRows[kind]
