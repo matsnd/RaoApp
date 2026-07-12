@@ -2379,12 +2379,12 @@ npm install vue-draggable-plus @vuepic/vue-datepicker
 
 ### `GET /reservations`
 **Opis:** Lista wszystkich rezerwacji (management view).
-**Response:** `list[ReservationResponse]` (`{id, article_id, reserved_from, reserved_to, note, created_by, created_at, contractor_id?, status}`)
+**Response:** `list[ReservationResponse]` (`{id, article_id, reserved_from, reserved_to, note, created_by, created_at, contractor_id?, salesperson_id?, status}`)
 **HTTP:** 200 | 401
 
 ### `GET /reservations/with-articles` (NOWY 2026-07-15)
 **Opis:** Lista wszystkich rezerwacji z nazwą maszyny, nr wewnętrznym i kontrahentem (for analytics tab).
-**Response:** `list[ReservationWithArticleResponse]` (`{id, article_id, article_name, internal_number, reserved_from, reserved_to, note, created_by, created_at, contractor_id?, contractor_name?, status}`)
+**Response:** `list[ReservationWithArticleResponse]` (`{id, article_id, article_name, internal_number, reserved_from, reserved_to, note, created_by, created_at, contractor_id?, contractor_name?, salesperson_id?, salesperson_name?, status}`)
 **HTTP:** 200 | 401
 
 ### `GET /reservations/article/{article_id}`
@@ -2400,21 +2400,23 @@ npm install vue-draggable-plus @vuepic/vue-datepicker
 ### `GET /reservations/calendar` (NOWY Phase2 2026-07-11)
 **Opis:** Zwraca eventy kalendarza (rezerwacje + umowy) pokrywające się z [date_from, date_to].
 **Query:** `date_from` (req), `date_to` (req), `article_id` (opt)
-**Response:** `list[CalendarEvent]` (`{source, source_id, article_id, article_name?, internal_number?, contractor_id?, contractor_name?, date_from, date_to, note?, status?}`)
+**Response:** `list[CalendarEvent]` (`{source, source_id, article_id, article_name?, internal_number?, contractor_id?, contractor_name?, salesperson_id?, salesperson_name?, date_from, date_to, note?, status?}`)
 **HTTP:** 200 | 401
 
 ### `POST /reservations`
-**Body:** `ReservationCreate` (`{machine_id, reserved_from, reserved_to, note?, contractor_id?, status?}`)
+**Body:** `ReservationCreate` (`{machine_id, reserved_from, reserved_to, note?, contractor_id?, salesperson_id?, status?}`)
 **Response:** `ReservationResponse` (201)
 **HTTP:** 201 | 400 (maszyna zewnętrzna — P2-003) | 401 | 404 | 409 (konflikt dat)
 **P2-003:** Walidacja `machine.is_external` — jeśli True → 400 "Nie można rezerwować maszyn zewnętrznych"
+**P1-119:** `salesperson_id` opcjonalny (FK → salespeople, walidacja 404 jeśli nie istnieje)
 
 ### `PUT /reservations/{reservation_id}` (NOWY Phase2 2026-07-11)
 **Opis:** Edycja rezerwacji (partial update — tylko przekazane pola).
-**Body:** `ReservationUpdate` (`{reserved_from?, reserved_to?, note?, contractor_id?, status?, machine_id?}`)
+**Body:** `ReservationUpdate` (`{reserved_from?, reserved_to?, note?, contractor_id?, salesperson_id?, status?, machine_id?}`)
 **Response:** `ReservationResponse` (200)
 **HTTP:** 200 | 400 (maszyna zewnętrzna — P2-003) | 401 | 404 | 409 (konflikt dat)
 **P2-003:** Jeśli `machine_id` zmieniane i nowa maszyna `is_external=True` → 400
+**P1-119:** `salesperson_id` opcjonalny (FK → salespeople, walidacja 404 jeśli nie istnieje)
 
 ### `DELETE /reservations/{reservation_id}`
 **Opis:** Usunięcie rezerwacji (wymaga admin).

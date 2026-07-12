@@ -126,7 +126,7 @@ plan: C:/Users/mateu/.windsurf/plans/megaplan-statystyki-klienta-10c667.md
 
 ```yaml
 id: P1-115
-status: triaged
+status: dev-verified
 priority: P1
 created: 2026-07-12
 source: client-request (współpraca 2026-07-12)
@@ -162,7 +162,7 @@ migration_impact: no
 
 ```yaml
 id: P1-116
-status: triaged
+status: dev-verified
 priority: P1
 created: 2026-07-12
 source: client-request (współpraca 2026-07-12)
@@ -190,7 +190,7 @@ migration_impact: no
 
 ```yaml
 id: P1-117
-status: triaged
+status: dev-verified
 priority: P1
 created: 2026-07-12
 source: client-request (współpraca 2026-07-12)
@@ -223,7 +223,7 @@ migration_impact: no
 
 ```yaml
 id: P1-118
-status: triaged
+status: dev-verified
 priority: P1
 created: 2026-07-12
 source: client-request (współpraca 2026-07-12)
@@ -251,7 +251,7 @@ migration_impact: no
 
 ```yaml
 id: P1-119
-status: triaged
+status: dev-verified
 priority: P1
 created: 2026-07-12
 source: client-request (współpraca 2026-07-12)
@@ -718,7 +718,7 @@ depends_on: P1-113
 
 ```yaml
 id: P1-114
-status: triaged
+status: dev-verified
 priority: P1
 created: 2026-07-12
 source: client-request (współpraca 2026-07-12)
@@ -826,3 +826,4 @@ phases: 1-6 (DB schema + modele + schemas/service + routers + frontend + e2e + m
 10. `862b66b` — Faza 6: skrypty migracji + seed update
 
 **Spec sync:** `01_database.md`, `02_backend_api.md`, `03_frontend_screens.md`, `04_business_logic.md`, `06_navigation_flow.md`, `07_integrations.md`, `11_reports_stats.md`, `25_security.md` — wszystkie zaktualizowane.
+
