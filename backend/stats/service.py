@@ -9,7 +9,6 @@ from contractors.models import Contractor
 from contracts.models import Contract
 from settlements.models import ContractSettlement
 from settings.models import Salesperson
-from shared.revenue import compute_position_revenues
 
 
 _CENT = Decimal("0.01")
@@ -23,21 +22,20 @@ def calculate_commission_base(
     *,
     settlement_client: Decimal | None,
     settlement_company: Decimal | None,
-    fallback_revenue: Decimal,
 ) -> tuple[Decimal, Decimal, Decimal]:
     """Return (client cost, company cost, commission base).
 
-    Only complete settlement rows are a source of truth for commission.  When
-    there is no complete settlement, this deliberately falls back to computed
-    revenue.  A complete settlement whose margin is zero is still authoritative
-    and must not trigger the fallback. Partial settlement values cannot be used
-    to manufacture a margin from incomplete data.
+    Prowizja liczona WYŁĄCZNIE od rzeczywistych rozliczeń (contract_settlements).
+    Brak fallbacku do szacunkowego przychodu. Jeśli brak kompletnego settlementu
+    (oba koszty nie-NULL), umowa nie jest brana pod uwagę do prowizji.
+    Kompletna marża równa zero jest autorytatywna (prowizja = 0).
     """
     client = _money(settlement_client)
     company = _money(settlement_company)
     if settlement_client is not None and settlement_company is not None:
         return client, company, client - company
-    return client, company, _money(fallback_revenue)
+    # Brak kompletnego settlementu — nie ma podstawy prowizji
+    return Decimal("0.00"), Decimal("0.00"), Decimal("0.00")
 
 
 async def get_salesperson_commission_contracts(
@@ -50,6 +48,8 @@ async def get_salesperson_commission_contracts(
 ) -> list[dict]:
     """Fetch one commission drill-down row per contract with no N+1 queries.
 
+    Prowizja liczona WYŁĄCZNIE od rzeczywistych rozliczeń (contract_settlements).
+    Umowy bez kompletnego settlementu są POMIJANE (nie szacunkowe).
     ``salesperson`` may be supplied by the router to avoid a second lookup.
     Direct service callers still get the same active-salesperson validation.
     """
@@ -73,6 +73,7 @@ async def get_salesperson_commission_contracts(
     if salesperson is None or not salesperson.is_active:
         raise HTTPException(status_code=404, detail="Handlowiec nie istnieje")
 
+    # INNER JOIN z ContractSettlement — tylko umowy z rozliczeniem
     settlement_q = (
         select(
             Contract.id.label("contract_id"),
@@ -88,9 +89,11 @@ async def get_salesperson_commission_contracts(
         .select_from(Contract)
         .outerjoin(Contractor, Contractor.id == Contract.contractor_id)
         .join(Salesperson, Salesperson.id == Contract.salesperson_id)
-        .outerjoin(ContractSettlement, ContractSettlement.contract_id == Contract.id)
+        .join(ContractSettlement, ContractSettlement.contract_id == Contract.id)
         .where(Contract.salesperson_id == salesperson_id)
         .where(and_(*date_conditions) if date_conditions else True)
+        .where(ContractSettlement.cost_client.isnot(None))
+        .where(ContractSettlement.cost_company.isnot(None))
         .order_by(Contract.date_from, Contract.number)
     )
     result = await db.execute(settlement_q)
@@ -111,40 +114,15 @@ async def get_salesperson_commission_contracts(
             "cost_company": Decimal("0.00"),
             "complete_settlements": 0,
         })
-        if row.settlement_client is not None and row.settlement_company is not None:
-            contract["cost_client"] += _money(row.settlement_client)
-            contract["cost_company"] += _money(row.settlement_company)
-            contract["complete_settlements"] += 1
-
-    rows = list(contracts.values())
-    contract_ids = set(contracts)
-    # The contract query above already applies the overlap filter. Passing no
-    # date filter here keeps open-ended contracts consistent without touching
-    # shared/revenue.py, while contract_ids still bounds the fallback query.
-    position_revenues = await compute_position_revenues(
-        db, None, None, contract_ids=contract_ids
-    )
-    fallback_by_contract: dict[int, Decimal] = {}
-    for position in position_revenues:
-        fallback_by_contract[position["contract_id"]] = (
-            fallback_by_contract.get(position["contract_id"], Decimal("0"))
-            + _money(position.get("revenue"))
-        )
+        contract["cost_client"] += _money(row.settlement_client)
+        contract["cost_company"] += _money(row.settlement_company)
+        contract["complete_settlements"] += 1
 
     items = []
-    for row in rows:
-        has_complete_settlement = bool(row["complete_settlements"])
-        fallback_revenue = fallback_by_contract.get(row["contract_id"], Decimal("0"))
-        if has_complete_settlement:
-            client = _money(row["cost_client"])
-            company = _money(row["cost_company"])
-            base = client - company
-        else:
-            # Existing report policy: no complete settlement means revenue fallback.
-            # Never use this path when even one complete company-cost row exists.
-            client = fallback_revenue
-            company = Decimal("0.00")
-            base = fallback_revenue
+    for row in contracts.values():
+        client = _money(row["cost_client"])
+        company = _money(row["cost_company"])
+        base = client - company
         rate = _money(row["commission_rate"]) if row["commission_rate"] is not None else None
         commission = _money(base * (rate or Decimal("0")) / Decimal("100"))
         items.append({
@@ -159,6 +137,5 @@ async def get_salesperson_commission_contracts(
             "margin": base,
             "commission_rate": rate,
             "commission_amount": commission,
-            "fallback_applied": not has_complete_settlement,
         })
     return items

@@ -1222,16 +1222,14 @@ commission = base * commission_rate / 100
 
 gdzie `base` (baza prowizji, `total_margin` w response) to:
 
-1. **Marża** = `SUM(cost_client - cost_company)` z kompletnych
-   `contract_settlements` (oba koszty nie-NULL) dla umów handlowca w zakresie
-   dat — gdy istnieje choć jeden kompletny settlement dla handlowca.
-2. **Fallback do przychodu** wyliczonego z pozycji umowy — TYLKO gdy
-   handlowiec nie ma żadnego kompletnego settlementu (brak wiersza w
-   zagregowanej mapie `settlement_margins`).
+**Marża** = `SUM(cost_client - cost_company)` z kompletnych
+`contract_settlements` (oba koszty nie-NULL) dla umów handlowca w zakresie
+dat.
 
-**Kluczowa zasada (RAO-P1-130):** Kompletna marża równa zero **NIE**
-uruchamia fallbacku — prowizja wynosi 0. Częściowy settlement (jeden z
-kosztów NULL) nie tworzy marży i nie wyłącza fallbacku.
+**Kluczowa zasada:** Prowizja liczona WYŁĄCZNIE od rzeczywistych rozliczeń.
+Brak fallbacku do szacunkowego przychodu z pozycji umowy. Umowy bez
+kompletnego settlementu NIE wliczają się do prowizji (base=0, commission=0).
+Kompletna marża równa zero jest autorytatywna (prowizja=0).
 
 ```python
 async def calculate_salesperson_commission(
@@ -1241,12 +1239,14 @@ async def calculate_salesperson_commission(
     date_to: date
 ) -> Decimal:
     """
-    Oblicz prowizję handlowca od marży, nie od przychodu (RAO-P1-018/130).
+    Oblicz prowizję handlowca od marży z rzeczywistych rozliczeń.
 
-    Formuła (RAO-P1-130):
-        commission = base * commission_rate / 100
-        base = margin  (gdy kompletny settlement istnieje)
-        base = revenue (fallback — brak kompletnego settlementu)
+    Formuła:
+        commission = margin * commission_rate / 100
+        margin = SUM(cost_client - cost_company) z contract_settlements
+
+    Brak fallbacku do szacunkowego przychodu. Umowy bez rozliczenia
+    nie wliczają się do prowizji.
 
     Źródło danych:
         - contract_settlements (RAO-P1-012) → cost_client, cost_company
@@ -1266,7 +1266,7 @@ async def calculate_salesperson_commission(
         .where(ContractSettlement.cost_client.isnot(None))
         .where(ContractSettlement.cost_company.isnot(None))
     )
-    margin = settlement_q.scalar()
+    margin = settlement_q.scalar() or Decimal("0.00")
 
     # Pobierz stawkę prowizji handlowca
     sp_q = await db.execute(
@@ -1275,21 +1275,7 @@ async def calculate_salesperson_commission(
     )
     commission_rate = sp_q.scalar() or Decimal(0)
 
-    # RAO-P1-130: fallback do revenue TYLKO gdy brak kompletnego settlementu (margin is None).
-    # Kompletna marża zero (margin == 0) NIE uruchamia fallbacku.
-    if margin is None:
-        # Brak kompletnego settlementu → backward compatibility: prowizja od revenue
-        revenue_q = await db.execute(
-            select(func.sum(ContractPosition.unit_price * ContractPosition.quantity))
-            .join(Contract, Contract.id == ContractPosition.contract_id)
-            .where(Contract.salesperson_id == salesperson_id)
-            .where(and_(Contract.date_from <= date_to, Contract.date_to >= date_from))
-        )
-        base = revenue_q.scalar() or Decimal("0.00")
-    else:
-        base = margin
-
-    base = base.quantize(Decimal("0.01"))
+    base = margin.quantize(Decimal("0.01"))
     commission = (base * commission_rate / Decimal(100)).quantize(Decimal("0.01"))
     return commission
 ```

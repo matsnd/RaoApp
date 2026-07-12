@@ -1843,12 +1843,13 @@ datami, `total_revenue` (suma kompletnych `cost_client`), `total_company_cost`
 (suma kompletnych `cost_company`), `earnings`/`margin`, stawką i
 `commission_amount`, a także sumy odpowiedzi. Prowizja =
 `(total_revenue - total_company_cost) * rate / 100`.
-Jeżeli umowa nie ma żadnego kompletnego settlementu (oba koszty nie-NULL),
-`fallback_applied=true` i używany jest przychód wyliczony z pozycji umowy;
-niepełne wiersze nie tworzą sztucznej marży. Kompletna marża równa zero nie
-uruchamia fallbacku. Zakres dat jest przecięciem z umową; NULL `date_from` lub
-`date_to` oznacza odpowiednio brak ograniczenia początku lub końca. Nieaktywny
-lub nieistniejący handlowiec daje 404, a brak uwierzytelnienia 401.
+Prowizja liczona WYŁĄCZNIE od rzeczywistych rozliczeń (contract_settlements).
+Umowy bez kompletnego settlementu (oba koszty nie-NULL) są POMIJANE —
+brak fallbacku do szacunkowego przychodu z pozycji umowy. Kompletna marża
+równa zero jest autorytatywna (prowizja=0). Zakres dat jest przecięciem z umową;
+NULL `date_from` lub `date_to` oznacza odpowiednio brak ograniczenia początku
+lub końca. Nieaktywny lub nieistniejący handlowiec daje 404, a brak
+uwierzytelnienia 401.
 **HTTP:** 200 | 401 | 404
 
 ---

@@ -1239,13 +1239,17 @@ async def commissions(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    """Commission report: margin per salesperson × commission_rate (RAO-P1-018)."""
+    """Commission report: margin per salesperson × commission_rate (RAO-P1-018).
+
+    Prowizja liczona WYŁĄCZNIE od rzeczywistych rozliczeń (contract_settlements).
+    Brak fallbacku do szacunkowego przychodu z pozycji umowy.
+    Umowy bez rozliczeń nie wliczają się do prowizji.
+    """
     from settings.models import Salesperson
     from settlements.models import ContractSettlement
     df, dt = _validate_date_range(date_from, date_to)
 
-    # RAO-P1-018: Prowizja od marży, nie od przychodu
-    # Oblicz marżę z contract_settlements dla umów w zakresie dat
+    # Prowizja od marży z contract_settlements (rzeczywiste rozliczenia)
     settlement_q = await db.execute(
         select(
             Contract.salesperson_id,
@@ -1260,6 +1264,21 @@ async def commissions(
     )
     settlement_margins = {r[0]: r[1] for r in settlement_q.all()}
 
+    # Liczba umów z rozliczeniem per handlowiec (tylko umowy z kompletnym settlement)
+    settled_contracts_q = await db.execute(
+        select(
+            Contract.salesperson_id,
+            func.count(func.distinct(Contract.id)).label("contracts_count")
+        )
+        .join(ContractSettlement, Contract.id == ContractSettlement.contract_id)
+        .where(and_(*_contract_date_filter(df, dt)))
+        .where(Contract.salesperson_id.isnot(None))
+        .where(ContractSettlement.cost_client.isnot(None))
+        .where(ContractSettlement.cost_company.isnot(None))
+        .group_by(Contract.salesperson_id)
+    )
+    settled_counts = {r[0]: r[1] for r in settled_contracts_q.all()}
+
     sp_q = await db.execute(
         select(Salesperson.id, Salesperson.name, Salesperson.commission_rate)
         .where(Salesperson.is_active == True)
@@ -1267,58 +1286,32 @@ async def commissions(
     )
     salespeople = {r[0]: {"name": r[1], "rate": r[2]} for r in sp_q.all()}
 
-    # Dla backward compatibility, oblicz również revenue (stara metoda)
-    # RAO-P2-029: uwzględnia archiwalne maszyny (statystyki historyczne)
-    all_pos = await _compute_position_revenues(db, df, dt)
-    contract_sp_q = await db.execute(
-        select(Contract.id, Contract.salesperson_id)
-        .where(and_(*_contract_date_filter(df, dt)))
-        .where(Contract.salesperson_id.isnot(None))
-    )
-    contract_sp_map = {r[0]: r[1] for r in contract_sp_q.all()}
-
-    agg: dict[int, dict] = defaultdict(lambda: {"revenue": Decimal(0), "contracts": set()})
-    for p in all_pos:
-        sp_id = contract_sp_map.get(p["contract_id"])
-        if sp_id and sp_id in salespeople:
-            agg[sp_id]["revenue"] += p["revenue"]
-            agg[sp_id]["contracts"].add(p["contract_id"])
-
     items = []
     for sp_id, sp_data in salespeople.items():
-        data = agg.get(sp_id, {"revenue": Decimal(0), "contracts": set()})
         rate = sp_data["rate"] or Decimal(0)
-        
-        # RAO-P1-130: Prowizja od marży (zarobku firmy), nie od przychodu.
-        # Fallback do revenue TYLKO gdy brak kompletnego settlementu (sp_id nie ma w settlement_margins).
-        # Kompletna marża równa zero NIE uruchamia fallbacku.
-        if sp_id in settlement_margins:
-            margin = settlement_margins[sp_id]
-            base_amount = margin if margin is not None else Decimal("0.00")
-        else:
-            base_amount = data["revenue"]
-        base_amount = base_amount.quantize(Decimal("0.01"))
+        margin = settlement_margins.get(sp_id, Decimal("0.00"))
+        base_amount = (margin or Decimal("0.00")).quantize(Decimal("0.01"))
         commission = (base_amount * rate / Decimal(100)).quantize(Decimal("0.01"))
-        
+        contracts_count = settled_counts.get(sp_id, 0)
+
         items.append(SalespersonCommissionItem(
             salesperson_id=sp_id,
             salesperson_name=sp_data["name"],
             commission_rate=sp_data["rate"],
-            contracts_count=len(data["contracts"]),
-            total_revenue=data["revenue"],  # Zachowaj revenue dla informacji
+            contracts_count=contracts_count,
+            total_revenue=base_amount,  # revenue = margin (prowizja od marży, nie od przychodu)
             total_margin=base_amount,
             commission_amount=commission,
         ))
 
     items.sort(key=lambda x: x.commission_amount, reverse=True)
-    grand_revenue = sum(i.total_revenue for i in items)
     grand_margin = sum(i.total_margin for i in items)
     grand_commission = sum(i.commission_amount for i in items)
 
     return CommissionReportResponse(
         date_from=df, date_to=dt,
         items=items,
-        grand_total_revenue=grand_revenue,
+        grand_total_revenue=grand_margin,
         grand_total_margin=grand_margin,
         grand_total_commission=grand_commission,
     )

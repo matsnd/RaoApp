@@ -372,7 +372,7 @@ migration_impact: no
 
 ```yaml
 id: P2-004
-status: triaged
+status: team-verified
 priority: P2
 created: 2026-07-11
 source: client-request (wywiad FULL-AUTO 2026-07-11)
@@ -502,7 +502,7 @@ migration_impact: no
 
 ```yaml
 id: P1-111
-status: triaged
+status: team-verified
 priority: P1
 created: 2026-07-12
 source: client-request (współpraca 2026-07-12)

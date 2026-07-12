@@ -138,12 +138,6 @@
               <td class="num">{{ formatCurrency(row.total_company_cost) }}</td>
               <td class="num">
                 {{ formatCurrency(row.earnings) }}
-                <span
-                  v-if="row.fallback_applied"
-                  class="fallback-badge"
-                  data-testid="commission-fallback-badge"
-                  title="Brak kompletnego rozliczenia — prowizja liczona od przychodu z pozycji umowy"
-                >szac.</span>
               </td>
               <td class="num">{{ row.commission_rate ?? '—' }} %</td>
               <td class="num commission">{{ formatCurrency(row.commission_amount) }}</td>
@@ -160,13 +154,7 @@
             </tr>
           </tfoot>
         </table>
-        <p v-else class="empty-msg">Brak umów dla tego handlowca w wybranym okresie.</p>
-
-        <div class="drill-legend">
-          <span class="fallback-badge">szac.</span> — brak kompletnego rozliczenia
-          (oba koszty <code>cost_client</code>/<code>cost_company</code>); prowizja liczona
-          od przychodu z pozycji umowy jako fallback.
-        </div>
+        <p v-else class="empty-msg">Brak umów z rozliczeniem dla tego handlowca w wybranym okresie.</p>
       </div>
     </DrillDownDrawer>
   </div>

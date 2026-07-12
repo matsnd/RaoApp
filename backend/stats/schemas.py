@@ -150,7 +150,6 @@ class ContractCommissionItem(BaseModel):
     margin: Decimal
     commission_rate: Decimal | None
     commission_amount: Decimal
-    fallback_applied: bool
 
 
 class SalespersonCommissionContractsResponse(BaseModel):
