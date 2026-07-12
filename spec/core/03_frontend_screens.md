@@ -447,13 +447,7 @@ const columnDefs = {
 > Zastąpiona przez dedykowane widoki `MachinesListView.vue` (`/machines`),
 > `ServicesListView.vue` (`/services`), `AdditionalServicesListView.vue` (`/additional-services`).
 > Poniższe opisy pozostają jako dokumentacja legacy.
-
-- Filtr **archiwalny** (toggle checkbox w grid-header): domyślnie `Aktywne`, toggle → `Archiwalne`
-- Parametr API: `archival_status=active|archival`
-- Wiersz `row-archival`: szare tło `#f8fafb`, przyciemniony tekst `#718096` gdy `is_archival=true`
-- Warunkowy empty state:
-  - Aktywne: "Brak artykułów — + Nowy artykuł"
-  - Archiwalne: "Brak artykułów archiwalnych"
+> Kolumna `is_archival` została usunięta — filtrowanie archiwalne niedostępne.
 
 
 **Context Menu per sekcja:**
@@ -1127,7 +1121,7 @@ Pole `internal_number` jest w pełni zaimplementowane:
 [ℹ️ Banner historyczny] ← RAO-P2-021: zawsze widoczny na górze sekcji Kategorie
   data-testid="history-banner"
   "Raporty kategorii zawierają dane historyczne zaimportowane z poprzedniej aplikacji.
-   Archiwalne maszyny i umowy są uwzględnianie wyłącznie w statystykach historycznych."
+   Maszyny i umowy są uwzględniane w statystykach historycznych."
 
 Poziom kategorii: [Główna kategoria] [Podkategoria 1]
                    data-testid="category-level-main"  data-testid="category-level-sub1"
@@ -1144,7 +1138,7 @@ Tabela: data-testid="category-stats-table"
   Kategoria | Maszyny | Dni wynajmu | Umowy | Przychód | [bar progress]
 ```
 
-**Dane z:** `GET /stats/by-category?level=main|sub1|sub2|sub3&date_from&date_to&include_archival&category_main[]&category_sub1&category_sub2&article_type`
+**Dane z:** `GET /stats/by-category?level=main|sub1|sub2|sub3&date_from&date_to&category_main[]&category_sub1&category_sub2&article_type`
 
 **Store:** `statsStore.byCategoryData` (CategoryStatsResponse), `statsStore.loadingByCategory`
 
@@ -1152,7 +1146,7 @@ Tabela: data-testid="category-stats-table"
 - Przełączenie na sub-tab Kategorie
 - Zmiana poziomu (main ↔ sub1) gdy drilldownPath.length === 0
 - Zmiana date presetu lub kliknięcie "Filtruj"
-- Zmiana shared filters (articleType, categoryMains, archivalState)
+- Zmiana shared filters (articleType, categoryMains)
 - Kliknięcie wiersza z drilldownable kategorią
 
 **RAO-P1-026: Drilldown (4 poziomy):**
@@ -1165,7 +1159,6 @@ Tabela: data-testid="category-stats-table"
 **RAO-P1-026: Shared filter bar** (widoczny dla categories + timeline):
 - Rodzaj: `sharedArticleType` (all/machine/service)
 - Kategoria: multi-select dropdown z `statsStore.categoriesList`
-- Stan: `sharedArchivalState` (active/archival/all) → `includeArchival` computed
 
 **RAO-P1-026: Sub-tab "📅 Historia"** (`historySubTab === 'timeline'`):
 - `data-testid="timeline-panel"`
@@ -1174,7 +1167,7 @@ Tabela: data-testid="category-stats-table"
 - Pivot table: `pivotData` computed — wiersze=kategorie, kolumny=okresy, sumy
   - Kliknięcie kategorii → `selectPivotCategory(name)` → filtruje `sharedCategoryMains`
 - Loading: `statsStore.loadingByPeriod`, Error: `errorByPeriod`, Empty state
-- **Dane z:** `GET /stats/by-period?granularity&date_from&date_to&category_main[]&article_type&include_archival`
+- **Dane z:** `GET /stats/by-period?granularity&date_from&date_to&category_main[]&article_type`
 
 ### Store: `useStatsStore` (stores/stats.js)
 
@@ -1188,8 +1181,8 @@ Tabela: data-testid="category-stats-table"
 
 | Funkcja | Endpoint |
 |---------|----------|
-| `fetchByCategory(level, df, dt, includeArchival, categoryMains[], catSub1, catSub2, articleType)` | GET /stats/by-category (URLSearchParams) |
-| `fetchByPeriod(granularity, df, dt, categoryMains[], articleType, includeArchival)` | GET /stats/by-period |
+| `fetchByCategory(level, df, dt, categoryMains[], catSub1, catSub2, articleType)` | GET /stats/by-category (URLSearchParams) |
+| `fetchByPeriod(granularity, df, dt, categoryMains[], articleType)` | GET /stats/by-period |
 | `fetchCategoriesList()` | GET /stats/categories-list |
 
 ---
@@ -1274,7 +1267,7 @@ async function handleFakturownia() {
 
 | Funkcja | Opis |
 |---------|------|
-| `fetchByCategory(level, dateFrom, dateTo, includeArchival)` | GET /stats/by-category |
+| `fetchByCategory(level, dateFrom, dateTo)` | GET /stats/by-category |
 
 ---
 
@@ -1786,7 +1779,7 @@ Następca: patrz sekcja `AnalyticsView.vue` poniżej.
 ┌──────────────────────────────────────────────────────┐
 │ AppToolbar: info: Maszyny          [?] [-] [+]       │
 ├──────────────────────────────────────────────────────┤
-│ [search...] [Kategoria ▼] ☐ Archiwalne               │
+│ [search...] [Kategoria ▼]                              │
 ├──────────────────────────────────────────────────────┤
 │ DataGrid: Nazwa | Nr wew. | Nr rej. | Marka |         │
 │          Kategoria | Zasilanie | Aktywna umowa       │
@@ -1798,7 +1791,6 @@ Następca: patrz sekcja `AnalyticsView.vue` poniżej.
 **Filtry:**
 - Search (nazwa, nr wewnętrzny, nr rejestracyjny)
 - Kategoria (select z `categories`)
-- Archiwalne (toggle checkbox — domyślnie aktywne)
 
 **Kolumny DataGrid:** Nazwa (sortable), Nr wew. (sortable), Nr rej. (sortable), Marka (sortable), Kategoria, Zasilanie (diesel/electric/other), Aktywna umowa
 
@@ -1809,7 +1801,7 @@ Następca: patrz sekcja `AnalyticsView.vue` poniżej.
 - Context menu: Edytuj, Usuń, Duplikuj (`POST /machines/{id}/duplicate`)
 
 **Store:** `useMachinesStore` (`stores/machines.js`) — `fetchList`, `remove`, `duplicate`
-**API:** `GET /machines?search&category_id&archival_status&page&per_page`
+**API:** `GET /machines?search&category_id&page&per_page`
 
 ---
 
@@ -1860,7 +1852,7 @@ Następca: patrz sekcja `AnalyticsView.vue` poniżej.
 ┌──────────────────────────────────────────────────────┐
 │ AppToolbar: info: Usługi           [?] [-] [+]       │
 ├──────────────────────────────────────────────────────┤
-│ [search...] ☐ Archiwalne                              │
+│ [search...]                                          │
 ├──────────────────────────────────────────────────────┤
 │ DataGrid: Nazwa | Aktywna umowa                       │
 ├──────────────────────────────────────────────────────┤
@@ -1877,7 +1869,7 @@ Następca: patrz sekcja `AnalyticsView.vue` poniżej.
 - `[-]` → ConfirmDialog → `DELETE /services/{id}`
 
 **Store:** `useServicesStore` (`stores/services.js`) — `fetchList`, `remove`
-**API:** `GET /services?search&archival_status&page&per_page`
+**API:** `GET /services?search&page&per_page`
 
 ---
 
@@ -1909,7 +1901,7 @@ Następca: patrz sekcja `AnalyticsView.vue` poniżej.
 ┌──────────────────────────────────────────────────────┐
 │ AppToolbar: info: Usługi dodatkowe [?] [-] [+]       │
 ├──────────────────────────────────────────────────────┤
-│ [search...] ☐ Archiwalne                              │
+│ [search...]                                          │
 ├──────────────────────────────────────────────────────┤
 │ DataGrid: Nazwa                                        │
 ├──────────────────────────────────────────────────────┤
@@ -1926,7 +1918,7 @@ Następca: patrz sekcja `AnalyticsView.vue` poniżej.
 - `[-]` → ConfirmDialog → `DELETE /additional-services/{id}`
 
 **Store:** `useAdditionalServicesStore` (`stores/additional_services.js`) — `fetchList`, `remove`
-**API:** `GET /additional-services?search&archival_status&page&per_page`
+**API:** `GET /additional-services?search&page&per_page`
 
 ---
 
@@ -2424,6 +2416,25 @@ onUnmounted(() => {
 - Pills w flex row; aktywna = bg primary + color on-primary; nieaktywna hover = bg light.
 - data-testid: `analytics-tabs`, `tab-<key>`.
 
+### `components/analytics/ChartCard.vue` (NOWY — wrapper wykresów Chart.js)
+- Props: `title: string`, `chartType: 'bar' | 'line' | 'doughnut'`, `chartData: ChartData`, `chartOptions?: ChartOptions`, `loading?: boolean`, `empty?: boolean`, `testId?: string`.
+- Opakowuje `vue-chartjs` komponenty (Bar, Line, Doughnut) w kartę z nagłówkiem i stanami loading/empty.
+- Karta stylowana zmiennymi CSS (`--color-bg-card`, `--border-radius`, `--shadow-card`).
+- Automatyczny resize (Chart.js responsive + maintainAspectRatio=false).
+- data-testid: `chart-card`, `chart-card-<testId>`, `chart-canvas`, `chart-loading`, `chart-empty`.
+
+### `composables/useChartTheme.ts` (NOWY — paleta kolorów dla Chart.js)
+- Eksportuje `chartColors` obiekt z paletą spójną z design system:
+  - `colors.primary` = `#1D2B53` (Deep Navy)
+  - `colors.info` = `#3B82F6` (Accent Blue)
+  - `colors.success` = `#22C55E`
+  - `colors.warning` = `#F59E0B`
+  - `colors.error` = `#EF4444`
+  - `colors.primaryLight` = `#2A3F6F`
+- Eksportuje `getChartPalette(n: number)` → generuje tablicę N kolorów (cykl przez paletę dla dużych zbiorów).
+- Eksportuje `defaultChartOptions` — bazowe opcje Chart.js (font Montserrat, grid color z `--color-border`, tooltip styling).
+- Czyta zmienne CSS z `:root` w runtime (getComputedStyle) dla spójności z motywem.
+
 ### Weryfikacja
 - `npx vue-tsc --noEmit` → PASS (exit 0)
 - `npm run build` → PASS (build OK)
@@ -2461,13 +2472,14 @@ onUnmounted(() => {
   `DrillDownKind`, `DrillDownState`, `AnalyticsFiltersPayload`.
 
 ### `views/AnalyticsView.vue` (~650 linii)
-- Shell z 6 zakładkami przez `AnalyticsTabs` (P1-112 kolejność + rename):
+- Shell z 7 zakładkami przez `AnalyticsTabs` (P1-112 kolejność + rename):
   1. `live` (🚜 Flota teraz) — domyślna taba (P1-112)
-  2. `machines` (🏗️ Maszyny)
-  3. `services-u` (🔧 Usługi zwykłe)
-  4. `services-s` (📦 Usługi dodatkowe)
-  5. `locations` (📍 Lokalizacje)
-  6. `period` (📊 Rankingi wynajmu) — było "Wynajem w okresie" (P1-112 rename)
+  2. `categories` (📊 Kategorie) — drill-down hierarchiczny kategorii (NOWY)
+  3. `machines` (🏗️ Maszyny)
+  4. `services-u` (🔧 Usługi zwykłe)
+  5. `services-s` (📦 Usługi dodatkowe)
+  6. `locations` (📍 Lokalizacje)
+  7. `period` (📊 Rankingi wynajmu) — było "Wynajem w okresie" (P1-112 rename)
 - **Filtry warunkowe (P1-112):** `AnalyticsFilters` przyjmuje prop `activeTab`:
   - `articleType` ukryte na dedykowanych tabach (machines, services-s, services-u) — tab już determinuje typ
   - `city` ukryte na tabach usług (services-s, services-u) — usługi nie mają lokalizacji
@@ -2488,6 +2500,7 @@ onUnmounted(() => {
 ### `components/analytics/tabs/LiveFleetTab.vue`
 - KPI row (KpiRow): Dostępne maszyny (success), Wynajęte teraz (accent), Wykorzystanie % (variant dynamiczny: ≥80 success / ≥50 accent / <50 warn).
 - Utilization bar (pasek postępu — width = utilPct%).
+- **Wykresy Chart.js** (vue-chartjs): doughnut (Dostępne vs Wynajęte) + bar (top maszyny wg dni wynajmu). Opakowane w `ChartCard.vue` z `useChartTheme.ts` dla spójnej palety.
 - AnalyticsTable: Maszyny aktualnie wynajęte (kolumny: Maszyna [sortable], Nr wewnętrzny, Kategoria, Umowa, Kontrahent, Planowany zwrot).
   - `clickable=true`, `@rowClick` → `openDrillDown('machine', machine_id, name)`.
   - Sortowanie przez `useSort('name', 'asc')`.
@@ -2495,6 +2508,18 @@ onUnmounted(() => {
 - Fetch: `store.fetchCurrentlyRented()` onMounted (tylko gdy brak danych).
 - `.lf-section` — card styling (`background: var(--color-bg-card); border-radius; box-shadow; padding`) spójny z `.mt-section`/`.svc-section`/`.res-section` (od Phase A 2026-07-15 — wcześniej brak, sekcja bez tła/obramowania).
 - data-testid: `live-fleet-tab`, `kpi-live-available`, `kpi-live-rented`, `kpi-live-util`, `live-util-bar`.
+
+### `components/analytics/tabs/CategoriesTab.vue` (NOWY — drill-down hierarchiczny)
+- Props: `dateFrom, dateTo, filters: AnalyticsFiltersPayload`.
+- **Drill-down hierarchiczny** (main → sub1 → sub2): breadcrumb klikalny, kliknięcie wiersza kategorii z dzieciami → drill-down do kolejnego poziomu.
+- KPI row: Łączny przychód, Aktywnych kategorii, Dni wynajmu.
+- **Bar chart horyzontalny** (Chart.js via vue-chartjs, opakowany w `ChartCard.vue`): top kategorie wg wybranej metryki.
+  - Toggle metryki (pill buttons): Przychód / Dni / Umów — przełącza sortowanie i etykiety osi.
+  - Klik słupka → drill-down do kategorii (gdy ma dzieci).
+- AnalyticsTable: Kategoria, Maszyny, Dni wynajmu, Umowy, Przychód (sortable, clickable → drill-down gdy `categoryHasChildren`).
+- Fetch: `store.fetchByCategory(level, dateFrom, dateTo, categoryMains[], articleType)` → GET `/stats/by-category`.
+- `useChartTheme.ts` dostarcza paletę kolorów spójną z design system.
+- data-testid: `categories-tab`, `kpi-cat-revenue`, `kpi-cat-active`, `kpi-cat-days`, `cat-bar-chart`, `cat-metric-toggle`, `cat-table`, `cat-empty`.
 
 ### `components/analytics/tabs/PeriodRentalTab.vue`
 - Props: `dateFrom, dateTo, filters: AnalyticsFiltersPayload`.
@@ -2506,6 +2531,7 @@ onUnmounted(() => {
   3. Lokalizacje (Miasto, Kod PNA, Wynajmów, Przychód) — clickable → drill location (po PNA).
   4. Pozycje (Nazwa, Nr wewnętrzny, Kategoria, Przychód, Dni, Umów, Razy) — sortable: article_name/internal_number/category_main/revenue/rented_days/contracts_count/times_billed.
 - Sortowanie: `useSort` per tabela (topMachinesSort, positionsSort).
+- **Wykresy Chart.js** (vue-chartjs, `ChartCard.vue`): line chart (trend przychodu w okresie) + bar chart (top kategorii wg przychodu). `useChartTheme.ts` dostarcza paletę.
 - Fetch: `Promise.all` 5 endpointów (summary, topMachines, additionalFees, locations, positions) onMounted + watch props.
 - data-testid: `period-rental-tab`, `kpi-period-revenue`, `kpi-period-contracts`, `kpi-period-rented`, `kpi-period-util`, `revenue-breakdown`.
 
@@ -2513,7 +2539,7 @@ onUnmounted(() => {
 - Props: `dateFrom, dateTo, filters?: AnalyticsFiltersPayload`. Przywrócona funkcjonalność paneli miast z legacy ReportsSection (zgubiona przy merge P2-063). `filters` przekazywane do `fetchLocationsRanking` (od Phase A 2026-07-15 — wcześniej brak, ranking ignorował kontrahenta/miasto/typ artykułu).
 - Fetch: `store.fetchLocationsRanking(dateFrom, dateTo, 100, groupBy, filters)` → GET `/explorer/locations` (ranking z rollup gmina/powiat/województwo, z filtrami).
 - KPI row: Lokalizacji, Wynajmów (suma), Przychód (suma, accent), Top miasto (success).
-- **Wykres słupkowy poziomy (CSS bars)**: top 10 miast, toggle metryki Przychód/Wynajmy (pill buttons), klik słupka → drill-down lokalizacji (gdy postal_code). Spójny wizualnie z util-bar z LiveFleetTab.
+- **Wykres słupkowy (Chart.js bar, zastąpił custom CSS bars)**: top 10 miast, toggle metryki Przychód/Wynajmy (pill buttons), klik słupka → drill-down lokalizacji (gdy postal_code). Opakowany w `ChartCard.vue` z `useChartTheme.ts`.
 - Wyszukiwarka miast (client-side filter po city/postal_code/gmina/powiat/wojewodztwo).
 - AnalyticsTable ranking: #, Miasto, PNA, Gmina, Powiat, Województwo, Wynajmów, Przychód (sortable, slot cell-total_revenue z formatCurrency); clickable → drill location (po PNA).
 - Empty state z hintem: "Lokalizacje wykrywane są z adresu dostawy umowy (kod pocztowy)".
@@ -2522,6 +2548,7 @@ onUnmounted(() => {
 ### `components/analytics/tabs/MachinesTab.vue` (2026-07-15)
 - Props: `dateFrom, dateTo, filters: AnalyticsFiltersPayload`.
 - KPI row: Maszyn, Przychód (accent), Dni wynajmu, Top maszyna (success).
+- **Wykres Chart.js** (vue-chartjs, `ChartCard.vue`): bar chart top 10 maszyn wg przychodu. `useChartTheme.ts` dostarcza paletę.
 - AnalyticsTable: #, Maszyna, Nr wewnętrzny, Kategoria, Przychód, Dni, Umów, Razy (sortable, clickable → drill machine).
 - Wyszukiwarka client-side (nazwa, nr wewnętrzny, kategoria).
 - ExportCsvButton — eksport do CSV.
@@ -2531,6 +2558,7 @@ onUnmounted(() => {
 ### `components/analytics/tabs/ServicesAdditionalTab.vue` (2026-07-15)
 - Props: `dateFrom, dateTo, filters: AnalyticsFiltersPayload`.
 - KPI row: Usług dodatkowych, Przychód (accent), Razy zafakturowane, Top usługa (success).
+- **Wykres Chart.js** (vue-chartjs, `ChartCard.vue`): doughnut chart udziału usług dodatkowych wg przychodu. `useChartTheme.ts` dostarcza paletę.
 - AnalyticsTable: #, Usługa dodatkowa, Kategoria, Przychód, Umów, Razy (sortable, clickable → drill service). **Kolumna "Nr wewnętrzny" usunięta** (Phase A 2026-07-15) — usługi nie mają numerów wewnętrznych (zawsze "—").
 - Wyszukiwarka (nazwa, kategoria) + ExportCsvButton.
 - Fetch: `store.fetchPositions('services', dateFrom, dateTo, filters, undefined, 'desc', 'S')` → GET `/stats/positions?type=services&contract_type=S`.
@@ -2539,6 +2567,7 @@ onUnmounted(() => {
 ### `components/analytics/tabs/ServicesRegularTab.vue` (2026-07-15)
 - Props: `dateFrom, dateTo, filters: AnalyticsFiltersPayload`.
 - KPI row: Usług zwykłych, Przychód (accent), Umów usługi, Top usługa (success).
+- **Wykres Chart.js** (vue-chartjs, `ChartCard.vue`): bar chart top 10 usług zwykłych wg przychodu. `useChartTheme.ts` dostarcza paletę.
 - AnalyticsTable: #, Usługa, Kategoria, Przychód, Dni, Umów, Razy (sortable, clickable → drill service). **Kolumna "Nr wewnętrzny" usunięta** (Phase A 2026-07-15) — usługi nie mają numerów wewnętrznych (zawsze "—").
 - Wyszukiwarka (nazwa, kategoria) + ExportCsvButton.
 - Fetch: `store.fetchPositions('all', dateFrom, dateTo, filters, undefined, 'desc', 'U')` → GET `/stats/positions?type=all&contract_type=U`.
@@ -2593,7 +2622,7 @@ onUnmounted(() => {
   - No-events state: "Brak blokad tego dnia"
   - **P1-118:** max-height 60vh + overflow-y auto + paginacja "Pokaż więcej" (PAGE_SIZE=10)
 - **Filtry** (nad kalendarzem, kolejność: Maszyna, Handlowiec, Kontrahent):
-  - Maszyna (select z maszynami non-archival — `GET /machines?archival_status=active&per_page=200`). **P2-003:** Tylko maszyny wewnętrzne (`is_external=false`) — filtrowane frontend-side `.filter((a) => !a.is_service && !a.is_external)`.
+  - Maszyna (select z maszynami — `GET /machines?per_page=200`). **P2-003:** Tylko maszyny wewnętrzne (`is_external=false`) — filtrowane frontend-side `.filter((a) => !a.is_service && !a.is_external)`.
   - Handlowiec (select, P1-119 — opcjonalny, filtruje po salesperson_id).
   - Kontrahent (`ContractorCombobox` z `components/analytics/`).
 - **Modal dodawania/edycji** (kolejność pól: Maszyna, Handlowiec, Kontrahent, Daty, Notatka):

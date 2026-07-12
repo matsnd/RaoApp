@@ -264,12 +264,11 @@ CREATE TABLE machines (
     description           VARCHAR(400) NULL,
     notes                 VARCHAR(200) NULL,
     rental_days           INT          NULL COMMENT 'Ile dni wynajmu default',
-    -- RAO-P1-017: kategoryzacja hierarchiczna (snapshot nazw + flaga archiwalna + atrybuty techniczne)
+    -- RAO-P1-017: kategoryzacja hierarchiczna (snapshot nazw + atrybuty techniczne)
     category_main         VARCHAR(100) NULL COMMENT 'Kategoria główna (snapshot nazwy z categories.name level=main)',
     category_sub1         VARCHAR(100) NULL COMMENT 'Podkategoria 1 (snapshot)',
     category_sub2         VARCHAR(100) NULL COMMENT 'Podkategoria 2 (snapshot)',
     category_sub3         VARCHAR(100) NULL COMMENT 'Podkategoria 3 (snapshot)',
-    is_archival           BOOLEAN      NOT NULL DEFAULT FALSE COMMENT 'Maszyna archiwalna',
     is_external           BOOLEAN      NOT NULL DEFAULT FALSE COMMENT 'Maszyna zewnętrzna (wynajmowana od innej firmy)',
     power_type            VARCHAR(10)  NOT NULL DEFAULT 'other' COMMENT 'Typ zasilania: diesel / electric / other',
     technical_attributes  JSON         NULL COMMENT 'Dynamiczne atrybuty techniczne (np. waga, moc) - LEGACY',
@@ -294,7 +293,6 @@ CREATE TABLE machines (
     INDEX idx_mach_owner (owner_id),
     INDEX idx_mach_registration (registration_no),
     INDEX idx_machines_category_main (category_main),
-    INDEX idx_machines_archival (is_archival),
     INDEX idx_machines_external (is_external),
     INDEX idx_machines_fakturownia_product (fakturownia_product_id),
     INDEX idx_machines_reach (reach_m),
@@ -308,7 +306,6 @@ CREATE TABLE services (
     description           VARCHAR(400) NULL,
     notes                 VARCHAR(200) NULL,
     replacement_value     DECIMAL(18,2) NULL COMMENT 'Wartość odtworzeniowa (opcjonalne dla usług)',
-    is_archival           BOOLEAN      NOT NULL DEFAULT FALSE COMMENT 'Usługa archiwalna',
     -- Fakturownia mapping
     fakturownia_product_id BIGINT      NULL COMMENT 'RAO-P2-012: ID produktu w Fakturownia (mapping globalny 1:N)',
     fakturownia_tax_rate  VARCHAR(10)  NULL COMMENT 'Stawka VAT z Fakturownia (snapshot)',
@@ -317,7 +314,6 @@ CREATE TABLE services (
     created_at            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at            DATETIME     NULL ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_svc_name (name),
-    INDEX idx_services_archival (is_archival),
     INDEX idx_services_fakturownia_product (fakturownia_product_id)
 ) ENGINE=InnoDB COMMENT='Usługi zwykłe (refaktor z articles WHERE is_service=TRUE, contract_type=U)';
 
@@ -331,7 +327,6 @@ CREATE TABLE additional_services (
     default_amount        DECIMAL(18,2) NULL COMMENT 'Domyślna kwota opłaty',
     description           VARCHAR(400) NULL,
     notes                 VARCHAR(200) NULL,
-    is_archival           BOOLEAN      NOT NULL DEFAULT FALSE COMMENT 'Usługa dodatkowa archiwalna',
     -- Fakturownia mapping
     fakturownia_product_id BIGINT      NULL COMMENT 'RAO-P2-012: ID produktu w Fakturownia (mapping globalny 1:N)',
     fakturownia_tax_rate  VARCHAR(10)  NULL COMMENT 'Stawka VAT z Fakturownia (snapshot)',
@@ -340,7 +335,6 @@ CREATE TABLE additional_services (
     created_at            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at            DATETIME     NULL ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_addsvc_name (name),
-    INDEX idx_additional_services_archival (is_archival),
     INDEX idx_additional_services_fakturownia_product (fakturownia_product_id)
 ) ENGINE=InnoDB COMMENT='Usługi dodatkowe — katalog opłat (refaktor: szablony referencjonują tę tabelę zamiast articles)';
 
@@ -814,7 +808,6 @@ CREATE TABLE IF NOT EXISTS archive_articles (
   category_sub1         VARCHAR(100) NULL,
   category_sub2         VARCHAR(100) NULL,
   category_sub3         VARCHAR(100) NULL,
-  is_archival           TINYINT(1) NOT NULL DEFAULT 0,
   is_external           TINYINT(1) NOT NULL DEFAULT 0,
   technical_attributes  LONGTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL
     CHECK (json_valid(technical_attributes)),
@@ -838,7 +831,6 @@ CREATE TABLE IF NOT EXISTS archive_articles (
   INDEX idx_archive_art_owner (owner_id),
   INDEX idx_archive_art_registration (registration_no),
   INDEX idx_archive_articles_category_main (category_main),
-  INDEX idx_archive_articles_archival (is_archival),
   INDEX idx_archive_articles_fakturownia_product (fakturownia_product_id),
   INDEX idx_archive_articles_zasieg (zasieg_m),
   INDEX idx_archive_articles_udzwig (udzwig_t),

@@ -500,3 +500,55 @@ calendar, search, wrench, package, layers, check-circle.
 została zastąpiona neutralną ikoną `banknote` (banknot z okiem — bez symbolu waluty).
 W polskiej aplikacji wynajmu maszyn symbol `$` jest niedopuszczalny; waluta zawsze
 formatowana jako "zł" (`utils/format.ts → formatCurrency`).
+
+---
+
+## Wykresy Chart.js (vue-chartjs) — komponenty i paleta
+
+### `components/analytics/ChartCard.vue`
+Wrapper kartowy dla wykresów Chart.js używanych w tabach AnalyticsView. Opakowuje komponenty
+`vue-chartjs` (Bar, Line, Doughnut) w kartę z nagłówkiem, stanami loading/empty i spójnym stylem.
+
+**Props:**
+- `title: string` — nagłówek kartowy
+- `chartType: 'bar' | 'line' | 'doughnut'` — typ wykresu
+- `chartData: ChartData` — dane Chart.js
+- `chartOptions?: ChartOptions` — opcje (default: `defaultChartOptions` z `useChartTheme.ts`)
+- `loading?: boolean`, `empty?: boolean`, `testId?: string`
+
+**Styl:** karta z `--color-bg-card`, `--border-radius`, `--shadow-card`; canvas responsive
+(maintainAspectRatio=false, auto resize).
+
+**data-testid:** `chart-card`, `chart-card-<testId>`, `chart-canvas`, `chart-loading`, `chart-empty`.
+
+### `composables/useChartTheme.ts`
+Dostarcza paletę kolorów i bazowe opcje Chart.js spójne z design system RAO.
+
+**Paleta kolorów chart (`chartColors`):**
+
+| Klucz | Wartość | Odpowiednik CSS |
+|-------|---------|-----------------|
+| `colors.primary` | `#1D2B53` | `--color-primary` (Deep Navy) |
+| `colors.info` | `#3B82F6` | `--color-info` / `--color-accent-blue` |
+| `colors.success` | `#22C55E` | `--color-success` |
+| `colors.warning` | `#F59E0B` | `--color-warning` |
+| `colors.error` | `#EF4444` | `--color-error` |
+| `colors.primaryLight` | `#2A3F6F` | `--color-primary-light` |
+
+**Eksportowane funkcje:**
+- `getChartPalette(n: number): string[]` — generuje tablicę N kolorów (cykl przez paletę dla dużych zbiorów danych).
+- `defaultChartOptions: ChartOptions` — bazowe opcje: font Montserrat, grid color z `--color-border`, tooltip styling, responsive.
+
+**Runtime:** czyta zmienne CSS z `:root` (getComputedStyle) dla spójności z aktywnym motywem.
+
+### Wykresy w tabach AnalyticsView
+
+| Tab | Typ wykresu | Opis |
+|-----|-------------|------|
+| LiveFleetTab | doughnut + bar | Dostępne vs Wynajęte + top maszyny wg dni |
+| CategoriesTab | bar (horyzontalny) | Top kategorie wg metryki (Przychód/Dni/Umów) z toggle |
+| MachinesTab | bar | Top 10 maszyn wg przychodu |
+| PeriodRentalTab | line + bar | Trend przychodu w okresie + top kategorii |
+| ServicesRegularTab | bar | Top 10 usług zwykłych wg przychodu |
+| ServicesAdditionalTab | doughnut | Udział usług dodatkowych wg przychodu |
+| LocationsTab | bar | Top 10 miast (zastąpił custom CSS bars) |

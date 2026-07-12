@@ -572,11 +572,7 @@ class GusLookupResponse(BaseModel):
 ### `GET /machines`
 
 ```python
-# Query: ?search=koparka&category_id=1&owner_id=5&archival_status=active&page=1&per_page=50
-
-class MachineArchivalFilter(str, Enum):
-    ACTIVE = "active"      # domyślnie — tylko aktywne
-    ARCHIVAL = "archival"  # tylko archiwalne
+# Query: ?search=koparka&category_id=1&owner_id=5&page=1&per_page=50
 
 class MachineListItem(BaseModel):
     id: int
@@ -591,7 +587,6 @@ class MachineListItem(BaseModel):
     category_main: str | None          # denorm kategoria główna
     owner_name: str | None             # JOIN contractors
     notes: str | None
-    is_archival: bool
     is_external: bool
     power_type: str                    # diesel/electric/other
     active_contract_number: str | None  # computed
@@ -741,7 +736,7 @@ Logika: `SELECT ContractPosition JOIN Contract WHERE machine_id=:mid ORDER BY Co
 ### `GET /services`
 
 ```python
-# Query: ?search=transport&archival_status=active&page=1&per_page=50
+# Query: ?search=transport&page=1&per_page=50
 
 class ServiceListItem(BaseModel):
     id: int
@@ -749,7 +744,6 @@ class ServiceListItem(BaseModel):
     description: str | None
     notes: str | None
     replacement_value: Decimal | None
-    is_archival: bool
     created_at: datetime
     updated_at: datetime | None
 ```
@@ -785,7 +779,7 @@ HTTP: 204 | 401 | 404
 ### `GET /additional-services`
 
 ```python
-# Query: ?search=transport&archival_status=active&page=1&per_page=50
+# Query: ?search=transport&page=1&per_page=50
 
 class AdditionalServiceListItem(BaseModel):
     id: int
@@ -794,7 +788,6 @@ class AdditionalServiceListItem(BaseModel):
     default_amount: Decimal | None
     description: str | None
     notes: str | None
-    is_archival: bool
     created_at: datetime
     updated_at: datetime | None
 ```
@@ -1650,12 +1643,12 @@ Content-Disposition: attachment; filename="Statystyki_YYYY-MM-DD_YYYY-MM-DD.pdf"
 ```
 
 ### `GET /stats/machine-roi`
-Query: `?article_id=<int>&date_from&date_to&include_archival=false`
+Query: `?article_id=<int>&date_from&date_to`
 Response: `MachineRoiResponse` (zawiera `category_main` — RAO-P1-017)
 
 ### `GET /stats/currently-rented`
 Response: `CurrentlyRentedResponse` (items zawierają `category_main` — RAO-P1-017)
-Filtr: domyślnie `is_archival=FALSE AND is_external=FALSE` (RAO-P1-027)
+Filtr: domyślnie `is_external=FALSE` (RAO-P1-027)
 
 ### `GET /stats/iddatiolal-f-ef-efees`
 Query: `?date_from&date_to&internal_number=<str># (multi-value, opcjonalny)
@@ -1670,7 +1663,6 @@ Query:
 - `date_from`, `date_to` — zakres dat
 - `category_main=<str>` — filtr/seria kategorii (multi-value; gdy podany → osobna seria per kategorię)
 - `article_type=all|machine|service` (default: `all`)
-- `include_archival=false`
 
 Response: `ByPeriodResponse`:
 ```json
@@ -1699,7 +1691,7 @@ Response: `list[CategoriesListNode]` — pełne drzewo kategorii:
   }
 ]
 ```
-Zlicza tylko aktywne (nie-archiwalne) artykuły (`is_archival=false`) przypisane do danej kategorii.
+Zlicza artykuły przypisane do danej kategorii.
 HTTP: 200 | 401
 
 ### `GET /stats/positions` (RAO-P2-010, UPDATED 2026-07-15)
