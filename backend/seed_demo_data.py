@@ -392,37 +392,51 @@ MASZYNY = [
 USLUGI = [
     {
         "name": "Transport",
+        "display_name": "Transport",
         "default_amount": Decimal("1200.00"),
+        "description": "$1 dostawa / $2 odbiór",
         "fakturownia_product_id": 8845156432587,  # TRA001
     },
     {
         "name": "Czyszczenie maszyny (zabrudzenia ponadnormatywne)",
+        "display_name": "Czyszczenie maszyny (zabrudzenia ponadnormatywne)",
         "default_amount": Decimal("0.00"),
+        "description": "wycena indywidualna",
         "fakturownia_product_id": 8845156432589,  # CZY001
     },
     {
         "name": "Usługa tankowania",
+        "display_name": "Usługa tankowania",
         "default_amount": Decimal("200.00"),
+        "description": "$1 (plus koszt paliwa)",
         "fakturownia_product_id": 8845156432620,  # TAN001
     },
     {
         "name": "Ponadnormatywny przestój transportu",
+        "display_name": "Ponadnormatywny przestój transportu",
         "default_amount": Decimal("250.00"),
+        "description": "$1 / h - $2 / h",
         "fakturownia_product_id": 8845156436449,  # PZT001
     },
     {
         "name": "Nieuzasadnione wezwanie serwisowe",
+        "display_name": "Nieuzasadnione wezwanie serwisowe",
         "default_amount": Decimal("280.00"),
+        "description": "$1 (plus transport)",
         "fakturownia_product_id": 8845156436450,  # SER001
     },
     {
         "name": "Przegląd techniczny i czyszczenie maszyny Diesel",
+        "display_name": "Przegląd techniczny i czyszczenie maszyny Diesel",
         "default_amount": Decimal("150.00"),
+        "description": "$1",
         "fakturownia_product_id": 8845156436451,  # DIE001
     },
     {
         "name": "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny Elektryk",
+        "display_name": "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny Elektryk",
         "default_amount": Decimal("35.00"),
+        "description": "$1",
         "fakturownia_product_id": 8845156436452,  # ELE001
     },
 ]

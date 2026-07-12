@@ -809,81 +809,17 @@ async def step5b_contract_service_fees():
 
 
 async def step5e_fix_placeholders():
-    """Replace $1/$2 placeholders with actual values directly in migrated database (Tech Lead fix).
+    """P1-113/P1-127: Zachowaj placeholdery $1/$2 w opisach opłat dodatkowych.
 
-    Two passes:
-    1. Replace "$1 zł" / "$2 zł" (with suffix) → raw amount + " zł"
-    2. Replace bare "$1" / "$2" (without suffix) → formatted amount + " zł"
-       (e.g. "$1" → "150,00 zł" for diesel preset)
+    WCZEŚNIEJ: ten krok zamieniał $1/$2 na sztywne kwoty (np. "$1" → "150,00 zł").
+    TERAZ: placeholdery $1/$2 są zachowywane i podmieniane dynamicznie w locie
+    przez formatFeeDescription (frontend) i _resolve_fee_description (backend PDF).
+    Umowy zapisane z placeholderami pozwalają na zmianę kwoty w gridzie bez
+    ręcznej edycji tekstu opisu.
+
+    Ten krok jest no-op — placeholdery nie są modyfikowane.
     """
-    print("[5e] Fixing fee templates and contract service fee placeholders ($1/$2) …")
-    conn = await aiomysql.connect(host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASS, db=DB_NAME)
-    cur = await conn.cursor()
-
-    # Pass 1: Fix service_fee_templates — "$1 zł" / "$2 zł" (with suffix)
-    await cur.execute("""
-        UPDATE service_fee_templates 
-        SET description = REPLACE(
-            REPLACE(
-                description,
-                '$1 zł',
-                CONCAT(IFNULL(amount_from, ''), ' zł')
-            ),
-            '$2 zł',
-            CONCAT(IFNULL(amount_to, ''), ' zł')
-        )
-        WHERE description LIKE '%$1%' OR description LIKE '%$2%'
-    """)
-
-    # Pass 2: Fix service_fee_templates — bare "$1" / "$2" (without suffix)
-    await cur.execute("""
-        UPDATE service_fee_templates 
-        SET description = REPLACE(
-            REPLACE(
-                description,
-                '$1',
-                CONCAT(REPLACE(REPLACE(FORMAT(IFNULL(amount_from, 0), 2), ',', ' '), '.', ','), ' zł')
-            ),
-            '$2',
-            CONCAT(REPLACE(REPLACE(FORMAT(IFNULL(amount_to, 0), 2), ',', ' '), '.', ','), ' zł')
-        )
-        WHERE description LIKE '%$1%' OR description LIKE '%$2%'
-    """)
-
-    # Pass 1: Fix contract_service_fees — "$1 zł" / "$2 zł" (with suffix)
-    await cur.execute("""
-        UPDATE contract_service_fees 
-        SET description = REPLACE(
-            REPLACE(
-                description,
-                '$1 zł',
-                CONCAT(IFNULL(amount_from, ''), ' zł')
-            ),
-            '$2 zł',
-            CONCAT(IFNULL(amount_to, ''), ' zł')
-        )
-        WHERE description LIKE '%$1%' OR description LIKE '%$2%'
-    """)
-
-    # Pass 2: Fix contract_service_fees — bare "$1" / "$2" (without suffix)
-    await cur.execute("""
-        UPDATE contract_service_fees 
-        SET description = REPLACE(
-            REPLACE(
-                description,
-                '$1',
-                CONCAT(REPLACE(REPLACE(FORMAT(IFNULL(amount_from, 0), 2), ',', ' '), '.', ','), ' zł')
-            ),
-            '$2',
-            CONCAT(REPLACE(REPLACE(FORMAT(IFNULL(amount_to, 0), 2), ',', ' '), '.', ','), ' zł')
-        )
-        WHERE description LIKE '%$1%' OR description LIKE '%$2%'
-    """)
-
-    await conn.commit()
-    await cur.close()
-    conn.close()
-    print("   OK: Placeholders fixed in templates and historical contracts (2 passes).")
+    print("[5e] Placeholdery $1/$2 zachowane (dynamiczna podmiana w locie) — no-op")
 
 
 async def step6_drop_old():
