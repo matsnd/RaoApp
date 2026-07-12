@@ -1258,6 +1258,46 @@ related: P1-123 (CommissionView drill-down), P1-018 (prowizja od marży)
 - [ ] Spec sync: `04_business_logic.md`, `02_backend_api.md`, `03_frontend_screens.md`
 - [ ] Smoke `01-login.spec.ts` zielony
 
+### P1-131: Nowa rezerwacja — wyszukiwane comboboksy dla maszyny i handlowca
+
+```yaml
+id: P1-131
+status: triaged
+priority: P1
+created: 2026-07-12
+source: client-request (współpraca 2026-07-12)
+component: frontend/views/ReservationsView.vue + frontend/components
+migration_impact: no
+related: ReservationsView — modal "Nowa rezerwacja", istniejący ContractorCombobox
+```
+
+**Opis:** W formularzu "Nowa rezerwacja" pola wyboru **Maszyna** i **Handlowiec** nie powinny być zwykłymi dropdownami `<select>`. Powinny działać jako comboboksy z możliwością wpisywania i wyszukiwania, podobnie jak obecnie pole **Kontrahent**, które już korzysta z `ContractorCombobox`. Przy większej liczbie maszyn i handlowców wybór z długiej listy jest niewygodny.
+
+**Stan obecny:**
+- `frontend/src/views/ReservationsView.vue` — modal CRUD (około linii 652-726):
+  - **Maszyna** używa `<select>` z pełną listą `machineOptions`.
+  - **Handlowiec** używa `<select>` z pełną listą `salespeopleOptions`.
+  - **Kontrahent** używa `ContractorCombobox` z wyszukiwaniem przez wpisywanie.
+- Wymaganie dotyczy formularza dodawania/edycji rezerwacji, nie zmiany endpointów ani modelu danych.
+
+**Zadania:**
+1. **Frontend** `ReservationsView.vue` — zastąpić dropdown **Maszyna** komponentem combobox z wyszukiwaniem tekstowym (nazwa maszyny, numer wewnętrzny; opcjonalnie numer rejestracyjny/marka). Zachować wartość `machine_id` w formularzu i payloadzie.
+2. **Frontend** — zastąpić dropdown **Handlowiec** komponentem combobox z wyszukiwaniem po nazwie. Zachować opcjonalny wybór "Brak" i wartość `salesperson_id` w formularzu/payloadzie.
+3. **Komponenty** — wykorzystać istniejący reużywalny combobox, jeśli obsługuje maszyny/handlowców; w przeciwnym razie utworzyć generyczny komponent zgodny ze stylem `ContractorCombobox` (wpisywanie, filtrowanie, wybór, czyszczenie, klawiatura, dostępność).
+4. **UX** — po otwarciu modal powinien pokazywać aktualnie wybraną maszynę/handlowca jako wartość comboboxa; nie wyczyścić ID podczas edycji; opcja "Brak (opcjonalny)" dla handlowca powinna być dostępna przez wyczyszczenie pola.
+5. **Wydajność** — filtrowanie listy po stronie klienta może być użyte dla obecnie załadowanych danych; przy dużych listach rozważyć wyszukiwanie debounced po API. Nie zmieniać wymaganego pola maszyny ani walidacji dat.
+6. **Testy E2E** — dodać/zmienić test: otwórz "Nowa rezerwacja", wpisz fragment nazwy maszyny i wybierz wynik, wpisz fragment nazwiska handlowca i wybierz wynik, sprawdź zapis poprawnych `machine_id` i `salesperson_id`; zweryfikować, że kontrahent nadal działa.
+7. **Spec sync** — zaktualizować `spec/core/03_frontend_screens.md` i ewentualnie `spec/core/09_design_system.md` jeśli powstanie nowy komponent.
+
+**Definition of Done:**
+- [ ] Pole "Maszyna" w modalu rezerwacji jest comboboxem z wyszukiwaniem przez wpisywanie, nie zwykłym dropdownem
+- [ ] Pole "Handlowiec" w modalu rezerwacji jest comboboxem z wyszukiwaniem przez wpisywanie, nie zwykłym dropdownem
+- [ ] Pole "Kontrahent" nadal używa comboboxa i działa bez regresji
+- [ ] Wybranie/wyczyszczenie wartości poprawnie ustawia `machine_id`, `salesperson_id` i `contractor_id`
+- [ ] Edycja istniejącej rezerwacji pokazuje wcześniej wybrane wartości
+- [ ] E2E pokrywa wyszukiwanie i zapis nowej rezerwacji
+- [ ] Smoke `01-login.spec.ts` zielony
+
 ---
 
 ## 🟢 P3 — Nice-to-Have
