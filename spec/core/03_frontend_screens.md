@@ -1585,8 +1585,17 @@ async function handleFakturownia() {
 - Karty podsumowania: łączny przychód, łączna prowizja, okres
 - Tabela per handlowiec: nazwa, przychód, stawka %, kwota prowizji
 - Przycisk "Drukuj" (window.print(), klasa `print-hide` ukrywa toolbar)
+- **P1-123 Faza 2: drill-down umów handlowca** — przycisk "Umowy →" w wierszu
+  handlowca otwiera `DrillDownDrawer` (współdzielony z `AnalyticsView`) z listą
+  umów: numer, kontrahent, okres, przychód, koszt firmy, zarobek, stawka,
+  prowizja. Badge `szac.` przy zarobku oznacza `fallback_applied=true`
+  (brak kompletnego rozliczenia — prowizja liczona od przychodu z pozycji).
+  KPI w nagłówku drawera: łączny przychód, koszt firmy, zarobek, prowizja.
+  Zmiana zakresu dat w widoku nadrzędnym odświeża otwarty drawer.
 
-**API:** `GET /stats/commissions?date_from&date_to`
+**API:**
+- `GET /stats/commissions?date_from&date_to` — lista per handlowiec
+- `GET /stats/commissions/{salesperson_id}/contracts?date_from&date_to` — drill-down umów (P1-123)
 
 ---
 

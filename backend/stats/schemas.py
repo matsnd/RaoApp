@@ -136,6 +136,33 @@ class CommissionReportResponse(BaseModel):
     grand_total_commission: Decimal
 
 
+class ContractCommissionItem(BaseModel):
+    contract_id: int
+    number: str
+    date_from: date | None
+    date_to: date | None
+    contractor_name: str | None = None
+    total_revenue: Decimal
+    total_company_cost: Decimal
+    earnings: Decimal
+    margin: Decimal
+    commission_rate: Decimal | None
+    commission_amount: Decimal
+    fallback_applied: bool
+
+
+class SalespersonCommissionContractsResponse(BaseModel):
+    salesperson_id: int
+    salesperson_name: str
+    date_from: date | None
+    date_to: date
+    items: list[ContractCommissionItem]
+    total_revenue: Decimal
+    total_company_cost: Decimal
+    total_earnings: Decimal
+    total_commission: Decimal
+
+
 # ── RAO-P1-017: Statystyki po kategoriach ─────────────────────────────────────
 
 class CategoryStatItem(BaseModel):

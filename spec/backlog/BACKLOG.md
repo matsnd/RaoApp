@@ -912,7 +912,7 @@ Skutek: **szybka edycja "od kwota / do kwota" nie działa na podgląd PDF**. Gdy
 
 ```yaml
 id: P1-123
-status: triaged
+status: in_progress
 priority: P1
 created: 2026-07-12
 source: client-request (współpraca 2026-07-12)
@@ -942,16 +942,16 @@ Formuła prowizji (RAO-P1-018, już zaimplementowana): `commission = margin × c
 8. **Spec sync** — `02_backend_api.md` (nowy endpoint), `03_frontend_screens.md` (drill-down w CommissionView), `04_business_logic.md` (prowizja per umowa), `11_reports_stats.md`.
 
 **Definition of Done:**
-- [ ] `GET /stats/commissions/{salesperson_id}/contracts` zwraca umowy z prowizją per umowa (margin + fallback revenue)
-- [ ] Suma `commission_amount` per umowa = `commission_amount` z `/stats/commissions` dla tego handlowca
-- [ ] Klik na wiersz handlowca w `CommissionView.vue` otwiera listę umów
-- [ ] Lista umów pokazuje: Numer, Kontrahent, Data od, Data do, Przychód, Koszty, Marża, Prowizja
-- [ ] Breadcrumb / "← Wstecz" wraca do tabeli podsumowania
-- [ ] Loading / error / empty state działają
-- [ ] Test jednostkowy backend: margin + fallback revenue + spójność sum
+- [x] `GET /stats/commissions/{salesperson_id}/contracts` zwraca umowy z prowizją per umowa (margin + fallback revenue)
+- [x] Suma `commission_amount` per umowa = `commission_amount` z `/stats/commissions` dla tego handlowca
+- [x] Klik na wiersz handlowca w `CommissionView.vue` otwiera listę umów
+- [x] Lista umów pokazuje: Numer, Kontrahent, Data od, Data do, Przychód, Koszty, Marża, Prowizja
+- [x] Breadcrumb / "← Wstecz" wraca do tabeli podsumowania (DrillDownDrawer z Esc/overlay/close)
+- [x] Loading / error / empty state działają
+- [x] Test jednostkowy backend: margin + fallback revenue + spójność sum
 - [ ] E2E: drill-down handlowiec → umowy → powrót
-- [ ] Spec sync: `02_backend_api.md`, `03_frontend_screens.md`, `04_business_logic.md`, `11_reports_stats.md`
-- [ ] Smoke `01-login.spec.ts` zielony
+- [x] Spec sync: `02_backend_api.md`, `03_frontend_screens.md`, `04_business_logic.md`
+- [x] Smoke `01-login.spec.ts` zielony
 
 ### P1-124: Wyszukiwanie kontrahentów i adresów dostawy po mieście (ten sam textbox)
 

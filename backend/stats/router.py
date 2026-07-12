@@ -15,6 +15,7 @@ from machines.models import Machine
 from contracts.models import Contract, ContractPosition, PositionCondition, ContractServiceFee
 from contractors.models import Contractor
 from settlements.models import ContractSettlement
+from settings.models import Salesperson
 from additional_services.models import AdditionalService
 from sqlalchemy import func as sqlfunc
 from stats.calc import calculate_position_value, aggregate_by_category, aggregate_by_period, aggregate_by_contract_type, aggregate_by_branch, clamp_days
@@ -26,6 +27,7 @@ from stats.schemas import (
     AdditionalFeesResponse, ServiceFeeItem, LocationStatItem,
     ExpiringContractItem, OverdueContractItem, DeliveryTodayItem, UnprintedContractItem, StalePrintContractItem,
     SalespersonCommissionItem, CommissionReportResponse,
+    SalespersonCommissionContractsResponse,
     CategoryStatItem, CategoryStatsResponse,
     PositionStatItem, PositionStatsResponse,
     ByPeriodItem, ByPeriodResponse, CategoriesListNode,
@@ -1317,4 +1319,42 @@ async def commissions(
         items=items,
         grand_total_revenue=grand_revenue,
         grand_total_commission=grand_commission,
+    )
+
+
+@router.get(
+    "/commissions/{salesperson_id}/contracts",
+    response_model=SalespersonCommissionContractsResponse,
+)
+async def salesperson_commission_contracts(
+    salesperson_id: int,
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Contract-level commission detail for one active salesperson."""
+    from stats.service import get_salesperson_commission_contracts
+    df, dt = _validate_date_range(date_from, date_to)
+    salesperson = await db.scalar(
+        select(Salesperson).where(
+            Salesperson.id == salesperson_id,
+            Salesperson.is_active == True,
+        )
+    )
+    if salesperson is None:
+        raise HTTPException(status_code=404, detail="Handlowiec nie istnieje")
+    items = await get_salesperson_commission_contracts(
+        db, salesperson_id, df, dt, salesperson=salesperson
+    )
+    return SalespersonCommissionContractsResponse(
+        salesperson_id=salesperson.id,
+        salesperson_name=salesperson.name,
+        date_from=df,
+        date_to=dt,
+        items=items,
+        total_revenue=sum((item["total_revenue"] for item in items), Decimal("0.00")),
+        total_company_cost=sum((item["total_company_cost"] for item in items), Decimal("0.00")),
+        total_earnings=sum((item["earnings"] for item in items), Decimal("0.00")),
+        total_commission=sum((item["commission_amount"] for item in items), Decimal("0.00")),
     )

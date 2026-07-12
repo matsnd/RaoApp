@@ -1802,6 +1802,25 @@ class CommissionReportResponse(BaseModel):
 ```
 **HTTP:** 200 | 401
 
+### `GET /stats/commissions/{salesperson_id}/contracts`
+
+Drill-down umów przypisanych do konkretnego aktywnego handlowca. Parametry
+`date_from` i `date_to` mają tę samą semantykę co `/stats/commissions`
+(przecięcie zakresów umowy; brak `date_to` oznacza dziś).
+
+Response `SalespersonCommissionContractsResponse` zawiera `items` z numerem,
+datami, `total_revenue` (suma kompletnych `cost_client`), `total_company_cost`
+(suma kompletnych `cost_company`), `earnings`/`margin`, stawką i
+`commission_amount`, a także sumy odpowiedzi. Prowizja =
+`(total_revenue - total_company_cost) * rate / 100`.
+Jeżeli umowa nie ma żadnego kompletnego settlementu (oba koszty nie-NULL),
+`fallback_applied=true` i używany jest przychód wyliczony z pozycji umowy;
+niepełne wiersze nie tworzą sztucznej marży. Kompletna marża równa zero nie
+uruchamia fallbacku. Zakres dat jest przecięciem z umową; NULL `date_from` lub
+`date_to` oznacza odpowiednio brak ograniczenia początku lub końca. Nieaktywny
+lub nieistniejący handlowiec daje 404, a brak uwierzytelnienia 401.
+**HTTP:** 200 | 401 | 404
+
 ---
 
 ### `GET /explorer/search` (RAO-P1-028: only non-archival articles)

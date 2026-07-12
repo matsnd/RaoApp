@@ -673,7 +673,20 @@ async def sync_template_with_additional_service(
 - Ustaw additional_service_id i default_price
 - Idempotentne: pomija rekordy z już ustawionym additional_service_id
 
-## 13. Auto-creowanie rozliczeń umowy (RAO-P1-012)
+## 13. Drill-down prowizji handlowca (RAO-P1-123)
+
+Dla każdej umowy handlowca w zakresie dat agreguj kompletne settlementy
+(`cost_client` i `cost_company` nie-NULL). Zarobek firmy to
+`sum(cost_client) - sum(cost_company)`, a prowizja to zarobek × stawka / 100.
+Jeśli nie istnieje żaden kompletny settlement dla umowy, zastosuj fallback
+istniejącego raportu: użyj wyliczonego przychodu z pozycji, oznacz
+`fallback_applied=true`, a koszt firmy i marżę z settlementów pokaż jako zero.
+Częściowy settlement nie może utworzyć marży; obecność kompletnego wiersza
+zawsze wyłącza fallback, także gdy marża wynosi zero. Umowy z NULL
+`date_from`/`date_to` są traktowane jako bez ograniczenia odpowiednio początku
+lub końca przy sprawdzaniu przecięcia zakresów.
+
+## 14. Auto-creowanie rozliczeń umowy (RAO-P1-012)
 
 ```python
 async def auto_create_settlements_for_contract(
