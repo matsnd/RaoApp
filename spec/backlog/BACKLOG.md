@@ -1334,6 +1334,51 @@ related: P1-131 (modale formularzy rezerwacji), shared modal UX
 - [ ] Ustalony zakres dla pickerów i dialogów potwierdzenia
 - [ ] Smoke `01-login.spec.ts` zielony
 
+### P1-133: Rozliczona umowa — poprawić cofanie rozliczenia, zapis telefonów i tooltip przy zapisie
+
+```yaml
+id: P1-133
+status: triaged
+priority: P1
+created: 2026-07-12
+source: client-request (współpraca 2026-07-12)
+component: backend/contracts/service.py + frontend/ContractFormView.vue + backend/tests + e2e/tests
+migration_impact: no
+related: RAO-P2-022 (status rozliczenia umowy), P1-125 (toast po zapisie umowy)
+```
+
+**Opis:** Na rozliczonej umowie kliknięcie przycisku rozliczenia/cofnięcia rozliczenia kończy się błędem:
+`Błąd zmiany statusu rozliczenia: Umowa jest rozliczona — modyfikacja zablokowana. Najpierw cofnij rozliczenie.`
+
+Trzeba poprawić logikę tak, aby rozliczoną umowę można było świadomie **cofnąć z rozliczenia**. Dodatkowo należy sprawdzić, czy wpisanie numerów telefonu i kliknięcie głównego "Zapisz" nie wywołuje tego samego błędu na rozliczonej umowie. Przy zapisie powinien być jasny tooltip informujący, czy zapis jest dozwolony, czy umowę trzeba najpierw cofnąć z rozliczenia.
+
+**Stan obecny:**
+- `backend/contracts/service.py` `settle_contract` (linia 987) wywołuje `verify_contract_access(..., allow_mutation=True)` niezależnie od wartości `is_settled`. Gdy umowa jest już rozliczona, guard z linii 561-562 blokuje również próbę ustawienia `is_settled=False`, czyli cofnięcie rozliczenia.
+- `frontend/src/views/ContractFormView.vue` `toggleSettled` (linia 1724) wysyła `PATCH /contracts/{id}/settle` zarówno dla oznaczenia, jak i cofnięcia, ale backend odrzuca drugą operację. Toast pokazuje błąd zamiast wykonać cofnięcie.
+- Główny przycisk "Zapisz" (linia 12) nie jest blokowany ani opisany tooltipem, gdy `form.is_settled === true`. Próba zapisania zmian, np. numerów `contact_phone1`, `contact_phone2` albo `phone`, może skończyć się backendowym błędem modyfikacji rozliczonej umowy.
+- `update_contract` (linia 964) używa pełnego `verify_contract_access(..., allow_mutation=True)`, więc obecnie nie rozróżnia zmian finansowo/umownie istotnych od zmian kontaktowych/administracyjnych.
+
+**Zadania:**
+1. **Backend** `settle_contract` — rozdzielić autoryzację oznaczenia i cofnięcia: cofnięcie `is_settled=False` powinno być dozwolone dla rozliczonej umowy, a ponowne oznaczenie `is_settled=True` powinno zachować wymagane warunki i blokady. Nie osłabiać blokady edycji pozycji, warunków, opłat ani innych danych wpływających na rozliczenie.
+2. **Backend** `update_contract` — ustalić i wdrożyć regułę dla rozliczonej umowy: albo wszystkie zmiany wymagają wcześniejszego cofnięcia rozliczenia, albo nieszkodliwe dane kontaktowe (`contact_person*`, `contact_phone*`, `phone`, ewentualnie `email`) mogą być zapisywane bez cofania. W obu wariantach komunikat ma być jednoznaczny.
+3. **Frontend** `ContractFormView.vue` — przed zapisem rozliczonej umowy sprawdzić status i nie wysyłać ślepo żądania. Jeśli zapis jest niedozwolony, pokazać tooltip przy przycisku "Zapisz" (np. "Umowa rozliczona — najpierw cofnij rozliczenie") oraz czytelny komunikat/toast.
+4. **Frontend** — przycisk "Cofnij rozliczenie" powinien pozostać aktywny dla rozliczonej umowy, mieć tooltip wyjaśniający działanie i po sukcesie odświeżyć status oraz stan pól formularza.
+5. **Frontend** — sprawdzić scenariusz wpisania numerów telefonu na rozliczonej umowie: nie dopuścić do utraty wpisanych danych po błędzie; po poprawnym cofnięciu rozliczenia umożliwić ponowne zapisanie bez utraty zmian.
+6. **Testy backend** — dodać testy: oznaczenie nie rozliczonej umowy, cofnięcie rozliczonej umowy, ponowne oznaczenie oraz próba niedozwolonej edycji rozliczonej umowy. Osobno przetestować dozwolone pola kontaktowe, jeśli taka reguła zostanie przyjęta.
+7. **E2E** — otworzyć rozliczoną umowę, kliknąć "Cofnij rozliczenie", potwierdzić brak błędu; wpisać numery telefonów; kliknąć "Zapisz" i sprawdzić zachowanie oraz tooltip. Zweryfikować, że zmiany finansowe/pozycje nadal są blokowane zgodnie z regułą.
+8. **Spec sync** — zaktualizować `spec/core/04_business_logic.md`, `spec/core/02_backend_api.md`, `spec/core/03_frontend_screens.md` i `spec/core/25_security.md` jeśli zmieni się zakres mutacji rozliczonej umowy.
+
+**Definition of Done:**
+- [ ] Kliknięcie "Cofnij rozliczenie" na rozliczonej umowie działa bez błędu
+- [ ] Ponowne oznaczenie umowy jako rozliczonej działa zgodnie z regułami
+- [ ] Wpisanie numerów telefonu nie powoduje niejasnego błędu ani utraty danych
+- [ ] Przycisk "Zapisz" ma tooltip opisujący ograniczenie dla rozliczonej umowy
+- [ ] Niedozwolone zmiany na rozliczonej umowie są blokowane przed wysłaniem lub jasnym komunikatem backendu
+- [ ] Dozwolone zmiany kontaktowe (jeśli zaakceptowane) zapisują się poprawnie
+- [ ] Testy backend i E2E pokrywają oba kierunki zmiany statusu
+- [ ] Spec sync wykonany
+- [ ] Smoke `01-login.spec.ts` zielony
+
 ---
 
 ## 🟢 P3 — Nice-to-Have
