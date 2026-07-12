@@ -851,7 +851,7 @@ class ContractListItem(BaseModel):
     contact_phone1: str | None = None
     salesperson_name: str | None # JOIN
     print_date: datetime | None
-    is_print_current: bool       # computed: print_date > updated_at
+    is_print_current: bool       # computed: print_hash == compute_print_hash(contract)
     duration_days: int | None    # computed: DATEDIFF
     is_settled: bool = False
     settled_at: datetime | None = None
@@ -1770,7 +1770,7 @@ class DeliveryTodayItem(BaseModel):
 
 ### `GET /stats/stale-print-contracts`
 
-**Opis:** Umowy edytowane po wydruku (print_date < updated_at), aktywne lub zmodyfikowane w ostatnich 30 dniach.
+**Opis:** Umowy z nieaktualnym wydrukiem (print_hash != compute_print_hash(contract) — zmiana pól wydruku po wydrukowaniu), aktywne lub zmodyfikowane w ostatnich 30 dniach. Zmiany pól nie-wydrukowych (is_settled, settled_at) NIE oznaczają umowy jako stale.
 
 **Response:** `list[StalePrintContractItem]` (id, number, contractor_name, date_from, date_to, print_date, updated_at)
 **HTTP:** 200 | 401
