@@ -1211,6 +1211,53 @@ migration_impact: no
 - [ ] Regresja: "Inne usługi" bez zmian, layout tabeli `table.inne` spójny
 - [ ] Smoke `01-login.spec.ts` zielony
 
+### P1-130: Weryfikacja i naprawa liczenia prowizji od marży (przychód - koszty firmy) w rozliczeniach
+
+```yaml
+id: P1-130
+status: triaged
+priority: P1
+created: 2026-07-12
+source: client-request (współpraca 2026-07-12)
+component: backend/stats/router.py + backend/reports/service.py + backend/stats/schemas.py + frontend/CommissionView.vue + backend/tests
+migration_impact: no
+related: P1-123 (CommissionView drill-down), P1-018 (prowizja od marży)
+```
+
+**Opis:** Prowizja handlowca powinna być liczona od marży, czyli `przychód - koszty firmy` z rozliczeń umowy (`contract_settlements.cost_client - contract_settlements.cost_company`), a nie od samego przychodu. Należy zweryfikować wszystkie miejsca, w których liczona jest prowizja, i ujednolicić formułę. Obecnie endpoint `/stats/commissions` liczy od marży, ale raport PDF `/reports/summary/commissions` oraz frontend mogą pokazywać/mieć ukryte niespójności.
+
+**Stan obecny:**
+- `backend/stats/router.py` `/commissions` (linia 1233) — oblicza `total_margin = sum(cost_client - cost_company)` z `contract_settlements` (RAO-P1-018) i stosuje `commission = margin * rate / 100`. Jeśli brak settlement → fallback do revenue (backward compatibility). Formuła jest poprawna, ale response schema nie eksponuje marży.
+- `backend/reports/service.py` `generate_commissions_pdf` (linia 419-453) — używa `_compute_position_revenues` i liczy `commission = revenue * rate / 100` (linia 453) — **BŁĄD**: nie odejmuje kosztów firmy. Raport PDF jest niespójny z `/stats/commissions`.
+- `backend/stats/schemas.py` `SalespersonCommissionItem` (linia 122-128) — zawiera tylko `total_revenue` i `commission_amount`, brak pola `total_margin`/`base_amount`. Frontend nie może pokazać użytkownikowi, od jakiej kwoty została naliczona prowizja.
+- `frontend/src/views/CommissionView.vue` (linia 42-44) — tabela pokazuje kolumny: "Umów", "Stawka prowizji", "Przychód", "Prowizja". Brak kolumny "Marża"/"Baza prowizji", co jest mylące, bo prowizja może być liczona od marży mniejszej niż przychód.
+- Brak testów jednostkowych weryfikujących formułę prowizji (`backend/tests/`).
+
+**Zadania:**
+1. **Weryfikacja formuły** — potwierdzić, że `margin = sum(cost_client - cost_company)` po `contract_settlements` dla umów w okresie to właściwa baza prowizji. Sprawdzić przypadki brzegowe:
+   - `cost_company` = `0` (koszt firmy zerowy) → marża = przychód
+   - `cost_client` = `cost_company` → marża = 0, prowizja = 0
+   - brak `contract_settlements` dla umowy → fallback do revenue (zgodnie z obecnym kodem) lub pominięcie?
+   - umowa usługi (`U`) ma `cost_client`/`cost_company` w rozliczeniach?
+   - usługi dodatkowe (`service_fee_id IS NOT NULL`) mają koszty firmy?
+2. **Backend** `backend/reports/service.py` `generate_commissions_pdf` — przepisać raport PDF, żeby korzystał z tej samej logiki co `/stats/commissions` (margin z `contract_settlements`, fallback tylko gdy brak danych). Opcjonalnie wyodrębnić wspólną funkcję obliczania prowizji do `shared/commissions.py`.
+3. **Backend** `backend/stats/schemas.py` — dodać do `SalespersonCommissionItem` pole `total_margin: Decimal` (lub `base_amount`) — kwota, od której naliczono prowizję. Uaktualnić `CommissionReportResponse` jeśli potrzeba.
+4. **Backend** `backend/stats/router.py` `/commissions` — uzupełnić response o `total_margin` dla każdego handlowca. Upewnić się, że `commission_amount` jest liczony od `total_margin` (lub `total_revenue` w fallback), a nie od innej wartości.
+5. **Frontend** `frontend/src/views/CommissionView.vue` — dodać kolumnę "Marża" (lub "Baza prowizji") oraz podsumowanie "Łączna marża". Ewentualnie tooltip/legenda wyjaśniająca, że prowizja = marża × stawka. Sprawdzić poprawność `formatCurrency` dla wartości ujemnych (marża ujemna = koszt firmy > przychód).
+6. **E2E / testy jednostkowe** — dodać test `backend/tests/unit/test_commissions.py` (lub rozszerzyć istniejący), który tworzy `ContractSettlement` z `cost_client=1000`, `cost_company=400`, `commission_rate=10%` i oczekuje `commission_amount=60` (nie 100). Test powinien też sprawdzić fallback do revenue gdy brak settlement.
+7. **E2E** — `e2e/tests` (jeśli dotyczy) — zweryfikować raport PDF `/reports/summary/commissions` ma taką samą prowizję jak `/stats/commissions`.
+8. **Spec sync** — `spec/core/04_business_logic.md` (prowizja od marży), `spec/core/02_backend_api.md` (`/stats/commissions` response), `spec/core/03_frontend_screens.md` (CommissionView).
+
+**Definition of Done:**
+- [ ] `/stats/commissions` i `/reports/summary/commissions` zwracają tę samą kwotę prowizji dla tego samego okresu
+- [ ] Prowizja jest liczona od `sum(cost_client - cost_company)` w `contract_settlements`, nie od przychodu
+- [ ] Response `/stats/commissions` zawiera `total_margin` (baza prowizji)
+- [ ] `CommissionView.vue` pokazuje kolumnę "Marża"/"Baza prowizji" oraz sumę
+- [ ] Test jednostkowy weryfikuje `commission = (cost_client - cost_company) * rate`
+- [ ] Raport PDF `/reports/summary/commissions` nie liczy prowizji od `revenue` tylko od marży
+- [ ] Spec sync: `04_business_logic.md`, `02_backend_api.md`, `03_frontend_screens.md`
+- [ ] Smoke `01-login.spec.ts` zielony
+
 ---
 
 ## 🟢 P3 — Nice-to-Have
