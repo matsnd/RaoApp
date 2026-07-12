@@ -664,7 +664,7 @@ migration_impact: no
 
 ```yaml
 id: P1-113
-status: triaged
+status: team-verified
 priority: P1
 created: 2026-07-12
 source: client-request (współpraca 2026-07-12)
@@ -707,7 +707,7 @@ Obecnie tekst jest ręcznym stringiem z wpisanymi kwotami — placeholdery `$1` 
 
 ```yaml
 id: P2-007
-status: triaged
+status: team-verified
 priority: P2
 created: 2026-07-12
 source: client-request (współpraca 2026-07-12)
@@ -864,7 +864,7 @@ migration_impact: no
 
 ```yaml
 id: P1-122
-status: triaged
+status: team-verified
 priority: P1
 created: 2026-07-12
 source: client-request (współpraca 2026-07-12)
@@ -1084,7 +1084,7 @@ related: P1-115 (seed umów U został naprawiony, ale picker UI wciąż pokazuje
 
 ```yaml
 id: P1-127
-status: triaged
+status: team-verified
 priority: P1
 created: 2026-07-12
 source: client-request (współpraca 2026-07-12)

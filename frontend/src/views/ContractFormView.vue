@@ -776,25 +776,35 @@
           </div>
           <div style="max-height:320px;overflow:auto;">
             <table class="data-grid">
-              <thead><tr><th>Nazwa</th><th>Nr rej.</th><th>Marka</th><th>Typ</th><th>Zewnętrzna</th><th>Dostępność</th><th style="width:80px;">Akcje</th></tr></thead>
+              <thead><tr>
+                <th>Nazwa</th>
+                <th v-if="isRental">Nr rej.</th>
+                <th v-if="isRental">Marka</th>
+                <th>Typ</th>
+                <th v-if="isRental">Zewnętrzna</th>
+                <th v-if="isRental">Dostępność</th>
+                <th v-if="isService">Opis</th>
+                <th style="width:80px;">Akcje</th>
+              </tr></thead>
               <tbody>
                 <tr v-if="!articlePickerList.length">
-                  <td colspan="7" class="empty-state">Brak wyników dla "{{ articlePickerSearch }}"</td>
+                  <td :colspan="isRental ? 7 : 4" class="empty-state">Brak wyników dla "{{ articlePickerSearch }}"</td>
                 </tr>
                 <tr v-for="a in articlePickerList" :key="a.id" style="cursor:pointer;">
                   <td @click="selectArticle(a)">{{ a.name }}</td>
-                  <td @click="selectArticle(a)">{{ a.registration_no || '—' }}</td>
-                  <td @click="selectArticle(a)">{{ a.brand || '—' }}</td>
+                  <td v-if="isRental" @click="selectArticle(a)">{{ a.registration_no || '—' }}</td>
+                  <td v-if="isRental" @click="selectArticle(a)">{{ a.brand || '—' }}</td>
                   <td @click="selectArticle(a)"><span :class="['badge', a.is_service ? 'badge-warning' : 'badge-info']">{{ a.is_service ? 'Usługa' : 'Sprzęt' }}</span></td>
-                  <td @click="selectArticle(a)" style="text-align:center;">
+                  <td v-if="isRental" @click="selectArticle(a)" style="text-align:center;">
                     <span v-if="a.is_external" class="badge badge-warning">✓</span>
                     <span v-else class="badge badge-muted">—</span>
                   </td>
-                  <td @click="selectArticle(a)">
+                  <td v-if="isRental" @click="selectArticle(a)">
                     <span v-if="a._avail === true" class="badge badge-success">Wolny</span>
                     <span v-else-if="a._avail === false" class="badge badge-danger">Zajęty</span>
                     <span v-else class="badge badge-muted">—</span>
                   </td>
+                  <td v-if="isService" @click="selectArticle(a)" style="white-space:normal;">{{ a.description || '—' }}</td>
                   <td>
                     <button class="btn-icon" :title="isRental ? 'Duplikuj maszynę' : 'Duplikuj usługę'" @click.stop="duplicateArticle(a)">⧉</button>
                   </td>
@@ -1545,17 +1555,11 @@ onMounted(async () => {
     additionalServiceStore.fetchList({ per_page: 200 }),  // P1-120: combobox opłat
   ])
 
-  const [ctRes, artRes] = await Promise.allSettled([
-    api.get('/contractors', { params: { per_page: 30 } }),
-    isRental.value
-      ? api.get('/machines', { params: { per_page: 50 } })
-      : api.get('/services', { params: { per_page: 50 } }),
-  ])
-  if (ctRes.status === 'fulfilled') pickerList.value = ctRes.value.data.items
-  if (artRes.status === 'fulfilled') {
-    const d = artRes.value.data
-    articlePickerList.value = Array.isArray(d) ? d : (d.items ?? [])
-  }
+  // P1-126: contractors first (independent of contract_type)
+  try {
+    const { data: ctData } = await api.get('/contractors', { params: { per_page: 30 } })
+    pickerList.value = ctData.items
+  } catch { /* ignore */ }
 
   const contractorIdFromQuery = route.query.contractor_id
   if (contractorIdFromQuery) {
@@ -1590,6 +1594,24 @@ onMounted(async () => {
     } finally {
       loading.value = false
     }
+  }
+
+  // P1-126: load articlePickerList AFTER contract_type is set (from edit data)
+  // so that U contracts load /services, not /machines.
+  await loadArticlePickerList()
+})
+
+// P1-126: when contract_type changes, refresh articlePickerList to match isRental
+watch(() => form.value.contract_type, () => {
+  articlePickerSearch.value = ''
+  loadArticlePickerList()
+})
+
+// P1-126: always refresh picker list when opening it, per current isRental
+watch(showArticlePicker, (open) => {
+  if (open) {
+    articlePickerSearch.value = ''
+    loadArticlePickerList()
   }
 })
 
@@ -2365,6 +2387,10 @@ function onFeeServicePickById(id: number | null, target: any) {
   if (svc.default_amount != null) {
     target.amount_from = Number(svc.default_amount)
   }
+  // P1-127: ustaw description z additional_service (z $1/$2 placeholderami jeśli obecne)
+  if (svc.description) {
+    target.description = svc.description
+  }
 }
 
 function startEditFee(fee) {
@@ -2962,6 +2988,27 @@ async function applyHardcodedFeePreset(kind: 'diesel' | 'elektryk') {
 }
 .fee-pdf-preview {
   margin-top: 8px;
+  padding: var(--spacing-2) var(--spacing-3);
+  background: var(--color-bg-light);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+.fee-pdf-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+}
+.fee-pdf-list {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-body);
+  line-height: 1.5;
+}
+.fee-pdf-line {
+  margin-bottom: 2px;
+}
+</style>
   padding: var(--spacing-2) var(--spacing-3);
   background: var(--color-bg-light);
   border: 1px solid var(--color-border);

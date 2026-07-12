@@ -647,6 +647,64 @@ async def startup_migrations():
             await conn.execute(sa.text("DROP TABLE IF EXISTS service_fee_template_items"))
         except Exception:
             pass
+
+        # P1-127: Migracja service_fee_templates — zastąp sztywne kwoty w description placeholderami $1/$2
+        # Patterns: "1 200,00 zł dostawa / 1 200,00 zł odbiór" → "$1 dostawa / $2 odbiór"
+        #           "150,00 zł" → "$1", "200,00 zł / h - 300,00 zł / h" → "$1 / h - $2 / h"
+        try:
+            # Transport: "X zł dostawa / Y zł odbiór" → "$1 dostawa / $2 odbiór"
+            await conn.execute(sa.text(
+                "UPDATE service_fee_templates SET description = '$1 dostawa / $2 odbiór' "
+                "WHERE description LIKE '%,00 zł dostawa / %,00 zł odbiór'"
+            ))
+            # Przestój: "X zł / h - Y zł / h" → "$1 / h - $2 / h"
+            await conn.execute(sa.text(
+                "UPDATE service_fee_templates SET description = '$1 / h - $2 / h' "
+                "WHERE description LIKE '%,00 zł / h - %,00 zł / h'"
+            ))
+            # Single amount: "X zł (plus ...)" → "$1 (plus ...)"
+            await conn.execute(sa.text(
+                "UPDATE service_fee_templates SET description = "
+                "CONCAT('$1', SUBSTRING(description, LOCATE(' (', description))) "
+                "WHERE description LIKE '%,00 zł (%' AND description NOT LIKE '%$%'"
+            ))
+            # Single amount only: "X zł" → "$1" (where amount_from is not null and no other text)
+            await conn.execute(sa.text(
+                "UPDATE service_fee_templates SET description = '$1' "
+                "WHERE description REGEXP '^[0-9 ]+,00 zł$' AND amount_from IS NOT NULL"
+            ))
+        except Exception:
+            pass
+
+        # P1-127: Ustaw description w additional_services z $1/$2 placeholderami
+        try:
+            await conn.execute(sa.text(
+                "UPDATE additional_services SET description = '$1 dostawa / $2 odbiór' "
+                "WHERE name = 'Transport' AND (description IS NULL OR description NOT LIKE '%$%')"
+            ))
+            await conn.execute(sa.text(
+                "UPDATE additional_services SET description = '$1 (plus koszt paliwa)' "
+                "WHERE name = 'Usługa tankowania' AND (description IS NULL OR description NOT LIKE '%$%')"
+            ))
+            await conn.execute(sa.text(
+                "UPDATE additional_services SET description = '$1 / h - $2 / h' "
+                "WHERE name = 'Ponadnormatywny przestój transportu' AND (description IS NULL OR description NOT LIKE '%$%')"
+            ))
+            await conn.execute(sa.text(
+                "UPDATE additional_services SET description = '$1 (plus transport)' "
+                "WHERE name = 'Nieuzasadnione wezwanie serwisowe' AND (description IS NULL OR description NOT LIKE '%$%')"
+            ))
+            await conn.execute(sa.text(
+                "UPDATE additional_services SET description = '$1' "
+                "WHERE name IN ('Przegląd techniczny i czyszczenie maszyny', "
+                "'Przegląd techniczny i czyszczenie maszyny Diesel', "
+                "'Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny', "
+                "'Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny Elektryk') "
+                "AND (description IS NULL OR description NOT LIKE '%$%')"
+            ))
+        except Exception:
+            pass
+
         # RAO-P1-012: contract_settlements - rozliczenia umów (koszty klient vs firma)
         await conn.execute(sa.text("""
             CREATE TABLE IF NOT EXISTS contract_settlements (
