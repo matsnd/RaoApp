@@ -8,6 +8,7 @@ import AnalyticsFilters, {
 } from '@/components/analytics/AnalyticsFilters.vue'
 import DrillDownDrawer from '@/components/analytics/DrillDownDrawer.vue'
 import LiveFleetTab from '@/components/analytics/tabs/LiveFleetTab.vue'
+import CategoriesTab from '@/components/analytics/tabs/CategoriesTab.vue'
 import PeriodRentalTab from '@/components/analytics/tabs/PeriodRentalTab.vue'
 import LocationsTab from '@/components/analytics/tabs/LocationsTab.vue'
 import MachinesTab from '@/components/analytics/tabs/MachinesTab.vue'
@@ -19,14 +20,15 @@ const contractorsStore = useContractorStore()
 
 const tabs: AnalyticsTab[] = [
   { key: 'live', label: 'Flota teraz', icon: '🚜' },
+  { key: 'categories', label: 'Kategorie', icon: '🗂️' },
   { key: 'machines', label: 'Maszyny', icon: '🏗️' },
-  { key: 'services-u', label: 'Usługi zwykłe', icon: '�' },
-  { key: 'services-s', label: 'Usługi dodatkowe', icon: '�' },
-  { key: 'locations', label: 'Lokalizacje', icon: '�' },
-  { key: 'period', label: 'Rankingi wynajmu', icon: '�' },
+  { key: 'services-u', label: 'Usługi zwykłe', icon: '🔧' },
+  { key: 'services-s', label: 'Usługi dodatkowe', icon: '🧰' },
+  { key: 'locations', label: 'Lokalizacje', icon: '📍' },
+  { key: 'period', label: 'Rankingi wynajmu', icon: '📈' },
 ]
 
-const activeTab = ref<'live' | 'machines' | 'services-s' | 'services-u' | 'period' | 'locations'>('live')
+const activeTab = ref<'live' | 'categories' | 'machines' | 'services-s' | 'services-u' | 'period' | 'locations'>('live')
 
 const today = computed(() =>
   new Date().toLocaleDateString('pl-PL', {
@@ -180,6 +182,18 @@ onMounted(async () => {
     <!-- AKTYWNA TABA -->
     <div class="av-tab-content">
       <LiveFleetTab v-if="activeTab === 'live'" />
+      <CategoriesTab
+        v-else-if="activeTab === 'categories'"
+        :date-from="filters.dateFrom"
+        :date-to="filters.dateTo"
+        :filters="{
+          dateFrom: filters.dateFrom,
+          dateTo: filters.dateTo,
+          contractorId: filters.contractorId,
+          city: filters.city,
+          articleType: filters.articleType,
+        }"
+      />
       <PeriodRentalTab
         v-else-if="activeTab === 'period'"
         :date-from="filters.dateFrom"
