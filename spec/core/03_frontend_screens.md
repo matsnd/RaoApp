@@ -1911,13 +1911,14 @@ Następca: patrz sekcja `AnalyticsView.vue` poniżej.
 ├──────────────────────────────────────────────────────┤
 │ [search...] ☐ Archiwalne                              │
 ├──────────────────────────────────────────────────────┤
-│ DataGrid: Nazwa | Kwota domyślna | Opis | Archiwalny │
+│ DataGrid: Nazwa                                        │
 ├──────────────────────────────────────────────────────┤
 │ Empty: "Brak usług dodatkowych — [+ Nowa]"            │
 └──────────────────────────────────────────────────────┘
 ```
 
-**Kolumny DataGrid:** Nazwa (sortable), Kwota domyślna (currency), Opis, Archiwalny (badge)
+**Kolumny DataGrid:** Nazwa (sortable)
+**P2-005 (2026-07-12):** Usunięto kolumny "Nr wew." i "Kategoria" (backend nie ma `category_id`/`branch_id` w `additional_services`). Tylko Nazwa.
 
 **Akcje:**
 - `[+]` → `router.push({ name: 'AdditionalServiceNew' })`
