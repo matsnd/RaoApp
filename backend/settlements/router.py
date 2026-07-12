@@ -208,7 +208,8 @@ async def init_contract_settlements_from_fakturownia(
                 # bez position_id (snapshot nazwy w article_name_snapshot).
                 # NIE tworzymy maszyny on-the-fly — tylko snapshot nazwy.
                 # Idempotentność: UNIQUE(unmapped_key) chroni przed duplikatem.
-                if pid is not None and pid != 0:
+                # BUG FIX: pomiń PIDy zmapowane jako service_fee (pętla 2 je obsłuży)
+                if pid is not None and pid != 0 and pid not in mapped_pids:
                     existing = await db.execute(
                         select(ContractSettlement).where(
                             ContractSettlement.contract_id == contract_id,
@@ -283,7 +284,8 @@ async def init_contract_settlements_from_fakturownia(
                 # pozycji powyżej — UNIQUE(unmapped_key) chroni przed duplikatem
                 # (klucz = unmapped:pid:invoice_number, identyczny niezależnie od
                 # tego, w której pętli próbujemy dodać).
-                if pid is not None and pid != 0:
+                # BUG FIX: pomiń PIDy zmapowane jako position (pętla 1 je obsłużyła)
+                if pid is not None and pid != 0 and pid not in mapped_pids:
                     existing = await db.execute(
                         select(ContractSettlement).where(
                             ContractSettlement.contract_id == contract_id,
@@ -331,19 +333,38 @@ async def init_contract_settlements_from_fakturownia(
                     existing_settlement.fakturownia_invoice_number = line.invoice_number
                     existing_settlement.updated_at = datetime.utcnow()
                 else:
-                    # Utwórz nowe
-                    settlement = ContractSettlement(
-                        contract_id=contract_id,
-                        position_id=None,
-                        service_fee_id=service_fee_id,
-                        cost_client=cost_client,
-                        cost_company=None,
-                        source="fakturownia",
-                        settled_at=invoice.issue_date,
-                        fakturownia_invoice_number=line.invoice_number,
-                        notes=f"Pobrano z faktury {line.invoice_number}"
+                    # BUG FIX self-healing: konwertuj istniejące unmapped settlement
+                    # (stworzone wcześniej z błędnym mappingiem) na mapped service_fee.
+                    unmapped = await db.execute(
+                        select(ContractSettlement).where(
+                            ContractSettlement.contract_id == contract_id,
+                            ContractSettlement.position_id.is_(None),
+                            ContractSettlement.service_fee_id.is_(None),
+                            ContractSettlement.fakturownia_product_id == pid,
+                            ContractSettlement.fakturownia_invoice_number == line.invoice_number,
+                        )
                     )
-                    db.add(settlement)
+                    unmapped_row = unmapped.scalar_one_or_none()
+                    if unmapped_row:
+                        unmapped_row.service_fee_id = service_fee_id
+                        unmapped_row.source = "fakturownia"
+                        unmapped_row.article_name_snapshot = None
+                        unmapped_row.notes = f"Pobrano z faktury {line.invoice_number}"
+                        unmapped_row.updated_at = datetime.utcnow()
+                    else:
+                        # Utwórz nowe
+                        settlement = ContractSettlement(
+                            contract_id=contract_id,
+                            position_id=None,
+                            service_fee_id=service_fee_id,
+                            cost_client=cost_client,
+                            cost_company=None,
+                            source="fakturownia",
+                            settled_at=invoice.issue_date,
+                            fakturownia_invoice_number=line.invoice_number,
+                            notes=f"Pobrano z faktury {line.invoice_number}"
+                        )
+                        db.add(settlement)
     
     await db.commit()
     return await service.get_settlements_by_contract(db, contract_id)

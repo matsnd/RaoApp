@@ -156,43 +156,36 @@ MASZYNY = [
 USLUGI = [
     {
         "name": "Transport",
-        "display_name": "Transport",
         "default_amount": Decimal("1200.00"),
         "fakturownia_product_id": 8845156432587,  # TRA001
     },
     {
-        "name": "Czyszczenie",
-        "display_name": "Czyszczenie maszyny (zabrudzenia ponadnormatywne)",
+        "name": "Czyszczenie maszyny (zabrudzenia ponadnormatywne)",
         "default_amount": Decimal("0.00"),
         "fakturownia_product_id": 8845156432589,  # CZY001
     },
     {
-        "name": "Tankowanie",
-        "display_name": "Usługa tankowania",
+        "name": "Usługa tankowania",
         "default_amount": Decimal("200.00"),
         "fakturownia_product_id": 8845156432620,  # TAN001
     },
     {
-        "name": "Przestój",
-        "display_name": "Ponadnormatywny przestój transportu",
+        "name": "Ponadnormatywny przestój transportu",
         "default_amount": Decimal("250.00"),
         "fakturownia_product_id": 8845156436449,  # PZT001
     },
     {
-        "name": "Serwis",
-        "display_name": "Nieuzasadnione wezwanie serwisowe",
+        "name": "Nieuzasadnione wezwanie serwisowe",
         "default_amount": Decimal("280.00"),
         "fakturownia_product_id": 8845156436450,  # SER001
     },
     {
-        "name": "Przegląd Diesel",
-        "display_name": "Przegląd techniczny i czyszczenie maszyny",
+        "name": "Przegląd techniczny i czyszczenie maszyny",
         "default_amount": Decimal("150.00"),
         "fakturownia_product_id": 8845156436451,  # DIE001
     },
     {
-        "name": "Przegląd Elektryk",
-        "display_name": "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny",
+        "name": "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny",
         "default_amount": Decimal("35.00"),
         "fakturownia_product_id": 8845156436452,  # ELE001
     },
@@ -635,45 +628,44 @@ def _build_positions_and_fees(i, days, maszyny, uslugi, rt_dniowy, contract_type
     # na umowie i PDF. $1 = kwota od, $2 = kwota do (jeśli brak → puste).
     DEMO_FEE_DESCRIPTION = {
         "Transport": "$1 dostawa / $2 odbiór",
-        "Czyszczenie": "wycena indywidualna",
-        "Tankowanie": "$1 (plus koszt paliwa)",
-        "Przestój": "$1 / h - $2 / h",
-        "Serwis": "$1 (plus transport)",
-        "Przegląd Diesel": "$1",
-        "Przegląd Elektryk": "$1",
+        "Czyszczenie maszyny (zabrudzenia ponadnormatywne)": "wycena indywidualna",
+        "Usługa tankowania": "$1 (plus koszt paliwa)",
+        "Ponadnormatywny przestój transportu": "$1 / h - $2 / h",
+        "Nieuzasadnione wezwanie serwisowe": "$1 (plus transport)",
+        "Przegląd techniczny i czyszczenie maszyny": "$1",
+        "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny": "$1",
     }
     fees = []
     # P1-120: Umowy najmu (S) = pełny zestaw 6 opłat (jak z uwag klienta)
     # Umowy usługi (U) = brak opłat dodatkowych
     if contract_type == "S":
-        # Dict po name dla łatwego wyszukiwania
+        # Dict po name dla łatwego wyszukiwania (name = pełna nazwa)
         svc_by_name = {u.name: u for u in uslugi}
         # Wybierz przegląd na podstawie power_type maszyny (diesel/elektryk)
         maszyna = maszyny[i % len(maszyny)]
         power_type = getattr(maszyna, 'power_type', 'diesel') or 'diesel'
-        przeglad_name = "Przegląd Diesel" if power_type == 'diesel' else "Przegląd Elektryk"
+        przeglad_name = "Przegląd techniczny i czyszczenie maszyny" if power_type == 'diesel' else "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny"
 
         # Pełna lista 6 opłat — kolejność jak z uwag klienta
         fee_specs = [
-            ("Transport",       Decimal("1200.00"), Decimal("1200.00")),  # dostawa/odbiór
-            (przeglad_name,     None,               None),                # przegląd
-            ("Czyszczenie",     None,               None),                # wycena indywidualna
-            ("Tankowanie",      Decimal("200.00"),  None),                # +koszt paliwa
-            ("Przestój",        Decimal("200.00"),  Decimal("300.00")),   # widełki /h
-            ("Serwis",          Decimal("280.00"),  None),                # +transport
+            ("Transport",                                       Decimal("1200.00"), Decimal("1200.00")),  # dostawa/odbiór
+            (przeglad_name,                                     None,               None),                # przegląd
+            ("Czyszczenie maszyny (zabrudzenia ponadnormatywne)", None,             None),                # wycena indywidualna
+            ("Usługa tankowania",                               Decimal("200.00"),  None),                # +koszt paliwa
+            ("Ponadnormatywny przestój transportu",             Decimal("200.00"),  Decimal("300.00")),   # widełki /h
+            ("Nieuzasadnione wezwanie serwisowe",               Decimal("280.00"),  None),                # +transport
         ]
         for name, amt_from, amt_to in fee_specs:
             usluga = svc_by_name.get(name)
             if not usluga:
                 continue
             fee_desc = DEMO_FEE_DESCRIPTION.get(usluga.name)
-            display_name = usluga.display_name if hasattr(usluga, 'display_name') and usluga.display_name else usluga.name
             # Dla przeglądu użyj default_amount z additional_services (150 dla Diesel, 35 dla Elektryk)
-            if name.startswith("Przegląd"):
+            if "Przegląd" in name:
                 amt_from = usluga.default_amount
             fees.append({
                 "additional_service_id": usluga.id,
-                "name": display_name,
+                "name": usluga.name,  # pełna nazwa
                 "amount_from": amt_from,
                 "amount_to": amt_to,
                 "unit": "szt" if name == "Transport" else "kpl",
@@ -811,11 +803,11 @@ ZESTAWY_USLUG = [
         "description": "Pełny zestaw opłat Diesel: transport + przegląd + czyszczenie + tankowanie + przestój + serwis",
         "templates": [
             {"article": "Transport", "name": "Transport", "amount_from": Decimal("1200.00"), "amount_to": Decimal("1200.00"), "unit": "dostawa", "description": "$1 dostawa / $2 odbiór"},
-            {"article": "Przegląd Diesel", "name": "Przegląd techniczny i czyszczenie maszyny", "amount_from": Decimal("150.00"), "amount_to": None, "unit": "sztuka", "description": "$1"},
-            {"article": "Czyszczenie", "name": "Czyszczenie maszyny (zabrudzenia ponadnormatywne)", "amount_from": None, "amount_to": None, "unit": None, "description": "wycena indywidualna"},
-            {"article": "Tankowanie", "name": "Usługa tankowania", "amount_from": Decimal("200.00"), "amount_to": None, "unit": "tankowanie", "description": "$1 (plus koszt paliwa)"},
-            {"article": "Przestój", "name": "Ponadnormatywny przestój transportu", "amount_from": Decimal("200.00"), "amount_to": Decimal("300.00"), "unit": "h", "description": "$1 / h - $2 / h"},
-            {"article": "Serwis", "name": "Nieuzasadnione wezwanie serwisowe", "amount_from": Decimal("280.00"), "amount_to": None, "unit": "wizyta", "description": "$1 (plus transport)"},
+            {"article": "Przegląd techniczny i czyszczenie maszyny", "name": "Przegląd techniczny i czyszczenie maszyny", "amount_from": Decimal("150.00"), "amount_to": None, "unit": "sztuka", "description": "$1"},
+            {"article": "Czyszczenie maszyny (zabrudzenia ponadnormatywne)", "name": "Czyszczenie maszyny (zabrudzenia ponadnormatywne)", "amount_from": None, "amount_to": None, "unit": None, "description": "wycena indywidualna"},
+            {"article": "Usługa tankowania", "name": "Usługa tankowania", "amount_from": Decimal("200.00"), "amount_to": None, "unit": "tankowanie", "description": "$1 (plus koszt paliwa)"},
+            {"article": "Ponadnormatywny przestój transportu", "name": "Ponadnormatywny przestój transportu", "amount_from": Decimal("200.00"), "amount_to": Decimal("300.00"), "unit": "h", "description": "$1 / h - $2 / h"},
+            {"article": "Nieuzasadnione wezwanie serwisowe", "name": "Nieuzasadnione wezwanie serwisowe", "amount_from": Decimal("280.00"), "amount_to": None, "unit": "wizyta", "description": "$1 (plus transport)"},
         ],
     },
     {
@@ -825,11 +817,11 @@ ZESTAWY_USLUG = [
         "description": "Pełny zestaw opłat Elektryk: transport + przegląd + czyszczenie + tankowanie + przestój + serwis",
         "templates": [
             {"article": "Transport", "name": "Transport", "amount_from": Decimal("1200.00"), "amount_to": Decimal("1200.00"), "unit": "dostawa", "description": "$1 dostawa / $2 odbiór"},
-            {"article": "Przegląd Elektryk", "name": "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny", "amount_from": Decimal("35.00"), "amount_to": None, "unit": "sztuka", "description": "$1"},
-            {"article": "Czyszczenie", "name": "Czyszczenie maszyny (zabrudzenia ponadnormatywne)", "amount_from": None, "amount_to": None, "unit": None, "description": "wycena indywidualna"},
-            {"article": "Tankowanie", "name": "Usługa tankowania", "amount_from": Decimal("200.00"), "amount_to": None, "unit": "tankowanie", "description": "$1 (plus koszt paliwa)"},
-            {"article": "Przestój", "name": "Ponadnormatywny przestój transportu", "amount_from": Decimal("200.00"), "amount_to": Decimal("300.00"), "unit": "h", "description": "$1 / h - $2 / h"},
-            {"article": "Serwis", "name": "Nieuzasadnione wezwanie serwisowe", "amount_from": Decimal("280.00"), "amount_to": None, "unit": "wizyta", "description": "$1 (plus transport)"},
+            {"article": "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny", "name": "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny", "amount_from": Decimal("35.00"), "amount_to": None, "unit": "sztuka", "description": "$1"},
+            {"article": "Czyszczenie maszyny (zabrudzenia ponadnormatywne)", "name": "Czyszczenie maszyny (zabrudzenia ponadnormatywne)", "amount_from": None, "amount_to": None, "unit": None, "description": "wycena indywidualna"},
+            {"article": "Usługa tankowania", "name": "Usługa tankowania", "amount_from": Decimal("200.00"), "amount_to": None, "unit": "tankowanie", "description": "$1 (plus koszt paliwa)"},
+            {"article": "Ponadnormatywny przestój transportu", "name": "Ponadnormatywny przestój transportu", "amount_from": Decimal("200.00"), "amount_to": Decimal("300.00"), "unit": "h", "description": "$1 / h - $2 / h"},
+            {"article": "Nieuzasadnione wezwanie serwisowe", "name": "Nieuzasadnione wezwanie serwisowe", "amount_from": Decimal("280.00"), "amount_to": None, "unit": "wizyta", "description": "$1 (plus transport)"},
         ],
     },
 ]

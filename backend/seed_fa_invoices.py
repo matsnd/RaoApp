@@ -237,6 +237,61 @@ async def ensure_fa_products(client, db):
                 err_body = e.response.text[:200]
             print(f"  [product] FAIL '{name}' old_fa={old_fa_id}: {e} | {err_body}")
     print(f"[ensure_fa_products] gotowe: {len(old_to_new)} mapowań, {created} utworzonych")
+
+    # Sync additional_services (usługi dodatkowe) — analogicznie jak machines
+    from additional_services.models import AdditionalService
+    result = await db.execute(text(
+        "SELECT id, name, fakturownia_product_id, default_amount "
+        "FROM additional_services WHERE fakturownia_product_id IS NOT NULL ORDER BY id"
+    ))
+    addsvcs = result.fetchall()
+    print(f"\n[ensure_fa_products] {len(addsvcs)} usług dodatkowych z mapowaniem FA do synchronizacji")
+    for svc_id, name, old_fa_id, default_amount in addsvcs:
+        old_fa_id = int(old_fa_id)
+        try:
+            resp = await client.get(
+                f"{FA_BASE}/products/{old_fa_id}.json",
+                params={"api_token": FA_TOKEN},
+                timeout=15.0,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                new_fa_id = int(data["id"])
+                old_to_new[old_fa_id] = new_fa_id
+                print(f"  [product] EXISTS '{name}' FA ID={old_fa_id}")
+                continue
+        except Exception:
+            pass
+
+        price_net = float(default_amount) if default_amount else 100.00
+        body = {
+            "api_token": FA_TOKEN,
+            "product": {
+                "name": name,
+                "price_net": price_net,
+                "tax": 23,
+                "code": f"ADDSVC-{svc_id}",
+            },
+        }
+        try:
+            resp = await client.post(f"{FA_BASE}/products.json", json=body, timeout=20.0)
+            resp.raise_for_status()
+            data = resp.json()
+            new_fa_id = int(data["id"])
+            old_to_new[old_fa_id] = new_fa_id
+            await db.execute(text(
+                "UPDATE additional_services SET fakturownia_product_id = :new_id WHERE id = :svc_id"
+            ), {"new_id": new_fa_id, "svc_id": svc_id})
+            await db.commit()
+            created += 1
+            print(f"  [product] CREATED '{name}' old_fa={old_fa_id} -> new_fa={new_fa_id}")
+        except Exception as e:
+            err_body = ""
+            if hasattr(e, "response") and e.response is not None:
+                err_body = e.response.text[:200]
+            print(f"  [product] FAIL '{name}' old_fa={old_fa_id}: {e} | {err_body}")
+    print(f"[ensure_fa_products] usługi dodatkowe gotowe")
+
     return old_to_new
 
 
@@ -247,6 +302,24 @@ async def get_machine_fa_product_map(db):
     for row in result:
         art_map[row[0]] = {"fa_product_id": row[1], "name": row[2]}
     return art_map
+
+
+async def get_service_fee_fa_product_map(db):
+    """Mapowanie service_fee_id -> FA product_id (via additional_services.fakturownia_product_id)."""
+    from contracts.models import ContractServiceFee
+    from additional_services.models import AdditionalService
+    result = await db.execute(
+        select(
+            ContractServiceFee.id,
+            AdditionalService.fakturownia_product_id,
+            ContractServiceFee.name,
+        )
+        .join(AdditionalService, AdditionalService.id == ContractServiceFee.additional_service_id)
+    )
+    fee_map = {}
+    for row in result:
+        fee_map[row[0]] = {"fa_product_id": row[1], "name": row[2]}
+    return fee_map
 
 
 async def get_contracts_with_fa_settlements(db):
@@ -499,7 +572,7 @@ async def _append_demo_unmapped_position(client, db, contract_data, positions):
     return positions
 
 
-async def create_fa_invoice(client, contract_data, art_map, db=None, nip_to_fa_client=None):
+async def create_fa_invoice(client, contract_data, art_map, fee_map=None, db=None, nip_to_fa_client=None):
     """Tworzy fakturę w FA dla jednej umowy."""
     nip = contract_data["contractor_nip"]
     fa_client_id = (nip_to_fa_client or {}).get(nip)
@@ -512,9 +585,16 @@ async def create_fa_invoice(client, contract_data, art_map, db=None, nip_to_fa_c
     for s in contract_data["settlements"]:
         # Ustal machine_id i nazwę
         machine_id = s.get("pos_machine_id")
+        service_fee_id = s.get("service_fee_id")
         article_name = s["pos_article_name"] or s["fee_name"]
         art_info = art_map.get(machine_id, {})
         fa_product_id = art_info.get("fa_product_id")
+
+        # BUG FIX: dla usług dodatkowych użyj fee_map (service_fee_id → additional_service.fakturownia_product_id)
+        # Bez tego FA tworzy nowy produkt z nowym ID → init-from-fakturownia nie mapuje
+        if not fa_product_id and service_fee_id and fee_map:
+            fee_info = fee_map.get(service_fee_id, {})
+            fa_product_id = fee_info.get("fa_product_id")
 
         price_net = s["cost_client"] / 1.23  # netto z brutto (23% VAT)
         quantity = 1
@@ -624,7 +704,9 @@ async def main():
             await ensure_fa_products(client, db)
             # Odśwież art_map po aktualizacji machines.fakturownia_product_id
             art_map = await get_machine_fa_product_map(db)
+            fee_map = await get_service_fee_fa_product_map(db)
             print(f"\nMaszyny z mapowaniem FA (po sync): {len(art_map)}")
+            print(f"Usługi dodatkowe z mapowaniem FA: {len(fee_map)}")
 
             # ── Część 1: umowy rozliczone source=fakturownia (backfill invoice_id) ──
             contracts = await get_contracts_with_fa_settlements(db)
@@ -641,7 +723,7 @@ async def main():
                     continue
 
                 inv_id = await create_fa_invoice(
-                    client, cd, art_map, db=db, nip_to_fa_client=nip_to_fa_client
+                    client, cd, art_map, fee_map=fee_map, db=db, nip_to_fa_client=nip_to_fa_client
                 )
                 if inv_id:
                     await update_settlements_with_invoice_id(db, cd["contract_id"], inv_id)
@@ -666,7 +748,7 @@ async def main():
                     continue
 
                 inv_id = await create_fa_invoice(
-                    client, cd, art_map, db=db, nip_to_fa_client=nip_to_fa_client
+                    client, cd, art_map, fee_map=fee_map, db=db, nip_to_fa_client=nip_to_fa_client
                 )
                 if inv_id:
                     print(f"  READY: faktura czeka w FA — demo 'Pobierz z Fakturowni' dla {cd['contract_number']}")

@@ -117,15 +117,15 @@ async def startup_migrations():
 
         now = datetime.utcnow()
 
-        # Additional services used by KISS presets
+        # Additional services used by KISS presets — pełne nazwy (name = display_name)
         ADDITIONAL_SERVICES = {
             "Transport": None,
-            "Przegląd Diesel": None,
-            "Przegląd Elektryk": None,
-            "Czyszczenie": None,
-            "Tankowanie": None,
-            "Przestój": None,
-            "Serwis": None,
+            "Przegląd techniczny i czyszczenie maszyny": None,
+            "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny": None,
+            "Czyszczenie maszyny (zabrudzenia ponadnormatywne)": None,
+            "Usługa tankowania": None,
+            "Ponadnormatywny przestój transportu": None,
+            "Nieuzasadnione wezwanie serwisowe": None,
         }
         for art_name in ADDITIONAL_SERVICES:
             result = await db.execute(
@@ -145,21 +145,21 @@ async def startup_migrations():
         # Common Wspólny fees (name, description, article_name, amount_from, amount_to, unit)
         WSPOLNY_FEES = [
             ("Transport", "1 200,00 zł dostawa / 1 200,00 zł odbiór", "Transport", Decimal("1200.00"), Decimal("1200.00"), "dostawa"),
-            ("Czyszczenie maszyny (zabrudzenia ponadnormatywne)", "wycena indywidualna", "Czyszczenie", None, None, None),
-            ("Usługa tankowania", "200,00 zł (plus koszt paliwa)", "Tankowanie", Decimal("200.00"), None, "tankowanie"),
-            ("Ponadnormatywny przestój transportu", "200,00 zł / h - 300,00 zł / h", "Przestój", Decimal("200.00"), Decimal("300.00"), "h"),
-            ("Nieuzasadnione wezwanie serwisowe", "280,00 zł (plus transport)", "Serwis", Decimal("280.00"), None, "wizyta"),
+            ("Czyszczenie maszyny (zabrudzenia ponadnormatywne)", "wycena indywidualna", "Czyszczenie maszyny (zabrudzenia ponadnormatywne)", None, None, None),
+            ("Usługa tankowania", "200,00 zł (plus koszt paliwa)", "Usługa tankowania", Decimal("200.00"), None, "tankowanie"),
+            ("Ponadnormatywny przestój transportu", "200,00 zł / h - 300,00 zł / h", "Ponadnormatywny przestój transportu", Decimal("200.00"), Decimal("300.00"), "h"),
+            ("Nieuzasadnione wezwanie serwisowe", "280,00 zł (plus transport)", "Nieuzasadnione wezwanie serwisowe", Decimal("280.00"), None, "wizyta"),
         ]
 
         PRESETS = [
             ("Najem — Wspólny", "S", True, "Wspólny zestaw usług dla umów najmu", WSPOLNY_FEES),
             ("Najem — Diesel", "S", False, "Wspólny + przegląd maszyny diesla 150,00 zł", [
                 ("Transport", "1 200,00 zł dostawa / 1 200,00 zł odbiór", "Transport", Decimal("1200.00"), Decimal("1200.00"), "dostawa"),
-                ("Przegląd techniczny i czyszczenie maszyny", "150,00 zł", "Przegląd Diesel", Decimal("150.00"), None, "sztuka"),
+                ("Przegląd techniczny i czyszczenie maszyny", "150,00 zł", "Przegląd techniczny i czyszczenie maszyny", Decimal("150.00"), None, "sztuka"),
             ] + list(WSPOLNY_FEES[1:])),
             ("Najem — Elektryk", "S", False, "Wspólny + przegląd maszyny elektrycznej 90,00 zł", [
                 ("Transport", "1 200,00 zł dostawa / 1 200,00 zł odbiór", "Transport", Decimal("1200.00"), Decimal("1200.00"), "dostawa"),
-                ("Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny", "90,00 zł", "Przegląd Elektryk", Decimal("90.00"), None, "sztuka"),
+                ("Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny", "90,00 zł", "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny", Decimal("90.00"), None, "sztuka"),
             ] + list(WSPOLNY_FEES[1:])),
             ("Usługa — Wspólny", "U", True, "Wspólny zestaw usług dla umów usługowych", WSPOLNY_FEES),
         ]
@@ -562,27 +562,8 @@ async def startup_migrations():
             "ON contract_service_fees(additional_service_id)"
         ))
 
-        # P1-120: Backfill display_name na istniejących additional_services (deterministyczne mappingi)
-        # Klucz: name → display_name. Idempotentne — UPDATE tylko gdy display_name IS NULL.
-        await conn.execute(sa.text(
-            "UPDATE additional_services SET display_name = CASE"
-            " WHEN name = 'Transport' THEN 'Transport'"
-            " WHEN name = 'Czyszczenie' THEN 'Czyszczenie maszyny (zabrudzenia ponadnormatywne)'"
-            " WHEN name = 'Tankowanie' THEN 'Usługa tankowania'"
-            " WHEN name = 'Przestój' THEN 'Ponadnormatywny przestój transportu'"
-            " WHEN name = 'Serwis' THEN 'Nieuzasadnione wezwanie serwisowe'"
-            " WHEN name = 'Przegląd Diesel' THEN 'Przegląd techniczny i czyszczenie maszyny'"
-            " WHEN name = 'Przegląd Elektryk' THEN 'Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny'"
-            " ELSE name END"
-            " WHERE display_name IS NULL"
-        ))
-        # P1-120: Backfill additional_service_id w contract_service_fees — match po display_name, potem po name
-        await conn.execute(sa.text(
-            "UPDATE contract_service_fees f"
-            " JOIN additional_services s ON f.name = s.display_name"
-            " SET f.additional_service_id = s.id"
-            " WHERE f.additional_service_id IS NULL"
-        ))
+        # P1-120: Backfill additional_service_id w contract_service_fees — match po name
+        # (name = pełna nazwa w obu tabelach po uproszczeniu display_name)
         await conn.execute(sa.text(
             "UPDATE contract_service_fees f"
             " JOIN additional_services s ON f.name = s.name"

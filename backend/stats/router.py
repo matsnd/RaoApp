@@ -12,8 +12,10 @@ from auth.dependencies import get_current_user
 from auth.models import User
 from database import get_db
 from machines.models import Machine
-from contracts.models import Contract, ContractPosition, PositionCondition
+from contracts.models import Contract, ContractPosition, PositionCondition, ContractServiceFee
 from contractors.models import Contractor
+from settlements.models import ContractSettlement
+from additional_services.models import AdditionalService
 from sqlalchemy import func as sqlfunc
 from stats.calc import calculate_position_value, aggregate_by_category, aggregate_by_period, aggregate_by_contract_type, aggregate_by_branch, clamp_days
 from shared.revenue import compute_position_revenues as _compute_position_revenues  # RAO-P2-028
@@ -397,22 +399,46 @@ async def additional_fees(
     _cached = cache.get(_ckey)
     if _cached is not None:
         return _cached
-    # RAO-P2-029: uwzględnia archiwalne usługi (statystyki historyczne)
-    # RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
-    # RAO Faza 2a (opcja E): pomiń unmapped (is_service is None) — unmapped nie wiemy czy to usługa
-    all_pos = await _compute_position_revenues(db, df, dt, service_filter=True, exclude_archival=False)
-    # skip unmapped: p["is_service"] is None (unmapped nie ma Machine/Service → is_service=None)
-    all_pos = [p for p in all_pos if p["is_service"] is not None]
-    # RAO-P0-001/BUG-5: filtruj po contractor_id/city
-    all_pos = _apply_position_filters(all_pos, contractor_id=contractor_id, city=city)
+    # BUG FIX: statystyki usług dodatkowych — zliczamy contract_settlements
+    # z service_fee_id IS NOT NULL (rozliczone usługi dodatkowe z Fakturownia/manual).
+    # Wcześniej endpoint używał _compute_position_revenues (pozycje umowy = maszyny/usługi)
+    # co ignorowało całkowicie contract_service_fees → puste statystyki.
+    stmt = (
+        select(
+            AdditionalService.id.label("article_id"),
+            AdditionalService.name.label("service_name"),
+            ContractSettlement.cost_client,
+            ContractSettlement.contract_id,
+            Contract.contractor_id,
+            Contract.city,
+        )
+        .select_from(ContractSettlement)
+        .join(ContractServiceFee, ContractServiceFee.id == ContractSettlement.service_fee_id)
+        .join(AdditionalService, AdditionalService.id == ContractServiceFee.additional_service_id)
+        .join(Contract, Contract.id == ContractSettlement.contract_id)
+        .where(ContractSettlement.service_fee_id.isnot(None))
+        .where(ContractSettlement.cost_client.isnot(None))
+    )
+    _date_conds = []
+    if dt is not None:
+        _date_conds.append(Contract.date_from <= dt)
+    if df is not None:
+        _date_conds.append(Contract.date_to >= df)
+    if _date_conds:
+        stmt = stmt.where(and_(*_date_conds))
+    if contractor_id is not None:
+        stmt = stmt.where(Contract.contractor_id == contractor_id)
+    if city is not None:
+        stmt = stmt.where(func.lower(Contract.city) == func.lower(city))
 
-    # Aggregate by service (service_id dla usług)
+    rows = (await db.execute(stmt)).all()
+
     agg = defaultdict(lambda: {"name": "", "revenue": Decimal(0), "contracts": set()})
-    for p in all_pos:
-        key = p["service_id"]
-        agg[key]["name"] = p["service_name"]
-        agg[key]["revenue"] += p["revenue"]
-        agg[key]["contracts"].add(p["contract_id"])
+    for r in rows:
+        aid = r.article_id
+        agg[aid]["name"] = r.service_name
+        agg[aid]["revenue"] += Decimal(r.cost_client)
+        agg[aid]["contracts"].add(r.contract_id)
 
     sorted_items = sorted(agg.items(), key=lambda x: x[1]["revenue"], reverse=True)
     breakdown = [
