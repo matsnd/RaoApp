@@ -697,11 +697,25 @@ async def startup_migrations():
             await conn.execute(sa.text(
                 "UPDATE additional_services SET description = '$1' "
                 "WHERE name IN ('Przegląd techniczny i czyszczenie maszyny', "
-                "'Przegląd techniczny i czyszczenie maszyny Diesel', "
                 "'Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny', "
                 "'Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny Elektryk') "
                 "AND (description IS NULL OR description NOT LIKE '%$%')"
             ))
+            # Usuń "Przegląd techniczny i czyszczenie maszyny Diesel" (duplikat z dopiskiem)
+            # Przenieś referencje na "Przegląd techniczny i czyszczenie maszyny" (bez dopisku)
+            try:
+                await conn.execute(sa.text(
+                    "UPDATE contract_service_fees SET additional_service_id = "
+                    "(SELECT id FROM additional_services WHERE name = 'Przegląd techniczny i czyszczenie maszyny' LIMIT 1) "
+                    "WHERE additional_service_id IN ("
+                    "  SELECT id FROM additional_services WHERE name = 'Przegląd techniczny i czyszczenie maszyny Diesel'"
+                    ")"
+                ))
+                await conn.execute(sa.text(
+                    "DELETE FROM additional_services WHERE name = 'Przegląd techniczny i czyszczenie maszyny Diesel'"
+                ))
+            except Exception:
+                pass
         except Exception:
             pass
 

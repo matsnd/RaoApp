@@ -426,8 +426,8 @@ USLUGI = [
         "fakturownia_product_id": 8845156436450,  # SER001
     },
     {
-        "name": "Przegląd techniczny i czyszczenie maszyny Diesel",
-        "display_name": "Przegląd techniczny i czyszczenie maszyny Diesel",
+        "name": "Przegląd techniczny i czyszczenie maszyny",
+        "display_name": "Przegląd techniczny i czyszczenie maszyny",
         "default_amount": Decimal("150.00"),
         "description": "$1",
         "fakturownia_product_id": 8845156436451,  # DIE001
