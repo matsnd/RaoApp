@@ -71,12 +71,12 @@ class CalendarEvent(BaseModel):
     """Event na kalendarzu rezerwacji — z rezerwacji lub umowy."""
     source: str  # "reservation" | "contract"
     source_id: int  # reservation_id lub contract_id
-    machine_id: int
+    machine_id: Optional[int] = None  # None dla pozycji umowy bez machine_id (usługi)
     machine_name: Optional[str] = None
     internal_number: Optional[str] = None
     contractor_id: Optional[int] = None
     contractor_name: Optional[str] = None
     date_from: date
-    date_to: date
+    date_to: Optional[date] = None  # umowa może nie mieć date_to
     note: Optional[str] = None  # note z rezerwacji lub number umowy
     status: Optional[str] = None  # tylko dla rezerwacji

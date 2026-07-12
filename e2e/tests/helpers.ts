@@ -1,6 +1,6 @@
 import { APIRequestContext, Page, expect, request } from '@playwright/test'
 
-export const BASE = 'http://localhost:5173/rao'
+export const BASE = (process.env.E2E_BASE_URL || 'http://localhost:5173') + '/rao'
 export const API  = process.env.RAO_API_URL || 'http://localhost:8000/rao/api'
 export const CREDS = { login: 'admin', password: 'admin123' }
 

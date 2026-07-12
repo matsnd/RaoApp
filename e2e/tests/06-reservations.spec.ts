@@ -7,9 +7,40 @@
  *  3. Analytics — ReservationsTab usunięty, LocationsTab ma filtry, ServicesTab bez "Nr wewnętrzny"
  */
 import { test, expect } from '@playwright/test'
-import { waitForBackend, login } from './helpers'
+import { waitForBackend, login, apiLogin, authHeaders, API } from './helpers'
+
+let reservationId = 0
 
 test.describe('RAO-L: Widok Rezerwacji', () => {
+  test.beforeAll(async ({ request }) => {
+    // Seed: dodaj rezerwację aby lista/kalendarz miały dane
+    const token = await apiLogin(request)
+    const today = new Date()
+    const from = today.toISOString().slice(0, 10)
+    const to = new Date(today.getTime() + 7 * 86400000).toISOString().slice(0, 10)
+    // Znajdź pierwszą maszynę
+    const mr = await request.get(`${API}/machines?limit=1`, { headers: authHeaders(token) })
+    const machines = await mr.json()
+    const machineArr = Array.isArray(machines) ? machines : machines.items
+    if (machineArr.length > 0) {
+      const rr = await request.post(`${API}/reservations`, {
+        headers: authHeaders(token),
+        data: { machine_id: machineArr[0].id, reserved_from: from, reserved_to: to, note: 'E2E seed' },
+      })
+      if (rr.status() === 201) {
+        const r = await rr.json()
+        reservationId = r.id
+      }
+    }
+  })
+
+  test.afterAll(async ({ request }) => {
+    if (reservationId) {
+      const token = await apiLogin(request)
+      await request.delete(`${API}/reservations/${reservationId}`, { headers: authHeaders(token) })
+    }
+  })
+
   test.beforeEach(async ({ page }) => {
     await waitForBackend(page)
     await login(page)

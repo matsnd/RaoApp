@@ -25,10 +25,28 @@ backend/
 │   ├── service.py                   # ContractorService
 │   ├── schemas.py                   # Pydantic models
 │   └── models.py                    # Contractor, ContractorAddress SQLAlchemy
-├── articles/
+├── articles/                        # DEPRECATED (Faza 7) — zastąpione przez machines/services/additional_services
 │   ├── __init__.py
-│   ├── router.py                    # CRUD /articles, /articles/{id}/duplicate
-│   ├── service.py                   # ArticleService (incl. duplicate, availability)
+│   ├── router.py                    # DEPRECATED: CRUD /articles (redirect/compat)
+│   ├── service.py                   # DEPRECATED
+│   ├── schemas.py
+│   └── models.py
+├── machines/                        # NOWY (Faza 7) — zastępuje articles WHERE is_service=FALSE
+│   ├── __init__.py
+│   ├── router.py                    # CRUD /machines, /machines/{id}/duplicate, /machines/{id}/availability
+│   ├── service.py                   # MachineService (incl. duplicate, availability)
+│   ├── schemas.py
+│   └── models.py
+├── services/                        # NOWY (Faza 7) — zastępuje articles WHERE is_service=TRUE
+│   ├── __init__.py
+│   ├── router.py                    # CRUD /services
+│   ├── service.py                   # ServiceService
+│   ├── schemas.py
+│   └── models.py
+├── additional_services/             # NOWY (Faza 7) — katalog usług dodatkowych
+│   ├── __init__.py
+│   ├── router.py                    # CRUD /additional-services
+│   ├── service.py                   # AdditionalServiceService
 │   ├── schemas.py
 │   └── models.py
 ├── contracts/
@@ -539,22 +557,30 @@ class GusLookupResponse(BaseModel):
 
 ---
 
-## ARTICLES — Endpointy
+## ARTICLES — Endpointy (DEPRECATED — Faza 7 refaktor)
 
-### `GET /articles`
+> **⚠️ DEPRECATED (2026-07):** Tabela `articles` została rozdzielona na `machines`, `services`,
+> `additional_services`. Endpointy `/articles` są **DEPRECATED** — zastąpione przez
+> `/machines`, `/services`, `/additional-services` (patrz niżej).
+> Endpointy `/articles` mogą pozostać jako compat shim (redirect) lub zostać usunięte.
+> Nowy kod MUSI używać nowych endpointów.
+
+---
+
+## MACHINES — Endpointy (NOWY — Faza 7, zastępuje /articles WHERE is_service=FALSE)
+
+### `GET /machines`
 
 ```python
-# Query: ?search=koparka&category_id=1&owner_id=5&is_service=true&archival_status=active&page=1&per_page=50
-# is_service: bool | None (optional filter for services vs machines)
+# Query: ?search=koparka&category_id=1&owner_id=5&archival_status=active&page=1&per_page=50
 
-class ArticleArchivalFilter(str, Enum):
-    ACTIVE = "active"      # domyślnie — tylko aktywne (backward compatible)
+class MachineArchivalFilter(str, Enum):
+    ACTIVE = "active"      # domyślnie — tylko aktywne
     ARCHIVAL = "archival"  # tylko archiwalne
 
-class ArticleListItem(BaseModel):
+class MachineListItem(BaseModel):
     id: int
     name: str
-    is_service: bool
     internal_number: str | None
     registration_no: str | None
     serial_no: str | None
@@ -562,40 +588,40 @@ class ArticleListItem(BaseModel):
     model: str | None
     replacement_value: Decimal | None
     category_name: str | None          # JOIN categories
-    category_main: str | None          # RAO-P1-026: denorm kategoria główna
+    category_main: str | None          # denorm kategoria główna
     owner_name: str | None             # JOIN contractors
     notes: str | None
-    is_archival: bool                  # RAO-P1-026
-    is_external: bool                  # RAO-P1-027: maszyna zewnętrzna
+    is_archival: bool
+    is_external: bool
+    power_type: str                    # diesel/electric/other
     active_contract_number: str | None  # computed
     created_at: datetime
     updated_at: datetime | None
     conditions_count: int              # ile rozliczeń (computed)
 ```
 
-**Algorytm (zastępuje VIEW `artykuly`/`artykulyy`):**
+**Algorytm:**
 ```sql
-SELECT a.*,
+SELECT m.*,
   cat.name AS category_name,
   own.name AS owner_name,
   (SELECT u.number FROM contracts u
    JOIN contract_positions cp ON cp.contract_id = u.id
-   WHERE cp.article_id = a.id AND u.date_to >= CURDATE()
+   WHERE cp.machine_id = m.id AND u.date_to >= CURDATE()
    LIMIT 1) AS active_contract_number,
   (SELECT COUNT(*) FROM contract_positions cp2
    JOIN position_conditions pc ON pc.position_id = cp2.id
-   WHERE cp2.article_id = a.id) AS conditions_count
-FROM articles a
-LEFT JOIN categories cat ON a.category_id = cat.id
-LEFT JOIN contractors own ON a.owner_id = own.id
+   WHERE cp2.machine_id = m.id) AS conditions_count
+FROM machines m
+LEFT JOIN categories cat ON m.category_id = cat.id
+LEFT JOIN contractors own ON m.owner_id = own.id
 ```
 
-### `POST /articles`
+### `POST /machines`
 
 ```python
-class ArticleCreate(BaseModel):
+class MachineCreate(BaseModel):
     name: str = Field(..., max_length=200)
-    is_service: bool = False
     internal_number: str | None = Field(None, max_length=50)
     registration_no: str | None = Field(None, max_length=40)
     serial_no: str | None = Field(None, max_length=40)
@@ -607,37 +633,46 @@ class ArticleCreate(BaseModel):
     branch_id: int | None = None
     description: str | None = Field(None, max_length=400)
     notes: str | None = Field(None, max_length=200)
-    article_type: str | None = Field(None, max_length=20)
-    zasieg_m: Decimal | None = None    # RAO-P1-026: zasięg roboczy [m]
-    udzwig_t: Decimal | None = None    # RAO-P1-026: udźwig [t]
-    dodatki: str | None = None         # RAO-P1-026: wyposażenie dodatkowe
-    power_type: Literal["diesel","electric","other"] = "other"  # P2-002: typ zasilania
+    reach_m: Decimal | None = None      # zasięg roboczy [m]
+    capacity_t: Decimal | None = None   # udźwig [t]
+    accessories: str | None = None      # wyposażenie dodatkowe
+    power_type: Literal["diesel","electric","other"] = "other"
+    is_external: bool = False
 ```
 
-### `GET /articles/{id}` (RAO-P1-026)
+### `GET /machines/{id}`
 
-Response: `ArticleDetail` — rozszerzony obiekt artykułu z hierarchią kategorii i polami technicznymi:
-- Wszystkie pola z `ArticleListItem`
-- `category_main`, `category_sub1`, `category_sub2`, `category_sub3` — denorm z `articles`
-- `zasieg_m: Decimal | None` — zasięg roboczy [m]
-- `udzwig_t: Decimal | None` — udźwig [t]
-- `dodatki: str | None` — wyposażenie dodatkowe
-- `power_type: str` — typ zasilania (P2-002: diesel/electric/other, default 'other')
+Response: `MachineDetail` — rozszerzony obiekt maszyny z hierarchią kategorii i polami technicznymi:
+- Wszystkie pola z `MachineListItem`
+- `category_main`, `category_sub1`, `category_sub2`, `category_sub3` — denorm z `machines`
+- `reach_m: Decimal | None` — zasięg roboczy [m]
+- `capacity_t: Decimal | None` — udźwig [t]
+- `accessories: str | None` — wyposażenie dodatkowe
+- `power_type: str` — typ zasilania (diesel/electric/other, default 'other')
 
 HTTP: 200 | 401 | 404
 
-### `POST /articles/{id}/duplicate`
+### `PUT /machines/{id}`
+
+Body: `MachineCreate` (partial update — exclude_unset)
+HTTP: 200 | 401 | 404
+
+### `DELETE /machines/{id}`
+
+HTTP: 204 | 401 | 404
+
+### `POST /machines/{id}/duplicate`
 
 **Algorytm (zastępuje procedurę `DuplikujArtykul2`):**
-1. `SELECT * FROM articles WHERE id = :id`
-2. `INSERT INTO articles (...) VALUES (...)` — kopia, ale:
+1. `SELECT * FROM machines WHERE id = :id`
+2. `INSERT INTO machines (...) VALUES (...)` — kopia, ale:
    - `name` += " (kopia)"
    - `registration_no` = NULL
    - `serial_no` = NULL
    - `created_at` = now()
-3. Return new article ID
+3. Return new machine ID
 
-### `GET /articles/{id}/availability`
+### `GET /machines/{id}/availability`
 
 ```python
 # Query: ?date_from=2026-01-01&date_to=2026-12-31
@@ -645,7 +680,7 @@ HTTP: 200 | 401 | 404
 class AvailabilityResponse(BaseModel):
     is_available: bool
     conflicting_contracts: list[ConflictingContract]
-    conflicting_reservations: list[AvailabilityReservationConflict]  # RAO-P2-066
+    conflicting_reservations: list[AvailabilityReservationConflict]
 
 class ConflictingContract(BaseModel):
     contract_id: int
@@ -654,14 +689,14 @@ class ConflictingContract(BaseModel):
     date_to: date
     contractor_name: str
 
-class AvailabilityReservationConflict(BaseModel):  # RAO-P2-066, Phase2 2026-07-11
+class AvailabilityReservationConflict(BaseModel):
     reservation_id: int
     reserved_from: date
     reserved_to: date
     note: str | None
     available_from: date | None  # reserved_to + 1 dzień
-    contractor_id: int | None    # Phase2: JOIN contractors
-    contractor_name: str | None  # Phase2: JOIN contractors
+    contractor_id: int | None
+    contractor_name: str | None
 ```
 
 **Algorytm (zastępuje procedurę `sprDostepnosc`):**
@@ -671,18 +706,121 @@ SELECT c.id, c.number, c.date_from, c.date_to, ct.name AS contractor_name
 FROM contract_positions cp
 JOIN contracts c ON cp.contract_id = c.id
 JOIN contractors ct ON c.contractor_id = ct.id
-WHERE cp.article_id = :article_id
+WHERE cp.machine_id = :machine_id
   AND c.date_from <= :date_to
   AND c.date_to >= :date_from
 
--- Konflikty z rezerwacjami (RAO-P2-066, Phase2: JOIN contractors)
+-- Konflikty z rezerwacjami
 SELECT r.*, ct.name AS contractor_name
-FROM article_reservations r
+FROM machine_reservations r
 LEFT JOIN contractors ct ON r.contractor_id = ct.id
-WHERE r.article_id = :article_id
+WHERE r.machine_id = :machine_id
   AND r.reserved_from <= :date_to
   AND r.reserved_to >= :date_from
 ```
+
+### `GET /machines/{id}/last-conditions`
+
+```
+Auth: user
+Response 200: {
+  source_contract_number: str,
+  source_contract_date: datetime | None,
+  source_position_id: int,
+  conditions: [ConditionResponse]
+}
+  404: brak historii umów dla tej maszyny
+```
+
+Logika: `SELECT ContractPosition JOIN Contract WHERE machine_id=:mid ORDER BY Contract.created_at DESC LIMIT 1`
+
+---
+
+## SERVICES — Endpointy (NOWY — Faza 7, zastępuje /articles WHERE is_service=TRUE)
+
+### `GET /services`
+
+```python
+# Query: ?search=transport&archival_status=active&page=1&per_page=50
+
+class ServiceListItem(BaseModel):
+    id: int
+    name: str
+    description: str | None
+    notes: str | None
+    replacement_value: Decimal | None
+    is_archival: bool
+    created_at: datetime
+    updated_at: datetime | None
+```
+
+### `POST /services`
+
+```python
+class ServiceCreate(BaseModel):
+    name: str = Field(..., max_length=200)
+    description: str | None = Field(None, max_length=400)
+    notes: str | None = Field(None, max_length=200)
+    replacement_value: Decimal | None = None
+```
+
+### `GET /services/{id}`
+
+Response: `ServiceDetail` — pełny obiekt usługi.
+HTTP: 200 | 401 | 404
+
+### `PUT /services/{id}`
+
+Body: `ServiceCreate` (partial update)
+HTTP: 200 | 401 | 404
+
+### `DELETE /services/{id}`
+
+HTTP: 204 | 401 | 404
+
+---
+
+## ADDITIONAL-SERVICES — Endpointy (NOWY — Faza 7, katalog usług dodatkowych)
+
+### `GET /additional-services`
+
+```python
+# Query: ?search=transport&archival_status=active&page=1&per_page=50
+
+class AdditionalServiceListItem(BaseModel):
+    id: int
+    name: str
+    default_amount: Decimal | None
+    description: str | None
+    notes: str | None
+    is_archival: bool
+    created_at: datetime
+    updated_at: datetime | None
+```
+
+### `POST /additional-services`
+
+```python
+class AdditionalServiceCreate(BaseModel):
+    name: str = Field(..., max_length=200)
+    default_amount: Decimal | None = None
+    description: str | None = Field(None, max_length=400)
+    notes: str | None = Field(None, max_length=200)
+```
+
+### `GET /additional-services/{id}`
+
+Response: `AdditionalServiceDetail` — pełny obiekt usługi dodatkowej.
+HTTP: 200 | 401 | 404
+
+### `PUT /additional-services/{id}`
+
+Body: `AdditionalServiceCreate` (partial update)
+HTTP: 200 | 401 | 404
+
+### `DELETE /additional-services/{id}`
+
+HTTP: 204 | 401 | 404
 
 ---
 
@@ -848,8 +986,10 @@ async def delete_contract(db: AsyncSession, contract_id: int):
 class PositionResponse(BaseModel):
     id: int
     contract_id: int
-    article_id: int
-    article_name: str | None     # snapshot lub JOIN
+    # Refaktor (Faza 7): article_id → machine_id XOR service_id
+    machine_id: int | None
+    service_id: int | None
+    article_name: str | None     # snapshot lub JOIN (nazwa maszyny lub usługi)
     description: str | None
     rental_days: int | None
     quantity: int | None
@@ -869,7 +1009,9 @@ class PositionResponse(BaseModel):
 
 ```python
 class PositionCreate(BaseModel):
-    article_id: int
+    # Refaktor (Faza 7): XOR walidacja — dokładnie jeden z machine_id / service_id
+    machine_id: int | None = None
+    service_id: int | None = None
     description: str | None = Field(None, max_length=400)
     rental_days: int | None = None
     quantity: int = 1
@@ -879,6 +1021,17 @@ class PositionCreate(BaseModel):
     billing_unit: str | None = None
     supplier_id: int | None = None
     delivery_date: date | None = None
+
+    @model_validator(mode='after')
+    def check_machine_xor_service(self):
+        """XOR: dokładnie jeden z machine_id / service_id musi być ustawiony."""
+        has_machine = self.machine_id is not None
+        has_service = self.service_id is not None
+        if has_machine == has_service:  # oba True lub oba False
+            raise ValueError(
+                "Pozycja umowy musi mieć dokładnie jedno z: machine_id LUB service_id (XOR)."
+            )
+        return self
 ```
 
 ### `GET /contracts/{id}/positions/{pos_id}/conditions`

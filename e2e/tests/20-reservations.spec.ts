@@ -57,11 +57,11 @@ test.describe('TEST-20: Rezerwacje maszyn (P2-066)', () => {
     const r = await request.post(`${API}/reservations`, {
       headers: authHeaders(token),
       data: {
-        // Faza 5: article_id → machine_id
+        // Faza 5: article_id → machine_id; schema: reserved_from/reserved_to/note
         machine_id: machineId,
-        date_from: new Date(ts + 86400000).toISOString().slice(0, 10),
-        date_to: new Date(ts + 172800000).toISOString().slice(0, 10),
-        notes: `Test reservation ${ts}`,
+        reserved_from: new Date(ts + 86400000).toISOString().slice(0, 10),
+        reserved_to: new Date(ts + 172800000).toISOString().slice(0, 10),
+        note: `Test reservation ${ts}`,
       },
     })
     if (r.status() === 404) {

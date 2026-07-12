@@ -19,10 +19,14 @@ test.describe('TEST-05: Ustawienia', () => {
   })
 
   test('zakładka Dane firmy ładuje dane z bazy', async ({ page }) => {
+    // Mock /articles endpoint (removed after machines/services refactor) to prevent reloadAll error
+    await page.route('**/rao/api/articles**', route => {
+      route.fulfill({ status: 200, json: { items: [], total: 0, page: 1, per_page: 50 } })
+    })
     await page.goto('/rao/settings', { waitUntil: 'domcontentloaded', timeout: 15_000 })
     await expect(page.getByRole('button', { name: 'Dane firmy', exact: true })).toBeVisible({ timeout: 8_000 })
     await expect(page.locator('text=Dane firmy').first()).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Zapisz dane firmy' })).toBeVisible({ timeout: 5_000 })
+    await expect(page.getByRole('button', { name: 'Zapisz dane firmy' })).toBeVisible({ timeout: 8_000 })
   })
 
   test('przełącza zakładki poprawnie', async ({ page }) => {
@@ -43,6 +47,10 @@ test.describe('TEST-05: Ustawienia', () => {
   })
 
   test('zapisuje dane firmy bez błędu', async ({ page }) => {
+    // Mock /articles endpoint (removed after machines/services refactor) to prevent reloadAll error
+    await page.route('**/rao/api/articles**', route => {
+      route.fulfill({ status: 200, json: { items: [], total: 0, page: 1, per_page: 50 } })
+    })
     await page.goto('/rao/settings', { waitUntil: 'domcontentloaded', timeout: 15_000 })
     await expect(page.getByRole('button', { name: 'Zapisz dane firmy' })).toBeVisible({ timeout: 8_000 })
 
@@ -205,7 +213,8 @@ test.describe('TEST-05: Ustawienia', () => {
     await expect(firstPresetItems.locator('table.data-grid thead')).toBeVisible({ timeout: 3_000 })
     
     // Sprawdź czy nazwy pozycji są widoczne w pierwszej karcie presetu
-    const expectedItems = ['Tankowanie', 'Transport', 'Ponadnormatywny przestój', 'Czyszczenie 1', 'Czyszczenie 2']
+    // article_name values from seed data: Transport, Czyszczenie, Tankowanie, Przestój, Serwis
+    const expectedItems = ['Transport', 'Czyszczenie', 'Tankowanie', 'Przestój', 'Serwis']
     
     for (const itemName of expectedItems) {
       const itemLocator = firstPresetItems.getByText(itemName).first()

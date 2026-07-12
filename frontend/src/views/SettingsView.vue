@@ -1021,8 +1021,9 @@ async function loadMachineRatePresets() {
     // Pobierz wszystkie maszyny (nie-usługi), następnie dla każdej pobierz cenniki.
     // Optymalizacja: równoległe zapytania (limit ~20 jednoczesnych).
     // RAO Faza 4b: endpoint /settings/articles/{id}/rate-presets → /settings/machines/{id}/rate-presets
-    const { data: articles } = await api.get('/articles', { params: { is_service: false, per_page: 500 } })
-    const items = articles.items || []
+    // Faza 5: /articles → /machines (is_service=false)
+    const { data: articles } = await api.get('/machines', { params: { per_page: 500 } })
+    const items = Array.isArray(articles) ? articles : (articles.items || [])
     const results = await Promise.all(
       items
         .filter(a => !a.is_service)

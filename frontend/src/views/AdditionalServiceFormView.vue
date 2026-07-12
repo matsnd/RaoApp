@@ -22,33 +22,6 @@
           <!-- #13 uwagi klienta: Nr wewnętrzny wyeliminowany z usług dodatkowych -->
         </div>
 
-        <div class="form-row-2">
-          <div class="form-group">
-            <label class="form-label" for="as-cat-main">Kategoria</label>
-            <div style="display:flex;flex-direction:column;gap:4px;">
-              <select id="as-cat-main" v-model="catSelectedMain" class="form-control" @change="catSelectedSub1 = null; catSelectedSub2 = null">
-                <option :value="null">— brak kategorii —</option>
-                <option v-for="c in catMainOptions" :key="c.id" :value="c.id">{{ c.name }}</option>
-              </select>
-              <select v-if="catSub1Options.length" v-model="catSelectedSub1" class="form-control" aria-label="Podkategoria poziom 1" @change="catSelectedSub2 = null">
-                <option :value="null">— (poziom główny) —</option>
-                <option v-for="c in catSub1Options" :key="c.id" :value="c.id">{{ c.name }}</option>
-              </select>
-              <select v-if="catSub2Options.length" v-model="catSelectedSub2" class="form-control" aria-label="Podkategoria poziom 2">
-                <option :value="null">— (poziom podrzędny) —</option>
-                <option v-for="c in catSub2Options" :key="c.id" :value="c.id">{{ c.name }}</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="as-branch">Filia</label>
-            <select id="as-branch" v-model="form.branch_id" class="form-control">
-              <option :value="null">— główna —</option>
-              <option v-for="br in settingsStore.branches" :key="br.id" :value="br.id">{{ br.name }}</option>
-            </select>
-          </div>
-        </div>
-
         <div class="form-group">
           <label class="form-label" for="as-description">Opis</label>
           <textarea id="as-description" v-model="form.description" class="form-control" rows="3"></textarea>
@@ -64,15 +37,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAdditionalServiceStore } from '@/stores/additional_services'
-import { useSettingsStore } from '@/stores/settings'
 
 const props = defineProps({ id: String })
 const router = useRouter()
 const store = useAdditionalServiceStore()
-const settingsStore = useSettingsStore()
 
 const isEdit = computed(() => !!props.id)
 const loading = ref(false)
@@ -83,66 +54,16 @@ const fieldErrors = ref<Record<string, string>>({})
 const form = ref({
   name: '',
   // #13 uwagi klienta: internal_number usunięte z usług dodatkowych
-  category_id: null as number | null,
-  branch_id: null as number | null,
   description: '',
   notes: '',
 })
 
-// --- Cascade category pickers ---
-const catSelectedMain = ref<number | null>(null)
-const catSelectedSub1 = ref<number | null>(null)
-const catSelectedSub2 = ref<number | null>(null)
-
-const catMainOptions = computed(() => settingsStore.categoriesTree)
-const catSub1Options = computed(() => {
-  if (!catSelectedMain.value) return []
-  return catMainOptions.value.find(c => c.id === catSelectedMain.value)?.children || []
-})
-const catSub2Options = computed(() => {
-  if (!catSelectedSub1.value) return []
-  return catSub1Options.value.find(c => c.id === catSelectedSub1.value)?.children || []
-})
-
-watch([catSelectedMain, catSelectedSub1, catSelectedSub2], () => {
-  form.value.category_id = catSelectedSub2.value ?? catSelectedSub1.value ?? catSelectedMain.value
-})
-
-function findCatPath(tree: any[], id: number, path: any[] = []): any[] | null {
-  for (const node of tree) {
-    const newPath = [...path, node]
-    if (node.id === id) return newPath
-    if (node.children?.length) {
-      const found = findCatPath(node.children, id, newPath)
-      if (found) return found
-    }
-  }
-  return null
-}
-
-function setCategoryFromId(categoryId: number | null) {
-  if (!categoryId || !settingsStore.categoriesTree.length) {
-    catSelectedMain.value = null
-    catSelectedSub1.value = null
-    catSelectedSub2.value = null
-    return
-  }
-  const path = findCatPath(settingsStore.categoriesTree, categoryId)
-  if (!path) return
-  catSelectedMain.value = path[0]?.id || null
-  catSelectedSub1.value = path[1]?.id || null
-  catSelectedSub2.value = path[2]?.id || null
-}
-
 onMounted(async () => {
-  await Promise.all([settingsStore.fetchCategoriesTree(), settingsStore.fetchBranches()])
-
   if (isEdit.value) {
     loading.value = true
     try {
       const data = await store.fetchOne(Number(props.id))
       Object.assign(form.value, data)
-      setCategoryFromId(data.category_id)
     } finally {
       loading.value = false
     }

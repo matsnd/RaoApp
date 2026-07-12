@@ -236,6 +236,377 @@ generate_pdf() → bytes  →    usePdfFolders() composable
 - [ ] Zapis na serwerze zostaje (backup)
 - [ ] Spec sync: `03_frontend_screens.md`
 
+### P2-005: Usunąć Filie i Kategorie z additional-services (form + lista)
+
+```yaml
+id: P2-005
+status: triaged
+priority: P2
+created: 2026-07-12
+source: client-request (współpraca 2026-07-12)
+component: frontend/AdditionalServiceFormView + frontend/AdditionalServicesListView
+migration_impact: no
+```
+
+**Opis:** Formularz edycji/tworzenia usługi dodatkowej (`/rao/additional-services/*/edit`) zawiera pola Kategoria (kaskada 3-level) i Filia, które NIE istnieją w backend model/schema (`additional_services` tabela nie ma `category_id` ani `branch_id`). Pola wysyłają wartości które backend ignoruje. Lista usług dodatkowych ma kolumnę "Kategoria" która zawsze pokazuje "—".
+
+**Zadania:**
+1. `AdditionalServiceFormView.vue` — usunąć blok Kategoria (kaskada 3 selecty) + Filia select + related script (catSelectedMain/Sub1/Sub2, catMainOptions, catSub1Options, catSub2Options, findCatPath, setCategoryFromId, watch category, settingsStore import, fetchCategoriesTree/fetchBranches)
+2. `AdditionalServicesListView.vue` — usunąć kolumnę "Nr wew." i "Kategoria" (th + td), colspan 3→1 w state rows (SkeletonRow, StateMessage error/empty)
+3. Form `form` ref — usunąć `category_id` i `branch_id` pola
+
+**Definition of Done:**
+- [ ] Formularz additional-service nie ma pól Kategoria i Filia
+- [ ] Lista additional-services NIE ma kolumn "Nr wew." i "Kategoria" (tylko Nazwa)
+- [ ] `vue-tsc --noEmit` zielony
+- [ ] Smoke E2E `01-login.spec.ts` zielony
+- [ ] Spec sync: `03_frontend_screens.md`
+
+**Uwaga:** Zmiany częściowo rozpoczęte (edycje w obu plikach już zastosowane w sesji 2026-07-12, wymaga weryfikacji stanu i dokończenia).
+
+---
+
+### P2-006: Usunąć Filie i Kategorie z services (form + lista)
+
+```yaml
+id: P2-006
+status: triaged
+priority: P2
+created: 2026-07-12
+source: client-request (współpraca 2026-07-12)
+component: frontend/ServiceFormView + frontend/ServicesListView
+migration_impact: no
+```
+
+**Opis:** Formularz edycji/tworzenia usługi zwykłej (`/rao/services/*/edit`) zawiera pola Kategoria i Filia, które NIE istnieją w backend model/schema (`services` tabela nie ma `category_id` ani `branch_id`). Same problem jak P2-005 ale dla modułu services.
+
+**Zadania:**
+1. `ServiceFormView.vue` — usunąć blok Kategoria + Filia + related script code (analogicznie do P2-005)
+2. `ServicesListView.vue` — usunąć kolumnę "Nr wew." i "Kategoria" (th + td), colspan adjust
+3. Form `form` ref — usunąć `category_id` i `branch_id` pola
+
+**Definition of Done:**
+- [ ] Formularz service nie ma pól Kategoria i Filia
+- [ ] Lista services NIE ma kolumn "Nr wew." i "Kategoria"
+- [ ] `vue-tsc --noEmit` zielony
+- [ ] Smoke E2E `01-login.spec.ts` zielony
+- [ ] Spec sync: `03_frontend_screens.md`
+
+**Uwaga (2026-07-12):** Klient jawnie potwierdził — z gridu usług skasować "Nr wew" i "Kategoria".
+
+---
+
+### P1-111: Kalendarz rezerwacji — panel boczny z listą dnia + context menu
+
+```yaml
+id: P1-111
+status: triaged
+priority: P1
+created: 2026-07-12
+source: client-request (współpraca 2026-07-12)
+component: frontend/ReservationsView + backend/reservations (może wymagać endpoint)
+migration_impact: no
+```
+
+**Opis:** Przebudowa widoku kalendarza rezerwacji. Obecnie kalendarz i lista to toggle (albo/albo). Klient chce:
+1. **Kalendarz po lewej + panel listy po prawej** (side-by-side, nie toggle)
+2. **Klik na dzień kalendarza** → prawy panel pokazuje listę umów + rezerwacji na ten dzień
+3. **Prawy klik na dzień** → context menu: "Dodaj rezerwację" / "Dodaj umowę" na ten dzień
+4. **Checkboxes w panelu listy** (nie toggle): "Blokady rezerwacjami" + "Blokady umowami" — filtruje co pokazywać
+
+**Stan obecny (`ReservationsView.vue`):**
+- Toggle kalendarz/lista (albo/albo)
+- Kalendarz: month grid, kropki eventów (rezerwacje + umowy), hover=tooltip, klik=dodaj rezerwację, klik kropki=edycja
+- Lista: tabela wszystkich rezerwacji z filtrami (maszyna, kontrahent, status, zakres dat)
+- Backend: `GET /reservations/calendar?date_from&date_to&machine_id` → `CalendarEvent[]` (source: reservation|contract)
+- Backend: `GET /reservations/with-machines` → `ReservationWithMachine[]`
+
+**Wymagania szczegółowe:**
+
+**Layout:**
+```
+┌─────────────────────────┬──────────────────────────┐
+│  Kalendarz (month grid) │  Panel listy dnia        │
+│  - nawigacja miesiąc    │  ┌────────────────────┐  │
+│  - kropki eventów       │  │ Wybrany dzień:     │  │
+│  - hover = tooltip      │  │ 2026-07-12 (sob)   │  │
+│                         │  ├────────────────────┤  │
+│                         │  │ ☑ Blokady rezerw.  │  │
+│                         │  │ ☑ Blokady umowami  │  │
+│                         │  ├────────────────────┤  │
+│                         │  │ • Koparka X        │  │
+│                         │  │   Rezerwacja potw. │  │
+│                         │  │   08:00-18:00      │  │
+│                         │  │ • Ładowarka Y      │  │
+│                         │  │   Umowa #123       │  │
+│                         │  │   07-12 → 07-15    │  │
+│                         │  └────────────────────┘  │
+└─────────────────────────┴──────────────────────────┘
+```
+
+**Interakcje:**
+- Lewy klik na dzień → wybierz dzień, pokaż listę w prawym panelu
+- Prawy klik na dzień → context menu: "Dodaj rezerwację" / "Dodaj umowę" (z pre-set datą)
+- Klik na event w prawym panelu → edycja (rezerwacja) / podgląd (umowa)
+- Checkboxes: "Blokady rezerwacjami" + "Blokady umowami" — filtruje listę w panelu
+  - Oba zaznaczone (default) → pokaż wszystko
+  - Tylko rezerwacje → tylko events source=reservation
+  - Tylko umowy → tylko events source=contract
+
+**Zadania:**
+1. **Frontend** `ReservationsView.vue` — przebudowa layout: kalendarz (flex: 1) + panel listy (flex: 0, min-width: 320px)
+2. **Frontend** — `selectedDay` ref, klik na dzień → `selectedDay = cell.date`, panel pokazuje `calendarEvents.filter(e => selectedDay >= e.date_from && selectedDay <= e.date_to)`
+3. **Frontend** — context menu (prawy klik): `@contextmenu.prevent` na cell → menu z 2 opcjami
+4. **Frontend** — checkboxes `showReservations` + `showContracts` (default oba true), filtruje listę dnia
+5. **Frontend** — "Dodaj umowę" → `router.push({ name: 'ContractNew', query: { date: selectedDay } })`
+6. **Frontend** — usunąć toggle kalendarz/lista (lista staje się panelem dnia, nie osobnym widokiem)
+7. **Backend** — prawdopodobnie bez zmian (`/reservations/calendar` już zwraca umowy + rezerwacje)
+
+**Definition of Done:**
+- [ ] Kalendarz i panel listy widoczne side-by-side (nie toggle)
+- [ ] Klik na dzień → panel pokazuje umowy + rezerwacje na ten dzień
+- [ ] Prawy klik → context menu "Dodaj rezerwację" / "Dodaj umowę"
+- [ ] Checkboxes "Blokady rezerwacjami" + "Blokady umowami" filtrują listę
+- [ ] "Dodaj rezerwację" otwiera modal z pre-set datą
+- [ ] "Dodaj umowę" → nawigacja do formularza umowy z datą
+- [ ] Klik na event w panelu → edycja/podgląd
+- [ ] `vue-tsc --noEmit` zielony
+- [ ] Smoke E2E `01-login.spec.ts` zielony
+- [ ] E2E: klik na dzień → panel listy widoczny z eventami
+- [ ] E2E: checkboxes filtrują listę
+- [ ] Spec sync: `03_frontend_screens.md`
+
+---
+
+### P1-112: Statystyki — zmiana kolejności tabów + rename "Wynajem w okresie" + audyt filtrów
+
+```yaml
+id: P1-112
+status: triaged
+priority: P1
+created: 2026-07-12
+source: client-request (współpraca 2026-07-12)
+component: frontend/AnalyticsView + frontend/AnalyticsFilters + frontend/analytics/tabs/*
+migration_impact: no
+```
+
+**Opis:** Przebudowa kolejności tabów w statystykach, zmiana nazwy taba "Wynajem w okresie" na rankingowy, oraz pełny audyt wszystkich filtrów na każdym tabie.
+
+**Obecna kolejność tabów (`AnalyticsView.vue:20-27`):**
+1. Flota teraz (live)
+2. Maszyny (machines)
+3. Usługi dodatkowe (services-s)
+4. Usługi zwykłe (services-u)
+5. Wynajem w okresie (period)
+6. Lokalizacje (locations)
+
+**Nowa kolejność (wg klienta):**
+1. Flota teraz (live) — bez zmian
+2. Maszyny (machines) — bez zmian
+3. Usługi zwykłe (services-u) — przesunięte wyżej
+4. Usługi dodatkowe (services-s) — przesunięte niżej
+5. Lokalizacje (locations) — przesunięte wyżej
+6. ~~Wynajem w okresie~~ → **Rankingi wynajmu** (period) — rename + ew. przebudowa
+
+**Propozycje nazwy dla "Wynajem w okresie" → ranking:**
+- **Rankingi wynajmu** — najprostsze, jasne (ranking maszyn/lokalizacji/kontrahentów wg przychodu/dni)
+- **Top wynajmy** — krótkie, biznesowe
+- **Ranking maszyn** — jeśli ma być focus na maszynach
+- **Liderzy wynajmu** — bardziej marketingowe
+- **Wynajm — rankingi** — z dywizem
+
+**Rekomendacja:** **Rankingi wynajmu** — najjaskrawiej oddaje że to zestawienie/ranking, a nie kalendarz/okres.
+
+**Filtry obecne (`AnalyticsFilters.vue`):**
+- Okres: preset pills (Dziś / Tydzień / Miesiąc / Kwartał / Rok / Wszystko / Własny)
+- Custom date range (od/do) — gdy preset=custom
+- Typ: select (Wszystkie / Maszyny / Usługi) — `articleType: all|machine|service`
+- Kontrahent: combobox z filtrowaniem
+- Miasto: text input
+- Wyczyść (reset)
+
+**Audyt filtrów — sprawdzić na KAŻDYM tabie:**
+1. Czy filtr `articleType` ma sens na tabach Maszyny / Usługi dodatkowe / Usługi zwykłe? (te taby są już dedykowane — filtr Typ może być redundant lub mylący)
+2. Czy filtr `contractorId` jest przekazywany do backendu na każdym tabie?
+3. Czy filtr `city` działa na tabach Maszyny / Usługi / Rankingi?
+4. Czy filtr `dateFrom/dateTo` jest ignorowany na tabie "Flota teraz" (live)? — tak, filtry ukryte na live
+5. Czy zmiana filtrów odświeża dane bez przeładowania strony?
+6. Czy filtr `articleType` powinien zniknąć na tabach Maszyny/Usługi (skoro tab już determinuje typ)?
+7. Czy filtr `city` ma sens na tabie Usługi dodatkowe / Usługi zwykłe? (usługi nie mają lokalizacji)
+
+**Zadania:**
+1. `AnalyticsView.vue:20-27` — zmiana kolejności tabów (nowa kolejność wyżej)
+2. `AnalyticsView.vue` — rename label taba `period` z "Wynajem w okresie" na "Rankingi wynajmu" (ikona 📊 zamiast 📅)
+3. `AnalyticsView.vue:29` — default `activeTab` zmienić z `'period'` na `'live'` (lub zostawić 'period' → 'period' z nową nazwą)
+4. Audyt filtrów — dla każdego tabu sprawdź:
+   - [ ] `articleType` — czy ma sens? czy powinien być ukryty na dedykowanych tabach?
+   - [ ] `contractorId` — czy backend odbiera i filtruje?
+   - [ ] `city` — czy backend odbiera? czy ma sens na usługach?
+   - [ ] `dateFrom/dateTo` — czy przekazywane do API?
+5. `AnalyticsFilters.vue` — ew. warunkowe ukrywanie filtrów zależnie od activeTab (np. `articleType` ukryte na Maszyny/Usługi)
+6. E2E — update testów jeśli zmieniły się nazwy/seq tabów
+
+**Definition of Done:**
+- [ ] Kolejność tabów: Flota teraz → Maszyny → Usługi zwykłe → Usługi dodatkowe → Lokalizacje → Rankingi wynajmu
+- [ ] Tab "Wynajem w okresie" przemianowany na "Rankingi wynajmu"
+- [ ] Audyt filtrów wykonany — każdy filtr sprawdzony na każdym tabie
+- [ ] Filtry nieistotne na danym tabie ukryte (jeśli audyt to wykaże)
+- [ ] `vue-tsc --noEmit` zielony
+- [ ] Smoke E2E `01-login.spec.ts` zielony
+- [ ] E2E statystyki update (nazwy tabów, kolejność)
+- [ ] Spec sync: `03_frontend_screens.md`
+
+---
+
+### P1-113: Opłaty dodatkowe — $1/$2 placeholdery w tekście umowy zamiast ręcznych kwot
+
+```yaml
+id: P1-113
+status: triaged
+priority: P1
+created: 2026-07-12
+source: client-request (współpraca 2026-07-12)
+component: frontend/ContractFormView + backend/contracts + backend/additional_services
+migration_impact: no
+```
+
+**Opis:** W opłatach dodatkowych są pola "Kwota od" (amount_from) i "Kwota do" (amount_to). Tekst opisu na umowie powinien używać placeholderów `$1` i `$2` które są podmieniane na sformatowane kwoty, np.:
+- Opis w bazie: `"$1 zł dostawa / $2 zł odbiór"`
+- Na umowie: `"150,00 zł dostawa / 200,00 zł odbiór"` (gdzie $1=amount_from, $2=amount_to)
+
+Obecnie tekst jest ręcznym stringiem z wpisanymi kwotami — placeholdery `$1` `$2` nie są wykorzystywane. Klient chce żeby placeholdery były używane tak żeby zmiana kwoty w gridzie automatycznie podmieniała wartości w tekście.
+
+**Kontekst (z poprzedniej sesji):**
+- `ContractFormView.vue` — już miało fix na $1/$2 → sformatowane kwoty (commit `15eb900`)
+- `seed_demo_data.py` — zaktualizowane placeholdery + elektryk 90→35 zł (commit `15eb900`)
+- `main.py` migracja — obsługuje bare `$1` (bez ' zł' suffix) (commit `15eb900`)
+- `migrate.py` — `_fix_fee_placeholders` obsługuje bare `$1` (commit `15eb900`)
+- **ALE:** klient zgłasza że nadal nie działa poprawnie — sprawdzić czy na nowej bazie/seedzie teksty używają placeholderów
+
+**Zadania:**
+1. Zweryfikować obecny stan — czy `$1`/`$2` są podmieniane w tekście umowy (ContractFormView + PDF)
+2. Sprawdzić czy seedy (`seed_demo_data.py`) używają `$1`/`$2` w opisach (nie hardcoded kwoty)
+3. Sprawdzić czy grid opłat dodatkowych pozwala edytować kwoty i czy tekst się aktualizuje
+4. Jeśli nie działa — naprawić podmianę `$1`→amount_from, `$2`→amount_to w opisie na umowie i PDF
+5. Test E2E — dodaj opłatę z `$1`/`$2` w opisie, sprawdź czy umowa pokazuje sformatowane kwoty
+
+**Definition of Done:**
+- [ ] Opis opłaty z `$1`/`$2` w bazie → na umowie pokazuje sformatowane kwoty
+- [ ] Zmiana kwoty w gridzie → tekst na umowie się aktualizuje
+- [ ] PDF umowy pokazuje podmienione kwoty
+- [ ] Seedy używają `$1`/`$2` (nie hardcoded kwot)
+- [ ] `vue-tsc --noEmit` zielony
+- [ ] Smoke E2E zielony
+- [ ] Spec sync: `03_frontend_screens.md`, `04_business_logic.md`
+
+---
+
+### P2-007: Szybkie przyciski Diesel/Elektryk dla opłat dodatkowych + usunięcie "Wspólne opłaty dodatkowe"
+
+```yaml
+id: P2-007
+status: triaged
+priority: P2
+created: 2026-07-12
+source: client-request (współpraca 2026-07-12)
+component: frontend/ContractFormView + backend/seed_demo_data + backend/additional_services
+migration_impact: no
+depends_on: P1-113
+```
+
+**Opis:** Usunąć przycisk "Wspólne opłaty dodatkowe". Zamiast tego zrobić szybkie przyciski dla predefiniowanych zestawów opłat: **Diesel** i **Elektryk**. Reszta opłat z dropdownu. Ważne: seedy muszą mieć placeholdery `$1` `$2` w opisach żeby szybko podmieniać kwoty w gridzie.
+
+**Wymagania:**
+1. **Usunąć** przycisk "Wspólne opłaty dodatkowe" z formularza umowy
+2. **NIE seedować** "Wspólne" — usunąć z seed_demo_data.py
+3. **Seedować 2 domyślne zestawy**: Diesel i Elektryk (z `$1`/`$2` placeholderami w opisach)
+4. **Dodać** szybkie przyciski: `[Diesel]` `[Elektryk]` — klik dodaje predefiniowany zestaw opłat dodatkowych do umowy
+5. **Reszta** opłat dodatkowych z dropdownu (jak obecnie)
+6. **Seedy** — predefiniowane zestawy Diesel i Elektryk muszą mieć opisy z `$1`/`$2` placeholderami:
+   - Diesel: np. transport `$1 zł dostawa / $2 zł odbiór`, tankowanie `$1 zł za litr`
+   - Elektryk: np. transport `$1 zł dostawa / $2 zł odbiór`, podłączenie `$1 zł`
+7. **Grid** — po dodaniu zestawu, kwoty są edytowalne i tekst się aktualizuje (zależne z P1-113)
+
+**Zadania:**
+1. `ContractFormView.vue` — usunąć przycisk "Wspólne opłaty dodatkowe"
+2. `ContractFormView.vue` — dodać szybkie przyciski `[Diesel]` `[Elektryk]` które dodają zestaw opłat
+3. Backend — endpoint lub logika frontendowa: pobierz predefiniowany zestaw opłat dla Diesel/Elektryk
+4. `seed_demo_data.py` — **NIE seedować "Wspólne"**, seedować tylko 2 zestawy: Diesel i Elektryk (z `$1`/`$2` w opisach)
+5. E2E — test: klik Diesel → opłaty dodane z placeholderami, edycja kwoty aktualizuje tekst
+
+**Definition of Done:**
+- [ ] Przycisk "Wspólne opłaty dodatkowe" usunięty
+- [ ] "Wspólne" NIE jest seedowane
+- [ ] Seedowane 2 domyślne zestawy: Diesel i Elektryk (z `$1`/`$2` w opisach)
+- [ ] Szybkie przyciski Diesel i Elektryk działają
+- [ ] Klik Diesel → dodaje zestaw opłat diesel do umowy
+- [ ] Klik Elektryk → dodaje zestaw opłat elektryk do umowy
+- [ ] Reszta opłat z dropdownu
+- [ ] `vue-tsc --noEmit` zielony
+- [ ] Smoke E2E zielony
+- [ ] Spec sync: `03_frontend_screens.md`
+
+---
+
+### P1-114: Czysty seed + odtworzenie bazy + Fakturownia + 10 umów aktywnych
+
+```yaml
+id: P1-114
+status: triaged
+priority: P1
+created: 2026-07-12
+source: client-request (współpraca 2026-07-12)
+component: backend/seed_demo_data + backend/migrate + backend/integrations/fakturownia + DB
+migration_impact: yes
+```
+
+**Opis:** Przygotować procedurę odtworzenia bazy od zera (czysty seed) z integracją Fakturownia i 10 aktywnymi umowami skonfigurowanymi w Fakturowni, żeby przetestować czy integracja działa end-to-end.
+
+**Wymagania:**
+1. **Odtworzenie bazy** — skrypt/procedura: DROP + CREATE + schema z modeli + seed
+2. **Czysty seed** — `seed_demo_data.py` przebudowany:
+   - Maszyny (z power_type: diesel/elektryk/other)
+   - Usługi dodatkowe z `$1`/`$2` placeholderami (zależne z P1-113)
+   - Zestawy Diesel i Elektryk (zależne z P2-007)
+   - Kontrahenci
+   - Handlowcy
+   - Filie
+   - Kategorie
+3. **Fakturownia** — integracja skonfigurowana:
+   - `FAKTUROWNIA_API_TOKEN` w `.env`
+   - Maszyny/usługi/additional_services z `fakturownia_product_id` (mapping)
+   - Firma z danymi do Fakturowni
+4. **10 umów aktywnych** — z konfiguracją w Fakturowni:
+   - Różne typy: S (najem maszyn) i U (usługi)
+   - Różne maszyny (diesel + elektryk)
+   - Różne kontrahenci
+   - Pozycje z `machine_id` lub `service_id` (XOR)
+   - Opłaty dodatkowe z `$1`/`$2` placeholderami
+   - Warunki rozliczeniowe
+   - Status: aktywne (nie archiwalne)
+5. **Test integracji** — po seedzie:
+   - GET /fakturownia/products → sprawdź mapping
+   - Generuj PDF umowy → sprawdź czy Fakturownia product info jest poprawne
+   - Ewentualnie: wystaw fakturę testową (jeśli API Fakturowni dostępne)
+
+**Zadania:**
+1. Skrypt `reset_db.py` (lub `seed_demo_data.py --reset`) — DROP schema + CREATE + create_all + seed
+2. `seed_demo_data.py` — pełny seed z 10 umowami + Fakturownia mapping
+3. `seed_fa_invoices.py` — mapping 3 tabel (machines, services, additional_services) → Fakturownia
+4. Weryfikacja: 10 umów w DB, każda z pozycjami, opłatami, warunkami
+5. Weryfikacja: Fakturownia products zmapowane
+6. E2E — smoke: lista umów pokazuje 10 aktywnych, PDF generuje się
+
+**Definition of Done:**
+- [ ] Skrypt reset_db działa (DROP + CREATE + schema + seed w jednym)
+- [ ] 10 umów aktywnych w DB po seedzie
+- [ ] Umowy mają pozycje (machine_id XOR service_id)
+- [ ] Umowy mają opłaty dodatkowe z `$1`/`$2` placeholderami
+- [ ] Fakturownia products zmapowane (machines, services, additional_services)
+- [ ] PDF umowy generuje się poprawnie dla seedywanych umów
+- [ ] E2E smoke zielony po seedzie
+- [ ] Spec sync: `08_migration_plan.md`, `07_integrations.md`
+
 ---
 
 ## 🟢 P3 — Nice-to-Have

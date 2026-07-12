@@ -38,8 +38,7 @@ test.describe('TEST-08: Auth & Security', () => {
   for (const ep of [
     { method: 'get', path: '/contractors' },
     { method: 'get', path: '/contracts' },
-    { method: 'get', path: '/articles' },           // backward compat
-    { method: 'get', path: '/machines' },            // Faza 5
+    { method: 'get', path: '/machines' },            // Faza 5 (zastąpił /articles)
     { method: 'get', path: '/services' },            // Faza 5
     { method: 'get', path: '/additional-services' }, // Faza 5
     { method: 'get', path: '/settings/company' },
