@@ -122,6 +122,163 @@ plan: C:/Users/mateu/.windsurf/plans/megaplan-statystyki-klienta-10c667.md
 
 ---
 
+### P1-115: Seed umów usługi (type=U) — pozycje z machine_id zamiast service_id
+
+```yaml
+id: P1-115
+status: triaged
+priority: P1
+created: 2026-07-12
+source: client-request (współpraca 2026-07-12)
+component: backend/seed_demo_data + backend/contracts (XOR machine_id/service_id)
+migration_impact: no
+```
+
+**Opis:** Umowy typu U (usługi) w seedzie mają pozycje z `machine_id` (maszyny) zamiast `service_id` (usługi). W formularzu umowy usługi wyszukiwarka pokazuje sprzęt a nie usługi — niespójność.
+
+**Dowód DB (2026-07-12):**
+- `contract_positions` dla `contract_type='U'`: 22 pozycje, wszystkie `machine_id=NULL, service_id=NULL` (article_name = nazwa maszyny)
+- `contract_positions` dla `contract_type='S'`: 67 pozycji, tylko 3 z `machine_id` (reszta NULL — stare seedy)
+
+**Root cause:** `_build_positions_and_fees` w `seed_demo_data.py` (linia 506) ZAWSZE używa `maszyny` (MASZYNY list) i ustawia `machine_id` w pozycjach — ignoruje `contract_type`. Dla umów U powinien używać `services` (tabela `services`) i ustawiać `service_id`.
+
+**Zadania:**
+1. `seed_demo_data.py` — `_build_positions_and_fees` przyjmować `contract_type`; dla U używać services (z `services` table), dla S używać machines
+2. `seed_demo_data.py` — dodać seed usług zwykłych (services table) — obecnie pusta? Sprawdzić
+3. `seed_umowy` — zapisywać `service_id` zamiast `machine_id` dla pozycji umów U
+4. Weryfikacja DB: umowy U mają `service_id` NOT NULL, `machine_id` NULL; umowy S odwrotnie
+5. E2E: formularz umowy usługi pokazuje usługi w wyszukiwarce
+
+**Definition of Done:**
+- [ ] Umowy U w DB mają pozycje z `service_id` (nie `machine_id`)
+- [ ] Umowy S w DB mają pozycje z `machine_id` (nie `service_id`)
+- [ ] Formularz umowy usługi — wyszukiwarka pokazuje usługi
+- [ ] `pytest` zielony
+- [ ] Smoke E2E zielony
+
+---
+
+### P1-116: Usunąć cennik z Machine Details — cennik tylko z poziomu umowy
+
+```yaml
+id: P1-116
+status: triaged
+priority: P1
+created: 2026-07-12
+source: client-request (współpraca 2026-07-12)
+component: frontend/MachineDetailsView (lub MachineFormView)
+migration_impact: no
+```
+
+**Opis:** Widok cennika w szczegółach maszyny jest "beznadziejny" (cyt. klient). Cennik warunków rozliczenia ma być zarządzany TYLKO z poziomu formularza umowy (gdzie jest uproszczony i kontekstowy). Usunąć sekcję cennika z Machine Details.
+
+**Zadania:**
+1. Znaleźć widok cennika w Machine Details (MachineDetailsView.vue lub MachineFormView.vue)
+2. Usunąć sekcję "Nowy cennik rozliczenia" / "Warunki rozliczenia" z Machine Details
+3. Zachować backend endpointy (cennik nadal używany w formularzu umowy)
+4. E2E: Machine Details nie pokazuje cennika
+
+**Definition of Done:**
+- [ ] Machine Details nie ma sekcji cennika
+- [ ] Formularz umowy nadal pozwala na cennik (uproszczony)
+- [ ] `vue-tsc` zielony
+- [ ] Smoke E2E zielony
+
+---
+
+### P1-117: Dodawanie rozliczenia inline w formularzu umowy — auto-zapis + auto-apply
+
+```yaml
+id: P1-117
+status: triaged
+priority: P1
+created: 2026-07-12
+source: client-request (współpraca 2026-07-12)
+component: frontend/ContractFormView + backend/contracts (cennik kaskadowy)
+migration_impact: no
+```
+
+**Opis:** Dodawanie warunków rozliczenia z poziomu tworzenia umowy ma być uproszczone:
+1. Po wpisaniu pierwszego warunku → auto-zapis (nie trzeba klikać "Zapisz")
+2. Auto-apply ostatniego cennika dla maszyny/usługi (prefill z ostatniego użycia)
+3. Edycja w locie w gridzie (inline editing, nie modal)
+
+**Zadania:**
+1. `ContractFormView.vue` — sekcja warunków rozliczenia: inline grid (edycja w locie)
+2. Auto-zapis: po wpisaniu pierwszego warunku → POST/PUT automatycznie (debounce)
+3. Auto-apply: po wybraniu maszyny/usługi → pobierz ostatni cennik (GET /machines/{id}/rate-presets/last-used lub podobnie)
+4. UX: grid z kolumnami (rate1, rate2, period_count, minimum, billing_label) — edycja inline
+5. E2E: dodanie warunku nie wymaga kliknięcia "Zapisz"
+
+**Definition of Done:**
+- [ ] Warunki rozliczenia edytowalne inline w gridzie
+- [ ] Auto-zapis po wpisaniu pierwszego warunku
+- [ ] Auto-apply ostatniego cennika po wybraniu maszyny/usługi
+- [ ] `vue-tsc` zielony
+- [ ] Smoke E2E zielony
+
+---
+
+### P1-118: Panel rezerwacji — stronicowanie listy dnia
+
+```yaml
+id: P1-118
+status: triaged
+priority: P1
+created: 2026-07-12
+source: client-request (współpraca 2026-07-12)
+component: frontend/ReservationsView (panel dnia — P1-111)
+migration_impact: no
+```
+
+**Opis:** Panel listy dnia w ReservationsView (P1-111) ma być wielkości kalendarza, a kolejne elementy stronicowane. Obecnie panel może rosnąć nieograniczenie jeśli dzień ma dużo eventów.
+
+**Zadania:**
+1. `ReservationsView.vue` — panel dnia: `max-height` = wysokość kalendarza, `overflow-y: auto`
+2. Stronicowanie listy eventów (np. 10 na stronę) lub virtual scroll
+3. Paginacja: prev/next lub "Pokaż więcej"
+4. E2E: dzień z 20+ eventami — panel nie przepełnia kalendarza
+
+**Definition of Done:**
+- [ ] Panel dnia ma max-height = wysokość kalendarza
+- [ ] Lista eventów stronicowana (lub scroll z paginacją)
+- [ ] `vue-tsc` zielony
+- [ ] Smoke E2E zielony
+
+---
+
+### P1-119: Rezerwacja maszyn — opcjonalny handlowiec (salesperson_id)
+
+```yaml
+id: P1-119
+status: triaged
+priority: P1
+created: 2026-07-12
+source: client-request (współpraca 2026-07-12)
+component: backend/reservations (model + schema + service) + frontend/ReservationsView (modal)
+migration_impact: yes (ALTER TABLE machine_reservations ADD COLUMN salesperson_id)
+```
+
+**Opis:** Rezerwacja maszyn ma mieć do wyboru opcjonalnego handlowca (salesperson_id). Obecnie rezerwacja nie ma powiązania z handlowcem.
+
+**Zadania:**
+1. DB: `ALTER TABLE machine_reservations ADD COLUMN salesperson_id INT NULL` (FK → salespeople)
+2. `backend/reservations/models.py` — dodać `salesperson_id` column + relationship
+3. `backend/reservations/schemas.py` — `ReservationCreate/Update/Response` + `salesperson_id`
+4. `backend/reservations/service.py` — zapis/aktualizacja `salesperson_id`
+5. `frontend/src/stores/reservations.ts` — typy + payload
+6. `frontend/src/views/ReservationsView.vue` — modal: select handlowca (opcjonalny)
+7. E2E: rezerwacja z handlowcem
+
+**Definition of Done:**
+- [ ] `machine_reservations.salesperson_id` w DB (nullable, FK → salespeople)
+- [ ] Modal rezerwacji ma select handlowca (opcjonalny)
+- [ ] API zapisuje/zwraca `salesperson_id`
+- [ ] `pytest` zielony, `vue-tsc` zielony
+- [ ] Smoke E2E zielony
+
+---
+
 ## 🟡 P2 — Should-Have
 
 ### P2-002: `articles.power_type` — sugestia zestawu diesel/elektryk
