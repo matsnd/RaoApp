@@ -924,16 +924,17 @@ def _lokalizacja(i):
 
 
 def generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_name, svc_by_name=None):
-    """Generuje umowy demo (RAO-P2-067): 4 pule.
+    """Generuje umowy demo (RAO-P2-067): 4 pule, ~120 umów.
 
-    Pula A — historia 2025 (24 umowy, 12-24 mies. wstecz, wszystkie rozliczone)
-             → bogate statystyki roczne, wykresy by-period, lokalizacje.
-    Pula B — bieżące 2026 (24 umowy):
-             B1: 10 AKTYWNYCH FA-pending (date_to >= today, is_settled=False, faktura w FA)
-                 → demo rozliczeń: user klika "Pobierz z Fakturowni" → rozliczenia na żywo.
-             B2: 14 historii 2026 (1-7 mies. wstecz, mix rozliczone / FA-pending zakończone).
-    Pula C — FA-pending zakończone (16 umów, NIEROZLICZONE, faktura czeka w FA)
+    Pula A — historia 2025 (40 umów, rozłożone na cały rok styczeń-grudzień 2025,
+             wszystkie rozliczone) → bogate statystyki roczne, wykresy by-period.
+    Pula B — bieżące 2026 (40 umów, styczeń-czerwiec 2026, mix rozliczone/aktywne).
+    Pula C — FA-pending aktywne (20 umów, date_to >= today, faktura w FA)
+             → demo rozliczeń: user klika "Pobierz z Fakturowni".
+    Pula D — FA-pending zakończone (20 umów, NIEROZLICZONE, faktura czeka w FA)
              → demo integracji na umowach zakończonych.
+
+    Maszyny rotowane po kategoriach → statystyki kategorii bogate i zróżnicowane.
     """
     contractors = list(con_by_name.values())
     salespeople = list(sp_by_name.values())
@@ -981,49 +982,52 @@ def generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_n
             **_lokalizacja(i),
         })
 
-    # ── Pula A: historia 2025 (12-24 miesiące wstecz, wszystkie rozliczone) ──
-    # Co 4 umowa z Gdańska (branch_idx=1 → suffix G w numerze)
-    for i in range(24):
-        contract_type = "S" if i % 3 != 2 else "U"
-        months_back = 12 + i // 2  # 12,12,13,13,...,23,23
-        date_from = today - timedelta(days=months_back * 30 + (i % 2) * 15)
-        days = 7 + (i % 4) * 7
-        number = f"{contract_type}{i + 1:03d}/2025"
-        _add(number, i, date_from, days, contract_type, is_settled=True, branch_idx=i % 4)
+    # ── Pula A: historia 2025 (40 umów, rozłożone na cały rok 2025) ─────────────
+    # Styczeń-grudzień 2025, wszystkie rozliczone. Co 5 umowa z Gdańska.
+    # days = 7-35 (różne długości wynajmu). Co 4 umowa typu U (usługa).
+    for i in range(40):
+        contract_type = "S" if i % 4 != 3 else "U"
+        # Rozłożenie na 12 miesięcy 2025: i=0 → styczeń, i=39 → grudzień
+        month_2025 = (i % 12) + 1  # 1-12
+        day_in_month = ((i * 7) % 25) + 1  # 1-25 (różne dni startu)
+        date_from = date(2025, month_2025, day_in_month)
+        days = 7 + (i % 5) * 7  # 7,14,21,28,35
+        number = f"S{i + 1:03d}/2025"
+        _add(number, i, date_from, days, contract_type, is_settled=True, branch_idx=i % 5)
 
-    # ── Pula B1: 10 AKTYWNYCH FA-pending (date_to >= today, faktura w FA) ────
-    # Demo rozliczeń: user otwiera aktywną umowę → "Pobierz z Fakturowni" →
-    # rozliczenia tworzą się na żywo → zapisz → następna umowa.
-    # date_from = today - (i*2) dni (0,2,4,...,18 dni temu)
-    # days = 21 + (i%3)*7 (21,28,35,21,28,35,21,28,35,21) → date_to w przyszłości
-    for i in range(10):
-        contract_type = "S" if i % 3 != 2 else "U"
-        date_from = today - timedelta(days=i * 2)
-        days = 21 + (i % 3) * 7
-        number = f"{contract_type}{i + 1:03d}/2026"
-        _add(number, i, date_from, days, contract_type, is_settled=False, fa_pending=True, branch_idx=i % 4)
-
-    # ── Pula B2: 14 historii 2026 (1-7 mies. wstecz, mix rozliczone / FA-pending) ──
-    for i in range(10, 24):
-        contract_type = "S" if i % 3 != 2 else "U"
-        months_back = (i - 10) // 2 + 1  # 1,1,2,2,...,7,7
-        date_from = today - timedelta(days=months_back * 30 + (i % 2) * 15)
-        days = 7 + (i % 4) * 7
+    # ── Pula B: bieżące 2026 (40 umów, styczeń-czerwiec 2026, mix) ──────────────
+    # 70% rozliczone (zakończone), 30% aktywne (date_to >= today)
+    for i in range(40):
+        contract_type = "S" if i % 4 != 3 else "U"
+        month_2026 = (i % 6) + 1  # 1-6 (styczeń-czerwiec)
+        day_in_month = ((i * 7) % 25) + 1
+        date_from = date(2026, month_2026, day_in_month)
+        days = 7 + (i % 5) * 7  # 7-35
         date_to = date_from + timedelta(days=days)
         is_active = date_to >= today
-        is_settled = (not is_active) and (i % 5 != 4)  # 80% zakończonych rozliczone
-        number = f"{contract_type}{i + 1:03d}/2026"
-        _add(number, i, date_from, days, contract_type, is_settled=is_settled, branch_idx=i % 4)
+        is_settled = (not is_active) and (i % 10 != 7)  # 80% zakończonych rozliczone
+        number = f"S{i + 41:03d}/2026"  # kontynuacja numeracji od 041
+        _add(number, i + 40, date_from, days, contract_type, is_settled=is_settled, branch_idx=i % 5)
 
-    # ── Pula C: FA-pending — zakończone, NIEROZLICZONE, faktura czeka w FA ──
-    # (demo integracji: "Pobierz z Fakturowni" tworzy rozliczenia na żywo)
-    for k in range(16):
-        i = k + 3  # offset — inne kombinacje maszyn/kontrahentów niż pula B
+    # ── Pula C: FA-pending aktywne (20 umów, date_to >= today, faktura w FA) ────
+    # Demo rozliczeń: user otwiera aktywną umowę → "Pobierz z Fakturowni".
+    # date_from = today - (i*3) dni, days = 21-42 → date_to w przyszłości.
+    for i in range(20):
+        contract_type = "S" if i % 4 != 3 else "U"
+        date_from = today - timedelta(days=i * 3)
+        days = 21 + (i % 3) * 7  # 21,28,35
+        number = f"S{i + 81:03d}/2026"  # 081-100
+        _add(number, i + 80, date_from, days, contract_type, is_settled=False, fa_pending=True, branch_idx=i % 5)
+
+    # ── Pula D: FA-pending zakończone (20 umów, NIEROZLICZONE, faktura czeka) ───
+    # Demo integracji: "Pobierz z Fakturowni" tworzy rozliczenia na żywo.
+    for k in range(20):
+        i = k + 5  # offset — inne kombinacje maszyn/kontrahentów
         contract_type = "S" if k % 4 != 3 else "U"
-        date_from = today - timedelta(days=20 + k * 9)  # zakończone niedawno
-        days = 7 + (k % 3) * 7
-        number = f"{contract_type}{k + 25:03d}/2026"  # S025..S040/2026 — kontynuacja numeracji
-        _add(number, i, date_from, days, contract_type, is_settled=False, fa_pending=True, branch_idx=k % 4)
+        date_from = today - timedelta(days=15 + k * 7)  # zakończone niedawno
+        days = 7 + (k % 3) * 7  # 7,14,21
+        number = f"S{k + 101:03d}/2026"  # 101-120
+        _add(number, i + 100, date_from, days, contract_type, is_settled=False, fa_pending=True, branch_idx=k % 5)
 
     return contracts
 
