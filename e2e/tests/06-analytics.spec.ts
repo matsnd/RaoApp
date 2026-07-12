@@ -146,11 +146,11 @@ test.describe('AnalyticsView — statystyki', () => {
       })
     }
 
-    // Nawigacja do statystyk (period tab jest domyślna)
+    // Nawigacja do statystyk (P1-112: domyślna taba to 'live', period trzeba kliknąć)
     await page.goto('/rao/analytics', { waitUntil: 'domcontentloaded', timeout: 10_000 })
     await expect(page).toHaveURL(/\/rao\/analytics/, { timeout: 8_000 })
 
-    // Kliknij "Wynajem w okresie" tab (domyślnie aktywna, ale upewnij się)
+    // Kliknij "Rankingi wynajmu" tab (było "Wynajem w okresie", P1-112 rename)
     await page.getByTestId('tab-period').click()
 
     // Czekaj na załadowanie KPI
@@ -196,6 +196,8 @@ test.describe('AnalyticsView — statystyki', () => {
   })
 
   test('TEST-04: Filtr kontrahenta jest comboboxem z inputem', async ({ page }) => {
+    // P1-112: domyślna taba to 'live' (filtry ukryte) — kliknij tabę z filtrami
+    await page.getByTestId('tab-period').click()
     const filter = page.getByTestId('filter-contractor')
     await expect(filter).toBeVisible()
     // ContractorCombobox renders a div wrapper with an input inside

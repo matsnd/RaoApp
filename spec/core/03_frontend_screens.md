@@ -2460,7 +2460,17 @@ onUnmounted(() => {
   `DrillDownKind`, `DrillDownState`, `AnalyticsFiltersPayload`.
 
 ### `views/AnalyticsView.vue` (~650 linii)
-- Shell z 6 zakładkami przez `AnalyticsTabs`: `live` (🚜 Flota teraz), `machines` (🏗️ Maszyny), `services-s` (📦 Usługi dodatkowe), `services-u` (🔧 Usługi zwykłe), `period` (📅 Wynajem w okresie), `locations` (📍 Lokalizacje).
+- Shell z 6 zakładkami przez `AnalyticsTabs` (P1-112 kolejność + rename):
+  1. `live` (🚜 Flota teraz) — domyślna taba (P1-112)
+  2. `machines` (🏗️ Maszyny)
+  3. `services-u` (🔧 Usługi zwykłe)
+  4. `services-s` (📦 Usługi dodatkowe)
+  5. `locations` (📍 Lokalizacje)
+  6. `period` (📊 Rankingi wynajmu) — było "Wynajem w okresie" (P1-112 rename)
+- **Filtry warunkowe (P1-112):** `AnalyticsFilters` przyjmuje prop `activeTab`:
+  - `articleType` ukryte na dedykowanych tabach (machines, services-s, services-u) — tab już determinuje typ
+  - `city` ukryte na tabach usług (services-s, services-u) — usługi nie mają lokalizacji
+  - Wszystkie filtry ukryte na `live` (Flota teraz — dane realtime)
 - **Explorer tab usunięty** (2026-07-15) — zastąpiony przez dedykowane taby Maszyny/Usługi.
 - **Reservations tab usunięty z analityki** (2026-07-15, Phase A) — `ReservationsTab.vue` zostaje w repo (do przeniesienia do osobnego widoku w fazach 1-5). Import i użycie w template usunięte; typ `activeTab` zwężony.
 - Współdzielony stan filtrów (`ref<AnalyticsFiltersValue>` z dateFrom/dateTo/preset/articleType/contractorId/city).

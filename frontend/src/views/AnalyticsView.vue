@@ -20,13 +20,13 @@ const contractorsStore = useContractorStore()
 const tabs: AnalyticsTab[] = [
   { key: 'live', label: 'Flota teraz', icon: '🚜' },
   { key: 'machines', label: 'Maszyny', icon: '🏗️' },
-  { key: 'services-s', label: 'Usługi dodatkowe', icon: '📦' },
-  { key: 'services-u', label: 'Usługi zwykłe', icon: '🔧' },
-  { key: 'period', label: 'Wynajem w okresie', icon: '📅' },
-  { key: 'locations', label: 'Lokalizacje', icon: '📍' },
+  { key: 'services-u', label: 'Usługi zwykłe', icon: '�' },
+  { key: 'services-s', label: 'Usługi dodatkowe', icon: '�' },
+  { key: 'locations', label: 'Lokalizacje', icon: '�' },
+  { key: 'period', label: 'Rankingi wynajmu', icon: '�' },
 ]
 
-const activeTab = ref<'live' | 'machines' | 'services-s' | 'services-u' | 'period' | 'locations'>('period')
+const activeTab = ref<'live' | 'machines' | 'services-s' | 'services-u' | 'period' | 'locations'>('live')
 
 const today = computed(() =>
   new Date().toLocaleDateString('pl-PL', {
@@ -179,6 +179,7 @@ onMounted(async () => {
       v-if="activeTab !== 'live'"
       :model-value="filters"
       :contractors="contractorOptions"
+      :active-tab="activeTab"
       @update:model-value="onFiltersUpdate"
     />
 

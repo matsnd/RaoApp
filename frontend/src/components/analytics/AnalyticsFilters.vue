@@ -21,11 +21,19 @@ interface ContractorOption {
 interface Props {
   modelValue: AnalyticsFiltersValue
   contractors?: ContractorOption[]
+  activeTab?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
   contractors: () => [],
+  activeTab: 'live',
 })
+
+// P1-112: warunkowe ukrywanie filtrów zależnie od aktywnej taby
+// - articleType: ukryte na dedykowanych tabach (machines, services-s, services-u) — tab już determinuje typ
+// - city: ukryte na tabach usług (services-s, services-u) — usługi nie mają lokalizacji
+const showArticleType = computed(() => !['machines', 'services-s', 'services-u'].includes(props.activeTab))
+const showCity = computed(() => !['services-s', 'services-u'].includes(props.activeTab))
 
 const emit = defineEmits<{
   'update:modelValue': [value: AnalyticsFiltersValue]
@@ -139,8 +147,8 @@ function clearFilters(): void {
       />
     </div>
 
-    <!-- Article type -->
-    <div class="af-group">
+    <!-- Article type (P1-112: ukryte na dedykowanych tabach machines/services-s/services-u) -->
+    <div v-if="showArticleType" class="af-group">
       <span class="af-label">Typ:</span>
       <select
         class="af-input af-select"
@@ -173,8 +181,8 @@ function clearFilters(): void {
       </span>
     </div>
 
-    <!-- City -->
-    <div class="af-group">
+    <!-- City (P1-112: ukryte na tabach usług — usługi nie mają lokalizacji) -->
+    <div v-if="showCity" class="af-group">
       <span class="af-label">Miasto:</span>
       <input
         type="text"
