@@ -37,6 +37,7 @@ class ReservationService:
         """Return all reservations joined with machine names and contractor names."""
         from machines.models import Machine
         from contractors.models import Contractor
+        from settings.models import Salesperson  # P1-119
         result = await db.execute(
             select(
                 MachineReservation.id,
@@ -51,9 +52,12 @@ class ReservationService:
                 MachineReservation.contractor_id,
                 Contractor.name.label("contractor_name"),
                 MachineReservation.status,
+                MachineReservation.salesperson_id,  # P1-119
+                Salesperson.name.label("salesperson_name"),  # P1-119
             )
             .outerjoin(Machine, MachineReservation.machine_id == Machine.id)
             .outerjoin(Contractor, MachineReservation.contractor_id == Contractor.id)
+            .outerjoin(Salesperson, MachineReservation.salesperson_id == Salesperson.id)  # P1-119
             .order_by(MachineReservation.reserved_from)
         )
         rows = result.all()
@@ -71,6 +75,8 @@ class ReservationService:
                 "contractor_id": r[9],
                 "contractor_name": r[10],
                 "status": r[11],
+                "salesperson_id": r[12],  # P1-119
+                "salesperson_name": r[13],  # P1-119
             }
             for r in rows
         ]
@@ -123,6 +129,12 @@ class ReservationService:
             contractor = await db.get(Contractor, data.contractor_id)
             if not contractor:
                 raise HTTPException(404, "Kontrahent nie został znaleziony")
+        # P1-119: walidacja salesperson_id jeśli podany
+        if data.salesperson_id is not None:
+            from settings.models import Salesperson
+            sp = await db.get(Salesperson, data.salesperson_id)
+            if not sp:
+                raise HTTPException(404, "Handlowiec nie został znaleziony")
         if await self.check_conflict(
             db, data.machine_id, data.reserved_from, data.reserved_to
         ):
@@ -161,6 +173,12 @@ class ReservationService:
             contractor = await db.get(Contractor, updates["contractor_id"])
             if not contractor:
                 raise HTTPException(404, "Kontrahent nie został znaleziony")
+        # P1-119: walidacja salesperson_id jeśli aktualizowany
+        if "salesperson_id" in updates and updates["salesperson_id"] is not None:
+            from settings.models import Salesperson
+            sp = await db.get(Salesperson, updates["salesperson_id"])
+            if not sp:
+                raise HTTPException(404, "Handlowiec nie został znaleziony")
 
         # P2-003: walidacja is_external gdy machine_id zmieniana
         if "machine_id" in updates:
@@ -209,6 +227,7 @@ class ReservationService:
         from machines.models import Machine
         from contractors.models import Contractor
         from contracts.models import Contract, ContractPosition
+        from settings.models import Salesperson  # P1-119
 
         events: list[CalendarEvent] = []
 
@@ -225,9 +244,12 @@ class ReservationService:
                 MachineReservation.reserved_to,
                 MachineReservation.note,
                 MachineReservation.status,
+                MachineReservation.salesperson_id,  # P1-119
+                Salesperson.name,  # P1-119
             )
             .outerjoin(Machine, MachineReservation.machine_id == Machine.id)
             .outerjoin(Contractor, MachineReservation.contractor_id == Contractor.id)
+            .outerjoin(Salesperson, MachineReservation.salesperson_id == Salesperson.id)  # P1-119
             .where(MachineReservation.reserved_from <= date_to)
             .where(MachineReservation.reserved_to >= date_from)
         )
@@ -247,6 +269,8 @@ class ReservationService:
                 date_to=r[7],
                 note=r[8],
                 status=r[9],
+                salesperson_id=r[10],  # P1-119
+                salesperson_name=r[11],  # P1-119
             ))
 
         # Source 2: contracts (via contract_positions)

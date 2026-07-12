@@ -246,7 +246,7 @@ async def test_list_calendar_happy_path_reservation_and_contract():
     """GET /calendar — eventy z rezerwacji i umów, sortowane po date_from."""
     svc = ReservationService()
     # reservation: 05.01–15.01, contract: 01.01–31.01
-    res_row = (1, 10, "Koparka", "S001", 5, "ACME", date(2026, 1, 5), date(2026, 1, 15), "Serwis", "confirmed")
+    res_row = (1, 10, "Koparka", "S001", 5, "ACME", date(2026, 1, 5), date(2026, 1, 15), "Serwis", "confirmed", None, None)  # P1-119: +salesperson_id, salesperson_name
     contract_row = (100, 10, "Koparka", "S001", 5, "ACME", date(2026, 1, 1), date(2026, 1, 31), "U/2026/001")
     db = _mock_db_for_calendar(reservation_rows=[res_row], contract_rows=[contract_row])
     events = await svc.list_calendar(db, date(2026, 1, 1), date(2026, 1, 31))
@@ -274,7 +274,7 @@ async def test_list_calendar_empty_result():
 async def test_list_calendar_with_machine_filter():
     """GET /calendar — filtr machine_id przekazany do obu źródeł (refaktor articles→machines)."""
     svc = ReservationService()
-    res_row = (1, 10, "Koparka", "S001", None, None, date(2026, 1, 5), date(2026, 1, 15), None, "confirmed")
+    res_row = (1, 10, "Koparka", "S001", None, None, date(2026, 1, 5), date(2026, 1, 15), None, "confirmed", None, None)  # P1-119: +salesperson_id, salesperson_name
     db = _mock_db_for_calendar(reservation_rows=[res_row], contract_rows=[])
     events = await svc.list_calendar(db, date(2026, 1, 1), date(2026, 1, 31), machine_id=10)
     assert len(events) == 1

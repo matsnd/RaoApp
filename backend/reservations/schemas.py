@@ -9,6 +9,7 @@ class ReservationCreate(BaseModel):
     reserved_to: date
     note: Optional[str] = Field(None, max_length=300)
     contractor_id: Optional[int] = None
+    salesperson_id: Optional[int] = None  # P1-119: opcjonalny handlowiec
     status: str = Field("confirmed", pattern="^(confirmed|provisional)$")
 
     @model_validator(mode="after")
@@ -24,6 +25,8 @@ class ReservationUpdate(BaseModel):
     note: Optional[str] = Field(None, max_length=300)
     # RAO-L-Phase2: edycja powiązania z kontrahentem
     contractor_id: Optional[int] = None
+    # P1-119: edycja powiązania z handlowcem
+    salesperson_id: Optional[int] = None
     # RAO-L-Phase2: edycja statusu rezerwacji
     status: Optional[str] = Field(None, pattern="^(confirmed|provisional)$")
     # P2-003: zmiana maszyny (z walidacją is_external w service.update)
@@ -49,6 +52,7 @@ class ReservationResponse(BaseModel):
     created_by: Optional[int] = None
     created_at: datetime
     contractor_id: Optional[int] = None
+    salesperson_id: Optional[int] = None  # P1-119
     status: str = "confirmed"
     model_config = {"from_attributes": True}
 
@@ -66,6 +70,8 @@ class ReservationWithMachineResponse(BaseModel):
     model_config = {"from_attributes": True}
     contractor_id: Optional[int] = None
     contractor_name: Optional[str] = None
+    salesperson_id: Optional[int] = None  # P1-119
+    salesperson_name: Optional[str] = None  # P1-119
     status: str = "confirmed"
 
 
@@ -82,3 +88,5 @@ class CalendarEvent(BaseModel):
     date_to: Optional[date] = None  # umowa może nie mieć date_to
     note: Optional[str] = None  # note z rezerwacji lub number umowy
     status: Optional[str] = None  # tylko dla rezerwacji
+    salesperson_id: Optional[int] = None  # P1-119: tylko dla rezerwacji
+    salesperson_name: Optional[str] = None  # P1-119: tylko dla rezerwacji

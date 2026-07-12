@@ -906,6 +906,22 @@ async def startup_migrations():
             "CREATE INDEX IF NOT EXISTS idx_machine_reservations_reserved_to "
             "ON machine_reservations(reserved_to)"
         ))
+        # P1-119: salesperson_id (opcjonalny handlowiec powiązany z rezerwacją)
+        await conn.execute(sa.text(
+            "ALTER TABLE machine_reservations ADD COLUMN IF NOT EXISTS "
+            "salesperson_id INT NULL COMMENT 'P1-119: FK do salespeople.id (SET NULL)'"
+        ))
+        try:
+            await conn.execute(sa.text(
+                "ALTER TABLE machine_reservations ADD CONSTRAINT fk_machine_reservations_salesperson "
+                "FOREIGN KEY (salesperson_id) REFERENCES salespeople(id) ON DELETE SET NULL"
+            ))
+        except Exception:
+            pass  # FK już istnieje
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_machine_reservations_salesperson "
+            "ON machine_reservations(salesperson_id)"
+        ))
 
 app.add_middleware(
     CORSMiddleware,

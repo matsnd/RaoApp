@@ -35,4 +35,11 @@ class MachineReservation(Base):
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
+    # P1-119: opcjonalny handlowiec powiązany z rezerwacją
+    salesperson_id = Column(
+        Integer,
+        ForeignKey("salespeople.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     created_at = Column(DateTime, server_default=func.now(), nullable=False)

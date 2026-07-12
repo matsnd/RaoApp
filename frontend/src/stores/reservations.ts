@@ -17,6 +17,8 @@ export interface MachineReservation {
   note: string | null
   contractor_id: number | null
   contractor_name: string | null
+  salesperson_id: number | null  // P1-119
+  salesperson_name: string | null  // P1-119
   status: string | null  // "confirmed" | "provisional" | null
   created_by: number | null
   created_at: string
@@ -38,6 +40,7 @@ export interface ReservationPayload {
   reserved_to: string
   note?: string | null
   contractor_id?: number | null
+  salesperson_id?: number | null  // P1-119
   status?: string | null
 }
 
@@ -47,6 +50,7 @@ export interface ReservationUpdatePayload {
   reserved_to?: string
   note?: string | null
   contractor_id?: number | null
+  salesperson_id?: number | null  // P1-119
   status?: string | null
 }
 
@@ -61,6 +65,8 @@ export interface CalendarEvent {
   internal_number: string | null
   contractor_id: number | null
   contractor_name: string | null
+  salesperson_id: number | null  // P1-119
+  salesperson_name: string | null  // P1-119
   date_from: string  // ISO date
   date_to: string    // ISO date
   note: string | null

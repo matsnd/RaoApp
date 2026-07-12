@@ -21,6 +21,7 @@ import {
 } from '@/stores/reservations'
 import { useArticleStore } from '@/stores/articles'
 import { useContractorStore } from '@/stores/contractors'
+import { useSettingsStore } from '@/stores/settings'  // P1-119: salespeople
 import ContractorCombobox from '@/components/analytics/ContractorCombobox.vue'
 import StateMessage from '@/components/StateMessage.vue'
 import { formatDate } from '@/utils/format'
@@ -28,6 +29,7 @@ import { formatDate } from '@/utils/format'
 const store = useReservationsStore()
 const articleStore = useArticleStore()
 const contractorStore = useContractorStore()
+const settingsStore = useSettingsStore()  // P1-119: salespeople
 const router = useRouter()
 
 // ── Filtry ────────────────────────────────────────────────────────────────────
@@ -213,6 +215,14 @@ const contractorOptions = computed(() =>
   })),
 )
 
+// P1-119: handlowcy do selecta w modalu
+const salespeopleOptions = computed(() =>
+  (settingsStore.salespeople ?? []).map((sp: { id: number; name: string }) => ({
+    id: sp.id,
+    name: sp.name,
+  })),
+)
+
 // ── Modal CRUD ────────────────────────────────────────────────────────────────
 interface ModalState {
   open: boolean
@@ -223,6 +233,7 @@ interface ModalState {
   form: {
     machine_id: number | null
     contractor_id: number | null
+    salesperson_id: number | null  // P1-119
     reserved_from: string
     reserved_to: string
     status: 'confirmed' | 'provisional'
@@ -238,6 +249,7 @@ const modal = ref<ModalState>({
   form: {
     machine_id: null,
     contractor_id: null,
+    salesperson_id: null,  // P1-119
     reserved_from: '',
     reserved_to: '',
     status: 'confirmed',
@@ -266,6 +278,7 @@ function openCreate(presetDate?: string) {
     form: {
       machine_id: filterMachineId.value,
       contractor_id: filterContractorId.value,
+      salesperson_id: null,  // P1-119
       reserved_from: today,
       reserved_to: today,
       status: 'confirmed',
@@ -287,6 +300,7 @@ function openEdit(r: ReservationWithMachine | CalendarEvent) {
       form: {
         machine_id: ev.machine_id,
         contractor_id: ev.contractor_id,
+        salesperson_id: ev.salesperson_id ?? null,  // P1-119
         reserved_from: ev.date_from,
         reserved_to: ev.date_to,
         status: 'confirmed',
@@ -309,6 +323,7 @@ function openEdit(r: ReservationWithMachine | CalendarEvent) {
     form: {
       machine_id: r.machine_id,
       contractor_id: r.contractor_id ?? null,
+      salesperson_id: (r as any).salesperson_id ?? null,  // P1-119
       reserved_from: from,
       reserved_to: to,
       status: (r.status === 'provisional' ? 'provisional' : 'confirmed') as 'confirmed' | 'provisional',
@@ -336,6 +351,7 @@ async function saveReservation() {
         reserved_to: f.reserved_to,
         note: f.note || null,
         contractor_id: f.contractor_id,
+        salesperson_id: f.salesperson_id,  // P1-119
         status: f.status,
       }
       await store.create(payload)
@@ -345,6 +361,7 @@ async function saveReservation() {
         reserved_to: f.reserved_to,
         note: f.note || null,
         contractor_id: f.contractor_id,
+        salesperson_id: f.salesperson_id,  // P1-119
         status: f.status,
       }
       await store.update(modal.value.reservationId, payload)
@@ -413,6 +430,14 @@ onMounted(async () => {
       await contractorStore.fetchList({ per_page: 500 })
     } catch {
       // ignore — filtr opcjonalny
+    }
+  }
+  // P1-119: Załaduj handlowców (select w modalu)
+  if (!settingsStore.salespeople?.length) {
+    try {
+      await settingsStore.fetchSalespeople()
+    } catch {
+      // ignore — handlowiec opcjonalny
     }
   }
   await loadMachines()
@@ -646,6 +671,21 @@ onMounted(async () => {
                 placeholder="Brak (opcjonalny)"
                 data-testid="rv-modal-contractor"
               />
+            </div>
+
+            <div class="rv-form-row">
+              <label class="rv-form-label">Handlowiec</label>
+              <select
+                v-model="modal.form.salesperson_id"
+                data-testid="rv-modal-salesperson"
+                :disabled="modalSaving"
+                class="form-control"
+              >
+                <option :value="null">Brak (opcjonalny)</option>
+                <option v-for="sp in salespeopleOptions" :key="sp.id" :value="sp.id">
+                  {{ sp.name }}
+                </option>
+              </select>
             </div>
 
             <div class="rv-form-row rv-form-dates">
