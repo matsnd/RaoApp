@@ -101,6 +101,13 @@ class ContractServiceFee(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     contract_id = Column(Integer, ForeignKey("contracts.id", ondelete="CASCADE"), nullable=False)
     sort_order = Column(Integer, nullable=False, default=0)
+    # P1-120: FK do additional_services (mapowanie dla statystyk/Fakturowni)
+    additional_service_id = Column(
+        Integer,
+        ForeignKey("additional_services.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     name = Column(String(200), nullable=False)
     amount_from = Column(Numeric(18, 2), nullable=True)
     amount_to = Column(Numeric(18, 2), nullable=True)
@@ -108,3 +115,4 @@ class ContractServiceFee(Base):
     is_active = Column(Boolean, nullable=False, default=True)
 
     contract = relationship("Contract", back_populates="service_fees")
+    additional_service = relationship("AdditionalService", lazy="selectin", foreign_keys=[additional_service_id])

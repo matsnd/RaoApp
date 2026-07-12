@@ -790,6 +790,7 @@ HTTP: 204 | 401 | 404
 class AdditionalServiceListItem(BaseModel):
     id: int
     name: str
+    display_name: str | None = None  # P1-120: długa nazwa do umowy/PDF
     default_amount: Decimal | None
     description: str | None
     notes: str | None
@@ -803,6 +804,7 @@ class AdditionalServiceListItem(BaseModel):
 ```python
 class AdditionalServiceCreate(BaseModel):
     name: str = Field(..., max_length=200)
+    display_name: str | None = Field(None, max_length=400)  # P1-120
     default_amount: Decimal | None = None
     description: str | None = Field(None, max_length=400)
     notes: str | None = Field(None, max_length=200)
@@ -1143,6 +1145,7 @@ async def recalculate_contract_value(db: AsyncSession, contract_id: int, user: U
 class ContractServiceFeeResponse(BaseModel):
     id: int
     sort_order: int
+    additional_service_id: int | None = None  # P1-120: FK do additional_services
     name: str
     amount_from: Decimal | None
     amount_to: Decimal | None
@@ -1150,6 +1153,7 @@ class ContractServiceFeeResponse(BaseModel):
     is_active: bool
 
 class ContractServiceFeeCreate(BaseModel):
+    additional_service_id: int | None = None  # P1-120: FK do additional_services
     name: SafeName
     amount_from: Decimal | None = Field(None, ge=0, decimal_places=2)
     amount_to: Decimal | None = Field(None, ge=0, decimal_places=2)

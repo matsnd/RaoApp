@@ -163,6 +163,7 @@ class PositionUpdate(BaseModel):
 class ContractServiceFeeResponse(BaseModel):
     id: int
     sort_order: int
+    additional_service_id: int | None = None  # P1-120
     name: str
     amount_from: Decimal | None
     amount_to: Decimal | None
@@ -174,6 +175,7 @@ class ContractServiceFeeResponse(BaseModel):
 
 
 class ContractServiceFeeCreate(BaseModel):
+    additional_service_id: int | None = None  # P1-120: FK do additional_services
     name: SafeName
     amount_from: Decimal | None = Field(None, ge=0, decimal_places=2)
     amount_to: Decimal | None = Field(None, ge=0, decimal_places=2)
@@ -193,6 +195,7 @@ class ContractServiceFeeCreate(BaseModel):
 
 class ContractServiceFeeUpdate(BaseModel):
     """RAO-P0-034: Partial update — only fields explicitly sent are applied."""
+    additional_service_id: int | None = None  # P1-120
     name: SafeName | None = None
     amount_from: Decimal | None = Field(None, ge=0, decimal_places=2)
     amount_to: Decimal | None = Field(None, ge=0, decimal_places=2)

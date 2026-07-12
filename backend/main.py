@@ -540,6 +540,28 @@ async def startup_migrations():
         except Exception:
             pass
 
+        # P1-120: additional_services.display_name (długa nazwa do umowy/PDF)
+        await conn.execute(sa.text(
+            "ALTER TABLE additional_services ADD COLUMN IF NOT EXISTS "
+            "display_name VARCHAR(400) NULL COMMENT 'P1-120: długa nazwa do umowy/PDF (fallback do name)'"
+        ))
+        # P1-120: contract_service_fees.additional_service_id (FK → additional_services)
+        await conn.execute(sa.text(
+            "ALTER TABLE contract_service_fees ADD COLUMN IF NOT EXISTS "
+            "additional_service_id INT NULL COMMENT 'P1-120: FK do additional_services.id (SET NULL)'"
+        ))
+        try:
+            await conn.execute(sa.text(
+                "ALTER TABLE contract_service_fees ADD CONSTRAINT fk_contract_service_fees_additional_service "
+                "FOREIGN KEY (additional_service_id) REFERENCES additional_services(id) ON DELETE SET NULL"
+            ))
+        except Exception:
+            pass  # FK już istnieje
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_contract_service_fees_additional_service "
+            "ON contract_service_fees(additional_service_id)"
+        ))
+
         # contract_positions.costs
         try:
             await conn.execute(sa.text("ALTER TABLE contract_positions DROP COLUMN IF EXISTS costs"))

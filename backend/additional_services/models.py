@@ -7,6 +7,8 @@ class AdditionalService(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(200), nullable=False)
+    # P1-120: długa nazwa do umowy/PDF (fallback do name jeśli NULL)
+    display_name = Column(String(400), nullable=True)
     default_amount = Column(Numeric(18, 2), nullable=True)
     description = Column(String(400), nullable=True)
     notes = Column(String(200), nullable=True)

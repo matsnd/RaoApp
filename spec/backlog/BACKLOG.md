@@ -279,6 +279,42 @@ migration_impact: yes (ALTER TABLE machine_reservations ADD COLUMN salesperson_i
 
 ---
 
+### P1-120: Opłaty dodatkowe — combobox mapowany do additional_services
+
+```yaml
+id: P1-120
+status: dev-verified
+priority: P1
+created: 2026-07-12
+source: client-request (współpraca 2026-07-12)
+component: backend/contracts + backend/additional_services + frontend/ContractFormView
+migration_impact: yes (ALTER TABLE additional_services ADD display_name + contract_service_fees ADD additional_service_id)
+```
+
+**Opis:** Opłaty dodatkowe na umowie (`contract_service_fees`) mają być mapowane do katalogu `additional_services` przez FK `additional_service_id`. Z punktu widzenia usera jedyna zmiana to combobox z listy zamiast wolnego tekstu — reszta bez zmian. Cel: statystyki rozliczeń per usługa + integracja z Fakturownią (`additional_services.fakturownia_product_id`).
+
+**Zadania:**
+1. DB: `ALTER TABLE additional_services ADD COLUMN display_name VARCHAR(400) NULL` (długa nazwa do umowy/PDF, fallback do name)
+2. DB: `ALTER TABLE contract_service_fees ADD COLUMN additional_service_id INT NULL` (FK → additional_services, ON DELETE SET NULL)
+3. `backend/additional_services/models.py` + `schemas.py` — `display_name`
+4. `backend/contracts/models.py` + `schemas.py` — `additional_service_id` (Create/Update/Response)
+5. `backend/contracts/service.py` — propagacja `additional_service_id` z template do fee
+6. `backend/seed_demo_data.py` — `display_name` w USLUGI + `additional_service_id` w fee
+7. `frontend/src/views/ContractFormView.vue` — combobox (select) z `additional_services` w nowym wierszu i edycji inline; opcja "✎ własna nazwa…"
+8. Backfill istniejących opłat: match po `display_name` → `additional_service_id`
+
+**Definition of Done:**
+- [x] `additional_services.display_name` w DB
+- [x] `contract_service_fees.additional_service_id` w DB (FK → additional_services)
+- [x] Combobox z listy `additional_services` w formularzu opłat
+- [x] Po wyborze: `name` = `display_name`, `amount_from` = `default_amount`
+- [x] Opcja "✎ własna nazwa…" dla ręcznego wpisu
+- [x] Backfill: 195/195 opłat ma `additional_service_id`
+- [x] `vue-tsc` zielony
+- [x] Spec sync (01_database, 02_backend_api, 03_frontend_screens)
+
+---
+
 ## 🟡 P2 — Should-Have
 
 ### P2-002: `articles.power_type` — sugestia zestawu diesel/elektryk

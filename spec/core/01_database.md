@@ -327,6 +327,7 @@ CREATE TABLE services (
 CREATE TABLE additional_services (
     id                    INT AUTO_INCREMENT PRIMARY KEY,
     name                  VARCHAR(200) NOT NULL,
+    display_name          VARCHAR(400) NULL COMMENT 'P1-120: długa nazwa do umowy/PDF (fallback do name)',
     default_amount        DECIMAL(18,2) NULL COMMENT 'Domyślna kwota opłaty',
     description           VARCHAR(400) NULL,
     notes                 VARCHAR(200) NULL,
@@ -620,17 +621,21 @@ CREATE TABLE contract_settlements (
 -- Kopiowane z service_fee_templates przy tworzeniu umowy, edytowalne per-umowa
 
 CREATE TABLE contract_service_fees (
-    id           INT AUTO_INCREMENT PRIMARY KEY,
-    contract_id  INT          NOT NULL,
-    sort_order   INT          NOT NULL DEFAULT 0 COMMENT 'Kolejność pozycji',
-    name         VARCHAR(200) NOT NULL COMMENT 'Nazwa np. Transport',
-    amount_from  DECIMAL(18,2) NULL    COMMENT 'Kwota od',
-    amount_to    DECIMAL(18,2) NULL    COMMENT 'Kwota do (NULL = jednorazowa)',
-    description  VARCHAR(400) NULL     COMMENT 'Opis np. dostawa / odbiór',
-    is_active    BOOLEAN      NOT NULL DEFAULT TRUE COMMENT 'Pokazuje na PDF',
+    id                    INT AUTO_INCREMENT PRIMARY KEY,
+    contract_id           INT          NOT NULL,
+    sort_order            INT          NOT NULL DEFAULT 0 COMMENT 'Kolejność pozycji',
+    additional_service_id INT          NULL COMMENT 'P1-120: FK do additional_services.id (mapowanie dla statystyk/Fakturowni)',
+    name                  VARCHAR(200) NOT NULL COMMENT 'Nazwa wyświetlana (snapshot z additional_services.display_name lub własna)',
+    amount_from           DECIMAL(18,2) NULL    COMMENT 'Kwota od',
+    amount_to             DECIMAL(18,2) NULL    COMMENT 'Kwota do (NULL = jednorazowa)',
+    description           VARCHAR(400) NULL     COMMENT 'Opis np. dostawa / odbiór',
+    is_active             BOOLEAN      NOT NULL DEFAULT TRUE COMMENT 'Pokazuje na PDF',
     CONSTRAINT fk_csf_contract FOREIGN KEY (contract_id)
         REFERENCES contracts(id) ON DELETE CASCADE,
-    INDEX idx_csf_contract (contract_id, sort_order)
+    CONSTRAINT fk_csf_additional_service FOREIGN KEY (additional_service_id)
+        REFERENCES additional_services(id) ON DELETE SET NULL,
+    INDEX idx_csf_contract (contract_id, sort_order),
+    INDEX idx_csf_additional_service (additional_service_id)
 ) ENGINE=InnoDB COMMENT='Usługi dodatkowe umowy (stary: umowa2.oplaty, firma.uslugi1/2)';
 
 -- ============================================================

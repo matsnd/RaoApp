@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 class AdditionalServiceListItem(BaseModel):
     id: int
     name: str
+    display_name: str | None = None  # P1-120
     default_amount: Decimal | None = Field(None, ge=0, decimal_places=2)
     description: str | None
     is_archival: bool = False
@@ -20,6 +21,7 @@ class AdditionalServiceListItem(BaseModel):
 class AdditionalServiceDetail(BaseModel):
     id: int
     name: str
+    display_name: str | None = None  # P1-120
     default_amount: Decimal | None = Field(None, ge=0, decimal_places=2)
     description: str | None
     notes: str | None
@@ -37,6 +39,7 @@ class AdditionalServiceDetail(BaseModel):
 
 class AdditionalServiceCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
+    display_name: str | None = Field(None, max_length=400)  # P1-120
     default_amount: Decimal | None = Field(None, ge=0, decimal_places=2)
     description: str | None = Field(None, max_length=400)
     notes: str | None = Field(None, max_length=200)
@@ -50,6 +53,7 @@ class AdditionalServiceCreate(BaseModel):
 class AdditionalServiceUpdate(BaseModel):
     """Partial update — only fields explicitly sent are applied."""
     name: str | None = Field(None, min_length=1, max_length=200)
+    display_name: str | None = Field(None, max_length=400)  # P1-120
     default_amount: Decimal | None = Field(None, ge=0, decimal_places=2)
     description: str | None = Field(None, max_length=400)
     notes: str | None = Field(None, max_length=200)

@@ -1440,6 +1440,7 @@ async function handleFakturownia() {
     - Przykład: `description = "$1 dostawa / $2 odbiór"` + `name = "Transport"` + `amount_from = 1200` + `amount_to = 1200` → `Transport: 1 200,00 zł dostawa / 1 200,00 zł odbiór`
     - **P1-113 (2026-07-12):** Preset data (`applyHardcodedFeePreset`) i seedy (`seed_demo_data.py`) używają `$1`/`$2` placeholderów (nie hardcoded kwot). Migracja DB podmieniająca placeholdery → hardcoded kwoty usunięta z `main.py`. Placeholdery są zachowane w DB i podmieniane w locie w UI (`formatDescription`) i PDF (`_resolve_fee_description`).
   - **Usunięto combobox artykułów-usług** — wiersze usług dodatkowych są edytowane ręcznie (nazwa, kwota od/do, jednostka, tekst na umowie)
+  - **P1-120 (2026-07-12): Combobox z additional_services** — pole "Nazwa usługi" w nowym wierszu i w edycji inline jest comboboxem (select) z listy `additional_services` (ładowane w `onMounted` przez `additionalServiceStore.fetchList`). Po wyborze: `additional_service_id` = id, `name` = `display_name || name`, `amount_from` = `default_amount` (jeśli puste). Opcja "✎ własna nazwa…" przełącza na wolny tekst (`additional_service_id = null`). Z punktu widzenia usera jedyna zmiana to combobox zamiast wolnego tekstu — reszta bez zmian.
   - **Podgląd PDF live** pod gridem usług
     - Wyświetla tylko aktywne pozycje w formacie `- {name}: {description lub kwoty}`
     - Używa CSS variables, bez `v-html`

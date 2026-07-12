@@ -77,6 +77,7 @@ async def copy_fee_templates(db: AsyncSession, contract_id: int, contract_type: 
         db.add(ContractServiceFee(
             contract_id=contract_id,
             sort_order=t.sort_order,
+            additional_service_id=t.additional_service_id,  # P1-120
             name=t.name,
             amount_from=t.amount_from,
             amount_to=t.amount_to,
@@ -381,6 +382,7 @@ async def apply_preset_to_contract(db: AsyncSession, contract_id: int, preset_id
         db.add(ContractServiceFee(
             contract_id=contract_id,
             sort_order=t.sort_order,
+            additional_service_id=t.additional_service_id,  # P1-120
             name=t.name,
             amount_from=t.amount_from,
             amount_to=t.amount_to,

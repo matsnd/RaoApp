@@ -156,36 +156,43 @@ MASZYNY = [
 USLUGI = [
     {
         "name": "Transport",
+        "display_name": "Transport",
         "default_amount": Decimal("1200.00"),
         "fakturownia_product_id": 8845156432587,  # TRA001
     },
     {
         "name": "Czyszczenie",
+        "display_name": "Czyszczenie maszyny (zabrudzenia ponadnormatywne)",
         "default_amount": Decimal("0.00"),
         "fakturownia_product_id": 8845156432589,  # CZY001
     },
     {
         "name": "Tankowanie",
+        "display_name": "Usługa tankowania",
         "default_amount": Decimal("200.00"),
         "fakturownia_product_id": 8845156432620,  # TAN001
     },
     {
         "name": "Przestój",
+        "display_name": "Ponadnormatywny przestój transportu",
         "default_amount": Decimal("250.00"),
         "fakturownia_product_id": 8845156436449,  # PZT001
     },
     {
         "name": "Serwis",
+        "display_name": "Nieuzasadnione wezwanie serwisowe",
         "default_amount": Decimal("280.00"),
         "fakturownia_product_id": 8845156436450,  # SER001
     },
     {
         "name": "Przegląd Diesel",
+        "display_name": "Przegląd techniczny i czyszczenie maszyny",
         "default_amount": Decimal("150.00"),
         "fakturownia_product_id": 8845156436451,  # DIE001
     },
     {
         "name": "Przegląd Elektryk",
+        "display_name": "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny",
         "default_amount": Decimal("35.00"),
         "fakturownia_product_id": 8845156436452,  # ELE001
     },
@@ -647,8 +654,11 @@ def _build_positions_and_fees(i, days, maszyny, uslugi, rt_dniowy, contract_type
             amount_to = Decimal("1200.00")  # odbiór = dostawa
         elif usluga.name == "Przestój":
             amount_to = Decimal("300.00")  # górna widełka
+        # P1-120: name = display_name (długa nazwa do umowy), additional_service_id = FK
+        display_name = usluga.display_name if hasattr(usluga, 'display_name') and usluga.display_name else usluga.name
         fees.append({
-            "name": usluga.name,
+            "additional_service_id": usluga.id,  # P1-120: FK do additional_services
+            "name": display_name,  # P1-120: długa nazwa do umowy/PDF
             "amount_from": cena_usl,
             "amount_to": amount_to,
             "unit": "szt" if usluga.name == "Transport" else "kpl",
@@ -1160,6 +1170,7 @@ async def seed_umowy(db: AsyncSession, contracts_data, art_by_name):
             fee = ContractServiceFee(
                 contract_id=contract.id,
                 sort_order=next_order,
+                additional_service_id=fee_data.get("additional_service_id"),  # P1-120
                 name=fee_data["name"],
                 amount_from=fee_data["amount_from"],
                 amount_to=fee_data["amount_to"],

@@ -386,7 +386,27 @@
                 <!-- EDIT MODE -->
                 <tr v-if="editingFeeId === fee.id" class="row-editing">
                   <td>
-                    <input v-model="editingFeeData.name" class="form-control form-control-xs" placeholder="Nazwa usługi" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" />
+                    <!-- P1-120: combobox z additional_services + opcja własnej nazwy -->
+                    <select
+                      v-if="editingFeeData.additional_service_id !== null || !editingFeeData.name"
+                      class="form-control form-control-xs"
+                      :value="editingFeeData.additional_service_id ?? ''"
+                      @change="onFeeServicePick($event, editingFeeData)"
+                      @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee"
+                    >
+                      <option value="">— wybierz usługę —</option>
+                      <option v-for="s in additionalServiceStore.list" :key="s.id" :value="s.id">
+                        {{ s.display_name || s.name }}
+                      </option>
+                      <option value="__custom__">✎ własna nazwa…</option>
+                    </select>
+                    <input
+                      v-if="editingFeeData.additional_service_id === null && editingFeeData.name"
+                      v-model="editingFeeData.name"
+                      class="form-control form-control-xs"
+                      placeholder="Nazwa usługi"
+                      @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee"
+                    />
                   </td>
                   <td><input v-model="editingFeeData.amount_from" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" /></td>
                   <td><input v-model="editingFeeData.amount_to" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" /></td>
@@ -413,7 +433,28 @@
               <!-- NEW ROW -->
               <tr v-if="showNewFeeRow" class="row-editing">
                 <td>
-                  <input v-model="newFeeData.name" class="form-control form-control-xs" placeholder="Nazwa usługi" ref="newFeeNameInput" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" />
+                  <!-- P1-120: combobox z additional_services -->
+                  <select
+                    v-if="newFeeData.additional_service_id !== null || !newFeeData.name"
+                    class="form-control form-control-xs"
+                    :value="newFeeData.additional_service_id ?? ''"
+                    @change="onFeeServicePick($event, newFeeData)"
+                    @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow"
+                  >
+                    <option value="">— wybierz usługę —</option>
+                    <option v-for="s in additionalServiceStore.list" :key="s.id" :value="s.id">
+                      {{ s.display_name || s.name }}
+                    </option>
+                    <option value="__custom__">✎ własna nazwa…</option>
+                  </select>
+                  <input
+                    v-if="newFeeData.additional_service_id === null && newFeeData.name"
+                    v-model="newFeeData.name"
+                    class="form-control form-control-xs"
+                    placeholder="Nazwa usługi"
+                    ref="newFeeNameInput"
+                    @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow"
+                  />
                 </td>
                 <td><input v-model="newFeeData.amount_from" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" /></td>
                 <td><input v-model="newFeeData.amount_to" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" /></td>
@@ -1026,6 +1067,7 @@ import { useServiceStore } from '@/stores/services'
 import { useSettingsStore } from '@/stores/settings'
 import { useFakturowniaStore } from '@/stores/fakturownia'
 import { useToastStore } from '@/stores/toast'
+import { useAdditionalServiceStore } from '@/stores/additional_services'
 import { formatCurrency } from '@/utils/format'
 import ConditionPanel from '@/components/contracts/ConditionPanel.vue'
 import ContractPeriodPicker from '@/components/shared/ContractPeriodPicker.vue'
@@ -1044,6 +1086,7 @@ const serviceStore = useServiceStore()
 const settingsStore = useSettingsStore()
 const fakturowniaStore = useFakturowniaStore()
 const toastStore = useToastStore()
+const additionalServiceStore = useAdditionalServiceStore()
 
 const isEdit = computed(() => !!props.id)
 const loading = ref(false)
@@ -1439,6 +1482,7 @@ const supplierSearch = ref('')
 const supplierList = ref([])
 
 interface FeeData {
+  additional_service_id: number | null  // P1-120: FK do additional_services
   name: string
   amount_from: number | null
   amount_to: number | null
@@ -1448,7 +1492,7 @@ interface FeeData {
 const editingFeeId = ref<number | null>(null)
 const editingFeeData = ref<Partial<FeeData>>({})
 const showNewFeeRow = ref(false)
-const newFeeData = ref<FeeData>({ name: '', amount_from: null, amount_to: null, description: '', is_active: true })
+const newFeeData = ref<FeeData>({ additional_service_id: null, name: '', amount_from: null, amount_to: null, description: '', is_active: true })
 const newFeeNameInput = ref(null)
 
 // RAO-P1-012: Settlements
@@ -1506,6 +1550,7 @@ onMounted(async () => {
     settingsStore.fetchRateTypes(),
     settingsStore.fetchCategoriesTree(), // RAO-P2-006: Load categories for inline article form
     fakturowniaStore.fetchSettings(),
+    additionalServiceStore.fetchList({ per_page: 200 }),  // P1-120: combobox opłat
   ])
 
   const [ctRes, artRes] = await Promise.allSettled([
@@ -2325,9 +2370,33 @@ function selectSupplier(c) {
 }
 
 // Service fees — inline Excel-style CRUD
+// P1-120: wybór usługi dodatkowej z comboboxa → uzupełnia name + amount_from
+function onFeeServicePick(ev: Event, target: any) {
+  const val = (ev.target as HTMLSelectElement).value
+  if (val === '__custom__') {
+    target.additional_service_id = null
+    target.name = ''
+    nextTick(() => { newFeeNameInput.value?.focus() })
+    return
+  }
+  if (!val) {
+    target.additional_service_id = null
+    return
+  }
+  const id = Number(val)
+  const svc = additionalServiceStore.list.find((s: any) => s.id === id)
+  if (!svc) return
+  target.additional_service_id = id
+  target.name = svc.display_name || svc.name
+  if (svc.default_amount != null && target.amount_from == null) {
+    target.amount_from = Number(svc.default_amount)
+  }
+}
+
 function startEditFee(fee) {
   editingFeeId.value = fee.id
   editingFeeData.value = {
+    additional_service_id: fee.additional_service_id ?? null,  // P1-120
     name: fee.name,
     amount_from: fee.amount_from,
     amount_to: fee.amount_to,
@@ -2358,7 +2427,7 @@ async function saveInlineFee() {
 
 function addFeeRow() {
   editingFeeId.value = null
-  newFeeData.value = { name: '', amount_from: null, amount_to: null, description: '', is_active: true }
+  newFeeData.value = { additional_service_id: null, name: '', amount_from: null, amount_to: null, description: '', is_active: true }
   showNewFeeRow.value = true
   nextTick(() => { newFeeNameInput.value?.focus() })
 }
@@ -2375,7 +2444,7 @@ async function saveNewFeeRow() {
     await api.post(`/contracts/${props.id}/service-fees`, payload)
     await contractStore.fetchServiceFees(Number(props.id))
     showNewFeeRow.value = false
-    newFeeData.value = { name: '', amount_from: null, amount_to: null, description: '', is_active: true }
+    newFeeData.value = { additional_service_id: null, name: '', amount_from: null, amount_to: null, description: '', is_active: true }
     toastStore.success('Usługa dodana')
   } catch (e: any) {
     toastStore.error(e.response?.data?.detail || 'Błąd dodawania')
