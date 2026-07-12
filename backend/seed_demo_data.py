@@ -49,6 +49,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import engine, AsyncSessionLocal
 from categories.models import Category
 from machines.models import Machine
+from services.models import Service
 from additional_services.models import AdditionalService
 from contractors.models import Contractor, ContractorAddress
 from settings.models import Salesperson, Branch, RateType, MachineRatePreset, MachineRatePresetItem
@@ -187,6 +188,41 @@ USLUGI = [
         "name": "Przegląd Elektryk",
         "default_amount": Decimal("35.00"),
         "fakturownia_product_id": 8845156436452,  # ELE001
+    },
+]
+
+# P1-115: Usługi zwykłe (services table) — przedmiot umowy typu U (usługi)
+# Odrębne od additional_services (USLUGI) — to są usługi główne, nie dodatkowe.
+USLUGI_ZWYKLE = [
+    {
+        "name": "Praca operatora koparki",
+        "description": "Obsługa operatora dla koparki gąsienicowej (stawka dniowa)",
+        "replacement_value": Decimal("600.00"),
+        "fakturownia_product_id": 8845156436460,  # OPR001
+    },
+    {
+        "name": "Praca operatora ładowarki",
+        "description": "Obsługa operatora dla ładowarki teleskopowej (stawka dniowa)",
+        "replacement_value": Decimal("550.00"),
+        "fakturownia_product_id": 8845156436461,  # OPR002
+    },
+    {
+        "name": "Praca operatora podnośnika",
+        "description": "Obsługa operatora dla podnośnika koszowego (stawka dniowa)",
+        "replacement_value": Decimal("450.00"),
+        "fakturownia_product_id": 8845156436462,  # OPR003
+    },
+    {
+        "name": "Frezowanie asfaltu",
+        "description": "Usługa frezowania asfaltu z użyciem spychacza frezującego",
+        "replacement_value": Decimal("1200.00"),
+        "fakturownia_product_id": 8845156436463,  # FRZ001
+    },
+    {
+        "name": "Zagęszczanie podłoża",
+        "description": "Usługa zagęszczania podłoża z użyciem zagęszczarki płytowej",
+        "replacement_value": Decimal("350.00"),
+        "fakturownia_product_id": 8845156436464,  # ZAG001
     },
 ]
 
@@ -405,6 +441,22 @@ async def seed_artykuly(db: AsyncSession):
     return art_by_name
 
 
+async def seed_uslugi_zwykle(db: AsyncSession):
+    """P1-115: Usługi zwykłe (services table) — przedmiot umowy typu U."""
+    created = 0
+    svc_by_name = {}
+    now = datetime.now()
+    for s in USLUGI_ZWYKLE:
+        s_with_ts = {**s, "created_at": now, "updated_at": now}
+        obj, was_created = await get_or_create(db, Service, {"name": s["name"]}, s_with_ts)
+        svc_by_name[s["name"]] = obj
+        if was_created:
+            created += 1
+    await db.commit()
+    print(f"  Usługi zwykłe: {created} nowych ({len(USLUGI_ZWYKLE)} usług)")
+    return svc_by_name
+
+
 async def seed_kontrahenci(db: AsyncSession):
     """Kontrahenci demo."""
     created = 0
@@ -508,42 +560,69 @@ async def seed_rate_types(db: AsyncSession):
 
 # ── Umowy demo ────────────────────────────────────────────────────────────────
 
-def _build_positions_and_fees(i, days, maszyny, uslugi, rt_dniowy):
+def _build_positions_and_fees(i, days, maszyny, uslugi, rt_dniowy, contract_type="S", uslugi_zwykle=None):
     """Wspólny generator pozycji + usług dodatkowych dla umowy o indeksie i.
 
     RAO-P2-068: Pozycje używają predefiniowanych cenników kaskadowych per
     maszyna (1-3 dni, 4-16 dni, powyżej 16 dni) — jak w starej aplikacji.
     User klika maszynę i ma gotowe warunki rozliczenia, nie musi wpisywać.
+
+    P1-115: Dla umów typu U (usługi) pozycje używają service_id (services table),
+    nie machine_id. uslugi_zwykle = lista obiektów Service.
     """
     positions = []
     num_positions = 1 if i % 3 != 0 else 2
-    for j in range(num_positions):
-        maszyna = maszyny[(i + j) % len(maszyny)]
-        # Stawka "skuteczna" dla rozliczenia = stawka średnioterminowa (4-16 dni)
-        # z cennika kaskadowego. Jeśli maszyna nie ma cennika — fallback do CENY_WYNAJMU.
-        stawka_efektywna = STAWKA_EFEKTYWNA.get(maszyna.name, CENY_WYNAJMU.get(maszyna.name, Decimal("500.00")))
-        # Warunki kaskadowe z cennika (jeśli dostępne) — inaczej płaska stawka
-        cennik = CENNIKI_KASKADOWE.get(maszyna.name)
-        if cennik:
-            conditions = [
-                {**w}
-                for w in cennik["warunki"]
-            ]
-        else:
+
+    if contract_type == "U" and uslugi_zwykle:
+        # P1-115: Umowa usługi — pozycje z service_id
+        for j in range(num_positions):
+            usluga = uslugi_zwykle[(i + j) % len(uslugi_zwykle)]
+            stawka_efektywna = usluga.replacement_value or Decimal("500.00")
             conditions = [
                 {"rate1": stawka_efektywna, "rate2": None, "period_count": days, "minimum": 1, "billing_label": "doba"},
             ]
-        positions.append({
-            "machine_id": maszyna.id,
-            "article_name": maszyna.name,
-            "rental_days": days,
-            "quantity": 1,
-            "unit_price": stawka_efektywna,  # do rozliczenia (kalkulacja wartości)
-            "rate_type_id": rt_dniowy.id if rt_dniowy else None,
-            "billing_frequency": "dniowa",
-            "billing_unit": "doba",
-            "conditions": conditions,
-        })
+            positions.append({
+                "machine_id": None,
+                "service_id": usluga.id,
+                "article_name": usluga.name,
+                "rental_days": days,
+                "quantity": 1,
+                "unit_price": stawka_efektywna,
+                "rate_type_id": rt_dniowy.id if rt_dniowy else None,
+                "billing_frequency": "dniowa",
+                "billing_unit": "doba",
+                "conditions": conditions,
+            })
+    else:
+        # Umowa najmu (S) — pozycje z machine_id
+        for j in range(num_positions):
+            maszyna = maszyny[(i + j) % len(maszyny)]
+            # Stawka "skuteczna" dla rozliczenia = stawka średnioterminowa (4-16 dni)
+            # z cennika kaskadowego. Jeśli maszyna nie ma cennika — fallback do CENY_WYNAJMU.
+            stawka_efektywna = STAWKA_EFEKTYWNA.get(maszyna.name, CENY_WYNAJMU.get(maszyna.name, Decimal("500.00")))
+            # Warunki kaskadowe z cennika (jeśli dostępne) — inaczej płaska stawka
+            cennik = CENNIKI_KASKADOWE.get(maszyna.name)
+            if cennik:
+                conditions = [
+                    {**w}
+                    for w in cennik["warunki"]
+                ]
+            else:
+                conditions = [
+                    {"rate1": stawka_efektywna, "rate2": None, "period_count": days, "minimum": 1, "billing_label": "doba"},
+                ]
+            positions.append({
+                "machine_id": maszyna.id,
+                "service_id": None,
+                "article_name": maszyna.name,
+                "rental_days": days,
+                "quantity": 1,
+                "unit_price": stawka_efektywna,  # do rozliczenia (kalkulacja wartości)
+                "rate_type_id": rt_dniowy.id if rt_dniowy else None,
+                "billing_frequency": "dniowa",
+                "billing_unit": "doba",
+                "conditions": conditions,
+            })
 
     # RAO-P1-100: KISS demo fee descriptions (printed text) per service article
     DEMO_FEE_DESCRIPTION = {
@@ -582,7 +661,7 @@ def _lokalizacja(i):
     }
 
 
-def generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_name):
+def generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_name, svc_by_name=None):
     """Generuje umowy demo (RAO-P2-067): 4 pule.
 
     Pula A — historia 2025 (24 umowy, 12-24 mies. wstecz, wszystkie rozliczone)
@@ -599,6 +678,7 @@ def generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_n
     branches = list(br_by_name.values())
     maszyny = [art_by_name[m["name"]] for m in MASZYNY]
     uslugi = [art_by_name[u["name"]] for u in USLUGI]
+    uslugi_zwykle = list(svc_by_name.values()) if svc_by_name else []
     rt_dniowy = rt_by_name.get("Stawka dniowa")
 
     contracts = []
@@ -607,7 +687,10 @@ def generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_n
     def _add(number, i, date_from, days, contract_type, is_settled, fa_pending=False, branch_idx=0):
         date_to = date_from + timedelta(days=days)
         is_active = date_to >= today
-        positions, fees = _build_positions_and_fees(i, days, maszyny, uslugi, rt_dniowy)
+        positions, fees = _build_positions_and_fees(
+            i, days, maszyny, uslugi, rt_dniowy,
+            contract_type=contract_type, uslugi_zwykle=uslugi_zwykle,
+        )
         # RAO-P1-022: numer zawsze zaczyna się na S, G na końcu jeśli Gdańsk (branch_id != 1)
         branch = branches[branch_idx % len(branches)]
         suffix = "G" if branch.id != 1 else ""
@@ -974,7 +1057,8 @@ async def seed_umowy(db: AsyncSession, contracts_data, art_by_name):
         for pos_data in cd["positions"]:
             pos = ContractPosition(
                 contract_id=contract.id,
-                machine_id=pos_data["machine_id"],
+                machine_id=pos_data.get("machine_id"),
+                service_id=pos_data.get("service_id"),
                 article_name=pos_data["article_name"],
                 rental_days=pos_data["rental_days"],
                 quantity=pos_data["quantity"],
@@ -1198,6 +1282,9 @@ async def main():
         print("\n[2/9] Maszyny + usługi dodatkowe...")
         art_by_name = await seed_artykuly(db)
 
+        print("\n[2.5/9] Usługi zwykłe (P1-115)...")
+        svc_by_name = await seed_uslugi_zwykle(db)
+
         print("\n[3/9] Kontrahenci...")
         con_by_name = await seed_kontrahenci(db)
 
@@ -1228,7 +1315,7 @@ async def main():
         await seed_konfiguracja(db, art_by_name)
 
         print("\n[9/9] Umowy + pozycje + warunki kaskadowe + usługi + rozliczenia...")
-        contracts_data = generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_name)
+        contracts_data = generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_name, svc_by_name)
         await seed_umowy(db, contracts_data, art_by_name)
 
         print("\n[10/10] Rezerwacje maszyn demo (RAO-P2-071)...")
