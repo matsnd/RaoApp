@@ -908,6 +908,53 @@ Skutek: **szybka edycja "od kwota / do kwota" nie działa na podgląd PDF**. Gdy
 
 ---
 
+### P1-123: Prowizje handlowców — drill-down do umów z kwotą prowizji per umowa
+
+```yaml
+id: P1-123
+status: triaged
+priority: P1
+created: 2026-07-12
+source: client-request (współpraca 2026-07-12)
+component: frontend/CommissionView.vue + backend/stats (nowy endpoint drill-down)
+migration_impact: no
+```
+
+**Opis:** W widoku Prowizje handlowców (`/commissions` → `CommissionView.vue`) tabela podsumowania per handlowiec jest **tylko do odczytu** — wiersze nie są klikalne. Klient chce móc **wklikać się w handlowca** i zobaczyć listę umów, za które ten handlowiec otrzymał prowizję w wybranym okresie (podlegających filtrowi dat), wraz z **kwotą prowizji dla każdej umowy**.
+
+Formuła prowizji (RAO-P1-018, już zaimplementowana): `commission = margin × commission_rate / 100`, gdzie `margin = cost_client − cost_company` (z `contract_settlements`). Gdy brak danych settlement → backward compatibility: `commission = revenue × commission_rate / 100`. Klient potwierdza: prowizja od (przychód − koszty), procentowo.
+
+**Stan obecny:**
+- `frontend/src/views/CommissionView.vue` — tabela `<tr v-for="item in report.items">` (linia 48) z `cursor: default` (linia 159 w `<style>`), brak `@click`, brak drill-down
+- `backend/stats/router.py` — `GET /stats/commissions` (linia 1233) zwraca `CommissionReportResponse` z `items: list[SalespersonCommissionItem]` (agregat per handlowiec: `contracts_count`, `total_revenue`, `commission_amount`) — **brak endpointu zwracającego umowy per handlowiec z prowizją per umowa**
+- `backend/stats/schemas.py` — `SalespersonCommissionItem` (linia 122): `salesperson_id`, `salesperson_name`, `commission_rate`, `contracts_count`, `total_revenue`, `commission_amount` — brak listy umów
+- `spec/core/04_business_logic.md` §14 (linia 1196) — `calculate_salesperson_commission` oblicza prowizję zagregowaną, nie per-umowa
+- `spec/core/03_frontend_screens.md` (linia 1577) — CommissionView opisany jako "Tabela per handlowiec" bez drill-down
+
+**Zadania:**
+1. **Backend** `stats/router.py` — nowy endpoint `GET /stats/commissions/{salesperson_id}/contracts?date_from&date_to` zwracający listę umów handlowca w zakresie dat z prowizją per umowa. Każdy element: `contract_id`, `contract_number`, `contractor_name`, `date_from`, `date_to`, `revenue` (z pozycji), `cost_client`, `cost_company`, `margin`, `commission_rate`, `commission_amount`. Użyć tej samej formuły co `/stats/commissions` (margin z `contract_settlements`, fallback revenue). `Depends(get_current_user)`.
+2. **Backend** `stats/schemas.py` — nowy `SalespersonContractCommissionItem` + `SalespersonContractCommissionResponse` (z `salesperson_id`, `salesperson_name`, `commission_rate`, `items: list[...]`, `total_revenue`, `total_margin`, `total_commission`).
+3. **Backend** — test jednostkowy: 2 umowy z settlement (margin), 1 umowa bez settlement (revenue fallback), weryfikacja sum = zagregowane `commission_amount` z `/stats/commissions`.
+4. **Frontend** `CommissionView.vue` — wiersze handlowca klikalne (`@click="openDrillDown(item)"`, `cursor: pointer`), otwierają panel/drawer/tabelę z listą umów. Kolumny: Numer, Kontrahent, Data od, Data do, Przychód, Koszty, Marża, Prowizja. Suma wierszy = prowizja handlowca z tabeli nadrzędnej.
+5. **Frontend** — breadcrumb / przycisk "← Wstecz" do powrotu do tabeli podsumowania (wzór z `CategoriesTab.vue` P1-121). Loading / error / empty state.
+6. **Frontend** — `data-testid` dla wierszy handlowca (`commission-row-{salesperson_id}`), wierszy umów (`commission-contract-row-{contract_id}`), przycisku wstecz.
+7. **E2E** — test: otwarcie `/commissions` → klik na handlowca → lista umów → suma prowizji = wartość z wiersza handlowca → powrót.
+8. **Spec sync** — `02_backend_api.md` (nowy endpoint), `03_frontend_screens.md` (drill-down w CommissionView), `04_business_logic.md` (prowizja per umowa), `11_reports_stats.md`.
+
+**Definition of Done:**
+- [ ] `GET /stats/commissions/{salesperson_id}/contracts` zwraca umowy z prowizją per umowa (margin + fallback revenue)
+- [ ] Suma `commission_amount` per umowa = `commission_amount` z `/stats/commissions` dla tego handlowca
+- [ ] Klik na wiersz handlowca w `CommissionView.vue` otwiera listę umów
+- [ ] Lista umów pokazuje: Numer, Kontrahent, Data od, Data do, Przychód, Koszty, Marża, Prowizja
+- [ ] Breadcrumb / "← Wstecz" wraca do tabeli podsumowania
+- [ ] Loading / error / empty state działają
+- [ ] Test jednostkowy backend: margin + fallback revenue + spójność sum
+- [ ] E2E: drill-down handlowiec → umowy → powrót
+- [ ] Spec sync: `02_backend_api.md`, `03_frontend_screens.md`, `04_business_logic.md`, `11_reports_stats.md`
+- [ ] Smoke `01-login.spec.ts` zielony
+
+---
+
 ## 🟢 P3 — Nice-to-Have
 
 *Brak*
