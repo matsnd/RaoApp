@@ -18,20 +18,18 @@
             <thead>
               <tr role="row">
                 <th class="th-sortable" role="columnheader" @click="toggleSort('name')">Nazwa <span class="sort-indicator">{{ sortIndicator('name') }}</span></th>
-                <th class="th-sortable" role="columnheader" @click="toggleSort('internal_number')">Nr wew. <span class="sort-indicator">{{ sortIndicator('internal_number') }}</span></th>
-                <th role="columnheader">Kategoria</th>
                 <th role="columnheader">Aktywna umowa</th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="store.loading" role="row">
-                <td colspan="4" role="cell"><SkeletonRow :cols="4" label="Ładowanie usług" /></td>
+                <td colspan="2" role="cell"><SkeletonRow :cols="2" label="Ładowanie usług" /></td>
               </tr>
               <tr v-else-if="loadError" role="row">
-                <td colspan="4" role="cell"><StateMessage type="error" compact :message="loadError" @action="loadData" /></td>
+                <td colspan="2" role="cell"><StateMessage type="error" compact :message="loadError" @action="loadData" /></td>
               </tr>
               <tr v-else-if="!store.list.length" role="row">
-                <td colspan="4" role="cell">
+                <td colspan="2" role="cell">
                   <StateMessage type="empty" compact message="Brak usług"
                     action-label="+ Nowa usługa"
                     @action="router.push({ name: 'ServiceNew' })"
@@ -39,7 +37,7 @@
                 </td>
               </tr>
               <tr v-else-if="!sortedServices.length" role="row">
-                <td colspan="4" role="cell"><StateMessage type="empty" compact message="Brak usług spełniających filtry" /></td>
+                <td colspan="2" role="cell"><StateMessage type="empty" compact message="Brak usług spełniających filtry" /></td>
               </tr>
               <tr
                 v-for="s in sortedServices"
@@ -53,8 +51,6 @@
                 @keydown.enter.prevent="editService(s.id)"
               >
                 <td role="cell">{{ s.name }}</td>
-                <td role="cell">{{ s.internal_number || '—' }}</td>
-                <td role="cell">{{ s.category_name || '—' }}</td>
                 <td role="cell">{{ s.active_contract_number || '—' }}</td>
               </tr>
             </tbody>

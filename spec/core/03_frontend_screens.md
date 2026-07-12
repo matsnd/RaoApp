@@ -1861,13 +1861,14 @@ Następca: patrz sekcja `AnalyticsView.vue` poniżej.
 ├──────────────────────────────────────────────────────┤
 │ [search...] ☐ Archiwalne                              │
 ├──────────────────────────────────────────────────────┤
-│ DataGrid: Nazwa | Opis | Wartość | Archiwalny        │
+│ DataGrid: Nazwa | Aktywna umowa                       │
 ├──────────────────────────────────────────────────────┤
 │ Empty: "Brak usług — [+ Nowa usługa]"                 │
 └──────────────────────────────────────────────────────┘
 ```
 
-**Kolumny DataGrid:** Nazwa (sortable), Opis, Wartość odtworzeniowa (currency), Archiwalny (badge)
+**Kolumny DataGrid:** Nazwa (sortable), Aktywna umowa (computed)
+**P2-006 (2026-07-12):** Usunięto kolumny "Nr wew." i "Kategoria" (backend nie ma `category_id`/`branch_id` w `services`).
 
 **Akcje:**
 - `[+]` → `router.push({ name: 'ServiceNew' })`
@@ -1889,9 +1890,7 @@ Następca: patrz sekcja `AnalyticsView.vue` poniżej.
 - `name` — Nazwa usługi * (wymagana)
 - `description` — Opis (textarea)
 - `notes` — Uwagi (textarea)
-- `replacement_value` — Wartość odtworzeniowa (zł)
-- **Sekcja "Integracja Fakturownia":**
-  - `fakturownia_product_id` — Produkt Fakturownia (select, opcjonalny)
+- **P2-006 (2026-07-12):** Usunięto pola Kategoria i Filia (backend nie ma `category_id`/`branch_id` w `services`).
 
 **Store:** `useServicesStore` (`stores/services.js`) — `fetchOne`, `create`, `update`
 **API:** `GET/POST/PUT/DELETE /services`
