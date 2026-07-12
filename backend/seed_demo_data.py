@@ -685,23 +685,10 @@ def generate_contracts(con_by_name, sp_by_name, br_by_name, art_by_name, rt_by_n
 
 ZESTAWY_USLUG = [
     {
-        "group_name": "Najem — Wspólny",
-        "contract_type": "S",
-        "is_default": True,
-        "description": "Wspólny zestaw usług dla umów najmu",
-        "templates": [
-            {"article": "Transport", "name": "Transport", "amount_from": Decimal("1200.00"), "amount_to": Decimal("1200.00"), "unit": "dostawa", "description": "$1 zł dostawa / $2 zł odbiór"},
-            {"article": "Czyszczenie", "name": "Czyszczenie maszyny (zabrudzenia ponadnormatywne)", "amount_from": None, "amount_to": None, "unit": None, "description": "wycena indywidualna"},
-            {"article": "Tankowanie", "name": "Usługa tankowania", "amount_from": Decimal("200.00"), "amount_to": None, "unit": "tankowanie", "description": "$1 zł (plus koszt paliwa)"},
-            {"article": "Przestój", "name": "Ponadnormatywny przestój transportu", "amount_from": Decimal("200.00"), "amount_to": Decimal("300.00"), "unit": "h", "description": "$1 zł / h - $2 zł / h"},
-            {"article": "Serwis", "name": "Nieuzasadnione wezwanie serwisowe", "amount_from": Decimal("280.00"), "amount_to": None, "unit": "wizyta", "description": "$1 zł (plus transport)"},
-        ],
-    },
-    {
         "group_name": "Najem — Diesel",
         "contract_type": "S",
         "is_default": False,
-        "description": "Wspólny + przegląd maszyny diesla 150,00 zł",
+        "description": "Pełny zestaw opłat Diesel: transport + przegląd + czyszczenie + tankowanie + przestój + serwis",
         "templates": [
             {"article": "Transport", "name": "Transport", "amount_from": Decimal("1200.00"), "amount_to": Decimal("1200.00"), "unit": "dostawa", "description": "$1 zł dostawa / $2 zł odbiór"},
             {"article": "Przegląd Diesel", "name": "Przegląd techniczny i czyszczenie maszyny", "amount_from": Decimal("150.00"), "amount_to": None, "unit": "sztuka", "description": "$1 zł"},
@@ -715,23 +702,10 @@ ZESTAWY_USLUG = [
         "group_name": "Najem — Elektryk",
         "contract_type": "S",
         "is_default": False,
-        "description": "Wspólny + przegląd maszyny elektrycznej 35,00 zł",
+        "description": "Pełny zestaw opłat Elektryk: transport + przegląd + czyszczenie + tankowanie + przestój + serwis",
         "templates": [
             {"article": "Transport", "name": "Transport", "amount_from": Decimal("1200.00"), "amount_to": Decimal("1200.00"), "unit": "dostawa", "description": "$1 zł dostawa / $2 zł odbiór"},
             {"article": "Przegląd Elektryk", "name": "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny", "amount_from": Decimal("35.00"), "amount_to": None, "unit": "sztuka", "description": "$1 zł"},
-            {"article": "Czyszczenie", "name": "Czyszczenie maszyny (zabrudzenia ponadnormatywne)", "amount_from": None, "amount_to": None, "unit": None, "description": "wycena indywidualna"},
-            {"article": "Tankowanie", "name": "Usługa tankowania", "amount_from": Decimal("200.00"), "amount_to": None, "unit": "tankowanie", "description": "$1 zł (plus koszt paliwa)"},
-            {"article": "Przestój", "name": "Ponadnormatywny przestój transportu", "amount_from": Decimal("200.00"), "amount_to": Decimal("300.00"), "unit": "h", "description": "$1 zł / h - $2 zł / h"},
-            {"article": "Serwis", "name": "Nieuzasadnione wezwanie serwisowe", "amount_from": Decimal("280.00"), "amount_to": None, "unit": "wizyta", "description": "$1 zł (plus transport)"},
-        ],
-    },
-    {
-        "group_name": "Usługa — Wspólny",
-        "contract_type": "U",
-        "is_default": True,
-        "description": "Wspólny zestaw usług dla umów usługowych",
-        "templates": [
-            {"article": "Transport", "name": "Transport", "amount_from": Decimal("1200.00"), "amount_to": Decimal("1200.00"), "unit": "dostawa", "description": "$1 zł dostawa / $2 zł odbiór"},
             {"article": "Czyszczenie", "name": "Czyszczenie maszyny (zabrudzenia ponadnormatywne)", "amount_from": None, "amount_to": None, "unit": None, "description": "wycena indywidualna"},
             {"article": "Tankowanie", "name": "Usługa tankowania", "amount_from": Decimal("200.00"), "amount_to": None, "unit": "tankowanie", "description": "$1 zł (plus koszt paliwa)"},
             {"article": "Przestój", "name": "Ponadnormatywny przestój transportu", "amount_from": Decimal("200.00"), "amount_to": Decimal("300.00"), "unit": "h", "description": "$1 zł / h - $2 zł / h"},

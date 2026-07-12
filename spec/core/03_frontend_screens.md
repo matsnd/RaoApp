@@ -1420,11 +1420,11 @@ async function handleFakturownia() {
 
 - **RAO-P1-100 (2026-07-08):** Zmiany w sekcji "Opłaty dodatkowe", cenniku i trybie usługi
   - **Szybki wybór zestawu**
-    - Najem (`contract_type === 'S'`): 3 przyciski [Wspólne] [Diesel] [Elektryk] + dropdown z pełną listą presetów
-    - Usługa (`contract_type === 'U'`): 1 przycisk [Wspólne] (Transport + Praca operatora) + dropdown z presetami
-    - Przyciski wywołują `applyHardcodedFeePreset('wspolne' | 'diesel' | 'elektryk')` — usuwają obecne usługi i tworzą nowe wiersze `ContractServiceFee` przez `POST /contracts/{id}/service-fees`
+    - Najem (`contract_type === 'S'`): 2 przyciski [Diesel] [Elektryk] + dropdown z pełną listą presetów
+    - Usługa (`contract_type === 'U'`): brak szybkich przycisków (tylko dropdown z presetami)
+    - Przyciski wywołują `applyHardcodedFeePreset('diesel' | 'elektryk')` — usuwają obecne usługi i tworzą nowe wiersze `ContractServiceFee` przez `POST /contracts/{id}/service-fees`
     - Wspólny zestaw (najem): Transport, Czyszczenie, Tankowanie, Przestój, Wezwanie serwisowe
-    - Diesel dodaje przegląd 150 zł; Elektryk dodaje przegląd 35 zł (z ładowaniem akumulatorów)
+    - Diesel = pełny zestaw (Transport + przegląd 150 zł + czyszczenie + tankowanie + przestój + serwis); Elektryk = pełny zestaw (Transport + przegląd 35 zł + reszta). P2-007: "Wspólne" usunięte — Diesel/Elektryk są pełnymi zestawami, nie dodatkami.
     - Wspólny zestaw (usługa): Transport, Praca operatora
     - Dropdown wywołuje `applyPresetWithConfirm` → `POST /contracts/{id}/service-fees/apply-preset?preset_id={id}&replace=true`
     - Nowa umowa zaczyna z pustą sekcją usług (operator wybiera preset ręcznie)

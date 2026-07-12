@@ -353,12 +353,8 @@
             </div>
             <div class="fee-header-right">
               <div v-if="isRental" class="fee-preset-group">
-                <button class="btn btn-secondary btn-sm" @click="applyHardcodedFeePreset('wspolne')" :disabled="form.is_settled" title="Wspólne (bez przeglądu)">Wspólne</button>
-                <button class="btn btn-secondary btn-sm" @click="applyHardcodedFeePreset('diesel')" :disabled="form.is_settled" title="Diesel (dodatkowo)">Diesel</button>
-                <button class="btn btn-secondary btn-sm" @click="applyHardcodedFeePreset('elektryk')" :disabled="form.is_settled" title="Elektryk (dodatkowo)">Elektryk</button>
-              </div>
-              <div v-else class="fee-preset-group">
-                <button class="btn btn-secondary btn-sm" @click="applyHardcodedFeePreset('wspolne')" :disabled="form.is_settled" title="Wspólne (transport + operator)">Wspólne</button>
+                <button class="btn btn-secondary btn-sm" @click="applyHardcodedFeePreset('diesel')" :disabled="form.is_settled" title="Pełny zestaw opłat Diesel (transport + tankowanie + przestój + serwis + przegląd diesel)">Diesel</button>
+                <button class="btn btn-secondary btn-sm" @click="applyHardcodedFeePreset('elektryk')" :disabled="form.is_settled" title="Pełny zestaw opłat Elektryk (transport + tankowanie + przestój + serwis + przegląd elektryk)">Elektryk</button>
               </div>
               <select v-if="presetPickerList.length" v-model="selectedPresetId" @change="applyPresetWithConfirm" class="form-control form-control-xs" style="width:180px;" :disabled="form.is_settled">
                 <option :value="null">Wybierz zestaw…</option>
@@ -2467,12 +2463,12 @@ async function applyPresetWithConfirm() {
   }
 }
 
-// RAO-P1-100: szybkie przyciski Diesel / Elektryk / Wspólne — ładują teksty bezpośrednio do tabeli usług
-async function applyHardcodedFeePreset(kind: 'wspolne' | 'diesel' | 'elektryk') {
+// RAO-P2-007: szybkie przyciski Diesel / Elektryk — pełne zestawy opłat (Wspólne usunięte)
+async function applyHardcodedFeePreset(kind: 'diesel' | 'elektryk') {
   if (form.value.is_settled) return
   const contractId = Number(props.id)
   if (!contractId) return
-  if (isService.value && kind !== 'wspolne') return
+  if (isService.value) return // Diesel/Elektryk tylko dla najmu maszyn (S)
 
   const rentalCommonRows: FeeData[] = [
     { name: 'Transport', amount_from: 1200, amount_to: 1200, description: '$1 zł dostawa / $2 zł odbiór', is_active: true },
@@ -2482,25 +2478,15 @@ async function applyHardcodedFeePreset(kind: 'wspolne' | 'diesel' | 'elektryk') 
     { name: 'Nieuzasadnione wezwanie serwisowe', amount_from: 280, amount_to: null, description: '$1 zł (plus transport)', is_active: true },
   ]
 
-  const serviceCommonRows: FeeData[] = [
-    { name: 'Transport', amount_from: 1200, amount_to: 1200, description: '$1 zł dostawa / $2 zł odbiór', is_active: true },
-    { name: 'Praca operatora', amount_from: 120, amount_to: null, description: '$1 zł / h', is_active: true },
-  ]
-
   const reviewRows: Record<string, FeeData> = {
     diesel: { name: 'Przegląd techniczny i czyszczenie maszyny', amount_from: 150, amount_to: null, description: '$1 zł', is_active: true },
     elektryk: { name: 'Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny', amount_from: 35, amount_to: null, description: '$1 zł', is_active: true },
   }
 
-  const commonRows = isService.value ? serviceCommonRows : rentalCommonRows
-  let rows: FeeData[] = []
-  if (kind === 'wspolne') {
-    rows = commonRows
-  } else {
-    const review = reviewRows[kind]
-    if (!review) return
-    rows = [commonRows[0], review, ...commonRows.slice(1)]
-  }
+  const review = reviewRows[kind]
+  if (!review) return
+  // Pełny zestaw: Transport + przegląd + reszta (czyszczenie, tankowanie, przestój, serwis)
+  const rows: FeeData[] = [rentalCommonRows[0], review, ...rentalCommonRows.slice(1)]
 
   const hasFees = contractStore.serviceFees.length > 0
   const doApply = async () => {
@@ -2510,7 +2496,7 @@ async function applyHardcodedFeePreset(kind: 'wspolne' | 'diesel' | 'elektryk') 
         await api.post(`/contracts/${contractId}/service-fees`, row)
       }
       await contractStore.fetchServiceFees(contractId)
-      const label = kind === 'wspolne' ? 'Wspólny' : kind === 'diesel' ? 'Diesel' : 'Elektryk'
+      const label = kind === 'diesel' ? 'Diesel' : 'Elektryk'
       toastStore.success(`Załadowano zestaw „${label}"`)
     } catch (e: any) {
       toastStore.error(e.response?.data?.detail || 'Błąd ładowania zestawu')
@@ -2518,7 +2504,7 @@ async function applyHardcodedFeePreset(kind: 'wspolne' | 'diesel' | 'elektryk') 
   }
 
   if (hasFees) {
-    const label = kind === 'wspolne' ? 'Wspólny' : kind === 'diesel' ? 'Diesel' : 'Elektryk'
+    const label = kind === 'diesel' ? 'Diesel' : 'Elektryk'
     requestConfirm(
       `Zastosować zestaw „${label}"? Obecne ${contractStore.serviceFees.length} pozycji zostaną zastąpione.`,
       doApply,
