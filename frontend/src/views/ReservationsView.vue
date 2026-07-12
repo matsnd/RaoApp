@@ -34,6 +34,7 @@ const router = useRouter()
 
 // ── Filtry ────────────────────────────────────────────────────────────────────
 const filterMachineId = ref<number | null>(null)
+const filterSalespersonId = ref<number | null>(null)  // P1-119+: filtr handlowca
 const filterContractorId = ref<number | null>(null)
 const filterStatus = ref<'all' | 'confirmed' | 'provisional'>('all')
 
@@ -97,9 +98,12 @@ const calendarCells = computed<CalCell[]>(() => {
   return cells
 })
 
-// Eventy kalendarza filtrowane po kontrahencie/statusie (article filtrowany w API)
+// Eventy kalendarza filtrowane po handlowcu/kontrahencie/statusie (machine filtrowany w API)
 const filteredCalendarEvents = computed<CalendarEvent[]>(() => {
   let items = store.calendarEvents
+  if (filterSalespersonId.value != null) {
+    items = items.filter((e) => e.source === 'reservation' && e.salesperson_id === filterSalespersonId.value)
+  }
   if (filterContractorId.value != null) {
     items = items.filter((e) => e.contractor_id === filterContractorId.value)
   }
@@ -407,11 +411,16 @@ function hideTooltip() {
 }
 
 // ── Czy są dane do pokazania (dla stanów loading/error/empty) ─────────────────
-const hasData = computed(() => store.calendarEvents.length > 0)
+const hasData = computed(() => dataLoaded.value)
+const dataLoaded = ref(false)
 
 // ── Data loading ──────────────────────────────────────────────────────────────
 async function refreshData() {
-  await store.fetchCalendar(calDateFrom.value, calDateTo.value, filterMachineId.value ?? undefined)
+  try {
+    await store.fetchCalendar(calDateFrom.value, calDateTo.value, filterMachineId.value ?? undefined)
+  } finally {
+    dataLoaded.value = true
+  }
 }
 
 async function retry() {
@@ -442,6 +451,8 @@ onMounted(async () => {
   }
   await loadMachines()
   await refreshData()
+  // Domyślnie zaznacz dzisiaj (jakby użytkownik kliknął)
+  selectedDay.value = new Date().toISOString().slice(0, 10)
 })
 </script>
 
@@ -467,6 +478,20 @@ onMounted(async () => {
           <option :value="null">Wszystkie</option>
           <option v-for="a in machineOptions" :key="a.id" :value="a.id">
             {{ a.name }}{{ a.internal_number ? ` (${a.internal_number})` : '' }}
+          </option>
+        </select>
+      </div>
+
+      <div class="rv-filter-group">
+        <label class="rv-filter-label">Handlowiec</label>
+        <select
+          v-model="filterSalespersonId"
+          class="af-input rv-filter-select"
+          data-testid="rv-filter-salesperson"
+        >
+          <option :value="null">Wszyscy</option>
+          <option v-for="sp in salespeopleOptions" :key="sp.id" :value="sp.id">
+            {{ sp.name }}
           </option>
         </select>
       </div>
@@ -664,16 +689,6 @@ onMounted(async () => {
             </div>
 
             <div class="rv-form-row">
-              <label class="rv-form-label">Kontrahent</label>
-              <ContractorCombobox
-                v-model="modal.form.contractor_id"
-                :contractors="contractorOptions"
-                placeholder="Brak (opcjonalny)"
-                data-testid="rv-modal-contractor"
-              />
-            </div>
-
-            <div class="rv-form-row">
               <label class="rv-form-label">Handlowiec</label>
               <select
                 v-model="modal.form.salesperson_id"
@@ -686,6 +701,16 @@ onMounted(async () => {
                   {{ sp.name }}
                 </option>
               </select>
+            </div>
+
+            <div class="rv-form-row">
+              <label class="rv-form-label">Kontrahent</label>
+              <ContractorCombobox
+                v-model="modal.form.contractor_id"
+                :contractors="contractorOptions"
+                placeholder="Brak (opcjonalny)"
+                data-testid="rv-modal-contractor"
+              />
             </div>
 
             <div class="rv-form-row rv-form-dates">
