@@ -75,27 +75,29 @@ test.describe('TEST-22: Uwagi klienta — weryfikacja E2E (Faza 9)', () => {
     await request.delete(`${API}/contractors/${c.id}`, { headers: authHeaders(token) })
   })
 
-  // #6: Cenniki diesel (150 zł) i elektryk (35 zł) w additional_services
+  // #6: Cenniki przeglądów (150 zł diesel, 35 zł elektryk) w additional_services
   // Uwaga klienta 6: diesel przegląd 150 zł, elektryk przegląd+ładowanie 35 zł
-  test('#6: additional_services — cenniki Diesel 150 i Elektryk 35', async ({ request }) => {
+  // Nazwy usług są unified (bez "diesel"/"elektryk" w nazwie) — power_type maszyny
+  // decyduje którą usługę wybrać w umowie. Test weryfikuje kwoty.
+  test('#6: additional_services — cenniki przeglądów 150 i 35', async ({ request }) => {
     const r = await request.get(`${API}/additional-services`, { headers: authHeaders(token) })
     expect(r.ok()).toBeTruthy()
     const services = await r.json()
     const items = Array.isArray(services) ? services : services.items
 
-    // Znajdź usługę diesel (przegląd + czyszczenie, 150 zł)
+    // Przegląd diesel (przegląd + czyszczenie, 150 zł)
     const diesel = items.find((s: any) =>
-      s.name.toLowerCase().includes('diesel') &&
+      s.name.toLowerCase().includes('przegląd techniczny i czyszczenie') &&
       Number(s.default_amount) === 150
     )
-    expect(diesel, 'Brak cennika Diesel 150 zł').toBeTruthy()
+    expect(diesel, 'Brak cennika przeglądu diesel 150 zł').toBeTruthy()
 
-    // Znajdź usługę elektryk (przegląd + ładowanie + czyszczenie, 35 zł)
+    // Przegląd elektryk (przegląd + ładowanie + czyszczenie, 35 zł)
     const elektryk = items.find((s: any) =>
-      s.name.toLowerCase().includes('elektryk') &&
+      s.name.toLowerCase().includes('ładowanie akumulatorów') &&
       Number(s.default_amount) === 35
     )
-    expect(elektryk, 'Brak cennika Elektryk 35 zł').toBeTruthy()
+    expect(elektryk, 'Brak cennika przeglądu elektryk 35 zł').toBeTruthy()
   })
 
   // #9: Opiekun zamówienia na protokole
