@@ -1438,6 +1438,7 @@ async function handleFakturownia() {
     - Formatowanie: `formatDescription(description, amount_from, amount_to, name)` — wszystkie kwoty w `zł`, nigdy `$`
     - Wartości kwotowe w `description` używają placeholderów `$1` (amount_from) i `$2` (amount_to) — frontend zamienia je na sformatowane kwoty z polskim separatorem tysięcy i przecinkiem (`1 200,00 zł`)
     - Przykład: `description = "$1 dostawa / $2 odbiór"` + `name = "Transport"` + `amount_from = 1200` + `amount_to = 1200` → `Transport: 1 200,00 zł dostawa / 1 200,00 zł odbiór`
+    - **P1-113 (2026-07-12):** Preset data (`applyHardcodedFeePreset`) i seedy (`seed_demo_data.py`) używają `$1`/`$2` placeholderów (nie hardcoded kwot). Migracja DB podmieniająca placeholdery → hardcoded kwoty usunięta z `main.py`. Placeholdery są zachowane w DB i podmieniane w locie w UI (`formatDescription`) i PDF (`_resolve_fee_description`).
   - **Usunięto combobox artykułów-usług** — wiersze usług dodatkowych są edytowane ręcznie (nazwa, kwota od/do, jednostka, tekst na umowie)
   - **Podgląd PDF live** pod gridem usług
     - Wyświetla tylko aktywne pozycje w formacie `- {name}: {description lub kwoty}`

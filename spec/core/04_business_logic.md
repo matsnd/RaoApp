@@ -1121,6 +1121,22 @@ def generate_fees_text_for_pdf(fees: list) -> str:
     return "\n".join(lines)
 ```
 
+### Placeholdery `$1`/`$2` w opisach opłat (P1-113)
+
+**Zasada:** Opisy opłat dodatkowych (`contract_service_fees.description`, `service_fee_templates.description`) używają placeholderów `$1` (amount_from) i `$2` (amount_to). Placeholdery są podmieniane **w locie** — nigdy w DB.
+
+**Podmiana:**
+- **Frontend (UI):** `ContractFormView.formatDescription(description, amount_from, amount_to, name)` — `.replace(/\$1/g, formatCurrency(amount_from)).replace(/\$2/g, formatCurrency(amount_to))`
+- **Backend (PDF):** `reports/service.py:_resolve_fee_description(desc, amount_from, amount_to)` — regex `_FEE_PLACEHOLDER_RE.sub(_repl, desc)`
+
+**Przykład:**
+- DB: `description = "$1 zł dostawa / $2 zł odbiór"`, `amount_from = 1200`, `amount_to = 1200`
+- UI/PDF: `"1 200,00 zł dostawa / 1 200,00 zł odbiór"`
+
+**Dlaczego w locie a nie w DB:** Zmiana kwoty w gridzie aktualizuje tekst natychmiast — nie trzeba re-zapisywać opisu. Poprzednia migracja (main.py startup) podmieniała `$1`/`$2` → hardcoded kwoty w DB, co łamało aktualizację tekstu. Usunięte 2026-07-12 (P1-113).
+
+**Seedy:** `seed_demo_data.py` używa `$1`/`$2` w opisach (nie hardcoded kwoty). Preset data w `ContractFormView.vue` (applyHardcodedFeePreset) również.
+
 ## 15. Statusy umowy (RAO-P2-022)
 
 Umowa NIE posiada kolumny `status` (enum). Stan jest obliczany deterministycznie z `is_settled` + `date_to` + dziś.

@@ -304,64 +304,12 @@ async def startup_migrations():
                 FOREIGN KEY (service_fee_id) REFERENCES service_fee_templates(id) ON DELETE SET NULL
             )
         """))
-        # RAO-P3-014: Fix placeholders $1/$2 in service_fee_templates descriptions
-        # Pass 1: Replace "$1 zł" / "$2 zł" (with suffix) → amount + " zł"
-        await conn.execute(sa.text("""
-            UPDATE service_fee_templates 
-            SET description = REPLACE(
-                REPLACE(
-                    description,
-                    '$1 zł',
-                    CONCAT(IFNULL(amount_from, ''), ' zł')
-                ),
-                '$2 zł',
-                CONCAT(IFNULL(amount_to, ''), ' zł')
-            )
-            WHERE description LIKE '%$1%' OR description LIKE '%$2%'
-        """))
-        # Pass 2: Replace bare "$1" / "$2" (without suffix) → formatted amount + " zł"
-        await conn.execute(sa.text("""
-            UPDATE service_fee_templates 
-            SET description = REPLACE(
-                REPLACE(
-                    description,
-                    '$1',
-                    CONCAT(REPLACE(REPLACE(FORMAT(IFNULL(amount_from, 0), 2), ',', ' '), '.', ','), ' zł')
-                ),
-                '$2',
-                CONCAT(REPLACE(REPLACE(FORMAT(IFNULL(amount_to, 0), 2), ',', ' '), '.', ','), ' zł')
-            )
-            WHERE description LIKE '%$1%' OR description LIKE '%$2%'
-        """))
-        # Fix placeholders $1/$2 in contract_service_fees descriptions (existing contracts)
-        # Pass 1: Replace "$1 zł" / "$2 zł" (with suffix)
-        await conn.execute(sa.text("""
-            UPDATE contract_service_fees 
-            SET description = REPLACE(
-                REPLACE(
-                    description,
-                    '$1 zł',
-                    CONCAT(IFNULL(amount_from, ''), ' zł')
-                ),
-                '$2 zł',
-                CONCAT(IFNULL(amount_to, ''), ' zł')
-            )
-            WHERE description LIKE '%$1%' OR description LIKE '%$2%'
-        """))
-        # Pass 2: Replace bare "$1" / "$2" (without suffix)
-        await conn.execute(sa.text("""
-            UPDATE contract_service_fees 
-            SET description = REPLACE(
-                REPLACE(
-                    description,
-                    '$1',
-                    CONCAT(REPLACE(REPLACE(FORMAT(IFNULL(amount_from, 0), 2), ',', ' '), '.', ','), ' zł')
-                ),
-                '$2',
-                CONCAT(REPLACE(REPLACE(FORMAT(IFNULL(amount_to, 0), 2), ',', ' '), '.', ','), ' zł')
-            )
-            WHERE description LIKE '%$1%' OR description LIKE '%$2%'
-        """))
+        # RAO-P1-113: Placeholdery $1/$2 w opisach opłat są podmieniane w locie:
+        #   - UI: ContractFormView.formatDescription() → formatCurrency(amount_from/amount_to)
+        #   - PDF: reports/service.py:_resolve_fee_description() → sformatowane kwoty + zł
+        # NIE podmieniamy placeholderów w DB — zachowujemy je jako $1/$2 w opisach.
+        # (Poprzednia migracja podmieniała $1/$2 → hardcoded kwoty, co łamało aktualizację tekstu
+        #  przy zmianie kwoty w gridzie. Usunięte 2026-07-12.)
         await conn.execute(sa.text(
             "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
             "accessories TEXT NULL COMMENT 'Dodatkowe akcesoria / wyposażenie'"
