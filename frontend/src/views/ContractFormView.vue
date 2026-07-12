@@ -2178,6 +2178,28 @@ function formatPickerDate(d: string): string {
 }
 
 let artTimer: ReturnType<typeof setTimeout> | null = null
+// P1-126: dedicated loader for articlePickerList — loads /machines or /services
+// based on isRental, with availability check only for machines (S).
+async function loadArticlePickerList() {
+  const endpoint = isRental.value ? '/machines' : '/services'
+  const { data } = await api.get(endpoint, { params: { search: articlePickerSearch.value || '', per_page: 50 } })
+  const items = Array.isArray(data) ? data : (data.items ?? [])
+  articlePickerList.value = items.map(a => ({ ...a, _avail: null as AvailabilityResponse | null }))
+  // Check availability (parallel) — tylko maszyny (S)
+  const excludeId = isEdit.value ? Number(props.id) : null
+  if (isRental.value) {
+    await Promise.all(
+      articlePickerList.value.map(async a => {
+        if (form.value.date_from && form.value.date_to) {
+          await machineStore.checkAvailability(a.id, form.value.date_from, form.value.date_to, excludeId)
+            .then(av => { a._avail = av as AvailabilityResponse })
+            .catch(() => { a._avail = null })
+        }
+      })
+    )
+  }
+}
+
 async function searchArticles() {
   if (artTimer) clearTimeout(artTimer)
   artTimer = setTimeout(async () => {
