@@ -41,6 +41,7 @@
               <th class="num">Umów</th>
               <th class="num">Stawka prowizji</th>
               <th class="num">Przychód</th>
+              <th class="num">Baza prowizji</th>
               <th class="num">Prowizja</th>
               <th class="num actions-col">Szczegóły</th>
             </tr>
@@ -51,6 +52,7 @@
               <td class="num">{{ item.contracts_count }}</td>
               <td class="num">{{ item.commission_rate ?? '—' }} %</td>
               <td class="num">{{ formatCurrency(item.total_revenue) }}</td>
+              <td class="num">{{ formatCurrency(item.total_margin ?? item.total_revenue) }}</td>
               <td class="num commission">{{ formatCurrency(item.commission_amount) }}</td>
               <td class="num actions-col">
                 <button
@@ -67,6 +69,7 @@
             <tr class="total-row">
               <td colspan="3"><strong>RAZEM</strong></td>
               <td class="num"><strong>{{ formatCurrency(report.grand_total_revenue) }}</strong></td>
+              <td class="num"><strong>{{ formatCurrency(report.grand_total_margin ?? report.grand_total_revenue) }}</strong></td>
               <td class="num commission"><strong>{{ formatCurrency(report.grand_total_commission) }}</strong></td>
               <td class="num actions-col"></td>
             </tr>

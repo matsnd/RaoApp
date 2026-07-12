@@ -941,8 +941,24 @@ async def generate_contract_number(
 ### `PUT /contracts/{id}`
 Identyczny model, ale `number` i `auto_number` nie mogą być zmienione.
 
-### `DELETE /contracts/{id}`
+**RAO-P1-133: Edycja rozliczonej umowy.** Gdy `is_settled=true`:
+- Dozwolone bez cofania: pola kontaktowe `contact_person1`, `contact_person2`, `contact_phone1`, `contact_phone2`, `phone`, `email`.
+- Inne pola (pozycje, warunki, opłaty, kwoty, `city`, itp.) → **403**: "Umowa rozliczona — najpierw cofnij rozliczenie, aby zmienić dane umowy. Dane kontaktowe można zapisywać bez cofania."
+- Pełna edycja wymaga cofnięcia rozliczenia (`PATCH /contracts/{id}/settle` z `is_settled=false`).
 
+### `PATCH /contracts/{id}/settle` — RAO-P2-022 / P1-133
+Oznacz/cofnij rozliczenie umowy.
+```
+Body: { "is_settled": true | false }
+Response: ContractDetail
+  404: umowa nie istnieje
+  409: próba oznaczenia już rozliczonej umowy (is_settled=true → true)
+```
+Logika `ContractService.settle_contract`:
+- `is_settled=true` (oznaczenie) → `verify_contract_access(allow_mutation=True)` — blokuje ponowne oznaczanie rozliczonej umowy (409).
+- `is_settled=false` (cofnięcie) → **pomija** guard mutacji (operacja odwracająca, nie mutacja danych). Ustawia `is_settled=false`, `settled_at=null`, commit.
+
+### `DELETE /contracts/{id}`
 **Algorytm kaskadowego usuwania (identyczny z WinForms):**
 ```python
 async def delete_contract(db: AsyncSession, contract_id: int):
@@ -1791,15 +1807,24 @@ class SalespersonCommissionItem(BaseModel):
     commission_rate: Decimal | None
     contracts_count: int
     total_revenue: Decimal
-    commission_amount: Decimal         # margin × rate / 100
+    total_margin: Decimal              # RAO-P1-130: baza prowizji = margin (lub revenue w fallback)
+    commission_amount: Decimal         # total_margin × rate / 100
 
 class CommissionReportResponse(BaseModel):
     date_from: date
     date_to: date
     items: list[SalespersonCommissionItem]
     grand_total_revenue: Decimal
+    grand_total_margin: Decimal        # RAO-P1-130: łączna baza prowizji (margin/revenue)
     grand_total_commission: Decimal
 ```
+**Logika (RAO-P1-130):** Prowizja liczona od marży firmy
+(`SUM(cost_client - cost_company)` z kompletnych `contract_settlements`,
+oba koszty nie-NULL). Fallback do przychodu z pozycji umowy TYLKO gdy
+handlowiec nie ma żadnego kompletnego settlementu. Kompletna marża równa
+zero NIE uruchamia fallbacku (prowizja = 0). Ujednolicona formuła w
+`/stats/commissions`, drill-down `/stats/commissions/{id}/contracts` oraz
+`generate_commissions_pdf`.
 **HTTP:** 200 | 401
 
 ### `GET /stats/commissions/{salesperson_id}/contracts`
@@ -2270,6 +2295,10 @@ async def verify_contract_access(
 
 Every `/contracts/{contract_id}/...` endpoint and `/articles/{id}/last-conditions`
 uses `verify_contract_access` to enforce ownership.
+
+**RAO-P1-133 — wyjątki od blokady mutacji rozliczonej umowy:**
+- `settle_contract(is_settled=false)` (cofnięcie rozliczenia) pomija `allow_mutation=True` — to operacja odwracająca, nie mutacja danych umowy.
+- `update_contract` na rozliczonej umowie: dozwolone wyłącznie pola kontaktowe (`contact_person1/2`, `contact_phone1/2`, `phone`, `email`); inne pola → 403.
 
 ---
 

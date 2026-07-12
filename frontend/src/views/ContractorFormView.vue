@@ -151,7 +151,7 @@
 
     <!-- Address form modal -->
     <Transition name="modal">
-      <div v-if="showAddrModal" class="modal-overlay" @click.self="showAddrModal = false">
+      <div v-if="showAddrModal" class="modal-overlay">
         <div class="modal-box" style="min-width:500px;" role="dialog" aria-modal="true" aria-labelledby="addr-modal-title">
           <div class="modal-title" id="addr-modal-title">{{ editingAddr ? 'Edytuj adres' : 'Nowy adres dostawy' }}</div>
           <div class="form-row-2">

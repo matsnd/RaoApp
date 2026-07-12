@@ -125,6 +125,7 @@ class SalespersonCommissionItem(BaseModel):
     commission_rate: Decimal | None
     contracts_count: int
     total_revenue: Decimal
+    total_margin: Decimal              # RAO-P1-130: baza prowizji = margin (lub revenue w fallback)
     commission_amount: Decimal
 
 
@@ -133,6 +134,7 @@ class CommissionReportResponse(BaseModel):
     date_to: date
     items: list[SalespersonCommissionItem]
     grand_total_revenue: Decimal
+    grand_total_margin: Decimal        # RAO-P1-130: łączna baza prowizji (margin/revenue)
     grand_total_commission: Decimal
 
 

@@ -1289,17 +1289,16 @@ async def commissions(
         data = agg.get(sp_id, {"revenue": Decimal(0), "contracts": set()})
         rate = sp_data["rate"] or Decimal(0)
         
-        # RAO-P1-018: Użyj marży z settlement jeśli dostępna, wpp. revenue (backward compatibility)
-        margin = settlement_margins.get(sp_id, Decimal(0))
-        if margin is not None and margin != 0:
-            # Nowa formuła: prowizja od marży
-            commission = (margin * rate / Decimal(100)).quantize(Decimal("0.01"))
-            base_amount = margin
+        # RAO-P1-130: Prowizja od marży (zarobku firmy), nie od przychodu.
+        # Fallback do revenue TYLKO gdy brak kompletnego settlementu (sp_id nie ma w settlement_margins).
+        # Kompletna marża równa zero NIE uruchamia fallbacku.
+        if sp_id in settlement_margins:
+            margin = settlement_margins[sp_id]
+            base_amount = margin if margin is not None else Decimal("0.00")
         else:
-            # Backward compatibility: jeśli brak danych settlement, użyj revenue
-            revenue = data["revenue"]
-            commission = (revenue * rate / Decimal(100)).quantize(Decimal("0.01"))
-            base_amount = revenue
+            base_amount = data["revenue"]
+        base_amount = base_amount.quantize(Decimal("0.01"))
+        commission = (base_amount * rate / Decimal(100)).quantize(Decimal("0.01"))
         
         items.append(SalespersonCommissionItem(
             salesperson_id=sp_id,
@@ -1307,17 +1306,20 @@ async def commissions(
             commission_rate=sp_data["rate"],
             contracts_count=len(data["contracts"]),
             total_revenue=data["revenue"],  # Zachowaj revenue dla informacji
+            total_margin=base_amount,
             commission_amount=commission,
         ))
 
     items.sort(key=lambda x: x.commission_amount, reverse=True)
     grand_revenue = sum(i.total_revenue for i in items)
+    grand_margin = sum(i.total_margin for i in items)
     grand_commission = sum(i.commission_amount for i in items)
 
     return CommissionReportResponse(
         date_from=df, date_to=dt,
         items=items,
         grand_total_revenue=grand_revenue,
+        grand_total_margin=grand_margin,
         grand_total_commission=grand_commission,
     )
 

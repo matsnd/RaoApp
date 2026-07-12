@@ -627,7 +627,7 @@ onMounted(async () => {
     </div>
 
     <!-- MODAL CRUD -->
-    <div v-if="modal.open" class="modal-overlay" data-testid="rv-modal" @click.self="closeModal">
+    <div v-if="modal.open" class="modal-overlay" data-testid="rv-modal">
       <div class="modal-box rv-modal-box">
         <div class="modal-header">
           <h2 v-if="modal.mode === 'create'">Nowa rezerwacja</h2>

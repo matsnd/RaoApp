@@ -418,11 +418,28 @@ def _fmt_money_plain(v) -> str:
 
 async def generate_commissions_pdf(db: AsyncSession, date_from: date, date_to: date) -> bytes:
     from stats.router import _compute_position_revenues, _contract_date_filter
+    from settlements.models import ContractSettlement
     from markupsafe import escape as _esc
     import asyncio
 
     df, dt = date_from, date_to
-    all_pos = await _compute_position_revenues(db, df, dt)
+
+    # RAO-P1-130: Prowizja od marży (cost_client - cost_company) z contract_settlements.
+    # Fallback do revenue TYLKO gdy brak kompletnego settlementu dla handlowca.
+    # Kompletna marża równa zero NIE uruchamia fallbacku (spójność z /stats/commissions).
+    settlement_q = await db.execute(
+        select(
+            Contract.salesperson_id,
+            func.sum(ContractSettlement.cost_client - ContractSettlement.cost_company).label("total_margin")
+        )
+        .join(ContractSettlement, Contract.id == ContractSettlement.contract_id)
+        .where(and_(*_contract_date_filter(df, dt)))
+        .where(Contract.salesperson_id.isnot(None))
+        .where(ContractSettlement.cost_client.isnot(None))
+        .where(ContractSettlement.cost_company.isnot(None))
+        .group_by(Contract.salesperson_id)
+    )
+    settlement_margins = {r[0]: r[1] for r in settlement_q.all()}
 
     sp_q = await db.execute(
         select(Salesperson.id, Salesperson.name, Salesperson.commission_rate)
@@ -431,6 +448,7 @@ async def generate_commissions_pdf(db: AsyncSession, date_from: date, date_to: d
     )
     salespeople = {r[0]: {"name": r[1], "rate": r[2]} for r in sp_q.all()}
 
+    all_pos = await _compute_position_revenues(db, df, dt)
     contract_sp_q = await db.execute(
         select(Contract.id, Contract.salesperson_id)
         .where(and_(*_contract_date_filter(df, dt)))
@@ -450,18 +468,28 @@ async def generate_commissions_pdf(db: AsyncSession, date_from: date, date_to: d
         data = agg.get(sp_id, {"revenue": Decimal(0), "contracts": set()})
         rate = sp_data["rate"] or Decimal(0)
         revenue = data["revenue"]
-        commission = (revenue * rate / Decimal(100)).quantize(Decimal("0.01"))
+        # RAO-P1-130: baza prowizji = margin (gdy kompletny settlement) lub revenue (fallback)
+        if sp_id in settlement_margins:
+            margin = settlement_margins[sp_id]
+            base_amount = margin if margin is not None else Decimal("0.00")
+        else:
+            base_amount = revenue
+        base_amount = base_amount.quantize(Decimal("0.01"))
+        commission = (base_amount * rate / Decimal(100)).quantize(Decimal("0.01"))
         items.append({"name": sp_data["name"], "contracts_count": len(data["contracts"]),
-                       "rate": rate, "revenue": revenue, "commission": commission})
+                       "rate": rate, "revenue": revenue, "base_amount": base_amount,
+                       "commission": commission})
     items.sort(key=lambda x: x["commission"], reverse=True)
 
     grand_revenue = sum(i["revenue"] for i in items)
+    grand_margin = sum(i["base_amount"] for i in items)
     grand_commission = sum(i["commission"] for i in items)
 
     rows_html = "".join(
         f"<tr><td>{i}</td><td>{_esc(it['name'])}</td><td class='num'>{it['contracts_count']}</td>"
         f"<td class='num'>{it['rate'] if it['rate'] else '—'} %</td>"
         f"<td class='num'>{_fmt_money(it['revenue'])}</td>"
+        f"<td class='num'>{_fmt_money(it['base_amount'])}</td>"
         f"<td class='num commission'>{_fmt_money(it['commission'])}</td></tr>"
         for i, it in enumerate(items, 1)
     )
@@ -487,12 +515,13 @@ td.commission{{color:#27ae60;font-weight:600;}}
 <p class="period">Okres: {df.strftime('%d.%m.%Y')} — {dt.strftime('%d.%m.%Y')}</p>
 <div class="summary">
   <div class="kpi"><div class="kpi-label">Łączny przychód</div><div class="kpi-value">{_fmt_money(grand_revenue)}</div></div>
+  <div class="kpi"><div class="kpi-label">Łączna marża (baza prowizji)</div><div class="kpi-value">{_fmt_money(grand_margin)}</div></div>
   <div class="kpi"><div class="kpi-label">Łączna prowizja</div><div class="kpi-value">{_fmt_money(grand_commission)}</div></div>
 </div>
 <table>
-<thead><tr><th>#</th><th>Handlowiec</th><th class="num">Umów</th><th class="num">Stawka prowizji</th><th class="num">Przychód</th><th class="num">Prowizja</th></tr></thead>
+<thead><tr><th>#</th><th>Handlowiec</th><th class="num">Umów</th><th class="num">Stawka prowizji</th><th class="num">Przychód</th><th class="num">Marża (baza)</th><th class="num">Prowizja</th></tr></thead>
 <tbody>{rows_html}</tbody>
-<tfoot><tr><td colspan="4"><strong>RAZEM</strong></td><td class="num">{_fmt_money(grand_revenue)}</td><td class="num commission">{_fmt_money(grand_commission)}</td></tr></tfoot>
+<tfoot><tr><td colspan="3"><strong>RAZEM</strong></td><td class="num">{_fmt_money(grand_revenue)}</td><td class="num">{_fmt_money(grand_margin)}</td><td class="num commission">{_fmt_money(grand_commission)}</td></tr></tfoot>
 </table>
 </body></html>"""
 

@@ -55,11 +55,10 @@
 
   /* INNE USŁUGI */
   table.inne { width: 100%; border-collapse: collapse; margin-top: 6px; }
-  .inne-left { width: 70%; vertical-align: top; padding-right: 8px; font-size: 8.5px; }
-  .inne-right { width: 30%; vertical-align: top; padding-left: 8px; font-size: 8.5px; }
+  .inne-left { width: 58%; vertical-align: top; padding-right: 8px; font-size: 8.5px; }
+  .inne-right { width: 42%; vertical-align: top; padding-left: 8px; font-size: 8.5px; }
   .inne-label { font-size: 8px; color: #888; margin-bottom: 2px; }
   .inne-item { margin-bottom: 1px; }
-  .inne-box { border: 1px solid #aaa; padding: 4px 6px; font-size: 8px; line-height: 1.3; min-height: 50px; }
 
   /* UWAGI */
   .uwagi-section { margin-top: 20px; padding: 12px; border: 1px solid #ddd; background: #fafafa; page-break-inside: avoid; }
@@ -231,12 +230,12 @@
       {% endif %}
     </td>
     <td class="inne-right">
-      <div class="inne-box">
-        <div class="inne-label">Uwagi</div>
-        <p style="margin:0 0 4px 0;"><strong>Doba wynajmu:</strong> obejmuje 1 dzień kalendarzowy (do 8 godz. pracy jednego dnia).</p>
-        <p style="margin:0 0 4px 0;"><strong>Zgłoszenie zwrotu urządzenia:</strong> pisemne, min. z jednodniowym wyprzedzeniem.</p>
-        <p style="margin:0 0 4px 0;"><strong>Naliczanie:</strong> {% if contract.working_days_per_week %}{{ contract.working_days_per_week }}{% else %}6{% endif %} dni w tygodniu (pozostałe dni według zapisu GPS).</p>
-        <p style="margin:0 0 4px 0;"><strong>Dokumentacja zdjęciowa:</strong> wykonano.</p>
+      <div class="inne-label">Uwagi</div>
+      <div style="font-size: 8.5px; line-height: 1.45; color: #333;">
+        <div class="inne-item"><strong>Doba wynajmu:</strong> obejmuje 1 dzień kalendarzowy (do 8 godz. pracy jednego dnia).</div>
+        <div class="inne-item"><strong>Zgłoszenie zwrotu urządzenia:</strong> pisemne, min. z jednodniowym wyprzedzeniem.</div>
+        <div class="inne-item"><strong>Naliczanie:</strong> {% if contract.working_days_per_week %}{{ contract.working_days_per_week }}{% else %}6{% endif %} dni w tygodniu (pozostałe dni według zapisu GPS).</div>
+        <div class="inne-item"><strong>Dokumentacja zdjęciowa:</strong> wykonano.</div>
         {% if contract.notes %}
         <div style="white-space: pre-wrap; margin-top:8px; border-top:1px solid #ddd; padding-top:4px;">{{ contract.notes }}</div>
         {% endif %}

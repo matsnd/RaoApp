@@ -961,14 +961,30 @@ class ContractService:
                     ) from e
                 # Retry — another concurrent request took our number
 
+    # RAO-P1-133: pola kontaktowe dozwolone na rozliczonej umowie bez cofania
+    _SETTLED_ALLOWED_CONTACT_FIELDS = frozenset({
+        "contact_person1", "contact_person2",
+        "contact_phone1", "contact_phone2",
+        "phone", "email",
+    })
+
     async def update_contract(
         self, db: AsyncSession, contract_id: int, data, user: User
     ) -> Contract:
-        contract = await self.verify_contract_access(db, contract_id, user, allow_mutation=True)
+        contract = await self.verify_contract_access(db, contract_id, user, allow_mutation=False)
         # RAO-P0-034: exclude_unset=True — only fields the client explicitly sent
         # are applied. Prevents lost-data bug where omitted fields reset to defaults.
         update_data = data.model_dump(exclude_unset=True)
         update_data.pop("contractor_name", None)
+        # RAO-P1-133: rozliczona umowa — tylko pola kontaktowe bez cofania.
+        # Pozycje/warunki/opłaty/kwoty nadal wymagają cofnięcia rozliczenia.
+        if contract.is_settled:
+            disallowed = set(update_data.keys()) - self._SETTLED_ALLOWED_CONTACT_FIELDS
+            if disallowed:
+                raise forbidden(
+                    "Umowa rozliczona — najpierw cofnij rozliczenie, aby zmienić "
+                    "dane umowy. Dane kontaktowe można zapisywać bez cofania."
+                )
         # NOTE (2026-07-11): IDOR WYŁĄCZONY — single-user mode. Wszyscy mogą zmieniać branch_id.
         for field, value in update_data.items():
             setattr(contract, field, value)
@@ -987,8 +1003,22 @@ class ContractService:
     async def settle_contract(
         self, db: AsyncSession, contract_id: int, is_settled: bool, user: User
     ) -> Contract:
-        """RAO-P2-022: oznacz umowę jako rozliczoną / cofnij rozliczenie."""
-        contract = await self.verify_contract_access(db, contract_id, user, allow_mutation=True)
+        """RAO-P2-022 / P1-133: oznacz umowę jako rozliczoną / cofnij rozliczenie.
+
+        Cofnięcie rozliczenia (is_settled=False) to operacja odwracająca, NIE mutacja
+        danych umowy — dlatego nie przechodzi przez guard allow_mutation=True (który
+        blokuje edycję rozliczonych umów). Oznaczenie (is_settled=True) zachowuje
+        pełną walidację dostępu.
+        """
+        if is_settled:
+            # Oznaczenie jako rozliczona — pełna walidacja (umowa nie może być już rozliczona)
+            contract = await self.verify_contract_access(
+                db, contract_id, user, allow_mutation=True
+            )
+        else:
+            # Cofnięcie rozliczenia — operacja odwracająca, pomijamy guard mutacji.
+            # Nadal weryfikujemy istnienie umowy (get_contract rzuca 404 gdy brak).
+            contract = await self.get_contract(db, contract_id)
         contract.is_settled = is_settled
         contract.settled_at = datetime.utcnow() if is_settled else None
         contract.updated_at = datetime.utcnow()

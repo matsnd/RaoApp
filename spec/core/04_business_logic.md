@@ -1167,6 +1167,10 @@ Umowa NIE posiada kolumny `status` (enum). Stan jest obliczany deterministycznie
 
 - **Rozliczona = manualna decyzja użytkownika.** Klikając "Oznacz jako rozliczoną" w sekcji Rozliczenie umowy, ustawia się `is_settled=TRUE` i `settled_at=now()`.
 - **Cofnięcie:** przycisk "Cofnij rozliczenie" → `is_settled=FALSE`, `settled_at=NULL`.
+- **RAO-P1-133: Guard mutacji a cofnięcie rozliczenia.** `settle_contract` rozróżnia kierunek operacji:
+  - Oznaczenie (`is_settled=True`) → przechodzi przez `verify_contract_access(allow_mutation=True)` — blokuje ponowne oznaczanie już rozliczonej umowy (409).
+  - Cofnięcie (`is_settled=False`) → **pomija** guard mutacji (to operacja odwracająca, nie mutacja danych umowy). Wykonuje się bez błędu na rozliczonej umowie.
+- **RAO-P1-133: Edycja pól kontaktowych na rozliczonej umowie.** `update_contract` pozwala zapisywać bez cofania rozliczenia wyłącznie pola kontaktowe: `contact_person1`, `contact_person2`, `contact_phone1`, `contact_phone2`, `phone`, `email`. Próba zmiany innych pól (pozycje, warunki, opłaty, kwoty, city, itp.) na rozliczonej umowie → **403** z komunikatem: "Umowa rozliczona — najpierw cofnij rozliczenie, aby zmienić dane umowy. Dane kontaktowe można zapisywać bez cofania." Pozycje/warunki/opłaty nadal wymagają cofnięcia rozliczenia.
 - **Lista umów:** domyślny filtr to `is_settled=false` (widok "Aktywne"). Aktywne = nie rozliczone AND date_to >= dzisiaj. Użytkownik może przełączyć na "Rozliczone" lub "Wszystkie". Zamknięte umowy (date_to < dzisiaj i is_settled=false) są dostępne w endpoint /overdue.
 - **Alarmy (HomeView):** endpointy `/stats/expiring-contracts` i `/stats/overdue-contracts` **wykluczają** rozliczone (`is_settled=FALSE`).
 - **Brak auto-rozliczenia:** nie ma automatycznego triggera na podstawie daty ani warunków finansowych.
@@ -1206,7 +1210,28 @@ def validate_nip(nip: str) -> bool:
     checksum = sum(w * int(d) for w, d in zip(weights, nip[:9])) % 11
     return checksum == int(nip[9])
 
-## 14. System prowizyjny (RAO-P1-018)
+## 14. System prowizyjny (RAO-P1-018 / RAO-P1-130)
+
+Prowizja handlowca liczona jest od **zarobku firmy (marży)**, nie od przychodu.
+Ujednolicona formuła obowiązuje w `/stats/commissions`, drill-down
+`/stats/commissions/{id}/contracts` oraz `generate_commissions_pdf`:
+
+```
+commission = base * commission_rate / 100
+```
+
+gdzie `base` (baza prowizji, `total_margin` w response) to:
+
+1. **Marża** = `SUM(cost_client - cost_company)` z kompletnych
+   `contract_settlements` (oba koszty nie-NULL) dla umów handlowca w zakresie
+   dat — gdy istnieje choć jeden kompletny settlement dla handlowca.
+2. **Fallback do przychodu** wyliczonego z pozycji umowy — TYLKO gdy
+   handlowiec nie ma żadnego kompletnego settlementu (brak wiersza w
+   zagregowanej mapie `settlement_margins`).
+
+**Kluczowa zasada (RAO-P1-130):** Kompletna marża równa zero **NIE**
+uruchamia fallbacku — prowizja wynosi 0. Częściowy settlement (jeden z
+kosztów NULL) nie tworzy marży i nie wyłącza fallbacku.
 
 ```python
 async def calculate_salesperson_commission(
@@ -1216,28 +1241,21 @@ async def calculate_salesperson_commission(
     date_to: date
 ) -> Decimal:
     """
-    Oblicz prowizję handlowca od marży, nie od przychodu (RAO-P1-018).
-    
-    Stara formuła (przed RAO-P1-018):
-        commission = revenue * commission_rate / 100
-    
-    Nowa formuła (RAO-P1-018):
-        commission = margin * commission_rate / 100
-        gdzie margin = SUM(cost_client - cost_company) dla umów handlowca
-    
-    Backward compatibility:
-        - Jeśli brak danych settlement (cost_client/cost_company),
-          użyj starej formuły (revenue)
-        - Jeśli marża = 0 lub None, prowizja = 0
-    
+    Oblicz prowizję handlowca od marży, nie od przychodu (RAO-P1-018/130).
+
+    Formuła (RAO-P1-130):
+        commission = base * commission_rate / 100
+        base = margin  (gdy kompletny settlement istnieje)
+        base = revenue (fallback — brak kompletnego settlementu)
+
     Źródło danych:
         - contract_settlements (RAO-P1-012) → cost_client, cost_company
         - salespeople.commission_rate → stawka prowizji (%)
         - contracts → date_from, date_to, salesperson_id
     """
     from settlements.models import ContractSettlement
-    
-    # Oblicz marżę z contract_settlements
+
+    # Oblicz marżę z kompletnych contract_settlements
     settlement_q = await db.execute(
         select(
             func.sum(ContractSettlement.cost_client - ContractSettlement.cost_company).label("total_margin")
@@ -1249,29 +1267,30 @@ async def calculate_salesperson_commission(
         .where(ContractSettlement.cost_company.isnot(None))
     )
     margin = settlement_q.scalar()
-    
+
     # Pobierz stawkę prowizji handlowca
     sp_q = await db.execute(
         select(Salesperson.commission_rate)
         .where(Salesperson.id == salesperson_id)
     )
     commission_rate = sp_q.scalar() or Decimal(0)
-    
-    # Jeśli brak danych settlement, użyj revenue (backward compatibility)
-    if margin is None or margin == 0:
-        # Oblicz revenue ze starych danych
+
+    # RAO-P1-130: fallback do revenue TYLKO gdy brak kompletnego settlementu (margin is None).
+    # Kompletna marża zero (margin == 0) NIE uruchamia fallbacku.
+    if margin is None:
+        # Brak kompletnego settlementu → backward compatibility: prowizja od revenue
         revenue_q = await db.execute(
             select(func.sum(ContractPosition.unit_price * ContractPosition.quantity))
             .join(Contract, Contract.id == ContractPosition.contract_id)
             .where(Contract.salesperson_id == salesperson_id)
             .where(and_(Contract.date_from <= date_to, Contract.date_to >= date_from))
         )
-        revenue = revenue_q.scalar() or Decimal(0)
-        commission = (revenue * commission_rate / Decimal(100)).quantize(Decimal("0.01"))
+        base = revenue_q.scalar() or Decimal("0.00")
     else:
-        # Nowa formuła: prowizja od marży
-        commission = (margin * commission_rate / Decimal(100)).quantize(Decimal("0.01"))
+        base = margin
 
+    base = base.quantize(Decimal("0.01"))
+    commission = (base * commission_rate / Decimal(100)).quantize(Decimal("0.01"))
     return commission
 ```
 

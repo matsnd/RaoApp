@@ -262,18 +262,18 @@ watch(
 
     <StateMessage v-else-if="error" type="error" :message="error" @action="load" />
 
+    <!-- P1-121: Breadcrumb zawsze widoczny gdy jesteśmy w drill-down, nawet gdy data.length === 0 -->
+    <div v-if="breadcrumb.length && !loading && !error" class="ct-breadcrumb" data-testid="categories-breadcrumb">
+      <button class="ct-crumb" @click="onBreadcrumbClick(-1)">Wszystkie</button>
+      <template v-for="(b, idx) in breadcrumb" :key="idx">
+        <span class="ct-sep">›</span>
+        <button class="ct-crumb" @click="onBreadcrumbClick(idx)">{{ b.name }}</button>
+      </template>
+    </div>
+
     <template v-else-if="data.length">
       <!-- KPI -->
       <KpiRow :cards="kpiCards" />
-
-      <!-- Breadcrumb -->
-      <div v-if="breadcrumb.length" class="ct-breadcrumb" data-testid="categories-breadcrumb">
-        <button class="ct-crumb" @click="onBreadcrumbClick(-1)">Wszystkie</button>
-        <template v-for="(b, idx) in breadcrumb" :key="idx">
-          <span class="ct-sep">›</span>
-          <button class="ct-crumb" @click="onBreadcrumbClick(idx)">{{ b.name }}</button>
-        </template>
-      </div>
 
       <!-- Wykres -->
       <ChartCard
@@ -321,7 +321,9 @@ watch(
       </div>
     </template>
 
-    <div v-else class="ct-empty">Brak danych o kategoriach w wybranym okresie</div>
+    <div v-else class="ct-empty">
+      {{ breadcrumb.length ? `Brak podkategorii dla „${breadcrumb[breadcrumb.length - 1].name}"` : 'Brak danych o kategoriach w wybranym okresie' }}
+    </div>
   </div>
 </template>
 

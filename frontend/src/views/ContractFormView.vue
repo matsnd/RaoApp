@@ -9,7 +9,12 @@
       <button v-if="isEdit" class="toolbar-btn" title="Protokół ZO" @click="generateReport('protocol_zo')">📄</button>
       <button v-if="isEdit" class="toolbar-btn" title="Przelicz wartość" @click="recalcTotal">∑</button>
       <button v-if="isEdit" class="toolbar-btn" title="Pobierz koszty z Fakturownia" @click="handleFakturownia">💰</button>
-      <button class="btn btn-primary btn-sm" @click="handleSave" :disabled="saving">
+      <button
+        class="btn btn-primary btn-sm"
+        @click="handleSave"
+        :disabled="saving"
+        :title="form.is_settled ? 'Umowa rozliczona — można zapisać tylko dane kontaktowe. Aby zmienić dane umowy, cofnij rozliczenie.' : 'Zapisz umowę'"
+      >
         {{ saving ? '...' : 'Zapisz' }}
       </button>
     </div>
@@ -660,7 +665,7 @@
     </Transition>
     <!-- Inline contractor form modal - RAO-P2-005 -->
     <Transition name="modal">
-      <div v-if="showInlineContractorForm" data-testid="contractor-modal" class="modal-overlay" @click.self="showInlineContractorForm = false">
+      <div v-if="showInlineContractorForm" data-testid="contractor-modal" class="modal-overlay">
         <div class="modal-box" style="min-width:700px;max-height:90vh;overflow-y:auto;">
           <div class="modal-title">Nowy kontrahent</div>
           <div v-if="inlineContractorError" style="color:var(--color-danger);font-size:13px;margin-bottom:12px;padding:8px;background:var(--color-error-bg);border-radius:6px;">
@@ -874,7 +879,7 @@
 
     <!-- Inline article form modal - RAO-P2-006 -->
     <Transition name="modal">
-      <div v-if="showInlineArticleForm" class="modal-overlay" @click.self="showInlineArticleForm = false">
+      <div v-if="showInlineArticleForm" class="modal-overlay">
         <div class="modal-box" style="min-width:700px;max-height:90vh;overflow-y:auto;">
           <div class="modal-title">Nowa {{ isRental ? 'maszyna' : 'usługa' }}</div>
           <div v-if="inlineArticleError" style="color:var(--color-danger);font-size:13px;margin-bottom:12px;padding:8px;background:var(--color-error-bg);border-radius:6px;">
@@ -1732,6 +1737,7 @@ async function toggleSettled() {
     form.value.is_settled = data.is_settled
     form.value.settled_at = data.settled_at
     await nextTick() // Force Vue re-render
+    toastStore.success(newVal ? 'Umowa oznaczona jako rozliczona' : 'Rozliczenie cofnięte')
   } catch (e: any) {
     toastStore.error('Błąd zmiany statusu rozliczenia: ' + (e.response?.data?.detail || e.message))
   } finally {

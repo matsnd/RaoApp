@@ -173,7 +173,7 @@
 
     <!-- Modal: nowy cennik z warunkami -->
     <Transition name="modal">
-      <div v-if="showNewPresetModal" class="modal-overlay" @click.self="closeNewPresetForm">
+      <div v-if="showNewPresetModal" class="modal-overlay">
         <div class="modal-box" style="min-width:640px;" role="dialog" aria-modal="true" aria-labelledby="new-preset-title">
           <div class="modal-title" id="new-preset-title">Nowy cennik rozliczenia</div>
           <p style="font-size:13px;color:var(--color-text-muted);margin:4px 0 12px;">

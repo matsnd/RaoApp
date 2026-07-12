@@ -337,7 +337,7 @@ migration_impact: yes
 
 ```yaml
 id: P2-003
-status: triaged
+status: team-verified
 priority: P2
 created: 2026-07-11
 source: client-request (wywiad FULL-AUTO 2026-07-11)
@@ -584,7 +584,7 @@ migration_impact: no
 
 ```yaml
 id: P1-112
-status: triaged
+status: team-verified
 priority: P1
 created: 2026-07-12
 source: client-request (współpraca 2026-07-12)
@@ -815,7 +815,7 @@ migration_impact: yes
 
 ```yaml
 id: P1-121
-status: triaged
+status: team-verified
 priority: P1
 created: 2026-07-12
 source: client-request (współpraca 2026-07-12)
@@ -1177,7 +1177,7 @@ migration_impact: no
 
 ```yaml
 id: P1-129
-status: triaged
+status: team-verified
 priority: P1
 created: 2026-07-12
 source: client-request (współpraca 2026-07-12)
@@ -1215,7 +1215,7 @@ migration_impact: no
 
 ```yaml
 id: P1-130
-status: triaged
+status: team-verified
 priority: P1
 created: 2026-07-12
 source: client-request (współpraca 2026-07-12)
@@ -1302,7 +1302,7 @@ related: ReservationsView — modal "Nowa rezerwacja", istniejący ContractorCom
 
 ```yaml
 id: P1-132
-status: triaged
+status: team-verified
 priority: P1
 created: 2026-07-12
 source: client-request (współpraca 2026-07-12)
@@ -1338,7 +1338,7 @@ related: P1-131 (modale formularzy rezerwacji), shared modal UX
 
 ```yaml
 id: P1-133
-status: triaged
+status: team-verified
 priority: P1
 created: 2026-07-12
 source: client-request (współpraca 2026-07-12)
