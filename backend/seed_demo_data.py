@@ -624,15 +624,16 @@ def _build_positions_and_fees(i, days, maszyny, uslugi, rt_dniowy, contract_type
                 "conditions": conditions,
             })
 
-    # RAO-P1-100: KISS demo fee descriptions (printed text) per service article
+    # RAO-P1-100/P1-113: $1/$2 placeholdery podmieniane na amount_from/amount_to
+    # na umowie i PDF. $1 = kwota od, $2 = kwota do (jeśli brak → puste).
     DEMO_FEE_DESCRIPTION = {
-        "Transport": "1 200,00 zł dostawa / 1 200,00 zł odbiór",
+        "Transport": "$1 zł dostawa / $2 zł odbiór",
         "Czyszczenie": "wycena indywidualna",
-        "Tankowanie": "200,00 zł (plus koszt paliwa)",
-        "Przestój": "200,00 zł / h - 300,00 zł / h",
-        "Serwis": "280,00 zł (plus transport)",
-        "Przegląd Diesel": "150,00 zł",
-        "Przegląd Elektryk": "35,00 zł",
+        "Tankowanie": "$1 zł (plus koszt paliwa)",
+        "Przestój": "$1 zł / h - $2 zł / h",
+        "Serwis": "$1 zł (plus transport)",
+        "Przegląd Diesel": "$1 zł",
+        "Przegląd Elektryk": "$1 zł",
     }
     fees = []
     num_fees = 2 + (i % 3)  # 2, 3, 4
@@ -640,10 +641,16 @@ def _build_positions_and_fees(i, days, maszyny, uslugi, rt_dniowy, contract_type
         usluga = uslugi[(i + j) % len(uslugi)]
         cena_usl = usluga.default_amount if usluga.default_amount is not None else Decimal("100")
         fee_desc = DEMO_FEE_DESCRIPTION.get(usluga.name)
+        # P1-113: $2 wymaga amount_to dla Transport (odbiór) i Przestój (górna widełka)
+        amount_to = None
+        if usluga.name == "Transport":
+            amount_to = Decimal("1200.00")  # odbiór = dostawa
+        elif usluga.name == "Przestój":
+            amount_to = Decimal("300.00")  # górna widełka
         fees.append({
             "name": usluga.name,
             "amount_from": cena_usl,
-            "amount_to": None,
+            "amount_to": amount_to,
             "unit": "szt" if usluga.name == "Transport" else "kpl",
             "description": fee_desc,
             "is_active": True,
