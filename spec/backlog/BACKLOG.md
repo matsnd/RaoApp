@@ -1298,6 +1298,42 @@ related: ReservationsView — modal "Nowa rezerwacja", istniejący ContractorCom
 - [ ] E2E pokrywa wyszukiwanie i zapis nowej rezerwacji
 - [ ] Smoke `01-login.spec.ts` zielony
 
+### P1-132: Modale wprowadzania — nie zamykać po przypadkowym kliknięciu poza oknem
+
+```yaml
+id: P1-132
+status: triaged
+priority: P1
+created: 2026-07-12
+source: client-request (współpraca 2026-07-12)
+component: frontend modal overlays (views/components)
+migration_impact: no
+related: P1-131 (modale formularzy rezerwacji), shared modal UX
+```
+
+**Opis:** Modale formularzy wprowadzania danych zamykają się po kliknięciu poza ich obszarem (`@click.self="close..."`). Jest to szczególnie irytujące podczas zaznaczania tekstu myszką w polu — gdy użytkownik przeciągnie kursor poza krawędź modala i puści przycisk, zdarzenie trafia w overlay i formularz zostaje zamknięty, często tracąc wprowadzone dane.
+
+**Stan obecny:**
+- W wielu widokach i komponentach overlay ma `@click.self` zamykające modal, m.in. `ContractFormView.vue`, `ReservationsView.vue`, `MachineFormView.vue`, `ArticleFormView.vue`, `ContractorFormView.vue`, `AdminView.vue`, `ConditionPanel.vue`, `RatePresetSection.vue` i `ConfirmDialog.vue`.
+- Brak rozróżnienia między świadomym kliknięciem pustego tła a zakończeniem gestu zaznaczania/przeciągania tekstu.
+
+**Zadania:**
+1. **UX / decyzja:** dla modali formularzy wprowadzania danych wyłączyć zamykanie przez kliknięcie poza oknem. Modal zamykać wyłącznie przyciskiem "Anuluj"/"X" (a przy niezapisanych zmianach opcjonalnie pokazać potwierdzenie).
+2. **Frontend:** usunąć `@click.self="close..."` z overlayów formularzy albo zastąpić je bezpiecznym mechanizmem, który nie reaguje po selekcji/przeciąganiu tekstu (`mousedown`/`mouseup`, `event.target === event.currentTarget`, kontrola `selection`, ewentualnie opóźnienie i anulowanie przy drag).
+3. **Zakres:** objąć wszystkie modale, w których użytkownik wpisuje lub edytuje dane. Osobno ustalić, czy lekkie modale wyboru i potwierdzenia mogą nadal zamykać się kliknięciem tła.
+4. **Bezpieczeństwo danych:** zamknięcie modala nie może kasować formularza po przypadkowym kliknięciu podczas zaznaczania tekstu. Przetestować pola tekstowe, textarea, comboboksy i przewijanie.
+5. **Testy E2E:** dodać test, który otwiera modal formularza, wpisuje tekst, wykonuje selekcję/przeciągnięcie poza obszar modala i potwierdza, że modal pozostaje otwarty oraz dane nie są utracone. Dodać regresję dla przycisku "Anuluj"/"X".
+6. **Spec sync:** zaktualizować `spec/core/03_frontend_screens.md` i ewentualnie `spec/core/09_design_system.md` o zasadę zamykania modali formularzy.
+
+**Definition of Done:**
+- [ ] Przeciągnięcie zaznaczenia tekstu poza modal nie zamyka formularza
+- [ ] Modale formularzy nie zamykają się przypadkowym kliknięciem w overlay
+- [ ] Dane wpisane przed próbą zamknięcia pozostają zachowane
+- [ ] Przyciski "Anuluj" i "X" nadal zamykają modal poprawnie
+- [ ] E2E obejmuje selekcję/przeciąganie oraz celowe zamknięcie
+- [ ] Ustalony zakres dla pickerów i dialogów potwierdzenia
+- [ ] Smoke `01-login.spec.ts` zielony
+
 ---
 
 ## 🟢 P3 — Nice-to-Have
