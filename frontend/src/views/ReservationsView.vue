@@ -138,6 +138,8 @@ function dotClass(e: CalendarEvent): string {
 }
 
 // ── Lista rezerwacji dnia (panel boczny) ──────────────────────────────────────
+const PAGE_SIZE = 10
+const visibleCount = ref(PAGE_SIZE)
 const dayEvents = computed<CalendarEvent[]>(() => {
   if (!selectedDay.value) return []
   const day = selectedDay.value
@@ -149,6 +151,8 @@ const dayEvents = computed<CalendarEvent[]>(() => {
     return true
   })
 })
+// P1-118: stronicowanie listy dnia — pokaż pierwsze N, reszta po "Pokaż więcej"
+const visibleDayEvents = computed(() => dayEvents.value.slice(0, visibleCount.value))
 
 const selectedDayLabel = computed(() => {
   if (!selectedDay.value) return ''
@@ -159,6 +163,7 @@ const selectedDayLabel = computed(() => {
 
 function selectDay(date: string) {
   selectedDay.value = date
+  visibleCount.value = PAGE_SIZE  // P1-118: reset paginacji na nowy dzień
 }
 
 function onContextMenu(event: MouseEvent, cell: CalCell) {
@@ -560,7 +565,7 @@ onMounted(async () => {
             <label><input type="checkbox" v-model="showContracts" /> Blokady umowami</label>
           </div>
           <div class="rv-day-events">
-            <div v-for="e in dayEvents" :key="e.source_id" class="rv-day-event" data-testid="rv-day-event" @click="openEdit(e)">
+            <div v-for="e in visibleDayEvents" :key="e.source_id" class="rv-day-event" data-testid="rv-day-event" @click="openEdit(e)">
               <span :class="['rv-dot', dotClass(e)]"></span>
               <div>
                 <strong>{{ e.machine_name || 'Maszyna' }}</strong>
@@ -569,6 +574,14 @@ onMounted(async () => {
               </div>
             </div>
             <div v-if="dayEvents.length === 0" class="rv-day-no-events">Brak blokad tego dnia</div>
+            <button
+              v-if="dayEvents.length > visibleCount"
+              class="rv-day-show-more"
+              data-testid="rv-day-show-more"
+              @click="visibleCount += PAGE_SIZE"
+            >
+              Pokaż więcej ({{ dayEvents.length - visibleCount }} pozostało)
+            </button>
           </div>
         </template>
       </div>
@@ -787,6 +800,22 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-2);
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.rv-day-show-more {
+  margin-top: var(--spacing-2);
+  padding: var(--spacing-2);
+  background: var(--color-bg-light);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--border-radius-sm);
+  color: var(--color-primary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  text-align: center;
+}
+.rv-day-show-more:hover {
+  background: var(--color-bg-card-hover);
 }
 .rv-day-event {
   display: flex;
