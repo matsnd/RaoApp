@@ -1138,6 +1138,41 @@ Te same szablony dla `contract_type='S'` mają identyczne sztywne opisy. Placeho
 - [ ] Spec sync: `04_business_logic.md`, `03_frontend_screens.md`, `02_backend_api.md`
 - [ ] Smoke `01-login.spec.ts` zielony
 
+### P1-128: Maszyna zewnętrzna — ukryć pole "Nr wewnętrzny" przy dodawaniu/edycji
+
+```yaml
+id: P1-128
+status: triaged
+priority: P1
+created: 2026-07-12
+source: client-request (współpraca 2026-07-12)
+component: frontend/MachineFormView.vue + backend/machines/schemas.py (opcjonalnie)
+migration_impact: no
+```
+
+**Opis:** Przy dodawaniu lub edycji maszyny zewnętrznej (`is_external = true`) pole "Nr wewnętrzny" (`internal_number`) powinno być ukryte/wyrzucone, ponieważ maszyny zewnętrzne (np. od podwykonawcy/dostawcy) nie posiadają wewnętrznych numeracji floty własnej. Obecnie pole jest zawsze widoczne, co prowadzi do pomyłek i wprowadzania danych, które nie powinny się tam znaleźć.
+
+**Stan obecny:**
+- `frontend/src/views/MachineFormView.vue` — checkbox "Maszyna zewnętrzna" (linia 24-27) nie wpływa na widoczność pola "Nr wewnętrzny" (linia 33-34).
+- `frontend/src/views/MachineFormView.vue` — `form.internal_number` (linia 206) jest zawsze renderowane w sekcji `form-row-2` razem z `registration_no` (linia 31-40).
+- `backend/machines/schemas.py` — `MachineCreate` / `MachineUpdate` zawiera `internal_number` jako opcjonalne, bez warunku "niedozwolone dla is_external".
+
+**Zadania:**
+1. **Frontend** `MachineFormView.vue` — pole "Nr wewnętrzny" (`machine-internal`) wyświetlać tylko gdy `form.is_external === false`. Dodaj `v-if="!form.is_external"` (lub wrap `form-row-2` z warunkiem). Upewnić się, że layout nie psuje się przy ukrywaniu (np. `registration_no` zajmuje całą szerokość lub pozostaje w `form-row-2` z jednym polem).
+2. **Frontend** `MachineFormView.vue` — przy zaznaczeniu "Maszyna zewnętrzna" (watch na `form.is_external`) wyczyścić `form.internal_number` (opcjonalnie — jeśli użytkownik zaznaczył zewnętrzną po wpisaniu numeru, wartość powinna zostać zresetowana, żeby nie trafiła do bazy).
+3. **Backend** `machines/schemas.py` (opcjonalnie) — dodać walidację Pydantic: `if data.is_external and data.internal_number` → reject/ignore (ustawić `None`), albo przynajmniej model accept null. Preferowany jest wyrzut w frontendzie + `internal_number` w payloadzie ustawione na `None`/`''` dla zewnętrznych.
+4. **E2E** — test: otwórz formularz nowej maszyny → zaznacz "Maszyna zewnętrzna" → pole "Nr wewnętrzny" znika; odznacz → pole wraca; zapisz zewnętrzną maszynę bez `internal_number`.
+5. **Spec sync** — `03_frontend_screens.md` (MachineFormView), `02_backend_api.md` (MachineCreate/Update opcjonalnie).
+
+**Definition of Done:**
+- [ ] Pole "Nr wewnętrzny" jest ukryte gdy "Maszyna zewnętrzna" jest zaznaczona
+- [ ] Przy zaznaczeniu zewnętrznej `internal_number` jest czyszczone (lub nie wysyłane)
+- [ ] Zapis zewnętrznej maszyny nie zawiera `internal_number` (lub backend go odrzuca)
+- [ ] Regresja: maszyny wewnętrzne nadal mają pole "Nr wewnętrzny" i można je zapisać
+- [ ] E2E: toggle `is_external` → widoczność pola `internal_number`
+- [ ] Spec sync: `03_frontend_screens.md` (opcjonalnie `02_backend_api.md`)
+- [ ] Smoke `01-login.spec.ts` zielony
+
 ---
 
 ## 🟢 P3 — Nice-to-Have
