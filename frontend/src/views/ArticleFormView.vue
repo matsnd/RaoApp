@@ -206,7 +206,7 @@
           <div class="modal-title" id="owner-picker-title">Wybierz właściciela (dostawcę)</div>
           <div class="search-input-wrap" style="margin-bottom:12px;">
             <span class="search-icon" aria-hidden="true">⌕</span>
-            <input v-model="pickerSearch" type="text" class="form-control" aria-label="Szukaj właściciela" placeholder="Szukaj..." @input="searchOwners" />
+            <input v-model="pickerSearch" type="text" class="form-control" aria-label="Szukaj właściciela" placeholder="Szukaj po nazwie, NIP lub mieście..." @input="searchOwners" />
           </div>
           <div style="max-height:320px;overflow:auto;">
             <table class="data-grid">

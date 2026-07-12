@@ -957,7 +957,7 @@ Formuła prowizji (RAO-P1-018, już zaimplementowana): `commission = margin × c
 
 ```yaml
 id: P1-124
-status: triaged
+status: team-verified
 priority: P1
 created: 2026-07-12
 source: client-request (współpraca 2026-07-12)

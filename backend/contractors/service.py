@@ -20,7 +20,9 @@ class ContractorService:
         if search:
             stmt = stmt.where(
                 (Contractor.name.ilike(f"%{search}%")) |
-                (Contractor.nip.ilike(f"%{search}%"))
+                (Contractor.nip.ilike(f"%{search}%")) |
+                (Contractor.city.ilike(f"%{search}%")) |
+                (Contractor.street.ilike(f"%{search}%"))
             )
         if supplier is not None:
             stmt = stmt.where(Contractor.is_supplier == supplier)

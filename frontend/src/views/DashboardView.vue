@@ -194,7 +194,7 @@
           <div class="grid-header">
             <div class="search-input-wrap" style="flex:1;max-width:380px;">
               <span class="search-icon">⌕</span>
-              <input v-model="search" type="text" class="form-control" placeholder="Szukaj wg nazwy, NIP..." />
+              <input v-model="search" type="text" class="form-control" placeholder="Szukaj wg nazwy, NIP lub miasta..." />
             </div>
           </div>
           <div class="grid-scroll">

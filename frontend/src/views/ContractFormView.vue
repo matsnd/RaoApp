@@ -74,10 +74,13 @@
           <div class="form-group">
             <label class="form-label">Adres dostawy</label>
             <div class="address-layout">
+              <div v-if="contractorAddresses.length" class="address-row" style="margin-bottom:4px;">
+                <input v-model="addressSearch" type="text" class="form-control" placeholder="Filtruj adresy po mieście, ulicy, nazwie..." />
+              </div>
               <div class="address-row">
                 <select v-if="contractorAddresses.length" v-model="selectedAddressId" class="form-control address-select" @change="onAddressSelect">
                   <option :value="null">— wpisz ręcznie —</option>
-                  <option v-for="addr in contractorAddresses" :key="addr.id" :value="addr.id">
+                  <option v-for="addr in filteredAddresses" :key="addr.id" :value="addr.id">
                     {{ addr.name || addr.city }} — {{ addr.street || '' }} {{ addr.postal_code || '' }}
                   </option>
                 </select>
@@ -639,7 +642,7 @@
           <div class="modal-title">Wybierz kontrahenta</div>
           <div class="search-input-wrap" style="margin-bottom:12px;">
             <span class="search-icon">⌕</span>
-            <input v-model="pickerSearch" data-testid="contractor-picker" type="text" class="form-control" placeholder="Szukaj..." @input="searchContractors" />
+            <input v-model="pickerSearch" data-testid="contractor-picker" type="text" class="form-control" placeholder="Szukaj po nazwie, NIP lub mieście..." @input="searchContractors" />
           </div>
           <div style="max-height:320px;overflow:auto;">
             <div v-if="!pickerList.length && pickerSearch" data-testid="no-results" class="empty-state" style="padding:32px;text-align:center;color:var(--color-text-muted);">
@@ -1011,7 +1014,7 @@
           <div class="modal-title">Wybierz dostawcę</div>
           <div class="search-input-wrap" style="margin-bottom:12px;">
             <span class="search-icon">⌕</span>
-            <input v-model="supplierSearch" type="text" class="form-control" placeholder="Szukaj dostawcy..." @input="searchSuppliers" />
+            <input v-model="supplierSearch" type="text" class="form-control" placeholder="Szukaj po nazwie, NIP lub mieście..." @input="searchSuppliers" />
           </div>
           <div style="max-height:320px;overflow:auto;">
             <table class="data-grid">
@@ -1139,6 +1142,17 @@ interface ContractorAddress {
 }
 const contractorAddresses = ref<ContractorAddress[]>([])
 const selectedAddressId = ref<number | null>(null)
+const addressSearch = ref('')
+const filteredAddresses = computed(() => {
+  const q = addressSearch.value.trim().toLowerCase()
+  if (!q) return contractorAddresses.value
+  return contractorAddresses.value.filter(a =>
+    (a.name || '').toLowerCase().includes(q) ||
+    (a.city || '').toLowerCase().includes(q) ||
+    (a.street || '').toLowerCase().includes(q) ||
+    (a.postal_code || '').toLowerCase().includes(q)
+  )
+})
 const showContractorPicker = ref(false)
 const pickerSearch = ref('')
 interface ContractorPick { id: number; name: string; nip?: string | null; city?: string | null }
