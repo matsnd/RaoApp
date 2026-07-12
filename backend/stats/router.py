@@ -190,6 +190,8 @@ async def fleet_summary(
     # RAO-P2-029: period_revenue uwzględnia archiwalne maszyny (statystyki historyczne)
     # total_machines/total_rented pozostają bez archiwalnych (stan floty teraz)
     # RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
+    # BUG FIX: compute_position_revenues uwzględnia też usługi dodatkowe
+    # (contract_settlements z service_fee_id) jako syntetyczne wiersze is_service=True.
     all_pos = await _compute_position_revenues(db, df, dt, exclude_archival=False, service_filter=service_filter)
     # RAO-P0-001/BUG-1: filtruj pozycje po contractor_id/city/internal_number
     all_pos = _apply_position_filters(
@@ -445,6 +447,7 @@ async def additional_fees(
         ServiceFeeItem(
             article_id=aid, service_name=d["name"],
             total_revenue=d["revenue"], times_billed=len(d["contracts"]),
+            contracts_count=len(d["contracts"]),
         )
         for aid, d in sorted_items
     ]

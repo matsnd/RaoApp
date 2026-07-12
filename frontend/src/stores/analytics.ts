@@ -53,6 +53,7 @@ export interface ServiceFeeItem {
   service_name: string
   total_revenue: string | number
   times_billed: number
+  contracts_count: number
 }
 
 export interface AdditionalFeesResponse {

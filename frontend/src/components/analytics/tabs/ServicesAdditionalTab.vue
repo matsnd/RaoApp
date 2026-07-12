@@ -3,7 +3,7 @@ import { computed, inject, onMounted, ref, watch } from 'vue'
 import {
   useAnalyticsStore,
   type AnalyticsFiltersPayload,
-  type PositionStatItem,
+  type ServiceFeeItem,
 } from '@/stores/analytics'
 import KpiRow, { type KpiCard } from '@/components/analytics/KpiRow.vue'
 import AnalyticsTable, {
@@ -31,7 +31,7 @@ const openDrillDown = inject<
 const search = ref('')
 const loading = ref(false)
 const error = ref<string | null>(null)
-const data = ref<PositionStatItem[]>([])
+const data = ref<ServiceFeeItem[]>([])
 const totalRevenue = ref<number>(0)
 
 const sort = useSort<AnalyticsRow>('revenue', 'desc')
@@ -39,32 +39,27 @@ const sort = useSort<AnalyticsRow>('revenue', 'desc')
 const columns: AnalyticsColumn[] = [
   { key: 'rank', label: '#', align: 'right', width: '48px' },
   { key: 'article_name', label: 'Usługa dodatkowa', sortable: true },
-  { key: 'category_main', label: 'Kategoria', sortable: true },
   { key: 'revenue', label: 'Przychód', align: 'right', sortable: true },
   { key: 'contracts_count', label: 'Umów', align: 'right', sortable: true },
   { key: 'times_billed', label: 'Razy', align: 'right', sortable: true },
 ]
 
-const filteredData = computed<PositionStatItem[]>(() => {
+const filteredData = computed<ServiceFeeItem[]>(() => {
   const q = search.value.trim().toLowerCase()
   if (!q) return data.value
   return data.value.filter(
-    (item) =>
-      item.article_name?.toLowerCase().includes(q) ||
-      item.category_main?.toLowerCase().includes(q),
+    (item) => item.service_name?.toLowerCase().includes(q),
   )
 })
 
 const rows = computed<AnalyticsRow[]>(() =>
   filteredData.value.map((item, idx) => ({
     rank: idx + 1,
-    article_name: item.article_name,
-    category_main: item.category_main ?? '—',
-    revenue: Number(item.revenue),
-    rented_days: item.rented_days,
+    article_name: item.service_name,
+    revenue: Number(item.total_revenue),
     contracts_count: item.contracts_count,
     times_billed: item.times_billed,
-    service_id: item.service_id ?? item.article_id,
+    service_id: item.article_id,
   })),
 )
 
@@ -74,7 +69,7 @@ const kpiCards = computed<KpiCard[]>(() => {
   if (!data.value.length) return []
   const totalBilled = data.value.reduce((s, item) => s + item.times_billed, 0)
   const totalContracts = data.value.reduce((s, item) => s + item.contracts_count, 0)
-  const top = [...data.value].sort((a, b) => Number(b.revenue) - Number(a.revenue))[0]
+  const top = [...data.value].sort((a, b) => Number(b.total_revenue) - Number(a.total_revenue))[0]
   return [
     {
       value: data.value.length,
@@ -99,9 +94,9 @@ const kpiCards = computed<KpiCard[]>(() => {
       testId: 'kpi-svc-s-billed',
     },
     {
-      value: top?.article_name ?? '—',
+      value: top?.service_name ?? '—',
       label: 'Top usługa',
-      sub: formatCurrency(Number(top?.revenue ?? 0)),
+      sub: formatCurrency(Number(top?.total_revenue ?? 0)),
       variant: 'success',
       icon: '🏆' as never,
       testId: 'kpi-svc-s-top',
@@ -112,7 +107,6 @@ const kpiCards = computed<KpiCard[]>(() => {
 const csvColumns: CsvColumn[] = [
   { key: 'rank', label: '#' },
   { key: 'article_name', label: 'Usługa dodatkowa' },
-  { key: 'category_main', label: 'Kategoria' },
   { key: 'revenue', label: 'Przychód', format: (v) => formatCurrency(Number(v)) },
   { key: 'contracts_count', label: 'Umów' },
   { key: 'times_billed', label: 'Razy' },
@@ -128,9 +122,9 @@ async function load(): Promise<void> {
   loading.value = true
   error.value = null
   try {
-    const resp = await store.fetchPositions('services', props.dateFrom, props.dateTo, props.filters, undefined, 'desc', 'S')
-    data.value = resp.items || []
-    totalRevenue.value = data.value.reduce((s, item) => s + Number(item.revenue), 0)
+    const resp = await store.fetchAdditionalFees(props.dateFrom, props.dateTo, props.filters)
+    data.value = resp.breakdown || []
+    totalRevenue.value = data.value.reduce((s, item) => s + Number(item.total_revenue), 0)
   } catch (e: unknown) {
     const err = e as { response?: { data?: { detail?: string } } }
     error.value = err.response?.data?.detail || 'Błąd pobierania danych'

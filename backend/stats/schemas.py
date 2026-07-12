@@ -44,6 +44,7 @@ class ServiceFeeItem(BaseModel):
     service_name: str
     total_revenue: Decimal
     times_billed: int
+    contracts_count: int = 0
 
 
 class AdditionalFeesResponse(BaseModel):

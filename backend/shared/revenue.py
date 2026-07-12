@@ -421,4 +421,86 @@ async def compute_position_revenues(
             "branch_id": u[13],
         })
 
+    # RAO: Usługi dodatkowe (contract_settlements z service_fee_id IS NOT NULL).
+    # Syntetyczne wiersze dla analytics — jak unmapped, ale z service_id i nazwą usługi.
+    # Dzięki temu wszystkie endpointy używające compute_position_revenues (fleet-summary,
+    # top-machines, by-category, by-period, by-contract-type, by-branch, locations,
+    # commissions) automatycznie uwzględniają przychód z usług dodatkowych.
+    from contracts.models import ContractServiceFee
+    from additional_services.models import AdditionalService
+
+    addl_stmt = (
+        select(
+            ContractSettlement.id,                       # a[0]
+            ContractSettlement.contract_id,              # a[1]
+            ContractSettlement.cost_client,              # a[2]
+            ContractSettlement.settled_at,               # a[3]
+            AdditionalService.id,                        # a[4]
+            AdditionalService.name,                      # a[5]
+            Contract.number.label("contract_number"),    # a[6]
+            func.coalesce(Contractor.name, Contract.contractor_name).label("contractor_name"),  # a[7]
+            Contract.contractor_id,                      # a[8]
+            Contract.date_from,                          # a[9]
+            Contract.date_to,                            # a[10]
+            Contract.city,                               # a[11]
+            Contract.contract_type,                      # a[12]
+            Contract.branch_id,                          # a[13]
+        )
+        .select_from(ContractSettlement)
+        .join(Contract, Contract.id == ContractSettlement.contract_id)
+        .outerjoin(Contractor, Contractor.id == Contract.contractor_id)
+        .join(ContractServiceFee, ContractServiceFee.id == ContractSettlement.service_fee_id)
+        .join(AdditionalService, AdditionalService.id == ContractServiceFee.additional_service_id)
+        .where(ContractSettlement.service_fee_id.isnot(None))
+        .where(ContractSettlement.cost_client.isnot(None))
+    )
+    if _date_conds:
+        addl_stmt = addl_stmt.where(and_(*_date_conds))
+    if contract_ids is not None:
+        if not contract_ids:
+            return results  # pusty zbiór
+        addl_stmt = addl_stmt.where(ContractSettlement.contract_id.in_(list(contract_ids)))
+
+    # service_filter=False → tylko maszyny, pomiń usługi dodatkowe.
+    # service_filter=True lub None → uwzględnij usługi dodatkowe.
+    if service_filter is False:
+        addl_rows = []
+    else:
+        addl_result = await db.execute(addl_stmt)
+        addl_rows = addl_result.all()
+
+    for a in addl_rows:
+        cost_client = Decimal(str(a[2])) if a[2] is not None else Decimal("0")
+        results.append({
+            "position_id": None,
+            "machine_id": None,
+            "service_id": a[4],            # AdditionalService.id
+            "contract_id": a[1],
+            "rental_days": 0,
+            "machine_name": None,
+            "service_name": a[5],          # AdditionalService.name
+            "article_name": a[5],          # backward compat
+            "internal_number": None,
+            "is_service": True,            # usługa dodatkowa = usługa
+            "contract_number": a[6],
+            "contractor_name": a[7],
+            "contractor_id": a[8],
+            "date_from": a[9],
+            "date_to": a[10],
+            "contract_date_from": a[9],
+            "clamped_days": 0,
+            "revenue_actual": cost_client,
+            "revenue_estimate_lookup": Decimal("0"),
+            "revenue_estimate_tiered": Decimal("0"),
+            "revenue": cost_client,
+            "revenue_source": "actual",
+            "category_main": None,
+            "category_sub1": None,
+            "category_sub2": None,
+            "category_sub3": None,
+            "city": a[11],
+            "contract_type": a[12] or "S",
+            "branch_id": a[13],
+        })
+
     return results
