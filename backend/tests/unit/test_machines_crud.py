@@ -323,7 +323,10 @@ async def test_list_machines_with_data():
     count_result.scalar_one.return_value = 1
     list_result = MagicMock()
     list_result.scalars.return_value.all.return_value = [m1]
-    db.execute = AsyncMock(side_effect=[count_result, list_result])
+    # 3rd execute: active contracts query (machine_ids=[1] is non-empty)
+    active_result = MagicMock()
+    active_result.all.return_value = []
+    db.execute = AsyncMock(side_effect=[count_result, list_result, active_result])
 
     items, total = await svc.list_machines(db)
     assert total == 1

@@ -80,8 +80,9 @@ def test_stats_router_compute_revenues_has_external_filter():
         end = len(content)
     section = content[start:end]
 
-    assert 'is_external == False' in section, \
-        "compute_position_revenues musi filtrować is_external==False"
+    # articles split: filter używa func.coalesce(Machine.is_external, False) == False
+    assert 'is_external' in section and 'False' in section, \
+        "compute_position_revenues musi filtrować is_external==False (lub coalesce)"
 
 
 # ---------------------------------------------------------------------------

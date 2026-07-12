@@ -138,9 +138,11 @@ def test_shared_locations_fallback_from_delivery_address():
 
 
 def test_explorer_search_type_field_is_text_not_emoji():
-    """#16: type = 'machine'|'service' (nie emoji 🏗️/🛠️)."""
+    """#16: type = 'machine' (nie emoji 🏗️/🛠️).
+
+    RAO articles split: explorer przeszukuje tylko maszyny → type zawsze 'machine'.
+    """
     s = _read_section("C:/projects/repos/RaoApp_new/backend/explorer/router.py", "explorer_search")
-    assert '"service"' in s
     assert '"machine"' in s
     # brak emoji w sekcji
     assert "🏗️" not in s

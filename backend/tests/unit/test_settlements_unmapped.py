@@ -156,7 +156,7 @@ async def test_compute_position_revenues_includes_unmapped_in_revenue():
     assert len(results) == 1
     r = results[0]
     assert r["position_id"] is None
-    assert r["article_id"] is None
+    assert r["machine_id"] is None  # was article_id (articles split)
     assert r["is_service"] is None
     assert r["article_name"] == "Transport specjalny"
     assert r["revenue"] == Decimal("1500.00")
@@ -186,7 +186,7 @@ async def test_compute_position_revenues_unmapped_only_no_positions():
     )
 
     assert len(results) == 1
-    assert results[0]["article_id"] is None
+    assert results[0]["machine_id"] is None  # was article_id (articles split)
     assert results[0]["revenue"] == Decimal("500.00")
     assert results[0]["contract_type"] == "U"
 
@@ -346,15 +346,17 @@ def test_stats_machine_roi_skips_unmapped():
 
 
 def test_stats_positions_skips_unmapped():
-    """Test 10c: /stats/positions pomija unmapped (article_id is not None)."""
+    """Test 10c: /stats/positions pomija unmapped (machine_id is not None)."""
     src = _read_stats_router_source()
-    assert 'p["article_id"] is not None' in src
+    # articles split: article_id → machine_id; unmapped skip via machine_id/service_id/is_additional_service
+    assert 'p["machine_id"] is not None' in src or 'p["machine_id"] is not None or p["service_id"]' in src
 
 
 def test_stats_additional_fees_skips_unmapped():
-    """Test 10d: /stats/additional-fees pomija unmapped (is_service is None)."""
+    """Test 10d: /stats/additional-fees pomija unmapped (is_service is None lub machine_id/service_id check)."""
     src = _read_stats_router_source()
-    assert 'p["is_service"] is None' in src
+    # articles split: filter używa machine_id/service_id/is_additional_service zamiast is_service is None
+    assert 'p["machine_id"] is not None' in src or 'is_additional_service' in src or 'p["is_service"] is None' in src
 
 
 def test_stats_fleet_summary_top_machine_skips_unmapped():

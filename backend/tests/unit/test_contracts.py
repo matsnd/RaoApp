@@ -23,7 +23,7 @@ from contracts.service import generate_contract_number
 
 
 def test_contract_create_minimal_valid():
-    c = ContractCreate(contractor_id=1)
+    c = ContractCreate(contractor_id=1, date_from=date(2026, 1, 1))
     assert c.contractor_id == 1
     assert c.contract_type == "S"
     # RAO-P1-021/P2-033: total_value usunięte
@@ -42,21 +42,21 @@ def test_contract_create_invalid_contract_type():
 
 def test_contract_create_postal_code_pattern():
     # Poprawny
-    c = ContractCreate(contractor_id=1, postal_code="00-001")
+    c = ContractCreate(contractor_id=1, date_from=date(2026, 1, 1), postal_code="00-001")
     assert c.postal_code == "00-001"
     # Niepoprawny
     with pytest.raises(ValidationError):
-        ContractCreate(contractor_id=1, postal_code="00001")
+        ContractCreate(contractor_id=1, date_from=date(2026, 1, 1), postal_code="00001")
     with pytest.raises(ValidationError):
-        ContractCreate(contractor_id=1, postal_code="ABCDE")
+        ContractCreate(contractor_id=1, date_from=date(2026, 1, 1), postal_code="ABCDE")
 
 
 def test_contract_create_city_validation():
-    c = ContractCreate(contractor_id=1, city="Wrocław")
+    c = ContractCreate(contractor_id=1, date_from=date(2026, 1, 1), city="Wrocław")
     assert c.city == "Wrocław"
     with pytest.raises(ValidationError):
         # niedozwolone znaki
-        ContractCreate(contractor_id=1, city="Bad@City!")
+        ContractCreate(contractor_id=1, date_from=date(2026, 1, 1), city="Bad@City!")
 
 
 def test_contract_create_dates_optional():

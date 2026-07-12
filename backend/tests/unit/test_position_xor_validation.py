@@ -36,14 +36,15 @@ def test_position_create_with_both_raises_validation_error():
     """machine_id + service_id → ValidationError (XOR naruszone)."""
     with pytest.raises(ValidationError) as exc_info:
         PositionCreate(machine_id=1, service_id=2)
-    assert "machine_id" in str(exc_info.value) or "service_id" in str(exc_info.value)
+    # Komunikat po polsku (commit 5757b70) — nie zawiera nazw pól
+    assert "maszyn" in str(exc_info.value).lower() or "usług" in str(exc_info.value).lower() or "machine_id" in str(exc_info.value) or "service_id" in str(exc_info.value)
 
 
 def test_position_create_with_neither_raises_validation_error():
     """Brak machine_id i service_id → ValidationError (XOR naruszone)."""
     with pytest.raises(ValidationError) as exc_info:
         PositionCreate()  # type: ignore[call-arg]
-    assert "machine_id" in str(exc_info.value) or "service_id" in str(exc_info.value)
+    assert "maszyn" in str(exc_info.value).lower() or "usług" in str(exc_info.value).lower() or "machine_id" in str(exc_info.value) or "service_id" in str(exc_info.value)
 
 
 def test_position_create_with_machine_id_and_other_fields():
@@ -144,9 +145,10 @@ async def test_create_position_xor_both_set_raises_400():
         return contract
     contract_service.verify_contract_access = AsyncMock(side_effect=fake_verify)
 
-    data = PositionCreate(machine_id=1, service_id=2)  # to rzuci ValidationError w Pydantic
-    # Ale nawet gdyby przeszło — service layer też waliduje
+    # PositionCreate z oboma polami rzuci ValidationError w Pydantic (model_validator)
     with pytest.raises((HTTPException, ValidationError)):
+        data = PositionCreate(machine_id=1, service_id=2)  # to rzuci ValidationError w Pydantic
+        # Ale nawet gdyby przeszło — service layer też waliduje
         await contract_service.create_position(db, 1, data, user)
 
 
