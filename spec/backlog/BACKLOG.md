@@ -953,6 +953,84 @@ Formuła prowizji (RAO-P1-018, już zaimplementowana): `commission = margin × c
 - [ ] Spec sync: `02_backend_api.md`, `03_frontend_screens.md`, `04_business_logic.md`, `11_reports_stats.md`
 - [ ] Smoke `01-login.spec.ts` zielony
 
+### P1-124: Wyszukiwanie kontrahentów i adresów dostawy po mieście (ten sam textbox)
+
+```yaml
+id: P1-124
+status: triaged
+priority: P1
+created: 2026-07-12
+source: client-request (współpraca 2026-07-12)
+component: backend/contractors/service.py + frontend/ContractFormView.vue + frontend/DashboardView.vue + frontend/MachineFormView.vue + frontend/ArticleFormView.vue
+migration_impact: no
+```
+
+**Opis:** W aplikacji wyszukiwanie kontrahenta odbywa się jednym textboxem — klient chce, żeby ten sam textbox szukał **również po mieście**, nie tylko po nazwie i NIP. Dotyczy wszystkich pickerów/list kontrahentów (formularz umowy, formularz maszyny/usługi, lista kontrahentów) oraz filtrowania adresów dostawy w formularzu umowy.
+
+Stan obecny:
+- `backend/contractors/service.py` `list_contractors` (linia 12) — `search` filtruje tylko `Contractor.name` i `Contractor.nip` (linia 22-23)
+- `frontend/src/views/ContractFormView.vue` — contractor picker `<input v-model="pickerSearch" ... @input="searchContractors"` (linia 637) wywołuje `api.get('/contractors', { params: { search: pickerSearch.value, per_page: 30 } })` (linia 1857)
+- `frontend/src/views/DashboardView.vue` — search lista kontrahentów przekazuje `search` do `contractorStore.fetchList(params)` (linia 452-463)
+- `frontend/src/views/MachineFormView.vue` i `ArticleFormView.vue` — owner/supplier picker używa `search` do `/contractors` (linia 366, 450)
+- `frontend/src/views/ContractFormView.vue` — select adresów dostawy (`contractorAddresses`) nie ma własnego search/filtra (linia 73-76) — dla kontrahenta z wieloma adresami trudno znaleźć odpowiedni
+
+**Zadania:**
+1. **Backend** `contractors/service.py` — rozszerzyć `list_contractors` tak, by `search` pasował do `Contractor.name`, `Contractor.nip` **oraz** `Contractor.city` (i opcjonalnie `Contractor.street`) — jednym textboxem. Użyć `ilike(f"%{search}%")` i OR.
+2. **Backend** `contractors/service.py` — opcjonalnie filtrować adresy dostawy: `list_addresses` dodać `search` do `ContractorAddress` (city, street, name, postal_code). Dodać `search` query param do `/contractors/{id}/addresses`.
+3. **Frontend** `ContractFormView.vue` — w contractor picker placeholder z "Szukaj..." na "Szukaj po nazwie, NIP lub mieście..." (lub podobny).
+4. **Frontend** `ContractFormView.vue` — dodać textbox filtrowania adresów dostawy nad `<select>` (lub przerobić `<select>` na kombobox/searchable) w taki sposób, żeby wyszukiwanie po mieście (street, name, postal_code) zawężało listę `contractorAddresses` przed renderem.
+5. **Frontend** `DashboardView.vue` — placeholder w contractor section search rozszerzyć o "miejscowość".
+6. **Frontend** `MachineFormView.vue` / `ArticleFormView.vue` — owner/supplier picker placeholder rozszerzyć o miasto.
+7. **Backend** — test jednostkowy: search "Warszawa" zwraca kontrahentów z miasta Warszawa, search "123" z NIP-em, search "ABC" z nazwą.
+8. **E2E** — contractor picker: wpisanie miasta → wyniki zawierają kontrahenta z tego miasta; adres dostawy: wpisanie miasta → wybór pasującego adresu.
+9. **Spec sync** — `02_backend_api.md`, `03_frontend_screens.md`.
+
+**Definition of Done:**
+- [ ] `GET /contractors?search=...` wyszukuje po nazwie, NIP, mieście (i opcjonalnie ulicy)
+- [ ] Placeholdery pickerów informują o wyszukiwaniu po nazwie/NIP/mieście
+- [ ] `GET /contractors/{id}/addresses?search=...` wyszukuje adresy dostawy po mieście/ulicy/nazwie/kodzie (opcjonalnie)
+- [ ] W formularzu umowy można przefiltrować listę adresów dostawy po mieście
+- [ ] Test jednostkowy backend: search po nazwie, NIP, mieście
+- [ ] E2E: picker kontrahenta + wybór adresu dostawy po mieście
+- [ ] Spec sync: `02_backend_api.md`, `03_frontend_screens.md`
+- [ ] Smoke `01-login.spec.ts` zielony
+
+---
+
+### P1-125: Toast po zapisie umowy
+
+```yaml
+id: P1-125
+status: triaged
+priority: P1
+created: 2026-07-12
+source: client-request (współpraca 2026-07-12)
+component: frontend/ContractFormView.vue
+migration_impact: no
+```
+
+**Opis:** Po kliknięciu "Zapisz" w formularzu umowy (`/contracts/new` lub `/contracts/:id/edit`) użytkownik nie dostaje żadnego potwierdzenia sukcesu. Dla nowej umowy następuje nawigacja na `/contracts/:id/edit`, dla edycji — pozostaje na stronie. W obu przypadkach brak informacji zwrotnej „zapisano poprawnie" — klient nie wie, czy operacja się powiodła.
+
+**Stan obecny:**
+- `frontend/src/views/ContractFormView.vue` — `handleSave()` (linia 1630) wykonuje `contractStore.update` / `contractStore.create` i tylko w przypadku błędu wyświetla `errorMsg.value` (linia 1642-1648). Sukces jest cichy.
+- Toast store (`useToastStore`) jest już zaimportowany w `ContractFormView.vue` (linia ok. 1039) i używany w innych akcjach (np. `generateReport` — `toastStore.success`, `toggleSettled` — `toastStore.error`).
+- `ContractorFormView.vue` `handleSave()` (linia 293) ma tę samą cichą charakterystykę — ale zadanie dotyczy umowy.
+
+**Zadania:**
+1. **Frontend** `ContractFormView.vue` — po pomyślnym `contractStore.update` wywołać `toastStore.success('Umowa zapisana')` (lub z numerem umowy, np. `Umowa ${form.value.number} zapisana`).
+2. **Frontend** `ContractFormView.vue` — po pomyślnym `contractStore.create` (przed `router.push`) wywołać `toastStore.success('Umowa ${result.number} utworzona')`, następnie nawigacja.
+3. **Frontend** — upewnić się, że toast nie wisi przy nawigacji (nie jest resetowany przez `router.push` w przypadku create, toast store jest globalny).
+4. **E2E** — test: zapisz umowę → pojawia się toast „Umowa zapisana" / „Umowa utworzona".
+5. **Spec sync** — `03_frontend_screens.md` (opis `ContractFormView.vue`).
+
+**Definition of Done:**
+- [ ] Po zapisie istniejącej umowy pojawia się `toastStore.success('Umowa zapisana')`
+- [ ] Po utworzeniu nowej umowy pojawia się `toastStore.success('Umowa {number} utworzona')` przed nawigacją
+- [ ] Błędy zapisu nadal wyświetlają `errorMsg` i toast błędu
+- [ ] E2E: zapis umowy → toast success widoczny
+- [ ] Spec sync: `03_frontend_screens.md`
+- [ ] Smoke `01-login.spec.ts` zielony
+
 ---
 
 ## 🟢 P3 — Nice-to-Have
