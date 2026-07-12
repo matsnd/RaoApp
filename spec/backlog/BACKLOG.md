@@ -860,6 +860,54 @@ migration_impact: no
 
 ---
 
+### P1-122: Cennik w tekście umowy — sztywne kwoty zamiast placeholderów $1/$2
+
+```yaml
+id: P1-122
+status: triaged
+priority: P1
+created: 2026-07-12
+source: client-request (współpraca 2026-07-12)
+component: backend/contracts/service.py + backend/reports/service.py + frontend/ConditionPanel.vue
+migration_impact: no
+```
+
+**Opis:** Gdy użytkownik dodaje nową umowę i wybiera maszynę z cennikiem (MachineRatePreset), warunki rozliczenia (PositionCondition) są kopiowane z `rate1`/`rate2` jako **sztywne kwoty** (np. "1200,00 zł / doba"). W tekście umowy na PDF nie ma placeholderów `$1`/`$2` — są od razu rozwinięte wartości.
+
+Skutek: **szybka edycja "od kwota / do kwota" nie działa na podgląd PDF**. Gdy użytkownik zmieni `amount_from`/`amount_to` w opłatach dodatkowych (service_fees), tekst na umowie się nie aktualizuje, bo warunki cennika (PositionCondition) nie używają placeholderów — mają hardcoded `rate1`/`rate2`.
+
+**Stan obecny:**
+
+1. **Opłaty dodatkowe (service_fees)** — działają poprawnie z placeholderami:
+   - `reports/service.py:_resolve_fee_description()` (linia 17) — rozwija `$1`/`$2` → formatted amount + zł
+   - `frontend/ConditionPanel.vue:formatPreview()` (linia 414) — rozwija `$1`/`$2` w podglądzie na żywo
+   - Gdy zmienisz `amount_from`/`amount_to`, podgląd PDF aktualizuje się natychmiast ✓
+
+2. **Warunki cennika (PositionCondition)** — BRAK placeholderów:
+   - `contracts/service.py:format_position_conditions_cascading()` (linia 404) — formatuje sztywno: `f"{range_text} - {_format_rate(n['rate'])}zł / {rate_unit}"` (linia 459)
+   - `contracts/service.py:apply_preset_to_position()` (linia 795) — kopiuje `rate1`/`rate2` z MachineRatePresetItem jako liczby, nie jako placeholdery
+   - `ConditionPanel.vue:formatPreview()` (linia 420) — fallback gdy brak `description`: `${rateStr}zł / ${labels.rate}` (sztywna kwota)
+   - Gdy zmienisz `rate1`/`rate2` w warunku, podgląd PDF **nie aktualizuje się** bo tekst ma hardcoded wartość ✗
+
+**Root cause:** `PositionCondition` nie ma pola `description` z placeholderami (jak `ContractServiceFee.description`). Warunki są zawsze formatowane z `rate1`/`rate2` jako liczby. Nie ma mechanizmu "tekst na umowie" z placeholderami dla warunków cennika.
+
+**Zadania:**
+1. **Decyzja architektoniczna** — czy warunki cennika (PositionCondition) powinny mieć pole `description` z placeholderami `$1`/`$2` (jak ContractServiceFee), czy wystarczy że `format_position_conditions_cascading` dynamicznie formatuje z `rate1`/`rate2` (już to robi, ale PDF jest generowany raz — nie "na żywo")?
+2. **Frontend** `ConditionPanel.vue` — podgląd PDF (`pdfPreviewLines`) już działa na żywo z `rate1`/`rate2` (linia 442). Sprawdzić czy po zmianie `rate1` w inline edit, podgląd się odświeża.
+3. **Backend** `reports/service.py` — `build_contract_data` generuje PDF z aktualnych `rate1`/`rate2` (linia 114 `format_position_conditions_cascading`). Jeśli użytkownik zmieni `rate1` i zapisze umowę, nowy PDF będzie poprawny. Problem jest tylko z **podglądem na żywo** bez zapisu.
+4. **Frontend** `ContractFormView.vue` — sprawdzić czy podgląd PDF warunków (przycisk ⎙) używa zapisanych danych czy formularza na żywo. Jeśli zapisanych — trzeba zapisać przed podglądem, albo generować podgląd z formularza.
+5. **Spójność z P1-113** — P1-113 dotyczy `$1`/`$2` w opłatach dodatkowych (service_fees). P1-122 rozszerza to na warunki cennika (PositionCondition). Rozważyć czy to ten sam pattern czy osobny.
+
+**Definition of Done:**
+- [ ] Podgląd PDF warunków cennika aktualizuje się na żywo po zmianie `rate1`/`rate2` w inline edit
+- [ ] Tekst na umowie (PDF) pokazuje aktualne kwoty po zmianie i zapisie
+- [ ] Decyzja: czy PositionCondition.description z $1/$2 jest potrzebne, czy wystarcza dynamiczne formatowanie
+- [ ] E2E: zmiana rate1 w warunku → podgląd PDF pokazuje nową kwotę
+- [ ] Spec sync: `04_business_logic.md`, `03_frontend_screens.md`
+- [ ] Smoke `01-login.spec.ts` zielony
+
+---
+
 ## 🟢 P3 — Nice-to-Have
 
 *Brak*
