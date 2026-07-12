@@ -208,6 +208,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useContractorStore } from '@/stores/contractors'
 import { useToastStore } from '@/stores/toast'
+import { extractErrorMessage } from '@/utils/validation'
 
 const props = defineProps({ id: String })
 const router = useRouter()
@@ -303,7 +304,7 @@ async function handleSave() {
       router.push(`/contractors/${result.id}/edit`)
     }
   } catch (e) {
-    errorMsg.value = e.response?.data?.detail || 'Błąd zapisu'
+    errorMsg.value = extractErrorMessage(e, 'Błąd zapisu kontrahenta')
   } finally {
     saving.value = false
   }

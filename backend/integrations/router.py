@@ -194,7 +194,7 @@ async def lookup_postal_code(
     """Lookup city by postal code from dictionary (RAO-P1-008, RAO-P2-015)."""
     import re
     if not re.match(r"^\d{2}-\d{3}$", code):
-        raise HTTPException(status_code=422, detail="Invalid postal code format. Expected XX-XXX")
+        raise HTTPException(status_code=422, detail="Nieprawidłowy format kodu pocztowego. Oczekiwany format: XX-XXX")
 
     async with AsyncSessionLocal() as db:
         from integrations.models import PostalCode
@@ -203,7 +203,7 @@ async def lookup_postal_code(
         )
         postal = result.scalar_one_or_none()
         if not postal:
-            raise HTTPException(status_code=404, detail="Postal code not found in dictionary")
+            raise HTTPException(status_code=404, detail="Kod pocztowy nie znaleziony w słowniku")
         return PostalCodeLookupResponse(
             code=postal.postal_code,
             city=postal.city,

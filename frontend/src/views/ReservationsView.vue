@@ -25,6 +25,7 @@ import { useSettingsStore } from '@/stores/settings'  // P1-119: salespeople
 import ContractorCombobox from '@/components/analytics/ContractorCombobox.vue'
 import StateMessage from '@/components/StateMessage.vue'
 import { formatDate } from '@/utils/format'
+import { extractErrorMessage } from '@/utils/validation'
 
 const store = useReservationsStore()
 const articleStore = useArticleStore()
@@ -367,7 +368,7 @@ async function saveReservation() {
     if (err.response?.status === 409) {
       modalError.value = 'Konflikt: maszyna jest już zarezerwowana w tym terminie.'
     } else {
-      modalError.value = err.response?.data?.detail || 'Błąd zapisu rezerwacji'
+      modalError.value = extractErrorMessage(err, 'Błąd zapisu rezerwacji')
     }
   } finally {
     modalSaving.value = false

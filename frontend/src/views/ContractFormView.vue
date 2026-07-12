@@ -1040,6 +1040,7 @@ import { useFakturowniaStore } from '@/stores/fakturownia'
 import { useToastStore } from '@/stores/toast'
 import { useAdditionalServiceStore } from '@/stores/additional_services'
 import { formatCurrency } from '@/utils/format'
+import { parseValidationErrors } from '@/utils/validation'
 import ConditionPanel from '@/components/contracts/ConditionPanel.vue'
 import ContractPeriodPicker from '@/components/shared/ContractPeriodPicker.vue'
 import ServiceCombobox from '@/components/contracts/ServiceCombobox.vue'
@@ -1641,22 +1642,7 @@ async function handleSave() {
   } catch (e: any) {
     const detail = e.response?.data?.detail
     if (Array.isArray(detail)) {
-      // Parsuj błędy walidacji Pydantic
-      const errorMessages = detail.map((err: any) => {
-        const field = err.loc?.[1] || err.loc?.[0] || 'pole'
-        const msg = err.msg || 'Błąd walidacji'
-        // Mapowanie nazw pól na polski
-        const fieldMap: Record<string, string> = {
-          postal_code: 'Kod pocztowy',
-          city: 'Miasto',
-          date_from: 'Data od',
-          date_to: 'Data do',
-          contractor_id: 'Kontrahent'
-        }
-        const polishField = fieldMap[field] || field
-        return `${polishField}: ${msg}`
-      })
-      errorMsg.value = errorMessages.join(', ')
+      errorMsg.value = parseValidationErrors(detail).join(', ')
     } else {
       errorMsg.value = detail || 'Błąd zapisu'
     }

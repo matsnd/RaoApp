@@ -40,6 +40,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAdditionalServiceStore } from '@/stores/additional_services'
+import { extractErrorMessage } from '@/utils/validation'
 
 const props = defineProps({ id: String })
 const router = useRouter()
@@ -104,7 +105,7 @@ async function handleSave() {
       return
     }
   } catch (e: any) {
-    errorMsg.value = e.response?.data?.detail || 'Błąd zapisu'
+    errorMsg.value = extractErrorMessage(e, 'Błąd zapisu usługi dodatkowej')
   } finally {
     saving.value = false
   }

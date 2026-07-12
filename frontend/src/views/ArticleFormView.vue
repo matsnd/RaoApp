@@ -234,6 +234,7 @@ import { useArticleStore } from '@/stores/articles'
 import { useSettingsStore } from '@/stores/settings'
 import { useFakturowniaStore } from '@/stores/fakturownia'
 import { useToastStore } from '@/stores/toast'
+import { extractErrorMessage } from '@/utils/validation'
 import GlossaryTip from '@/components/GlossaryTip.vue'
 import RatePresetSection from '@/components/articles/RatePresetSection.vue'
 import api from '@/composables/useApi'
@@ -426,7 +427,7 @@ async function handleSave() {
       return
     }
   } catch (e) {
-    errorMsg.value = e.response?.data?.detail || 'Błąd zapisu'
+    errorMsg.value = extractErrorMessage(e, 'Błąd zapisu artykułu')
   } finally {
     saving.value = false
   }

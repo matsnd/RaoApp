@@ -14,7 +14,7 @@ class ReservationCreate(BaseModel):
     @model_validator(mode="after")
     def validate_dates(self) -> "ReservationCreate":
         if self.reserved_from > self.reserved_to:
-            raise ValueError("reserved_from must be <= reserved_to")
+            raise ValueError("Data rezerwacji od nie może być późniejsza niż data rezerwacji do")
         return self
 
 
@@ -36,7 +36,7 @@ class ReservationUpdate(BaseModel):
             and self.reserved_to is not None
             and self.reserved_from > self.reserved_to
         ):
-            raise ValueError("reserved_from must be <= reserved_to")
+            raise ValueError("Data rezerwacji od nie może być późniejsza niż data rezerwacji do")
         return self
 
 

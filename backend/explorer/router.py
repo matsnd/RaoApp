@@ -214,7 +214,7 @@ async def get_machine_details(
     machine_row = machine_result.mappings().first()
 
     if not machine_row:
-        raise HTTPException(status_code=404, detail="Machine not found")
+        raise HTTPException(status_code=404, detail="Maszyna nie znaleziona")
 
     machine = machine_row.Machine
 

@@ -60,7 +60,7 @@ class ConditionCreate(BaseModel):
     def check_condition(self):
         # Przynajmniej jedna stawka ustawiona
         if not (self.rate1 is not None or self.rate2 is not None):
-            raise ValueError("Przynajmniej jedna stawka (rate1 lub rate2) jest wymagana.")
+            raise ValueError("Przynajmniej jedna stawka (stawka 1 lub stawka 2) jest wymagana.")
         if self.rate1 is not None and self.rate2 is not None:
             if self.rate1 == 0 and self.rate2 == 0:
                 raise ValueError("Przynajmniej jedna stawka musi być większa od zera.")
@@ -70,7 +70,7 @@ class ConditionCreate(BaseModel):
             self.period_to = self.period_count
         # period_to >= period_from (allow single-day: pf=1, pt=1 = "1 dzień")
         if self.period_from is not None and self.period_to is not None and self.period_to < self.period_from:
-            raise ValueError("period_to musi być większe lub równe period_from.")
+            raise ValueError("Okres do musi być większy lub równy okresowi od.")
         return self
 
 
@@ -95,7 +95,7 @@ class ConditionUpdate(BaseModel):
             self.period_from = 1
             self.period_to = self.period_count
         if self.period_from is not None and self.period_to is not None and self.period_to < self.period_from:
-            raise ValueError("period_to musi być większe lub równe period_from.")
+            raise ValueError("Okres do musi być większy lub równy okresowi od.")
         return self
 
 
@@ -139,7 +139,7 @@ class PositionCreate(BaseModel):
     @model_validator(mode='after')
     def validate_xor(self) -> "PositionCreate":
         if (self.machine_id is None) == (self.service_id is None):
-            raise ValueError("Dokładnie jeden z machine_id / service_id musi być ustawiony.")
+            raise ValueError("Wybierz maszynę lub usługę (dokładnie jedną).")
         return self
 
 
@@ -186,7 +186,7 @@ class ContractServiceFeeCreate(BaseModel):
     def check_and_fill_description(self):
         if self.amount_from is not None and self.amount_to is not None:
             if self.amount_to < self.amount_from:
-                raise ValueError("amount_to nie może być mniejsze od amount_from.")
+                raise ValueError("Kwota do nie może być mniejsza od kwoty od.")
         # RAO-P1-100: KISS — "Tekst na umowie" zawsze wypełniony (fallback do nazwy)
         if not self.description or not self.description.strip():
             self.description = self.name
@@ -206,7 +206,7 @@ class ContractServiceFeeUpdate(BaseModel):
     def check_amounts(self):
         if self.amount_from is not None and self.amount_to is not None:
             if self.amount_to < self.amount_from:
-                raise ValueError("amount_to nie może być mniejsze od amount_from.")
+                raise ValueError("Kwota do nie może być mniejsza od kwoty od.")
         return self
 
 

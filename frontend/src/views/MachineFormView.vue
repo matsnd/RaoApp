@@ -184,6 +184,7 @@ import { useRouter } from 'vue-router'
 import { useMachineStore } from '@/stores/machines'
 import { useSettingsStore } from '@/stores/settings'
 import { useToastStore } from '@/stores/toast'
+import { extractErrorMessage } from '@/utils/validation'
 
 import api from '@/composables/useApi'
 
@@ -343,7 +344,7 @@ async function handleSave() {
       return
     }
   } catch (e: any) {
-    errorMsg.value = e.response?.data?.detail || 'Błąd zapisu'
+    errorMsg.value = extractErrorMessage(e, 'Błąd zapisu maszyny')
   } finally {
     saving.value = false
   }

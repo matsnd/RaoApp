@@ -41,6 +41,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useServiceStore } from '@/stores/services'
 import { useToastStore } from '@/stores/toast'
+import { extractErrorMessage } from '@/utils/validation'
 
 const props = defineProps({ id: String })
 const router = useRouter()
@@ -106,7 +107,7 @@ async function handleSave() {
       return
     }
   } catch (e: any) {
-    errorMsg.value = e.response?.data?.detail || 'Błąd zapisu'
+    errorMsg.value = extractErrorMessage(e, 'Błąd zapisu usługi')
   } finally {
     saving.value = false
   }
