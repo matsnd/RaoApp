@@ -114,6 +114,16 @@ Do obu wariantów umowy dodana została sekcja `Uwagi` umieszczona **przed podpi
 
 **Uwaga - domyślne usługi dodatkowe dla umów najmu (RAO-P2-001):** Seed w backend/main.py::startup_migrations tworzy domyślny preset usług dodatkowych dla umów najmu (typ S) z 6 usługami w określonej kolejności: Transport (500 zł/dostawa), Czyszczenie drobne (150-400 zł), Czyszczenie trudne (400-1500 zł), Tankowanie (200 zł + paliwo), Prestój transportu (200-300 zł/h), Serwis (280 zł + transport). Seed jest idempotentny i automatycznie kopiowany do nowych umów typu S przez funkcję copy_fee_templates.
 
+**Uwaga - generowanie protokołów per maszyna vs jedna strona (RAO-P1-011 / aktualizacja 2026-07-12):** W `reports/service.py::generate_pdf` logika podziału protokołu zależy od typu umowy:
+- **Umowy najmu (S):** Oddzielny protokół per maszyna (pozycja) w jednym PDF — każda strona = pełny protokół z jedną pozycją, połączony przez `_merge_pdfs`. Stopka "Protokół X z Y" w szablonie `protocol_zo.html`.
+- **Umowy usługi (U):** Wszystkie usługi na jednej stronie — bez podziału per maszyna, bez stopki "Protokół X z Y". Szablony `protocol_zo_u.html` i `protocol_zo_nodata_u.html`.
+
+**Uwaga - layout dolnej sekcji protokołu usługi (aktualizacja 2026-07-12):** W `protocol_zo_u.html` i `protocol_zo_nodata_u.html` kolejność elementów na dole strony (od góry):
+1. Box "uwagi" (pusty box do ręcznego wypełnienia)
+2. Box "Dodatkowe informacje" — etykieta wewnątrz boxa (jak "uwagi"), treść z `contract.notes` poniżej
+3. "Opiekun zamówienia: {salesperson.name} tel. {salesperson.phone}" — między dodatkowymi informacjami a pieczątkami
+4. Pieczątki i podpisy (Wynajmującego z `protocol_stamp.png` + Najemcy) — na samym dole
+
 **Uwaga - kompaktniejszy layout umów (RAO-P2-003):** Font-size i padding w contract.html i contract_u.html zostały zmniejszone dla bardziej kompaktowego wyglądu: table.pos font-size 9px → 8.5px, padding 4px 5px → 2px 4px, .bottom-box/.inne-box font-size 9px → 8px, padding 5px 8px → 4px 6px, line-height 1.45 → 1.3, .cond font-size 9px → 8.5px.
 
 ### 1.6 Font dokumentów — Montserrat (RAO-P1-015 scope-cut)

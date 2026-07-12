@@ -190,15 +190,18 @@
     <div class="ret-uwagi" style="border: 1px solid #aaa; padding: 8px 12px; font-size: 10px; min-height: 120px; color: #888; margin: 15px 0 15px 0;">uwagi</div>
 
     <!-- DODATKOWE INFORMACJE (P1-007) -->
-    <div style="margin: 15px 0 15px 0;">
-      <div style="font-size: 10px; font-weight: bold; color: #333; margin-bottom: 4px;">Dodatkowe informacje:</div>
-      <div style="border: 1px solid #aaa; padding: 8px 12px; font-size: 10px; min-height: 60px; color: #888;">
-        {% if contract.notes %}{{ contract.notes }}{% else %}{% endif %}
-      </div>
+    <div class="ret-uwagi" style="border: 1px solid #aaa; padding: 8px 12px; font-size: 10px; min-height: 60px; color: #888; margin: 15px 0 15px 0;">
+      Dodatkowe informacje
+      {% if contract.notes %}<br>{{ contract.notes }}{% endif %}
+    </div>
+
+    <!-- P2-018: Opiekun zamówienia pomiędzy dodatkowymi informacjami a pieczątkami -->
+    <div style="text-align:center; margin: 8px 0 8px 0; font-size: 9px; color: #555;">
+      Opiekun zamówienia: {{ salesperson.name if salesperson else '' }}{% if salesperson and salesperson.phone %} tel. {{ salesperson.phone }}{% endif %}
     </div>
 
     <!-- SIGNATURES -->
-    <table class="sigs" style="margin-top: 15px;">
+    <table class="sigs" style="margin-top: 10px;">
       <tr>
         <td>
           <div style="text-align:center;">
@@ -214,17 +217,7 @@
 
   </div> <!-- /bottom-section -->
 
-  <!-- P2-018: Opiekun zamówienia na dole protokołu -->
-  <div style="text-align:center; margin-top: 8px; font-size: 9px; color: #555;">
-    Opiekun zamówienia: {{ salesperson.name if salesperson else '' }}{% if salesperson and salesperson.phone %} tel. {{ salesperson.phone }}{% endif %}
-  </div>
-
 </div> <!-- /content -->
-
-<!-- P1-011: Stopka protokołu per maszyna -->
-<div style="text-align:center; font-size:8px; color:#888; padding:4px 14mm;">
-  Protokół {{ protocol_number|default(1) }} z {{ protocol_total|default(1) }}
-</div>
 
 </body>
 </html>

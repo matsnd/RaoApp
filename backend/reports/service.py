@@ -699,9 +699,12 @@ async def generate_pdf(db: AsyncSession, contract_id: int, report_type: str = "c
 
     is_protocol = report_type.startswith("protocol_")
 
-    # P1-011: Oddzielny protokół per maszyna w jednym PDF
+    # P1-011: Oddzielny protokół per maszyna w jednym PDF (tylko dla umów najmu — S)
     # Każda strona = pełny protokół z jedną pozycją
     # Stopka: "Protokół X z Y" zamiast "Strona X z Y"
+    #
+    # Dla umów usługi (U): wszystkie usługi na jednej stronie — bez podziału per maszyna,
+    # bez stopki "Protokół X z Y".
     if is_protocol:
         positions = data.get("positions", [])
         if not positions:
@@ -716,7 +719,17 @@ async def generate_pdf(db: AsyncSession, contract_id: int, report_type: str = "c
             )
             return pdf_bytes
 
-        # Renderuj osobny protokół per pozycja, połącz w jeden PDF
+        # Usługi (U): wszystkie pozycje na jednej stronie — bez podziału per maszyna
+        if is_service:
+            data["positions"] = positions
+            html = template.render(**data)
+            loop = asyncio.get_event_loop()
+            pdf_bytes = await loop.run_in_executor(
+                None, _html_to_pdf_sync, html, not is_protocol
+            )
+            return pdf_bytes
+
+        # Najem (S): renderuj osobny protokół per pozycja, połącz w jeden PDF
         pdf_pages = []
         total = len(positions)
         loop = asyncio.get_event_loop()
