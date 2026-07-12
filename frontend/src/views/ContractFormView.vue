@@ -1635,8 +1635,10 @@ async function handleSave() {
     const payload = buildPayload()
     if (isEdit.value) {
       await contractStore.update(Number(props.id), payload)
+      toastStore.success(`Umowa ${form.value.number || ''} zapisana`)
     } else {
       const result = await contractStore.create(payload)
+      toastStore.success(`Umowa ${result.number || ''} utworzona`)
       router.push(`/contracts/${result.id}/edit`)
     }
   } catch (e: any) {

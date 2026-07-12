@@ -442,7 +442,7 @@ generate_pdf() → bytes  →    usePdfFolders() composable
 
 ```yaml
 id: P2-005
-status: triaged
+status: team-verified
 priority: P2
 created: 2026-07-12
 source: client-request (współpraca 2026-07-12)
@@ -472,7 +472,7 @@ migration_impact: no
 
 ```yaml
 id: P2-006
-status: triaged
+status: team-verified
 priority: P2
 created: 2026-07-12
 source: client-request (współpraca 2026-07-12)
@@ -1001,7 +1001,7 @@ Stan obecny:
 
 ```yaml
 id: P1-125
-status: triaged
+status: team-verified
 priority: P1
 created: 2026-07-12
 source: client-request (współpraca 2026-07-12)
@@ -1142,7 +1142,7 @@ Te same szablony dla `contract_type='S'` mają identyczne sztywne opisy. Placeho
 
 ```yaml
 id: P1-128
-status: triaged
+status: team-verified
 priority: P1
 created: 2026-07-12
 source: client-request (współpraca 2026-07-12)

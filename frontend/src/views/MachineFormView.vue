@@ -29,7 +29,7 @@
         </div>
 
         <div class="form-row-2">
-          <div class="form-group">
+          <div v-if="!form.is_external" class="form-group">
             <label class="form-label" for="machine-internal">Nr wewnętrzny</label>
             <input id="machine-internal" v-model="form.internal_number" type="text" class="form-control" />
           </div>
@@ -221,6 +221,11 @@ const form = ref({
   technical_attributes: '',
   is_external: false,
   power_type: 'other',
+})
+
+// P1-128: przy zaznaczeniu maszyny zewnętrznej wyczyść nr wewnętrzny
+watch(() => form.value.is_external, (isExternal) => {
+  if (isExternal) form.value.internal_number = ''
 })
 
 const showOwnerPicker = ref(false)
