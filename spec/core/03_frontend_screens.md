@@ -756,6 +756,14 @@ Auto-dismiss po 4s (error 6s). Renderowany przez `AppToast.vue` (top-right).
 > **RAO-P1-023 (2026-05-20):** Usunięto kolumnę "Rezerwacja" (stary system RAO-P1-015).
 > Dostępność bazuje wyłącznie na datach umów przez `GET /machines/{id}/availability` (refaktor: było `GET /articles/{id}/availability`).
 > Dodano modal konfliktu przy wyborze zajętej maszyny.
+>
+> **P1-126 (2026-07-13):** Picker ładuje listę **po** ustawieniu `form.contract_type` z danych edycji
+> (poprzednio `onMounted` ładował `/machines` zanim `Object.assign(form.value, data)` ustawiało `contract_type='U'`,
+> więc umowy usługi pokazywały sprzęt). Dodano `watch(form.value.contract_type)` i `watch(showArticlePicker)`
+> odświeżające `articlePickerList` przez `loadArticlePickerList()` (endpoint `/machines` lub `/services`).
+> Tabela pickera ukrywa kolumny `Nr rej.`, `Marka`, `Zewnętrzna`, `Dostępność` dla `isService` i pokazuje `Opis`.
+> `ServiceListItem` zwraca `is_service=True`, `brand=None`, `registration_no=None`, `is_external=False`
+> (wyrównanie kształtu z `MachineListItem`).
 
 ```
 Layout (modal wbudowany w ContractFormView.vue):
@@ -763,10 +771,14 @@ Layout (modal wbudowany w ContractFormView.vue):
 ┌──────────────────────────────────────────────────────┐
 │ [szukaj ________________________________________]    │
 │ ┌────────────────────────────────────────────────┐   │
-│ │ Nazwa │Nr rej.│Marka│Typ    │Dostępność│Akcje │   │
+│ │ Nazwa │Nr rej.│Marka│Typ    │Dostępność│Akcje │   │  ← S (rental)
 │ │ Kop.  │KAT-5 │CAT  │Sprzęt │🟢 Wolny  │ [⧉] │   │
 │ │ Dźwig │DZW-12│Lieb.│Sprzęt │🔴 Zajęty │ [⧉] │   │
 │ └────────────────────────────────────────────────┘   │
+│ • isService: kolumny Nr rej./Marka/Zewnętrzna/        │
+│   Dostępność ukryte, zamiast nich kolumna "Opis"      │
+│ • Badge Typ: "Usługa" (badge-warning) / "Sprzęt"      │
+│   (badge-info) — z a.is_service                       │
 │ • Dostępność sprawdzana przez checkAvailability()    │
 │   z exclude_contract_id przy edycji umowy            │
 │ • [⧉] = duplikuj maszynę bezpośrednio do umowy      │

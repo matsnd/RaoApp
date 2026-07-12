@@ -32,6 +32,8 @@ class ServiceService:
                 id=s.id, name=s.name, description=s.description,
                 fakturownia_product_id=s.fakturownia_product_id,
                 created_at=s.created_at, updated_at=s.updated_at,
+                # P1-126: align shape with MachineListItem for unified frontend picker
+                is_service=True, brand=None, registration_no=None, is_external=False,
             )
             for s in services
         ]

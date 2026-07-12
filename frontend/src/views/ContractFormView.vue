@@ -3009,24 +3009,3 @@ async function applyHardcodedFeePreset(kind: 'diesel' | 'elektryk') {
   margin-bottom: 2px;
 }
 </style>
-  padding: var(--spacing-2) var(--spacing-3);
-  background: var(--color-bg-light);
-  border: 1px solid var(--color-border);
-  border-radius: var(--border-radius-sm);
-  font-size: var(--font-size-sm);
-  line-height: 1.5;
-}
-.fee-pdf-label {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  margin-bottom: 4px;
-}
-.fee-pdf-list {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-body);
-  line-height: 1.5;
-}
-.fee-pdf-line {
-  margin-bottom: 2px;
-}
-</style>

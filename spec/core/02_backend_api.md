@@ -746,6 +746,11 @@ class ServiceListItem(BaseModel):
     replacement_value: Decimal | None
     created_at: datetime
     updated_at: datetime | None
+    # P1-126: align shape with MachineListItem for unified frontend picker (S/U)
+    is_service: bool = True
+    brand: str | None = None
+    registration_no: str | None = None
+    is_external: bool = False
 ```
 
 ### `POST /services`

@@ -10,6 +10,12 @@ class ServiceListItem(BaseModel):
     fakturownia_product_id: int | None = None
     created_at: datetime
     updated_at: datetime | None
+    # P1-126: fields to align shape with MachineListItem so the frontend
+    # article picker can use the same table for both contracts types (S/U).
+    is_service: bool = True
+    brand: str | None = None
+    registration_no: str | None = None
+    is_external: bool = False
 
     class Config:
         from_attributes = True

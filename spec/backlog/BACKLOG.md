@@ -1035,7 +1035,7 @@ migration_impact: no
 
 ```yaml
 id: P1-126
-status: triaged
+status: team-verified
 priority: P1
 created: 2026-07-12
 source: client-request (współpraca 2026-07-12)
