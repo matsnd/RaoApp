@@ -991,6 +991,7 @@ onMounted(async () => {
 .rv-cal-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
+  grid-auto-rows: minmax(84px, auto);
   gap: 2px;
 }
 .rv-cal-dow {
