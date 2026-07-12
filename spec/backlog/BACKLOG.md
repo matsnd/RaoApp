@@ -1080,6 +1080,64 @@ related: P1-115 (seed umów U został naprawiony, ale picker UI wciąż pokazuje
 - [ ] Spec sync: `03_frontend_screens.md`, `02_backend_api.md`
 - [ ] Smoke `01-login.spec.ts` zielony
 
+### P1-127: Umowa usługi (U) — opłaty dodatkowe bez placeholderów i szybkiej kwoty
+
+```yaml
+id: P1-127
+status: triaged
+priority: P1
+created: 2026-07-12
+source: client-request (współpraca 2026-07-12)
+component: backend/settings/service_fee_templates + frontend/ContractFormView.vue + backend/contracts/service.py
+migration_impact: no
+related: P1-113 (placeholdery $1/$2 w opłatach dodatkowych), P1-122 (sztywne kwoty zamiast placeholderów w warunkach cennika)
+```
+
+**Opis:** W umowie usługi (contract_type='U') opłaty dodatkowe (service_fees) nie mają domyślnie działających placeholderów `$1`/`$2`. Szablony usług dodatkowych (`service_fee_templates`) zamiast placeholderów zawierają sztywne kwoty (np. `1 200,00 zł dostawa / 1 200,00 zł odbiór`), przez co zmiana `amount_from`/`amount_to` nie aktualizuje automatycznie opisu/PDF. W umowie najmu (S) przyciski Diesel/Elektryk (RAO-P2-007) wstawiają opisy z placeholderami (`$1 dostawa / $2 odbiór`); dla umów U te szybkie przyciski są wyłączone (`if (isService.value) return` — linia 2491), a reset/zestawy dla U kopiują sztywne kwoty. Brak "szybkiej kwoty" w U = operator musi ręcznie wpisywać opis przy każdej zmianie kwoty.
+
+**Potwierdzenie klienta (2026-07-12):** *"a ciekawe że jak załaduje DIESEL albo ELEKTRYK guzikiem to wtedy ładnie się pokazują te placeholdery"* — dla S placeholdery działają, dla U nie (brak presetu + sztywne kwoty w template).
+
+**Weryfikacja DB (2026-07-12):**
+```sql
+SELECT contract_type, name, amount_from, amount_to, description
+FROM service_fee_templates WHERE contract_type='U';
+```
+Wynik (przykład):
+- `Transport` — `amount_from=1200`, `amount_to=1200`, `description='1 200,00 zł dostawa / 1 200,00 zł odbiór'` (sztywne kwoty)
+- `Ponadnormatywny przestój transportu` — `amount_from=200`, `amount_to=300`, `description='200,00 zł / h - 300,00 zł / h'` (sztywne kwoty)
+
+Te same szablony dla `contract_type='S'` mają identyczne sztywne opisy. Placeholdery `$1`/`$2` działają tylko w hardkodowanych przyciskach Diesel/Elektryk (S).
+
+**Stan obecny:**
+- `backend/contracts/service.py` `copy_fee_templates` (linia 50) oraz `apply_preset_to_contract` (linia 469) kopiują `description` z `ServiceFeeTemplate` do `ContractServiceFee` 1:1. Jeśli template ma sztywne kwoty — `ContractServiceFee` ma sztywne kwoty.
+- `frontend/src/views/ContractFormView.vue` `onFeeServicePickById` (linia 2334) przy wyborze usługi dodatkowej z comboboxa ustawia `name` i `amount_from` (z `default_amount`), ale **nie ustawia `description`** (brak placeholderów w nowo dodawanej usłudze).
+- `frontend/src/views/ContractFormView.vue` `formatDescription` (linia 1494) obsługuje `$1`/`$2` (linia 1513-1514), ale używana jest tylko gdy `description` zawiera placeholdery.
+- `frontend/src/views/ContractFormView.vue` `applyHardcodedFeePreset` (linia 2487) zawiera `if (isService.value) return` — przyciski Diesel/Elektryk nie działają dla U, więc U nie ma szybkich presetów z placeholderami.
+- `backend/settings/models.py` `ServiceFeeTemplate` (linia 39) ma pola `amount_from`, `amount_to`, `description` — brak walidacji, że `description` powinien używać `$1`/`$2` zamiast sztywnych kwot.
+- `backend/additional_services/models.py` `AdditionalService` (linia 5) ma `description` (nullable), ale w DB jest `NULL` dla wszystkich rekordów.
+
+**Zadania:**
+1. **Decyzja architektoniczna** — czy `service_fee_templates.description` ma być szablonem z `$1`/`$2` (jak `ContractServiceFee.description`), czy `amount_from`/`amount_to` + `description` mają być trzymane osobno a opis PDF generowany dynamicznie? Wzór: P1-113 (opłaty dodatkowe) oraz P1-122 (warunki cennika).
+2. **Backend** `service_fee_templates` — zaktualizować seed/template data: zastąpić sztywne kwoty w `description` placeholderami `$1`/`$2` (np. `$1 dostawa / $2 odbiór`, `$1 / h - $2 / h`). Dotyczy wszystkich `contract_type` (S, U) albo przynajmniej U.
+3. **Backend** `contracts/service.py` — `copy_fee_templates` / `apply_preset_to_contract` powinny kopiować placeholder description z template (już to robią, ale po zmianie template wystarczy seed/migracja).
+4. **Frontend** `ContractFormView.vue` `onFeeServicePickById` — przy wyborze usługi dodatkowej z comboboxa ustawić `description` z placeholderami (na podstawie `additional_service` lub `service_fee_template` dla `contract_type='U'`). Przykład: `Transport` → `description='$1 dostawa / $2 odbiór'`, `amount_from=1200`, `amount_to=1200`.
+5. **Frontend** `ContractFormView.vue` — podgląd opisu (`formatDescription` i `pdfPreviewLines`) odświeża się na żywo po zmianie `amount_from`/`amount_to` (sprawdzić czy działa; jeśli nie — dodać `watch` lub `computed` na `activeServiceFees`/`fee.description`).
+6. **Frontend** `ContractFormView.vue` — dla umów U dodać szybkie przyciski presetów (lub odblokować/zmodyfikować `applyHardcodedFeePreset` z zestawem usług typowych dla U: Transport, Tankowanie, Przestój, Serwis). Upewnić się, że opisy w presetach U używają `$1`/`$2`.
+7. **Backend** `service_fee_templates` / `additional_services` — dodać pole `description_template` (opcjonalnie) z placeholderami, żeby `onFeeServicePickById` mogło pobrać domyślny opis dla wybranej usługi.
+8. **E2E** — test: otwórz umowę U → reset opłat dodatkowych → sprawdź, że `description` zawiera `$1`/`$2` (nie sztywne kwoty) → zmień `amount_from`/`amount_to` → opis/PDF aktualizuje się automatycznie.
+9. **Regresja** — sprawdzić umowę S: Diesel/Elektryk nadal działa, opłaty dodatkowe S nadal poprawne.
+10. **Spec sync** — `04_business_logic.md` (placeholdery w opłatach), `03_frontend_screens.md` (ContractFormView opłaty), `02_backend_api.md` (service_fee_templates schema).
+
+**Definition of Done:**
+- [ ] Szablony opłat dla U używają `$1`/`$2` zamiast sztywnych kwot
+- [ ] Wybór usługi dodatkowej w comboboxie U wstawia `description` z placeholderami
+- [ ] Zmiana `amount_from`/`amount_to` natychmiast aktualizuje podgląd opisu/PDF
+- [ ] Umowa U ma dostępne szybkie przyciski presetów opłat (lub inny szybki sposób)
+- [ ] E2E: reset opłat U → szablony z placeholderami → zmiana kwoty → opis dynamiczny
+- [ ] Regresja S: Diesel/Elektryk i opłaty S działają
+- [ ] Spec sync: `04_business_logic.md`, `03_frontend_screens.md`, `02_backend_api.md`
+- [ ] Smoke `01-login.spec.ts` zielony
+
 ---
 
 ## 🟢 P3 — Nice-to-Have
