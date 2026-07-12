@@ -245,10 +245,7 @@ test.describe('TEST-23: Filtry i sortowanie — wszystkie ekrany', () => {
       await testSortToggle(page, 'Nazwa')
     })
 
-    test('sortowanie po Nr wew.', async ({ page }) => {
-      await navigateTo(page, 'services')
-      await testSortToggle(page, 'Nr wew.')
-    })
+    // P2-006: kolumna "Nr wew." usunięta z ServicesListView — test sortowania usunięty
   })
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -291,10 +288,7 @@ test.describe('TEST-23: Filtry i sortowanie — wszystkie ekrany', () => {
       await testSortToggle(page, 'Nazwa')
     })
 
-    test('sortowanie po Nr wew.', async ({ page }) => {
-      await navigateTo(page, 'additional-services')
-      await testSortToggle(page, 'Nr wew.')
-    })
+    // P2-005: kolumna "Nr wew." usunięta z AdditionalServicesListView — test sortowania usunięty
   })
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -525,12 +519,12 @@ test.describe('TEST-23: Filtry i sortowanie — wszystkie ekrany', () => {
     test('kalendarz rezerwacji ładuje się', async ({ page }) => {
       await page.goto('/rao/reservations', { waitUntil: 'domcontentloaded', timeout: 15_000 })
       // Sprawdź że kalendarz lub lista jest widoczna
-      await expect(page.locator('[data-testid="rv-calendar"], [data-testid="rv-list"]').first()).toBeVisible({ timeout: 10_000 })
+      await expect(page.getByTestId('rv-calendar')).toBeVisible({ timeout: 10_000 })
     })
 
     test('filtr maszyny w rezerwacjach', async ({ page }) => {
       await page.goto('/rao/reservations', { waitUntil: 'domcontentloaded', timeout: 15_000 })
-      await expect(page.locator('[data-testid="rv-calendar"], [data-testid="rv-list"]').first()).toBeVisible({ timeout: 10_000 })
+      await expect(page.getByTestId('rv-calendar')).toBeVisible({ timeout: 10_000 })
       const machineSelect = page.locator('[data-testid="rv-filter-machine"]')
       await expect(machineSelect).toBeVisible({ timeout: 5_000 })
       const options = await machineSelect.locator('option').allTextContents()
@@ -542,7 +536,7 @@ test.describe('TEST-23: Filtry i sortowanie — wszystkie ekrany', () => {
 
     test('filtr statusu w rezerwacjach', async ({ page }) => {
       await page.goto('/rao/reservations', { waitUntil: 'domcontentloaded', timeout: 15_000 })
-      await expect(page.locator('[data-testid="rv-calendar"], [data-testid="rv-list"]').first()).toBeVisible({ timeout: 10_000 })
+      await expect(page.getByTestId('rv-calendar')).toBeVisible({ timeout: 10_000 })
       const statusSelect = page.locator('[data-testid="rv-filter-status"]')
       await expect(statusSelect).toBeVisible({ timeout: 5_000 })
       const options = await statusSelect.locator('option').allTextContents()

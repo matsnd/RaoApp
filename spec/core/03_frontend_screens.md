@@ -2570,25 +2570,30 @@ onUnmounted(() => {
 
 ---
 
-## ReservationsView (Phase 3, 2026-07-11)
+## ReservationsView (Phase 3, 2026-07-11; P1-111 refactor 2026-07-12)
 
 ### `views/ReservationsView.vue` (~700 linii)
-- **Widok Rezerwacji maszyn** — kalendarz month-view + lista + modal CRUD.
-- **Toggle kalendarz/lista** (dwa przyciski, domyślnie kalendarz).
+- **Widok Rezerwacji maszyn** — kalendarz month-view + panel dnia + modal CRUD.
+- **P1-111 (2026-07-12): Layout side-by-side** (nie toggle): kalendarz po lewej (flex: 1) + panel listy dnia po prawej (flex: 0 0 340px, max-width: 400px).
 - **Kalendarz month-view** (custom CSS grid 7×5-6, BEZ biblioteki):
   - Nagłówek: miesiąc + rok (capitalize, pl-PL), przyciski ← → (poprzedni/następny miesiąc), "Dziś".
   - Komórki dni: numer dnia + kropki (colored dots) reprezentujące eventy (max 4 + "+N").
   - **Kolory kropek:** niebieski (`var(--color-primary)`) = rezerwacja confirmed; `var(--color-primary)` z `opacity: 0.5` = provisional; `var(--color-warning)` (#F59E0B) = umowa (source=contract).
   - **Tooltip na dniu** (hover, CSS): lista eventów — "maszyna X, kontrahent Y, data od-do" + "(umowa)" dla contract.
-  - Klik na dniu → otwiera modal dodawania z preustawioną datą.
+  - **P1-111: Lewy klik na dniu** → `selectDay(cell.date)` — wybiera dzień, panel dnia pokazuje eventy.
+  - **P1-111: Prawy klik na dniu** (`@contextmenu.prevent`) → context menu: "Dodaj rezerwację" (openCreate) / "Dodaj umowę" (`router.push ContractNew query.date`).
   - Klik na kropce (event) → otwiera modal edycji (rezerwacja) lub info read-only (umowa).
   - Tydzień zaczyna się od poniedziałku (Pn-Nd).
-- **Widok listy** (tabela): Maszyna (machine_name + internal_number), Kontrahent (contractor_name lub "—"), Od, Do, Status (badge), Notatka, Akcje (edytuj ✏️, usuń 🗑️). Sortowanie po dacie od (rosnąco).
-- **Filtry** (nad kalendarzem/listą):
+- **P1-111: Panel listy dnia** (prawa strona, `rv-day-panel`):
+  - Empty state: "Kliknij dzień w kalendarzu aby zobaczyć rezerwacje"
+  - Header: wybrany dzień w formacie "2026-07-12 (sob)"
+  - Checkboxes: "Blokady rezerwacjami" (`showReservations`, default true) + "Blokady umowami" (`showContracts`, default true) — filtruje listę dnia
+  - Lista eventów: kropka (kolor wg source/status) + maszyna + daty + kontrahent. Klik → openEdit(event)
+  - No-events state: "Brak blokad tego dnia"
+- **Filtry** (nad kalendarzem):
   - Maszyna (select z maszynami non-archival — `GET /machines?archival_status=active&per_page=200`). **P2-003:** Tylko maszyny wewnętrzne (`is_external=false`) — filtrowane frontend-side `.filter((a) => !a.is_service && !a.is_external)`.
   - Kontrahent (`ContractorCombobox` z `components/analytics/`).
   - Status (confirmed/provisional/wszystko).
-  - Zakres dat (`DateRangePicker` z `components/shared/`) — tylko dla widoku listy; kalendarz używa automatycznie miesiąc.
 - **Modal dodawania/edycji:**
   - Pola: maszyna (select, wymagana), kontrahent (combobox, opcjonalny), data od (wymagana), data do (wymagana), status (confirmed/provisional), notatka (textarea).
   - Walidacja: data od ≤ data do, maszyna wymagana.
@@ -2596,10 +2601,11 @@ onUnmounted(() => {
   - Read-only dla umów (source=contract) — info z notką "edycja tylko z poziomu umowy".
   - Loading state (modalSaving), error state (409 konflikt → komunikat).
 - **Stany:** loading (`StateMessage` type=loading), error (retry), empty ("Brak rezerwacji. Dodaj pierwszą rezerwację." + CTA).
-- **Store:** `useReservationsStore()` — `fetchCalendar`, `fetchAllWithArticles`, `create`, `update`, `remove`.
-- **Data loading:** onMounted → loadMachines (archival_status=active, per_page=200) + contractors (per_page=500) + refreshData. Watch: zmiana miesiąca/filtru maszyny → reload kalendarza; przełączenie trybu → reload.
-- **Design system:** wyłącznie zmienne CSS z `style.css` (`--color-primary`, `--color-warning`, `--color-bg-card`, `--border-radius-md`, `--shadow-card`, `--font-family`, spacing). Brak hardcoded kolorów.
-- data-testid: `reservations-view`, `rv-add-btn`, `rv-toggle-calendar`, `rv-toggle-list`, `rv-filter-article`, `rv-filter-contractor`, `rv-filter-status`, `rv-calendar`, `rv-cal-prev/next/today`, `rv-cal-cell`, `rv-list`, `rv-list-row`, `rv-edit-btn`, `rv-delete-btn`, `rv-modal`, `rv-modal-article`, `rv-modal-from`, `rv-modal-to`, `rv-modal-status`, `rv-modal-note`, `rv-modal-save`, `rv-modal-delete`, `rv-modal-error`.
+- **Store:** `useReservationsStore()` — `fetchCalendar`, `fetchAllWithMachines`, `create`, `update`, `remove`.
+- **Data loading:** onMounted → loadMachines + contractors + fetchCalendar. Watch: zmiana miesiąca/filtru maszyny → reload kalendarza.
+- **Design system:** wyłącznie zmienne CSS z `style.css`. Brak hardcoded kolorów.
+- data-testid: `reservations-view`, `rv-add-btn`, `rv-filter-machine`, `rv-filter-contractor`, `rv-filter-status`, `rv-calendar`, `rv-cal-prev/next/today`, `rv-cal-cell`, `rv-day-panel`, `rv-day-event`, `rv-context-menu`, `rv-modal`, `rv-modal-machine`, `rv-modal-from`, `rv-modal-to`, `rv-modal-status`, `rv-modal-note`, `rv-modal-save`, `rv-modal-delete`, `rv-modal-error`.
+- **Usunięte (P1-111):** `rv-toggle-calendar`, `rv-toggle-list`, `rv-list`, `rv-list-row`, `rv-edit-btn`, `rv-delete-btn` (lista staje się panelem dnia, nie osobnym widokiem).
 
 ### `stores/reservations.ts` (rozszerzony, Phase 3)
 - Interfejs `ArticleReservation`: dodano `contractor_id: number | null`, `contractor_name: string | null`, `status: string | null`.

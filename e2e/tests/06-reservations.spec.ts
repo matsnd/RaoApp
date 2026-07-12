@@ -65,18 +65,22 @@ test.describe('RAO-L: Widok Rezerwacji', () => {
     expect(await cells.count()).toBeGreaterThanOrEqual(28)
   })
 
-  test('toggle kalendarz → lista działa', async ({ page }) => {
+  test('panel dnia otwiera się po kliknięciu komórki kalendarza (P1-111)', async ({ page }) => {
     await page.goto('/rao/reservations', { waitUntil: 'domcontentloaded', timeout: 15_000 })
     await expect(page.getByTestId('rv-calendar')).toBeVisible({ timeout: 10_000 })
 
-    // Przełącz na listę
-    await page.getByTestId('rv-toggle-list').click()
-    await expect(page.getByTestId('rv-list')).toBeVisible({ timeout: 8_000 })
-    await expect(page.getByTestId('rv-calendar')).not.toBeVisible()
+    // P1-111: kalendarz i panel dnia side-by-side (nie toggle)
+    // Panel dnia powinien być widoczny (empty state przed wyborem dnia)
+    await expect(page.getByTestId('rv-day-panel')).toBeVisible({ timeout: 8_000 })
 
-    // Wróć do kalendarza
-    await page.getByTestId('rv-toggle-calendar').click()
-    await expect(page.getByTestId('rv-calendar')).toBeVisible({ timeout: 8_000 })
+    // Kliknij pierwszą komórkę kalendarza → wybierz dzień
+    const firstCell = page.getByTestId('rv-cal-cell').first()
+    await firstCell.click()
+
+    // Panel dnia powinien pokazać header z wybraną datą (nie empty state)
+    await expect(page.locator('.rv-day-header')).toBeVisible({ timeout: 5_000 })
+    // Checkboxes filtrów widoczne
+    await expect(page.locator('.rv-day-filters')).toBeVisible()
   })
 
   test('modal dodawania rezerwacji otwiera się', async ({ page }) => {
