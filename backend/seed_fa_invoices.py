@@ -160,44 +160,48 @@ async def ensure_fa_clients(client, db):
 
 
 async def ensure_fa_products(client, db):
-    """Faza B: synchronizuje artykuły RAO (z fakturownia_product_id) → produkty FA.
+    """Faza B: synchronizuje artykuły RAO → produkty FA (od zera).
 
-    Nowe konto FA jest puste — stare ID produktów (z machines.fakturownia_product_id)
-    nie istnieją. Dla każdej maszyny z fakturownia_product_id IS NOT NULL:
-    1. Sprawdź czy produkt istnieje w FA po ID (GET /products/<id>.json).
-    2. Jeśli nie — utwórz nowy (POST /products.json z {name, price_net, tax, code}).
-    3. Zaktualizuj machines.fakturownia_product_id na nowe ID z FA.
+    FA wyczyszczone — tworzymy produkty dla WSZYSTKICH maszyn (is_archival=FALSE)
+    i WSZYSTKICH usług dodatkowych (z fakturownia_product_id IS NOT NULL lub NULL).
+
+    Dla każdej maszyny:
+    1. Jeśli fakturownia_product_id IS NOT NULL — sprawdź czy produkt istnieje w FA.
+       Jeśli tak — zostaw. Jeśli nie — utwórz nowy + zaktualizuj ID.
+    2. Jeśli fakturownia_product_id IS NULL — utwórz nowy produkt + zaktualizuj ID.
 
     Cena: replacement_value / 30 (dzienna stawka bazowa), fallback 100.00.
     Tax: 23. Code: internal_number z artykułu.
 
     Zwraca dict old_fa_id → new_fa_id.
     """
+    # WSZYSTKIE maszyny (nie tylko z fakturownia_product_id IS NOT NULL)
     result = await db.execute(text(
         "SELECT id, name, internal_number, fakturownia_product_id, replacement_value "
-        "FROM machines WHERE fakturownia_product_id IS NOT NULL ORDER BY id"
+        "FROM machines WHERE is_archival = FALSE ORDER BY id"
     ))
     machines = result.fetchall()
-    print(f"\n[ensure_fa_products] {len(machines)} maszyn z mapowaniem FA do synchronizacji")
+    print(f"\n[ensure_fa_products] {len(machines)} maszyn do synchronizacji z FA")
     old_to_new = {}
     created = 0
     for mach_id, name, internal_number, old_fa_id, replacement_value in machines:
-        old_fa_id = int(old_fa_id)
-        # Krok 1: sprawdź czy stary produkt istnieje w FA
-        try:
-            resp = await client.get(
-                f"{FA_BASE}/products/{old_fa_id}.json",
-                params={"api_token": FA_TOKEN},
-                timeout=15.0,
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                new_fa_id = int(data["id"])
-                old_to_new[old_fa_id] = new_fa_id
-                print(f"  [product] EXISTS '{name}' FA ID={old_fa_id}")
-                continue
-        except Exception:
-            pass  # produkt nie istnieje — tworzymy nowy
+        # Krok 1: jeśli maszyna ma fakturownia_product_id — sprawdź czy produkt istnieje w FA
+        if old_fa_id is not None:
+            old_fa_id_int = int(old_fa_id)
+            try:
+                resp = await client.get(
+                    f"{FA_BASE}/products/{old_fa_id_int}.json",
+                    params={"api_token": FA_TOKEN},
+                    timeout=15.0,
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    new_fa_id = int(data["id"])
+                    old_to_new[old_fa_id_int] = new_fa_id
+                    print(f"  [product] EXISTS '{name}' FA ID={old_fa_id_int}")
+                    continue
+            except Exception:
+                pass  # produkt nie istnieje — tworzymy nowy
 
         # Krok 2: utwórz nowy produkt w FA
         price_net = 100.00
@@ -223,45 +227,51 @@ async def ensure_fa_products(client, db):
             resp.raise_for_status()
             data = resp.json()
             new_fa_id = int(data["id"])
-            old_to_new[old_fa_id] = new_fa_id
+            if old_fa_id is not None:
+                old_to_new[int(old_fa_id)] = new_fa_id
             # Krok 3: zaktualizuj machines.fakturownia_product_id na nowe ID
             await db.execute(text(
                 "UPDATE machines SET fakturownia_product_id = :new_id WHERE id = :mach_id"
             ), {"new_id": new_fa_id, "mach_id": mach_id})
             await db.commit()
             created += 1
-            print(f"  [product] CREATED '{name}' old_fa={old_fa_id} -> new_fa={new_fa_id} (price_net={price_net})")
+            old_id_str = str(int(old_fa_id)) if old_fa_id is not None else "NULL"
+            print(f"  [product] CREATED '{name}' old_fa={old_id_str} -> new_fa={new_fa_id} (price_net={price_net})")
         except Exception as e:
             err_body = ""
             if hasattr(e, "response") and e.response is not None:
                 err_body = e.response.text[:200]
-            print(f"  [product] FAIL '{name}' old_fa={old_fa_id}: {e} | {err_body}")
-    print(f"[ensure_fa_products] gotowe: {len(old_to_new)} mapowań, {created} utworzonych")
+            old_id_str = str(int(old_fa_id)) if old_fa_id is not None else "NULL"
+            print(f"  [product] FAIL '{name}' old_fa={old_id_str}: {e} | {err_body}")
+    print(f"[ensure_fa_products] maszyny gotowe: {len(old_to_new)} mapowań, {created} utworzonych")
 
-    # Sync additional_services (usługi dodatkowe) — analogicznie jak machines
+    # Sync additional_services (usługi dodatkowe) — WSZYSTKIE (nie tylko z ID)
     from additional_services.models import AdditionalService
     result = await db.execute(text(
         "SELECT id, name, fakturownia_product_id, default_amount "
-        "FROM additional_services WHERE fakturownia_product_id IS NOT NULL ORDER BY id"
+        "FROM additional_services ORDER BY id"
     ))
     addsvcs = result.fetchall()
-    print(f"\n[ensure_fa_products] {len(addsvcs)} usług dodatkowych z mapowaniem FA do synchronizacji")
+    print(f"\n[ensure_fa_products] {len(addsvcs)} usług dodatkowych do synchronizacji z FA")
+    svc_created = 0
     for svc_id, name, old_fa_id, default_amount in addsvcs:
-        old_fa_id = int(old_fa_id)
-        try:
-            resp = await client.get(
-                f"{FA_BASE}/products/{old_fa_id}.json",
-                params={"api_token": FA_TOKEN},
-                timeout=15.0,
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                new_fa_id = int(data["id"])
-                old_to_new[old_fa_id] = new_fa_id
-                print(f"  [product] EXISTS '{name}' FA ID={old_fa_id}")
-                continue
-        except Exception:
-            pass
+        # Jeśli ma ID — sprawdź czy produkt istnieje w FA
+        if old_fa_id is not None:
+            old_fa_id_int = int(old_fa_id)
+            try:
+                resp = await client.get(
+                    f"{FA_BASE}/products/{old_fa_id_int}.json",
+                    params={"api_token": FA_TOKEN},
+                    timeout=15.0,
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    new_fa_id = int(data["id"])
+                    old_to_new[old_fa_id_int] = new_fa_id
+                    print(f"  [product] EXISTS '{name}' FA ID={old_fa_id_int}")
+                    continue
+            except Exception:
+                pass
 
         price_net = float(default_amount) if default_amount else 100.00
         body = {
@@ -278,19 +288,22 @@ async def ensure_fa_products(client, db):
             resp.raise_for_status()
             data = resp.json()
             new_fa_id = int(data["id"])
-            old_to_new[old_fa_id] = new_fa_id
+            if old_fa_id is not None:
+                old_to_new[int(old_fa_id)] = new_fa_id
             await db.execute(text(
                 "UPDATE additional_services SET fakturownia_product_id = :new_id WHERE id = :svc_id"
             ), {"new_id": new_fa_id, "svc_id": svc_id})
             await db.commit()
-            created += 1
-            print(f"  [product] CREATED '{name}' old_fa={old_fa_id} -> new_fa={new_fa_id}")
+            svc_created += 1
+            old_id_str = str(int(old_fa_id)) if old_fa_id is not None else "NULL"
+            print(f"  [product] CREATED '{name}' old_fa={old_id_str} -> new_fa={new_fa_id}")
         except Exception as e:
             err_body = ""
             if hasattr(e, "response") and e.response is not None:
                 err_body = e.response.text[:200]
-            print(f"  [product] FAIL '{name}' old_fa={old_fa_id}: {e} | {err_body}")
-    print(f"[ensure_fa_products] usługi dodatkowe gotowe")
+            old_id_str = str(int(old_fa_id)) if old_fa_id is not None else "NULL"
+            print(f"  [product] FAIL '{name}' old_fa={old_id_str}: {e} | {err_body}")
+    print(f"[ensure_fa_products] usługi dodatkowe gotowe: {svc_created} utworzonych")
 
     return old_to_new
 
