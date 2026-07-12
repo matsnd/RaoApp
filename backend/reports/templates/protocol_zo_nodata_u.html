@@ -134,21 +134,21 @@
   <div class="bottom-section">
 
     <!-- UWAGI BOX -->
-    <div class="ret-uwagi" style="border: 1px solid #aaa; padding: 6px; font-size: 9px; min-height: 80px; color: #888; margin-bottom: 4px;">uwagi</div>
+    <div class="ret-uwagi" style="border: 1px solid #aaa; padding: 6px; font-size: 9px; height: 80px; min-height: 80px; max-height: 80px; flex-shrink: 0; color: #888; margin-bottom: 15px;">uwagi</div>
 
-    <!-- DODATKOWE INFORMACJE (P1-007) -->
-    <div class="ret-uwagi" style="border: 1px solid #aaa; padding: 6px; font-size: 9px; min-height: 50px; color: #888; margin: 4px 0 4px 0;">
+    <!-- DODATKOWE INFORMACJE (P1-007) — identyczne wymiary jak "uwagi" -->
+    <div class="ret-uwagi" style="border: 1px solid #aaa; padding: 6px; font-size: 9px; height: 80px; min-height: 80px; max-height: 80px; flex-shrink: 0; color: #888; margin: 0 0 15px 0; overflow: hidden;">
       Dodatkowe informacje
       {% if contract.notes %}<br>{{ contract.notes }}{% endif %}
     </div>
 
     <!-- P2-018: Opiekun zamówienia pomiędzy dodatkowymi informacjami a pieczątkami -->
-    <div style="text-align:center; margin: 8px 0 8px 0; font-size: 9px; color: #555;">
+    <div style="text-align:center; margin: 25px 0 25px 0; font-size: 9px; color: #555;">
       Opiekun zamówienia: {{ salesperson.name if salesperson else '' }}{% if salesperson and salesperson.phone %} tel. {{ salesperson.phone }}{% endif %}
     </div>
 
-    <!-- SIGNATURE -->
-    <table class="sigs" style="margin-top: 10px;">
+    <!-- SIGNATURE — duży odstęp, bliżej dołu -->
+    <table class="sigs" style="margin-top: 40px;">
       <tr>
         <td>
           <div style="text-align:center;">
