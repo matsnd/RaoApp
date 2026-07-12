@@ -561,41 +561,10 @@ def aggregate_by_branch(
     return items
 
 
-# ── RAO-P1-016: ROI / dni — defensive clamps dla anomalii w danych ────────────
+# ── RAO-P1-016: dni — defensive clamp dla anomalii w danych ──────────────────
 #
-# Bug P1-016: statystyki pokazywały ROI = -300% (korekta/zwrot → revenue < 0)
-# oraz dni = -7 (stare umowy z date_to < date_from). Te funkcje centralizują
-# logikę ROI i clamp dni, żeby ujemne anomalie nie przeciekały do frontendu.
-
-
-def compute_roi_pct(revenue, replacement_value) -> float | None:
-    """
-    Oblicz ROI (%) dla maszyny — RAO-P1-016.
-
-    Reguły (defensywne — anomalie w danych nie mają sensu biznesowego):
-    - replacement_value is None lub <= 0 → None (dzielenie przez zero / brak bazy)
-    - revenue < 0 (korekta/zwrot) → None (ROI z korektą nie ma sensu; log warning)
-    - revenue == 0 → 0.0 (maszyna wynajęta ale bez przychodu — poprawne 0%)
-    - revenue > 0 → round(revenue / replacement_value * 100, 2)
-
-    Args:
-        revenue: Decimal | int | float | None — przychód z pozycji maszyny
-        replacement_value: Decimal | int | float | None — wartość odtworzeniowa
-
-    Returns:
-        float | None — ROI w procentach, lub None gdy nie da się policzyć.
-    """
-    if replacement_value is None or float(replacement_value) <= 0:
-        return None
-
-    rev = float(revenue) if revenue is not None else 0.0
-    if rev < 0:
-        logger.warning(
-            "Negative ROI clamped: revenue=%s, replacement_value=%s",
-            revenue, replacement_value,
-        )
-        return None
-    return round(rev / float(replacement_value) * 100, 2)
+# Bug P1-016: statystyki pokazywały dni = -7 (stare umowy z date_to < date_from).
+# clamp_days sprowadza liczbę dni do nieujemnej wartości.
 
 
 def clamp_days(days: int | None) -> int:

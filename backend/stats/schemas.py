@@ -11,10 +11,6 @@ class FleetSummary(BaseModel):
     top_machine_name: str | None
     top_machine_revenue: Decimal | None
     contracts_in_period: int
-    # RAO-P2-032: breakdown po źródłach przychodu (actual/estimate_lookup/estimate_tiered)
-    revenue_actual: Decimal | None = None
-    revenue_estimate: Decimal | None = None
-    revenue_source_label: str | None = None  # "rzeczywiste" | "szacunek" | "mieszane"
 
 
 class TopMachineItem(BaseModel):
@@ -41,18 +37,6 @@ class CurrentlyRentedResponse(BaseModel):
     total_machines: int
     utilization_pct: float
     items: list[CurrentlyRentedItem]
-
-
-class MachineRoiResponse(BaseModel):
-    article_id: int
-    name: str
-    internal_number: str | None
-    category_main: str | None   # RAO-P1-017: kategoria główna maszyny
-    replacement_value: Decimal | None
-    total_rented_days: int
-    estimated_revenue: Decimal
-    contracts_count: int
-    roi_pct: float | None
 
 
 class ServiceFeeItem(BaseModel):

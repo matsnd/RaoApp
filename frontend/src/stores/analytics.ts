@@ -13,9 +13,6 @@ export interface FleetSummary {
   top_machine_name: string | null
   top_machine_revenue: string | number | null
   contracts_in_period: number
-  revenue_actual: string | number | null
-  revenue_estimate: string | number | null
-  revenue_source_label: string | null
 }
 
 export interface TopMachineItem {
@@ -139,21 +136,6 @@ export interface CategoriesListNode {
   children: CategoriesListNode[]
 }
 
-// RAO-P2-065 #1: ROI maszyny — mirror backend MachineRoiResponse (stats/schemas.py)
-// Wywoływane równolegle z fetchMachineDetails w drill-down maszyny (best-effort).
-export interface MachineRoiResponse {
-  machine_id: number
-  article_id: number  // backward-compat alias
-  name: string
-  internal_number: string | null
-  category_main: string | null
-  replacement_value: string | number | null
-  total_rented_days: number
-  estimated_revenue: string | number
-  contracts_count: number
-  roi_pct: number | null
-}
-
 export interface MachineRentalRow {
   contract_id: number
   contract_number: string
@@ -162,7 +144,6 @@ export interface MachineRentalRow {
   days: number
   contractor_name: string | null
   revenue: number
-  revenue_source: string | null
 }
 
 export interface MachineDetailsResponse {
@@ -271,9 +252,6 @@ export const useAnalyticsStore = defineStore('analytics', () => {
   const byPeriodData = ref<ByPeriodResponse | null>(null)
   const categoriesList = ref<CategoriesListNode[]>([])
 
-  // RAO-P2-065 #1: ROI maszyny — sekcja drill-down (AnalyticsView.vue)
-  const machineRoi = ref<MachineRoiResponse | null>(null)
-
   const locationsRanking = ref<LocationRankingItem[]>([])
   const loadingLocations = ref(false)
 
@@ -286,14 +264,6 @@ export const useAnalyticsStore = defineStore('analytics', () => {
 
   // ── Getters ────────────────────────────────────────────────────────────────
   const liveUtilPct = computed(() => currentlyRented.value?.utilization_pct ?? 0)
-
-  const revenueSourceClass = computed(() => {
-    const label = summary.value?.revenue_source_label
-    if (label === 'rzeczywiste') return 'source-actual'
-    if (label === 'szacunek') return 'source-estimate'
-    if (label === 'mieszane') return 'source-mixed'
-    return 'source-empty'
-  })
 
   // ── Actions ────────────────────────────────────────────────────────────────
   async function fetchCurrentlyRented(): Promise<CurrentlyRentedResponse> {
@@ -443,27 +413,6 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     const { data } = await api.get<CategoriesListNode[]>('/stats/categories-list')
     categoriesList.value = data
     return data
-  }
-
-  // RAO-P2-065 #1: ROI maszyny — best-effort (404 dla archiwalnych nie blokuje details)
-  // RAO Faza 4b: parametr article_id → machine_id (backend /stats/machine-roi)
-  async function fetchMachineRoi(
-    machineId: number,
-    dateFrom: string,
-    dateTo: string,
-  ): Promise<MachineRoiResponse | null> {
-    const params: Record<string, string> = {}
-    if (dateFrom) params.date_from = dateFrom
-    if (dateTo) params.date_to = dateTo
-    try {
-      const { data } = await api.get<MachineRoiResponse>('/stats/machine-roi', { params: { ...params, machine_id: machineId } })
-      machineRoi.value = data
-      return data
-    } catch {
-      // Best-effort: brak ROI (np. maszyna archiwalna bez include_archival) nie blokuje drill-down
-      machineRoi.value = null
-      return null
-    }
   }
 
   // RAO-P2-065 4b / RAO-P2-069: ranking miast (toggle miasto/PNA)
@@ -626,7 +575,6 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     drillLoading.value = true
     drillError.value = null
     machineDetails.value = null
-    machineRoi.value = null
     locationDetails.value = null
     serviceDetails.value = null
     categoryDetails.value = null
@@ -655,7 +603,6 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     drillDown.value = { ...emptyDrillDown }
     drillError.value = null
     machineDetails.value = null
-    machineRoi.value = null
     locationDetails.value = null
     serviceDetails.value = null
     categoryDetails.value = null
@@ -676,7 +623,6 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     byCategoryData,
     byPeriodData,
     categoriesList,
-    machineRoi,
     locationsRanking,
     loadingLocations,
     machineDetails,
@@ -686,7 +632,6 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     drillDown,
     // getters
     liveUtilPct,
-    revenueSourceClass,
     // actions
     fetchCurrentlyRented,
     fetchSummary,
@@ -697,7 +642,6 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     fetchByCategory,
     fetchByPeriod,
     fetchCategoriesList,
-    fetchMachineRoi,
     fetchLocationsRanking,
     fetchMachineDetails,
     fetchLocationDetails,

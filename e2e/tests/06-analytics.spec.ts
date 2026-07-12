@@ -2,8 +2,8 @@ import { test, expect, type Page, type APIRequestContext } from '@playwright/tes
 import { BASE, login, waitForBackend, apiLogin, API, authHeaders, safeDelete, newApiContext, genValidNip } from './helpers'
 
 // RAO-P2-065 #13: Testy e2e dla AnalyticsView — pokrycie regresyjne
-// Zakrywa: LiveFleet tab, PeriodRental tab, drill-down maszyny z ROI,
-// filtr kontrahenta (select), walidacja dat (422), sekcja kategorii.
+// Zakrywa: LiveFleet tab, PeriodRental tab, drill-down maszyny,
+// filtr kontrahenta (combobox), walidacja dat (422), sekcja kategorii.
 
 // Cleanup arrays for TEST-03 test data
 const createdContractIds: number[] = []
@@ -95,105 +95,7 @@ test.describe('AnalyticsView — statystyki', () => {
     })
   })
 
-  // RAO-P2-065 #1: drill-down ROI section — fixed (fetchMachineRoi podpięte do store)
-  test('TEST-03: Drill-down maszyny pokazuje sekcję ROI', async ({ page, request }) => {
-    // Setup: utwórz maszynę z replacement_value + kontrahenta + umowę + pozycję
-    // (wymagane aby maszyna pojawiła się w top-machines i miała dane ROI)
-    const token = await apiLogin(request)
-    const ts = Date.now()
-
-    const machineRes = await request.post(`${API}/machines`, {
-      headers: authHeaders(token),
-      data: { name: `AnalyticsTestMachine ${ts}`, replacement_value: 50000 },
-    })
-    expect([200, 201]).toContain(machineRes.status())
-    const machine = await machineRes.json()
-    createdMachineIds.push(machine.id)
-
-    const crRes = await request.post(`${API}/contractors`, {
-      headers: authHeaders(token),
-      data: { name: `AnalyticsTestContractor ${ts}`, nip: genValidNip(ts) },
-    })
-    const contractor = await crRes.json()
-    createdContractorIds.push(contractor.id)
-
-    const today = new Date()
-    const todayStr = today.toISOString().slice(0, 10)
-    const dateTo = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-    const ctrRes = await request.post(`${API}/contracts`, {
-      headers: authHeaders(token),
-      data: { contractor_id: contractor.id, contract_type: 'S', date_from: todayStr, date_to: dateTo },
-    })
-    const contract = await ctrRes.json()
-    createdContractIds.push(contract.id)
-
-    const posRes = await request.post(`${API}/contracts/${contract.id}/positions`, {
-      headers: authHeaders(token),
-      data: { machine_id: machine.id, quantity: 1, rental_days: 30 },
-    })
-    expect([200, 201]).toContain(posRes.status())
-    const position = await posRes.json()
-
-    // Dodaj warunki rozliczeniowe (wymagane aby maszyna miała revenue > 0 w top-machines)
-    // Warunek z period_count=1 zapewnia revenue > 0 niezależnie od wybranego presetu (Dziś/Miesiąc)
-    const rtRes = await request.get(`${API}/settings/rate-types`, { headers: authHeaders(token) })
-    const rtData = await rtRes.json()
-    const rateTypeId = (Array.isArray(rtData) ? rtData[0] : rtData.items?.[0])?.id
-    if (rateTypeId) {
-      await request.post(`${API}/contracts/${contract.id}/positions/${position.id}/conditions`, {
-        headers: authHeaders(token),
-        data: { period_count: 1, rate1: 200, rate2: 100, billing_label: 'dzień', rate_type_id: rateTypeId },
-      })
-    }
-
-    // Nawigacja do statystyk (P1-112: domyślna taba to 'live', period trzeba kliknąć)
-    await page.goto('/rao/analytics', { waitUntil: 'domcontentloaded', timeout: 10_000 })
-    await expect(page).toHaveURL(/\/rao\/analytics/, { timeout: 8_000 })
-
-    // Kliknij "Rankingi wynajmu" tab (było "Wynajem w okresie", P1-112 rename)
-    await page.getByTestId('tab-period').click()
-
-    // Czekaj na załadowanie KPI
-    await expect(page.getByTestId('kpi-period-revenue')).toBeVisible({ timeout: 10_000 })
-
-    // Użyj filtra kontrahenta aby zmienić cache key na backendzie (cache TTL 5 min).
-    // Każdy test tworzy nowego kontrahenta → unikalny cache key → świeże dane.
-    // Najpierw kliknij "Dziś" preset (inny range niż domyślny "Miesiąc" z beforeEach),
-    // potem wybierz kontrahenta w combobox.
-    await page.getByTestId('preset-today').click()
-    await page.waitForTimeout(500)
-
-    // Wybierz testowego kontrahenta w combobox (zmienia cache key)
-    const contractorInput = page.getByTestId('filter-contractor-input')
-    await contractorInput.click()
-    await contractorInput.fill(`AnalyticsTestContractor ${ts}`)
-    await page.waitForTimeout(500)
-    // Kliknij opcję z dropdown
-    const dropdown = page.getByTestId('filter-contractor-dropdown')
-    await expect(dropdown).toBeVisible({ timeout: 5_000 })
-    const option = dropdown.locator('button', { hasText: `AnalyticsTestContractor ${ts}` }).first()
-    await option.click()
-    await page.waitForTimeout(2000) // poczekaj na przeładowanie z nowym filtrem
-    await expect(page.getByTestId('kpi-period-revenue')).toBeVisible({ timeout: 10_000 })
-
-    // Poczekaj na załadowanie danych (top machines table)
-    const topMachinesSection = page.locator('.pr-section').filter({ hasText: 'Top maszyny' })
-    await expect(topMachinesSection).toBeVisible({ timeout: 10_000 })
-
-    // Kliknij wiersz z naszą maszyną w top machines table
-    const topTable = topMachinesSection.locator('table.analytics-table')
-    await expect(topTable).toBeVisible({ timeout: 10_000 })
-    const targetRow = topTable.locator('tbody tr', { hasText: `AnalyticsTestMachine ${ts}` })
-    await expect(targetRow).toBeVisible({ timeout: 10_000 })
-    await targetRow.click()
-
-    // RAO-P2-065 #1: sekcja ROI w drawer
-    await expect(page.getByTestId('drill-machine-roi')).toBeVisible({ timeout: 10_000 })
-    const roiText = await page.getByTestId('drill-machine-roi').textContent()
-    expect(roiText).toContain('ROI')
-    expect(roiText).toContain('Wartość zastępcza')
-    expect(roiText).toContain('Przychód (szac.)')
-  })
+  // TEST-03 usunięte — ROI panel usunięty z statystyk (szacunkowe wartości tylko w archiwum)
 
   test('TEST-04: Filtr kontrahenta jest comboboxem z inputem', async ({ page }) => {
     // P1-112: domyślna taba to 'live' (filtry ukryte) — kliknij tabę z filtrami

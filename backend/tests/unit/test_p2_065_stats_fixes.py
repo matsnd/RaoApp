@@ -131,15 +131,7 @@ def test_shared_locations_fallback_from_delivery_address():
     assert "postal_code_id" in content
 
 
-# -- #11: KPI "Przychód w okresie" label "razem (rzecz.+szac.)" -----------------
-
-
-def test_fleet_summary_revenue_source_label_mixed_when_both_sources():
-    """#11: gdy revenue_actual>0 && revenue_estimate>0 → 'razem (rzecz.+szac.)'."""
-    s = _read_section("C:/projects/repos/RaoApp_new/backend/stats/router.py", "fleet_summary")
-    assert "razem (rzecz.+szac.)" in s
-    # warunek: revenue_estimate > 0 (po elif revenue_actual == 0 — implikuje actual > 0)
-    assert "revenue_estimate > 0" in s
+# -- #11: revenue_source_label usunięte — statystyki bez szacunkowych wartości --
 
 
 # -- #16: explorer/router.py emoji zastąpione wartościami tekstowymi ------------

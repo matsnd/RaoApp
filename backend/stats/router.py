@@ -15,13 +15,13 @@ from machines.models import Machine
 from contracts.models import Contract, ContractPosition, PositionCondition
 from contractors.models import Contractor
 from sqlalchemy import func as sqlfunc
-from stats.calc import calculate_position_value, aggregate_by_category, aggregate_by_period, aggregate_by_contract_type, aggregate_by_branch, compute_roi_pct, clamp_days
+from stats.calc import calculate_position_value, aggregate_by_category, aggregate_by_period, aggregate_by_contract_type, aggregate_by_branch, clamp_days
 from shared.revenue import compute_position_revenues as _compute_position_revenues  # RAO-P2-028
 from shared.locations import aggregate_by_pna  # RAO-P2-028
 from shared.cache import cache, cached_or_compute, TTL_STATS  # RAO-P2-051: cache TTL 5 min
 from stats.schemas import (
     FleetSummary, TopMachineItem, CurrentlyRentedResponse, CurrentlyRentedItem,
-    MachineRoiResponse, AdditionalFeesResponse, ServiceFeeItem, LocationStatItem,
+    AdditionalFeesResponse, ServiceFeeItem, LocationStatItem,
     ExpiringContractItem, OverdueContractItem, DeliveryTodayItem, UnprintedContractItem, StalePrintContractItem,
     SalespersonCommissionItem, CommissionReportResponse,
     CategoryStatItem, CategoryStatsResponse,
@@ -194,19 +194,6 @@ async def fleet_summary(
         all_pos, contractor_id=contractor_id, city=city, internal_number=internal_number
     )
     period_revenue = sum(p["revenue"] for p in all_pos)
-    # RAO-P2-032: breakdown po źródłach (actual vs estimate)
-    revenue_actual = sum(p["revenue"] for p in all_pos if p.get("revenue_source") == "actual")
-    revenue_estimate = sum(p["revenue"] for p in all_pos if p.get("revenue_source") in ("estimate_lookup", "estimate_tiered"))
-    # RAO-P2-060 bug #8: "brak danych" gdy nie ma pozycji (pusta baza), nie "szacunek"
-    if not all_pos:
-        revenue_source_label = "brak danych"
-    elif revenue_actual == 0:
-        revenue_source_label = "szacunek"
-    elif revenue_estimate > 0:
-        # RAO-P2-065 #11: mieszane = oba źródła > 0 → "razem (rzecz.+szac.)"
-        revenue_source_label = "razem (rzecz.+szac.)"
-    else:
-        revenue_source_label = "rzeczywiste"
 
     # Contracts in period (RAO-P0-001/BUG-1: filtruj po contractor_id/city, accent-insensitive)
     _cnt_conds = _contract_date_filter(df, dt)
@@ -246,9 +233,6 @@ async def fleet_summary(
         top_machine_name=top_name,
         top_machine_revenue=top_rev,
         contracts_in_period=contracts_in_period,
-        revenue_actual=revenue_actual,
-        revenue_estimate=revenue_estimate,
-        revenue_source_label=revenue_source_label,
     )
     cache.set(_ckey, result, ttl=TTL_STATS)  # RAO-P2-051
     return result
@@ -393,64 +377,6 @@ async def currently_rented(
     result = CurrentlyRentedResponse(
         total_rented=rented, total_machines=total_machines,
         utilization_pct=util, items=items,
-    )
-    cache.set(_ckey, result, ttl=TTL_STATS)  # RAO-P2-051
-    return result
-
-
-@router.get("/machine-roi", response_model=MachineRoiResponse)
-async def machine_roi(
-    machine_id: int = Query(...),
-    date_from: date | None = Query(None),
-    date_to: date | None = Query(None),
-    include_archival: bool = Query(False, description="Uwzględnij maszyny archiwalne"),
-    db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
-):
-    """
-    ROI konkretnej maszyny (machine_id). RAO-P1-017: dodano category_main w odpowiedzi.
-    include_archival=False (domyślnie) — jeśli maszyna jest archiwalna, zwraca 404.
-    """
-    df, dt = _validate_date_range(date_from, date_to)
-
-    # RAO-P2-051: cache TTL 5 min (per machine + params)
-    _ckey = cache.make_key("stats:machine-roi", _.id, {
-        "mid": machine_id, "df": str(df), "dt": str(dt), "ia": include_archival,
-    })
-    _cached = cache.get(_ckey)
-    if _cached is not None:
-        return _cached
-
-    mach_q = await db.execute(
-        select(Machine).where(Machine.id == machine_id)
-    )
-    mach = mach_q.scalar_one_or_none()
-    if not mach:
-        raise HTTPException(404, "Maszyna nie znaleziona")
-
-    # RAO-P1-017: blokuj dostęp do archiwalnej maszyny gdy include_archival=False
-    if not include_archival and mach.is_archival:
-        raise HTTPException(404, "Maszyna jest archiwalna (użyj include_archival=true)")
-
-    # Dla zapytania o konkretną maszynę: bez filtra archiwum (maszyna już sprawdzona powyżej)
-    # RAO Faza 2a (opcja E): pomiń unmapped (machine_id=None) — ROI per maszyna, unmapped nie ma maszyny
-    all_pos = await _compute_position_revenues(db, df, dt, exclude_archival=False)
-    filtered = [p for p in all_pos if p["machine_id"] == machine_id]  # skip unmapped (None != machine_id)
-
-    revenue = sum(p["revenue"] for p in filtered)
-    days = sum(clamp_days(p["clamped_days"]) for p in filtered)
-    cnt = len(set(p["contract_id"] for p in filtered))
-
-    # RAO-P1-016: ROI liczone przez compute_roi_pct — clamp ujemnego revenue
-    # (korekta/zwrot) do None zamiast -300%; replacement_value<=0 → None.
-    roi_pct = compute_roi_pct(revenue, mach.replacement_value)
-
-    result = MachineRoiResponse(
-        article_id=mach.id, name=mach.name, internal_number=mach.internal_number,
-        category_main=mach.category_main,                # RAO-P1-017
-        replacement_value=mach.replacement_value,
-        total_rented_days=days, estimated_revenue=revenue,
-        contracts_count=cnt, roi_pct=roi_pct,
     )
     cache.set(_ckey, result, ttl=TTL_STATS)  # RAO-P2-051
     return result

@@ -383,7 +383,7 @@ watch(
   box-shadow: var(--shadow-card);
 }
 
-/* revenue-breakdown usunięte (szacunkowe wartości tylko w archiwum) */
+/* revenue-breakdown usunięte — szacunkowe wartości tylko w archiwum */
 
 .pr-section {
   display: flex;

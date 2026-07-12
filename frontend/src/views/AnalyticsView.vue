@@ -130,7 +130,7 @@ function formatDate(d: string | null | undefined): string {
   return new Date(d).toLocaleDateString('pl-PL')
 }
 
-// RAO-P2-065 #1: klasa koloru ROI — usunięte (ROI panel removed)
+// ROI panel usunięte — statystyki pokazują tylko rzeczywiste wartości
 
 // ── Watcher: zmiana filtrów → reload aktywnych danych (ale NIE live) ─────────
 watch(
@@ -543,7 +543,7 @@ onMounted(async () => {
   color: var(--color-text-muted);
 }
 
-/* RAO-P2-065 #1: sekcja ROI — usunięte */
+/* ROI panel usunięte — statystyki bez szacunków */
 
 .drill-subsection {
   display: flex;
