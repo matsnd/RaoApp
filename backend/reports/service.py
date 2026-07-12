@@ -251,27 +251,31 @@ def _merge_pdfs(pdf_pages: list[bytes]) -> bytes:
         return pdf_pages[0] if pdf_pages else b""
 
 
-def _html_to_pdf_sync(html: str, use_playwright_footer: bool = True) -> bytes:
+def _html_to_pdf_sync(html: str, use_playwright_footer: bool = True, protocol_label: str | None = None) -> bytes:
     """Render HTML to PDF. Renderer controlled by RAO_PDF_RENDERER env var.
     weasyprint (default) — identical output on dev and prod (shared hosting).
     playwright — Chromium-based, higher CSS fidelity, requires browser binaries.
     use_playwright_footer=False also signals protocol mode for WeasyPrint (no side margins).
+    protocol_label: if set, adds @bottom-center with "Protokół X z Y" between Wydrukowano and Strona.
     """
     from config import settings
     if settings.RAO_PDF_RENDERER == "playwright":
-        return _pdf_via_playwright(html, use_playwright_footer)
-    return _pdf_via_weasyprint(html, use_playwright_footer)
+        return _pdf_via_playwright(html, use_playwright_footer, protocol_label)
+    return _pdf_via_weasyprint(html, use_playwright_footer, protocol_label)
 
 
-def _pdf_via_playwright(html: str, use_footer: bool = True) -> bytes:
+def _pdf_via_playwright(html: str, use_footer: bool = True, protocol_label: str | None = None) -> bytes:
     """Playwright/Chromium renderer — full-featured, requires browser binaries."""
     from playwright.sync_api import sync_playwright
     import datetime
 
     now = datetime.datetime.now().strftime("%d.%m.%Y")
 
+    # Build footer with optional protocol label in center
+    center_span = f'<span>{protocol_label}</span>' if protocol_label else '<span></span>'
     footer_template = f"""<div style="font-size: 8px; color: #444; width: 100%; padding: 0 14mm; display: flex; justify-content: space-between; font-family: Arial;">
       <span>Wydrukowano {now}</span>
+      {center_span}
       <span>Strona <span class="pageNumber"></span> z <span class="totalPages"></span></span>
     </div>"""
 
@@ -337,9 +341,10 @@ def _font_face_css() -> str:
     return "\n".join(faces)
 
 
-def _pdf_via_weasyprint(html: str, use_footer: bool = True) -> bytes:
+def _pdf_via_weasyprint(html: str, use_footer: bool = True, protocol_label: str | None = None) -> bytes:
     """WeasyPrint renderer — works on shared hosting without browser binaries.
     use_footer=False: protocol mode — no side/top page margins, only bottom for footer.
+    protocol_label: if set, adds @bottom-center with "Protokół X z Y" between Wydrukowano and Strona.
     """
     from weasyprint import HTML, CSS
     from weasyprint.text.fonts import FontConfiguration
@@ -354,12 +359,17 @@ def _pdf_via_weasyprint(html: str, use_footer: bool = True) -> bytes:
     page_margin = "0 0 15mm 0" if not use_footer else "10mm 10mm 18mm 10mm"
     bottom_left_padding = "" if use_footer else "padding-left: 10mm;"
     bottom_right_padding = "" if use_footer else "padding-right: 10mm;"
+    # @bottom-center: "Protokół X z Y" (only for protocols with multiple machines)
+    bottom_center = ""
+    if protocol_label:
+        bottom_center = f'@bottom-center {{ content: "{protocol_label}"; font-size: 8px; color: #444; font-family: \'Roboto\', sans-serif; }}'
     extra_css = f"""
     {font_face}
     @page {{
         size: A4;
         margin: {page_margin};
         @bottom-left  {{ content: "Wydrukowano {now}"; font-size: 8px; color: #444; font-family: 'Roboto', sans-serif; {bottom_left_padding} }}
+        {bottom_center}
         @bottom-right {{ content: "Strona " counter(page) " z " counter(pages); font-size: 8px; color: #444; font-family: 'Roboto', sans-serif; {bottom_right_padding} }}
     }}
     #footer-legal-running {{
@@ -742,8 +752,9 @@ async def generate_pdf(db: AsyncSession, contract_id: int, report_type: str = "c
             data["positions"] = positions  # pusta lista
             html = template.render(**data)
             loop = asyncio.get_event_loop()
+            protocol_label = "Protokół 1 z 1"
             pdf_bytes = await loop.run_in_executor(
-                None, _html_to_pdf_sync, html, not is_protocol
+                None, _html_to_pdf_sync, html, not is_protocol, protocol_label
             )
             return pdf_bytes
 
@@ -767,8 +778,9 @@ async def generate_pdf(db: AsyncSession, contract_id: int, report_type: str = "c
             page_data["protocol_number"] = idx
             page_data["protocol_total"] = total
             html = template.render(**page_data)
+            protocol_label = f"Protokół {idx} z {total}"
             page_pdf = await loop.run_in_executor(
-                None, _html_to_pdf_sync, html, not is_protocol
+                None, _html_to_pdf_sync, html, not is_protocol, protocol_label
             )
             pdf_pages.append(page_pdf)
 
