@@ -264,13 +264,11 @@
 </table>
 {% endif %}
 
-<!-- P2-018: Opiekun zamówienia nad tekstem prawnym na środku -->
-<div style="text-align:center; margin-bottom: 6px; font-size: 9px; color: #555;">
-  Opiekun zamówienia: {{ salesperson.name if salesperson else '' }}{% if salesperson and salesperson.phone %} tel. {{ salesperson.phone }}{% endif %}
-</div>
-
-<!-- FOOTER LEGAL -->
+<!-- P2-018: Opiekun zamówienia — wewnątrz footer-legal-running, nad tekstem prawnym -->
 <div id="footer-legal-running">
+  <div style="text-align:center; font-size: 9px; color: #555; margin-bottom: 4px;">
+    Opiekun zamówienia: {{ salesperson.name if salesperson else '' }}{% if salesperson and salesperson.phone %} tel. {{ salesperson.phone }}{% endif %}
+  </div>
   <strong style="font-size: 8px; color: #c00; display: block; margin-bottom: 2px;">*ceny podane na umowie są cenami netto</strong>
   Niniejszym zobowiązuje się do zabezpieczenia Przedmiotów Najmu przed kradzieżą i zniszczeniem przez cały okres trwania Umowy Najmu. W przypadku zniszczenia, zagińięcia lub uszkodzenia Przedmiotu Najmu, zobowiązuje się ponieść pełną odpowiedzialność materialną mającą na celu przwrócenie całości utraconego sprzętu lub kosztów jego naprawy. Najemca wyraża zgodę na wystawienie faktury bez jego podpisu i skompensowanie kwoty zobowiązań za wynajem z kwotą przedpłaty. Najemca zobowiązuje się do pisemnego poinformowania wynajmującego o zwrocie maszyny budowlanej najpóźniej z jednodniowym wyprzedzeniem. Pokwitowanie niniejszej Umowy Najmu jest jednoznaczne z oświadczeniem o zapoznaniu się z Ogólnymi Warunkami Umowy Najmu (dalej: OWN) oraz ich akceptacją. OWN jest integralną częścią Umowy Najmu.
 </div>

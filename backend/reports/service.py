@@ -371,6 +371,15 @@ def _pdf_via_weasyprint(html: str, use_footer: bool = True) -> bytes:
         line-height: 1.35;
         color: #000;
     }}
+    #opiekun-running {{
+        position: absolute;
+        bottom: 8mm;
+        left: 14mm;
+        right: 14mm;
+        text-align: center;
+        font-size: 9px;
+        color: #555;
+    }}
     """
     if "</head>" in html:
         html = html.replace("</head>", f"<style>{extra_css}</style></head>")
