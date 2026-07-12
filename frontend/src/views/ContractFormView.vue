@@ -1712,6 +1712,8 @@ async function generateReport(type) {
       const { downloadBlob } = useFileDownload()
       downloadBlob(blob, cd, filename)
     }
+    // RAO: odśwież print_date w form — backend ustawił print_hash + print_date
+    form.value = { ...form.value, print_date: new Date().toISOString() }
   } catch (e: any) {
     toastStore.error('Błąd generowania raportu')
   }

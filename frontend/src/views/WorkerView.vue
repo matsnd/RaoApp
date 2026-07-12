@@ -290,6 +290,8 @@ function setDeliveryLookahead(d) {
 async function printContract(id) {
   try {
     await contractStore.generateReport(id, 'contract')
+    // RAO: odśwież listy unprinted + stale po wydruku
+    await Promise.all([loadUnprinted(), loadStale()])
   } catch {
     toastStore.error('Błąd generowania raportu')
   }

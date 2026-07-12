@@ -413,9 +413,9 @@ function openContextMenu(event, contract) {
   ctxMenu.value = { visible: true, x, y, contract }
 }
 
-function ctxPrint(type) {
+async function ctxPrint(type) {
   if (ctxMenu.value.contract) {
-    contractStore.generateReport(ctxMenu.value.contract.id, type)
+    await contractStore.generateReport(ctxMenu.value.contract.id, type)
   }
   ctxMenu.value.visible = false
 }
@@ -512,9 +512,9 @@ function handleRemove() {
   if (selectedId.value) showConfirm.value = true
 }
 
-function handleView() {
+async function handleView() {
   if (selectedId.value && section.value === 'contracts') {
-    contractStore.generateReport(selectedId.value, 'contract')
+    await contractStore.generateReport(selectedId.value, 'contract')
   }
 }
 

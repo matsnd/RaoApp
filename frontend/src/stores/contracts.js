@@ -154,6 +154,15 @@ export const useContractStore = defineStore('contracts', () => {
     if (saved) {
       toastStore.showToast(`${filename} zapisany do folderu PDF`, 'success')
     }
+    // RAO: odśwież stan umowy w store — print_date + is_print_current po wydruku
+    if (current.value && current.value.id === contractId) {
+      current.value = { ...current.value, print_date: new Date().toISOString(), is_print_current: true }
+    }
+    // RAO: odśwież wpis na liście — print_date + is_print_current
+    const idx = list.value.findIndex(c => c.id === contractId)
+    if (idx >= 0) {
+      list.value[idx] = { ...list.value[idx], print_date: new Date().toISOString(), is_print_current: true }
+    }
   }
 
   return {
