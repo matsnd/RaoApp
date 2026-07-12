@@ -794,8 +794,10 @@ async def positions(
     # RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
     # RAO Faza 2a (opcja E): pomiń unmapped (machine_id is not None) — to lista pozycji umowy,
     # unmapped nie ma pozycji. Totale per typ też skip unmapped.
+    # RAO: usługi dodatkowe (is_additional_service=True) mają machine_id=None i service_id=None,
+    # ale mają additional_service_id — nie odfiltruj ich.
     all_pos = await _compute_position_revenues(db, df, dt, service_filter=None, exclude_archival=False)
-    all_pos = [p for p in all_pos if p["machine_id"] is not None or p["service_id"] is not None]
+    all_pos = [p for p in all_pos if p["machine_id"] is not None or p["service_id"] is not None or p.get("is_additional_service")]
 
     # Totale per typ — z pełnego zbioru (zamiast drugiego wywołania _compute)
     total_machines_rev = sum(p["revenue"] for p in all_pos if p["is_service"] is False)
@@ -832,7 +834,15 @@ async def positions(
     })
 
     for p in all_pos:
-        key = p["machine_id"] if not p["is_service"] else p["service_id"]
+        # RAO: 3 kategorie — maszyny (machine_id), usługi zwykłe (service_id),
+        # usługi dodatkowe (additional_service_id). Kolizja ID między services
+        # i additional_services — użyj prefixu żeby uniknąć zderzenia bucketów.
+        if p.get("is_additional_service"):
+            key = ("addl", p.get("additional_service_id"))
+        elif p["is_service"]:
+            key = ("svc", p["service_id"])
+        else:
+            key = ("mach", p["machine_id"])
         agg[key]["name"] = p["article_name"]
         agg[key]["internal_number"] = p["internal_number"]
         agg[key]["is_service"] = p["is_service"]
@@ -842,10 +852,10 @@ async def positions(
         agg[key]["contracts"].add(p["contract_id"])
         agg[key]["times_billed"] += 1
 
-    # Build response items
+    # Build response items — klucz to tupla ("mach"|"svc"|"addl", id); wyciągnij ID
     items = [
         PositionStatItem(
-            article_id=aid,
+            article_id=aid[1] if isinstance(aid, tuple) else aid,
             article_name=d["name"],
             internal_number=d["internal_number"],
             is_service=d["is_service"],

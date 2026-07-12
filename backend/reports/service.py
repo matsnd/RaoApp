@@ -422,7 +422,7 @@ async def generate_commissions_pdf(db: AsyncSession, date_from: date, date_to: d
     import asyncio
 
     df, dt = date_from, date_to
-    all_pos = await _compute_position_revenues(db, df, dt)
+    all_pos = await _compute_position_revenues(db, df, dt, exclude_archival=False)
 
     sp_q = await db.execute(
         select(Salesperson.id, Salesperson.name, Salesperson.commission_rate)
@@ -508,7 +508,7 @@ async def generate_stats_pdf(db: AsyncSession, date_from: date, date_to: date) -
     df, dt = date_from, date_to
     today = date.today()
 
-    all_pos = await _compute_position_revenues(db, df, dt)
+    all_pos = await _compute_position_revenues(db, df, dt, exclude_archival=False)
 
     # Fleet summary
     total_q = await db.execute(select(func.count()).select_from(Machine))
@@ -542,11 +542,18 @@ async def generate_stats_pdf(db: AsyncSession, date_from: date, date_to: date) -
             machine_agg[k]["contracts"].add(p["contract_id"])
     top10 = sorted(machine_agg.items(), key=lambda x: x[1]["revenue"], reverse=True)[:10]
 
-    # Services breakdown
+    # Services breakdown — RAO: separacja usług zwykłych od dodatkowych
     svc_agg: dict = defaultdict(lambda: {"name": "", "revenue": Decimal(0), "contracts": set()})
     for p in all_pos:
-        if p["is_service"]:
-            k = p["service_id"]
+        if p.get("is_additional_service"):
+            # Usługi dodatkowe — klucz po additional_service_id (nie service_id — kolizja ID)
+            k = ("addl", p.get("additional_service_id"))
+            svc_agg[k]["name"] = p["service_name"]
+            svc_agg[k]["revenue"] += p["revenue"]
+            svc_agg[k]["contracts"].add(p["contract_id"])
+        elif p["is_service"]:
+            # Usługi zwykłe — klucz po service_id (Service.id)
+            k = ("svc", p["service_id"])
             svc_agg[k]["name"] = p["service_name"]
             svc_agg[k]["revenue"] += p["revenue"]
             svc_agg[k]["contracts"].add(p["contract_id"])

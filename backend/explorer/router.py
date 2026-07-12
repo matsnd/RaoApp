@@ -321,6 +321,9 @@ async def get_services_summary(
     all_positions = await compute_position_revenues(
         db, df, dt, service_filter=True, exclude_archival=False
     )
+    # RAO: odfiltruj usługi dodatkowe — to drilldown po Service (usługi zwykłe),
+    # nie additional_services. Usługi dodatkowe mają is_additional_service=True.
+    all_positions = [p for p in all_positions if not p.get("is_additional_service")]
     # Filtruj po service_type (name LIKE)
     if service_type:
         all_positions = [p for p in all_positions

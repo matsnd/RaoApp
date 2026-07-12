@@ -322,6 +322,8 @@ async def compute_position_revenues(
             "article_name": p[7] or p[22],  # backward compat: coalesce(machine_name, service_name)
             "internal_number": p[8],
             "is_service": p[9] is not None,  # was p[9]=Article.is_service; now service_id != None
+            "is_additional_service": False,  # RAO: pozycja umowy (maszyna/usługa zwykła), nie dodatkowa
+            "additional_service_id": None,   # RAO: tylko dla usług dodatkowych
             "contract_number": p[10],
             "contractor_name": p[11],
             "contractor_id": p[12],
@@ -400,6 +402,8 @@ async def compute_position_revenues(
             "article_name": u[2] or "(niezmapowane z FA)",  # backward compat: snapshot z FA
             "internal_number": None,
             "is_service": None,
+            "is_additional_service": False,  # RAO: unmapped, nie usługa dodatkowa
+            "additional_service_id": None,
             "contract_number": u[6],
             "contractor_name": u[7],
             "contractor_id": u[8],
@@ -474,7 +478,8 @@ async def compute_position_revenues(
         results.append({
             "position_id": None,
             "machine_id": None,
-            "service_id": a[4],            # AdditionalService.id
+            "service_id": None,            # NULL — nie Service.id (kolizja z additional_services.id)
+            "additional_service_id": a[4], # AdditionalService.id (osobne ID space)
             "contract_id": a[1],
             "rental_days": 0,
             "machine_name": None,
@@ -482,6 +487,7 @@ async def compute_position_revenues(
             "article_name": a[5],          # backward compat
             "internal_number": None,
             "is_service": True,            # usługa dodatkowa = usługa
+            "is_additional_service": True, # RAO: oznaczenie usługi dodatkowej (nie zwykłej)
             "contract_number": a[6],
             "contractor_name": a[7],
             "contractor_id": a[8],
