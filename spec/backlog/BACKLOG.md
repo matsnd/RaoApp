@@ -1173,6 +1173,53 @@ migration_impact: no
 - [ ] Spec sync: `03_frontend_screens.md` (opcjonalnie `02_backend_api.md`)
 - [ ] Smoke `01-login.spec.ts` zielony
 
+### P1-129: PDF Umowy S — sekcja "Uwagi" bez sztywnego bloku + format jak "Inne usługi" + trochę szersza
+
+```yaml
+id: P1-129
+status: triaged
+priority: P1
+created: 2026-07-12
+source: client-request (współpraca 2026-07-12)
+component: backend/reports/templates/contract.html + e2e/tests + spec/core/11_reports_stats.md
+migration_impact: no
+```
+
+**Opis:** W szablonie PDF umowy najmu (`backend/reports/templates/contract.html`) sekcja "Uwagi" (prawa komórka tabeli `table.inne`) zawiera sztywny blok tekstu: "Doba wynajmu: ...", "Zgłoszenie zwrotu urządzenia: ...", "Naliczanie: ... dni w tygodniu (pozostałe dni według zapisu GPS)", "Dokumentacja zdjęciowa: wykonano". Klient chce usunąć ten sztywny blok i zostawić "Uwagi" jako czyste okienko na `contract.notes` z formularza, sformatowane podobnie do lewej komórki "Inne usługi", ale trochę szersze.
+
+**Stan obecny:**
+- `backend/reports/templates/contract.html` (linia 218-248) — tabela `table.inne` z dwiema komórkami:
+  - `.inne-left` (70%) — "Inne usługi" — lista aktywnych opłat dodatkowych, format `.inne-label` + `.inne-item`
+  - `.inne-right` (30%) — "Uwagi" — twardy blok 4 akapitów + `contract.notes` (jeśli wypełniony)
+- CSS (linia 57-62): `.inne-left { width: 70%; }`, `.inne-right { width: 30%; }`, `.inne-box { border: 1px solid #aaa; padding: 4px 6px; font-size: 8px; ... }`
+- `backend/reports/templates/contract_u.html` (umowa usługi) już ma czyste okienko "uwagi" z `contract.notes` (linia 201-216) — bez twardych akapitów.
+- `e2e/tests/11-pdf-verification.spec.ts` (linia 198) — test wymaga ręcznej weryfikacji 4 podpunktów w sekcji "Uwagi" (Doba wynajmu, Zgłoszenie zwrotu, Ilość dni pracy, Dokumentacja zdjęciowa).
+- `e2e/tests/22-client-feedback.spec.ts` (linia 51-72) — test `#4` weryfikuje zapis "Naliczanie: X dni w tygodniu (pozostałe dni według zapisu GPS)".
+- `e2e/tests/SCENARIOS_SPRINT_KLIENT_2026-05-25.md` (linia 222-230) — scenario wymaga 4 podpunktów w sekcji "Uwagi".
+- `spec/core/11_reports_stats.md` (linia 84-99) — dokumentuje sekcję "Uwagi" przed podpisami z 4 twardymi podpunktami.
+
+**Zadania:**
+1. **PDF** `backend/reports/templates/contract.html` — usunąć twardy blok 4 akapitów z komórki "Uwagi" (linia 236-239). Zostawić tylko nagłówek "Uwagi" oraz `contract.notes` (jeśli wypełnione). Format: `.inne-label` + treść `notes` (opcjonalnie `.inne-item` lub `white-space: pre-wrap`).
+2. **PDF** `backend/reports/templates/contract.html` — poszerzyć prawą komórkę "Uwagi" (np. z `30%` na `40%` lub `45%`) i zmniejszyć "Inne usługi" z `70%` odpowiednio. Dostosować padding/marginesy żeby wygląd był spójny z "Inne usługi".
+3. **PDF** `backend/reports/templates/contract.html` — opcjonalnie: zastąpić `.inne-box` style `.inne-label` + `.inne-item` (bez grubej ramki? do ustalenia z klientem na podstawie "Inne usługi"). Upewnić się, że puste `notes` daje puste okienko (nie pozostawia zera lub placeholderów).
+4. **Backend** `contracts/service.py` — upewnić się, że `build_contract_data` poprawnie przekazuje `contract.notes` do PDF (już to robi, ale weryfikacja).
+5. **E2E** — zaktualizować / usunąć testy zakładające 4 twarde podpunkty w "Uwagi":
+   - `e2e/tests/11-pdf-verification.spec.ts` (linia 198) — usunąć/zmienić weryfikację 4 podpunktów; zastąpić sprawdzeniem, że sekcja "Uwagi" zawiera tylko `contract.notes` (jeśli podane).
+   - `e2e/tests/22-client-feedback.spec.ts` (linia 51-72) — test `#4` dotyczył "Naliczanie z GPS" — usunąć lub zastąpić testem weryfikującym, że twardy blok nie występuje.
+   - `e2e/tests/SCENARIOS_SPRINT_KLIENT_2026-05-25.md` (linia 222-230) — zaktualizować scenario.
+6. **Spec sync** — `spec/core/11_reports_stats.md` (linia 84-99) — zaktualizować opis sekcji "Uwagi": usunąć 4 twarde podpunkty, opisać, że sekcja zawiera tylko `contract.notes`.
+7. **Manual / Vision** — wygenerować PDF umowy S z `contract.notes` i bez, zweryfikować layout (szczególnie wysokość okienka, zawijanie tekstu, czytelność po poszerzeniu).
+
+**Definition of Done:**
+- [ ] PDF umowy S nie zawiera twardych akapitów "Doba wynajmu", "Zgłoszenie zwrotu", "Naliczanie", "Dokumentacja zdjęciowa"
+- [ ] Sekcja "Uwagi" zawiera tylko `contract.notes` (lub jest pusta)
+- [ ] Format "Uwagi" odpowiada "Inne usługi" (label, font, padding, ramka)
+- [ ] Sekcja "Uwagi" jest szersza niż obecnie 30% (np. 40-45%)
+- [ ] Regresja: `contract_u.html` umowa usługi nie zmieniona lub zsynchronizowana
+- [ ] E2E zaktualizowane: usunięte weryfikacje 4 podpunktów
+- [ ] Spec sync: `11_reports_stats.md`
+- [ ] Smoke `01-login.spec.ts` zielony
+
 ---
 
 ## 🟢 P3 — Nice-to-Have
