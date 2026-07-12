@@ -386,27 +386,18 @@
                 <!-- EDIT MODE -->
                 <tr v-if="editingFeeId === fee.id" class="row-editing">
                   <td>
-                    <!-- P1-120: combobox z additional_services + opcja własnej nazwy -->
+                    <!-- P1-120: combobox z additional_services — zawsze select, bez text fallback -->
                     <select
-                      v-if="editingFeeData.additional_service_id !== null || !editingFeeData.name"
                       class="form-control form-control-xs"
                       :value="editingFeeData.additional_service_id ?? ''"
                       @change="onFeeServicePick($event, editingFeeData)"
                       @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee"
                     >
-                      <option value="">— wybierz usługę —</option>
+                      <option value="" disabled>— wybierz usługę —</option>
                       <option v-for="s in additionalServiceStore.list" :key="s.id" :value="s.id">
                         {{ s.display_name || s.name }}
                       </option>
-                      <option value="__custom__">✎ własna nazwa…</option>
                     </select>
-                    <input
-                      v-if="editingFeeData.additional_service_id === null && editingFeeData.name"
-                      v-model="editingFeeData.name"
-                      class="form-control form-control-xs"
-                      placeholder="Nazwa usługi"
-                      @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee"
-                    />
                   </td>
                   <td><input v-model="editingFeeData.amount_from" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" /></td>
                   <td><input v-model="editingFeeData.amount_to" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" /></td>
@@ -433,28 +424,18 @@
               <!-- NEW ROW -->
               <tr v-if="showNewFeeRow" class="row-editing">
                 <td>
-                  <!-- P1-120: combobox z additional_services -->
+                  <!-- P1-120: combobox z additional_services — zawsze select, bez text fallback -->
                   <select
-                    v-if="newFeeData.additional_service_id !== null || !newFeeData.name"
                     class="form-control form-control-xs"
                     :value="newFeeData.additional_service_id ?? ''"
                     @change="onFeeServicePick($event, newFeeData)"
                     @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow"
                   >
-                    <option value="">— wybierz usługę —</option>
+                    <option value="" disabled>— wybierz usługę —</option>
                     <option v-for="s in additionalServiceStore.list" :key="s.id" :value="s.id">
                       {{ s.display_name || s.name }}
                     </option>
-                    <option value="__custom__">✎ własna nazwa…</option>
                   </select>
-                  <input
-                    v-if="newFeeData.additional_service_id === null && newFeeData.name"
-                    v-model="newFeeData.name"
-                    class="form-control form-control-xs"
-                    placeholder="Nazwa usługi"
-                    ref="newFeeNameInput"
-                    @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow"
-                  />
                 </td>
                 <td><input v-model="newFeeData.amount_from" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" /></td>
                 <td><input v-model="newFeeData.amount_to" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" /></td>
@@ -2373,12 +2354,6 @@ function selectSupplier(c) {
 // P1-120: wybór usługi dodatkowej z comboboxa → uzupełnia name + amount_from
 function onFeeServicePick(ev: Event, target: any) {
   const val = (ev.target as HTMLSelectElement).value
-  if (val === '__custom__') {
-    target.additional_service_id = null
-    target.name = ''
-    nextTick(() => { newFeeNameInput.value?.focus() })
-    return
-  }
   if (!val) {
     target.additional_service_id = null
     return
@@ -2388,7 +2363,7 @@ function onFeeServicePick(ev: Event, target: any) {
   if (!svc) return
   target.additional_service_id = id
   target.name = svc.display_name || svc.name
-  if (svc.default_amount != null && target.amount_from == null) {
+  if (svc.default_amount != null) {
     target.amount_from = Number(svc.default_amount)
   }
 }
@@ -2411,7 +2386,7 @@ function cancelInlineFee() {
 }
 
 async function saveInlineFee() {
-  if (!editingFeeData.value.name) { cancelInlineFee(); return }
+  if (!editingFeeData.value.additional_service_id) { toastStore.error('Wybierz usługę z listy'); return }
   try {
     const payload = { ...editingFeeData.value }
     if (!payload.description) payload.description = null
@@ -2429,7 +2404,6 @@ function addFeeRow() {
   editingFeeId.value = null
   newFeeData.value = { additional_service_id: null, name: '', amount_from: null, amount_to: null, description: '', is_active: true }
   showNewFeeRow.value = true
-  nextTick(() => { newFeeNameInput.value?.focus() })
 }
 
 function cancelNewFeeRow() {
@@ -2437,7 +2411,7 @@ function cancelNewFeeRow() {
 }
 
 async function saveNewFeeRow() {
-  if (!newFeeData.value.name) { cancelNewFeeRow(); return }
+  if (!newFeeData.value.additional_service_id) { toastStore.error('Wybierz usługę z listy'); return }
   try {
     const payload = { ...newFeeData.value }
     if (!payload.description) payload.description = null

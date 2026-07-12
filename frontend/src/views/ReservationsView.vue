@@ -591,7 +591,7 @@ onMounted(async () => {
             <label><input type="checkbox" v-model="showContracts" /> Blokady umowami</label>
           </div>
           <div class="rv-day-events">
-            <div v-for="e in visibleDayEvents" :key="e.source_id" class="rv-day-event" data-testid="rv-day-event" @click="openEdit(e)">
+            <div v-for="e in visibleDayEvents" :key="`${e.source}-${e.source_id}`" class="rv-day-event" data-testid="rv-day-event" @click="openEdit(e)">
               <span :class="['rv-dot', dotClass(e)]"></span>
               <div>
                 <strong>{{ e.machine_name || 'Maszyna' }}</strong>
