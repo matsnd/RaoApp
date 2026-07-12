@@ -1031,6 +1031,55 @@ migration_impact: no
 - [ ] Spec sync: `03_frontend_screens.md`
 - [ ] Smoke `01-login.spec.ts` zielony
 
+### P1-126: Umowa usługi (U) — picker pozycji pokazuje sprzęt zamiast usług
+
+```yaml
+id: P1-126
+status: triaged
+priority: P1
+created: 2026-07-12
+source: client-request (współpraca 2026-07-12)
+component: frontend/ContractFormView.vue + backend/services/schemas.py + backend/services/service.py
+migration_impact: no
+related: P1-115 (seed umów U został naprawiony, ale picker UI wciąż pokazuje sprzęt)
+```
+
+**Opis:** W formularzu umowy typu U (Usługa) kliknięcie "+ Dodaj usługę" otwiera picker, który zamiast usług (z tabeli `services`) wyświetla maszyny/sprzęt z tabeli `machines`. W nagłówku modala jest "Wybierz usługę", a w tabeli widać pozycje typu "Sprzęt" (np. "Chwytak do płyt", "Ładowarka teleskopowa …"). Nie ma prawdziwych usług ("Praca operatora koparki", "Frezowanie asfaltu" itp.).
+
+**Stan obecny:**
+- `frontend/src/views/ContractFormView.vue` — `onMounted` (linia 1520) ładuje `articlePickerList` na podstawie `isRental.value` (linia 1531-1533). `isRental` jest `computed` z `form.value.contract_type`, a `form.value.contract_type` jest zainicjowane domyślnie `'S'` (linia 1072). W efekcie przy otwarciu formularza (nowa umowa U lub edycja istniejącej U) `onMounted` najpierw woła `/machines`, bo `form.contract_type` jest jeszcze `'S'`. Dopiero później `Object.assign(form.value, data)` (linia 1554) ustawia `'U'`, ale `articlePickerList` już zawiera maszyny.
+- `searchArticles()` (linia 2151) używa poprawnego endpointu `/services` dla U (linia 2155), ale jest wołana tylko przy `@input` textboxu w pickerze. Jeśli użytkownik otworzy picker i nie zacznie pisać, widzi stare maszyny z `articlePickerList`.
+- `backend/services/schemas.py` — `ServiceListItem` (linia 6) nie zawiera pola `is_service`, `brand`, `registration_no`, `is_external`. Tabela w pickerze (linia 780 `ContractFormView.vue`) używa `a.is_service ? 'Usługa' : 'Sprzęt'` — brak `is_service` oznacza, że nawet jeśli `/services` zwróci usługi, badge będzie "Sprzęt".
+- `backend/services/service.py` `list_services` (linia 11) zwraca tylko `name`, `description`, `fakturownia_product_id`, `created_at`, `updated_at` — brak pól potrzebnych do tabeli w pickerze.
+- Tabela w pickerze (linia 771-793) wymaga kolumn `registration_no`, `brand`, `is_service`, `is_external` — nie pasuje do modelu `Service`.
+
+**Weryfikacja DB (2026-07-12):**
+- `services` zawiera 5 rekordów: `Praca operatora koparki`, `Praca operatora ładowarki`, `Praca operatora podnośnika`, `Frezowanie asfaltu`, `Zagęszczanie podłoża` — dane są poprawne.
+- `contract_positions` dla umów U mają `service_id` ustawione (nie `machine_id`) — dane są poprawne.
+- Wniosek: błąd leży w UI/frontend picker, nie w danych.
+
+**Zadania:**
+1. **Frontend** `ContractFormView.vue` — przenieść lub powtórzyć ładowanie `articlePickerList` **po** ustaleniu `form.value.contract_type` (w `onMounted` po `Object.assign` dla edycji, oraz obserwacja `watch` na `form.value.contract_type` dla nowej umowy). Upewnić się, że picker otwierany w U woła `/services` (nie `/machines`).
+2. **Frontend** `ContractFormView.vue` — przy otwarciu pickera (`showArticlePicker = true`) zawsze odświeżać listę (`searchArticles()` z aktualnym `articlePickerSearch` lub osobne `loadArticlePickerList`) zgodnie z `isRental`.
+3. **Frontend** — dedykowany wariant tabeli pickera dla `isService`: ukryć kolumny `Nr rej.`, `Marka`, `Zewnętrzna`, `Dostępność` i pokazać `Opis` (lub inne pole usługi). Badge typu powinien wyświetlać "Usługa".
+4. **Backend** `services/schemas.py` — `ServiceListItem` dodać `is_service: bool = True` (lub `service_type: str = 'service'`) oraz opcjonalnie `brand`, `registration_no`, `is_external` z wartościami `None`/`False`, żeby frontend mógł używać tej samej tabeli bez błędnych pól.
+5. **Backend** `services/service.py` — `list_services` zwracać dodatkowe pola dla `ServiceListItem` (opcjonalnie `brand`, `registration_no`, `is_external` jako `None`/`False` oraz `is_service=True`).
+6. **Frontend** `ContractFormView.vue` — dla `isService` w `newPosData` / `editingPosData` ustawiać `service_id` zamiast `machine_id` (wzór `buildPosPayload` linia 2090 powinien już to robić, ale weryfikacja pickera jest potrzebna).
+7. **E2E** — test: otwórz formularz nowej umowy U → kliknij "Dodaj usługę" → picker pokazuje tylko usługi (`services` table), nie maszyny; wybierz usługę → zapisz pozycję → `service_id` zapisane w `contract_positions`.
+8. **Regresja** — sprawdzić, czy picker w umowie S nadal pokazuje maszyny i dostępność.
+9. **Spec sync** — `03_frontend_screens.md`, `02_backend_api.md` (ServiceListItem), `04_business_logic.md` (jeśli dotyka flow usług).
+
+**Definition of Done:**
+- [ ] Picker w umowie U otwiera się z listą usług z `services` (nie maszyn z `machines`)
+- [ ] Picker w umowie S otwiera się z listą maszyn (regresja)
+- [ ] Zmiana typu umowy z S na U (i odwrotnie) odświeża picker
+- [ ] Badge typu w pickerze U wyświetla "Usługa" (nie "Sprzęt")
+- [ ] Kolumny pickera U są dostosowane do usług (brak Nr rej./Marki/Zewnętrzna/Dostępność)
+- [ ] Zapis pozycji U zapisuje `service_id` (XOR z `machine_id`)
+- [ ] E2E: dodanie usługi do umowy U działa end-to-end
+- [ ] Spec sync: `03_frontend_screens.md`, `02_backend_api.md`
+- [ ] Smoke `01-login.spec.ts` zielony
+
 ---
 
 ## 🟢 P3 — Nice-to-Have
