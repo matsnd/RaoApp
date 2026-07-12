@@ -120,8 +120,8 @@ test.describe('TEST-03c-AdditionalService: Usługi dodatkowe (Faza 5)', () => {
 
     await navigateTo(page, 'additional-services')
     await page.getByPlaceholder('Szukaj wg nazwy...').fill(uniq)
-    await page.waitForTimeout(600)
-    await expect(page.locator('tbody')).toContainText(uniq, { timeout: 5_000 })
+    // Czekaj aż wynik wyszukiwania się pojawi (search ma 400ms debounce)
+    await expect(page.locator('tbody')).toContainText(uniq, { timeout: 15_000 })
   })
 
   // ── API: walidacja backend ────────────────────────────────────────────────

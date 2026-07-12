@@ -7,7 +7,7 @@ test.describe('TEST-18: ResetPasswordView — reset hasła', () => {
   })
 
   test('wyświetla formularz reset hasła pod /reset-password', async ({ page }) => {
-    await page.goto('http://localhost:5173/rao/reset-password', {
+    await page.goto('/rao/reset-password', {
       waitUntil: 'domcontentloaded',
       timeout: 15_000,
     })
@@ -17,7 +17,7 @@ test.describe('TEST-18: ResetPasswordView — reset hasła', () => {
   })
 
   test('pola new_password + confirm_password są required', async ({ page }) => {
-    await page.goto('http://localhost:5173/rao/reset-password', {
+    await page.goto('/rao/reset-password', {
       waitUntil: 'domcontentloaded',
       timeout: 15_000,
     })
@@ -30,7 +30,7 @@ test.describe('TEST-18: ResetPasswordView — reset hasła', () => {
   })
 
   test('walidacja: min 6 znaków (minlength)', async ({ page }) => {
-    await page.goto('http://localhost:5173/rao/reset-password', {
+    await page.goto('/rao/reset-password', {
       waitUntil: 'domcontentloaded',
       timeout: 15_000,
     })
@@ -41,7 +41,7 @@ test.describe('TEST-18: ResetPasswordView — reset hasła', () => {
   })
 
   test('walidacja: new != confirm → błąd po submicie', async ({ page }) => {
-    await page.goto('http://localhost:5173/rao/reset-password', {
+    await page.goto('/rao/reset-password', {
       waitUntil: 'domcontentloaded',
       timeout: 15_000,
     })
@@ -56,7 +56,7 @@ test.describe('TEST-18: ResetPasswordView — reset hasła', () => {
   })
 
   test('aria-invalid na polach z błędem po submicie', async ({ page }) => {
-    await page.goto('http://localhost:5173/rao/reset-password', {
+    await page.goto('/rao/reset-password', {
       waitUntil: 'domcontentloaded',
       timeout: 15_000,
     })
