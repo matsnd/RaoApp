@@ -26,6 +26,8 @@ class ReservationUpdate(BaseModel):
     contractor_id: Optional[int] = None
     # RAO-L-Phase2: edycja statusu rezerwacji
     status: Optional[str] = Field(None, pattern="^(confirmed|provisional)$")
+    # P2-003: zmiana maszyny (z walidacją is_external w service.update)
+    machine_id: Optional[int] = None
 
     @model_validator(mode="after")
     def validate_dates(self) -> "ReservationUpdate":

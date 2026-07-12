@@ -2585,7 +2585,7 @@ onUnmounted(() => {
   - Tydzień zaczyna się od poniedziałku (Pn-Nd).
 - **Widok listy** (tabela): Maszyna (machine_name + internal_number), Kontrahent (contractor_name lub "—"), Od, Do, Status (badge), Notatka, Akcje (edytuj ✏️, usuń 🗑️). Sortowanie po dacie od (rosnąco).
 - **Filtry** (nad kalendarzem/listą):
-  - Maszyna (select z maszynami non-archival — `GET /machines?archival_status=active&per_page=200`).
+  - Maszyna (select z maszynami non-archival — `GET /machines?archival_status=active&per_page=200`). **P2-003:** Tylko maszyny wewnętrzne (`is_external=false`) — filtrowane frontend-side `.filter((a) => !a.is_service && !a.is_external)`.
   - Kontrahent (`ContractorCombobox` z `components/analytics/`).
   - Status (confirmed/provisional/wszystko).
   - Zakres dat (`DateRangePicker` z `components/shared/`) — tylko dla widoku listy; kalendarz używa automatycznie miesiąc.

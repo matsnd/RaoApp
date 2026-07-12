@@ -1,7 +1,7 @@
 """RAO-P3-011: testy dla ReservationService (mockowane DB)."""
 import pytest
 from datetime import date
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi import HTTPException
 
@@ -12,6 +12,19 @@ from reservations.schemas import ReservationCreate, ReservationUpdate
 def _mock_db_with_conflict(conflict: bool):
     """Buduje AsyncMock(AsyncSession) który zwraca lub nie zwraca rezerwacji."""
     db = AsyncMock()
+    # P2-003: db.get(Machine, id) → maszyna wewnętrzna (is_external=False)
+    machine = MagicMock()
+    machine.is_external = False
+    contractor = MagicMock()  # dla testów z contractor_id
+
+    async def _get(cls, _id):
+        if cls.__name__ == "Machine":
+            return machine
+        if cls.__name__ == "Contractor":
+            return contractor
+        return None
+    db.get = AsyncMock(side_effect=_get)
+
     result = MagicMock()
     result.scalar_one_or_none.return_value = MagicMock() if conflict else None
     db.execute = AsyncMock(return_value=result)
@@ -258,11 +271,92 @@ async def test_list_calendar_empty_result():
 
 
 @pytest.mark.asyncio
-async def test_list_calendar_with_article_filter():
-    """GET /calendar — filtr article_id przekazany do obu źródeł."""
+async def test_list_calendar_with_machine_filter():
+    """GET /calendar — filtr machine_id przekazany do obu źródeł (refaktor articles→machines)."""
     svc = ReservationService()
     res_row = (1, 10, "Koparka", "S001", None, None, date(2026, 1, 5), date(2026, 1, 15), None, "confirmed")
     db = _mock_db_for_calendar(reservation_rows=[res_row], contract_rows=[])
-    events = await svc.list_calendar(db, date(2026, 1, 1), date(2026, 1, 31), article_id=10)
+    events = await svc.list_calendar(db, date(2026, 1, 1), date(2026, 1, 31), machine_id=10)
     assert len(events) == 1
-    assert events[0].article_id == 10
+    assert events[0].machine_id == 10
+
+
+# --- P2-003: Rezerwacje tylko na maszyny wewnętrzne ---
+
+def _mock_db_with_external_machine(is_external: bool = True):
+    """Mock dla create: db.get(Machine, id) → maszyna z is_external."""
+    db = AsyncMock()
+    machine = MagicMock()
+    machine.is_external = is_external
+
+    async def _get(cls, _id):
+        if cls.__name__ == "Machine":
+            return machine
+        return None
+    db.get = AsyncMock(side_effect=_get)
+
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = None  # brak konfliktu
+    db.execute = AsyncMock(return_value=result)
+    db.add = MagicMock()
+    db.commit = AsyncMock()
+    db.refresh = AsyncMock()
+    return db
+
+
+@pytest.mark.asyncio
+async def test_create_rejects_external_machine_400():
+    """P2-003: create rezerwacji na maszynie zewnętrznej → 400."""
+    svc = ReservationService()
+    db = _mock_db_with_external_machine(is_external=True)
+    data = ReservationCreate(
+        machine_id=99,
+        reserved_from=date(2026, 1, 1),
+        reserved_to=date(2026, 1, 10),
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        await svc.create(db, data, user_id=42)
+    assert exc_info.value.status_code == 400
+    assert "zewnętrz" in str(exc_info.value.detail).lower()
+
+
+@pytest.mark.asyncio
+async def test_create_allows_internal_machine():
+    """P2-003: create rezerwacji na maszynie wewnętrznej → sukces."""
+    svc = ReservationService()
+    db = _mock_db_with_external_machine(is_external=False)
+    data = ReservationCreate(
+        machine_id=1,
+        reserved_from=date(2026, 1, 1),
+        reserved_to=date(2026, 1, 10),
+    )
+    # Mock check_conflict + MachineReservation constructor (unika SQLAlchemy mapper init)
+    with patch.object(svc, "check_conflict", new_callable=AsyncMock, return_value=False), \
+         patch("reservations.service.MachineReservation") as MockReservation:
+        MockReservation.return_value = MagicMock()
+        obj = await svc.create(db, data, user_id=42)
+    assert obj is not None
+    db.add.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_update_rejects_external_machine_400():
+    """P2-003: update rezerwacji zmieniająca machine_id na zewnętrzną → 400."""
+    svc = ReservationService()
+    existing = _mk_existing_reservation()
+    external_machine = MagicMock()
+    external_machine.is_external = True
+
+    db = _mock_db_for_update(existing, conflict=False)
+
+    async def _get(cls, _id):
+        if cls.__name__ == "Machine":
+            return external_machine
+        return existing
+    db.get = AsyncMock(side_effect=_get)
+
+    data = ReservationUpdate(machine_id=99)
+    with pytest.raises(HTTPException) as exc_info:
+        await svc.update(db, 1, data, user_id=42)
+    assert exc_info.value.status_code == 400
+    assert "zewnętrz" in str(exc_info.value.detail).lower()

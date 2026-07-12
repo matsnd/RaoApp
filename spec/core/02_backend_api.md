@@ -2404,15 +2404,17 @@ npm install vue-draggable-plus @vuepic/vue-datepicker
 **HTTP:** 200 | 401
 
 ### `POST /reservations`
-**Body:** `ReservationCreate` (`{article_id, reserved_from, reserved_to, note?, contractor_id?, status?}`)
+**Body:** `ReservationCreate` (`{machine_id, reserved_from, reserved_to, note?, contractor_id?, status?}`)
 **Response:** `ReservationResponse` (201)
-**HTTP:** 201 | 401 | 409 (konflikt dat)
+**HTTP:** 201 | 400 (maszyna zewnętrzna — P2-003) | 401 | 404 | 409 (konflikt dat)
+**P2-003:** Walidacja `machine.is_external` — jeśli True → 400 "Nie można rezerwować maszyn zewnętrznych"
 
 ### `PUT /reservations/{reservation_id}` (NOWY Phase2 2026-07-11)
 **Opis:** Edycja rezerwacji (partial update — tylko przekazane pola).
-**Body:** `ReservationUpdate` (`{reserved_from?, reserved_to?, note?, contractor_id?, status?}`)
+**Body:** `ReservationUpdate` (`{reserved_from?, reserved_to?, note?, contractor_id?, status?, machine_id?}`)
 **Response:** `ReservationResponse` (200)
-**HTTP:** 200 | 401 | 404 | 409 (konflikt dat)
+**HTTP:** 200 | 400 (maszyna zewnętrzna — P2-003) | 401 | 404 | 409 (konflikt dat)
+**P2-003:** Jeśli `machine_id` zmieniane i nowa maszyna `is_external=True` → 400
 
 ### `DELETE /reservations/{reservation_id}`
 **Opis:** Usunięcie rezerwacji (wymaga admin).
