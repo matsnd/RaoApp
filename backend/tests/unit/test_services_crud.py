@@ -23,7 +23,6 @@ from services.models import Service
 def test_service_create_minimal():
     s = ServiceCreate(name="Transport")
     assert s.name == "Transport"
-    assert s.is_archival is False
     assert s.description is None
 
 
@@ -43,7 +42,6 @@ def test_service_create_with_all_fields():
         description="Transport maszyn",
         notes="Notatki",
         replacement_value=10000,
-        is_archival=False,
     )
     assert s.description == "Transport maszyn"
     assert s.replacement_value == 10000
@@ -55,7 +53,6 @@ def test_service_update_all_optional():
     u = ServiceUpdate()
     assert u.name is None
     assert u.description is None
-    assert u.is_archival is None
 
 
 def test_service_update_partial_only_sent_fields():
@@ -247,7 +244,6 @@ async def test_list_services_with_data():
     s1.id = 1
     s1.name = "Transport A"
     s1.description = "Opis"
-    s1.is_archival = False
     s1.fakturownia_product_id = None
     s1.created_at = datetime.utcnow()
     s1.updated_at = None

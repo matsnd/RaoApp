@@ -1160,7 +1160,7 @@ const inlineArticleForm = ref({
   category_id: null, owner_id: null, branch_id: null,
   description: '', notes: '', rental_days: null, article_type: '',
   zasieg_m: null, udzwig_t: null, dodatki: null,
-  is_archival: false, is_external: false,
+  is_external: false,
 })
 // Category cascade for inline article form
 const catSelectedMain = ref(null)
@@ -1967,7 +1967,7 @@ async function saveInlineArticle() {
       category_id: null, owner_id: null, branch_id: null,
       description: '', notes: '', rental_days: null, article_type: '',
       zasieg_m: null, udzwig_t: null, dodatki: null,
-      is_archival: false, is_external: false,
+      is_external: false,
     }
     catSelectedMain.value = null
     catSelectedSub1.value = null

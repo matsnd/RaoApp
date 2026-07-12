@@ -148,7 +148,7 @@ async def fleet_summary(
 
     # Build base query for machines (Machine table = tylko maszyny, nie usługi)
     machines_query = select(func.count(Machine.id)).where(
-        and_(Machine.is_archival == False, Machine.is_external == False)  # RAO-P1-027
+        Machine.is_external == False  # RAO-P1-027
     )
     if internal_number:
         machines_query = machines_query.where(Machine.internal_number == internal_number)
@@ -157,7 +157,7 @@ async def fleet_summary(
     total_q = await db.execute(machines_query)
     total_machines = total_q.scalar() or 0
 
-    # Currently rented (active contracts with machine positions, not archival) — RAO-P1-017
+    # Currently rented (active contracts with machine positions) — RAO-P1-017
     rented_query = (
         select(func.count(func.distinct(ContractPosition.machine_id)))
         .select_from(ContractPosition)
@@ -165,7 +165,6 @@ async def fleet_summary(
         .join(Machine, Machine.id == ContractPosition.machine_id)
         .where(
             and_(
-                Machine.is_archival == False,       # RAO-P1-017
                 Machine.is_external == False,       # RAO-P1-027
                 Contract.date_from <= today,
                 # RAO-P2-060 bug #3: umowa na czas nieokreślony (date_to=NULL) = wciąż wynajęta
@@ -192,7 +191,7 @@ async def fleet_summary(
     # RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
     # BUG FIX: compute_position_revenues uwzględnia też usługi dodatkowe
     # (contract_settlements z service_fee_id) jako syntetyczne wiersze is_service=True.
-    all_pos = await _compute_position_revenues(db, df, dt, exclude_archival=False, service_filter=service_filter)
+    all_pos = await _compute_position_revenues(db, df, dt, service_filter=service_filter)
     # RAO-P0-001/BUG-1: filtruj pozycje po contractor_id/city/internal_number
     all_pos = _apply_position_filters(
         all_pos, contractor_id=contractor_id, city=city, internal_number=internal_number
@@ -264,7 +263,7 @@ async def top_machines(
         return _cached
     # RAO-P2-029: uwzględnia archiwalne maszyny (statystyki historyczne)
     # RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
-    all_pos = await _compute_position_revenues(db, df, dt, service_filter=False, exclude_archival=False)
+    all_pos = await _compute_position_revenues(db, df, dt, service_filter=False)
     all_pos = _apply_position_filters(
         all_pos, contractor_id=contractor_id, city=city, internal_number=internal_number
     )
@@ -322,10 +321,10 @@ async def currently_rented(
     if _cached is not None:
         return _cached
 
-    # RAO-P1-017: wyklucz maszyny archiwalne z licznika floty
+    # RAO-P1-017: licznik floty
     total_q = await db.execute(
         select(func.count()).select_from(Machine).where(
-            and_(Machine.is_archival == False, Machine.is_external == False)  # RAO-P1-027
+            Machine.is_external == False  # RAO-P1-027
         )
     )
     total_machines = total_q.scalar() or 0
@@ -348,7 +347,6 @@ async def currently_rented(
         .join(Machine, Machine.id == ContractPosition.machine_id)
         .where(
             and_(
-                Machine.is_archival == False,   # RAO-P1-017: wyklucz archiwalne
                 Machine.is_external == False,   # RAO-P1-027: wyklucz zewnętrzne
                 Contract.date_from <= today,
                 # RAO-P2-065 #4: umowa na czas nieokreślony (date_to=NULL) = wciąż wynajęta
@@ -482,7 +480,7 @@ async def locations(
         return _cached
     # RAO-P2-029: uwzględnia archiwalne maszyny (statystyki historyczne)
     # RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
-    all_pos = await _compute_position_revenues(db, df, dt, exclude_archival=False)
+    all_pos = await _compute_position_revenues(db, df, dt)
     # RAO-P0-001/BUG-5: filtruj po contractor_id/city/internal_number
     all_pos = _apply_position_filters(
         all_pos, contractor_id=contractor_id, city=city, internal_number=internal_number
@@ -559,7 +557,6 @@ async def by_category(
     all_pos = await _compute_position_revenues(
         db, df, dt,
         service_filter=service_filter,
-        exclude_archival=False,  # kategorie zawsze zliczają archiwalne (stare umowy)
         category_main_filter=category_main or None,
         category_sub1_filter=category_sub1,
         category_sub2_filter=category_sub2,
@@ -643,7 +640,6 @@ async def by_period(
     all_pos = await _compute_position_revenues(
         db, df, dt,
         service_filter=service_filter,
-        exclude_archival=False,  # kategorie zawsze zliczają archiwalne (stare umowy)
         category_main_filter=category_main or None,
     )
 
@@ -692,10 +688,9 @@ async def categories_list(
     )
     all_cats = cats_result.scalars().all()
 
-    # Policz maszyny per category_id (aktywne, nie archiwalne)
+    # Policz maszyny per category_id (aktywne)
     counts_result = await db.execute(
         select(Machine.category_id, sqlfunc.count(Machine.id))
-        .where(Machine.is_archival == False)
         .where(Machine.category_id.is_not(None))
         .group_by(Machine.category_id)
     )
@@ -796,7 +791,7 @@ async def positions(
     # unmapped nie ma pozycji. Totale per typ też skip unmapped.
     # RAO: usługi dodatkowe (is_additional_service=True) mają machine_id=None i service_id=None,
     # ale mają additional_service_id — nie odfiltruj ich.
-    all_pos = await _compute_position_revenues(db, df, dt, service_filter=None, exclude_archival=False)
+    all_pos = await _compute_position_revenues(db, df, dt, service_filter=None)
     all_pos = [p for p in all_pos if p["machine_id"] is not None or p["service_id"] is not None or p.get("is_additional_service")]
 
     # Totale per typ — z pełnego zbioru (zamiast drugiego wywołania _compute)
@@ -932,7 +927,7 @@ async def by_contract_type(
     """
     df, dt = _validate_date_range(date_from, date_to)
 
-    all_pos = await _compute_position_revenues(db, df, dt, service_filter=None, exclude_archival=False)
+    all_pos = await _compute_position_revenues(db, df, dt, service_filter=None)
     all_pos = _apply_position_filters(all_pos, contractor_id=contractor_id, city=city)
 
     # Agregacja per contract_type (logika w calc.py — testowalny pure function)
@@ -987,7 +982,7 @@ async def by_branch(
 
     df, dt = _validate_date_range(date_from, date_to)
 
-    all_pos = await _compute_position_revenues(db, df, dt, service_filter=None, exclude_archival=False)
+    all_pos = await _compute_position_revenues(db, df, dt, service_filter=None)
     all_pos = _apply_position_filters(all_pos, contractor_id=contractor_id, city=city)
 
     # Pobierz nazwy oddziałów do mapowania branch_id → branch_name
@@ -1269,7 +1264,7 @@ async def commissions(
 
     # Dla backward compatibility, oblicz również revenue (stara metoda)
     # RAO-P2-029: uwzględnia archiwalne maszyny (statystyki historyczne)
-    all_pos = await _compute_position_revenues(db, df, dt, exclude_archival=False)
+    all_pos = await _compute_position_revenues(db, df, dt)
     contract_sp_q = await db.execute(
         select(Contract.id, Contract.salesperson_id)
         .where(and_(*_contract_date_filter(df, dt)))

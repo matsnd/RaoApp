@@ -28,7 +28,6 @@ from additional_services.models import AdditionalService
 def test_additional_service_create_minimal():
     s = AdditionalServiceCreate(name="Ubezpieczenie")
     assert s.name == "Ubezpieczenie"
-    assert s.is_archival is False
     assert s.default_amount is None
     assert s.description is None
 
@@ -49,7 +48,6 @@ def test_additional_service_create_with_all_fields():
         default_amount=Decimal("150.00"),
         description="Ubezpieczenie maszyny",
         notes="Notatki",
-        is_archival=False,
     )
     assert s.description == "Ubezpieczenie maszyny"
     assert s.default_amount == Decimal("150.00")
@@ -66,7 +64,6 @@ def test_additional_service_update_all_optional():
     u = AdditionalServiceUpdate()
     assert u.name is None
     assert u.description is None
-    assert u.is_archival is None
     assert u.default_amount is None
 
 
@@ -260,7 +257,6 @@ async def test_list_additional_services_with_data():
     s1.name = "Ubezpieczenie A"
     s1.default_amount = Decimal("100.00")
     s1.description = "Opis"
-    s1.is_archival = False
     s1.fakturownia_product_id = None
     s1.created_at = datetime.utcnow()
     s1.updated_at = None

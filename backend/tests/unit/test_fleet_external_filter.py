@@ -1,5 +1,5 @@
 """
-Unit testy dla RAO-P1-027: filtrowanie is_external + is_archival w fleet stats.
+Unit testy dla RAO-P1-027: filtrowanie is_external w fleet stats.
 Testy weryfikują logikę filtrowania bez połączenia z bazą (calc-level + schema validation).
 """
 from decimal import Decimal
@@ -90,7 +90,7 @@ def test_machine_detail_schema_has_is_external():
         category_id=None, category_name=None, owner_id=None, owner_name=None,
         branch_id=None, description=None, notes=None, rental_days=None,
         category_main=None, category_sub1=None, category_sub2=None, category_sub3=None,
-        is_archival=False, is_external=True,
+        is_external=True,
         reach_m=None, capacity_t=None, accessories=None, technical_attributes=None,
         created_at=datetime.utcnow(), updated_at=None,
     )
@@ -107,7 +107,7 @@ def test_machine_list_item_schema_has_is_external():
         brand=None, model=None, replacement_value=None, category_name=None,
         category_main=None,
         owner_name=None, notes=None, active_contract_number=None,
-        is_archival=False, is_external=True,
+        is_external=True,
         conditions_count=0,
         created_at=datetime.utcnow(), updated_at=None,
     )

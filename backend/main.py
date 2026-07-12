@@ -272,10 +272,6 @@ async def startup_migrations():
         ))
         await conn.execute(sa.text(
             "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
-            "is_archival BOOLEAN NOT NULL DEFAULT FALSE"
-        ))
-        await conn.execute(sa.text(
-            "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
             "technical_attributes JSON NULL"
         ))
         # RAO: dedykowane kolumny numeryczne dla filtrów statystyk (zastępują string-values w technical_attributes JSON)
@@ -838,9 +834,6 @@ async def startup_migrations():
         ))
         await conn2.execute(sa.text(
             "CREATE INDEX IF NOT EXISTS idx_machines_category_main ON machines(category_main)"
-        ))
-        await conn2.execute(sa.text(
-            "CREATE INDEX IF NOT EXISTS idx_machines_archival ON machines(is_archival)"
         ))
         # RAO-P1-008: indeksy dla strukturalizacji adresów
         await conn2.execute(sa.text(

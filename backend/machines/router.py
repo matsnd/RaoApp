@@ -8,7 +8,7 @@ from database import get_db
 from machines.models import Machine
 from machines.schemas import (
     MachineCreate, MachineUpdate, MachineDetail, MachineListItem,
-    AvailabilityResponse, MachineArchivalFilter,
+    AvailabilityResponse,
 )
 from machines.service import machine_service
 from shared.exceptions import not_found
@@ -44,7 +44,7 @@ async def _build_detail(db: AsyncSession, m: Machine) -> MachineDetail:
         category_sub2=m.category_sub2, category_sub3=m.category_sub3,
         owner_id=m.owner_id, owner_name=own_name, branch_id=m.branch_id,
         description=m.description, notes=m.notes, rental_days=m.rental_days,
-        is_archival=m.is_archival, is_external=m.is_external,
+        is_external=m.is_external,
         reach_m=m.reach_m, capacity_t=m.capacity_t, accessories=m.accessories,
         technical_attributes=m.technical_attributes,
         fakturownia_product_id=m.fakturownia_product_id,
@@ -61,7 +61,6 @@ async def list_machines(
     search: str | None = Query(None),
     category_id: int | None = Query(None),
     owner_id: int | None = Query(None),
-    archival: MachineArchivalFilter = Query(MachineArchivalFilter.ACTIVE),
     page: int = Query(1, ge=1),
     per_page: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
@@ -69,7 +68,7 @@ async def list_machines(
 ):
     items, total = await machine_service.list_machines(
         db, search=search, category_id=category_id, owner_id=owner_id,
-        archival_status=archival.value, page=page, per_page=per_page,
+        page=page, per_page=per_page,
     )
     return items
 

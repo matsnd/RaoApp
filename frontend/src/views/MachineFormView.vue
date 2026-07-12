@@ -219,7 +219,6 @@ const form = ref({
   capacity_t: null as number | null,
   accessories: '',
   technical_attributes: '',
-  is_archival: false,
   is_external: false,
   power_type: 'other',
 })

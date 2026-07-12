@@ -265,7 +265,7 @@ const form = ref({
   category_id: null, owner_id: null, branch_id: null,
   description: '', notes: '', rental_days: null, article_type: '',
   zasieg_m: null, udzwig_t: null, dodatki: null,
-  is_archival: false, is_external: false,  // RAO-P1-027
+  is_external: false,  // RAO-P1-027
   power_type: 'other',  // RAO: typ zasilania maszyny (diesel|electric|other)
   fakturownia_product_id: null,  // RAO-P2-058
   fakturownia_tax_rate: null,    // RAO-P2-058: snapshot z FA

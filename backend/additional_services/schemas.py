@@ -9,7 +9,6 @@ class AdditionalServiceListItem(BaseModel):
     display_name: str | None = None  # P1-120
     default_amount: Decimal | None = Field(None, ge=0, decimal_places=2)
     description: str | None
-    is_archival: bool = False
     fakturownia_product_id: int | None = None
     created_at: datetime
     updated_at: datetime | None
@@ -25,7 +24,6 @@ class AdditionalServiceDetail(BaseModel):
     default_amount: Decimal | None = Field(None, ge=0, decimal_places=2)
     description: str | None
     notes: str | None
-    is_archival: bool = False
     fakturownia_product_id: int | None = None
     fakturownia_tax_rate: str | None = None
     fakturownia_gtu_code: str | None = None
@@ -43,7 +41,6 @@ class AdditionalServiceCreate(BaseModel):
     default_amount: Decimal | None = Field(None, ge=0, decimal_places=2)
     description: str | None = Field(None, max_length=400)
     notes: str | None = Field(None, max_length=200)
-    is_archival: bool = False
     fakturownia_product_id: int | None = None
     fakturownia_tax_rate: str | None = None
     fakturownia_gtu_code: str | None = None
@@ -57,7 +54,6 @@ class AdditionalServiceUpdate(BaseModel):
     default_amount: Decimal | None = Field(None, ge=0, decimal_places=2)
     description: str | None = Field(None, max_length=400)
     notes: str | None = Field(None, max_length=200)
-    is_archival: bool | None = None
     fakturownia_product_id: int | None = None
     fakturownia_tax_rate: str | None = None
     fakturownia_gtu_code: str | None = None

@@ -8,12 +8,6 @@ from pydantic import BaseModel, Field
 PowerType = Literal["diesel", "electric", "other"]
 
 
-class ArticleArchivalFilter(str, Enum):
-    ACTIVE = "active"
-    ARCHIVAL = "archival"
-    ALL = "all"
-
-
 class ArticleListItem(BaseModel):
     id: int
     name: str
@@ -27,7 +21,6 @@ class ArticleListItem(BaseModel):
     category_name: str | None
     # RAO-P1-026: kategoria hierarchiczna (do filtrów statystyk)
     category_main: str | None = None
-    is_archival: bool = False
     is_external: bool = False  # RAO-P1-027
     owner_name: str | None
     notes: str | None
@@ -70,7 +63,6 @@ class ArticleDetail(BaseModel):
     notes: str | None
     rental_days: int | None
     article_type: str | None
-    is_archival: bool = False
     is_external: bool = False  # RAO-P1-027
     # RAO-P1-026: dane techniczne
     zasieg_m: Decimal | None = None
@@ -94,7 +86,6 @@ class ArticleDetail(BaseModel):
 class ArticleCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     is_service: bool = False
-    is_archival: bool = False
     is_external: bool = False  # RAO-P1-027
     internal_number: str | None = Field(None, max_length=50)
     registration_no: str | None = Field(None, max_length=40)
@@ -130,7 +121,6 @@ class ArticleUpdate(BaseModel):
     """
     name: str | None = Field(None, min_length=1, max_length=200)
     is_service: bool | None = None
-    is_archival: bool | None = None
     is_external: bool | None = None
     internal_number: str | None = Field(None, max_length=50)
     registration_no: str | None = Field(None, max_length=40)

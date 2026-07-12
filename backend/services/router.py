@@ -22,7 +22,6 @@ async def _build_detail(db: AsyncSession, s: Service) -> ServiceDetail:
     return ServiceDetail(
         id=s.id, name=s.name, description=s.description, notes=s.notes,
         replacement_value=s.replacement_value,
-        is_archival=s.is_archival,
         fakturownia_product_id=s.fakturownia_product_id,
         fakturownia_tax_rate=s.fakturownia_tax_rate,
         fakturownia_gtu_code=s.fakturownia_gtu_code,
@@ -34,14 +33,13 @@ async def _build_detail(db: AsyncSession, s: Service) -> ServiceDetail:
 @router.get("", response_model=list[ServiceListItem])
 async def list_services(
     search: str | None = Query(None),
-    archival: str = Query("active"),
     page: int = Query(1, ge=1),
     per_page: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
     items, total = await service_service.list_services(
-        db, search=search, archival_status=archival, page=page, per_page=per_page,
+        db, search=search, page=page, per_page=per_page,
     )
     return items
 

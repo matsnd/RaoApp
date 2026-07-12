@@ -7,7 +7,6 @@ class ServiceListItem(BaseModel):
     id: int
     name: str
     description: str | None
-    is_archival: bool = False
     fakturownia_product_id: int | None = None
     created_at: datetime
     updated_at: datetime | None
@@ -22,7 +21,6 @@ class ServiceDetail(BaseModel):
     description: str | None
     notes: str | None
     replacement_value: Decimal | None = Field(None, ge=0, decimal_places=2)
-    is_archival: bool = False
     fakturownia_product_id: int | None = None
     fakturownia_tax_rate: str | None = None
     fakturownia_gtu_code: str | None = None
@@ -39,7 +37,6 @@ class ServiceCreate(BaseModel):
     description: str | None = Field(None, max_length=400)
     notes: str | None = Field(None, max_length=200)
     replacement_value: Decimal | None = Field(None, ge=0, decimal_places=2)
-    is_archival: bool = False
     fakturownia_product_id: int | None = None
     fakturownia_tax_rate: str | None = None
     fakturownia_gtu_code: str | None = None
@@ -52,7 +49,6 @@ class ServiceUpdate(BaseModel):
     description: str | None = Field(None, max_length=400)
     notes: str | None = Field(None, max_length=200)
     replacement_value: Decimal | None = Field(None, ge=0, decimal_places=2)
-    is_archival: bool | None = None
     fakturownia_product_id: int | None = None
     fakturownia_tax_rate: str | None = None
     fakturownia_gtu_code: str | None = None

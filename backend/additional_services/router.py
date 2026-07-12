@@ -23,7 +23,6 @@ async def _build_detail(db: AsyncSession, s: AdditionalService) -> AdditionalSer
         id=s.id, name=s.name, display_name=s.display_name,
         default_amount=s.default_amount,
         description=s.description, notes=s.notes,
-        is_archival=s.is_archival,
         fakturownia_product_id=s.fakturownia_product_id,
         fakturownia_tax_rate=s.fakturownia_tax_rate,
         fakturownia_gtu_code=s.fakturownia_gtu_code,
@@ -35,14 +34,13 @@ async def _build_detail(db: AsyncSession, s: AdditionalService) -> AdditionalSer
 @router.get("", response_model=list[AdditionalServiceListItem])
 async def list_additional_services(
     search: str | None = Query(None),
-    archival: str = Query("active"),
     page: int = Query(1, ge=1),
     per_page: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
     items, total = await additional_service_service.list_additional_services(
-        db, search=search, archival_status=archival, page=page, per_page=per_page,
+        db, search=search, page=page, per_page=per_page,
     )
     return items
 

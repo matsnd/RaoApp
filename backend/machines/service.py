@@ -13,7 +13,6 @@ class MachineService:
         search: str | None = None,
         category_id: int | None = None,
         owner_id: int | None = None,
-        archival_status: str = "active",
         page: int = 1,
         per_page: int = 50,
     ):
@@ -23,10 +22,6 @@ class MachineService:
         from machines.schemas import MachineListItem
 
         stmt = select(Machine)
-        if archival_status == "active":
-            stmt = stmt.where(Machine.is_archival == False)  # noqa: E712
-        elif archival_status == "archival":
-            stmt = stmt.where(Machine.is_archival == True)   # noqa: E712
         if search:
             stmt = stmt.where(Machine.name.ilike(f"%{search}%"))
         if category_id:
@@ -85,7 +80,6 @@ class MachineService:
                 replacement_value=m.replacement_value,
                 category_name=cat_name,
                 category_main=m.category_main,
-                is_archival=m.is_archival,
                 is_external=m.is_external,
                 fakturownia_product_id=m.fakturownia_product_id,
                 owner_name=own_name, notes=m.notes,
@@ -140,7 +134,6 @@ class MachineService:
             notes=original.notes,
             rental_days=original.rental_days,
             is_external=original.is_external,
-            is_archival=original.is_archival,
             power_type=original.power_type,
             technical_attributes=original.technical_attributes,
             reach_m=original.reach_m,

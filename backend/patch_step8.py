@@ -139,10 +139,8 @@ async def step8_csv_categories() -> None:
          - category_id (FK do najgłębszego poziomu)
          - technical_attributes (JSON: zasieg, udzwig, dodatki)
          - internal_number (COALESCE — ustawia tylko gdy DB=NULL)
-         - is_archival=TRUE (legacy marker)
-      6. Oznacz WSZYSTKIE pozostałe artykuły is_archival=TRUE
-      7. Weryfikacja: COUNT queries + stats
-      8. RELEASE_LOCK
+      6. Weryfikacja: COUNT queries + stats
+      7. RELEASE_LOCK
 
     Idempotentność (drugi run = 0 zmian):
       - Kategorie: cache hit → brak INSERT

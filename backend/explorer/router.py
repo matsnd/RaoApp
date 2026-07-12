@@ -101,7 +101,6 @@ async def explorer_search(
         .outerjoin(Category, Machine.category_id == Category.id)
         .outerjoin(Contractor, Contract.contractor_id == Contractor.id)
         .outerjoin(revenue_subq, revenue_subq.c.position_id == ContractPosition.id)
-        .where(Machine.is_archival == False)  # RAO-P1-028: tylko niearchiwalne
     )
     
     # Apply filters
@@ -169,7 +168,6 @@ async def explorer_search(
         .outerjoin(Category, Machine.category_id == Category.id)
         .outerjoin(Contractor, Contract.contractor_id == Contractor.id)
         .outerjoin(revenue_subq, revenue_subq.c.position_id == ContractPosition.id)
-        .where(Machine.is_archival == False)  # RAO-P1-028: tylko niearchiwalne
     )
     
     if conditions:
@@ -224,8 +222,7 @@ async def get_machine_details(
     dt = date_to or date(2100, 1, 1)
     from shared.revenue import compute_position_revenues
     all_positions = await compute_position_revenues(
-        db, df, dt, exclude_archival=False
-    )
+        db, df, dt)
     # Filtruj po machine_id (articles split: was article_id)
     machine_positions = [p for p in all_positions if p["machine_id"] == machine_id]
 
@@ -319,8 +316,7 @@ async def get_services_summary(
     dt = date_to or date(2100, 1, 1)
     from shared.revenue import compute_position_revenues
     all_positions = await compute_position_revenues(
-        db, df, dt, service_filter=True, exclude_archival=False
-    )
+        db, df, dt, service_filter=True)
     # RAO: odfiltruj usługi dodatkowe — to drilldown po Service (usługi zwykłe),
     # nie additional_services. Usługi dodatkowe mają is_additional_service=True.
     all_positions = [p for p in all_positions if not p.get("is_additional_service")]
@@ -394,7 +390,7 @@ async def get_locations_summary(
     df, dt = _default_dates(date_from, date_to)
     # Spójny przychód ze shared.revenue (kaskadowy algorytm jak w stats)
     all_pos = await compute_position_revenues(
-        db, df, dt, exclude_archival=False  # uwzględnia archiwalne (statystyki historyczne)
+        db, df, dt# uwzględnia archiwalne (statystyki historyczne)
     )
     items = await aggregate_by_pna(all_pos, db, limit=limit, group_by=group_by)
 
@@ -439,8 +435,7 @@ async def get_service_details(
     dt = date_to or date(2100, 1, 1)
     from shared.revenue import compute_position_revenues
     all_positions = await compute_position_revenues(
-        db, df, dt, service_filter=True, exclude_archival=False
-    )
+        db, df, dt, service_filter=True)
     # Filtruj po service_id (articles split: was article_id)
     service_positions = [p for p in all_positions if p["service_id"] == service_id]
 
@@ -563,8 +558,7 @@ async def get_location_details(
 
     # Spójny przychód (kaskadowy algorytm ze shared.revenue)
     all_pos = await compute_position_revenues(
-        db, df, dt, exclude_archival=False
-    )
+        db, df, dt)
     if not all_pos:
         return {"error": "Location not found"}
 
@@ -689,8 +683,7 @@ async def get_city_details(
     df, dt = _default_dates(date_from, date_to)
 
     all_pos = await compute_position_revenues(
-        db, df, dt, exclude_archival=False
-    )
+        db, df, dt)
     if not all_pos:
         return {"error": "City not found"}
 

@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from articles.models import Article
-from articles.schemas import ArticleCreate, ArticleDetail, ArticleListItem, AvailabilityResponse, ArticleArchivalFilter
+from articles.schemas import ArticleCreate, ArticleDetail, ArticleListItem, AvailabilityResponse
 from articles.service import article_service
 from auth.dependencies import get_current_user
 from auth.models import User
@@ -54,7 +54,6 @@ async def _build_detail(db: AsyncSession, a: Article) -> ArticleDetail:
         owner_id=a.owner_id, owner_name=own_name,
         branch_id=a.branch_id, description=a.description, notes=a.notes,
         rental_days=a.rental_days, article_type=a.article_type,
-        is_archival=a.is_archival,
         is_external=a.is_external,  # RAO-P1-027
         zasieg_m=a.zasieg_m, udzwig_t=a.udzwig_t, dodatki=a.dodatki,
         fakturownia_product_id=a.fakturownia_product_id,
@@ -69,14 +68,13 @@ async def list_articles(
     category_id: int | None = Query(None),
     owner_id: int | None = Query(None),
     is_service: bool | None = Query(None),
-    archival_status: ArticleArchivalFilter = Query(ArticleArchivalFilter.ACTIVE),
     page: int = Query(1, ge=1),
     per_page: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
     items, total = await article_service.list_articles(
-        db, search, category_id, owner_id, archival_status.value, is_service, page, per_page
+        db, search, category_id, owner_id, is_service, page, per_page
     )
     return PaginatedResponse(items=items, total=total, page=page, per_page=per_page)
 

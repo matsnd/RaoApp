@@ -79,7 +79,7 @@ def _detail_kwargs(**overrides):
         owner_id=None, owner_name=None, branch_id=None,
         description=None, notes=None, rental_days=None,
         category_main=None, category_sub1=None, category_sub2=None, category_sub3=None,
-        is_archival=False, is_external=False,
+        is_external=False,
         reach_m=None, capacity_t=None, accessories=None, technical_attributes=None,
         fakturownia_product_id=None,
         fakturownia_tax_rate=None, fakturownia_gtu_code=None, fakturownia_pkwiu=None,

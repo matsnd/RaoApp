@@ -13,7 +13,7 @@ Trzy źródła przychodu (precedence: actual > lookup > tiered):
    - Używany gdy brak settlements i brak warunków lookup
 
 Public API:
-    compute_position_revenues(db, df, dt, *, service_filter, exclude_archival,
+    compute_position_revenues(db, df, dt, *, service_filter,
                               category_main_filter, ...) -> list[dict]
 
 Każdy dict zawiera:
@@ -110,7 +110,6 @@ async def compute_position_revenues(
     dt: date,
     *,
     service_filter: bool | None = None,
-    exclude_archival: bool = True,
     category_main_filter: list[str] | None = None,
     category_sub1_filter: str | None = None,
     category_sub2_filter: str | None = None,
@@ -192,12 +191,8 @@ async def compute_position_revenues(
             stmt = stmt.where(ContractPosition.service_id.isnot(None))
         else:
             stmt = stmt.where(ContractPosition.machine_id.isnot(None))
-    if exclude_archival:
-        # maszyny: Machine.is_archival == False; usługi: Service.is_archival == False
-        # (pozycja ma machine_id LUB service_id — coalesce rozwiązuje NULL z drugiego JOIN)
-        stmt = stmt.where(func.coalesce(Machine.is_archival, Service.is_archival) == False)
-        # is_external dotyczy tylko maszyn (Service nie ma tej flagi) — coalesce z False
-        stmt = stmt.where(func.coalesce(Machine.is_external, False) == False)  # RAO-P1-027
+    # is_external dotyczy tylko maszyn (Service nie ma tej flagi) — coalesce z False
+    stmt = stmt.where(func.coalesce(Machine.is_external, False) == False)  # RAO-P1-027
     if category_main_filter:
         # kategorie tylko dla maszyn — service pozycje mają NULL i zostaną odfiltrowane
         stmt = stmt.where(Machine.category_main.in_(category_main_filter))
@@ -351,7 +346,7 @@ async def compute_position_revenues(
     # Pozycje FA nieobecne w umowie (position_id=NULL, service_fee_id=NULL, source='fa_unmapped')
     # dostają syntetyczny wiersz z machine_id=None, service_id=None, is_service=None, category_*=None.
     # revenue = cost_client (actual), clamped_days=0 (nie zaburza utilization).
-    # Filtry service_filter/exclude_archival/category_* NIE aplikowane (unmapped nie ma Machine/Service).
+    # Filtry service_filter/category_* NIE aplikowane (unmapped nie ma Machine/Service).
     unmapped_stmt = (
         select(
             ContractSettlement.id,                       # u[0]

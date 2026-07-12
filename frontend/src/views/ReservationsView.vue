@@ -202,8 +202,8 @@ const machineOptions = ref<MachineOption[]>([])
 
 async function loadMachines() {
   try {
-    // Tylko non-service, non-archival (sprzęt aktywny)
-    await articleStore.fetchList({ is_service: false, archival_status: 'active', per_page: 200 })
+    // Tylko non-service, non-external (sprzęt aktywny)
+    await articleStore.fetchList({ is_service: false, per_page: 200 })
     machineOptions.value = (articleStore.list as MachineOption[]).filter((a) => !a.is_service && !a.is_external)
   } catch {
     machineOptions.value = []

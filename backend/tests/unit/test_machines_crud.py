@@ -23,7 +23,6 @@ from machines.models import Machine
 def test_machine_create_minimal():
     m = MachineCreate(name="Koparka X")
     assert m.name == "Koparka X"
-    assert m.is_archival is False
     assert m.is_external is False
     assert m.power_type == "other"
 
@@ -60,7 +59,6 @@ def test_machine_update_all_optional():
     u = MachineUpdate()
     assert u.name is None
     assert u.power_type is None
-    assert u.is_archival is None
 
 
 def test_machine_update_partial_only_sent_fields():
@@ -249,7 +247,6 @@ async def test_duplicate_machine_copies_fields():
     original.notes = "Notatki"
     original.rental_days = 30
     original.is_external = False
-    original.is_archival = False
     original.power_type = "diesel"
     original.technical_attributes = {"foo": "bar"}
     original.reach_m = 10
@@ -315,7 +312,6 @@ async def test_list_machines_with_data():
     m1.replacement_value = None
     m1.category_id = None
     m1.owner_id = None
-    m1.is_archival = False
     m1.is_external = False
     m1.category_main = None
     m1.fakturownia_product_id = None

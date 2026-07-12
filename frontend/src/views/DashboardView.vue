@@ -262,10 +262,6 @@
               <span class="search-icon">⌕</span>
               <input v-model="search" type="text" class="form-control" placeholder="Szukaj wg nazwy, numeru..." />
             </div>
-            <label class="toggle-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;font-size:13px;color:var(--color-text-body);">
-              <input v-model="archivalFilter" type="checkbox" true-value="archival" false-value="active" style="accent-color:var(--color-primary);width:16px;height:16px;" />
-              Archiwalne
-            </label>
           </div>
           <div class="grid-scroll">
             <table class="data-grid" role="table" aria-label="Lista maszyn">
@@ -290,21 +286,19 @@
                 <tr v-else-if="!articleStore.list.length" role="row">
                   <td colspan="7" role="cell">
                     <StateMessage
-                      v-if="archivalFilter === 'active'"
                       type="empty"
                       compact
                       message="Brak maszyn"
                       action-label="+ Nowa maszyna"
                       @action="router.push({ name: 'ArticleNew' })"
                     />
-                    <StateMessage v-else type="empty" compact message="Brak maszyn archiwalnych" />
                   </td>
                 </tr>
                 <tr
                   v-for="a in sortedArticles"
                   :key="a.id"
                   role="row"
-                  :class="['article-row', { selected: selectedId === a.id, 'row-archival': a.is_archival }]"
+                  :class="['article-row', { selected: selectedId === a.id }]"
                   @click="selectedId = a.id"
                   @dblclick="editArticle(a.id)"
                 >
@@ -389,7 +383,6 @@ const toastStore = useToastStore()
 const search = ref('')
 const contractTypeFilter = ref('')
 const settledFilter = ref('')   // RAO-P2-022: domyślnie wszystkie umowy (zmienione z 'false' na '' ze względu na pustą listę)
-const archivalFilter = ref('active')
 const dateFrom = ref('')
 const dateTo = ref('')
 // RAO-P2-070 Faza 4: filtry handlowiec + miasto (client-side na załadowanej stronie)
@@ -447,8 +440,7 @@ const toolbarInfo = computed(() => {
   if (section.value === 'overdue') return `Przeterminowane umowy (${contractStore.overdueTotal} rekordów)`
   if (section.value === 'contractors') return `Kontrahenci (${contractorStore.total} rekordów)`
   if (section.value === 'articles') {
-    const prefix = archivalFilter.value === 'archival' ? 'Artykuły archiwalne' : 'Artykuły'
-    return `${prefix} (${articleStore.total} rekordów)`
+    return `Artykuły (${articleStore.total} rekordów)`
   }
   return ''
 })
@@ -470,9 +462,6 @@ async function loadData() {
     } else if (section.value === 'contractors') {
       await contractorStore.fetchList(params)
     } else if (section.value === 'articles') {
-      if (archivalFilter.value === 'archival') {
-        params.archival_status = 'archival'
-      }
       await articleStore.fetchList(params)
     }
   } catch (e) {
@@ -510,7 +499,6 @@ watch(search, () => {
 })
 watch(contractTypeFilter, () => { page.value = 1; loadData() })
 watch(settledFilter, () => { page.value = 1; loadData() })  // RAO-P2-022
-watch(archivalFilter, () => { page.value = 1; loadData() })
 watch(dateFrom, () => { page.value = 1; loadData() })
 watch(dateTo, () => { page.value = 1; loadData() })
 

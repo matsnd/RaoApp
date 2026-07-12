@@ -20,12 +20,11 @@ class Machine(Base):
     description = Column(String(400), nullable=True)
     notes = Column(String(200), nullable=True)
     rental_days = Column(Integer, nullable=True)
-    # kategoryzacja hierarchiczna (snapshot nazw) + flaga archiwalna
+    # kategoryzacja hierarchiczna (snapshot nazw)
     category_main = Column(String(100), nullable=True)
     category_sub1 = Column(String(100), nullable=True)
     category_sub2 = Column(String(100), nullable=True)
     category_sub3 = Column(String(100), nullable=True)
-    is_archival = Column(Boolean, nullable=False, default=False, server_default="0")
     is_external = Column(Boolean, nullable=False, default=False, server_default="0")
     power_type = Column(String(10), nullable=False, server_default="other", default="other")
     technical_attributes = Column(JSON, nullable=True)
@@ -46,7 +45,6 @@ class Machine(Base):
         Index("idx_mach_owner", "owner_id"),
         Index("idx_mach_registration", "registration_no"),
         Index("idx_machines_category_main", "category_main"),
-        Index("idx_machines_archival", "is_archival"),
         Index("idx_machines_fakturownia_product", "fakturownia_product_id"),
         Index("idx_machines_reach", "reach_m"),
         Index("idx_machines_capacity", "capacity_t"),

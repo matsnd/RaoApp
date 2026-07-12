@@ -98,7 +98,6 @@ CREATE TABLE IF NOT EXISTS `archive_articles` (
   `category_sub1` varchar(100) DEFAULT NULL,
   `category_sub2` varchar(100) DEFAULT NULL,
   `category_sub3` varchar(100) DEFAULT NULL,
-  `is_archival` tinyint(1) NOT NULL DEFAULT 0,
   `is_external` tinyint(1) NOT NULL DEFAULT 0,
   `technical_attributes` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL
     CHECK (json_valid(`technical_attributes`)),
@@ -115,7 +114,6 @@ CREATE TABLE IF NOT EXISTS `archive_articles` (
   KEY `idx_archive_art_owner` (`owner_id`),
   KEY `idx_archive_art_registration` (`registration_no`),
   KEY `idx_archive_articles_category_main` (`category_main`),
-  KEY `idx_archive_articles_archival` (`is_archival`),
   KEY `idx_archive_articles_fakturownia_product` (`fakturownia_product_id`),
   KEY `idx_archive_articles_zasieg` (`zasieg_m`),
   KEY `idx_archive_articles_udzwig` (`udzwig_t`),
@@ -339,12 +337,12 @@ INSERT IGNORE INTO `archive_articles`
   (id, name, is_service, internal_number, registration_no, serial_no, brand, model,
    replacement_value, category_id, owner_id, branch_id, description, notes,
    rental_days, article_type, category_main, category_sub1, category_sub2, category_sub3,
-   is_archival, is_external, technical_attributes, zasieg_m, udzwig_t, dodatki,
+   is_external, technical_attributes, zasieg_m, udzwig_t, dodatki,
    fakturownia_product_id, created_at, updated_at)
 SELECT a.id, a.name, a.is_service, a.internal_number, a.registration_no, a.serial_no,
        a.brand, a.model, a.replacement_value, a.category_id, a.owner_id, a.branch_id,
        a.description, a.notes, a.rental_days, a.article_type, a.category_main,
-       a.category_sub1, a.category_sub2, a.category_sub3, a.is_archival, a.is_external,
+       a.category_sub1, a.category_sub2, a.category_sub3, a.is_external,
        a.technical_attributes, a.zasieg_m, a.udzwig_t, a.dodatki,
        a.fakturownia_product_id, a.created_at, a.updated_at
 FROM `articles` a

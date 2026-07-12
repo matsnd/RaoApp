@@ -422,7 +422,7 @@ async def generate_commissions_pdf(db: AsyncSession, date_from: date, date_to: d
     import asyncio
 
     df, dt = date_from, date_to
-    all_pos = await _compute_position_revenues(db, df, dt, exclude_archival=False)
+    all_pos = await _compute_position_revenues(db, df, dt)
 
     sp_q = await db.execute(
         select(Salesperson.id, Salesperson.name, Salesperson.commission_rate)
@@ -508,7 +508,7 @@ async def generate_stats_pdf(db: AsyncSession, date_from: date, date_to: date) -
     df, dt = date_from, date_to
     today = date.today()
 
-    all_pos = await _compute_position_revenues(db, df, dt, exclude_archival=False)
+    all_pos = await _compute_position_revenues(db, df, dt)
 
     # Fleet summary
     total_q = await db.execute(select(func.count()).select_from(Machine))

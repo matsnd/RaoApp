@@ -71,7 +71,6 @@ class ArchiveArticleResponse(BaseModel):
     category_sub1: str | None = None
     category_sub2: str | None = None
     category_sub3: str | None = None
-    is_archival: bool = False
     is_external: bool = False
     zasieg_m: Decimal | None = None
     udzwig_t: Decimal | None = None

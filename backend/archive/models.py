@@ -99,7 +99,6 @@ class ArchiveArticle(Base):
     category_sub1 = Column(String(100), nullable=True)
     category_sub2 = Column(String(100), nullable=True)
     category_sub3 = Column(String(100), nullable=True)
-    is_archival = Column(Boolean, nullable=False, default=False, server_default="0")
     is_external = Column(Boolean, nullable=False, default=False, server_default="0")
     technical_attributes = Column(JSON, nullable=True)
     zasieg_m = Column(Numeric(8, 2), nullable=True, comment="Zasieg w metrach")
@@ -121,7 +120,6 @@ class ArchiveArticle(Base):
         Index("idx_archive_art_owner", "owner_id"),
         Index("idx_archive_art_registration", "registration_no"),
         Index("idx_archive_articles_category_main", "category_main"),
-        Index("idx_archive_articles_archival", "is_archival"),
         Index("idx_archive_articles_external", "is_external"),
     )
 

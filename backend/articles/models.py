@@ -28,7 +28,6 @@ class Article(Base):
     category_sub1 = Column(String(100), nullable=True)
     category_sub2 = Column(String(100), nullable=True)
     category_sub3 = Column(String(100), nullable=True)
-    is_archival = Column(Boolean, nullable=False, default=False, server_default="0")
     # RAO-P1-027: maszyna zewnętrzna (nie wliczana do floty własnej)
     is_external = Column(Boolean, nullable=False, default=False, server_default="0")
     # RAO: typ zasilania maszyny — 'diesel', 'electric', 'other' (VARCHAR dla elastyczności)
@@ -54,7 +53,6 @@ class Article(Base):
         Index("idx_art_owner", "owner_id"),
         Index("idx_art_registration", "registration_no"),
         Index("idx_articles_category_main", "category_main"),
-        Index("idx_articles_archival", "is_archival"),
         Index("idx_articles_fakturownia_product", "fakturownia_product_id"),
         Index("idx_articles_zasieg", "zasieg_m"),
         Index("idx_articles_udzwig", "udzwig_t"),

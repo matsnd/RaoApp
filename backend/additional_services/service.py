@@ -11,17 +11,12 @@ class AdditionalServiceService:
     async def list_additional_services(
         self, db: AsyncSession,
         search: str | None = None,
-        archival_status: str = "active",
         page: int = 1,
         per_page: int = 50,
     ):
         from additional_services.schemas import AdditionalServiceListItem
 
         stmt = select(AdditionalService)
-        if archival_status == "active":
-            stmt = stmt.where(AdditionalService.is_archival == False)  # noqa: E712
-        elif archival_status == "archival":
-            stmt = stmt.where(AdditionalService.is_archival == True)   # noqa: E712
         if search:
             stmt = stmt.where(AdditionalService.name.ilike(f"%{search}%"))
 
@@ -37,7 +32,6 @@ class AdditionalServiceService:
                 id=s.id, name=s.name, display_name=s.display_name,
                 default_amount=s.default_amount,
                 description=s.description,
-                is_archival=s.is_archival,
                 fakturownia_product_id=s.fakturownia_product_id,
                 created_at=s.created_at, updated_at=s.updated_at,
             )

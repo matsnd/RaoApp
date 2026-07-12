@@ -10,7 +10,6 @@ class Service(Base):
     description = Column(String(400), nullable=True)
     notes = Column(String(200), nullable=True)
     replacement_value = Column(Numeric(18, 2), nullable=True)
-    is_archival = Column(Boolean, nullable=False, default=False, server_default="0")
     fakturownia_product_id = Column(BigInteger, nullable=True)
     fakturownia_tax_rate = Column(String(10), nullable=True)
     fakturownia_gtu_code = Column(String(20), nullable=True)
@@ -20,6 +19,5 @@ class Service(Base):
 
     __table_args__ = (
         Index("idx_svc_name", "name"),
-        Index("idx_services_archival", "is_archival"),
         Index("idx_services_fakturownia_product", "fakturownia_product_id"),
     )

@@ -133,7 +133,6 @@ export interface ArchiveArticle {
   category_sub1: string | null
   category_sub2: string | null
   category_sub3: string | null
-  is_archival: boolean
   is_external: boolean
   zasieg_m: string | null
   udzwig_t: string | null

@@ -7,12 +7,6 @@ from pydantic import BaseModel, Field
 PowerType = Literal["diesel", "electric", "other"]
 
 
-class MachineArchivalFilter(str, Enum):
-    ACTIVE = "active"
-    ARCHIVAL = "archival"
-    ALL = "all"
-
-
 class MachineListItem(BaseModel):
     id: int
     name: str
@@ -24,7 +18,6 @@ class MachineListItem(BaseModel):
     replacement_value: Decimal | None = Field(None, ge=0, decimal_places=2)
     category_name: str | None
     category_main: str | None = None
-    is_archival: bool = False
     is_external: bool = False
     owner_name: str | None
     notes: str | None
@@ -62,7 +55,6 @@ class MachineDetail(BaseModel):
     description: str | None
     notes: str | None
     rental_days: int | None
-    is_archival: bool = False
     is_external: bool = False
     reach_m: Decimal | None = None
     capacity_t: Decimal | None = None
@@ -82,7 +74,6 @@ class MachineDetail(BaseModel):
 
 class MachineCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
-    is_archival: bool = False
     is_external: bool = False
     internal_number: str | None = Field(None, max_length=50)
     registration_no: str | None = Field(None, max_length=40)
@@ -110,7 +101,6 @@ class MachineCreate(BaseModel):
 class MachineUpdate(BaseModel):
     """Partial update — only fields explicitly sent are applied."""
     name: str | None = Field(None, min_length=1, max_length=200)
-    is_archival: bool | None = None
     is_external: bool | None = None
     internal_number: str | None = Field(None, max_length=50)
     registration_no: str | None = Field(None, max_length=40)

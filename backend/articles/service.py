@@ -13,7 +13,6 @@ class ArticleService:
         search: str | None = None,
         category_id: int | None = None,
         owner_id: int | None = None,
-        archival_status: str = "active",
         is_service: bool | None = None,
         page: int = 1,
         per_page: int = 50,
@@ -25,10 +24,6 @@ class ArticleService:
         from sqlalchemy.orm import aliased
 
         stmt = select(Article)
-        if archival_status == "active":
-            stmt = stmt.where(Article.is_archival == False)  # noqa: E712
-        elif archival_status == "archival":
-            stmt = stmt.where(Article.is_archival == True)   # noqa: E712
         if search:
             stmt = stmt.where(Article.name.ilike(f"%{search}%"))
         if category_id:
@@ -93,7 +88,6 @@ class ArticleService:
                 replacement_value=a.replacement_value,
                 category_name=cat_name,
                 category_main=a.category_main,
-                is_archival=a.is_archival,
                 is_external=a.is_external,  # RAO-P1-027
                 fakturownia_product_id=a.fakturownia_product_id,
                 owner_name=own_name, notes=a.notes,

@@ -12,7 +12,6 @@ class AdditionalService(Base):
     default_amount = Column(Numeric(18, 2), nullable=True)
     description = Column(String(400), nullable=True)
     notes = Column(String(200), nullable=True)
-    is_archival = Column(Boolean, nullable=False, default=False, server_default="0")
     fakturownia_product_id = Column(BigInteger, nullable=True)
     fakturownia_tax_rate = Column(String(10), nullable=True)
     fakturownia_gtu_code = Column(String(20), nullable=True)
@@ -22,6 +21,5 @@ class AdditionalService(Base):
 
     __table_args__ = (
         Index("idx_addsvc_name", "name"),
-        Index("idx_additional_services_archival", "is_archival"),
         Index("idx_additional_services_fakturownia_product", "fakturownia_product_id"),
     )

@@ -1,5 +1,5 @@
 """
-Unit testy dla RAO-P1-028: Eksplorator — filtrowanie archiwalnych + lokalizacje po Contract.city.
+Unit testy dla RAO-P1-028: Eksplorator — lokalizacje po Contract.city.
 """
 import pytest
 from datetime import date
@@ -7,25 +7,8 @@ from decimal import Decimal
 
 
 # ---------------------------------------------------------------------------
-# Testy explorer/router.py — is_archival filter w SQL expressions
+# Testy explorer/router.py — lokalizacje
 # ---------------------------------------------------------------------------
-
-def test_explorer_router_search_has_archival_filter():
-    """Endpoint /search w explorer musi mieć filtr is_archival==False."""
-    import ast
-    content = open('C:/projects/repos/RaoApp_new/backend/explorer/router.py', encoding='utf-8').read()
-    # Sprawdź czy w sekcji search jest filtr is_archival
-    assert 'is_archival == False' in content, \
-        "explorer/router.py nie zawiera filtra is_archival==False!"
-
-
-def test_explorer_router_services_has_archival_filter():
-    """Endpoint /services w explorer musi mieć filtr is_archival==False."""
-    content = open('C:/projects/repos/RaoApp_new/backend/explorer/router.py', encoding='utf-8').read()
-    # is_service == True AND is_archival == False
-    assert content.count('is_archival == False') >= 2, \
-        "explorer/router.py ma za mało filtrów is_archival==False (expected >=2)"
-
 
 def test_explorer_router_locations_uses_city_not_delivery_address():
     """Endpoint /locations musi używać Contract.city (RAO-P2-028: przez shared/locations)."""

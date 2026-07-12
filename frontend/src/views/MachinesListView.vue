@@ -16,10 +16,6 @@
             <option value="">Wszystkie kategorie</option>
             <option v-for="c in categoryOptions" :key="c.id" :value="c.id">{{ c.name }}</option>
           </select>
-          <label class="toggle-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;font-size:13px;color:var(--color-text-body);">
-            <input v-model="archivalFilter" type="checkbox" true-value="archival" false-value="active" style="accent-color:var(--color-primary);width:16px;height:16px;" />
-            Archiwalne
-          </label>
         </div>
         <div class="grid-scroll">
           <table class="data-grid" role="table" aria-label="Lista maszyn">
@@ -44,12 +40,10 @@
               <tr v-else-if="!store.list.length" role="row">
                 <td colspan="7" role="cell">
                   <StateMessage
-                    v-if="archivalFilter === 'active'"
                     type="empty" compact message="Brak maszyn"
                     action-label="+ Nowa maszyna"
                     @action="router.push({ name: 'MachineNew' })"
                   />
-                  <StateMessage v-else type="empty" compact message="Brak maszyn archiwalnych" />
                 </td>
               </tr>
               <tr v-else-if="!sortedMachines.length" role="row">
@@ -61,7 +55,7 @@
                 role="row"
                 tabindex="0"
                 :aria-label="`Maszyna ${m.name}`"
-                :class="['article-row', { selected: selectedId === m.id, 'row-archival': m.is_archival }]"
+                :class="['article-row', { selected: selectedId === m.id }]"
                 @click="selectedId = m.id"
                 @dblclick="editMachine(m.id)"
                 @keydown.enter.prevent="editMachine(m.id)"
@@ -116,7 +110,6 @@ const toastStore = useToastStore()
 
 const search = ref('')
 const categoryFilter = ref<number | string>('')
-const archivalFilter = ref('active')
 const selectedId = ref<number | null>(null)
 const page = ref(1)
 const perPage = 50
@@ -134,7 +127,6 @@ async function loadData() {
   loadError.value = ''
   const params: Record<string, any> = { page: page.value, per_page: perPage }
   if (search.value) params.search = search.value
-  if (archivalFilter.value === 'archival') params.archival_status = 'archival'
   try {
     await store.fetchList(params)
   } catch (e: any) {
@@ -154,7 +146,6 @@ watch(search, () => {
   if (searchTimer) clearTimeout(searchTimer)
   searchTimer = setTimeout(() => { page.value = 1; loadData() }, 400)
 })
-watch(archivalFilter, () => { page.value = 1; loadData() })
 watch(page, loadData)
 
 onUnmounted(() => { if (searchTimer) clearTimeout(searchTimer) })

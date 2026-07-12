@@ -162,7 +162,7 @@ async def ensure_fa_clients(client, db):
 async def ensure_fa_products(client, db):
     """Faza B: synchronizuje artykuły RAO → produkty FA (od zera).
 
-    FA wyczyszczone — tworzymy produkty dla WSZYSTKICH maszyn (is_archival=FALSE)
+    FA wyczyszczone — tworzymy produkty dla WSZYSTKICH maszyn
     i WSZYSTKICH usług dodatkowych (z fakturownia_product_id IS NOT NULL lub NULL).
 
     Dla każdej maszyny:
@@ -178,7 +178,7 @@ async def ensure_fa_products(client, db):
     # WSZYSTKIE maszyny (nie tylko z fakturownia_product_id IS NOT NULL)
     result = await db.execute(text(
         "SELECT id, name, internal_number, fakturownia_product_id, replacement_value "
-        "FROM machines WHERE is_archival = FALSE ORDER BY id"
+        "FROM machines ORDER BY id"
     ))
     machines = result.fetchall()
     print(f"\n[ensure_fa_products] {len(machines)} maszyn do synchronizacji z FA")

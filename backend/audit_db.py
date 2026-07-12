@@ -30,9 +30,6 @@ try:
         cur.execute('SELECT COUNT(*) FROM position_conditions WHERE rate1=0 AND rate2=0')
         print('Conditions with rate1=0 and rate2=0:', cur.fetchone()[0])
 
-        cur.execute('SELECT COUNT(DISTINCT a.id) FROM articles a JOIN contract_positions cp ON a.id=cp.article_id JOIN contracts c ON cp.contract_id=c.id WHERE a.is_archival=1 AND c.date_to >= CURDATE()')
-        print('Archival articles with active contracts:', cur.fetchone()[0])
-
         cur.execute('SELECT COUNT(*) FROM contracts WHERE date_from IS NOT NULL AND date_to IS NOT NULL AND date_from > date_to')
         print('Contracts with date_from > date_to:', cur.fetchone()[0])
 

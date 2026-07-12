@@ -1107,11 +1107,9 @@ async def step8_csv_categories() -> None:
        udzwig_t DECIMAL — udźwig sparsowany z col[13] ("5t"→5.0, "-"→NULL),
        dodatki  TEXT    — surowy string z col[14] (dodatki/wyposażenie),
        model (COALESCE — nie nadpisuje istniejących wartości),
-       internal_number (COALESCE — nie nadpisuje istniejących wartości),
-       is_archival=FALSE
-    6. Oznacz WSZYSTKIE artykuły is_archival=FALSE
-    7. Weryfikacja: COUNT + orphan check (gate per migrations.md)
-    8. RELEASE_LOCK
+       internal_number (COALESCE — nie nadpisuje istniejących wartości)
+    6. Weryfikacja: COUNT + orphan check (gate per migrations.md)
+    7. RELEASE_LOCK
 
     Idempotentność (2nd run = 0 zmian):
       - Kategorie: cache hit → brak INSERT
@@ -1231,7 +1229,6 @@ async def step8_csv_categories() -> None:
         # SQL-INJ-001 SAFE: tylko %s placeholders, zero f-stringów z user data
         _UPDATE_SQL = (
             "UPDATE machines SET"
-            "  is_archival          = FALSE,"
             "  category_main        = %s,"
             "  category_sub1        = %s,"
             "  category_sub2        = %s,"
@@ -1291,17 +1288,6 @@ async def step8_csv_categories() -> None:
                  rec["zasieg_m"], rec["udzwig_m"], rec["dodatki_txt"],
                  art_id),
             )
-
-        # ── Oznacz WSZYSTKIE maszyny is_archival=TRUE ──────────────
-        # RAO-P1-027: migrowane maszyny = archiwalne.
-        # Niewidoczne na liście i w pickerze nowych umów, ale liczone w statystykach kategorii.
-        # Nowe maszyny dodawane przez użytkownika → domyślnie is_archival=FALSE.
-        await cur.execute(
-            "UPDATE machines SET is_archival = TRUE"
-        )
-        extra = cur.rowcount
-        if extra:
-            print(f"   {extra} maszyn oznaczonych is_archival=TRUE (archiwalne — RAO-P1-027)")
 
         # ── Backfill category_main/sub1 z category_id (RAO-P1-029) ───────────
         # Maszyny które mają category_id (ze starego SQL dump) ale brak category_main
@@ -1371,8 +1357,6 @@ async def step8_csv_categories() -> None:
         # ── Weryfikacja ───────────────────────────────────────────────────────
         await cur.execute("SELECT COUNT(*) FROM machines")
         total_arts = (await cur.fetchone())[0]
-        await cur.execute("SELECT COUNT(*) FROM machines WHERE is_archival = TRUE")
-        archival_ct = (await cur.fetchone())[0]
         await cur.execute("SELECT COUNT(*) FROM machines WHERE category_main IS NOT NULL")
         with_cat_main = (await cur.fetchone())[0]
         await cur.execute("SELECT COUNT(*) FROM machines WHERE category_id IS NOT NULL")
@@ -1393,7 +1377,6 @@ async def step8_csv_categories() -> None:
         print(f"   CSV rekordy:              {csv_total}")
         print(f"     z kategorią:            {n_matched} ({pct_match}%)")
         print(f"     bez kategorii/śmieci:   {n_unmatched} ({pct_nomatch}%)")
-        print(f"   is_archival=TRUE:         {archival_ct}/{total_arts}")
         print(f"   category_main ustawiony:  {with_cat_main}/{total_arts}")
         print(f"   category_id ustawiony:    {with_cat_id}/{total_arts}")
         if orphan_subs:
@@ -1425,8 +1408,6 @@ async def verify():
     print("\n   [P1-017 gates]")
     await cur.execute("SELECT COUNT(*) FROM machines")
     total = (await cur.fetchone())[0]
-    await cur.execute("SELECT COUNT(*) FROM machines WHERE is_archival = FALSE")
-    archival = (await cur.fetchone())[0]
     await cur.execute("SELECT COUNT(*) FROM machines WHERE category_main IS NOT NULL")
     with_main = (await cur.fetchone())[0]
     await cur.execute(
@@ -1435,7 +1416,6 @@ async def verify():
     )
     orphan = (await cur.fetchone())[0]
     print(f"   machines total:          {total}")
-    print(f"   is_archival=FALSE:       {archival}/{total}")
     print(f"   category_main set:       {with_main}/{total}")
     if orphan:
         print(f"   GATE FAIL: orphan sub-cats = {orphan}")

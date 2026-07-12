@@ -11,17 +11,12 @@ class ServiceService:
     async def list_services(
         self, db: AsyncSession,
         search: str | None = None,
-        archival_status: str = "active",
         page: int = 1,
         per_page: int = 50,
     ):
         from services.schemas import ServiceListItem
 
         stmt = select(Service)
-        if archival_status == "active":
-            stmt = stmt.where(Service.is_archival == False)  # noqa: E712
-        elif archival_status == "archival":
-            stmt = stmt.where(Service.is_archival == True)   # noqa: E712
         if search:
             stmt = stmt.where(Service.name.ilike(f"%{search}%"))
 
@@ -35,7 +30,6 @@ class ServiceService:
         items = [
             ServiceListItem(
                 id=s.id, name=s.name, description=s.description,
-                is_archival=s.is_archival,
                 fakturownia_product_id=s.fakturownia_product_id,
                 created_at=s.created_at, updated_at=s.updated_at,
             )
