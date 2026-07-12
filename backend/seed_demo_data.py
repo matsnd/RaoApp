@@ -1001,7 +1001,6 @@ async def seed_article_rate_presets(db: AsyncSession, art_by_name: dict, rt_by_n
                 rate2=warunek["rate2"],
                 billing_label=warunek["billing_label"],
                 period_count=warunek["period_count"],
-                minimum=warunek["minimum"],
                 sort_order=idx,
             )
             db.add(item)

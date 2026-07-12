@@ -600,6 +600,18 @@ async def startup_migrations():
             except Exception:
                 pass
 
+        # RAO-refactor: archive_contract_positions — dodaj machine_id/service_id (mirror live)
+        await conn.execute(sa.text(
+            "ALTER TABLE archive_contract_positions ADD COLUMN IF NOT EXISTS machine_id INT NULL"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE archive_contract_positions ADD COLUMN IF NOT EXISTS service_id INT NULL"
+        ))
+        # archive_contract_positions: article_id nullable (po refaktorze live ma machine_id/service_id)
+        await conn.execute(sa.text(
+            "ALTER TABLE archive_contract_positions MODIFY COLUMN article_id INT NULL"
+        ))
+
         # RAO-P1-103: usuwanie martwych pól invoice_amount/invoice_document
         # (pole "Faktura (zł)" usunięte z formularza; kwota faktury nie jest już śledzona na umowie)
         for tbl in ("contracts", "archive_contracts"):

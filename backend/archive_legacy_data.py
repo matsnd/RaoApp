@@ -15,6 +15,11 @@ import asyncio
 import sys
 from pathlib import Path
 
+# Windows: konsola cp1250 nie zna ✓/✗/Polish chars — wymuś UTF-8
+if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+
 # Dodaj backend do path (gdy uruchamiane z backend/)
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -24,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import AsyncSessionLocal
 from categories.models import Category
 from machines.models import Machine
+from services.models import Service
 from contracts.models import Contract, ContractPosition, PositionCondition, ContractServiceFee
 from settlements.models import ContractSettlement
 from archive.models import (
@@ -123,8 +129,9 @@ async def main():
         print("\n[1/7] Kategorie -> archive_categories...")
         await archive_table(db, Category, ArchiveCategory, "Kategorie")
 
-        print("\n[2/7] Maszyny -> archive_articles...")
+        print("\n[2/7] Maszyny+Usługi -> archive_articles...")
         await archive_table(db, Machine, ArchiveArticle, "Maszyny")
+        await archive_table(db, Service, ArchiveArticle, "Usługi")
 
         print("\n[3/7] Umowy -> archive_contracts...")
         await archive_table(db, Contract, ArchiveContract, "Umowy")

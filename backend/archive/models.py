@@ -206,8 +206,10 @@ class ArchiveContractPosition(Base):
     article_id = Column(
         Integer,
         ForeignKey("archive_articles.id"),
-        nullable=False,
+        nullable=True,
     )
+    machine_id = Column(Integer, ForeignKey("archive_articles.id"), nullable=True)
+    service_id = Column(Integer, ForeignKey("archive_articles.id"), nullable=True)
     description = Column(String(400), nullable=True)
     rental_days = Column(Integer, nullable=True)
     quantity = Column(Integer, nullable=True, default=1)
@@ -227,7 +229,7 @@ class ArchiveContractPosition(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
-    article = relationship("ArchiveArticle", lazy="selectin")
+    article = relationship("ArchiveArticle", lazy="selectin", foreign_keys=[article_id])
 
 
 class ArchivePositionCondition(Base):

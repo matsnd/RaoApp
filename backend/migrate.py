@@ -64,6 +64,7 @@ import contract_costs.models  # noqa  # RAO-P3-005: contract_costs
 import deliveries.models  # noqa  # RAO-P3-005: deliveries
 import reservations.models  # noqa  # RAO-P3-005: reservations
 import integrations.fakturownia.models  # noqa  # RAO-P2-012: fakturownia
+import archive.models  # noqa  # RAO-P2-062: archive_* tabele (create_all)
 
 
 def generate_temp_password(length: int = 16) -> str:
@@ -384,9 +385,9 @@ async def step4_migrate_data():
         # Note: rate_type_id and description columns removed in KISS refactor.
         ("position_conditions", """
             INSERT INTO position_conditions
-                (id, position_id, rate1, rate2, billing_label, period_count, minimum)
+                (id, position_id, rate1, rate2, billing_label, period_count)
             SELECT
-                w.id, w.id_pozycji, w.oplata1, w.oplata2, w.rozliczana, w.liczba_dni, w.minimum
+                w.id, w.id_pozycji, w.oplata1, w.oplata2, w.rozliczana, w.liczba_dni
             FROM umowa_pozycja2_warunek w
             WHERE w.id_pozycji IN (SELECT id FROM contract_positions)
         """),
@@ -788,11 +789,11 @@ async def step5b_contract_service_fees():
                 await cur.execute(
                     """INSERT INTO contract_service_fees
                        (contract_id, sort_order, name,
-                        amount_from, amount_to, unit, description, is_active)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                        amount_from, amount_to, description, is_active)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s)""",
                     (contract_id, fee['sort_order'], fee['name'],
                      fee['amount_from'], fee['amount_to'],
-                     fee['unit'], fee['description'], fee['is_active'])
+                     fee['description'], fee['is_active'])
                 )
                 inserted += 1
             except pymysql.err.IntegrityError:

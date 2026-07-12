@@ -3,7 +3,7 @@ RAO-P2-067: migrate_all.py — orchestrator pełnej migracji + środowiska demo.
 
 Kroki (uruchamiane wybiórczo przez --steps):
   1   legacy     Migracja legacy dump → rao_new (migrate.py — DROPUJE i odtwarza bazę!)
-  2   archive    Archive split — legacy umowy → tabele archive_* (migrate_to_archive.py)
+  2   archive    Archive split — legacy umowy → tabele archive_* (archive_legacy_data.py)
   2b  clean      Czyszczenie tabel demo (bez archiwizacji — dla --reseed)
   2c  postal     Seed postal_codes z CSV (wymagane przed demo — umowy referencjuja PNA)
   3   demo       Seed danych demo (seed_demo_data.py): kontrahenci, maszyny, umowy
@@ -56,7 +56,7 @@ def step1_legacy(args) -> int:
 
 
 def step2_archive(args) -> int:
-    cmd = [PYTHON, str(BACKEND / "migrate_to_archive.py")]
+    cmd = [PYTHON, str(BACKEND / "archive_legacy_data.py")]
     if getattr(args, "reseed", False):
         cmd.append("--force")
     proc = subprocess.run(cmd, cwd=str(BACKEND))
@@ -83,11 +83,24 @@ def step2b_clean_demo(args) -> int:
                 "DELETE FROM position_conditions",
                 "DELETE FROM contract_positions",
                 "DELETE FROM contracts",
+                "DELETE FROM machine_reservations",
+                "DELETE FROM machine_rate_preset_items",
+                "DELETE FROM machine_rate_presets",
+                "DELETE FROM contract_costs",
+                "DELETE FROM deliveries",
+                "DELETE FROM additional_services",
+                "DELETE FROM services",
+                "DELETE FROM machines",
+                "DELETE FROM service_fee_templates",
+                "DELETE FROM fee_preset_groups",
                 "ALTER TABLE contracts AUTO_INCREMENT = 1",
                 "ALTER TABLE contract_positions AUTO_INCREMENT = 1",
                 "ALTER TABLE position_conditions AUTO_INCREMENT = 1",
                 "ALTER TABLE contract_service_fees AUTO_INCREMENT = 1",
                 "ALTER TABLE contract_settlements AUTO_INCREMENT = 1",
+                "ALTER TABLE machines AUTO_INCREMENT = 1",
+                "ALTER TABLE services AUTO_INCREMENT = 1",
+                "ALTER TABLE additional_services AUTO_INCREMENT = 1",
             ]:
                 result = await db.execute(sa.text(sql))
                 if result.rowcount:
@@ -216,8 +229,8 @@ async def _verify() -> int:
             print("  ⚠ Brak umów FA-pending — demo integracji FA nie zadziała")
 
         n_groups = await one("SELECT COUNT(*) FROM fee_preset_groups")
-        n_tpl = await one("SELECT COUNT(*) FROM service_fee_templates WHERE article_id IS NOT NULL")
-        print(f"Zestawy usług: {n_groups} grup, {n_tpl} szablonów z article_id")
+        n_tpl = await one("SELECT COUNT(*) FROM service_fee_templates WHERE additional_service_id IS NOT NULL")
+        print(f"Zestawy usług: {n_groups} grup, {n_tpl} szablonów z additional_service_id")
 
         fa_enabled = await one("SELECT enabled FROM fakturownia_settings WHERE id=1")
         print(f"Integracja FA w RAO: {'WŁĄCZONA' if fa_enabled else 'WYŁĄCZONA (skonfiguruj w Ustawieniach!)'}")
