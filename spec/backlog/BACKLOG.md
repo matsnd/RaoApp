@@ -811,6 +811,55 @@ migration_impact: yes
 
 ---
 
+### P1-121: Statystyki Kategorie — drill-down bez powrotu + puste szczegóły "(bez kategorii)"
+
+```yaml
+id: P1-121
+status: triaged
+priority: P1
+created: 2026-07-12
+source: client-request (współpraca 2026-07-12)
+component: frontend/CategoriesTab.vue + backend/stats/calc.py
+migration_impact: no
+```
+
+**Opis:** W zakładce "Kategorie" (`/rao/analytics` → Kategorie) drill-down hierarchiczny (main → sub1 → sub2) ma dwa poważne bugi UX:
+
+1. **Brak powrotu do wyższego poziomu** — gdy użytkownik wklika się w kategorię "(bez kategorii)" i ta nie ma podkategorii, tabela zwraca 0 wierszy. Wtedy `data.length === 0` → renderuje się `<div v-else class="ct-empty">` **bez breadcrumb**. Użytkownik utyka na pustym ekranie bez możliwości powrotu do "Wszystkie".
+
+2. **Puste szczegóły kategorii** — dla kategorii "(bez kategorii)" (maszyny z `category_main IS NULL`) backend zwraca:
+   - `articles_count = 0` (powinno być > 0)
+   - `rented_days = 0` (powinno być > 0)
+   - `contracts_count = 58` (poprawne)
+   - `revenue = 109 040,00 zł` (poprawne)
+   
+   Czyli JOIN z `machines` gubi wiersze gdzie `category_main IS NULL`, ale agregacja kontraktów/przychodu działa. Niespójność metryk.
+
+**Stan obecny (`CategoriesTab.vue`):**
+- Breadcrumb (linie 270-276) jest wewnątrz `<template v-else-if="data.length">` (linia 265)
+- Gdy `data.length === 0` → fallback do `<div v-else class="ct-empty">` (linia 324) — **bez breadcrumb**
+- Drill-down: `onDrillDown()` (linia 183) → `load()` → jeśli backend zwraca `[]`, breadcrumb znika z UI
+- Backend `stats/calc.py` — agregacja po `category_main` / `category_sub1` / `category_sub2`, JOIN z machines może gubić NULL-e
+
+**Zadania:**
+1. **Frontend** `CategoriesTab.vue` — przenieść breadcrumb **poza** blok `v-else-if="data.length"`, żeby był widoczny nawet gdy `data.length === 0`. Breadcrumb musi być zawsze renderowany gdy `breadcrumb.length > 0`.
+2. **Frontend** — dodać przycisk "← Wstecz" lub zapewnić że breadcrumb z "Wszystkie" jest zawsze dostępny podczas drill-down, niezależnie od wyników.
+3. **Frontend** — empty state drill-down: zamiast "Brak danych o kategoriach" pokazać "Brak podkategorii dla »{breadcrumb[-1].name}«" + breadcrumb do powrotu.
+4. **Backend** `stats/calc.py` — audyt agregacji kategorii: dlaczego `articles_count=0` i `rented_days=0` dla "(bez kategorii)" gdy `contracts_count=58` i `revenue>0`. Prawdopodobnie LEFT JOIN z machines na `category_main IS NULL` gubi pozycje. Sprawdzić czy maszyny bez kategorii są poprawnie liczone.
+5. **Backend** — rozważyć czy "(bez kategorii)" powinno być kategorią wirtualną (agregacja `COALESCE(category_main, '(bez kategorii)')`) czy wymuszać przypisanie kategorii do maszyny.
+6. **E2E** — test: drill-down do kategorii bez podkategorii → breadcrumb widoczny → klik "Wszystkie" → powrót do main.
+
+**Definition of Done:**
+- [ ] Breadcrumb widoczny nawet gdy `data.length === 0` (przeniesiony poza `v-else-if`)
+- [ ] Empty state drill-down pokazuje nazwę kategorii + breadcrumb
+- [ ] Klik "Wszystkie" w breadcrumb zawsze wraca do poziomu głównego
+- [ ] Backend: `articles_count` i `rented_days` poprawne dla "(bez kategorii)" (spójne z `contracts_count` i `revenue`)
+- [ ] E2E: drill-down do pustej kategorii + powrót działa
+- [ ] Spec sync: `03_frontend_screens.md`, `04_business_logic.md`
+- [ ] Smoke `01-login.spec.ts` zielony
+
+---
+
 ## 🟢 P3 — Nice-to-Have
 
 *Brak*
