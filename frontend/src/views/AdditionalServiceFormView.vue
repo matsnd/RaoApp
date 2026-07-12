@@ -19,12 +19,25 @@
             <input id="as-name" v-model="form.name" type="text" class="form-control" :class="{ error: fieldErrors.name }" :aria-invalid="!!fieldErrors.name" aria-describedby="as-name-error" placeholder="Np. Transport maszyny" required />
             <span v-if="fieldErrors.name" class="field-error" id="as-name-error" role="alert">{{ fieldErrors.name }}</span>
           </div>
-          <!-- #13 uwagi klienta: Nr wewnętrzny wyeliminowany z usług dodatkowych -->
+          <div class="form-group">
+            <label class="form-label" for="as-display-name">Nazwa na umowie (długa)</label>
+            <input id="as-display-name" v-model="form.display_name" type="text" class="form-control" placeholder="Długa nazwa wyświetlana na umowie/PDF (opcjonalnie)" />
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label class="form-label" for="as-default-amount">Kwota domyślna (zł)</label>
+            <input id="as-default-amount" v-model.number="form.default_amount" type="number" step="0.01" min="0" class="form-control" placeholder="Np. 1200.00" />
+          </div>
         </div>
 
         <div class="form-group">
           <label class="form-label" for="as-description">Opis</label>
-          <textarea id="as-description" v-model="form.description" class="form-control" rows="3"></textarea>
+          <textarea id="as-description" v-model="form.description" class="form-control" rows="3" :placeholder="FEE_DESCRIPTION_HINT"></textarea>
+          <div v-if="form.description" class="fee-desc-preview">
+            <span class="fee-desc-preview-label">Podgląd: </span>{{ formatFeeDescription(form.description, form.default_amount, null) }}
+          </div>
         </div>
 
         <div class="form-group">
@@ -41,6 +54,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAdditionalServiceStore } from '@/stores/additional_services'
 import { extractErrorMessage } from '@/utils/validation'
+import { formatFeeDescription, FEE_DESCRIPTION_HINT } from '@/composables/useFeeDescription'
 
 const props = defineProps({ id: String })
 const router = useRouter()
@@ -54,7 +68,8 @@ const fieldErrors = ref<Record<string, string>>({})
 
 const form = ref({
   name: '',
-  // #13 uwagi klienta: internal_number usunięte z usług dodatkowych
+  display_name: '',
+  default_amount: null as number | null,
   description: '',
   notes: '',
 })
@@ -123,5 +138,18 @@ async function handleSave() {
 .form-control.error {
   border-color: var(--color-error);
   background: var(--color-error-bg);
+}
+.fee-desc-preview {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+  padding: 6px 8px;
+  background: var(--color-bg-light);
+  border-radius: 4px;
+  line-height: 1.4;
+}
+.fee-desc-preview-label {
+  font-weight: 600;
+  color: var(--color-text-secondary);
 }
 </style>

@@ -298,7 +298,10 @@
                           <td><input v-model="editingPresetItemData.default_price" type="number" step="0.01" class="form-control form-control-xs" placeholder="Cena domyślna" @keydown.enter="savePresetItem(preset.id)" @keydown.esc="editingPresetItemId = null" /></td>
                           <td><input v-model="editingPresetItemData.amount_from" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="savePresetItem(preset.id)" @keydown.esc="editingPresetItemId = null" /></td>
                           <td><input v-model="editingPresetItemData.amount_to" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="savePresetItem(preset.id)" @keydown.esc="editingPresetItemId = null" /></td>
-                          <td><input v-model="editingPresetItemData.description" class="form-control form-control-xs" @keydown.enter="savePresetItem(preset.id)" @keydown.esc="editingPresetItemId = null" /></td>
+                          <td>
+                            <input v-model="editingPresetItemData.description" class="form-control form-control-xs" :placeholder="FEE_DESCRIPTION_HINT" @keydown.enter="savePresetItem(preset.id)" @keydown.esc="editingPresetItemId = null" />
+                            <div v-if="editingPresetItemData.description" class="fee-desc-preview">{{ formatFeeDescription(editingPresetItemData.description, editingPresetItemData.amount_from, editingPresetItemData.amount_to) }}</div>
+                          </td>
                           <td style="text-align:center;"><input type="checkbox" v-model="editingPresetItemData.is_active" /></td>
                           <td>
                             <button class="btn-icon" style="color:#22543D;" aria-label="Zapisz" title="Zapisz" @click="savePresetItem(preset.id)">✓</button>
@@ -312,7 +315,7 @@
                           <td @click="startEditPresetItem(tpl)" style="cursor:pointer;">{{ tpl.default_price ? formatCurrency(tpl.default_price) : '—' }}</td>
                           <td @click="startEditPresetItem(tpl)" style="cursor:pointer;">{{ tpl.amount_from ? formatCurrency(tpl.amount_from) : '—' }}</td>
                           <td @click="startEditPresetItem(tpl)" style="cursor:pointer;">{{ tpl.amount_to ? formatCurrency(tpl.amount_to) : '—' }}</td>
-                          <td @click="startEditPresetItem(tpl)" style="cursor:pointer; font-size:11px;">{{ tpl.description || '—' }}</td>
+                          <td @click="startEditPresetItem(tpl)" style="cursor:pointer; font-size:11px;">{{ formatFeeDescription(tpl.description, tpl.amount_from, tpl.amount_to) }}</td>
                           <td @click="startEditPresetItem(tpl)" style="cursor:pointer;"><span :class="['badge', tpl.is_active ? 'badge-success' : 'badge-muted']">{{ tpl.is_active ? 'Tak' : 'Nie' }}</span></td>
                           <td>
                             <button class="btn-icon" aria-label="Edytuj" title="Edytuj" @click.stop="startEditPresetItem(tpl)">✎</button>
@@ -343,7 +346,10 @@
                         <td><input v-model="newPresetItem.default_price" type="number" step="0.01" class="form-control form-control-xs" placeholder="Cena domyślna" @keydown.enter="saveNewPresetItem(preset)" @keydown.esc="addingToPresetId = null" /></td>
                         <td><input v-model="newPresetItem.amount_from" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="saveNewPresetItem(preset)" @keydown.esc="addingToPresetId = null" /></td>
                         <td><input v-model="newPresetItem.amount_to" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="saveNewPresetItem(preset)" @keydown.esc="addingToPresetId = null" /></td>
-                        <td><input v-model="newPresetItem.description" class="form-control form-control-xs" @keydown.enter="saveNewPresetItem(preset)" @keydown.esc="addingToPresetId = null" /></td>
+                        <td>
+                          <input v-model="newPresetItem.description" class="form-control form-control-xs" :placeholder="FEE_DESCRIPTION_HINT" @keydown.enter="saveNewPresetItem(preset)" @keydown.esc="addingToPresetId = null" />
+                          <div v-if="newPresetItem.description" class="fee-desc-preview">{{ formatFeeDescription(newPresetItem.description, newPresetItem.amount_from, newPresetItem.amount_to) }}</div>
+                        </td>
                         <td style="text-align:center;"><input type="checkbox" v-model="newPresetItem.is_active" /></td>
                         <td>
                           <button class="btn-icon" style="color:#22543D;" aria-label="Dodaj (Enter)" title="Dodaj (Enter)" @click="saveNewPresetItem(preset)">✓</button>
@@ -526,6 +532,7 @@ import TableSkeleton from '@/components/TableSkeleton.vue'
 import api from '@/composables/useApi'
 import { usePdfFolders, type PdfFolderKey } from '@/composables/usePdfFolders'
 import { formatCurrency } from '@/utils/format'
+import { formatFeeDescription, FEE_DESCRIPTION_HINT } from '@/composables/useFeeDescription'
 
 const settingsStore = useSettingsStore()
 const articleStore = useArticleStore()
@@ -1154,5 +1161,13 @@ function goToArticle(articleId) {
 .logo-upload-error {
   font-size: 12px;
   color: var(--color-danger);
+}
+.fee-desc-preview {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+  line-height: 1.3;
+  white-space: normal;
+  word-break: break-word;
 }
 </style>

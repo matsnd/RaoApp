@@ -893,6 +893,15 @@ Row 3 (30px): centered [ Zakończ ]
 
 **Zakładki:** Dane firmy | Handlowcy | Kategorie | Typy stawek | Zestawy usług dodatkowych | Fakturownia | Foldery PDF (P2-004)
 
+> **Placeholdery $1/$2 w opisach opłat (2026-07-12):** Wszystkie pola "Opis"/"Tekst na umowie" w:
+> - Zestawach usług dodatkowych (SettingsView — szablony w presetach)
+> - Formularzu usługi dodatkowej (AdditionalServiceFormView)
+> - Grid opłat dodatkowych w umowie (ContractFormView)
+>
+> obsługują placeholdery `$1` (→ kwota od / amount_from / default_amount) i `$2` (→ kwota do / amount_to).
+> Pod polem opisu wyświetla się podgląd na żywo z podmienionymi kwotami.
+> Wspólna logika: `composables/useFeeDescription.ts` (`formatFeeDescription`, `FEE_DESCRIPTION_HINT`).
+
 > **P2-004 (2026-07-11):** Nowa zakładka "Foldery PDF" — auto-zapis PDF do folderów klienta przez File System Access API (Chrome/Edge). 4 foldery: `report_main` (umowy główny), `protocol_main` (protokoły główny), `report_gdansk` (umowy Gdańsk), `protocol_gdansk` (protokoły Gdańsk). Persistencja `directoryHandle` w IndexedDB. Fallback Firefox/Safari → zwykły download. Composable: `usePdfFolders.ts`.
 >
 > **RAO-TECH-003 (2026-07-11):** Usunięto zakładkę "Folder RAO" (stary pojedynczy folder). Konsolidacja → "Foldery PDF" (per-oddział). Composable `useTargetFolder.js` usunięty, `useFileDownload.js` używa `usePdfFolders`.
@@ -1952,11 +1961,16 @@ Następca: patrz sekcja `AnalyticsView.vue` poniżej.
 
 **Pola formularza:**
 - `name` — Nazwa * (wymagana, np. "Transport", "Czyszczenie")
+- `display_name` — Nazwa na umowie (długa, opcjonalna — fallback do `name`)
 - `default_amount` — Kwota domyślna (zł)
-- `description` — Opis (textarea)
+- `description` — Opis (textarea, obsługuje placeholdery `$1`/`$2` — podgląd na żywo pod polem)
 - `notes` — Uwagi (textarea)
 - **Sekcja "Integracja Fakturownia":**
   - `fakturownia_product_id` — Produkt Fakturownia (select, opcjonalny)
+
+**Placeholdery $1/$2:** Opis obsługuje `$1` (→ kwota od/default_amount) i `$2` (→ kwota do).
+Pod polem opisu wyświetla się podgląd na żywo z podmienionymi kwotami.
+Wspólna logika: `composables/useFeeDescription.ts` (`formatFeeDescription`).
 
 **Store:** `useAdditionalServicesStore` (`stores/additional_services.js`) — `fetchOne`, `create`, `update`
 **API:** `GET/POST/PUT/DELETE /additional-services`

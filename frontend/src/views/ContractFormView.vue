@@ -404,7 +404,10 @@
                   </td>
                   <td><input v-model="editingFeeData.amount_from" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" /></td>
                   <td><input v-model="editingFeeData.amount_to" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" /></td>
-                  <td><input v-model="editingFeeData.description" class="form-control form-control-xs" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" /></td>
+                  <td>
+                    <input v-model="editingFeeData.description" class="form-control form-control-xs" :placeholder="FEE_DESCRIPTION_HINT" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" />
+                    <div v-if="editingFeeData.description" class="fee-desc-preview">{{ formatDescription(editingFeeData.description, editingFeeData.amount_from, editingFeeData.amount_to) }}</div>
+                  </td>
                   <td style="text-align:center;"><input type="checkbox" v-model="editingFeeData.is_active" /></td>
                   <td>
                     <button class="btn-icon" style="color:var(--color-success);" title="Zapisz (Enter)" @click="saveInlineFee">✓</button>
@@ -437,7 +440,10 @@
                 </td>
                 <td><input v-model="newFeeData.amount_from" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" /></td>
                 <td><input v-model="newFeeData.amount_to" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" /></td>
-                <td><input v-model="newFeeData.description" class="form-control form-control-xs" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" /></td>
+                <td>
+                  <input v-model="newFeeData.description" class="form-control form-control-xs" :placeholder="FEE_DESCRIPTION_HINT" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" />
+                  <div v-if="newFeeData.description" class="fee-desc-preview">{{ formatDescription(newFeeData.description, newFeeData.amount_from, newFeeData.amount_to) }}</div>
+                </td>
                 <td style="text-align:center;"><input type="checkbox" v-model="newFeeData.is_active" /></td>
                 <td>
                   <button class="btn-icon" style="color:var(--color-success);" title="Dodaj (Enter)" @click="saveNewFeeRow">✓</button>
@@ -1065,6 +1071,7 @@ import ServiceCombobox from '@/components/contracts/ServiceCombobox.vue'
 import api from '@/composables/useApi'
 import { usePdfFolders, type PdfDocType } from '@/composables/usePdfFolders'
 import { useFileDownload } from '@/composables/useFileDownload'
+import { formatFeeDescription, FEE_DESCRIPTION_HINT } from '@/composables/useFeeDescription'
 
 const props = defineProps({ id: String })
 const router = useRouter()
@@ -1519,30 +1526,9 @@ const fakturowniaConfigured = computed(() => {
 
 
 // Format description with actual amounts instead of placeholders
-// Format: "{name}: {amount_from} zł - {amount_to} zł" or "{name}: {amount_from} zł ({description})"
+// Delegates to shared useFeeDescription composable ($1/$2 substitution)
 function formatDescription(description, amount_from, amount_to, name = '') {
-  if (!description) {
-    // If no description, format amounts directly
-    if (amount_from !== null && amount_from !== undefined) {
-      const formattedFrom = formatCurrency(amount_from)
-      if (amount_to !== null && amount_to !== undefined) {
-        const formattedTo = formatCurrency(amount_to)
-        const prefix = name ? `${name}: ` : ''
-        return `${prefix}${formattedFrom} - ${formattedTo}`
-      }
-      const prefix = name ? `${name}: ` : ''
-      return `${prefix}${formattedFrom}`
-    }
-    return name ? `${name}: wycena indywidualna` : '—'
-  }
-
-  // If description exists, replace $1/$2 placeholders with actual amounts + zł.
-  // Missing amount -> 0,00 zł to avoid any $ sign in output.
-  let result = description
-    .replace(/\$1/g, formatCurrency(amount_from))
-    .replace(/\$2/g, formatCurrency(amount_to))
-  const prefix = name ? `${name}: ` : ''
-  return `${prefix}${result}`
+  return formatFeeDescription(description, amount_from, amount_to, name)
 }
 
 onMounted(async () => {
@@ -3007,5 +2993,13 @@ async function applyHardcodedFeePreset(kind: 'diesel' | 'elektryk') {
 }
 .fee-pdf-line {
   margin-bottom: 2px;
+}
+.fee-desc-preview {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+  line-height: 1.3;
+  white-space: normal;
+  word-break: break-word;
 }
 </style>
