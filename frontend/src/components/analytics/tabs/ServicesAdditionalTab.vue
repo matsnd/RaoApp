@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, inject, onMounted, ref, watch } from 'vue'
+import { Doughnut } from 'vue-chartjs'
 import {
   useAnalyticsStore,
   type AnalyticsFiltersPayload,
   type ServiceFeeItem,
 } from '@/stores/analytics'
 import KpiRow, { type KpiCard } from '@/components/analytics/KpiRow.vue'
+import ChartCard from '@/components/analytics/ChartCard.vue'
 import AnalyticsTable, {
   type AnalyticsColumn,
   type AnalyticsRow,
@@ -13,6 +15,7 @@ import AnalyticsTable, {
 import ExportCsvButton, { type CsvColumn } from '@/components/analytics/ExportCsvButton.vue'
 import StateMessage from '@/components/StateMessage.vue'
 import { useSort } from '@/composables/useSort'
+import { useChartTheme } from '@/composables/useChartTheme'
 import { formatCurrency } from '@/utils/format'
 
 interface Props {
@@ -112,6 +115,73 @@ const csvColumns: CsvColumn[] = [
   { key: 'times_billed', label: 'Razy' },
 ]
 
+// ── Chart: Doughnut udziału przychodu per usługa dodatkowa ────────────────────
+const { colors, baseOptions } = useChartTheme()
+const palette = [colors.primary, colors.info, colors.success, colors.warning, colors.error, colors.primaryLight]
+
+const doughnutData = computed(() => {
+  const sorted = [...data.value].sort((a, b) => Number(b.total_revenue) - Number(a.total_revenue))
+  const top6 = sorted.slice(0, 6)
+  const rest = sorted.slice(6)
+  const restSum = rest.reduce((s, r) => s + Number(r.total_revenue), 0)
+  const labels = top6.map((s) => s.service_name)
+  const values = top6.map((s) => Number(s.total_revenue))
+  if (rest.length > 0) {
+    labels.push('Inne')
+    values.push(restSum)
+  }
+  return {
+    labels,
+    datasets: [
+      {
+        data: values,
+        backgroundColor: labels.map((_, i) => i < 6 ? palette[i] : colors.border),
+        borderWidth: 2,
+        borderColor: '#FFFFFF',
+      },
+    ],
+  }
+})
+
+const doughnutOptions = computed(() => ({
+  ...baseOptions,
+  scales: undefined,
+  plugins: {
+    ...baseOptions.plugins,
+    legend: {
+      display: true,
+      position: 'right' as const,
+      labels: {
+        color: colors.textMuted,
+        font: { family: colors.fontFamily, size: 11 },
+        padding: 8,
+        boxWidth: 12,
+      },
+    },
+    tooltip: {
+      ...baseOptions.plugins?.tooltip,
+      callbacks: {
+        label: (ctx: { dataIndex: number; parsed: number }) => {
+          const total = (data.value || []).reduce((s, d) => s + Number(d.total_revenue), 0)
+          const v = ctx.parsed
+          const pct = total > 0 ? ((v / total) * 100).toFixed(1) : '0'
+          return `${formatCurrency(v)} (${pct}%)`
+        },
+      },
+    },
+  },
+  onClick: (_e: unknown, elements: { index: number }[]) => {
+    if (elements.length > 0) {
+      const sorted = [...data.value].sort((a, b) => Number(b.total_revenue) - Number(a.total_revenue))
+      const item = sorted[elements[0].index]
+      if (item) {
+        const serviceId = item.service_id ?? item.article_id
+        if (serviceId) openDrillDown('service', serviceId as number, String(item.service_name))
+      }
+    }
+  },
+}))
+
 function onRowClick(row: AnalyticsRow): void {
   const serviceId = row.service_id as number
   if (!serviceId) return
@@ -146,6 +216,19 @@ watch(() => [props.dateFrom, props.dateTo, props.filters?.contractorId, props.fi
 
     <template v-else-if="data.length">
       <KpiRow :cards="kpiCards" />
+
+      <div class="svc-chart-grid">
+        <ChartCard
+          title="Udział przychodu per usługa"
+          icon="🧩"
+          :loading="loading"
+          :empty="!data.length"
+          empty-message="Brak usług dodatkowych w wybranym okresie"
+          test-id="svc-s-chart"
+          :height="300"
+        >
+          <Doughnut :data="doughnutData" :options="doughnutOptions" />
+        </ChartCard>
 
       <div class="svc-section">
         <div class="svc-section-head">
@@ -182,6 +265,7 @@ watch(() => [props.dateFrom, props.dateTo, props.filters?.contractorId, props.fi
           <template #empty>Brak usług pasujących do wyszukiwania</template>
         </AnalyticsTable>
       </div>
+      </div>
     </template>
 
     <div v-else-if="error" class="svc-error">
@@ -195,6 +279,17 @@ watch(() => [props.dateFrom, props.dateTo, props.filters?.contractorId, props.fi
 </template>
 
 <style scoped>
+.svc-chart-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--spacing-lg);
+}
+@media (min-width: 1024px) {
+  .svc-chart-grid {
+    grid-template-columns: 2fr 3fr;
+  }
+}
+
 .svc-tab {
   display: flex;
   flex-direction: column;

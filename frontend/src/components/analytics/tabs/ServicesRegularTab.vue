@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, inject, onMounted, ref, watch } from 'vue'
+import { Bar } from 'vue-chartjs'
 import {
   useAnalyticsStore,
   type AnalyticsFiltersPayload,
   type PositionStatItem,
 } from '@/stores/analytics'
 import KpiRow, { type KpiCard } from '@/components/analytics/KpiRow.vue'
+import ChartCard from '@/components/analytics/ChartCard.vue'
 import AnalyticsTable, {
   type AnalyticsColumn,
   type AnalyticsRow,
@@ -13,6 +15,7 @@ import AnalyticsTable, {
 import ExportCsvButton, { type CsvColumn } from '@/components/analytics/ExportCsvButton.vue'
 import StateMessage from '@/components/StateMessage.vue'
 import { useSort } from '@/composables/useSort'
+import { useChartTheme } from '@/composables/useChartTheme'
 import { formatCurrency } from '@/utils/format'
 
 interface Props {
@@ -120,6 +123,68 @@ const csvColumns: CsvColumn[] = [
   { key: 'times_billed', label: 'Razy' },
 ]
 
+// ── Chart: Top 10 usług po przychodzie ────────────────────────────────────────
+const { colors, baseOptions } = useChartTheme()
+
+const top10ChartData = computed(() => {
+  const top10 = [...data.value]
+    .sort((a, b) => Number(b.revenue) - Number(a.revenue))
+    .slice(0, 10)
+  return {
+    labels: top10.map((s) => s.article_name?.length > 25 ? s.article_name.slice(0, 23) + '…' : s.article_name),
+    datasets: [
+      {
+        label: 'Przychód',
+        data: top10.map((s) => Number(s.revenue)),
+        backgroundColor: colors.warning,
+        borderRadius: 6,
+        borderSkipped: false,
+      },
+    ],
+  }
+})
+
+const top10ChartOptions = computed(() => ({
+  ...baseOptions,
+  indexAxis: 'y' as const,
+  scales: {
+    x: {
+      ...baseOptions.scales?.x,
+      ticks: {
+        ...baseOptions.scales?.x?.ticks,
+        callback: (v: number | string) => {
+          const n = Number(v)
+          return n >= 1000 ? `${(n / 1000).toFixed(0)}k` : n
+        },
+      },
+    },
+    y: { ...baseOptions.scales?.y },
+  },
+  plugins: {
+    ...baseOptions.plugins,
+    tooltip: {
+      ...baseOptions.plugins?.tooltip,
+      callbacks: {
+        label: (ctx: { dataIndex: number }) => {
+          const item = [...data.value].sort((a, b) => Number(b.revenue) - Number(a.revenue))[ctx.dataIndex]
+          const rev = formatCurrency(Number(item?.revenue ?? 0))
+          const cat = item?.category_main ? ` [${item.category_main}]` : ''
+          return `${rev}${cat}`
+        },
+      },
+    },
+  },
+  onClick: (_e: unknown, elements: { index: number }[]) => {
+    if (elements.length > 0) {
+      const item = [...data.value].sort((a, b) => Number(b.revenue) - Number(a.revenue))[elements[0].index]
+      if (item) {
+        const serviceId = item.service_id ?? item.article_id
+        if (serviceId) openDrillDown('service', serviceId as number, String(item.article_name))
+      }
+    }
+  },
+}))
+
 function onRowClick(row: AnalyticsRow): void {
   const serviceId = row.service_id as number
   if (!serviceId) return
@@ -154,6 +219,18 @@ watch(() => [props.dateFrom, props.dateTo, props.filters?.contractorId, props.fi
 
     <template v-else-if="data.length">
       <KpiRow :cards="kpiCards" />
+
+      <ChartCard
+        title="Top 10 usług po przychodzie"
+        icon="📊"
+        :loading="loading"
+        :empty="!data.length"
+        empty-message="Brak usług w wybranym okresie"
+        test-id="svc-u-chart"
+        :height="320"
+      >
+        <Bar :data="top10ChartData" :options="top10ChartOptions" />
+      </ChartCard>
 
       <div class="svc-section">
         <div class="svc-section-head">
