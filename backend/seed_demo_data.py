@@ -105,6 +105,7 @@ MASZYNY = [
         "category_main": "Koparki", "category_sub1": "Koparki gąsienicowe",
         "capacity_t": Decimal("3.5"),
         "accessories": "Łyżka standardowa, szybkozłącze hydrauliczne",
+        "power_type": "diesel",
         "fakturownia_product_id": 8845156432567,  # KOP001
     },
     {
@@ -115,6 +116,7 @@ MASZYNY = [
         "category_main": "Ładowarki Teleskopowe", "category_sub1": "Ładowarki Teleskopowe Sztywne",
         "reach_m": Decimal("6.0"), "capacity_t": Decimal("3.6"),
         "accessories": "Widły paletowe, łyżka objętościowa 1.2m³",
+        "power_type": "diesel",
         "fakturownia_product_id": 8845156436442,  # LAD001
     },
     {
@@ -125,6 +127,7 @@ MASZYNY = [
         "category_main": "Podnośniki", "category_sub1": "Podnośnik koszowy na samochodzie",
         "reach_m": Decimal("16.0"),
         "accessories": "Kosz 230kg, wysięgnik obrotowy 360°",
+        "power_type": "diesel",
         "fakturownia_product_id": 8845156436443,  # POD001
     },
     {
@@ -134,6 +137,7 @@ MASZYNY = [
         "brand": "Wirtgen", "model": "W 100 CFi", "replacement_value": Decimal("1200000.00"),
         "category_main": "Spychacze", "category_sub1": "Spychacze frezujące",
         "accessories": "Frez 1.0m, system chłodzenia wodnego",
+        "power_type": "diesel",
         "fakturownia_product_id": 8845156436444,  # SPY001
     },
     {
@@ -143,6 +147,7 @@ MASZYNY = [
         "brand": "Ammann", "model": "APF 15/50", "replacement_value": Decimal("35000.00"),
         "category_main": "Zagęszczarki", "category_sub1": "Zagęszczarki płytowe",
         "accessories": "Ruch w przód i tył, nóż dociskowy",
+        "power_type": "elektryk",
         "fakturownia_product_id": 8845156436446,  # ZAG001
     },
 ]

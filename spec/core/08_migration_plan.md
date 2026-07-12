@@ -670,3 +670,64 @@ SELECT 'conditions', (SELECT COUNT(*) FROM rao.umowa_pozycja2_warunek),
        (SELECT COUNT(*) FROM rao_new.position_conditions);
 -- Wszystkie old_count == new_count → migracja OK
 ```
+
+---
+
+## P1-114: Reset bazy od zera (DROP + CREATE + seed) — 2026-07-12
+
+> **Skrypt:** `backend/reset_db.py`
+> **Zgoda:** User potwierdził destrukcję (sesja FULL-AUTO, hard stop DROP/TRUNCATE = raport)
+
+### Procedura
+
+```bash
+cd backend && python reset_db.py              # DROP + CREATE + schema + seed + FA invoices
+cd backend && python reset_db.py --skip-seed  # tylko DROP + CREATE + schema
+cd backend && python reset_db.py --skip-fa    # bez FA invoices
+```
+
+### Co robi skrypt
+
+1. **DROP DATABASE IF EXISTS rao_new** (bezpośrednio przez aiomysql)
+2. **CREATE DATABASE rao_new** (utf8mb4_polish_ci)
+3. **Base.metadata.create_all** — schema z modeli SQLAlchemy (mirror main.py startup)
+4. **seed_demo_data.py** — pełny seed:
+   - 16 kategorii, 5 maszyn (4 diesel + 1 elektryk), 7 usług dodatkowych
+   - 8 kontrahentów, 2 handlowców, 2 oddziały, 4 użytkowników (admin/admin123)
+   - 6 rate types, konfiguracja firmy, FA settings (bootstrap z env)
+   - 5 cenników kaskadowych per maszyna, 4 presety opłat (Diesel/Elektryk)
+   - 64 umowy (24 historia 2025 + 10 aktywnych FA-pending + 14 historia 2026 + 16 FA-pending zakończone)
+   - 86 pozycji, 258 warunków, 191 usług dodatkowych, 156 rozliczeń, 8 rezerwacji
+5. **seed_fa_invoices.py** — faktury FA dla rozliczonych umów (source=fakturownia)
+
+### Weryfikacja po resecie (2026-07-12)
+
+```sql
+SELECT (SELECT COUNT(*) FROM contracts) as contracts,        -- 64
+       (SELECT COUNT(*) FROM contract_positions) as positions, -- 86
+       (SELECT COUNT(*) FROM machines) as machines,           -- 5
+       (SELECT COUNT(*) FROM additional_services) as add_srv, -- 7
+       (SELECT COUNT(*) FROM contractors) as contractors,     -- 8
+       (SELECT COUNT(*) FROM users) as users;                 -- 4
+
+SELECT COUNT(*) FROM contracts WHERE date_to >= CURDATE() AND is_settled = 0; -- 10 aktywnych
+SELECT id, name, power_type FROM machines; -- 4 diesel + 1 elektryk
+SELECT id, enabled, domain_subdomain FROM fakturownia_settings; -- enabled=1, domain=matsnd
+```
+
+### Fakturownia — status integracji
+
+| Element | Status |
+|---|---|
+| `FAKTUROWNIA_API_TOKEN` w `.env` | ✅ poprawny |
+| Domain `matsnd.fakturownia.pl` | ✅ DNS działa (54.76.110.157) |
+| API endpointy | ✅ `/clients.json`, `/products.json`, `/invoices.json` (BEZ `/api/` prefiksu) |
+| DB `fakturownia_settings` | ✅ enabled=True, domain=matsnd, token encrypted |
+| DB `machines.fakturownia_product_id` | ✅ 5 maszyn zmapowanych |
+| FA clients (8 kontrahentów) | ✅ zmapowani po NIP |
+| FA products (5 maszyn) | ✅ zmapowane po ID |
+
+### Uwagi
+
+- **P1-115 (backlog):** Umowy typu U (usługi) w seedzie mają pozycje z `machine_id` zamiast `service_id` — do naprawy osobno. Services table jest pusta (0 rekordów).
+- **Migracje `ALTER TABLE ... IF NOT EXISTS`** w main.py startup mogą logować ostrzeżenia (np. "Unknown column 'article_id'") — niekrytyczne, schema tworzona od zera przez create_all.

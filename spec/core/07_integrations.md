@@ -836,7 +836,7 @@ Przykład:
 - `frontend/src/views/SettingsView.vue` — sekcja Fakturownia
 - `frontend/src/views/ContractFormView.vue` — pole OID + guzik 💰
 
-### Demo setup (RAO-P2-061 + RAO-P2-067 + RAO-P2-068)
+### Demo setup (RAO-P2-061 + RAO-P2-067 + RAO-P2-068 + P1-114)
 
 Konto testowe `matsnd.fakturownia.pl` skonfigurowane jako demo produkcyjne:
 
@@ -851,10 +851,23 @@ Konto testowe `matsnd.fakturownia.pl` skonfigurowane jako demo produkcyjne:
 - **6 presetów usług dodatkowych:** najem (default S), usługa z operatorem (default U), kontrakt długoterminowy, weekend, kontrakt zagraniczny, operator premium
 - **ServiceFeeTemplateItem:** 22 relacji N:M preset → usługa dodatkowa (frontend pokazuje konkretne usługi dodatkowe w pickerze, refaktor Faza 7: `article_id` → `additional_service_id`)
 - **6 rate types:** dniowa, godzinowa, km, tygodniowa, miesięczna, jednorazowa
-- **Skrypty:** `backend/seed_demo_data.py` (dane RAO) + `backend/seed_fa_invoices.py` (faktury FA, token z env) + `backend/migrate_all.py` (orchestrator)
+- **Skrypty:** `backend/seed_demo_data.py` (dane RAO) + `backend/seed_fa_invoices.py` (faktury FA, token z env) + `backend/migrate_all.py` (orchestrator) + `backend/reset_db.py` (P1-114: DROP + CREATE + schema + seed)
 - **FA-pending flow:** 12 umów nierozliczonych z fakturą czekającą w FA → demo "Pobierz z Fakturowni" tworzy rozliczenie
 - **Security:** `FAKTUROWNIA_API_TOKEN` czytane z env (brak hardcoded w kodzie)
 - **Dokumentacja:** `spec/technical/fakturownia_demo_setup.md`
+
+### P1-114: Reset bazy od zera (2026-07-12)
+
+**Skrypt:** `backend/reset_db.py` — DROP + CREATE + schema + seed + FA invoices w jednym.
+
+**Weryfikacja API Fakturownia (2026-07-12):**
+- Endpointy: `/clients.json`, `/products.json`, `/invoices.json` (BEZ `/api/` prefiksu)
+- `GET /clients.json?tax_no=<nip>` → 200, 8 klientów zmapowanych po NIP
+- `GET /products/<id>.json` → 200, 5 produktów zmapowanych po ID
+- DB `fakturownia_settings`: enabled=True, domain=matsnd, token encrypted (bootstrap z env)
+- DB `machines.fakturownia_product_id`: 5 maszyn zmapowanych
+
+**Stan po resecie:** 64 umowy (10 aktywnych FA-pending), 5 maszyn (4 diesel + 1 elektryk), 7 usług dodatkowych, 8 kontrahentów, 4 użytkowników (admin/admin123). Szczegóły: `08_migration_plan.md` sekcja P1-114.
 
 Implementacja z `smtplib` lub usługą zewnętrzną (SendGrid/Mailgun). Wymaga konfiguracji SMTP w `.env`.
 W MVP: generowanie PDF + otwarcie `mailto:` link w przeglądarce (jak WinForms).
