@@ -562,6 +562,34 @@ async def startup_migrations():
             "ON contract_service_fees(additional_service_id)"
         ))
 
+        # P1-120: Backfill display_name na istniejących additional_services (deterministyczne mappingi)
+        # Klucz: name → display_name. Idempotentne — UPDATE tylko gdy display_name IS NULL.
+        await conn.execute(sa.text(
+            "UPDATE additional_services SET display_name = CASE"
+            " WHEN name = 'Transport' THEN 'Transport'"
+            " WHEN name = 'Czyszczenie' THEN 'Czyszczenie maszyny (zabrudzenia ponadnormatywne)'"
+            " WHEN name = 'Tankowanie' THEN 'Usługa tankowania'"
+            " WHEN name = 'Przestój' THEN 'Ponadnormatywny przestój transportu'"
+            " WHEN name = 'Serwis' THEN 'Nieuzasadnione wezwanie serwisowe'"
+            " WHEN name = 'Przegląd Diesel' THEN 'Przegląd techniczny i czyszczenie maszyny'"
+            " WHEN name = 'Przegląd Elektryk' THEN 'Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny'"
+            " ELSE name END"
+            " WHERE display_name IS NULL"
+        ))
+        # P1-120: Backfill additional_service_id w contract_service_fees — match po display_name, potem po name
+        await conn.execute(sa.text(
+            "UPDATE contract_service_fees f"
+            " JOIN additional_services s ON f.name = s.display_name"
+            " SET f.additional_service_id = s.id"
+            " WHERE f.additional_service_id IS NULL"
+        ))
+        await conn.execute(sa.text(
+            "UPDATE contract_service_fees f"
+            " JOIN additional_services s ON f.name = s.name"
+            " SET f.additional_service_id = s.id"
+            " WHERE f.additional_service_id IS NULL"
+        ))
+
         # contract_positions.costs
         try:
             await conn.execute(sa.text("ALTER TABLE contract_positions DROP COLUMN IF EXISTS costs"))
