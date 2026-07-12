@@ -88,9 +88,6 @@ class PositionCondition(Base):
     period_count = Column(Integer, nullable=True)  # RAO-P1-005: backward compatibility
     period_from = Column(Integer, nullable=True)  # RAO-P1-005: elastyczne widełki (od)
     period_to = Column(Integer, nullable=True)    # RAO-P1-005: elastyczne widełki (do)
-    # P1-101: ryczałt (kwota całkowita) vs stawka (kwota per jednostka).
-    # Default TRUE — 97% ryczałtów w legacy.
-    is_flat_rate = Column(Boolean, nullable=False, default=True, server_default="1")
 
     position = relationship("ContractPosition", back_populates="conditions")
 

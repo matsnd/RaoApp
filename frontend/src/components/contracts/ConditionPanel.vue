@@ -27,7 +27,6 @@
           <th>{{ isRental ? 'Od (dni)' : 'Od (godz.)' }}</th>
           <th>{{ isRental ? 'Do (dni)' : 'Do (godz.)' }}</th>
           <th>Stawka (zł)</th>
-          <th>Ryczałt</th>
           <th>Jednostka</th>
           <th style="width:80px;"></th>
         </tr>
@@ -44,9 +43,6 @@
             </td>
             <td>
               <input v-model.number="editingCondData.rate1" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" data-testid="rate1" :disabled="isSettled" @keydown.enter="saveInlineCond" @keydown.esc="cancelInlineCond" />
-            </td>
-            <td style="text-align:center;">
-              <input type="checkbox" v-model="editingCondData.is_flat_rate" data-testid="edit-is-flat-rate" :disabled="isSettled" title="Ryczałt = kwota całkowita (bez / jednostka). Odznaczone = stawka per jednostka." />
             </td>
             <td>
               <span class="form-control-xs" style="display:inline-flex;align-items:center;height:28px;padding:2px 0;">{{ editingCondData.billing_label || defaultLabel }}</span>
@@ -67,10 +63,7 @@
             <td>{{ cond.period_from != null ? cond.period_from : '—' }}</td>
             <td>{{ cond.period_to != null ? cond.period_to : '—' }}</td>
             <td style="font-weight:600;">
-              {{ cond.rate1 != null ? formatCurrency(cond.rate1) + (cond.is_flat_rate === false ? ' / ' + shortUnit : '') : cond.rate2 != null ? formatCurrency(cond.rate2) + (cond.is_flat_rate === false ? ' / ' + shortUnit : '') : '—' }}
-            </td>
-            <td style="text-align:center;">
-              <input type="checkbox" :checked="cond.is_flat_rate !== false" disabled title="Ryczałt = kwota całkowita (bez / jednostka)" />
+              {{ cond.rate1 != null ? formatCurrency(cond.rate1) + (isRental ? ' / ' + shortUnit : '') : cond.rate2 != null ? formatCurrency(cond.rate2) + (isRental ? ' / ' + shortUnit : '') : '—' }}
             </td>
             <td>{{ cond.billing_label || defaultLabel }}</td>
             <td>
@@ -90,9 +83,6 @@
           <td>
             <input v-model.number="newCondData.rate1" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" data-testid="new-rate1" :disabled="isSettled" @keydown.enter="saveNewCondRow" @keydown.esc="cancelNewCondRow" />
           </td>
-          <td style="text-align:center;">
-            <input type="checkbox" v-model="newCondData.is_flat_rate" data-testid="new-is-flat-rate" :disabled="isSettled" title="Ryczałt = kwota całkowita (bez / jednostka). Odznaczone = stawka per jednostka." />
-          </td>
           <td>
             <span class="form-control-xs" style="display:inline-flex;align-items:center;height:28px;padding:2px 0;">{{ newCondData.billing_label || defaultLabel }}</span>
           </td>
@@ -102,14 +92,14 @@
           </td>
         </tr>
         <tr v-if="gapError" class="row-error">
-          <td colspan="6" style="color:var(--color-error);font-size:11px;padding:4px;">
+          <td colspan="5" style="color:var(--color-error);font-size:11px;padding:4px;">
             ⚠️ {{ gapError }}
           </td>
         </tr>
       </tbody>
       <tfoot>
         <tr>
-          <td colspan="6" style="font-weight:700;text-align:right;padding-top:8px;">
+          <td colspan="5" style="font-weight:700;text-align:right;padding-top:8px;">
             Wartość pozycji: {{ calculatedValueDisplay }}
           </td>
         </tr>
@@ -280,7 +270,6 @@ function emptyCondData() {
     period_count: null as number | null,
     period_from: isService.value ? 0 : 1,
     period_to: null as number | null,
-    is_flat_rate: true as boolean,  // P1-101: ryczałt domyślnie ON
   }
 }
 
@@ -509,7 +498,6 @@ function startEditCond(cond: any) {
     period_count: cond.period_count ?? null,
     period_from: cond.period_from ?? (isService.value ? 0 : 1),
     period_to: cond.period_to ?? null,
-    is_flat_rate: cond.is_flat_rate !== false,  // P1-101: default true
   }
 }
 
@@ -646,7 +634,6 @@ watch(() => props.machineId, async (newMachineId, oldMachineId) => {
             period_count: cond.period_count,
             period_from: cond.period_from ?? null,
             period_to: cond.period_to ?? null,
-            is_flat_rate: cond.is_flat_rate !== false,
           }))
         }
         toastStore.success(`Auto-apply cennika z umowy ${data.source_contract_number} (${data.conditions.length} warunków)`)
@@ -738,7 +725,6 @@ async function autoPrefillFromLast() {
         period_count: cond.period_count,
         period_from: cond.period_from ?? null,
         period_to: cond.period_to ?? null,
-        is_flat_rate: cond.is_flat_rate !== false,  // P1-101
       }))
     }
     toastStore.success(`Wypełniono z umowy ${data.source_contract_number} (${data.conditions.length} warunków)`)

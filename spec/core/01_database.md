@@ -950,7 +950,6 @@ CREATE TABLE IF NOT EXISTS archive_position_conditions (
   period_count  INT NULL,
   period_from   INT NULL COMMENT 'RAO-P1-005: elastyczne widełki (od)',
   period_to     INT NULL COMMENT 'RAO-P1-005: elastyczne widełki (do)',
-  is_flat_rate  TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'P1-101: ryczałt=TRUE (kwota całkowita), stawka=FALSE (per jednostka)',
   minimum       INT NULL,
   CONSTRAINT fk_archive_pc_position_id
     FOREIGN KEY (position_id) REFERENCES archive_contract_positions(id) ON DELETE CASCADE,

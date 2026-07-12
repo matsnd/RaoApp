@@ -32,7 +32,6 @@ interface LegacyCondition {
   billing_label: string | null
   period_from: number | null
   period_to: number | null
-  is_flat_rate: boolean
   pattern_type: string
 }
 
@@ -203,7 +202,6 @@ async function addCondition(
   const payload: Record<string, unknown> = {
     rate_type_id: rateTypeId,
     rate1: cond.rate1,
-    is_flat_rate: cond.is_flat_rate,
   }
   if (cond.rate2 !== null) payload.rate2 = cond.rate2
   if (cond.billing_label) payload.billing_label = cond.billing_label
@@ -395,9 +393,6 @@ test.describe('Legacy PDF Pattern Recreation (515 contracts → 8 categories)', 
             if (legacyCond.period_to !== null) {
               expect(apiCond.period_to, `Position ${i + 1} cond ${j + 1} period_to`).toBe(legacyCond.period_to)
             }
-
-            // Verify is_flat_rate
-            expect(apiCond.is_flat_rate, `Position ${i + 1} cond ${j + 1} is_flat_rate`).toBe(legacyCond.is_flat_rate)
           }
         }
       })
@@ -442,30 +437,6 @@ test.describe('Legacy PDF Pattern Recreation (515 contracts → 8 categories)', 
           for (const cond of pos.conditions) {
             expect(cond.rate1, `${f.category} condition rate1 should not be null`).not.toBeNull()
             expect(cond.rate1!, `${f.category} condition rate1 should be > 0`).toBeGreaterThan(0)
-          }
-        }
-      }
-    })
-
-    test('flat_rate patterns have is_flat_rate=true', async () => {
-      for (const f of fixtures) {
-        if (f.category.includes('flat')) {
-          for (const pos of f.positions) {
-            for (const cond of pos.conditions) {
-              expect(cond.is_flat_rate, `${f.category} should have is_flat_rate=true`).toBe(true)
-            }
-          }
-        }
-      }
-    })
-
-    test('tiered patterns have is_flat_rate=false', async () => {
-      for (const f of fixtures) {
-        if (f.category.includes('tiered') || f.category.includes('single_rate') || f.category.includes('single_day') || f.category.includes('multi_pos')) {
-          for (const pos of f.positions) {
-            for (const cond of pos.conditions) {
-              expect(cond.is_flat_rate, `${f.category} should have is_flat_rate=false`).toBe(false)
-            }
           }
         }
       }

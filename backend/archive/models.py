@@ -248,8 +248,6 @@ class ArchivePositionCondition(Base):
     # RAO-P2-071: mirror position_conditions — elastyczne widełki + ryczałt
     period_from = Column(Integer, nullable=True, comment="RAO-P1-005: elastyczne widełki (od)")
     period_to = Column(Integer, nullable=True, comment="RAO-P1-005: elastyczne widełki (do)")
-    is_flat_rate = Column(Boolean, nullable=False, default=True, server_default="1",
-                          comment="P1-101: ryczałt=TRUE (kwota całkowita), stawka=FALSE (per jednostka)")
     minimum = Column(Integer, nullable=True)
 
     position = relationship("ArchiveContractPosition", back_populates="conditions")

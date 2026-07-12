@@ -8,7 +8,7 @@
       "contract_type": "U",
       "date_from": "2026-01-22",
       "date_to": null,
-      "prepayment": 5781.0,
+      "prepayment": 5781,
       "delivery_address": "Stacja Metra Połczyńska; obok Selgros",
       "working_days_per_week": 6
     },
@@ -26,12 +26,11 @@
         "replacement_value": null,
         "conditions": [
           {
-            "rate1": 4700.0,
-            "rate2": 300.0,
+            "rate1": 4700,
+            "rate2": 300,
             "billing_label": "do 8 godzin",
             "period_from": null,
             "period_to": null,
-            "is_flat_rate": true,
             "pattern_type": "flat_hourly"
           }
         ]
@@ -71,12 +70,11 @@
         "replacement_value": null,
         "conditions": [
           {
-            "rate1": 1450.0,
+            "rate1": 1450,
             "rate2": null,
             "billing_label": "do 2 godzin",
             "period_from": null,
             "period_to": null,
-            "is_flat_rate": true,
             "pattern_type": "flat_rate"
           }
         ]
@@ -93,7 +91,7 @@
       "contract_type": "N",
       "date_from": "2025-07-21",
       "date_to": "2025-08-04",
-      "prepayment": 15621.0,
+      "prepayment": 15621,
       "delivery_address": "Koziel 9A, 05-622 Koziel",
       "working_days_per_week": 6
     },
@@ -108,33 +106,30 @@
       {
         "article_name": "Ładowarka teleskopowa 13m",
         "rental_days": 14,
-        "replacement_value": 241000.0,
+        "replacement_value": 241000,
         "conditions": [
           {
-            "rate1": 600.0,
+            "rate1": 600,
             "rate2": null,
             "billing_label": "doba",
             "period_from": 1,
             "period_to": 3,
-            "is_flat_rate": false,
             "pattern_type": "tiered"
           },
           {
-            "rate1": 500.0,
+            "rate1": 500,
             "rate2": null,
             "billing_label": "doba",
             "period_from": 4,
             "period_to": 8,
-            "is_flat_rate": false,
             "pattern_type": "tiered"
           },
           {
-            "rate1": 400.0,
+            "rate1": 400,
             "rate2": null,
             "billing_label": "doba",
             "period_from": 9,
             "period_to": null,
-            "is_flat_rate": false,
             "pattern_type": "tiered_above"
           }
         ]
@@ -142,33 +137,30 @@
       {
         "article_name": "Podnośnik nożycowy spalinowy 15m",
         "rental_days": 14,
-        "replacement_value": 296000.0,
+        "replacement_value": 296000,
         "conditions": [
           {
-            "rate1": 420.0,
+            "rate1": 420,
             "rate2": null,
             "billing_label": "doba",
             "period_from": 1,
             "period_to": 3,
-            "is_flat_rate": false,
             "pattern_type": "tiered"
           },
           {
-            "rate1": 320.0,
+            "rate1": 320,
             "rate2": null,
             "billing_label": "doba",
             "period_from": 4,
             "period_to": 8,
-            "is_flat_rate": false,
             "pattern_type": "tiered"
           },
           {
-            "rate1": 220.0,
+            "rate1": 220,
             "rate2": null,
             "billing_label": "doba",
             "period_from": 9,
             "period_to": null,
-            "is_flat_rate": false,
             "pattern_type": "tiered_above"
           }
         ]
@@ -176,33 +168,30 @@
       {
         "article_name": "Podnośnik nożycowy spalinowy 15m",
         "rental_days": 14,
-        "replacement_value": 241000.0,
+        "replacement_value": 241000,
         "conditions": [
           {
-            "rate1": 420.0,
+            "rate1": 420,
             "rate2": null,
             "billing_label": "doba",
             "period_from": 1,
             "period_to": 3,
-            "is_flat_rate": false,
             "pattern_type": "tiered"
           },
           {
-            "rate1": 320.0,
+            "rate1": 320,
             "rate2": null,
             "billing_label": "doba",
             "period_from": 4,
             "period_to": 8,
-            "is_flat_rate": false,
             "pattern_type": "tiered"
           },
           {
-            "rate1": 220.0,
+            "rate1": 220,
             "rate2": null,
             "billing_label": "doba",
             "period_from": 9,
             "period_to": null,
-            "is_flat_rate": false,
             "pattern_type": "tiered_above"
           }
         ]
@@ -234,15 +223,14 @@
       {
         "article_name": "Podnośnik nożycowy elektryczny 12m",
         "rental_days": 2,
-        "replacement_value": 91000.0,
+        "replacement_value": 91000,
         "conditions": [
           {
-            "rate1": 220.0,
+            "rate1": 220,
             "rate2": null,
             "billing_label": "doba",
             "period_from": 1,
             "period_to": 1,
-            "is_flat_rate": false,
             "pattern_type": "single_day"
           }
         ]
@@ -299,15 +287,14 @@
       {
         "article_name": "Podnośnik koszowy 25m",
         "rental_days": 1,
-        "replacement_value": 269000.0,
+        "replacement_value": 269000,
         "conditions": [
           {
-            "rate1": 280.0,
+            "rate1": 280,
             "rate2": null,
             "billing_label": "godzina",
             "period_from": null,
             "period_to": null,
-            "is_flat_rate": false,
             "pattern_type": "single_rate"
           }
         ]
@@ -364,15 +351,14 @@
       {
         "article_name": "Ładowarka teleskopowa 17m z przedłużkami",
         "rental_days": 1,
-        "replacement_value": 240000.0,
+        "replacement_value": 240000,
         "conditions": [
           {
-            "rate1": 700.0,
+            "rate1": 700,
             "rate2": null,
             "billing_label": "doba",
             "period_from": null,
             "period_to": null,
-            "is_flat_rate": false,
             "pattern_type": "single_rate"
           }
         ]
@@ -429,24 +415,22 @@
       {
         "article_name": "Wózek widłowy 2t",
         "rental_days": 7,
-        "replacement_value": 205000.0,
+        "replacement_value": 205000,
         "conditions": [
           {
-            "rate1": 420.0,
+            "rate1": 420,
             "rate2": null,
             "billing_label": "doba",
             "period_from": 1,
             "period_to": 3,
-            "is_flat_rate": false,
             "pattern_type": "tiered"
           },
           {
-            "rate1": 320.0,
+            "rate1": 320,
             "rate2": null,
             "billing_label": "doba",
             "period_from": 4,
             "period_to": null,
-            "is_flat_rate": false,
             "pattern_type": "tiered_above"
           }
         ]
@@ -507,51 +491,46 @@
       {
         "article_name": "Wózek widłowy 2t gazowy",
         "rental_days": 30,
-        "replacement_value": 195000.0,
+        "replacement_value": 195000,
         "conditions": [
           {
-            "rate1": 600.0,
+            "rate1": 600,
             "rate2": null,
             "billing_label": "doba",
             "period_from": 1,
             "period_to": 3,
-            "is_flat_rate": false,
             "pattern_type": "tiered"
           },
           {
-            "rate1": 485.0,
+            "rate1": 485,
             "rate2": null,
             "billing_label": "doba",
             "period_from": 4,
             "period_to": 6,
-            "is_flat_rate": false,
             "pattern_type": "tiered"
           },
           {
-            "rate1": 385.0,
+            "rate1": 385,
             "rate2": null,
             "billing_label": "doba",
             "period_from": 7,
             "period_to": 9,
-            "is_flat_rate": false,
             "pattern_type": "tiered"
           },
           {
-            "rate1": 285.0,
+            "rate1": 285,
             "rate2": null,
             "billing_label": "doba",
             "period_from": 10,
             "period_to": 20,
-            "is_flat_rate": false,
             "pattern_type": "tiered"
           },
           {
-            "rate1": 185.0,
+            "rate1": 185,
             "rate2": null,
             "billing_label": "doba",
             "period_from": 21,
             "period_to": null,
-            "is_flat_rate": false,
             "pattern_type": "tiered_above"
           }
         ]

@@ -23,7 +23,6 @@ async def _cond_response(db, cond):
         rate1=cond.rate1, rate2=cond.rate2,
         billing_label=cond.billing_label, period_count=cond.period_count,
         period_from=cond.period_from, period_to=cond.period_to,  # RAO-P1-005
-        is_flat_rate=cond.is_flat_rate if cond.is_flat_rate is not None else True,  # P1-101
     )
 
 router = APIRouter(prefix="/contracts", tags=["contracts"])
@@ -193,7 +192,6 @@ async def list_conditions(
             rate1=c.rate1, rate2=c.rate2,
             billing_label=c.billing_label, period_count=c.period_count,
             period_from=c.period_from, period_to=c.period_to,  # RAO-P1-005
-            is_flat_rate=c.is_flat_rate if c.is_flat_rate is not None else True,  # P1-101
         )
         for c in conds
     ]

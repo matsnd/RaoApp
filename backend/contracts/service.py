@@ -106,7 +106,7 @@ def _sync_condition_derived_fields(cond: PositionCondition) -> None:
     """
     RAO-P2-071: period_count/rate2 are derived/sync columns for legacy consumers
     (stats/calc.py, shared/revenue.py). The new source of truth is
-    period_from/period_to/rate1/is_flat_rate.
+    period_from/period_to/rate1.
 
     - period_count mirrors period_to when period_to is known.
     - rate2 is kept only for legacy open-ended tiers where rate1 is missing.
@@ -161,7 +161,7 @@ def _format_period_range(
     period_from: int | None,
     period_to: int | None,
     count_unit: str,
-    is_flat_rate: bool = True,
+    is_flat: bool = True,
 ) -> str:
     """Build a human-readable period range for PDF/print.
 
@@ -171,6 +171,8 @@ def _format_period_range(
       - Single day:   "1 dzień"
       - Open-ended:   "powyżej 3 dni"  (NOT "3 dni i więcej")
       - Service 0-X:  "do 8 godzin" (flat rate) / "0 - 8 godzin" (stawka per unit)
+
+    is_flat is derived from contract_type: U (usługa) = True, S/N (najem) = False.
     """
     pf = period_from if period_from is not None else 1
     if pf < 0:
@@ -179,9 +181,9 @@ def _format_period_range(
     if period_to is not None:
         if period_to < pf:
             period_to = pf
-        # P1-101: flat rate (ryczałt) with period_from=0 → "do X godzin"
+        # Usługa (ryczałt) with period_from=0 → "do X godzin"
         # (kwota całkowita, nie per jednostka)
-        if is_flat_rate and pf == 0:
+        if is_flat and pf == 0:
             return f"do {period_to} {_format_count_unit(period_to, count_unit)}"
         if pf == period_to:
             return f"{pf} {_format_count_unit(1, count_unit)}"
@@ -202,7 +204,7 @@ def _normalize_conditions_for_format(
 ) -> list[dict]:
     """
     Convert PositionCondition objects into a normalized list of:
-        {period_from, period_to, rate, is_flat_rate, billing_label}
+        {period_from, period_to, rate, billing_label}
 
     New source-of-truth fields (period_from/period_to/rate1) are preferred.
     Legacy rows using period_count/rate2 are converted to equivalent ranges.
@@ -224,7 +226,6 @@ def _normalize_conditions_for_format(
                 "period_from": c.period_from,
                 "period_to": c.period_to,
                 "rate": rate,
-                "is_flat_rate": getattr(c, "is_flat_rate", True),
                 "billing_label": c.billing_label,
             })
         return normalized
@@ -257,7 +258,6 @@ def _normalize_conditions_for_format(
                     "period_from": start,
                     "period_to": end,
                     "rate": rate1,
-                    "is_flat_rate": getattr(c, "is_flat_rate", True),
                     "billing_label": c.billing_label,
                 })
                 current_end = end
@@ -279,7 +279,6 @@ def _normalize_conditions_for_format(
                         "period_from": start,
                         "period_to": end,
                         "rate": rate2,
-                        "is_flat_rate": getattr(c, "is_flat_rate", True),
                         "billing_label": c.billing_label,
                     })
                     if end is not None:
@@ -325,6 +324,10 @@ def format_position_conditions_cascading(
         )
     )
 
+    # Ryczałt vs stawka determinowane przez typ umowy (jak w legacy WinForms):
+    # U (usługa) = ryczałt (kwota całkowita, BEZ / unit), S/N (najem) = stawka (Z / unit)
+    is_flat = (contract_type == "U")
+
     lines = []
     for n in unique:
         label = n["billing_label"]
@@ -332,19 +335,15 @@ def format_position_conditions_cascading(
             label = "doba" if contract_type == "S" else "godzina"
         count_unit, rate_unit = _unit_labels(label, contract_type)
 
-        is_flat = n.get("is_flat_rate", True)
         range_text = _format_period_range(
-            n['period_from'], n['period_to'], count_unit, is_flat_rate=is_flat
+            n['period_from'], n['period_to'], count_unit, is_flat=is_flat
         )
         if range_text:
             if is_flat:
-                # P1-101: ryczałt — kwota całkowita, BEZ / unit
                 lines.append(f"{range_text} - {_format_rate(n['rate'])}zł")
             else:
-                # P1-101: stawka — kwota per jednostka, Z / unit
                 lines.append(f"{range_text} - {_format_rate(n['rate'])}zł / {rate_unit}")
         else:
-            # Flat rate with no range prefix
             if is_flat:
                 lines.append(f"{_format_rate(n['rate'])}zł")
             else:
@@ -931,7 +930,6 @@ class ContractService:
                     rate1=cond.rate1, rate2=cond.rate2,
                     billing_label=cond.billing_label, period_count=cond.period_count,
                     period_from=cond.period_from, period_to=cond.period_to,  # RAO-P1-005
-                    is_flat_rate=cond.is_flat_rate if cond.is_flat_rate is not None else True,  # P1-101
                 ))
             out.append(PositionResponse(
                 id=p.id, contract_id=p.contract_id, machine_id=p.machine_id,

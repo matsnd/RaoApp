@@ -486,12 +486,6 @@ async def startup_migrations():
             "ALTER TABLE position_conditions ADD COLUMN IF NOT EXISTS "
             "period_to INT NULL COMMENT 'RAO-P1-005: elastyczne widełki (do)'"
         ))
-        # P1-101: ryczałt (kwota całkowita) vs stawka (per jednostka). Default TRUE.
-        await conn.execute(sa.text(
-            "ALTER TABLE position_conditions ADD COLUMN IF NOT EXISTS "
-            "is_flat_rate BOOLEAN NOT NULL DEFAULT TRUE "
-            "COMMENT 'P1-101: ryczałt=TRUE (kwota całkowita), stawka=FALSE (per jednostka)'"
-        ))
         # RAO articles split: contract_positions.article_id → machine_id + service_id
         await conn.execute(sa.text(
             "ALTER TABLE contract_positions ADD COLUMN IF NOT EXISTS machine_id INT NULL"
@@ -739,7 +733,7 @@ async def startup_migrations():
         # RAO-P2-071: Archive schema sync — dodaj brakujące kolumny do archive_*
         # (mirror live tabel: position_conditions / articles / contract_settlements)
         # aby archiwizacja nie straci danych. ALTER IF NOT EXISTS = idempotentny.
-        # archive_position_conditions: period_from / period_to / is_flat_rate
+        # archive_position_conditions: period_from / period_to
         await conn.execute(sa.text(
             "ALTER TABLE archive_position_conditions ADD COLUMN IF NOT EXISTS "
             "period_from INT NULL COMMENT 'RAO-P1-005: elastyczne widełki (od)'"
@@ -747,11 +741,6 @@ async def startup_migrations():
         await conn.execute(sa.text(
             "ALTER TABLE archive_position_conditions ADD COLUMN IF NOT EXISTS "
             "period_to INT NULL COMMENT 'RAO-P1-005: elastyczne widełki (do)'"
-        ))
-        await conn.execute(sa.text(
-            "ALTER TABLE archive_position_conditions ADD COLUMN IF NOT EXISTS "
-            "is_flat_rate BOOLEAN NOT NULL DEFAULT TRUE "
-            "COMMENT 'P1-101: ryczałt=TRUE (kwota całkowita), stawka=FALSE (per jednostka)'"
         ))
         # archive_articles: fakturownia_tax_rate / gtu_code / pkwiu
         await conn.execute(sa.text(

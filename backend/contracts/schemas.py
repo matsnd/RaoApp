@@ -41,7 +41,6 @@ class ConditionResponse(BaseModel):
     period_count: int | None  # RAO-P1-005: backward compatibility
     period_from: int | None  # RAO-P1-005: elastyczne widełki (od)
     period_to: int | None    # RAO-P1-005: elastyczne widełki (do)
-    is_flat_rate: bool = True  # P1-101: ryczałt (kwota całkowita) vs stawka (per jednostka)
 
     class Config:
         from_attributes = True
@@ -54,7 +53,6 @@ class ConditionCreate(BaseModel):
     period_count: int | None = Field(None, ge=0)  # RAO-P1-005: backward compatibility
     period_from: int | None = Field(None, ge=0)  # RAO-P1-005: elastyczne widełki (od)
     period_to: int | None = Field(None, ge=0)    # RAO-P1-005: elastyczne widełki (do)
-    is_flat_rate: bool = True  # P1-101: ryczałt=TRUE (kwota całkowita), stawka=FALSE (per jednostka)
 
     @model_validator(mode='after')
     def check_condition(self):
@@ -82,7 +80,6 @@ class ConditionUpdate(BaseModel):
     period_count: int | None = Field(None, ge=0)  # RAO-P1-005: backward compatibility
     period_from: int | None = Field(None, ge=0)  # RAO-P1-005: elastyczne widełki (od)
     period_to: int | None = Field(None, ge=0)    # RAO-P1-005: elastyczne widełki (do)
-    is_flat_rate: bool | None = None  # P1-101: ryczałt=TRUE, stawka=FALSE
 
     @model_validator(mode='after')
     def check_condition(self):
