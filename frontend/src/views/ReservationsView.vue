@@ -11,6 +11,7 @@
  * Design system: wyłącznie zmienne CSS z style.css.
  */
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import {
   useReservationsStore,
   type CalendarEvent,
@@ -21,25 +22,24 @@ import {
 import { useArticleStore } from '@/stores/articles'
 import { useContractorStore } from '@/stores/contractors'
 import ContractorCombobox from '@/components/analytics/ContractorCombobox.vue'
-import DateRangePicker from '@/components/shared/DateRangePicker.vue'
 import StateMessage from '@/components/StateMessage.vue'
 import { formatDate } from '@/utils/format'
 
 const store = useReservationsStore()
 const articleStore = useArticleStore()
 const contractorStore = useContractorStore()
-
-// ── Tryb widoku: kalendarz / lista ────────────────────────────────────────────
-type ViewMode = 'calendar' | 'list'
-const viewMode = ref<ViewMode>('calendar')
+const router = useRouter()
 
 // ── Filtry ────────────────────────────────────────────────────────────────────
 const filterMachineId = ref<number | null>(null)
 const filterContractorId = ref<number | null>(null)
 const filterStatus = ref<'all' | 'confirmed' | 'provisional'>('all')
-// Zakres dat dla widoku listy
-const listDateFrom = ref<string | null>(null)
-const listDateTo = ref<string | null>(null)
+
+// ── Panel dnia (prawa kolumna) ────────────────────────────────────────────────
+const selectedDay = ref<string | null>(null)
+const showReservations = ref(true)
+const showContracts = ref(true)
+const contextMenu = ref<{ x: number; y: number; date: string } | null>(null)
 
 // ── Kalendarz (month view) ────────────────────────────────────────────────────
 const calYear = ref(new Date().getFullYear())
@@ -137,27 +137,49 @@ function dotClass(e: CalendarEvent): string {
   return 'dot-confirmed'
 }
 
-// ── Lista rezerwacji ──────────────────────────────────────────────────────────
-const filteredList = computed<ReservationWithMachine[]>(() => {
-  let items = store.allList
-  if (filterMachineId.value != null) {
-    items = items.filter((r) => r.machine_id === filterMachineId.value)
-  }
-  if (filterContractorId.value != null) {
-    items = items.filter((r) => r.contractor_id === filterContractorId.value)
-  }
-  if (filterStatus.value !== 'all') {
-    items = items.filter((r) => r.status === filterStatus.value)
-  }
-  if (listDateFrom.value) {
-    items = items.filter((r) => r.reserved_to >= listDateFrom.value!)
-  }
-  if (listDateTo.value) {
-    items = items.filter((r) => r.reserved_from <= listDateTo.value!)
-  }
-  // Sortowanie po dacie od (rosnąco)
-  return [...items].sort((a, b) => a.reserved_from.localeCompare(b.reserved_from))
+// ── Lista rezerwacji dnia (panel boczny) ──────────────────────────────────────
+const dayEvents = computed<CalendarEvent[]>(() => {
+  if (!selectedDay.value) return []
+  const day = selectedDay.value
+  return filteredCalendarEvents.value.filter(
+    (e) => day >= e.date_from && day <= e.date_to,
+  ).filter((e) => {
+    if (e.source === 'reservation') return showReservations.value
+    if (e.source === 'contract') return showContracts.value
+    return true
+  })
 })
+
+const selectedDayLabel = computed(() => {
+  if (!selectedDay.value) return ''
+  const d = new Date(selectedDay.value + 'T00:00:00')
+  const wd = d.toLocaleDateString('pl-PL', { weekday: 'short' })
+  return `${selectedDay.value} (${wd})`
+})
+
+function selectDay(date: string) {
+  selectedDay.value = date
+}
+
+function onContextMenu(event: MouseEvent, cell: CalCell) {
+  contextMenu.value = { x: event.clientX, y: event.clientY, date: cell.date }
+}
+
+function closeContextMenu() {
+  contextMenu.value = null
+}
+
+function ctxAddReservation() {
+  if (!contextMenu.value) return
+  openCreate(contextMenu.value.date)
+  closeContextMenu()
+}
+
+function ctxAddContract() {
+  if (!contextMenu.value) return
+  router.push({ name: 'ContractNew', query: { date: contextMenu.value.date } })
+  closeContextMenu()
+}
 
 // ── Maszyny (do selecta w modalu + filtru) ───────────────────────────────────
 interface MachineOption {
@@ -353,17 +375,6 @@ async function deleteReservation() {
   }
 }
 
-// Usuń bezpośrednio z listy (z confirm, bez otwierania modalu)
-async function deleteFromList(r: ReservationWithMachine) {
-  if (!confirm('Czy na pewno usunąć tę rezerwację?')) return
-  try {
-    await store.remove(r.id)
-    await refreshData()
-  } catch {
-    // store.remove ustawia store.error — wyświetlane przez StateMessage
-  }
-}
-
 // ── Tooltip (hover na dniu kalendarza) ────────────────────────────────────────
 const tooltipDay = ref<CalCell | null>(null)
 function showTooltip(cell: CalCell) {
@@ -374,18 +385,11 @@ function hideTooltip() {
 }
 
 // ── Czy są dane do pokazania (dla stanów loading/error/empty) ─────────────────
-const hasData = computed(() => {
-  if (viewMode.value === 'calendar') return store.calendarEvents.length > 0
-  return store.allList.length > 0
-})
+const hasData = computed(() => store.calendarEvents.length > 0)
 
 // ── Data loading ──────────────────────────────────────────────────────────────
 async function refreshData() {
-  if (viewMode.value === 'calendar') {
-    await store.fetchCalendar(calDateFrom.value, calDateTo.value, filterMachineId.value ?? undefined)
-  } else {
-    await store.fetchAllWithMachines()
-  }
+  await store.fetchCalendar(calDateFrom.value, calDateTo.value, filterMachineId.value ?? undefined)
 }
 
 async function retry() {
@@ -394,14 +398,7 @@ async function retry() {
 
 // Watch: zmiana miesiąca / filtru maszyny → reload kalendarza
 watch([calYear, calMonth, filterMachineId], () => {
-  if (viewMode.value === 'calendar') {
-    store.fetchCalendar(calDateFrom.value, calDateTo.value, filterMachineId.value ?? undefined)
-  }
-})
-
-// Watch: przełączenie trybu → reload odpowiednich danych
-watch(viewMode, () => {
-  refreshData()
+  store.fetchCalendar(calDateFrom.value, calDateTo.value, filterMachineId.value ?? undefined)
 })
 
 onMounted(async () => {
@@ -426,20 +423,6 @@ onMounted(async () => {
       <button class="btn btn-primary rv-add-btn" data-testid="rv-add-btn" @click="openCreate()">
         + Dodaj rezerwację
       </button>
-    </div>
-
-    <!-- TOGGLE: kalendarz / lista -->
-    <div class="rv-view-toggle" role="group" aria-label="Tryb widoku">
-      <button
-        :class="['rv-toggle-btn', { active: viewMode === 'calendar' }]"
-        data-testid="rv-toggle-calendar"
-        @click="viewMode = 'calendar'"
-      >📅 Kalendarz</button>
-      <button
-        :class="['rv-toggle-btn', { active: viewMode === 'list' }]"
-        data-testid="rv-toggle-list"
-        @click="viewMode = 'list'"
-      >📋 Lista</button>
     </div>
 
     <!-- FILTRY -->
@@ -480,20 +463,10 @@ onMounted(async () => {
           <option value="provisional">Wstępne</option>
         </select>
       </div>
-
-      <div v-if="viewMode === 'list'" class="rv-filter-group rv-filter-daterange">
-        <label class="rv-filter-label">Zakres dat</label>
-        <DateRangePicker
-          :date-from="listDateFrom"
-          :date-to="listDateTo"
-          @update:date-from="listDateFrom = $event"
-          @update:date-to="listDateTo = $event"
-        />
-      </div>
     </div>
 
-    <!-- LEGENDA (tylko kalendarz) -->
-    <div v-if="viewMode === 'calendar'" class="rv-legend">
+    <!-- LEGENDA -->
+    <div class="rv-legend">
       <span class="rv-legend-item"><span class="rv-dot dot-confirmed"></span> Rezerwacja potwierdzona</span>
       <span class="rv-legend-item"><span class="rv-dot dot-provisional"></span> Rezerwacja wstępna</span>
       <span class="rv-legend-item"><span class="rv-dot dot-contract"></span> Umowa</span>
@@ -501,7 +474,7 @@ onMounted(async () => {
 
     <!-- LOADING -->
     <StateMessage
-      v-if="(viewMode === 'calendar' ? store.loadingCalendar : store.loadingAll) && !hasData"
+      v-if="store.loadingCalendar && !hasData"
       type="loading"
       message="Ładowanie rezerwacji…"
     />
@@ -524,95 +497,93 @@ onMounted(async () => {
       @action="openCreate()"
     />
 
-    <!-- KALENDARZ -->
-    <div v-else-if="viewMode === 'calendar'" class="rv-calendar" data-testid="rv-calendar">
-      <div class="rv-cal-header">
-        <button class="rv-cal-nav" data-testid="rv-cal-prev" @click="prevMonth">←</button>
-        <span class="rv-cal-month">{{ monthLabel }}</span>
-        <button class="rv-cal-nav" data-testid="rv-cal-next" @click="nextMonth">→</button>
-        <button class="rv-cal-today" data-testid="rv-cal-today" @click="goToday">Dziś</button>
-      </div>
+    <!-- TREŚĆ: kalendarz (lewa) + panel dnia (prawa) -->
+    <div v-else class="rv-content">
+      <!-- Kalendarz (lewa) -->
+      <div class="rv-calendar" data-testid="rv-calendar">
+        <div class="rv-cal-header">
+          <button class="rv-cal-nav" data-testid="rv-cal-prev" @click="prevMonth">←</button>
+          <span class="rv-cal-month">{{ monthLabel }}</span>
+          <button class="rv-cal-nav" data-testid="rv-cal-next" @click="nextMonth">→</button>
+          <button class="rv-cal-today" data-testid="rv-cal-today" @click="goToday">Dziś</button>
+        </div>
 
-      <div class="rv-cal-grid">
-        <div v-for="wd in WEEKDAYS" :key="wd" class="rv-cal-dow">{{ wd }}</div>
-        <div
-          v-for="cell in calendarCells"
-          :key="cell.date"
-          :class="['rv-cal-cell', { 'rv-cell-out': !cell.inMonth, 'rv-cell-today': cell.isToday }]"
-          data-testid="rv-cal-cell"
-          @click="openCreate(cell.date)"
-          @mouseenter="showTooltip(cell)"
-          @mouseleave="hideTooltip"
-        >
-          <span class="rv-cal-daynum">{{ cell.dayNum }}</span>
-          <div class="rv-cal-dots">
-            <span
-              v-for="(e, i) in cell.events.slice(0, 4)"
-              :key="i"
-              :class="['rv-dot', dotClass(e)]"
-              @click.stop="openEdit(e)"
-            ></span>
-            <span v-if="cell.events.length > 4" class="rv-dot-more">+{{ cell.events.length - 4 }}</span>
-          </div>
+        <div class="rv-cal-grid">
+          <div v-for="wd in WEEKDAYS" :key="wd" class="rv-cal-dow">{{ wd }}</div>
+          <div
+            v-for="cell in calendarCells"
+            :key="cell.date"
+            :class="['rv-cal-cell', { 'rv-cell-out': !cell.inMonth, 'rv-cell-today': cell.isToday, 'rv-cell-selected': selectedDay === cell.date }]"
+            data-testid="rv-cal-cell"
+            @click="selectDay(cell.date)"
+            @contextmenu.prevent="onContextMenu($event, cell)"
+            @mouseenter="showTooltip(cell)"
+            @mouseleave="hideTooltip"
+          >
+            <span class="rv-cal-daynum">{{ cell.dayNum }}</span>
+            <div class="rv-cal-dots">
+              <span
+                v-for="(e, i) in cell.events.slice(0, 4)"
+                :key="i"
+                :class="['rv-dot', dotClass(e)]"
+                @click.stop="openEdit(e)"
+              ></span>
+              <span v-if="cell.events.length > 4" class="rv-dot-more">+{{ cell.events.length - 4 }}</span>
+            </div>
 
-          <!-- TOOLTIP -->
-          <div v-if="tooltipDay === cell && cell.events.length" class="rv-tooltip">
-            <div v-for="(e, i) in cell.events" :key="i" class="rv-tooltip-event">
-              <span :class="['rv-dot', dotClass(e)]"></span>
-              <span class="rv-tooltip-text">
-                <strong>{{ e.machine_name || e.article_name || e.internal_number || 'Maszyna' }}</strong>
-                <template v-if="e.contractor_name"> — {{ e.contractor_name }}</template>
-                <br />
-                <small>{{ formatDate(e.date_from) }} – {{ formatDate(e.date_to) }}</small>
-                <small v-if="e.source === 'contract'"> (umowa)</small>
-              </span>
+            <!-- TOOLTIP -->
+            <div v-if="tooltipDay === cell && cell.events.length" class="rv-tooltip">
+              <div v-for="(e, i) in cell.events" :key="i" class="rv-tooltip-event">
+                <span :class="['rv-dot', dotClass(e)]"></span>
+                <span class="rv-tooltip-text">
+                  <strong>{{ e.machine_name || e.article_name || e.internal_number || 'Maszyna' }}</strong>
+                  <template v-if="e.contractor_name"> — {{ e.contractor_name }}</template>
+                  <br />
+                  <small>{{ formatDate(e.date_from) }} – {{ formatDate(e.date_to) }}</small>
+                  <small v-if="e.source === 'contract'"> (umowa)</small>
+                </span>
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      <!-- Panel dnia (prawa) -->
+      <div class="rv-day-panel" data-testid="rv-day-panel">
+        <div v-if="!selectedDay" class="rv-day-empty">Kliknij dzień w kalendarzu aby zobaczyć rezerwacje</div>
+        <template v-else>
+          <div class="rv-day-header">
+            <h3>{{ selectedDayLabel }}</h3>
+          </div>
+          <div class="rv-day-filters">
+            <label><input type="checkbox" v-model="showReservations" /> Blokady rezerwacjami</label>
+            <label><input type="checkbox" v-model="showContracts" /> Blokady umowami</label>
+          </div>
+          <div class="rv-day-events">
+            <div v-for="e in dayEvents" :key="e.source_id" class="rv-day-event" data-testid="rv-day-event" @click="openEdit(e)">
+              <span :class="['rv-dot', dotClass(e)]"></span>
+              <div>
+                <strong>{{ e.machine_name || 'Maszyna' }}</strong>
+                <small>{{ formatDate(e.date_from) }} – {{ formatDate(e.date_to) }}</small>
+                <small v-if="e.contractor_name">{{ e.contractor_name }}</small>
+              </div>
+            </div>
+            <div v-if="dayEvents.length === 0" class="rv-day-no-events">Brak blokad tego dnia</div>
+          </div>
+        </template>
+      </div>
     </div>
 
-    <!-- LISTA -->
-    <div v-else class="rv-list-section" data-testid="rv-list">
-      <table class="rv-table">
-        <thead>
-          <tr>
-            <th>Maszyna</th>
-            <th>Kontrahent</th>
-            <th>Od</th>
-            <th>Do</th>
-            <th>Status</th>
-            <th>Notatka</th>
-            <th class="rv-th-actions">Akcje</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="r in filteredList" :key="r.id" data-testid="rv-list-row">
-            <td>
-              <div class="rv-cell-machine">
-                <span>{{ r.machine_name || r.article_name || '—' }}</span>
-                <small v-if="r.internal_number" class="rv-cell-sub">{{ r.internal_number }}</small>
-              </div>
-            </td>
-            <td>{{ r.contractor_name || '—' }}</td>
-            <td>{{ formatDate(r.reserved_from) }}</td>
-            <td>{{ formatDate(r.reserved_to) }}</td>
-            <td>
-              <span :class="['rv-badge', r.status === 'provisional' ? 'rv-badge-provisional' : 'rv-badge-confirmed']">
-                {{ r.status === 'provisional' ? 'Wstępna' : 'Potwierdzona' }}
-              </span>
-            </td>
-            <td class="rv-cell-note">{{ r.note || '—' }}</td>
-            <td class="rv-cell-actions">
-              <button class="rv-action-btn" title="Edytuj" data-testid="rv-edit-btn" @click="openEdit(r)">✏️</button>
-              <button class="rv-action-btn" title="Usuń" data-testid="rv-delete-btn" @click="deleteFromList(r)">🗑️</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <div v-if="filteredList.length === 0" class="rv-list-empty">
-        Brak rezerwacji pasujących do filtrów.
-      </div>
+    <!-- Context menu -->
+    <div
+      v-if="contextMenu"
+      class="rv-context-menu"
+      data-testid="rv-context-menu"
+      :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
+      @click="closeContextMenu"
+    >
+      <button @click="ctxAddReservation">Dodaj rezerwację</button>
+      <button @click="ctxAddContract">Dodaj umowę</button>
     </div>
 
     <!-- MODAL CRUD -->
@@ -761,28 +732,114 @@ onMounted(async () => {
   padding: var(--spacing-2) var(--spacing-4);
 }
 
-/* Toggle */
-.rv-view-toggle {
+/* Treść: kalendarz + panel dnia (side-by-side) */
+.rv-content {
   display: flex;
-  gap: var(--spacing-1);
-  margin-bottom: var(--spacing-4);
+  gap: var(--spacing-4);
+  align-items: flex-start;
 }
-.rv-toggle-btn {
-  padding: var(--spacing-2) var(--spacing-4);
+.rv-calendar {
+  flex: 1;
+  min-width: 0;
+  background: var(--color-bg-card);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-card);
+  padding: var(--spacing-4);
+}
+
+/* Panel dnia (prawa) */
+.rv-day-panel {
+  flex: 0 0 340px;
+  max-width: 400px;
+  background: var(--color-bg-card);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-card);
+  padding: var(--spacing-4);
+  min-height: 400px;
+}
+.rv-day-empty {
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: var(--spacing-6);
+  font-size: var(--font-size-sm);
+}
+.rv-day-header h3 {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  margin: 0 0 var(--spacing-3);
+}
+.rv-day-filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  margin-bottom: var(--spacing-3);
+  padding-bottom: var(--spacing-3);
+  border-bottom: 1px solid var(--color-border);
+}
+.rv-day-filters label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+.rv-day-events {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+.rv-day-event {
+  display: flex;
+  gap: var(--spacing-2);
+  padding: var(--spacing-2);
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  background: var(--color-bg-light);
+}
+.rv-day-event:hover {
+  background: var(--color-bg-card-hover);
+}
+.rv-day-event strong {
+  display: block;
+  font-size: var(--font-size-sm);
+}
+.rv-day-event small {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.rv-day-no-events {
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: var(--spacing-4);
+  font-size: var(--font-size-sm);
+}
+
+/* Context menu */
+.rv-context-menu {
+  position: fixed;
+  background: var(--color-bg-white);
   border: 1px solid var(--color-border);
   border-radius: var(--border-radius-sm);
-  background: var(--color-bg-card);
-  color: var(--color-text-body);
+  box-shadow: var(--shadow-modal);
+  z-index: 1100;
+  padding: var(--spacing-1);
+  min-width: 180px;
+}
+.rv-context-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: var(--spacing-2) var(--spacing-3);
+  border: none;
+  background: transparent;
+  cursor: pointer;
   font-family: var(--font-family);
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  cursor: pointer;
-  transition: all 0.15s;
+  border-radius: var(--border-radius-sm);
 }
-.rv-toggle-btn.active {
-  background: var(--color-primary);
-  color: var(--color-text-on-primary);
-  border-color: var(--color-primary);
+.rv-context-menu button:hover {
+  background: var(--color-bg-light);
 }
 
 /* Filtry */
@@ -828,13 +885,7 @@ onMounted(async () => {
   color: var(--color-text-muted);
 }
 
-/* Kalendarz */
-.rv-calendar {
-  background: var(--color-bg-card);
-  border-radius: var(--border-radius-md);
-  box-shadow: var(--shadow-card);
-  padding: var(--spacing-4);
-}
+/* Kalendarz — header/grid/cell */
 .rv-cal-header {
   display: flex;
   align-items: center;
@@ -914,6 +965,11 @@ onMounted(async () => {
   border-color: var(--color-primary);
   border-width: 2px;
 }
+.rv-cell-selected {
+  background: var(--color-bg-light);
+  border-color: var(--color-primary);
+  box-shadow: inset 0 0 0 1px var(--color-primary);
+}
 .rv-cal-daynum {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
@@ -985,76 +1041,6 @@ onMounted(async () => {
 }
 .rv-tooltip-text small {
   color: var(--color-text-muted);
-}
-
-/* Lista */
-.rv-list-section {
-  background: var(--color-bg-card);
-  border-radius: var(--border-radius-md);
-  box-shadow: var(--shadow-card);
-  overflow: hidden;
-}
-.rv-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--font-size-sm);
-}
-.rv-table thead th {
-  text-align: left;
-  padding: var(--spacing-3);
-  font-weight: var(--font-weight-bold);
-  font-size: var(--font-size-table-header);
-  color: var(--color-text-heading);
-  border-bottom: 2px solid var(--color-border);
-  background: var(--color-bg-light);
-}
-.rv-table tbody td {
-  padding: var(--spacing-3);
-  border-bottom: 1px solid var(--color-border);
-  color: var(--color-text-body);
-}
-.rv-table tbody tr:hover {
-  background: var(--color-bg-card-hover);
-}
-.rv-th-actions {
-  width: 90px;
-  text-align: center;
-}
-.rv-cell-machine {
-  display: flex;
-  flex-direction: column;
-}
-.rv-cell-sub {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-}
-.rv-cell-note {
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.rv-cell-actions {
-  text-align: center;
-  white-space: nowrap;
-}
-.rv-action-btn {
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: var(--font-size-base);
-  padding: var(--spacing-1);
-  border-radius: var(--border-radius-sm);
-  transition: background 0.15s;
-}
-.rv-action-btn:hover {
-  background: var(--color-bg-light);
-}
-.rv-list-empty {
-  padding: var(--spacing-6);
-  text-align: center;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
 }
 
 /* Badge */
