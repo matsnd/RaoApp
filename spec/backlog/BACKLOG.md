@@ -22,7 +22,16 @@
 
 ## 🚨 P0 — Production Blockers
 
-*Brak aktywnych P0. Wszystkie P0 z poprzedniego sprintu zrealizowane (P0-001 team-verified) lub odłożone (P0-002 do P0-006 — patrz DECISION_LOG).*
+*Brak aktywnych P0. Wszystkie P0 z poprzedniego sprintu zrealizowane (zweryfikowane 2026-07-12):*
+
+| ID | Tytuł | Status | Rozwiązanie |
+|----|-------|--------|-------------|
+| P0-001 | `/stats/currently-rented` 500 | done | `id=` → `article_id=` w router.py |
+| P0-002 | AnalyticsView brak scrolla | done (naprawione przez P1-110 refactor) | `flex:1; min-height:0; overflow-y:auto` — scrollHeight 1318 > clientHeight 720 |
+| P0-003 | Znak `$` kojarzy się z USD | done (false alarm) | `$` = placeholdery `$1`/`$2`, nie waluta |
+| P0-004 | Eksplorator: kontrahent dropdown | done (P1-110) | ContractorCombobox działa |
+| P0-005 | Wszystkie umowy prefiks `S` | done (P1-022) | Zamierzony design — `generate_contract_number()` zawsze "S" |
+| P0-006 | ContractFormView checkboxy nie w PDF | done (`ee216c3`) | `show_person1/2` działają, martwe pola usunięte |
 
 ---
 
