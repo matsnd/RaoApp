@@ -661,16 +661,14 @@ CREATE TABLE audit_log (
 
 -- Rezerwacja maszyny (machine) na okres [reserved_from, reserved_to].
 -- Może być dla kontrahenta (contractor_id) lub bez (NULL = blokada wewnętrzna).
--- status: confirmed = potwierdzona (domyślne), provisional = wstępna/proponowana.
 -- Refaktor (Faza 7): article_reservations → machine_reservations (article_id → machine_id)
+-- Uproszczenie: kolumna status usunięta (wszystkie rezerwacje potwierdzone)
 CREATE TABLE machine_reservations (
     id            INT AUTO_INCREMENT PRIMARY KEY,
     machine_id    INT          NOT NULL COMMENT 'FK machines.id — rezerwowana maszyna',
     contractor_id INT          NULL     COMMENT 'RAO-L-Phase1: FK contractors.id (NULL = blokada wewnętrzna)',
     reserved_from DATE         NOT NULL COMMENT 'Początek okresu rezerwacji (włącznie)',
     reserved_to   DATE         NOT NULL COMMENT 'Koniec okresu rezerwacji (włącznie)',
-    status        ENUM('confirmed','provisional') NOT NULL DEFAULT 'confirmed'
-                  COMMENT 'RAO-L-Phase1: status rezerwacji',
     note          VARCHAR(300) NULL     COMMENT 'Notatka/opis rezerwacji',
     created_by    INT          NULL     COMMENT 'FK users.id — kto utworzył rezerwację',
     created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,

@@ -2400,11 +2400,11 @@ npm install vue-draggable-plus @vuepic/vue-datepicker
 ### `GET /reservations/calendar` (NOWY Phase2 2026-07-11)
 **Opis:** Zwraca eventy kalendarza (rezerwacje + umowy) pokrywające się z [date_from, date_to].
 **Query:** `date_from` (req), `date_to` (req), `article_id` (opt)
-**Response:** `list[CalendarEvent]` (`{source, source_id, article_id, article_name?, internal_number?, contractor_id?, contractor_name?, salesperson_id?, salesperson_name?, date_from, date_to, note?, status?}`)
+**Response:** `list[CalendarEvent]` (`{source, source_id, article_id, article_name?, internal_number?, contractor_id?, contractor_name?, salesperson_id?, salesperson_name?, date_from, date_to, note?}`)
 **HTTP:** 200 | 401
 
 ### `POST /reservations`
-**Body:** `ReservationCreate` (`{machine_id, reserved_from, reserved_to, note?, contractor_id?, salesperson_id?, status?}`)
+**Body:** `ReservationCreate` (`{machine_id, reserved_from, reserved_to, note?, contractor_id?, salesperson_id?}`)
 **Response:** `ReservationResponse` (201)
 **HTTP:** 201 | 400 (maszyna zewnętrzna — P2-003) | 401 | 404 | 409 (konflikt dat)
 **P2-003:** Walidacja `machine.is_external` — jeśli True → 400 "Nie można rezerwować maszyn zewnętrznych"
@@ -2412,7 +2412,7 @@ npm install vue-draggable-plus @vuepic/vue-datepicker
 
 ### `PUT /reservations/{reservation_id}` (NOWY Phase2 2026-07-11)
 **Opis:** Edycja rezerwacji (partial update — tylko przekazane pola).
-**Body:** `ReservationUpdate` (`{reserved_from?, reserved_to?, note?, contractor_id?, salesperson_id?, status?, machine_id?}`)
+**Body:** `ReservationUpdate` (`{reserved_from?, reserved_to?, note?, contractor_id?, salesperson_id?, machine_id?}`)
 **Response:** `ReservationResponse` (200)
 **HTTP:** 200 | 400 (maszyna zewnętrzna — P2-003) | 401 | 404 | 409 (konflikt dat)
 **P2-003:** Jeśli `machine_id` zmieniane i nowa maszyna `is_external=True` → 400

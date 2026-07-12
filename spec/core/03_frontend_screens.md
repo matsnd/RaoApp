@@ -2578,7 +2578,7 @@ onUnmounted(() => {
 - **Kalendarz month-view** (custom CSS grid 7×5-6, BEZ biblioteki):
   - Nagłówek: miesiąc + rok (capitalize, pl-PL), przyciski ← → (poprzedni/następny miesiąc), "Dziś".
   - Komórki dni: numer dnia + kropki (colored dots) reprezentujące eventy (max 4 + "+N").
-  - **Kolory kropek:** niebieski (`var(--color-primary)`) = rezerwacja confirmed; `var(--color-primary)` z `opacity: 0.5` = provisional; `var(--color-warning)` (#F59E0B) = umowa (source=contract).
+  - **Kolory kropek:** niebieski (`var(--color-primary)`) = rezerwacja; `var(--color-warning)` (#F59E0B) = umowa (source=contract).
   - **Tooltip na dniu** (hover, CSS): lista eventów — "maszyna X, kontrahent Y, data od-do" + "(umowa)" dla contract.
   - **P1-111: Lewy klik na dniu** → `selectDay(cell.date)` — wybiera dzień, panel dnia pokazuje eventy.
   - **P1-111: Prawy klik na dniu** (`@contextmenu.prevent`) → context menu: "Dodaj rezerwację" (openCreate) / "Dodaj umowę" (`router.push ContractNew query.date`).
@@ -2588,14 +2588,15 @@ onUnmounted(() => {
   - Empty state: "Kliknij dzień w kalendarzu aby zobaczyć rezerwacje"
   - Header: wybrany dzień w formacie "2026-07-12 (sob)"
   - Checkboxes: "Blokady rezerwacjami" (`showReservations`, default true) + "Blokady umowami" (`showContracts`, default true) — filtruje listę dnia
-  - Lista eventów: kropka (kolor wg source/status) + maszyna + daty + kontrahent. Klik → openEdit(event)
+  - Lista eventów: kropka (kolor wg source) + maszyna + daty + kontrahent. Klik → openEdit(event)
   - No-events state: "Brak blokad tego dnia"
-- **Filtry** (nad kalendarzem):
+  - **P1-118:** max-height 60vh + overflow-y auto + paginacja "Pokaż więcej" (PAGE_SIZE=10)
+- **Filtry** (nad kalendarzem, kolejność: Maszyna, Handlowiec, Kontrahent):
   - Maszyna (select z maszynami non-archival — `GET /machines?archival_status=active&per_page=200`). **P2-003:** Tylko maszyny wewnętrzne (`is_external=false`) — filtrowane frontend-side `.filter((a) => !a.is_service && !a.is_external)`.
+  - Handlowiec (select, P1-119 — opcjonalny, filtruje po salesperson_id).
   - Kontrahent (`ContractorCombobox` z `components/analytics/`).
-  - Status (confirmed/provisional/wszystko).
-- **Modal dodawania/edycji:**
-  - Pola: maszyna (select, wymagana), kontrahent (combobox, opcjonalny), data od (wymagana), data do (wymagana), status (confirmed/provisional), notatka (textarea).
+- **Modal dodawania/edycji** (kolejność pól: Maszyna, Handlowiec, Kontrahent, Daty, Notatka):
+  - Pola: maszyna (select, wymagana), handlowiec (select, opcjonalny — P1-119), kontrahent (combobox, opcjonalny), data od (wymagana), data do (wymagana), notatka (textarea).
   - Walidacja: data od ≤ data do, maszyna wymagana.
   - Edycja: przycisk "Usuń" (z confirm).
   - Read-only dla umów (source=contract) — info z notką "edycja tylko z poziomu umowy".
