@@ -1,0 +1,717 @@
+# Baza pytań quizu Learn-By-Code (RAO)
+# Format:
+#   id: unikalny identyfikator
+#   topic: python|sqlalchemy|pydantic|fastapi|di|async|service|migrations|vue|pinia|router|props
+#   question: treść pytania
+#   options: lista 4 odpowiedzi (pierwsza to A, druga B, etc.)
+#   answer: indeks poprawnej (0-based)
+#   explanation: krótkie wyjaśnienie (pokazywane po odpowiedzi)
+#   ref: plik:linia w repo (do kliknięcia)
+
+# ============================================================
+# python (5)
+# ============================================================
+
+- id: q001
+  topic: python
+  question: "Co oznacza `str | None` w type hintingu Pythona (PEP 604)?"
+  options:
+    - "String który może być null — odpowiednik C# `string?`"
+    - "Union typu string i None — odpowiednik `Union[str, None]` / `Optional[str]`"
+    - "Optional string z domyślną wartością None"
+    - "Zarówno A jak i B — to składnia dla Union[str, None]"
+  answer: 3
+  explanation: "`str | None` (PEP 604, Python 3.10+) to cukier syntaktyczny dla `Union[str, None]` = `Optional[str]`. Odpowiednik C# `string?` (nullable reference). W repo widać w schemas.py."
+  ref: "backend/articles/schemas.py:21"
+
+- id: q002
+  topic: python
+  question: "Czym różni się Python async od C# async?"
+  options:
+    - "Niczym — oba używają Task"
+    - "Python jest single-threaded cooperative (event loop), brak `.Result`/`.Wait()` sync-block"
+    - "Python używa ThreadPool, C# event loop"
+    - "Python async jest tylko dla I/O, C# dla wszystkiego"
+  answer: 1
+  explanation: "Python async = single-threaded event loop (asyncio), cooperative scheduling. Brak `.Result` (nie da się sync-block). C# ma ThreadPool + TaskScheduler. W Pythonie `time.sleep(5)` w async endpoint blokuje cały serwer."
+  ref: "backend/articles/router.py:67"
+
+- id: q003
+  topic: python
+  question: "Co robi `if __name__ == \"__main__\":`?"
+  options:
+    - "Sprawdza czy moduł jest głównym plikiem aplikacji"
+    - "Kod uruchamiany tylko gdy plik jest skryptem (nie importem)"
+    - "Definiuje entry point jak `static void Main()` w C#"
+    - "Wszystkie powyższe są bliskie ale B jest najdokładniejsze"
+  answer: 3
+  explanation: "`__name__` to string. Jeśli plik uruchomiony bezpośrednio (`python main.py`), `__name__ == '__main__'`. Jeśli zaimportowany — nazwa modułu. Pozwala plikowi być skryptem i modułem. FastAPI w RAO uruchamiany przez `uvicorn main:app`."
+  ref: "backend/main.py"
+
+- id: q004
+  topic: python
+  question: "Czym jest `self` w metodzie klasy Python?"
+  options:
+    - "Odpowiednik `this` z C#, ale jawny pierwszy parametr metody"
+    - "Statyczna referencja do klasy"
+    - "Wskaznik na instancję jak `this` w C++"
+    - "Konwencja nazewnictwa, nie keyword"
+  answer: 0
+  explanation: "`self` to jawny pierwszy parametr metody instancji, odpowiednik niejawnego `this` z C#. NIE da się pominąć. To konwencja (nie keyword), ale wszyscy tak nazywają. W repo: `async def list_articles(self, db, ...)`."
+  ref: "backend/articles/service.py:11"
+
+- id: q005
+  topic: python
+  question: "Dlaczego `time.sleep(5)` w async endpoint FastAPI jest katastrofą?"
+  options:
+    - "Bo sleep jest deprecated w Python 3.14"
+    - "Blokuje event loop — cały serwer stoi na 5s (brak preemptive scheduling)"
+    - "Bo nie używa await"
+    - "Nic złego — sleep jest thread-safe"
+  answer: 1
+  explanation: "Python async jest single-threaded cooperative. `time.sleep(5)` (sync) blokuje event loop — żaden inny request nie jest obsługiwany. Trzeba `await asyncio.sleep(5)`. FastAPI dla sync `def` wrzuca do threadpoola, ale `async def` + sync sleep = katastrofa."
+  ref: "backend/articles/router.py:67"
+
+# ============================================================
+# sqlalchemy (5)
+# ============================================================
+
+- id: q006
+  topic: sqlalchemy
+  question: "Czym różni się `default=False` od `server_default=\"0\"` w `Column`?"
+  options:
+    - "Niczym — to synonimy"
+    - "`default` = Python-side (SQLAlchemy ustawia), `server_default` = DB-side (DEFAULT w DDL)"
+    - "`default` dla Boolean, `server_default` dla String"
+    - "`server_default` jest deprecated"
+  answer: 1
+  explanation: "`default` — Python-side, SQLAlchemy ustawia przy INSERT (DB nie wie). `server_default` — DB-side, `DEFAULT 0` w DDL (działa nawet raw SQL). W repo dają oba defensive: `is_archival = Column(Boolean, default=False, server_default='0')`."
+  ref: "backend/articles/models.py:31"
+
+- id: q007
+  topic: sqlalchemy
+  question: "Dlaczego `Numeric(18, 2)` a nie `Float` dla pieniędzy?"
+  options:
+    - "Float jest deprecated w SQLAlchemy 2.0"
+    - "Float to IEEE 754 — błędy zaokrągleń. Numeric = Decimal, precyzja finansowa"
+    - "Numeric jest szybszy"
+    - "Float nie wspiera ujemnych wartości"
+  answer: 1
+  explanation: "`Float` = IEEE 754 double — błędy zaokrągleń (0.1 + 0.2 != 0.3). `Numeric(p, s)` = Decimal, dokładny. Dla pieniędzy ZAWSZE Numeric. W C# też: `decimal` nie `double`. W repo: `replacement_value = Column(Numeric(18, 2))`."
+  ref: "backend/articles/models.py:18"
+
+- id: q008
+  topic: sqlalchemy
+  question: "Czym jest `Base.metadata`?"
+  options:
+    - "Konfiguracja połączenia z DB"
+    - "Registry wszystkich modeli — generuje DDL przez `create_all`"
+    - "Cache zapytań"
+    - "Odpowiednik DbContext w EF Core"
+  answer: 1
+  explanation: "`Base.metadata` to registry wszystkich modeli dziedziczących po `Base`. `Base.metadata.create_all(engine)` generuje `CREATE TABLE IF NOT EXISTS` dla każdej. Odpowiednik EF Core `Database.EnsureCreated()`. Sesja (`AsyncSession`) to odpowiednik DbContext, nie metadata."
+  ref: "backend/database.py:27"
+
+- id: q009
+  topic: sqlalchemy
+  question: "Dlaczego w RAO `Article` nie ma `relationship()` do `Category`?"
+  options:
+    - "Bo SQLAlchemy 2.0 usunął relationships"
+    - "Async lazy loading nie działa — wolą explicit JOIN w service.py"
+    - "Bo to antywzorzec"
+    - "Bo Category nie istnieje"
+  answer: 1
+  explanation: "W async SQLAlchemy lazy loading nie działa domyślnie (wymaga `selectinload`/`joinedload` jawnie). RAO woli explicit JOIN w service.py — bezpieczniej i przewidywalniej. Widzisz w service.py:190-197 explicit JOIN zamiast nav property."
+  ref: "backend/articles/models.py"
+
+- id: q010
+  topic: sqlalchemy
+  question: "Co robi `ForeignKey(\"categories.id\", ondelete=\"SET NULL\")`?"
+  options:
+    - "Definiuje relację 1:N z Category"
+    - "Jawny FK do categories.id, ON DELETE SET NULL w DB (gdy Category usunięta, article.category_id → NULL)"
+    - "Importuje kolumnę z categories"
+    - "Tworzy indeks na category_id"
+  answer: 1
+  explanation: "Jawny FK z `ondelete='SET NULL'` — DB-level constraint. Gdy Category usunięta, article.category_id → NULL (nie CASCADE). Odpowiednik EF Core `.OnDelete(DeleteBehavior.SetNull)`. String `'categories.id'` bo może być circular import."
+  ref: "backend/articles/models.py:19"
+
+# ============================================================
+# pydantic (5)
+# ============================================================
+
+- id: q011
+  topic: pydantic
+  question: "Co oznacza `Field(...)` w Pydantic v2?"
+  options:
+    - "Pole opcjonalne z default None"
+    - "Pole wymagane (brak defaultu) — `...` to Ellipsis"
+    - "Pole deprecated"
+    - "Pole z walidatorem"
+  answer: 1
+  explanation: "`...` (trzy kropki, `Ellipsis`) to Python singleton. W Pydantic oznacza 'pole wymagane, brak defaultu'. Odpowiednik C# `[Required]` + non-nullable. `Field(None)` = opcjonalne z default None. W repo: `name: str = Field(..., min_length=1, max_length=200)`."
+  ref: "backend/articles/schemas.py:95"
+
+- id: q012
+  topic: pydantic
+  question: "Czym różni się `model_dump()` od `model_dump(exclude_unset=True)`?"
+  options:
+    - "Niczym — to synonimy"
+    - "`exclude_unset=True` zwraca tylko pola explicite wysłane (kluczowe dla PATCH/PUT partial update)"
+    - "`exclude_unset` usuwa pola z defaultem"
+    - "`model_dump()` jest deprecated"
+  answer: 1
+  explanation: "`model_dump()` — wszystkie pola. `model_dump(exclude_unset=True)` — tylko pola które klient explicite wysłał (nawet jeśli default). Kluczowe dla partial update: w `ArticleUpdate` wszystko `| None = None`, a service iteruje po `exclude_unset` i `setattr` tylko wysłane."
+  ref: "backend/articles/schemas.py:125"
+
+- id: q013
+  topic: pydantic
+  question: "Co robi `class Config: from_attributes = True`?"
+  options:
+    - "Włącza atrybuty klasy"
+    - "ORM mode — pozwala konstruować Pydantic z obiektu po atrybutach (np. SQLAlchemy model)"
+    - "Konfiguruje serializację JSON"
+    - "Włącza walidację strict"
+  answer: 1
+  explanation: "`from_attributes = True` (dawniej `orm_mode`) — pozwala `ArticleDetail.model_validate(article_orm)` czytać atrybuty z obiektu SQLAlchemy. Odpowiednik AutoMapper `Mapper.Map<ArticleDetailDto>(entity)`. Nowsza składnia v2: `model_config = ConfigDict(from_attributes=True)`."
+  ref: "backend/articles/schemas.py:45"
+
+- id: q014
+  topic: pydantic
+  question: "Czym jest `Literal[\"diesel\", \"electric\", \"other\"]`?"
+  options:
+    - "Lista dozwolonych wartości"
+    - "Type alias akceptujący tylko te 3 stringi — walidacja runtime"
+    - "Enum z 3 wartościami"
+    - "Tuple typów"
+  answer: 1
+  explanation: "`Literal['a', 'b']` (PEP 586) — type alias akceptujący tylko te literalne wartości. Pydantic waliduje runtime: `ArticleCreate(power_type='nuclear')` → ValidationError. Lżejsze niż Enum dla małej liczby wartości. W repo: `PowerType = Literal['diesel', 'electric', 'other']`."
+  ref: "backend/articles/schemas.py:8"
+
+- id: q015
+  topic: pydantic
+  question: "Czym różni się Pydantic v1 `.dict()` od v2?"
+  options:
+    - "Niczym — to synonimy"
+    - "v2: `.model_dump()` (v1 `.dict()` deprecated ale działa)"
+    - "v2 nie wspiera serializacji"
+    - "v1 był sync, v2 async"
+  answer: 1
+  explanation: "Pydantic v2: `.dict()` → `.model_dump()`, `.json()` → `.model_dump_json()`, `.parse_obj()` → `.model_validate()`, `orm_mode` → `from_attributes`. Repo używa v2. Stare tutoriale pokazują v1 API."
+  ref: "backend/articles/schemas.py"
+
+# ============================================================
+# fastapi (5)
+# ============================================================
+
+- id: q016
+  topic: fastapi
+  question: "Czym różni się FastAPI endpoint od C# controller method?"
+  options:
+    - "FastAPI używa klas, C# funkcji"
+    - "FastAPI = funkcja w module, C# = metoda w klasie Controller"
+    - "Są identyczne"
+    - "FastAPI nie wspiera async"
+  answer: 1
+  explanation: "FastAPI nie ma klas kontrolerów. Endpoint to funkcja dekorowana `@router.get/post`. `APIRouter` to moduł z prefixem. Brak stanu endpointu (parametry = stan). W repo: `async def list_articles(...)` w `articles/router.py`, nie klasa."
+  ref: "backend/articles/router.py:67"
+
+- id: q017
+  topic: fastapi
+  question: "Jak FastAPI wie czy parametr to body, query, czy path?"
+  options:
+    - "Przez atrybuty `[FromBody]`, `[FromQuery]`"
+    - "Po typie: Pydantic model = body, primitive z `Query()` = query, w path = path, `Depends` = DI"
+    - "Po kolejności parametrów"
+    - "Po nazwie parametru"
+  answer: 1
+  explanation: "FastAPI rozstrzyga po typie: Pydantic `BaseModel` → body, primitive z `Query(...)` → query, parametr w path (`{id}`) → path, `Depends(...)` → DI. Brak atrybutów `[FromBody]` jak w C#. W repo: `data: ArticleCreate` (body), `search: str | None = Query(None)` (query)."
+  ref: "backend/articles/router.py:67"
+
+- id: q018
+  topic: fastapi
+  question: "Co robi `response_model=ArticleDetail`?"
+  options:
+    - "Dodaje pole do response"
+    - "Waliduje output + serializuje + ukrywa pola nie-w-modelu"
+    - "Definiuje status code"
+    - "Tylko dokumentację OpenAPI"
+  answer: 1
+  explanation: "`response_model=X` — FastAPI waliduje że return pasuje do X, serializuje do JSON, UKRYWA pola nie-w-modelu (nawet jeśli zwrócono więcej). Odpowiednik C# `[ProducesResponseType<X>(200)]` + JsonSerializer z TypeInfo, ale egzekwowane. W repo: `response_model=PaginatedResponse[ArticleListItem]`."
+  ref: "backend/articles/router.py:66"
+
+- id: q019
+  topic: fastapi
+  question: "Czym jest `Depends(get_db)`?"
+  options:
+    - "Odpowiednik `using` z C#"
+    - "DI — FastAPI wywoła `get_db()` i wstrzyknie wynik jako parametr"
+    - "Context manager"
+    - "Middleware"
+  answer: 1
+  explanation: "`Depends(get_db)` — FastAPI wywołuje `get_db()` (generator z `yield`), wstrzykuje wynik jako `db`, po końcu endpointu cleanupuje (zamyka sesję). DI przez parametr funkcji, nie konstruktor. Cache per request — `get_db` wywoła się raz nawet użyte 3x."
+  ref: "backend/articles/router.py:75"
+
+- id: q020
+  topic: fastapi
+  question: "Dlaczego `_: User = Depends(get_current_user)` z `_` jako nazwa?"
+  options:
+    - "Bo user nie jest używany — konwencja 'nieużywane'"
+    - "Bo to required positional"
+    - "Bo FastAPI wymaga `_`"
+    - "Bo to wildcard"
+  answer: 0
+  explanation: "`_` to konwencja Python dla 'nieużywam tego'. Tu wymusza auth (FastAPI wywoła `get_current_user`), ale endpoint nie używa usera. Odpowiednik C# `_ = await GetCurrentUserAsync()` albo po prostu wywołanie dla side-effectu."
+  ref: "backend/articles/router.py:76"
+
+# ============================================================
+# di (5)
+# ============================================================
+
+- id: q021
+  topic: di
+  question: "Dlaczego `get_db` ma `yield` a nie `return`?"
+  options:
+    - "Bo to generator — FastAPI cleanupuje sesję po końcu endpointu"
+    - "Bo `return` nie działa w async"
+    - "Bo `yield` jest szybszy"
+    - "Bo SQLAlchemy wymaga generatora"
+  answer: 0
+  explanation: "`get_db` to generator function (ma `yield`). FastAPI wstrzykuje wartość z `yield` jako `db`, po końcu endpointu wznawia generator (cleanup — zamyka sesję). Jeśli endpoint rzuci exception, generator i tak się zamknie. Odpowiednik C# `using` + `IDisposable`."
+  ref: "backend/database.py:31"
+
+- id: q022
+  topic: di
+  question: "Co robi `OAuth2PasswordBearer(tokenUrl=\"/auth/login\")`?"
+  options:
+    - "Tworzy endpoint login"
+    - "Dependency które wyciąga token z `Authorization: Bearer` nagłówka"
+    - "Hashuje hasła"
+    - "Waliduje JWT"
+  answer: 1
+  explanation: "`OAuth2PasswordBearer` to dependency: czyta `Authorization: Bearer <token>`, zwraca token jako string, jeśli brak → 401. `tokenUrl` używane w OpenAPI docs (Swagger 'Authorize' button wie gdzie login). Odpowiednik C# JwtBearer middleware, ale jako dependency nie middleware."
+  ref: "backend/auth/dependencies.py:11"
+
+- id: q023
+  topic: di
+  question: "Czym jest `request.state`?"
+  options:
+    - "Stan aplikacji globalnie"
+    - "Per-request storage — odpowiednik `HttpContext.Items` w C#"
+    - "Session state"
+    - "Konfiguracja requestu"
+  answer: 1
+  explanation: "`request.state` to namespace per-request (jak `HttpContext.Items` w C#). W repo używane do cacheowania usera per request — jeśli ten sam token używany przez kilka Depends, DB query robi się raz. `getattr(request.state, '_rao_cached_user', None)`."
+  ref: "backend/auth/dependencies.py:26"
+
+- id: q024
+  topic: di
+  question: "Dlaczego `Depends` cache per request jest ważne?"
+  options:
+    - "Bo bez cache byłoby memory leak"
+    - "Ten sam dependency wywoła się raz, nawet użyty 3x w chainie (np. get_db + get_current_user oba mają get_db)"
+    - "Bo FastAPI jest single-threaded"
+    - "Bo to optymalizacja SQL"
+  answer: 1
+  explanation: "FastAPI cacheuje wynik `Depends` per request. Jeśli `get_current_user` ma `Depends(get_db)` i endpoint też ma `Depends(get_db)`, `get_db` wywoła się RAZ — ta sama sesja. Bez cache: 2 sesje per request, problem z transakcją."
+  ref: "backend/auth/dependencies.py:22"
+
+- id: q025
+  topic: di
+  question: "Czym jest `require_admin` w RAO?"
+  options:
+    - "Atrybut jak `[Authorize(Roles=\"admin\")]`"
+    - "Dependency która wymaga `get_current_user` + sprawdza rolę"
+    - "Middleware"
+    - "Guard function"
+  answer: 1
+  explanation: "`require_admin` to dependency: `Depends(get_current_user)` + sprawdza rolę. Używane jako `Depends(require_admin)` w endpoincie. Odpowiednik C# `[Authorize(Roles=\"admin\")]` ale jako dependency nie atrybut. W repo jest no-opem (IDOR wyłączony, single-user mode)."
+  ref: "backend/auth/dependencies.py:47"
+
+# ============================================================
+# async (5)
+# ============================================================
+
+- id: q026
+  topic: async
+  question: "Czym jest `AsyncSession`?"
+  options:
+    - "Odpowiednik DbContext — unit of work, per-request"
+    - "Globalny connection pool"
+    - "Async wrapper na Redis"
+    - "Typ danych dla await"
+  answer: 0
+  explanation: "`AsyncSession` to unit of work, odpowiednik EF Core `DbContext`. Per-request (tworzona w `get_db`). Trackuje zmiany, `commit()` flushuje. W repo: `AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)`."
+  ref: "backend/database.py:20"
+
+- id: q027
+  topic: async
+  question: "Dlaczego `expire_on_commit=False` w `AsyncSessionLocal`?"
+  options:
+    - "Bo to default"
+    - "Lazy refetch po commit rzuca `MissingGreenlet` w async — bez tego exception"
+    - "Bo commit jest rzadki"
+    - "Bo to optymalizacja pamięci"
+  answer: 1
+  explanation: "Default `expire_on_commit=True` — po commit obiekty są 'expired', dostęp do atrybutu triggeruje refetch z DB. W async lazy refetch rzuca `MissingGreenlet` (brak event loop context). `expire_on_commit=False` — obiekty zostają 'live' po commit. Obowiązkowe w async SQLAlchemy."
+  ref: "backend/database.py:23"
+
+- id: q028
+  topic: async
+  question: "Czym różni się `scalar_one_or_none()` od `scalars().all()`?"
+  options:
+    - "Niczym"
+    - "`scalar_one_or_none()` = 1 lub 0 (rzuca na >1), `scalars().all()` = lista"
+    - "`scalar_one_or_none` jest async, `all` sync"
+    - "`all` zwraca tuple, `scalar` entity"
+  answer: 1
+  explanation: "`scalar_one_or_none()` — pojedynczy obiekt lub None, rzuca `MultipleResultsFound` jeśli >1. Odpowiednik C# `SingleOrDefault` (strict). `scalars().all()` — lista wszystkich. `.scalars()` odpakowuje tuple (SQLAlchemy zwraca wiersze jako tuple)."
+  ref: "backend/articles/service.py:108"
+
+- id: q029
+  topic: async
+  question: "Co robi `db.refresh(article)` po `commit()`?"
+  options:
+    - "Commituje zmiany"
+    - "Reload z DB — autoincrement id, defaults, computed columns"
+    - "Czyści sesję"
+    - "Rollback"
+  answer: 1
+  explanation: "`db.refresh(obj)` — reload z DB. Po `commit()` entity ma autoincrement `id`, server defaults, computed columns — `refresh` je pobiera. EF Core robi to automatycznie po SaveChanges, SQLAlchemy wymaga jawnego `refresh()`. W repo: `await db.commit(); await db.refresh(article)`."
+  ref: "backend/articles/service.py:117"
+
+- id: q030
+  topic: async
+  question: "Dlaczego explicit JOIN zamiast `Include`/`selectinload` w RAO?"
+  options:
+    - "Bo SQLAlchemy 2.0 usunął Include"
+    - "Lazy loading nie działa w async — explicit JOIN jest przewidywalny (jedno query, konkretne kolumny, brak N+1)"
+    - "Bo Include jest wolny"
+    - "Bo nie ma selectinload w async"
+  answer: 1
+  explanation: "W async SQLAlchemy lazy loading nie działa (MissingGreenlet). `selectinload` działa ale dodaje osobne query. Explicit JOIN (jak w service.py:190) — jedno query, konkretne kolumny, brak N+1. Najbardziej przewidywalne. Batch fetch (service.py:48-65) dla list."
+  ref: "backend/articles/service.py:190"
+
+# ============================================================
+# service (4)
+# ============================================================
+
+- id: q031
+  topic: service
+  question: "Dlaczego `db` jest parametrem metody service, nie pole klasy?"
+  options:
+    - "Bo service nie ma bazy"
+    - "Sesja per-request, service singleton — współdzielenie = race condition"
+    - "Bo to konwencja Python"
+    - "Bo `db` jest globalny"
+  answer: 1
+  explanation: "Service jest singleton (`article_service = ArticleService()` na końcu pliku). Sesja jest per-request. Jeśli service trzymałby sesję jako pole, byłaby współdzielona między requestami → race. W C# `AddScoped<Service>` + scoped DbContext — DI zarządza. W Pythonie `db` przekazywane jawnie."
+  ref: "backend/articles/service.py:11"
+
+- id: q032
+  topic: service
+  question: "Czym jest `article_service = ArticleService()` na końcu `service.py`?"
+  options:
+    - "Factory function"
+    - "Singleton instancja per moduł — współdzielona przez wszystkie importy"
+    - "Klasa"
+    - "Decorator"
+  answer: 1
+  explanation: "Instancja tworzona raz przy imporcie modułu. Wszyscy importują tę samą: `from articles.service import article_service`. Thread-safe bo service nie ma stanu (brak pól instancji, wszystkie dane w parametrach). Odpowiednik C# `services.AddSingleton<ArticleService>()`."
+  ref: "backend/articles/service.py:142"
+
+- id: q033
+  topic: service
+  question: "Co robi `Article(**data.model_dump())`?"
+  options:
+    - "Konwertuje Article na dict"
+    - "Rozpakowuje dict Pydantic jako kwargs konstruktora SQLAlchemy — mapuje DTO → entity"
+    - "Klonuje Article"
+    - "Waliduje Article"
+  answer: 1
+  explanation: "`data.model_dump()` → dict. `Article(**dict)` → `Article(name=..., is_service=..., ...)` (rozpakowanie dict jako keyword args). Idiom mapowania Pydantic → SQLAlchemy jeśli pola się zgadzają. `created_at` dodawane jawnie bo `ArticleCreate` go nie ma."
+  ref: "backend/articles/service.py:115"
+
+- id: q034
+  topic: service
+  question: "Dlaczego cross-feature import (`from contracts.service import ...`) jest wewnątrz funkcji?"
+  options:
+    - "Bo to wolniejsze"
+    - "Unika circular import — Python importuje moduł raz, ale na górze pliku może być cycle"
+    - "Bo to konwencja"
+    - "Bo FastAPI tego wymaga"
+  answer: 1
+  explanation: "Python importuje moduł raz (cache), ale jeśli `articles/router.py` importuje `contracts/service.py` na górze, a `contracts/service.py` importuje `articles/...` → circular. Import wewnątrz funkcji wykonuje się przy wywołaniu (moduły już załadowane). C# nie ma tego problemu (kompilowane)."
+  ref: "backend/articles/router.py:174"
+
+# ============================================================
+# migrations (4)
+# ============================================================
+
+- id: q035
+  topic: migrations
+  question: "Dlaczego RAO nie używa Alembic?"
+  options:
+    - "Bo Alembic jest deprecated"
+    - "Prostota: single-dev, forward-only, `create_all` + ALTER wystarcza"
+    - "Bo Alembic nie wspiera MariaDB"
+    - "Bo Alembic jest płatny"
+  answer: 1
+  explanation: "RAO świadomie nie używa Alembic (odpowiednik EF Migrations). Powody: single-dev, forward-only, brak multi-env, prostota. Koszt: brak historii schema, ręczne ALTER. `create_all` + `ALTER IF NOT EXISTS` w main.py startup. Kiedy Alembic: zespół >1, multi-env, rollback."
+  ref: "backend/main.py:62"
+
+- id: q036
+  topic: migrations
+  question: "Czym różni się `create_all` od ALTER w main.py?"
+  options:
+    - "Niczym"
+    - "`create_all` tworzy nowe tabele (IF NOT EXISTS), ALTER dodaje kolumny do istniejących"
+    - "`create_all` jest sync, ALTER async"
+    - "ALTER tworzy tabele, create_all kolumny"
+  answer: 1
+  explanation: "`Base.metadata.create_all` — `CREATE TABLE IF NOT EXISTS` dla każdej tabeli. Tworzy tylko nieistniejące. NIE modyfikuje istniejących. Dlatego nowe kolumny wymagają ręcznego `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` w startup. 4-plikowa reguła: models.py + main.py + spec + weryfikacja."
+  ref: "backend/main.py:74"
+
+- id: q037
+  topic: migrations
+  question: "Dlaczego `IF NOT EXISTS` w ALTER jest obowiązkowe?"
+  options:
+    - "Bo to syntax SQL"
+    - "Idempotentność — drugi restart bez `Duplicate column` error"
+    - "Bo MariaDB tego wymaga"
+    - "Bo to szybsze"
+  answer: 1
+  explanation: "`ALTER TABLE ... ADD COLUMN IF NOT EXISTS` (MariaDB 10.5+, MySQL 8.0+) — skip jeśli kolumna istnieje. Bez tego drugi restart rzuci `Duplicate column name`. Z `IF NOT EXISTS` — idempotentne. Stara MariaDB: try/except. W repo zakładają 10.5+."
+  ref: "backend/main.py:79"
+
+- id: q038
+  topic: migrations
+  question: "Co to '4-plikowa reguła' zmiany DB w RAO?"
+  options:
+    - "4 pliki na każdy endpoint"
+    - "models.py + main.py (ALTER) + spec/01_database.md + weryfikacja (restart + DESCRIBE + drugi restart)"
+    - "4 migracje per zmiana"
+    - "4 tabele per feature"
+  answer: 1
+  explanation: "Każda zmiana DB = 4 pliki: (1) `spec/core/01_database.md` — DDL mirror, (2) `backend/<feature>/models.py` — SQLAlchemy, (3) `backend/main.py` startup — `ALTER IF NOT EXISTS`, (4) weryfikacja — restart + DESCRIBE + drugi restart. Bez #1 → nie widać schema w spec. Bez #3 → nowy env dostanie tabelę bez kolumny."
+  ref: "backend/main.py:62"
+
+# ============================================================
+# vue (5)
+# ============================================================
+
+- id: q039
+  topic: vue
+  question: "Czym różni się `ref()` od zwykłej zmiennej w `<script setup>`?"
+  options:
+    - "Niczym"
+    - "`ref()` jest reactive — triggeruje update, `.value` w JS, auto-unwrap w template"
+    - "`ref()` jest tylko dla obiektów"
+    - "Zwykła zmienna jest szybsza"
+  answer: 1
+  explanation: "`ref(x)` tworzy reactive reference (`{ value: x }` z Proxy). W JS/script: `x.value`. W template: `x` (Vue auto-unwrap). Zwykła zmienna NIE triggeruje update. Odpowiednik Angular `signal(x)` — `x()` w JS, `x` w template."
+  ref: "frontend/src/views/MachinesListView.vue:117"
+
+- id: q040
+  topic: vue
+  question: "Co robi `computed()`?"
+  options:
+    - "To alias dla ref"
+    - "Derived state z memoizacją — przelicza się tylko gdy zależności zmienią"
+    - "Wywołuje funkcję co render"
+    - "Asynchroniczna operacja"
+  answer: 1
+  explanation: "`computed(getter)` — wartość wyliczona, cachowana. Przelicza się tylko gdy zależności (refs/computeds użyte w getterze) się zmienią. Odpowiednik Angular `computed(() => ...)` z signals, albo pure pipe. W repo: `isAuthenticated = computed(() => !!token.value)`."
+  ref: "frontend/src/stores/auth.js:11"
+
+- id: q041
+  topic: vue
+  question: "Czym jest `<script setup>`?"
+  options:
+    - "Nowa nazwa dla `<script>`"
+    - "Cukier dla Composition API — top-level deklaracje dostępne w template, brak `export default`"
+    - "Async script"
+    - "Script tylko dla setup komponentu"
+  answer: 1
+  explanation: "`<script setup>` to cukier syntaktyczny (Vue 3.2+). Nie ma `export default defineComponent({...})`. Top-level deklaracje (refs, funkcje, importy) automatycznie dostępne w template. Brak `this`. Odpowiednik Angular standalone z `inject()`."
+  ref: "frontend/src/views/MachinesListView.vue:101"
+
+- id: q042
+  topic: vue
+  question: "`v-if` vs `v-show` — jaka różnica?"
+  options:
+    - "Niczym"
+    - "`v-if` usuwa z DOM, `v-show` tylko `display:none`"
+    - "`v-if` jest szybszy"
+    - "`v-show` jest deprecated"
+  answer: 1
+  explanation: "`v-if` — warunkowy render (DOM tworzony/usuwany). Droższy przy przełączaniu, tańszy przy initial (jeśli false). `v-show` — zawsze w DOM, `display:none`. Tańszy przy przełączaniu, droższy przy initial. Odpowiednik Angular `*ngIf` vs `[hidden]`."
+  ref: "frontend/src/views/MachinesListView.vue:38"
+
+- id: q043
+  topic: vue
+  question: "Czym jest `watch()`?"
+  options:
+    - "Alias dla computed"
+    - "Side effect na zmianę source — odpowiednik Angular effect/ngOnChanges"
+    - "Observer DOM"
+    - "Timer"
+  answer: 1
+  explanation: "`watch(source, callback)` — uruchom callback gdy source (ref/computed/getter) się zmieni. Odpowiednik Angular `effect(() => ...)` z signals, albo `ngOnChanges`. Vue ma też `watchEffect` (auto-track jak effect). W repo: `watch(() => [props.dateFrom, props.dateTo], ([f,t]) => ...)`."
+  ref: "frontend/src/components/shared/DateRangePicker.vue:61"
+
+# ============================================================
+# pinia (4)
+# ============================================================
+
+- id: q044
+  topic: pinia
+  question: "Czym jest `defineStore('articles', () => { ... })`?"
+  options:
+    - "Klasa store"
+    - "Setup syntax (function form) — nowszy, zwięzły, lepszy TS"
+    - "Reducer"
+    - "Service"
+  answer: 1
+  explanation: "Setup syntax (function form) — jak `<script setup>` w komponencie. Zwraca obiekt z refs (state) i funkcjami (actions). Nowszy niż Options API (`{ state, getters, actions }`). W repo setup syntax wszędzie. Odpowiednik Angular service ze signals."
+  ref: "frontend/src/stores/articles.js:8"
+
+- id: q045
+  topic: pinia
+  question: "Czym różni się `ref()` w store od `computed()`?"
+  options:
+    - "Niczym"
+    - "`ref` = state mutable, `computed` = derived memoized (read-only)"
+    - "`ref` jest async"
+    - "`computed` jest tylko w komponencie"
+  answer: 1
+  explanation: "`ref()` w store = reactive state (mutable, `x.value = ...`). `computed()` = getter (derived, memoized, read-only). W repo: `token = ref(...)` (state), `isAuthenticated = computed(() => !!token.value)` (getter). Odpowiednik Angular `signal` vs `computed`."
+  ref: "frontend/src/stores/auth.js:6"
+
+- id: q046
+  topic: pinia
+  question: "Dlaczego `store.list` działa bez `.value`?"
+  options:
+    - "Bo to nie ref"
+    - "Pinia auto-unwrap przy dostępie przez `store.xxx`"
+    - "Bo store jest singleton"
+    - "Bo to computed"
+  answer: 1
+  explanation: "Pinia auto-unwrap refs przy dostępie przez `store.xxx` (jak Vue w template). Wewnątrz store używasz `.value` (`list.value = ...`). Z zewnątrz `store.list` (bez `.value`). Uwaga: destrukturyzacja `const { list } = store` — `list` to ref, `list.value` w JS."
+  ref: "frontend/src/stores/articles.js:9"
+
+- id: q047
+  topic: pinia
+  question: "Czym jest `return { list, fetchList }` w store?"
+  options:
+    - "Eksport modułu"
+    - "Public API store — tylko to dostępne z zewnątrz"
+    - "Reducer"
+    - "Cleanup"
+  answer: 1
+  explanation: "Tylko to co w `return` jest dostępne z zewnątrz jako `store.xxx`. Reszta (np. `_endpoint` w articles.js) jest 'prywatna' (konwencja `_` prefix, JS nie enforce). Odpowiednik Angular `public` / `private` — ale w JS konwencja, nie enforce."
+  ref: "frontend/src/stores/articles.js:86"
+
+# ============================================================
+# router (4)
+# ============================================================
+
+- id: q048
+  topic: router
+  question: "Co robi `component: () => import(...)` w route config?"
+  options:
+    - "Importuje statycznie"
+    - "Lazy loading — komponent ładowany przy pierwszej nawigacji"
+    - "Eksportuje komponent"
+    - "Definiuje typ"
+  answer: 1
+  explanation: "`component: () => import('@/views/MachinesListView.vue')` — dynamic import, lazy loading. Komponent (chunk) ładowany przy pierwszej nawigacji do route. Odpowiednik Angular `loadComponent` / `loadChildren` (standalone). Zmniejsza initial bundle."
+  ref: "frontend/src/router/index.js:11"
+
+- id: q049
+  topic: router
+  question: "Czym jest `beforeEach` w vue-router?"
+  options:
+    - "Lifecycle hook komponentu"
+    - "Navigation guard — uruchamiany przed każdą nawigacją, odpowiednik canActivate"
+    - "Middleware backendu"
+    - "Event listener"
+  answer: 1
+  explanation: "`router.beforeEach((to, from, next) => ...)` — guard przed nawigacją. `next()` kontynuuj, `next('/login')` przekieruj, `next(false)` anuluj. Odpowiednik Angular `canActivate` (functional form w nowszym Angular). W repo: sprawdza `auth.isAuthenticated`, jeśli nie → login."
+  ref: "frontend/src/router/index.js:175"
+
+- id: q050
+  topic: router
+  question: "Co robi request interceptor w `useApi.js`?"
+  options:
+    - "Loguje requesty"
+    - "Dodaje `Authorization: Bearer <token>` z localStorage do każdego requestu"
+    - "Cacheuje response"
+    - "Waliduje JSON"
+  answer: 1
+  explanation: "`api.interceptors.request.use((config) => { ... config.headers.Authorization = 'Bearer ' + token ... })` — modyfikuje config przed wysłaniem. Tu: dodaje JWT token z localStorage. Odpowiednik Angular `HttpInterceptor` z `req.clone({ setHeaders: { Authorization: ... } })`."
+  ref: "frontend/src/composables/useApi.js:9"
+
+- id: q051
+  topic: router
+  question: "Czym jest `meta: { requiresAuth: true }` w route?"
+  options:
+    - "Metadane SEO"
+    - "Metadane route — czytane w guard (`to.meta.requiresAuth`)"
+    - "Konfiguracja komponentu"
+    - "Typ route"
+  answer: 1
+  explanation: "`meta` — dowolny obiekt metadanych route. W guard czytasz `to.meta.requiresAuth`. Odpowiednik Angular `data: { requiresAuth: true }`. Dziedziczenie: meta dziecka merge'uje z rodzicem. W repo: `requiresAuth: false` dla /login, `true` dla /."
+  ref: "frontend/src/router/index.js:12"
+
+# ============================================================
+# props (4)
+# ============================================================
+
+- id: q052
+  topic: props
+  question: "Czym jest `defineProps<T>()`?"
+  options:
+    - "Definiuje typ komponentu"
+    - "Input do komponentu — odpowiednik `@Input` / `input()` w Angular"
+    - "Emit event"
+    - "Waliduje template"
+  answer: 1
+  explanation: "`defineProps<{ dateFrom: string | null }>()` — deklaruje props komponentu (TypeScript generic). Tylko do odczytu, nie mutuj. W template auto-unwrap (`{{ dateFrom }}`). Odpowiednik Angular `@Input() dateFrom` / `dateFrom = input<string | null>(null)`."
+  ref: "frontend/src/components/shared/DateRangePicker.vue:34"
+
+- id: q053
+  topic: props
+  question: "Co robi `emit('update:dateFrom', val)`?"
+  options:
+    - "Aktualizuje props"
+    - "Emit event `update:dateFrom` — convention dla `v-model:date-from`"
+    - "Mutuje rodzica"
+    - "Wywołuje watch"
+  answer: 1
+  explanation: "`emit('update:propName', val)` — convention Vue dla two-way binding. Rodzic: `v-model:date-from=\"x\"` = `:date-from=\"x\"` + `@update:date-from=\"x = $event\"`. Odpowiednik Angular `[(dateFrom)]=\"x\"` (banana-in-a-box). Standard `v-model` = `:modelValue` + `@update:modelValue`."
+  ref: "frontend/src/components/shared/DateRangePicker.vue:39"
+
+- id: q054
+  topic: props
+  question: "Czym jest composable `useSort`?"
+  options:
+    - "Pinia store"
+    - "Funkcja zwracająca reactive state + funkcje, nowa instancja per komponent"
+    - "Service"
+    - "Directive"
+  answer: 1
+  explanation: "Composable = funkcja `useXxx` zwracająca refs + funkcje. Nowa instancja per wywołanie (nie singleton jak Pinia). Odpowiednik Angular service z `providedIn: 'component'` albo factory function. W repo: `useSort<T>(initialKey, initialDir)` zwraca `{ sortKey, sortDir, toggleSort, sortedRows }`."
+  ref: "frontend/src/composables/useSort.ts:18"
+
+- id: q055
+  topic: props
+  question: "Composable vs Pinia store — kiedy co?"
+  options:
+    - "Zawsze Pinia"
+    - "Lokalny state komponentu → composable, globalny state app → Pinia"
+    - "Zawsze composable"
+    - "Pinia dla backend, composable dla frontend"
+  answer: 1
+  explanation: "Composable — nowa instancja per komponent, lokalny state (sort, file download). Pinia — singleton per app, globalny state (auth, machines, contracts). W RAO: `useSort`, `useFileDownload` — composables. `auth`, `machines`, `contracts` — Pinia. Reguła: lokalny → composable, globalny → Pinia."
+  ref: "frontend/src/composables/useSort.ts:18"
