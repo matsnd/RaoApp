@@ -912,7 +912,7 @@ Skutek: **szybka edycja "od kwota / do kwota" nie działa na podgląd PDF**. Gdy
 
 ```yaml
 id: P1-123
-status: in_progress
+status: team-verified
 priority: P1
 created: 2026-07-12
 source: client-request (współpraca 2026-07-12)
