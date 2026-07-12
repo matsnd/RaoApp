@@ -33,7 +33,7 @@ test.describe('TEST-06: Fee Preset + PDF Verification', () => {
         amount_from: 150.00,
         amount_to: 200.00,
         unit: 'km',
-        description: '- Usługa testowa: $1 zł (plus koszt)',
+        description: '- Usługa testowa: $1 (plus koszt)',
         is_active: true,
       },
     })
@@ -76,29 +76,30 @@ test.describe('TEST-06: Fee Preset + PDF Verification', () => {
     const pdfBuffer = await pdfRes.body()
     const fs = await import('fs')
     const path = await import('path')
-    const pdfPath = path.join(process.cwd(), 'e2e', 'artifacts', 'pdfs', `test-fee-preset-${ts}.pdf`)
+    const workspaceRoot = process.cwd().endsWith('e2e') ? path.join(process.cwd(), '..') : process.cwd()
+    const pdfPath = path.join(workspaceRoot, 'e2e', 'artifacts', 'pdfs', `test-fee-preset-${ts}.pdf`)
     await fs.promises.mkdir(path.dirname(pdfPath), { recursive: true })
     await fs.promises.writeFile(pdfPath, pdfBuffer)
 
     // 8. Weryfikacja tekstu w PDF przez skrypt Python
     const { execSync } = await import('child_process')
-    const pythonPath = path.join(process.cwd(), '..', 'backend', '.venv', 'Scripts', 'python.exe')
-    const scriptPath = path.join(process.cwd(), '..', 'backend', 'tests', 'unit', 'verify_pdf_fees.py')
+    const pythonPath = path.join(workspaceRoot, 'backend', '.venv', 'Scripts', 'python.exe')
+    const scriptPath = path.join(workspaceRoot, 'backend', 'tests', 'unit', 'verify_pdf_fees.py')
 
-    // Oczekiwany tekst po podmianie $1 → 150.00 zł
-    const expectedText = 'Usługa testowa: 150.00 zł (plus koszt)'
+    // Oczekiwany tekst po podmianie $1 → 150,00 zł (PL format: comma decimal + zł suffix)
+    const expectedText = 'Usługa testowa: 150,00 zł (plus koszt)'
     const result = execSync(
       `"${pythonPath}" "${scriptPath}" "${pdfPath}" "${expectedText}"`,
-      { encoding: 'utf-8', cwd: process.cwd() }
+      { encoding: 'utf-8', cwd: workspaceRoot }
     )
     expect(result.trim()).toContain('PASS')
 
     // Dodatkowo: sprawdź że NIE ma surowego placeholdera $1
     // Skrypt zwraca exit 1 gdy tekst nie znaleziony — użyj spawnSync żeby obsłużyć
     const { spawnSync } = await import('child_process')
-    const result2 = spawnSync(pythonPath, [scriptPath, pdfPath, '$1 zł'], {
+    const result2 = spawnSync(pythonPath, [scriptPath, pdfPath, '$1'], {
       encoding: 'utf-8',
-      cwd: process.cwd(),
+      cwd: workspaceRoot,
     })
     expect(result2.stdout).toContain('FAIL')
   })

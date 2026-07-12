@@ -21,11 +21,32 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 
 def extract_text_from_pdf(pdf_path: str) -> str:
-    """Wyciąga cały tekst z PDF za pomocą pdfplumber."""
+    """Wyciąga cały tekst z PDF.
+
+    RAO-P1-102: WeasyPrint 68.x embeds subsetted fonts without proper ToUnicode
+    CMap mappings, so pdfplumber/pdfminer/pypdf return empty strings for body text.
+    PyMuPDF (fitz) handles these PDFs correctly on Windows.
+    Fallback: pdfplumber (for non-WeasyPrint PDFs or older versions).
+    """
+    # Primary: PyMuPDF (fitz) — handles WeasyPrint 68.x font subsetting
+    try:
+        import fitz
+        doc = fitz.open(pdf_path)
+        all_text = []
+        for page in doc:
+            text = page.get_text()
+            if text:
+                all_text.append(text)
+        doc.close()
+        return '\n'.join(all_text)
+    except ImportError:
+        pass
+
+    # Fallback: pdfplumber (for non-WeasyPrint PDFs)
     try:
         import pdfplumber
     except ImportError:
-        raise ImportError("pdfplumber nie jest zainstalowany. Uruchom: pip install pdfplumber")
+        raise ImportError("ani fitz (PyMuPDF) ani pdfplumber nie jest zainstalowany. Uruchom: pip install PyMuPDF")
 
     all_text = []
     with pdfplumber.open(pdf_path) as pdf:

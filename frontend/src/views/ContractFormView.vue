@@ -2441,7 +2441,8 @@ onMounted(async () => {
 
 async function applyPresetWithConfirm() {
   if (!selectedPresetId.value) return
-  const preset = presetPickerList.value.find(p => p.id === selectedPresetId.value)
+  // v-model on <select> returns string, but p.id is number — coerce for comparison
+  const preset = presetPickerList.value.find(p => p.id === Number(selectedPresetId.value))
   if (!preset) return
   const hasFees = contractStore.serviceFees.length > 0
   const doApply = async () => {
