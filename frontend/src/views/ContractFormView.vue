@@ -2546,20 +2546,20 @@ async function applyHardcodedFeePreset(kind: 'diesel' | 'elektryk') {
   if (!contractId) return
   if (isService.value) return // Diesel/Elektryk tylko dla najmu maszyn (S)
 
-  // P1-120: wyszukaj additional_service_id po name z store
+  // P1-120: wyszukaj additional_service_id po name z store (pełne nazwy z DB)
   const svcId = (name: string) => additionalServiceStore.list.find((s: any) => s.name === name)?.id ?? null
 
   const rentalCommonRows: FeeData[] = [
     { additional_service_id: svcId('Transport'), name: 'Transport', amount_from: 1200, amount_to: 1200, description: '$1 dostawa / $2 odbiór', is_active: true },
-    { additional_service_id: svcId('Czyszczenie'), name: 'Czyszczenie maszyny (zabrudzenia ponadnormatywne)', amount_from: null, amount_to: null, description: 'wycena indywidualna', is_active: true },
-    { additional_service_id: svcId('Tankowanie'), name: 'Usługa tankowania', amount_from: 200, amount_to: null, description: '$1 (plus koszt paliwa)', is_active: true },
-    { additional_service_id: svcId('Przestój'), name: 'Ponadnormatywny przestój transportu', amount_from: 200, amount_to: 300, description: '$1 / h - $2 / h', is_active: true },
-    { additional_service_id: svcId('Serwis'), name: 'Nieuzasadnione wezwanie serwisowe', amount_from: 280, amount_to: null, description: '$1 (plus transport)', is_active: true },
+    { additional_service_id: svcId('Czyszczenie maszyny (zabrudzenia ponadnormatywne)'), name: 'Czyszczenie maszyny (zabrudzenia ponadnormatywne)', amount_from: null, amount_to: null, description: 'wycena indywidualna', is_active: true },
+    { additional_service_id: svcId('Usługa tankowania'), name: 'Usługa tankowania', amount_from: 200, amount_to: null, description: '$1 (plus koszt paliwa)', is_active: true },
+    { additional_service_id: svcId('Ponadnormatywny przestój transportu'), name: 'Ponadnormatywny przestój transportu', amount_from: 200, amount_to: 300, description: '$1 / h - $2 / h', is_active: true },
+    { additional_service_id: svcId('Nieuzasadnione wezwanie serwisowe'), name: 'Nieuzasadnione wezwanie serwisowe', amount_from: 280, amount_to: null, description: '$1 (plus transport)', is_active: true },
   ]
 
   const reviewRows: Record<string, FeeData> = {
-    diesel: { additional_service_id: svcId('Przegląd Diesel'), name: 'Przegląd techniczny i czyszczenie maszyny', amount_from: 150, amount_to: null, description: '$1', is_active: true },
-    elektryk: { additional_service_id: svcId('Przegląd Elektryk'), name: 'Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny', amount_from: 35, amount_to: null, description: '$1', is_active: true },
+    diesel: { additional_service_id: svcId('Przegląd techniczny i czyszczenie maszyny Diesel'), name: 'Przegląd techniczny i czyszczenie maszyny Diesel', amount_from: 150, amount_to: null, description: '$1', is_active: true },
+    elektryk: { additional_service_id: svcId('Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny Elektryk'), name: 'Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny Elektryk', amount_from: 35, amount_to: null, description: '$1', is_active: true },
   }
 
   const review = reviewRows[kind]
@@ -2570,7 +2570,15 @@ async function applyHardcodedFeePreset(kind: 'diesel' | 'elektryk') {
   const hasFees = contractStore.serviceFees.length > 0
   const doApply = async () => {
     try {
-      await Promise.all(contractStore.serviceFees.map(f => api.delete(`/contracts/${contractId}/service-fees/${f.id}`)))
+      // Delete existing fees sequentially (avoid race conditions with parallel deletes)
+      for (const f of contractStore.serviceFees) {
+        try {
+          await api.delete(`/contracts/${contractId}/service-fees/${f.id}`)
+        } catch (e: any) {
+          // Ignore 404 on delete — fee might already be gone
+          if (e.response?.status !== 404) throw e
+        }
+      }
       for (const row of rows) {
         await api.post(`/contracts/${contractId}/service-fees`, row)
       }
