@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 
 interface ServiceOption {
   id: number
@@ -21,6 +21,8 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   'update:modelValue': [value: number | null]
   'select': [service: ServiceOption | null]
+  'save': []
+  'cancel': []
 }>()
 
 const isOpen = ref(false)
@@ -35,6 +37,7 @@ const selectedName = computed(() => {
   return s ? (s.display_name || s.name) : ''
 })
 
+// Gdy zamknięty: pokaż wybraną nazwę. Gdy otwarty: pokaż query (zachowaj wybraną nazwę jako start)
 const displayValue = computed(() => (isOpen.value ? query.value : selectedName.value))
 
 const filtered = computed(() => {
@@ -46,8 +49,10 @@ const filtered = computed(() => {
 })
 
 function open() {
+  if (isOpen.value) return
   isOpen.value = true
-  query.value = ''
+  // Zachowaj aktualnie wybraną nazwę jako punkt startowy — user widzi co było wybrane
+  query.value = selectedName.value
   highlightedIndex.value = filtered.value.length > 0 ? 0 : -1
   setTimeout(() => inputRef.value?.focus(), 0)
 }
@@ -72,12 +77,20 @@ function onInput(e: Event) {
 
 function onKeyDown(e: KeyboardEvent) {
   if (!isOpen.value) {
-    if (e.key === 'ArrowDown' || e.key === 'Enter') {
+    if (e.key === 'ArrowDown') {
       open()
+      e.preventDefault()
+    } else if (e.key === 'Enter') {
+      // Dropdown zamknięty + Enter = zapisz (propaguj do parenta)
+      emit('save')
+      e.preventDefault()
+    } else if (e.key === 'Escape') {
+      emit('cancel')
       e.preventDefault()
     }
     return
   }
+  // Dropdown otwarty
   const list = filtered.value
   if (e.key === 'ArrowDown') {
     e.preventDefault()
@@ -89,9 +102,13 @@ function onKeyDown(e: KeyboardEvent) {
     e.preventDefault()
     if (highlightedIndex.value >= 0 && highlightedIndex.value < list.length) {
       selectService(list[highlightedIndex.value])
+    } else {
+      // Enter bez highlightu = zapisz z aktualnym wyborem
+      emit('save')
     }
   } else if (e.key === 'Escape') {
     close()
+    emit('cancel')
   }
 }
 
@@ -114,6 +131,7 @@ onUnmounted(() => document.removeEventListener('mousedown', onClickOutside))
       :placeholder="placeholder"
       :value="displayValue"
       @focus="open"
+      @click="open"
       @input="onInput"
       @keydown="onKeyDown"
     />
@@ -148,7 +166,7 @@ onUnmounted(() => document.removeEventListener('mousedown', onClickOutside))
   top: 100%;
   left: 0;
   right: 0;
-  z-index: 100;
+  z-index: 9999;
   background: var(--color-bg-white);
   border: 1px solid var(--color-border);
   border-radius: var(--border-radius-sm);

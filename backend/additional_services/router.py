@@ -20,7 +20,8 @@ async def _verify_additional_service_access(db: AsyncSession, service_id: int, u
 
 async def _build_detail(db: AsyncSession, s: AdditionalService) -> AdditionalServiceDetail:
     return AdditionalServiceDetail(
-        id=s.id, name=s.name, default_amount=s.default_amount,
+        id=s.id, name=s.name, display_name=s.display_name,
+        default_amount=s.default_amount,
         description=s.description, notes=s.notes,
         is_archival=s.is_archival,
         fakturownia_product_id=s.fakturownia_product_id,

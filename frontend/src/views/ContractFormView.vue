@@ -391,7 +391,7 @@
                       :model-value="editingFeeData.additional_service_id ?? null"
                       :services="additionalServiceStore.list"
                       @update:model-value="(v) => onFeeServicePickById(v, editingFeeData)"
-                      @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee"
+                      @save="saveInlineFee" @cancel="cancelInlineFee"
                     />
                   </td>
                   <td><input v-model="editingFeeData.amount_from" type="number" step="0.01" class="form-control form-control-xs" @keydown.enter="saveInlineFee" @keydown.esc="cancelInlineFee" /></td>
@@ -424,7 +424,7 @@
                     :model-value="newFeeData.additional_service_id ?? null"
                     :services="additionalServiceStore.list"
                     @update:model-value="(v) => onFeeServicePickById(v, newFeeData)"
-                    @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow"
+                    @save="saveNewFeeRow" @cancel="cancelNewFeeRow"
                   />
                 </td>
                 <td><input v-model="newFeeData.amount_from" type="number" step="0.01" class="form-control form-control-xs" placeholder="0.00" @keydown.enter="saveNewFeeRow" @keydown.esc="cancelNewFeeRow" /></td>

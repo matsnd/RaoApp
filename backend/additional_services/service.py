@@ -34,7 +34,8 @@ class AdditionalServiceService:
 
         items = [
             AdditionalServiceListItem(
-                id=s.id, name=s.name, default_amount=s.default_amount,
+                id=s.id, name=s.name, display_name=s.display_name,
+                default_amount=s.default_amount,
                 description=s.description,
                 is_archival=s.is_archival,
                 fakturownia_product_id=s.fakturownia_product_id,
