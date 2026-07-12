@@ -23,6 +23,7 @@ import { useArticleStore } from '@/stores/articles'
 import { useContractorStore } from '@/stores/contractors'
 import { useSettingsStore } from '@/stores/settings'  // P1-119: salespeople
 import ContractorCombobox from '@/components/analytics/ContractorCombobox.vue'
+import SearchCombobox from '@/components/shared/SearchCombobox.vue'
 import StateMessage from '@/components/StateMessage.vue'
 import { formatDate } from '@/utils/format'
 import { extractErrorMessage } from '@/utils/validation'
@@ -204,7 +205,12 @@ async function loadMachines() {
   try {
     // Tylko non-service, non-external (sprzęt aktywny)
     await articleStore.fetchList({ is_service: false, per_page: 200 })
-    machineOptions.value = (articleStore.list as MachineOption[]).filter((a) => !a.is_service && !a.is_external)
+    machineOptions.value = (articleStore.list as MachineOption[])
+      .filter((a) => !a.is_service && !a.is_external)
+      .map((a) => ({
+        ...a,
+        name: a.internal_number ? `${a.name} (${a.internal_number})` : a.name,
+      }))
   } catch {
     machineOptions.value = []
   }
@@ -652,32 +658,27 @@ onMounted(async () => {
           <template v-else>
             <div class="rv-form-row">
               <label class="rv-form-label">Maszyna <span class="rv-req">*</span></label>
-              <select
+              <SearchCombobox
                 v-model="modal.form.machine_id"
-                class="af-input"
+                :options="machineOptions"
+                placeholder="Wpisz aby wyszukać maszynę…"
+                :allow-clear="false"
+                clear-label="Wybierz maszynę…"
                 data-testid="rv-modal-machine"
                 :disabled="modalSaving"
-              >
-                <option :value="null" disabled>Wybierz maszynę…</option>
-                <option v-for="a in machineOptions" :key="a.id" :value="a.id">
-                  {{ a.name }}{{ a.internal_number ? ` (${a.internal_number})` : '' }}
-                </option>
-              </select>
+              />
             </div>
 
             <div class="rv-form-row">
               <label class="rv-form-label">Handlowiec</label>
-              <select
+              <SearchCombobox
                 v-model="modal.form.salesperson_id"
+                :options="salespeopleOptions"
+                placeholder="Brak (opcjonalny)"
+                clear-label="Brak (opcjonalny)"
                 data-testid="rv-modal-salesperson"
                 :disabled="modalSaving"
-                class="form-control"
-              >
-                <option :value="null">Brak (opcjonalny)</option>
-                <option v-for="sp in salespeopleOptions" :key="sp.id" :value="sp.id">
-                  {{ sp.name }}
-                </option>
-              </select>
+              />
             </div>
 
             <div class="rv-form-row">

@@ -1262,7 +1262,7 @@ related: P1-123 (CommissionView drill-down), P1-018 (prowizja od marży)
 
 ```yaml
 id: P1-131
-status: triaged
+status: team-verified
 priority: P1
 created: 2026-07-12
 source: client-request (współpraca 2026-07-12)
