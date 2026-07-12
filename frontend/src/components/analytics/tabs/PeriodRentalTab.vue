@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, inject, onMounted, ref, watch } from 'vue'
+import { Bar, Line } from 'vue-chartjs'
 import {
   useAnalyticsStore,
   type AnalyticsFiltersPayload,
@@ -10,6 +11,7 @@ import {
   type CategoryStatItem,
 } from '@/stores/analytics'
 import KpiRow, { type KpiCard } from '@/components/analytics/KpiRow.vue'
+import ChartCard from '@/components/analytics/ChartCard.vue'
 import AnalyticsTable, {
   type AnalyticsColumn,
   type AnalyticsRow,
@@ -17,6 +19,7 @@ import AnalyticsTable, {
 import AppIcon, { type AppIconName } from '@/components/shared/AppIcon.vue'
 import StateMessage from '@/components/StateMessage.vue'
 import { useSort } from '@/composables/useSort'
+import { useChartTheme } from '@/composables/useChartTheme'
 import { formatCurrency } from '@/utils/format'
 
 interface Props {
@@ -138,6 +141,128 @@ const categoriesRows = computed<AnalyticsRow[]>(() =>
 const categoriesSort = useSort<AnalyticsRow>('revenue', 'desc')
 const sortedCategoriesRows = computed(() => categoriesSort.sortedRows(categoriesRows.value))
 
+// ── Chart: Line trend przychodu miesięcznego + Bar kategorii ──────────────────
+const { colors, baseOptions } = useChartTheme()
+
+// Line: przychód miesięczny (z byPeriodData, agregacja client-side)
+const trendChartData = computed(() => {
+  const items = store.byPeriodData?.items ?? []
+  // Grupuj po period, sumuj revenue (seria __all__ lub agregacja wszystkich)
+  const byPeriod: Record<string, number> = {}
+  for (const item of items) {
+    const p = item.period
+    byPeriod[p] = (byPeriod[p] || 0) + Number(item.revenue)
+  }
+  const periods = Object.keys(byPeriod).sort()
+  return {
+    labels: periods,
+    datasets: [
+      {
+        label: 'Przychód',
+        data: periods.map((p) => byPeriod[p]),
+        borderColor: colors.primary,
+        backgroundColor: 'rgba(29,43,83,0.08)',
+        fill: true,
+        tension: 0.3,
+        pointBackgroundColor: colors.info,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+      },
+    ],
+  }
+})
+
+const trendChartOptions = computed(() => ({
+  ...baseOptions,
+  scales: {
+    x: {
+      ...baseOptions.scales?.x,
+      ticks: { ...baseOptions.scales?.x?.ticks },
+    },
+    y: {
+      ...baseOptions.scales?.y,
+      ticks: {
+        ...baseOptions.scales?.y?.ticks,
+        callback: (v: number | string) => {
+          const n = Number(v)
+          return n >= 1000 ? `${(n / 1000).toFixed(0)}k` : n
+        },
+      },
+    },
+  },
+  plugins: {
+    ...baseOptions.plugins,
+    tooltip: {
+      ...baseOptions.plugins?.tooltip,
+      callbacks: {
+        label: (ctx: { parsed: { y: number } }) => formatCurrency(ctx.parsed.y),
+      },
+    },
+  },
+}))
+
+// Bar: przychód per kategoria główna
+const categoryBarData = computed(() => {
+  const items = [...(store.byCategoryData?.items ?? [])]
+    .sort((a, b) => Number(b.revenue) - Number(a.revenue))
+    .slice(0, 10)
+  return {
+    labels: items.map((i) => i.category_name),
+    datasets: [
+      {
+        label: 'Przychód',
+        data: items.map((i) => Number(i.revenue)),
+        backgroundColor: items.map((_, i) => i === 0 ? colors.success : colors.primary),
+        borderRadius: 6,
+        borderSkipped: false,
+      },
+    ],
+  }
+})
+
+const categoryBarOptions = computed(() => ({
+  ...baseOptions,
+  indexAxis: 'y' as const,
+  scales: {
+    x: {
+      ...baseOptions.scales?.x,
+      ticks: {
+        ...baseOptions.scales?.x?.ticks,
+        callback: (v: number | string) => {
+          const n = Number(v)
+          return n >= 1000 ? `${(n / 1000).toFixed(0)}k` : n
+        },
+      },
+    },
+    y: { ...baseOptions.scales?.y },
+  },
+  plugins: {
+    ...baseOptions.plugins,
+    tooltip: {
+      ...baseOptions.plugins?.tooltip,
+      callbacks: {
+        label: (ctx: { parsed: { x: number } }) => formatCurrency(ctx.parsed.x),
+      },
+    },
+  },
+  onClick: (_e: unknown, elements: { index: number }[]) => {
+    if (elements.length > 0) {
+      const items = [...(store.byCategoryData?.items ?? [])].sort((a, b) => Number(b.revenue) - Number(a.revenue))
+      const item = items[elements[0].index]
+      if (item) openDrillDown('category', item.category_name, item.category_name)
+    }
+  },
+}))
+
+// Czy zakres > 45 dni (warunek renderowania line trend)
+const showTrend = computed(() => {
+  if (!props.dateFrom || !props.dateTo) return false
+  const from = new Date(props.dateFrom)
+  const to = new Date(props.dateTo)
+  const diff = (to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24)
+  return diff > 45
+})
+
 // ── KPI ──────────────────────────────────────────────────────────────────────
 const kpiCards = computed<KpiCard[]>(() => {
   const s = store.summary
@@ -227,6 +352,7 @@ async function loadAll(): Promise<void> {
       store.fetchLocations(props.dateFrom, props.dateTo, props.filters),
       store.fetchPositions(props.filters.articleType || 'all', props.dateFrom, props.dateTo, props.filters),
       store.fetchByCategory('main', props.dateFrom, props.dateTo, [], props.filters.articleType || 'all', props.filters),
+      store.fetchByPeriod('month', props.dateFrom, props.dateTo, [], props.filters.articleType || 'all'),
     ])
   } catch (e: any) {
     loadError.value = e?.response?.data?.detail || e?.message || 'Nie udalo sie pobrac statystyk'
@@ -252,6 +378,33 @@ watch(
       <!-- KPI -->
       <KpiRow :cards="kpiCards" />
 
+      <!-- Wykres: Line trend przychodu miesięcznego (tylko gdy zakres > 45 dni) -->
+      <ChartCard
+        v-if="showTrend"
+        title="Trend przychodu miesięcznego"
+        icon="📈"
+        :loading="store.loading"
+        :empty="!(store.byPeriodData?.items?.length)"
+        empty-message="Brak danych o trendzie w wybranym okresie"
+        test-id="period-trend-chart"
+        :height="280"
+      >
+        <Line :data="trendChartData" :options="trendChartOptions" />
+      </ChartCard>
+
+      <!-- Wykres: Bar przychód per kategoria główna -->
+      <ChartCard
+        title="Przychód per kategoria"
+        icon="🗂️"
+        :loading="store.loading"
+        :empty="!(store.byCategoryData?.items?.length)"
+        empty-message="Brak kategorii w wybranym okresie"
+        test-id="period-category-chart"
+        :height="Math.max(200, (store.byCategoryData?.items?.length ?? 0) * 32)"
+      >
+        <Bar :data="categoryBarData" :options="categoryBarOptions" />
+      </ChartCard>
+
       <!-- Top maszyny -->
       <div class="pr-section">
         <div class="pr-section-title">
@@ -271,29 +424,6 @@ watch(
         >
           <template #cell-revenue="{ value }">{{ formatCurrency(value as number) }}</template>
           <template #empty>Brak danych o top maszynach w wybranym okresie</template>
-        </AnalyticsTable>
-      </div>
-
-      <!-- RAO-P2-065 #6: Kategorie — agregat przychodu per kategoria główna -->
-      <div class="pr-section">
-        <div class="pr-section-title">
-          <AppIcon name="layers" :size="16" class="pr-section-icon" />
-          Kategorie ({{ categoriesRows.length }})
-        </div>
-        <AnalyticsTable
-          :columns="categoriesColumns"
-          :rows="sortedCategoriesRows"
-          :sort-key="String(categoriesSort.sortKey.value)"
-          :sort-dir="categoriesSort.sortDir.value"
-          row-key="category_name"
-          :clickable="true"
-          :loading="store.loading"
-          data-testid="categories-table"
-          @sort="categoriesSort.toggleSort"
-          @row-click="onCategoryClick"
-        >
-          <template #cell-revenue="{ value }">{{ formatCurrency(value as number) }}</template>
-          <template #empty>Brak kategorii w wybranym okresie</template>
         </AnalyticsTable>
       </div>
 

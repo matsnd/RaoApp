@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, inject, onMounted, ref, watch } from 'vue'
+import { Bar } from 'vue-chartjs'
 import {
   useAnalyticsStore,
   type AnalyticsFiltersPayload,
   type PositionStatItem,
 } from '@/stores/analytics'
 import KpiRow, { type KpiCard } from '@/components/analytics/KpiRow.vue'
+import ChartCard from '@/components/analytics/ChartCard.vue'
 import AnalyticsTable, {
   type AnalyticsColumn,
   type AnalyticsRow,
@@ -13,6 +15,7 @@ import AnalyticsTable, {
 import ExportCsvButton, { type CsvColumn } from '@/components/analytics/ExportCsvButton.vue'
 import StateMessage from '@/components/StateMessage.vue'
 import { useSort } from '@/composables/useSort'
+import { useChartTheme } from '@/composables/useChartTheme'
 import { formatCurrency } from '@/utils/format'
 
 interface Props {
@@ -124,6 +127,68 @@ const csvColumns: CsvColumn[] = [
   { key: 'times_billed', label: 'Razy' },
 ]
 
+// ── Chart: Top 10 maszyn po przychodzie ───────────────────────────────────────
+const { colors, baseOptions } = useChartTheme()
+
+const top10ChartData = computed(() => {
+  const top10 = [...data.value]
+    .sort((a, b) => Number(b.revenue) - Number(a.revenue))
+    .slice(0, 10)
+  return {
+    labels: top10.map((m) => m.article_name?.length > 20 ? m.article_name.slice(0, 18) + '…' : m.article_name),
+    datasets: [
+      {
+        label: 'Przychód',
+        data: top10.map((m) => Number(m.revenue)),
+        backgroundColor: top10.map((_, i) => i === 0 ? colors.success : colors.primary),
+        borderRadius: 6,
+        borderSkipped: false,
+      },
+    ],
+  }
+})
+
+const top10ChartOptions = computed(() => ({
+  ...baseOptions,
+  indexAxis: 'y' as const,
+  scales: {
+    x: {
+      ...baseOptions.scales?.x,
+      ticks: {
+        ...baseOptions.scales?.x?.ticks,
+        callback: (v: number | string) => {
+          const n = Number(v)
+          return n >= 1000 ? `${(n / 1000).toFixed(0)}k` : n
+        },
+      },
+    },
+    y: { ...baseOptions.scales?.y },
+  },
+  plugins: {
+    ...baseOptions.plugins,
+    tooltip: {
+      ...baseOptions.plugins?.tooltip,
+      callbacks: {
+        label: (ctx: { dataIndex: number }) => {
+          const item = [...data.value].sort((a, b) => Number(b.revenue) - Number(a.revenue))[ctx.dataIndex]
+          const rev = formatCurrency(Number(item?.revenue ?? 0))
+          const num = item?.internal_number ? ` (${item.internal_number})` : ''
+          return `${rev}${num}`
+        },
+      },
+    },
+  },
+  onClick: (_e: unknown, elements: { index: number }[]) => {
+    if (elements.length > 0) {
+      const item = [...data.value].sort((a, b) => Number(b.revenue) - Number(a.revenue))[elements[0].index]
+      if (item) {
+        const machineId = item.machine_id ?? item.article_id
+        if (machineId) openDrillDown('machine', machineId as number, String(item.article_name), item.internal_number ?? null)
+      }
+    }
+  },
+}))
+
 function onRowClick(row: AnalyticsRow): void {
   const machineId = row.machine_id as number
   if (!machineId) return
@@ -158,6 +223,18 @@ watch(() => [props.dateFrom, props.dateTo, props.filters?.contractorId, props.fi
 
     <template v-else-if="data.length">
       <KpiRow :cards="kpiCards" />
+
+      <ChartCard
+        title="Top 10 maszyn po przychodzie"
+        icon="📊"
+        :loading="loading"
+        :empty="!data.length"
+        empty-message="Brak maszyn w wybranym okresie"
+        test-id="machines-chart"
+        :height="320"
+      >
+        <Bar :data="top10ChartData" :options="top10ChartOptions" />
+      </ChartCard>
 
       <div class="mt-section">
         <div class="mt-section-head">
