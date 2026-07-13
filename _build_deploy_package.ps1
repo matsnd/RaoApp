@@ -127,6 +127,20 @@ try {
     # Normalizuj COLLATE do utf8mb4_polish_ci (spójne z produkcją MariaDB 10.11)
     $dumpText = $dumpText -replace 'utf8mb4_uca1400_ai_ci', 'utf8mb4_polish_ci'
     $dumpText = $dumpText -replace 'utf8mb4_unicode_ci', 'utf8mb4_polish_ci'
+    # Wymuś utf8mb4 na połączeniu (phpMyAdmin ignoruje SET NAMES z dumpa)
+    $charsetHeader = @"
+-- WYMUSZENIE utf8mb4 na polaczeniu i sesji (phpMyAdmin ignoruje SET NAMES)
+SET CHARACTER SET utf8mb4;
+SET character_set_client = utf8mb4;
+SET character_set_connection = utf8mb4;
+SET character_set_results = utf8mb4;
+SET character_set_database = utf8mb4;
+SET collation_connection = utf8mb4_polish_ci;
+SET collation_database = utf8mb4_polish_ci;
+SET NAMES utf8mb4 COLLATE utf8mb4_polish_ci;
+
+"@
+    $dumpText = $charsetHeader + $dumpText
     $utf8NoBom = New-Object System.Text.UTF8Encoding $false
     [System.IO.File]::WriteAllText($dbDumpPath, $dumpText, $utf8NoBom)
     $dbSize = (Get-Item $dbDumpPath).Length
