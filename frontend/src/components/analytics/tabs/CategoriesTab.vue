@@ -28,7 +28,7 @@ const store = useAnalyticsStore()
 const { colors, baseOptions } = useChartTheme()
 
 const openDrillDown = inject<
-  (kind: 'machine' | 'location' | 'service' | 'category', id: number | string, name: string, internalNumber?: string | null) => void
+  (kind: 'machine' | 'location' | 'service' | 'category', id: number | string, name: string, internalNumber?: string | null, categoryFilters?: { main: string[]; sub1: string | null }) => void
 >('analytics:openDrillDown', () => {})
 
 // ── Stan drill-down hierarchicznego ───────────────────────────────────────────
@@ -180,12 +180,15 @@ const kpiCards = computed<KpiCard[]>(() => {
 })
 
 // ── Drill-down hierarchiczny ──────────────────────────────────────────────────
+// 3 poziomy: category_main → category_sub1 → category_sub2
+// sub2 — koniec hierarchii, otwórz drill-down drawer (lista maszyn/umów)
 function onDrillDown(categoryName: string) {
   if (currentLevel.value === 'main') {
     // main → sub1
     currentLevel.value = 'sub1'
     categoryMainFilter.value = [categoryName]
     breadcrumb.value = [{ level: 'main', name: categoryName }]
+    load()
   } else if (currentLevel.value === 'sub1') {
     // sub1 → sub2
     currentLevel.value = 'sub2'
@@ -194,13 +197,14 @@ function onDrillDown(categoryName: string) {
       ...breadcrumb.value,
       { level: 'sub1', name: categoryName },
     ]
+    load()
   } else {
     // sub2 — koniec hierarchii, otwórz drill-down drawer
-    openDrillDown('category', categoryName, categoryName)
-    return
+    openDrillDown('category', categoryName, categoryName, null, {
+      main: categoryMainFilter.value,
+      sub1: categorySub1Filter.value,
+    })
   }
-  load()
-}
 
 function onBreadcrumbClick(idx: number) {
   if (idx < 0) {

@@ -738,6 +738,10 @@ async def positions(
         default=[],
         description="Filtr kategorii głównych (multi-value, opcjonalny) — drilldown kategorii",
     ),
+    category_sub1: str | None = Query(
+        None,
+        description="Filtr sub-kategorii (opcjonalny) — drilldown kategorii sub1",
+    ),
     limit: int | None = Query(
         None,
         ge=1,
@@ -817,6 +821,10 @@ async def positions(
     if category_main:
         cm_set = set(category_main)
         all_pos = [p for p in all_pos if p["category_main"] in cm_set]
+
+    # Filtr category_sub1 (drilldown kategorii sub1) — in-memory
+    if category_sub1:
+        all_pos = [p for p in all_pos if p.get("category_sub1") == category_sub1]
 
     # Agregacja per pozycja (machine_id lub service_id)
     agg = defaultdict(lambda: {

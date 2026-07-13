@@ -234,6 +234,8 @@ export interface AnalyticsFiltersPayload {
   city: string
   internalNumber?: string
   articleType?: 'all' | 'machine' | 'service'
+  categoryMain?: string[]
+  categorySub1?: string | null
 }
 
 // ── Store ─────────────────────────────────────────────────────────────────────
@@ -528,9 +530,17 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     if (dateTo) params.date_to = dateTo
     if (filters?.contractorId) params.contractor_id = String(filters.contractorId)
     if (filters?.city) params.city = filters.city
-    // category_main jako multi-value parametr
     const sp = new URLSearchParams(params)
-    sp.append('category_main', categoryName)
+    // category_main jako multi-value parametr
+    if (filters?.categoryMain) {
+      filters.categoryMain.forEach((m) => sp.append('category_main', m))
+    } else {
+      sp.append('category_main', categoryName)
+    }
+    // category_sub1 — filtr sub-kategorii
+    if (filters?.categorySub1) {
+      sp.set('category_sub1', filters.categorySub1)
+    }
     const { data } = await api.get<PositionStatsResponse>(
       '/stats/positions?' + sp.toString(),
     )

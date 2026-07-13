@@ -95,6 +95,7 @@ function openDrillDown(
   id: number | string,
   name: string,
   internalNumber?: string | null,
+  categoryFilters?: { main: string[]; sub1: string | null },
 ): void {
   const filtersPayload: AnalyticsFiltersPayload = {
     dateFrom: filters.value.dateFrom,
@@ -102,6 +103,8 @@ function openDrillDown(
     contractorId: filters.value.contractorId,
     city: filters.value.city,
     articleType: filters.value.articleType,
+    categoryMain: categoryFilters?.main,
+    categorySub1: categoryFilters?.sub1,
   }
   store.openDrillDown(kind, id, name, filters.value.dateFrom, filters.value.dateTo, filtersPayload)
 }
