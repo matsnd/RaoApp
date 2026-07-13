@@ -971,9 +971,19 @@
           <div style="font-size:13px;font-weight:600;margin:16px 0 8px 0;">Dane techniczne</div>
           <div class="form-row-2">
             <div class="form-group">
+              <label class="form-label">Typ zasilania</label>
+              <select v-model="inlineArticleForm.power_type" class="form-control">
+                <option value="diesel">Diesel</option>
+                <option value="electric">Elektryk</option>
+                <option value="other">Inny</option>
+              </select>
+            </div>
+            <div class="form-group">
               <label class="form-label">Zasięg (m)</label>
               <input v-model.number="inlineArticleForm.zasieg_m" type="number" class="form-control" min="0" step="0.1" placeholder="np. 21.5" />
             </div>
+          </div>
+          <div class="form-row-2">
             <div class="form-group">
               <label class="form-label">Udźwig (t)</label>
               <input v-model.number="inlineArticleForm.udzwig_t" type="number" class="form-control" min="0" step="0.1" placeholder="np. 5.0" />
@@ -1204,7 +1214,7 @@ const inlineArticleForm = ref({
   category_id: null, owner_id: null, branch_id: null,
   description: '', notes: '', rental_days: null, article_type: '',
   zasieg_m: null, udzwig_t: null, dodatki: null,
-  is_external: false,
+  is_external: false, power_type: 'diesel',
 })
 // Category cascade for inline article form
 const catSelectedMain = ref(null)
@@ -2011,7 +2021,7 @@ async function saveInlineArticle() {
       category_id: null, owner_id: null, branch_id: null,
       description: '', notes: '', rental_days: null, article_type: '',
       zasieg_m: null, udzwig_t: null, dodatki: null,
-      is_external: false,
+      is_external: false, power_type: 'diesel',
     }
     catSelectedMain.value = null
     catSelectedSub1.value = null
