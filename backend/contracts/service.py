@@ -214,8 +214,6 @@ def _condition_effective_rate(c: PositionCondition) -> Decimal | None:
 def _format_rate(value: Decimal | None) -> str:
     if value is None:
         return "0,00"
-    if value == 0:
-        return "do ustalenia"
     return f"{value:.2f}".replace('.', ',')
 
 
