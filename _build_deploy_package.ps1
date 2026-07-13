@@ -81,35 +81,23 @@ if (Test-Path ".env.example") {
 $beFiles = (Get-ChildItem $beDst -Recurse -File).Count
 Write-Host "  Backend: $beFiles plikow"
 
-# ── 2. FRONTEND ─────────────────────────────────────────────────────────────
-Write-Host "[2/3] Frontend..." -ForegroundColor Yellow
+# ── 2. FRONTEND (zbuildowane dist/) ──────────────────────────────────────────
+Write-Host "[2/3] Frontend (npm run build)..." -ForegroundColor Yellow
 
 $feSrc = "frontend"
 $feDst = Join-Path $pkgPath "frontend"
 
-# Pliki root
-$feRootFiles = @(
-    "package.json", "package-lock.json", "vite.config.ts",
-    "tsconfig.json", "tsconfig.app.json", "tsconfig.node.json",
-    "index.html", ".env.production"
-)
-foreach ($f in $feRootFiles) {
-    $src = Join-Path $feSrc $f
-    if (Test-Path $src) {
-        Copy-Item $src (Join-Path $feDst $f)
-    }
-}
+# Build frontend (produkuje dist/)
+Push-Location $feSrc
+Write-Host "  Budowanie dist/..."
+& npm run build 2>&1 | Select-Object -Last 3 | Write-Host
+Pop-Location
 
-# Skopiuj src/ (bez node_modules, dist)
-robocopy "$feSrc\src" "$feDst\src" /E /XD node_modules dist /XF *.log /NFL /NDL /NJH /NJS /NP | Out-Null
-
-# .env.example jesli jest
-if (Test-Path "$feSrc/.env.example") {
-    Copy-Item "$feSrc/.env.example" (Join-Path $feDst ".env.example")
-}
+# Skopiuj tylko zawartosc dist/ (statyczne pliki do serwowania przez nginx/apache)
+robocopy "$feSrc\dist" $feDst /E /XF *.log /NFL /NDL /NJH /NJS /NP | Out-Null
 
 $feFiles = (Get-ChildItem $feDst -Recurse -File).Count
-Write-Host "  Frontend: $feFiles plikow"
+Write-Host "  Frontend: $feFiles plikow (zbuildowane dist/)"
 
 # ── 3. DATABASE ─────────────────────────────────────────────────────────────
 Write-Host "[3/3] Database (mysqldump)..." -ForegroundColor Yellow
@@ -156,7 +144,7 @@ Commit: $(git rev-parse --short HEAD)
 
 Zawartosc:
   backend/    — kod produkcyjny FastAPI (moduly + main.py + requirements)
-  frontend/   — kod zrodlowy Vue 3 (src/ + package.json + vite.config)
+  frontend/   — zbuildowane pliki statyczne (dist/: index.html + assets/ + logo)
   database/   — dump SQL bazy rao_new (schema + dane)
 
 Wdrozenie:
@@ -165,8 +153,9 @@ Wdrozenie:
               pip install -r requirements-prod.txt
               cp .env.example .env  (wypelnij dane produkcyjne)
               uvicorn main:app --port 8000  (lub passenger_wsgi.py na shared hosting)
-  3. Frontend: cd frontend && npm ci && npm run build
-               Serve dist/ przez nginx/apache (proxy /rao/api -> backend:8000)
+  3. Frontend: skopiuj zawartosc frontend/ do katalogu serwowanego przez nginx/apache
+               (np. /var/www/rao/). Proxy /rao/api -> backend:8000.
+               UWAGA: frontend jest juz zbuildowany — nie potrzebuje npm ci / npm run build.
 
 UWAGA: .env NIE jest w paczce (sekrety). Skopiuj .env.example i wypelnij recznie.
 "@
@@ -189,6 +178,6 @@ Remove-Item $pkgPath -Recurse -Force
 
 Write-Host "Zawartosc paczki:"
 Write-Host "  backend/    — $beFiles plikow (kod + requirements, BEZ .venv/__pycache__/logow)"
-Write-Host "  frontend/   — $feFiles plikow (src + config, BEZ node_modules/dist)"
+Write-Host "  frontend/   — $feFiles plikow (zbuildowane dist/: index.html + assets/ + logo)"
 Write-Host "  database/   — rao_new_dump.sql (schema + dane)"
 Write-Host "  README_DEPLOY.txt — instrukcja wdrozenia"
