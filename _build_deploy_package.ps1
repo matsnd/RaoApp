@@ -105,12 +105,15 @@ Write-Host "[3/3] Database (mysqldump)..." -ForegroundColor Yellow
 $dbDumpPath = Join-Path (Join-Path $pkgPath "database") "rao_new_dump.sql"
 
 # mysqldump — schema + dane, bez lock tables (kompatybilne z shared hosting)
+# WAZNE: --result-file zamiast przechwytywania stdout — PowerShell przechwytuje
+# stdout przez kodowanie konsoli (CP852) i niszczy bajty UTF-8 (mojibake ├ô┼é na prodzie)
 $mysqldumpArgs = @(
     "--no-tablespaces",
     "--single-transaction",
     "--routines",
     "--triggers",
     "--default-character-set=utf8mb4",
+    "--result-file=$dbDumpPath",
     "-u", "rao_user",
     $DbName
 )
@@ -121,9 +124,11 @@ $dbPass = ($envFile | Select-String "RAO_DATABASE_URL").ToString() -replace '.*:
 $env:MYSQL_PWD = $dbPass
 
 try {
-    # mysqldump output → UTF-8 bez BOM (mysql klient na Linux nie toleruje BOM)
-    $dumpOutput = & mysqldump @mysqldumpArgs 2>&1
-    $dumpText = $dumpOutput -join "`n"
+    # mysqldump pisze bezposrednio do pliku (UTF-8, bez posrednictwa konsoli)
+    & mysqldump @mysqldumpArgs
+    if ($LASTEXITCODE -ne 0) { throw "mysqldump exit code $LASTEXITCODE" }
+    # Czytaj plik jako UTF-8 do postprocessingu
+    $dumpText = [System.IO.File]::ReadAllText($dbDumpPath, [System.Text.Encoding]::UTF8)
     # Normalizuj COLLATE do utf8mb4_polish_ci (spójne z produkcją MariaDB 10.11)
     $dumpText = $dumpText -replace 'utf8mb4_uca1400_ai_ci', 'utf8mb4_polish_ci'
     $dumpText = $dumpText -replace 'utf8mb4_unicode_ci', 'utf8mb4_polish_ci'
