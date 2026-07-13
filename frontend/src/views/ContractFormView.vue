@@ -2128,6 +2128,7 @@ async function saveNewPosRow() {
     newPosData.value = emptyPosData()
     clearInlinePosErrors()
     await recalcTotal()
+    await fetchSettlements(Number(props.id))
     toastStore.success('Pozycja dodana')
   } catch (e: any) {
     toastStore.error(e.response?.data?.detail || 'Błąd dodawania pozycji')
@@ -2305,6 +2306,8 @@ async function autoSaveNewPosition(data: PosInlineData) {
     await contractStore.fetchPositions(Number(props.id))
     if (created?.id) selectedPosId.value = created.id
     await recalcTotal()
+    // RAO-P1-012: odśwież settlements — backend auto-create settlement dla nowej pozycji
+    await fetchSettlements(Number(props.id))
     toastStore.success('Pozycja dodana')
   } catch (e: any) {
     toastStore.error(e.response?.data?.detail || 'Błąd dodawania pozycji')

@@ -1130,6 +1130,10 @@ class ContractService:
         )
         await db.commit()
         await db.refresh(pos)
+        # RAO-P1-012: Auto-create settlement record for this position
+        from settlements.service import SettlementService
+        settlement_service = SettlementService()
+        await settlement_service.auto_create_settlements_for_contract(db, contract_id, [pos.id])
         return pos
 
     async def update_position(
