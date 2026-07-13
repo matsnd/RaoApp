@@ -205,7 +205,7 @@ const props = defineProps({
   billingFrequency: { type: String, default: null },
 })
 
-const emit = defineEmits(['value-changed'])
+const emit = defineEmits(['value-changed', 'conditions-changed'])
 
 const contractStore = useContractStore()
 const settingsStore = useSettingsStore()
@@ -528,6 +528,7 @@ async function saveInlineCond() {
     await loadConditions()
     editingCondId.value = null
     editingCondData.value = emptyCondData()
+    emit('conditions-changed')
     toastStore.success('Warunek zapisany')
   } catch (e) {
     const err = e as { response?: { data?: { detail?: string } } }
@@ -563,6 +564,7 @@ async function saveNewCondRow() {
     await loadConditions()
     showNewCondRow.value = false
     newCondData.value = emptyCondData()
+    emit('conditions-changed')
     toastStore.success('Warunek dodany')
   } catch (e) {
     const err = e as { response?: { data?: { detail?: string } } }
@@ -600,6 +602,7 @@ async function removeCondition(cond: any) {
       try {
         await contractStore.deleteCondition(props.contractId, props.positionId, cond.id)
         await loadConditions()
+        emit('conditions-changed')
         toastStore.success('Warunek usunięty')
       } catch (e: any) {
         toastStore.error(e?.response?.data?.detail || 'Błąd usuwania warunku')
@@ -693,6 +696,7 @@ async function applySelectedPreset() {
     toastStore.success(`Zastosowano cennik (${result.applied_count} warunków)`)
     showPresetPicker.value = false
     await loadConditions()
+    emit('conditions-changed')
   } catch (e) {
     const err = e as { response?: { data?: { detail?: string } } }
     toastStore.error(err?.response?.data?.detail || 'Błąd zastosowania cennika')
@@ -729,6 +733,7 @@ async function autoPrefillFromLast() {
     }
     toastStore.success(`Wypełniono z umowy ${data.source_contract_number} (${data.conditions.length} warunków)`)
     await loadConditions()
+    emit('conditions-changed')
   } catch (e) {
     const err = e as { response?: { data?: { detail?: string } } }
     if (err?.response?.status === 404) {
@@ -809,6 +814,7 @@ async function applyRangeTemplate() {
       }))
     }
     await loadConditions()
+    emit('conditions-changed')
     toastStore.success(`Dodano przedział „${opt.label}”`)
   } catch (e) {
     const err = e as { response?: { data?: { detail?: string } } }

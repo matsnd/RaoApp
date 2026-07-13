@@ -345,6 +345,7 @@
             :rental-days="selectedPosition?.rental_days || null"
             :billing-frequency="selectedPosition?.billing_frequency || null"
             @value-changed="onConditionValueChanged"
+            @conditions-changed="onConditionsChanged"
           />
         </div>
 
@@ -2178,6 +2179,12 @@ async function deletePosition(pos) {
 
 function onConditionValueChanged(_value) {
   recalcTotal()
+}
+
+async function onConditionsChanged() {
+  // Odśwież pozycje — aktualizuje conditions_count w gridzie
+  await contractStore.fetchPositions(Number(props.id))
+  await recalcTotal()
 }
 
 // RAO-P1-015: helper — format date DD.MM from ISO string
