@@ -262,68 +262,70 @@ watch(
 
     <StateMessage v-else-if="error" type="error" :message="error" @action="load" />
 
-    <!-- P1-121: Breadcrumb zawsze widoczny gdy jesteśmy w drill-down, nawet gdy data.length === 0 -->
-    <div v-if="breadcrumb.length && !loading && !error" class="ct-breadcrumb" data-testid="categories-breadcrumb">
-      <button class="ct-crumb" @click="onBreadcrumbClick(-1)">Wszystkie</button>
-      <template v-for="(b, idx) in breadcrumb" :key="idx">
-        <span class="ct-sep">›</span>
-        <button class="ct-crumb" @click="onBreadcrumbClick(idx)">{{ b.name }}</button>
-      </template>
-    </div>
-
-    <template v-else-if="data.length">
-      <!-- KPI -->
-      <KpiRow :cards="kpiCards" />
-
-      <!-- Wykres -->
-      <ChartCard
-        title="Ranking kategorii"
-        icon="📊"
-        :loading="loading"
-        :empty="!data.length"
-        empty-message="Brak kategorii w wybranym okresie"
-        test-id="categories-chart"
-        :height="Math.max(250, data.length * 32)"
-      >
-        <template #actions>
-          <div class="ct-metric-toggle">
-            <button
-              v-for="m in (['revenue', 'rented_days', 'contracts_count'] as Metric[])"
-              :key="m"
-              :class="['ct-metric-btn', { active: metric === m }]"
-              @click="metric = m"
-            >
-              {{ metricConfig[m].label }}
-            </button>
-          </div>
+    <template v-else>
+      <!-- P1-121: Breadcrumb zawsze widoczny gdy jesteśmy w drill-down, niezależnie od data.length -->
+      <div v-if="breadcrumb.length" class="ct-breadcrumb" data-testid="categories-breadcrumb">
+        <button class="ct-crumb" @click="onBreadcrumbClick(-1)">Wszystkie</button>
+        <template v-for="(b, idx) in breadcrumb" :key="idx">
+          <span class="ct-sep">›</span>
+          <button class="ct-crumb" @click="onBreadcrumbClick(idx)">{{ b.name }}</button>
         </template>
-        <Bar :data="chartData" :options="chartOptions" />
-      </ChartCard>
+      </div>
 
-      <!-- Tabela -->
-      <div class="ct-section">
-        <div class="ct-section-title">Szczegóły ({{ data.length }})</div>
-        <AnalyticsTable
-          :columns="columns"
-          :rows="sortedRows"
-          :sort-key="String(sort.sortKey.value)"
-          :sort-dir="sort.sortDir.value"
-          row-key="category_name"
-          :clickable="true"
+      <template v-if="data.length">
+        <!-- KPI -->
+        <KpiRow :cards="kpiCards" />
+
+        <!-- Wykres -->
+        <ChartCard
+          title="Ranking kategorii"
+          icon="📊"
           :loading="loading"
-          data-testid="categories-table"
-          @sort="sort.toggleSort"
-          @row-click="onRowClick"
+          :empty="!data.length"
+          empty-message="Brak kategorii w wybranym okresie"
+          test-id="categories-chart"
+          :height="Math.max(250, data.length * 32)"
         >
-          <template #cell-revenue="{ value }">{{ formatCurrency(value as number) }}</template>
-          <template #empty>Brak kategorii w wybranym okresie</template>
-        </AnalyticsTable>
+          <template #actions>
+            <div class="ct-metric-toggle">
+              <button
+                v-for="m in (['revenue', 'rented_days', 'contracts_count'] as Metric[])"
+                :key="m"
+                :class="['ct-metric-btn', { active: metric === m }]"
+                @click="metric = m"
+              >
+                {{ metricConfig[m].label }}
+              </button>
+            </div>
+          </template>
+          <Bar :data="chartData" :options="chartOptions" />
+        </ChartCard>
+
+        <!-- Tabela -->
+        <div class="ct-section">
+          <div class="ct-section-title">Szczegóły ({{ data.length }})</div>
+          <AnalyticsTable
+            :columns="columns"
+            :rows="sortedRows"
+            :sort-key="String(sort.sortKey.value)"
+            :sort-dir="sort.sortDir.value"
+            row-key="category_name"
+            :clickable="true"
+            :loading="loading"
+            data-testid="categories-table"
+            @sort="sort.toggleSort"
+            @row-click="onRowClick"
+          >
+            <template #cell-revenue="{ value }">{{ formatCurrency(value as number) }}</template>
+            <template #empty>Brak kategorii w wybranym okresie</template>
+          </AnalyticsTable>
+        </div>
+      </template>
+
+      <div v-else class="ct-empty">
+        {{ breadcrumb.length ? `Brak podkategorii dla „${breadcrumb[breadcrumb.length - 1].name}"` : 'Brak danych o kategoriach w wybranym okresie' }}
       </div>
     </template>
-
-    <div v-else class="ct-empty">
-      {{ breadcrumb.length ? `Brak podkategorii dla „${breadcrumb[breadcrumb.length - 1].name}"` : 'Brak danych o kategoriach w wybranym okresie' }}
-    </div>
   </div>
 </template>
 
