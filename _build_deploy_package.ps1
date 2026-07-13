@@ -123,10 +123,14 @@ $env:MYSQL_PWD = $dbPass
 try {
     # mysqldump output → UTF-8 bez BOM (mysql klient na Linux nie toleruje BOM)
     $dumpOutput = & mysqldump @mysqldumpArgs 2>&1
+    $dumpText = $dumpOutput -join "`n"
+    # Normalizuj COLLATE do utf8mb4_polish_ci (spójne z produkcją MariaDB 10.11)
+    $dumpText = $dumpText -replace 'utf8mb4_uca1400_ai_ci', 'utf8mb4_polish_ci'
+    $dumpText = $dumpText -replace 'utf8mb4_unicode_ci', 'utf8mb4_polish_ci'
     $utf8NoBom = New-Object System.Text.UTF8Encoding $false
-    [System.IO.File]::WriteAllText($dbDumpPath, ($dumpOutput -join "`n"), $utf8NoBom)
+    [System.IO.File]::WriteAllText($dbDumpPath, $dumpText, $utf8NoBom)
     $dbSize = (Get-Item $dbDumpPath).Length
-    Write-Host "  Database: $([math]::Round($dbSize/1KB, 1)) KB ($DbName, UTF-8 bez BOM)"
+    Write-Host "  Database: $([math]::Round($dbSize/1KB, 1)) KB ($DbName, UTF-8 bez BOM, COLLATE=polish_ci)"
 } catch {
     Write-Host "  UWAGA: mysqldump nie udany — sprawdz czy mysql jest w PATH" -ForegroundColor Red
     Write-Host "  Pusty plik .sql utworzony — wypelnij recznie" -ForegroundColor Red
