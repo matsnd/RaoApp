@@ -121,9 +121,12 @@ $dbPass = ($envFile | Select-String "RAO_DATABASE_URL").ToString() -replace '.*:
 $env:MYSQL_PWD = $dbPass
 
 try {
-    & mysqldump @mysqldumpArgs | Out-File -FilePath $dbDumpPath -Encoding utf8
+    # mysqldump output → UTF-8 bez BOM (mysql klient na Linux nie toleruje BOM)
+    $dumpOutput = & mysqldump @mysqldumpArgs 2>&1
+    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText($dbDumpPath, ($dumpOutput -join "`n"), $utf8NoBom)
     $dbSize = (Get-Item $dbDumpPath).Length
-    Write-Host "  Database: $([math]::Round($dbSize/1KB, 1)) KB ($DbName)"
+    Write-Host "  Database: $([math]::Round($dbSize/1KB, 1)) KB ($DbName, UTF-8 bez BOM)"
 } catch {
     Write-Host "  UWAGA: mysqldump nie udany — sprawdz czy mysql jest w PATH" -ForegroundColor Red
     Write-Host "  Pusty plik .sql utworzony — wypelnij recznie" -ForegroundColor Red
@@ -148,7 +151,9 @@ Zawartosc:
   database/   — dump SQL bazy rao_new (schema + dane)
 
 Wdrozenie:
-  1. Baza:    mysql rao_new < database/rao_new_dump.sql
+  1. Baza:    mysql --default-character-set=utf8mb4 rao_new < database/rao_new_dump.sql
+              (WAZNE: --default-character-set=utf8mb4 wymagane — bez tego polskie znaki
+               sie zepsuja. Dump jest UTF-8 bez BOM.)
   2. Backend: cd backend && python -m venv .venv && source .venv/bin/activate
               pip install -r requirements-prod.txt
               cp .env.example .env  (wypelnij dane produkcyjne)
