@@ -1362,6 +1362,182 @@ async def verify():
     conn.close()
 
 
+async def step8b_category_sub2_heuristic() -> None:
+    """RAO-P1-017: Uzupełnij category_sub2 na podstawie nazwy maszyny.
+
+    Po step8 (backfill z category_id) niektóre maszyny nadal mają category_sub2=NULL
+    albo starą nazwę z legacy. Ta heurystyka mapuje nazwę maszyny → sub2 według
+    kanonicznej hierarchii 3-poziomowej (main → sub1 → sub2).
+
+    Idempotentne — aktualizuje tylko gdy category_sub2 IS NULL OR = ''.
+    """
+    print("[8b/9] RAO-P1-017: Heurystyka category_sub2 z nazwy maszyny ...")
+    conn = await aiomysql.connect(host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASS, db=DB_NAME)
+    cur = await conn.cursor()
+
+    # Mapa: wzorzec nazwy LIKE → kanoniczna nazwa sub2
+    # (zgodna z main.py startup_migrations — single source of truth)
+    sub2_updates = [
+        # Ładowarki teleskopowe proste
+        ("Ładowarka teleskopowa prosta 6m%", "Ładowarka teleskopowa 6 m"),
+        ("Ładowarka teleskopowa prosta 7m%", "Ładowarka teleskopowa 7 m"),
+        ("Ładowarka teleskopowa prosta 9m%", "Ładowarka teleskopowa 9 m"),
+        ("Ładowarka teleskopowa prosta 10m%", "Ładowarka teleskopowa 10 m"),
+        ("Ładowarka teleskopowa prosta 12m%", "Ładowarka teleskopowa 12 m"),
+        ("Ładowarka teleskopowa prosta 13m%", "Ładowarka teleskopowa 13 m"),
+        ("Ładowarka teleskopowa prosta 14m%", "Ładowarka teleskopowa 14 m"),
+        ("Ładowarka teleskopowa prosta 17m%", "Ładowarka teleskopowa 17 m"),
+        ("Ładowarka teleskopowa prosta 18m%", "Ładowarka teleskopowa 18 m"),
+        # Ładowarki teleskopowe obrotowe
+        ("Ładowarka teleskopowa obrotowa 14m%", "Ładowarka teleskopowa obrotowa 14 m"),
+        ("Ładowarka teleskopowa obrotowa 16m%", "Ładowarka teleskopowa obrotowa 16 m"),
+        ("Ładowarka teleskopowa obrotowa 18m%", "Ładowarka teleskopowa obrotowa 18 m"),
+        ("Ładowarka teleskopowa obrotowa 20m%", "Ładowarka teleskopowa obrotowa 20 m"),
+        ("Ładowarka teleskopowa obrotowa 21m%", "Ładowarka teleskopowa obrotowa 21 m"),
+        ("Ładowarka teleskopowa obrotowa 25m%", "Ładowarka teleskopowa obrotowa 25 m"),
+        ("Ładowarka teleskopowa obrotowa 26m%", "Ładowarka teleskopowa obrotowa 26 m"),
+        ("Ładowarka teleskopowa obrotowa 30m%", "Ładowarka teleskopowa obrotowa 30 m"),
+        ("Ładowarka teleskopowa obrotowa 35m%", "Ładowarka teleskopowa obrotowa 35 m"),
+        # Podnośniki nożycowe elektryczne
+        ("Podnośnik nożycowy elektryczny 6m%", "Podnośnik nożycowy elektryczny 6 m"),
+        ("Podnośnik nożycowy elektryczny 6.5m%", "Podnośnik nożycowy elektryczny 6,5 m"),
+        ("Podnośnik nożycowy elektryczny 7.5m%", "Podnośnik nożycowy elektryczny 7,5 m"),
+        ("Podnośnik nożycowy elektryczny 8m%", "Podnośnik nożycowy elektryczny 8 m"),
+        ("Podnośnik nożycowy elektryczny 10m%", "Podnośnik nożycowy elektryczny 10 m"),
+        ("Podnośnik nożycowy elektryczny 12m%", "Podnośnik nożycowy elektryczny 12 m"),
+        ("Podnośnik nożycowy elektryczny 14m%", "Podnośnik nożycowy elektryczny 14 m"),
+        ("Podnośnik nożycowy elektryczny 16m%", "Podnośnik nożycowy elektryczny 16 m"),
+        ("Podnośnik nożycowy elektryczny 18m%", "Podnośnik nożycowy elektryczny 18 m"),
+        ("Podnośnik nożycowy elektryczny 21m%", "Podnośnik nożycowy elektryczny 21 m"),
+        # Podnośniki nożycowe spalinowe
+        ("Podnośnik nożycowy spalinowy 10m%", "Podnośnik nożycowy spalinowy 10 m"),
+        ("Podnośnik nożycowy spalinowy 12m%", "Podnośnik nożycowy spalinowy 12 m"),
+        ("Podnośnik nożycowy spalinowy 15m%", "Podnośnik nożycowy spalinowy 15 m"),
+        ("Podnośnik nożycowy spalinowy 18m%", "Podnośnik nożycowy spalinowy 18 m"),
+        ("Podnośnik nożycowy spalinowy 22m%", "Podnośnik nożycowy spalinowy 22 m"),
+        # Podnośniki przegubowo-teleskopowe elektryczne
+        ("Podnośnik przegubowo-teleskopowy elektryczny 10m%", "Podnośnik przegubowo-teleskopowy elektryczny 10 m"),
+        ("Podnośnik przegubowo-teleskopowy elektryczny 12m%", "Podnośnik przegubowo-teleskopowy elektryczny 12 m"),
+        ("Podnośnik przegubowo-teleskopowy elektryczny 15m%", "Podnośnik przegubowo-teleskopowy elektryczny 15 m"),
+        ("Podnośnik przegubowo-teleskopowy elektryczny 16m%", "Podnośnik przegubowo-teleskopowy elektryczny 16 m"),
+        ("Podnośnik przegubowo-teleskopowy elektryczny 18m%", "Podnośnik przegubowo-teleskopowy elektryczny 18 m"),
+        ("Podnośnik przegubowo-teleskopowy elektryczny 20m%", "Podnośnik przegubowo-teleskopowy elektryczny 20 m"),
+        ("Podnośnik przegubowo-teleskopowy elektryczny 21m%", "Podnośnik przegubowo-teleskopowy elektryczny 21 m"),
+        ("Podnośnik przegubowo-teleskopowy elektryczny 22m%", "Podnośnik przegubowo-teleskopowy elektryczny 22 m"),
+        ("Podnośnik przegubowo-teleskopowy elektryczny 25m%", "Podnośnik przegubowo-teleskopowy elektryczny 25 m"),
+        # Podnośniki przegubowo-teleskopowe spalinowe
+        ("Podnośnik przegubowo-teleskopowy spalinowy 12m%", "Podnośnik przegubowo-teleskopowy spalinowy 12 m"),
+        ("Podnośnik przegubowo-teleskopowy spalinowy 14m%", "Podnośnik przegubowo-teleskopowy spalinowy 14 m"),
+        ("Podnośnik przegubowo-teleskopowy spalinowy 16m%", "Podnośnik przegubowo-teleskopowy spalinowy 16 m"),
+        ("Podnośnik przegubowo-teleskopowy spalinowy 18m%", "Podnośnik przegubowo-teleskopowy spalinowy 18 m"),
+        ("Podnośnik przegubowo-teleskopowy spalinowy 20m%", "Podnośnik przegubowo-teleskopowy spalinowy 20 m"),
+        ("Podnośnik przegubowo-teleskopowy spalinowy 21m%", "Podnośnik przegubowo-teleskopowy spalinowy 21 m"),
+        ("Podnośnik przegubowo-teleskopowy spalinowy 22m%", "Podnośnik przegubowo-teleskopowy spalinowy 22 m"),
+        ("Podnośnik przegubowo-teleskopowy spalinowy 26m%", "Podnośnik przegubowo-teleskopowy spalinowy 26 m"),
+        # Podnośniki teleskopowe spalinowe
+        ("Podnośnik teleskopowy spalinowy 16m%", "Podnośnik teleskopowy spalinowy 16 m"),
+        ("Podnośnik teleskopowy spalinowy 18m%", "Podnośnik teleskopowy spalinowy 18 m"),
+        ("Podnośnik teleskopowy spalinowy 20m%", "Podnośnik teleskopowy spalinowy 20 m"),
+        ("Podnośnik teleskopowy spalinowy 21m%", "Podnośnik teleskopowy spalinowy 21 m"),
+        ("Podnośnik teleskopowy spalinowy 22m%", "Podnośnik teleskopowy spalinowy 22 m"),
+        ("Podnośnik teleskopowy spalinowy 24m%", "Podnośnik teleskopowy spalinowy 24 m"),
+        ("Podnośnik teleskopowy spalinowy 26m%", "Podnośnik teleskopowy spalinowy 26 m"),
+        # Podnośniki gąsienicowe
+        ("Podnośnik gąsienicowy 22m%", "Podnośnik gąsienicowy 22 m"),
+        ("Podnośnik gąsienicowy 23m%", "Podnośnik gąsienicowy 23 m"),
+        ("Podnośnik gąsienicowy 24m%", "Podnośnik gąsienicowy 24 m"),
+        ("Podnośnik gąsienicowy 25m%", "Podnośnik gąsienicowy 25 m"),
+        # Podnośniki przyczepowe
+        ("Podnośnik przyczepowy 12m%", "Podnośnik przyczepowy 12 m"),
+        ("Podnośnik przyczepowy 15m%", "Podnośnik przyczepowy 15 m"),
+        ("Podnośnik przyczepowy 17m%", "Podnośnik przyczepowy 17 m"),
+        # Wózki widłowe elektryczne
+        ("Wózek widłowy elektryczny 1.5t%", "Wózek widłowy elektryczny 1,5t"),
+        ("Wózek widłowy elektryczny 1.8t%", "Wózek widłowy elektryczny 1,8t"),
+        ("Wózek widłowy elektryczny 2t%", "Wózek widłowy elektryczny 2t"),
+        ("Wózek widłowy elektryczny 2.5t%", "Wózek widłowy elektryczny 2,5t"),
+        ("Wózek widłowy elektryczny 3t%", "Wózek widłowy elektryczny 3t"),
+        ("Wózek widłowy elektryczny 3.5t%", "Wózek widłowy elektryczny 3,5t"),
+        ("Wózek widłowy elektryczny 4t%", "Wózek widłowy elektryczny 4t"),
+        ("Wózek widłowy elektryczny 4.5t%", "Wózek widłowy elektryczny 4,5t"),
+        ("Wózek widłowy elektryczny 5t%", "Wózek widłowy elektryczny 5t"),
+        ("Wózek widłowy elektryczny 6t%", "Wózek widłowy elektryczny 6t"),
+        ("Wózek widłowy elektryczny 7t%", "Wózek widłowy elektryczny 7t"),
+        ("Wózek widłowy elektryczny 8t%", "Wózek widłowy elektryczny 8t"),
+        ("Wózek widłowy elektryczny 10t%", "Wózek widłowy elektryczny 10t"),
+        # Wózki widłowe LPG
+        ("Wózek widłowy LPG 1.5t%", "Wózek widłowy LPG 1,5t"),
+        ("Wózek widłowy LPG 1.8t%", "Wózek widłowy LPG 1,8t"),
+        ("Wózek widłowy LPG 2t%", "Wózek widłowy LPG 2t"),
+        ("Wózek widłowy LPG 2.5t%", "Wózek widłowy LPG 2,5t"),
+        ("Wózek widłowy LPG 3t%", "Wózek widłowy LPG 3t"),
+        ("Wózek widłowy LPG 3.5t%", "Wózek widłowy LPG 3,5t"),
+        ("Wózek widłowy LPG 4t%", "Wózek widłowy LPG 4t"),
+        ("Wózek widłowy LPG 4.5t%", "Wózek widłowy LPG 4,5t"),
+        ("Wózek widłowy LPG 5t%", "Wózek widłowy LPG 5t"),
+        ("Wózek widłowy LPG 6t%", "Wózek widłowy LPG 6t"),
+        ("Wózek widłowy LPG 7t%", "Wózek widłowy LPG 7t"),
+        ("Wózek widłowy LPG 8t%", "Wózek widłowy LPG 8t"),
+        ("Wózek widłowy LPG 10t%", "Wózek widłowy LPG 10t"),
+        # Wózki widłowe Diesel
+        ("Wózek widłowy Diesel 1.5t%", "Wózek widłowy Diesel 1,5t"),
+        ("Wózek widłowy Diesel 1.8t%", "Wózek widłowy Diesel 1,8t"),
+        ("Wózek widłowy Diesel 2t%", "Wózek widłowy Diesel 2t"),
+        ("Wózek widłowy Diesel 2.5t%", "Wózek widłowy Diesel 2,5t"),
+        ("Wózek widłowy Diesel 3t%", "Wózek widłowy Diesel 3t"),
+        ("Wózek widłowy Diesel 3.5t%", "Wózek widłowy Diesel 3,5t"),
+        ("Wózek widłowy Diesel 4t%", "Wózek widłowy Diesel 4t"),
+        ("Wózek widłowy Diesel 4.5t%", "Wózek widłowy Diesel 4,5t"),
+        ("Wózek widłowy Diesel 5t%", "Wózek widłowy Diesel 5t"),
+        ("Wózek widłowy Diesel 6t%", "Wózek widłowy Diesel 6t"),
+        ("Wózek widłowy Diesel 7t%", "Wózek widłowy Diesel 7t"),
+        ("Wózek widłowy Diesel 8t%", "Wózek widłowy Diesel 8t"),
+        ("Wózek widłowy Diesel 10t%", "Wózek widłowy Diesel 10t"),
+        ("Wózek widłowy Diesel 12t%", "Wózek widłowy Diesel 12t"),
+        # Akcesoria (category_sub1 = NULL → sub2 = nazwa akcesorium)
+        ("Kosz osobowy%", "Kosz osobowy"),
+        ("Chwytak do płyt%", "Chwytak do płyt"),
+        ("Łyżka%", "Łyżka"),
+        ("Wciągarka typu żuraw%", "Wciągarka typu żuraw"),
+        ("Wciągarka%", "Wciągarka"),
+        ("Żuraw z hakiem%", "Żuraw z hakiem"),
+        ("Hak obrotowy%", "Hak obrotowy"),
+        ("Zawiesia łańcuchowe%", "Zawiesia łańcuchowe"),
+        ("Zawiesia pasowe%", "Zawiesia pasowe"),
+        ("Przedłużenie wideł%", "Przedłużenie wideł"),
+        ("Kosz narzędziowy%", "Kosz narzędziowy"),
+        ("Szelki bezpieczeństwa%", "Szelki bezpieczeństwa"),
+        ("Kanister%", "Kanister"),
+    ]
+
+    total_updated = 0
+    for pattern, sub2 in sub2_updates:
+        await cur.execute(
+            "UPDATE machines SET category_sub2 = %s "
+            "WHERE name LIKE %s "
+            "AND (category_sub2 IS NULL OR category_sub2 = '')",
+            (sub2, pattern),
+        )
+        if cur.rowcount > 0:
+            total_updated += cur.rowcount
+
+    await conn.commit()
+
+    # Weryfikacja: ile maszyn nadal nie ma category_sub2?
+    await cur.execute(
+        "SELECT COUNT(*) FROM machines "
+        "WHERE category_main IS NOT NULL AND category_sub1 IS NOT NULL "
+        "AND (category_sub2 IS NULL OR category_sub2 = '')"
+    )
+    missing = (await cur.fetchone())[0]
+    if missing:
+        print(f"   WARN: {missing} maszyn z main+sub1 nadal bez sub2 (nie matchuje wzorce)")
+
+    await cur.close()
+    conn.close()
+    print(f"   OK: {total_updated} maszyn uzupelnionych category_sub2")
+
+
 async def step9_postal_codes_migration():
     """RAO-P1-008: Extract postal_code + city from delivery_address, seed postal_codes table."""
     import re
@@ -1728,6 +1904,7 @@ async def main():
         await step6_drop_old()
         # step7_rehash removed - passwords already hashed in step4b
         await step8_csv_categories()   # RAO-P1-017
+        await step8b_category_sub2_heuristic()  # RAO-P1-017: heurystyka sub2 z nazwy
         await step9_postal_codes_migration()  # RAO-P1-008
         await step10_import_rozliczenie()  # RAO-P2-032: rzeczywiste rozliczenia z legacy
         await step11_fix_position_condition_periods()  # RAO-P0-048
