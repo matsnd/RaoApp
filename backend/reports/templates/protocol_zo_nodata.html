@@ -179,7 +179,7 @@
 
 <!-- P2-018: Opiekun zamówienia nad stopką protokołu -->
 <div style="text-align:center; font-size: 9px; color: #555; padding: 0 14mm;">
-  Opiekun zamówienia: {{ salesperson.name if salesperson else '' }}{% if salesperson and salesperson.phone %} tel. {{ salesperson.phone }}{% endif %}
+  {% if salesperson %}Opiekun zamówienia: {{ salesperson.name }}{% if salesperson.phone %} tel. {{ salesperson.phone }}{% endif %}{% endif %}
 </div>
 
 </body>
