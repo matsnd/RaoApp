@@ -202,10 +202,11 @@ def is_print_current(print_hash: str | None, current_hash: str | None) -> bool:
 
 
 def _condition_effective_rate(c: PositionCondition) -> Decimal | None:
-    """RAO-P2-071: new source is rate1; rate2 is legacy/fallback only."""
-    if c.rate1 is not None and c.rate1 > 0:
+    """RAO-P2-071: new source is rate1; rate2 is legacy/fallback only.
+    RAO: rate1=0 jest poprawne (placeholder z 'Gotowe przedziały') — zwracaj 0, nie None."""
+    if c.rate1 is not None:
         return c.rate1
-    if c.rate2 is not None and c.rate2 > 0:
+    if c.rate2 is not None:
         return c.rate2
     return None
 
@@ -213,6 +214,8 @@ def _condition_effective_rate(c: PositionCondition) -> Decimal | None:
 def _format_rate(value: Decimal | None) -> str:
     if value is None:
         return "0,00"
+    if value == 0:
+        return "do ustalenia"
     return f"{value:.2f}".replace('.', ',')
 
 
@@ -334,7 +337,7 @@ def _normalize_conditions_for_format(
     if has_new_fields:
         for c in conditions:
             rate = _condition_effective_rate(c)
-            if rate is None or rate <= 0:
+            if rate is None:
                 continue
             normalized.append({
                 "period_from": c.period_from,
