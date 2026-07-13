@@ -5,7 +5,7 @@ from pydantic import field_validator
 
 
 class Settings(BaseSettings):
-    RAO_DATABASE_URL: str = "mysql+aiomysql://rao_user:<<DB_PASSWORD_PLACEHOLDER>>@localhost:3306/rao_new"
+    RAO_DATABASE_URL: str = "mysql+aiomysql://rao_user:<<DB_PASSWORD_PLACEHOLDER>>@localhost:3306/rao_new?charset=utf8mb4"
     # RAO-P1-041: No insecure fallback — must be set in .env
     RAO_SECRET_KEY: str = ""
     RAO_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
