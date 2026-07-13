@@ -1742,7 +1742,11 @@ async function generateReport(type) {
     if (hasFileSystemAccess.value) await loadFolders()
     const savedCount = await savePdf(bytes, filename, form.value.branch_id, docType)
     if (savedCount > 0) {
-      toastStore.success(`Zapisano do ${savedCount} folder${savedCount === 1 ? 'u' : 'ów'}`)
+      if (savedCount === 1) {
+        toastStore.success(`Zapisano: ${filename}`)
+      } else {
+        toastStore.success(`Zapisano: ${filename} (${savedCount} foldery)`)
+      }
     } else {
       // Fallback: zwykły download (<a download>) — jak wcześniej
       const { downloadBlob } = useFileDownload()
