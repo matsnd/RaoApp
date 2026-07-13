@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 
 from auth.models import User
 from contracts.models import Contract, ContractPosition, PositionCondition, ContractServiceFee
-from contracts.schemas import ContractCreate, PositionCreate, ConditionCreate, ContractServiceFeeCreate
+from contracts.schemas import ContractCreate, PositionCreate, ConditionCreate, ContractServiceFeeCreate, ContractServiceFeeUpdate
 from shared.exceptions import bad_request, forbidden, not_found, conflict
 from shared.locations import resolve_postal_code_id
 
