@@ -205,6 +205,7 @@ function onDrillDown(categoryName: string) {
       sub1: categorySub1Filter.value,
     })
   }
+}
 
 function onBreadcrumbClick(idx: number) {
   if (idx < 0) {
