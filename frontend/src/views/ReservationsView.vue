@@ -467,30 +467,24 @@ onMounted(async () => {
     <div class="rv-filters">
       <div class="rv-filter-group">
         <label class="rv-filter-label">Maszyna</label>
-        <select
+        <SearchCombobox
           v-model="filterMachineId"
-          class="af-input rv-filter-select"
+          :options="machineOptions"
+          placeholder="Wszystkie"
+          :clear-label="'Wszystkie'"
           data-testid="rv-filter-machine"
-        >
-          <option :value="null">Wszystkie</option>
-          <option v-for="a in machineOptions" :key="a.id" :value="a.id">
-            {{ a.name }}{{ a.internal_number ? ` (${a.internal_number})` : '' }}
-          </option>
-        </select>
+        />
       </div>
 
       <div class="rv-filter-group">
         <label class="rv-filter-label">Handlowiec</label>
-        <select
+        <SearchCombobox
           v-model="filterSalespersonId"
-          class="af-input rv-filter-select"
+          :options="salespeopleOptions"
+          placeholder="Wszyscy"
+          :clear-label="'Wszyscy'"
           data-testid="rv-filter-salesperson"
-        >
-          <option :value="null">Wszyscy</option>
-          <option v-for="sp in salespeopleOptions" :key="sp.id" :value="sp.id">
-            {{ sp.name }}
-          </option>
-        </select>
+        />
       </div>
 
       <div class="rv-filter-group">
