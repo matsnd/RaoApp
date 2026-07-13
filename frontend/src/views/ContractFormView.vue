@@ -26,7 +26,7 @@
         <div class="page-card" style="margin-bottom:var(--spacing-lg);">
           <h3 class="section-title">Dane podstawowe</h3>
           <div v-if="errorMsg" class="error-message">{{ errorMsg }}</div>
-          <div class="form-row-4" style="align-items:start;">
+          <div class="form-row-3" style="align-items:start;">
             <div class="form-group">
               <label class="form-label">Typ umowy</label>
               <select v-model="form.contract_type" class="form-control" :disabled="isEdit">
@@ -43,6 +43,13 @@
               <input v-model="form.oid" type="text" class="form-control" placeholder="(auto = numer umowy)" pattern="[A-Za-z0-9\-/_]+" maxlength="40" />
               <small class="oid-helper">Puste = numer umowy. Dozwolone: litery, cyfry, -, /, _</small>
             </div>
+          </div>
+        </div>
+
+        <!-- Section 1b: Okres umowy -->
+        <div class="page-card" style="margin-bottom:var(--spacing-lg);">
+          <h3 class="section-title">Okres umowy</h3>
+          <div class="form-row-2" style="align-items:start;">
             <div class="form-group">
               <label class="form-label">Okres umowy *</label>
               <ContractPeriodPicker
