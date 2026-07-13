@@ -35,8 +35,8 @@
         <div class="form-group">
           <label class="form-label" for="as-description">Opis</label>
           <textarea id="as-description" v-model="form.description" class="form-control" rows="3" :placeholder="FEE_DESCRIPTION_HINT"></textarea>
-          <div v-if="form.description" class="fee-desc-preview">
-            <span class="fee-desc-preview-label">Podgląd: </span>{{ formatFeeDescription(form.description, form.default_amount, null) }}
+          <div class="fee-desc-preview">
+            <span class="fee-desc-preview-label">Podgląd: </span>{{ formatFeeDescription(form.description, form.default_amount, null, form.name) }}
           </div>
         </div>
 

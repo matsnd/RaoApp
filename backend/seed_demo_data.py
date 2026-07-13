@@ -400,7 +400,7 @@ USLUGI = [
     {
         "name": "Czyszczenie maszyny (zabrudzenia ponadnormatywne)",
         "display_name": "Czyszczenie maszyny (zabrudzenia ponadnormatywne)",
-        "default_amount": Decimal("0.00"),
+        "default_amount": None,
         "description": "wycena indywidualna",
         "fakturownia_product_id": 8845156432589,  # CZY001
     },
