@@ -2260,17 +2260,35 @@ function applySelectedArticle(a) {
     editingPosData.value.article_id = a.id
     editingPosData.value.article_name = a.name
   } else {
-    // Tryb 'new' — ustaw artykuł w nowym wierszu i pokaż go
-    newPosData.value = emptyPosData()
-    newPosData.value.article_id = a.id
-    newPosData.value.article_name = a.name
-    newPosData.value.billing_frequency = rental ? 'dziennie' : 'godzinowo'
-    newPosData.value.billing_unit = rental ? 'doba' : 'godzina'
-    newPosData.value.delivery_date = rental ? (form.value.date_from || null) : null
-    newPosData.value.rental_days = rental ? newPosData.value.rental_days : null
-    showNewPosRow.value = true
-    editingPosId.value = null
-    nextTick(() => { newPosRentalTypeInput.value?.focus() })
+    // Tryb 'new' — od razu zapisz pozycję z domyślnymi wartościami (auto-save)
+    // Pozycja pojawia się w gridzie, można edytować double-clickiem.
+    // Nie blokuje dodania kolejnej pozycji.
+    const data: PosInlineData = emptyPosData()
+    data.article_id = a.id
+    data.article_name = a.name
+    data.billing_frequency = rental ? 'dziennie' : 'godzinowo'
+    data.billing_unit = rental ? 'doba' : 'godzina'
+    data.delivery_date = rental ? (form.value.date_from || null) : null
+    data.quantity = 1
+    // Auto-save — nie pokazuj wiersza edycyjnego, od razu API
+    autoSaveNewPosition(data)
+  }
+}
+
+async function autoSaveNewPosition(data: PosInlineData) {
+  if (savingPos.value) return
+  savingPos.value = true
+  try {
+    const payload = buildPosPayload(data)
+    const created = await contractStore.createPosition(Number(props.id), payload)
+    await contractStore.fetchPositions(Number(props.id))
+    if (created?.id) selectedPosId.value = created.id
+    await recalcTotal()
+    toastStore.success('Pozycja dodana')
+  } catch (e: any) {
+    toastStore.error(e.response?.data?.detail || 'Błąd dodawania pozycji')
+  } finally {
+    savingPos.value = false
   }
 }
 
