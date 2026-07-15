@@ -158,6 +158,11 @@
         <td class="ret-col3">kaucja zwrócono w wysokości</td>
       </tr>
     </table>
+    <!-- DODATKOWE INFORMACJE (zg3: contract.notes na protokole S nodata) -->
+    <div class="ret-uwagi" style="margin-bottom: 6px; border: 1px solid #aaa; border-top: 1px solid #aaa;">
+      Dodatkowe informacje
+      {% if contract.notes %}<br><span style="color:#333;font-size:9px;white-space:pre-wrap;">{{ contract.notes }}</span>{% endif %}
+    </div>
     <div class="ret-uwagi">uwagi</div>
 
     <div class="note-line">Ogólna weryfikacja maszyny następuje na terenie firmy w terminie do 14 dni od dnia jej przekazania</div>
