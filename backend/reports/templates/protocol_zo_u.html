@@ -106,7 +106,7 @@
         <div class="pzo-title">PROTOKÓŁ WYKONANIA USŁUGI</div>
         <div class="pzo-sub">
           do umowy nr {{ contract.number }}<br>
-          zawartej w dniu {{ contract.date_from | datepl }}<br>
+          zawartej w dniu {{ contract.created_at | datepl }}<br>
           {% set svc_date = (positions[0].pos.delivery_date if positions else None) or contract.date_from %}
           {% if svc_date %}termin wykonania usługi {{ svc_date | datepl }}{% endif %}
         </div>

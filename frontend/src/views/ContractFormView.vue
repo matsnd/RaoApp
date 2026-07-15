@@ -38,6 +38,10 @@
               <label class="form-label">Numer umowy</label>
               <input :value="contractStore.current?.number || '(auto)'" type="text" class="form-control" disabled />
             </div>
+            <div class="form-group" v-if="isEdit && contractStore.current?.created_at">
+              <label class="form-label">Data umowy</label>
+              <input :value="formatDate(contractStore.current.created_at)" type="text" class="form-control" disabled />
+            </div>
             <div class="form-group">
               <label class="form-label">OID Fakturownia (opcjonalny)</label>
               <input v-model="form.oid" type="text" class="form-control" placeholder="(auto = numer umowy)" pattern="[A-Za-z0-9\-/_]+" maxlength="40" />
@@ -1081,7 +1085,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { useFakturowniaStore } from '@/stores/fakturownia'
 import { useToastStore } from '@/stores/toast'
 import { useAdditionalServiceStore } from '@/stores/additional_services'
-import { formatCurrency } from '@/utils/format'
+import { formatCurrency, formatDate } from '@/utils/format'
 import { parseValidationErrors } from '@/utils/validation'
 import ConditionPanel from '@/components/contracts/ConditionPanel.vue'
 import ContractPeriodPicker from '@/components/shared/ContractPeriodPicker.vue'

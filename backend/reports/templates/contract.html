@@ -115,7 +115,7 @@
 
 <!-- TITLE -->
 <div class="doc-title">Umowa najmu nr: {{ contract.number }}</div>
-<div class="doc-sub">Zawarta w dniu: {{ contract.date_from | datepl }}</div>
+<div class="doc-sub">Zawarta w dniu: {{ contract.created_at | datepl }}</div>
 
 <!-- PARTIES -->
 <table class="parties">
@@ -131,9 +131,9 @@
       </div>
     </td>
     <td class="info-col" style="vertical-align:top;padding-top:6px;">
-      {% if contract.prepayment_amount and contract.prepayment_amount > 0 %}Przedpłata: {{ contract.prepayment_amount | money }}<br>{% endif %}
       Przewidywany okres: {{ contract.date_from | datepl }}{% if contract.date_to %} - {{ contract.date_to | datepl }}{% endif %}<br>
       Termin przekazania: {{ contract.date_from | datepl }}<br>
+      {% if contract.prepayment_amount and contract.prepayment_amount > 0 %}Przedpłata: {{ contract.prepayment_amount | money }}<br>{% endif %}
     </td>
   </tr>
   <tr>
@@ -165,14 +165,10 @@
     {% endif %}
     {% if contract.show_person2 %}
     <tr>
-      <td>osoba kontaktowa:</td>
-      <td><div class="fill">{{ contract.contact_person2 or '' }}</div></td>
+      <td>osoba do kontaktu na budowie:</td>
+      <td><div class="fill-wide">{{ contract.contact_person2 or '' }}</div></td>
     </tr>
     {% endif %}
-    <tr>
-      <td>na budowie:</td>
-      <td><div class="fill-wide"></div></td>
-    </tr>
     <tr>
       <td>email do przesłania faktury:</td>
       <td><div class="fill-wide">{{ contract.email or '' }}</div></td>
@@ -234,11 +230,8 @@
       <div style="font-size: 8.5px; line-height: 1.45; color: #333;">
         <div class="inne-item"><strong>Doba wynajmu:</strong> obejmuje 1 dzień kalendarzowy<br>(do 8 godz. pracy jednego dnia).</div>
         <div class="inne-item"><strong>Zgłoszenie zwrotu urządzenia:</strong> pisemne,<br>min. z jednodniowym wyprzedzeniem.</div>
-        <div class="inne-item"><strong>Naliczanie:</strong> 5 dni w tygodniu<br>(pozostałe dni według zapisu GPS).</div>
+        <div class="inne-item"><strong>Naliczanie:</strong> {% set wdays = contract.working_days_per_week or 6 %}{% if wdays >= 7 %}7 dni w tygodniu.{% else %}{{ wdays }} dni w tygodniu<br>(pozostałe dni według zapisu GPS).{% endif %}</div>
         <div class="inne-item"><strong>Dokumentacja zdjęciowa:</strong> wykonano.</div>
-        {% if contract.notes %}
-        <div style="white-space: pre-wrap; margin-top:8px; border-top:1px solid #ddd; padding-top:4px;">{{ contract.notes }}</div>
-        {% endif %}
         {# RAO-P1-014: przedpłata przeniesiona do górnej tabeli informacyjnej #}
         {# RAO-P1-021/P2-033: Wartość umowy usunięte (martwe pole) #}
       </div>

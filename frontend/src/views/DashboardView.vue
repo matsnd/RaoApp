@@ -393,7 +393,7 @@ const page = ref(1)
 const perPage = 50
 const showConfirm = ref(false)
 // RAO-P2-070 Faza 3: sortowanie po kolumnach (client-side na załadowanej stronie)
-const sortKey = ref('date_from')   // domyślnie po dacie
+const sortKey = ref('created_at')   // Zg6: domyślnie po dacie utworzenia (najnowsze na górze)
 const sortDir = ref('desc')        // najnowsze pierwsze
 // RAO-P2-070 Faza 4: lista handlowców dla dropdownu
 const salespeopleList = computed(() => settingsStore.salespeople || [])

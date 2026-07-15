@@ -248,9 +248,12 @@ def _merge_pdfs(pdf_pages: list[bytes]) -> bytes:
         writer.write(out)
         return out.getvalue()
     except ImportError:
-        # Fallback: pypdf not available — return first page only (graceful degradation)
-        # In production, pypdf should be installed: pip install pypdf
-        return pdf_pages[0] if pdf_pages else b""
+        # pypdf not available — RAISE instead of silently returning incomplete PDF.
+        # Zg5: silent fallback gubił drugą stronę protokołu multi-maszyna na prodzie.
+        raise RuntimeError(
+            "pypdf is required to merge multi-page protocol PDFs. "
+            "Install with: pip install pypdf"
+        )
 
 
 def _html_to_pdf_sync(html: str, use_playwright_footer: bool = True, protocol_label: str | None = None) -> bytes:

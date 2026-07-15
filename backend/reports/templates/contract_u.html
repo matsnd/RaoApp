@@ -107,7 +107,7 @@
 
 <!-- TITLE -->
 <div class="doc-title">Umowa usługi nr: {{ contract.number }}</div>
-<div class="doc-sub">Zawarta w dniu: {{ contract.date_from | datepl }}</div>
+<div class="doc-sub">Zawarta w dniu: {{ contract.created_at | datepl }}</div>
 
 <!-- PARTIES -->
 <table class="parties">
@@ -121,9 +121,9 @@
       </div>
     </td>
     <td class="info-col" style="vertical-align:top;padding-top:8px;">
-      {% if contract.prepayment_amount and contract.prepayment_amount > 0 %}Przedpłata: {{ contract.prepayment_amount | money }}<br>{% endif %}
       {% set svc_date = (positions[0].pos.delivery_date if positions else None) or contract.date_from %}
       {% if svc_date %}Termin prac: {{ svc_date | datepl }}<br>{% endif %}
+      {% if contract.prepayment_amount and contract.prepayment_amount > 0 %}Przedpłata: {{ contract.prepayment_amount | money }}<br>{% endif %}
     </td>
   </tr>
   <tr>
@@ -150,12 +150,8 @@
       <td class="fill">{% if contract.show_person1 %}{{ contract.contact_person1 or '' }}{% endif %}</td>
     </tr>
     <tr>
-      <td>osoba kontaktowa:</td>
-      <td class="fill">{% if contract.show_person2 %}{{ contract.contact_person2 or '' }}{% endif %}</td>
-    </tr>
-    <tr>
-      <td>na budowie:</td>
-      <td class="fill-wide"></td>
+      <td>osoba do kontaktu na budowie:</td>
+      <td class="fill-wide">{% if contract.show_person2 %}{{ contract.contact_person2 or '' }}{% endif %}</td>
     </tr>
     <tr>
       <td>email do przesłania faktury:</td>
@@ -204,12 +200,10 @@
     <td class="bottom-full">
       <div class="bottom-box">
         <div class="bottom-box-label">uwagi</div>
-        {% if contract.notes %}
-        {{ contract.notes }}
-        {% endif %}
         {# RAO: Umowa usługi nie ma bloku "Doba wynajmu" — to warunki wynajmu maszyny,
            nie usługi. W legacy WinForms ten blok NIE występował na umowie usługi.
-           Puste notes = pusty blok uwag. #}
+           Puste notes = pusty blok uwag.
+           Zg3: contract.notes usunięte z umowy — uwagi mają być tylko na protokole. #}
       </div>
     </td>
   </tr>
