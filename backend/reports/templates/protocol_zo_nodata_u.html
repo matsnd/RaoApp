@@ -133,13 +133,15 @@
   <!-- PUSH TO BOTTOM -->
   <div class="bottom-section">
 
-    <!-- UWAGI BOX -->
-    <div class="ret-uwagi" style="border: 1px solid #aaa; padding: 6px; font-size: 9px; height: 80px; min-height: 80px; max-height: 80px; flex-shrink: 0; color: #888; margin-bottom: 15px;">uwagi</div>
+    <!-- UWAGI BOX — z notes (czarny tekst) -->
+    <div class="ret-uwagi" style="border: 1px solid #aaa; padding: 6px; font-size: 9px; height: 80px; min-height: 80px; max-height: 80px; flex-shrink: 0; color: #888; margin-bottom: 15px;">
+      uwagi
+      {% if contract.notes %}<br><span style="color:#000;">{{ contract.notes }}</span>{% endif %}
+    </div>
 
-    <!-- DODATKOWE INFORMACJE (P1-007) — identyczne wymiary jak "uwagi" -->
+    <!-- DODATKOWE INFORMACJE — puste, do ręcznego wypełnienia -->
     <div class="ret-uwagi" style="border: 1px solid #aaa; padding: 6px; font-size: 9px; height: 80px; min-height: 80px; max-height: 80px; flex-shrink: 0; color: #888; margin: 0 0 15px 0; overflow: hidden;">
       Dodatkowe informacje
-      {% if contract.notes %}<br>{{ contract.notes }}{% endif %}
     </div>
 
     <!-- SIGNATURE — duży odstęp, bliżej dołu -->
