@@ -2262,24 +2262,33 @@ async function searchArticles() {
 
 // RAO-P2-071: selectArticle — po wyborze z ArticlePicker, dodaje pusty row (tryb new)
 // lub aktualizuje article_id w istniejącym row (tryb edit). Zero modali ustawień.
+// RAO: guard przed double-click — selectArticle jest async (await checkAvailability),
+// drugi klik przed pierwszym applySelectedArticle powodował podwójne dodanie pozycji.
+const selectingArticle = ref(false)
 async function selectArticle(a) {
-  // RAO-P1-023: check availability before closing picker — tylko maszyny (N)
-  if (form.value.date_from && form.value.date_to && isRental.value) {
-    try {
-      const excludeId = isEdit.value ? Number(props.id) : null
-      const av = await machineStore.checkAvailability(a.id, form.value.date_from, form.value.date_to, excludeId)
-      if (!av.is_available) {
-        // Show conflict modal — keep picker open in background
-        pendingArticle.value = a
-        conflictList.value = av.conflicting_contracts ?? []
-        // Phase 4: populuj listę konfliktów z rezerwacjami (dla 3 opcji modala)
-        reservationConflictList.value = av.conflicting_reservations ?? []
-        showConflictModal.value = true
-        return
-      }
-    } catch { /* ignore — proceed normally on error */ }
+  if (selectingArticle.value) return
+  selectingArticle.value = true
+  try {
+    // RAO-P1-023: check availability before closing picker — tylko maszyny (N)
+    if (form.value.date_from && form.value.date_to && isRental.value) {
+      try {
+        const excludeId = isEdit.value ? Number(props.id) : null
+        const av = await machineStore.checkAvailability(a.id, form.value.date_from, form.value.date_to, excludeId)
+        if (!av.is_available) {
+          // Show conflict modal — keep picker open in background
+          pendingArticle.value = a
+          conflictList.value = av.conflicting_contracts ?? []
+          // Phase 4: populuj listę konfliktów z rezerwacjami (dla 3 opcji modala)
+          reservationConflictList.value = av.conflicting_reservations ?? []
+          showConflictModal.value = true
+          return
+        }
+      } catch { /* ignore — proceed normally on error */ }
+    }
+    applySelectedArticle(a)
+  } finally {
+    selectingArticle.value = false
   }
-  applySelectedArticle(a)
 }
 
 function applySelectedArticle(a) {
