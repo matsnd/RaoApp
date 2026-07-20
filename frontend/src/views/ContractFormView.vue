@@ -657,21 +657,21 @@
     <!-- Contractor picker modal -->
     <Transition name="modal">
       <div v-if="showContractorPicker" class="modal-overlay" @click.self="showContractorPicker = false">
-        <div class="modal-box" style="min-width:600px;">
+        <div class="modal-box" style="min-width:820px;max-width:1100px;">
           <div class="modal-title">Wybierz kontrahenta</div>
           <div class="search-input-wrap" style="margin-bottom:12px;">
             <span class="search-icon">⌕</span>
             <input v-model="pickerSearch" data-testid="contractor-picker" type="text" class="form-control" placeholder="Szukaj po nazwie, NIP lub mieście..." @input="searchContractors" />
           </div>
-          <div style="max-height:320px;overflow:auto;">
+          <div style="max-height:520px;overflow:auto;">
             <div v-if="!pickerList.length && pickerSearch" data-testid="no-results" class="empty-state" style="padding:32px;text-align:center;color:var(--color-text-muted);">
               Brak wyników dla "{{ pickerSearch }}"
             </div>
             <table v-else class="data-grid">
-              <thead><tr><th>Nazwa</th><th>NIP</th><th>Miasto</th></tr></thead>
+              <thead><tr><th style="min-width:280px;">Nazwa</th><th>NIP</th><th>Miasto</th></tr></thead>
               <tbody>
                 <tr v-for="c in pickerList" :key="c.id" @click="selectContractor(c)" style="cursor:pointer;">
-                  <td>{{ c.name }}</td><td>{{ c.nip || '—' }}</td><td>{{ c.city || '—' }}</td>
+                  <td :title="c.name" style="min-width:280px;max-width:420px;white-space:normal;">{{ c.name }}</td><td>{{ c.nip || '—' }}</td><td>{{ c.city || '—' }}</td>
                 </tr>
               </tbody>
             </table>

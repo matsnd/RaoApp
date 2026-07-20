@@ -229,7 +229,7 @@
                   @click="selectedId = c.id"
                   @dblclick="editContractor(c.id)"
                 >
-                  <td role="cell">{{ c.name }}</td>
+                  <td role="cell" :title="c.name" style="min-width:240px;max-width:420px;white-space:normal;">{{ c.name }}</td>
                   <td role="cell">{{ c.nip || '—' }}</td>
                   <td role="cell">{{ c.city || '—' }}</td>
                   <td role="cell">{{ c.phone1 || '—' }}</td>
