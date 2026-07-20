@@ -227,8 +227,8 @@
               <tr>
                 <th style="width:32px;">#</th>
                 <th>{{ isRental ? 'Maszyna' : 'Usługa' }}</th>
-                <th v-if="isRental" style="width:45px;">Dni</th>
-                <th style="width:45px;">Ilość</th>
+                <th v-if="isRental" style="width:60px;">Dni</th>
+                <th style="width:60px;">Ilość</th>
                 <th v-if="isService" style="width:80px;">Jednostka</th>
                 <th v-if="isService" style="width:220px;">Opis</th>
                 <th v-if="isRental">Dostawca</th>

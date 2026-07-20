@@ -50,6 +50,15 @@
 
 .data-grid tbody td.no-overflow { white-space: normal; max-width: none; overflow: visible; }
 
+/* Hide native number spinner in tight table cells — spinner (+/-) covers the value
+   when column is narrow (e.g. Dni/Ilość). Keyboard edit still works. */
+.data-grid input[type="number"]::-webkit-outer-spin-button,
+.data-grid input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.data-grid input[type="number"] { -moz-appearance: textfield; }
+
 .grid-container {
   background: var(--color-bg-white);
   border-radius: var(--border-radius);
