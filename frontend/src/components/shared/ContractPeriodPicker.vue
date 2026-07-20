@@ -97,6 +97,7 @@ const emit = defineEmits<{
   (e: 'update:dateFrom', val: string | null): void
   (e: 'update:dateTo', val: string | null): void
   (e: 'update:workingDaysPerWeek', val: number): void
+  (e: 'update:daysCount', val: number | null): void
 }>()
 
 // Internal state
@@ -282,6 +283,11 @@ watch(effectiveDateTo, (newVal) => {
 watch(workingDaysPerWeekInternal, (newVal) => {
   emit('update:workingDaysPerWeek', newVal)
 })
+
+// RAO: emituj liczbę dni (roboczych) — parent używa do auto-fill rental_days w nowych pozycjach
+watch(daysInternal, (newVal) => {
+  emit('update:daysCount', newVal ?? null)
+}, { immediate: true })
 
 watch(() => props.dateFrom, (newVal) => {
   if (newVal !== dateFromInternal.value) {

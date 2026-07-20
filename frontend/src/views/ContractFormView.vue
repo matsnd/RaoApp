@@ -62,6 +62,7 @@
                 :date-to="form.date_to"
                 @update:date-from="form.date_from = $event"
                 @update:date-to="form.date_to = $event"
+                @update:days-count="contractDaysCount = $event"
               />
               <span v-if="!form.date_from" class="field-error">Podaj datę od</span>
             </div>
@@ -1363,6 +1364,8 @@ const showNewPosRow = ref(false)
 const newPosData = ref<PosInlineData>(emptyPosData())
 const newPosRentalTypeInput = ref<HTMLInputElement | null>(null)
 const savingPos = ref(false)
+// RAO: liczba dni z okresu umowy — auto-fill rental_days w nowych pozycjach (możliwa późniejsza edycja)
+const contractDaysCount = ref<number | null>(null)
 // RAO-P0: flaga ładowania pozycji — skeleton loader zamiast mylącego empty state
 const positionsLoading = ref(false)
 // RAO-P0: błędy walidacji inline (quantity ≥ 1, rental_days ≥ 0)
@@ -2296,6 +2299,8 @@ function applySelectedArticle(a) {
     data.billing_unit = rental ? 'doba' : 'godzina'
     data.delivery_date = rental ? (form.value.date_from || null) : null
     data.quantity = 1
+    // RAO: auto-fill rental_days z okresu umowy (możliwa późniejsza edycja inline)
+    if (rental && contractDaysCount.value) data.rental_days = contractDaysCount.value
     // Auto-save — nie pokazuj wiersza edycyjnego, od razu API
     autoSaveNewPosition(data)
   }
@@ -2378,7 +2383,7 @@ async function duplicateArticle(a) {
       machine_id: rental ? a.id : null,
       service_id: !rental ? a.id : null,
       description: a.name || null,
-      rental_days: rental ? null : null,
+      rental_days: rental ? (contractDaysCount.value ?? null) : null,
       quantity: 1,
       unit_price: null,
       rate_type_id: null,
