@@ -422,16 +422,24 @@ function formatPreview(cond: any): string {
   const labels = unitLabels(cond.billing_label, isService.value)
   const pf = cond.period_from ?? (isService.value ? 0 : 1)
   const pt = cond.period_to
-  // Legacy: ALL conditions have "zł" suffix on rate (c:\Temp\legacy_pdfs\)
-  //   "230,00zł / doba", "1 - 3 dni - 800,00zł / doba", "0 - 2 godzin - 1450,00zł / godzina"
-  const rateText = `${rateStr}zł / ${labels.rate}`
+  // Legacy (c:\Temp\legacy_pdfs\): usługa (U) = ryczałt (kwota całkowita, BEZ / unit),
+  // najem (S/N) = stawka per unit (Z / unit).
+  //   "230,00zł / doba", "1 - 3 dni - 800,00zł / doba"
+  //   "do 2 godzin - 1450,00zł"  (usługa ryczałt, pf=0)
+  //   "0 - 2 godzin - 1450,00zł / godzina"  (najem z billing_label=godzina, pf=0 — 1 przypadek w 515 PDF)
+  const isFlat = isService.value
+  const rateText = isFlat ? `${rateStr}zł` : `${rateStr}zł / ${labels.rate}`
 
   if (pt == null) {
     // Flat rate (pf <= 1): no range prefix — legacy: "230,00zł / doba"
-    if (pf <= 1) return `${rateStr}zł / ${labels.rate}`
+    if (pf <= 1) return rateText
     // Open-ended after closed tier: "powyżej X dni"
     const threshold = pf - 1
     return `powyżej ${threshold} ${formatCount(threshold, labels.count)} - ${rateText}`
+  }
+  // Usługa (ryczałt) z pf=0 → "do X godzin" (zgodne z legacy i backendem)
+  if (isFlat && pf === 0) {
+    return `do ${pt} ${formatCount(pt, labels.count)} - ${rateText}`
   }
   if (pf === pt) {
     return `${pf} ${formatCount(1, labels.count)} - ${rateText}`

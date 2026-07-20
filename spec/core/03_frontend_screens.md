@@ -2145,7 +2145,10 @@ Auto-opis (PDF live preview):
   - Usługa: `do 2 godzin`, `do 3 godzin`, `do 8 godzin`, `0 - 2 / 3 - 8 / >8 godzin`, `każda kolejna`
   - Wybór dodaje jeden lub więcej wierszy z `period_from`/`period_to`/`period_count` i placeholderem opisu.
 - **Walidacja ciągłości:** watcher sprawdza czy są luki między warunkami (np. 1-3, następny 5-7 → błąd)
-- **Podgląd PDF live:** pod tabelą wyświetla preview formatu warunków (np. "1 - 3 dni - 540,00 zł / doba")
+- **Podgląd PDF live:** pod tabelą wyświetla preview formatu warunków zgodny z backendem (`format_position_conditions_cascading`) i legacy:
+  - Najem: `1 - 3 dni - 540,00zł / doba`, `powyżej 3 dni - 410,00zł / doba`, `230,00zł / doba` (flat, pf<=1)
+  - Usługa (ryczałt, BEZ `/ unit`): `do 2 godzin - 1450,00zł` (pf=0), `3 - 8 godzin - 200,00zł`, `powyżej 8 godzin - 150,00zł`
+  - Najem z `billing_label='godzina'` i pf=0 (1 przypadek w 515 legacy): `0 - 2 godzin - 1450,00zł / godzina`
 - Edycja zablokowana gdy `isSettled = true`.
 
 ### Inline form
