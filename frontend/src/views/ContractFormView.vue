@@ -2315,8 +2315,20 @@ function applySelectedArticle(a) {
   }
 }
 
+// RAO: deduplikacja double-click — zapamiętaj ostatnią dodaną pozycję (article_id + timestamp).
+// Bulletproof guard działa niezależnie od HMR (który czasem nie podmienia handlerów w <script setup>).
+const lastAddedArticle = ref<{ id: number; ts: number } | null>(null)
+
 async function autoSaveNewPosition(data: PosInlineData) {
   if (savingPos.value) return
+  // RAO: odrzuć jeśli ta sama pozycja była dodana w ciągu ostatnich 1500ms (double-click)
+  const now = Date.now()
+  if (lastAddedArticle.value
+      && lastAddedArticle.value.id === data.article_id
+      && (now - lastAddedArticle.value.ts) < 1500) {
+    return
+  }
+  lastAddedArticle.value = { id: data.article_id!, ts: now }
   savingPos.value = true
   try {
     const payload = buildPosPayload(data)
@@ -2385,6 +2397,14 @@ function confirmConflictSelection() {
 
 // duplicateArticle — szybkie dodanie pozycji bezpośrednio z pickera (bez inline edit)
 async function duplicateArticle(a) {
+  // RAO: deduplikacja double-click (patrz autoSaveNewPosition)
+  const now = Date.now()
+  if (lastAddedArticle.value
+      && lastAddedArticle.value.id === a.id
+      && (now - lastAddedArticle.value.ts) < 1500) {
+    return
+  }
+  lastAddedArticle.value = { id: a.id, ts: now }
   try {
     const rental = isRental.value
     const payload = {
