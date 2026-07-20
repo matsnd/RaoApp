@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 
 from auth.models import User
 from contracts.models import Contract, ContractPosition, PositionCondition, ContractServiceFee
-from contracts.schemas import ContractCreate, PositionCreate, ConditionCreate, ContractServiceFeeCreate, ContractServiceFeeUpdate
+from contracts.schemas import ContractCreate, PositionCreate, ConditionCreate, ContractServiceFeeCreate, ContractServiceFeeUpdate, ConditionResponse
 from shared.exceptions import bad_request, forbidden, not_found, conflict
 from shared.locations import resolve_postal_code_id
 
@@ -907,7 +907,42 @@ class ContractService:
             "source_contract_number": pos.contract.number,
             "source_contract_date": pos.contract.created_at,
             "source_position_id": pos.id,
-            "conditions": pos.conditions,
+            "conditions": [ConditionResponse.model_validate(c) for c in pos.conditions],
+        }
+
+    async def get_last_conditions_for_article(
+        self, db: AsyncSession, article_id: int, user: User
+    ) -> dict | None:
+        """Warunki z najnowszej umowy zawierającej pozycję z tym article_id.
+
+        article_id mapuje na machine_id (najem) lub service_id (usługa) —
+        sprawdzamy obie kolumny, bo frontend ArticlePicker nie rozróżnia.
+        """
+        from sqlalchemy.orm import selectinload
+        from sqlalchemy import or_
+
+        stmt = (
+            select(ContractPosition)
+            .join(Contract)
+            .options(selectinload(ContractPosition.conditions))
+            .options(selectinload(ContractPosition.contract))
+            .where(or_(
+                ContractPosition.machine_id == article_id,
+                ContractPosition.service_id == article_id,
+            ))
+            .order_by(Contract.created_at.desc())
+            .limit(1)
+        )
+        result = await db.execute(stmt)
+        pos = result.scalar_one_or_none()
+        if not pos:
+            return None
+        await self.verify_contract_access(db, pos.contract_id, user)
+        return {
+            "source_contract_number": pos.contract.number,
+            "source_contract_date": pos.contract.created_at,
+            "source_position_id": pos.id,
+            "conditions": [ConditionResponse.model_validate(c) for c in pos.conditions],
         }
 
     async def create_contract(
