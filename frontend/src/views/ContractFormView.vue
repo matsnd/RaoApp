@@ -227,14 +227,14 @@
               <tr>
                 <th style="width:32px;">#</th>
                 <th>{{ isRental ? 'Maszyna' : 'Usługa' }}</th>
-                <th v-if="isRental" style="width:60px;">Dni</th>
-                <th style="width:60px;">Ilość</th>
+                <th v-if="isRental" style="width:45px;">Dni</th>
+                <th style="width:45px;">Ilość</th>
                 <th v-if="isService" style="width:80px;">Jednostka</th>
                 <th v-if="isService" style="width:220px;">Opis</th>
                 <th v-if="isRental">Dostawca</th>
                 <th v-if="isRental" style="width:120px;">Data dost.</th>
-                <th style="width:70px;">Warunki</th>
-                <th style="width:80px;"></th>
+                <th style="width:55px;">Warunki</th>
+                <th style="width:60px;"></th>
               </tr>
             </thead>
             <tbody>
@@ -256,7 +256,7 @@
                   <td>{{ idx + 1 }}</td>
                   <td>
                     <div style="display:flex;align-items:center;gap:4px;">
-                      <span style="flex:1;font-size:12px;">{{ editingPosData.article_name || '—' }}</span>
+                      <span :title="editingPosData.article_name || ''" style="flex:1;font-size:12px;min-width:240px;max-width:380px;white-space:normal;">{{ editingPosData.article_name || '—' }}</span>
                       <button class="btn-icon" :title="isRental ? 'Zmień maszynę' : 'Zmień usługę'" @click.stop="reopenArticlePickerForEdit(pos)">✎</button>
                     </div>
                   </td>
@@ -287,7 +287,7 @@
                 <!-- DISPLAY MODE -->
                 <tr v-else :class="{ selected: selectedPosId === pos.id }" @click="selectPosition(pos)" @dblclick="startEditPos(pos)" style="cursor:pointer;">
                   <td>{{ idx + 1 }}</td>
-                  <td>{{ pos.article_name }}</td>
+                  <td :title="pos.article_name" style="min-width:280px;max-width:420px;white-space:normal;">{{ pos.article_name }}</td>
                   <td v-if="isRental">{{ pos.rental_days || '—' }}</td>
                   <td>{{ pos.quantity || 1 }}</td>
                   <td v-if="isService">godzina</td>
@@ -306,7 +306,7 @@
                 <td>*</td>
                 <td>
                   <div style="display:flex;align-items:center;gap:4px;">
-                    <span style="flex:1;font-size:12px;font-weight:600;">{{ newPosData.article_name || '—' }}</span>
+                    <span :title="newPosData.article_name || ''" style="flex:1;font-size:12px;font-weight:600;min-width:240px;max-width:380px;white-space:normal;">{{ newPosData.article_name || '—' }}</span>
                     <button class="btn-icon" :title="isRental ? 'Zmień maszynę' : 'Zmień usługę'" @click.stop="showArticlePicker = true">✎</button>
                   </div>
                 </td>
@@ -786,22 +786,22 @@
     <!-- Machine/Service picker modal (with availability badge) -->
     <Transition name="modal">
       <div v-if="showArticlePicker" class="modal-overlay" @click.self="showArticlePicker = false">
-        <div class="modal-box" style="min-width:650px;">
+        <div class="modal-box" style="min-width:820px;max-width:1100px;">
           <div class="modal-title">{{ isRental ? 'Wybierz maszynę' : 'Wybierz usługę' }}</div>
           <div class="search-input-wrap" style="margin-bottom:12px;">
             <span class="search-icon">⌕</span>
             <input v-model="articlePickerSearch" type="text" class="form-control" placeholder="Szukaj..." @input="searchArticles" />
           </div>
-          <div style="max-height:320px;overflow:auto;">
+          <div style="max-height:520px;overflow:auto;">
             <table class="data-grid">
               <thead><tr>
-                <th>Nazwa</th>
+                <th style="min-width:280px;">Nazwa</th>
                 <th v-if="isRental">Nr rej.</th>
                 <th v-if="isRental">Marka</th>
                 <th>Typ</th>
                 <th v-if="isRental">Zewnętrzna</th>
                 <th v-if="isRental">Dostępność</th>
-                <th v-if="isService">Opis</th>
+                <th v-if="isService" style="min-width:200px;">Opis</th>
                 <th style="width:80px;">Akcje</th>
               </tr></thead>
               <tbody>
@@ -809,7 +809,7 @@
                   <td :colspan="isRental ? 7 : 4" class="empty-state">Brak wyników dla "{{ articlePickerSearch }}"</td>
                 </tr>
                 <tr v-for="a in articlePickerList" :key="a.id" style="cursor:pointer;">
-                  <td @click="selectArticle(a)">{{ a.name }}</td>
+                  <td @click="selectArticle(a)" :title="a.name" style="min-width:280px;max-width:420px;white-space:normal;">{{ a.name }}</td>
                   <td v-if="isRental" @click="selectArticle(a)">{{ a.registration_no || '—' }}</td>
                   <td v-if="isRental" @click="selectArticle(a)">{{ a.brand || '—' }}</td>
                   <td @click="selectArticle(a)"><span :class="['badge', a.is_service ? 'badge-warning' : 'badge-info']">{{ a.is_service ? 'Usługa' : 'Sprzęt' }}</span></td>
@@ -822,7 +822,7 @@
                     <span v-else-if="a._avail === false" class="badge badge-danger">Zajęty</span>
                     <span v-else class="badge badge-muted">—</span>
                   </td>
-                  <td v-if="isService" @click="selectArticle(a)" style="white-space:normal;">{{ a.description || '—' }}</td>
+                  <td v-if="isService" @click="selectArticle(a)" :title="a.description || ''" style="white-space:normal;max-width:300px;">{{ a.description || '—' }}</td>
                   <td>
                     <button class="btn-icon" :title="isRental ? 'Duplikuj maszynę' : 'Duplikuj usługę'" @click.stop="duplicateArticle(a)">⧉</button>
                   </td>
