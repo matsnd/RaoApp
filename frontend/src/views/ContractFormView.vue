@@ -428,7 +428,7 @@
                 </tr>
                 <!-- DISPLAY MODE -->
                 <tr v-else @click="startEditFee(fee)" style="cursor:pointer;">
-                  <td>{{ fee.name }}</td>
+                  <td :title="fee.name" style="white-space:normal; word-break:break-word;">{{ fee.name }}</td>
                   <td>{{ fee.amount_from ? Number(fee.amount_from).toFixed(2) + ' zł' : '—' }}</td>
                   <td>{{ fee.amount_to ? Number(fee.amount_to).toFixed(2) + ' zł' : '—' }}</td>
                   <td style="font-size:var(--font-size-sm); line-height:1.45; white-space:normal; word-break:break-word; padding:6px 8px;">{{ formatDescription(fee.description, fee.amount_from, fee.amount_to, fee.name) }}</td>
