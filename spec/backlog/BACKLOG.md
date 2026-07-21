@@ -54,6 +54,143 @@ migration_impact: no
 
 ---
 
+### P1-205: Moduł Dostawy — kalendarz z datami dostaw z umów + drill-down do umowy
+
+```yaml
+id: P1-205
+status: triaged
+priority: P1
+created: 2026-07-21
+source: client-request (uwagi 2026-07-21)
+component: backend/deliveries (nowy moduł read-only) + frontend/views/DeliveriesView.vue (nowy) + frontend/router + frontend/stores/deliveries.ts (nowy) + frontend/components (DrillDownDrawer reuse)
+migration_impact: no
+decisions:
+  source: tylko z umów (read-only, brak nowej tabeli)
+  drilldown: panel dnia → drawer umowy (jak w reservations)
+  scope: tylko plan do backlogu (implementacja w osobnej sesji)
+related: ReservationsView.vue (wzorzec kalendarza + panel dnia + drill-down), DrillDownDrawer.vue (reuse)
+```
+
+**Opis:** Nowy moduł "Dostawy" mirrorujący UX modułu Rezerwacje, ale pokazujący daty dostaw maszyn na budowy z umów (nie z osobnej tabeli). Klikalne dni na kalendarzu → panel dnia z listą dostaw → drill-down do draweru z danymi umowy.
+
+**Kontekst (stan obecny — analiza 2026-07-21):**
+- `Contract.date_from` = data przekazania/dostawy maszyny na budowę (pole "Termin przekazania" na PDF umowy)
+- `ContractPosition.delivery_date` = opcjonalna data dostawy per pozycja (nullable, używane w umowach U)
+- `Contract.delivery_address` + `postal_code` + `city` = adres dostawy
+- `Contract.contractor_id` = kontrahent (odbiorca dostawy)
+- `ContractPosition.machine_id` = maszyna dostarczana (dla umów S)
+- Brak osobnej tabeli `deliveries` — dane są w umowach
+
+**Wzorzec (ReservationsView.vue):**
+- Kalendarz month grid (6 tygodni, stabilny rozmiar — fix cd37e5d)
+- Panel dnia po prawej (lista eventów z checkboxami filtru)
+- Kropki eventów w komórkach + tooltip na hover
+- Drill-down drawer (DrillDownDrawer.vue — reuse z Analytics)
+- Filtry: machine, contractor, salesperson, type
+- Eksport CSV (ExportCsvButton — reuse)
+
+**Architektura (read-only, bez migracji DB):**
+
+```
+Backend (nowy moduł, read-only):
+  backend/deliveries/
+    __init__.py
+    router.py        # GET /deliveries/calendar?date_from&date_to&machine_id&contractor_id
+    schemas.py       # DeliveryCalendarEvent (mirror CalendarEvent)
+    service.py       # zapytanie o contracts + positions w zakresie dat
+  main.py            # include_router(deliveries_router)
+
+Frontend (nowy widok, mirror ReservationsView):
+  frontend/src/views/DeliveriesView.vue     # kalendarz + panel dnia + drill-down
+  frontend/src/stores/deliveries.ts         # fetchCalendar, fetchContractDetails
+  frontend/src/router/index.js              # /deliveries → DeliveriesView
+  frontend/src/components/AppLayout.vue     # link w menu "Dostawy"
+```
+
+**Fazy implementacji:**
+
+**Faza 1 — Backend (read-only endpoint):**
+1. `backend/deliveries/__init__.py` — pusty
+2. `backend/deliveries/schemas.py` — `DeliveryCalendarEvent`:
+   - `source: "contract"` (zawsze, jedyny source)
+   - `source_id: int` (contract_id)
+   - `contract_number: str`
+   - `machine_id: Optional[int]` (z pozycji, NULL dla umów U)
+   - `machine_name: Optional[str]`
+   - `internal_number: Optional[str]`
+   - `contractor_id: int`
+   - `contractor_name: str`
+   - `delivery_date: date` (Contract.date_from lub ContractPosition.delivery_date — wybiera最早szą z umowy)
+   - `delivery_address: Optional[str]`
+   - `city: Optional[str]`
+   - `contract_type: str` ("S" | "U")
+   - `salesperson_id: Optional[int]`
+   - `salesperson_name: Optional[str]`
+3. `backend/deliveries/service.py` — `list_calendar(db, date_from, date_to, machine_id, contractor_id)`:
+   - Source: `contracts` WHERE `date_from BETWEEN date_from AND date_to` (data dostawy = date_from umowy)
+   - JOIN `contractors` (nazwa), `salespeople` (handlowiec), `contract_positions` LEFT JOIN `machines` (nazwa maszyny)
+   - Filtr `machine_id` przez `contract_positions.machine_id`
+   - Filtr `contractor_id` przez `contracts.contractor_id`
+   - Sort po `delivery_date`
+   - Edge case: umowa bez `date_from` (NULL) → pominąć (brak daty dostawy)
+4. `backend/deliveries/router.py` — `GET /deliveries/calendar` z `Depends(get_current_user)`, query params: `date_from`, `date_to`, `machine_id?`, `contractor_id?`
+5. `backend/main.py` — `from deliveries.router import router as deliveries_router` + `app.include_router(deliveries_router)`
+6. `backend/contracts/router.py` — sprawdzić czy istnieje endpoint zwracający pełne dane umowy dla drill-down (już jest `GET /contracts/{id}` z pozycjami/opłatami/warunkami) — reuse
+
+**Faza 2 — Frontend (nowy widok):**
+7. `frontend/src/stores/deliveries.ts` — Pinia store:
+   - state: `calendarEvents: DeliveryCalendarEvent[]`, `loading`, `error`
+   - actions: `fetchCalendar(dateFrom, dateTo, filters)`, `fetchContractDetails(id)` (reuse contracts store)
+8. `frontend/src/views/DeliveriesView.vue` — mirror `ReservationsView.vue`:
+   - Kalendarz month grid (6 tygodni, stabilny — copy fix cd37e5d)
+   - Panel dnia po prawej (lista dostaw tego dnia)
+   - Kropki w komórkach (1 kolor = dostawy, nie rozróżniać source bo jedyny)
+   - Tooltip na hover (maszyna, kontrahent, adres, numer umowy)
+   - Filtry: machine (combobox), contractor (ContractorCombobox reuse), salesperson, type (S/U)
+   - Checkboxy w panelu dnia: "Dostawy S" / "Dostawy U" (filtrowanie listy)
+   - Klik na dostawę w panelu → DrillDownDrawer z danymi umowy (numer, kontrahent, pozycje, opłaty, warunki, adres dostawy)
+   - Eksport CSV (ExportCsvButton reuse)
+   - Stany: loading, error, empty (ale kalendarz zawsze widoczny — nie chować jak w reservations, lessons learned)
+9. `frontend/src/router/index.js` — dodać route `/deliveries` → `DeliveriesView.vue` (obok `/reservations`)
+10. `frontend/src/components/AppLayout.vue` (lub sidebar) — dodać link "Dostawy" w menu (ikona truck/dostawa)
+
+**Faza 3 — QA:**
+11. `e2e/tests/07-deliveries.spec.ts` (nowy) — smoke:
+    - Otwórz `/deliveries` → kalendarz renderuje się (6 tygodni, stabilny)
+    - Klik na dzień z dostawą → panel dnia pokazuje listę
+    - Klik na dostawę → drawer z danymi umowy
+    - Filtr machine/contractor działa
+12. Smoke `e2e/tests/01-login.spec.ts` — zielony (regresja)
+13. `vue-tsc --noEmit` — zielony
+14. `pytest` — zielony (jeśli dodano testy backend)
+
+**Ryzyka:**
+- **Umowy bez `date_from`** — pomijane (brak daty dostawy). Sprawdzić w DB ile umów ma `date_from IS NULL` — może być dużo starych. Filtrować tylko z `date_from IS NOT NULL`.
+- **Umowy U (usługi)** — `date_from` = data dostawy usługi? Czy `ContractPosition.delivery_date`? Decyzja: używać `Contract.date_from` jako głównej daty dostawy (spójne z PDF "Termin przekazania"). `delivery_date` z pozycji tylko jako fallback gdy `date_from IS NULL` a `delivery_date IS NOT NULL`.
+- **Wiele pozycji w jednej umowie** — jedna dostawa = jedna umowa (nie per pozycja). Kropka w kalendarzu = 1 umowa, tooltip pokazuje główne dane.
+- **Brak CRUD** — user nie może dodać dostawy z kalendarza (brak tabeli). Dostawy powstają przez tworzenie umowy. To świadoma decyzja (user wybrał "read-only z umów").
+- **Prawy klik / context menu** — w reservations jest "Dodaj rezerwację" z prawego kliku. W dostawach brak CRUD → context menu wyłączone lub pokazuje "Otwórz umowę".
+- **Stabilny kalendarz** — lessons learned z reservations (fix cd37e5d): od razu 6 tygodni w DeliveriesView.
+
+**Definition of Done:**
+- [ ] `GET /deliveries/calendar` zwraca dostawy z umów w zakresie dat (Contract.date_from jako data dostawy)
+- [ ] Filtry: machine_id, contractor_id działają
+- [ ] Umowy bez `date_from` pomijane (lub fallback do delivery_date z pozycji)
+- [ ] `/deliveries` route w frontend, kalendarz 6 tygodni stabilny
+- [ ] Panel dnia po prawej z listą dostaw (maszyna, kontrahent, adres, numer umowy)
+- [ ] Klik na dostawę → DrillDownDrawer z pełnymi danymi umowy
+- [ ] Filtry: machine (combobox), contractor (ContractorCombobox), salesperson, type (S/U)
+- [ ] Checkboxy w panelu: "Dostawy S" / "Dostawy U"
+- [ ] Eksport CSV działa
+- [ ] Stany: loading, error, empty (kalendarz zawsze widoczny)
+- [ ] Link "Dostawy" w menu/sidebar
+- [ ] `pytest` zielony, `vue-tsc` zielony
+- [ ] E2E `07-deliveries.spec.ts` smoke zielony
+- [ ] Smoke `01-login.spec.ts` zielony (regresja)
+- [ ] Spec sync: `02_backend_api.md` (nowy endpoint), `03_frontend_screens.md` (nowy widok), `06_navigation_flow.md` (nowy route)
+
+---
+
 ### P1-204: Niebieski pasek nagłówka PDF — marginesy boczne aligned z contentem
 
 ```yaml
