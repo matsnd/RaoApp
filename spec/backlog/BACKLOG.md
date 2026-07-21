@@ -146,9 +146,10 @@ scope: tylko godziny, tylko umowy U (is_flat=True, count_unit="godzin")
 
 ```yaml
 id: P1-205
-status: triaged
+status: done
 priority: P1
 created: 2026-07-21
+completed: 2026-07-21
 source: client-request (uwagi 2026-07-21)
 component: backend/deliveries (nowy moduł read-only) + frontend/views/DeliveriesView.vue (nowy) + frontend/router + frontend/stores/deliveries.ts (nowy) + frontend/components (DrillDownDrawer reuse)
 migration_impact: no
@@ -350,9 +351,10 @@ migration_impact: no
 
 ```yaml
 id: P1-202
-status: triaged
+status: done
 priority: P1
 created: 2026-07-21
+completed: 2026-07-21
 source: client-request (uwagi 2026-07-21)
 component: backend/contracts (model+schema+service) + backend/reports/templates (4 PDF) + frontend/ContractFormView + DB migracja
 migration_impact: yes (ALTER TABLE contracts: ADD 2 + backfill + DROP old)
