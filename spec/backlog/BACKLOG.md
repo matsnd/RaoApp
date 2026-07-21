@@ -54,6 +54,46 @@ migration_impact: no
 
 ---
 
+### P1-204: Niebieski pasek nagłówka PDF — marginesy boczne aligned z contentem
+
+```yaml
+id: P1-204
+status: dev-verified
+priority: P1
+created: 2026-07-21
+source: client-request (uwagi 2026-07-21)
+component: backend/reports/templates (6 PDF: contract.html, contract_u.html, protocol_zo.html, protocol_zo_nodata.html, protocol_zo_u.html, protocol_zo_nodata_u.html)
+migration_impact: no
+```
+
+**Opis:** Niebieski pasek nagłówka (`table.hdr` z `background: #1D2B53`) na PDF rozciągał się edge-to-edge (width: 100%). Na ekranie wygląda OK, ale drukarki obcinają boki (nie drukują do krawędzi). Klient chce żeby pasek zaczął się równo z contentem formularzy (z białymi marginesami bocznymi).
+
+**Stan obecny (przed):**
+- `table.hdr { width: 100%; }` — pełna szerokość strony
+- `.hdr-left { padding: ... 11mm/14mm ... }` — tekst headera miał 11mm/14mm padding wewnętrzny (symulował margines, ale tło niebieskie szło do krawędzi)
+- `.content { padding: ... 11mm/14mm ... }` — content miał 11mm (umowy) / 14mm (protokoły) margines boczny
+
+**Fix:**
+- `table.hdr { width: calc(100% - 22mm); margin: 0 11mm; }` (umowy) / `width: calc(100% - 28mm); margin: 0 14mm;` (protokoły) — niebieski pasek z marginesami = aligned z contentem
+- `.hdr-left` / `.hdr-right` — padding wewnętrzny z 11mm/14mm → 10px (tekst nadal ma mały inset od krawędzi niebieskiego, ale nie podwójny)
+
+**Zadania:**
+1. `contract.html` — `table.hdr` + `.hdr-left` + `.hdr-right` (margin 11mm, padding 10px)
+2. `contract_u.html` — to samo
+3. `protocol_zo.html` — `table.hdr` + `.hdr-left` + `.hdr-right` (margin 14mm, padding 10px)
+4. `protocol_zo_nodata.html` — to samo
+5. `protocol_zo_u.html` — to samo
+6. `protocol_zo_nodata_u.html` — to samo
+
+**Definition of Done:**
+- [x] Niebieski pasek nagłówka we wszystkich 6 PDF ma marginesy boczne = padding contentu
+- [x] Pasek zaczyna się i kończy równo z contentem formularzy
+- [x] Tekst w headerze zachowuje czytelny inset (10px od krawędzi niebieskiego)
+- [x] Brak zmian w innych sekcjach PDF
+- [x] Smoke `01-login.spec.ts` zielony (zmiana w template HTML/CSS)
+
+---
+
 ### P1-203: Protokół S — usunąć tekst "poziom uzupełnienia zbiornika/naładowania"
 
 ```yaml
