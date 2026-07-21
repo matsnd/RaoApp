@@ -322,12 +322,21 @@ async function gusLookup() {
   gusLoading.value = true
   try {
     const data = await store.gusLookup(form.value.nip)
-    if (data.name) form.value.name = data.name
-    if (data.street) form.value.street = data.street + (data.building_number ? ' ' + data.building_number : '')
+    if (!data.name) {
+      toastStore.warning('GUS nie zwrócił danych dla podanego NIP')
+      return
+    }
+    form.value.name = data.name
+    if (data.street) {
+      const building = data.building_number ? ` ${data.building_number}` : ''
+      const apartment = data.apartment_number ? `/${data.apartment_number}` : ''
+      form.value.street = `${data.street}${building}${apartment}`
+    }
     if (data.postal_code) form.value.postal_code = data.postal_code
     if (data.city) form.value.city = data.city
     if (data.regon) form.value.regon = data.regon
     form.value.gus_date = new Date().toISOString().slice(0, 10)
+    toastStore.success('Dane kontrahenta pobrane z GUS')
     // Auto-create address from GUS data if editing
     if (isEdit.value && data.city) {
       try {
@@ -335,7 +344,7 @@ async function gusLookup() {
           name: 'Siedziba (GUS)',
           postal_code: data.postal_code || '',
           city: data.city || '',
-          street: (data.street || '') + (data.building_number ? ' ' + data.building_number : ''),
+          street: (data.street || '') + (data.building_number ? ' ' + data.building_number : '') + (data.apartment_number ? '/' + data.apartment_number : ''),
           is_headquarters: true,
           is_default_delivery: false,
           country_code: 'PL',
