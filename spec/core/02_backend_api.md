@@ -849,7 +849,8 @@ class ContractListItem(BaseModel):
     # RAO-P1-021/P2-033: total_value usunięte
     prepayment_amount: Decimal | None
     # RAO-P1-103: invoice_amount usunięte (kwoty faktur z Fakturowni)
-    notes: str | None
+    notes_contract: str | None       # P1-202: uwagi na umowie
+    notes_protocol: str | None       # P1-202: uwagi na protokole
     email: str | None
     phone: str | None
     contact_person1: str | None = None
@@ -884,7 +885,8 @@ class ContractCreate(BaseModel):
     prepayment_amount: Decimal | None = None
     prepayment_document: str | None = None
     # RAO-P1-103: invoice_amount + invoice_document usunięte (kwoty faktur z Fakturowni)
-    notes: str | None = None
+    notes_contract: str | None = None   # P1-202: uwagi na umowie
+    notes_protocol: str | None = None   # P1-202: uwagi na protokole
     # UWAGA: Usługi dodatkowe tworzone automatycznie z service_fee_templates
     # Endpoint: POST /contracts/{id}/service-fees do późniejszej edycji
     contact_person1: str | None = None

@@ -36,7 +36,7 @@ def _make_contract(**overrides) -> MagicMock:
         contact_person1="Jan Kowalski", contact_phone1="500123456",
         contact_person2=None, contact_phone2=None,
         prepayment_amount=0, working_days_per_week=6,
-        contractor_id=1, salesperson_id=None, notes="",
+        contractor_id=1, salesperson_id=None, notes_contract="", notes_protocol="",
         contractor_name="", email="", email2="",
     )
     defaults.update(overrides)

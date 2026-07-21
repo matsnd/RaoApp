@@ -202,10 +202,7 @@
     <td class="bottom-full">
       <div class="bottom-box">
         <div class="bottom-box-label">uwagi</div>
-        {# RAO: Umowa usługi nie ma bloku "Doba wynajmu" — to warunki wynajmu maszyny,
-           nie usługi. W legacy WinForms ten blok NIE występował na umowie usługi.
-           Puste notes = pusty blok uwag.
-           Zg3: contract.notes usunięte z umowy — uwagi mają być tylko na protokole. #}
+        {% if contract.notes_contract %}<div style="color:#000; white-space:pre-wrap; margin-top:4px;">{{ contract.notes_contract }}</div>{% endif %}
       </div>
     </td>
   </tr>

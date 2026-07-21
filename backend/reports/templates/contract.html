@@ -228,7 +228,7 @@
       {% endif %}
     </td>
     <td class="inne-right">
-      <div class="inne-label">Uwagi</div>
+      <div class="inne-label">Informacje</div>
       <div style="font-size: 8.5px; line-height: 1.45; color: #333;">
         <div class="inne-item"><strong>Doba wynajmu:</strong> obejmuje 1 dzień kalendarzowy<br>(do 8 godz. pracy jednego dnia).</div>
         <div class="inne-item"><strong>Zgłoszenie zwrotu urządzenia:</strong> pisemne,<br>min. z jednodniowym wyprzedzeniem.</div>
@@ -240,6 +240,11 @@
     </td>
   </tr>
 </table>
+
+<div style="border: 1px solid #aaa; padding: 8px 12px; font-size: 10px; min-height: 80px; color: #888; margin-top: 6px;">
+  uwagi
+  {% if contract.notes_contract %}<br><span style="color:#000; white-space:pre-wrap;">{{ contract.notes_contract }}</span>{% endif %}
+</div>
 
 <div class="content-spacer" style="height: 35mm;"></div>
 

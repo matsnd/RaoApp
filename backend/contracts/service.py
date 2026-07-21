@@ -97,7 +97,7 @@ async def copy_fee_templates(db: AsyncSession, contract_id: int, contract_type: 
 _PRINT_HASH_CONTRACT_FIELDS = (
     "number", "contractor_id", "branch_id", "salesperson_id", "contract_type",
     "delivery_address", "postal_code", "city", "date_from", "date_to",
-    "prepayment_amount", "prepayment_document", "notes",
+    "prepayment_amount", "prepayment_document", "notes_contract", "notes_protocol",
     "contact_person1", "contact_phone1", "show_person1",
     "contact_person2", "contact_phone2", "show_person2",
     "email", "phone", "contractor_name",
@@ -665,7 +665,8 @@ class ContractService:
                 # RAO-P1-021/P2-033: total_value usunięte
                 prepayment_amount=c.prepayment_amount,
                 prepayment_document=c.prepayment_document,
-                notes=c.notes,
+                notes_contract=c.notes_contract,
+                notes_protocol=c.notes_protocol,
                 contact_person1=c.contact_person1,
                 contact_phone1=c.contact_phone1,
                 show_person1=c.show_person1,
@@ -765,7 +766,8 @@ class ContractService:
                 # RAO-P1-021/P2-033: total_value usunięte
                 prepayment_amount=c.prepayment_amount,
                 prepayment_document=c.prepayment_document,
-                notes=c.notes,
+                notes_contract=c.notes_contract,
+                notes_protocol=c.notes_protocol,
                 contact_person1=c.contact_person1,
                 contact_phone1=c.contact_phone1,
                 show_person1=c.show_person1,

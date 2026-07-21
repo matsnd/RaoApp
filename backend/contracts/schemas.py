@@ -227,7 +227,8 @@ class ContractListItem(BaseModel):
     date_to: date | None
     # RAO-P1-021/P2-033: total_value usunięte (martwe pole, 100% NULL)
     prepayment_amount: Decimal | None
-    notes: str | None
+    notes_contract: str | None
+    notes_protocol: str | None
     email: str | None
     contact_person1: str | None = None
     contact_phone1: str | None = None
@@ -264,7 +265,8 @@ class ContractDetail(BaseModel):
     # RAO-P1-021/P2-033: total_value usunięte
     prepayment_amount: Decimal | None
     prepayment_document: str | None
-    notes: str | None
+    notes_contract: str | None
+    notes_protocol: str | None
     contact_person1: str | None
     contact_phone1: str | None
     show_person1: bool
@@ -311,7 +313,8 @@ class ContractCreate(BaseModel):
     # RAO-P1-021/P2-033: total_value usunięte
     prepayment_amount: Decimal | None = Field(None, ge=0, decimal_places=2)
     prepayment_document: str | None = Field(None, max_length=200)
-    notes: SafeDescription = None
+    notes_contract: SafeDescription = None
+    notes_protocol: SafeDescription = None
     contact_person1: SafeName | None = None
     contact_phone1: str | None = Field(None, max_length=100)
     show_person1: bool = True
@@ -359,7 +362,8 @@ class ContractUpdate(BaseModel):
     # RAO-P1-021/P2-033: total_value usunięte
     prepayment_amount: Decimal | None = Field(None, ge=0, decimal_places=2)
     prepayment_document: str | None = Field(None, max_length=200)
-    notes: SafeDescription = None
+    notes_contract: SafeDescription = None
+    notes_protocol: SafeDescription = None
     contact_person1: SafeName | None = None
     contact_phone1: str | None = Field(None, max_length=100)
     show_person1: bool | None = None

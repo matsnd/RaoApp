@@ -203,15 +203,20 @@
 
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">Uwagi</label>
-              <textarea v-model="form.notes" class="form-control" rows="2"></textarea>
+              <label class="form-label">Uwagi do umowy</label>
+              <textarea v-model="form.notes_contract" class="form-control" rows="4" maxlength="500" placeholder="Dodatkowe uwagi na umowie"></textarea>
             </div>
             <div class="form-group">
-              <label class="form-label">Opcje</label>
-              <div style="display:flex;gap:16px;padding-top:6px;">
-                <label class="checkbox-group"><input type="checkbox" v-model="form.hide_delivery_address" /> Ukryj adres dostawy na umowie (klient wpisze ręcznie)</label>
-                <label class="checkbox-group"><input type="checkbox" v-model="form.signatures_on_page1" /> Podpisy wymagane na stronie 1</label>
-              </div>
+              <label class="form-label">Uwagi do protokołu</label>
+              <textarea v-model="form.notes_protocol" class="form-control" rows="4" maxlength="500" placeholder="Uwagi na protokole zdawczo-odbiorczym"></textarea>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Opcje</label>
+            <div style="display:flex;gap:16px;padding-top:6px;">
+              <label class="checkbox-group"><input type="checkbox" v-model="form.hide_delivery_address" /> Ukryj adres dostawy na umowie (klient wpisze ręcznie)</label>
+              <label class="checkbox-group"><input type="checkbox" v-model="form.signatures_on_page1" /> Podpisy wymagane na stronie 1</label>
             </div>
           </div>
         </div>
@@ -1120,7 +1125,8 @@ const form = ref({
   contract_type: 'S', oid: null, delivery_address: '', postal_code: '', city: '', latitude: null, longitude: null, date_from: '', date_to: '',
   // RAO-P1-021/P2-033: total_value usunięte (martwe pole)
   prepayment_amount: 0,
-  notes: '',
+  notes_contract: '',
+  notes_protocol: '',
   contact_person1: '', contact_phone1: '', show_person1: true,
   contact_person2: '', contact_phone2: '', show_person2: true,
   email: '', phone: '', contractor_name: '', working_days_per_week: 6, hide_delivery_address: false, signatures_on_page1: false,
@@ -1672,7 +1678,7 @@ function buildPayload() {
   const v = { ...form.value }
   const dateFields = ['date_from', 'date_to']
   const nullableStr = ['delivery_address',
-    'notes', 'contact_person1', 'contact_phone1', 'contact_person2', 'contact_phone2',
+    'notes_contract', 'notes_protocol', 'contact_person1', 'contact_phone1', 'contact_person2', 'contact_phone2',
     'email', 'phone', 'contractor_name', 'postal_code', 'city']
   dateFields.forEach(f => { if (!v[f]) v[f] = null })
   nullableStr.forEach(f => { if (v[f] === '') v[f] = null })

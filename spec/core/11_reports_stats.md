@@ -120,7 +120,7 @@ Do obu wariantów umowy dodana została sekcja `Uwagi` umieszczona **przed podpi
 
 **Uwaga - layout dolnej sekcji protokołu usługi (aktualizacja 2026-07-12):** W `protocol_zo_u.html` i `protocol_zo_nodata_u.html` kolejność elementów na dole strony (od góry):
 1. Box "uwagi" (pusty box do ręcznego wypełnienia)
-2. Box "Dodatkowe informacje" — etykieta wewnątrz boxa (jak "uwagi"), treść z `contract.notes` poniżej
+2. Box "Dodatkowe informacje" — etykieta wewnątrz boxa (jak "uwagi"), treść z `contract.notes_protocol` poniżej
 3. "Opiekun zamówienia: {salesperson.name} tel. {salesperson.phone}" — między dodatkowymi informacjami a pieczątkami
 4. Pieczątki i podpisy (Wynajmującego z `protocol_stamp.png` + Najemcy) — na samym dole
 

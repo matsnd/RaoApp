@@ -162,10 +162,10 @@ async def test_generate_contract_number_no_branch_id():
 # ── RAO-P0-034: exclude_unset=True — partial update must not reset fields ──────
 
 def test_contract_update_exclude_unset_only_sent_fields():
-    """PUT with only notes must NOT include working_days_per_week in dump."""
-    u = ContractUpdate(notes="test")
+    """PUT with only notes_protocol must NOT include working_days_per_week in dump."""
+    u = ContractUpdate(notes_protocol="test")
     dumped = u.model_dump(exclude_unset=True)
-    assert dumped == {"notes": "test"}
+    assert dumped == {"notes_protocol": "test"}
     assert "working_days_per_week" not in dumped
     assert "contract_type" not in dumped
     assert "show_person1" not in dumped
@@ -191,12 +191,12 @@ def test_contract_update_full_payload_still_works():
     """Full payload (like frontend sends) → all fields in dump (backward-compat)."""
     u = ContractUpdate(
         contractor_id=1, contract_type="S", working_days_per_week=5,
-        notes="abc", show_person1=True,
+        notes_protocol="abc", show_person1=True,
     )
     dumped = u.model_dump(exclude_unset=True)
     assert "contractor_id" in dumped
     assert "working_days_per_week" in dumped
-    assert "notes" in dumped
+    assert "notes_protocol" in dumped
 
 
 # ── RAO-P1-039: walidacja date_from > date_to + ujemne kwoty ──────────────────

@@ -633,8 +633,8 @@ Szczegółowy layout Row 1 (nagłówek):
 │ │ Faktura     [______] dok [_____] │   │                        │
 │ │ Pozostało   [    15 000,00 zł  ] │   │                        │
 │ └───────────────────────────────────┘   │                        │
-│ Uwagi ┌──────────────────────────┐      │                        │
-│       └──────────────────────────┘      │                        │
+│ Uwagi do umowy ┌────────────────┐  Uwagi do protokołu ┌────────────────┐ │                        │
+│                └────────────────┘                    └────────────────┘ │                        │
 │ ☐ Ukryj adres dostawy na umowie (klient wpisze ręcznie) ☐ Podpisy wymagane na stronie 1 │                        │
 └─────────────────────────────────────────┴────────────────────────┘
 ```
