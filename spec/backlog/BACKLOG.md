@@ -54,6 +54,36 @@ migration_impact: no
 
 ---
 
+### P1-206: Umowa U (usługa) — open-ended tier "każda kolejna x zł / h" zamiast "powyżej X godzin"
+
+```yaml
+id: P1-206
+status: dev-verified
+priority: P1
+created: 2026-07-21
+source: client-request (uwagi 2026-07-21)
+component: backend/contracts/service.py + frontend/components/contracts/ConditionPanel.vue
+migration_impact: no
+scope: tylko godziny, tylko umowy U (is_flat=True, count_unit="godzin")
+```
+
+**Opis:** W warunkach rozliczeniowych open-ended tier (period_to=NULL, pf>1) dla umowy U (usługa) label był "powyżej 8 godzin - 150,00zł" (ryczałt, bez / unit). Klient chce "każda kolejna 150,00 zł / h" — stawka per godzina po progu. Grid konfiguracji bez zmian (operator wpisuje period_from, period_to puste, rate — jak wcześniej).
+
+**Zmiany:**
+1. `backend/contracts/service.py` `format_position_conditions_cascading` (linia ~446) — dla `is_flat=True` (U) + open-ended (period_to=None, pf>1) + `count_unit=="godzin"`: `lines.append(f"każda kolejna {_format_rate(n['rate'])}zł / h")` + `continue` (pomija `_format_period_range`)
+2. `frontend/src/components/contracts/ConditionPanel.vue` `formatPreview` (linia ~433) — dla `isFlat` (isService) + `pt==null` + `pf>1` + `labels.count==='godzin'`: `return \`każda kolejna ${rateStr}zł / h\``
+
+**Definition of Done:**
+- [x] PDF umowy U z open-ended tier w godzinach pokazuje "każda kolejna 150,00 zł / h" (zamiast "powyżej 8 godzin - 150,00zł")
+- [x] Podgląd w ConditionPanel (panel podglądu w widoku umowy) pokazuje to samo
+- [x] Grid konfiguracji bez zmian (period_from, period_to puste, rate)
+- [x] Umowy S (najem, dni) bez zmian — nadal "powyżej X dni"
+- [x] Closed ranges w umowach U bez zmian — nadal "1 - 8 godzin - 150,00zł"
+- [x] `vue-tsc` zielony, `compileall` zielony
+- [x] Smoke `01-login.spec.ts` zielony (zmiana w label render, nie dotyka auth/routing)
+
+---
+
 ### P1-205: Moduł Dostawy — kalendarz z datami dostaw z umów + drill-down do umowy
 
 ```yaml

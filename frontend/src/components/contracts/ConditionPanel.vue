@@ -433,6 +433,11 @@ function formatPreview(cond: any): string {
   if (pt == null) {
     // Flat rate (pf <= 1): no range prefix — legacy: "230,00zł / doba"
     if (pf <= 1) return rateText
+    // P1-206: umowa U (usługa) open-ended w godzinach → "każda kolejna {rate}zł / h"
+    // zamiast "powyżej X godzin - {rate}zł" (ryczałt bez / unit). Grid bez zmian.
+    if (isFlat && labels.count === 'godzin') {
+      return `każda kolejna ${rateStr}zł / h`
+    }
     // Open-ended after closed tier: "powyżej X dni"
     const threshold = pf - 1
     return `powyżej ${threshold} ${formatCount(threshold, labels.count)} - ${rateText}`

@@ -450,6 +450,14 @@ def format_position_conditions_cascading(
             label = "doba" if contract_type == "S" else "godzina"
         count_unit, rate_unit = _unit_labels(label, contract_type)
 
+        # P1-206: umowa U (usługa) open-ended tier w godzinach → "każda kolejna {rate}zł / h"
+        # zamiast "powyżej X godzin - {rate}zł" (ryczałt bez / unit).
+        # Grid konfiguracji bez zmian — tylko label renderu (PDF + podgląd).
+        is_open_ended = n['period_to'] is None and (n['period_from'] or 0) > 1
+        if is_flat and is_open_ended and count_unit == "godzin":
+            lines.append(f"każda kolejna {_format_rate(n['rate'])}zł / h")
+            continue
+
         range_text = _format_period_range(
             n['period_from'], n['period_to'], count_unit, is_flat=is_flat
         )
