@@ -133,7 +133,7 @@
     <td class="info-col" style="vertical-align:top;padding-top:6px;">
       Przewidywany okres: {{ contract.date_from | datepl }}{% if contract.date_to %} - {{ contract.date_to | datepl }}{% endif %}<br>
       Termin przekazania: {{ contract.date_from | datepl }}<br>
-      {% if contract.prepayment_amount and contract.prepayment_amount > 0 %}Przedpłata: {{ contract.prepayment_amount | money }}<br>{% endif %}
+      {% if contract.prepayment_amount and contract.prepayment_amount > 0 %}Przedpłata: {{ contract.prepayment_amount | money }} brutto<br>{% endif %}
     </td>
   </tr>
   <tr>
