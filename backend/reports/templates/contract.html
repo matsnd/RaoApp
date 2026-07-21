@@ -161,21 +161,23 @@
     <tr>
       <td style="width:130px;">reprezentowany przez:</td>
       <td><div class="fill">{{ contract.contact_person1 or '' }}</div></td>
+      <td style="width:40px; text-align:right; padding-right:4px;">tel:</td>
+      <td style="width:140px;"><div class="fill"></div></td>
     </tr>
     {% endif %}
     {% if contract.show_person2 %}
     <tr>
       <td>osoba do kontaktu na budowie:</td>
       <td><div class="fill-wide">{{ contract.contact_person2 or '' }}</div></td>
+      <td style="width:40px; text-align:right; padding-right:4px;">tel:</td>
+      <td style="width:140px;"><div class="fill"></div></td>
     </tr>
     {% endif %}
     <tr>
       <td>email do przesłania faktury:</td>
       <td><div class="fill-wide">{{ contract.email or '' }}</div></td>
-    </tr>
-    <tr>
-      <td>telefon:</td>
-      <td><div class="fill-wide"></div></td>
+      <td></td>
+      <td></td>
     </tr>
   </table>
 </div>

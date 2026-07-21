@@ -54,6 +54,64 @@ migration_impact: no
 
 ---
 
+### P1-207: PDF umowy — tel obok "reprezentowany przez" i "osoba do kontaktu" (wymuszenie wpisu ręcznego)
+
+```yaml
+id: P1-207
+status: dev-verified
+priority: P1
+created: 2026-07-21
+source: client-request (uwagi 2026-07-21)
+component: backend/reports/templates/contract.html + contract_u.html
+migration_impact: no
+decisions:
+  layout: tel obok każdej osoby (w tym samym wierszu)
+  tel_source: NIE zaczytywane z DB — puste pole do wpisu ręcznego długopisem
+  formularz: bez zmian (ContactFormView nie dotykać)
+```
+
+**Opis:** W sekcji "uzupełnij" PDF umowy (S i U) pole "telefon:" było osobnym wierszem na dole z pustym polem — łatwe do pominięcia przez klienta. Klient chce żeby tel był jawny obok każdej osoby ("reprezentowany przez" i "osoba do kontaktu na budowie"), wymuszając wpis długopisem na wydruku.
+
+**Kontekst usera (2026-07-21):** "nie bo to bedzie wpisywane na wydruku i ma nie byc zaczytywane z bazy ! ogolnie te dane w umowach sa wpisywane dlugopisem przez klienta (chyba teraz tez tak jest przygotowane ?)"
+
+**Stan obecny (przed):**
+- Wiersz 1: `reprezentowany przez: [contact_person1 z DB]`
+- Wiersz 2: `osoba do kontaktu na budowie: [contact_person2 z DB]`
+- Wiersz 3: `email do przesłania faktury: [email z DB]`
+- Wiersz 4: `telefon: [PUSTE]` — osobny wiersz, łatwo pominąć
+
+**Po zmianie:**
+- Wiersz 1: `reprezentowany przez: [contact_person1 z DB]  tel: [PUSTE do wpisu]` — 4 kolumny
+- Wiersz 2: `osoba do kontaktu na budowie: [contact_person2 z DB]  tel: [PUSTE do wpisu]` — 4 kolumny
+- Wiersz 3: `email do przesłania faktury: [email z DB]` — bez zmian
+- Wiersz 4 (telefon): USUNIĘTY — tel teraz obok każdej osoby
+
+**UX (decyzja product-owner + ux-designer):**
+- Tel obok "reprezentowany przez" wymusza wpis — klient widzi "reprezentowany przez [imię] tel: ___" i naturalnie wpisuje tel w puste pole obok osoby
+- Tel obok "osoba do kontaktu na budowie" — to samo, dla osoby kontaktowej na budowie
+- Bez tekstu zmuszającego ("wymagane", "proszę wpisać") — sam layout wymusza
+- Tel NIE zaczytywane z DB — puste pole na PDF, klient wpisuje długopisem
+- Osoba (contact_person1/2) nadal zaczytywana z DB (jak jest w DB to się wyświetla, jak nie to puste)
+
+**Zadania:**
+1. `backend/reports/templates/contract.html` (linie 159-180) — 4 kolumny w wierszach "reprezentowany przez" i "osoba do kontaktu": label | imię (fill) | "tel:" (40px) | puste pole tel (140px, fill). Usunąć osobny wiersz "telefon:".
+2. `backend/reports/templates/contract_u.html` (linie 147-164) — to samo
+
+**Definition of Done:**
+- [x] PDF umowy S: "reprezentowany przez: [imię] tel: [puste]" w jednym wierszu
+- [x] PDF umowy S: "osoba do kontaktu na budowie: [imię] tel: [puste]" w jednym wierszu
+- [x] PDF umowy U: to samo
+- [x] Osobny wiersz "telefon:" na dole USUNIĘTY (tel teraz obok osób)
+- [x] Tel NIE zaczytywane z DB (puste pole do wpisu ręcznego)
+- [x] Osoba (contact_person1/2) nadal zaczytywana z DB (zachowanie obecne)
+- [x] Email bez zmian
+- [x] Brak zmian w formularzu frontend (ContactFormView) — dane ręczne na PDF
+- [x] Smoke `01-login.spec.ts` zielony (zmiana w template HTML)
+
+**Uwaga:** User zapytał "chyba teraz też tak jest przygotowane?" — odpowiedź: NIE, obecnie template zaczytywał `contact_person1/2` z DB (jeśli w DB była wartość to się wyświetlała na PDF). Tel był osobnym wierszem na dole. Po zmianie tel jest obok każdej osoby (puste pole do wpisu ręcznego), osoba nadal z DB. Jeśli user chce żeby osoba też była pusta (do wpisu ręcznego) — osobny task.
+
+---
+
 ### P1-206: Umowa U (usługa) — open-ended tier "każda kolejna x zł / h" zamiast "powyżej X godzin"
 
 ```yaml
