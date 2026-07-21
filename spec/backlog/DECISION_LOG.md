@@ -28,7 +28,7 @@
 
 ---
 
-## Sprint 2026-07-05 → (bieżący)
+## Sprint 2026-07-05 → 2026-07-21 (zamknięty)
 
 ### P0-001 — `/stats/currently-rented` 500 (Pydantic ValidationError)
 
@@ -270,6 +270,30 @@
 - `frontend/src/components/shared/ContractPeriodPicker.vue`: nowe props/emity, algorytmy `addWorkingDays` / `countWorkingDays`, tryb ręczny, podsumowanie.
 - `frontend/src/views/ContractFormView.vue`: `v-model:working-days-per-week="form.working_days_per_week"`, usunięcie zdublowanych przycisków z sekcji Opcje.
 **Status:** dev-verified (vue-tsc PASS, build PASS, Playwright UI PASS dla 26.06.2026 + 31 dni/6 dni -> 31.07.2026)
+
+---
+
+### Archiwizacja sprintu 2026-07-11 → 2026-07-21 (2026-07-21)
+
+**Data:** 2026-07-21
+**Status:** done
+**Decyzja:** Zamknięcie sprintu i wyczyszczenie backlogu przed dodaniem nowych uwag usera.
+**Uzasadnienie:** Aplikacja działa stabilnie na prod. User ma nowe uwagi — zamiast mieszać je ze starym backlogiem, wyczyściliśmy całość (31 tasków) do archiwum.
+**Zarchiwizowano (łącznie 31 tasków):**
+- P0 done: 6 (P0-001…P0-006)
+- REFACTOR-001 done: 1 (articles split)
+- P1 needs-repro/in_progress: 2 (P1-016 statystyki -300%/-7 — nie odtworzone od 2 tyg; P1-110 przebudowa statystyk — fazy 0-10 done, faza 11 audyt + E2E pozostały)
+- P1 dev-verified: 7 (P1-114, P1-115, P1-116, P1-117, P1-118, P1-119, P1-120) — user potwierdził: "archiwizuj najwyżej od nowa zrobie te zadania"
+- P1 team-verified: 12 (P1-121…P1-133)
+- P2 team-verified: 5 (P2-002…P2-006)
+**Plik archiwum:** `spec/backlog/archiwum/BACKLOG_SPRINT_20260711_20260721.md`
+**Następny sprint:** `BACKLOG.md` z pustym szkieletem, czeka na nowe uwagi usera.
+
+---
+
+## Sprint 2026-07-21 → (bieżący)
+
+*Oczekuje na nowe uwagi usera.*
 
 ---
 
