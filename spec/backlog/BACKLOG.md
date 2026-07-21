@@ -54,6 +54,33 @@ migration_impact: no
 
 ---
 
+### P1-203: Protokół S — usunąć tekst "poziom uzupełnienia zbiornika/naładowania"
+
+```yaml
+id: P1-203
+status: dev-verified
+priority: P1
+created: 2026-07-21
+source: client-request (uwagi 2026-07-21)
+component: backend/reports/templates/protocol_zo.html + protocol_zo_nodata.html
+migration_impact: no
+```
+
+**Opis:** W PDF protokołu S (z danymi i nodata) jest linia "poziom uzupełnienia zbiornika/naładowania: ......................................." — klient chce usunąć ten tekst, zostawić pustą linię żeby nie zakłócić porządku na formularzu.
+
+**Zadania:**
+1. `backend/reports/templates/protocol_zo.html:165` — usunąć tekst z `div.fuel-line`, zostawić pusty `&nbsp;` (zachować div dla layoutu)
+2. `backend/reports/templates/protocol_zo_nodata.html:131` — to samo
+
+**Definition of Done:**
+- [x] PDF protokołu S (z danymi) nie ma tekstu "poziom uzupełnienia zbiornika/naładowania"
+- [x] PDF protokołu S (nodata) nie ma tego tekstu
+- [x] Pusta linia zachowana (layout bez zmian — `div.fuel-line` z `&nbsp;`)
+- [x] Brak zmian w protokole U (nie miał tej linii)
+- [x] Smoke `01-login.spec.ts` zielony (zmiana w template HTML)
+
+---
+
 ### P1-202: Rozdzielenie `contracts.notes` na `notes_contract` + `notes_protocol`
 
 ```yaml
