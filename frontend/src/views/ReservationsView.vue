@@ -63,10 +63,11 @@ const calDateFrom = computed(() => {
   return start.toISOString().slice(0, 10)
 })
 const calDateTo = computed(() => {
-  const last = new Date(calYear.value, calMonth.value + 1, 0)
-  const dow = (last.getDay() + 6) % 7
-  const end = new Date(last)
-  end.setDate(last.getDate() + (6 - dow))
+  // Zawsze 6 tygodni (42 dni) od calDateFrom — stabilny rozmiar kalendarza,
+  // nie kurczy się gdy miesiąc ma 4/5 tygodni lub jest pusty (brak eventów).
+  const start = new Date(calDateFrom.value + 'T00:00:00')
+  const end = new Date(start)
+  end.setDate(start.getDate() + 41)
   return end.toISOString().slice(0, 10)
 })
 
