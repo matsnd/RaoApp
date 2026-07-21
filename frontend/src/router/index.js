@@ -112,6 +112,12 @@ const routes = [
         component: () => import('@/views/ReservationsView.vue'),
       },
       {
+        // P1-205 Faza 2: kalendarz dostaw z umów (S + U) + drill-down drawer
+        path: 'deliveries',
+        name: 'Deliveries',
+        component: () => import('@/views/DeliveriesView.vue'),
+      },
+      {
         path: 'contracts/new',
         name: 'ContractNew',
         component: () => import('@/views/ContractFormView.vue'),

@@ -15,6 +15,7 @@ graph TD
     B --> B3a["Sidebar: <b>Usługi</b><br/>/services (Faza 7 refaktor)"]
     B --> B3c["Sidebar: <b>Usługi dodatkowe</b><br/>/additional-services (Faza 7 refaktor)"]
     B --> B3b["Sidebar: <b>Rezerwacje</b><br/>/reservations (Phase 3)"]
+    B --> B3d["Sidebar: <b>Dostawy</b><br/>/deliveries (P1-205 Faza 2)"]
     B --> B7["Sidebar: <b>📊 Statystyki</b><br/>/analytics (merge Stats+Reports, RAO-P2-063)"]
     B --> B6["Sidebar: <b>📦 Archiwum</b><br/>/archive (RAO-P2-062)"]
     B --> B5["Sidebar: <b>Ustawienia</b><br/>/settings"]
@@ -61,6 +62,7 @@ graph TD
 | `FormA.cs` (usługi) | `/services/new` lub `/services/:id/edit` (Faza 7) | Pełna strona |
 | `FormA.cs` (usługi dodatk.) | `/additional-services/new` lub `/:id/edit` (Faza 7) | Pełna strona |
 | `ReservationsView` (Phase 3) | `/reservations` | Sidebar + content (kalendarz + lista + modal CRUD) |
+| `DeliveriesView` (P1-205 Faza 2) | `/deliveries` | Sidebar + content (kalendarz dostaw + panel dnia + drill-down) |
 | `Form2.cs` (Raporty tab) | `/analytics` (merge Stats+Reports, RAO-P2-063) | Sidebar + content |
 | `FormK.cs` | `/contractors/:id/edit` lub `/new` | Pełna strona (replace content) |
 | `FormU4.cs` | `/contracts/:id/edit` lub `/new` | Pełna strona (replace content) |
@@ -93,6 +95,7 @@ graph TD
 | `/additional-services/new` | `AdditionalServiceNew` | `AdditionalServiceFormView.vue` | tak | Nowa usługa dodatkowa (Faza 7) |
 | `/additional-services/:id/edit` | `AdditionalServiceEdit` | `AdditionalServiceFormView.vue` | tak | Edycja usługi dodatkowej (Faza 7) |
 | `/reservations` | `Reservations` | `ReservationsView.vue` | tak | Rezerwacje maszyn — kalendarz + lista + modal CRUD (Phase 3) |
+| `/deliveries` | `Deliveries` | `DeliveriesView.vue` | tak | Kalendarz dostaw z umów (S + U) + drill-down drawer (P1-205 Faza 2) |
 | `/contracts/new` | `ContractNew` | `ContractFormView.vue` | tak | Nowa umowa |
 | `/contracts/:id/edit` | `ContractEdit` | `ContractFormView.vue` | tak | Edycja umowy |
 | `/worker` | `Worker` | `WorkerView.vue` | tak | Pulpit operacyjny (kończące, dostawy) |
@@ -121,6 +124,18 @@ Widok `/reservations` — kalendarz month-view + lista + modal CRUD.
 - Klik na dniu kalendarza → modal dodawania rezerwacji z preustawioną datą.
 - Klik na kropce (event) → modal edycji (rezerwacja) lub info read-only (umowa).
 - Ctrl+N NIE otwiera formularza dla sekcji reservations (widok ma własny modal).
+
+### 3c. Dostawy (P1-205 Faza 2)
+Widok `/deliveries` — kalendarz dostaw z umów (S + U) + panel dnia + drill-down drawer.
+- Kalendarz month-view, zawsze 6 tygodni (42 dni) — stabilny rozmiar (fix cd37e5d).
+- Kropki w komórkach: S = niebieski (`--color-primary` #1D2B53), U = pomarańczowy (#E67E22).
+- Klik na dniu kalendarza → panel dnia z listą dostaw (numer umowy, maszyna, kontrahent, adres, handlowiec).
+- Klik na dostawę (kropka lub wiersz w panelu) → DrillDownDrawer z pełnymi danymi umowy (fetch `GET /contracts/{id}`).
+- Checkboxy w panelu dnia: "Dostawy S" / "Dostawy U" (filtrowanie listy i kropki).
+- Filtry: machine (SearchCombobox), contractor (ContractorCombobox), salesperson, type (S/U).
+- Eksport CSV (ExportCsvButton).
+- Context menu (prawy klik): WYŁĄCZONE (brak CRUD — dostawy powstają przez tworzenie umowy).
+- Stany: loading, error (retry), empty — kalendarz zawsze widoczny (lessons learned z reservations).
 
 ### 4. Toolbar [?]
 W sekcji Umowy: otwiera podgląd szczegółów zaznaczonej umowy (dialog z danymi).

@@ -80,6 +80,7 @@ const topItems = [
   { section: 'services', label: 'Usługi' },
   { section: 'additional-services', label: 'Usługi dodatkowe' },
   { section: 'reservations', label: 'Rezerwacje' },
+  { section: 'deliveries', label: 'Dostawy' },
 ]
 
 function handleLogout() {

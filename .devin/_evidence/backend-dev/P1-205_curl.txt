@@ -1,0 +1,66 @@
+=== HEALTH ===
+{"status":"ok","version":"1.0.0"}
+
+=== CALENDAR 2026 (first 3) ===
+Count: 102
+[
+  {
+    "source": "contract",
+    "source_id": 41,
+    "contract_number": "S041/2026",
+    "contract_type": "S",
+    "machine_id": 14,
+    "machine_name": "Podno┼Ťnik teleskopowy spalinowy 22m Haulotte HA20PX",
+    "internal_number": "POD-007",
+    "contractor_id": 14441,
+    "contractor_name": "Bud-Plus Sp. z o.o.",
+    "delivery_date": "2026-01-01",
+    "delivery_address": "ul. Piotrkowska 200, 90-002 ┼ü├│d┼║",
+    "city": "┼ü├│d┼║",
+    "salesperson_id": 15,
+    "salesperson_name": "Mateusz Wiatrak"
+  },
+  {
+    "source": "contract",
+    "source_id": 59,
+    "contract_number": "S059/2026G",
+    "contract_type": "S",
+    "machine_id": 5,
+    "machine_name": "┼üadowarka teleskopowa obrotowa 14m Manuscop 14.36",
+    "internal_number": "LAD-005",
+    "contractor_id": 14443,
+    "contractor_name": "Terra-Masz Budownictwo",
+    "delivery_date": "2026-01-02",
+    "delivery_address": "ul. Gda┼äska 15, 70-001 Szczecin",
+    "city": "Szczecin",
+    "salesperson_id": 15,
+    "salesperson_name": "Mateusz Wiatrak"
+  },
+  {
+    "source": "contract",
+    "source_id": 77,
+    "contract_number": "S077/2026G",
+    "contract_type": "S",
+    "machine_id": 23,
+    "machine_name": "┼üy┼╝ka obj─Öto┼Ťciowa 1.5m┬│",
+    "internal_number": "AKC-003",
+    "contractor_id": 14445,
+    "contractor_name": "Fundament Sp. z o.o.",
+    "delivery_date": "2026-01-03",
+    "delivery_address": "ul. Piotrkowska 200, 90-002 ┼ü├│d┼║",
+    "city": "┼ü├│d┼║",
+    "salesperson_id": 15,
+    "salesperson_name": "Mateusz Wiatrak"
+  }
+]
+
+=== ALL YEARS COUNTS ===
+Total: 142 | S: 107 | U: 35 | with_machine: 102 | no_machine: 40
+
+=== FILTERS ===
+machine_id=14: 1
+contractor_id=14441: 15
+
+=== HTTP CODES ===
+401 no token: 401
+422 missing dates: 422

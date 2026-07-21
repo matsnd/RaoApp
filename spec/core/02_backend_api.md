@@ -2473,3 +2473,22 @@ npm install vue-draggable-plus @vuepic/vue-datepicker
 ### `DELETE /reservations/{reservation_id}`
 **Opis:** Usunięcie rezerwacji (wymaga admin).
 **HTTP:** 204 | 401 | 403 | 404
+
+## Deliveries API (P1-205 Faza 1, 2026-07-21)
+
+Read-only kalendarz dostaw. Źródło: umowy (`contracts`) — brak osobnej tabeli `deliveries`
+dla tego endpointu. `Contract.date_from` = data dostawy/przekazania maszyny.
+Umowy typu S (najem) i U (usługa) traktowane jako dostawy (mają `date_from` + `delivery_address`).
+
+### `GET /deliveries/calendar` (NOWY P1-205)
+**Opis:** Zwraca dostawy (z umów) z `date_from` w zakresie [date_from, date_to]. Read-only.
+**Query:** `date_from` (req, YYYY-MM-DD), `date_to` (req, YYYY-MM-DD), `machine_id` (opt), `contractor_id` (opt)
+**Response:** `list[DeliveryCalendarEvent]` (`{source: 'contract', source_id, contract_number, contract_type: 'S'|'U', machine_id?, machine_name?, internal_number?, contractor_id, contractor_name, delivery_date, delivery_address?, city?, salesperson_id?, salesperson_name?}`)
+**Logika:**
+- `WHERE contracts.date_from IS NOT NULL AND date_from BETWEEN :date_from AND :date_to`
+- JOIN contractors (nazwa), LEFT JOIN salespeople (handlowiec)
+- LEFT JOIN pierwszej pozycji umowy z `machine_id` (min position id) + machines (nazwa maszyny) — NULL dla umów U bez machine
+- Filtr `machine_id` → EXISTS po `contract_positions.machine_id`
+- Filtr `contractor_id` → `contracts.contractor_id`
+- Sort po `delivery_date` (date_from)
+**HTTP:** 200 | 401 | 422 (brak wymaganych query params)

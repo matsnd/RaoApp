@@ -221,6 +221,12 @@ const routes = [
         props: true
       },
       {
+        // P1-205 Faza 2: kalendarz dostaw z umów (S + U) + drill-down drawer
+        path: 'deliveries',
+        name: 'Deliveries',
+        component: () => import('@/views/DeliveriesView.vue')
+      },
+      {
         path: 'settings',
         name: 'Settings',
         component: () => import('@/views/SettingsView.vue')
@@ -299,6 +305,8 @@ const menuItems = [
   { section: 'machines', label: 'Maszyny' },
   // { section: 'services', label: 'Usługi' },          // TODO: dodać link w sidebar
   // { section: 'additional-services', label: 'Usługi dodatkowe' }, // TODO: dodać link w sidebar
+  { section: 'reservations', label: 'Rezerwacje' },     // Phase 3
+  { section: 'deliveries', label: 'Dostawy' },           // P1-205 Faza 2
 ]
 defineProps({ activeSection: String })
 defineEmits(['navigate'])
@@ -2696,4 +2704,37 @@ onUnmounted(() => {
 ### Weryfikacja (Phase 3)
 - `npx vue-tsc --noEmit` → PASS (exit 0, strict + noUnusedLocals/Parameters)
 - `npm run build` → PASS (chunk `ReservationsView-*.js` ~221 kB / ~65.9 kB gzip; CSS `ReservationsView-*.css` ~33.7 kB / ~6.0 kB gzip)
+
+---
+
+## Widok: `DeliveriesView.vue` (P1-205 Faza 2)
+
+Kalendarz dostaw z umów (S = najem + U = usługa) + panel dnia + drill-down drawer z pełnymi danymi umowy.
+
+### Architektura
+- **Store:** `stores/deliveries.ts` — Pinia store (mirror `reservations.ts`).
+  - Interfejs `DeliveryCalendarEvent`: `source: 'contract'`, `source_id` (contract_id), `contract_number`, `contract_type: 'S' | 'U'`, `machine_id`, `machine_name`, `internal_number`, `contractor_id`, `contractor_name`, `delivery_date` (ISO), `delivery_address`, `city`, `salesperson_id`, `salesperson_name`.
+  - Refs: `calendarEvents: ref<DeliveryCalendarEvent[]>([])`, `loading: ref(false)`, `error: ref<string | null>(null)`.
+  - Metoda `fetchCalendar(dateFrom, dateTo, machineId?, contractorId?)` → GET `/deliveries/calendar`.
+  - Metoda `reset()` — czyści stan.
+- **View:** `views/DeliveriesView.vue` — `<script setup lang="ts">`, Composition API.
+  - Kalendarz month-view, **zawsze 6 tygodni (42 dni)** — stabilny rozmiar (fix cd37e5d).
+  - Panel dnia po prawej (lista dostaw: numer umowy, maszyna, kontrahent, adres, handlowiec).
+  - Kropki: S = niebieski (`--color-primary` #1D2B53), U = pomarańczowy (#E67E22).
+  - Tooltip na hover (numer umowy, maszyna, kontrahent, adres, data).
+  - Filtry: machine (SearchCombobox), contractor (ContractorCombobox), salesperson, type (S/U select).
+  - Checkboxy w panelu dnia: "Dostawy S" / "Dostawy U" (filtrowanie listy i kropki).
+  - Klik na dostawę → DrillDownDrawer z pełnymi danymi umowy (fetch `GET /contracts/{id}` — reuse contracts store).
+  - Eksport CSV (ExportCsvButton reuse).
+  - Stany: loading, error (retry), empty — **kalendarz zawsze widoczny** (lessons learned z reservations).
+  - **Context menu (prawy klik): WYŁĄCZONE** (brak CRUD — dostawy powstają przez tworzenie umowy).
+  - **Brak "Dodaj dostawę"** — dostawy powstają automatycznie przy tworzeniu umowy.
+
+### Routing / nawigacja (P1-205 Faza 2)
+- `router/index.js`: dodany route `path: 'deliveries'`, `name: 'Deliveries'`, lazy import `DeliveriesView.vue` (w children array po reservations).
+- `components/layout/AppLayout.vue`: `activeSection` rozpoznaje `/deliveries`; `handleNavigate('deliveries')` → `router.push('/deliveries')`.
+- `components/layout/AppSidebar.vue`: `topItems` dodany `{ section: 'deliveries', label: 'Dostawy' }` (po reservations).
+
+### data-testid
+- `deliveries-view`, `dv-filter-machine`, `dv-filter-salesperson`, `dv-filter-contractor`, `dv-filter-type`, `dv-calendar`, `dv-cal-prev/next/today`, `dv-cal-cell`, `dv-day-panel`, `dv-day-event`, `dv-day-show-more`, `export-csv-btn`, `drill-overlay`, `drill-drawer`, `drill-close`, `drill-loading`, `drill-error`.
 

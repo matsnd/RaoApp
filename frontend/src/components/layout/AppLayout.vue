@@ -25,6 +25,7 @@ const activeSection = computed(() => {
   if (route.path.startsWith('/additional-services')) return 'additional-services'
   if (route.path.startsWith('/articles')) return 'machines'  // backward compat
   if (route.path.startsWith('/reservations')) return 'reservations'
+  if (route.path.startsWith('/deliveries')) return 'deliveries'
   if (route.path.startsWith('/worker')) return 'worker'
   if (route.path.startsWith('/analytics')) return 'analytics'
   if (route.path.startsWith('/commissions')) return 'commissions'
@@ -82,6 +83,8 @@ function handleNavigate(section) {
     router.push('/commissions')
   } else if (section === 'reservations') {
     router.push('/reservations')
+  } else if (section === 'deliveries') {
+    router.push('/deliveries')
   } else if (section === 'machines') {
     router.push('/machines')
   } else if (section === 'services') {

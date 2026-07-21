@@ -23,6 +23,7 @@ from integrations.fakturownia.router import router as fakturownia_router
 from stats.router import router as stats_router
 from explorer.router import router as explorer_router
 from reservations.router import router as reservations_router  # RAO-P1-015
+from deliveries.router import router as deliveries_router  # P1-205
 from archive.router import router as archive_router  # RAO-P2-062 Faza 1
 from database import engine, Base
 import auth.models  # Auth tables
@@ -1238,6 +1239,7 @@ app.include_router(fakturownia_router)
 app.include_router(stats_router)
 app.include_router(explorer_router)
 app.include_router(reservations_router)  # RAO-P1-015
+app.include_router(deliveries_router)  # P1-205
 app.include_router(archive_router)  # RAO-P2-062 Faza 1
 
 # RAO-P3-002: serwowanie statycznych plików (loga firmy itp.)
