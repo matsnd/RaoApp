@@ -65,6 +65,7 @@ async def get_contract(
     user: User = Depends(get_current_user),
 ):
     c = await contract_service.verify_contract_access(db, contract_id, user)
+    await contract_service.enrich_detail(db, c)
     detail = ContractDetail.model_validate(c)
     detail.suggested_preset = await contract_service.suggest_preset(db, c.id)
     return detail
@@ -77,6 +78,7 @@ async def create_contract(
     user: User = Depends(get_current_user),
 ):
     c = await contract_service.create_contract(db, data, user)
+    await contract_service.enrich_detail(db, c)
     detail = ContractDetail.model_validate(c)
     detail.suggested_preset = await contract_service.suggest_preset(db, c.id)
     return detail
@@ -90,6 +92,7 @@ async def update_contract(
     user: User = Depends(get_current_user),
 ):
     c = await contract_service.update_contract(db, contract_id, data, user)
+    await contract_service.enrich_detail(db, c)
     return ContractDetail.model_validate(c)
 
 
@@ -102,6 +105,7 @@ async def settle_contract(
 ):
     """RAO-P2-022: oznacz umowę jako rozliczoną lub cofnij rozliczenie."""
     c = await contract_service.settle_contract(db, contract_id, data.is_settled, user)
+    await contract_service.enrich_detail(db, c)
     return ContractDetail.model_validate(c)
 
 

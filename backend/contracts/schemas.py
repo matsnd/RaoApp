@@ -251,6 +251,7 @@ class ContractDetail(BaseModel):
     contractor_name: str | None
     branch_id: int | None
     salesperson_id: int | None
+    salesperson_name: str | None = None  # P1-205: JOIN salespeople (drawer Dostawy)
     number: str
     auto_number: int | None
     oid: str | None = None  # RAO-P2-058: Fakturownia order ID (hybrydowe: oid or number)

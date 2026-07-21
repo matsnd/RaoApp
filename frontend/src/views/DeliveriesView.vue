@@ -582,7 +582,7 @@ onMounted(async () => {
             </div>
             <div class="dv-drawer-field">
               <span class="dv-drawer-label">Handlowiec</span>
-              <span class="dv-drawer-value">{{ drawerContract.salesperson_id ?? '—' }}</span>
+              <span class="dv-drawer-value">{{ drawerContract.salesperson_name ?? drawerContract.salesperson_id ?? '—' }}</span>
             </div>
             <div class="dv-drawer-field">
               <span class="dv-drawer-label">Data od</span>

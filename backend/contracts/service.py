@@ -800,6 +800,29 @@ class ContractService:
             raise not_found("Umowa")
         return contract
 
+    async def enrich_detail(self, db: AsyncSession, contract: Contract) -> None:
+        """P1-205: Wypełnij contractor_name (gdy null) i salesperson_name na obiekcie Contract.
+
+        Pre-existing bug: get_contract zwraca surowy model; contractor_name to kolumna
+        denormalizowana (nullable). Gdy null, JOIN contractors.name. Dodatkowo
+        salesperson_name nie istnieje w modelu — ustawiamy jako atrybut dynamiczny
+        dla ContractDetail.model_validate.
+        """
+        if not (contract.contractor_name or "") and contract.contractor_id:
+            from contractors.models import Contractor
+            ct = await db.get(Contractor, contract.contractor_id)
+            if ct:
+                contract.contractor_name = ct.name
+        if contract.salesperson_id:
+            from settings.models import Salesperson
+            sp = await db.get(Salesperson, contract.salesperson_id)
+            if sp:
+                setattr(contract, "salesperson_name", sp.name)
+            else:
+                setattr(contract, "salesperson_name", None)
+        else:
+            setattr(contract, "salesperson_name", None)
+
     async def apply_rate_preset_to_position(
         self,
         db: AsyncSession,
