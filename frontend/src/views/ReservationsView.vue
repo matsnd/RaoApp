@@ -55,12 +55,21 @@ const monthLabel = computed(() => {
 })
 
 // Zakres dat kalendarza (pierwszy widoczny dzień → ostatni widoczny dzień)
+// Fix timezone: toISOString() konwertuje do UTC, co przesuwa datę o offset strefy
+// (PL latem UTC+2 → 29 czerwca 00:00 lokalnie = 28 czerwca 22:00 UTC).
+// Używamy lokalnego formatowania YYYY-MM-DD zamiast toISOString().slice(0,10).
+const toISODate = (d: Date): string => {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
 const calDateFrom = computed(() => {
   const first = new Date(calYear.value, calMonth.value, 1)
   const dow = (first.getDay() + 6) % 7 // Poniedziałek = 0
   const start = new Date(first)
   start.setDate(first.getDate() - dow)
-  return start.toISOString().slice(0, 10)
+  return toISODate(start)
 })
 const calDateTo = computed(() => {
   // Zawsze 6 tygodni (42 dni) od calDateFrom — stabilny rozmiar kalendarza,
@@ -68,7 +77,7 @@ const calDateTo = computed(() => {
   const start = new Date(calDateFrom.value + 'T00:00:00')
   const end = new Date(start)
   end.setDate(start.getDate() + 41)
-  return end.toISOString().slice(0, 10)
+  return toISODate(end)
 })
 
 interface CalCell {
@@ -85,10 +94,10 @@ const calendarCells = computed<CalCell[]>(() => {
   const cells: CalCell[] = []
   const start = new Date(calDateFrom.value + 'T00:00:00')
   const end = new Date(calDateTo.value + 'T00:00:00')
-  const todayStr = new Date().toISOString().slice(0, 10)
+  const todayStr = toISODate(new Date())
   const events = filteredCalendarEvents.value
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    const iso = d.toISOString().slice(0, 10)
+    const iso = toISODate(d)
     cells.push({
       date: iso,
       dayNum: d.getDate(),
@@ -276,7 +285,7 @@ const formValid = computed(() => {
 })
 
 function openCreate(presetDate?: string) {
-  const today = presetDate || new Date().toISOString().slice(0, 10)
+  const today = presetDate || toISODate(new Date())
   modal.value = {
     open: true,
     mode: 'create',
@@ -450,7 +459,7 @@ onMounted(async () => {
   await loadMachines()
   await refreshData()
   // Domyślnie zaznacz dzisiaj (jakby użytkownik kliknął)
-  selectedDay.value = new Date().toISOString().slice(0, 10)
+  selectedDay.value = toISODate(new Date())
 })
 </script>
 
