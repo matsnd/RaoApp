@@ -383,7 +383,9 @@ CREATE TABLE contracts (
     prepayment_amount   DECIMAL(18,2) NULL DEFAULT 0.00,
     prepayment_document VARCHAR(200) NULL,
     -- RAO-P1-103: invoice_amount + invoice_document usunięte (kwoty faktur z Fakturowni)
-    notes               TEXT         NULL,
+    -- RAO-P1-202 Faza 1: notes rozdzielone na notes_contract (PDF umowy) + notes_protocol (PDF protokołów)
+    notes_contract      TEXT         NULL COMMENT 'RAO-P1-202: Uwagi operatora wyświetlane na PDF umowy',
+    notes_protocol      TEXT         NULL COMMENT 'RAO-P1-202: Uwagi wyświetlane na PDF protokołów',
     -- UWAGA: Usługi dodatkowe w tabeli contract_service_fees (relacyjnie)
     -- Osoby kontaktowe (snapshot z momentu umowy) - tekst w PDF: "reprezentowany przez" i "osoba kontaktowa"
     contact_person1     VARCHAR(100) NULL COMMENT 'Reprezentowany przez (imię i nazwisko)',
@@ -1069,7 +1071,7 @@ SELECT
     c.delivery_address AS adres,
     c.date_from AS poczatek,
     c.date_to AS koniec,
-    c.notes AS uwagi,
+    c.notes_protocol AS uwagi,
     c.total_value AS wartosc,
     c.prepayment_amount AS przedplata_kwota,
     c.prepayment_document AS przedplata_dokument,

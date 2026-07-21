@@ -331,7 +331,7 @@ async def step4_migrate_data():
                  number, auto_number, contract_type,
                  delivery_address, date_from, date_to,
                  prepayment_amount, prepayment_document,
-                 notes, contact_person1, contact_phone1, show_person1,
+                 notes_protocol, contact_person1, contact_phone1, show_person1,
                  contact_person2, contact_phone2, show_person2,
                  email, phone, contractor_name,
                  print_path, print_date, report_without_data,

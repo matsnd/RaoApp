@@ -1,0 +1,28 @@
+Idempotencja — 2x restart startup_migrations (RAO-P1-202 Faza 1)
+=================================================================
+Metoda: python _run_migration.py (wywołuje main.startup_migrations)
+
+=== RUN 1 (pierwszy restart — wykonuje ADD + BACKFILL + DROP) ===
+[WARNING] Faza 8: cannot MODIFY article_id to nullable: (pymysql.err.OperationalError) (1054, "Unknown column 'article_id' in 'contract_positions'")
+  [SQL: ALTER TABLE contract_positions MODIFY COLUMN article_id INT NULL]
+  (Background on this error at: https://sqlalche.me/e/20/e3q8)
+MIGRATION_OK
+Exit code: 0
+
+=== RUN 2 (drugi restart — idempotencja: ADD IF NOT EXISTS no-op, notes nie istnieje → skip BACKFILL/DROP) ===
+[WARNING] Faza 8: cannot MODIFY article_id to nullable: (pymysql.err.OperationalError) (1054, "Unknown column 'article_id' in 'contract_positions'")
+  [SQL: ALTER TABLE contract_positions MODIFY COLUMN article_id INT NULL]
+  (Background on this error at: https://sqlalche.me/e/20/e3q8)
+MIGRATION_OK
+Exit code: 0
+
+WNIOSKI:
+- Oba restarty zakończone MIGRATION_OK (exit 0), brak błędu duplikatu kolumny.
+- Ostrzeżenie "Faza 8: cannot MODIFY article_id" to PRE-EXISTING try/except (niezwiązane z RAO-P1-202) — article_id już nie istnieje w contract_positions, stąd 1054; obsługiwane gracefully.
+- Idempotencja POTWIERDZONA: drugi restart nie rzucił "Duplicate column" ani błędu DROP nieistniejącej kolumny (information_schema check zwraca 0 → skip).
+
+BACKFILL weryfikacja (count przed/po):
+- PRZED: contracts.notes wypełnione = 6 (z 142 rekordów)
+- PO:    contracts.notes_protocol wypełnione = 6, notes_contract = 0
+  → dane skopiowane 1:1 ze starego notes → notes_protocol (uwagi protokołowe).
+  → notes_contract = NULL dla wszystkich (w starej aplikacji nie było osobnych uwag umowy) — zgodnie z założeniem.

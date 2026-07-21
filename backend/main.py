@@ -598,6 +598,31 @@ async def startup_migrations():
             "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
             "print_hash VARCHAR(64) NULL"
         ))
+        # RAO-P1-202 Faza 1: rozdzielenie contracts.notes → notes_contract + notes_protocol
+        # notes_contract: uwagi operatora na PDF umowy (nowe, puste)
+        # notes_protocol: uwagi na PDF protokołów (backfill ze starego notes — tam były renderowane)
+        await conn.execute(sa.text(
+            "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
+            "notes_contract TEXT NULL COMMENT 'RAO-P1-202: Uwagi operatora wyświetlane na PDF umowy'"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
+            "notes_protocol TEXT NULL COMMENT 'RAO-P1-202: Uwagi wyświetlane na PDF protokołów'"
+        ))
+        # BACKFILL + DROP starej kolumny notes (jawna zgoda użytkownika na DROP, 2026-07-21).
+        # Idempotentne: sprawdzamy information_schema przed BACKFILL/DROP (MariaDB <10.6 nie ma DROP IF EXISTS).
+        old_notes = await conn.execute(sa.text(
+            "SELECT COUNT(*) FROM information_schema.COLUMNS "
+            "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='contracts' AND COLUMN_NAME='notes'"
+        ))
+        if old_notes.scalar_one() > 0:
+            await conn.execute(sa.text(
+                "UPDATE contracts SET notes_protocol = notes "
+                "WHERE notes IS NOT NULL AND notes <> '' AND notes_protocol IS NULL"
+            ))
+            await conn.execute(sa.text(
+                "ALTER TABLE contracts DROP COLUMN notes"
+            ))
         await conn.execute(sa.text(
             "CREATE INDEX IF NOT EXISTS idx_contracts_delivery_date ON contracts(date_to)"
         ))

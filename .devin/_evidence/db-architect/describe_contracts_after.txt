@@ -1,0 +1,50 @@
+DESCRIBE contracts (po migracji RAO-P1-202 Faza 1)
+====================================================
+Field | Type | Null | Key | Default | Extra
+id | int(11) | NO | PRI | None | auto_increment
+contractor_id | int(11) | NO | MUL | None |
+branch_id | int(11) | YES | MUL | None |
+salesperson_id | int(11) | YES | MUL | None |
+number | varchar(40) | NO | UNI | None |
+oid | varchar(40) | YES |  | None |
+auto_number | int(11) | YES |  | None |
+contract_type | varchar(1) | NO |  | None |
+delivery_address | text | YES |  | None |
+postal_code | varchar(20) | YES | MUL | None |
+city | varchar(100) | YES | MUL | None |
+postal_code_id | int(11) | YES | MUL | None |
+latitude | decimal(10,8) | YES |  | None |
+longitude | decimal(11,8) | YES |  | None |
+date_from | date | YES |  | None |
+date_to | date | YES | MUL | None |
+prepayment_amount | decimal(18,2) | YES |  | None |
+prepayment_document | varchar(200) | YES |  | None |
+contact_person1 | varchar(100) | YES |  | None |
+contact_phone1 | varchar(100) | YES |  | None |
+show_person1 | tinyint(1) | NO |  | None |
+contact_person2 | varchar(100) | YES |  | None |
+contact_phone2 | varchar(100) | YES |  | None |
+show_person2 | tinyint(1) | NO |  | None |
+email | varchar(100) | YES |  | None |
+phone | varchar(40) | YES |  | None |
+contractor_name | varchar(200) | YES |  | None |
+print_path | varchar(100) | YES |  | None |
+print_date | datetime | YES | MUL | None |
+report_without_data | tinyint(1) | NO |  | None |
+hide_delivery_address | tinyint(1) | NO |  | None |
+signatures_on_page1 | tinyint(1) | NO |  | None |
+working_days_per_week | int(11) | YES |  | None |
+position_count | int(11) | YES |  | None |
+is_settled | tinyint(1) | NO | MUL | None |
+settled_at | datetime | YES |  | None |
+created_at | datetime | NO | MUL | None |
+updated_at | datetime | YES |  | None |
+print_hash | varchar(64) | YES |  | None |
+notes_contract | text | YES |  | None |   <-- NOWA (RAO-P1-202)
+notes_protocol | text | YES |  | None |   <-- NOWA (RAO-P1-202, backfill ze starego notes)
+
+WERYFIKACJA:
+- Stara kolumna `notes` USUNIĘTA (brak w DESCRIBE) — DROP wykonany.
+- notes_contract: TEXT, nullable — OK
+- notes_protocol: TEXT, nullable — OK
+- collation tabeli: utf8mb4_polish_ci (zachowane)
