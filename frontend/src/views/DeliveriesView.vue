@@ -236,10 +236,28 @@ async function openDelivery(event: DeliveryCalendarEvent) {
   try {
     const data = await contractStore.fetchOne(event.source_id) as Record<string, unknown>
     drawerContract.value = data
-    // Pobierz pozycje umowy (jeśli endpoint dostępny)
+    // Pobierz pozycje umowy + wzbogać o dane maszyny (replacement_value, internal_number)
     try {
       const positions = await contractStore.fetchPositions(event.source_id) as Record<string, unknown>[]
-      drawerPositions.value = positions ?? []
+      // Pobierz dane maszyn równolegle (replacement_value, internal_number) — jak w PDF
+      const enriched = await Promise.all((positions ?? []).map(async (pos) => {
+        const machineId = pos.machine_id as number | null
+        if (machineId) {
+          try {
+            const machine = await articleStore.fetchOne(machineId) as Record<string, unknown>
+            return {
+              ...pos,
+              machine_name: pos.article_name ?? machine?.name ?? null,
+              internal_number: machine?.internal_number ?? null,
+              replacement_value: machine?.replacement_value ?? null,
+            }
+          } catch {
+            return { ...pos, machine_name: pos.article_name ?? null }
+          }
+        }
+        return { ...pos, machine_name: pos.article_name ?? pos.service_name ?? null }
+      }))
+      drawerPositions.value = enriched
     } catch {
       drawerPositions.value = []
     }
@@ -326,6 +344,51 @@ const csvRows = computed(() =>
 // ── Helpery do drill-down ─────────────────────────────────────────────────────
 function contractTypeLabel(t: unknown): string {
   return t === 'U' ? 'Usługa' : 'Najem'
+}
+
+// Format warunku jak w PDF umowy: "1 - 3 dni - 1560,00 zł / doba", "powyżej 16 dni - 1040,00 zł / doba"
+function formatCondition(cond: Record<string, unknown>): string {
+  const from = cond.period_from as number | null
+  const to = cond.period_to as number | null
+  const rate1 = cond.rate1 as string | number | null
+  const rate2 = cond.rate2 as string | number | null
+  const unit = cond.billing_label ?? cond.rate_type_name ?? 'doba'
+  const rate = rate1 ?? rate2
+  // Przedział: "1 - 3 dni" lub "powyżej 16 dni" (gdy to=null, from=17)
+  let range: string
+  if (to === null || to === undefined) {
+    range = `powyżej ${(from ?? 0) - 1} dni`
+  } else {
+    range = `${from} - ${to} dni`
+  }
+  return `${range} - ${formatCurrency(rate as number | string)} / ${unit}`
+}
+
+// Format kwoty z separatorem tysięcy (jak w PDF umowy — "950 000,00 zł")
+function formatCurrencyGrouped(value: number | string | null | undefined): string {
+  if (value === null || value === undefined || value === '') return '—'
+  const n = typeof value === 'string' ? parseFloat(value) : value
+  if (!Number.isFinite(n)) return '—'
+  return new Intl.NumberFormat('pl-PL', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(n) + '\u00A0zł'
+}
+
+// Tooltip z pełnym opisem warunków pozycji (jak w PDF)
+function positionTooltip(pos: Record<string, unknown>): string {
+  const name = pos.machine_name ?? pos.article_name ?? 'Pozycja'
+  const days = pos.rental_days as number | null
+  const replacement = pos.replacement_value as string | number | null
+  const conditions = (pos.conditions as Record<string, unknown>[]) ?? []
+  const lines = [name]
+  if (days) lines.push(`Przewidywana ilość dni: ${days}`)
+  if (replacement) lines.push(`Wartość odtworzeniowa: ${formatCurrencyGrouped(replacement as number | string)}`)
+  if (conditions.length) {
+    lines.push('Rozliczenie:')
+    for (const c of conditions) lines.push('  • ' + formatCondition(c))
+  }
+  return lines.join('\n')
 }
 
 function drawerPositionsTotal(): string {
@@ -682,31 +745,36 @@ onMounted(async () => {
           </div>
         </div>
 
-        <!-- Sekcja: Pozycje umowy -->
+        <!-- Sekcja: Pozycje umowy — tabelka jak w PDF (Przedmiot | Dni | Wartość odtw. | Rozliczenie) -->
         <div v-if="drawerPositions.length" class="dv-drawer-section">
           <h4>Pozycje umowy ({{ drawerPositions.length }})</h4>
-          <div class="dv-drawer-positions">
+          <div class="dv-drawer-positions-table" :title="''">
+            <div class="dv-drawer-pos-row dv-drawer-pos-header">
+              <span>Przedmiot najmu</span>
+              <span>Dni</span>
+              <span>Wartość odtw.</span>
+              <span>Rozliczenie</span>
+            </div>
             <div
               v-for="(pos, i) in drawerPositions"
               :key="i"
-              class="dv-drawer-position"
+              class="dv-drawer-pos-row"
+              :title="positionTooltip(pos)"
             >
-              <div class="dv-drawer-position-header">
-                <strong>{{ pos.machine_name ?? pos.service_name ?? 'Pozycja' }}</strong>
-                <span v-if="pos.internal_number"> ({{ pos.internal_number }})</span>
-                <span class="dv-drawer-position-days" v-if="pos.rental_days">{{ pos.rental_days }} dni</span>
-              </div>
-              <div v-if="pos.conditions && (pos.conditions as Record<string, unknown>[]).length" class="dv-drawer-conditions">
+              <span class="dv-drawer-pos-name">
+                <strong>{{ pos.machine_name ?? pos.article_name ?? pos.service_name ?? 'Pozycja' }}</strong>
+                <small v-if="pos.internal_number">{{ pos.internal_number }}</small>
+              </span>
+              <span>{{ pos.rental_days ?? '—' }}</span>
+              <span>{{ pos.replacement_value ? formatCurrencyGrouped(pos.replacement_value as number | string) : '—' }}</span>
+              <span class="dv-drawer-pos-rates">
                 <div
-                  v-for="(cond, ci) in (pos.conditions as Record<string, unknown>[])"
+                  v-for="(cond, ci) in ((pos.conditions as Record<string, unknown>[]) ?? [])"
                   :key="ci"
-                  class="dv-drawer-condition"
-                >
-                  <span>{{ cond.billing_label ?? cond.rate_type_name ?? 'Warunek' }}</span>
-                  <span>{{ formatCurrency(cond.rate1 as number | string) }}<template v-if="cond.rate2"> / {{ formatCurrency(cond.rate2 as number | string) }}</template></span>
-                  <span v-if="cond.period_count">{{ cond.period_count }} × {{ cond.period_from }}–{{ cond.period_to }}</span>
-                </div>
-              </div>
+                  class="dv-drawer-pos-rate"
+                >{{ formatCondition(cond) }}</div>
+                <div v-if="!((pos.conditions as Record<string, unknown>[]) ?? []).length" class="dv-drawer-pos-rate-empty">—</div>
+              </span>
             </div>
           </div>
         </div>
@@ -1128,46 +1196,66 @@ onMounted(async () => {
   margin-top: var(--spacing-1);
 }
 
-/* Pozycje umowy */
-.dv-drawer-positions {
+/* Pozycje umowy — tabelka jak w PDF */
+.dv-drawer-positions-table {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-3);
+  gap: 1px;
+  background: var(--color-border);
+  border-radius: var(--border-radius);
+  overflow: hidden;
 }
-.dv-drawer-position {
-  background: var(--color-bg-light);
-  border-radius: var(--border-radius-sm);
-  padding: var(--spacing-3);
-}
-.dv-drawer-position-header {
-  display: flex;
-  align-items: center;
+.dv-drawer-pos-row {
+  display: grid;
+  grid-template-columns: 2fr 0.5fr 1fr 2fr;
   gap: var(--spacing-2);
-  flex-wrap: wrap;
-  font-size: var(--font-size-sm);
-  margin-bottom: var(--spacing-2);
-}
-.dv-drawer-position-days {
-  margin-left: auto;
+  padding: var(--spacing-2) var(--spacing-3);
+  background: var(--color-bg-white);
   font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
+  align-items: start;
+  border-bottom: 1px solid var(--color-border);
 }
-.dv-drawer-conditions {
+.dv-drawer-pos-row:nth-child(even):not(.dv-drawer-pos-header) {
+  background: var(--color-bg-light);
+}
+.dv-drawer-pos-row:hover:not(.dv-drawer-pos-header) {
+  background: var(--color-bg-light);
+}
+.dv-drawer-pos-header {
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  border-bottom: none;
+}
+.dv-drawer-pos-name {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-1);
+  gap: 2px;
 }
-.dv-drawer-condition {
-  display: flex;
-  gap: var(--spacing-3);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  padding: var(--spacing-1) 0;
-  border-top: 1px solid var(--color-border);
-}
-.dv-drawer-condition span:first-child {
-  flex: 1;
+.dv-drawer-pos-name strong {
+  font-size: var(--font-size-sm);
   color: var(--color-text-body);
+  font-weight: var(--font-weight-semibold);
+}
+.dv-drawer-pos-name small {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
+}
+.dv-drawer-pos-rates {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-right: var(--spacing-2);
+}
+.dv-drawer-pos-rate {
+  color: var(--color-text-body);
+  white-space: nowrap;
+}
+.dv-drawer-pos-rate-empty {
+  color: var(--color-text-muted);
 }
 </style>
