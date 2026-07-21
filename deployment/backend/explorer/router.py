@@ -12,7 +12,8 @@ from auth.dependencies import get_current_user
 from auth.models import User
 from database import get_db
 from contracts.models import Contract, ContractPosition, PositionCondition
-from articles.models import Article
+from machines.models import Machine
+from services.models import Service
 from contractors.models import Contractor
 from categories.models import Category
 from integrations.models import PostalCode
@@ -78,13 +79,14 @@ async def explorer_search(
     )
 
     # Base query for contract positions with all joins
+    # RAO articles split: explorer przeszukuje maszyny (inner join Machine).
+    # Pozycje usług (service_id != None) mają własne endpointy /services.
     query = (
         select(
             ContractPosition.id,
-            Article.id.label("article_id"),
-            Article.name.label("article_name"),
-            Article.internal_number,
-            Article.is_service,
+            Machine.id.label("machine_id"),
+            Machine.name.label("machine_name"),
+            Machine.internal_number,
             Category.name.label("category_name"),
             Contract.number.label("contract_number"),
             Contract.date_from,
@@ -95,11 +97,10 @@ async def explorer_search(
             func.coalesce(revenue_subq.c.pos_revenue, 0).label("revenue"),
         )
         .join(Contract, ContractPosition.contract_id == Contract.id)
-        .join(Article, ContractPosition.article_id == Article.id)
-        .outerjoin(Category, Article.category_id == Category.id)
+        .join(Machine, ContractPosition.machine_id == Machine.id)
+        .outerjoin(Category, Machine.category_id == Category.id)
         .outerjoin(Contractor, Contract.contractor_id == Contractor.id)
         .outerjoin(revenue_subq, revenue_subq.c.position_id == ContractPosition.id)
-        .where(Article.is_archival == False)  # RAO-P1-028: tylko niearchiwalne
     )
     
     # Apply filters
@@ -119,8 +120,8 @@ async def explorer_search(
     if q:
         # MySQL uses case-insensitive collation by default, so LIKE is case-insensitive
         search_filter = or_(
-            Article.name.like(f"%{q}%"),
-            Article.internal_number.like(f"%{q}%"),
+            Machine.name.like(f"%{q}%"),
+            Machine.internal_number.like(f"%{q}%"),
             Contractor.name.like(f"%{q}%"),
             Contract.number.like(f"%{q}%"),
             Contract.delivery_address.like(f"%{q}%"),
@@ -136,17 +137,16 @@ async def explorer_search(
     rows = result.mappings().all()
     
     # Format results with type indicator (RAO-P2-065 #16: text values, not emoji)
+    # RAO articles split: explorer przeszukuje maszyny → wszystkie wyniki to maszyny.
     for row in rows:
-        item_type = "machine"  # Machine default
-        if row.is_service:
-            item_type = "service"
+        item_type = "machine"
 
         results.append({
             "type": item_type,
-            "type_label": "Maszyna" if item_type == "machine" else "Usługa",
+            "type_label": "Maszyna",
             "id": row.id,
-            "article_id": row.article_id,
-            "name": f"{row.article_name} ({row.internal_number})" if row.internal_number else row.article_name,
+            "machine_id": row.machine_id,
+            "name": f"{row.machine_name} ({row.internal_number})" if row.internal_number else row.machine_name,
             "internal_number": row.internal_number,
             "contract_number": row.contract_number,
             "contractor_name": row.contractor_name,
@@ -164,11 +164,10 @@ async def explorer_search(
             func.sum(func.coalesce(revenue_subq.c.pos_revenue, 0)).label("total_revenue"),
         )
         .join(Contract, ContractPosition.contract_id == Contract.id)
-        .join(Article, ContractPosition.article_id == Article.id)
-        .outerjoin(Category, Article.category_id == Category.id)
+        .join(Machine, ContractPosition.machine_id == Machine.id)
+        .outerjoin(Category, Machine.category_id == Category.id)
         .outerjoin(Contractor, Contract.contractor_id == Contractor.id)
         .outerjoin(revenue_subq, revenue_subq.c.position_id == ContractPosition.id)
-        .where(Article.is_archival == False)  # RAO-P1-028: tylko niearchiwalne
     )
     
     if conditions:
@@ -190,9 +189,9 @@ async def explorer_search(
     }
 
 
-@router.get("/machines/{article_id}")
+@router.get("/machines/{machine_id}")
 async def get_machine_details(
-    article_id: int,
+    machine_id: int,
     date_from: Optional[date] = Query(None),
     date_to: Optional[date] = Query(None),
     db: AsyncSession = Depends(get_db),
@@ -204,29 +203,28 @@ async def get_machine_details(
     RAO-P2-031: Używa shared.revenue.compute_position_revenues (3 źródła przychodu)
     zamiast rate1 × period_count — eliminuje rozjazd 41% ze statystykami.
     """
-    # Get article details
-    article_result = await db.execute(
-        select(Article, Category.name.label("category_name"))
-        .outerjoin(Category, Article.category_id == Category.id)
-        .where(Article.id == article_id)
+    # Get machine details
+    machine_result = await db.execute(
+        select(Machine, Category.name.label("category_name"))
+        .outerjoin(Category, Machine.category_id == Category.id)
+        .where(Machine.id == machine_id)
     )
-    article_row = article_result.mappings().first()
+    machine_row = machine_result.mappings().first()
 
-    if not article_row:
-        raise HTTPException(status_code=404, detail="Machine not found")
+    if not machine_row:
+        raise HTTPException(status_code=404, detail="Maszyna nie znaleziona")
 
-    article = article_row.Article
+    machine = machine_row.Machine
 
     # RAO-P2-031: Użyj shared.revenue zamiast rate1 × period_count
-    # Pobierz wszystkie pozycje dla tego artykułu w okresie
+    # Pobierz wszystkie pozycje dla tej maszyny w okresie
     df = date_from or date(2000, 1, 1)
     dt = date_to or date(2100, 1, 1)
     from shared.revenue import compute_position_revenues
     all_positions = await compute_position_revenues(
-        db, df, dt, exclude_archival=False
-    )
-    # Filtruj po article_id
-    machine_positions = [p for p in all_positions if p["article_id"] == article_id]
+        db, df, dt)
+    # Filtruj po machine_id (articles split: was article_id)
+    machine_positions = [p for p in all_positions if p["machine_id"] == machine_id]
 
     # Grupuj po contract_id (jeden wiersz historii per umowa)
     from collections import defaultdict
@@ -280,10 +278,10 @@ async def get_machine_details(
     
     return {
         "machine": {
-            "id": article.id,
-            "name": article.name,
-            "internal_number": article.internal_number,
-            "category": article_row.category_name,
+            "id": machine.id,
+            "name": machine.name,
+            "internal_number": machine.internal_number,
+            "category": machine_row.category_name,
         },
         "period": {
             "from": date_from.isoformat() if date_from else None,
@@ -318,35 +316,37 @@ async def get_services_summary(
     dt = date_to or date(2100, 1, 1)
     from shared.revenue import compute_position_revenues
     all_positions = await compute_position_revenues(
-        db, df, dt, service_filter=True, exclude_archival=False
-    )
+        db, df, dt, service_filter=True)
+    # RAO: odfiltruj usługi dodatkowe — to drilldown po Service (usługi zwykłe),
+    # nie additional_services. Usługi dodatkowe mają is_additional_service=True.
+    all_positions = [p for p in all_positions if not p.get("is_additional_service")]
     # Filtruj po service_type (name LIKE)
     if service_type:
         all_positions = [p for p in all_positions
-                         if p["article_name"] and service_type.lower() in p["article_name"].lower()]
+                         if p["service_name"] and service_type.lower() in p["service_name"].lower()]
 
-    # Grupuj po article_id
+    # Grupuj po service_id (articles split: was article_id)
     from collections import defaultdict
-    by_article = defaultdict(lambda: {
-        "article_id": None, "service_name": None,
+    by_service = defaultdict(lambda: {
+        "service_id": None, "service_name": None,
         "times_billed": 0, "total_revenue": 0,
     })
     for p in all_positions:
-        a = by_article[p["article_id"]]
-        a["article_id"] = p["article_id"]
-        a["service_name"] = p["article_name"]
+        a = by_service[p["service_id"]]
+        a["service_id"] = p["service_id"]
+        a["service_name"] = p["service_name"]
         a["times_billed"] += 1
         a["total_revenue"] += float(p["revenue"])
 
     # Sortuj po revenue desc
-    services_list = sorted(by_article.values(), key=lambda x: x["total_revenue"], reverse=True)
+    services_list = sorted(by_service.values(), key=lambda x: x["total_revenue"], reverse=True)
     total_revenue = sum(s["total_revenue"] for s in services_list)
 
     services = []
     for s in services_list:
         revenue = s["total_revenue"]
         services.append({
-            "article_id": s["article_id"],
+            "service_id": s["service_id"],
             "service_name": s["service_name"],
             "times_billed": s["times_billed"],
             "total_revenue": round(revenue, 2),
@@ -390,7 +390,7 @@ async def get_locations_summary(
     df, dt = _default_dates(date_from, date_to)
     # Spójny przychód ze shared.revenue (kaskadowy algorytm jak w stats)
     all_pos = await compute_position_revenues(
-        db, df, dt, exclude_archival=False  # uwzględnia archiwalne (statystyki historyczne)
+        db, df, dt# uwzględnia archiwalne (statystyki historyczne)
     )
     items = await aggregate_by_pna(all_pos, db, limit=limit, group_by=group_by)
 
@@ -418,9 +418,9 @@ async def get_locations_summary(
     }
 
 
-@router.get("/services/{article_id}")
+@router.get("/services/{service_id}")
 async def get_service_details(
-    article_id: int,
+    service_id: int,
     date_from: Optional[date] = Query(None),
     date_to: Optional[date] = Query(None),
     db: AsyncSession = Depends(get_db),
@@ -435,28 +435,27 @@ async def get_service_details(
     dt = date_to or date(2100, 1, 1)
     from shared.revenue import compute_position_revenues
     all_positions = await compute_position_revenues(
-        db, df, dt, service_filter=True, exclude_archival=False
-    )
-    # Filtruj po article_id
-    service_positions = [p for p in all_positions if p["article_id"] == article_id]
+        db, df, dt, service_filter=True)
+    # Filtruj po service_id (articles split: was article_id)
+    service_positions = [p for p in all_positions if p["service_id"] == service_id]
 
     if not service_positions:
-        # Sprawdź czy artykuł istnieje
-        art_result = await db.execute(
-            select(Article).where(Article.id == article_id).where(Article.is_service == True)
+        # Sprawdź czy usługa istnieje
+        svc_result = await db.execute(
+            select(Service).where(Service.id == service_id)
         )
-        art = art_result.scalars().first()
-        if not art:
-            return {"error": "Service not found", "debug": f"article_id={article_id}"}
+        svc = svc_result.scalars().first()
+        if not svc:
+            return {"error": "Service not found", "debug": f"service_id={service_id}"}
         return {
-            "service": {"id": art.id, "name": art.name},
+            "service": {"id": svc.id, "name": svc.name},
             "metrics": {"times_billed": 0, "total_revenue": 0},
             "top_contractors": [],
             "location_breakdown": [],
         }
 
-    # Pobierz nazwę artykułu
-    service_name = service_positions[0]["article_name"]
+    # Pobierz nazwę usługi
+    service_name = service_positions[0]["service_name"]
 
     # Top contractors (grupuj po contractor_name)
     from collections import defaultdict
@@ -527,7 +526,7 @@ async def get_service_details(
 
     total_revenue = sum(float(p["revenue"]) for p in service_positions)
     return {
-        "service": {"id": article_id, "name": service_name},
+        "service": {"id": service_id, "name": service_name},
         "metrics": {
             "times_billed": len(service_positions),
             "total_revenue": round(total_revenue, 2),
@@ -559,8 +558,7 @@ async def get_location_details(
 
     # Spójny przychód (kaskadowy algorytm ze shared.revenue)
     all_pos = await compute_position_revenues(
-        db, df, dt, exclude_archival=False
-    )
+        db, df, dt)
     if not all_pos:
         return {"error": "Location not found"}
 
@@ -619,10 +617,10 @@ async def get_location_details(
     total_revenue = float(sum((p["revenue"] for p in city_pos), Decimal(0)))
     contracts_count = len(matched_contract_ids)
 
-    # Top machines w tym PNA — agregacja per article_name
+    # Top machines w tym PNA — agregacja per machine_name (articles split: was article_name)
     machine_data: dict[str, dict] = {}
     for p in city_pos:
-        name = p["article_name"] or "(bez nazwy)"
+        name = p["article_name"] or "(bez nazwy)"  # backward compat: coalesce(machine_name, service_name)
         if name not in machine_data:
             machine_data[name] = {"rental_count": 0, "total_revenue": 0.0}
         machine_data[name]["rental_count"] += 1
@@ -685,8 +683,7 @@ async def get_city_details(
     df, dt = _default_dates(date_from, date_to)
 
     all_pos = await compute_position_revenues(
-        db, df, dt, exclude_archival=False
-    )
+        db, df, dt)
     if not all_pos:
         return {"error": "City not found"}
 
@@ -770,10 +767,10 @@ async def get_city_details(
     total_revenue = float(sum((p["revenue"] for p in city_pos), Decimal(0)))
     contracts_count = len(matched_contract_ids)
 
-    # Top machines w tym mieście
+    # Top machines w tym mieście — agregacja per machine_name (articles split: was article_name)
     machine_data: dict[str, dict] = {}
     for p in city_pos:
-        name = p["article_name"] or "(bez nazwy)"
+        name = p["article_name"] or "(bez nazwy)"  # backward compat: coalesce(machine_name, service_name)
         if name not in machine_data:
             machine_data[name] = {"rental_count": 0, "total_revenue": 0.0}
         machine_data[name]["rental_count"] += 1

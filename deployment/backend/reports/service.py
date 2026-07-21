@@ -1,4 +1,5 @@
 import pathlib
+import re
 from collections import defaultdict
 from datetime import date
 from decimal import Decimal
@@ -7,7 +8,29 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from contracts.models import Contract, ContractPosition, PositionCondition, ContractServiceFee
 from contractors.models import Contractor
 from settings.models import Company, Salesperson, RateType
-from articles.models import Article as ArticleModel
+from machines.models import Machine as MachineModel
+
+
+_FEE_PLACEHOLDER_RE = re.compile(r"\$(1|2)")
+
+
+def _resolve_fee_description(desc: str, amount_from, amount_to) -> str:
+    """Replace $1/$2 placeholders with formatted amounts + zł.
+
+    Missing amount -> '0,00 zł' so the printed line never contains a '$'.
+    """
+    if not desc:
+        return desc
+
+    def _amount_text(value):
+        if value is None:
+            return _fmt_money(0)
+        return _fmt_money(value)
+
+    def _repl(match: re.Match) -> str:
+        return _amount_text(amount_from if match.group(1) == "1" else amount_to)
+
+    return _FEE_PLACEHOLDER_RE.sub(_repl, desc)
 
 
 def generate_fees_text(fees: list) -> str:
@@ -16,6 +39,9 @@ def generate_fees_text(fees: list) -> str:
     RAO-P0-032: Accepts either raw ContractServiceFee objects (legacy) or
     dicts with {"fee": ContractServiceFee, "description": str} (new format
     that avoids mutating attached session objects).
+
+    RAO-P1-100: KISS redesign — "Tekst na umowie" (description) is used as-is
+    when filled. Fallback to legacy amount/unit formatting only if description is empty.
     """
     lines = []
     # Normalize: extract (fee, description) pairs
@@ -28,15 +54,16 @@ def generate_fees_text(fees: list) -> str:
     for f, desc in sorted(normalized, key=lambda x: x[0].sort_order):
         if not f.is_active:
             continue
-        if f.amount_from and f.amount_to:
-            kwota = f"{f.amount_from:.2f} zł - {f.amount_to:.2f} zł"
-        elif f.amount_from:
-            kwota = f"{f.amount_from:.2f} zł"
+        desc = (desc or "").strip()
+        if desc:
+            desc = _resolve_fee_description(desc, f.amount_from, f.amount_to)
+            lines.append(f"- {f.name}: {desc}")
         else:
-            kwota = ""
-        unit = f" / {f.unit}" if f.unit else ""
-        desc_txt = f" ({desc})" if desc else ""
-        lines.append(f"- {f.name}: {kwota}{unit}{desc_txt}".strip())
+            amount_line = _build_fee_amount_line(f)
+            if amount_line:
+                lines.append(f"- {f.name}: {amount_line}")
+            else:
+                lines.append(f"- {f.name}")
     return "\n".join(lines)
 
 
@@ -44,13 +71,53 @@ def generate_fees_text(fees: list) -> str:
 # build_contract_data already uses format_position_conditions_cascading (dedup + cascading).
 
 
+def _build_fee_amount_line(fee: ContractServiceFee) -> str:
+    """Format amount for PDF service-fee display (description is the single source of truth;
+    this fallback only formats the raw amount when description is empty).
+
+    RAO-P0-050: Decimal(0) is truthy-by-value but falsy in Python; use is not None.
+    RAO-P1-102: KISS — unit (JM) removed; description carries the full printed text.
+    """
+    if fee.amount_from is None and fee.amount_to is None:
+        return ""
+    if fee.amount_from is not None and fee.amount_to is not None and fee.amount_to == fee.amount_from:
+        return _fmt_money(fee.amount_from)
+    if fee.amount_from is not None and fee.amount_to is not None:
+        return f"{_fmt_money(fee.amount_from)} - {_fmt_money(fee.amount_to)}"
+    if fee.amount_from is not None:
+        return _fmt_money(fee.amount_from)
+    return _fmt_money(fee.amount_to)
+
+
+def _format_fee_display(fee: ContractServiceFee, description: str | None = None) -> str:
+    """Build one-line PDF display for a service fee.
+
+    RAO-P1-100: KISS redesign — "Tekst na umowie" (description) is the single source
+    of truth for the printed line. Fallback to amount/unit only when description is empty.
+
+    Placeholders $1/$2 are replaced with the formatted amount + zł so the PDF
+    never contains a '$' sign.
+    """
+    name = (fee.name or "").strip()
+    desc = (description or fee.description or "").strip()
+    if desc:
+        desc = _resolve_fee_description(desc, fee.amount_from, fee.amount_to)
+        return f"- {name}: {desc}"
+    amount_line = _build_fee_amount_line(fee)
+    if amount_line:
+        return f"- {name}: {amount_line}"
+    return f"- {name}"
+
+
 async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
     from sqlalchemy.orm import selectinload
     from contracts.service import format_position_conditions_cascading
     result = await db.execute(
         select(Contract)
-        .options(selectinload(Contract.positions).selectinload(ContractPosition.article))
-        .options(selectinload(Contract.service_fees).selectinload(ContractServiceFee.article))
+        .options(
+            selectinload(Contract.positions).selectinload(ContractPosition.machine),
+            selectinload(Contract.service_fees),
+        )
         .where(Contract.id == contract_id)
     )
     contract = result.scalar_one_or_none()
@@ -67,19 +134,17 @@ async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
     fees = contract.service_fees
 
     # RAO-P0-032: Nie mutuj obiektów sesji — buduj lokalne kopie description
-    # (wcześniej f.description = ... modyfikowało attached obiekt → trwała zmiana w DB)
+    # RAO-P1-100: KISS redesign — description zawiera gotowy tekst do wydruku;
+    # ewentualne placeholdery $1/$2 są rozwijane w _resolve_fee_description.
     fees_data = []
     for f in fees:
-        desc = f.description or ""
-        if f.amount_from is not None:
-            val_from = f"{f.amount_from:.2f} zł"
-            desc = desc.replace("$1 zł", val_from).replace("$1", val_from)
-        if f.amount_to is not None:
-            val_to = f"{f.amount_to:.2f} zł"
-            desc = desc.replace("$2 zł", val_to).replace("$2", val_to)
+        desc = (f.description or "").strip()
         fees_data.append({
             "fee": f,
             "description": desc,
+            "display": _format_fee_display(f, desc),
+            "name": (f.name or "").strip(),
+            "display_value": _format_fee_display(f, desc),
         })
 
     positions_data = []
@@ -92,10 +157,10 @@ async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
         if pos.rate_type_id:
             rate_type = await db.get(RateType, pos.rate_type_id)
 
-        article = await db.get(ArticleModel, pos.article_id) if pos.article_id else None
+        machine = await db.get(MachineModel, pos.machine_id) if pos.machine_id else None
 
         # Use new cascading formatter for conditions
-        conditions_text = format_position_conditions_cascading(conditions)
+        conditions_text = format_position_conditions_cascading(conditions, contract.contract_type)
 
         # Fetch service hours for this position
         # RAO-P1-014 (usunięte): service_hours table dropped — PDF fallback to empty list.
@@ -107,9 +172,9 @@ async def build_contract_data(db: AsyncSession, contract_id: int) -> dict:
             "conditions": conditions,
             "conditions_text": conditions_text,
             "rate_type_name": rate_type.name if rate_type else None,
-            "replacement_value": article.replacement_value if article else None,
-            "serial_no": article.serial_no if article else None,
-            "registration_no": article.registration_no if article else None,
+            "replacement_value": machine.replacement_value if machine else None,
+            "serial_no": machine.serial_no if machine else None,
+            "registration_no": machine.registration_no if machine else None,
             "service_hours": service_hours,
         })
 
@@ -128,7 +193,7 @@ async def generate_summary_pdf(db: AsyncSession, summary_type: str) -> bytes:
     import asyncio
     from sqlalchemy import select
     from contractors.models import Contractor
-    from articles.models import Article
+    from machines.models import Machine
     from markupsafe import escape as _esc
 
     if summary_type == "contractors":
@@ -147,7 +212,7 @@ async def generate_summary_pdf(db: AsyncSession, summary_type: str) -> bytes:
             html += f"<tr><td>{i}</td><td>{_esc(c.name or '')}</td><td>{_esc(c.nip or '—')}</td><td>{_esc(c.city or '—')}</td><td>{_esc(c.phone1 or '—')}</td><td>{_esc(c.email or '—')}</td></tr>"
         html += "</tbody></table></body></html>"
     else:
-        result = await db.execute(select(Article).order_by(Article.name))
+        result = await db.execute(select(Machine).order_by(Machine.name))
         items = result.scalars().all()
         html = """<!DOCTYPE html><html><head><meta charset="UTF-8">
         <style>body{font-family:'Roboto',sans-serif;font-size:11px;color:#222;padding:20px;}
@@ -156,38 +221,66 @@ async def generate_summary_pdf(db: AsyncSession, summary_type: str) -> bytes:
         th{background:#1D2B53;color:#fff;padding:5px 8px;text-align:left;font-size:10px;}
         td{padding:4px 8px;border-bottom:1px solid #e2e8f0;font-size:10px;}
         tr:nth-child(even) td{background:#f7f8ff;}</style></head><body>
-        <h1>Zestawienie Maszyn / Artykułów</h1>
-        <table><thead><tr><th>#</th><th>Nazwa</th><th>Typ</th><th>Nr wew.</th><th>Nr rej.</th><th>Marka/Model</th></tr></thead><tbody>"""
+        <h1>Zestawienie Maszyn</h1>
+        <table><thead><tr><th>#</th><th>Nazwa</th><th>Nr wew.</th><th>Nr rej.</th><th>Marka/Model</th></tr></thead><tbody>"""
         for i, a in enumerate(items, 1):
-            typ = "Usługa" if a.is_service else "Sprzęt"
             marka = f"{a.brand or ''} {a.model or ''}".strip() or "—"
-            html += f"<tr><td>{i}</td><td>{_esc(a.name)}</td><td>{typ}</td><td>{_esc(a.internal_number or '—')}</td><td>{_esc(a.registration_no or '—')}</td><td>{_esc(marka)}</td></tr>"
+            html += f"<tr><td>{i}</td><td>{_esc(a.name)}</td><td>{_esc(a.internal_number or '—')}</td><td>{_esc(a.registration_no or '—')}</td><td>{_esc(marka)}</td></tr>"
         html += "</tbody></table></body></html>"
 
     return await asyncio.get_event_loop().run_in_executor(None, _html_to_pdf_sync, html)
 
 
-def _html_to_pdf_sync(html: str, use_playwright_footer: bool = True) -> bytes:
+def _merge_pdfs(pdf_pages: list[bytes]) -> bytes:
+    """Merge multiple PDF byte streams into one PDF.
+    Uses pypdf if available, otherwise falls back to weasyprint concatenation.
+    """
+    try:
+        from pypdf import PdfWriter
+        import io
+        writer = PdfWriter()
+        for page_bytes in pdf_pages:
+            from pypdf import PdfReader
+            reader = PdfReader(io.BytesIO(page_bytes))
+            for page in reader.pages:
+                writer.add_page(page)
+        out = io.BytesIO()
+        writer.write(out)
+        return out.getvalue()
+    except ImportError:
+        # pypdf not available — RAISE instead of silently returning incomplete PDF.
+        # Zg5: silent fallback gubił drugą stronę protokołu multi-maszyna na prodzie.
+        raise RuntimeError(
+            "pypdf is required to merge multi-page protocol PDFs. "
+            "Install with: pip install pypdf"
+        )
+
+
+def _html_to_pdf_sync(html: str, use_playwright_footer: bool = True, protocol_label: str | None = None) -> bytes:
     """Render HTML to PDF. Renderer controlled by RAO_PDF_RENDERER env var.
     weasyprint (default) — identical output on dev and prod (shared hosting).
     playwright — Chromium-based, higher CSS fidelity, requires browser binaries.
     use_playwright_footer=False also signals protocol mode for WeasyPrint (no side margins).
+    protocol_label: if set, adds @bottom-center with "Protokół X z Y" between Wydrukowano and Strona.
     """
     from config import settings
     if settings.RAO_PDF_RENDERER == "playwright":
-        return _pdf_via_playwright(html, use_playwright_footer)
-    return _pdf_via_weasyprint(html, use_playwright_footer)
+        return _pdf_via_playwright(html, use_playwright_footer, protocol_label)
+    return _pdf_via_weasyprint(html, use_playwright_footer, protocol_label)
 
 
-def _pdf_via_playwright(html: str, use_footer: bool = True) -> bytes:
+def _pdf_via_playwright(html: str, use_footer: bool = True, protocol_label: str | None = None) -> bytes:
     """Playwright/Chromium renderer — full-featured, requires browser binaries."""
     from playwright.sync_api import sync_playwright
     import datetime
 
     now = datetime.datetime.now().strftime("%d.%m.%Y")
 
+    # Build footer with optional protocol label in center
+    center_span = f'<span>{protocol_label}</span>' if protocol_label else '<span></span>'
     footer_template = f"""<div style="font-size: 8px; color: #444; width: 100%; padding: 0 14mm; display: flex; justify-content: space-between; font-family: Arial;">
       <span>Wydrukowano {now}</span>
+      {center_span}
       <span>Strona <span class="pageNumber"></span> z <span class="totalPages"></span></span>
     </div>"""
 
@@ -253,9 +346,10 @@ def _font_face_css() -> str:
     return "\n".join(faces)
 
 
-def _pdf_via_weasyprint(html: str, use_footer: bool = True) -> bytes:
+def _pdf_via_weasyprint(html: str, use_footer: bool = True, protocol_label: str | None = None) -> bytes:
     """WeasyPrint renderer — works on shared hosting without browser binaries.
     use_footer=False: protocol mode — no side/top page margins, only bottom for footer.
+    protocol_label: if set, adds @bottom-center with "Protokół X z Y" between Wydrukowano and Strona.
     """
     from weasyprint import HTML, CSS
     from weasyprint.text.fonts import FontConfiguration
@@ -270,12 +364,17 @@ def _pdf_via_weasyprint(html: str, use_footer: bool = True) -> bytes:
     page_margin = "0 0 15mm 0" if not use_footer else "10mm 10mm 18mm 10mm"
     bottom_left_padding = "" if use_footer else "padding-left: 10mm;"
     bottom_right_padding = "" if use_footer else "padding-right: 10mm;"
+    # @bottom-center: "Protokół X z Y" (only for protocols with multiple machines)
+    bottom_center = ""
+    if protocol_label:
+        bottom_center = f'@bottom-center {{ content: "{protocol_label}"; font-size: 8px; color: #444; font-family: \'Roboto\', sans-serif; }}'
     extra_css = f"""
     {font_face}
     @page {{
         size: A4;
         margin: {page_margin};
         @bottom-left  {{ content: "Wydrukowano {now}"; font-size: 8px; color: #444; font-family: 'Roboto', sans-serif; {bottom_left_padding} }}
+        {bottom_center}
         @bottom-right {{ content: "Strona " counter(page) " z " counter(pages); font-size: 8px; color: #444; font-family: 'Roboto', sans-serif; {bottom_right_padding} }}
     }}
     #footer-legal-running {{
@@ -286,6 +385,15 @@ def _pdf_via_weasyprint(html: str, use_footer: bool = True) -> bytes:
         font-size: 8px;
         line-height: 1.35;
         color: #000;
+    }}
+    #opiekun-running {{
+        position: absolute;
+        bottom: 8mm;
+        left: 14mm;
+        right: 14mm;
+        text-align: center;
+        font-size: 9px;
+        color: #555;
     }}
     """
     if "</head>" in html:
@@ -316,7 +424,7 @@ def _fmt_money(v) -> str:
     try:
         f = float(v)
         formatted = f"{f:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '\u00a0')
-        return formatted + '\u00a0z\u0142'
+        return formatted + ' z\u0142'
     except (TypeError, ValueError):
         return str(v)
 
@@ -333,12 +441,43 @@ def _fmt_money_plain(v) -> str:
 
 
 async def generate_commissions_pdf(db: AsyncSession, date_from: date, date_to: date) -> bytes:
-    from stats.router import _compute_position_revenues, _contract_date_filter
+    from stats.router import _contract_date_filter
+    from settlements.models import ContractSettlement
     from markupsafe import escape as _esc
     import asyncio
 
     df, dt = date_from, date_to
-    all_pos = await _compute_position_revenues(db, df, dt)
+
+    # Prowizja od marży z contract_settlements (rzeczywiste rozliczenia).
+    # Brak fallbacku do szacunkowego przychodu. Umowy bez rozliczeń nie wliczają się.
+    settlement_q = await db.execute(
+        select(
+            Contract.salesperson_id,
+            func.sum(ContractSettlement.cost_client - ContractSettlement.cost_company).label("total_margin")
+        )
+        .join(ContractSettlement, Contract.id == ContractSettlement.contract_id)
+        .where(and_(*_contract_date_filter(df, dt)))
+        .where(Contract.salesperson_id.isnot(None))
+        .where(ContractSettlement.cost_client.isnot(None))
+        .where(ContractSettlement.cost_company.isnot(None))
+        .group_by(Contract.salesperson_id)
+    )
+    settlement_margins = {r[0]: r[1] for r in settlement_q.all()}
+
+    # Liczba umów z rozliczeniem per handlowiec
+    settled_contracts_q = await db.execute(
+        select(
+            Contract.salesperson_id,
+            func.count(func.distinct(Contract.id)).label("contracts_count")
+        )
+        .join(ContractSettlement, Contract.id == ContractSettlement.contract_id)
+        .where(and_(*_contract_date_filter(df, dt)))
+        .where(Contract.salesperson_id.isnot(None))
+        .where(ContractSettlement.cost_client.isnot(None))
+        .where(ContractSettlement.cost_company.isnot(None))
+        .group_by(Contract.salesperson_id)
+    )
+    settled_counts = {r[0]: r[1] for r in settled_contracts_q.all()}
 
     sp_q = await db.execute(
         select(Salesperson.id, Salesperson.name, Salesperson.commission_rate)
@@ -347,37 +486,25 @@ async def generate_commissions_pdf(db: AsyncSession, date_from: date, date_to: d
     )
     salespeople = {r[0]: {"name": r[1], "rate": r[2]} for r in sp_q.all()}
 
-    contract_sp_q = await db.execute(
-        select(Contract.id, Contract.salesperson_id)
-        .where(and_(*_contract_date_filter(df, dt)))
-        .where(Contract.salesperson_id.isnot(None))
-    )
-    contract_sp_map = {r[0]: r[1] for r in contract_sp_q.all()}
-
-    agg: dict = defaultdict(lambda: {"revenue": Decimal(0), "contracts": set()})
-    for p in all_pos:
-        sp_id = contract_sp_map.get(p["contract_id"])
-        if sp_id and sp_id in salespeople:
-            agg[sp_id]["revenue"] += p["revenue"]
-            agg[sp_id]["contracts"].add(p["contract_id"])
-
     items = []
     for sp_id, sp_data in salespeople.items():
-        data = agg.get(sp_id, {"revenue": Decimal(0), "contracts": set()})
         rate = sp_data["rate"] or Decimal(0)
-        revenue = data["revenue"]
-        commission = (revenue * rate / Decimal(100)).quantize(Decimal("0.01"))
-        items.append({"name": sp_data["name"], "contracts_count": len(data["contracts"]),
-                       "rate": rate, "revenue": revenue, "commission": commission})
+        margin = settlement_margins.get(sp_id, Decimal("0.00"))
+        base_amount = (margin or Decimal("0.00")).quantize(Decimal("0.01"))
+        commission = (base_amount * rate / Decimal(100)).quantize(Decimal("0.01"))
+        contracts_count = settled_counts.get(sp_id, 0)
+        items.append({"name": sp_data["name"], "contracts_count": contracts_count,
+                       "rate": rate, "base_amount": base_amount,
+                       "commission": commission})
     items.sort(key=lambda x: x["commission"], reverse=True)
 
-    grand_revenue = sum(i["revenue"] for i in items)
+    grand_margin = sum(i["base_amount"] for i in items)
     grand_commission = sum(i["commission"] for i in items)
 
     rows_html = "".join(
         f"<tr><td>{i}</td><td>{_esc(it['name'])}</td><td class='num'>{it['contracts_count']}</td>"
         f"<td class='num'>{it['rate'] if it['rate'] else '—'} %</td>"
-        f"<td class='num'>{_fmt_money(it['revenue'])}</td>"
+        f"<td class='num'>{_fmt_money(it['base_amount'])}</td>"
         f"<td class='num commission'>{_fmt_money(it['commission'])}</td></tr>"
         for i, it in enumerate(items, 1)
     )
@@ -402,13 +529,13 @@ td.commission{{color:#27ae60;font-weight:600;}}
 <h1>Raport prowizji handlowców</h1>
 <p class="period">Okres: {df.strftime('%d.%m.%Y')} — {dt.strftime('%d.%m.%Y')}</p>
 <div class="summary">
-  <div class="kpi"><div class="kpi-label">Łączny przychód</div><div class="kpi-value">{_fmt_money(grand_revenue)}</div></div>
+  <div class="kpi"><div class="kpi-label">Łączna marża (baza prowizji)</div><div class="kpi-value">{_fmt_money(grand_margin)}</div></div>
   <div class="kpi"><div class="kpi-label">Łączna prowizja</div><div class="kpi-value">{_fmt_money(grand_commission)}</div></div>
 </div>
 <table>
-<thead><tr><th>#</th><th>Handlowiec</th><th class="num">Umów</th><th class="num">Stawka prowizji</th><th class="num">Przychód</th><th class="num">Prowizja</th></tr></thead>
+<thead><tr><th>#</th><th>Handlowiec</th><th class="num">Umów</th><th class="num">Stawka prowizji</th><th class="num">Marża (baza)</th><th class="num">Prowizja</th></tr></thead>
 <tbody>{rows_html}</tbody>
-<tfoot><tr><td colspan="4"><strong>RAZEM</strong></td><td class="num">{_fmt_money(grand_revenue)}</td><td class="num commission">{_fmt_money(grand_commission)}</td></tr></tfoot>
+<tfoot><tr><td colspan="3"><strong>RAZEM</strong></td><td class="num">{_fmt_money(grand_margin)}</td><td class="num commission">{_fmt_money(grand_commission)}</td></tr></tfoot>
 </table>
 </body></html>"""
 
@@ -417,7 +544,7 @@ td.commission{{color:#27ae60;font-weight:600;}}
 
 async def generate_stats_pdf(db: AsyncSession, date_from: date, date_to: date) -> bytes:
     from stats.router import _compute_position_revenues, _contract_date_filter
-    from articles.models import Article
+    from machines.models import Machine
     from markupsafe import escape as _esc
     import asyncio
 
@@ -427,14 +554,14 @@ async def generate_stats_pdf(db: AsyncSession, date_from: date, date_to: date) -
     all_pos = await _compute_position_revenues(db, df, dt)
 
     # Fleet summary
-    total_q = await db.execute(select(func.count()).select_from(Article).where(Article.is_service == False))
+    total_q = await db.execute(select(func.count()).select_from(Machine))
     total_machines = total_q.scalar() or 0
     rented_q = await db.execute(
-        select(func.count(func.distinct(ContractPosition.article_id)))
+        select(func.count(func.distinct(ContractPosition.machine_id)))
         .select_from(ContractPosition)
         .join(Contract, Contract.id == ContractPosition.contract_id)
-        .join(Article, Article.id == ContractPosition.article_id)
-        .where(and_(Article.is_service == False, Contract.date_from <= today, Contract.date_to >= today))
+        .join(Machine, Machine.id == ContractPosition.machine_id)
+        .where(and_(Contract.date_from <= today, Contract.date_to >= today))
     )
     total_rented = rented_q.scalar() or 0
     util_pct = round((total_rented / total_machines * 100) if total_machines else 0, 1)
@@ -450,20 +577,27 @@ async def generate_stats_pdf(db: AsyncSession, date_from: date, date_to: date) -
     machine_agg: dict = defaultdict(lambda: {"name": "", "internal_number": None, "revenue": Decimal(0), "days": 0, "contracts": set()})
     for p in all_pos:
         if not p["is_service"]:
-            k = p["article_id"]
-            machine_agg[k]["name"] = p["article_name"]
+            k = p["machine_id"]
+            machine_agg[k]["name"] = p["machine_name"]
             machine_agg[k]["internal_number"] = p["internal_number"]
             machine_agg[k]["revenue"] += p["revenue"]
             machine_agg[k]["days"] += p["clamped_days"]
             machine_agg[k]["contracts"].add(p["contract_id"])
     top10 = sorted(machine_agg.items(), key=lambda x: x[1]["revenue"], reverse=True)[:10]
 
-    # Services breakdown
+    # Services breakdown — RAO: separacja usług zwykłych od dodatkowych
     svc_agg: dict = defaultdict(lambda: {"name": "", "revenue": Decimal(0), "contracts": set()})
     for p in all_pos:
-        if p["is_service"]:
-            k = p["article_id"]
-            svc_agg[k]["name"] = p["article_name"]
+        if p.get("is_additional_service"):
+            # Usługi dodatkowe — klucz po additional_service_id (nie service_id — kolizja ID)
+            k = ("addl", p.get("additional_service_id"))
+            svc_agg[k]["name"] = p["service_name"]
+            svc_agg[k]["revenue"] += p["revenue"]
+            svc_agg[k]["contracts"].add(p["contract_id"])
+        elif p["is_service"]:
+            # Usługi zwykłe — klucz po service_id (Service.id)
+            k = ("svc", p["service_id"])
+            svc_agg[k]["name"] = p["service_name"]
             svc_agg[k]["revenue"] += p["revenue"]
             svc_agg[k]["contracts"].add(p["contract_id"])
     svc_sorted = sorted(svc_agg.items(), key=lambda x: x[1]["revenue"], reverse=True)
@@ -606,14 +740,63 @@ async def generate_pdf(db: AsyncSession, contract_id: int, report_type: str = "c
     else:
         data["stamp_src"] = ""
 
-    html = template.render(**data)
-
     is_protocol = report_type.startswith("protocol_")
+
+    # P1-011: Oddzielny protokół per maszyna w jednym PDF (tylko dla umów najmu — S)
+    # Każda strona = pełny protokół z jedną pozycją
+    # Stopka: "Protokół X z Y" zamiast "Strona X z Y"
+    #
+    # Dla umów usługi (U): wszystkie usługi na jednej stronie — bez podziału per maszyna,
+    # bez stopki "Protokół X z Y".
+    if is_protocol:
+        positions = data.get("positions", [])
+        if not positions:
+            # Brak pozycji — renderuj jeden pusty protokół (zgodnie z dotychczasowym zachowaniem)
+            data["protocol_number"] = 1
+            data["protocol_total"] = 1
+            data["positions"] = positions  # pusta lista
+            html = template.render(**data)
+            loop = asyncio.get_event_loop()
+            protocol_label = "Protokół 1 z 1"
+            pdf_bytes = await loop.run_in_executor(
+                None, _html_to_pdf_sync, html, not is_protocol, protocol_label
+            )
+            return pdf_bytes
+
+        # Usługi (U): wszystkie pozycje na jednej stronie — bez podziału per maszyna
+        if is_service:
+            data["positions"] = positions
+            html = template.render(**data)
+            loop = asyncio.get_event_loop()
+            pdf_bytes = await loop.run_in_executor(
+                None, _html_to_pdf_sync, html, not is_protocol
+            )
+            return pdf_bytes
+
+        # Najem (S): renderuj osobny protokół per pozycja, połącz w jeden PDF
+        pdf_pages = []
+        total = len(positions)
+        loop = asyncio.get_event_loop()
+        for idx, pos in enumerate(positions, 1):
+            page_data = dict(data)
+            page_data["positions"] = [pos]  # tylko ta jedna pozycja
+            page_data["protocol_number"] = idx
+            page_data["protocol_total"] = total
+            html = template.render(**page_data)
+            protocol_label = f"Protokół {idx} z {total}"
+            page_pdf = await loop.run_in_executor(
+                None, _html_to_pdf_sync, html, not is_protocol, protocol_label
+            )
+            pdf_pages.append(page_pdf)
+
+        # Połącz wszystkie strony w jeden PDF
+        if len(pdf_pages) == 1:
+            return pdf_pages[0]
+        return _merge_pdfs(pdf_pages)
+
+    html = template.render(**data)
     loop = asyncio.get_event_loop()
     pdf_bytes = await loop.run_in_executor(
         None, _html_to_pdf_sync, html, not is_protocol
     )
-    return pdf_bytes
-    return pdf_bytes
-    return pdf_bytes
     return pdf_bytes

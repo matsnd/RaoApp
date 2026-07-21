@@ -1,0 +1,146 @@
+Temat: RAO — nowe funkcje i poprawki (pacza 2026-07-21)
+
+Dzien dobry,
+
+przesylam podsumowanie zmian wgranych w paczce wdrozeniowej
+z 21 lipca 2026. Wszystkie zmiany sa juz gotowe do wgrania na
+serwer produkcyjny.
+
+===================================================================
+NAJWAZNIEJSZE NOWOSCI
+===================================================================
+
+1) GUS — naprawione pobieranie danych kontrahenta po NIP
+   --------------------------------------------------------
+   Guzik "GUS" w formularzu kontrahenta znowu dziala. Po wpisaniu
+   NIP i kliknieciu guzika GUS automatycznie uzupelnia:
+   - nazwe firmy
+   - REGON
+   - adres (ulica, numer budynku, numer lokalu — np. "ul. Kłobucka 6B/103")
+   - kod pocztowy i miasto
+   - wojewodztwo, powiat, gmine
+   Po pobraniu pojawia sie zielony komunikat potwierdzajacy.
+   Gdy GUS nie znajdzie firmy dla podanego NIP — komunikat ostrzegawczy.
+
+2) NOWY MODUL: Dostawy
+   --------------------------------------------------------
+   W menu pojawila sie nowa pozycja "Dostawy". Jest to kalendarz
+   (widok miesiaca) pokazujacy wszystkie dostawy maszyn z umow
+   (data rozpoczecia najmu = data dostawy).
+
+   Funkcje:
+   - Kropki na kalendarzu: niebieska = umowa S, pomaranczowa = umowa U
+   - Filtry: maszyna, kontrahent, handlowiec, typ umowy (S/U)
+   - Po kliknieciu dnia po prawej pojawia sie lista dostaw
+   - Po kliknieciu dostawy otwiera sie panel boczny z pelnymi danymi
+     umowy, w tym tabelka pozycji umowy (jak na PDF):
+     | Przedmiot najmu | Dni | Wartosc odtw. | Rozliczenie |
+     Przyklad: Ładowarka JCB 540-170 (LAD-004), 28 dni, 950 000,00 zł,
+     progi: 1-3 dni 1560 zł/doba, 4-16 dni 1300 zł/doba, powyzej 16 dni
+     1040 zł/doba.
+   - Eksport listy dostaw do CSV
+   - Nawigacja miesiac w przod/tyl/dzis
+
+3) Umowy — rozdzielenie uwag na "do umowy" i "do protokolu"
+   --------------------------------------------------------
+   Dotychczasowe pole "Uwagi" zostalo rozdzielone na dwa niezalezne:
+   - "Uwagi do umowy" — drukowane na PDF umowy
+   - "Uwagi do protokolu" — drukowane na PDF protokolu zwrotu
+
+   Pozwala to wpisac np. uwagi techniczne do protokolu, ktore nie
+   powinny pojawic sie na umowie (i odwrotnie). Istniejace uwagi
+   zostaly automatycznie przeniesione do "Uwagi do protokolu".
+
+===================================================================
+POPRAWKI PDF
+===================================================================
+
+4) Umowa U — warunek open-ended
+   Dla umowy U bez gornej granicy godzin: na PDF pokazuje
+   "kazda kolejna x zł / h" zamiast "powyżej X godzin" — czytelniej
+   dla wynajmu ciaglego.
+
+5) Umowa S i U — dopisek "brutto" po przedplacie
+   Po kwocie przedplaty na PDF dopisany tekst "brutto"
+   (np. "Przedpłata: 1 000,00 zł brutto").
+
+6) Umowa — telefon obok reprezentanta i osoby kontaktowej
+   Na PDF umowy obok "Reprezentowany przez" i "Osoba do kontaktu
+   na budowie" dodany numer telefonu (jesli wypelniony).
+
+7) Umowa — niebieski pasek naglowka
+   Niebieski pasek naglowka na PDF umowy z wyrownanymi marginesami —
+   bardziej profesjonalny wyglad dokumentu.
+
+8) Protokol S — usuniety tekst "poziom uzupelnienia zbiornika"
+   Z PDF protokolu S usuniety tekst "poziom uzupelnienia zbiornika/
+   naładowania" — nie byl uzywany w protokole S i mylil uzytkownikow.
+
+===================================================================
+POPRAWKI WYSWIETLANIA
+===================================================================
+
+9) Dostawy / Rezerwacje — stabilny kalendarz
+   Kalendarz Dostawy i Rezerwacje zawsze pokazuje 6 tygodni (42 komorki)
+   — nie skacze przy pustych miesiacach.
+
+10) Drawer Dostawy — kontrahent i handlowiec po nazwie
+    Panel boczny dostawy pokazuje nazwe kontrahenta i handlowca
+    (wczesniej w niektorych przypadkach bylo puste pole lub ID
+    zamiast nazwy).
+
+===================================================================
+ZMIANY W BAZIE DANYCH (automatyczne)
+===================================================================
+
+Wszystkie zmiany w bazie wykonuja sie automatycznie przy restarcie
+backendu — nie wymaga to zadnych recznych operacji SQL po stronie
+serwera. Po wgraniu plikow i restarcie aplikacji:
+
+- Tabela contracts: dodane kolumny "notes_contract" i "notes_protocol",
+  usunieta kolumna "notes" (dane przeniesione do notes_protocol).
+- Tabela deliveries: istnieje od poprzedniej paczki, teraz modul
+  staje sie aktywny w API.
+
+===================================================================
+WERYFIKACJA PO WDROZENIU
+===================================================================
+
+Po wgraniu paczki i restarcie backendu prosze sprawdzic:
+
+a) GUS:
+   - Kontrahenci → Nowy → NIP "5261040567" → guzik GUS
+   - Pola powinny sie uzupelnic: "T-MOBILE POLSKA SPÓŁKA AKCYJNA",
+     ul. Marynarska 12, 02-674 Warszawa, REGON 011417295
+
+b) Dostawy:
+   - Menu → Dostawy → kalendarz z kropkami
+   - Klikniecie kropki → panel dnia → klikniecie dostawy → panel boczny
+     z danymi umowy i tabelka pozycji
+
+c) Umowy — uwagi:
+   - Edycja umowy → dwa osobne pola "Uwagi do umowy" i "Uwagi do protokolu"
+   - PDF umowy drukuje "Uwagi do umowy"
+   - PDF protokolu drukuje "Uwagi do protokolu"
+
+d) PDF umowy:
+   - Dopisek "brutto" po przedplacie
+   - Telefon obok reprezentanta (jesli wypelniony)
+   - Niebieski pasek naglowka
+
+e) PDF protokolu S:
+   - Brak tekstu "poziom uzupelnienia zbiornika"
+
+===================================================================
+TECHNICZNE
+===================================================================
+
+Paczka wdrozeniowa: deployment/ (backend + frontend)
+Wymagany restart aplikacji Python w panelu po wgraniu plikow
+(automatycznie wykonaja sie migracje bazy danych).
+Klucz GUS pozostaje bez zmian (ten sam co w starej aplikacji).
+
+W razie pytan lub problemow po wdrozeniu — prosze o kontakt.
+
+Pozdrawiam,
+matsnd

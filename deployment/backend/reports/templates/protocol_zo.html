@@ -9,12 +9,12 @@
   body { display: flex; flex-direction: column; overflow: visible; }
   
   /* HEADER */
-  table.hdr { width: 100%; background: #1D2B53; color: #fff; border-collapse: collapse; flex-shrink: 0; }
-  .hdr-left { width: 33%; padding: 10px 10px 10px 14mm; font-size: 8px; line-height: 1.6; vertical-align: middle; }
+  table.hdr { width: calc(100% - 28mm); margin: 0 14mm; background: #1D2B53; color: #fff; border-collapse: collapse; flex-shrink: 0; }
+  .hdr-left { width: 33%; padding: 10px 10px 10px 10px; font-size: 8px; line-height: 1.6; vertical-align: middle; }
   .hdr-center { width: 34%; text-align: center; vertical-align: middle; padding: 8px; }
   .hdr-logo-img { height: 18px; width: auto; display: block; margin: 0 auto 3px auto; object-fit: contain; }
   .hdr-slogan { font-size: 7.5px; letter-spacing: 3px; margin-top: 2px; }
-  .hdr-right { width: 33%; text-align: right; padding: 10px 14mm 10px 10px; font-size: 8px; line-height: 1.6; vertical-align: middle; }
+  .hdr-right { width: 33%; text-align: right; padding: 10px 10px 10px 10px; font-size: 8px; line-height: 1.6; vertical-align: middle; }
   
   /* CONTENT */
   .content { flex: 1; display: flex; flex-direction: column; padding: 12px 14mm 8px 14mm; }
@@ -40,7 +40,7 @@
   .art-name { color: #1D2B53; font-weight: bold; }
   
   /* TEXT */
-  .fuel-line { font-size: 9.5px; margin: 4px 0 4px; }
+  .empty-line { font-size: 9.5px; margin: 4px 0 4px; }
   .legal-line { font-size: 9.5px; margin: 0 0 6px; }
   
   /* SIGNATURES */
@@ -53,7 +53,8 @@
   .bottom-section { margin-top: auto; }
   
   /* RETURN SECTION */
-  .big-uwagi { border: 1px solid #aaa; padding: 8px 12px; font-size: 10px; min-height: 85px; color: #888; margin: 15px 0 15px 0; }
+  .big-uwagi { border: 1px solid #aaa; padding: 10px 14px; font-size: 10px; min-height: 85px; color: #888; margin: 0 0 10px 0; }
+  .dodatkowe-info { border: 1px solid #aaa; padding: 10px 14px; font-size: 10px; min-height: 85px; max-height: 110px; color: #888; margin: 0 0 10px 0; overflow: hidden; }
 
   .note-line { font-size: 9px; font-style: italic; font-weight: bold; margin: 3px 0 4px; }
 
@@ -62,9 +63,9 @@
   .pwo-section-title { font-size: 8.5px; font-weight: bold; color: #1D2B53; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #1D2B53; padding-bottom: 2px; margin-bottom: 3px; display: block; }
   table.pwo { width: 100%; border-collapse: collapse; font-size: 9.5px; }
   table.pwo th { background: #1D2B53; color: #fff; padding: 2px 6px; font-weight: normal; border: 1px solid #1D2B53; text-align: center; font-size: 8px; }
-  table.pwo td { border: 1px solid #aaa; padding: 3px 8px; height: 30px; vertical-align: middle; }
-  table.pwo td.pwo-label { background: #f0f2f8; font-size: 10px; white-space: nowrap; }
-  table.pwo tr.pwo-uwagi td { height: 50px; vertical-align: top; padding-top: 4px; }
+  table.pwo td { border: 1px solid #aaa; padding: 2px 6px; height: 22px; vertical-align: middle; }
+  table.pwo td.pwo-label { background: #f0f2f8; font-size: 9.5px; white-space: nowrap; }
+  table.pwo tr.pwo-uwagi td { height: 35px; vertical-align: top; padding-top: 3px; }
   
   .own-page { page-break-before: always; font-size: 8.5px; line-height: 1.45; padding: 10px 14mm; }
   .own-title { font-size: 13px; font-weight: bold; text-align: center; margin-bottom: 6px; }
@@ -109,7 +110,7 @@
         <div class="pzo-title">PROTOKÓŁ ZDAWCZO-ODBIORCZY</div>
         <div class="pzo-sub">
           do umowy nr {{ contract.number }}<br>
-          zawartej w dniu {{ contract.date_from | datepl }}
+          zawartej w dniu {{ contract.created_at | datepl }}
         </div>
       </td>
     </tr>
@@ -161,7 +162,7 @@
     </tbody>
   </table>
 
-  <div class="fuel-line">poziom uzupełnienia zbiornika/naładowania: .......................................</div>
+  <div class="empty-line">&nbsp;</div>
   <div class="legal-line">Pokwitowanie niniejszego Protokołu Zdawczo - Odbiorczego jest jednoznaczne z oświadczeniem o zapoznaniu się z Ogólnymi Warunkami Umowy Najmu (dalej: OWN) oraz ich akceptacją.</div>
 
   <!-- PRZY WYDANIU / PRZY ODBIORZE -->
@@ -205,21 +206,27 @@
   </table>
 
   <!-- PUSH TO BOTTOM -->
-  <div class="bottom-section">
+  <div class="bottom-section" style="margin-top: 10px;">
+
+    <!-- UWAGI (zg3: contract.notes_protocol na protokole S) -->
+    <div class="dodatkowe-info">
+      <div class="box-label" style="font-size:9px;color:#888;margin-bottom:4px;">Uwagi</div>
+      {% if contract.notes_protocol %}<div style="color:#000;font-size:9.5px;white-space:pre-wrap;">{{ contract.notes_protocol }}</div>{% endif %}
+    </div>
 
     <!-- BIG UWAGI BOX -->
     <div class="big-uwagi">
-      <div class="box-label" style="font-size:9px;color:#888;margin-bottom:6px;">uwagi do zwrotu</div>
+      <div class="box-label" style="font-size:9px;color:#888;margin-bottom:4px;">uwagi do zwrotu</div>
     </div>
 
     <div class="note-line">Ogólna weryfikacja maszyny następuje na terenie firmy w terminie do 14 dni od dnia jej przekazania</div>
 
-    <!-- RETURN SIGNATURES -->
-    <table class="sigs" style="margin-top: 6px;">
+    <!-- RETURN SIGNATURES — bez pieczątki, ale z miejscem na nią (po zwrocie) -->
+    <table class="sigs" style="margin-top: 20px;">
       <tr>
         <td>
           <div style="text-align:center;">
-            {% if stamp_src %}<img src="{{ stamp_src }}" alt="Pieczątka firmy" style="width:180px;height:70px;object-fit:contain;margin-bottom:0;">{% endif %}
+            <div style="height:70px;"></div>
             <div class="sig-line" style="margin-top:0;">czytelny podpis Wynajmującego</div>
           </div>
         </td>
@@ -231,12 +238,12 @@
 
   </div> <!-- /bottom-section -->
 
-  <!-- P2-018: Opiekun zamówienia na dole protokołu -->
-  <div style="text-align:center; margin-top: 8px; font-size: 9px; color: #555;">
-    Opiekun zamówienia: {{ salesperson.name if salesperson else '' }}{% if salesperson and salesperson.phone %} tel. {{ salesperson.phone }}{% endif %}
-  </div>
-
 </div> <!-- /content -->
+
+<!-- P2-018: Opiekun zamówienia nad stopką protokołu -->
+<div style="text-align:center; font-size: 9px; color: #555; padding: 0 14mm;">
+  {% if salesperson %}Opiekun zamówienia: {{ salesperson.name }}{% if salesperson.phone %} tel. {{ salesperson.phone }}{% endif %}{% endif %}
+</div>
 
 </body>
 </html>

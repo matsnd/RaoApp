@@ -71,7 +71,6 @@ class ArchiveArticleResponse(BaseModel):
     category_sub1: str | None = None
     category_sub2: str | None = None
     category_sub3: str | None = None
-    is_archival: bool = False
     is_external: bool = False
     zasieg_m: Decimal | None = None
     udzwig_t: Decimal | None = None
@@ -111,7 +110,6 @@ class ArchivePositionResponse(BaseModel):
     contract_id: int
     article_id: int
     article_name: str | None = None
-    rental_type: str | None = None
     description: str | None = None
     rental_days: int | None = None
     quantity: int | None = None
@@ -136,7 +134,6 @@ class ArchiveServiceFeeResponse(BaseModel):
     name: str
     amount_from: Decimal | None = None
     amount_to: Decimal | None = None
-    unit: str | None = None
     description: str | None = None
     is_active: bool
     article_id: int | None = None
@@ -178,7 +175,6 @@ class ArchiveContractListItem(BaseModel):
     date_from: date | None = None
     date_to: date | None = None
     prepayment_amount: Decimal | None = None
-    invoice_amount: Decimal | None = None
     notes: str | None = None
     email: str | None = None
     contact_person1: str | None = None
@@ -213,8 +209,6 @@ class ArchiveContractDetail(BaseModel):
     date_to: date | None = None
     prepayment_amount: Decimal | None = None
     prepayment_document: str | None = None
-    invoice_amount: Decimal | None = None
-    invoice_document: str | None = None
     notes: str | None = None
     contact_person1: str | None = None
     contact_phone1: str | None = None

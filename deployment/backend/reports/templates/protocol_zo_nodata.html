@@ -9,12 +9,12 @@
   body { display: flex; flex-direction: column; overflow: visible; }
 
   /* HEADER */
-  table.hdr { width: 100%; background: #1D2B53; color: #fff; border-collapse: collapse; flex-shrink: 0; }
-  .hdr-left { width: 33%; padding: 10px 10px 10px 14mm; font-size: 8px; line-height: 1.6; vertical-align: middle; }
+  table.hdr { width: calc(100% - 28mm); margin: 0 14mm; background: #1D2B53; color: #fff; border-collapse: collapse; flex-shrink: 0; }
+  .hdr-left { width: 33%; padding: 10px 10px 10px 10px; font-size: 8px; line-height: 1.6; vertical-align: middle; }
   .hdr-center { width: 34%; text-align: center; vertical-align: middle; padding: 8px; }
   .hdr-logo-img { height: 18px; width: auto; display: block; margin: 0 auto 3px auto; object-fit: contain; }
   .hdr-slogan { font-size: 7.5px; letter-spacing: 3px; margin-top: 2px; }
-  .hdr-right { width: 33%; text-align: right; padding: 10px 14mm 10px 10px; font-size: 8px; line-height: 1.6; vertical-align: middle; }
+  .hdr-right { width: 33%; text-align: right; padding: 10px 10px 10px 10px; font-size: 8px; line-height: 1.6; vertical-align: middle; }
 
   /* CONTENT */
   .content { flex: 1; display: flex; flex-direction: column; padding: 16px 14mm 10px 14mm; }
@@ -37,7 +37,7 @@
   .art-name { color: #1D2B53; font-weight: bold; }
 
   /* TEXT */
-  .fuel-line { font-size: 9.5px; margin: 6px 0 8px; }
+  .empty-line { font-size: 9.5px; margin: 6px 0 8px; }
   .legal-line { font-size: 9.5px; margin: 0 0 15px; }
 
   /* SIGNATURES */
@@ -77,7 +77,7 @@
   <div class="pzo-title">PROTOKÓŁ ZDAWCZO-ODBIORCZY</div>
   <div class="pzo-sub">
     do umowy nr {{ contract.number }}<br>
-    zawartej w dniu {{ contract.date_from | datepl }}
+    zawartej w dniu {{ contract.created_at | datepl }}
   </div>
 
   <!-- BOXES -->
@@ -128,7 +128,7 @@
   </table>
   {% endif %}
 
-  <div class="fuel-line">poziom uzupełnienia zbiornika/naładowania: .......................................</div>
+  <div class="empty-line">&nbsp;</div>
   <div class="legal-line">Pokwitowanie niniejszego Protokołu Zdawczo - Odbiorczego jest jednoznaczne z oświadczeniem o zapoznaniu się z Ogólnymi Warunkami Umowy Najmu (dalej: OWN) oraz ich akceptacją.</div>
 
 
@@ -158,7 +158,12 @@
         <td class="ret-col3">kaucja zwrócono w wysokości</td>
       </tr>
     </table>
-    <div class="ret-uwagi">uwagi</div>
+    <!-- UWAGI (zg3: contract.notes_protocol na protokole S nodata) -->
+    <div class="ret-uwagi" style="margin-bottom: 6px; border: 1px solid #aaa; border-top: 1px solid #aaa;">
+      Uwagi
+      {% if contract.notes_protocol %}<br><span style="color:#000;font-size:9px;white-space:pre-wrap;">{{ contract.notes_protocol }}</span>{% endif %}
+    </div>
+    <div class="ret-uwagi">uwagi do zwrotu</div>
 
     <div class="note-line">Ogólna weryfikacja maszyny następuje na terenie firmy w terminie do 14 dni od dnia jej przekazania</div>
 
@@ -175,13 +180,12 @@
     </table>
   </div>
 
-
-  <!-- P2-018: Opiekun zamówienia na dole protokołu -->
-  <div style="text-align:center; margin-top: 8px; font-size: 9px; color: #555;">
-    Opiekun zamówienia: {{ salesperson.name if salesperson else '' }}{% if salesperson and salesperson.phone %} tel. {{ salesperson.phone }}{% endif %}
-  </div>
-
 </div><!-- /content -->
+
+<!-- P2-018: Opiekun zamówienia nad stopką protokołu -->
+<div style="text-align:center; font-size: 9px; color: #555; padding: 0 14mm;">
+  {% if salesperson %}Opiekun zamówienia: {{ salesperson.name }}{% if salesperson.phone %} tel. {{ salesperson.phone }}{% endif %}{% endif %}
+</div>
 
 </body>
 </html>

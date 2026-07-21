@@ -103,7 +103,7 @@ class GusClient:
         body = (
             f'<ns:DaneSzukajPodmioty xmlns:ns="http://CIS/BIR/PUBL/2014/07">'
             f'<ns:pParametryWyszukiwania>'
-            f'<dat:Nip xmlns:dat="http://CIS/BIR/2014/07/DataContract">{nip}</dat:Nip>'
+            f'<dat:Nip xmlns:dat="http://CIS/BIR/PUBL/2014/07/DataContract">{nip}</dat:Nip>'
             f'</ns:pParametryWyszukiwania>'
             f'</ns:DaneSzukajPodmioty>'
         )

@@ -13,7 +13,7 @@ Trzy źródła przychodu (precedence: actual > lookup > tiered):
    - Używany gdy brak settlements i brak warunków lookup
 
 Public API:
-    compute_position_revenues(db, df, dt, *, service_filter, exclude_archival,
+    compute_position_revenues(db, df, dt, *, service_filter,
                               category_main_filter, ...) -> list[dict]
 
 Każdy dict zawiera:
@@ -35,7 +35,8 @@ from typing import Literal
 from sqlalchemy import and_, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from articles.models import Article
+from machines.models import Machine
+from services.models import Service
 from contracts.models import Contract, ContractPosition, PositionCondition
 from contractors.models import Contractor
 from settlements.models import ContractSettlement
@@ -47,22 +48,26 @@ from stats.calc import calculate_position_value
 def compute_position_value_lookup(
     rental_days: int | None,
     conditions: list[dict],
+    quantity: int | None = None,
+    is_service: bool = False,
 ) -> Decimal:
     """
     Reimplementacja `cena_pozycji` z starej aplikacji WinForms.
 
     Algorytm (lookup, NIE kaskadowe):
-    1. Jeśli liczba_dni > max(liczba_dni where oplata2>0):
+    1. Jeśli liczba okresów > max(liczba_dni where oplata2>0):
        - Weź ostatni warunek (order by id desc) gdzie liczba_dni >= w.liczba_dni
        - cena = oplata2 (lub oplata1 jeśli oplata2=0)
     2. W przeciwnym razie:
        - Weź pierwszy warunek (order by id) gdzie liczba_dni <= w.liczba_dni
        - cena = oplata2 (lub oplata1 jeśli oplata2=0)
-    3. revenue = cena × liczba_dni
+    3. revenue = cena × liczba okresów
 
     Source: AppRao/rao/FormU4.cs:1390-1396 + migrator/translated_objects/SQL_SCALAR_FUNCTION_cena_pozycji.sql
     """
-    if not conditions or not rental_days or rental_days <= 0:
+    # Phase 2: service contracts use quantity (hours) as the period value.
+    period_value = (quantity if is_service else rental_days) or 0
+    if not conditions or period_value <= 0:
         return Decimal("0.00")
 
     # Sort by period_count (liczba_dni) — zgodnie ze starą funkcją
@@ -75,17 +80,17 @@ def compute_position_value_lookup(
     )
 
     rate = Decimal("0.00")
-    if rental_days > max_pc_with_oplata2:
-        # powyżej zakresu: ostatni warunek gdzie liczba_dni <= rental_days
-        candidates = [c for c in sorted_conds if (c.get("period_count") or 0) <= rental_days]
+    if period_value > max_pc_with_oplata2:
+        # powyżej zakresu: ostatni warunek gdzie liczba_dni <= period_value
+        candidates = [c for c in sorted_conds if (c.get("period_count") or 0) <= period_value]
         if candidates:
             c = candidates[-1]  # ostatni (najwyższy period_count)
             op2 = Decimal(str(c.get("rate2") or 0))
             op1 = Decimal(str(c.get("rate1") or 0))
             rate = op2 if op2 > 0 else op1
     else:
-        # w zakresie: pierwszy warunek gdzie liczba_dni >= rental_days
-        candidates = [c for c in sorted_conds if (c.get("period_count") or 0) >= rental_days]
+        # w zakresie: pierwszy warunek gdzie liczba_dni >= period_value
+        candidates = [c for c in sorted_conds if (c.get("period_count") or 0) >= period_value]
         if candidates:
             c = candidates[0]  # pierwszy (najniższy period_count)
             op2 = Decimal(str(c.get("rate2") or 0))
@@ -95,8 +100,8 @@ def compute_position_value_lookup(
     if rate <= 0:
         return Decimal("0.00")
 
-    # revenue = cena × liczba_dni (zgodnie z FormU4.cs: rozliczenie insert per dzień)
-    return rate * rental_days
+    # revenue = cena × liczba okresów
+    return rate * period_value
 
 
 async def compute_position_revenues(
@@ -105,7 +110,6 @@ async def compute_position_revenues(
     dt: date,
     *,
     service_filter: bool | None = None,
-    exclude_archival: bool = True,
     category_main_filter: list[str] | None = None,
     category_sub1_filter: str | None = None,
     category_sub2_filter: str | None = None,
@@ -119,8 +123,9 @@ async def compute_position_revenues(
     umowy (legacy przeniesione do archive_*). Statystyki archiwum osobno.
 
     Returns list of dicts with keys:
-        position_id, article_id, contract_id, contractor_id,
-        article_name, internal_number, is_service, contract_number,
+        position_id, machine_id, service_id, contract_id, contractor_id,
+        machine_name, service_name, article_name (alias), internal_number,
+        is_service, contract_number,
         contractor_name, rental_days, date_from, date_to,
         category_main, category_sub1, category_sub2, category_sub3,
         contract_date_from, clamped_days,
@@ -135,15 +140,15 @@ async def compute_position_revenues(
     stmt = (
         select(
             ContractPosition.id,            # p[0]
-            ContractPosition.article_id,    # p[1]
+            ContractPosition.machine_id,    # p[1]  (was article_id)
             ContractPosition.contract_id,   # p[2]
             ContractPosition.rental_days,   # p[3]
             ContractPosition.billing_frequency,  # p[4]
             ContractPosition.unit_price,    # p[5]
             ContractPosition.quantity,      # p[6]
-            Article.name.label("article_name"),  # p[7]
-            Article.internal_number,        # p[8]
-            Article.is_service,             # p[9]
+            Machine.name.label("machine_name"),  # p[7]  (was article_name)
+            Machine.internal_number,        # p[8]
+            ContractPosition.service_id,    # p[9]  (was Article.is_service; None=machine, !None=service)
             Contract.number.label("contract_number"),  # p[10]
             # RAO-P2-065 #2: coalesce Contractor.name z snapshot contractor_name
             # — snapshot może być NULL gdy umowa ma contractor_id (FK) ale nie
@@ -152,20 +157,23 @@ async def compute_position_revenues(
             Contract.contractor_id,         # p[12]
             Contract.date_from,             # p[13]
             Contract.date_to,               # p[14]
-            Article.category_main,          # p[15]
-            Article.category_sub1,          # p[16]
-            Article.category_sub2,          # p[17]
-            Article.category_sub3,          # p[18]
+            Machine.category_main,          # p[15]
+            Machine.category_sub1,          # p[16]
+            Machine.category_sub2,          # p[17]
+            Machine.category_sub3,          # p[18]
             Contract.city,                  # p[19] — RAO: filtr city w stats
             Contract.contract_type,         # p[20] — RAO-P2-056: grupowanie po S/U
             Contract.branch_id,             # p[21] — RAO-P1-055: grupowanie po oddziale
+            Service.name.label("service_name"),  # p[22] — LEFT JOIN, NULL dla machine pozycji
         )
         .select_from(ContractPosition)
         .join(Contract, Contract.id == ContractPosition.contract_id)
         # RAO-P2-065 #2: LEFT JOIN contractors — contractor_name snapshot NULL
         # dla umów z contractor_id (FK) — rozwiązujemy nazwę z contractors.name
         .outerjoin(Contractor, Contractor.id == Contract.contractor_id)
-        .join(Article, Article.id == ContractPosition.article_id)
+        # articles split: LEFT JOIN machines + services (pozycja ma machine_id LUB service_id)
+        .outerjoin(Machine, Machine.id == ContractPosition.machine_id)
+        .outerjoin(Service, Service.id == ContractPosition.service_id)
     )
     # RAO-P0-006/BUG-6: df/dt mogą być None (preset='all' = brak filtra daty).
     # Buduj warunki tylko dla nie-None wartości.
@@ -177,16 +185,21 @@ async def compute_position_revenues(
     if _date_conds:
         stmt = stmt.where(and_(*_date_conds))
     if service_filter is not None:
-        stmt = stmt.where(Article.is_service == service_filter)
-    if exclude_archival:
-        stmt = stmt.where(Article.is_archival == False)
-        stmt = stmt.where(Article.is_external == False)  # RAO-P1-027
+        # articles split: service_filter=True → tylko usługi (service_id != None);
+        # False → tylko maszyny (machine_id != None); None → wszystkie
+        if service_filter:
+            stmt = stmt.where(ContractPosition.service_id.isnot(None))
+        else:
+            stmt = stmt.where(ContractPosition.machine_id.isnot(None))
+    # is_external dotyczy tylko maszyn (Service nie ma tej flagi) — coalesce z False
+    stmt = stmt.where(func.coalesce(Machine.is_external, False) == False)  # RAO-P1-027
     if category_main_filter:
-        stmt = stmt.where(Article.category_main.in_(category_main_filter))
+        # kategorie tylko dla maszyn — service pozycje mają NULL i zostaną odfiltrowane
+        stmt = stmt.where(Machine.category_main.in_(category_main_filter))
     if category_sub1_filter:
-        stmt = stmt.where(Article.category_sub1 == category_sub1_filter)
+        stmt = stmt.where(Machine.category_sub1 == category_sub1_filter)
     if category_sub2_filter:
-        stmt = stmt.where(Article.category_sub2 == category_sub2_filter)
+        stmt = stmt.where(Machine.category_sub2 == category_sub2_filter)
     # RAO-P2-052: filtr po konkretnych kontraktach (SQL WHERE IN) — używany
     # przez /explorer/locations/city/{city} po wstępnym zmatchowaniu miasta w SQL.
     if contract_ids is not None:
@@ -211,17 +224,17 @@ async def compute_position_revenues(
                 PositionCondition.rate1,
                 PositionCondition.rate2,
                 PositionCondition.period_count,
-                PositionCondition.minimum,
-                PositionCondition.rate_type_id,
+                PositionCondition.period_from,
+                PositionCondition.period_to,
             )
             .where(PositionCondition.position_id.in_(pos_ids))
-            .order_by(PositionCondition.position_id, PositionCondition.period_count)
+            .order_by(PositionCondition.position_id, PositionCondition.period_from)
         )
         cond_rows = cond_result.all()
         for c in cond_rows:
             conds_by_pos[c[0]].append({
                 "rate1": c[1], "rate2": c[2], "period_count": c[3],
-                "minimum": c[4], "rate_type_id": c[5],
+                "period_from": c[4], "period_to": c[5],
             })
 
     # 2. Pobierz settlements (rzeczywiste rozliczenia) — skip gdy brak positions
@@ -243,12 +256,16 @@ async def compute_position_revenues(
     for p in positions:
         pid = p[0]
         conds = conds_by_pos.get(pid, [])
+        # articles split: is_service z position type (service_id != None), nie contract_type
+        is_service = p[9] is not None  # service_id is not None → usługa
 
         # 3 źródła przychodu
         revenue_actual = sett_by_pos.get(pid)  # None jeśli brak settlements
         revenue_estimate_lookup = compute_position_value_lookup(
             rental_days=p[3],
             conditions=conds,
+            quantity=p[6],
+            is_service=is_service,
         )
         revenue_estimate_tiered = calculate_position_value(
             rental_days=p[3],
@@ -256,6 +273,7 @@ async def compute_position_revenues(
             unit_price=p[5],
             quantity=p[6],
             conditions=conds,
+            is_service=is_service,
         )
 
         # Precedence: actual > lookup > tiered
@@ -290,12 +308,17 @@ async def compute_position_revenues(
 
         results.append({
             "position_id": pid,
-            "article_id": p[1],
+            "machine_id": p[1],           # was article_id (articles split)
+            "service_id": p[9],           # NEW: service_id (None dla machine pozycji)
             "contract_id": p[2],
             "rental_days": p[3] or 0,
-            "article_name": p[7],
+            "machine_name": p[7],         # was article_name (Machine.name)
+            "service_name": p[22],        # NEW: Service.name (None dla machine pozycji)
+            "article_name": p[7] or p[22],  # backward compat: coalesce(machine_name, service_name)
             "internal_number": p[8],
-            "is_service": p[9],
+            "is_service": p[9] is not None,  # was p[9]=Article.is_service; now service_id != None
+            "is_additional_service": False,  # RAO: pozycja umowy (maszyna/usługa zwykła), nie dodatkowa
+            "additional_service_id": None,   # RAO: tylko dla usług dodatkowych
             "contract_number": p[10],
             "contractor_name": p[11],
             "contractor_id": p[12],
@@ -309,6 +332,7 @@ async def compute_position_revenues(
             "revenue_estimate_tiered": revenue_estimate_tiered,
             "revenue": revenue,
             "revenue_source": revenue_source,
+            # kategorie tylko dla maszyn (Service nie ma kategorii → NULL dla service pozycji)
             "category_main": p[15],
             "category_sub1": p[16],
             "category_sub2": p[17],
@@ -320,9 +344,9 @@ async def compute_position_revenues(
 
     # RAO Faza 2a (opcja E): unmapped settlements — syntetyczne wiersze dla analytics.
     # Pozycje FA nieobecne w umowie (position_id=NULL, service_fee_id=NULL, source='fa_unmapped')
-    # dostają syntetyczny wiersz z article_id=None, is_service=None, category_*=None.
+    # dostają syntetyczny wiersz z machine_id=None, service_id=None, is_service=None, category_*=None.
     # revenue = cost_client (actual), clamped_days=0 (nie zaburza utilization).
-    # Filtry service_filter/exclude_archival/category_* NIE aplikowane (unmapped nie ma Article).
+    # Filtry service_filter/category_* NIE aplikowane (unmapped nie ma Machine/Service).
     unmapped_stmt = (
         select(
             ContractSettlement.id,                       # u[0]
@@ -364,12 +388,17 @@ async def compute_position_revenues(
         cost_client = Decimal(str(u[4])) if u[4] is not None else Decimal("0")
         results.append({
             "position_id": None,
-            "article_id": None,
+            "machine_id": None,           # was article_id (articles split)
+            "service_id": None,           # NEW: unmapped nie ma service_id
             "contract_id": u[1],
             "rental_days": 0,
-            "article_name": u[2] or "(niezmapowane z FA)",
+            "machine_name": None,         # was article_name
+            "service_name": None,         # NEW
+            "article_name": u[2] or "(niezmapowane z FA)",  # backward compat: snapshot z FA
             "internal_number": None,
             "is_service": None,
+            "is_additional_service": False,  # RAO: unmapped, nie usługa dodatkowa
+            "additional_service_id": None,
             "contract_number": u[6],
             "contractor_name": u[7],
             "contractor_id": u[8],
@@ -389,6 +418,90 @@ async def compute_position_revenues(
             "city": u[11],
             "contract_type": u[12] or "S",
             "branch_id": u[13],
+        })
+
+    # RAO: Usługi dodatkowe (contract_settlements z service_fee_id IS NOT NULL).
+    # Syntetyczne wiersze dla analytics — jak unmapped, ale z service_id i nazwą usługi.
+    # Dzięki temu wszystkie endpointy używające compute_position_revenues (fleet-summary,
+    # top-machines, by-category, by-period, by-contract-type, by-branch, locations,
+    # commissions) automatycznie uwzględniają przychód z usług dodatkowych.
+    from contracts.models import ContractServiceFee
+    from additional_services.models import AdditionalService
+
+    addl_stmt = (
+        select(
+            ContractSettlement.id,                       # a[0]
+            ContractSettlement.contract_id,              # a[1]
+            ContractSettlement.cost_client,              # a[2]
+            ContractSettlement.settled_at,               # a[3]
+            AdditionalService.id,                        # a[4]
+            AdditionalService.name,                      # a[5]
+            Contract.number.label("contract_number"),    # a[6]
+            func.coalesce(Contractor.name, Contract.contractor_name).label("contractor_name"),  # a[7]
+            Contract.contractor_id,                      # a[8]
+            Contract.date_from,                          # a[9]
+            Contract.date_to,                            # a[10]
+            Contract.city,                               # a[11]
+            Contract.contract_type,                      # a[12]
+            Contract.branch_id,                          # a[13]
+        )
+        .select_from(ContractSettlement)
+        .join(Contract, Contract.id == ContractSettlement.contract_id)
+        .outerjoin(Contractor, Contractor.id == Contract.contractor_id)
+        .join(ContractServiceFee, ContractServiceFee.id == ContractSettlement.service_fee_id)
+        .join(AdditionalService, AdditionalService.id == ContractServiceFee.additional_service_id)
+        .where(ContractSettlement.service_fee_id.isnot(None))
+        .where(ContractSettlement.cost_client.isnot(None))
+    )
+    if _date_conds:
+        addl_stmt = addl_stmt.where(and_(*_date_conds))
+    if contract_ids is not None:
+        if not contract_ids:
+            return results  # pusty zbiór
+        addl_stmt = addl_stmt.where(ContractSettlement.contract_id.in_(list(contract_ids)))
+
+    # service_filter=False → tylko maszyny, pomiń usługi dodatkowe.
+    # service_filter=True lub None → uwzględnij usługi dodatkowe.
+    if service_filter is False:
+        addl_rows = []
+    else:
+        addl_result = await db.execute(addl_stmt)
+        addl_rows = addl_result.all()
+
+    for a in addl_rows:
+        cost_client = Decimal(str(a[2])) if a[2] is not None else Decimal("0")
+        results.append({
+            "position_id": None,
+            "machine_id": None,
+            "service_id": None,            # NULL — nie Service.id (kolizja z additional_services.id)
+            "additional_service_id": a[4], # AdditionalService.id (osobne ID space)
+            "contract_id": a[1],
+            "rental_days": 0,
+            "machine_name": None,
+            "service_name": a[5],          # AdditionalService.name
+            "article_name": a[5],          # backward compat
+            "internal_number": None,
+            "is_service": True,            # usługa dodatkowa = usługa
+            "is_additional_service": True, # RAO: oznaczenie usługi dodatkowej (nie zwykłej)
+            "contract_number": a[6],
+            "contractor_name": a[7],
+            "contractor_id": a[8],
+            "date_from": a[9],
+            "date_to": a[10],
+            "contract_date_from": a[9],
+            "clamped_days": 0,
+            "revenue_actual": cost_client,
+            "revenue_estimate_lookup": Decimal("0"),
+            "revenue_estimate_tiered": Decimal("0"),
+            "revenue": cost_client,
+            "revenue_source": "actual",
+            "category_main": None,
+            "category_sub1": None,
+            "category_sub2": None,
+            "category_sub3": None,
+            "city": a[11],
+            "contract_type": a[12] or "S",
+            "branch_id": a[13],
         })
 
     return results

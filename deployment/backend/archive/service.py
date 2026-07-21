@@ -13,6 +13,8 @@ from decimal import Decimal
 from sqlalchemy import and_, delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from stats.calc import clamp_days
 from sqlalchemy.orm import selectinload
 
 from archive.models import (
@@ -32,6 +34,27 @@ from archive.schemas import (
 )
 from shared.exceptions import conflict, not_found
 from stats.calc import calculate_position_value
+
+import logging
+_logger = logging.getLogger(__name__)
+
+
+def _compute_roi_pct(revenue, replacement_value) -> float | None:
+    """Oblicz ROI (%) dla maszyny — używane tylko w archiwum (szacunkowe).
+
+    Reguły (defensywne):
+    - replacement_value is None lub <= 0 → None
+    - revenue < 0 (korekta/zwrot) → None
+    - revenue == 0 → 0.0
+    - revenue > 0 → round(revenue / replacement_value * 100, 2)
+    """
+    if replacement_value is None or float(replacement_value) <= 0:
+        return None
+    rev = float(revenue) if revenue is not None else 0.0
+    if rev < 0:
+        _logger.warning("Negative ROI clamped: revenue=%s, replacement_value=%s", revenue, replacement_value)
+        return None
+    return round(rev / float(replacement_value) * 100, 2)
 
 
 # ── Normalizacja nazwy kategorii (mirror settings.service) ───────────────────
@@ -149,7 +172,6 @@ async def list_archive_contracts(
                 date_from=c.date_from,
                 date_to=c.date_to,
                 prepayment_amount=c.prepayment_amount,
-                invoice_amount=c.invoice_amount,
                 notes=c.notes,
                 email=c.email,
                 contact_person1=c.contact_person1,
@@ -426,7 +448,7 @@ async def get_archive_top_machines(
         agg[aid]["article_name"] = p.article.name
         agg[aid]["internal_number"] = p.article.internal_number
         agg[aid]["contracts"].add(p.contract_id)
-        agg[aid]["rented_days"] += (p.rental_days or 0)
+        agg[aid]["rented_days"] += max(p.rental_days or 0, 0)
         agg[aid]["revenue_estimate"] += _estimate_position_value(p)
 
     sorted_items = sorted(agg.items(), key=lambda x: x[1]["revenue_estimate"], reverse=True)[:limit]
@@ -492,12 +514,10 @@ async def get_archive_machine_roi(
     positions = await _fetch_positions_with_conds(db, date_from, date_to)
     relevant = [p for p in positions if p.article_id == article_id]
     revenue = sum((_estimate_position_value(p) for p in relevant), Decimal("0.00"))
-    days = sum((p.rental_days or 0) for p in relevant)
+    days = clamp_days(sum((p.rental_days or 0) for p in relevant))
     cnt = len({p.contract_id for p in relevant})
 
-    roi_pct = None
-    if article.replacement_value and article.replacement_value > 0:
-        roi_pct = round(float(revenue) / float(article.replacement_value) * 100, 2)
+    roi_pct = _compute_roi_pct(revenue, article.replacement_value)
 
     return ArchiveMachineRoiResponse(
         article_id=article.id,

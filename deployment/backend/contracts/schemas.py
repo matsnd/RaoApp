@@ -20,55 +20,92 @@ CityName = Annotated[str, Field(
     pattern=r"^[A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż0-9 \-\.\']+$",
 )]
 
+SafeName = Annotated[str, Field(
+    min_length=1,
+    max_length=200,
+    pattern=r"^[A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż0-9 \-\_\(\)\[\]\.\,\!\?\:\/\\&\+\=%$#@\'\"]+$",
+)]
+
+SafeDescription = Annotated[str | None, Field(
+    max_length=400,
+    pattern=r"^[A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż0-9 \-\_\(\)\[\]\.\,\!\?\:\/\\&\+\=%$#@\'\"\n\r\t\*\;\(\)]+$",
+)]
+
 
 class ConditionResponse(BaseModel):
     id: int
     position_id: int
-    rate_type_id: int | None
-    rate_type_name: str | None
-    description: str | None
     rate1: Decimal | None
     rate2: Decimal | None
     billing_label: str | None
-    period_count: int | None
-    minimum: int | None
+    period_count: int | None  # RAO-P1-005: backward compatibility
+    period_from: int | None  # RAO-P1-005: elastyczne widełki (od)
+    period_to: int | None    # RAO-P1-005: elastyczne widełki (do)
 
     class Config:
         from_attributes = True
 
 
 class ConditionCreate(BaseModel):
-    rate_type_id: int | None = None
-    description: str | None = Field(None, max_length=400)
-    rate1: Decimal | None = None
-    rate2: Decimal | None = None
-    billing_label: str | None = None
-    period_count: int | None = None
-    minimum: int | None = None
+    rate1: Decimal | None = Field(None, ge=0, decimal_places=2)
+    rate2: Decimal | None = Field(None, ge=0, decimal_places=2)
+    billing_label: SafeName | None = None
+    period_count: int | None = Field(None, ge=0)  # RAO-P1-005: backward compatibility
+    period_from: int | None = Field(None, ge=0)  # RAO-P1-005: elastyczne widełki (od)
+    period_to: int | None = Field(None, ge=0)    # RAO-P1-005: elastyczne widełki (do)
+
+    @model_validator(mode='after')
+    def check_condition(self):
+        # Przynajmniej jedna stawka ustawiona
+        if not (self.rate1 is not None or self.rate2 is not None):
+            raise ValueError("Przynajmniej jedna stawka (stawka 1 lub stawka 2) jest wymagana.")
+        if self.rate1 is not None and self.rate2 is not None:
+            if self.rate1 == 0 and self.rate2 == 0:
+                raise ValueError("Przynajmniej jedna stawka musi być większa od zera.")
+        # RAO-P1-005: backward compatibility — period_count maps to 1..period_count
+        if self.period_count is not None and self.period_from is None and self.period_to is None:
+            self.period_from = 1
+            self.period_to = self.period_count
+        # period_to >= period_from (allow single-day: pf=1, pt=1 = "1 dzień")
+        if self.period_from is not None and self.period_to is not None and self.period_to < self.period_from:
+            raise ValueError("Okres do musi być większy lub równy okresowi od.")
+        return self
 
 
 class ConditionUpdate(BaseModel):
     """RAO-P0-034: Partial update — only fields explicitly sent are applied."""
-    rate_type_id: int | None = None
-    description: str | None = Field(None, max_length=400)
-    rate1: Decimal | None = None
-    rate2: Decimal | None = None
-    billing_label: str | None = None
-    period_count: int | None = None
-    minimum: int | None = None
+    rate1: Decimal | None = Field(None, ge=0, decimal_places=2)
+    rate2: Decimal | None = Field(None, ge=0, decimal_places=2)
+    billing_label: SafeName | None = None
+    period_count: int | None = Field(None, ge=0)  # RAO-P1-005: backward compatibility
+    period_from: int | None = Field(None, ge=0)  # RAO-P1-005: elastyczne widełki (od)
+    period_to: int | None = Field(None, ge=0)    # RAO-P1-005: elastyczne widełki (do)
+
+    @model_validator(mode='after')
+    def check_condition(self):
+        # Przynajmniej jedna stawka ustawiona wśród przesłanych wartości
+        if self.rate1 is not None or self.rate2 is not None:
+            if self.rate1 == 0 and self.rate2 == 0:
+                raise ValueError("Przynajmniej jedna stawka musi być większa od zera.")
+        # RAO-P1-005: backward compatibility — period_count maps to 1..period_count
+        if self.period_count is not None and self.period_from is None and self.period_to is None:
+            self.period_from = 1
+            self.period_to = self.period_count
+        if self.period_from is not None and self.period_to is not None and self.period_to < self.period_from:
+            raise ValueError("Okres do musi być większy lub równy okresowi od.")
+        return self
 
 
 class PositionResponse(BaseModel):
     id: int
     contract_id: int
-    article_id: int
+    machine_id: int | None = None
+    service_id: int | None = None
     article_name: str | None
-    rental_type: str | None
     description: str | None
     rental_days: int | None
     quantity: int | None
     unit_price: Decimal | None
-    costs: Decimal | None
     rate_type_id: int | None
     rate_type_name: str | None
     billing_frequency: str | None
@@ -84,29 +121,35 @@ class PositionResponse(BaseModel):
 
 
 class PositionCreate(BaseModel):
-    article_id: int
-    rental_type: str | None = None
-    description: str | None = Field(None, max_length=400)
-    rental_days: int | None = None
-    quantity: int = 1
-    unit_price: Decimal | None = None
-    costs: Decimal | None = None
+    machine_id: int | None = None
+    service_id: int | None = None
+    description: SafeDescription = None
+    rental_days: int | None = Field(None, ge=0)
+    quantity: int = Field(1, ge=1)
+    unit_price: Decimal | None = Field(None, ge=0, decimal_places=2)
     rate_type_id: int | None = None
     billing_frequency: str | None = None
     billing_unit: str | None = None
     supplier_id: int | None = None
     delivery_date: date | None = None
 
+    @model_validator(mode='after')
+    def validate_xor(self) -> "PositionCreate":
+        if (self.machine_id is None) == (self.service_id is None):
+            raise ValueError("Wybierz maszynę lub usługę (dokładnie jedną).")
+        return self
+
 
 class PositionUpdate(BaseModel):
-    """RAO-P0-034: Partial update — only fields explicitly sent are applied."""
-    article_id: int | None = None
-    rental_type: str | None = None
-    description: str | None = Field(None, max_length=400)
-    rental_days: int | None = None
-    quantity: int | None = None
-    unit_price: Decimal | None = None
-    costs: Decimal | None = None
+    """Partial update — only fields explicitly sent are applied.
+    XOR invariant (machine_id XOR service_id) validated in service layer
+    on the final state after applying partial fields."""
+    machine_id: int | None = None
+    service_id: int | None = None
+    description: SafeDescription = None
+    rental_days: int | None = Field(None, ge=0)
+    quantity: int | None = Field(None, ge=1)
+    unit_price: Decimal | None = Field(None, ge=0, decimal_places=2)
     rate_type_id: int | None = None
     billing_frequency: str | None = None
     billing_unit: str | None = None
@@ -117,28 +160,51 @@ class PositionUpdate(BaseModel):
 class ContractServiceFeeResponse(BaseModel):
     id: int
     sort_order: int
+    additional_service_id: int | None = None  # P1-120
     name: str
     amount_from: Decimal | None
     amount_to: Decimal | None
-    unit: str | None
     description: str | None
     is_active: bool
-    article_id: int | None = None  # RAO-P1-011
-    default_price: Decimal | None = None  # RAO-P1-011
 
     class Config:
         from_attributes = True
 
 
 class ContractServiceFeeCreate(BaseModel):
-    name: str = Field(..., max_length=200)
-    amount_from: Decimal | None = None
-    amount_to: Decimal | None = None
-    unit: str | None = Field(None, max_length=50)
-    description: str | None = Field(None, max_length=400)
+    additional_service_id: int | None = None  # P1-120: FK do additional_services
+    name: SafeName
+    amount_from: Decimal | None = Field(None, ge=0, decimal_places=2)
+    amount_to: Decimal | None = Field(None, ge=0, decimal_places=2)
+    description: SafeDescription = None
     is_active: bool = True
-    article_id: int | None = None  # RAO-P2-059: link do artykułu usługi
-    default_price: Decimal | None = None  # RAO-P2-059: snapshot ceny z artykułu
+
+    @model_validator(mode='after')
+    def check_and_fill_description(self):
+        if self.amount_from is not None and self.amount_to is not None:
+            if self.amount_to < self.amount_from:
+                raise ValueError("Kwota do nie może być mniejsza od kwoty od.")
+        # RAO-P1-100: KISS — "Tekst na umowie" zawsze wypełniony (fallback do nazwy)
+        if not self.description or not self.description.strip():
+            self.description = self.name
+        return self
+
+
+class ContractServiceFeeUpdate(BaseModel):
+    """RAO-P0-034: Partial update — only fields explicitly sent are applied."""
+    additional_service_id: int | None = None  # P1-120
+    name: SafeName | None = None
+    amount_from: Decimal | None = Field(None, ge=0, decimal_places=2)
+    amount_to: Decimal | None = Field(None, ge=0, decimal_places=2)
+    description: SafeDescription = None
+    is_active: bool | None = None
+
+    @model_validator(mode='after')
+    def check_amounts(self):
+        if self.amount_from is not None and self.amount_to is not None:
+            if self.amount_to < self.amount_from:
+                raise ValueError("Kwota do nie może być mniejsza od kwoty od.")
+        return self
 
 
 class ContractServiceFeeReorder(BaseModel):
@@ -161,8 +227,8 @@ class ContractListItem(BaseModel):
     date_to: date | None
     # RAO-P1-021/P2-033: total_value usunięte (martwe pole, 100% NULL)
     prepayment_amount: Decimal | None
-    invoice_amount: Decimal | None
-    notes: str | None
+    notes_contract: str | None
+    notes_protocol: str | None
     email: str | None
     contact_person1: str | None = None
     contact_phone1: str | None = None
@@ -185,6 +251,7 @@ class ContractDetail(BaseModel):
     contractor_name: str | None
     branch_id: int | None
     salesperson_id: int | None
+    salesperson_name: str | None = None  # P1-205: JOIN salespeople (drawer Dostawy)
     number: str
     auto_number: int | None
     oid: str | None = None  # RAO-P2-058: Fakturownia order ID (hybrydowe: oid or number)
@@ -199,9 +266,8 @@ class ContractDetail(BaseModel):
     # RAO-P1-021/P2-033: total_value usunięte
     prepayment_amount: Decimal | None
     prepayment_document: str | None
-    invoice_amount: Decimal | None
-    invoice_document: str | None
-    notes: str | None
+    notes_contract: str | None
+    notes_protocol: str | None
     contact_person1: str | None
     contact_phone1: str | None
     show_person1: bool
@@ -217,6 +283,9 @@ class ContractDetail(BaseModel):
     print_date: datetime | None
     is_settled: bool = False          # RAO-P2-022
     settled_at: datetime | None = None  # RAO-P2-022
+    # RAO: pre-selekcja zestawu opłat — sugestia na podstawie power_type
+    # pierwszej pozycji (diesel/electric). NIGDY auto-apply — operator wybiera.
+    suggested_preset: str | None = None
     created_at: datetime
     updated_at: datetime | None
 
@@ -231,11 +300,11 @@ class SettleContractRequest(BaseModel):
 
 class ContractCreate(BaseModel):
     contractor_id: int
-    branch_id: int = 1  # RAO-P1-022: domyślnie Warszawa (id=1)
+    branch_id: int | None = 1  # RAO-P1-022: domyślnie Warszawa (id=1), None = brak oddziału
     salesperson_id: int | None = None
     contract_type: Literal["S", "U"] = "S"
     oid: Optional[OidStr] = None  # RAO-P2-058: Fakturownia OID (puste = użyj number)
-    delivery_address: str | None = None
+    delivery_address: str | None = Field(None, max_length=255)
     postal_code: PostalCode | None = None
     city: CityName | None = None
     latitude: Decimal | None = None
@@ -243,36 +312,32 @@ class ContractCreate(BaseModel):
     date_from: date | None = None
     date_to: date | None = None
     # RAO-P1-021/P2-033: total_value usunięte
-    prepayment_amount: Decimal | None = None
-    prepayment_document: str | None = None
-    invoice_amount: Decimal | None = None
-    invoice_document: str | None = None
-    notes: str | None = None
-    contact_person1: str | None = None
-    contact_phone1: str | None = None
+    prepayment_amount: Decimal | None = Field(None, ge=0, decimal_places=2)
+    prepayment_document: str | None = Field(None, max_length=200)
+    notes_contract: SafeDescription = None
+    notes_protocol: SafeDescription = None
+    contact_person1: SafeName | None = None
+    contact_phone1: str | None = Field(None, max_length=100)
     show_person1: bool = True
-    contact_person2: str | None = None
-    contact_phone2: str | None = None
+    contact_person2: SafeName | None = None
+    contact_phone2: str | None = Field(None, max_length=100)
     show_person2: bool = True
-    email: str | None = None
-    phone: str | None = None
-    contractor_name: str | None = None
-    working_days_per_week: int = 6
+    email: str | None = Field(None, max_length=100)
+    phone: str | None = Field(None, max_length=100)
+    contractor_name: SafeName | None = None
+    working_days_per_week: int = Field(6, ge=1, le=7)
     report_without_data: bool = False
     hide_delivery_address: bool = False
     signatures_on_page1: bool = False
 
     @model_validator(mode="after")
     def _validate_dates_and_amounts(self):
+        # RAO-QA-002: date_from required — without it, downstream code crashes with 500
+        if not self.date_from:
+            raise ValueError("Data rozpoczęcia (date_from) jest wymagana.")
         # RAO-P1-039: date_from must not be after date_to
         if self.date_from and self.date_to and self.date_from > self.date_to:
             raise ValueError("Data rozpoczęcia (date_from) nie może być po dacie zakończenia (date_to).")
-        # RAO-P1-039: monetary fields must be non-negative
-        # RAO-P1-021/P2-033: total_value usunięte z walidacji
-        for field in ("prepayment_amount", "invoice_amount"):
-            v = getattr(self, field)
-            if v is not None and v < 0:
-                raise ValueError(f"{field} nie może być ujemne.")
         return self
 
 
@@ -288,7 +353,7 @@ class ContractUpdate(BaseModel):
     salesperson_id: int | None = None
     contract_type: Literal["S", "U"] | None = None
     oid: Optional[OidStr] = None  # RAO-P2-058: Fakturownia OID (puste = użyj number)
-    delivery_address: str | None = None
+    delivery_address: str | None = Field(None, max_length=255)
     postal_code: PostalCode | None = None
     city: CityName | None = None
     latitude: Decimal | None = None
@@ -296,21 +361,20 @@ class ContractUpdate(BaseModel):
     date_from: date | None = None
     date_to: date | None = None
     # RAO-P1-021/P2-033: total_value usunięte
-    prepayment_amount: Decimal | None = None
-    prepayment_document: str | None = None
-    invoice_amount: Decimal | None = None
-    invoice_document: str | None = None
-    notes: str | None = None
-    contact_person1: str | None = None
-    contact_phone1: str | None = None
+    prepayment_amount: Decimal | None = Field(None, ge=0, decimal_places=2)
+    prepayment_document: str | None = Field(None, max_length=200)
+    notes_contract: SafeDescription = None
+    notes_protocol: SafeDescription = None
+    contact_person1: SafeName | None = None
+    contact_phone1: str | None = Field(None, max_length=100)
     show_person1: bool | None = None
-    contact_person2: str | None = None
-    contact_phone2: str | None = None
+    contact_person2: SafeName | None = None
+    contact_phone2: str | None = Field(None, max_length=100)
     show_person2: bool | None = None
-    email: str | None = None
-    phone: str | None = None
-    contractor_name: str | None = None
-    working_days_per_week: int | None = None
+    email: str | None = Field(None, max_length=100)
+    phone: str | None = Field(None, max_length=100)
+    contractor_name: SafeName | None = None
+    working_days_per_week: int | None = Field(None, ge=1, le=7)
     report_without_data: bool | None = None
     hide_delivery_address: bool | None = None
     signatures_on_page1: bool | None = None
@@ -320,10 +384,6 @@ class ContractUpdate(BaseModel):
         # RAO-P1-039: same validation as ContractCreate (partial — only check set fields)
         if self.date_from and self.date_to and self.date_from > self.date_to:
             raise ValueError("Data rozpoczęcia (date_from) nie może być po dacie zakończenia (date_to).")
-        for field in ("prepayment_amount", "invoice_amount"):
-            v = getattr(self, field)
-            if v is not None and v < 0:
-                raise ValueError(f"{field} nie może być ujemne.")
         return self
 
 

@@ -45,6 +45,6 @@ async def get_current_user(
 
 
 async def require_admin(user: User = Depends(get_current_user)) -> User:
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Wymagane uprawnienia administratora")
+    # NOTE (2026-07-11): IDOR WYŁĄCZONY — single-user mode. No-op (zwraca każdego zalogowanego).
+    # Pełny RBAC wdrożony gdy pojawią się wymagania wieloużytkownikowe.
     return user

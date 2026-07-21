@@ -3,7 +3,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from articles.models import Article
-from articles.schemas import ArticleCreate
+from articles.schemas import ArticleCreate, ArticleUpdate
 from shared.exceptions import not_found
 
 
@@ -13,7 +13,7 @@ class ArticleService:
         search: str | None = None,
         category_id: int | None = None,
         owner_id: int | None = None,
-        archival_status: str = "active",
+        is_service: bool | None = None,
         page: int = 1,
         per_page: int = 50,
     ):
@@ -24,16 +24,14 @@ class ArticleService:
         from sqlalchemy.orm import aliased
 
         stmt = select(Article)
-        if archival_status == "active":
-            stmt = stmt.where(Article.is_archival == False)  # noqa: E712
-        elif archival_status == "archival":
-            stmt = stmt.where(Article.is_archival == True)   # noqa: E712
         if search:
             stmt = stmt.where(Article.name.ilike(f"%{search}%"))
         if category_id:
             stmt = stmt.where(Article.category_id == category_id)
         if owner_id:
             stmt = stmt.where(Article.owner_id == owner_id)
+        if is_service is not None:
+            stmt = stmt.where(Article.is_service == is_service)
 
         count_stmt = select(func.count()).select_from(stmt.subquery())
         total = (await db.execute(count_stmt)).scalar_one()
@@ -90,7 +88,6 @@ class ArticleService:
                 replacement_value=a.replacement_value,
                 category_name=cat_name,
                 category_main=a.category_main,
-                is_archival=a.is_archival,
                 is_external=a.is_external,  # RAO-P1-027
                 fakturownia_product_id=a.fakturownia_product_id,
                 owner_name=own_name, notes=a.notes,
@@ -108,15 +105,18 @@ class ArticleService:
         return article
 
     async def create_article(self, db: AsyncSession, data: ArticleCreate) -> Article:
+        # RAO: power_type przekazywany z data do modelu (via model_dump)
         article = Article(**data.model_dump(), created_at=datetime.utcnow())
         db.add(article)
         await db.commit()
         await db.refresh(article)
         return article
 
-    async def update_article(self, db: AsyncSession, article_id: int, data: ArticleCreate) -> Article:
+    async def update_article(self, db: AsyncSession, article_id: int, data: ArticleUpdate) -> Article:
         article = await self.get_article(db, article_id)
-        for field, value in data.model_dump().items():
+        # RAO-P0-034: exclude_unset=True — only fields explicitly sent are applied.
+        # RAO: power_type aktualizowany tylko gdy operator go przesłał.
+        for field, value in data.model_dump(exclude_unset=True).items():
             setattr(article, field, value)
         article.updated_at = datetime.utcnow()
         await db.commit()
@@ -203,15 +203,17 @@ class ArticleService:
 
         # RAO-P2-066: konflikty z ręcznymi rezerwacjami (article_reservations)
         # Zakładka czasowa pokrywa się gdy: reserved_from <= date_to AND reserved_to >= date_from
+        # RAO-L-Phase2: JOIN contractors → contractor_id + contractor_name w konflikcie
         res_stmt = (
-            select(ArticleReservation)
+            select(ArticleReservation, Contractor.name)
+            .outerjoin(Contractor, ArticleReservation.contractor_id == Contractor.id)
             .where(ArticleReservation.article_id == article_id)
             .where(ArticleReservation.reserved_from <= date_to)
             .where(ArticleReservation.reserved_to >= date_from)
             .order_by(ArticleReservation.reserved_from)
         )
         res_result = await db.execute(res_stmt)
-        reservations = res_result.scalars().all()
+        res_rows = res_result.all()
         res_conflicts = [
             AvailabilityReservationConflict(
                 reservation_id=r.id,
@@ -220,8 +222,10 @@ class ArticleService:
                 note=r.note,
                 # Maszyna dostępna od dnia następnego po zakończeniu rezerwacji
                 available_from=r.reserved_to + timedelta(days=1),
+                contractor_id=r.contractor_id,
+                contractor_name=contractor_name,
             )
-            for r in reservations
+            for r, contractor_name in res_rows
         ]
 
         is_available = len(conflicts) == 0 and len(res_conflicts) == 0

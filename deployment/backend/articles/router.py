@@ -4,14 +4,32 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from articles.models import Article
-from articles.schemas import ArticleCreate, ArticleDetail, ArticleListItem, AvailabilityResponse, ArticleArchivalFilter
+from articles.schemas import ArticleCreate, ArticleDetail, ArticleListItem, AvailabilityResponse
 from articles.service import article_service
 from auth.dependencies import get_current_user
 from auth.models import User
 from database import get_db
 from shared.pagination import PaginatedResponse
+from shared.exceptions import not_found, forbidden
 
 router = APIRouter(prefix="/articles", tags=["articles"])
+
+
+async def _verify_article_access(db: AsyncSession, article_id: int, user: User, allow_mutation: bool = False):
+    """RAO-SEC-003 fix: IDOR guard for articles.
+
+    - admin: all access
+    - user/viewer: only own branch (branch_id match) or NULL branch (legacy)
+    - viewer: read-only (allow_mutation=False)
+
+    NOTE (2026-07-11): IDOR WYŁĄCZONY — single-user mode. Branch/viewer checks
+    pominięte. Zostaje tylko get_article + not_found. Pełny RBAC wdrożony gdy
+    pojawią się wymagania wieloużytkownikowe.
+    """
+    a = await article_service.get_article(db, article_id)
+    if a is None:
+        raise not_found("Maszyna")
+    return a
 
 
 async def _build_detail(db: AsyncSession, a: Article) -> ArticleDetail:
@@ -36,10 +54,10 @@ async def _build_detail(db: AsyncSession, a: Article) -> ArticleDetail:
         owner_id=a.owner_id, owner_name=own_name,
         branch_id=a.branch_id, description=a.description, notes=a.notes,
         rental_days=a.rental_days, article_type=a.article_type,
-        is_archival=a.is_archival,
         is_external=a.is_external,  # RAO-P1-027
         zasieg_m=a.zasieg_m, udzwig_t=a.udzwig_t, dodatki=a.dodatki,
         fakturownia_product_id=a.fakturownia_product_id,
+        power_type=a.power_type,
         created_at=a.created_at, updated_at=a.updated_at,
     )
 
@@ -49,14 +67,14 @@ async def list_articles(
     search: str | None = Query(None),
     category_id: int | None = Query(None),
     owner_id: int | None = Query(None),
-    archival_status: ArticleArchivalFilter = Query(ArticleArchivalFilter.ACTIVE),
+    is_service: bool | None = Query(None),
     page: int = Query(1, ge=1),
     per_page: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
     items, total = await article_service.list_articles(
-        db, search, category_id, owner_id, archival_status.value, page, per_page
+        db, search, category_id, owner_id, is_service, page, per_page
     )
     return PaginatedResponse(items=items, total=total, page=page, per_page=per_page)
 
@@ -65,9 +83,9 @@ async def list_articles(
 async def get_article(
     article_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
-    a = await article_service.get_article(db, article_id)
+    a = await _verify_article_access(db, article_id, current_user)
     return await _build_detail(db, a)
 
 
@@ -75,8 +93,10 @@ async def get_article(
 async def create_article(
     data: ArticleCreate,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    if current_user.role == "viewer":
+        raise forbidden("Tylko odczyt — brak uprawnień do modyfikacji.")
     a = await article_service.create_article(db, data)
     return await _build_detail(db, a)
 
@@ -86,18 +106,20 @@ async def update_article(
     article_id: int,
     data: ArticleCreate,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
-    a = await article_service.update_article(db, article_id, data)
-    return await _build_detail(db, a)
+    a = await _verify_article_access(db, article_id, current_user, allow_mutation=True)
+    updated = await article_service.update_article(db, article_id, data)
+    return await _build_detail(db, updated)
 
 
 @router.delete("/{article_id}", status_code=204)
 async def delete_article(
     article_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    await _verify_article_access(db, article_id, current_user, allow_mutation=True)
     await article_service.delete_article(db, article_id)
 
 
@@ -105,10 +127,11 @@ async def delete_article(
 async def duplicate_article(
     article_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
-    a = await article_service.duplicate_article(db, article_id)
-    return await _build_detail(db, a)
+    a = await _verify_article_access(db, article_id, current_user, allow_mutation=True)
+    dup = await article_service.duplicate_article(db, article_id)
+    return await _build_detail(db, dup)
 
 
 @router.get("/{article_id}/availability", response_model=AvailabilityResponse)
@@ -137,7 +160,7 @@ async def check_availability(
 async def get_last_conditions_for_article(
     article_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
 ):
     """Auto-prefill — warunki z najnowszej umowy zawierającej pozycję z tym article_id.
 
@@ -147,7 +170,7 @@ async def get_last_conditions_for_article(
     404 jeśli brak historii.
     """
     from contracts.service import contract_service
-    data = await contract_service.get_last_conditions_for_article(db, article_id)
+    data = await contract_service.get_last_conditions_for_article(db, article_id, user)
     if data is None:
         raise HTTPException(status_code=404, detail="Brak historii umów dla tej maszyny")
     return data

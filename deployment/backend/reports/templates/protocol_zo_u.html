@@ -9,12 +9,12 @@
   body { display: flex; flex-direction: column; overflow: visible; }
   
   /* HEADER */
-  table.hdr { width: 100%; background: #1D2B53; color: #fff; border-collapse: collapse; flex-shrink: 0; }
-  .hdr-left { width: 33%; padding: 10px 10px 10px 14mm; font-size: 8px; line-height: 1.6; vertical-align: middle; }
+  table.hdr { width: calc(100% - 28mm); margin: 0 14mm; background: #1D2B53; color: #fff; border-collapse: collapse; flex-shrink: 0; }
+  .hdr-left { width: 33%; padding: 10px 10px 10px 10px; font-size: 8px; line-height: 1.6; vertical-align: middle; }
   .hdr-center { width: 34%; text-align: center; vertical-align: middle; padding: 8px; }
   .hdr-logo-img { height: 18px; width: auto; display: block; margin: 0 auto 3px auto; object-fit: contain; }
   .hdr-slogan { font-size: 7.5px; letter-spacing: 3px; margin-top: 2px; }
-  .hdr-right { width: 33%; text-align: right; padding: 10px 14mm 10px 10px; font-size: 8px; line-height: 1.6; vertical-align: middle; }
+  .hdr-right { width: 33%; text-align: right; padding: 10px 10px 10px 10px; font-size: 8px; line-height: 1.6; vertical-align: middle; }
   
   /* CONTENT */
   .content { flex: 1; display: flex; flex-direction: column; padding: 30px 14mm 10px 14mm; }
@@ -106,7 +106,7 @@
         <div class="pzo-title">PROTOKÓŁ WYKONANIA USŁUGI</div>
         <div class="pzo-sub">
           do umowy nr {{ contract.number }}<br>
-          zawartej w dniu {{ contract.date_from | datepl }}<br>
+          zawartej w dniu {{ contract.created_at | datepl }}<br>
           {% set svc_date = (positions[0].pos.delivery_date if positions else None) or contract.date_from %}
           {% if svc_date %}termin wykonania usługi {{ svc_date | datepl }}{% endif %}
         </div>
@@ -186,11 +186,19 @@
   <!-- PUSH TO BOTTOM -->
   <div class="bottom-section">
 
-    <!-- UWAGI BOX -->
-    <div class="ret-uwagi" style="border: 1px solid #aaa; padding: 8px 12px; font-size: 10px; min-height: 120px; color: #888; margin: 15px 0 15px 0;">uwagi</div>
+    <!-- UWAGI BOX — z notes_protocol (czarny tekst) -->
+    <div class="ret-uwagi" style="border: 1px solid #aaa; padding: 8px 12px; font-size: 10px; height: 120px; min-height: 120px; max-height: 120px; flex-shrink: 0; color: #888; margin: 15px 0 20px 0;">
+      uwagi
+      {% if contract.notes_protocol %}<br><span style="color:#000;">{{ contract.notes_protocol }}</span>{% endif %}
+    </div>
 
-    <!-- SIGNATURES -->
-    <table class="sigs" style="margin-top: 15px;">
+    <!-- DODATKOWE INFORMACJE (P1-007) — puste, do ręcznego wypełnienia -->
+    <div class="ret-uwagi" style="border: 1px solid #aaa; padding: 8px 12px; font-size: 10px; height: 120px; min-height: 120px; max-height: 120px; flex-shrink: 0; color: #888; margin: 0 0 20px 0; overflow: hidden;">
+      Dodatkowe informacje
+    </div>
+
+    <!-- SIGNATURES — duży odstęp, bliżej dołu -->
+    <table class="sigs" style="margin-top: 50px;">
       <tr>
         <td>
           <div style="text-align:center;">
@@ -206,12 +214,12 @@
 
   </div> <!-- /bottom-section -->
 
-  <!-- P2-018: Opiekun zamówienia na dole protokołu -->
-  <div style="text-align:center; margin-top: 8px; font-size: 9px; color: #555;">
-    Opiekun zamówienia: {{ salesperson.name if salesperson else '' }}{% if salesperson and salesperson.phone %} tel. {{ salesperson.phone }}{% endif %}
-  </div>
-
 </div> <!-- /content -->
+
+<!-- P2-018: Opiekun zamówienia na dole protokołu -->
+<div style="text-align:center; font-size: 9px; color: #555; padding: 0 14mm;">
+  {% if salesperson %}Opiekun zamówienia: {{ salesperson.name }}{% if salesperson.phone %} tel. {{ salesperson.phone }}{% endif %}{% endif %}
+</div>
 
 </body>
 </html>

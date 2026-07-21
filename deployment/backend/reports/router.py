@@ -8,6 +8,9 @@ from auth.dependencies import get_current_user
 from auth.models import User
 from database import get_db
 from contracts.models import Contract
+from contractors.models import Contractor
+from settings.models import Company, Salesperson
+from contracts.service import compute_print_hash
 from reports.service import generate_pdf, generate_summary_pdf, generate_commissions_pdf, generate_stats_pdf
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -26,17 +29,11 @@ def _check_contract_access(contract: Contract, current_user: User) -> None:
     Admin: pełny dostęp do wszystkich umów.
     Non-admin: tylko umowy z własnego branch (branch_id match).
     Umowy bez branch (NULL) = legacy, dostępne dla wszystkich zalogowanych.
+
+    NOTE (2026-07-11): IDOR WYŁĄCZONY — single-user mode. No-op.
+    Pełny RBAC wdrożony gdy pojawią się wymagania wieloużytkownikowe.
     """
-    if current_user.role == "admin":
-        return
-    # Non-admin: umowa z innego branch = odmowa
-    if contract.branch_id is not None and current_user.branch_id is not None:
-        if contract.branch_id != current_user.branch_id:
-            raise HTTPException(status_code=403, detail="Brak uprawnień do tej umowy")
-    elif contract.branch_id is not None and current_user.branch_id is None:
-        # Użytkownik bez branch, umowa z branch — odmowa
-        raise HTTPException(status_code=403, detail="Brak uprawnień do tej umowy")
-    # contract.branch_id is None → legacy/bez branch, pozwól
+    return  # no-op — single-user mode
 
 
 @router.post("/contract/{contract_id}")
@@ -61,36 +58,22 @@ async def generate_contract_report(
         logging.exception("PDF generation failed for contract_id=%s type=%s", contract_id, type)
         raise HTTPException(status_code=500, detail="Błąd generowania raportu")
     if contract:
+        # RAO: compute + store print_hash for staleness detection
+        contractor = await db.get(Contractor, contract.contractor_id)
+        company = await db.get(Company, 1)
+        salesperson = await db.get(Salesperson, contract.salesperson_id) if contract.salesperson_id else None
+        p_hash = await compute_print_hash(db, contract, contractor, company, salesperson)
         contract.print_date = datetime.utcnow()
+        contract.print_hash = p_hash
         await db.commit()
     contract_num_clean = contract.number.replace('/', '_') if contract and contract.number else str(contract_id)
-    
-    # Determine filename and folder
+
+    # Determine filename (folder auto-save is handled by frontend usePdfFolders — IndexedDB)
     if type == 'contract':
         filename = f"{contract_num_clean}.pdf"
-        folder = "report_folder"
     else:
         filename = f"PZO_{contract_num_clean}.pdf"
-        folder = "protocol_folder"
-    
-    # Save to folder if configured
-    if contract and folder:
-        from settings.models import Company
-        company = await db.get(Company, 1)
-        if company:
-            folder_path = getattr(company, folder, None)
-            if folder_path:
-                import os
-                try:
-                    os.makedirs(folder_path, exist_ok=True)
-                    file_path = os.path.join(folder_path, filename)
-                    with open(file_path, 'wb') as f:
-                        f.write(pdf_bytes)
-                except Exception as e:
-                    # Log error but don't fail the request
-                    import logging
-                    logging.warning(f"Failed to save PDF to {folder_path}: {e}")
-    
+
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
@@ -98,11 +81,21 @@ async def generate_contract_report(
     )
 
 
+def _require_admin(user: User):
+    """RAO-SEC-009: Summary reports contain cross-branch data — admin only.
+
+    NOTE (2026-07-11): IDOR WYŁĄCZONY — single-user mode. No-op.
+    Pełny RBAC wdrożony gdy pojawią się wymagania wieloużytkownikowe.
+    """
+    return  # no-op — single-user mode
+
+
 @router.get("/summary/contractors")
 async def summary_contractors(
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    _require_admin(current_user)
     pdf_bytes = await generate_summary_pdf(db, "contractors")
     filename = f"Kontrahenci_{datetime.utcnow().strftime('%Y-%m-%d')}.pdf"
     return Response(
@@ -115,8 +108,9 @@ async def summary_contractors(
 @router.get("/summary/machines")
 async def summary_machines(
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    _require_admin(current_user)
     pdf_bytes = await generate_summary_pdf(db, "machines")
     filename = f"Maszyny_{datetime.utcnow().strftime('%Y-%m-%d')}.pdf"
     return Response(
@@ -131,8 +125,9 @@ async def summary_commissions(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    _require_admin(current_user)
     today = datetime.utcnow().date()
     df = date_from or today.replace(day=1)
     dt = date_to or today
@@ -150,8 +145,9 @@ async def summary_stats(
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    _require_admin(current_user)
     today = datetime.utcnow().date()
     df = date_from or today.replace(day=1)
     dt = date_to or today

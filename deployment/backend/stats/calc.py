@@ -14,9 +14,13 @@ RAO-P1-026: dodano aggregate_by_period() + rozszerzono poziomy sub2/sub3
 RAO-P2-071: usunięto legacy extract_city() + KNOWN_CITIES + IGNORE_PATTERNS (zastąpione
             deterministycznym PNA dictionary w shared/locations.py — RAO-P2-028).
 """
+import logging
 import math
 from collections import defaultdict
 from decimal import Decimal
+
+
+logger = logging.getLogger(__name__)
 
 
 DAYS_PER_PERIOD = {
@@ -35,81 +39,256 @@ def get_days_per_period(billing_frequency: str | None) -> int:
     return DAYS_PER_PERIOD.get(billing_frequency or "dziennie", 1)
 
 
+def _to_decimal(value) -> Decimal:
+    if value is None:
+        return Decimal("0.00")
+    return Decimal(str(value))
+
+
+def _condition_has_new_periods(cond: dict) -> bool:
+    """RAO-P2-071: condition uses the new source-of-truth period fields."""
+    return (
+        cond.get("period_from") is not None
+        or cond.get("period_to") is not None
+    )
+
+
+def _extract_rate_tiers(conditions: list[dict]) -> list[tuple[int, int | None, Decimal]]:
+    """
+    Build a list of logical rate tiers from conditions.
+
+    Phase 2: primary source is period_from/period_to/rate1. If a condition
+    has the new fields (period_from or rate1), we use them directly.
+    Legacy rows still relying on period_count/rate2 are converted back into
+    ranges for compatibility.
+
+    Returns list of (tier_start, tier_end, rate). `tier_end` = None means
+    open-ended (continues for all remaining periods).
+    """
+    if not conditions:
+        return []
+
+    # Detect whether the conditions have the new source-of-truth fields.
+    if any(_condition_has_new_periods(c) for c in conditions):
+        return _extract_rate_tiers_from_new_fields(conditions)
+    return _extract_rate_tiers_from_legacy(conditions)
+
+
+def _extract_rate_tiers_from_new_fields(
+    conditions: list[dict],
+) -> list[tuple[int, int | None, Decimal]]:
+    """
+    New source of truth: period_from/period_to/rate1.
+
+    - period_from is inclusive. If period_from is 0, the first chargeable
+      period is 1, but the rate starts at 0 so the overlap is correct.
+    - period_to is inclusive. None means open-ended.
+    - rate1 is the rate for the whole range. rate2 is treated as legacy fallback
+      when rate1 is missing (open-ended tier generated from a legacy preset).
+    """
+    conds: list[dict] = []
+    for c in conditions:
+        rate = _to_decimal(c.get("rate1"))
+        if rate <= 0:
+            rate = _to_decimal(c.get("rate2"))
+        if rate <= 0:
+            continue
+        period_from = c.get("period_from")
+        period_to = c.get("period_to")
+        if period_from is None and period_to is None:
+            # Single open-ended rate with no explicit from; default to 1.
+            period_from = 1
+        conds.append({
+            "period_from": period_from,
+            "period_to": period_to,
+            "rate": rate,
+        })
+
+    if not conds:
+        return []
+
+    # Sort closed-ended tiers first, then open-ended; within each group by start.
+    # This ensures a cascading range like 1-3, 4-4, 5-... is processed correctly.
+    conds.sort(
+        key=lambda c: (
+            c["period_to"] is None,
+            c["period_from"] is None,
+            c["period_from"] or 0,
+            c["period_to"] or 0,
+        )
+    )
+
+    tiers: list[tuple[int, int | None, Decimal]] = []
+    for c in conds:
+        start = c["period_from"] or 1
+        end = c["period_to"]
+        if start < 1:
+            start = 1
+        if end is not None and end < start:
+            continue
+        tiers.append((start, end, c["rate"]))
+
+    return tiers
+
+
+def _extract_rate_tiers_from_legacy(
+    conditions: list[dict],
+) -> list[tuple[int, int | None, Decimal]]:
+    """
+    Legacy compatibility: builds tiers from period_count/rate1/rate2.
+    Kept for stats/calc.py and shared/revenue.py callers using old data.
+    """
+    conds = sorted(
+        conditions,
+        key=lambda c: (c.get("period_count") is None, c.get("period_count") or 0),
+    )
+
+    tiers: list[tuple[int, int | None, Decimal]] = []
+    current_end = 0
+
+    for i, cond in enumerate(conds):
+        pc = cond.get("period_count")
+        rate1 = _to_decimal(cond.get("rate1"))
+        rate2 = _to_decimal(cond.get("rate2"))
+
+        next_pc = None
+        for j in range(i + 1, len(conds)):
+            npc = conds[j].get("period_count")
+            if npc is not None:
+                next_pc = npc
+                break
+
+        if rate1 > 0 and pc is not None:
+            start = current_end + 1
+            end = pc
+            if start <= end:
+                tiers.append((start, end, rate1))
+                current_end = end
+
+        if rate2 > 0:
+            if rate1 > 0 and pc is not None:
+                start = pc + 1
+            else:
+                start = current_end + 1
+
+            if next_pc is not None:
+                end = next_pc - 1
+            else:
+                end = None
+
+            if end is None or start <= end:
+                if start > current_end or end is None:
+                    tiers.append((start, end, rate2))
+                    if end is not None:
+                        current_end = end
+
+    return tiers
+
+
+def _quantity_multiplier(quantity: int | None, is_service: bool) -> int:
+    """
+    For rental (S) `quantity` is the number of machines and multiplies the
+    per-day total. For service (U) `quantity` is already the hour count and
+    is used as the period value, so no extra multiplier is applied.
+    """
+    if is_service:
+        return 1
+    return int(quantity or 1)
+
+
 def calculate_position_value(
     rental_days: int | None,
     billing_frequency: str | None,
     unit_price: Decimal | None,
     quantity: int | None,
     conditions: list[dict],
+    is_service: bool = False,
 ) -> Decimal:
     """
     Calculate the value of a single position.
 
     Args:
-        rental_days: number of rental days from contract_positions
-        billing_frequency: e.g. 'dziennie', 'tygodniowo'
+        rental_days: number of rental days from contract_positions (S)
+        billing_frequency: e.g. 'dziennie', 'tygodniowo', 'godzinowo'
         unit_price: fallback if no conditions (usually NULL)
-        quantity: fallback multiplier (usually 1)
+        quantity: number of machines (S) or hours (U)
         conditions: list of dicts with keys:
             rate1 (Decimal), rate2 (Decimal|None),
-            period_count (int), minimum (int),
-            rate_type_id (int)
+            period_from (int), period_to (int),
+            period_count (int), minimum (int)
+        is_service: True for service contracts (U) where `quantity` is hours
     """
     if not conditions:
         if unit_price and quantity:
             return Decimal(str(unit_price)) * int(quantity)
         return Decimal("0.00")
 
-    days = rental_days or 0
-    if days <= 0:
+    # Phase 2: service uses quantity (hours) as the period value;
+    # rental uses rental_days (converted by billing_frequency).
+    if is_service:
+        periods_raw = quantity or 0
+    else:
+        days = rental_days or 0
+        if days <= 0:
+            return Decimal("0.00")
+        freq = billing_frequency or "dziennie"
+        dpp = get_days_per_period(freq)
+        periods_raw = math.ceil(days / dpp) if dpp > 0 else 0
+
+    if periods_raw <= 0:
         return Decimal("0.00")
 
-    freq = billing_frequency or "dziennie"
-    dpp = get_days_per_period(freq)
-    total_periods = math.ceil(days / dpp) if dpp > 0 else 0
-
-    # Apply minimum from first condition
-    min_periods = conditions[0].get("minimum") or 0
-    if total_periods < min_periods:
-        total_periods = min_periods
+    # Apply global minimum (taken from any condition; first is the legacy source).
+    min_periods = max((c.get("minimum") or 0 for c in conditions), default=0)
+    total_periods = max(periods_raw, min_periods)
 
     if total_periods <= 0:
         return Decimal("0.00")
 
-    # Tiered calculation
+    tiers = _extract_rate_tiers(conditions)
+
     total_value = Decimal("0.00")
     remaining = total_periods
+    previous_end = 0
 
-    for i, cond in enumerate(conditions):
+    for start, end, rate in tiers:
         if remaining <= 0:
             break
-
-        pc = cond.get("period_count") or remaining
-        rate = Decimal(str(cond.get("rate1") or 0))
-
-        if rate <= 0:
+        if start > total_periods:
             continue
 
-        if i == 0:
-            periods_in_tier = min(remaining, pc)
-        else:
-            prev_pc = conditions[i - 1].get("period_count") or 0
-            tier_size = (pc or 999) - prev_pc
-            periods_in_tier = min(remaining, tier_size)
+        effective_start = max(start, previous_end + 1)
+        if end is not None and effective_start > end:
+            continue
+        effective_end = end if end is not None else total_periods
+        effective_end = min(effective_end, total_periods)
+        # Clamp to the total number of periods and remaining budget
+        periods = effective_end - effective_start + 1
+        periods = max(0, periods)
+        if periods > remaining:
+            periods = remaining
+        if periods <= 0:
+            continue
 
-        total_value += rate * periods_in_tier
-        remaining -= periods_in_tier
+        total_value += rate * periods
+        remaining -= periods
+        previous_end = effective_end
 
-    # If remaining periods after all tiers, use last non-zero rate
+    # Fallback: if no condition covered all periods, use the last non-zero rate
     if remaining > 0:
+        last_rate = Decimal("0.00")
         for cond in reversed(conditions):
-            rate = Decimal(str(cond.get("rate1") or 0))
-            if rate > 0:
-                total_value += rate * remaining
-                break
+            rate1 = _to_decimal(cond.get("rate1"))
+            rate2 = _to_decimal(cond.get("rate2"))
+            if rate1 > 0 or rate2 > 0:
+                last_rate = rate1 if rate1 > 0 else rate2
+                if last_rate > 0:
+                    break
+        if last_rate > 0:
+            total_value += last_rate * remaining
 
-    # RAO-P0-033: multiply by quantity consistently (matches no-conditions branch)
-    return total_value * int(quantity or 1)
+    # RAO-P0-033: multiply by quantity for rental; service is already counted
+    return total_value * _quantity_multiplier(quantity, is_service)
 
 
 # ── RAO-P1-017: Agregacja po kategoriach ─────────────────────────────────────
@@ -160,7 +339,7 @@ def aggregate_by_category(
         agg[cat_name]["revenue"] += p.get("revenue", Decimal("0"))
         # RAO-P1-BUG-7: rented_days liczone tylko dla maszyn (usługi mają billing != DAILY)
         if not p.get("is_service"):
-            agg[cat_name]["days"] += p.get("clamped_days", 0)
+            agg[cat_name]["days"] += clamp_days(p.get("clamped_days", 0))
         agg[cat_name]["contracts"].add(p.get("contract_id"))
         # RAO Faza 2a (opcja E): unmapped (article_id=None) nie liczy się jako artykuł
         art_id = p.get("article_id")
@@ -229,7 +408,7 @@ def aggregate_by_period(
         agg[key]["revenue"] += p.get("revenue", Decimal("0"))
         # RAO-P1-BUG-7: rented_days liczone tylko dla maszyn (usługi mają billing != DAILY)
         if not p.get("is_service"):
-            agg[key]["days"] += p.get("clamped_days", 0)
+            agg[key]["days"] += clamp_days(p.get("clamped_days", 0))
         agg[key]["contracts"].add(p.get("contract_id"))
 
     return sorted(
@@ -284,7 +463,7 @@ def aggregate_by_contract_type(positions: list[dict]) -> list[dict]:
             agg[ctype]["articles"].add(art_id)
         # rented_days liczone tylko dla maszyn (usługi mają billing != DAILY)
         if not p.get("is_service"):
-            agg[ctype]["rented_days"] += p.get("clamped_days", 0)
+            agg[ctype]["rented_days"] += clamp_days(p.get("clamped_days", 0))
         agg[ctype]["revenue"] += p.get("revenue", Decimal("0"))
 
     return sorted(
@@ -356,7 +535,7 @@ def aggregate_by_branch(
         if art_id is not None:
             agg[key]["articles"].add(art_id)
         if not p.get("is_service"):
-            agg[key]["rented_days"] += p.get("clamped_days", 0)
+            agg[key]["rented_days"] += clamp_days(p.get("clamped_days", 0))
         agg[key]["revenue"] += p.get("revenue", Decimal("0"))
 
     items = []
@@ -380,3 +559,30 @@ def aggregate_by_branch(
     # Sortuj malejąco po revenue; wiersz "bez oddziału" zawsze na końcu
     items.sort(key=lambda x: (x["branch_id"] is None, -x["revenue"]))
     return items
+
+
+# ── RAO-P1-016: dni — defensive clamp dla anomalii w danych ──────────────────
+#
+# Bug P1-016: statystyki pokazywały dni = -7 (stare umowy z date_to < date_from).
+# clamp_days sprowadza liczbę dni do nieujemnej wartości.
+
+
+def clamp_days(days: int | None) -> int:
+    """
+    Sprowadź liczbę dni do nieujemnej wartości — RAO-P1-016.
+
+    Stare umowy z błędnymi datami (date_to < date_from) mogą dawać ujemne dni.
+    Zwraca 0 zamiast wartości ujemnej. None → 0.
+
+    Args:
+        days: liczba dni (może być ujemna dla anomalii w danych)
+
+    Returns:
+        int — max(0, days) lub 0 gdy None.
+    """
+    if days is None:
+        return 0
+    if days < 0:
+        logger.warning("Negative days clamped: days=%s", days)
+        return 0
+    return int(days)

@@ -8,12 +8,12 @@
   body { margin: 0; padding: 0; font-family: 'Montserrat', sans-serif; font-size: 10px; color: #000; }
 
   /* HEADER */
-  table.hdr { width: 100%; background: #1D2B53; color: #fff; border-collapse: collapse; }
-  .hdr-left { width: 28%; padding: 10px 10px 10px 11mm; font-size: 8px; line-height: 1.6; vertical-align: middle; }
+  table.hdr { width: calc(100% - 22mm); margin: 0 11mm; background: #1D2B53; color: #fff; border-collapse: collapse; }
+  .hdr-left { width: 28%; padding: 10px 10px 10px 10px; font-size: 8px; line-height: 1.6; vertical-align: middle; }
   .hdr-center { text-align: center; vertical-align: middle; padding: 8px; }
   .hdr-logo-img { height: 18px; width: auto; display: block; margin: 0 auto 3px auto; object-fit: contain; }
   .hdr-slogan { font-size: 7.5px; letter-spacing: 3px; margin-top: 2px; }
-  .hdr-right { width: 28%; text-align: right; padding: 10px 11mm 10px 10px; font-size: 8px; line-height: 1.6; vertical-align: middle; }
+  .hdr-right { width: 28%; text-align: right; padding: 10px 10px 10px 10px; font-size: 8px; line-height: 1.6; vertical-align: middle; }
 
   /* CONTENT */
   .content { padding: 8px 11mm 0 11mm; }
@@ -55,11 +55,10 @@
 
   /* INNE USŁUGI */
   table.inne { width: 100%; border-collapse: collapse; margin-top: 6px; }
-  .inne-left { width: 70%; vertical-align: top; padding-right: 8px; font-size: 8.5px; }
-  .inne-right { width: 30%; vertical-align: top; padding-left: 8px; font-size: 8.5px; }
+  .inne-left { width: 58%; vertical-align: top; padding-right: 8px; font-size: 8.5px; }
+  .inne-right { width: 42%; vertical-align: top; padding-left: 8px; font-size: 8.5px; }
   .inne-label { font-size: 8px; color: #888; margin-bottom: 2px; }
-  .inne-item { margin-bottom: 1px; }
-  .inne-box { border: 1px solid #aaa; padding: 4px 6px; font-size: 8px; line-height: 1.3; min-height: 50px; }
+  .inne-item { margin-bottom: 4px; }
 
   /* UWAGI */
   .uwagi-section { margin-top: 20px; padding: 12px; border: 1px solid #ddd; background: #fafafa; page-break-inside: avoid; }
@@ -116,7 +115,7 @@
 
 <!-- TITLE -->
 <div class="doc-title">Umowa najmu nr: {{ contract.number }}</div>
-<div class="doc-sub">Zawarta w dniu: {{ contract.date_from | datepl }}</div>
+<div class="doc-sub">Zawarta w dniu: {{ contract.created_at | datepl }}</div>
 
 <!-- PARTIES -->
 <table class="parties">
@@ -134,7 +133,7 @@
     <td class="info-col" style="vertical-align:top;padding-top:6px;">
       Przewidywany okres: {{ contract.date_from | datepl }}{% if contract.date_to %} - {{ contract.date_to | datepl }}{% endif %}<br>
       Termin przekazania: {{ contract.date_from | datepl }}<br>
-      {% if contract.prepayment_amount and contract.prepayment_amount > 0 %}Przedpłata: {{ contract.prepayment_amount | money }}<br>{% endif %}
+      {% if contract.prepayment_amount and contract.prepayment_amount > 0 %}Przedpłata: {{ contract.prepayment_amount | money }} brutto<br>{% endif %}
     </td>
   </tr>
   <tr>
@@ -162,21 +161,23 @@
     <tr>
       <td style="width:130px;">reprezentowany przez:</td>
       <td><div class="fill">{{ contract.contact_person1 or '' }}</div></td>
+      <td style="width:40px; text-align:right; padding-right:4px;">tel:</td>
+      <td style="width:140px;"><div class="fill"></div></td>
     </tr>
     {% endif %}
     {% if contract.show_person2 %}
     <tr>
-      <td>osoba kontaktowa:</td>
-      <td><div class="fill">{{ contract.contact_person2 or '' }}</div></td>
+      <td>osoba do kontaktu na budowie:</td>
+      <td><div class="fill-wide">{{ contract.contact_person2 or '' }}</div></td>
+      <td style="width:40px; text-align:right; padding-right:4px;">tel:</td>
+      <td style="width:140px;"><div class="fill"></div></td>
     </tr>
     {% endif %}
     <tr>
-      <td>na budowie:</td>
-      <td><div class="fill-wide"></div></td>
-    </tr>
-    <tr>
       <td>email do przesłania faktury:</td>
       <td><div class="fill-wide">{{ contract.email or '' }}</div></td>
+      <td></td>
+      <td></td>
     </tr>
   </table>
 </div>
@@ -192,7 +193,7 @@
     <tr>
       <th style="width:18px;text-align:center;"></th>
       <th style="text-align:left;">Przedmiot najmu</th>
-      <th style="width:80px;text-align:center;">Przewidywana ilość<br>dni najmu</th>
+      <th style="width:80px;text-align:center;white-space:normal;">Przewidywana<br>ilość dni najmu</th>
       <th style="width:90px;text-align:right;">Wartość<br>odtworzeniowa</th>
       <th style="text-align:left;">Rozliczenie</th>
     </tr>
@@ -202,7 +203,7 @@
   <tr>
     <td style="text-align:center;">{{ loop.index }}</td>
     <td><span class="art-name">{{ p.pos.article_name or '' }}</span></td>
-    <td style="text-align:center;">{{ p.pos.quantity or 1 }}</td>
+    <td style="text-align:center;">{{ p.pos.rental_days if p.pos.rental_days is not none else '—' }}</td>
     <td style="text-align:right;">{% if p.replacement_value %}{{ p.replacement_value | money_plain }}{% endif %}</td>
     <td><div class="cond">{{ p.conditions_text }}</div></td>
   </tr>
@@ -217,39 +218,33 @@
     <td class="inne-left">
       {% if fees %}
       <div class="inne-label">Inne usługi</div>
-      <div style="margin: 0; font-size: 8.5px; line-height: 1.45; color: #333;">
+      <div style="font-size: 8.5px; line-height: 1.45; color: #333;">
         {% for fd in fees if fd.fee.is_active %}
-        <div style="white-space: nowrap; margin-bottom: 1.5px;">
-          {% if fd.description %}
-            {% if fd.description[:1] == '-' or fd.description[:1] == '•' %}
-              {{ fd.description }}
-            {% else %}
-              - {{ fd.description }}
-            {% endif %}
-          {% else %}
-            - {{ fd.fee.name }}: {% if fd.fee.amount_from %}{{ fd.fee.amount_from | money_plain }}{% endif %}{% if fd.fee.amount_to %} - {{ fd.fee.amount_to | money_plain }}{% endif %}{% if fd.fee.unit %} {{ fd.fee.unit }}{% endif %}
-          {% endif %}
+        <div class="inne-item">
+          {{ fd.display }}
         </div>
         {% endfor %}
       </div>
       {% endif %}
     </td>
     <td class="inne-right">
-      <div class="inne-box">
-        <div class="inne-label">Uwagi</div>
-        {% if contract.notes %}
-        <div style="white-space: pre-wrap;">{{ contract.notes }}</div>
-        {% else %}
-        <p style="margin:0 0 4px 0;"><strong>Doba wynajmu:</strong> obejmuje 1 dzień kalendarzowy (do 8 godz. pracy jednego dnia).</p>
-        <p style="margin:0 0 4px 0;"><strong>Zgłoszenie zwrotu urządzenia:</strong> pisemne, min. z jednodniowym wyprzedzeniem.</p>
-        <p style="margin:0 0 4px 0;"><strong>Ilość dni pracy w tygodniu:</strong> {% if contract.working_days_per_week %}{{ contract.working_days_per_week }}{% else %}6{% endif %}.</p>
-        <p style="margin:0;"><strong>Dokumentacja zdjęciowa:</strong> wykonano.</p>
-        {% endif %}
+      <div class="inne-label">Informacje</div>
+      <div style="font-size: 8.5px; line-height: 1.45; color: #333;">
+        <div class="inne-item"><strong>Doba wynajmu:</strong> obejmuje 1 dzień kalendarzowy<br>(do 8 godz. pracy jednego dnia).</div>
+        <div class="inne-item"><strong>Zgłoszenie zwrotu urządzenia:</strong> pisemne,<br>min. z jednodniowym wyprzedzeniem.</div>
+        <div class="inne-item"><strong>Naliczanie:</strong> {% set wdays = contract.working_days_per_week or 6 %}{% if wdays >= 7 %}7 dni w tygodniu.{% else %}{{ wdays }} dni w tygodniu<br>(pozostałe dni według zapisu GPS).{% endif %}</div>
+        <div class="inne-item"><strong>Dokumentacja zdjęciowa:</strong> wykonano.</div>
+        {# RAO-P1-014: przedpłata przeniesiona do górnej tabeli informacyjnej #}
         {# RAO-P1-021/P2-033: Wartość umowy usunięte (martwe pole) #}
       </div>
     </td>
   </tr>
 </table>
+
+<div style="border: 1px solid #aaa; padding: 8px 12px; font-size: 10px; min-height: 80px; color: #888; margin-top: 6px;">
+  uwagi
+  {% if contract.notes_contract %}<br><span style="color:#000; white-space:pre-wrap;">{{ contract.notes_contract }}</span>{% endif %}
+</div>
 
 <div class="content-spacer" style="height: 35mm;"></div>
 
@@ -269,13 +264,11 @@
 </table>
 {% endif %}
 
-<!-- P2-018: Opiekun zamówienia nad tekstem prawnym na środku -->
-<div style="text-align:center; margin-bottom: 6px; font-size: 9px; color: #555;">
-  Opiekun zamówienia: {{ salesperson.name if salesperson else '' }}{% if salesperson and salesperson.phone %} tel. {{ salesperson.phone }}{% endif %}
-</div>
-
-<!-- FOOTER LEGAL -->
+<!-- P2-018: Opiekun zamówienia — wewnątrz footer-legal-running, nad tekstem prawnym -->
 <div id="footer-legal-running">
+  <div style="text-align:center; font-size: 9px; color: #555; margin-bottom: 16px;">
+    {% if salesperson %}Opiekun zamówienia: {{ salesperson.name }}{% if salesperson.phone %} tel. {{ salesperson.phone }}{% endif %}{% endif %}
+  </div>
   <strong style="font-size: 8px; color: #c00; display: block; margin-bottom: 2px;">*ceny podane na umowie są cenami netto</strong>
   Niniejszym zobowiązuje się do zabezpieczenia Przedmiotów Najmu przed kradzieżą i zniszczeniem przez cały okres trwania Umowy Najmu. W przypadku zniszczenia, zagińięcia lub uszkodzenia Przedmiotu Najmu, zobowiązuje się ponieść pełną odpowiedzialność materialną mającą na celu przwrócenie całości utraconego sprzętu lub kosztów jego naprawy. Najemca wyraża zgodę na wystawienie faktury bez jego podpisu i skompensowanie kwoty zobowiązań za wynajem z kwotą przedpłaty. Najemca zobowiązuje się do pisemnego poinformowania wynajmującego o zwrocie maszyny budowlanej najpóźniej z jednodniowym wyprzedzeniem. Pokwitowanie niniejszej Umowy Najmu jest jednoznaczne z oświadczeniem o zapoznaniu się z Ogólnymi Warunkami Umowy Najmu (dalej: OWN) oraz ich akceptacją. OWN jest integralną częścią Umowy Najmu.
 </div>
@@ -332,7 +325,7 @@
       <p class="own-num"><span class="num">7.</span><span class="txt">Czynsz uiszczany będzie gotówką lub przelewem na konto oraz w terminie wskazanym na fakturze / umowie. W przypadku nieuiszczenia czynszu w terminie wynikającym z postanowień niniejszej umowy, Najemca zobowiązany będzie do zapłacenia odsetek maksymalnych. Wynajmujący ma prawo obciążyć Najemcę kosztami dochodzenia od Najemcy należności wynikających z niniejszej umowy – do kosztów tych należeć będzie w szczególności wynagrodzenie kancelarii prawnych lub firm windykacyjnych, którym Wynajmujący zleci dochodzenie roszczeń od Najemcy.</span></p>
       <p class="own-num"><span class="num">8.</span><span class="txt">Najemca zobowiązuje się do dodatkowej zapłaty w następujących przypadkach:</span></p>
       <p class="own-num-indent"><span class="num">a)</span><span class="txt">Uszkodzenia Przedmiotu Najmu w trakcie trwania umowy lub zwrotu niesprawnego Przedmiotu Najmu oraz konieczności dokonania naprawy przez Wynajmującego. Naprawy w takich przypadkach przeprowadza lub zleca wyłącznie Wynajmujący. Najemca w żadnym razie nie jest uprawniony do dokonywania samodzielnych napraw, wprowadzania zmian, uzupełnienia Przedmiotu Najmu o dodatkowe elementy, ani do zlecenia ich wykonania osobom trzecim.</span></p>
-      <p class="own-num-indent"><span class="num">b)</span><span class="txt">Zwrotu zabrudzonego Przedmiotu Najmu, gdzie Najemca zostanie obciążony kosztami jego czyszczenia – po ocenie stanu czystości zwracanego Sprzętu – wg stawki ustalonej w Umowie Najmu.</span></p>
+      <p class="own-num-indent"><span class="num">b)</span><span class="txt">Zwrotu zabrudzonego Przedmiotu Najmu, w przypadku którego Najemca zostanie obciążony kosztami jego czyszczenia po ocenie stanu czystości zwracanego Sprzętu. Rozliczenie kosztów czyszczenia nastąpi według stawki 250,00 zł netto za każdą rozpoczętą roboczogodzinę oraz kosztów materiałów, środków czyszczących i eksploatacyjnych niezbędnych do usunięcia zabrudzeń i przywrócenia Przedmiotu Najmu do stanu czystości z dnia jego wydania.</span></p>
       <p class="own-num-indent"><span class="num">c)</span><span class="txt">W przypadku wezwania serwisowego, które okaże się nieuzasadnione, a problem wynikać będzie z prostych do usunięcia przyczyn (np. wciśnięty wyłącznik awaryjny, nieprawidłowo załączony bieg, brak paliwa, niewłaściwie ustawienie przełączników lub inne błędne operacje eksploatacyjne), Najemca ponosi koszt takiego wezwania zgodnie z obowiązującym cennikiem serwisowym.</span></p>
       <p class="own-num-indent"><span class="num">d)</span><span class="txt">W przypadku opóźnienia po stronie Najemcy w odbiorze lub przyjęciu dostawy Przedmiotu Najmu, Wynajmujący zastrzega sobie prawo do naliczenia opłaty za przestój kierowcy wynikający z konieczności oczekiwania na Najemcę według ustalonych stawek.</span></p>
 

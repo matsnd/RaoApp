@@ -5,10 +5,10 @@ from pydantic import field_validator
 
 
 class Settings(BaseSettings):
-    RAO_DATABASE_URL: str = "mysql+aiomysql://rao_user:<<DB_PASSWORD_PLACEHOLDER>>@localhost:3306/rao_new"
+    RAO_DATABASE_URL: str = "mysql+aiomysql://rao_user:<<DB_PASSWORD_PLACEHOLDER>>@localhost:3306/rao_new?charset=utf8mb4"
     # RAO-P1-041: No insecure fallback — must be set in .env
     RAO_SECRET_KEY: str = ""
-    RAO_ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
+    RAO_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     RAO_SMTP_HOST: str = "localhost"
     RAO_SMTP_PORT: int = 1025
     RAO_SMTP_USER: str = ""
@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     RAO_FRONTEND_URL: str = "http://localhost:5173"
     RAO_GUS_API_KEY: str = ""
     RAO_NOMINATIM_BASE_URL: str = "https://nominatim.openstreetmap.org"
-    RAO_CORS_ORIGINS: str = '["http://localhost:5173","http://localhost:5174","http://localhost:5175","http://localhost:5176"]'
+    RAO_CORS_ORIGINS: str = '["http://localhost:5173","http://localhost:5174","http://localhost:5175","http://localhost:5176","http://localhost:5177"]'
     RAO_PDF_RENDERER: str = "weasyprint"
     # RAO-P2-012: Fernet key for Fakturownia API token encryption
     # Generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"

@@ -4,9 +4,10 @@ from sqlalchemy import select, func, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from auth.models import User
 from contracts.models import Contract, ContractPosition, PositionCondition, ContractServiceFee
-from contracts.schemas import ContractCreate, PositionCreate, ConditionCreate, ContractServiceFeeCreate
-from shared.exceptions import not_found, conflict
+from contracts.schemas import ContractCreate, PositionCreate, ConditionCreate, ContractServiceFeeCreate, ContractServiceFeeUpdate, ConditionResponse
+from shared.exceptions import bad_request, forbidden, not_found, conflict
 from shared.locations import resolve_postal_code_id
 
 
@@ -47,81 +48,442 @@ async def generate_contract_number(db: AsyncSession, contract_type: str, branch_
 
 
 async def copy_fee_templates(db: AsyncSession, contract_id: int, contract_type: str):
-    from settings.models import ServiceFeeTemplate
-    templates = await db.execute(
-        select(ServiceFeeTemplate)
-        .where(ServiceFeeTemplate.contract_type == contract_type)
-        .where(ServiceFeeTemplate.is_active == True)
-        .order_by(ServiceFeeTemplate.sort_order)
+    from settings.models import ServiceFeeTemplate, FeePresetGroup
+    # Prefer the default preset for this contract type; fallback to all active templates
+    # only when no default group is configured (legacy / test data).
+    default_group = await db.execute(
+        select(FeePresetGroup).where(
+            FeePresetGroup.contract_type == contract_type,
+            FeePresetGroup.is_default == True,
+        )
     )
+    group = default_group.scalar_one_or_none()
+    if group:
+        stmt = (
+            select(ServiceFeeTemplate)
+            .where(ServiceFeeTemplate.preset_id == group.id)
+            .where(ServiceFeeTemplate.is_active == True)
+            .order_by(ServiceFeeTemplate.sort_order)
+        )
+    else:
+        stmt = (
+            select(ServiceFeeTemplate)
+            .where(ServiceFeeTemplate.contract_type == contract_type)
+            .where(ServiceFeeTemplate.is_active == True)
+            .order_by(ServiceFeeTemplate.sort_order)
+        )
+    templates = await db.execute(stmt)
     for t in templates.scalars():
         db.add(ContractServiceFee(
             contract_id=contract_id,
             sort_order=t.sort_order,
+            additional_service_id=t.additional_service_id,  # P1-120
             name=t.name,
             amount_from=t.amount_from,
             amount_to=t.amount_to,
-            unit=t.unit,
             description=t.description,
             is_active=t.is_active,
         ))
     await db.commit()
 
 
-def format_position_conditions_cascading(conditions: list[PositionCondition]) -> str:
-    """Buduje opis kaskadowych warunków rozliczenia jak w starej aplikacji WinForms.
+# ── print_hash: detekcja nieaktualnego wydruku ──────────────────────────────
+# Hash z pól wpływających na TREŚĆ wydruku PDF (umowa/protokół).
+# NIE obejmuje: is_settled, settled_at, updated_at, print_date, print_hash,
+#   latitude/longitude, postal_code_id, oid, auto_number, position_count.
+# Zmiana rozliczenia FA (settle_contract) → NIE bumpuje hash → wydruk aktualny.
+# Zmiana pozycji/conditions/fees/contractora/company → bumpuje hash → nieaktualny.
+
+_PRINT_HASH_CONTRACT_FIELDS = (
+    "number", "contractor_id", "branch_id", "salesperson_id", "contract_type",
+    "delivery_address", "postal_code", "city", "date_from", "date_to",
+    "prepayment_amount", "prepayment_document", "notes_contract", "notes_protocol",
+    "contact_person1", "contact_phone1", "show_person1",
+    "contact_person2", "contact_phone2", "show_person2",
+    "email", "phone", "contractor_name",
+    "report_without_data", "hide_delivery_address", "signatures_on_page1",
+    "working_days_per_week",
+)
+
+_PRINT_HASH_POSITION_FIELDS = (
+    "machine_id", "service_id", "description", "rental_days", "quantity",
+    "unit_price", "rate_type_id", "billing_frequency", "billing_unit",
+    "supplier_id", "delivery_date", "article_name",
+)
+
+_PRINT_HASH_CONDITION_FIELDS = (
+    "rate1", "rate2", "billing_label", "period_count", "period_from", "period_to",
+)
+
+_PRINT_HASH_FEE_FIELDS = (
+    "additional_service_id", "name", "amount_from", "amount_to",
+    "description", "is_active", "sort_order",
+)
+
+
+def _hash_row(prefix: str, fields: tuple[str, ...], obj) -> str:
+    """Build a stable string repr of one row for hashing."""
+    parts = [prefix]
+    for f in fields:
+        v = getattr(obj, f, None)
+        parts.append(f"{f}={v}")
+    return "|".join(parts)
+
+
+async def compute_print_hash(
+    db: AsyncSession,
+    contract: Contract,
+    contractor,
+    company,
+    salesperson,
+) -> str:
+    """Compute sha256 hash of all fields that affect the PDF output.
+
+    Deterministic: positions sorted by id, conditions sorted by id within position,
+    fees sorted by sort_order then id.
+    """
+    import hashlib
+
+    # Reload positions + conditions + fees with explicit ordering
+    pos_result = await db.execute(
+        select(ContractPosition)
+        .where(ContractPosition.contract_id == contract.id)
+        .order_by(ContractPosition.id)
+    )
+    positions = pos_result.scalars().all()
+
+    fee_result = await db.execute(
+        select(ContractServiceFee)
+        .where(ContractServiceFee.contract_id == contract.id)
+        .order_by(ContractServiceFee.sort_order, ContractServiceFee.id)
+    )
+    fees = fee_result.scalars().all()
+
+    rows = [_hash_row("C", _PRINT_HASH_CONTRACT_FIELDS, contract)]
+
+    if contractor:
+        rows.append(f"CTR|name={contractor.name}|nip={contractor.nip}|"
+                    f"postal_code={contractor.postal_code}|city={contractor.city}|"
+                    f"street={contractor.street}")
+    if company:
+        rows.append(f"CPY|name={company.name}|nip={company.nip}|"
+                    f"bank_account={company.bank_account}|header_text={company.header_text}")
+    if salesperson:
+        rows.append(f"SP|name={salesperson.name}")
+
+    for pos in positions:
+        rows.append(_hash_row("P", _PRINT_HASH_POSITION_FIELDS, pos))
+        cond_result = await db.execute(
+            select(PositionCondition)
+            .where(PositionCondition.position_id == pos.id)
+            .order_by(PositionCondition.id)
+        )
+        for cond in cond_result.scalars().all():
+            rows.append(_hash_row("PC", _PRINT_HASH_CONDITION_FIELDS, cond))
+
+    for fee in fees:
+        rows.append(_hash_row("F", _PRINT_HASH_FEE_FIELDS, fee))
+
+    payload = "\n".join(rows)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def is_print_current(print_hash: str | None, current_hash: str | None) -> bool:
+    """Check if stored print_hash matches current data hash.
+
+    Backward-compat: if print_hash is NULL (old prints before this feature),
+    treat as current (don't flag all legacy prints as stale).
+    """
+    if print_hash is None:
+        return True  # legacy print — don't invalidate
+    if current_hash is None:
+        return True  # can't compute — don't false-positive
+    return print_hash == current_hash
+
+
+def _condition_effective_rate(c: PositionCondition) -> Decimal | None:
+    """RAO-P2-071: new source is rate1; rate2 is legacy/fallback only.
+    RAO: rate1=0 jest poprawne (placeholder z 'Gotowe przedziały') — zwracaj 0, nie None."""
+    if c.rate1 is not None:
+        return c.rate1
+    if c.rate2 is not None:
+        return c.rate2
+    return None
+
+
+def _format_rate(value: Decimal | None) -> str:
+    if value is None:
+        return "0,00"
+    return f"{value:.2f}".replace('.', ',')
+
+
+def _sync_condition_derived_fields(cond: PositionCondition) -> None:
+    """
+    RAO-P2-071: period_count/rate2 are derived/sync columns for legacy consumers
+    (stats/calc.py, shared/revenue.py). The new source of truth is
+    period_from/period_to/rate1.
+
+    - period_count mirrors period_to when period_to is known.
+    - rate2 is kept only for legacy open-ended tiers where rate1 is missing.
+      In the new UI rate1 is always set for every tier, so rate2 is nulled.
+    """
+    # Normalize rate2: only keep it when rate1 is missing (true legacy tier).
+    if cond.rate1 is not None and cond.rate1 > 0:
+        cond.rate2 = None
+
+    # Sync period_count to the closed upper bound for backward compatibility.
+    if cond.period_to is not None:
+        cond.period_count = cond.period_to
+    elif cond.period_from is not None and cond.period_from > 0:
+        # Open-ended: legacy period_count is best represented by its start (or None)
+        # when no explicit end exists. For compatibility, leave it None.
+        cond.period_count = None
+    else:
+        cond.period_count = None
+
+
+def _unit_labels(label: str | None, contract_type: str = "S") -> tuple[str, str]:
+    """
+    Returns (count_unit, rate_unit) for a billing label.
+
+    Legacy format (c:\\Temp\\legacy_pdfs\\):
+    - Rental: count="dni" (or "dzień" for 1), rate="doba"
+    - Service: count="godzin", rate="godzina"
+    """
+    l = (label or "").lower()
+    if "godz" in l or "godzina" in l:
+        return "godzin", "godzina"
+    if "mies" in l:
+        return "mies.", "mies."
+    if "tyg" in l:
+        return "tyg.", "tyg."
+    # Default for rental (S) is "doba"/"dni"; for service (U) "godzina"/"godzin" is used when
+    # no explicit billing label was provided.
+    if contract_type == "U":
+        return "godz.", "godz."
+    return "dni", "doba"
+
+
+def _format_count_unit(count: int, unit: str) -> str:
+    """Pluralize Polish count unit for the number 1 (dni -> dzień).
+    0 and >=2 use the plural form. Other units keep short forms."""
+    if count == 1 and unit == "dni":
+        return "dzień"
+    return unit
+
+
+def _format_period_range(
+    period_from: int | None,
+    period_to: int | None,
+    count_unit: str,
+    is_flat: bool = True,
+) -> str:
+    """Build a human-readable period range for PDF/print.
+
+    Legacy format (from WinForms app, confirmed via c:\\Temp\\legacy_pdfs\\):
+      - Flat rate:    "230,00zł / doba" (no range text — just rate in line)
+      - Closed range: "1 - 3 dni"
+      - Single day:   "1 dzień"
+      - Open-ended:   "powyżej 3 dni"  (NOT "3 dni i więcej")
+      - Service 0-X:  "do 8 godzin" (flat rate) / "0 - 8 godzin" (stawka per unit)
+
+    is_flat is derived from contract_type: U (usługa) = True, S/N (najem) = False.
+    """
+    pf = period_from if period_from is not None else 1
+    if pf < 0:
+        pf = 0
+
+    if period_to is not None:
+        if period_to < pf:
+            period_to = pf
+        # Usługa (ryczałt) with period_from=0 → "do X godzin"
+        # (kwota całkowita, nie per jednostka)
+        if is_flat and pf == 0:
+            return f"do {period_to} {_format_count_unit(period_to, count_unit)}"
+        if pf == period_to:
+            return f"{pf} {_format_count_unit(1, count_unit)}"
+        return f"{pf} - {period_to} {_format_count_unit(period_to - pf + 1, count_unit)}"
+
+    # Open-ended: flat rate (pf <= 1) has NO range prefix in legacy.
+    # Legacy: "230,00zł / doba" — just the rate, no "powyżej 0 dni".
+    if pf <= 1:
+        return ""
+
+    # Open-ended after a closed tier: "powyżej X dni" where X = pf - 1.
+    threshold = pf - 1
+    return f"powyżej {threshold} {_format_count_unit(threshold, count_unit)}"
+
+
+def _normalize_conditions_for_format(
+    conditions: list[PositionCondition],
+) -> list[dict]:
+    """
+    Convert PositionCondition objects into a normalized list of:
+        {period_from, period_to, rate, billing_label}
+
+    New source-of-truth fields (period_from/period_to/rate1) are preferred.
+    Legacy rows using period_count/rate2 are converted to equivalent ranges.
+    """
+    # If at least one condition has the new source fields, treat the whole set
+    # as new data. Otherwise fall back to legacy period_count/rate2 parsing.
+    has_new_fields = any(
+        c.period_from is not None or c.period_to is not None
+        for c in conditions
+    )
+
+    normalized: list[dict] = []
+    if has_new_fields:
+        for c in conditions:
+            rate = _condition_effective_rate(c)
+            if rate is None:
+                continue
+            normalized.append({
+                "period_from": c.period_from,
+                "period_to": c.period_to,
+                "rate": rate,
+                "billing_label": c.billing_label,
+            })
+        return normalized
+
+    # Legacy fallback: build cascading ranges from period_count/rate1/rate2
+    # exactly like the old WinForms formatter.
+    sorted_conds = sorted(
+        conditions,
+        key=lambda c: (c.period_count is None, c.period_count or 0),
+    )
+    current_end = 0
+
+    for i, c in enumerate(sorted_conds):
+        pc = c.period_count
+        rate1 = c.rate1 if c.rate1 is not None and c.rate1 > 0 else None
+        rate2 = c.rate2 if c.rate2 is not None and c.rate2 > 0 else None
+
+        next_pc = None
+        for j in range(i + 1, len(sorted_conds)):
+            npc = sorted_conds[j].period_count
+            if npc is not None:
+                next_pc = npc
+                break
+
+        if rate1 is not None and pc is not None:
+            start = current_end + 1
+            end = pc
+            if start <= end:
+                normalized.append({
+                    "period_from": start,
+                    "period_to": end,
+                    "rate": rate1,
+                    "billing_label": c.billing_label,
+                })
+                current_end = end
+
+        if rate2 is not None:
+            if rate1 is not None and pc is not None:
+                start = pc + 1
+            else:
+                start = current_end + 1
+
+            if next_pc is not None:
+                end = next_pc - 1
+            else:
+                end = None
+
+            if end is None or start <= end:
+                if start > current_end or end is None:
+                    normalized.append({
+                        "period_from": start,
+                        "period_to": end,
+                        "rate": rate2,
+                        "billing_label": c.billing_label,
+                    })
+                    if end is not None:
+                        current_end = end
+
+    return normalized
+
+
+def format_position_conditions_cascading(
+    conditions: list[PositionCondition],
+    contract_type: str = "S",
+) -> str:
+    """Buduje opis kaskadowych warunków rozliczenia (źródło prawdy: period_from/period_to/rate1).
 
     Przykład wyjścia (3 warunki):
       1 - 3 dni - 540,00 / doba
       4 - 16 dni - 410,00 / doba
-      powyżej 16 dni - 350,00 / doba
+      17 dni i więcej - 350,00 / doba
 
-    RAO-P1-020: naprawiono duplikaty warunków + logikę "powyżej" (rate2 z rate1=0).
+    RAO-P2-071: Obsługuje również stare dane oparte na period_count/rate2.
     """
     if not conditions:
         return ""
 
-    # RAO-P1-020: Deduplikuj warunki po (period_count, rate1, rate2) — migracja mogła stworzyć duplikaty
+    normalized = _normalize_conditions_for_format(conditions)
+
+    # Deduplicate by (period_from, period_to, rate) to avoid duplicates after migration
     seen = set()
-    unique_conds = []
-    for c in conditions:
-        key = (c.period_count, c.rate1, c.rate2)
+    unique = []
+    for n in normalized:
+        key = (n["period_from"], n["period_to"], n["rate"])
         if key not in seen:
             seen.add(key)
-            unique_conds.append(c)
+            unique.append(n)
 
-    # Sortuj warunki rosnąco po period_count (NULL na końcu)
-    sorted_conds = sorted(
-        unique_conds,
-        key=lambda c: (c.period_count is None, c.period_count or 0)
+    # Sort closed-ended ranges first, then open-ended; within each group by start/end.
+    unique.sort(
+        key=lambda n: (
+            n["period_to"] is None,
+            n["period_from"] is None,
+            n["period_from"] or 0,
+            n["period_to"] or 0,
+        )
     )
+
+    # Ryczałt vs stawka determinowane przez typ umowy (jak w legacy WinForms):
+    # U (usługa) = ryczałt (kwota całkowita, BEZ / unit), S/N (najem) = stawka (Z / unit)
+    is_flat = (contract_type == "U")
+
     lines = []
-    prev_period = 0
-    for i, c in enumerate(sorted_conds):
-        label = c.billing_label or 'doba'
-        if c.period_count is not None and c.rate1 is not None and c.rate1 > 0:
-            # Zakres dni (tier z rate1 > 0)
-            start = prev_period + 1
-            end = c.period_count
-            if start == end:
-                range_text = f"{start} {label}"
+    for n in unique:
+        label = n["billing_label"]
+        if not label:
+            label = "doba" if contract_type == "S" else "godzina"
+        count_unit, rate_unit = _unit_labels(label, contract_type)
+
+        # P1-206: umowa U (usługa) open-ended tier w godzinach → "każda kolejna {rate}zł / h"
+        # zamiast "powyżej X godzin - {rate}zł" (ryczałt bez / unit).
+        # Grid konfiguracji bez zmian — tylko label renderu (PDF + podgląd).
+        is_open_ended = n['period_to'] is None and (n['period_from'] or 0) > 1
+        if is_flat and is_open_ended and count_unit == "godzin":
+            lines.append(f"każda kolejna {_format_rate(n['rate'])}zł / h")
+            continue
+
+        range_text = _format_period_range(
+            n['period_from'], n['period_to'], count_unit, is_flat=is_flat
+        )
+        if range_text:
+            if is_flat:
+                lines.append(f"{range_text} - {_format_rate(n['rate'])}zł")
             else:
-                # Uproszczona polska fleksja: użyj "dni" dla zakresu
-                range_text = f"{start} - {end} dni"
-            # Polski format kwoty (przecinek dziesiętny)
-            rate_text = f"{c.rate1:.2f}".replace('.', ',')
-            lines.append(f"{range_text} - {rate_text} / {label}")
-            prev_period = c.period_count
-        elif c.rate2 is not None and c.rate2 > 0 and prev_period > 0:
-            # RAO-P1-020: Linia "powyżej" — rate2 > 0, niezależnie od period_count
-            # (dane z migracji mają period_count=ostatni zamiast None)
-            rate_text = f"{c.rate2:.2f}".replace('.', ',')
-            lines.append(f"powyżej {prev_period} dni - {rate_text} / {label}")
+                lines.append(f"{range_text} - {_format_rate(n['rate'])}zł / {rate_unit}")
+        else:
+            if is_flat:
+                lines.append(f"{_format_rate(n['rate'])}zł")
+            else:
+                lines.append(f"{_format_rate(n['rate'])}zł / {rate_unit}")
+
     return '\n'.join(lines)
 
 
 async def apply_preset_to_contract(db: AsyncSession, contract_id: int, preset_id: int, replace: bool = True):
     from settings.models import FeePresetGroup, ServiceFeeTemplate
+    contract = await db.get(Contract, contract_id)
+    if not contract:
+        from shared.exceptions import not_found
+        raise not_found("Umowa")
+    if contract.is_settled:
+        from shared.exceptions import conflict
+        raise conflict("Umowa jest rozliczona — modyfikacja zablokowana.")
     result = await db.execute(
         select(FeePresetGroup).where(FeePresetGroup.id == preset_id)
     )
@@ -142,21 +504,77 @@ async def apply_preset_to_contract(db: AsyncSession, contract_id: int, preset_id
         db.add(ContractServiceFee(
             contract_id=contract_id,
             sort_order=t.sort_order,
+            additional_service_id=t.additional_service_id,  # P1-120
             name=t.name,
             amount_from=t.amount_from,
             amount_to=t.amount_to,
-            unit=t.unit,
             description=t.description,
             is_active=t.is_active,
-            article_id=t.article_id,
-            default_price=t.default_price,
         ))
     await db.commit()
 
 
 class ContractService:
+    # RAO: mapowanie power_type pierwszej pozycji → sugerowany zestaw opłat.
+    # NIGDY silent auto-apply — operator musi świadomie wybrać zestaw.
+    _POWER_TYPE_PRESET = {
+        "diesel": "diesel",
+        "electric": "electric",
+    }
+
+    async def suggest_preset(self, db: AsyncSession, contract_id: int) -> str | None:
+        """RAO: pre-selekcja zestawu opłat na podstawie power_type pierwszej pozycji.
+
+        Zwraca 'diesel' / 'electric' gdy pierwsza pozycja umowy wskazuje maszynę
+        o danym typie zasilania; w pozostałych przypadkach (brak pozycji, 'other',
+        nieznana wartość) zwraca None. Metoda NIE modyfikuje umowy ani zestawów —
+        to wyłącznie sugestia dla operatora (frontend / router pobiera ją i prezentuje).
+        """
+        from machines.models import Machine
+        # Pierwsza pozycja = najniższe id (kolejność dodawania).
+        pos_result = await db.execute(
+            select(ContractPosition)
+            .where(ContractPosition.contract_id == contract_id)
+            .order_by(ContractPosition.id.asc())
+            .limit(1)
+        )
+        pos = pos_result.scalar_one_or_none()
+        if pos is None:
+            return None
+        machine = await db.get(Machine, pos.machine_id) if pos.machine_id else None
+        if machine is None:
+            return None
+        return self._POWER_TYPE_PRESET.get(machine.power_type)
+
+    async def verify_contract_access(
+        self,
+        db: AsyncSession,
+        contract_id: int,
+        user: User,
+        allow_mutation: bool = False,
+    ) -> Contract:
+        """RAO-P0-049: IDOR guard — sprawdź czy użytkownik widzi/modyfikuje dany kontrakt.
+
+        - admin widzi wszystko i może modyfikować
+        - user/viewer widzi tylko własny branch
+        - viewer może tylko odczytywać (allow_mutation=False)
+        - kontrakty bez branch_id (legacy) są widoczne dla wszystkich zalogowanych
+
+        NOTE (2026-07-11): IDOR WYŁĄCZONY — single-user mode. Branch/viewer checks
+        pominięte. Funkcja zachowuje is_settled check (business logic, nie security).
+        Pełny RBAC zostanie wdrożony gdy pojawią się wymagania wieloużytkownikowe.
+        """
+        contract = await self.get_contract(db, contract_id)
+
+        # IDOR wyłączony — wszyscy mają pełny dostęp (single-user mode)
+        if allow_mutation and contract.is_settled:
+            raise conflict("Umowa jest rozliczona — modyfikacja zablokowana. Najpierw cofnij rozliczenie.")
+
+        return contract
+
     async def list_contracts(
         self, db: AsyncSession,
+        user: User,
         search: str | None = None,
         date_from: date | None = None,
         date_to: date | None = None,
@@ -170,6 +588,7 @@ class ContractService:
         from contracts.schemas import ContractListItem
 
         stmt = select(Contract)
+        # NOTE (2026-07-11): IDOR WYŁĄCZONY — single-user mode. Brak branch scopingu.
         if search:
             stmt = stmt.where(
                 (Contract.number.ilike(f"%{search}%")) |
@@ -225,9 +644,11 @@ class ContractService:
             if c.date_from and c.date_to:
                 duration = (c.date_to - c.date_from).days
 
-            is_print_current = False
-            if c.print_date and c.updated_at:
-                is_print_current = c.print_date >= c.updated_at
+            # RAO: print_hash-based staleness detection (dirty-flag approach)
+            # print_hash IS NOT NULL → wydruk aktualny (hash stored at print time)
+            # print_hash IS NULL + print_date IS NOT NULL → nieaktualny (mutated after print)
+            # print_date IS NULL → nigdy nie drukowane
+            is_print_current = c.print_hash is not None
 
             items.append(ContractListItem(
                 id=c.id, contractor_id=c.contractor_id,
@@ -244,9 +665,8 @@ class ContractService:
                 # RAO-P1-021/P2-033: total_value usunięte
                 prepayment_amount=c.prepayment_amount,
                 prepayment_document=c.prepayment_document,
-                invoice_amount=c.invoice_amount,
-                invoice_document=c.invoice_document,
-                notes=c.notes,
+                notes_contract=c.notes_contract,
+                notes_protocol=c.notes_protocol,
                 contact_person1=c.contact_person1,
                 contact_phone1=c.contact_phone1,
                 show_person1=c.show_person1,
@@ -274,6 +694,7 @@ class ContractService:
 
     async def list_overdue_contracts(
         self, db: AsyncSession,
+        user: User,
         page: int = 1,
         per_page: int = 50,
     ):
@@ -287,6 +708,7 @@ class ContractService:
             Contract.date_to < today,
             Contract.is_settled == False
         )
+        # NOTE (2026-07-11): IDOR WYŁĄCZONY — single-user mode. Brak branch scopingu.
 
         count_stmt = select(func.count()).select_from(stmt.subquery())
         total = (await db.execute(count_stmt)).scalar_one()
@@ -323,9 +745,11 @@ class ContractService:
             if c.date_from and c.date_to:
                 duration = (c.date_to - c.date_from).days
 
-            is_print_current = False
-            if c.print_date and c.updated_at:
-                is_print_current = c.print_date >= c.updated_at
+            # RAO: print_hash-based staleness detection (dirty-flag approach)
+            # print_hash IS NOT NULL → wydruk aktualny (hash stored at print time)
+            # print_hash IS NULL + print_date IS NOT NULL → nieaktualny (mutated after print)
+            # print_date IS NULL → nigdy nie drukowane
+            is_print_current = c.print_hash is not None
 
             items.append(ContractListItem(
                 id=c.id, contractor_id=c.contractor_id,
@@ -342,9 +766,8 @@ class ContractService:
                 # RAO-P1-021/P2-033: total_value usunięte
                 prepayment_amount=c.prepayment_amount,
                 prepayment_document=c.prepayment_document,
-                invoice_amount=c.invoice_amount,
-                invoice_document=c.invoice_document,
-                notes=c.notes,
+                notes_contract=c.notes_contract,
+                notes_protocol=c.notes_protocol,
                 contact_person1=c.contact_person1,
                 contact_phone1=c.contact_phone1,
                 show_person1=c.show_person1,
@@ -377,13 +800,197 @@ class ContractService:
             raise not_found("Umowa")
         return contract
 
-    async def create_contract(self, db: AsyncSession, data: ContractCreate) -> Contract:
+    async def enrich_detail(self, db: AsyncSession, contract: Contract) -> None:
+        """P1-205: Wypełnij contractor_name (gdy null) i salesperson_name na obiekcie Contract.
+
+        Pre-existing bug: get_contract zwraca surowy model; contractor_name to kolumna
+        denormalizowana (nullable). Gdy null, JOIN contractors.name. Dodatkowo
+        salesperson_name nie istnieje w modelu — ustawiamy jako atrybut dynamiczny
+        dla ContractDetail.model_validate.
+        """
+        if not (contract.contractor_name or "") and contract.contractor_id:
+            from contractors.models import Contractor
+            ct = await db.get(Contractor, contract.contractor_id)
+            if ct:
+                contract.contractor_name = ct.name
+        if contract.salesperson_id:
+            from settings.models import Salesperson
+            sp = await db.get(Salesperson, contract.salesperson_id)
+            if sp:
+                setattr(contract, "salesperson_name", sp.name)
+            else:
+                setattr(contract, "salesperson_name", None)
+        else:
+            setattr(contract, "salesperson_name", None)
+
+    async def apply_rate_preset_to_position(
+        self,
+        db: AsyncSession,
+        pos_id: int,
+        preset_id: int,
+        user: User,
+        replace: bool = True,
+    ) -> list[PositionCondition]:
+        """Skopiuj warunki z cennika (MachineRatePreset) do pozycji umowy.
+
+        RAO-P0-048: MachineRatePresetItem ma tylko period_count. Przy kopiowaniu
+        do PositionCondition wyliczamy period_from/period_to kaskadowo. Jeśli
+        item ma rate1+rate2, generujemy dwa PositionCondition: jeden z rate1, drugi
+        z rate2, żeby uniknąć niejednoznaczności w period_from/period_to.
+        """
+        from settings.models import MachineRatePreset, MachineRatePresetItem
+
+        pos_result = await db.execute(
+            select(ContractPosition).where(ContractPosition.id == pos_id)
+        )
+        pos = pos_result.scalar_one_or_none()
+        if not pos:
+            raise not_found("Pozycja umowy")
+
+        await self.verify_contract_access(db, pos.contract_id, user, allow_mutation=True)
+
+        preset = await db.get(MachineRatePreset, preset_id)
+        if not preset:
+            raise not_found("Cennik")
+
+        if replace:
+            await db.execute(delete(PositionCondition).where(PositionCondition.position_id == pos_id))
+            await db.flush()
+
+        items_result = await db.execute(
+            select(MachineRatePresetItem)
+            .where(MachineRatePresetItem.preset_id == preset_id)
+            .order_by(MachineRatePresetItem.sort_order)
+        )
+        items = list(items_result.scalars())
+
+        new_conditions = []
+        current_end = 0
+        for i, item in enumerate(items):
+            pc = item.period_count
+            has_rate1 = item.rate1 is not None and item.rate1 > 0
+            has_rate2 = item.rate2 is not None and item.rate2 > 0
+
+            next_pc = None
+            for j in range(i + 1, len(items)):
+                npc = items[j].period_count
+                if npc is not None:
+                    next_pc = npc
+                    break
+
+            # rate1 tier -> [current_end+1, period_count]
+            if has_rate1 and pc is not None:
+                cond1 = PositionCondition(
+                    position_id=pos_id,
+                    rate1=item.rate1,
+                    rate2=None,
+                    billing_label=item.billing_label,
+                    period_count=pc,
+                    period_from=current_end + 1,
+                    period_to=pc,
+                )
+                db.add(cond1)
+                new_conditions.append(cond1)
+                current_end = pc
+
+            # rate2 tier -> [pc+1, next_pc-1] or open-ended
+            if has_rate2:
+                r2_from = (pc + 1) if has_rate1 and pc is not None else (current_end + 1)
+                r2_to = (next_pc - 1) if next_pc is not None else None
+
+                if r2_to is None or r2_from <= r2_to:
+                    cond2 = PositionCondition(
+                        position_id=pos_id,
+                        rate1=None,
+                        rate2=item.rate2,
+                        billing_label=item.billing_label,
+                        period_count=r2_to,
+                        period_from=r2_from,
+                        period_to=r2_to,
+                    )
+                    db.add(cond2)
+                    new_conditions.append(cond2)
+                    if r2_to is not None:
+                        current_end = r2_to
+
+        await db.commit()
+        return new_conditions
+
+    async def get_last_conditions_for_machine(
+        self, db: AsyncSession, machine_id: int, user: User
+    ) -> dict | None:
+        """Warunki z najnowszej umowy zawierającej tę maszynę."""
+        from sqlalchemy.orm import selectinload
+
+        stmt = (
+            select(ContractPosition)
+            .join(Contract)
+            .options(selectinload(ContractPosition.conditions))
+            .options(selectinload(ContractPosition.contract))
+            .where(ContractPosition.machine_id == machine_id)
+            .order_by(Contract.created_at.desc())
+            .limit(1)
+        )
+        result = await db.execute(stmt)
+        pos = result.scalar_one_or_none()
+        if not pos:
+            return None
+        await self.verify_contract_access(db, pos.contract_id, user)
+        return {
+            "source_contract_number": pos.contract.number,
+            "source_contract_date": pos.contract.created_at,
+            "source_position_id": pos.id,
+            "conditions": [ConditionResponse.model_validate(c) for c in pos.conditions],
+        }
+
+    async def get_last_conditions_for_article(
+        self, db: AsyncSession, article_id: int, user: User
+    ) -> dict | None:
+        """Warunki z najnowszej umowy zawierającej pozycję z tym article_id.
+
+        article_id mapuje na machine_id (najem) lub service_id (usługa) —
+        sprawdzamy obie kolumny, bo frontend ArticlePicker nie rozróżnia.
+        """
+        from sqlalchemy.orm import selectinload
+        from sqlalchemy import or_
+
+        stmt = (
+            select(ContractPosition)
+            .join(Contract)
+            .options(selectinload(ContractPosition.conditions))
+            .options(selectinload(ContractPosition.contract))
+            .where(or_(
+                ContractPosition.machine_id == article_id,
+                ContractPosition.service_id == article_id,
+            ))
+            .order_by(Contract.created_at.desc())
+            .limit(1)
+        )
+        result = await db.execute(stmt)
+        pos = result.scalar_one_or_none()
+        if not pos:
+            return None
+        await self.verify_contract_access(db, pos.contract_id, user)
+        return {
+            "source_contract_number": pos.contract.number,
+            "source_contract_date": pos.contract.created_at,
+            "source_position_id": pos.id,
+            "conditions": [ConditionResponse.model_validate(c) for c in pos.conditions],
+        }
+
+    async def create_contract(
+        self, db: AsyncSession, data: ContractCreate, user: User
+    ) -> Contract:
         # RAO-P0-030: Retry on IntegrityError (UNIQUE on contracts.number)
         from sqlalchemy.exc import IntegrityError
         max_retries = 3
+
+        # NOTE (2026-07-11): IDOR WYŁĄCZONY — single-user mode. Wszyscy mogą ustawić branch.
+        branch_id = data.branch_id
+
         for attempt in range(max_retries):
             try:
-                number, auto_num = await generate_contract_number(db, data.contract_type, data.branch_id)
+                number, auto_num = await generate_contract_number(db, data.contract_type, branch_id)
                 contractor_name = data.contractor_name
                 if not contractor_name:
                     from contractors.models import Contractor
@@ -394,8 +1001,9 @@ class ContractService:
                     contractor_name = ct.name
 
                 contract = Contract(
-                    **{k: v for k, v in data.model_dump().items() if k != "contractor_name"},
+                    **{k: v for k, v in data.model_dump().items() if k not in ("contractor_name", "branch_id")},
                     contractor_name=contractor_name,
+                    branch_id=branch_id,
                     number=number,
                     auto_number=auto_num,
                     created_at=datetime.utcnow(),
@@ -422,28 +1030,64 @@ class ContractService:
                     ) from e
                 # Retry — another concurrent request took our number
 
-    async def update_contract(self, db: AsyncSession, contract_id: int, data) -> Contract:
-        contract = await self.get_contract(db, contract_id)
-        # RAO-P1-040: is_settled blokuje mutacje
-        if contract.is_settled:
-            raise conflict("Umowa jest rozliczona — modyfikacja zablokowana. Najpierw cofnij rozliczenie.")
+    # RAO-P1-133: pola kontaktowe dozwolone na rozliczonej umowie bez cofania
+    _SETTLED_ALLOWED_CONTACT_FIELDS = frozenset({
+        "contact_person1", "contact_person2",
+        "contact_phone1", "contact_phone2",
+        "phone", "email",
+    })
+
+    async def update_contract(
+        self, db: AsyncSession, contract_id: int, data, user: User
+    ) -> Contract:
+        contract = await self.verify_contract_access(db, contract_id, user, allow_mutation=False)
         # RAO-P0-034: exclude_unset=True — only fields the client explicitly sent
         # are applied. Prevents lost-data bug where omitted fields reset to defaults.
         update_data = data.model_dump(exclude_unset=True)
         update_data.pop("contractor_name", None)
+        # RAO-P1-133: rozliczona umowa — tylko pola kontaktowe bez cofania.
+        # Pozycje/warunki/opłaty/kwoty nadal wymagają cofnięcia rozliczenia.
+        if contract.is_settled:
+            disallowed = set(update_data.keys()) - self._SETTLED_ALLOWED_CONTACT_FIELDS
+            if disallowed:
+                raise forbidden(
+                    "Umowa rozliczona — najpierw cofnij rozliczenie, aby zmienić "
+                    "dane umowy. Dane kontaktowe można zapisywać bez cofania."
+                )
+        # NOTE (2026-07-11): IDOR WYŁĄCZONY — single-user mode. Wszyscy mogą zmieniać branch_id.
         for field, value in update_data.items():
             setattr(contract, field, value)
         # RAO-P2-028: gdy aktualizowano postal_code, odśwież FK postal_code_id
         if "postal_code" in update_data:
             contract.postal_code_id = await resolve_postal_code_id(db, update_data.get("postal_code"))
+        # RAO: invalidate print_hash jeśli zmieniono pola wpływające na wydruk
+        changed_fields = set(update_data.keys())
+        if changed_fields & set(_PRINT_HASH_CONTRACT_FIELDS):
+            contract.print_hash = None
         contract.updated_at = datetime.utcnow()
         await db.commit()
         await db.refresh(contract)
         return contract
 
-    async def settle_contract(self, db: AsyncSession, contract_id: int, is_settled: bool) -> Contract:
-        """RAO-P2-022: oznacz umowę jako rozliczoną / cofnij rozliczenie."""
-        contract = await self.get_contract(db, contract_id)
+    async def settle_contract(
+        self, db: AsyncSession, contract_id: int, is_settled: bool, user: User
+    ) -> Contract:
+        """RAO-P2-022 / P1-133: oznacz umowę jako rozliczoną / cofnij rozliczenie.
+
+        Cofnięcie rozliczenia (is_settled=False) to operacja odwracająca, NIE mutacja
+        danych umowy — dlatego nie przechodzi przez guard allow_mutation=True (który
+        blokuje edycję rozliczonych umów). Oznaczenie (is_settled=True) zachowuje
+        pełną walidację dostępu.
+        """
+        if is_settled:
+            # Oznaczenie jako rozliczona — pełna walidacja (umowa nie może być już rozliczona)
+            contract = await self.verify_contract_access(
+                db, contract_id, user, allow_mutation=True
+            )
+        else:
+            # Cofnięcie rozliczenia — operacja odwracająca, pomijamy guard mutacji.
+            # Nadal weryfikujemy istnienie umowy (get_contract rzuca 404 gdy brak).
+            contract = await self.get_contract(db, contract_id)
         contract.is_settled = is_settled
         contract.settled_at = datetime.utcnow() if is_settled else None
         contract.updated_at = datetime.utcnow()
@@ -451,11 +1095,8 @@ class ContractService:
         await db.refresh(contract)
         return contract
 
-    async def delete_contract(self, db: AsyncSession, contract_id: int):
-        # RAO-P1-037: Guard — nie pozwól usunąć rozliczonej umowy
-        contract = await self.get_contract(db, contract_id)
-        if contract.is_settled:
-            raise conflict("Nie można usunąć rozliczonej umowy. Najpierw cofnij rozliczenie.")
+    async def delete_contract(self, db: AsyncSession, contract_id: int, user: User):
+        contract = await self.verify_contract_access(db, contract_id, user, allow_mutation=True)
         await db.execute(
             delete(PositionCondition).where(
                 PositionCondition.position_id.in_(
@@ -468,7 +1109,8 @@ class ContractService:
         await db.execute(delete(Contract).where(Contract.id == contract_id))
         await db.commit()
 
-    async def list_positions(self, db: AsyncSession, contract_id: int):
+    async def list_positions(self, db: AsyncSession, contract_id: int, user: User):
+        await self.verify_contract_access(db, contract_id, user)
         from contracts.schemas import PositionResponse, ConditionResponse
         from settings.models import RateType
         from contractors.models import Contractor
@@ -482,7 +1124,6 @@ class ContractService:
 
         # RAO-P0-035: Batch-fetch RateTypes & Contractors (suppliers) to eliminate N+1
         rate_type_ids = {p.rate_type_id for p in positions if p.rate_type_id}
-        rate_type_ids |= {cond.rate_type_id for p in positions for cond in p.conditions if cond.rate_type_id}
         supplier_ids = {p.supplier_id for p in positions if p.supplier_id}
 
         rt_map = {}
@@ -505,19 +1146,18 @@ class ContractService:
             sp_name = supplier_map.get(p.supplier_id) if p.supplier_id else None
             conditions = []
             for cond in p.conditions:
-                crt_name = rt_map.get(cond.rate_type_id) if cond.rate_type_id else None
                 conditions.append(ConditionResponse(
                     id=cond.id, position_id=cond.position_id,
-                    rate_type_id=cond.rate_type_id, rate_type_name=crt_name,
-                    description=cond.description, rate1=cond.rate1, rate2=cond.rate2,
+                    rate1=cond.rate1, rate2=cond.rate2,
                     billing_label=cond.billing_label, period_count=cond.period_count,
-                    minimum=cond.minimum,
+                    period_from=cond.period_from, period_to=cond.period_to,  # RAO-P1-005
                 ))
             out.append(PositionResponse(
-                id=p.id, contract_id=p.contract_id, article_id=p.article_id,
-                article_name=p.article_name, rental_type=p.rental_type,
+                id=p.id, contract_id=p.contract_id, machine_id=p.machine_id,
+                service_id=p.service_id,
+                article_name=p.article_name,
                 description=p.description, rental_days=p.rental_days,
-                quantity=p.quantity, unit_price=p.unit_price, costs=p.costs,
+                quantity=p.quantity, unit_price=p.unit_price,
                 rate_type_id=p.rate_type_id, rate_type_name=rt_name,
                 billing_frequency=p.billing_frequency, billing_unit=p.billing_unit,
                 supplier_id=p.supplier_id, supplier_name=sp_name,
@@ -526,107 +1166,174 @@ class ContractService:
             ))
         return out
 
-    async def create_position(self, db: AsyncSession, contract_id: int, data: PositionCreate) -> ContractPosition:
-        # RAO-P1-040: is_settled blokuje mutacje — guard na create_position
-        contract = await self.get_contract(db, contract_id)
-        if contract.is_settled:
-            from shared.exceptions import conflict
-            raise conflict("Umowa jest rozliczona — dodawanie pozycji zablokowane.")
-        from articles.models import Article
-        article = await db.get(Article, data.article_id)
+    async def create_position(
+        self, db: AsyncSession, contract_id: int, data: PositionCreate, user: User
+    ) -> ContractPosition:
+        contract = await self.verify_contract_access(db, contract_id, user, allow_mutation=True)
+        # XOR walidacja: dokładnie jeden z machine_id / service_id
+        if (data.machine_id is None) == (data.service_id is None):
+            raise bad_request("Dokładnie jeden z machine_id / service_id musi być ustawiony.")
+        article_name = None
+        if data.machine_id is not None:
+            from machines.models import Machine
+            machine = await db.get(Machine, data.machine_id)
+            if machine is None:
+                raise not_found("Maszyna")
+            article_name = machine.name
+        elif data.service_id is not None:
+            from services.models import Service
+            service = await db.get(Service, data.service_id)
+            if service is None:
+                raise not_found("Usługa")
+            article_name = service.name
         pos = ContractPosition(
             **data.model_dump(),
             contract_id=contract_id,
-            article_name=article.name if article else None,
+            article_name=article_name,
         )
         db.add(pos)
         await db.execute(
             update(Contract).where(Contract.id == contract_id)
-            .values(position_count=Contract.position_count + 1, updated_at=datetime.utcnow())
+            .values(position_count=Contract.position_count + 1, updated_at=datetime.utcnow(),
+                    print_hash=None)  # RAO: invalidate print — pozycja dodana
+        )
+        await db.commit()
+        await db.refresh(pos)
+        # RAO-P1-012: Auto-create settlement record for this position
+        from settlements.service import SettlementService
+        settlement_service = SettlementService()
+        await settlement_service.auto_create_settlements_for_contract(db, contract_id, [pos.id])
+        return pos
+
+    async def update_position(
+        self, db: AsyncSession, pos_id: int, data, user: User
+    ) -> ContractPosition:
+        result = await db.execute(
+            select(ContractPosition)
+            .options(selectinload(ContractPosition.contract))
+            .where(ContractPosition.id == pos_id)
+        )
+        pos = result.scalar_one_or_none()
+        if not pos:
+            raise not_found("Pozycja")
+        await self.verify_contract_access(db, pos.contract_id, user, allow_mutation=True)
+        if data.machine_id is not None:
+            from machines.models import Machine
+            machine = await db.get(Machine, data.machine_id)
+            if machine is None:
+                raise not_found("Maszyna")
+        if data.service_id is not None:
+            from services.models import Service
+            service = await db.get(Service, data.service_id)
+            if service is None:
+                raise not_found("Usługa")
+        # RAO-P0-034: exclude_unset=True — only fields explicitly sent are applied
+        for field, value in data.model_dump(exclude_unset=True).items():
+            setattr(pos, field, value)
+        # XOR invariant check on final state (Security finding #1)
+        if (pos.machine_id is None) == (pos.service_id is None):
+            raise bad_request("Dokładnie jeden z machine_id / service_id musi być ustawiony.")
+        # RAO: invalidate print_hash — pozycja zmieniona (wpływa na wydruk)
+        await db.execute(
+            update(Contract).where(Contract.id == pos.contract_id)
+            .values(print_hash=None)
         )
         await db.commit()
         await db.refresh(pos)
         return pos
 
-    async def update_position(self, db: AsyncSession, pos_id: int, data) -> ContractPosition:
-        result = await db.execute(select(ContractPosition).where(ContractPosition.id == pos_id))
-        pos = result.scalar_one_or_none()
-        if not pos:
-            raise not_found("Pozycja")
-        # RAO-P1-040: is_settled blokuje mutacje
-        contract = await self.get_contract(db, pos.contract_id)
-        if contract.is_settled:
-            raise conflict("Umowa jest rozliczona — modyfikacja pozycji zablokowana.")
-        # RAO-P0-034: exclude_unset=True — only fields explicitly sent are applied
-        for field, value in data.model_dump(exclude_unset=True).items():
-            setattr(pos, field, value)
-        await db.commit()
-        await db.refresh(pos)
-        return pos
-
-    async def delete_position(self, db: AsyncSession, contract_id: int, pos_id: int):
-        # RAO-P1-040: is_settled blokuje mutacje
-        contract = await self.get_contract(db, contract_id)
-        if contract.is_settled:
-            raise conflict("Umowa jest rozliczona — usuwanie pozycji zablokowane.")
+    async def delete_position(self, db: AsyncSession, contract_id: int, pos_id: int, user: User):
+        await self.verify_contract_access(db, contract_id, user, allow_mutation=True)
         await db.execute(delete(PositionCondition).where(PositionCondition.position_id == pos_id))
         await db.execute(delete(ContractPosition).where(ContractPosition.id == pos_id))
         await db.execute(
             update(Contract).where(Contract.id == contract_id)
-            .values(updated_at=datetime.utcnow())
+            .values(updated_at=datetime.utcnow(), print_hash=None)  # RAO: invalidate print
         )
         await db.commit()
 
-    async def list_conditions(self, db: AsyncSession, pos_id: int):
+    async def list_conditions(self, db: AsyncSession, pos_id: int, user: User):
+        pos_result = await db.execute(
+            select(ContractPosition).where(ContractPosition.id == pos_id)
+        )
+        pos = pos_result.scalar_one_or_none()
+        if not pos:
+            raise not_found("Pozycja")
+        await self.verify_contract_access(db, pos.contract_id, user)
         result = await db.execute(
             select(PositionCondition).where(PositionCondition.position_id == pos_id)
         )
         return result.scalars().all()
 
-    async def create_condition(self, db: AsyncSession, pos_id: int, data: ConditionCreate) -> PositionCondition:
-        cond = PositionCondition(**data.model_dump(), position_id=pos_id)
+    async def create_condition(
+        self, db: AsyncSession, pos_id: int, data: ConditionCreate, user: User
+    ) -> PositionCondition:
+        pos_result = await db.execute(select(ContractPosition).where(ContractPosition.id == pos_id))
+        pos = pos_result.scalar_one_or_none()
+        if not pos:
+            raise not_found("Pozycja")
+        await self.verify_contract_access(db, pos.contract_id, user, allow_mutation=True)
+        payload = data.model_dump()
+        print("[DEBUG] ConditionCreate payload:", payload)
+        cond = PositionCondition(**payload, position_id=pos_id)
+        _sync_condition_derived_fields(cond)
         db.add(cond)
+        # RAO: invalidate print_hash — warunek dodany (wpływa na wydruk)
+        await db.execute(
+            update(Contract).where(Contract.id == pos.contract_id)
+            .values(print_hash=None)
+        )
         await db.commit()
         await db.refresh(cond)
         return cond
 
-    async def update_condition(self, db: AsyncSession, cond_id: int, data) -> PositionCondition:
+    async def update_condition(
+        self, db: AsyncSession, cond_id: int, data, user: User
+    ) -> PositionCondition:
         result = await db.execute(select(PositionCondition).where(PositionCondition.id == cond_id))
         cond = result.scalar_one_or_none()
         if not cond:
             raise not_found("Warunek")
-        # RAO-P1-040: is_settled blokuje mutacje (sprawdź kontrakt nadrzędny)
         pos_result = await db.execute(
-            select(ContractPosition.contract_id).where(ContractPosition.id == cond.position_id)
+            select(ContractPosition).where(ContractPosition.id == cond.position_id)
         )
-        contract_id = pos_result.scalar_one_or_none()
-        if contract_id:
-            contract = await self.get_contract(db, contract_id)
-            if contract.is_settled:
-                raise conflict("Umowa jest rozliczona — modyfikacja warunku zablokowana.")
+        pos = pos_result.scalar_one_or_none()
+        if not pos:
+            raise not_found("Pozycja")
+        await self.verify_contract_access(db, pos.contract_id, user, allow_mutation=True)
         # RAO-P0-034: exclude_unset=True — only fields explicitly sent are applied
         for field, value in data.model_dump(exclude_unset=True).items():
             setattr(cond, field, value)
+        _sync_condition_derived_fields(cond)
+        # RAO: invalidate print_hash — warunek zmieniony (wpływa na wydruk)
+        await db.execute(
+            update(Contract).where(Contract.id == pos.contract_id)
+            .values(print_hash=None)
+        )
         await db.commit()
         await db.refresh(cond)
         return cond
 
-    async def delete_condition(self, db: AsyncSession, cond_id: int):
-        # RAO-P1-040: is_settled blokuje mutacje (sprawdź kontrakt nadrzędny)
+    async def delete_condition(self, db: AsyncSession, cond_id: int, user: User):
         pos_result = await db.execute(
-            select(ContractPosition.contract_id)
+            select(ContractPosition)
             .join(PositionCondition, PositionCondition.position_id == ContractPosition.id)
             .where(PositionCondition.id == cond_id)
         )
-        contract_id = pos_result.scalar_one_or_none()
-        if contract_id:
-            contract = await self.get_contract(db, contract_id)
-            if contract.is_settled:
-                raise conflict("Umowa jest rozliczona — usuwanie warunku zablokowane.")
+        pos = pos_result.scalar_one_or_none()
+        if not pos:
+            raise not_found("Pozycja")
+        await self.verify_contract_access(db, pos.contract_id, user, allow_mutation=True)
         await db.execute(delete(PositionCondition).where(PositionCondition.id == cond_id))
+        # RAO: invalidate print_hash — warunek usunięty (wpływa na wydruk)
+        await db.execute(
+            update(Contract).where(Contract.id == pos.contract_id)
+            .values(print_hash=None)
+        )
         await db.commit()
 
-    async def list_service_fees(self, db: AsyncSession, contract_id: int):
+    async def list_service_fees(self, db: AsyncSession, contract_id: int, user: User):
+        await self.verify_contract_access(db, contract_id, user)
         result = await db.execute(
             select(ContractServiceFee)
             .where(ContractServiceFee.contract_id == contract_id)
@@ -634,34 +1341,78 @@ class ContractService:
         )
         return result.scalars().all()
 
-    async def create_service_fee(self, db: AsyncSession, contract_id: int, data: ContractServiceFeeCreate) -> ContractServiceFee:
+    async def create_service_fee(
+        self, db: AsyncSession, contract_id: int, data: ContractServiceFeeCreate, user: User
+    ) -> ContractServiceFee:
+        await self.verify_contract_access(db, contract_id, user, allow_mutation=True)
         max_order = await db.execute(
             select(func.max(ContractServiceFee.sort_order))
             .where(ContractServiceFee.contract_id == contract_id)
         )
         next_order = (max_order.scalar_one_or_none() or 0) + 1
-        fee = ContractServiceFee(**data.model_dump(), contract_id=contract_id, sort_order=next_order)
+        payload = data.model_dump()
+        # RAO-P1-100: KISS fallback — "Tekst na umowie" pusty → użyj nazwy
+        if not payload.get("description") or not str(payload.get("description")).strip():
+            payload["description"] = payload.get("name")
+        fee = ContractServiceFee(**payload, contract_id=contract_id, sort_order=next_order)
         db.add(fee)
+        # RAO: invalidate print_hash — opłata dodana (wpływa na wydruk)
+        await db.execute(
+            update(Contract).where(Contract.id == contract_id)
+            .values(print_hash=None)
+        )
         await db.commit()
         await db.refresh(fee)
         return fee
 
-    async def update_service_fee(self, db: AsyncSession, fee_id: int, data: ContractServiceFeeCreate) -> ContractServiceFee:
-        result = await db.execute(select(ContractServiceFee).where(ContractServiceFee.id == fee_id))
+    async def update_service_fee(
+        self, db: AsyncSession, fee_id: int, data: ContractServiceFeeUpdate, user: User
+    ) -> ContractServiceFee:
+        result = await db.execute(
+            select(ContractServiceFee).where(ContractServiceFee.id == fee_id)
+        )
         fee = result.scalar_one_or_none()
         if not fee:
             raise not_found("Usługa dodatkowa")
-        for field, value in data.model_dump().items():
+        await self.verify_contract_access(db, fee.contract_id, user, allow_mutation=True)
+        # RAO-P0-034: exclude_unset=True — only fields explicitly sent are applied
+        payload = data.model_dump(exclude_unset=True)
+        # RAO-P1-100: KISS fallback — "Tekst na umowie" pusty → użyj nazwy (nowej lub istniejącej)
+        if "description" in payload:
+            desc = payload.get("description")
+            if not desc or not str(desc).strip():
+                payload["description"] = payload.get("name") or fee.name
+        for field, value in payload.items():
             setattr(fee, field, value)
+        # RAO: invalidate print_hash — opłata zmieniona (wpływa na wydruk)
+        await db.execute(
+            update(Contract).where(Contract.id == fee.contract_id)
+            .values(print_hash=None)
+        )
         await db.commit()
         await db.refresh(fee)
         return fee
 
-    async def delete_service_fee(self, db: AsyncSession, fee_id: int):
+    async def delete_service_fee(self, db: AsyncSession, fee_id: int, user: User):
+        result = await db.execute(
+            select(ContractServiceFee).where(ContractServiceFee.id == fee_id)
+        )
+        fee = result.scalar_one_or_none()
+        if not fee:
+            raise not_found("Usługa dodatkowa")
+        await self.verify_contract_access(db, fee.contract_id, user, allow_mutation=True)
         await db.execute(delete(ContractServiceFee).where(ContractServiceFee.id == fee_id))
+        # RAO: invalidate print_hash — opłata usunięta (wpływa na wydruk)
+        await db.execute(
+            update(Contract).where(Contract.id == fee.contract_id)
+            .values(print_hash=None)
+        )
         await db.commit()
 
-    async def reorder_service_fees(self, db: AsyncSession, contract_id: int, ids: list[int]):
+    async def reorder_service_fees(
+        self, db: AsyncSession, contract_id: int, ids: list[int], user: User
+    ):
+        await self.verify_contract_access(db, contract_id, user, allow_mutation=True)
         for i, fee_id in enumerate(ids):
             await db.execute(
                 update(ContractServiceFee)
@@ -670,13 +1421,15 @@ class ContractService:
             )
         await db.commit()
 
-    async def reset_service_fees(self, db: AsyncSession, contract_id: int):
-        contract = await self.get_contract(db, contract_id)
+    async def reset_service_fees(self, db: AsyncSession, contract_id: int, user: User):
+        contract = await self.verify_contract_access(db, contract_id, user, allow_mutation=True)
         await db.execute(delete(ContractServiceFee).where(ContractServiceFee.contract_id == contract_id))
         await db.commit()
         await copy_fee_templates(db, contract_id, contract.contract_type)
 
-    async def recalculate_total(self, db: AsyncSession, contract_id: int) -> Decimal:
+    async def recalculate_total(
+        self, db: AsyncSession, contract_id: int, user: User
+    ) -> Decimal:
         """Recalculate contract total using the cascading tiered algorithm.
 
         RAO-P0-033: Previously used SUM(rate1 * period_count) which ignored
@@ -684,32 +1437,39 @@ class ContractService:
         calculation. Now uses calculate_position_value from stats/calc.py
         which is the single source of truth for position value.
 
-        RAO-P1-021/P2-033: Nie zapisuje już do contracts.total_value (kolumna usunięta).
+        RAO-P1-021/P2-033: Nie zapisuje już do contracts.total_value (kolumna usunięte).
         Zwraca tylko total do wyświetlenia w UI.
         """
         from stats.calc import calculate_position_value
-        contract = await self.get_contract(db, contract_id)
-        # Load all positions with conditions
+        contract = await self.verify_contract_access(db, contract_id, user)
+        # Load all positions with their conditions
         result = await db.execute(
             select(ContractPosition)
             .options(selectinload(ContractPosition.conditions))
             .where(ContractPosition.contract_id == contract_id)
         )
         positions = result.scalars().all()
+        is_service = contract.contract_type == "U"
         total = Decimal("0.00")
         for pos in positions:
             # Build conditions dicts in the format calculate_position_value expects
+            # Closed-ended tiers first, then open-ended, to match the cascading UI.
             sorted_conds = sorted(
-                [c for c in pos.conditions if c.rate1 and c.rate1 > 0],
-                key=lambda c: (c.period_count is None, c.period_count or 0)
+                pos.conditions,
+                key=lambda c: (
+                    c.period_to is None,
+                    c.period_from is None,
+                    c.period_from or 0,
+                    c.period_to or 0,
+                )
             )
             cond_dicts = [
                 {
                     "rate1": c.rate1,
                     "rate2": c.rate2,
+                    "period_from": c.period_from,
+                    "period_to": c.period_to,
                     "period_count": c.period_count,
-                    "minimum": c.minimum,
-                    "rate_type_id": c.rate_type_id,
                 }
                 for c in sorted_conds
             ]
@@ -722,11 +1482,60 @@ class ContractService:
                 unit_price=pos.unit_price,
                 quantity=qty,
                 conditions=cond_dicts,
+                is_service=is_service,
             )
             total += pos_value
         # RAO-P1-021/P2-033: nie zapisujemy do DB (total_value usunięte)
         return total
-        return total
+
+    async def migrate_position_condition_periods(self, db: AsyncSession) -> int:
+        """RAO-P0-048: One-time migration fixing period_from/period_to for legacy rows.
+
+        Iterates positions with NULL period_from and recalculates cascading ranges
+        based on existing period_count/rate1/rate2 values. rate2 rows become open-ended.
+        """
+        from sqlalchemy.orm import selectinload
+        result = await db.execute(
+            select(ContractPosition)
+            .options(selectinload(ContractPosition.conditions))
+        )
+        positions = result.scalars().all()
+        fixed = 0
+        for pos in positions:
+            conds = sorted(pos.conditions, key=lambda c: (c.period_count is None, c.period_count or 0))
+            current_end = 0
+            for i, cond in enumerate(conds):
+                pc = cond.period_count
+                has_rate1 = cond.rate1 is not None and cond.rate1 > 0
+                has_rate2 = cond.rate2 is not None and cond.rate2 > 0
+
+                next_pc = None
+                for j in range(i + 1, len(conds)):
+                    npc = conds[j].period_count
+                    if npc is not None:
+                        next_pc = npc
+                        break
+
+                if has_rate1 and pc is not None:
+                    if cond.period_from is None:
+                        cond.period_from = current_end + 1
+                    if cond.period_to is None:
+                        cond.period_to = pc
+                    current_end = cond.period_to
+
+                if has_rate2:
+                    r2_from = (pc + 1) if has_rate1 and pc is not None else (current_end + 1)
+                    r2_to = (next_pc - 1) if next_pc is not None else None
+                    if r2_to is None or r2_from <= r2_to:
+                        if cond.period_from is None:
+                            cond.period_from = r2_from
+                        if cond.period_to is None:
+                            cond.period_to = r2_to
+                        if r2_to is not None:
+                            current_end = r2_to
+                fixed += 1
+        await db.commit()
+        return fixed
 
 
 contract_service = ContractService()

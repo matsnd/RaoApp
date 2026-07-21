@@ -2,7 +2,6 @@ from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, Num
 from sqlalchemy.orm import relationship
 from database import Base
 from decimal import Decimal
-from articles.models import Article
 
 
 class Contract(Base):
@@ -27,9 +26,9 @@ class Contract(Base):
     # RAO-P1-021/P2-033: total_value usunięte (martwe pole, 100% NULL)
     prepayment_amount = Column(Numeric(18, 2), nullable=True, default=0)
     prepayment_document = Column(String(200), nullable=True)
-    invoice_amount = Column(Numeric(18, 2), nullable=True, default=0)
-    invoice_document = Column(String(40), nullable=True)
-    notes = Column(Text, nullable=True)
+    # RAO-P1-202 Faza 1: rozdzielenie notes → notes_contract (PDF umowy) + notes_protocol (PDF protokołów)
+    notes_contract = Column(Text, nullable=True, comment="RAO-P1-202: Uwagi operatora wyświetlane na PDF umowy")
+    notes_protocol = Column(Text, nullable=True, comment="RAO-P1-202: Uwagi wyświetlane na PDF protokołów")
     contact_person1 = Column(String(100), nullable=True)
     contact_phone1 = Column(String(100), nullable=True)
     show_person1 = Column(Boolean, nullable=False, default=True)
@@ -41,6 +40,8 @@ class Contract(Base):
     contractor_name = Column(String(200), nullable=True)
     print_path = Column(String(100), nullable=True)
     print_date = Column(DateTime, nullable=True)
+    print_hash = Column(String(64), nullable=True, comment="RAO: sha256 pól wpływających na wydruk — do detekcji nieaktualnego wydruku")
+    print_hash = Column(String(64), nullable=True, comment="RAO-P2-072: sha256 pól wpływających na wydruk — porównywany z current hash dla is_print_current")
     report_without_data = Column(Boolean, nullable=False, default=False)
     hide_delivery_address = Column(Boolean, nullable=False, default=False)
     signatures_on_page1 = Column(Boolean, nullable=False, default=False)
@@ -61,13 +62,12 @@ class ContractPosition(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     contract_id = Column(Integer, ForeignKey("contracts.id", ondelete="CASCADE"), nullable=False)
-    article_id = Column(Integer, ForeignKey("articles.id"), nullable=False)
-    rental_type = Column(String(20), nullable=True)
+    machine_id = Column(Integer, ForeignKey("machines.id"), nullable=True)
+    service_id = Column(Integer, ForeignKey("services.id"), nullable=True)
     description = Column(String(400), nullable=True)
     rental_days = Column(Integer, nullable=True)
     quantity = Column(Integer, nullable=True, default=1)
     unit_price = Column(Numeric(18, 2), nullable=True)
-    costs = Column(Numeric(18, 2), nullable=True, default=0)
     rate_type_id = Column(Integer, ForeignKey("rate_types.id", ondelete="SET NULL"), nullable=True)
     billing_frequency = Column(String(20), nullable=True)
     billing_unit = Column(String(20), nullable=True)
@@ -77,7 +77,8 @@ class ContractPosition(Base):
 
     contract = relationship("Contract", back_populates="positions")
     conditions = relationship("PositionCondition", back_populates="position", cascade="all, delete-orphan")
-    article = relationship("Article", lazy="selectin")
+    machine = relationship("Machine", lazy="selectin")
+    service = relationship("Service", lazy="selectin")
 
 
 class PositionCondition(Base):
@@ -85,13 +86,12 @@ class PositionCondition(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     position_id = Column(Integer, ForeignKey("contract_positions.id", ondelete="CASCADE"), nullable=False)
-    rate_type_id = Column(Integer, ForeignKey("rate_types.id", ondelete="SET NULL"), nullable=True)
-    description = Column(String(400), nullable=True)
     rate1 = Column(Numeric(18, 2), nullable=True)
     rate2 = Column(Numeric(18, 2), nullable=True)
     billing_label = Column(String(20), nullable=True)
-    period_count = Column(Integer, nullable=True)
-    minimum = Column(Integer, nullable=True)
+    period_count = Column(Integer, nullable=True)  # RAO-P1-005: backward compatibility
+    period_from = Column(Integer, nullable=True)  # RAO-P1-005: elastyczne widełki (od)
+    period_to = Column(Integer, nullable=True)    # RAO-P1-005: elastyczne widełki (do)
 
     position = relationship("ContractPosition", back_populates="conditions")
 
@@ -102,14 +102,18 @@ class ContractServiceFee(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     contract_id = Column(Integer, ForeignKey("contracts.id", ondelete="CASCADE"), nullable=False)
     sort_order = Column(Integer, nullable=False, default=0)
+    # P1-120: FK do additional_services (mapowanie dla statystyk/Fakturowni)
+    additional_service_id = Column(
+        Integer,
+        ForeignKey("additional_services.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     name = Column(String(200), nullable=False)
     amount_from = Column(Numeric(18, 2), nullable=True)
     amount_to = Column(Numeric(18, 2), nullable=True)
-    unit = Column(String(50), nullable=True)
     description = Column(String(400), nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
-    article_id = Column(Integer, ForeignKey("articles.id", ondelete="SET NULL"), nullable=True)
-    default_price = Column(Numeric(18, 2), nullable=True)
 
     contract = relationship("Contract", back_populates="service_fees")
-    article = relationship("Article", lazy="selectin")
+    additional_service = relationship("AdditionalService", lazy="selectin", foreign_keys=[additional_service_id])

@@ -11,19 +11,23 @@ from sqlalchemy.orm import selectinload
 from auth.dependencies import get_current_user
 from auth.models import User
 from database import get_db
-from articles.models import Article
-from contracts.models import Contract, ContractPosition, PositionCondition
+from machines.models import Machine
+from contracts.models import Contract, ContractPosition, PositionCondition, ContractServiceFee
 from contractors.models import Contractor
+from settlements.models import ContractSettlement
+from settings.models import Salesperson
+from additional_services.models import AdditionalService
 from sqlalchemy import func as sqlfunc
-from stats.calc import calculate_position_value, aggregate_by_category, aggregate_by_period, aggregate_by_contract_type, aggregate_by_branch
+from stats.calc import calculate_position_value, aggregate_by_category, aggregate_by_period, aggregate_by_contract_type, aggregate_by_branch, clamp_days
 from shared.revenue import compute_position_revenues as _compute_position_revenues  # RAO-P2-028
 from shared.locations import aggregate_by_pna  # RAO-P2-028
 from shared.cache import cache, cached_or_compute, TTL_STATS  # RAO-P2-051: cache TTL 5 min
 from stats.schemas import (
     FleetSummary, TopMachineItem, CurrentlyRentedResponse, CurrentlyRentedItem,
-    MachineRoiResponse, AdditionalFeesResponse, ServiceFeeItem, LocationStatItem,
+    AdditionalFeesResponse, ServiceFeeItem, LocationStatItem,
     ExpiringContractItem, OverdueContractItem, DeliveryTodayItem, UnprintedContractItem, StalePrintContractItem,
     SalespersonCommissionItem, CommissionReportResponse,
+    SalespersonCommissionContractsResponse,
     CategoryStatItem, CategoryStatsResponse,
     PositionStatItem, PositionStatsResponse,
     ByPeriodItem, ByPeriodResponse, CategoriesListNode,
@@ -129,7 +133,7 @@ async def fleet_summary(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    df, dt = _default_dates(date_from, date_to)
+    df, dt = _validate_date_range(date_from, date_to)
     today = date.today()
 
     # RAO-P2-051: cache TTL 5 min — stats read-heavy
@@ -144,28 +148,26 @@ async def fleet_summary(
     # RAO-P0-001/BUG-1: article_type → service_filter dla compute_position_revenues
     service_filter = {"machine": False, "service": True}.get(article_type)  # None dla "all"/None
 
-    # Build base query for machines
-    machines_query = select(func.count(Article.id)).where(
-        and_(Article.is_service == False, Article.is_archival == False, Article.is_external == False)  # RAO-P1-027
+    # Build base query for machines (Machine table = tylko maszyny, nie usługi)
+    machines_query = select(func.count(Machine.id)).where(
+        Machine.is_external == False  # RAO-P1-027
     )
     if internal_number:
-        machines_query = machines_query.where(Article.internal_number == internal_number)
+        machines_query = machines_query.where(Machine.internal_number == internal_number)
 
-    # Total machines (not services, not archival) — RAO-P1-017
+    # Total machines (not archival) — RAO-P1-017
     total_q = await db.execute(machines_query)
     total_machines = total_q.scalar() or 0
 
-    # Currently rented (active contracts with machine positions, not archival) — RAO-P1-017
+    # Currently rented (active contracts with machine positions) — RAO-P1-017
     rented_query = (
-        select(func.count(func.distinct(ContractPosition.article_id)))
+        select(func.count(func.distinct(ContractPosition.machine_id)))
         .select_from(ContractPosition)
         .join(Contract, Contract.id == ContractPosition.contract_id)
-        .join(Article, Article.id == ContractPosition.article_id)
+        .join(Machine, Machine.id == ContractPosition.machine_id)
         .where(
             and_(
-                Article.is_service == False,
-                Article.is_archival == False,       # RAO-P1-017
-                Article.is_external == False,       # RAO-P1-027
+                Machine.is_external == False,       # RAO-P1-027
                 Contract.date_from <= today,
                 # RAO-P2-060 bug #3: umowa na czas nieokreślony (date_to=NULL) = wciąż wynajęta
                 (Contract.date_to.is_(None)) | (Contract.date_to >= today),
@@ -173,7 +175,7 @@ async def fleet_summary(
         )
     )
     if internal_number:
-        rented_query = rented_query.where(Article.internal_number == internal_number)
+        rented_query = rented_query.where(Machine.internal_number == internal_number)
     # RAO-P0-001/BUG-1: filtruj rented po contractor_id/city (accent-insensitive)
     if contractor_id is not None:
         rented_query = rented_query.where(Contract.contractor_id == contractor_id)
@@ -189,25 +191,14 @@ async def fleet_summary(
     # RAO-P2-029: period_revenue uwzględnia archiwalne maszyny (statystyki historyczne)
     # total_machines/total_rented pozostają bez archiwalnych (stan floty teraz)
     # RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
-    all_pos = await _compute_position_revenues(db, df, dt, exclude_archival=False, service_filter=service_filter)
+    # BUG FIX: compute_position_revenues uwzględnia też usługi dodatkowe
+    # (contract_settlements z service_fee_id) jako syntetyczne wiersze is_service=True.
+    all_pos = await _compute_position_revenues(db, df, dt, service_filter=service_filter)
     # RAO-P0-001/BUG-1: filtruj pozycje po contractor_id/city/internal_number
     all_pos = _apply_position_filters(
         all_pos, contractor_id=contractor_id, city=city, internal_number=internal_number
     )
     period_revenue = sum(p["revenue"] for p in all_pos)
-    # RAO-P2-032: breakdown po źródłach (actual vs estimate)
-    revenue_actual = sum(p["revenue"] for p in all_pos if p.get("revenue_source") == "actual")
-    revenue_estimate = sum(p["revenue"] for p in all_pos if p.get("revenue_source") in ("estimate_lookup", "estimate_tiered"))
-    # RAO-P2-060 bug #8: "brak danych" gdy nie ma pozycji (pusta baza), nie "szacunek"
-    if not all_pos:
-        revenue_source_label = "brak danych"
-    elif revenue_actual == 0:
-        revenue_source_label = "szacunek"
-    elif revenue_estimate > 0:
-        # RAO-P2-065 #11: mieszane = oba źródła > 0 → "razem (rzecz.+szac.)"
-        revenue_source_label = "razem (rzecz.+szac.)"
-    else:
-        revenue_source_label = "rzeczywiste"
 
     # Contracts in period (RAO-P0-001/BUG-1: filtruj po contractor_id/city, accent-insensitive)
     _cnt_conds = _contract_date_filter(df, dt)
@@ -229,8 +220,8 @@ async def fleet_summary(
     machine_rev = defaultdict(lambda: {"name": "", "rev": Decimal(0)})
     for p in all_pos:
         if not p["is_service"]:
-            key = p["article_id"]
-            machine_rev[key]["name"] = p["article_name"]
+            key = p["machine_id"]
+            machine_rev[key]["name"] = p["machine_name"]
             machine_rev[key]["rev"] += p["revenue"]
 
     top_name, top_rev = None, None
@@ -247,9 +238,6 @@ async def fleet_summary(
         top_machine_name=top_name,
         top_machine_revenue=top_rev,
         contracts_in_period=contracts_in_period,
-        revenue_actual=revenue_actual,
-        revenue_estimate=revenue_estimate,
-        revenue_source_label=revenue_source_label,
     )
     cache.set(_ckey, result, ttl=TTL_STATS)  # RAO-P2-051
     return result
@@ -266,7 +254,7 @@ async def top_machines(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    df, dt = _default_dates(date_from, date_to)
+    df, dt = _validate_date_range(date_from, date_to)
     # RAO-P2-051: cache TTL 5 min
     _ckey = cache.make_key("stats:top-machines", _.id, {
         "df": str(df), "dt": str(dt), "in": internal_number,
@@ -277,32 +265,32 @@ async def top_machines(
         return _cached
     # RAO-P2-029: uwzględnia archiwalne maszyny (statystyki historyczne)
     # RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
-    all_pos = await _compute_position_revenues(db, df, dt, service_filter=False, exclude_archival=False)
+    all_pos = await _compute_position_revenues(db, df, dt, service_filter=False)
     all_pos = _apply_position_filters(
         all_pos, contractor_id=contractor_id, city=city, internal_number=internal_number
     )
 
-    # Aggregate by article
+    # Aggregate by machine
     agg = defaultdict(lambda: {
         "name": "", "internal_number": None,
         "revenue": Decimal(0), "days": 0, "contracts": set(),
     })
-    # RAO Faza 2a (opcja E): bucket dla unmapped (article_id=None) — marker __unmapped__
+    # RAO Faza 2a (opcja E): bucket dla unmapped (machine_id=None) — marker __unmapped__
     unmapped_bucket = {
         "name": "Inne (niezmapowane z FA)", "internal_number": None,
         "revenue": Decimal(0), "days": 0, "contracts": set(),
     }
     for p in all_pos:
-        if p["article_id"] is None:
+        if p["machine_id"] is None:
             # unmapped settlement → bucket "Inne (niezmapowane z FA)"
             unmapped_bucket["revenue"] += p["revenue"]
             unmapped_bucket["contracts"].add(p["contract_id"])
             continue
-        key = p["article_id"]
-        agg[key]["name"] = p["article_name"]
+        key = p["machine_id"]
+        agg[key]["name"] = p["machine_name"]
         agg[key]["internal_number"] = p["internal_number"]
         agg[key]["revenue"] += p["revenue"]
-        agg[key]["days"] += p["clamped_days"]
+        agg[key]["days"] += clamp_days(p["clamped_days"])  # RAO-P1-016: defensive clamp
         agg[key]["contracts"].add(p["contract_id"])
 
     sorted_items = sorted(agg.items(), key=lambda x: x[1]["revenue"], reverse=True)
@@ -335,20 +323,20 @@ async def currently_rented(
     if _cached is not None:
         return _cached
 
-    # RAO-P1-017: wyklucz maszyny archiwalne z licznika floty
+    # RAO-P1-017: licznik floty
     total_q = await db.execute(
-        select(func.count()).select_from(Article).where(
-            and_(Article.is_service == False, Article.is_archival == False, Article.is_external == False)  # RAO-P1-027
+        select(func.count()).select_from(Machine).where(
+            Machine.is_external == False  # RAO-P1-027
         )
     )
     total_machines = total_q.scalar() or 0
 
     q = await db.execute(
         select(
-            Article.id,               # r[0]
-            Article.name,             # r[1]
-            Article.internal_number,  # r[2]
-            Article.category_main,    # r[3] — RAO-P1-017
+            Machine.id,               # r[0]
+            Machine.name,             # r[1]
+            Machine.internal_number,  # r[2]
+            Machine.category_main,    # r[3] — RAO-P1-017
             Contract.number,          # r[4]
             # RAO-P2-065 #2: coalesce Contractor.name z snapshot contractor_name
             func.coalesce(Contractor.name, Contract.contractor_name).label("contractor_name"),  # r[5]
@@ -358,12 +346,10 @@ async def currently_rented(
         .join(Contract, Contract.id == ContractPosition.contract_id)
         # RAO-P2-065 #2: LEFT JOIN contractors — contractor_name snapshot NULL dla umów z contractor_id
         .outerjoin(Contractor, Contractor.id == Contract.contractor_id)
-        .join(Article, Article.id == ContractPosition.article_id)
+        .join(Machine, Machine.id == ContractPosition.machine_id)
         .where(
             and_(
-                Article.is_service == False,
-                Article.is_archival == False,   # RAO-P1-017: wyklucz archiwalne
-                Article.is_external == False,   # RAO-P1-027: wyklucz zewnętrzne
+                Machine.is_external == False,   # RAO-P1-027: wyklucz zewnętrzne
                 Contract.date_from <= today,
                 # RAO-P2-065 #4: umowa na czas nieokreślony (date_to=NULL) = wciąż wynajęta
                 (Contract.date_to.is_(None)) | (Contract.date_to >= today),
@@ -373,10 +359,10 @@ async def currently_rented(
         )
         # RAO-P2-065 #2: group_by po coalesce zamiast po Contract.contractor_name
         .group_by(
-            Article.id, Article.name, Article.internal_number, Article.category_main,
+            Machine.id, Machine.name, Machine.internal_number, Machine.category_main,
             Contract.number, Contractor.name, Contract.contractor_name, Contract.date_to,
         )
-        .order_by(Article.name)
+        .order_by(Machine.name)
     )
     rows = q.all()
     items = [
@@ -387,70 +373,14 @@ async def currently_rented(
         )
         for r in rows
     ]
-    rented = len(items)
+    # RAO-P1-120: rented = unikalne maszyny (DISTINCT Machine.id), nie wiersze
+    # Jedna maszyna w 3 umowach = 1 maszyna wynajęta, nie 3
+    rented = len(set(r[0] for r in rows))
     util = round((rented / total_machines * 100) if total_machines else 0, 1)
 
     result = CurrentlyRentedResponse(
         total_rented=rented, total_machines=total_machines,
         utilization_pct=util, items=items,
-    )
-    cache.set(_ckey, result, ttl=TTL_STATS)  # RAO-P2-051
-    return result
-
-
-@router.get("/machine-roi", response_model=MachineRoiResponse)
-async def machine_roi(
-    article_id: int = Query(...),
-    date_from: date | None = Query(None),
-    date_to: date | None = Query(None),
-    include_archival: bool = Query(False, description="Uwzględnij maszyny archiwalne"),
-    db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
-):
-    """
-    ROI konkretnej maszyny (article_id). RAO-P1-017: dodano category_main w odpowiedzi.
-    include_archival=False (domyślnie) — jeśli maszyna jest archiwalna, zwraca 404.
-    """
-    df, dt = _default_dates(date_from, date_to)
-
-    # RAO-P2-051: cache TTL 5 min (per article + params)
-    _ckey = cache.make_key("stats:machine-roi", _.id, {
-        "aid": article_id, "df": str(df), "dt": str(dt), "ia": include_archival,
-    })
-    _cached = cache.get(_ckey)
-    if _cached is not None:
-        return _cached
-
-    art_q = await db.execute(
-        select(Article).where(Article.id == article_id)
-    )
-    art = art_q.scalar_one_or_none()
-    if not art:
-        raise HTTPException(404, "Artykuł nie znaleziony")
-
-    # RAO-P1-017: blokuj dostęp do archiwalnej maszyny gdy include_archival=False
-    if not include_archival and art.is_archival:
-        raise HTTPException(404, "Artykuł jest archiwalny (użyj include_archival=true)")
-
-    # Dla zapytania o konkretną maszynę: bez filtra archiwum (artykuł już sprawdzony powyżej)
-    # RAO Faza 2a (opcja E): pomiń unmapped (article_id=None) — ROI per maszyna, unmapped nie ma maszyny
-    all_pos = await _compute_position_revenues(db, df, dt, exclude_archival=False)
-    filtered = [p for p in all_pos if p["article_id"] == article_id]  # skip unmapped (None != article_id)
-
-    revenue = sum(p["revenue"] for p in filtered)
-    days = sum(p["clamped_days"] for p in filtered)
-    cnt = len(set(p["contract_id"] for p in filtered))
-
-    roi_pct = None
-    if art.replacement_value and art.replacement_value > 0:
-        roi_pct = round(float(revenue) / float(art.replacement_value) * 100, 2)
-
-    result = MachineRoiResponse(
-        article_id=art.id, name=art.name, internal_number=art.internal_number,
-        category_main=art.category_main,                # RAO-P1-017
-        replacement_value=art.replacement_value,
-        total_rented_days=days, estimated_revenue=revenue,
-        contracts_count=cnt, roi_pct=roi_pct,
     )
     cache.set(_ckey, result, ttl=TTL_STATS)  # RAO-P2-051
     return result
@@ -465,34 +395,59 @@ async def additional_fees(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    df, dt = _default_dates(date_from, date_to)
+    df, dt = _validate_date_range(date_from, date_to)
     # RAO-P2-051: cache TTL 5 min
     _ckey = cache.make_key("stats:additional-fees", _.id, {"df": str(df), "dt": str(dt), "cid": contractor_id, "city": city})
     _cached = cache.get(_ckey)
     if _cached is not None:
         return _cached
-    # RAO-P2-029: uwzględnia archiwalne usługi (statystyki historyczne)
-    # RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
-    # RAO Faza 2a (opcja E): pomiń unmapped (is_service is None) — unmapped nie wiemy czy to usługa
-    all_pos = await _compute_position_revenues(db, df, dt, service_filter=True, exclude_archival=False)
-    # skip unmapped: p["is_service"] is None (unmapped nie ma Article → is_service=None)
-    all_pos = [p for p in all_pos if p["is_service"] is not None]
-    # RAO-P0-001/BUG-5: filtruj po contractor_id/city
-    all_pos = _apply_position_filters(all_pos, contractor_id=contractor_id, city=city)
+    # BUG FIX: statystyki usług dodatkowych — zliczamy contract_settlements
+    # z service_fee_id IS NOT NULL (rozliczone usługi dodatkowe z Fakturownia/manual).
+    # Wcześniej endpoint używał _compute_position_revenues (pozycje umowy = maszyny/usługi)
+    # co ignorowało całkowicie contract_service_fees → puste statystyki.
+    stmt = (
+        select(
+            AdditionalService.id.label("article_id"),
+            AdditionalService.name.label("service_name"),
+            ContractSettlement.cost_client,
+            ContractSettlement.contract_id,
+            Contract.contractor_id,
+            Contract.city,
+        )
+        .select_from(ContractSettlement)
+        .join(ContractServiceFee, ContractServiceFee.id == ContractSettlement.service_fee_id)
+        .join(AdditionalService, AdditionalService.id == ContractServiceFee.additional_service_id)
+        .join(Contract, Contract.id == ContractSettlement.contract_id)
+        .where(ContractSettlement.service_fee_id.isnot(None))
+        .where(ContractSettlement.cost_client.isnot(None))
+    )
+    _date_conds = []
+    if dt is not None:
+        _date_conds.append(Contract.date_from <= dt)
+    if df is not None:
+        _date_conds.append(Contract.date_to >= df)
+    if _date_conds:
+        stmt = stmt.where(and_(*_date_conds))
+    if contractor_id is not None:
+        stmt = stmt.where(Contract.contractor_id == contractor_id)
+    if city is not None:
+        stmt = stmt.where(func.lower(Contract.city) == func.lower(city))
 
-    # Aggregate by service article
+    rows = (await db.execute(stmt)).all()
+
     agg = defaultdict(lambda: {"name": "", "revenue": Decimal(0), "contracts": set()})
-    for p in all_pos:
-        key = p["article_id"]
-        agg[key]["name"] = p["article_name"]
-        agg[key]["revenue"] += p["revenue"]
-        agg[key]["contracts"].add(p["contract_id"])
+    for r in rows:
+        aid = r.article_id
+        agg[aid]["name"] = r.service_name
+        agg[aid]["revenue"] += Decimal(r.cost_client)
+        agg[aid]["contracts"].add(r.contract_id)
 
     sorted_items = sorted(agg.items(), key=lambda x: x[1]["revenue"], reverse=True)
     breakdown = [
         ServiceFeeItem(
             article_id=aid, service_name=d["name"],
             total_revenue=d["revenue"], times_billed=len(d["contracts"]),
+            contracts_count=len(d["contracts"]),
         )
         for aid, d in sorted_items
     ]
@@ -517,7 +472,7 @@ async def locations(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    df, dt = _default_dates(date_from, date_to)
+    df, dt = _validate_date_range(date_from, date_to)
     # RAO-P2-051: cache TTL 5 min
     _ckey = cache.make_key("stats:locations", _.id, {
         "df": str(df), "dt": str(dt), "in": internal_number, "cid": contractor_id, "city": city, "gb": group_by,
@@ -527,7 +482,7 @@ async def locations(
         return _cached
     # RAO-P2-029: uwzględnia archiwalne maszyny (statystyki historyczne)
     # RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
-    all_pos = await _compute_position_revenues(db, df, dt, exclude_archival=False)
+    all_pos = await _compute_position_revenues(db, df, dt)
     # RAO-P0-001/BUG-5: filtruj po contractor_id/city/internal_number
     all_pos = _apply_position_filters(
         all_pos, contractor_id=contractor_id, city=city, internal_number=internal_number
@@ -580,7 +535,7 @@ async def by_category(
 
     - level=main|sub1|sub2|sub3 → GROUP BY odpowiedniego pola kategorii
     - Archiwalne maszyny SĄ ZAWSZE uwzględniane — stare umowy z migracji mają archiwalne
-      artykuły i ich przychód musi być widoczny w statystykach kategorii.
+      maszyny i ich przychód musi być widoczny w statystykach kategorii.
     - category_main=[...] → opcjonalny filtr kategorii głównych (multi-value)
     - category_sub1/sub2 → opcjonalne filtry sub-kategorii
     - article_type=all|machine|service → filtr rodzaju pozycji
@@ -588,7 +543,7 @@ async def by_category(
     - Maszyny bez kategorii trafiają do grupy "(bez kategorii)"
     - RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
     """
-    df, dt = _default_dates(date_from, date_to)
+    df, dt = _validate_date_range(date_from, date_to)
     service_filter = {"machine": False, "service": True}.get(article_type)  # None dla "all"
 
     # RAO-P2-051: cache TTL 5 min
@@ -604,7 +559,6 @@ async def by_category(
     all_pos = await _compute_position_revenues(
         db, df, dt,
         service_filter=service_filter,
-        exclude_archival=False,  # kategorie zawsze zliczają archiwalne (stare umowy)
         category_main_filter=category_main or None,
         category_sub1_filter=category_sub1,
         category_sub2_filter=category_sub2,
@@ -673,7 +627,7 @@ async def by_period(
     - Archiwalne maszyny SĄ ZAWSZE uwzględniane (spójne z /by-category).
     - RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
     """
-    df, dt = _default_dates(date_from, date_to)
+    df, dt = _validate_date_range(date_from, date_to)
     service_filter = {"machine": False, "service": True}.get(article_type)
 
     # RAO-P2-051: cache TTL 5 min
@@ -688,7 +642,6 @@ async def by_period(
     all_pos = await _compute_position_revenues(
         db, df, dt,
         service_filter=service_filter,
-        exclude_archival=False,  # kategorie zawsze zliczają archiwalne (stare umowy)
         category_main_filter=category_main or None,
     )
 
@@ -721,7 +674,7 @@ async def categories_list(
     Pełne drzewo kategorii z liczbą maszyn per węzeł — RAO-P1-026.
 
     Używane przez frontend do drilldown i detekcji klikowalnych wierszy.
-    Zlicza tylko aktywne (nie-archiwalne) artykuły przypisane do każdej kategorii.
+    Zlicza tylko aktywne (nie-archiwalne) maszyny przypisane do każdej kategorii.
     """
     # RAO-P2-051: cache TTL 5 min (drzewo kategorii + liczniki — read-heavy)
     _ckey = cache.make_key("stats:categories-list", _.id, {})
@@ -737,12 +690,11 @@ async def categories_list(
     )
     all_cats = cats_result.scalars().all()
 
-    # Policz artykuły per category_id (aktywne, nie archiwalne)
+    # Policz maszyny per category_id (aktywne)
     counts_result = await db.execute(
-        select(Article.category_id, sqlfunc.count(Article.id))
-        .where(Article.is_archival == False)
-        .where(Article.category_id.is_not(None))
-        .group_by(Article.category_id)
+        select(Machine.category_id, sqlfunc.count(Machine.id))
+        .where(Machine.category_id.is_not(None))
+        .group_by(Machine.category_id)
     )
     art_counts: dict[int, int] = {row[0]: row[1] for row in counts_result.all()}
 
@@ -777,6 +729,7 @@ async def categories_list(
 @router.get("/positions", response_model=PositionStatsResponse)
 async def positions(
     position_type: Literal["machines", "services", "all"] = Query("all", alias="type"),
+    contract_type: str | None = Query(None, description="Filtruj po typie umowy: S=najem, U=usługa"),
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     contractor_id: int | None = Query(None, description="Filtruj po kontrahencie"),
@@ -784,6 +737,10 @@ async def positions(
     category_main: list[str] = Query(
         default=[],
         description="Filtr kategorii głównych (multi-value, opcjonalny) — drilldown kategorii",
+    ),
+    category_sub1: str | None = Query(
+        None,
+        description="Filtr sub-kategorii (opcjonalny) — drilldown kategorii sub1",
     ),
     limit: int | None = Query(
         None,
@@ -820,11 +777,11 @@ async def positions(
       filtrowanie typu robione in-memory, totale liczone z tego samego zbioru.
     - RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
     """
-    df, dt = _default_dates(date_from, date_to)
+    df, dt = _validate_date_range(date_from, date_to)
 
     # RAO-P2-051: cache TTL 5 min
     _ckey = cache.make_key("stats:positions", _.id, {
-        "t": position_type, "df": str(df), "dt": str(dt),
+        "t": position_type, "ct": contract_type, "df": str(df), "dt": str(dt),
         "cid": contractor_id, "city": city, "lim": limit, "off": offset,
         "sb": sort_by, "sd": sort_dir,
     })
@@ -836,10 +793,12 @@ async def positions(
     # Filtrowanie po type robione in-memory — totale liczone z tego samego zbioru.
     # RAO-P2-029: uwzględnia archiwalne maszyny (statystyki historyczne)
     # RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
-    # RAO Faza 2a (opcja E): pomiń unmapped (article_id is not None) — to lista pozycji umowy,
+    # RAO Faza 2a (opcja E): pomiń unmapped (machine_id is not None) — to lista pozycji umowy,
     # unmapped nie ma pozycji. Totale per typ też skip unmapped.
-    all_pos = await _compute_position_revenues(db, df, dt, service_filter=None, exclude_archival=False)
-    all_pos = [p for p in all_pos if p["article_id"] is not None]
+    # RAO: usługi dodatkowe (is_additional_service=True) mają machine_id=None i service_id=None,
+    # ale mają additional_service_id — nie odfiltruj ich.
+    all_pos = await _compute_position_revenues(db, df, dt, service_filter=None)
+    all_pos = [p for p in all_pos if p["machine_id"] is not None or p["service_id"] is not None or p.get("is_additional_service")]
 
     # Totale per typ — z pełnego zbioru (zamiast drugiego wywołania _compute)
     total_machines_rev = sum(p["revenue"] for p in all_pos if p["is_service"] is False)
@@ -851,6 +810,10 @@ async def positions(
     elif position_type == "services":
         all_pos = [p for p in all_pos if p["is_service"] is True]
 
+    # Filtr contract_type (S=najem, U=usługa) — in-memory
+    if contract_type and contract_type in ("S", "U"):
+        all_pos = [p for p in all_pos if (p.get("contract_type") or "S") == contract_type]
+
     # Filtry contractor_id / city / internal_number
     all_pos = _apply_position_filters(all_pos, contractor_id=contractor_id, city=city)
 
@@ -859,7 +822,11 @@ async def positions(
         cm_set = set(category_main)
         all_pos = [p for p in all_pos if p["category_main"] in cm_set]
 
-    # Agregacja per article
+    # Filtr category_sub1 (drilldown kategorii sub1) — in-memory
+    if category_sub1:
+        all_pos = [p for p in all_pos if p.get("category_sub1") == category_sub1]
+
+    # Agregacja per pozycja (machine_id lub service_id)
     agg = defaultdict(lambda: {
         "name": "",
         "internal_number": None,
@@ -872,20 +839,28 @@ async def positions(
     })
 
     for p in all_pos:
-        key = p["article_id"]
+        # RAO: 3 kategorie — maszyny (machine_id), usługi zwykłe (service_id),
+        # usługi dodatkowe (additional_service_id). Kolizja ID między services
+        # i additional_services — użyj prefixu żeby uniknąć zderzenia bucketów.
+        if p.get("is_additional_service"):
+            key = ("addl", p.get("additional_service_id"))
+        elif p["is_service"]:
+            key = ("svc", p["service_id"])
+        else:
+            key = ("mach", p["machine_id"])
         agg[key]["name"] = p["article_name"]
         agg[key]["internal_number"] = p["internal_number"]
         agg[key]["is_service"] = p["is_service"]
         agg[key]["category_main"] = p["category_main"]
         agg[key]["revenue"] += p["revenue"]
-        agg[key]["rented_days"] += p["clamped_days"] if not p["is_service"] else 0
+        agg[key]["rented_days"] += clamp_days(p["clamped_days"]) if not p["is_service"] else 0  # RAO-P1-016
         agg[key]["contracts"].add(p["contract_id"])
         agg[key]["times_billed"] += 1
 
-    # Build response items
+    # Build response items — klucz to tupla ("mach"|"svc"|"addl", id); wyciągnij ID
     items = [
         PositionStatItem(
-            article_id=aid,
+            article_id=aid[1] if isinstance(aid, tuple) else aid,
             article_name=d["name"],
             internal_number=d["internal_number"],
             is_service=d["is_service"],
@@ -960,9 +935,9 @@ async def by_contract_type(
     Archiwalne maszyny uwzględnione (statystyki historyczne).
     RAO-P2-062 Faza 1: legacy filter usuniety — contracts zawiera tylko nowe umowy.
     """
-    df, dt = _default_dates(date_from, date_to)
+    df, dt = _validate_date_range(date_from, date_to)
 
-    all_pos = await _compute_position_revenues(db, df, dt, service_filter=None, exclude_archival=False)
+    all_pos = await _compute_position_revenues(db, df, dt, service_filter=None)
     all_pos = _apply_position_filters(all_pos, contractor_id=contractor_id, city=city)
 
     # Agregacja per contract_type (logika w calc.py — testowalny pure function)
@@ -1015,9 +990,9 @@ async def by_branch(
     """
     from settings.models import Branch
 
-    df, dt = _default_dates(date_from, date_to)
+    df, dt = _validate_date_range(date_from, date_to)
 
-    all_pos = await _compute_position_revenues(db, df, dt, service_filter=None, exclude_archival=False)
+    all_pos = await _compute_position_revenues(db, df, dt, service_filter=None)
     all_pos = _apply_position_filters(all_pos, contractor_id=contractor_id, city=city)
 
     # Pobierz nazwy oddziałów do mapowania branch_id → branch_name
@@ -1060,9 +1035,7 @@ async def clear_cache(
 ):
     """Wyczyść cały cache statystyk/słowników (admin). Zwraca liczbę usuniętych wpisów."""
     from auth.models import User as _U
-    # tylko admin może czyścić cache
-    if _.role != "admin":
-        raise HTTPException(status_code=403, detail="Tylko admin może czyścić cache")
+    # NOTE (2026-07-11): IDOR WYŁĄCZONY — single-user mode. Brak admin check.
     removed = cache.clear()
     return {"cleared": removed, "remaining": cache.stats()["entries"]}
 
@@ -1230,7 +1203,11 @@ async def stale_print_contracts(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    """Contracts printed before last modification: active OR modified in last 30 days."""
+    """Contracts printed but with stale print_hash (print-relevant data changed after print).
+
+    RAO: print_hash IS NULL + print_date IS NOT NULL = nieaktualny wydruk.
+    (print_hash is set at print time, cleared on any print-relevant mutation.)
+    """
     from datetime import timedelta
     from sqlalchemy import or_
     today = date.today()
@@ -1243,8 +1220,7 @@ async def stale_print_contracts(
         )
         .where(and_(
             Contract.print_date.isnot(None),
-            Contract.updated_at.isnot(None),
-            Contract.print_date < Contract.updated_at,
+            Contract.print_hash.is_(None),  # RAO: invalidated by mutation
             or_(Contract.date_to >= today, Contract.updated_at >= cutoff),
         ))
         .order_by(Contract.updated_at.desc())
@@ -1271,13 +1247,17 @@ async def commissions(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    """Commission report: margin per salesperson × commission_rate (RAO-P1-018)."""
+    """Commission report: margin per salesperson × commission_rate (RAO-P1-018).
+
+    Prowizja liczona WYŁĄCZNIE od rzeczywistych rozliczeń (contract_settlements).
+    Brak fallbacku do szacunkowego przychodu z pozycji umowy.
+    Umowy bez rozliczeń nie wliczają się do prowizji.
+    """
     from settings.models import Salesperson
     from settlements.models import ContractSettlement
-    df, dt = _default_dates(date_from, date_to)
+    df, dt = _validate_date_range(date_from, date_to)
 
-    # RAO-P1-018: Prowizja od marży, nie od przychodu
-    # Oblicz marżę z contract_settlements dla umów w zakresie dat
+    # Prowizja od marży z contract_settlements (rzeczywiste rozliczenia)
     settlement_q = await db.execute(
         select(
             Contract.salesperson_id,
@@ -1292,6 +1272,21 @@ async def commissions(
     )
     settlement_margins = {r[0]: r[1] for r in settlement_q.all()}
 
+    # Liczba umów z rozliczeniem per handlowiec (tylko umowy z kompletnym settlement)
+    settled_contracts_q = await db.execute(
+        select(
+            Contract.salesperson_id,
+            func.count(func.distinct(Contract.id)).label("contracts_count")
+        )
+        .join(ContractSettlement, Contract.id == ContractSettlement.contract_id)
+        .where(and_(*_contract_date_filter(df, dt)))
+        .where(Contract.salesperson_id.isnot(None))
+        .where(ContractSettlement.cost_client.isnot(None))
+        .where(ContractSettlement.cost_company.isnot(None))
+        .group_by(Contract.salesperson_id)
+    )
+    settled_counts = {r[0]: r[1] for r in settled_contracts_q.all()}
+
     sp_q = await db.execute(
         select(Salesperson.id, Salesperson.name, Salesperson.commission_rate)
         .where(Salesperson.is_active == True)
@@ -1299,56 +1294,70 @@ async def commissions(
     )
     salespeople = {r[0]: {"name": r[1], "rate": r[2]} for r in sp_q.all()}
 
-    # Dla backward compatibility, oblicz również revenue (stara metoda)
-    # RAO-P2-029: uwzględnia archiwalne maszyny (statystyki historyczne)
-    all_pos = await _compute_position_revenues(db, df, dt, exclude_archival=False)
-    contract_sp_q = await db.execute(
-        select(Contract.id, Contract.salesperson_id)
-        .where(and_(*_contract_date_filter(df, dt)))
-        .where(Contract.salesperson_id.isnot(None))
-    )
-    contract_sp_map = {r[0]: r[1] for r in contract_sp_q.all()}
-
-    agg: dict[int, dict] = defaultdict(lambda: {"revenue": Decimal(0), "contracts": set()})
-    for p in all_pos:
-        sp_id = contract_sp_map.get(p["contract_id"])
-        if sp_id and sp_id in salespeople:
-            agg[sp_id]["revenue"] += p["revenue"]
-            agg[sp_id]["contracts"].add(p["contract_id"])
-
     items = []
     for sp_id, sp_data in salespeople.items():
-        data = agg.get(sp_id, {"revenue": Decimal(0), "contracts": set()})
         rate = sp_data["rate"] or Decimal(0)
-        
-        # RAO-P1-018: Użyj marży z settlement jeśli dostępna, wpp. revenue (backward compatibility)
-        margin = settlement_margins.get(sp_id, Decimal(0))
-        if margin is not None and margin != 0:
-            # Nowa formuła: prowizja od marży
-            commission = (margin * rate / Decimal(100)).quantize(Decimal("0.01"))
-            base_amount = margin
-        else:
-            # Backward compatibility: jeśli brak danych settlement, użyj revenue
-            revenue = data["revenue"]
-            commission = (revenue * rate / Decimal(100)).quantize(Decimal("0.01"))
-            base_amount = revenue
-        
+        margin = settlement_margins.get(sp_id, Decimal("0.00"))
+        base_amount = (margin or Decimal("0.00")).quantize(Decimal("0.01"))
+        commission = (base_amount * rate / Decimal(100)).quantize(Decimal("0.01"))
+        contracts_count = settled_counts.get(sp_id, 0)
+
         items.append(SalespersonCommissionItem(
             salesperson_id=sp_id,
             salesperson_name=sp_data["name"],
             commission_rate=sp_data["rate"],
-            contracts_count=len(data["contracts"]),
-            total_revenue=data["revenue"],  # Zachowaj revenue dla informacji
+            contracts_count=contracts_count,
+            total_revenue=base_amount,  # revenue = margin (prowizja od marży, nie od przychodu)
+            total_margin=base_amount,
             commission_amount=commission,
         ))
 
     items.sort(key=lambda x: x.commission_amount, reverse=True)
-    grand_revenue = sum(i.total_revenue for i in items)
+    grand_margin = sum(i.total_margin for i in items)
     grand_commission = sum(i.commission_amount for i in items)
 
     return CommissionReportResponse(
         date_from=df, date_to=dt,
         items=items,
-        grand_total_revenue=grand_revenue,
+        grand_total_revenue=grand_margin,
+        grand_total_margin=grand_margin,
         grand_total_commission=grand_commission,
+    )
+
+
+@router.get(
+    "/commissions/{salesperson_id}/contracts",
+    response_model=SalespersonCommissionContractsResponse,
+)
+async def salesperson_commission_contracts(
+    salesperson_id: int,
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Contract-level commission detail for one active salesperson."""
+    from stats.service import get_salesperson_commission_contracts
+    df, dt = _validate_date_range(date_from, date_to)
+    salesperson = await db.scalar(
+        select(Salesperson).where(
+            Salesperson.id == salesperson_id,
+            Salesperson.is_active == True,
+        )
+    )
+    if salesperson is None:
+        raise HTTPException(status_code=404, detail="Handlowiec nie istnieje")
+    items = await get_salesperson_commission_contracts(
+        db, salesperson_id, df, dt, salesperson=salesperson
+    )
+    return SalespersonCommissionContractsResponse(
+        salesperson_id=salesperson.id,
+        salesperson_name=salesperson.name,
+        date_from=df,
+        date_to=dt,
+        items=items,
+        total_revenue=sum((item["total_revenue"] for item in items), Decimal("0.00")),
+        total_company_cost=sum((item["total_company_cost"] for item in items), Decimal("0.00")),
+        total_earnings=sum((item["earnings"] for item in items), Decimal("0.00")),
+        total_commission=sum((item["commission_amount"] for item in items), Decimal("0.00")),
     )

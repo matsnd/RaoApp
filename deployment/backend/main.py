@@ -11,7 +11,9 @@ logger = logging.getLogger("rao.errors")
 
 from auth.router import router as auth_router, admin_router
 from contractors.router import router as contractors_router
-from articles.router import router as articles_router
+from machines.router import router as machines_router
+from services.router import router as services_router
+from additional_services.router import router as additional_services_router
 from contracts.router import router as contracts_router
 from settings.router import router as settings_router
 from settlements.router import router as settlements_router
@@ -21,6 +23,7 @@ from integrations.fakturownia.router import router as fakturownia_router
 from stats.router import router as stats_router
 from explorer.router import router as explorer_router
 from reservations.router import router as reservations_router  # RAO-P1-015
+from deliveries.router import router as deliveries_router  # P1-205
 from archive.router import router as archive_router  # RAO-P2-062 Faza 1
 from database import engine, Base
 import auth.models  # Auth tables
@@ -30,6 +33,10 @@ import deliveries.models  # RAO-P3-005
 import contract_costs.models  # RAO-P3-005
 import audit.models  # RAO-P3-005
 import archive.models  # RAO-P2-062 Faza 1 — tabele archive_*
+import machines.models  # RAO articles split — maszyny
+import services.models  # RAO articles split — usługi
+import additional_services.models  # RAO articles split — usługi dodatkowe
+import articles.models  # backward compat — tabela articles dla GUI
 
 app = FastAPI(
     title="RAO API",
@@ -61,6 +68,166 @@ async def startup_migrations():
     import settlements.models  # RAO-P1-012
     import integrations.fakturownia.models  # RAO-P2-012
 
+    # RAO: create_all MUST run first — on a fresh DB, tables don't exist yet
+    # when the Company query below tries to access them. create_all is idempotent
+    # (only creates missing tables), so the second call on line ~194 is a no-op.
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+        # RAO: typ zasilania maszyny — diesel / electric / other (VARCHAR(10) dla elastyczności)
+        # Musi być dodane PRZED seedem poniżej (model deklaruje power_type,
+        # create_all nie doda kolumny do istniejącej tabeli → seed SELECT by się wywalił).
+        await conn.execute(sa.text(
+            "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
+            "power_type VARCHAR(10) NOT NULL DEFAULT 'other'"
+        ))
+        # Heurystyka legacy: maszyny spalinowe → diesel, elektryczne → electric
+        await conn.execute(sa.text(
+            "UPDATE machines SET power_type='diesel' WHERE power_type='other' AND "
+            "(name LIKE '%spalin%' OR name LIKE '%diesel%' OR name LIKE '%benzyn%')"
+        ))
+        await conn.execute(sa.text(
+            "UPDATE machines SET power_type='electric' WHERE power_type='other' AND "
+            "(name LIKE '%elektr%' OR name LIKE '%battery%' OR name LIKE '%akumulator%')"
+        ))
+        # RAO-P1-017: uzupełnij category_sub2 na podstawie nazwy maszyny (idempotentne)
+        # Mapa nazwa → sub2 (3 poziom hierarchii kategorii)
+        sub2_updates = [
+            ("Ładowarka teleskopowa prosta 6m%", "Ładowarka teleskopowa 6 m"),
+            ("Ładowarka teleskopowa prosta 7m%", "Ładowarka teleskopowa 7 m"),
+            ("Ładowarka teleskopowa prosta 9m%", "Ładowarka teleskopowa 9 m"),
+            ("Ładowarka teleskopowa prosta 10m%", "Ładowarka teleskopowa 10 m"),
+            ("Ładowarka teleskopowa prosta 12m%", "Ładowarka teleskopowa 12 m"),
+            ("Ładowarka teleskopowa prosta 13m%", "Ładowarka teleskopowa 13 m"),
+            ("Ładowarka teleskopowa prosta 14m%", "Ładowarka teleskopowa 14 m"),
+            ("Ładowarka teleskopowa prosta 17m%", "Ładowarka teleskopowa 17 m"),
+            ("Ładowarka teleskopowa prosta 18m%", "Ładowarka teleskopowa 18 m"),
+            ("Ładowarka teleskopowa obrotowa 14m%", "Ładowarka teleskopowa obrotowa 14 m"),
+            ("Ładowarka teleskopowa obrotowa 16m%", "Ładowarka teleskopowa obrotowa 16 m"),
+            ("Ładowarka teleskopowa obrotowa 18m%", "Ładowarka teleskopowa obrotowa 18 m"),
+            ("Ładowarka teleskopowa obrotowa 20m%", "Ładowarka teleskopowa obrotowa 20 m"),
+            ("Ładowarka teleskopowa obrotowa 21m%", "Ładowarka teleskopowa obrotowa 21 m"),
+            ("Ładowarka teleskopowa obrotowa 25m%", "Ładowarka teleskopowa obrotowa 25 m"),
+            ("Ładowarka teleskopowa obrotowa 26m%", "Ładowarka teleskopowa obrotowa 26 m"),
+            ("Ładowarka teleskopowa obrotowa 30m%", "Ładowarka teleskopowa obrotowa 30 m"),
+            ("Ładowarka teleskopowa obrotowa 35m%", "Ładowarka teleskopowa obrotowa 35 m"),
+            ("Podnośnik nożycowy elektryczny 6m%", "Podnośnik nożycowy elektryczny 6 m"),
+            ("Podnośnik nożycowy elektryczny 6.5m%", "Podnośnik nożycowy elektryczny 6,5 m"),
+            ("Podnośnik nożycowy elektryczny 7.5m%", "Podnośnik nożycowy elektryczny 7,5 m"),
+            ("Podnośnik nożycowy elektryczny 8m%", "Podnośnik nożycowy elektryczny 8 m"),
+            ("Podnośnik nożycowy elektryczny 10m%", "Podnośnik nożycowy elektryczny 10 m"),
+            ("Podnośnik nożycowy elektryczny 12m%", "Podnośnik nożycowy elektryczny 12 m"),
+            ("Podnośnik nożycowy elektryczny 14m%", "Podnośnik nożycowy elektryczny 14 m"),
+            ("Podnośnik nożycowy elektryczny 16m%", "Podnośnik nożycowy elektryczny 16 m"),
+            ("Podnośnik nożycowy elektryczny 18m%", "Podnośnik nożycowy elektryczny 18 m"),
+            ("Podnośnik nożycowy elektryczny 21m%", "Podnośnik nożycowy elektryczny 21 m"),
+            ("Podnośnik nożycowy spalinowy 10m%", "Podnośnik nożycowy spalinowy 10 m"),
+            ("Podnośnik nożycowy spalinowy 12m%", "Podnośnik nożycowy spalinowy 12 m"),
+            ("Podnośnik nożycowy spalinowy 15m%", "Podnośnik nożycowy spalinowy 15 m"),
+            ("Podnośnik nożycowy spalinowy 18m%", "Podnośnik nożycowy spalinowy 18 m"),
+            ("Podnośnik nożycowy spalinowy 22m%", "Podnośnik nożycowy spalinowy 22 m"),
+            ("Podnośnik przegubowo-teleskopowy elektryczny 10m%", "Podnośnik przegubowo-teleskopowy elektryczny 10 m"),
+            ("Podnośnik przegubowo-teleskopowy elektryczny 12m%", "Podnośnik przegubowo-teleskopowy elektryczny 12 m"),
+            ("Podnośnik przegubowo-teleskopowy elektryczny 15m%", "Podnośnik przegubowo-teleskopowy elektryczny 15 m"),
+            ("Podnośnik przegubowo-teleskopowy elektryczny 16m%", "Podnośnik przegubowo-teleskopowy elektryczny 16 m"),
+            ("Podnośnik przegubowo-teleskopowy elektryczny 18m%", "Podnośnik przegubowo-teleskopowy elektryczny 18 m"),
+            ("Podnośnik przegubowo-teleskopowy elektryczny 20m%", "Podnośnik przegubowo-teleskopowy elektryczny 20 m"),
+            ("Podnośnik przegubowo-teleskopowy elektryczny 21m%", "Podnośnik przegubowo-teleskopowy elektryczny 21 m"),
+            ("Podnośnik przegubowo-teleskopowy elektryczny 22m%", "Podnośnik przegubowo-teleskopowy elektryczny 22 m"),
+            ("Podnośnik przegubowo-teleskopowy elektryczny 25m%", "Podnośnik przegubowo-teleskopowy elektryczny 25 m"),
+            ("Podnośnik przegubowo-teleskopowy spalinowy 12m%", "Podnośnik przegubowo-teleskopowy spalinowy 12 m"),
+            ("Podnośnik przegubowo-teleskopowy spalinowy 14m%", "Podnośnik przegubowo-teleskopowy spalinowy 14 m"),
+            ("Podnośnik przegubowo-teleskopowy spalinowy 16m%", "Podnośnik przegubowo-teleskopowy spalinowy 16 m"),
+            ("Podnośnik przegubowo-teleskopowy spalinowy 18m%", "Podnośnik przegubowo-teleskopowy spalinowy 18 m"),
+            ("Podnośnik przegubowo-teleskopowy spalinowy 20m%", "Podnośnik przegubowo-teleskopowy spalinowy 20 m"),
+            ("Podnośnik przegubowo-teleskopowy spalinowy 21m%", "Podnośnik przegubowo-teleskopowy spalinowy 21 m"),
+            ("Podnośnik przegubowo-teleskopowy spalinowy 22m%", "Podnośnik przegubowo-teleskopowy spalinowy 22 m"),
+            ("Podnośnik przegubowo-teleskopowy spalinowy 26m%", "Podnośnik przegubowo-teleskopowy spalinowy 26 m"),
+            ("Podnośnik teleskopowy spalinowy 16m%", "Podnośnik teleskopowy spalinowy 16 m"),
+            ("Podnośnik teleskopowy spalinowy 18m%", "Podnośnik teleskopowy spalinowy 18 m"),
+            ("Podnośnik teleskopowy spalinowy 20m%", "Podnośnik teleskopowy spalinowy 20 m"),
+            ("Podnośnik teleskopowy spalinowy 21m%", "Podnośnik teleskopowy spalinowy 21 m"),
+            ("Podnośnik teleskopowy spalinowy 22m%", "Podnośnik teleskopowy spalinowy 22 m"),
+            ("Podnośnik teleskopowy spalinowy 24m%", "Podnośnik teleskopowy spalinowy 24 m"),
+            ("Podnośnik teleskopowy spalinowy 26m%", "Podnośnik teleskopowy spalinowy 26 m"),
+            ("Podnośnik gąsienicowy 22m%", "Podnośnik gąsienicowy 22 m"),
+            ("Podnośnik gąsienicowy 23m%", "Podnośnik gąsienicowy 23 m"),
+            ("Podnośnik gąsienicowy 24m%", "Podnośnik gąsienicowy 24 m"),
+            ("Podnośnik gąsienicowy 25m%", "Podnośnik gąsienicowy 25 m"),
+            ("Podnośnik przyczepowy 12m%", "Podnośnik przyczepowy 12 m"),
+            ("Podnośnik przyczepowy 15m%", "Podnośnik przyczepowy 15 m"),
+            ("Podnośnik przyczepowy 17m%", "Podnośnik przyczepowy 17 m"),
+            ("Wózek widłowy elektryczny 1.5t%", "Wózek widłowy elektryczny 1,5t"),
+            ("Wózek widłowy elektryczny 1.8t%", "Wózek widłowy elektryczny 1,8t"),
+            ("Wózek widłowy elektryczny 2t%", "Wózek widłowy elektryczny 2t"),
+            ("Wózek widłowy elektryczny 2.5t%", "Wózek widłowy elektryczny 2,5t"),
+            ("Wózek widłowy elektryczny 3t%", "Wózek widłowy elektryczny 3t"),
+            ("Wózek widłowy elektryczny 3.5t%", "Wózek widłowy elektryczny 3,5t"),
+            ("Wózek widłowy elektryczny 4t%", "Wózek widłowy elektryczny 4t"),
+            ("Wózek widłowy elektryczny 4.5t%", "Wózek widłowy elektryczny 4,5t"),
+            ("Wózek widłowy elektryczny 5t%", "Wózek widłowy elektryczny 5t"),
+            ("Wózek widłowy elektryczny 6t%", "Wózek widłowy elektryczny 6t"),
+            ("Wózek widłowy elektryczny 7t%", "Wózek widłowy elektryczny 7t"),
+            ("Wózek widłowy elektryczny 8t%", "Wózek widłowy elektryczny 8t"),
+            ("Wózek widłowy elektryczny 10t%", "Wózek widłowy elektryczny 10t"),
+            ("Wózek widłowy LPG 1.5t%", "Wózek widłowy LPG 1,5t"),
+            ("Wózek widłowy LPG 1.8t%", "Wózek widłowy LPG 1,8t"),
+            ("Wózek widłowy LPG 2t%", "Wózek widłowy LPG 2t"),
+            ("Wózek widłowy LPG 2.5t%", "Wózek widłowy LPG 2,5t"),
+            ("Wózek widłowy LPG 3t%", "Wózek widłowy LPG 3t"),
+            ("Wózek widłowy LPG 3.5t%", "Wózek widłowy LPG 3,5t"),
+            ("Wózek widłowy LPG 4t%", "Wózek widłowy LPG 4t"),
+            ("Wózek widłowy LPG 4.5t%", "Wózek widłowy LPG 4,5t"),
+            ("Wózek widłowy LPG 5t%", "Wózek widłowy LPG 5t"),
+            ("Wózek widłowy LPG 6t%", "Wózek widłowy LPG 6t"),
+            ("Wózek widłowy LPG 7t%", "Wózek widłowy LPG 7t"),
+            ("Wózek widłowy LPG 8t%", "Wózek widłowy LPG 8t"),
+            ("Wózek widłowy LPG 10t%", "Wózek widłowy LPG 10t"),
+            ("Wózek widłowy Diesel 1.5t%", "Wózek widłowy Diesel 1,5t"),
+            ("Wózek widłowy Diesel 1.8t%", "Wózek widłowy Diesel 1,8t"),
+            ("Wózek widłowy Diesel 2t%", "Wózek widłowy Diesel 2t"),
+            ("Wózek widłowy Diesel 2.5t%", "Wózek widłowy Diesel 2,5t"),
+            ("Wózek widłowy Diesel 3t%", "Wózek widłowy Diesel 3t"),
+            ("Wózek widłowy Diesel 3.5t%", "Wózek widłowy Diesel 3,5t"),
+            ("Wózek widłowy Diesel 4t%", "Wózek widłowy Diesel 4t"),
+            ("Wózek widłowy Diesel 4.5t%", "Wózek widłowy Diesel 4,5t"),
+            ("Wózek widłowy Diesel 5t%", "Wózek widłowy Diesel 5t"),
+            ("Wózek widłowy Diesel 6t%", "Wózek widłowy Diesel 6t"),
+            ("Wózek widłowy Diesel 7t%", "Wózek widłowy Diesel 7t"),
+            ("Wózek widłowy Diesel 8t%", "Wózek widłowy Diesel 8t"),
+            ("Wózek widłowy Diesel 10t%", "Wózek widłowy Diesel 10t"),
+            ("Wózek widłowy Diesel 12t%", "Wózek widłowy Diesel 12t"),
+            ("Kosz osobowy%", "Kosz osobowy"),
+            ("Chwytak do płyt%", "Chwytak do płyt"),
+            ("Łyżka%", "Łyżka"),
+            ("Wciągarka typu żuraw%", "Wciągarka typu żuraw"),
+            ("Wciągarka%", "Wciągarka"),
+            ("Żuraw z hakiem%", "Żuraw z hakiem"),
+            ("Hak obrotowy%", "Hak obrotowy"),
+            ("Zawiesia łańcuchowe%", "Zawiesia łańcuchowe"),
+            ("Zawiesia pasowe%", "Zawiesia pasowe"),
+            ("Przedłużenie wideł%", "Przedłużenie wideł"),
+            ("Kosz narzędziowy%", "Kosz narzędziowy"),
+            ("Szelki bezpieczeństwa%", "Szelki bezpieczeństwa"),
+            ("Kanister%", "Kanister"),
+        ]
+        for pattern, sub2 in sub2_updates:
+            await conn.execute(sa.text(
+                f"UPDATE machines SET category_sub2 = '{sub2}' "
+                f"WHERE name LIKE '{pattern}' "
+                f"AND (category_sub2 IS NULL OR category_sub2 = '')"
+            ))
+        # RAO-P1-011: zesłownikowanie usług dodatkowych z additional_services
+        # Musi być dodane PRZED seedem presetów (model deklaruje additional_service_id,
+        # create_all nie doda kolumny do istniejącej tabeli → seed SELECT by się wywalił).
+        await conn.execute(sa.text(
+            "ALTER TABLE service_fee_templates ADD COLUMN IF NOT EXISTS "
+            "preset_id INT NULL REFERENCES fee_preset_groups(id) ON DELETE CASCADE"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE service_fee_templates ADD COLUMN IF NOT EXISTS "
+            "additional_service_id INT NULL"
+        ))
+
     # Upewnij się że istnieje domyślna firma (id=1) — FK dla FeePresetGroup
     # Musi być utworzone PRZED seedem presetów (RAO-P2-001 niżej).
     async with AsyncSessionLocal() as db:
@@ -70,71 +237,126 @@ async def startup_migrations():
             db.add(Company(id=1, name="RAO — Wynajem Maszyn"))
             await db.commit()
 
-    # RAO-P2-001: seed default fees for contract type S (najmu)
+    # RAO-P1-100: KISS seed additional services + Diesel/Elektryk/Wspólny presets (idempotent)
     async with AsyncSessionLocal() as db:
-        # Check if default preset for type S exists
-        existing = await db.execute(
-            sa.select(FeePresetGroup).where(
-                FeePresetGroup.contract_type == 'S',
-                FeePresetGroup.is_default == True
-            )
-        )
-        if not existing.scalar_one_or_none():
-            # Create default preset for type S
-            default_preset = FeePresetGroup(
-                company_id=1,
-                name="Domyślne usługi dodatkowe (najmu)",
-                contract_type='S',
-                description="Transport, czyszczenie, tankowanie - domyślne dla umów najmu",
-                is_default=True,
-                sort_order=0
-            )
-            db.add(default_preset)
-            await db.flush()
+        from additional_services.models import AdditionalService
+        from decimal import Decimal
+        from datetime import datetime
 
-            # Add default fees in specified order
-            # RAO-P3-014: Use concrete values in descriptions instead of placeholders $1/$2
-            default_fees = [
-                {"name": "Transport", "amount_from": 500.00, "amount_to": 500.00, "unit": "dostawa", "description": "500.00 zł dostawa / 500.00 zł odbiór", "sort_order": 1},
-                {"name": "Czyszczenie maszyny po wynajmie (zabrudzenia drobne)", "amount_from": 150.00, "amount_to": 400.00, "unit": "sztuka", "description": "150.00 zł - 400.00 zł", "sort_order": 2},
-                {"name": "Czyszczenie maszyny po wynajmie (zabrudzenia trudnościeralne)", "amount_from": 400.00, "amount_to": 1500.00, "unit": "sztuka", "description": "400.00 zł - 1500.00 zł", "sort_order": 3},
-                {"name": "Usługa tankowania", "amount_from": 200.00, "amount_to": None, "unit": "tankowanie", "description": "200.00 zł (plus koszt paliwa)", "sort_order": 4},
-                {"name": "Ponadnormatywny przestój transportu", "amount_from": 200.00, "amount_to": 300.00, "unit": "godzina", "description": "200.00 zł / h - 300.00 zł / h", "sort_order": 5},
-                {"name": "Nieuzasadnione wezwanie serwisowe", "amount_from": 280.00, "amount_to": None, "unit": "wizyta", "description": "280.00 zł (plus transport)", "sort_order": 6},
-            ]
-            for fee_data in default_fees:
-                db.add(ServiceFeeTemplate(
+        now = datetime.utcnow()
+
+        # Additional services used by KISS presets — pełne nazwy (name = display_name)
+        ADDITIONAL_SERVICES = {
+            "Transport": None,
+            "Przegląd techniczny i czyszczenie maszyny": None,
+            "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny": None,
+            "Czyszczenie maszyny (zabrudzenia ponadnormatywne)": None,
+            "Usługa tankowania": None,
+            "Ponadnormatywny przestój transportu": None,
+            "Nieuzasadnione wezwanie serwisowe": None,
+        }
+        for art_name in ADDITIONAL_SERVICES:
+            result = await db.execute(
+                sa.select(AdditionalService).where(AdditionalService.name == art_name)
+            )
+            art = result.scalar_one_or_none()
+            if not art:
+                art = AdditionalService(
+                    name=art_name,
+                    created_at=now,
+                    updated_at=now,
+                )
+                db.add(art)
+                await db.flush()
+            ADDITIONAL_SERVICES[art_name] = art.id
+
+        # Common Wspólny fees (name, description, article_name, amount_from, amount_to, unit)
+        WSPOLNY_FEES = [
+            ("Transport", "1 200,00 zł dostawa / 1 200,00 zł odbiór", "Transport", Decimal("1200.00"), Decimal("1200.00"), "dostawa"),
+            ("Czyszczenie maszyny (zabrudzenia ponadnormatywne)", "wycena indywidualna", "Czyszczenie maszyny (zabrudzenia ponadnormatywne)", None, None, None),
+            ("Usługa tankowania", "200,00 zł (plus koszt paliwa)", "Usługa tankowania", Decimal("200.00"), None, "tankowanie"),
+            ("Ponadnormatywny przestój transportu", "200,00 zł / h - 300,00 zł / h", "Ponadnormatywny przestój transportu", Decimal("200.00"), Decimal("300.00"), "h"),
+            ("Nieuzasadnione wezwanie serwisowe", "280,00 zł (plus transport)", "Nieuzasadnione wezwanie serwisowe", Decimal("280.00"), None, "wizyta"),
+        ]
+
+        PRESETS = [
+            ("Najem — Wspólny", "S", True, "Wspólny zestaw usług dla umów najmu", WSPOLNY_FEES),
+            ("Najem — Diesel", "S", False, "Wspólny + przegląd maszyny diesla 150,00 zł", [
+                ("Transport", "1 200,00 zł dostawa / 1 200,00 zł odbiór", "Transport", Decimal("1200.00"), Decimal("1200.00"), "dostawa"),
+                ("Przegląd techniczny i czyszczenie maszyny", "150,00 zł", "Przegląd techniczny i czyszczenie maszyny", Decimal("150.00"), None, "sztuka"),
+            ] + list(WSPOLNY_FEES[1:])),
+            ("Najem — Elektryk", "S", False, "Wspólny + przegląd maszyny elektrycznej 90,00 zł", [
+                ("Transport", "1 200,00 zł dostawa / 1 200,00 zł odbiór", "Transport", Decimal("1200.00"), Decimal("1200.00"), "dostawa"),
+                ("Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny", "90,00 zł", "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny", Decimal("90.00"), None, "sztuka"),
+            ] + list(WSPOLNY_FEES[1:])),
+            ("Usługa — Wspólny", "U", True, "Wspólny zestaw usług dla umów usługowych", WSPOLNY_FEES),
+        ]
+
+        for idx, (group_name, contract_type, is_default, group_desc, fees) in enumerate(PRESETS):
+            # Only one default per contract_type
+            if is_default:
+                await db.execute(
+                    sa.update(FeePresetGroup)
+                    .where(FeePresetGroup.contract_type == contract_type)
+                    .where(FeePresetGroup.name != group_name)
+                    .values(is_default=False)
+                )
+            result = await db.execute(sa.select(FeePresetGroup).where(FeePresetGroup.name == group_name))
+            group = result.scalar_one_or_none()
+            if not group:
+                group = FeePresetGroup(
                     company_id=1,
-                    preset_id=default_preset.id,
-                    contract_type='S',
-                    name=fee_data["name"],
-                    amount_from=fee_data["amount_from"],
-                    amount_to=fee_data["amount_to"],
-                    unit=fee_data["unit"],
-                    description=fee_data["description"],
-                    is_active=True,
-                    sort_order=fee_data["sort_order"]
-                ))
-            await db.commit()
+                    name=group_name,
+                    contract_type=contract_type,
+                    description=group_desc,
+                    is_default=is_default,
+                    sort_order=idx,
+                )
+                db.add(group)
+                await db.flush()
+            else:
+                group.contract_type = contract_type
+                group.description = group_desc
+                group.is_default = is_default
+                group.sort_order = idx
+
+            for sort_order, (fee_name, fee_desc, art_name, amt_from, amt_to, unit) in enumerate(fees, start=1):
+                additional_service_id = ADDITIONAL_SERVICES.get(art_name)
+                result = await db.execute(
+                    sa.select(ServiceFeeTemplate).where(
+                        ServiceFeeTemplate.preset_id == group.id,
+                        ServiceFeeTemplate.name == fee_name,
+                    )
+                )
+                tpl = result.scalar_one_or_none()
+                if not tpl:
+                    tpl = ServiceFeeTemplate(
+                        company_id=1,
+                        preset_id=group.id,
+                        contract_type=contract_type,
+                        sort_order=sort_order,
+                        name=fee_name,
+                        description=fee_desc,
+                        amount_from=amt_from,
+                        amount_to=amt_to,
+                        is_active=True,
+                        additional_service_id=additional_service_id,
+                    )
+                    db.add(tpl)
+                else:
+                    tpl.sort_order = sort_order
+                    tpl.description = fee_desc
+                    tpl.amount_from = amt_from
+                    tpl.amount_to = amt_to
+                    tpl.is_active = True
+                    tpl.additional_service_id = additional_service_id
+        await db.commit()
 
     # RAO-P3-002: katalog na logo firmy (startup guard)
     os.makedirs("static/logos", exist_ok=True)
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        await conn.execute(sa.text(
-            "ALTER TABLE service_fee_templates ADD COLUMN IF NOT EXISTS "
-            "preset_id INT NULL REFERENCES fee_preset_groups(id) ON DELETE CASCADE"
-        ))
-        # RAO-P1-011: zesłownikowanie usług dodatkowych z artykułami
-        await conn.execute(sa.text(
-            "ALTER TABLE service_fee_templates ADD COLUMN IF NOT EXISTS "
-            "article_id INT NULL"
-        ))
-        await conn.execute(sa.text(
-            "ALTER TABLE service_fee_templates ADD COLUMN IF NOT EXISTS "
-            "default_price DECIMAL(18,2) NULL"
-        ))
         # RAO-P1-014: checkbox podpisów na stronie 1
         await conn.execute(sa.text(
             "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
@@ -161,37 +383,33 @@ async def startup_migrations():
         except Exception:
             pass  # Już jest polish_ci lub MariaDB nie wspiera — idempotentne
         await conn.execute(sa.text(
-            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
             "category_main VARCHAR(100) NULL"
         ))
         await conn.execute(sa.text(
-            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
             "category_sub1 VARCHAR(100) NULL"
         ))
         await conn.execute(sa.text(
-            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
             "category_sub2 VARCHAR(100) NULL"
         ))
         await conn.execute(sa.text(
-            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
             "category_sub3 VARCHAR(100) NULL"
         ))
         await conn.execute(sa.text(
-            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
-            "is_archival BOOLEAN NOT NULL DEFAULT FALSE"
-        ))
-        await conn.execute(sa.text(
-            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
             "technical_attributes JSON NULL"
         ))
         # RAO: dedykowane kolumny numeryczne dla filtrów statystyk (zastępują string-values w technical_attributes JSON)
         await conn.execute(sa.text(
-            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
-            "zasieg_m DECIMAL(8,2) NULL COMMENT 'Zasięg w metrach'"
+            "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
+            "reach_m DECIMAL(8,2) NULL COMMENT 'Zasięg w metrach'"
         ))
         await conn.execute(sa.text(
-            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
-            "udzwig_t DECIMAL(8,2) NULL COMMENT 'Udźwig w tonach'"
+            "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
+            "capacity_t DECIMAL(8,2) NULL COMMENT 'Udźwig w tonach'"
         ))
         # RAO-P1-012: tabela rozliczeń umów (contract_settlements)
         await conn.execute(sa.text("""
@@ -210,41 +428,19 @@ async def startup_migrations():
                 FOREIGN KEY (service_fee_id) REFERENCES service_fee_templates(id) ON DELETE SET NULL
             )
         """))
-        # RAO-P3-014: Fix placeholders $1/$2 in service_fee_templates descriptions
-        await conn.execute(sa.text("""
-            UPDATE service_fee_templates 
-            SET description = REPLACE(
-                REPLACE(
-                    description,
-                    '$1 zł',
-                    CONCAT(IFNULL(amount_from, ''), ' zł')
-                ),
-                '$2 zł',
-                CONCAT(IFNULL(amount_to, ''), ' zł')
-            )
-            WHERE description LIKE '%$1%' OR description LIKE '%$2%'
-        """))
-        # Fix placeholders $1/$2 in contract_service_fees descriptions (existing contracts)
-        await conn.execute(sa.text("""
-            UPDATE contract_service_fees 
-            SET description = REPLACE(
-                REPLACE(
-                    description,
-                    '$1 zł',
-                    CONCAT(IFNULL(amount_from, ''), ' zł')
-                ),
-                '$2 zł',
-                CONCAT(IFNULL(amount_to, ''), ' zł')
-            )
-            WHERE description LIKE '%$1%' OR description LIKE '%$2%'
-        """))
+        # RAO-P1-113: Placeholdery $1/$2 w opisach opłat są podmieniane w locie:
+        #   - UI: ContractFormView.formatDescription() → formatCurrency(amount_from/amount_to)
+        #   - PDF: reports/service.py:_resolve_fee_description() → sformatowane kwoty + zł
+        # NIE podmieniamy placeholderów w DB — zachowujemy je jako $1/$2 w opisach.
+        # (Poprzednia migracja podmieniała $1/$2 → hardcoded kwoty, co łamało aktualizację tekstu
+        #  przy zmianie kwoty w gridzie. Usunięte 2026-07-12.)
         await conn.execute(sa.text(
-            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
-            "dodatki TEXT NULL COMMENT 'Dodatkowe akcesoria / wyposażenie'"
+            "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
+            "accessories TEXT NULL COMMENT 'Dodatkowe akcesoria / wyposażenie'"
         ))
         # RAO-P1-030: maszyna zewnętrzna (nie wliczana do floty własnej)
         await conn.execute(sa.text(
-            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
             "is_external TINYINT(1) NOT NULL DEFAULT 0"
         ))
         # RAO-P2-022: status rozliczenia umowy
@@ -270,14 +466,6 @@ async def startup_migrations():
             "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
             "postal_code_id INT NULL COMMENT 'RAO-P2-028: FK do postal_codes'"
         ))
-        # RAO-P2-062 Faza 1: kolumna is_legacy usunięta (legacy dane przeniesione
-        # do tabel archive_* w Fazie 0). Idempotentny DROP COLUMN IF EXISTS.
-        try:
-            await conn.execute(sa.text(
-                "ALTER TABLE contracts DROP COLUMN IF EXISTS is_legacy"
-            ))
-        except Exception:
-            pass  # MariaDB <10.6 nie wspiera IF EXISTS w DROP COLUMN — kolumna już nie istnieje
         # FK + index (try/except bo MariaDB <10.6 nie wspiera IF NOT EXISTS dla CONSTRAINT)
         try:
             await conn.execute(sa.text(
@@ -333,7 +521,7 @@ async def startup_migrations():
         await conn.execute(sa.text(
             "CREATE INDEX IF NOT EXISTS idx_postal_codes_woj_pow ON postal_codes(wojewodztwo, powiat)"
         ))
-        # RAO-P2-012: integracja Fakturownia — singleton settings + mapping produktu w articles
+        # RAO-P2-012: integracja Fakturownia — singleton settings + mapping produktu w machines
         await conn.execute(sa.text("""
             CREATE TABLE IF NOT EXISTS fakturownia_settings (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -351,24 +539,24 @@ async def startup_migrations():
               COMMENT='RAO-P2-012: Singleton konfiguracji integracji Fakturownia'
         """))
         await conn.execute(sa.text(
-            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
             "fakturownia_product_id BIGINT NULL COMMENT 'RAO-P2-012: ID produktu w Fakturownia (1:N globalny)'"
         ))
         await conn.execute(sa.text(
-            "CREATE INDEX IF NOT EXISTS idx_articles_fakturownia_product "
-            "ON articles(fakturownia_product_id)"
+            "CREATE INDEX IF NOT EXISTS idx_machines_fakturownia_product "
+            "ON machines(fakturownia_product_id)"
         ))
-        # RAO-P2-058: snapshot metadanych z Fakturownia na artykułach
+        # RAO-P2-058: snapshot metadanych z Fakturownia na maszynach
         await conn.execute(sa.text(
-            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
             "fakturownia_tax_rate VARCHAR(10) NULL COMMENT 'RAO-P2-058: Stawka VAT z FA (snapshot)'"
         ))
         await conn.execute(sa.text(
-            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
             "fakturownia_gtu_code VARCHAR(20) NULL COMMENT 'RAO-P2-058: Kod GTU z FA (snapshot)'"
         ))
         await conn.execute(sa.text(
-            "ALTER TABLE articles ADD COLUMN IF NOT EXISTS "
+            "ALTER TABLE machines ADD COLUMN IF NOT EXISTS "
             "fakturownia_pkwiu VARCHAR(50) NULL COMMENT 'RAO-P2-058: PKWiU z FA (snapshot)'"
         ))
         await conn.execute(sa.text(
@@ -406,6 +594,36 @@ async def startup_migrations():
         await conn.execute(sa.text(
             "CREATE INDEX IF NOT EXISTS idx_contracts_print_date ON contracts(print_date)"
         ))
+        # RAO: print_hash — sha256 pól wpływających na wydruk (detekcja nieaktualnego wydruku)
+        await conn.execute(sa.text(
+            "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
+            "print_hash VARCHAR(64) NULL"
+        ))
+        # RAO-P1-202 Faza 1: rozdzielenie contracts.notes → notes_contract + notes_protocol
+        # notes_contract: uwagi operatora na PDF umowy (nowe, puste)
+        # notes_protocol: uwagi na PDF protokołów (backfill ze starego notes — tam były renderowane)
+        await conn.execute(sa.text(
+            "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
+            "notes_contract TEXT NULL COMMENT 'RAO-P1-202: Uwagi operatora wyświetlane na PDF umowy'"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS "
+            "notes_protocol TEXT NULL COMMENT 'RAO-P1-202: Uwagi wyświetlane na PDF protokołów'"
+        ))
+        # BACKFILL + DROP starej kolumny notes (jawna zgoda użytkownika na DROP, 2026-07-21).
+        # Idempotentne: sprawdzamy information_schema przed BACKFILL/DROP (MariaDB <10.6 nie ma DROP IF EXISTS).
+        old_notes = await conn.execute(sa.text(
+            "SELECT COUNT(*) FROM information_schema.COLUMNS "
+            "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='contracts' AND COLUMN_NAME='notes'"
+        ))
+        if old_notes.scalar_one() > 0:
+            await conn.execute(sa.text(
+                "UPDATE contracts SET notes_protocol = notes "
+                "WHERE notes IS NOT NULL AND notes <> '' AND notes_protocol IS NULL"
+            ))
+            await conn.execute(sa.text(
+                "ALTER TABLE contracts DROP COLUMN notes"
+            ))
         await conn.execute(sa.text(
             "CREATE INDEX IF NOT EXISTS idx_contracts_delivery_date ON contracts(date_to)"
         ))
@@ -413,7 +631,261 @@ async def startup_migrations():
         await conn.execute(sa.text(
             "ALTER TABLE company ADD COLUMN IF NOT EXISTS logo_path VARCHAR(500) NULL"
         ))
-        # service_fee_template_items utworzone przez Base.metadata.create_all (nowa tabela)
+        # RAO-P1-005: elastyczne widełki cenowe - period_from/period_to
+        await conn.execute(sa.text(
+            "ALTER TABLE position_conditions ADD COLUMN IF NOT EXISTS "
+            "period_from INT NULL COMMENT 'RAO-P1-005: elastyczne widełki (od)'"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE position_conditions ADD COLUMN IF NOT EXISTS "
+            "period_to INT NULL COMMENT 'RAO-P1-005: elastyczne widełki (do)'"
+        ))
+        # RAO articles split: contract_positions.article_id → machine_id + service_id
+        await conn.execute(sa.text(
+            "ALTER TABLE contract_positions ADD COLUMN IF NOT EXISTS machine_id INT NULL"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE contract_positions ADD COLUMN IF NOT EXISTS service_id INT NULL"
+        ))
+        # Faza 8: article_id musi być NULLABLE — nowy model używa machine_id/service_id (XOR)
+        try:
+            await conn.execute(sa.text(
+                "ALTER TABLE contract_positions MODIFY COLUMN article_id INT NULL"
+            ))
+        except Exception as exc:
+            logger.warning("Faza 8: cannot MODIFY article_id to nullable: %s", exc)
+        # Migracja danych: RAO-P0-048 popraw kaskadowe period_from/period_to
+        # (zamiast naiwnego period_from=1 dla każdego rekordu)
+        async with AsyncSessionLocal() as db:
+            from contracts.service import contract_service
+            try:
+                await contract_service.migrate_position_condition_periods(db)
+            except Exception as exc:
+                logger.exception("RAO-P0-048 migrate_position_condition_periods failed: %s", exc)
+                await db.rollback()
+        # RAO Phase 1 (2026-07-05): usuwanie martwych kolumn/tabeli z dev/test DB
+        # DROP IF EXISTS w try/except — MariaDB <10.6 wymaga cichego fallbacku
+
+        # service_fee_templates.default_price
+        try:
+            await conn.execute(sa.text("ALTER TABLE service_fee_templates DROP COLUMN IF EXISTS default_price"))
+        except Exception:
+            pass
+
+        # contract_service_fees.article_id / default_price
+        # FK first — SQLAlchemy autogenerowała różne nazwy FK na przestrzeni czasu
+        for fk in ("1", "fk_contract_service_fees_article_id"):
+            try:
+                await conn.execute(sa.text(f"ALTER TABLE contract_service_fees DROP FOREIGN KEY IF EXISTS `{fk}`"))
+            except Exception:
+                pass
+        try:
+            await conn.execute(sa.text("ALTER TABLE contract_service_fees DROP COLUMN IF EXISTS article_id"))
+        except Exception:
+            pass
+        try:
+            await conn.execute(sa.text("ALTER TABLE contract_service_fees DROP COLUMN IF EXISTS default_price"))
+        except Exception:
+            pass
+
+        # P1-120: additional_services.display_name (długa nazwa do umowy/PDF)
+        await conn.execute(sa.text(
+            "ALTER TABLE additional_services ADD COLUMN IF NOT EXISTS "
+            "display_name VARCHAR(400) NULL COMMENT 'P1-120: długa nazwa do umowy/PDF (fallback do name)'"
+        ))
+        # P1-120: contract_service_fees.additional_service_id (FK → additional_services)
+        await conn.execute(sa.text(
+            "ALTER TABLE contract_service_fees ADD COLUMN IF NOT EXISTS "
+            "additional_service_id INT NULL COMMENT 'P1-120: FK do additional_services.id (SET NULL)'"
+        ))
+        try:
+            await conn.execute(sa.text(
+                "ALTER TABLE contract_service_fees ADD CONSTRAINT fk_contract_service_fees_additional_service "
+                "FOREIGN KEY (additional_service_id) REFERENCES additional_services(id) ON DELETE SET NULL"
+            ))
+        except Exception:
+            pass  # FK już istnieje
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_contract_service_fees_additional_service "
+            "ON contract_service_fees(additional_service_id)"
+        ))
+
+        # P1-120: Backfill additional_service_id w contract_service_fees — match po name
+        # (name = pełna nazwa w obu tabelach po uproszczeniu display_name)
+        await conn.execute(sa.text(
+            "UPDATE contract_service_fees f"
+            " JOIN additional_services s ON f.name = s.name"
+            " SET f.additional_service_id = s.id"
+            " WHERE f.additional_service_id IS NULL"
+        ))
+
+        # contract_positions.costs
+        try:
+            await conn.execute(sa.text("ALTER TABLE contract_positions DROP COLUMN IF EXISTS costs"))
+        except Exception:
+            pass
+
+        # position_conditions.rate_type_id / description
+        # FK first — SQLAlchemy mogła wygenerować nazwę `fk_position_conditions_rate_type_id` zamiast `fk_cond_rate_type`
+        for fk in ("fk_cond_rate_type", "fk_position_conditions_rate_type_id"):
+            try:
+                await conn.execute(sa.text(f"ALTER TABLE position_conditions DROP FOREIGN KEY IF EXISTS `{fk}`"))
+            except Exception:
+                pass
+        try:
+            await conn.execute(sa.text("ALTER TABLE position_conditions DROP COLUMN IF EXISTS rate_type_id"))
+        except Exception:
+            pass
+        try:
+            await conn.execute(sa.text("ALTER TABLE position_conditions DROP COLUMN IF EXISTS description"))
+        except Exception:
+            pass
+
+        # P1-101: usuń martwą kolumnę minimum (0.6% użycia w legacy)
+        try:
+            await conn.execute(sa.text("ALTER TABLE position_conditions DROP COLUMN IF EXISTS minimum"))
+        except Exception:
+            pass
+
+        # P1-106: usuń martwe pole rental_type (typ najmu) — zastąpione przez rate_type_id
+        for tbl in ("contract_positions", "archive_contract_positions"):
+            try:
+                await conn.execute(sa.text(f"ALTER TABLE {tbl} DROP COLUMN IF EXISTS rental_type"))
+            except Exception:
+                pass
+
+        # RAO-refactor: archive_contract_positions — dodaj machine_id/service_id (mirror live)
+        await conn.execute(sa.text(
+            "ALTER TABLE archive_contract_positions ADD COLUMN IF NOT EXISTS machine_id INT NULL"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE archive_contract_positions ADD COLUMN IF NOT EXISTS service_id INT NULL"
+        ))
+        # archive_contract_positions: article_id nullable (po refaktorze live ma machine_id/service_id)
+        await conn.execute(sa.text(
+            "ALTER TABLE archive_contract_positions MODIFY COLUMN article_id INT NULL"
+        ))
+
+        # RAO-P1-103: usuwanie martwych pól invoice_amount/invoice_document
+        # (pole "Faktura (zł)" usunięte z formularza; kwota faktury nie jest już śledzona na umowie)
+        for tbl in ("contracts", "archive_contracts"):
+            try:
+                await conn.execute(sa.text(f"ALTER TABLE {tbl} DROP COLUMN IF EXISTS invoice_amount"))
+            except Exception:
+                pass
+            try:
+                await conn.execute(sa.text(f"ALTER TABLE {tbl} DROP COLUMN IF EXISTS invoice_document"))
+            except Exception:
+                pass
+
+        # P1-102: KISS opłaty dodatkowe — usuń unit (JM) z service fees
+        # Migracja danych: wpleć unit w description przed DROP (zabezpieczenie danych)
+        for tbl in ("contract_service_fees", "service_fee_templates", "archive_contract_service_fees"):
+            try:
+                await conn.execute(sa.text(
+                    f"UPDATE {tbl} SET description = CONCAT(description, ' / ', unit) "
+                    f"WHERE unit IS NOT NULL AND unit <> '' "
+                    f"AND description IS NOT NULL AND description <> '' "
+                    f"AND description NOT LIKE '%/ %'"
+                ))
+            except Exception:
+                pass
+            try:
+                await conn.execute(sa.text(f"ALTER TABLE {tbl} DROP COLUMN IF EXISTS unit"))
+            except Exception:
+                pass
+
+        # service_fee_template_items
+        try:
+            await conn.execute(sa.text("DROP TABLE IF EXISTS service_fee_template_items"))
+        except Exception:
+            pass
+
+        # P1-127: Migracja service_fee_templates — zastąp sztywne kwoty w description placeholderami $1/$2
+        # Patterns: "1 200,00 zł dostawa / 1 200,00 zł odbiór" → "$1 dostawa / $2 odbiór"
+        #           "150,00 zł" → "$1", "200,00 zł / h - 300,00 zł / h" → "$1 / h - $2 / h"
+        try:
+            # Transport: "X zł dostawa / Y zł odbiór" → "$1 dostawa / $2 odbiór"
+            await conn.execute(sa.text(
+                "UPDATE service_fee_templates SET description = '$1 dostawa / $2 odbiór' "
+                "WHERE description LIKE '%,00 zł dostawa / %,00 zł odbiór'"
+            ))
+            # Przestój: "X zł / h - Y zł / h" → "$1 / h - $2 / h"
+            await conn.execute(sa.text(
+                "UPDATE service_fee_templates SET description = '$1 / h - $2 / h' "
+                "WHERE description LIKE '%,00 zł / h - %,00 zł / h'"
+            ))
+            # Single amount: "X zł (plus ...)" → "$1 (plus ...)"
+            await conn.execute(sa.text(
+                "UPDATE service_fee_templates SET description = "
+                "CONCAT('$1', SUBSTRING(description, LOCATE(' (', description))) "
+                "WHERE description LIKE '%,00 zł (%' AND description NOT LIKE '%$%'"
+            ))
+            # Single amount only: "X zł" → "$1" (where amount_from is not null and no other text)
+            await conn.execute(sa.text(
+                "UPDATE service_fee_templates SET description = '$1' "
+                "WHERE description REGEXP '^[0-9 ]+,00 zł$' AND amount_from IS NOT NULL"
+            ))
+        except Exception:
+            pass
+
+        # P1-127: Ustaw description w additional_services z $1/$2 placeholderami
+        try:
+            await conn.execute(sa.text(
+                "UPDATE additional_services SET description = '$1 dostawa / $2 odbiór' "
+                "WHERE name = 'Transport' AND (description IS NULL OR description NOT LIKE '%$%')"
+            ))
+            await conn.execute(sa.text(
+                "UPDATE additional_services SET description = '$1 (plus koszt paliwa)' "
+                "WHERE name = 'Usługa tankowania' AND (description IS NULL OR description NOT LIKE '%$%')"
+            ))
+            await conn.execute(sa.text(
+                "UPDATE additional_services SET description = '$1 / h - $2 / h' "
+                "WHERE name = 'Ponadnormatywny przestój transportu' AND (description IS NULL OR description NOT LIKE '%$%')"
+            ))
+            await conn.execute(sa.text(
+                "UPDATE additional_services SET description = '$1 (plus transport)' "
+                "WHERE name = 'Nieuzasadnione wezwanie serwisowe' AND (description IS NULL OR description NOT LIKE '%$%')"
+            ))
+            await conn.execute(sa.text(
+                "UPDATE additional_services SET description = '$1' "
+                "WHERE name IN ('Przegląd techniczny i czyszczenie maszyny', "
+                "'Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny') "
+                "AND (description IS NULL OR description NOT LIKE '%$%')"
+            ))
+            # Usuń "Przegląd techniczny i czyszczenie maszyny Diesel" (duplikat z dopiskiem)
+            # Przenieś referencje na "Przegląd techniczny i czyszczenie maszyny" (bez dopisku)
+            try:
+                await conn.execute(sa.text(
+                    "UPDATE contract_service_fees SET additional_service_id = "
+                    "(SELECT id FROM additional_services WHERE name = 'Przegląd techniczny i czyszczenie maszyny' LIMIT 1) "
+                    "WHERE additional_service_id IN ("
+                    "  SELECT id FROM additional_services WHERE name = 'Przegląd techniczny i czyszczenie maszyny Diesel'"
+                    ")"
+                ))
+                await conn.execute(sa.text(
+                    "DELETE FROM additional_services WHERE name = 'Przegląd techniczny i czyszczenie maszyny Diesel'"
+                ))
+            except Exception:
+                pass
+            # Usuń "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny Elektryk" (duplikat z dopiskiem)
+            # Przenieś referencje na "Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny" (bez dopisku)
+            try:
+                await conn.execute(sa.text(
+                    "UPDATE contract_service_fees SET additional_service_id = "
+                    "(SELECT id FROM additional_services WHERE name = 'Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny' LIMIT 1) "
+                    "WHERE additional_service_id IN ("
+                    "  SELECT id FROM additional_services WHERE name = 'Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny Elektryk'"
+                    ")"
+                ))
+                await conn.execute(sa.text(
+                    "DELETE FROM additional_services WHERE name = 'Przegląd techniczny, ładowanie akumulatorów oraz czyszczenie maszyny Elektryk'"
+                ))
+            except Exception:
+                pass
+        except Exception:
+            pass
+
         # RAO-P1-012: contract_settlements - rozliczenia umów (koszty klient vs firma)
         await conn.execute(sa.text("""
             CREATE TABLE IF NOT EXISTS contract_settlements (
@@ -510,25 +982,59 @@ async def startup_migrations():
             ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_polish_ci"
             " COMMENT='RAO-P2-032: Log błędów importu (orphaned settlements itp.)'"
         ))
-        # RAO-P1-011: article_id i default_price w contract_service_fees (kopia z szablonu)
+        # RAO-P2-071: Archive schema sync — dodaj brakujące kolumny do archive_*
+        # (mirror live tabel: position_conditions / articles / contract_settlements)
+        # aby archiwizacja nie straci danych. ALTER IF NOT EXISTS = idempotentny.
+        # archive_position_conditions: period_from / period_to
         await conn.execute(sa.text(
-            "ALTER TABLE contract_service_fees ADD COLUMN IF NOT EXISTS "
-            "article_id INT NULL"
+            "ALTER TABLE archive_position_conditions ADD COLUMN IF NOT EXISTS "
+            "period_from INT NULL COMMENT 'RAO-P1-005: elastyczne widełki (od)'"
         ))
         await conn.execute(sa.text(
-            "ALTER TABLE contract_service_fees ADD COLUMN IF NOT EXISTS "
-            "default_price DECIMAL(18,2) NULL"
+            "ALTER TABLE archive_position_conditions ADD COLUMN IF NOT EXISTS "
+            "period_to INT NULL COMMENT 'RAO-P1-005: elastyczne widełki (do)'"
         ))
-        # RAO-P1-021/P2-033: DROP COLUMN contracts.total_value (martwe pole, 100% NULL)
-        # Zgoda użytkownika: potwierdzone w przepytywaniu backlogu.
-        # try/except bo MariaDB <10.6 nie wspiera IF EXISTS w DROP COLUMN.
-        try:
+        # archive_articles: fakturownia_tax_rate / gtu_code / pkwiu
+        await conn.execute(sa.text(
+            "ALTER TABLE archive_articles ADD COLUMN IF NOT EXISTS "
+            "fakturownia_tax_rate VARCHAR(10) NULL COMMENT 'Stawka VAT z Fakturownia (snapshot)'"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE archive_articles ADD COLUMN IF NOT EXISTS "
+            "fakturownia_gtu_code VARCHAR(20) NULL COMMENT 'Kod GTU z Fakturownia (snapshot)'"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE archive_articles ADD COLUMN IF NOT EXISTS "
+            "fakturownia_pkwiu VARCHAR(50) NULL COMMENT 'PKWiU z Fakturownia (snapshot)'"
+        ))
+        # archive_articles: bigint fix — fakturownia_product_id int(11) → bigint(20)
+        # MODIFY COLUMN nie wspiera IF NOT EXISTS; sprawdzamy typ przed zmianą (idempotentne).
+        # Bezpieczne: tabele archive są PUSTE, int→bigint jest nieinwazyjne.
+        result = await conn.execute(sa.text(
+            "SELECT DATA_TYPE FROM information_schema.COLUMNS "
+            "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='archive_articles' "
+            "AND COLUMN_NAME='fakturownia_product_id'"
+        ))
+        if result.scalar_one_or_none() != "bigint":
             await conn.execute(sa.text(
-                "ALTER TABLE contracts DROP COLUMN total_value"
+                "ALTER TABLE archive_articles MODIFY COLUMN fakturownia_product_id BIGINT NULL"
             ))
-        except Exception:
-            pass  # kolumna już nie istnieje — OK
-
+        # archive_contract_settlements: article_name_snapshot / fakturownia_product_id / invoice_number
+        await conn.execute(sa.text(
+            "ALTER TABLE archive_contract_settlements ADD COLUMN IF NOT EXISTS "
+            "article_name_snapshot VARCHAR(255) NULL "
+            "COMMENT 'Snapshot nazwy pozycji z FA (gdy position_id=NULL)'"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE archive_contract_settlements ADD COLUMN IF NOT EXISTS "
+            "fakturownia_product_id BIGINT NULL "
+            "COMMENT 'ID produktu FA (grupowanie w analytics, identyfikacja duplikatów)'"
+        ))
+        await conn.execute(sa.text(
+            "ALTER TABLE archive_contract_settlements ADD COLUMN IF NOT EXISTS "
+            "fakturownia_invoice_number VARCHAR(50) NULL "
+            "COMMENT 'Numer faktury FA (wydzielony z notes dla query)'"
+        ))
         # RAO-P1-055: Migracja branch_id z suffixu "G" w numerze umowy (Gdańsk).
         # Idempotentna: WHERE branch_id IS NULL — kolejne uruchomienia nie modyfikują.
         # Numer umowy format: "{type}{auto:03d}/{year}{suffix}" gdzie suffix="G" dla GDAŃSK.
@@ -556,11 +1062,11 @@ async def startup_migrations():
     # RAO-P2-012 spike: commented out FK constraints due to MariaDB version compatibility (not in scope)
     async with engine.begin() as conn2:
         # await conn2.execute(sa.text(
-        #     "ALTER TABLE service_fee_templates ADD CONSTRAINT IF NOT EXISTS fk_sft_article "
-        #     "FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE SET NULL"
+        #     "ALTER TABLE service_fee_templates ADD CONSTRAINT IF NOT EXISTS fk_sft_additional_service "
+        #     "FOREIGN KEY (additional_service_id) REFERENCES additional_services(id) ON DELETE SET NULL"
         # ))
         await conn2.execute(sa.text(
-            "CREATE INDEX IF NOT EXISTS idx_sft_article ON service_fee_templates(article_id)"
+            "CREATE INDEX IF NOT EXISTS idx_sft_additional_service ON service_fee_templates(additional_service_id)"
         ))
         # RAO-P1-017: FK self-ref + indeksy dla hierarchii kategorii i archiwum
         # await conn2.execute(sa.text(
@@ -571,10 +1077,7 @@ async def startup_migrations():
             "CREATE INDEX IF NOT EXISTS idx_categories_parent ON categories(parent_id)"
         ))
         await conn2.execute(sa.text(
-            "CREATE INDEX IF NOT EXISTS idx_articles_category_main ON articles(category_main)"
-        ))
-        await conn2.execute(sa.text(
-            "CREATE INDEX IF NOT EXISTS idx_articles_archival ON articles(is_archival)"
+            "CREATE INDEX IF NOT EXISTS idx_machines_category_main ON machines(category_main)"
         ))
         # RAO-P1-008: indeksy dla strukturalizacji adresów
         await conn2.execute(sa.text(
@@ -583,21 +1086,21 @@ async def startup_migrations():
         await conn2.execute(sa.text(
             "CREATE INDEX IF NOT EXISTS idx_contracts_city ON contracts(city)"
         ))
-        # RAO-P2-012: index na mapping FA produktu w artykułach (lookup po fakturownia_product_id)
+        # RAO-P2-012: index na mapping FA produktu w maszynach (lookup po fakturownia_product_id)
         await conn2.execute(sa.text(
-            "CREATE INDEX IF NOT EXISTS idx_articles_fakturownia_product "
-            "ON articles(fakturownia_product_id)"
+            "CREATE INDEX IF NOT EXISTS idx_machines_fakturownia_product "
+            "ON machines(fakturownia_product_id)"
         ))
-        # RAO: indeksy na zasieg_m / udzwig_t dla filtrów >=/<= w statystykach
+        # RAO: indeksy na reach_m / capacity_t dla filtrów >=/<= w statystykach
         await conn2.execute(sa.text(
-            "CREATE INDEX IF NOT EXISTS idx_articles_zasieg ON articles(zasieg_m)"
+            "CREATE INDEX IF NOT EXISTS idx_machines_reach ON machines(reach_m)"
         ))
         await conn2.execute(sa.text(
-            "CREATE INDEX IF NOT EXISTS idx_articles_udzwig ON articles(udzwig_t)"
+            "CREATE INDEX IF NOT EXISTS idx_machines_capacity ON machines(capacity_t)"
         ))
         # RAO-P1-030: indeks na is_external
         await conn2.execute(sa.text(
-            "CREATE INDEX IF NOT EXISTS idx_articles_external ON articles(is_external)"
+            "CREATE INDEX IF NOT EXISTS idx_machines_external ON machines(is_external)"
         ))
 
     async with AsyncSessionLocal() as db:
@@ -638,19 +1141,95 @@ async def startup_migrations():
             await db.commit()
             print(f"[startup] Backfill postal_code_id: {backfilled.rowcount} umów zaktualizowanych")
 
+    # RAO-L-Phase1: machine_reservations — dodanie contractor_id + status + indeksy kalendarza
+    async with engine.begin() as conn:
+        await conn.execute(sa.text(
+            "ALTER TABLE machine_reservations ADD COLUMN IF NOT EXISTS "
+            "contractor_id INT NULL COMMENT 'RAO-L-Phase1: FK do contractors.id (SET NULL)'"
+        ))
+        # RAO-simplify: status rezerwacji usunięty (uproszczenie, wszystkie potwierdzone)
+        # DROP COLUMN — bezpieczne bo dane demo, user wyraził zgodę
+        try:
+            await conn.execute(sa.text(
+                "ALTER TABLE machine_reservations DROP COLUMN status"
+            ))
+        except Exception:
+            pass  # kolumna już nie istnieje
+        # FK contractor_id → contractors.id (try/except — MariaDB <10.6 nie wspiera IF NOT EXISTS dla CONSTRAINT)
+        try:
+            await conn.execute(sa.text(
+                "ALTER TABLE machine_reservations ADD CONSTRAINT fk_machine_reservations_contractor "
+                "FOREIGN KEY (contractor_id) REFERENCES contractors(id) ON DELETE SET NULL"
+            ))
+        except Exception:
+            pass  # FK już istnieje
+        # Indeks na contractor_id (FK bez indeksu = antywzorzec)
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_machine_reservations_contractor "
+            "ON machine_reservations(contractor_id)"
+        ))
+        # Indeksy na reserved_from / reserved_to — wydajność endpointu kalendarza
+        # (GET /reservations/calendar?from=&to= → WHERE reserved_from <= :to AND reserved_to >= :from)
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_machine_reservations_reserved_from "
+            "ON machine_reservations(reserved_from)"
+        ))
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_machine_reservations_reserved_to "
+            "ON machine_reservations(reserved_to)"
+        ))
+        # P1-119: salesperson_id (opcjonalny handlowiec powiązany z rezerwacją)
+        await conn.execute(sa.text(
+            "ALTER TABLE machine_reservations ADD COLUMN IF NOT EXISTS "
+            "salesperson_id INT NULL COMMENT 'P1-119: FK do salespeople.id (SET NULL)'"
+        ))
+        try:
+            await conn.execute(sa.text(
+                "ALTER TABLE machine_reservations ADD CONSTRAINT fk_machine_reservations_salesperson "
+                "FOREIGN KEY (salesperson_id) REFERENCES salespeople(id) ON DELETE SET NULL"
+            ))
+        except Exception:
+            pass  # FK już istnieje
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_machine_reservations_salesperson "
+            "ON machine_reservations(salesperson_id)"
+        ))
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.get_cors_origins(),
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept"],
+    expose_headers=["Content-Disposition"],
 )
+
+# RAO-SEC-007: Security headers middleware
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    if settings.environment == "production":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data: blob:; "
+            "font-src 'self' data:; "
+            "connect-src 'self'"
+        )
+    return response
 
 app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(contractors_router)
-app.include_router(articles_router)
+app.include_router(machines_router)
+app.include_router(services_router)
+app.include_router(additional_services_router)
 app.include_router(contracts_router)
 app.include_router(settings_router)
 app.include_router(settlements_router)
@@ -660,6 +1239,7 @@ app.include_router(fakturownia_router)
 app.include_router(stats_router)
 app.include_router(explorer_router)
 app.include_router(reservations_router)  # RAO-P1-015
+app.include_router(deliveries_router)  # P1-205
 app.include_router(archive_router)  # RAO-P2-062 Faza 1
 
 # RAO-P3-002: serwowanie statycznych plików (loga firmy itp.)

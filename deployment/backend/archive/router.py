@@ -66,9 +66,11 @@ async def list_archive_contracts(
 async def get_archive_contract(
     contract_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
-    return await service.get_archive_contract(db, contract_id)
+    contract = await service.get_archive_contract(db, contract_id)
+    # NOTE (2026-07-11): IDOR WYŁĄCZONY — single-user mode. Brak branch check.
+    return contract
 
 
 # ── Artykuly archiwum (read + PATCH category_id) ─────────────────────────────

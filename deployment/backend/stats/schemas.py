@@ -11,10 +11,6 @@ class FleetSummary(BaseModel):
     top_machine_name: str | None
     top_machine_revenue: Decimal | None
     contracts_in_period: int
-    # RAO-P2-032: breakdown po źródłach przychodu (actual/estimate_lookup/estimate_tiered)
-    revenue_actual: Decimal | None = None
-    revenue_estimate: Decimal | None = None
-    revenue_source_label: str | None = None  # "rzeczywiste" | "szacunek" | "mieszane"
 
 
 class TopMachineItem(BaseModel):
@@ -43,23 +39,12 @@ class CurrentlyRentedResponse(BaseModel):
     items: list[CurrentlyRentedItem]
 
 
-class MachineRoiResponse(BaseModel):
-    article_id: int
-    name: str
-    internal_number: str | None
-    category_main: str | None   # RAO-P1-017: kategoria główna maszyny
-    replacement_value: Decimal | None
-    total_rented_days: int
-    estimated_revenue: Decimal
-    contracts_count: int
-    roi_pct: float | None
-
-
 class ServiceFeeItem(BaseModel):
     article_id: int
     service_name: str
     total_revenue: Decimal
     times_billed: int
+    contracts_count: int = 0
 
 
 class AdditionalFeesResponse(BaseModel):
@@ -140,6 +125,7 @@ class SalespersonCommissionItem(BaseModel):
     commission_rate: Decimal | None
     contracts_count: int
     total_revenue: Decimal
+    total_margin: Decimal              # RAO-P1-130: baza prowizji = margin (lub revenue w fallback)
     commission_amount: Decimal
 
 
@@ -148,7 +134,34 @@ class CommissionReportResponse(BaseModel):
     date_to: date
     items: list[SalespersonCommissionItem]
     grand_total_revenue: Decimal
+    grand_total_margin: Decimal        # RAO-P1-130: łączna baza prowizji (margin/revenue)
     grand_total_commission: Decimal
+
+
+class ContractCommissionItem(BaseModel):
+    contract_id: int
+    number: str
+    date_from: date | None
+    date_to: date | None
+    contractor_name: str | None = None
+    total_revenue: Decimal
+    total_company_cost: Decimal
+    earnings: Decimal
+    margin: Decimal
+    commission_rate: Decimal | None
+    commission_amount: Decimal
+
+
+class SalespersonCommissionContractsResponse(BaseModel):
+    salesperson_id: int
+    salesperson_name: str
+    date_from: date | None
+    date_to: date
+    items: list[ContractCommissionItem]
+    total_revenue: Decimal
+    total_company_cost: Decimal
+    total_earnings: Decimal
+    total_commission: Decimal
 
 
 # ── RAO-P1-017: Statystyki po kategoriach ─────────────────────────────────────

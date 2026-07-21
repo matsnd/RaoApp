@@ -1,0 +1,123 @@
+CHANGELOG RAO — 2026-07-21/22 (pacza wdrozeniowa 20260721_230000)
+===================================================================
+
+Commity (od najstarszego do najnowszego):
+
+f6d838a  docs(backlog): archiwizacja sprint 20260711-20260721 (31 taskow)
+1b5432c  feat(reports): dopisek 'brutto' po kwocie przedplaty w PDF umowy S i U
+efba85f  docs(backlog): P1-202 rozdzielenie contracts.notes na notes_contract + notes_protocol
+5603bad  feat(reports): usuniecie tekstu 'poziom uzupelnienia zbiornika/naladowania' z PDF protokolu S
+20932ff  refactor(reports): rename CSS class fuel-line -> empty-line w protokole S
+a63d946  feat(reports): niebieski pasek naglowka PDF z marginesami aligned z contentem
+cd37e5d  fix(reservations): kalendarz zawsze 6 tygodni - stabilny rozmiar gdy pusty
+dbb1106  docs(backlog): P1-205 modul Dostawy - kalendarz z datami dostaw z umow + drill-down
+7b9f0d2  feat(contracts): umowa U open-ended tier 'kazda kolejna x zl / h' zamiast 'powyzej X godzin'
+85aee6a  feat(reports): tel obok 'reprezentowany przez' i 'osoba do kontaktu' na PDF umowy
+44c3773  feat(db): P1-202 faza 1 - rozdzielenie contracts.notes na notes_contract + notes_protocol
+42980e1  feat(contracts): P1-202 fazy 2-6 - API + frontend + 6 PDF templates (notes split)
+b64775a  feat(deliveries): P1-205 - nowy modul Dostawy (kalendarz z umow + drill-down)
+0008fac  fix(calendar): timezone bug w kalendarzu Dostawy/Rezerwacje + e2e P1-205
+8ab512a  docs(backlog): P1-202 + P1-205 status -> done (implemented + verified)
+b2c048e  fix(contracts): enrich_detail w GET/POST/PUT/PATCH — contractor_name + salesperson_name
+9a1936f  fix(deliveries): pozycje umowy w drawerze — tabelka jak w PDF + tooltip
+a1b2f5b  fix(gus): pobieranie danych kontrahenta z GUS po NIP — naprawiony namespace
+
+===================================================================
+SZCZEGOLOWA LISTA ZMIAN (wg funkcjonalnosci)
+===================================================================
+
+[1] GUS — pobieranie danych kontrahenta po NIP (P1-030, commit a1b2f5b)
+    Naprawiono: guzik GUS w formularzu kontrahenta nie pobieral danych
+    (zwracal puste pola). Root cause: zly namespace w SOAP body do GUS.
+    Po naprawie: wpisuje NIP → klika GUS → auto-uzupelnia:
+    - nazwa firmy
+    - REGON
+    - ulica + numer budynku + numer lokalu (np. "ul. Kłobucka 6B/103")
+    - kod pocztowy, miasto
+    - wojewodztwo, powiat, gmina
+    Toast potwierdzenia przy pobraniu, ostrzezenie gdy NIP nie znaleziony.
+
+[2] NOWY MODUL: Dostawy (P1-205, commit b64775a + 0008fac + 9a1936f)
+    Nowa pozycja w menu "Dostawy" — kalendarz month-view z kropkami dostaw
+    z umow (data od = data dostawy). 6 tygodni stabilnie (fix cd37e5d).
+    - Kropki: niebieska = umowa S, pomaranczowa = umowa U
+    - Filtry: maszyna, kontrahent, handlowiec, typ (S/U)
+    - Checkboxy: "Dostawy S" / "Dostawy U"
+    - Panel dnia po prawej (lista dostaw w wybranym dniu)
+    - Drill-down drawer z pelnymi danymi umowy:
+      * kontrahent (nazwa, nie ID), handlowiec (nazwa, nie ID) — fix b2c048e
+      * pozycje umowy jako tabelka 4-kolumnowa jak w PDF:
+        | Przedmiot najmu | Dni | Wartosc odtw. | Rozliczenie |
+        navy naglowek, zebra striping, tooltip na hover
+        (np. "Ładowarka teleskopowa JCB 540-170 LAD-004 | 28 | 950 000,00 zł
+        | 1-3 dni 1560 zł/doba, 4-16 dni 1300 zł/doba, pow. 16 dni 1040 zł/doba")
+    - Eksport CSV, stany loading/error/empty
+    - Nawigacja miesiaca (prev/next/dzis)
+    - Fix timezone: kalendarz Dostawy i Rezerwacje zawsze 6 tygodni
+      (nie skacze przy pustych miesiacach)
+
+[3] Umowy — rozdzielenie uwag (P1-202, commity 44c3773 + 42980e1)
+    Pole "uwagi" rozdzielone na dwa niezalezne:
+    - notes_contract  — uwagi do umowy (drukowane na PDF umowy)
+    - notes_protocol  — uwagi do protokolu (drukowane na PDF protokolu)
+    Migracja DB: ADD COLUMN notes_contract + notes_protocol, BACKFILL
+    notes -> notes_protocol, DROP COLUMN notes (idempotentne).
+    Formularz umowy: dwa osobne pola textarea z etykietami.
+    PDF umowy (S i U): sekcja "Uwagi" drukuje notes_contract.
+    PDF protokolu (S i U): sekcja "Uwagi" drukuje notes_protocol.
+    6 szablonow PDF zaktualizowanych (contract.html, contract_u.html,
+    protocol_zo.html, protocol_zo_u.html + warianty no-data).
+
+[4] Umowy — enrich contract detail (commit b2c048e)
+    GET/POST/PUT/PATCH /contracts/{id} zwraca contractor_name i
+    salesperson_name (zamiast null i ID). Drawer Dostaw i inne widoki
+    pokazuja nazwe kontrahenta i handlowca zamiast pustych pol.
+
+[5] Umowy U — warunek open-ended (commit 7b9f0d2)
+    Dla umowy U z warunkiem open-ended (bez gornej granicy godzin):
+    na PDF pokazuje "kazda kolejna x zl / h" zamiast "powyzej X godzin".
+    Czytelniej dla wynajmu ciaglego.
+
+[6] PDF umowy — dopisek "brutto" po przedplacie (commit 1b5432c)
+    Na PDF umowy S i U po kwocie przedplaty dopisek "brutto"
+    (np. "Przedplata: 1 000,00 zł brutto").
+
+[7] PDF umowy — telefon obok reprezentanta i osoby kontaktowej (commit 85aee6a)
+    Na PDF umowy obok "Reprezentowany przez" i "Osoba do kontaktu na budowie"
+    dodany numer telefonu (jesli wypelniony).
+
+[8] PDF umowy — niebieski pasek naglowka (commit a63d946)
+    Niebieski pasek naglowka na PDF umowy z marginesami wyrownanymi do
+    contentu (bardziej profesjonalny wyglad).
+
+[9] PDF protokolu S — usuniecie tekstu poziomu zbiornika (commit 5603bad)
+    Z PDF protokolu S usuniety tekst "poziom uzupelnienia zbiornika/
+    naladowania" (nie uzywane w protokole S, mylacy).
+    Refaktor: klasa CSS fuel-line -> empty-line (commit 20932ff).
+
+===================================================================
+ZMIANY SCHEMA DB (automatyczne, idempotentne)
+===================================================================
+
+contracts:
+  + ADD COLUMN notes_contract TEXT NULL
+  + ADD COLUMN notes_protocol TEXT NULL
+  + BACKFILL notes -> notes_protocol
+  - DROP COLUMN notes
+
+deliveries:
+  (tabela istnieje od paczki 20260720; w tej paczce modul staje sie aktywny)
+
+Migracje wykonuja sie automatycznie przy restarcie backendu
+(ALTER ... IF NOT EXISTS w main.py startup). Brak recznych SQL-i.
+
+===================================================================
+WERYFIKACJA
+===================================================================
+
+- vue-tsc --noEmit: czysto
+- python -m compileall backend/integrations: czysto
+- e2e 01-login + 07-deliveries: 17/17 passed
+- GUS API: T-Mobile (5261040567) i Toolsmart (9512598092) — dziala
+- GUS UI: formularz kontrahenta → NIP → GUS → pola uzupelnione (Playwright)
+- Drawer Dostaw: tabelka pozycji 4-kolumnowa (Claude Vision potwierdzil)

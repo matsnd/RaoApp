@@ -98,21 +98,34 @@ class InvoiceOut(BaseModel):
 
 # ── Resolved invoices (1:N article mapping) ────────────────────────────────────
 
-class RaoArticleRef(BaseModel):
-    """Lightweight reference to a RAO article matched via fakturownia_product_id (1:N)."""
+class RaoMachineRef(BaseModel):
+    """Lightweight reference to a RAO machine matched via fakturownia_product_id (1:N)."""
     model_config = {"extra": "forbid"}
+    id: int
+    name: str
 
+
+class RaoServiceRef(BaseModel):
+    """Lightweight reference to a RAO service matched via fakturownia_product_id (1:N)."""
+    model_config = {"extra": "forbid"}
+    id: int
+    name: str
+
+
+class RaoAdditionalServiceRef(BaseModel):
+    """Lightweight reference to a RAO additional service matched via fakturownia_product_id (1:N)."""
+    model_config = {"extra": "forbid"}
     id: int
     name: str
 
 
 class ResolvedInvoiceLine(BaseModel):
-    """Invoice line enriched with 1:N RAO article mapping.
+    """Invoice line enriched with 1:N RAO entity mapping.
 
     Semantics (1:N):
-    - rao_articles may contain 0 (unmapped) or N (mapped) RAO article refs.
-    - If N > 1, the same Fakturownia product maps to multiple RAO articles.
-      Each article gets the full line total_net (multiplication per spec).
+    - rao_machines / rao_services / rao_additional_services may contain 0 (unmapped) or N (mapped) refs.
+    - If N > 1, the same Fakturownia product maps to multiple RAO entities.
+      Each entity gets the full line total_net (multiplication per spec).
     """
     model_config = {"extra": "forbid"}
 
@@ -122,7 +135,9 @@ class ResolvedInvoiceLine(BaseModel):
     price_net: Decimal
     total_net: Decimal
     invoice_number: str
-    rao_articles: List[RaoArticleRef] = []
+    rao_machines: List[RaoMachineRef] = []
+    rao_services: List[RaoServiceRef] = []
+    rao_additional_services: List[RaoAdditionalServiceRef] = []
 
 
 class ResolvedInvoiceOut(BaseModel):
