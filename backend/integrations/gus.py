@@ -1,6 +1,15 @@
+import sys
 import httpx
 from config import settings
 from lxml import etree
+
+# Production servers (cPanel/LiteSpeed) use ASCII stdout — polskie znaki w
+# danych GUS (ń, ó, ł) powodują UnicodeEncodeError w print(). Rekonfiguracja
+# stdout na UTF-8 z errors='replace' naprawia to bez zmieniania printów.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 
 # Production URL (from old app)

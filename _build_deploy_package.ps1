@@ -195,17 +195,55 @@ Write-Host "Pakowanie ZIP..." -ForegroundColor Yellow
 Compress-Archive -Path "$pkgPath\*" -DestinationPath $zipPath -Force
 
 $zipSize = (Get-Item $zipPath).Length
-Write-Host ""
-Write-Host "=== GOTOWE ===" -ForegroundColor Green
-Write-Host "Paczka: $zipPath"
-Write-Host "Rozmiar: $([math]::Round($zipSize/1MB, 2)) MB"
-Write-Host ""
+Write-Host "Paczka ZIP: $zipPath ($([math]::Round($zipSize/1MB, 2)) MB)"
 
-# Wyczysc katalog tymczasowy
+# Wyczysc katalog tymczasowy (zip juz zbudowany)
 Remove-Item $pkgPath -Recurse -Force
 
-Write-Host "Zawartosc paczki:"
-Write-Host "  backend/    — $beFiles plikow (kod + requirements, BEZ .venv/__pycache__/logow)"
-Write-Host "  frontend/   — $feFiles plikow (zbuildowane dist/: index.html + assets/ + logo)"
-Write-Host "  database/   — rao_new_dump.sql (schema + dane)"
+# ── 6. ROZPAKOWANIE DO deployment/ ──────────────────────────────────────────
+Write-Host ""
+Write-Host "Rozpakowanie do deployment/..." -ForegroundColor Yellow
+
+$deployDir = Join-Path $OutputDir "deployment"
+
+# Wyczysc stara zawartosc deployment/ (backend/, frontend/, database/, README_DEPLOY.txt)
+# ZACHOWAJ CHANGELOG_*.txt i EMAIL_Klient_*.txt (sa generowane recznie, nie w skrypcie)
+$preserveFiles = @()
+if (Test-Path $deployDir) {
+    # Zachowaj CHANGELOG i EMAIL przed czyszczeniem
+    foreach ($pattern in @("CHANGELOG_*.txt", "EMAIL_Klient_*.txt")) {
+        Get-ChildItem $deployDir -Filter $pattern -File | ForEach-Object {
+            $tmp = Join-Path $env:TEMP $_.Name
+            Copy-Item $_.FullName $tmp -Force
+            $preserveFiles += $tmp
+        }
+    }
+    Get-ChildItem $deployDir | Remove-Item -Recurse -Force
+} else {
+    New-Item -ItemType Directory -Path $deployDir -Force | Out-Null
+}
+
+# Rozpakuj zip do deployment/
+Expand-Archive -Path $zipPath -DestinationPath $deployDir -Force
+
+# Przywroz zachowane CHANGELOG i EMAIL
+foreach ($tmp in $preserveFiles) {
+    Copy-Item $tmp (Join-Path $deployDir (Split-Path $tmp -Leaf)) -Force
+    Remove-Item $tmp -Force
+}
+
+$deployFiles = (Get-ChildItem $deployDir -Recurse -File).Count
+Write-Host "  deployment/ — $deployFiles plikow"
+
+Write-Host ""
+Write-Host "=== GOTOWE ===" -ForegroundColor Green
+Write-Host "ZIP:      $zipPath ($([math]::Round($zipSize/1MB, 2)) MB)"
+Write-Host "Folder:   $deployDir"
+Write-Host ""
+Write-Host "Zawartosc deployment/:"
+Write-Host "  backend/    — kod + requirements, BEZ .venv/__pycache__/logow"
+Write-Host "  frontend/   — zbuildowane dist/ (index.html + assets/ + logo)"
+Write-Host "  database/   — rao_new_dump.sql (schema + dane, UTF-8 bez BOM, COLLATE=polish_ci)"
 Write-Host "  README_DEPLOY.txt — instrukcja wdrozenia"
+Write-Host "  CHANGELOG_*.txt   — lista zmian (jesli istnieje)"
+Write-Host "  EMAIL_Klient_*.txt — gotowy email do klienta (jesli istnieje)"
