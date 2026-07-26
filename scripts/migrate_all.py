@@ -41,14 +41,26 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
 
-BACKEND = Path(__file__).parent
+BACKEND = Path(__file__).parent.parent / "backend"
+SCRIPTS = Path(__file__).parent
 PYTHON = sys.executable
 
 
 def _run_script(name: str) -> int:
-    """Uruchom skrypt backendu w subprocessie (izolacja event-loopów/state)."""
+    """Uruchom skrypt z scripts/ w subprocessie (izolacja event-loopów/state).
+
+    Skrypty helper żyją w scripts/ (root-level), nie w backend/.
+    Skrypty aplikacji (migrate.py) żyją w backend/.
+    """
     print(f"\n>>> {name}")
-    proc = subprocess.run([PYTHON, str(BACKEND / name)], cwd=str(BACKEND))
+    # Najpierw scripts/ (helpery), potem backend/ (migrate.py)
+    candidates = [SCRIPTS / name, BACKEND / name]
+    target = next((c for c in candidates if c.exists()), None)
+    if target is None:
+        print(f"  BŁĄD: nie znaleziono {name} ani w scripts/ ani w backend/")
+        return 2
+    cwd = target.parent
+    proc = subprocess.run([PYTHON, str(target)], cwd=str(cwd))
     return proc.returncode
 
 
@@ -60,10 +72,10 @@ def step1_legacy(args) -> int:
 
 
 def step2_archive(args) -> int:
-    cmd = [PYTHON, str(BACKEND / "archive_legacy_data.py")]
+    cmd = [PYTHON, str(SCRIPTS / "archive_legacy_data.py")]
     if getattr(args, "reseed", False):
         cmd.append("--force")
-    proc = subprocess.run(cmd, cwd=str(BACKEND))
+    proc = subprocess.run(cmd, cwd=str(SCRIPTS))
     return proc.returncode
 
 

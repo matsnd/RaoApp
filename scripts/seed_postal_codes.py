@@ -21,7 +21,7 @@ from integrations.models import PostalCode
 
 
 async def main():
-    csv_path = Path(__file__).parent / "data" / "postal_codes.csv"
+    csv_path = Path(__file__).parent.parent / "backend" / "data" / "postal_codes.csv"
     if not csv_path.exists():
         print(f"ERROR: {csv_path} not found")
         return

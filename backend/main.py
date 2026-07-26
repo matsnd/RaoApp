@@ -647,13 +647,6 @@ async def startup_migrations():
         await conn.execute(sa.text(
             "ALTER TABLE contract_positions ADD COLUMN IF NOT EXISTS service_id INT NULL"
         ))
-        # Faza 8: article_id musi być NULLABLE — nowy model używa machine_id/service_id (XOR)
-        try:
-            await conn.execute(sa.text(
-                "ALTER TABLE contract_positions MODIFY COLUMN article_id INT NULL"
-            ))
-        except Exception as exc:
-            logger.warning("Faza 8: cannot MODIFY article_id to nullable: %s", exc)
         # Migracja danych: RAO-P0-048 popraw kaskadowe period_from/period_to
         # (zamiast naiwnego period_from=1 dla każdego rekordu)
         async with AsyncSessionLocal() as db:
