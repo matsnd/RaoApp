@@ -68,7 +68,7 @@ Po migracji aplikacja **MUSI** zaimplementować:
 
 ## RAO-P2-062 Faza 0 — Offload legacy do tabel `archive_*` (WYKONANE 2026-07-01)
 
-> **Status:** DONE. Migracja danych wykonana skryptem `spec/technical/scripts/migrate_to_archive.py`.
+> **Status:** DONE. Migracja danych wykonana skryptem `scripts/migrate_to_archive.py`.
 > **Backup:** `backup_pre_archive_split.sql` (2.96 MB, mariadb-dump --single-transaction).
 > **Faza 1 (backend — modele + endpointy):** TODO.
 
@@ -675,7 +675,7 @@ SELECT 'conditions', (SELECT COUNT(*) FROM rao.umowa_pozycja2_warunek),
 
 ## P1-114: Reset bazy od zera (DROP + CREATE + seed) — 2026-07-12
 
-> **Skrypt:** `spec/technical/scripts/reset_db.py`
+> **Skrypt:** `scripts/reset_db.py`
 > **Zgoda:** User potwierdził destrukcję (sesja FULL-AUTO, hard stop DROP/TRUNCATE = raport)
 
 ### Procedura

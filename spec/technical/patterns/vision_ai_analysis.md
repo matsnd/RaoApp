@@ -88,6 +88,6 @@ result = await mcp_call_tool(
 ## Powiązane
 - Pattern: `spec/technical/patterns/pdf_extraction.md`
 - Pattern: `spec/technical/patterns/weasyprint_images.md`
-- Script: `spec/technical/scripts/convert_pdf_to_screenshots.py`
+- Script: `scripts/convert_pdf_to_screenshots.py`
 - MCP: rao-vision (analyze_screenshot, screenshot_and_analyze)
 - Reference: `spec/archive/reference_screenshots/`

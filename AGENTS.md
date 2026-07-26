@@ -361,22 +361,22 @@ Wszystkie odkryte techniczne rozwiązania są zapisywane w `spec/technical/`. S�
 
 ### Struktura
 ```
+scripts/                     # WSZYSTKIE helper Python scripts (root-level, discoverable) + *.md opisy
 spec/technical/
 ├── TECHNICAL_SOLUTIONS.md    # Główny indeks
-├── scripts/                  # WSZYSTKIE helper Python scripts (ops, debug, verify, seed, migrate, export) + *.md opisy
 └── patterns/                 # Wzorce architektoniczne (PDF extraction, JWT, etc.)
 ```
 
-> **Kanoniczna lokalizacja helper scripts:** `spec/technical/scripts/` — tu żyją WSZYSTKIE pomocnicze skrypty Python (reset_db, seed_demo_data, migrate_*, check_*, audit_db, export_*, itd.). `backend/` root zawiera TYLKO pliki aplikacji (config.py, database.py, main.py, migrate.py, passenger_wsgi.py, wsgi.py). Skrypty w `spec/technical/scripts/` mają `sys.path.append('../../backend')` — uruchamiaj z repo root jako `python spec/technical/scripts/<name>.py`.
+> **Kanoniczna lokalizacja helper scripts:** `scripts/` (root-level) — tu żyją WSZYSTKIE pomocnicze skrypty Python (reset_db, seed_demo_data, migrate_*, check_*, audit_db, export_*, itd.). `backend/` root zawiera TYLKO pliki aplikacji (config.py, database.py, main.py, migrate.py, passenger_wsgi.py, wsgi.py). Skrypty w `scripts/` mają `sys.path.append('../backend')` — uruchamiaj z repo root jako `python scripts/<name>.py`.
 
 ### Szybki dostęp
 - **Indeks:** `spec/technical/TECHNICAL_SOLUTIONS.md`
-- **Skrypty:** `spec/technical/scripts/*.py` + `spec/technical/scripts/*.md`
+- **Skrypty:** `scripts/*.py` + `scripts/*.md`
 - **Wzorce:** `spec/technical/patterns/*.md`
 
 ### Dodawanie nowych rozwiązań
 Po każdym zadaniu:
-1. **Skrypt:** Dodaj do `spec/technical/scripts/` z opisem `*.md`
+1. **Skrypt:** Dodaj do `scripts/` z opisem `*.md`
 2. **Wzorzec:** Jeśli to powtarzalny pattern → dodaj do `spec/technical/patterns/`
 3. **Indeks:** Zaktualizuj `spec/technical/TECHNICAL_SOLUTIONS.md`
 

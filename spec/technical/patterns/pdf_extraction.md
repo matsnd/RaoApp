@@ -75,13 +75,13 @@ def convert_pdf_to_pngs(pdf_path, output_dir, zoom=2):
 
 ### RAO-P1-022 (Pieczątki firmowe)
 - **Cel:** Ekstrakcja pieczątki firmowej z referencyjnych PDF
-- **Implementacja:** `spec/technical/scripts/test_pdf_extraction.py`
+- **Implementacja:** `scripts/test_pdf_extraction.py`
 - **Wynik:** 10 obrazów z 6 PDF, pieczątka JPEG 12275 bytes
 - **Zapis:** `backend/reports/assets/company_stamp.jpg`
 
 ### RAO-P1-022 (Vision AI Analysis)
 - **Cel:** Konwersja PDF do PNG dla analizy Vision AI
-- **Implementacja:** `spec/technical/scripts/convert_pdf_to_screenshots.py`
+- **Implementacja:** `scripts/convert_pdf_to_screenshots.py`
 - **Wynik:** 12 PNG z 6 PDF (2x zoom)
 - **Output:** `spec/archive/reference_screenshots/`
 
@@ -100,5 +100,5 @@ def convert_pdf_to_pngs(pdf_path, output_dir, zoom=2):
 ## Powiązane
 - Pattern: `spec/technical/patterns/vision_ai_analysis.md`
 - Pattern: `spec/technical/patterns/weasyprint_images.md`
-- Script: `spec/technical/scripts/test_pdf_extraction.py`
-- Script: `spec/technical/scripts/convert_pdf_to_screenshots.py`
+- Script: `scripts/test_pdf_extraction.py`
+- Script: `scripts/convert_pdf_to_screenshots.py`

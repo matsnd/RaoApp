@@ -851,14 +851,14 @@ Konto testowe `matsnd.fakturownia.pl` skonfigurowane jako demo produkcyjne:
 - **6 presetów usług dodatkowych:** najem (default S), usługa z operatorem (default U), kontrakt długoterminowy, weekend, kontrakt zagraniczny, operator premium
 - **ServiceFeeTemplateItem:** 22 relacji N:M preset → usługa dodatkowa (frontend pokazuje konkretne usługi dodatkowe w pickerze, refaktor Faza 7: `article_id` → `additional_service_id`)
 - **6 rate types:** dniowa, godzinowa, km, tygodniowa, miesięczna, jednorazowa
-- **Skrypty:** `spec/technical/scripts/seed_demo_data.py` (dane RAO) + `spec/technical/scripts/seed_fa_invoices.py` (faktury FA, token z env) + `spec/technical/scripts/migrate_all.py` (orchestrator) + `spec/technical/scripts/reset_db.py` (P1-114: DROP + CREATE + schema + seed)
+- **Skrypty:** `scripts/seed_demo_data.py` (dane RAO) + `scripts/seed_fa_invoices.py` (faktury FA, token z env) + `scripts/migrate_all.py` (orchestrator) + `scripts/reset_db.py` (P1-114: DROP + CREATE + schema + seed)
 - **FA-pending flow:** 12 umów nierozliczonych z fakturą czekającą w FA → demo "Pobierz z Fakturowni" tworzy rozliczenie
 - **Security:** `FAKTUROWNIA_API_TOKEN` czytane z env (brak hardcoded w kodzie)
 - **Dokumentacja:** `spec/technical/fakturownia_demo_setup.md`
 
 ### P1-114: Reset bazy od zera (2026-07-12)
 
-**Skrypt:** `spec/technical/scripts/reset_db.py` — DROP + CREATE + schema + seed + FA invoices w jednym.
+**Skrypt:** `scripts/reset_db.py` — DROP + CREATE + schema + seed + FA invoices w jednym.
 
 **Weryfikacja API Fakturownia (2026-07-12):**
 - Endpointy: `/clients.json`, `/products.json`, `/invoices.json` (BEZ `/api/` prefiksu)

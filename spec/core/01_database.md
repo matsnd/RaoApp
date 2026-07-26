@@ -737,7 +737,7 @@ CREATE TABLE machine_rate_preset_items (
 > (Refaktor Faza 7: `articles` zostało rozdzielone na `machines`/`services`/`additional_services`,
 > ale `archive_articles` pozostaje nietknięte jako zarchiwizowany snapshot legacy.)
 >
-> **Migracja wykonana:** `spec/technical/scripts/migrate_to_archive.py` (idempotentny, INSERT IGNORE).
+> **Migracja wykonana:** `scripts/migrate_to_archive.py` (idempotentny, INSERT IGNORE).
 > **Backup:** `backup_pre_archive_split.sql` (przed migracją).
 > **Archiwum = read-only Z WYJĄTKKIEM** edycji kategorii (`archive_categories` CRUD +
 > `PATCH archive_articles.category_id`) — implementacja w Fazie 1 (backend).

@@ -125,16 +125,16 @@ OID umowy w RAO odpowiada numerowi umowy (np. `S001/2026`). W FA fakturach OID j
 
 ## 7. Skrypty seedujące
 
-### `spec/technical/scripts/seed_demo_data.py`
+### `scripts/seed_demo_data.py`
 - Idempotentny skrypt seedujący dane demo w RAO DB
 - Tworzy: kategorie, artykuły, kontrahentów, handlowców, oddziały, rate types, umowy, pozycje, warunki, usługi dodatkowe, rozliczenia
-- Użycie: `python spec/technical/scripts/seed_demo_data.py`
+- Użycie: `python scripts/seed_demo_data.py`
 
-### `spec/technical/scripts/seed_fa_invoices.py`
+### `scripts/seed_fa_invoices.py`
 - Idempotentny skrypt wystawiający faktury w FA dla rozliczonych umów
 - Sprawdza czy faktura już istnieje po OID (numer umowy w description)
 - Aktualizuje `contract_settlements.fakturownia_invoice_id`
-- Użycie: `python spec/technical/scripts/seed_fa_invoices.py`
+- Użycie: `python scripts/seed_fa_invoices.py`
 
 ## 8. API quirks (odkryte podczas konfiguracji)
 

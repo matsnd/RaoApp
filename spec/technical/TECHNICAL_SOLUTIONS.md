@@ -39,13 +39,13 @@ spec/technical/
 
 ### Fakturownia Demo Setup (RAO-P2-061)
 - **Doc:** `spec/technical/fakturownia_demo_setup.md` — Pełna dokumentacja konta matsnd.fakturownia.pl
-- **Script:** `spec/technical/scripts/seed_demo_data.py` — Idempotentny skrypt seedujący dane demo w RAO DB
-- **Script:** `spec/technical/scripts/seed_fa_invoices.py` — Idempotentny skrypt wystawiający faktury w FA
+- **Script:** `scripts/seed_demo_data.py` — Idempotentny skrypt seedujący dane demo w RAO DB
+- **Script:** `scripts/seed_fa_invoices.py` — Idempotentny skrypt wystawiający faktury w FA
 - **API quirks:** `gtu_codes` (array nie string), `price_gross` required, `tax_no` (nie `nip`), `tax_no_kind: "other"` omija walidację NIP
 - **Demo data:** 11 artykułów, 8 kontrahentów, 24 umowy, 74 rozliczenia (72% fakturownia), 12 faktur FA
 
 ### Archive Legacy Data (RAO-P2-071)
-- **Script:** `spec/technical/scripts/archive_legacy_data.py` — Idempotentny skrypt archiwizacji (cut-off): przenosi WSZYSTKIE dane z tabel live do archive_* (parents-first: categories → articles → contracts → positions → conditions → fees → settlements)
+- **Script:** `scripts/archive_legacy_data.py` — Idempotentny skrypt archiwizacji (cut-off): przenosi WSZYSTKIE dane z tabel live do archive_* (parents-first: categories → articles → contracts → positions → conditions → fees → settlements)
 - **Strategy:** Python ORM (SQLAlchemy async), batch 500 rekordów, `_map_row` mapuje TYLKO wspólne kolumny (ignoruje drift typów między live a archive)
 - **Idempotentność:** Check existing po PK (id) — nie duplikuje przy re-run
 - **NIE czyści tabel live** — to osobny krok (Phase 3)
@@ -61,28 +61,28 @@ spec/technical/
 ## Skrypty (Scripts)
 
 ### PDF & Vision AI (RAO-P1-022)
-- **Script:** `spec/technical/scripts/test_pdf_extraction.py` — Test bibliotek PDF extraction (pdfplumber, fitz)
-- **Script:** `spec/technical/scripts/convert_pdf_to_screenshots.py` — Konwersja PDF do PNG dla Vision AI
-- **Doc:** `spec/technical/scripts/test_pdf_extraction.md` — Opis bibliotek i wyników testów
-- **Doc:** `spec/technical/scripts/convert_pdf_to_screenshots.md` — Opis konwersji PDF do PNG
+- **Script:** `scripts/test_pdf_extraction.py` — Test bibliotek PDF extraction (pdfplumber, fitz)
+- **Script:** `scripts/convert_pdf_to_screenshots.py` — Konwersja PDF do PNG dla Vision AI
+- **Doc:** `scripts/test_pdf_extraction.md` — Opis bibliotek i wyników testów
+- **Doc:** `scripts/convert_pdf_to_screenshots.md` — Opis konwersji PDF do PNG
 
 ### Auth & Testing
-- **Script:** `spec/technical/scripts/reset_admin_password.py` — Reset hasła admina do admin123
-- **Doc:** `spec/technical/scripts/reset_admin_password.md` — Opis użycia
+- **Script:** `scripts/reset_admin_password.py` — Reset hasła admina do admin123
+- **Doc:** `scripts/reset_admin_password.md` — Opis użycia
 
 ### TERYT Postal Codes (RAO-P2-015)
-- **Script:** `spec/technical/scripts/teryt_postal_codes_generator.py` — Generator słownika kodów pocztowych (200+ z głównych miast)
-- **Doc:** `spec/technical/scripts/teryt_postal_codes_generator.md` — Opis użycia, integracja z RAO, rozszerzenie do pełnej bazy
+- **Script:** `scripts/teryt_postal_codes_generator.py` — Generator słownika kodów pocztowych (200+ z głównych miast)
+- **Doc:** `scripts/teryt_postal_codes_generator.md` — Opis użycia, integracja z RAO, rozszerzenie do pełnej bazy
 
 ### Playwright UX Screenshots (RAO-P2-016)
 - **Script:** `e2e/tests/10-ux-screenshots.spec.ts` — Automatyczne screenshoty wszystkich widoków dla UX review
-- **Doc:** `spec/technical/scripts/playwright_ux_screenshots.md` — Opis użycia, lista 17 screenshotów, integracja z UX review
+- **Doc:** `scripts/playwright_ux_screenshots.md` — Opis użycia, lista 17 screenshotów, integracja z UX review
 
 ### Legacy PDF Extraction (RAO-P2-059)
-- **Script:** `spec/technical/scripts/extract_legacy_pdfs.py` — Pełna ekstrakcja 515 PDF → strukturyzowany JSON (contractor, positions, conditions, service_fees)
-- **Script:** `spec/technical/scripts/categorize_test_cases.py` — Kategoryzacja 515 kontraktów w 8 wzorców rozliczeniowych + wybór reprezentatywnych przypadków
-- **Script:** `spec/technical/scripts/generate_fixtures.py` — Generowanie fixtures E2E z wyekstrahowanych przypadków (`e2e/tests/legacy-fixtures.json`)
-- **Doc:** `spec/technical/scripts/extract_legacy_pdfs.md` — Opis analizy 4 PDFów, wzorce usług dodatkowych
+- **Script:** `scripts/extract_legacy_pdfs.py` — Pełna ekstrakcja 515 PDF → strukturyzowany JSON (contractor, positions, conditions, service_fees)
+- **Script:** `scripts/categorize_test_cases.py` — Kategoryzacja 515 kontraktów w 8 wzorców rozliczeniowych + wybór reprezentatywnych przypadków
+- **Script:** `scripts/generate_fixtures.py` — Generowanie fixtures E2E z wyekstrahowanych przypadków (`e2e/tests/legacy-fixtures.json`)
+- **Doc:** `scripts/extract_legacy_pdfs.md` — Opis analizy 4 PDFów, wzorce usług dodatkowych
 - **Samples:** `spec/technical/legacy_samples/pzo_umowy/` — source PDFs, `pzo_umowy_extracted/` — wyekstraktowany tekst
 - **Wzorzec:** PyMuPDF `page.get_text("text")` ekstraktuje tekst z PDF binarnego (read tool nie działa na PDF)
 - ** Wynik ekstrakcji (515 PDF):** 8 kategorii wzorców rozliczeniowych (single_rate_n, single_rate_hour, single_day_n, tiered_2_n, tiered_3_n, multi_pos_n, flat_hourly_u, flat_rate_u), 478 skategoryzowanych (37 ma 0 pozycji), 174 unikalne nazwy artykułów, 296 unikalnych kontrahentów (NIP)
@@ -92,7 +92,7 @@ spec/technical/
 
 ### Vision AI UX Analysis (RAO-P2-016 + RAO-P2-017)
 - **Tool:** MCP `rao-vision` — Automatyczna analiza UX/UI przez Claude Vision
-- **Doc:** `spec/technical/scripts/vision_ux_analysis.md` — Opis użycia, wzorce pytań, optymalizacja kosztów
+- **Doc:** `scripts/vision_ux_analysis.md` — Opis użycia, wzorce pytań, optymalizacja kosztów
 - **Result:** 4 analizy vision (LoginView, DashboardView, ContractFormView), 20+ zidentyfikowanych problemów UX/UI
 
 ## Szybki dostęp
@@ -103,7 +103,7 @@ spec/technical/
 ## Dodawanie nowych rozwiązań
 
 Po każdym zadaniu:
-1. **Skrypt:** Dodaj do `spec/technical/scripts/` z opisem `*.md`
+1. **Skrypt:** Dodaj do `scripts/` z opisem `*.md`
 2. **Wzorzec:** Jeśli to powtarzalny pattern → dodaj do `spec/technical/patterns/`
 3. **Indeks:** Zaktualizuj ten plik (TECHNICAL_SOLUTIONS.md)
 4. **AGENTS.md:** Dodaj krótki wpis do sekcji "Technical Solutions Discovered"

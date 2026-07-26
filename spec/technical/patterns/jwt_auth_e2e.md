@@ -122,8 +122,8 @@ npx playwright test tests/01-login.spec.ts
 - E2E tests w pipeline
 
 ## Powiązane
-- Script: `spec/technical/scripts/reset_admin_password.py`
-- Script: `spec/technical/scripts/check_admin.py`
+- Script: `scripts/reset_admin_password.py`
+- Script: `scripts/check_admin.py`
 - Model: `backend/auth/models.py::User`
 - Router: `backend/auth/router.py`
 - E2E: `e2e/tests/01-login.spec.ts`
