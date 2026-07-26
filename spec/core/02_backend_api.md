@@ -2410,7 +2410,7 @@ cd backend
 python reset_admin_password.py
 ```
 
-**Pliki:** `backend/reset_admin_password.py`
+**Pliki:** `spec/technical/scripts/reset_admin_password.py`
 
 ---
 

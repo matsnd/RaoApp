@@ -33,11 +33,11 @@ Wystawiana przez `seed_fa_invoices.py` z 3 pozycjami:
 
 ## Implementacja
 
-### `backend/seed_demo_data.py`
+### `spec/technical/scripts/seed_demo_data.py`
 - Pula E: `_build_demo_unmapped_contract()` — tworzy umowę `S099/2026` typu 'U' z 2 usługami zmapowanymi (Transport + Tankowanie), `fa_pending=True` (bez settlements w RAO).
 - Stała `DEMO_UNMAPPED_CONTRACT_NUMBER = "S099/2026"`.
 
-### `backend/seed_fa_invoices.py`
+### `spec/technical/scripts/seed_fa_invoices.py`
 - `ensure_unmapped_fa_product(client, db)` — zwraca ID produktu "Praca operatora" w FA, NIEzmapowanego w RAO:
   1. Jeśli `FA_UNMAPPED_PRODUCT_ID` w env → użyj go (po weryfikacji że nie jest w `articles.fakturownia_product_id`).
   2. W przeciwnym razie szukaj w FA po nazwie (`GET /products.json?name=Praca operatora`).

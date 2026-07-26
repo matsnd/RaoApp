@@ -363,9 +363,11 @@ Wszystkie odkryte techniczne rozwiązania są zapisywane w `spec/technical/`. S�
 ```
 spec/technical/
 ├── TECHNICAL_SOLUTIONS.md    # Główny indeks
-├── scripts/                  # Pythonowe skrypty testowe/utility + *.md opisy
+├── scripts/                  # WSZYSTKIE helper Python scripts (ops, debug, verify, seed, migrate, export) + *.md opisy
 └── patterns/                 # Wzorce architektoniczne (PDF extraction, JWT, etc.)
 ```
+
+> **Kanoniczna lokalizacja helper scripts:** `spec/technical/scripts/` — tu żyją WSZYSTKIE pomocnicze skrypty Python (reset_db, seed_demo_data, migrate_*, check_*, audit_db, export_*, itd.). `backend/` root zawiera TYLKO pliki aplikacji (config.py, database.py, main.py, migrate.py, passenger_wsgi.py, wsgi.py). Skrypty w `spec/technical/scripts/` mają `sys.path.append('../../backend')` — uruchamiaj z repo root jako `python spec/technical/scripts/<name>.py`.
 
 ### Szybki dostęp
 - **Indeks:** `spec/technical/TECHNICAL_SOLUTIONS.md`

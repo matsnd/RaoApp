@@ -90,7 +90,7 @@ Zawsze: root cause, nie symptom. FAST: 1 proba → pytanie z diagnoza i opcjami 
 
 1. FAST: **spec-sync calosci teraz** — `git diff <start>..HEAD --name-only`, zaktualizuj pliki spec wg mapy wlasnosci jednym przebiegiem, osobny commit `docs(spec): sync`.
 2. Backlog: YAML flow `triaged → in_progress → dev-verified → team-verified → user-verified → client-approved`. Agent ustawia MAX `team-verified`; `user-verified`/`client-approved` = CZLOWIEK, nigdy agent. Decyzje → `DECISION_LOG.md`. Sweep done→archiwum gdy BACKLOG > 400 linii.
-3. Wiedza: wzorce → `spec/technical/patterns/`, skrypty → `scripts/`, indeks `TECHNICAL_SOLUTIONS.md`.
+3. Wiedza: wzorce → `spec/technical/patterns/`, skrypty → `spec/technical/scripts/` (kanoniczna lokalizacja dla wszystkich helper Python: ops, debug, verify, seed, migrate), indeks `TECHNICAL_SOLUTIONS.md`.
 4. Metryki → `.devin/_metrics.csv`: `data;task_id;rozmiar;tryb;fazy;spawny;review_findings;qa_escapes;proby_naprawcze;wynik`.
 5. Raport: commity (hashe), pliki, evidence, porty.
 

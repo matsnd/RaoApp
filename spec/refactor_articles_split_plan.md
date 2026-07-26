@@ -193,7 +193,7 @@ if (data.machine_id is None) == (data.service_id is None):
 - `backend/reservations/service.py` — `article_id` → `machine_id`, `list_for_article` → `list_for_machine`, `get_active_for_article` → `get_active_for_machine`
 - `backend/reservations/schemas.py` — `article_id` → `machine_id`
 - `backend/integrations/fakturownia/schemas.py` — `RaoArticleRef` → `RaoMachineRef` / `RaoServiceRef` / `RaoAdditionalServiceRef`
-- `backend/migrate_service_fees.py` — `_find_or_create_service_article` → `_find_or_create_additional_service`
+- `spec/technical/scripts/migrate_service_fees.py` — `_find_or_create_service_article` → `_find_or_create_additional_service`
 - **DELETE** `backend/articles/` (cały moduł: models.py, schemas.py, service.py, router.py, __init__.py)
 
 ### Faza 3: Backend API (routers) + wszystkie zależne moduły
@@ -208,12 +208,12 @@ if (data.machine_id is None) == (data.service_id is None):
 - `backend/explorer/router.py` — przeszukiwanie 3 tabel (UNION)
 - `backend/settlements/router.py` — fakturownia mapping z 3 tabel
 - `backend/settlements/service.py` — update zapytań
-- `backend/export_to_unify.py` — export z 3 tabel
+- `spec/technical/scripts/export_to_unify.py` — export z 3 tabel
 - `backend/shared/revenue.py` — jeśli używa articles
 - `backend/integrations/fakturownia/service.py` — mapping z 3 tabel
 - `backend/reservations/router.py` — `list_for_article` → `list_for_machine`, ścieżka `/article/{article_id}` → `/machine/{machine_id}`
 - `backend/settings/router.py` — `article_rate_preset` endpointy → `machine_rate_preset`, ścieżki `/articles/{id}/rate-presets` → `/machines/{id}/rate-presets`
-- `backend/seed_fa_invoices.py` — `get_article_fa_product_map` → mapping z 3 tabel
+- `spec/technical/scripts/seed_fa_invoices.py` — `get_article_fa_product_map` → mapping z 3 tabel
 
 ### Faza 3.5: Unit tests (backend) — pełny refaktor
 **Pliki (7):**
@@ -281,15 +281,15 @@ if (data.machine_id is None) == (data.service_id is None):
   - Rate presets → `machine_rate_presets`
   - `step5d_link_articles_to_templates` → `step5d_link_additional_services_to_templates`
   - Kolumny po angielsku (reach_m, capacity_t, accessories)
-- `backend/seed_demo_data.py` — pełna przebudowa:
+- `spec/technical/scripts/seed_demo_data.py` — pełna przebudowa:
   - Maszyny (11 szt.) → `INSERT INTO machines`
   - Usługi dodatkowe (4 szt.) → `INSERT INTO additional_services`
   - Usługi (jeśli jakieś) → `INSERT INTO services`
   - `seed_article_rate_presets` → `seed_machine_rate_presets`
   - Fakturownia mapping — od nowa (zerowana)
-- `backend/seed_fa_invoices.py` — `get_article_fa_product_map` → mapping z 3 tabel
-- `backend/migrate_service_fees.py` — `_find_or_create_service_article` → `_find_or_create_additional_service`
-- `backend/archive_legacy_data.py` — update jeśli używa articles (archive zostaje, ale skrypt może referencjonować articles dla source)
+- `spec/technical/scripts/seed_fa_invoices.py` — `get_article_fa_product_map` → mapping z 3 tabel
+- `spec/technical/scripts/migrate_service_fees.py` — `_find_or_create_service_article` → `_find_or_create_additional_service`
+- `spec/technical/scripts/archive_legacy_data.py` — update jeśli używa articles (archive zostaje, ale skrypt może referencjonować articles dla source)
 
 ### Faza 7: Spec sync — pełny przepis
 **Pliki spec/core (15 z referencjami do articles):**

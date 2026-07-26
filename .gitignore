@@ -190,3 +190,43 @@ _fix_*
 
 # Browser cookies (scratch, nie w repo)
 cookies.txt
+
+# === REPO CLEANUP (2026-07-26) ===
+
+# Deployment snapshots / packages (regenerowane przez skrypt deploy, nie w repo)
+/rao_deploy_*/
+/rao_deploy_*.zip
+
+# MCP cache (binarne, regenerowane)
+.depwire/cache.db
+.depwire/health-history.json
+
+# Deployment frontend build (regenerowane przez npm run build, nie w repo)
+deployment/frontend/
+
+# Playwright report (regenerowane, NIE trackować)
+e2e/playwright-report/
+
+# E2E artifacts (regenerowane przez testy)
+e2e/artifacts/
+
+# .devin scratch (test PDFs, screenshots, vision reports, temp)
+.devin/_test_*
+.devin/_login.json
+.devin/_tmp_*
+
+# Backend debug screenshots / extracted stamps (scratch z debug PDF)
+backend/pdf_screenshots/
+backend/extracted_stamps/
+
+# Backend scratch text files
+backend/1
+backend/resp.txt
+backend/gus_full_report_response.txt
+backend/add_services.txt
+
+# Frontend scratch
+frontend/useChartTheme_served.txt
+
+# Root PNG screenshots (debug/scratch — NIE w repo)
+/*.png

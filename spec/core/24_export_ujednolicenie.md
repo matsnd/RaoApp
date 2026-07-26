@@ -2,7 +2,7 @@
 
 **Data:** 2026-04-22
 **Status:** Plik wygenerowany — `temp/Export_do_ujednolicenia.xlsx`
-**Skrypt:** `backend/export_to_unify.py`
+**Skrypt:** `spec/technical/scripts/export_to_unify.py`
 **Audyt ekipą:** Tech Lead / DB Architect / Backend / QA / Product Owner
 
 ---
