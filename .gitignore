@@ -230,3 +230,6 @@ frontend/useChartTheme_served.txt
 
 # Root PNG screenshots (debug/scratch — NIE w repo)
 /*.png
+
+# .devin_bak/ — backup .devin/ z hardcoded API keys (NIGDY w repo)
+.devin_bak/
